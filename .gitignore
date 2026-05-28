@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.claude/
+.cursor/
+node_modules/
+dist/
+.vercel/
+coverage/
+*.log
+*.local
+*.tmp
+*.temp
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
