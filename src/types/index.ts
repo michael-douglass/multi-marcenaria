@@ -18,6 +18,7 @@ export type ActiveSection =
   | 'pedidos'
   | 'aprovacao'
   | 'contasPagar'
+  | 'caixaFornecedor'
   | 'biblioteca'
 
 // ── Fornecedor ──────────────────────────────────────────────
@@ -29,6 +30,8 @@ export interface Fornecedor {
   email?: string
   nome_vendedor?: string
   telefone_vendedor?: string
+  /** Teto de compras; contas a pagar pendentes abatem deste valor */
+  limite_com_fornecedor?: number
   criado_em?: string
   atualizado_em?: string
 }
@@ -144,6 +147,31 @@ export interface BibliotecaItem {
   grupo_lancamento_id: string
   contexto?: string
   anexoId: string
+}
+
+// ── Caixa Fornecedor ────────────────────────────────────────
+export type FormaPagamentoCaixa = 'cheque' | 'dinheiro' | 'cartao' | 'pix'
+
+export interface CaixaFornecedor {
+  id: string
+  fornecedor_id: string
+  saldo_atual: number
+  criado_em?: string
+  atualizado_em?: string
+  movelaria_fornecedores?: Pick<Fornecedor, 'id' | 'nome'>
+}
+
+export interface TransacaoCaixaFornecedor {
+  id: string
+  fornecedor_id: string
+  tipo: 'credito' | 'debito'
+  valor: number
+  forma_pagamento?: FormaPagamentoCaixa
+  descricao?: string | null
+  conta_pagar_id?: string | null
+  saldo_anterior: number
+  saldo_posterior: number
+  criado_em?: string
 }
 
 // ── Cliente ─────────────────────────────────────────────────

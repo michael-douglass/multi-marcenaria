@@ -223,10 +223,10 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     fontSize: '.72rem',
                     lineHeight: 1.35,
                     color: '#e8d8ca',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
+                    maxHeight: '7.5rem',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    paddingRight: '.2rem',
                   }}
                   title={lead.observacoes}
                 >

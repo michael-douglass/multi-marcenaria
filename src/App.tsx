@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
+import { useCaixaFornecedor } from '@/hooks/useCaixaFornecedor'
 import { useFornecedores } from '@/hooks/useFornecedores'
 import { useProdutos } from '@/hooks/useProdutos'
 import { usePedidos } from '@/hooks/usePedidos'
@@ -18,12 +19,13 @@ import { ContasPagar } from '@/pages/ContasPagar'
 import { Clientes } from '@/pages/Clientes'
 import { ContasReceber } from '@/pages/ContasReceber'
 import { Biblioteca } from '@/pages/Biblioteca'
+import { CaixaFornecedor } from '@/pages/CaixaFornecedor'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'biblioteca'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'biblioteca'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca'],
   Marceneiro: ['dashboard'],
 }
 
@@ -63,6 +65,7 @@ function AppRoutes() {
   const clientesHook = useClientes()
   const contasPagarHook = useContasPagar()
   const contasReceberHook = useContasReceber()
+  const caixaFornecedorHook = useCaixaFornecedor()
 
   const pendingOrders = pedidosHook.data.filter(o => o.status === 'aguardando_aprovacao').length
 
@@ -106,7 +109,16 @@ function AppRoutes() {
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
           <Route path="/cobrancas" element={guardReadOnly(<ContasReceber clientes={clientesHook.data} readOnly={readOnly} />)} />
-          <Route path="/fornecedores" element={guardReadOnly(<Fornecedores readOnly={readOnly} />)} />
+          <Route
+            path="/fornecedores"
+            element={guardReadOnly(
+              <Fornecedores
+                readOnly={readOnly}
+                contasPagar={contasPagarHook.data}
+                getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
+              />,
+            )}
+          />
           <Route
             path="/produtos"
             element={guardReadOnly(<Produtos fornecedores={fornecedoresHook.data} readOnly={readOnly} />)}
@@ -135,7 +147,18 @@ function AppRoutes() {
           />
           <Route
             path="/contas-pagar"
-            element={guardReadOnly(<ContasPagar fornecedores={fornecedoresHook.data} readOnly={readOnly} />)}
+            element={guardReadOnly(
+              <ContasPagar
+                fornecedores={fornecedoresHook.data}
+                getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
+                debitarSaldo={caixaFornecedorHook.debitarSaldo}
+                readOnly={readOnly}
+              />
+            )}
+          />
+          <Route
+            path="/caixa-fornecedor"
+            element={guardReadOnly(<CaixaFornecedor fornecedores={fornecedoresHook.data} role={role} readOnly={readOnly} />)}
           />
           <Route
             path="/biblioteca"

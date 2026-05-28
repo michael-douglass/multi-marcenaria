@@ -34,6 +34,8 @@ const migrations = [
   '010_transacoes_historico.sql',
   '011_contas_receber_origem.sql',
   '013_leads_ganhos_observacoes.sql',
+  '014_caixa_fornecedor.sql',
+  '015_fornecedor_limite.sql',
 ]
 
 const client = new Client({

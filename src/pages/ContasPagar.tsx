@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
@@ -31,7 +31,110 @@ import {
 } from '../components/ui/PeriodFilterBar'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 
-interface Props { fornecedores: Fornecedor[]; readOnly?: boolean }
+// ── Componente de seleção de fornecedor com busca ─────────────
+const normForn = (s: string) => s.toLowerCase().replace(/[\s.]/g, '')
+
+interface FornecedorSelectProps {
+  fornecedores: Fornecedor[]
+  value: string
+  onChange: (id: string) => void
+  getSaldoFornecedor: (id: string) => number
+  contasPagar: ContaPagar[]
+}
+
+function FornecedorSelect({ fornecedores, value, onChange, getSaldoFornecedor, contasPagar }: FornecedorSelectProps) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = normForn(query)
+    return q ? fornecedores.filter(f => normForn(f.nome).includes(q)) : fornecedores
+  }, [fornecedores, query])
+
+  const selected = fornecedores.find(f => f.id === value)
+
+  const getTotalDevido = (fornecedorId: string) =>
+    contasPagar
+      .filter(c => c.fornecedor_id === fornecedorId && c.status !== 'pago')
+      .reduce((s, c) => s + c.valor_parcela, 0)
+
+  const handleSelect = (id: string) => {
+    onChange(id)
+    setQuery('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        className="glass-input w-full"
+        placeholder="Buscar fornecedor..."
+        value={open ? query : (selected?.nome ?? '')}
+        onFocus={() => { setOpen(true); setQuery('') }}
+        onChange={e => setQuery(e.target.value)}
+      />
+      {open && (
+        <div
+          className="absolute z-[200] w-full mt-1 rounded-lg border border-[rgba(212,168,83,.2)] overflow-y-auto"
+          style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.6)', maxHeight: 224 }}
+        >
+          <div
+            className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(212,168,83,.08)]"
+            style={{ color: '#8a6a55' }}
+            onClick={() => handleSelect('')}
+          >
+            — Nenhum —
+          </div>
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-[#8a6a55]">Nenhum resultado.</div>
+          ) : (
+            filtered.map(f => {
+              const saldo = getSaldoFornecedor(f.id)
+              const devido = getTotalDevido(f.id)
+              return (
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[rgba(212,168,83,.08)]"
+                  onClick={() => handleSelect(f.id)}
+                >
+                  <span style={{ color: '#f4e4d6', fontSize: '.9rem' }}>{f.nome}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {saldo > 0 && (
+                      <span style={{ color: '#4ade80', fontSize: '.72rem', fontWeight: 700 }}>
+                        +{fmtCur(saldo)}
+                      </span>
+                    )}
+                    {devido > 0 && (
+                      <span style={{ color: '#f87171', fontSize: '.72rem', fontWeight: 700 }}>
+                        -{fmtCur(devido)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface Props {
+  fornecedores: Fornecedor[]
+  getSaldoFornecedor: (id: string) => number
+  debitarSaldo: (fornecedorId: string, valor: number, contaPagarId?: string, descricao?: string) => Promise<void>
+  readOnly?: boolean
+}
 
 type Filter = 'Todos' | 'Pendente' | 'Pago' | 'Vencido'
 
@@ -73,7 +176,7 @@ function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
   }
 }
 
-export function ContasPagar({ fornecedores, readOnly }: Props) {
+export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, readOnly }: Props) {
   const {
     data,
     loading,
@@ -110,6 +213,23 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [scopePromptOpen, setScopePromptOpen] = useState(false)
+
+  // Sentinel para identificar a opção "Caixa Fornecedor" no select de forma de pagamento
+  const FORMA_CAIXA = '__caixa_fornecedor__'
+
+  interface PagarModalState {
+    open: boolean
+    conta: ContaPagar | null
+    formaPagamentoId: string        // UUID normal ou FORMA_CAIXA
+    valorCaixa: string              // quanto retirar do caixa (só quando FORMA_CAIXA)
+    formaPagamentoRestanteId: string // forma para o restante (só quando parcial)
+    saving: boolean
+    erro: string | null
+  }
+  const [pagarModal, setPagarModal] = useState<PagarModalState>({
+    open: false, conta: null, formaPagamentoId: '',
+    valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
+  })
 
   const defaultFormaId = formas[0]?.id ?? ''
 
@@ -303,6 +423,58 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
     void persistEdit('single')
   }
 
+  const handleMarcarPago = (conta: ContaPagar) => {
+    setPagarModal({
+      open: true,
+      conta,
+      formaPagamentoId: defaultFormaId,
+      valorCaixa: parseFloat(Math.min(
+        conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0,
+        conta.valor_parcela,
+      ).toFixed(2)).toString(),
+      formaPagamentoRestanteId: defaultFormaId,
+      saving: false,
+      erro: null,
+    })
+  }
+
+  const confirmarPagamento = async () => {
+    const { conta, formaPagamentoId, valorCaixa, formaPagamentoRestanteId } = pagarModal
+    if (!conta) return
+    const usarCaixa = formaPagamentoId === FORMA_CAIXA
+    const valorCaixaNum = usarCaixa ? (parseMoneyBr(valorCaixa) || 0) : 0
+    const saldo = conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0
+    const restante = parseFloat(Math.max(0, conta.valor_parcela - valorCaixaNum).toFixed(2))
+
+    if (!formaPagamentoId) {
+      setPagarModal(p => ({ ...p, erro: 'Selecione a forma de pagamento.' })); return
+    }
+    if (usarCaixa) {
+      if (valorCaixaNum <= 0) { setPagarModal(p => ({ ...p, erro: 'Informe o valor a retirar do caixa.' })); return }
+      if (valorCaixaNum > saldo) { setPagarModal(p => ({ ...p, erro: 'Valor superior ao saldo disponível.' })); return }
+      if (valorCaixaNum > conta.valor_parcela) { setPagarModal(p => ({ ...p, erro: 'Valor superior ao da parcela.' })); return }
+      if (restante > 0.005 && !formaPagamentoRestanteId) {
+        setPagarModal(p => ({ ...p, erro: 'Selecione a forma de pagamento para o valor restante.' })); return
+      }
+    }
+
+    setPagarModal(p => ({ ...p, saving: true, erro: null }))
+    try {
+      if (valorCaixaNum > 0 && conta.fornecedor_id) {
+        await debitarSaldo(
+          conta.fornecedor_id,
+          valorCaixaNum,
+          conta.id,
+          `Abatimento parcela ${conta.numero_parcela}/${conta.total_parcelas}`,
+        )
+      }
+      await marcarPago(conta.id)
+      setPagarModal(p => ({ ...p, open: false, conta: null, saving: false }))
+    } catch (e) {
+      setPagarModal(p => ({ ...p, erro: e instanceof Error ? e.message : 'Erro ao processar pagamento.', saving: false }))
+    }
+  }
+
   const removeConta = async (conta: ContaPagar) => {
     const shouldDelete = confirm('Deseja realmente apagar esta fatura?')
     if (!shouldDelete) return
@@ -363,10 +535,13 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
         )}
 
         <Field label="Fornecedor">
-          <select className="glass-input" value={form.supplierId} onChange={f('supplierId')}>
-            <option value="">Selecionar...</option>
-            {fornecedores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
+          <FornecedorSelect
+            fornecedores={fornecedores}
+            value={form.supplierId}
+            onChange={id => setForm(p => ({ ...p, supplierId: id }))}
+            getSaldoFornecedor={getSaldoFornecedor}
+            contasPagar={data}
+          />
         </Field>
         <Field label="Descrição / Referência">
           <input className="glass-input" value={form.desc} onChange={f('desc')} placeholder="Ex: Despesa operacional" />
@@ -445,10 +620,13 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
         closeOnBackdrop={false}
       >
         <Field label="Fornecedor">
-          <select className="glass-input" value={editForm.supplierId} onChange={ef('supplierId')}>
-            <option value="">Selecionar...</option>
-            {fornecedores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
+          <FornecedorSelect
+            fornecedores={fornecedores}
+            value={editForm.supplierId}
+            onChange={id => setEditForm(p => ({ ...p, supplierId: id }))}
+            getSaldoFornecedor={getSaldoFornecedor}
+            contasPagar={data}
+          />
         </Field>
         <Field label="Descrição / Referência">
           <input className="glass-input" value={editForm.desc} onChange={ef('desc')} />
@@ -546,6 +724,11 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
                     <tr key={p.id} className="trow">
                       <td className="px-4 py-3" style={{ color: '#f4e4d6', maxWidth: 220 }}>
                         <div>{p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'}</div>
+                        {p.fornecedor_id && getSaldoFornecedor(p.fornecedor_id) > 0 && s !== 'pago' && (
+                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#4ade80' }}>
+                            Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
+                          </div>
+                        )}
                         {p.observacao ? (
                           <p
                             className="mt-1 line-clamp-2 text-[0.75rem] italic text-[#8a6a55]"
@@ -586,7 +769,7 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
                             </>
                           )}
                           {!readOnly && s !== 'pago' ? (
-                            <button type="button" className="btn btn-success btn-sm" onClick={() => marcarPago(p.id)}>✓ Marcar Pago</button>
+                            <button type="button" className="btn btn-success btn-sm" onClick={() => handleMarcarPago(p)}>✓ Marcar Pago</button>
                           ) : s === 'pago' ? (
                             <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(p.data_pagamento)}</span>
                           ) : null}
@@ -600,6 +783,110 @@ export function ContasPagar({ fornecedores, readOnly }: Props) {
           </div>
         )}
       </div>
+
+      {/* Modal — Marcar como pago */}
+      <Modal
+        open={pagarModal.open}
+        onClose={() => !pagarModal.saving && setPagarModal(p => ({ ...p, open: false, conta: null }))}
+        title="MARCAR COMO PAGO"
+        closeOnBackdrop={false}
+      >
+        {pagarModal.conta && (() => {
+          const conta = pagarModal.conta!
+          const nomeForn = conta.fornecedor_nome ?? fornecedores.find(x => x.id === conta.fornecedor_id)?.nome ?? null
+          const saldo = conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0
+          const usarCaixa = pagarModal.formaPagamentoId === FORMA_CAIXA
+          const valorCaixaNum = usarCaixa ? (parseMoneyBr(pagarModal.valorCaixa) || 0) : 0
+          const maxCaixa = parseFloat(Math.min(saldo, conta.valor_parcela).toFixed(2))
+          const restante = parseFloat(Math.max(0, conta.valor_parcela - valorCaixaNum).toFixed(2))
+          const quitado = usarCaixa && restante < 0.01
+          return (
+            <>
+              {/* Cards: parcela + saldo */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div style={{ background: 'rgba(212,168,83,.06)', border: '1px solid rgba(212,168,83,.2)', borderRadius: 8, padding: '.6rem .85rem' }}>
+                  <div className="text-xs text-[#8a6a55] mb-1">Valor da parcela</div>
+                  <div className="font-display" style={{ fontSize: '1.15rem', color: '#d4a853' }}>{fmtCur(conta.valor_parcela)}</div>
+                </div>
+                {nomeForn && (
+                  <div style={{ background: 'rgba(74,222,128,.06)', border: '1px solid rgba(74,222,128,.2)', borderRadius: 8, padding: '.6rem .85rem' }}>
+                    <div className="text-xs text-[#8a6a55] mb-1">Caixa — {nomeForn}</div>
+                    <div className="font-display" style={{ fontSize: '1.15rem', color: saldo > 0 ? '#4ade80' : '#8a6a55' }}>{fmtCur(saldo)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Forma de pagamento — com opção de caixa embutida */}
+              <Field label="Forma de Pagamento">
+                <select
+                  className="glass-input"
+                  value={pagarModal.formaPagamentoId}
+                  onChange={e => setPagarModal(p => ({ ...p, formaPagamentoId: e.target.value, erro: null }))}
+                  disabled={loadingFormas}
+                >
+                  <option value="">Selecionar...</option>
+                  {saldo > 0 && (
+                    <option value={FORMA_CAIXA}>
+                      Retirar do Caixa do Fornecedor — {fmtCur(saldo)} disponível
+                    </option>
+                  )}
+                  {formas.map(fp => <option key={fp.id} value={fp.id}>{fp.nome}</option>)}
+                </select>
+              </Field>
+
+              {/* Campos extras quando "Caixa Fornecedor" é selecionado */}
+              {usarCaixa && (
+                <div style={{ background: 'rgba(74,222,128,.04)', border: '1px solid rgba(74,222,128,.18)', borderRadius: 8, padding: '.75rem 1rem', marginBottom: '.5rem' }}>
+                  <Field label={`Valor a retirar do caixa (máx. ${fmtCur(maxCaixa)})`}>
+                    <input
+                      className="glass-input"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={maxCaixa}
+                      value={pagarModal.valorCaixa}
+                      onChange={e => setPagarModal(p => ({ ...p, valorCaixa: e.target.value, erro: null }))}
+                    />
+                  </Field>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-[#8a6a55]">Restante a pagar:</span>
+                    <span style={{ fontWeight: 700, fontSize: '.9rem', color: quitado ? '#4ade80' : '#f4e4d6' }}>
+                      {quitado ? '✓ Conta quitada pelo caixa' : fmtCur(restante)}
+                    </span>
+                  </div>
+
+                  {/* Forma de pagamento do restante quando parcial */}
+                  {restante > 0.005 && (
+                    <div className="mt-3">
+                      <Field label={`Forma de pagamento do restante — ${fmtCur(restante)}`}>
+                        <select
+                          className="glass-input"
+                          value={pagarModal.formaPagamentoRestanteId}
+                          onChange={e => setPagarModal(p => ({ ...p, formaPagamentoRestanteId: e.target.value, erro: null }))}
+                          disabled={loadingFormas}
+                        >
+                          <option value="">Selecionar...</option>
+                          {formas.map(fp => <option key={fp.id} value={fp.id}>{fp.nome}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {pagarModal.erro && <p className="mb-2 text-sm text-red-400">{pagarModal.erro}</p>}
+
+              <ModalFormFooter
+                onCancel={() => setPagarModal(p => ({ ...p, open: false, conta: null }))}
+                onSubmit={confirmarPagamento}
+                submitLabel="Confirmar Pagamento"
+                submittingLabel="Processando..."
+                submitting={pagarModal.saving}
+              />
+            </>
+          )
+        })()}
+      </Modal>
     </div>
   )
 }

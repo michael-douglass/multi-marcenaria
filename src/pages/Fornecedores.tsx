@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pencil, Search, Trash2 } from 'lucide-react'
 import { useFornecedores } from '../hooks/useFornecedores'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
+import { ResumoFinanceiroFornecedor } from '../components/fornecedores/ResumoFinanceiroFornecedor'
 import {
   clearFornecedorDraft,
   hasFornecedorDraft,
   loadFornecedorDraft,
   saveFornecedorDraft,
 } from '../lib/fornecedor-draft'
-import type { FornecedorInput } from '../types'
+import { resumoFornecedor, totaisPaginaFornecedores } from '../lib/fornecedor-financeiro'
+import { fmtCur, parseMoneyBr } from '../lib/utils'
+import type { ContaPagar, Fornecedor, FornecedorInput } from '../types'
 
 const BLANK: FornecedorInput = {
   nome: '',
@@ -20,62 +23,130 @@ const BLANK: FornecedorInput = {
   email: '',
   nome_vendedor: '',
   telefone_vendedor: '',
+  limite_com_fornecedor: 0,
+}
+
+interface FormState extends FornecedorInput {
+  limiteStr: string
+}
+
+const BLANK_FORM: FormState = { ...BLANK, limiteStr: '' }
+
+function limiteToStr(v?: number | null): string {
+  if (v == null || v === 0) return ''
+  return String(v).replace('.', ',')
+}
+
+function formToInput(form: FormState): FornecedorInput {
+  const { limiteStr, ...rest } = form
+  return {
+    ...rest,
+    limite_com_fornecedor: parseMoneyBr(limiteStr),
+  }
+}
+
+function fornecedorToForm(item: FornecedorInput & { limite_com_fornecedor?: number }): FormState {
+  return {
+    nome: item.nome,
+    cnpj_cpf: item.cnpj_cpf ?? '',
+    telefone: item.telefone ?? '',
+    email: item.email ?? '',
+    nome_vendedor: item.nome_vendedor ?? '',
+    telefone_vendedor: item.telefone_vendedor ?? '',
+    limite_com_fornecedor: item.limite_com_fornecedor ?? 0,
+    limiteStr: limiteToStr(item.limite_com_fornecedor),
+  }
 }
 
 interface Props {
   readOnly?: boolean
+  contasPagar?: ContaPagar[]
+  getSaldoFornecedor?: (fornecedorId: string) => number
 }
 
-export function Fornecedores({ readOnly }: Props) {
+export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }: Props) {
+  const getSaldo = useCallback(
+    (id: string) => getSaldoFornecedor?.(id) ?? 0,
+    [getSaldoFornecedor],
+  )
+
   const { data, loading, error, create, update, remove } = useFornecedores()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<FornecedorInput>(BLANK)
+  const [form, setForm] = useState<FormState>(BLANK_FORM)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [draftHint, setDraftHint] = useState(false)
+  const [busca, setBusca] = useState('')
 
   const f =
-    (k: keyof FornecedorInput) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    (k: keyof Omit<FormState, 'limiteStr'>) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm(p => ({ ...p, [k]: e.target.value }))
 
   const persistDraft = useCallback(
-    (nextForm: FornecedorInput, id: string | null) => {
-      saveFornecedorDraft(id, nextForm)
+    (nextForm: FormState, id: string | null) => {
+      const { limiteStr, ...rest } = nextForm
+      saveFornecedorDraft(id, {
+        ...rest,
+        limite_com_fornecedor: parseMoneyBr(limiteStr),
+      })
       setDraftHint(true)
     },
     [],
   )
 
+  const totais = useMemo(
+    () => totaisPaginaFornecedores(data, contasPagar, getSaldo),
+    [data, contasPagar, getSaldo],
+  )
+
+  const fornecedorEmEdicao = useMemo(
+    () => (editId ? data.find(f => f.id === editId) : null),
+    [data, editId],
+  )
+
+  const resumoModal = useMemo(() => {
+    if (!fornecedorEmEdicao) return null
+    return resumoFornecedor(fornecedorEmEdicao, contasPagar, getSaldo)
+  }, [fornecedorEmEdicao, contasPagar, getSaldo])
+
+  const fornecedoresFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return data
+    return data.filter(
+      f =>
+        f.nome.toLowerCase().includes(q) ||
+        (f.cnpj_cpf ?? '').toLowerCase().includes(q) ||
+        (f.cnpj_cpf ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, '')),
+    )
+  }, [data, busca])
+
   const openNew = () => {
     const draft = loadFornecedorDraft()
     if (draft && draft.editId === null) {
-      setForm({ ...BLANK, ...draft.form })
+      setForm({
+        ...BLANK_FORM,
+        ...fornecedorToForm(draft.form),
+      })
       setDraftHint(true)
     } else {
-      setForm(BLANK)
+      setForm(BLANK_FORM)
       setDraftHint(false)
     }
     setEditId(null)
     setOpen(true)
   }
 
-  const openEdit = (id: string, item: FornecedorInput) => {
+  const openEdit = (fornecedor: Fornecedor) => {
     const draft = loadFornecedorDraft()
-    if (draft && draft.editId === id) {
-      setForm({ ...BLANK, ...item, ...draft.form })
+    const base = fornecedorToForm(fornecedor)
+    if (draft && draft.editId === fornecedor.id) {
+      setForm({ ...base, ...fornecedorToForm(draft.form) })
       setDraftHint(true)
     } else {
-      setForm({
-        nome: item.nome,
-        cnpj_cpf: item.cnpj_cpf ?? '',
-        telefone: item.telefone ?? '',
-        email: item.email ?? '',
-        nome_vendedor: item.nome_vendedor ?? '',
-        telefone_vendedor: item.telefone_vendedor ?? '',
-      })
+      setForm(base)
       setDraftHint(false)
     }
-    setEditId(id)
+    setEditId(fornecedor.id)
     setOpen(true)
   }
 
@@ -88,7 +159,7 @@ export function Fornecedores({ readOnly }: Props) {
 
   const discardAndClose = () => {
     clearFornecedorDraft()
-    setForm(BLANK)
+    setForm(BLANK_FORM)
     setDraftHint(false)
     setEditId(null)
     closeModalUi()
@@ -104,11 +175,12 @@ export function Fornecedores({ readOnly }: Props) {
     if (!form.nome.trim()) return
     setSaving(true)
     try {
-      if (editId) await update(editId, form)
-      else await create(form)
+      const input = formToInput(form)
+      if (editId) await update(editId, input)
+      else await create(input)
       clearFornecedorDraft()
       setDraftHint(false)
-      setForm(BLANK)
+      setForm(BLANK_FORM)
       setEditId(null)
       closeModalUi()
     } finally {
@@ -116,9 +188,16 @@ export function Fornecedores({ readOnly }: Props) {
     }
   }
 
+  const headerKpis = [
+    { l: 'Limite total', v: totais.limiteTotal, c: '#d4a853' },
+    { l: 'A pagar', v: totais.aPagarTotal, c: '#f87171' },
+    { l: 'Limite disponível', v: totais.disponivelTotal, c: totais.disponivelTotal < 0 ? '#f87171' : '#4ade80' },
+    { l: 'Caixa fornecedor', v: totais.caixaTotal, c: '#60a5fa' },
+  ]
+
   return (
     <div className="fade-in">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1
             className="font-display"
@@ -138,11 +217,30 @@ export function Fornecedores({ readOnly }: Props) {
         )}
       </div>
 
+      <div
+        className="mb-5 grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
+      >
+        {headerKpis.map(x => (
+          <div key={x.l} className="glass-card p-4 text-center">
+            <div className="section-label mb-1">{x.l}</div>
+            <div className="font-display" style={{ fontSize: '1.2rem', color: x.c }}>
+              {fmtCur(x.v)}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <Modal
         open={open}
         onClose={closeModalKeepDraft}
         title={editId ? 'EDITAR FORNECEDOR' : 'NOVO FORNECEDOR'}
         closeOnBackdrop={false}
+        headerExtra={
+          editId && resumoModal ? (
+            <ResumoFinanceiroFornecedor resumo={resumoModal} compact />
+          ) : null
+        }
       >
         {(draftHint || hasFornecedorDraft()) && (
           <p className="mb-3 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.08)] px-3 py-2 text-xs text-[#d4a853]">
@@ -157,6 +255,18 @@ export function Fornecedores({ readOnly }: Props) {
             onChange={f('nome')}
             placeholder="MDF Distribuidora Ltda"
           />
+        </Field>
+        <Field label="Limite com fornecedor (R$)">
+          <input
+            className="glass-input"
+            value={form.limiteStr}
+            onChange={e => setForm(p => ({ ...p, limiteStr: e.target.value }))}
+            placeholder="0,00"
+            inputMode="decimal"
+          />
+          <p className="mt-1 text-xs text-[#8a6a55]">
+            Contas a pagar pendentes abatem deste limite automaticamente.
+          </p>
         </Field>
         <Field label="CNPJ / CPF">
           <input
@@ -222,80 +332,105 @@ export function Fornecedores({ readOnly }: Props) {
         </div>
       </Modal>
 
-      <div className="glass-card overflow-hidden">
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} />
-        ) : data.length === 0 ? (
-          <EmptyState message="Nenhum fornecedor cadastrado." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
-                  {['Razão Social', 'CNPJ/CPF', 'Telefone', 'E-mail', 'Vendedor', 'Tel. Vendedor', ''].map(
-                    (h, i) => (
-                      <th key={i} className="section-label text-left px-4 py-3">
-                        {h}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map(s => (
-                  <tr key={s.id} className="trow">
-                    <td className="px-4 py-3" style={{ color: '#f4e4d6', fontWeight: 500 }}>
-                      {s.nome}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>
-                      {s.cnpj_cpf || '—'}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>
-                      {s.telefone || '—'}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>
-                      {s.email || '—'}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>
-                      {s.nome_vendedor || '—'}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>
-                      {s.telefone_vendedor || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {!readOnly && (
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() =>
-                              openEdit(s.id, {
-                                nome: s.nome,
-                                cnpj_cpf: s.cnpj_cpf,
-                                telefone: s.telefone,
-                                email: s.email,
-                                nome_vendedor: s.nome_vendedor,
-                                telefone_vendedor: s.telefone_vendedor,
-                              })
-                            }
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button type="button" className="btn btn-danger btn-sm" onClick={() => remove(s.id)}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="relative mb-4" style={{ maxWidth: 380 }}>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
+        <input
+          className="glass-input pl-9"
+          placeholder="Buscar por nome ou CNPJ/CPF..."
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+        />
       </div>
+
+      {loading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : fornecedoresFiltrados.length === 0 ? (
+        <EmptyState message={busca ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {fornecedoresFiltrados.map(fornecedor => {
+            const resumo = resumoFornecedor(fornecedor, contasPagar, getSaldo)
+            const semLimite = resumo.limite <= 0
+
+            return (
+              <div key={fornecedor.id} className="glass-card flex flex-col p-4">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold text-[#f4e4d6]">{fornecedor.nome}</h3>
+                    {fornecedor.cnpj_cpf && (
+                      <p className="text-xs text-[#8a6a55]">{fornecedor.cnpj_cpf}</p>
+                    )}
+                  </div>
+                  {!readOnly && (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => openEdit(fornecedor)}
+                        aria-label="Editar"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => remove(fornecedor.id)}
+                        aria-label="Excluir"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {semLimite ? (
+                  <p className="mb-2 text-xs text-[#8a6a55]">Limite não definido</p>
+                ) : (
+                  <div className="mb-2">
+                    <div className="mb-1 flex justify-between text-xs text-[#8a6a55]">
+                      <span>Limite utilizado</span>
+                      <span>
+                        {fmtCur(resumo.aPagar)} / {fmtCur(resumo.limite)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, resumo.limite > 0 ? (resumo.aPagar / resumo.limite) * 100 : 0)}%`,
+                          background:
+                            resumo.disponivel < 0
+                              ? '#f87171'
+                              : resumo.aPagar / resumo.limite > 0.85
+                                ? '#fbbf24'
+                                : '#4ade80',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <ResumoFinanceiroFornecedor resumo={resumo} compact />
+
+                {(fornecedor.telefone || fornecedor.email || fornecedor.nome_vendedor) && (
+                  <div className="mt-3 border-t border-[rgba(212,168,83,0.12)] pt-2 text-xs text-[#8a6a55]">
+                    {fornecedor.telefone && <div>Tel: {fornecedor.telefone}</div>}
+                    {fornecedor.email && <div>{fornecedor.email}</div>}
+                    {fornecedor.nome_vendedor && (
+                      <div>
+                        Vendedor: {fornecedor.nome_vendedor}
+                        {fornecedor.telefone_vendedor ? ` · ${fornecedor.telefone_vendedor}` : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

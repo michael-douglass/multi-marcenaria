@@ -9,6 +9,8 @@ interface ModalProps {
   title: string
   children: ReactNode
   wide?: boolean
+  /** Conteúdo extra no cabeçalho (ex.: resumo financeiro do fornecedor) */
+  headerExtra?: ReactNode
   /** Se false, clique no fundo escuro não fecha (útil em formulários longos) */
   closeOnBackdrop?: boolean
 }
@@ -19,6 +21,7 @@ export function Modal({
   title,
   children,
   wide,
+  headerExtra,
   closeOnBackdrop = true,
 }: ModalProps) {
   const onCloseRef = useRef(onClose)
@@ -77,21 +80,24 @@ export function Modal({
         onPointerDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
       >
-        <div className="modal-panel-header flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(212,168,83,0.18)] px-4 py-3 sm:px-5 sm:py-4">
-          <span
-            id="modal-title"
-            className="min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[#d4a853] sm:text-xl"
-          >
-            {title}
-          </span>
-          <button
-            type="button"
-            onClick={() => onCloseRef.current()}
-            className="btn btn-outline btn-sm shrink-0 !px-2 !py-1"
-            aria-label="Fechar"
-          >
-            <X size={15} />
-          </button>
+        <div className="modal-panel-header shrink-0 border-b border-[rgba(212,168,83,0.18)] px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <span
+              id="modal-title"
+              className="min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[#d4a853] sm:text-xl"
+            >
+              {title}
+            </span>
+            <button
+              type="button"
+              onClick={() => onCloseRef.current()}
+              className="btn btn-outline btn-sm shrink-0 !px-2 !py-1"
+              aria-label="Fechar"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          {headerExtra ? <div className="mt-3">{headerExtra}</div> : null}
         </div>
 
         <div className="modal-panel-body min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">
