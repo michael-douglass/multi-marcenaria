@@ -30,12 +30,15 @@ CREATE INDEX IF NOT EXISTS idx_mov_orcamentos_data    ON movelaria_orcamentos_fe
 
 ALTER TABLE movelaria_orcamentos_fechados ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "orcamentos_fechados_select" ON movelaria_orcamentos_fechados;
 CREATE POLICY "orcamentos_fechados_select" ON movelaria_orcamentos_fechados
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "orcamentos_fechados_insert" ON movelaria_orcamentos_fechados;
 CREATE POLICY "orcamentos_fechados_insert" ON movelaria_orcamentos_fechados
   FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Função que retorna leads ganhos com status de processamento
+DROP FUNCTION IF EXISTS public.movelaria_get_leads_ganhos();
 CREATE OR REPLACE FUNCTION public.movelaria_get_leads_ganhos()
 RETURNS TABLE (
   id            TEXT,

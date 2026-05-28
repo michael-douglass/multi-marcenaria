@@ -204,6 +204,36 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 via {lead.origem}
               </div>
             )}
+            {lead.observacoes && (
+              <div
+                style={{
+                  marginBottom: '.65rem',
+                  padding: '.45rem .55rem',
+                  borderRadius: 8,
+                  border: '1px solid rgba(212,168,83,.2)',
+                  background: 'rgba(212,168,83,.05)',
+                }}
+              >
+                <div className="section-label" style={{ fontSize: '.64rem', marginBottom: '.18rem' }}>
+                  Observações
+                </div>
+                <p
+                  className="section-label"
+                  style={{
+                    fontSize: '.72rem',
+                    lineHeight: 1.35,
+                    color: '#e8d8ca',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                  title={lead.observacoes}
+                >
+                  {lead.observacoes}
+                </p>
+              </div>
+            )}
             {lead.valor_orcamento != null && lead.valor_orcamento > 0 && (
               <div
                 className="font-display"

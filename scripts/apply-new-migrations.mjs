@@ -17,6 +17,7 @@ const migrations = [
   '010_transacoes_historico.sql',
   '011_contas_receber_origem.sql',
   '012_orcamentos_fechados_delete_policy.sql',
+  '013_leads_ganhos_observacoes.sql',
 ]
 
 const client = new Client({
@@ -37,7 +38,7 @@ try {
     console.log(`✅ ${file} aplicado.`)
   }
 
-  console.log('🚀 Migrations 009-011 aplicadas com sucesso.')
+  console.log('🚀 Migrations 009-013 aplicadas com sucesso.')
 } catch (err) {
   console.error('❌ Erro na migration:', err.message)
   process.exit(1)

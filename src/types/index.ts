@@ -169,6 +169,7 @@ export interface LeadGanho {
   telefone?: string
   email?: string
   origem?: string
+  observacoes?: string
   status: string
   valor_orcamento?: number
   criado_em?: string

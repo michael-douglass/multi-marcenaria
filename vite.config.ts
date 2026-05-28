@@ -10,7 +10,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3006,
+    port: 3007,
+    strictPort: true,
+    host: true,
+  },
+  preview: {
+    port: 3007,
+    strictPort: true,
     host: true,
   },
 })
