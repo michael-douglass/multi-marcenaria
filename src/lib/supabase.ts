@@ -15,7 +15,7 @@ if (!supabaseUrl || !supabaseKey) {
   if (!supabaseKey) missing.push('VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY)')
 
   throw new Error(
-    `Variaveis do Supabase ausentes no build: ${missing.join(', ')}. Configure no painel da Vercel e faca novo redeploy.`,
+    `Variaveis do Supabase ausentes no build: ${missing.join(', ')}. Configure no painel da Netlify (Environment variables) e faca novo deploy.`,
   )
 }
 
