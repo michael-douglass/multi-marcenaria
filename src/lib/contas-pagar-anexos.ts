@@ -102,11 +102,17 @@ export async function listAnexosByGrupo(grupoId: string): Promise<ContaPagarAnex
 }
 
 export async function getAnexoSignedUrl(path: string, expiresIn = 3600): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(ANEXOS_BUCKET)
-    .createSignedUrl(path, expiresIn)
-  if (error || !data?.signedUrl) throw new Error(error?.message ?? 'URL indisponível')
-  return data.signedUrl
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout ao gerar URL do anexo')), 8000),
+  )
+  const result = await Promise.race([
+    supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(path, expiresIn),
+    timeout,
+  ])
+  if (result.error || !result.data?.signedUrl) {
+    throw new Error(result.error?.message ?? 'URL indisponível')
+  }
+  return result.data.signedUrl
 }
 
 export async function deleteContaPagarAnexo(anexo: ContaPagarAnexo): Promise<void> {

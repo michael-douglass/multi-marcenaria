@@ -39,7 +39,12 @@ export async function fetchBibliotecaItems(): Promise<BibliotecaItem[]> {
   const items: BibliotecaItem[] = await Promise.all(
     anexos.map(async row => {
       const path = row.preview_path ?? row.storage_path
-      const previewUrl = await getAnexoSignedUrl(path)
+      let previewUrl = ''
+      try {
+        previewUrl = await getAnexoSignedUrl(path)
+      } catch {
+        // URL failed; item shown without preview
+      }
       return {
         id: row.id,
         anexoId: row.id,

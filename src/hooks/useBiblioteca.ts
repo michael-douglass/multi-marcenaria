@@ -24,8 +24,12 @@ export function useBiblioteca() {
   }, [load])
 
   const remove = async (anexoId: string) => {
-    await removeBibliotecaItemById(anexoId)
-    setItems(prev => prev.filter(i => i.anexoId !== anexoId))
+    try {
+      await removeBibliotecaItemById(anexoId)
+      setItems(prev => prev.filter(i => i.anexoId !== anexoId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir arquivo.')
+    }
   }
 
   return { items, loading, error, reload: load, remove }
