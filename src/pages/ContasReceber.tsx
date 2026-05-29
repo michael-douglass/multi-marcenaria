@@ -376,6 +376,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         entradaForma: 'pix',
       })
       setOpen(false)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao emitir cobrança.')
     } finally { setSaving(false) }
   }
 
