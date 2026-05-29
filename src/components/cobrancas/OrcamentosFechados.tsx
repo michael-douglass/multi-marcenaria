@@ -75,6 +75,10 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [historicoError, setHistoricoError] = useState<string | null>(null)
   const [parcelas, setParcelas] = useState<ParcelaInput[]>([])
+  // valores corrigidos manualmente nos cards (leadId → valor)
+  const [valoresCorrigidos, setValoresCorrigidos] = useState<Record<string, number>>({})
+  const [editandoValor, setEditandoValor] = useState<string | null>(null)
+  const [inputEdicao, setInputEdicao] = useState('')
 
   const val = parseFloat(form.valor) || 0
   const entradaVal = form.temEntrada ? (parseFloat(form.valorEntrada) || 0) : 0
@@ -140,9 +144,25 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm(p => ({ ...p, [k]: e.target.value }))
 
+  const valorEfetivo = (lead: LeadGanho) =>
+    valoresCorrigidos[lead.id] ?? lead.valor_orcamento ?? 0
+
+  const iniciarEdicaoValor = (lead: LeadGanho, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditandoValor(lead.id)
+    setInputEdicao(String(valoresCorrigidos[lead.id] ?? lead.valor_orcamento ?? ''))
+  }
+
+  const confirmarEdicaoValor = (leadId: string) => {
+    const v = parseFloat(inputEdicao.replace(',', '.')) || 0
+    if (v > 0) setValoresCorrigidos(prev => ({ ...prev, [leadId]: v }))
+    setEditandoValor(null)
+  }
+
   const openModal = async (lead: LeadGanho) => {
     setSelected(lead)
-    setForm({ ...defaultForm(), valor: lead.valor_orcamento ? String(lead.valor_orcamento) : '' })
+    const v = valorEfetivo(lead)
+    setForm({ ...defaultForm(), valor: v > 0 ? String(v) : '' })
     setSaveError(null)
     setHistorico([])
     setHistoricoError(null)
@@ -254,7 +274,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             className="font-display"
             style={{ fontSize: '1.2rem', color: '#d4a853' }}
           >
-            {fmtCur(leads.reduce((s, l) => s + (l.valor_orcamento ?? 0), 0))}
+            {fmtCur(leads.reduce((s, l) => s + valorEfetivo(l), 0))}
           </div>
         </div>
       </div>
@@ -323,12 +343,55 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 </p>
               </div>
             )}
-            {lead.valor_orcamento != null && lead.valor_orcamento > 0 && (
+            {editandoValor === lead.id ? (
+              <div style={{ display: 'flex', gap: '.4rem', marginBottom: '.7rem', alignItems: 'center' }}>
+                <input
+                  className="glass-input"
+                  style={{ flex: 1, padding: '.3rem .5rem', fontSize: '.9rem' }}
+                  type="number"
+                  value={inputEdicao}
+                  onChange={e => setInputEdicao(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') confirmarEdicaoValor(lead.id)
+                    if (e.key === 'Escape') setEditandoValor(null)
+                  }}
+                  autoFocus
+                  step="0.01"
+                  min="0"
+                />
+                <button
+                  type="button"
+                  onClick={() => confirmarEdicaoValor(lead.id)}
+                  style={{
+                    padding: '.3rem .6rem', borderRadius: 6, border: '1px solid #4ade80',
+                    background: 'rgba(74,222,128,.12)', color: '#4ade80', cursor: 'pointer', fontSize: '.8rem',
+                  }}
+                >✓</button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoValor(null)}
+                  style={{
+                    padding: '.3rem .6rem', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)',
+                    background: 'transparent', color: '#8a6a55', cursor: 'pointer', fontSize: '.8rem',
+                  }}
+                >✕</button>
+              </div>
+            ) : (
               <div
-                className="font-display"
-                style={{ fontSize: '1.1rem', color: '#4ade80', marginBottom: '.7rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', cursor: 'pointer' }}
+                title="Clique para corrigir o valor"
+                onClick={e => iniciarEdicaoValor(lead, e)}
               >
-                {fmtCur(lead.valor_orcamento)}
+                <span
+                  className="font-display"
+                  style={{ fontSize: '1.1rem', color: '#4ade80' }}
+                >
+                  {valorEfetivo(lead) > 0 ? fmtCur(valorEfetivo(lead)) : '—'}
+                </span>
+                <span style={{ fontSize: '.7rem', color: '#8a6a55', opacity: .7 }}>✎</span>
+                {valoresCorrigidos[lead.id] != null && (
+                  <span style={{ fontSize: '.62rem', color: '#d4a853', opacity: .8 }}>corrigido</span>
+                )}
               </div>
             )}
             <button
