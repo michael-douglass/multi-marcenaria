@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
@@ -173,6 +173,8 @@ function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
     total: '',
     inst: '1',
     fdd: todayISO(),
+    recorrente: false,
+    recorrenciaEncerramento: '',
   }
 }
 
@@ -182,11 +184,26 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
     loading,
     error,
     gerarParcelas,
+    criarRecorrencia,
+    encerrarRecorrencia,
     marcarPago,
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
   } = useContasPagar()
+
+  const [encerrarModal, setEncerrarModal] = useState<{
+    open: boolean
+    recorrenciaId: string
+    descricao: string
+    modo: 'apagar_futuros' | 'definir_data'
+    data: string
+    saving: boolean
+    erro: string | null
+  }>({
+    open: false, recorrenciaId: '', descricao: '', modo: 'apagar_futuros',
+    data: todayISO(), saving: false, erro: null,
+  })
   const formasHook = useFormasPagamentoPagar()
   const { formas, loading: loadingFormas } = formasHook
   const [filter, setFilter] = useState<Filter>('Todos')
@@ -356,23 +373,36 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
     setSaving(true)
     setSaveError(null)
     try {
-      const grupoId = createId()
-      const { grupo_lancamento_id } = await gerarParcelas(
-        {
+      if (form.recorrente) {
+        await criarRecorrencia({
           fornecedor_id: form.supplierId || undefined,
           fornecedor_nome: fornecedores.find(s => s.id === form.supplierId)?.nome ?? form.desc,
           descricao: form.desc,
           observacao: form.observacao,
           forma_pagamento_id: form.formaPagamentoId || undefined,
-          valor_total: tot,
-          num_parcelas: parseInt(form.inst) || 1,
+          valor_mensal: tot,
           primeiro_vencimento: form.fdd || todayISO(),
-        },
-        grupoId,
-      )
+          encerramento: form.recorrenciaEncerramento || undefined,
+        })
+      } else {
+        const grupoId = createId()
+        const { grupo_lancamento_id } = await gerarParcelas(
+          {
+            fornecedor_id: form.supplierId || undefined,
+            fornecedor_nome: fornecedores.find(s => s.id === form.supplierId)?.nome ?? form.desc,
+            descricao: form.desc,
+            observacao: form.observacao,
+            forma_pagamento_id: form.formaPagamentoId || undefined,
+            valor_total: tot,
+            num_parcelas: parseInt(form.inst) || 1,
+            primeiro_vencimento: form.fdd || todayISO(),
+          },
+          grupoId,
+        )
 
-      if (anexos.length > 0 && grupo_lancamento_id) {
-        await uploadContaPagarAnexos(grupo_lancamento_id, anexos)
+        if (anexos.length > 0 && grupo_lancamento_id) {
+          await uploadContaPagarAnexos(grupo_lancamento_id, anexos)
+        }
       }
 
       clearLancamentoPagarDraft()
@@ -385,6 +415,24 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
       setSaveError(e instanceof Error ? e.message : 'Erro ao salvar lançamento.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const confirmarEncerrarRecorrencia = async () => {
+    setEncerrarModal(p => ({ ...p, saving: true, erro: null }))
+    try {
+      await encerrarRecorrencia(
+        encerrarModal.recorrenciaId,
+        encerrarModal.modo,
+        encerrarModal.modo === 'definir_data' ? encerrarModal.data : undefined,
+      )
+      setEncerrarModal(p => ({ ...p, open: false, saving: false }))
+    } catch (e) {
+      setEncerrarModal(p => ({
+        ...p,
+        saving: false,
+        erro: e instanceof Error ? e.message : 'Erro ao encerrar recorrência.',
+      }))
     }
   }
 
@@ -595,20 +643,98 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
         <Field label="Valor Total (R$)">
           <input className="glass-input" type="number" value={form.total} onChange={f('total')} min="0" step="0.01" placeholder="0,00" />
         </Field>
-        <FieldRow>
-          <Field label="Nº de Parcelas" half>
-            <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="1" max="60" />
-          </Field>
-          <Field label="1º Vencimento" half>
-            <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
-          </Field>
-        </FieldRow>
-        {form.total && parseInt(form.inst) > 0 && parseMoneyBr(form.total) > 0 && (
-          <div style={{ background: 'rgba(251,191,36,.06)', border: '1px solid rgba(251,191,36,.2)', borderRadius: 8, padding: '.6rem .85rem', marginBottom: '.5rem' }}>
-            <span style={{ color: '#fbbf24', fontSize: '.82rem' }}>
-              {form.inst}× de {fmtCur(parseMoneyBr(form.total) / parseInt(form.inst))} · 1ª: {fmtDate(form.fdd)}
-            </span>
+
+        {/* Toggle: Única vez vs Recorrente */}
+        <div className="mb-4">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '.5rem',
+            }}
+          >
+            {([
+              { label: 'Única vez', value: false, icon: '1×' },
+              { label: 'Recorrente', value: true, icon: '🔄' },
+            ] as const).map(opt => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => setForm(p => ({ ...p, recorrente: opt.value }))}
+                style={{
+                  padding: '.6rem .75rem',
+                  borderRadius: 8,
+                  border: form.recorrente === opt.value
+                    ? '1.5px solid #d4a853'
+                    : '1px solid rgba(212,168,83,.2)',
+                  background: form.recorrente === opt.value
+                    ? 'rgba(212,168,83,.12)'
+                    : 'transparent',
+                  color: form.recorrente === opt.value ? '#d4a853' : '#8a6a55',
+                  cursor: 'pointer',
+                  fontSize: '.8rem',
+                  fontWeight: 600,
+                  fontFamily: 'Raleway, sans-serif',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '.4rem',
+                  transition: 'all .15s',
+                }}
+              >
+                <span>{opt.icon}</span> {opt.label}
+              </button>
+            ))}
           </div>
+          {form.recorrente && (
+            <p style={{ fontSize: '.72rem', color: '#8a6a55', marginTop: '.4rem' }}>
+              Gera cobranças todo mês automaticamente. O sistema sempre mantém 12 meses à frente.
+            </p>
+          )}
+        </div>
+
+        {form.recorrente ? (
+          <>
+            <Field label="1º Vencimento (dia de cobrança mensal)">
+              <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+            </Field>
+            <Field label="Encerrar em (opcional)">
+              <input
+                className="glass-input"
+                type="date"
+                value={form.recorrenciaEncerramento}
+                onChange={f('recorrenciaEncerramento')}
+                placeholder="Sem data de encerramento"
+                min={form.fdd}
+              />
+            </Field>
+            {parseMoneyBr(form.total) > 0 && (
+              <div style={{ background: 'rgba(251,191,36,.06)', border: '1px solid rgba(251,191,36,.2)', borderRadius: 8, padding: '.6rem .85rem', marginBottom: '.5rem' }}>
+                <span style={{ color: '#fbbf24', fontSize: '.82rem' }}>
+                  🔄 {fmtCur(parseMoneyBr(form.total))}/mês · 1ª: {fmtDate(form.fdd)}
+                  {form.recorrenciaEncerramento ? ` · até ${fmtDate(form.recorrenciaEncerramento)}` : ' · sem data de encerramento'}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <FieldRow>
+              <Field label="Nº de Parcelas" half>
+                <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="1" max="60" />
+              </Field>
+              <Field label="1º Vencimento" half>
+                <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+              </Field>
+            </FieldRow>
+            {form.total && parseInt(form.inst) > 0 && parseMoneyBr(form.total) > 0 && (
+              <div style={{ background: 'rgba(251,191,36,.06)', border: '1px solid rgba(251,191,36,.2)', borderRadius: 8, padding: '.6rem .85rem', marginBottom: '.5rem' }}>
+                <span style={{ color: '#fbbf24', fontSize: '.82rem' }}>
+                  {form.inst}× de {fmtCur(parseMoneyBr(form.total) / parseInt(form.inst))} · 1ª: {fmtDate(form.fdd)}
+                </span>
+              </div>
+            )}
+          </>
         )}
 
         <ContaPagarAnexosField anexos={anexos} onChange={setAnexos} />
@@ -753,10 +879,20 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
               <tbody>
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
+                  const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
                   return (
                     <tr key={p.id} className="trow">
                       <td className="px-4 py-3" style={{ color: '#f4e4d6', maxWidth: 220 }}>
-                        <div>{p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'}</div>
+                        <div className="flex items-center gap-1.5">
+                          {p.recorrente && (
+                            <RefreshCw
+                              className="shrink-0 text-[#d4a853]"
+                              style={{ width: 11, height: 11 }}
+                              title="Cobrança recorrente"
+                            />
+                          )}
+                          <span>{nomeExibido}</span>
+                        </div>
                         {p.fornecedor_id && getSaldoFornecedor(p.fornecedor_id) > 0 && s !== 'pago' && (
                           <div className="mt-0.5 text-[0.72rem]" style={{ color: '#4ade80' }}>
                             Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
@@ -779,7 +915,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
                       <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#8a6a55', fontSize: '.85rem' }}>{fmtDate(p.data_vencimento)}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           <ContaPagarAnexosButton grupoLancamentoId={p.grupo_lancamento_id} />
                           {!readOnly && (
                             <>
@@ -791,6 +927,24 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
+                              {p.recorrente && p.recorrencia_id && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  title="Encerrar recorrência"
+                                  onClick={() => setEncerrarModal({
+                                    open: true,
+                                    recorrenciaId: p.recorrencia_id!,
+                                    descricao: nomeExibido,
+                                    modo: 'apagar_futuros',
+                                    data: todayISO(),
+                                    saving: false,
+                                    erro: null,
+                                  })}
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="btn btn-danger btn-sm !px-2"
@@ -816,6 +970,73 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
           </div>
         )}
       </div>
+
+      {/* Modal — Encerrar Recorrência */}
+      <Modal
+        open={encerrarModal.open}
+        onClose={() => !encerrarModal.saving && setEncerrarModal(p => ({ ...p, open: false }))}
+        title="ENCERRAR RECORRÊNCIA"
+        closeOnBackdrop={false}
+      >
+        <p className="mb-4 text-sm" style={{ color: '#f4e4d6' }}>
+          <strong style={{ color: '#d4a853' }}>{encerrarModal.descricao}</strong>
+          {' '}— Como deseja encerrar esta cobrança recorrente?
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.5rem', marginBottom: '1rem' }}>
+          {([
+            { label: 'Apagar meses futuros', value: 'apagar_futuros', desc: 'Remove todas as parcelas pendentes a partir de hoje' },
+            { label: 'Definir data de término', value: 'definir_data', desc: 'Mantém parcelas até a data escolhida, remove o restante' },
+          ] as const).map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setEncerrarModal(p => ({ ...p, modo: opt.value }))}
+              style={{
+                padding: '.65rem .75rem',
+                borderRadius: 8,
+                border: encerrarModal.modo === opt.value
+                  ? '1.5px solid #f87171'
+                  : '1px solid rgba(248,113,113,.2)',
+                background: encerrarModal.modo === opt.value
+                  ? 'rgba(248,113,113,.1)'
+                  : 'transparent',
+                color: encerrarModal.modo === opt.value ? '#f87171' : '#8a6a55',
+                cursor: 'pointer',
+                fontSize: '.75rem',
+                fontWeight: 600,
+                fontFamily: 'Raleway, sans-serif',
+                textAlign: 'left',
+                transition: 'all .15s',
+              }}
+            >
+              <div>{opt.label}</div>
+              <div style={{ fontSize: '.68rem', opacity: .7, marginTop: '.2rem', fontWeight: 400 }}>{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {encerrarModal.modo === 'definir_data' && (
+          <Field label="Encerrar em (última parcela a manter)">
+            <input
+              className="glass-input"
+              type="date"
+              value={encerrarModal.data}
+              onChange={e => setEncerrarModal(p => ({ ...p, data: e.target.value }))}
+            />
+          </Field>
+        )}
+
+        {encerrarModal.erro && <p className="mb-2 text-sm text-red-400">{encerrarModal.erro}</p>}
+
+        <ModalFormFooter
+          onCancel={() => setEncerrarModal(p => ({ ...p, open: false }))}
+          onSubmit={confirmarEncerrarRecorrencia}
+          submitLabel="Confirmar Encerramento"
+          submittingLabel="Encerrando..."
+          submitting={encerrarModal.saving}
+        />
+      </Modal>
 
       {/* Modal — Marcar como pago */}
       <Modal

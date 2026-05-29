@@ -6,6 +6,8 @@ export interface LancamentoPagarDraftForm {
   total: string
   inst: string
   fdd: string
+  recorrente: boolean
+  recorrenciaEncerramento: string
 }
 
 export interface LancamentoPagarDraft {

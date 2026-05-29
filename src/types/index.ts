@@ -109,6 +109,10 @@ export interface ContaPagar {
   status: ContaPagarStatus
   data_pagamento?: string
   grupo_lancamento_id?: string | null
+  recorrente?: boolean
+  recorrencia_id?: string | null
+  recorrencia_valor_base?: number | null
+  recorrencia_encerramento?: string | null
   criado_em?: string
   atualizado_em?: string
   movelaria_formas_pagamento_pagar?: Pick<FormaPagamentoPagar, 'id' | 'nome'> | null
