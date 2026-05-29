@@ -36,13 +36,16 @@ const getStatus = (vencimento: string, status: string): string => {
 export function ContasReceber({ clientes, readOnly }: Props) {
   const { role } = useApp()
   const isAdmin = role === 'Administrador'
-  const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, removerTransacao } = useContasReceber()
+  const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
   const orcamentos = useOrcamentosFechados()
   const [filter, setFilter] = useState<Filter>('Todos')
+  const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(DEFAULT_PERIOD)
   const [open, setOpen] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
+  const [openBulkEdit, setOpenBulkEdit] = useState(false)
   const [selectedConta, setSelectedConta] = useState<ContaReceber | null>(null)
+  const [bulkParcelas, setBulkParcelas] = useState<ContaReceber[]>([])
   const [form, setForm] = useState({ clienteId: '', total: '', inst: '1', fdd: todayISO(), pm: 'pix' as FormaPagamento })
   const [editForm, setEditForm] = useState({
     valor_parcela: '',
@@ -53,6 +56,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [savingBulk, setSavingBulk] = useState(false)
   const [openHistory, setOpenHistory] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyRows, setHistoryRows] = useState<Array<{
@@ -61,6 +65,86 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     usuario_email: string | null
     criado_em: string
   }>>([])
+
+  const openBulkEditModal = (conta: ContaReceber) => {
+    // Busca todas as parcelas da mesma venda
+    const related = data.filter(item => {
+      if (conta.origem_lead_id) return item.origem_lead_id === conta.origem_lead_id
+      return item.cliente_nome === conta.cliente_nome && item.valor_total === conta.valor_total
+    }).sort((a, b) => a.numero_parcela - b.numero_parcela)
+
+    setBulkParcelas(related)
+    setOpenBulkEdit(true)
+  }
+
+  const updateBulkParcela = (index: number, field: 'valor_parcela' | 'data_vencimento', value: string | number) => {
+    const newParcelas = [...bulkParcelas]
+    const p = { ...newParcelas[index] }
+
+    if (field === 'valor_parcela') {
+      const newVal = parseFloat(value as string) || 0
+      p.valor_parcela = newVal
+      newParcelas[index] = p
+
+      // Recalcula as próximas (apenas se não foram recebidas)
+      const totalVenda = p.valor_total
+      const jaPago = newParcelas.slice(0, index + 1).reduce((sum, item) => sum + item.valor_parcela, 0)
+      const restante = totalVenda - jaPago
+      
+      const restGrid = newParcelas.slice(index + 1).filter(x => x.status !== 'recebido')
+      const nRestantes = restGrid.length
+
+      if (nRestantes > 0) {
+        const valorRestUnit = restante / nRestantes
+        let currentRest = 0
+        for (let i = index + 1; i < newParcelas.length; i++) {
+          if (newParcelas[i].status !== 'recebido') {
+            currentRest++
+            newParcelas[i] = {
+              ...newParcelas[i],
+              valor_parcela:
+                currentRest === nRestantes
+                  ? parseFloat((restante - valorRestUnit * (nRestantes - 1)).toFixed(2))
+                  : parseFloat(valorRestUnit.toFixed(2)),
+            }
+          }
+        }
+      }
+    } else if (field === 'data_vencimento') {
+      p.data_vencimento = value as string
+      newParcelas[index] = p
+    }
+
+    setBulkParcelas(newParcelas)
+  }
+
+  const saveBulkEdit = async () => {
+    if (bulkParcelas.length === 0) return
+    const totalVenda = bulkParcelas[0].valor_total
+    const sum = bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0)
+    
+    if (Math.abs(sum - totalVenda) > 0.01) {
+      alert(`A soma das parcelas (${fmtCur(sum)}) deve ser igual ao valor total (${fmtCur(totalVenda)}).`)
+      return
+    }
+
+    setSavingBulk(true)
+    try {
+      await atualizarParcelasEmLote(
+        bulkParcelas.map(p => ({
+          id: p.id,
+          valor_parcela: p.valor_parcela,
+          data_vencimento: p.data_vencimento,
+        })),
+        totalVenda,
+      )
+      setOpenBulkEdit(false)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao salvar alterações.')
+    } finally {
+      setSavingBulk(false)
+    }
+  }
 
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
@@ -107,8 +191,31 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const totalBrutoServicos = totalBrutoViaOrcamentos > 0 ? totalBrutoViaOrcamentos : totalBrutoViaContas
 
   const filtered = periodFiltered.filter(r => {
-    if (filter === 'Todos') return true
-    return getStatus(r.data_vencimento, r.status) === filter.toLowerCase()
+    // 1. Filtro de Status
+    if (filter !== 'Todos') {
+      if (getStatus(r.data_vencimento, r.status) !== filter.toLowerCase()) return false
+    }
+
+    // 2. Filtro de Busca (Nome, Telefone, Forma, Valores)
+    if (search.trim()) {
+      const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
+      
+      const nome = (r.cliente_nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
+      const telefone = (r.cliente_telefone || '').replace(/[\s\.\,\-\(\)]/g, '')
+      const valor = String(r.valor_parcela).replace(/[\s\.\,]/g, '')
+      const total = String(r.valor_total).replace(/[\s\.\,]/g, '')
+      const forma = PM_LABEL[r.forma_pagamento as FormaPagamento]?.toLowerCase() || ''
+
+      const match = nome.includes(term) || 
+                    telefone.includes(term) || 
+                    valor.includes(term) || 
+                    total.includes(term) || 
+                    forma.includes(term)
+
+      if (!match) return false
+    }
+
+    return true
   })
 
   const save = async () => {
@@ -325,6 +432,87 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         />
       </Modal>
 
+      <Modal open={openBulkEdit} onClose={() => setOpenBulkEdit(false)} title="EDITAR PARCELAMENTO">
+        <div className="mb-4">
+          <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+            {bulkParcelas[0]?.cliente_nome} — Total: {fmtCur(bulkParcelas[0]?.valor_total)}
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gap: '.5rem',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              padding: '.5rem',
+              background: 'rgba(212,168,83,.03)',
+              border: '1px solid rgba(212,168,83,.1)',
+              borderRadius: 8,
+            }}
+          >
+            {bulkParcelas.map((p, i) => (
+              <div
+                key={p.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '40px 1fr 1.2fr 80px',
+                  gap: '.5rem',
+                  alignItems: 'center',
+                  padding: '.25rem',
+                  borderRadius: 6,
+                  background: p.status === 'recebido' ? 'rgba(74,222,128,.05)' : 'rgba(255,255,255,.02)',
+                  opacity: p.status === 'recebido' ? 0.8 : 1,
+                }}
+              >
+                <span className="section-label" style={{ textAlign: 'center', fontSize: '.75rem' }}>
+                  {p.numero_parcela}/{p.total_parcelas}
+                </span>
+                <input
+                  className="glass-input"
+                  style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
+                  type="number"
+                  value={p.valor_parcela}
+                  onChange={e => updateBulkParcela(i, 'valor_parcela', e.target.value)}
+                  step="0.01"
+                  disabled={p.status === 'recebido'}
+                />
+                <input
+                  className="glass-input"
+                  style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
+                  type="date"
+                  value={p.data_vencimento}
+                  onChange={e => updateBulkParcela(i, 'data_vencimento', e.target.value)}
+                  disabled={p.status === 'recebido'}
+                />
+                <div style={{ textAlign: 'center' }}>
+                  <Badge status={p.status === 'recebido' ? 'recebido' : isOverdue(p.data_vencimento) ? 'vencido' : 'pendente'} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between px-1">
+            <span className="section-label" style={{ fontSize: '.75rem' }}>
+              Soma: {fmtCur(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0))}
+            </span>
+            {Math.abs(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0) - (bulkParcelas[0]?.valor_total || 0)) > 0.01 && (
+              <span className="text-red-400" style={{ fontSize: '.75rem' }}>
+                Diferença: {fmtCur((bulkParcelas[0]?.valor_total || 0) - bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0))}
+              </span>
+            )}
+          </div>
+        </div>
+        <ModalFormFooter
+          onCancel={() => setOpenBulkEdit(false)}
+          onSubmit={saveBulkEdit}
+          submitLabel="Salvar Parcelamento"
+          submitting={savingBulk}
+          submittingLabel="Salvando..."
+          submitDisabled={
+            bulkParcelas.length === 0 ||
+            Math.abs(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0) - (bulkParcelas[0]?.valor_total || 0)) > 0.01
+          }
+        />
+      </Modal>
+
       <Modal open={openHistory} onClose={() => setOpenHistory(false)} title="HISTÓRICO DA TRANSAÇÃO">
         {historyLoading ? (
           <LoadingState />
@@ -373,6 +561,17 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
       <FilterBar options={['Todos', 'Pendente', 'Recebido', 'Vencido']} value={filter} onChange={v => setFilter(v as Filter)} />
 
+      <div className="mb-4">
+        <input
+          type="text"
+          className="glass-input w-full"
+          placeholder="Buscar por nome, telefone, forma de pagamento ou valor..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
+        />
+      </div>
+
       <div className="glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState message="Nenhuma cobrança para este filtro." />
@@ -403,9 +602,10 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                           <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(r.data_recebimento)}</span>
                         ) : null}
                         {isAdmin && (
-                          <div className="mt-2 flex justify-end gap-2">
+                          <div className="mt-2 flex justify-end gap-2 flex-wrap">
                             <button className="btn btn-outline btn-sm" onClick={() => void verHistorico(r)}>Histórico</button>
-                            <button className="btn btn-outline btn-sm" onClick={() => openEditModal(r)}>Editar</button>
+                            <button className="btn btn-outline btn-sm" onClick={() => openEditModal(r)}>Editar Única</button>
+                            <button className="btn btn-gold btn-sm" onClick={() => openBulkEditModal(r)}>Editar Parcelamento</button>
                             <button className="btn btn-danger btn-sm" onClick={() => void excluirTransacao(r)}>Apagar</button>
                           </div>
                         )}

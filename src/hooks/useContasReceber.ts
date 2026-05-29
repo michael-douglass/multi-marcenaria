@@ -40,7 +40,7 @@ export function useContasReceber() {
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const n = input.num_parcelas
-    const valorUnitario = input.valor_total / n
+    const valorUnitario = parseFloat((input.valor_total / n).toFixed(2))
 
     const parcelas = Array.from({ length: n }, (_, i) => ({
       cliente_id: input.cliente_id,
@@ -51,7 +51,7 @@ export function useContasReceber() {
       valor_parcela:
         i === n - 1
           ? parseFloat((input.valor_total - valorUnitario * (n - 1)).toFixed(2))
-          : parseFloat(valorUnitario.toFixed(2)),
+          : valorUnitario,
       data_vencimento: addDays(input.primeiro_vencimento, i * 30),
       forma_pagamento: input.forma_pagamento,
       status: 'pendente' as const,
@@ -97,6 +97,39 @@ export function useContasReceber() {
     if (err) throw new Error(err.message)
     setData(prev => prev.map(x => (x.id === id ? row : x)))
     return row
+  }
+
+  const atualizarParcelasEmLote = async (
+    parcelas: Array<{ id: string; valor_parcela: number; data_vencimento: string }>,
+    valorTotal: number,
+  ) => {
+    // Atualiza cada parcela. Em produção idealmente seria um RPC ou Promise.all
+    const results = await Promise.all(
+      parcelas.map(async p => {
+        const { data: row, error: err } = await supabase
+          .from('movelaria_contas_receber')
+          .update({
+            valor_parcela: p.valor_parcela,
+            data_vencimento: p.data_vencimento,
+            valor_total: valorTotal,
+            atualizado_em: new Date().toISOString(),
+          })
+          .eq('id', p.id)
+          .select()
+          .single()
+        if (err) throw new Error(err.message)
+        return row
+      }),
+    )
+
+    setData(prev => {
+      const newData = [...prev]
+      results.forEach(row => {
+        const idx = newData.findIndex(x => x.id === row.id)
+        if (idx !== -1) newData[idx] = row
+      })
+      return newData
+    })
   }
 
   const removerTransacao = async (id: string) => {
@@ -185,5 +218,5 @@ export function useContasReceber() {
     setData(prev => prev.filter(x => x.id !== id))
   }
 
-  return { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, removerTransacao, reload: load }
+  return { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao, reload: load }
 }

@@ -3,6 +3,18 @@ import { supabase } from '../lib/supabase'
 import type { FormaPagamento, LeadGanho, OrcamentoFechado, TipoRecebimento } from '../types'
 import { addMonths, todayISO } from '../lib/utils'
 
+export interface ParcelaInput {
+  numero: number
+  valor: number
+  vencimento: string
+}
+
+export interface EntradaParcial {
+  valor: number
+  forma_pagamento: FormaPagamento
+  data: string
+}
+
 export interface DarEntradaInput {
   lead: LeadGanho
   valor_total: number
@@ -13,6 +25,8 @@ export interface DarEntradaInput {
   desconto_cartao_percentual?: number
   descricao?: string
   observacoes?: string
+  parcelas_detalhadas?: ParcelaInput[]
+  entrada?: EntradaParcial
 }
 
 export interface HistoricoCompraCliente {
@@ -131,18 +145,47 @@ export function useOrcamentosFechados() {
       clienteId = novo.id
     }
 
+    // 2. Calcula valor base (descontando entrada parcial, se houver)
+    const valorBase = input.entrada
+      ? parseFloat((input.valor_total - input.entrada.valor).toFixed(2))
+      : input.valor_total
+
     const descontoPercentual = input.tipo_recebimento === 'cartao_parcelado'
       ? Math.max(0, Math.min(100, input.desconto_cartao_percentual ?? 0))
       : 0
-    const valorDesconto = parseFloat(((input.valor_total * descontoPercentual) / 100).toFixed(2))
-    const valorLiquido = parseFloat((input.valor_total - valorDesconto).toFixed(2))
+    const valorDesconto = parseFloat(((valorBase * descontoPercentual) / 100).toFixed(2))
+    const valorLiquido = parseFloat((valorBase - valorDesconto).toFixed(2))
 
-    // 2. Resolve forma de pagamento e nº de parcelas
+    // 3. Resolve forma de pagamento e nº de parcelas do restante
     const n = input.tipo_recebimento === 'a_vista' ? 1 : Math.max(1, input.total_parcelas)
     let formaPag: FormaPagamento = input.forma_pagamento
     if (input.tipo_recebimento === 'cartao_parcelado') formaPag = 'cartao'
 
-    // 3. Gera cobrança conforme tipo de recebimento
+    const nRestante = input.tipo_recebimento === 'a_vista' ? 1 : n
+    const totalParcelasGlobal = (input.entrada ? 1 : 0) + nRestante
+    const parcelaOffset = input.entrada ? 1 : 0
+
+    // 4. Insere entrada parcial (pendente até a data escolhida)
+    if (input.entrada) {
+      const { error: entradaErr } = await supabase
+        .from('movelaria_contas_receber')
+        .insert({
+          cliente_id: clienteId,
+          cliente_nome: input.lead.nome,
+          valor_total: input.valor_total,
+          numero_parcela: 1,
+          total_parcelas: totalParcelasGlobal,
+          valor_parcela: input.entrada.valor,
+          data_vencimento: input.entrada.data,
+          forma_pagamento: input.entrada.forma_pagamento,
+          status: 'pendente',
+          origem_tipo: 'orcamento_fechado',
+          origem_lead_id: input.lead.id,
+        })
+      if (entradaErr) throw new Error(entradaErr.message)
+    }
+
+    // 5. Gera cobrança do restante conforme tipo de recebimento
     if (input.tipo_recebimento === 'a_vista') {
       const { error: vistaErr } = await supabase
         .from('movelaria_contas_receber')
@@ -150,13 +193,12 @@ export function useOrcamentosFechados() {
           cliente_id: clienteId,
           cliente_nome: input.lead.nome,
           valor_total: input.valor_total,
-          numero_parcela: 1,
-          total_parcelas: 1,
-          valor_parcela: input.valor_total,
+          numero_parcela: 1 + parcelaOffset,
+          total_parcelas: totalParcelasGlobal,
+          valor_parcela: valorBase,
           data_vencimento: input.primeiro_vencimento,
           forma_pagamento: formaPag,
-          status: 'recebido',
-          data_recebimento: todayISO(),
+          status: 'pendente',
           origem_tipo: 'orcamento_fechado',
           origem_lead_id: input.lead.id,
         })
@@ -167,10 +209,9 @@ export function useOrcamentosFechados() {
         .insert({
           cliente_id: clienteId,
           cliente_nome: input.lead.nome,
-          // Mantém o bruto para consolidações financeiras; o líquido entra em valor_parcela.
           valor_total: input.valor_total,
-          numero_parcela: 1,
-          total_parcelas: 1,
+          numero_parcela: 1 + parcelaOffset,
+          total_parcelas: totalParcelasGlobal,
           valor_parcela: valorLiquido,
           data_vencimento: todayISO(),
           forma_pagamento: 'cartao',
@@ -181,26 +222,44 @@ export function useOrcamentosFechados() {
         })
       if (cartaoErr) throw new Error(cartaoErr.message)
     } else {
-      const valorUnit = input.valor_total / n
-      const parcelas = Array.from({ length: n }, (_, i) => ({
-        cliente_id: clienteId,
-        cliente_nome: input.lead.nome,
-        valor_total: input.valor_total,
-        numero_parcela: i + 1,
-        total_parcelas: n,
-        valor_parcela:
-          i === n - 1
-            ? parseFloat((input.valor_total - valorUnit * (n - 1)).toFixed(2))
-            : parseFloat(valorUnit.toFixed(2)),
-        data_vencimento: addMonths(input.primeiro_vencimento, i),
-        forma_pagamento: formaPag,
-        status: 'pendente' as const,
-        origem_tipo: 'orcamento_fechado' as const,
-        origem_lead_id: input.lead.id,
-      }))
+      let parcelasToInsert
+      if (input.parcelas_detalhadas && input.parcelas_detalhadas.length > 0) {
+        parcelasToInsert = input.parcelas_detalhadas.map(p => ({
+          cliente_id: clienteId,
+          cliente_nome: input.lead.nome,
+          valor_total: input.valor_total,
+          numero_parcela: p.numero + parcelaOffset,
+          total_parcelas: totalParcelasGlobal,
+          valor_parcela: p.valor,
+          data_vencimento: p.vencimento,
+          forma_pagamento: formaPag,
+          status: 'pendente' as const,
+          origem_tipo: 'orcamento_fechado' as const,
+          origem_lead_id: input.lead.id,
+        }))
+      } else {
+        const valorUnit = parseFloat((valorBase / n).toFixed(2))
+        parcelasToInsert = Array.from({ length: n }, (_, i) => ({
+          cliente_id: clienteId,
+          cliente_nome: input.lead.nome,
+          valor_total: input.valor_total,
+          numero_parcela: i + 1 + parcelaOffset,
+          total_parcelas: totalParcelasGlobal,
+          valor_parcela:
+            i === n - 1
+              ? parseFloat((valorBase - valorUnit * (n - 1)).toFixed(2))
+              : valorUnit,
+          data_vencimento: addMonths(input.primeiro_vencimento, i),
+          forma_pagamento: formaPag,
+          status: 'pendente' as const,
+          origem_tipo: 'orcamento_fechado' as const,
+          origem_lead_id: input.lead.id,
+        }))
+      }
+
       const { error: parErr } = await supabase
         .from('movelaria_contas_receber')
-        .insert(parcelas)
+        .insert(parcelasToInsert)
       if (parErr) throw new Error(parErr.message)
     }
 

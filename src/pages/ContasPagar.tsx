@@ -190,6 +190,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
   const formasHook = useFormasPagamentoPagar()
   const { formas, loading: loadingFormas } = formasHook
   const [filter, setFilter] = useState<Filter>('Todos')
+  const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(DEFAULT_PERIOD)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<LancamentoPagarDraftForm>(() => emptyForm())
@@ -323,9 +324,30 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
   const totOver = periodFiltered.filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento)).reduce((s, p) => s + p.valor_parcela, 0)
 
   const filtered = periodFiltered.filter(p => {
-    if (filter === 'Todos') return true
-    const s = getStatus(p.data_vencimento, p.status)
-    return s === filter.toLowerCase()
+    // 1. Filtro de Status
+    if (filter !== 'Todos') {
+      const s = getStatus(p.data_vencimento, p.status)
+      if (s !== filter.toLowerCase()) return false
+    }
+
+    // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
+    if (search.trim()) {
+      const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
+      
+      const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
+      const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
+      const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
+      const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
+
+      const match = forn.includes(term) || 
+                    desc.includes(term) || 
+                    valor.includes(term) || 
+                    dataVenc.includes(term)
+
+      if (!match) return false
+    }
+
+    return true
   })
 
   const save = async () => {
@@ -707,6 +729,17 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
       </Modal>
 
       <FilterBar options={['Todos', 'Pendente', 'Pago', 'Vencido']} value={filter} onChange={v => setFilter(v as Filter)} />
+
+      <div className="mb-4">
+        <input
+          type="text"
+          className="glass-input w-full"
+          placeholder="Buscar por fornecedor, descrição, valor ou data..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
+        />
+      </div>
 
       <div className="glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (

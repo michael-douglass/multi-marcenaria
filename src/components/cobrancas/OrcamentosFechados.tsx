@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../ui/Modal'
 import { ModalFormFooter } from '../ui/ModalFormFooter'
 import { Field, FieldRow } from '../ui/Field'
 import { LoadingState, ErrorState } from '../ui/EmptyState'
-import { fmtCur, todayISO } from '../../lib/utils'
+import { fmtCur, todayISO, addMonths } from '../../lib/utils'
 import type { FormaPagamento, LeadGanho, TipoRecebimento } from '../../types'
-import type { DarEntradaInput } from '../../hooks/useOrcamentosFechados'
+import type { DarEntradaInput, ParcelaInput } from '../../hooks/useOrcamentosFechados'
 import type { HistoricoCompraCliente } from '../../hooks/useOrcamentosFechados'
 
 interface Props {
@@ -33,6 +33,7 @@ const PM_AVISTA: FormaPagamento[] = ['pix', 'dinheiro', 'cheque']
 const PM_LABELS: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', cheque: 'Cheque', boleto: 'Boleto', cartao: 'Cartão',
 }
+const PM_TODAS: FormaPagamento[] = ['pix', 'dinheiro', 'cheque', 'boleto', 'cartao']
 
 interface EntradaForm {
   valor: string
@@ -42,6 +43,11 @@ interface EntradaForm {
   primeiroVenc: string
   descontoCartaoPercentual: string
   descricao: string
+  // entrada parcial
+  temEntrada: boolean
+  valorEntrada: string
+  formaEntrada: FormaPagamento
+  dataEntrada: string
 }
 
 function defaultForm(): EntradaForm {
@@ -53,6 +59,10 @@ function defaultForm(): EntradaForm {
     primeiroVenc: todayISO(),
     descontoCartaoPercentual: '0',
     descricao: '',
+    temEntrada: false,
+    valorEntrada: '',
+    formaEntrada: 'pix',
+    dataEntrada: todayISO(),
   }
 }
 
@@ -64,6 +74,66 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const [historico, setHistorico] = useState<HistoricoCompraCliente[]>([])
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [historicoError, setHistoricoError] = useState<string | null>(null)
+  const [parcelas, setParcelas] = useState<ParcelaInput[]>([])
+
+  const val = parseFloat(form.valor) || 0
+  const entradaVal = form.temEntrada ? (parseFloat(form.valorEntrada) || 0) : 0
+  const entradaAtiva = form.temEntrada && entradaVal > 0 && entradaVal < val
+  const valorBase = entradaAtiva ? parseFloat((val - entradaVal).toFixed(2)) : val
+
+  useEffect(() => {
+    if (form.tipo === 'nosso_parcelamento') {
+      const n = parseInt(form.parcelas) || 1
+      const start = form.primeiroVenc || todayISO()
+      const valorUnit = parseFloat((valorBase / n).toFixed(2))
+      const newParcelas: ParcelaInput[] = Array.from({ length: n }, (_, i) => ({
+        numero: i + 1,
+        valor:
+          i === n - 1
+            ? parseFloat((valorBase - valorUnit * (n - 1)).toFixed(2))
+            : valorUnit,
+        vencimento: addMonths(start, i),
+      }))
+      setParcelas(newParcelas)
+    } else {
+      setParcelas([])
+    }
+  // valorBase changes when valor/valorEntrada/temEntrada change — those deps cover it
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.valor, form.valorEntrada, form.temEntrada, form.parcelas, form.primeiroVenc, form.tipo])
+
+  const updateParcela = (index: number, field: keyof ParcelaInput, value: string | number) => {
+    const newParcelas = [...parcelas]
+    const p = { ...newParcelas[index] }
+
+    if (field === 'valor') {
+      const newVal = parseFloat(value as string) || 0
+      p.valor = newVal
+      newParcelas[index] = p
+
+      const jaPago = newParcelas.slice(0, index + 1).reduce((sum, item) => sum + item.valor, 0)
+      const restante = valorBase - jaPago
+      const nRestantes = newParcelas.length - (index + 1)
+
+      if (nRestantes > 0) {
+        const valorRestUnit = restante / nRestantes
+        for (let i = index + 1; i < newParcelas.length; i++) {
+          newParcelas[i] = {
+            ...newParcelas[i],
+            valor:
+              i === newParcelas.length - 1
+                ? parseFloat((restante - valorRestUnit * (nRestantes - 1)).toFixed(2))
+                : parseFloat(valorRestUnit.toFixed(2)),
+          }
+        }
+      }
+    } else if (field === 'vencimento') {
+      p.vencimento = value as string
+      newParcelas[index] = p
+    }
+
+    setParcelas(newParcelas)
+  }
 
   const f =
     (k: keyof EntradaForm) =>
@@ -105,10 +175,24 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
 
   const submit = async () => {
     if (!selected) return
-    const val = parseFloat(form.valor)
     if (!val || val <= 0) { setSaveError('Informe o valor total da venda.'); return }
+
+    if (form.temEntrada) {
+      if (!entradaVal || entradaVal <= 0) { setSaveError('Informe o valor da entrada.'); return }
+      if (entradaVal >= val) { setSaveError('A entrada deve ser menor que o valor total.'); return }
+      if (!form.dataEntrada) { setSaveError('Informe a data de pagamento da entrada.'); return }
+    }
+
     const n = parseInt(form.parcelas) || 1
     if (form.tipo !== 'a_vista' && n < 2) { setSaveError('Informe ao menos 2 parcelas.'); return }
+    if (form.tipo === 'nosso_parcelamento') {
+      const sum = parcelas.reduce((acc, p) => acc + p.valor, 0)
+      if (Math.abs(sum - valorBase) > 0.01) {
+        setSaveError(`A soma das parcelas (${fmtCur(sum)}) deve ser igual ao restante (${fmtCur(valorBase)}).`)
+        return
+      }
+    }
+
     const descontoCartaoPercentual = Math.max(0, Math.min(100, parseFloat(form.descontoCartaoPercentual) || 0))
     setSaving(true)
     setSaveError(null)
@@ -122,6 +206,12 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
         primeiro_vencimento: form.primeiroVenc,
         desconto_cartao_percentual: form.tipo === 'cartao_parcelado' ? descontoCartaoPercentual : undefined,
         descricao: form.descricao || undefined,
+        parcelas_detalhadas: form.tipo === 'nosso_parcelamento' ? parcelas : undefined,
+        entrada: entradaAtiva ? {
+          valor: entradaVal,
+          forma_pagamento: form.formaEntrada,
+          data: form.dataEntrada,
+        } : undefined,
       })
       closeModal()
     } catch (e) {
@@ -135,12 +225,11 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   if (error) return <div className="mb-8"><ErrorState message={error} /></div>
   if (leads.length === 0) return null
 
-  const val = parseFloat(form.valor) || 0
   const n = parseInt(form.parcelas) || 1
   const isParcelado = form.tipo !== 'a_vista'
   const descontoCartaoPercentual = Math.max(0, Math.min(100, parseFloat(form.descontoCartaoPercentual) || 0))
-  const descontoCartaoValor = parseFloat(((val * descontoCartaoPercentual) / 100).toFixed(2))
-  const liquidoCartao = parseFloat((val - descontoCartaoValor).toFixed(2))
+  const descontoCartaoValor = parseFloat(((valorBase * descontoCartaoPercentual) / 100).toFixed(2))
+  const liquidoCartao = parseFloat((valorBase - descontoCartaoValor).toFixed(2))
 
   return (
     <div className="mb-8">
@@ -259,6 +348,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
           onClose={closeModal}
           title={`DAR ENTRADA — ${selected.nome.toUpperCase()}`}
         >
+          {/* Histórico */}
           <div
             style={{
               background: 'rgba(212,168,83,.06)',
@@ -305,6 +395,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             )}
           </div>
 
+          {/* Valor total */}
           <Field label="Valor Total da Venda (R$) *">
             <input
               className="glass-input"
@@ -318,7 +409,112 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             />
           </Field>
 
-          <Field label="Como será recebido?">
+          {/* Entrada parcial */}
+          <div style={{ marginBottom: '.75rem' }}>
+            <button
+              type="button"
+              onClick={() => setForm(p => ({ ...p, temEntrada: !p.temEntrada, valorEntrada: '' }))}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '.5rem .85rem',
+                borderRadius: 8,
+                border: form.temEntrada ? '1.5px solid #d4a853' : '1px solid rgba(212,168,83,.25)',
+                background: form.temEntrada ? 'rgba(212,168,83,.1)' : 'transparent',
+                color: form.temEntrada ? '#d4a853' : '#8a6a55',
+                cursor: 'pointer',
+                fontSize: '.78rem',
+                fontWeight: 600,
+                fontFamily: 'Raleway, sans-serif',
+                transition: 'all .15s',
+              }}
+            >
+              <span>Dar Entrada Parcial</span>
+              <span style={{ fontSize: '.75rem', opacity: .7 }}>{form.temEntrada ? '▲ ocultar' : '▼ configurar'}</span>
+            </button>
+
+            {form.temEntrada && (
+              <div
+                style={{
+                  marginTop: '.4rem',
+                  padding: '.65rem .85rem',
+                  background: 'rgba(212,168,83,.04)',
+                  border: '1px solid rgba(212,168,83,.15)',
+                  borderRadius: 8,
+                }}
+              >
+                <FieldRow>
+                  <Field label="Valor da Entrada (R$) *" half>
+                    <input
+                      className="glass-input"
+                      type="number"
+                      value={form.valorEntrada}
+                      onChange={f('valorEntrada')}
+                      placeholder="0,00"
+                      min="0.01"
+                      step="0.01"
+                    />
+                  </Field>
+                  <Field label="Data de Pagamento *" half>
+                    <input
+                      className="glass-input"
+                      type="date"
+                      value={form.dataEntrada}
+                      onChange={f('dataEntrada')}
+                    />
+                  </Field>
+                </FieldRow>
+                <Field label="Forma de Pagamento da Entrada">
+                  <select className="glass-input" value={form.formaEntrada} onChange={f('formaEntrada')}>
+                    {PM_TODAS.map(pm => (
+                      <option key={pm} value={pm}>{PM_LABELS[pm]}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                {val > 0 && entradaVal > 0 && (
+                  <div
+                    style={{
+                      marginTop: '.5rem',
+                      paddingTop: '.5rem',
+                      borderTop: '1px solid rgba(212,168,83,.15)',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      gap: '.28rem .75rem',
+                      fontSize: '.78rem',
+                    }}
+                  >
+                    <span className="section-label">Total da venda</span>
+                    <span style={{ color: '#f4e4d6', textAlign: 'right' }}>{fmtCur(val)}</span>
+                    <span className="section-label">Entrada</span>
+                    <span style={{ color: '#d4a853', textAlign: 'right' }}>− {fmtCur(entradaVal)}</span>
+                    <span
+                      className="section-label"
+                      style={{ borderTop: '1px solid rgba(212,168,83,.18)', paddingTop: '.28rem', fontWeight: 600 }}
+                    >
+                      Restante a pagar
+                    </span>
+                    <span
+                      style={{
+                        color: entradaVal < val ? '#4ade80' : '#f87171',
+                        fontWeight: 700,
+                        textAlign: 'right',
+                        borderTop: '1px solid rgba(212,168,83,.18)',
+                        paddingTop: '.28rem',
+                      }}
+                    >
+                      {fmtCur(entradaVal < val ? val - entradaVal : 0)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tipo de recebimento do restante */}
+          <Field label={entradaAtiva ? `Como pagar o restante (${fmtCur(valorBase)})?` : 'Como será recebido?'}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '.5rem' }}>
               {TIPOS.map(t => (
                 <button
@@ -394,7 +590,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             <FieldRow>
               <Field label="Forma" half>
                 <select className="glass-input" value={form.forma} onChange={f('forma')}>
-                  {(['pix', 'boleto', 'dinheiro', 'cheque', 'cartao'] as FormaPagamento[]).map(pm => (
+                  {PM_TODAS.map(pm => (
                     <option key={pm} value={pm}>{PM_LABELS[pm]}</option>
                   ))}
                 </select>
@@ -409,10 +605,71 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   max="60"
                 />
               </Field>
-              <Field label={form.tipo === 'nosso_parcelamento' ? '1ª Parcela' : '1ª Parcela'} half>
+              <Field label="1ª Parcela" half>
                 <input className="glass-input" type="date" value={form.primeiroVenc} onChange={f('primeiroVenc')} />
               </Field>
             </FieldRow>
+          )}
+
+          {form.tipo === 'nosso_parcelamento' && parcelas.length > 0 && (
+            <div className="mb-4">
+              <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+                Detalhamento das Parcelas
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '.5rem',
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  padding: '.5rem',
+                  background: 'rgba(212,168,83,.03)',
+                  border: '1px solid rgba(212,168,83,.1)',
+                  borderRadius: 8,
+                }}
+              >
+                {parcelas.map((p, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '30px 1fr 1.2fr',
+                      gap: '.5rem',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span className="section-label" style={{ textAlign: 'center' }}>
+                      {entradaAtiva ? p.numero + 1 : p.numero}
+                    </span>
+                    <input
+                      className="glass-input"
+                      style={{ padding: '.3rem .5rem', fontSize: '.85rem' }}
+                      type="number"
+                      value={p.valor}
+                      onChange={e => updateParcela(i, 'valor', e.target.value)}
+                      step="0.01"
+                    />
+                    <input
+                      className="glass-input"
+                      style={{ padding: '.3rem .5rem', fontSize: '.85rem' }}
+                      type="date"
+                      value={p.vencimento}
+                      onChange={e => updateParcela(i, 'vencimento', e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex justify-between px-1">
+                <span className="section-label" style={{ fontSize: '.7rem' }}>
+                  Total: {fmtCur(parcelas.reduce((acc, p) => acc + p.valor, 0))}
+                </span>
+                {Math.abs(parcelas.reduce((acc, p) => acc + p.valor, 0) - valorBase) > 0.01 && (
+                  <span className="text-red-400" style={{ fontSize: '.7rem' }}>
+                    Diferença: {fmtCur(valorBase - parcelas.reduce((acc, p) => acc + p.valor, 0))}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
 
           <Field label="Descrição (opcional)">
@@ -424,6 +681,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             />
           </Field>
 
+          {/* Resumo do lançamento */}
           {val > 0 && (
             <div
               style={{
@@ -434,12 +692,25 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 marginBottom: '.5rem',
               }}
             >
+              {entradaAtiva && (
+                <div
+                  style={{
+                    marginBottom: '.35rem',
+                    paddingBottom: '.35rem',
+                    borderBottom: '1px solid rgba(74,222,128,.15)',
+                    fontSize: '.78rem',
+                    color: '#d4a853',
+                  }}
+                >
+                  Entrada {fmtCur(entradaVal)} via {PM_LABELS[form.formaEntrada]} · {form.dataEntrada}
+                </div>
+              )}
               <span style={{ color: '#4ade80', fontSize: '.82rem' }}>
                 {isParcelado
                   ? form.tipo === 'cartao_parcelado'
-                    ? `Bruto ${fmtCur(val)} · Desconto ${descontoCartaoPercentual.toFixed(2)}% (${fmtCur(descontoCartaoValor)}) · Líquido recebido ${fmtCur(liquidoCartao)}`
-                    : `${n}× de ${fmtCur(val / n)} · ${PM_LABELS[form.forma]} · 1ª: ${form.primeiroVenc}`
-                  : `${fmtCur(val)} via ${PM_LABELS[form.forma]} · ${form.primeiroVenc}`}
+                    ? `Bruto ${fmtCur(valorBase)} · Desconto ${descontoCartaoPercentual.toFixed(2)}% (${fmtCur(descontoCartaoValor)}) · Líquido recebido ${fmtCur(liquidoCartao)}`
+                    : `${n}× de ${fmtCur(valorBase / n)} · ${PM_LABELS[form.forma]} · 1ª: ${form.primeiroVenc}`
+                  : `${fmtCur(valorBase)} via ${PM_LABELS[form.forma]} · ${form.primeiroVenc}`}
               </span>
             </div>
           )}
@@ -452,7 +723,11 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             submitLabel="Lançar no caixa"
             submittingLabel="Lançando..."
             submitting={saving}
-            submitDisabled={!form.valor}
+            submitDisabled={
+              !form.valor ||
+              (form.tipo === 'nosso_parcelamento' &&
+                Math.abs(parcelas.reduce((acc, p) => acc + p.valor, 0) - valorBase) > 0.01)
+            }
           />
         </Modal>
       )}

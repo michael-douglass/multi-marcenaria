@@ -33,6 +33,7 @@ const migrations = [
   '009_orcamentos_fechados_liquido_desconto.sql',
   '010_transacoes_historico.sql',
   '011_contas_receber_origem.sql',
+  '012_orcamentos_fechados_delete_policy.sql',
   '013_leads_ganhos_observacoes.sql',
   '014_caixa_fornecedor.sql',
   '015_fornecedor_limite.sql',
