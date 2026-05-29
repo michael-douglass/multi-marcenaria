@@ -233,6 +233,7 @@ export interface ContaReceber {
   id: string
   cliente_id?: string
   cliente_nome?: string
+  cliente_telefone?: string
   valor_total?: number
   numero_parcela: number
   total_parcelas: number

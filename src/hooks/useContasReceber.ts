@@ -1,15 +1,29 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { ContaReceber, FormaPagamento } from '../types'
-import { addDays, todayISO } from '../lib/utils'
+import type { ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
+import { createId, addDays, addMonths, todayISO } from '../lib/utils'
+
+export interface ParcelaInput {
+  numero: number
+  valor: number
+  vencimento: string
+}
 
 interface GerarCobrancaInput {
   cliente_id: string
   cliente_nome: string
   valor_total: number
-  num_parcelas: number
-  primeiro_vencimento: string
+  tipo_recebimento: TipoRecebimento
   forma_pagamento: FormaPagamento
+  total_parcelas: number
+  primeiro_vencimento: string
+  entrada?: {
+    valor: number
+    data: string
+    forma_pagamento: FormaPagamento
+  }
+  parcelas_detalhadas?: ParcelaInput[]
+  desconto_cartao_percentual?: number
 }
 
 export interface AtualizarTransacaoInput {
@@ -29,39 +43,131 @@ export function useContasReceber() {
     setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_contas_receber')
-      .select('*')
+      .select('*, movelaria_clientes(telefone)')
       .order('data_vencimento', { ascending: true })
     if (err) setError(err.message)
-    else setData(rows ?? [])
+    else {
+      const flattened = (rows ?? []).map((r: any) => ({
+        ...r,
+        cliente_telefone: r.movelaria_clientes?.telefone || null,
+      }))
+      setData(flattened)
+    }
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
-    const n = input.num_parcelas
-    const valorUnitario = parseFloat((input.valor_total / n).toFixed(2))
+    const valorBase = input.entrada
+      ? parseFloat((input.valor_total - input.entrada.valor).toFixed(2))
+      : input.valor_total
 
-    const parcelas = Array.from({ length: n }, (_, i) => ({
-      cliente_id: input.cliente_id,
-      cliente_nome: input.cliente_nome,
-      valor_total: input.valor_total,
-      numero_parcela: i + 1,
-      total_parcelas: n,
-      valor_parcela:
-        i === n - 1
-          ? parseFloat((input.valor_total - valorUnitario * (n - 1)).toFixed(2))
-          : valorUnitario,
-      data_vencimento: addDays(input.primeiro_vencimento, i * 30),
-      forma_pagamento: input.forma_pagamento,
-      status: 'pendente' as const,
-      origem_tipo: 'manual' as const,
-      origem_lead_id: null,
-    }))
+    const descontoPercentual = input.tipo_recebimento === 'cartao_parcelado'
+      ? Math.max(0, Math.min(100, input.desconto_cartao_percentual ?? 0))
+      : 0
+    const valorDesconto = parseFloat(((valorBase * descontoPercentual) / 100).toFixed(2))
+    const valorLiquido = parseFloat((valorBase - valorDesconto).toFixed(2))
+
+    const n = input.tipo_recebimento === 'a_vista' ? 1 : Math.max(1, input.total_parcelas)
+    let formaPag: FormaPagamento = input.forma_pagamento
+    if (input.tipo_recebimento === 'cartao_parcelado') formaPag = 'cartao'
+
+    const totalParcelasGlobal = (input.entrada ? 1 : 0) + n
+    const parcelaOffset = input.entrada ? 1 : 0
+    const grupoId = createId()
+
+    const parcelasToInsert: any[] = []
+
+    // 1. Entrada Parcial
+    if (input.entrada) {
+      parcelasToInsert.push({
+        cliente_id: input.cliente_id,
+        cliente_nome: input.cliente_nome,
+        valor_total: input.valor_total,
+        numero_parcela: 1,
+        total_parcelas: totalParcelasGlobal,
+        valor_parcela: input.entrada.valor,
+        data_vencimento: input.entrada.data,
+        forma_pagamento: input.entrada.forma_pagamento,
+        status: 'pendente',
+        origem_tipo: 'manual',
+        grupo_id: grupoId,
+      })
+    }
+
+    // 2. Restante
+    if (input.tipo_recebimento === 'a_vista') {
+      parcelasToInsert.push({
+        cliente_id: input.cliente_id,
+        cliente_nome: input.cliente_nome,
+        valor_total: input.valor_total,
+        numero_parcela: 1 + parcelaOffset,
+        total_parcelas: totalParcelasGlobal,
+        valor_parcela: valorBase,
+        data_vencimento: input.primeiro_vencimento,
+        forma_pagamento: formaPag,
+        status: 'pendente',
+        origem_tipo: 'manual',
+        grupo_id: grupoId,
+      })
+    } else if (input.tipo_recebimento === 'cartao_parcelado') {
+      parcelasToInsert.push({
+        cliente_id: input.cliente_id,
+        cliente_nome: input.cliente_nome,
+        valor_total: input.valor_total,
+        numero_parcela: 1 + parcelaOffset,
+        total_parcelas: totalParcelasGlobal,
+        valor_parcela: valorLiquido,
+        data_vencimento: todayISO(),
+        forma_pagamento: 'cartao',
+        status: 'pendente',
+        origem_tipo: 'manual',
+        grupo_id: grupoId,
+      })
+    } else {
+      if (input.parcelas_detalhadas && input.parcelas_detalhadas.length > 0) {
+        input.parcelas_detalhadas.forEach(p => {
+          parcelasToInsert.push({
+            cliente_id: input.cliente_id,
+            cliente_nome: input.cliente_nome,
+            valor_total: input.valor_total,
+            numero_parcela: p.numero + parcelaOffset,
+            total_parcelas: totalParcelasGlobal,
+            valor_parcela: p.valor,
+            data_vencimento: p.vencimento,
+            forma_pagamento: formaPag,
+            status: 'pendente',
+            origem_tipo: 'manual',
+            grupo_id: grupoId,
+          })
+        })
+      } else {
+        const valorUnit = parseFloat((valorBase / n).toFixed(2))
+        for (let i = 0; i < n; i++) {
+          parcelasToInsert.push({
+            cliente_id: input.cliente_id,
+            cliente_nome: input.cliente_nome,
+            valor_total: input.valor_total,
+            numero_parcela: i + 1 + parcelaOffset,
+            total_parcelas: totalParcelasGlobal,
+            valor_parcela:
+              i === n - 1
+                ? parseFloat((valorBase - valorUnit * (n - 1)).toFixed(2))
+                : valorUnit,
+            data_vencimento: addMonths(input.primeiro_vencimento, i),
+            forma_pagamento: formaPag,
+            status: 'pendente',
+            origem_tipo: 'manual',
+            grupo_id: grupoId,
+          })
+        }
+      }
+    }
 
     const { data: rows, error: err } = await supabase
       .from('movelaria_contas_receber')
-      .insert(parcelas)
+      .insert(parcelasToInsert)
       .select()
     if (err) throw new Error(err.message)
     setData(prev => [...prev, ...(rows ?? [])])
@@ -137,25 +243,7 @@ export function useContasReceber() {
     if (!conta) return
 
     let leadIdRelacionado = conta.origem_lead_id ?? null
-
-    // Fallback para registros antigos sem origem salva.
-    if (!leadIdRelacionado) {
-      let query = supabase
-        .from('movelaria_orcamentos_fechados')
-        .select('lead_id')
-        .order('criado_em', { ascending: false })
-        .limit(1)
-
-      if (conta.cliente_id) query = query.eq('cliente_id', conta.cliente_id)
-      else if (conta.cliente_nome) query = query.eq('cliente_nome', conta.cliente_nome)
-
-      if (typeof conta.valor_total === 'number') {
-        query = query.eq('valor_total', conta.valor_total)
-      }
-
-      const { data: orcRow } = await query.maybeSingle()
-      leadIdRelacionado = orcRow?.lead_id ?? null
-    }
+    let grupoIdManual = (conta as any).grupo_id ?? null
 
     if (conta.origem_tipo === 'orcamento_fechado' || !!leadIdRelacionado) {
       if (leadIdRelacionado) {
@@ -207,6 +295,16 @@ export function useContasReceber() {
           return !(mesmoLead || (mesmoCliente && mesmoValor))
         }),
       )
+      return
+    }
+
+    if (grupoIdManual) {
+      const { error: err } = await supabase
+        .from('movelaria_contas_receber')
+        .delete()
+        .eq('grupo_id', grupoIdManual)
+      if (err) throw new Error(err.message)
+      setData(prev => prev.filter(x => (x as any).grupo_id !== grupoIdManual))
       return
     }
 

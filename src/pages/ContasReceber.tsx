@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
 import { OrcamentosFechados } from '../components/cobrancas/OrcamentosFechados'
@@ -10,12 +10,12 @@ import { FilterBar } from '../components/ui/FilterBar'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
 import {
   applyPeriodFilter,
-  DEFAULT_PERIOD,
   PeriodFilterBar,
   type PeriodFilter,
 } from '../components/ui/PeriodFilterBar'
-import { fmtCur, fmtDate, isOverdue, todayISO } from '../lib/utils'
-import type { Cliente, ContaReceber, FormaPagamento } from '../types'
+import { fmtCur, fmtDate, isOverdue, todayISO, addMonths } from '../lib/utils'
+import type { Cliente, ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
+import type { ParcelaInput } from '../hooks/useContasReceber'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 
@@ -26,6 +26,20 @@ type Filter = 'Todos' | 'Pendente' | 'Recebido' | 'Vencido'
 const PAYMENT_METHODS: FormaPagamento[] = ['pix', 'dinheiro', 'cheque', 'boleto']
 const PM_ICON: Record<FormaPagamento, string> = { pix: '⚡', dinheiro: '💵', cheque: '📝', boleto: '🏦', cartao: '💳' }
 const PM_LABEL: Record<FormaPagamento, string> = { pix: 'Pix', dinheiro: 'Dinheiro', cheque: 'Cheque', boleto: 'Boleto', cartao: 'Cartão' }
+
+const TIPO_LABELS: Record<TipoRecebimento, string> = {
+  a_vista: 'À Vista',
+  cartao_parcelado: 'Cartão Parcelado',
+  nosso_parcelamento: 'Nosso Parcelamento',
+}
+
+const TIPO_ICONS: Record<TipoRecebimento, string> = {
+  a_vista: '💵',
+  cartao_parcelado: '💳',
+  nosso_parcelamento: '📝',
+}
+
+const TIPOS: TipoRecebimento[] = ['a_vista', 'cartao_parcelado', 'nosso_parcelamento']
 
 const getStatus = (vencimento: string, status: string): string => {
   if (status === 'recebido') return 'recebido'
@@ -38,15 +52,97 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const isAdmin = role === 'Administrador'
   const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
   const orcamentos = useOrcamentosFechados()
-  const [filter, setFilter] = useState<Filter>('Todos')
+  const [filter, setFilter] = useState<Filter>('Pendente')
   const [search, setSearch] = useState('')
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(DEFAULT_PERIOD)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'month' })
   const [open, setOpen] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
   const [openBulkEdit, setOpenBulkEdit] = useState(false)
   const [selectedConta, setSelectedConta] = useState<ContaReceber | null>(null)
   const [bulkParcelas, setBulkParcelas] = useState<ContaReceber[]>([])
-  const [form, setForm] = useState({ clienteId: '', total: '', inst: '1', fdd: todayISO(), pm: 'pix' as FormaPagamento })
+  const [form, setForm] = useState({
+    clienteId: '',
+    total: '',
+    inst: '1',
+    fdd: todayISO(),
+    pm: 'pix' as FormaPagamento,
+    tipo: 'a_vista' as TipoRecebimento,
+    descontoCartao: '0',
+    entradaAtiva: false,
+    entradaValor: '',
+    entradaData: todayISO(),
+    entradaForma: 'pix' as FormaPagamento,
+  })
+  const [billingParcelas, setBillingParcelas] = useState<ParcelaInput[]>([])
+
+  useEffect(() => {
+    if (form.tipo === 'nosso_parcelamento') {
+      const tot = parseFloat(form.total) || 0
+      const ent = form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0
+      const val = tot - ent
+      const n = parseInt(form.inst) || 1
+      const start = form.fdd || todayISO()
+
+      const valorUnit = val / n
+      const newParcelas: ParcelaInput[] = Array.from({ length: n }, (_, i) => ({
+        numero: i + 1,
+        valor:
+          i === n - 1
+            ? parseFloat((val - valorUnit * (n - 1)).toFixed(2))
+            : parseFloat(valorUnit.toFixed(2)),
+        vencimento: addMonths(start, i),
+      }))
+      setBillingParcelas(newParcelas)
+    } else {
+      setBillingParcelas([])
+    }
+  }, [form.total, form.inst, form.fdd, form.tipo, form.entradaAtiva, form.entradaValor])
+
+  const updateBillingParcela = (index: number, field: keyof ParcelaInput, value: string | number) => {
+    const newParcelas = [...billingParcelas]
+    const p = { ...newParcelas[index] }
+
+    if (field === 'valor') {
+      const newVal = parseFloat(value as string) || 0
+      p.valor = newVal
+      newParcelas[index] = p
+
+      const tot = parseFloat(form.total) || 0
+      const ent = form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0
+      const totalRestante = tot - ent
+      
+      const jaPago = newParcelas.slice(0, index + 1).reduce((sum, item) => sum + item.valor, 0)
+      const restante = totalRestante - jaPago
+      const nRestantes = newParcelas.length - (index + 1)
+
+      if (nRestantes > 0) {
+        const valorRestUnit = restante / nRestantes
+        for (let i = index + 1; i < newParcelas.length; i++) {
+          newParcelas[i] = {
+            ...newParcelas[i],
+            valor:
+              i === newParcelas.length - 1
+                ? parseFloat((restante - valorRestUnit * (nRestantes - 1)).toFixed(2))
+                : parseFloat(valorRestUnit.toFixed(2)),
+          }
+        }
+      }
+    } else if (field === 'vencimento') {
+      p.vencimento = value as string
+      newParcelas[index] = p
+    }
+
+    setBillingParcelas(newParcelas)
+  }
+
+  const selectTipo = (tipo: TipoRecebimento) =>
+    setForm(p => ({
+      ...p,
+      tipo,
+      pm: tipo === 'a_vista' ? 'pix' : tipo === 'cartao_parcelado' ? 'cartao' : p.pm,
+      inst: tipo === 'a_vista' ? '1' : p.inst === '1' ? '2' : p.inst,
+    }))
+
   const [editForm, setEditForm] = useState({
     valor_parcela: '',
     data_vencimento: todayISO(),
@@ -163,40 +259,47 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       ? periodBase.filter(r => r.status !== 'recebido')
       : periodBase
 
-  const totPend = periodFiltered.filter(r => r.status !== 'recebido').reduce((s, r) => s + r.valor_parcela, 0)
-  const totRec  = periodFiltered.filter(r => r.status === 'recebido').reduce((s, r) => s + r.valor_parcela, 0)
-  const totOver = periodFiltered.filter(r => r.status !== 'recebido' && isOverdue(r.data_vencimento)).reduce((s, r) => s + r.valor_parcela, 0)
-  const totalLiquidoPeriodo = periodFiltered.reduce((s, r) => s + r.valor_parcela, 0)
-  const totalBrutoViaOrcamentos = applyPeriodFilter(
-    orcamentos.fechados.map(item => ({
-      ...item,
-      // fallback para manter o item no período mesmo quando o banco retornar data nula/incompleta
-      data_vencimento: (item.criado_em ?? item.atualizado_em ?? `${todayISO()}T00:00:00`).slice(0, 10),
-      valor_total_num: Number(item.valor_total ?? 0),
-    })),
-    periodFilter,
-  ).reduce((s, item) => s + item.valor_total_num, 0)
+  // --- KPIs — seguem o filtro de período selecionado ---
+  const kpiAReceber = periodFiltered
+    .filter(r => r.status !== 'recebido')
+    .reduce((s, r) => s + r.valor_parcela, 0)
 
-  // Fallback robusto: reconstrói o bruto pelos lançamentos de orçamentos fechados no contas_receber.
-  const brutoPorLead = new Map<string, number>()
-  for (const row of periodFiltered) {
-    if (row.origem_tipo !== 'orcamento_fechado') continue
-    const chave = row.origem_lead_id ?? row.id
-    const brutoAtual = brutoPorLead.get(chave) ?? 0
-    const brutoLinha = Number(row.valor_total ?? 0)
-    if (brutoLinha > brutoAtual) brutoPorLead.set(chave, brutoLinha)
-  }
-  const totalBrutoViaContas = Array.from(brutoPorLead.values()).reduce((s, v) => s + v, 0)
+  const kpiRecebido = periodFiltered
+    .filter(r => r.status === 'recebido')
+    .reduce((s, r) => s + r.valor_parcela, 0)
 
-  const totalBrutoServicos = totalBrutoViaOrcamentos > 0 ? totalBrutoViaOrcamentos : totalBrutoViaContas
+  const kpiEmAtraso = periodFiltered
+    .filter(r => r.status !== 'recebido' && isOverdue(r.data_vencimento))
+    .reduce((s, r) => s + r.valor_parcela, 0)
 
-  const filtered = periodFiltered.filter(r => {
+  const kpiFechadoBruto = (() => {
+    const fromOrc = applyPeriodFilter(
+      orcamentos.fechados.map(item => ({
+        ...item,
+        data_vencimento: (item.criado_em ?? item.atualizado_em ?? todayISO() + 'T00:00:00').slice(0, 10),
+        valor_total_num: Number(item.valor_total ?? 0),
+      })),
+      periodFilter,
+    ).reduce((s, item) => s + item.valor_total_num, 0)
+    if (fromOrc > 0) return fromOrc
+    // Fallback via contas_receber
+    const brutoPorLead = new Map<string, number>()
+    for (const row of periodFiltered) {
+      if (row.origem_tipo !== 'orcamento_fechado') continue
+      const chave = row.origem_lead_id ?? row.id
+      const brutoLinha = Number(row.valor_total ?? 0)
+      if (brutoLinha > (brutoPorLead.get(chave) ?? 0)) brutoPorLead.set(chave, brutoLinha)
+    }
+    return Array.from(brutoPorLead.values()).reduce((s, v) => s + v, 0)
+  })()
+
+  const filtered = data.filter(r => {
     // 1. Filtro de Status
     if (filter !== 'Todos') {
       if (getStatus(r.data_vencimento, r.status) !== filter.toLowerCase()) return false
     }
 
-    // 2. Filtro de Busca (Nome, Telefone, Forma, Valores)
+    // 2. Filtro de Busca (Nome, Telefone, Forma, Valores, Data)
     if (search.trim()) {
       const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
       
@@ -205,12 +308,14 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       const valor = String(r.valor_parcela).replace(/[\s\.\,]/g, '')
       const total = String(r.valor_total).replace(/[\s\.\,]/g, '')
       const forma = PM_LABEL[r.forma_pagamento as FormaPagamento]?.toLowerCase() || ''
+      const dataVenc = fmtDate(r.data_vencimento).replace(/[\s\.\,\/]/g, '')
 
       const match = nome.includes(term) || 
                     telefone.includes(term) || 
                     valor.includes(term) || 
                     total.includes(term) || 
-                    forma.includes(term)
+                    forma.includes(term) ||
+                    dataVenc.includes(term)
 
       if (!match) return false
     }
@@ -222,17 +327,52 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     const tot = parseFloat(form.total)
     const cl = clientes.find(c => c.id === form.clienteId)
     if (!cl || !tot || tot <= 0) return
+    
+    if (form.tipo !== 'a_vista' && parseInt(form.inst) < 2) {
+      alert('Informe ao menos 2 parcelas para recebimento parcelado.')
+      return
+    }
+
+    if (form.tipo === 'nosso_parcelamento') {
+      const ent = form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0
+      const sum = billingParcelas.reduce((acc, p) => acc + p.valor, 0) + ent
+      if (Math.abs(sum - tot) > 0.01) {
+        alert(`A soma das parcelas (${fmtCur(sum)}) deve ser igual ao valor total (${fmtCur(tot)}).`)
+        return
+      }
+    }
+
     setSaving(true)
     try {
       await gerarCobranca({
         cliente_id: cl.id,
         cliente_nome: cl.nome,
         valor_total: tot,
-        num_parcelas: parseInt(form.inst) || 1,
-        primeiro_vencimento: form.fdd,
+        tipo_recebimento: form.tipo,
         forma_pagamento: form.pm,
+        total_parcelas: form.tipo === 'a_vista' ? 1 : parseInt(form.inst) || 1,
+        primeiro_vencimento: form.fdd,
+        entrada: form.entradaAtiva ? {
+          valor: parseFloat(form.entradaValor) || 0,
+          data: form.entradaData,
+          forma_pagamento: form.entradaForma,
+        } : undefined,
+        parcelas_detalhadas: form.tipo === 'nosso_parcelamento' ? billingParcelas : undefined,
+        desconto_cartao_percentual: form.tipo === 'cartao_parcelado' ? parseFloat(form.descontoCartao) || 0 : undefined,
       })
-      setForm({ clienteId: '', total: '', inst: '1', fdd: todayISO(), pm: 'pix' })
+      setForm({
+        clienteId: '',
+        total: '',
+        inst: '1',
+        fdd: todayISO(),
+        pm: 'pix',
+        tipo: 'a_vista',
+        descontoCartao: '0',
+        entradaAtiva: false,
+        entradaValor: '',
+        entradaData: todayISO(),
+        entradaForma: 'pix',
+      })
       setOpen(false)
     } finally { setSaving(false) }
   }
@@ -307,7 +447,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Cobranças & Contas a Receber</h1>
           <p className="section-label mt-1">
-            {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''} no período
+            {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
         {!readOnly && (
@@ -327,38 +467,225 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       />
 
       {/* New Billing Modal */}
-      <Modal open={open} onClose={() => setOpen(false)} title="NOVA COBRANÇA">
+      <Modal open={open} onClose={() => setOpen(false)} title="NOVA COBRANÇA" wide>
         <Field label="Cliente *">
           <select className="glass-input" value={form.clienteId} onChange={f('clienteId')}>
             <option value="">Selecionar cliente...</option>
             {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         </Field>
+        
         <Field label="Valor Total da Venda (R$) *">
           <input className="glass-input" type="number" value={form.total} onChange={f('total')} placeholder="0,00" min="0" step="0.01" />
         </Field>
-        <FieldRow>
-          <Field label="Nº de Parcelas" half>
-            <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="1" max="60" />
-          </Field>
-          <Field label="1ª Parcela" half>
-            <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
-          </Field>
-        </FieldRow>
-        <Field label="Forma de Pagamento">
-          <select className="glass-input" value={form.pm} onChange={f('pm')}>
-            {PAYMENT_METHODS.map(m => (
-              <option key={m} value={m}>{PM_ICON[m]} {PM_LABEL[m]}</option>
+
+        <Field label="Como será recebido?">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '.5rem' }}>
+            {TIPOS.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => selectTipo(t)}
+                style={{
+                  padding: '.65rem .4rem',
+                  borderRadius: 8,
+                  border: form.tipo === t ? '1.5px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
+                  background: form.tipo === t ? 'rgba(212,168,83,.12)' : 'transparent',
+                  color: form.tipo === t ? '#d4a853' : '#8a6a55',
+                  cursor: 'pointer',
+                  fontSize: '.7rem',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  fontFamily: 'Raleway, sans-serif',
+                  lineHeight: 1.4,
+                  transition: 'all .15s',
+                }}
+              >
+                <div style={{ fontSize: '1.15rem', marginBottom: '.2rem' }}>{TIPO_ICONS[t]}</div>
+                {TIPO_LABELS[t]}
+              </button>
             ))}
-          </select>
+          </div>
         </Field>
-        {form.total && parseInt(form.inst) > 0 && (
-          <div style={{ background: 'rgba(74,222,128,.06)', border: '1px solid rgba(74,222,128,.2)', borderRadius: 8, padding: '.6rem .85rem', marginBottom: '.5rem' }}>
-            <span style={{ color: '#4ade80', fontSize: '.82rem' }}>
-              {form.inst}× de {fmtCur(parseFloat(form.total) / parseInt(form.inst))} via {PM_LABEL[form.pm]} · 1ª: {fmtDate(form.fdd)}
-            </span>
+
+        {/* Opção de Entrada */}
+        <div className="mb-4">
+          <label className="flex items-center gap-2 cursor-pointer section-label" style={{ color: '#d4a853' }}>
+            <input
+              type="checkbox"
+              checked={form.entradaAtiva}
+              onChange={e => setForm(p => ({ ...p, entradaAtiva: e.target.checked }))}
+            />
+            Houve uma entrada?
+          </label>
+        </div>
+
+        {form.entradaAtiva && (
+          <div
+            style={{
+              padding: '.75rem',
+              borderRadius: 8,
+              border: '1px solid rgba(212,168,83,.2)',
+              background: 'rgba(212,168,83,.04)',
+              marginBottom: '1rem',
+            }}
+          >
+            <FieldRow>
+              <Field label="Valor da Entrada" half>
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={form.entradaValor}
+                  onChange={e => setForm(p => ({ ...p, entradaValor: e.target.value }))}
+                  placeholder="0,00"
+                />
+              </Field>
+              <Field label="Forma" half>
+                <select
+                  className="glass-input"
+                  value={form.entradaForma}
+                  onChange={e => setForm(p => ({ ...p, entradaForma: e.target.value as FormaPagamento }))}
+                >
+                  {PAYMENT_METHODS.map(m => (
+                    <option key={m} value={m}>{PM_LABEL[m]}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Data" half>
+                <input
+                  className="glass-input"
+                  type="date"
+                  value={form.entradaData}
+                  onChange={e => setForm(p => ({ ...p, entradaData: e.target.value }))}
+                />
+              </Field>
+            </FieldRow>
           </div>
         )}
+
+        {form.tipo === 'a_vista' ? (
+          <FieldRow>
+            <Field label="Forma" half>
+              <select className="glass-input" value={form.pm} onChange={f('pm')}>
+                {PAYMENT_METHODS.map(m => (
+                  <option key={m} value={m}>{PM_ICON[m]} {PM_LABEL[m]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Vencimento" half>
+              <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+            </Field>
+          </FieldRow>
+        ) : form.tipo === 'cartao_parcelado' ? (
+          <>
+            <FieldRow>
+              <Field label="% Desconto Cartão" half>
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={form.descontoCartao}
+                  onChange={f('descontoCartao')}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+              </Field>
+              <Field label="Parcelas no Cartão" half>
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={form.inst}
+                  onChange={f('inst')}
+                  min="2"
+                  max="24"
+                />
+              </Field>
+            </FieldRow>
+          </>
+        ) : (
+          <>
+            <FieldRow>
+              <Field label="Forma" half>
+                <select className="glass-input" value={form.pm} onChange={f('pm')}>
+                  {PAYMENT_METHODS.map(m => (
+                    <option key={m} value={m}>{PM_ICON[m]} {PM_LABEL[m]}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Nº de Parcelas" half>
+                <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="2" max="60" />
+              </Field>
+              <Field label="1ª Parcela" half>
+                <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+              </Field>
+            </FieldRow>
+
+            {billingParcelas.length > 0 && (
+              <div className="mb-4">
+                <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+                  Detalhamento do Parcelamento
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: '.5rem',
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                    padding: '.5rem',
+                    background: 'rgba(212,168,83,.03)',
+                    border: '1px solid rgba(212,168,83,.1)',
+                    borderRadius: 8,
+                  }}
+                >
+                  {billingParcelas.map((p, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '40px 1fr 1.2fr',
+                        gap: '.5rem',
+                        alignItems: 'center',
+                        padding: '.25rem',
+                        borderRadius: 6,
+                        background: 'rgba(255,255,255,.02)',
+                      }}
+                    >
+                      <span className="section-label" style={{ textAlign: 'center', fontSize: '.75rem' }}>
+                        {p.numero}
+                      </span>
+                      <input
+                        className="glass-input"
+                        style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
+                        type="number"
+                        value={p.valor}
+                        onChange={e => updateBillingParcela(i, 'valor', e.target.value)}
+                        step="0.01"
+                      />
+                      <input
+                        className="glass-input"
+                        style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
+                        type="date"
+                        value={p.vencimento}
+                        onChange={e => updateBillingParcela(i, 'vencimento', e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex justify-between px-1">
+                  <span className="section-label" style={{ fontSize: '.72rem' }}>
+                    Soma Restante: {fmtCur(billingParcelas.reduce((acc, p) => acc + p.valor, 0))}
+                  </span>
+                  {Math.abs(billingParcelas.reduce((acc, p) => acc + p.valor, 0) - (parseFloat(form.total) - (form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0))) > 0.01 && (
+                    <span className="text-red-400" style={{ fontSize: '.72rem' }}>
+                      Diferença: {fmtCur((parseFloat(form.total) - (form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0)) - billingParcelas.reduce((acc, p) => acc + p.valor, 0))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         <ModalFormFooter
           onCancel={() => setOpen(false)}
           onSubmit={save}
@@ -543,14 +870,13 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
       <PeriodFilterBar value={periodFilter} onChange={setPeriodFilter} />
 
-      {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+      {/* KPI strip — acompanha o filtro de período */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
         {[
-          { l: 'A Receber', v: totPend, c: '#4ade80' },
-          { l: 'Recebido',  v: totRec,  c: '#d4a853' },
-          { l: 'Vencido',   v: totOver, c: '#f87171' },
-          { l: 'Serviços Fechados (Bruto)', v: totalBrutoServicos, c: '#f4e4d6' },
-          { l: 'Líquido no Período', v: totalLiquidoPeriodo, c: '#60a5fa' },
+          { l: 'A Receber',       v: kpiAReceber,    c: '#4ade80' },
+          { l: 'Recebido',        v: kpiRecebido,    c: '#d4a853' },
+          { l: 'Em Atraso',       v: kpiEmAtraso,    c: '#f87171' },
+          { l: 'Fechado Bruto',   v: kpiFechadoBruto, c: '#f4e4d6' },
         ].map((x, i) => (
           <div key={i} className="glass-card p-4 text-center">
             <div className="section-label mb-1">{x.l}</div>
