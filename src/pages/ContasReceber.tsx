@@ -273,6 +273,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     .reduce((s, r) => s + r.valor_parcela, 0)
 
   const kpiFechadoBruto = (() => {
+    // Vendas futuras não existem: nenhum orçamento pode ser fechado no próximo mês.
+    if (periodFilter.mode === 'next-month') return 0
     const fromOrc = applyPeriodFilter(
       orcamentos.fechados.map(item => ({
         ...item,
@@ -282,7 +284,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       periodFilter,
     ).reduce((s, item) => s + item.valor_total_num, 0)
     if (fromOrc > 0) return fromOrc
-    // Fallback via contas_receber
+    // Fallback via contas_receber (apenas para períodos passados/atual)
     const brutoPorLead = new Map<string, number>()
     for (const row of periodFiltered) {
       if (row.origem_tipo !== 'orcamento_fechado') continue
