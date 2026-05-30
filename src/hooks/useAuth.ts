@@ -47,6 +47,8 @@ export function useAuth(): AuthState {
         setUserProfile(profile)
       }
       setLoading(false)
+    }).catch(() => {
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
