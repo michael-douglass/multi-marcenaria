@@ -39,7 +39,10 @@ export function useAuth(): AuthState {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const timeout = setTimeout(() => setLoading(false), 6000)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout)
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -48,6 +51,7 @@ export function useAuth(): AuthState {
       }
       setLoading(false)
     }).catch(() => {
+      clearTimeout(timeout)
       setLoading(false)
     })
 
