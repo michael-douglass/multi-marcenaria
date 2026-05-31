@@ -55,8 +55,8 @@ function RoleRedirect() {
   return null
 }
 
-function AppRoutes() {
-  const { role, authLoading, session } = useApp()
+function AuthenticatedRoutes() {
+  const { role } = useApp()
   const readOnly = role === 'Marceneiro'
 
   const fornecedoresHook = useFornecedores()
@@ -68,18 +68,6 @@ function AppRoutes() {
   const caixaFornecedorHook = useCaixaFornecedor()
 
   const pendingOrders = pedidosHook.data.filter(o => o.status === 'aguardando_aprovacao').length
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
-        Carregando...
-      </div>
-    )
-  }
-
-  if (!session) {
-    return <Login />
-  }
 
   const guardReadOnly = (page: React.ReactNode) =>
     readOnly ? (
@@ -169,6 +157,24 @@ function AppRoutes() {
       </Routes>
     </>
   )
+}
+
+function AppRoutes() {
+  const { authLoading, session } = useApp()
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
+        Carregando...
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <Login />
+  }
+
+  return <AuthenticatedRoutes />
 }
 
 export default function App() {
