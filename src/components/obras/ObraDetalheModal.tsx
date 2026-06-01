@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText } from 'lucide-react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
+import { useObraEvolucao } from '@/hooks/useObraEvolucao'
 import { isAcceptedObraFile } from '@/lib/obra-arquivos'
+import { isAcceptedEvolucaoFile } from '@/lib/obra-evolucao'
+import type { ObraEvolucaoItem, EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
 import { fmtDate } from '@/lib/utils'
 
@@ -53,11 +56,14 @@ export function ObraDetalheModal({
   onClose, onEdit, onIniciar, onFinalizar,
 }: Props) {
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const evolHook = useObraEvolucao(open && obra ? obra.id : null)
+  const fileRef     = useRef<HTMLInputElement>(null)
+  const evolFileRef = useRef<HTMLInputElement>(null)
 
-  const [lightbox, setLightbox] = useState<{ url: string; nome: string } | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [uploadErr, setUploadErr] = useState<string | null>(null)
+  const [lightbox, setLightbox]         = useState<{ url: string; nome: string; canDelete?: boolean; onDelete?: () => void } | null>(null)
+  const [deletingId, setDeletingId]     = useState<string | null>(null)
+  const [uploadErr, setUploadErr]       = useState<string | null>(null)
+  const [evolUploadErr, setEvolUploadErr] = useState<string | null>(null)
 
   if (!obra) return null
 
