@@ -172,8 +172,8 @@ export function ObraDetalheModal({
           )}
         </div>
 
-        {/* ── AÇÕES MONTADOR ─────────────────────────────────── */}
-        {isMontador && (
+        {/* ── AÇÕES INICIAR/FINALIZAR ────────────────────────── */}
+        {(isMontador || canEdit) && (
           <div className="flex gap-2 mb-5">
             {!obra.iniciado_em && (
               <button
