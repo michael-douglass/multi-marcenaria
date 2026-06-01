@@ -336,25 +336,55 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const kpiFechadoBruto = (() => {
     // Vendas futuras não existem: nenhum orçamento pode ser fechado no próximo mês.
     if (periodFilter.mode === 'next-month') return 0
+    
+    // Filtro a ser usado para os KPIs: segue o filtro de período ativo ou 'month' por padrão
     const kpiFiltro = (!isDefaultView || search.trim()) ? periodFilter : { mode: 'month' as const }
-    const fromOrc = applyPeriodFilter(
+    
+    // Helper para converter ISO UTC para YYYY-MM-DD Local
+    const toLocalDate = (iso?: string | null) => {
+      if (!iso) return '1900-01-01'
+      const d = new Date(iso)
+      if (isNaN(d.getTime())) return '1900-01-01'
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
+    // 1. Bruto de Orçamentos Fechados
+    const brutoOrcamentos = applyPeriodFilter(
       orcamentos.fechados.map(item => ({
         ...item,
-        data_vencimento: (item.criado_em ?? item.atualizado_em ?? todayISO() + 'T00:00:00').slice(0, 10),
+        data_vencimento: toLocalDate(item.criado_em),
         valor_total_num: Number(item.valor_total ?? 0),
       })),
       kpiFiltro,
     ).reduce((s, item) => s + item.valor_total_num, 0)
-    if (fromOrc > 0) return fromOrc
-    // Fallback via contas_receber (apenas para períodos passados/atual)
-    const brutoPorLead = new Map<string, number>()
-    for (const row of kpiBase) {
-      if (row.origem_tipo !== 'orcamento_fechado') continue
-      const chave = row.origem_lead_id ?? row.id
-      const brutoLinha = Number(row.valor_total ?? 0)
-      if (brutoLinha > (brutoPorLead.get(chave) ?? 0)) brutoPorLead.set(chave, brutoLinha)
+
+    // 2. Bruto de Lançamentos Manuais
+    // Agrupamos por grupo_id para não duplicar o valor_total em cada parcela
+    const manualGroups = new Map<string, { valor_total: number; criado_em_local: string }>()
+    for (const row of data) {
+      if (row.origem_tipo !== 'manual') continue
+      // Usamos grupo_id se houver (vendas parceladas), senão o id da parcela única
+      const grupoId = (row as any).grupo_id ?? row.id
+      if (!manualGroups.has(grupoId)) {
+        manualGroups.set(grupoId, {
+          valor_total: Number(row.valor_total ?? 0),
+          criado_em_local: toLocalDate(row.criado_em),
+        })
+      }
     }
-    return Array.from(brutoPorLead.values()).reduce((s, v) => s + v, 0)
+    
+    const brutoManual = applyPeriodFilter(
+      Array.from(manualGroups.values()).map(g => ({
+        data_vencimento: g.criado_em_local,
+        valor_total: g.valor_total,
+      })),
+      kpiFiltro,
+    ).reduce((s, g) => s + g.valor_total, 0)
+
+    return brutoOrcamentos + brutoManual
   })()
 
   const save = async () => {
