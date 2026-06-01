@@ -72,20 +72,30 @@ interface ObraCardProps {
   canEdit: boolean
   isMontador: boolean
   actioning: string | null
+  isDragging: boolean
   onEdit: (obra: ObraFull) => void
   onIniciar: (id: string) => void
   onFinalizar: (id: string) => void
+  onDragStart: (e: React.DragEvent, id: string) => void
+  onDragEnd: () => void
 }
 
-function ObraCard({ obra, canEdit, isMontador, actioning, onEdit, onIniciar, onFinalizar }: ObraCardProps) {
+function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, onIniciar, onFinalizar, onDragStart, onDragEnd }: ObraCardProps) {
   const loading = actioning === obra.id
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
   return (
     <div
-      className="glass-card p-3 text-sm flex flex-col gap-1.5"
-      style={{ minWidth: 0 }}
+      className="glass-card p-3 text-sm flex flex-col gap-1.5 transition-opacity"
+      draggable={canEdit}
+      onDragStart={canEdit ? e => onDragStart(e, obra.id) : undefined}
+      onDragEnd={canEdit ? onDragEnd : undefined}
+      style={{
+        minWidth: 0,
+        opacity: isDragging ? 0.35 : 1,
+        cursor: canEdit ? 'grab' : 'default',
+      }}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-1">
@@ -410,6 +420,42 @@ export function AgendaObras() {
   const [actioning, setActioning] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
 
+  // ── Drag and drop ──────────────────────────────────────────
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<StatusKanbanObra | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggingId(id)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingId(null)
+    setDragOverCol(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent, col: StatusKanbanObra) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverCol(col)
+  }
+
+  const handleDrop = async (e: React.DragEvent, col: StatusKanbanObra) => {
+    e.preventDefault()
+    const id = draggingId ?? e.dataTransfer.getData('text/plain')
+    setDraggingId(null)
+    setDragOverCol(null)
+    if (!id) return
+    const obra = obrasHook.data.find(o => o.id === id)
+    if (!obra || computeKanbanKey(obra) === col) return
+    try {
+      await obrasHook.update(id, { status_kanban: col })
+    } catch {
+      // erro já visível via toast se necessário
+    }
+  }
+
   const obrasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     if (!q) return obrasHook.data
@@ -561,16 +607,24 @@ export function AgendaObras() {
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ flex: 1, minHeight: 0 }}>
           {COLUNAS.map(col => {
             const obras = obrasByCol[col.key]
+            const isOver = dragOverCol === col.key && draggingId !== null
             return (
               <div
                 key={col.key}
-                className="flex flex-col gap-2 shrink-0"
+                className="flex flex-col gap-2 shrink-0 transition-all"
                 style={{ width: 240, minWidth: 240 }}
+                onDragOver={canEdit ? e => handleDragOver(e, col.key) : undefined}
+                onDragLeave={canEdit ? () => setDragOverCol(null) : undefined}
+                onDrop={canEdit ? e => handleDrop(e, col.key) : undefined}
               >
                 {/* Cabeçalho da coluna */}
                 <div
-                  className="flex items-center justify-between px-3 py-2 rounded-lg"
-                  style={{ backgroundColor: `${col.cor}18`, border: `1px solid ${col.cor}33` }}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg transition-all"
+                  style={{
+                    backgroundColor: isOver ? `${col.cor}30` : `${col.cor}18`,
+                    border: `1px solid ${isOver ? col.cor : `${col.cor}33`}`,
+                    boxShadow: isOver ? `0 0 0 2px ${col.cor}40` : undefined,
+                  }}
                 >
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: col.cor }}>
                     {col.label}
@@ -584,9 +638,22 @@ export function AgendaObras() {
                 </div>
 
                 {/* Cards */}
-                <div className="flex flex-col gap-2 overflow-y-auto" style={{ flex: 1 }}>
-                  {obras.length === 0 ? (
+                <div
+                  className="flex flex-col gap-2 overflow-y-auto rounded-lg transition-all"
+                  style={{
+                    flex: 1,
+                    minHeight: 80,
+                    border: isOver ? `2px dashed ${col.cor}66` : '2px solid transparent',
+                    backgroundColor: isOver ? `${col.cor}08` : undefined,
+                    padding: isOver ? '4px' : undefined,
+                  }}
+                >
+                  {obras.length === 0 && !isOver ? (
                     <div className="text-center py-8 text-[0.75rem] text-[#6b5544]">Nenhuma obra</div>
+                  ) : obras.length === 0 && isOver ? (
+                    <div className="flex items-center justify-center py-8 text-[0.75rem]" style={{ color: col.cor }}>
+                      Soltar aqui
+                    </div>
                   ) : (
                     obras.map(obra => (
                       <ObraCard
@@ -595,8 +662,11 @@ export function AgendaObras() {
                         canEdit={canEdit}
                         isMontador={isMontador}
                         actioning={actioning}
+                        isDragging={draggingId === obra.id}
                         onEdit={openEdit}
                         onIniciar={handleIniciar}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
                         onFinalizar={handleFinalizar}
                       />
                     ))
