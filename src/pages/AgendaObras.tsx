@@ -463,6 +463,15 @@ export function AgendaObras() {
   const handleObraChange = (k: keyof ObraInput, v: string | null | number) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
+
+      // Ao selecionar tipo de obra, preenche o prazo máximo com o padrão do tipo
+      if (k === 'tipo_obra_id' && v) {
+        const tipo = tiposHook.data.find(t => t.id === v)
+        if (tipo?.tempo_maximo_horas_default != null) {
+          next.tempo_maximo_horas = Number(tipo.tempo_maximo_horas_default)
+        }
+      }
+
       // Auto-compute status when dates change
       if ((k === 'data_prevista_inicio' || k === 'data_prevista_fim') && !editObra?.iniciado_em) {
         const fim = k === 'data_prevista_fim' ? (v as string) : p.data_prevista_fim
