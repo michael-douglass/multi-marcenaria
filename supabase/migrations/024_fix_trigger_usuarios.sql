@@ -60,7 +60,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 REVOKE ALL ON FUNCTION movelaria_registrar_usuario_existente(TEXT, TEXT, TEXT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION movelaria_registrar_usuario_existente(TEXT, TEXT, TEXT) TO authenticated;
 
--- ── 3. Corrigir movelaria_criar_usuario (se email já existe, registra) ──
+-- ── 3. Corrigir movelaria_criar_usuario (cria identity + perfil) ──
 CREATE OR REPLACE FUNCTION movelaria_criar_usuario(
   p_email  TEXT,
   p_senha  TEXT,
@@ -69,7 +69,8 @@ CREATE OR REPLACE FUNCTION movelaria_criar_usuario(
 )
 RETURNS UUID AS $$
 DECLARE
-  v_id UUID;
+  v_id    UUID;
+  v_email TEXT := lower(trim(p_email));
 BEGIN
   IF movelaria_meu_perfil() <> 'administrador' THEN
     RAISE EXCEPTION 'Acesso negado: somente administradores podem criar usuários';
@@ -79,16 +80,16 @@ BEGIN
   END IF;
 
   -- Verifica se o e-mail já existe em auth.users
-  SELECT id INTO v_id FROM auth.users WHERE lower(email) = lower(p_email);
+  SELECT id INTO v_id FROM auth.users WHERE lower(email) = v_email;
 
   IF v_id IS NOT NULL THEN
-    -- Usuário já existe no auth: apenas registra/atualiza o perfil movelaria
+    -- Usuário já existe: apenas registra/atualiza o perfil movelaria
     INSERT INTO public.movelaria_usuarios (id, email, nome, perfil, ativo)
-    VALUES (v_id, p_email, p_nome, p_perfil, true)
+    VALUES (v_id, v_email, p_nome, p_perfil, true)
     ON CONFLICT (id) DO UPDATE
-      SET nome          = COALESCE(EXCLUDED.nome, public.movelaria_usuarios.nome),
-          perfil        = EXCLUDED.perfil,
-          ativo         = true,
+      SET nome = COALESCE(EXCLUDED.nome, public.movelaria_usuarios.nome),
+          perfil = EXCLUDED.perfil,
+          ativo = true,
           atualizado_em = NOW();
 
     -- Atualiza senha se fornecida
@@ -97,6 +98,16 @@ BEGIN
       SET encrypted_password = crypt(p_senha, gen_salt('bf')), updated_at = NOW()
       WHERE id = v_id;
     END IF;
+
+    -- Garante que existe identity (pode estar faltando em usuários antigos)
+    INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    VALUES (
+      gen_random_uuid(), v_id, v_email,
+      jsonb_build_object('sub', v_id::text, 'email', v_email, 'email_verified', true),
+      'email', NOW(), NOW(), NOW()
+    )
+    ON CONFLICT (provider, provider_id) DO NOTHING;
+
   ELSE
     -- Cria novo usuário no auth
     v_id := gen_random_uuid();
@@ -112,7 +123,7 @@ BEGIN
       v_id,
       '00000000-0000-0000-0000-000000000000',
       'authenticated', 'authenticated',
-      lower(p_email),
+      v_email,
       crypt(p_senha, gen_salt('bf')),
       NOW(),
       '{"provider":"email","providers":["email"]}'::jsonb,
@@ -121,9 +132,17 @@ BEGIN
       NOW(), NOW()
     );
 
-    -- Atualiza perfil criado pelo trigger (ou cria se trigger falhou)
+    -- Cria a identity (obrigatória para o GoTrue autenticar)
+    INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    VALUES (
+      gen_random_uuid(), v_id, v_email,
+      jsonb_build_object('sub', v_id::text, 'email', v_email, 'email_verified', true),
+      'email', NOW(), NOW(), NOW()
+    );
+
+    -- Cria ou atualiza perfil movelaria
     INSERT INTO public.movelaria_usuarios (id, email, nome, perfil, ativo)
-    VALUES (v_id, lower(p_email), p_nome, p_perfil, true)
+    VALUES (v_id, v_email, p_nome, p_perfil, true)
     ON CONFLICT (id) DO UPDATE
       SET nome = p_nome, perfil = p_perfil, ativo = true, atualizado_em = NOW();
   END IF;
