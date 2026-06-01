@@ -40,31 +40,59 @@ export function useAuth(): AuthState {
   const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
-    // Fallback: se onAuthStateChange nunca disparar (falha de rede), desbloqueia a UI após 6s
-    let timeoutId = setTimeout(() => setLoading(false), 6000)
+    // 1. Carga inicial da sessão (crítico para F5)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // TOKEN_REFRESHED só atualiza o token — não precisa rebuscar o perfil
+      if (session?.user) {
+        scheduleProfileFetch(session.user.id)
+      }
+    }).catch(err => {
+      console.error('[useAuth] Erro ao buscar sessão inicial:', err)
+      setLoading(false)
+    })
+
+    // 2. Listener de mudanças de estado
+    // O callback DEVE ser síncrono para evitar deadlocks em produção
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // console.log(`[useAuth] Evento: ${event}`, session?.user?.id)
+
+      if (event === 'SIGNED_OUT') {
+        setSession(null)
+        setUser(null)
+        setUserProfile(null)
+        setProfileLoading(false)
+        setLoading(false)
+        return
+      }
+
+      // TOKEN_REFRESHED só atualiza a sessão local
       if (event === 'TOKEN_REFRESHED') {
         setSession(session)
         return
       }
 
-      clearTimeout(timeoutId)
-
       setSession(session)
       setUser(session?.user ?? null)
+      setLoading(false)
 
       if (session?.user) {
-        // Adia um tick para o JWT ser propagado internamente pelo Supabase
-        // antes de qualquer query ao banco (padrão documentado pelo Supabase)
-        await new Promise<void>(resolve => setTimeout(resolve, 0))
-        setProfileLoading(true)
+        scheduleProfileFetch(session.user.id)
+      }
+    })
+
+    function scheduleProfileFetch(userId: string) {
+      setProfileLoading(true)
+      // setTimeout 0 garante que o fetch ocorra fora do loop síncrono do listener
+      // e após o Supabase atualizar internamente o estado do cliente (JWT)
+      setTimeout(async () => {
         try {
-          const profile = await fetchProfile(session.user.id)
+          const profile = await fetchProfile(userId)
           setUserProfile(profile)
           if (!profile) {
-            console.warn('[useAuth] Perfil não encontrado para o usuário:', session.user.id)
+            console.warn('[useAuth] Perfil não encontrado para o usuário:', userId)
           }
         } catch (err) {
           console.error('[useAuth] Erro ao buscar perfil:', err)
@@ -72,16 +100,10 @@ export function useAuth(): AuthState {
         } finally {
           setProfileLoading(false)
         }
-      } else {
-        setUserProfile(null)
-        setProfileLoading(false)
-      }
-
-      setLoading(false)
-    })
+      }, 0)
+    }
 
     return () => {
-      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [])

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Pedido, PedidoItem, PedidoStatus } from '../types'
 import { todayISO } from '../lib/utils'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 interface NewItemInput {
   produto_id: string
@@ -12,11 +13,14 @@ interface NewItemInput {
 }
 
 export function usePedidos() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_pedidos')
@@ -32,7 +36,7 @@ export function usePedidos() {
     if (err) setError(err.message)
     else setData(rows ?? [])
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   useEffect(() => { load() }, [load])
   useAutoRefresh(load)

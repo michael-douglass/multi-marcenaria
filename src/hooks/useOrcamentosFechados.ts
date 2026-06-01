@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { FormaPagamento, LeadGanho, OrcamentoFechado, TipoRecebimento } from '../types'
 import { addMonths, todayISO } from '../lib/utils'
+import { useAuthReady } from './useAuthReady'
 
 export interface ParcelaInput {
   numero: number
@@ -41,12 +42,15 @@ export interface HistoricoCompraCliente {
 }
 
 export function useOrcamentosFechados() {
+  const { isReady } = useAuthReady()
   const [leads, setLeads] = useState<LeadGanho[]>([])
   const [fechados, setFechados] = useState<OrcamentoFechado[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
     const [{ data, error: err }, { data: fechadosRows, error: fechadosErr }] = await Promise.all([
@@ -80,7 +84,7 @@ export function useOrcamentosFechados() {
       )
     }
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   useEffect(() => { load() }, [load])
 

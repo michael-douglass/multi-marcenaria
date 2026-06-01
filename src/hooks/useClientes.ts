@@ -2,13 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Cliente, ClienteInput } from '../types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useClientes() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
     try {
@@ -24,7 +28,7 @@ export function useClientes() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isReady])
 
   useEffect(() => { void load() }, [load])
   useAutoRefresh(load)

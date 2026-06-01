@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 interface GerarParcelasInput {
   pedido_id?: string
@@ -52,11 +53,14 @@ function proximoVencimento(serie: ContaPagar[]): string | null {
 }
 
 export function useContasPagar() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<ContaPagar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
 
@@ -91,7 +95,7 @@ export function useContasPagar() {
 
     // Auto-expansão de recorrências: mantém sempre MESES_HORIZONTE meses à frente
     await expandirRecorrencias(allRows)
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Agrupa por recorrencia_id e gera meses que faltam
   const expandirRecorrencias = async (rows: ContaPagar[]) => {

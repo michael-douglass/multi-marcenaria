@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchBibliotecaItems, removeBibliotecaItemById } from '@/lib/biblioteca'
 import type { BibliotecaItem } from '@/types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useBiblioteca() {
+  const { isReady } = useAuthReady()
   const [items, setItems] = useState<BibliotecaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
     try {
@@ -18,7 +22,7 @@ export function useBiblioteca() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isReady])
 
   useEffect(() => {
     load()

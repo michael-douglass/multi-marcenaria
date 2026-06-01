@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { FormaPagamentoPagar } from '@/types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useFormasPagamentoPagar() {
+  const { isReady } = useAuthReady()
   const [formas, setFormas] = useState<FormaPagamentoPagar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
     const { data, error: err } = await supabase
@@ -21,7 +25,7 @@ export function useFormasPagamentoPagar() {
     if (err) setError(err.message)
     else setFormas(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   const loadAll = useCallback(async () => {
     const { data, error: err } = await supabase

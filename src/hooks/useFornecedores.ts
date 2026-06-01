@@ -2,13 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Fornecedor, FornecedorInput } from '../types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useFornecedores() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<Fornecedor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_fornecedores')
@@ -17,9 +21,11 @@ export function useFornecedores() {
     if (err) setError(err.message)
     else setData(rows ?? [])
     setLoading(false)
-  }, [])
+  }, [isReady])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
   useAutoRefresh(load)
 
   const create = async (input: FornecedorInput): Promise<Fornecedor> => {

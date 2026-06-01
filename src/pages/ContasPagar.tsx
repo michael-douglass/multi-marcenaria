@@ -208,7 +208,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
   const { formas, loading: loadingFormas } = formasHook
   const [filter, setFilter] = useState<Filter>('Todos')
   const [search, setSearch] = useState('')
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(DEFAULT_PERIOD)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
+  const [isDefaultView, setIsDefaultView] = useState(true)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<LancamentoPagarDraftForm>(() => emptyForm())
   const [anexos, setAnexos] = useState<PendingContaPagarAnexo[]>([])
@@ -336,36 +337,56 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
       ? periodBase.filter(p => p.status !== 'pago')
       : periodBase
 
-  const totPend = periodFiltered.filter(p => p.status !== 'pago').reduce((s, p) => s + p.valor_parcela, 0)
-  const totPaid = periodFiltered.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor_parcela, 0)
-  const totOver = periodFiltered.filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento)).reduce((s, p) => s + p.valor_parcela, 0)
+  const filtered = (() => {
+    const base = periodFiltered.filter(p => {
+      // 1. Filtro de Status / Modo Padrão
+      if (isDefaultView) {
+        if (getStatus(p.data_vencimento, p.status) === 'pago') return false
+      } else if (filter !== 'Todos') {
+        const s = getStatus(p.data_vencimento, p.status)
+        if (s !== filter.toLowerCase()) return false
+      }
 
-  const filtered = periodFiltered.filter(p => {
-    // 1. Filtro de Status
-    if (filter !== 'Todos') {
-      const s = getStatus(p.data_vencimento, p.status)
-      if (s !== filter.toLowerCase()) return false
-    }
+      // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
+      if (search.trim()) {
+        const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
 
-    // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
-    if (search.trim()) {
-      const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
-      
-      const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
-      const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
-      const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
-      const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
+        const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
+        const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
+        const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
+        const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
 
-      const match = forn.includes(term) || 
-                    desc.includes(term) || 
-                    valor.includes(term) || 
-                    dataVenc.includes(term)
+        const match = forn.includes(term) ||
+                      desc.includes(term) ||
+                      valor.includes(term) ||
+                      dataVenc.includes(term)
 
-      if (!match) return false
-    }
+        if (!match) return false
+      }
 
-    return true
-  })
+      return true
+    })
+
+    if (!isDefaultView) return base
+
+    // Modo padrão: vencidos primeiro (mais antigos no topo), depois pendentes
+    return [...base].sort((a, b) => {
+      const sa = getStatus(a.data_vencimento, a.status)
+      const sb = getStatus(b.data_vencimento, b.status)
+      if (sa === 'vencido' && sb !== 'vencido') return -1
+      if (sa !== 'vencido' && sb === 'vencido') return 1
+      return a.data_vencimento.localeCompare(b.data_vencimento)
+    })
+  })()
+
+  // Cards: mês atual no estado padrão sem busca; ao interagir seguem os filtros ativos
+  const kpiBase = (!isDefaultView || search.trim())
+    ? filtered
+    : applyPeriodFilter(data, { mode: 'month' })
+
+  const totPend = kpiBase.filter(p => p.status !== 'pago').reduce((s, p) => s + p.valor_parcela, 0)
+  const totPaid = kpiBase.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor_parcela, 0)
+  const totOver = kpiBase.filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento)).reduce((s, p) => s + p.valor_parcela, 0)
 
   const save = async () => {
     const tot = parseMoneyBr(form.total)
@@ -575,7 +596,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
         )}
       </div>
 
-      <PeriodFilterBar value={periodFilter} onChange={setPeriodFilter} />
+      <PeriodFilterBar
+        value={periodFilter}
+        onChange={v => {
+          setIsDefaultView(false)
+          setPeriodFilter(v)
+        }}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
         {[
@@ -854,7 +881,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
         </div>
       </Modal>
 
-      <FilterBar options={['Todos', 'Pendente', 'Pago', 'Vencido']} value={filter} onChange={v => setFilter(v as Filter)} />
+      <FilterBar
+        options={['Todos', 'Pendente', 'Pago', 'Vencido']}
+        value={filter}
+        onChange={v => {
+          setIsDefaultView(false)
+          setFilter(v as Filter)
+        }}
+      />
 
       <div className="mb-4">
         <input

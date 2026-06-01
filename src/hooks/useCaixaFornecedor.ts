@@ -2,13 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { CaixaFornecedor, FormaPagamentoCaixa, TransacaoCaixaFornecedor } from '../types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useCaixaFornecedor() {
+  const { isReady } = useAuthReady()
   const [caixas, setCaixas] = useState<CaixaFornecedor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     setError(null)
     const { data, error: err } = await supabase
@@ -18,7 +22,7 @@ export function useCaixaFornecedor() {
     if (err) setError(err.message)
     else setCaixas(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   useEffect(() => { load() }, [load])
   useAutoRefresh(load)

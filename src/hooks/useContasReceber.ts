@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
 import { createId, addDays, addMonths, todayISO } from '../lib/utils'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export interface ParcelaInput {
   numero: number
@@ -36,11 +37,14 @@ export interface AtualizarTransacaoInput {
 }
 
 export function useContasReceber() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<ContaReceber[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_contas_receber')
@@ -55,7 +59,7 @@ export function useContasReceber() {
       setData(flattened)
     }
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   useEffect(() => { load() }, [load])
   useAutoRefresh(load)

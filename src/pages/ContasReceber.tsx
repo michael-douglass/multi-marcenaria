@@ -52,9 +52,10 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const isAdmin = role === 'Administrador'
   const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
   const orcamentos = useOrcamentosFechados()
-  const [filter, setFilter] = useState<Filter>('Pendente')
+  const [filter, setFilter] = useState<Filter>('Todos')
   const [search, setSearch] = useState('')
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'month' })
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
+  const [isDefaultView, setIsDefaultView] = useState(true)
   const [open, setOpen] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
   const [openBulkEdit, setOpenBulkEdit] = useState(false)
@@ -259,34 +260,89 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       ? periodBase.filter(r => r.status !== 'recebido')
       : periodBase
 
-  // --- KPIs — seguem o filtro de período selecionado ---
-  const kpiAReceber = periodFiltered
+  const filtered = (() => {
+    const base = periodFiltered.filter(r => {
+      // 1. Filtro de Status / Modo Padrão
+      if (isDefaultView) {
+        if (getStatus(r.data_vencimento, r.status) === 'recebido') return false
+      } else if (filter !== 'Todos') {
+        if (getStatus(r.data_vencimento, r.status) !== filter.toLowerCase()) return false
+      }
+
+      // 2. Filtro de Busca (Nome, Telefone, Forma, Valores, Data)
+      if (search.trim()) {
+        const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
+
+        const nome = (r.cliente_nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
+        const telefone = (r.cliente_telefone || '').replace(/[\s\.\,\-\(\)]/g, '')
+        const valor = String(r.valor_parcela).replace(/[\s\.\,]/g, '')
+        const total = String(r.valor_total).replace(/[\s\.\,]/g, '')
+        const forma = PM_LABEL[r.forma_pagamento as FormaPagamento]?.toLowerCase() || ''
+        const dataVenc = fmtDate(r.data_vencimento).replace(/[\s\.\,\/]/g, '')
+
+        const match = nome.includes(term) ||
+                      telefone.includes(term) ||
+                      valor.includes(term) ||
+                      total.includes(term) ||
+                      forma.includes(term) ||
+                      dataVenc.includes(term)
+
+        if (!match) return false
+      }
+
+      return true
+    })
+
+    if (!isDefaultView) return base
+
+    // Modo padrão: vencidos primeiro (mais antigos no topo), depois pendentes
+    return [...base].sort((a, b) => {
+      const sa = getStatus(a.data_vencimento, a.status)
+      const sb = getStatus(b.data_vencimento, b.status)
+      if (sa === 'vencido' && sb !== 'vencido') return -1
+      if (sa !== 'vencido' && sb === 'vencido') return 1
+      return a.data_vencimento.localeCompare(b.data_vencimento)
+    })
+  })()
+
+  // Cards: mês atual no estado padrão sem busca; ao interagir seguem os filtros ativos
+  const kpiBase = (!isDefaultView || search.trim())
+    ? filtered
+    : (() => {
+        const idsThisMonth = new Set(
+          applyPeriodFilter(dataComReferenciaPeriodo, { mode: 'month' }).map(item => item.id),
+        )
+        return data.filter(item => idsThisMonth.has(item.id))
+      })()
+
+  const kpiAReceber = kpiBase
     .filter(r => r.status !== 'recebido')
     .reduce((s, r) => s + r.valor_parcela, 0)
 
-  const kpiRecebido = periodFiltered
+  const kpiRecebido = kpiBase
     .filter(r => r.status === 'recebido')
     .reduce((s, r) => s + r.valor_parcela, 0)
 
-  const kpiEmAtraso = periodFiltered
+  const kpiEmAtraso = kpiBase
     .filter(r => r.status !== 'recebido' && isOverdue(r.data_vencimento))
     .reduce((s, r) => s + r.valor_parcela, 0)
 
   const kpiFechadoBruto = (() => {
     // Vendas futuras não existem: nenhum orçamento pode ser fechado no próximo mês.
     if (periodFilter.mode === 'next-month') return 0
+    const kpiFiltro = (!isDefaultView || search.trim()) ? periodFilter : { mode: 'month' as const }
     const fromOrc = applyPeriodFilter(
       orcamentos.fechados.map(item => ({
         ...item,
         data_vencimento: (item.criado_em ?? item.atualizado_em ?? todayISO() + 'T00:00:00').slice(0, 10),
         valor_total_num: Number(item.valor_total ?? 0),
       })),
-      periodFilter,
+      kpiFiltro,
     ).reduce((s, item) => s + item.valor_total_num, 0)
     if (fromOrc > 0) return fromOrc
     // Fallback via contas_receber (apenas para períodos passados/atual)
     const brutoPorLead = new Map<string, number>()
-    for (const row of periodFiltered) {
+    for (const row of kpiBase) {
       if (row.origem_tipo !== 'orcamento_fechado') continue
       const chave = row.origem_lead_id ?? row.id
       const brutoLinha = Number(row.valor_total ?? 0)
@@ -294,36 +350,6 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     }
     return Array.from(brutoPorLead.values()).reduce((s, v) => s + v, 0)
   })()
-
-  const filtered = data.filter(r => {
-    // 1. Filtro de Status
-    if (filter !== 'Todos') {
-      if (getStatus(r.data_vencimento, r.status) !== filter.toLowerCase()) return false
-    }
-
-    // 2. Filtro de Busca (Nome, Telefone, Forma, Valores, Data)
-    if (search.trim()) {
-      const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
-      
-      const nome = (r.cliente_nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
-      const telefone = (r.cliente_telefone || '').replace(/[\s\.\,\-\(\)]/g, '')
-      const valor = String(r.valor_parcela).replace(/[\s\.\,]/g, '')
-      const total = String(r.valor_total).replace(/[\s\.\,]/g, '')
-      const forma = PM_LABEL[r.forma_pagamento as FormaPagamento]?.toLowerCase() || ''
-      const dataVenc = fmtDate(r.data_vencimento).replace(/[\s\.\,\/]/g, '')
-
-      const match = nome.includes(term) || 
-                    telefone.includes(term) || 
-                    valor.includes(term) || 
-                    total.includes(term) || 
-                    forma.includes(term) ||
-                    dataVenc.includes(term)
-
-      if (!match) return false
-    }
-
-    return true
-  })
 
   const save = async () => {
     const tot = parseFloat(form.total)
@@ -872,7 +898,13 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         )}
       </Modal>
 
-      <PeriodFilterBar value={periodFilter} onChange={setPeriodFilter} />
+      <PeriodFilterBar
+        value={periodFilter}
+        onChange={v => {
+          setIsDefaultView(false)
+          setPeriodFilter(v)
+        }}
+      />
 
       {/* KPI strip — acompanha o filtro de período */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
@@ -889,7 +921,14 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         ))}
       </div>
 
-      <FilterBar options={['Todos', 'Pendente', 'Recebido', 'Vencido']} value={filter} onChange={v => setFilter(v as Filter)} />
+      <FilterBar
+        options={['Todos', 'Pendente', 'Recebido', 'Vencido']}
+        value={filter}
+        onChange={v => {
+          setIsDefaultView(false)
+          setFilter(v as Filter)
+        }}
+      />
 
       <div className="mb-4">
         <input

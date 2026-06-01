@@ -2,13 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Produto, ProdutoInput } from '../types'
 import { useAutoRefresh } from './useAutoRefresh'
+import { useAuthReady } from './useAuthReady'
 
 export function useProdutos() {
+  const { isReady } = useAuthReady()
   const [data, setData] = useState<Produto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!isReady) return
+
     setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_produtos')
@@ -17,7 +21,7 @@ export function useProdutos() {
     if (err) setError(err.message)
     else setData(rows ?? [])
     setLoading(false)
-  }, [])
+  }, [isReady])
 
   useEffect(() => { load() }, [load])
   useAutoRefresh(load)
