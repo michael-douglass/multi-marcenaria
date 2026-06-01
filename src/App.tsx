@@ -35,8 +35,8 @@ const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: ['dashboard', ...OBRAS_SECTIONS],
-  Montador: ['dashboard', 'agendaObras', 'calendarioObras'],
+  MontadorAdmin: [...OBRAS_SECTIONS],
+  Montador: ['agendaObras', 'calendarioObras'],
 }
 
 function Restricted({ message }: { message: string }) {
@@ -53,12 +53,14 @@ function RoleRedirect() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  const defaultPath = (role === 'Montador' || role === 'MontadorAdmin') ? '/agenda-obras' : '/dashboard'
+
   useEffect(() => {
     if (!role) return
     const section = sectionFromPath(location.pathname)
     const allowed = ROLE_SECTIONS[role] ?? ['dashboard']
     if (!allowed.includes(section)) {
-      navigate('/dashboard', { replace: true })
+      navigate(defaultPath, { replace: true })
     }
   }, [role, location.pathname, navigate])
 
@@ -92,7 +94,11 @@ function AuthenticatedRoutes() {
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout pendingOrders={pendingOrders} />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={
+            (role === 'Montador' || role === 'MontadorAdmin')
+              ? <Navigate to="/agenda-obras" replace />
+              : <Navigate to="/dashboard" replace />
+          } />
           <Route
             path="/dashboard"
             element={
