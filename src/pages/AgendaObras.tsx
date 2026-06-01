@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2 } from 'lucide-react'
+import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search } from 'lucide-react'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
@@ -408,18 +408,37 @@ export function AgendaObras() {
   const [savingObra, setSavingObra] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
+
+  const obrasFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return obrasHook.data
+    return obrasHook.data.filter(o => {
+      const haystack = [
+        o.cliente_nome,
+        o.lousa,
+        o.endereco_obra,
+        o.tipo_obra_nome,
+        o.grupo_obra_nome,
+        o.montador_nome,
+        o.montador_admin_nome,
+        o.status_kanban,
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [obrasHook.data, busca])
 
   const obrasByCol = useMemo(() => {
     const map: Record<StatusKanbanObra, ObraFull[]> = {
       datas_em_aberto: [], datas_em_atraso: [],
       datas_definidas: [], em_andamento: [], concluida: [], cancelada: [],
     }
-    for (const o of obrasHook.data) {
+    for (const o of obrasFiltradas) {
       const col = computeKanbanKey(o)
       map[col].push(o)
     }
     return map
-  }, [obrasHook.data])
+  }, [obrasFiltradas])
 
   const openNew = () => { setEditObra(null); setObraForm(BLANK_OBRA); setObraOpen(true) }
   const openEdit = (obra: ObraFull) => {
@@ -480,12 +499,15 @@ export function AgendaObras() {
   return (
     <div className="fade-in flex flex-col h-full">
       {/* Cabeçalho */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Agenda de Obras</h1>
-          <p className="section-label mt-1">{obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}</p>
+          <p className="section-label mt-1">
+            {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+            {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
             <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
               <Settings size={14} /> Configurações
@@ -497,6 +519,28 @@ export function AgendaObras() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Busca */}
+      <div className="relative mb-5" style={{ maxWidth: 400 }}>
+        <Search
+          size={15}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+        />
+        <input
+          className="glass-input pl-9 pr-8 w-full"
+          placeholder="Buscar por cliente, montador, endereço, tipo..."
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+        />
+        {busca && (
+          <button
+            onClick={() => setBusca('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
 
       {/* Estados de carregamento/erro */}
