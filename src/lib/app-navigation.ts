@@ -11,6 +11,7 @@ import {
   Images,
   Landmark,
   Wallet,
+  Banknote,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
@@ -97,6 +98,13 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     url: '/caixa-fornecedor',
     icon: Wallet,
     radialColor: 'rgba(52,211,153,0.92)',
+  },
+  {
+    id: 'caixa',
+    title: 'Caixa',
+    url: '/caixa',
+    icon: Banknote,
+    radialColor: 'rgba(212,168,83,0.92)',
   },
 ]
 
@@ -185,6 +193,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/contas-pagar': 'contasPagar',
     '/caixa-fornecedor': 'caixaFornecedor',
     '/biblioteca': 'biblioteca',
+    '/caixa': 'caixa',
   }
   return map[pathname] ?? 'dashboard'
 }

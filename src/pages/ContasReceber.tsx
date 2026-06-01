@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
+import { useTemplatesCobranca } from '../hooks/useTemplatesCobranca'
+import { usePixConfig } from '../hooks/usePixConfig'
 import { OrcamentosFechados } from '../components/cobrancas/OrcamentosFechados'
+import { CobrancaCopyButton } from '../components/cobrancas/CobrancaCopyButton'
+import { TemplatesConfigButton } from '../components/cobrancas/TemplatesConfigModal'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
@@ -52,6 +56,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const isAdmin = role === 'Administrador'
   const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
   const orcamentos = useOrcamentosFechados()
+  const templatesHook = useTemplatesCobranca()
+  const pixHook = usePixConfig()
   const [filter, setFilter] = useState<Filter>('Todos')
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
@@ -480,11 +486,16 @@ export function ContasReceber({ clientes, readOnly }: Props) {
             {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {!readOnly && (
-          <button type="button" className="btn btn-gold btn-md" onClick={() => setOpen(true)}>
-            + Nova Cobrança
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && (
+            <TemplatesConfigButton templatesHook={templatesHook} pixHook={pixHook} />
+          )}
+          {!readOnly && (
+            <button type="button" className="btn btn-gold btn-md" onClick={() => setOpen(true)}>
+              + Nova Cobrança
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Orçamentos ganhos aguardando entrada no caixa */}
@@ -965,11 +976,18 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                       <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{PM_ICON[pm]} {PM_LABEL[pm]}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
-                        {!readOnly && s !== 'recebido' ? (
-                          <button className="btn btn-success btn-sm" onClick={() => marcarRecebido(r.id)}>✓ Recebido</button>
-                        ) : s === 'recebido' ? (
-                          <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(r.data_recebimento)}</span>
-                        ) : null}
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          <CobrancaCopyButton
+                            conta={r}
+                            templates={templatesHook.templates}
+                            pixConfig={pixHook.config}
+                          />
+                          {!readOnly && s !== 'recebido' ? (
+                            <button className="btn btn-success btn-sm" onClick={() => marcarRecebido(r.id)}>✓ Recebido</button>
+                          ) : s === 'recebido' ? (
+                            <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(r.data_recebimento)}</span>
+                          ) : null}
+                        </div>
                         {isAdmin && (
                           <div className="mt-2 flex justify-end gap-2 flex-wrap">
                             <button className="btn btn-outline btn-sm" onClick={() => void verHistorico(r)}>Histórico</button>

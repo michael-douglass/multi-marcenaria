@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { AppToast } from '@/components/ui/AppToast'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { useCaixaFornecedor } from '@/hooks/useCaixaFornecedor'
@@ -20,12 +21,13 @@ import { Clientes } from '@/pages/Clientes'
 import { ContasReceber } from '@/pages/ContasReceber'
 import { Biblioteca } from '@/pages/Biblioteca'
 import { CaixaFornecedor } from '@/pages/CaixaFornecedor'
+import { Caixa } from '@/pages/Caixa'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
 }
 
@@ -152,6 +154,10 @@ function AuthenticatedRoutes() {
             path="/biblioteca"
             element={guardReadOnly(<Biblioteca readOnly={readOnly} />)}
           />
+          <Route
+            path="/caixa"
+            element={guardReadOnly(<Caixa />)}
+          />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
@@ -198,6 +204,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <AppToast />
     </BrowserRouter>
   )
 }

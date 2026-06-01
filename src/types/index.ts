@@ -20,6 +20,7 @@ export type ActiveSection =
   | 'contasPagar'
   | 'caixaFornecedor'
   | 'biblioteca'
+  | 'caixa'
 
 // ── Fornecedor ──────────────────────────────────────────────
 export interface Fornecedor {
@@ -250,4 +251,67 @@ export interface ContaReceber {
   origem_lead_id?: string | null
   criado_em?: string
   atualizado_em?: string
+}
+
+// ── Caixa de Pagamentos Adiados (ProForco Model) ────────────
+export type TipoDestinatarioCaixa = 'marceneiro' | 'fornecedor' | 'funcionario' | 'outros'
+export type TipoMovimentacaoCaixa = 'reserva' | 'pagamento'
+
+export interface CaixaDestinatario {
+  id: string
+  nome: string
+  tipo: TipoDestinatarioCaixa
+  dados_bancarios?: any
+  observacoes?: string
+  ativo: boolean
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export interface CaixaMovimentacao {
+  id: string
+  destinatario_id: string
+  tipo_movimentacao: TipoMovimentacaoCaixa
+  valor: number
+  data_movimentacao: string
+  data_vencimento?: string | null
+  mes_referencia: number
+  ano_referencia: number
+  descricao?: string | null
+  comprovante_url?: string | null
+  criado_por?: string
+  criado_em?: string
+  // join
+  movelaria_caixa_destinatarios?: Pick<CaixaDestinatario, 'id' | 'nome' | 'tipo'>
+}
+
+export interface CaixaSaldoAcumulado {
+  id: string
+  destinatario_id: string
+  mes_referencia: number
+  ano_referencia: number
+  total_reservado: number
+  total_pago: number
+  saldo: number
+}
+
+export interface ResumoCaixa {
+  total_reservado: number
+  total_pago: number
+  saldo_disponivel: number
+  saldo_meses_anteriores: number
+}
+
+export interface ReservaConsolidada {
+  destinatario_id: string
+  destinatario_nome: string
+  tipo_destinatario: TipoDestinatarioCaixa
+  data_vencimento?: string
+  valor_total_real: number      // quanto deve receber (operacional)
+  valor_em_reserva: number      // quanto foi reservado no banco
+  total_pago: number            // quanto já foi pago
+  totalLancamentosMes: number   // qtd lançamentos operacionais
+  totalItensConcluidosMes: number // qtd OS/itens concluídos
+  mes_referencia: number
+  ano_referencia: number
 }

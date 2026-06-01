@@ -208,7 +208,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
   const { formas, loading: loadingFormas } = formasHook
   const [filter, setFilter] = useState<Filter>('Todos')
   const [search, setSearch] = useState('')
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(() => {
+    try {
+      const s = localStorage.getItem('movelaria_contaspagar_period')
+      return s ? (JSON.parse(s) as PeriodFilter) : { mode: 'all' }
+    } catch { return { mode: 'all' } }
+  })
   const [isDefaultView, setIsDefaultView] = useState(true)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<LancamentoPagarDraftForm>(() => emptyForm())
@@ -601,6 +606,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
         onChange={v => {
           setIsDefaultView(false)
           setPeriodFilter(v)
+          localStorage.setItem('movelaria_contaspagar_period', JSON.stringify(v))
         }}
       />
 
