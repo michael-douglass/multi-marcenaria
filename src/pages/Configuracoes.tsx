@@ -153,8 +153,10 @@ function UserModal({
       {err && <p className="text-[0.8rem] text-red-400 mt-1">{err}</p>}
 
       <ModalFormFooter
-        onClose={onClose} onSave={handleSave} saving={saving}
-        label={editUser ? 'Salvar' : tab === 'novo' ? 'Criar usuário' : 'Registrar acesso'}
+        onCancel={onClose}
+        onSubmit={handleSave}
+        submitting={saving}
+        submitLabel={editUser ? 'Salvar' : tab === 'novo' ? 'Criar usuário' : 'Registrar acesso'}
       />
     </Modal>
   )
@@ -197,7 +199,7 @@ function SenhaModal({
         <input type="password" className="glass-input" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
       </Field>
       {err && <p className="text-[0.8rem] text-red-400">{err}</p>}
-      <ModalFormFooter onClose={onClose} onSave={handleSave} saving={saving} label="Redefinir" />
+      <ModalFormFooter onCancel={onClose} onSubmit={handleSave} submitting={saving} submitLabel="Redefinir" />
     </Modal>
   )
 }

@@ -271,7 +271,7 @@ function ObraModal({
         </Field>
       )}
 
-      <ModalFormFooter onClose={onClose} onSave={onSave} saving={saving} label={obra ? 'Salvar' : 'Criar'} />
+      <ModalFormFooter onCancel={onClose} onSubmit={onSave} submitting={saving} submitLabel={obra ? 'Salvar' : 'Criar'} />
     </Modal>
   )
 }
