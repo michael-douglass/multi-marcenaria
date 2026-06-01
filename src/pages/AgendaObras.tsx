@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
+import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import type {
   ObraFull, ObraInput, StatusKanbanObra,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
@@ -74,27 +75,29 @@ interface ObraCardProps {
   actioning: string | null
   isDragging: boolean
   onEdit: (obra: ObraFull) => void
+  onDetalhe: (obra: ObraFull) => void
   onIniciar: (id: string) => void
   onFinalizar: (id: string) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragEnd: () => void
 }
 
-function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, onIniciar, onFinalizar, onDragStart, onDragEnd }: ObraCardProps) {
+function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onFinalizar, onDragStart, onDragEnd }: ObraCardProps) {
   const loading = actioning === obra.id
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
   return (
     <div
-      className="glass-card p-3 text-sm flex flex-col gap-1.5 transition-opacity"
+      className="glass-card p-3 text-sm flex flex-col gap-1.5 transition-opacity cursor-pointer"
       draggable={canEdit}
       onDragStart={canEdit ? e => onDragStart(e, obra.id) : undefined}
       onDragEnd={canEdit ? onDragEnd : undefined}
+      onClick={() => onDetalhe(obra)}
       style={{
         minWidth: 0,
         opacity: isDragging ? 0.35 : 1,
-        cursor: canEdit ? 'grab' : 'default',
+        cursor: isDragging ? 'grabbing' : 'pointer',
       }}
     >
       {/* Header */}
@@ -114,7 +117,7 @@ function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, on
           </span>
           {canEdit && (
             <button
-              onClick={() => onEdit(obra)}
+              onClick={e => { e.stopPropagation(); onEdit(obra) }}
               className="p-1 rounded text-[#8a6a55] hover:text-[#d4a853] transition-colors"
             >
               <Pencil size={12} />
@@ -157,7 +160,7 @@ function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, on
           {!obra.iniciado_em && (
             <button
               disabled={loading}
-              onClick={() => onIniciar(obra.id)}
+              onClick={e => { e.stopPropagation(); onIniciar(obra.id) }}
               className="flex items-center gap-1 rounded px-2 py-1 text-[0.7rem] font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
             >
               {loading ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
@@ -167,7 +170,7 @@ function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, on
           {obra.iniciado_em && !obra.finalizado_em && (
             <button
               disabled={loading}
-              onClick={() => onFinalizar(obra.id)}
+              onClick={e => { e.stopPropagation(); onFinalizar(obra.id) }}
               className="flex items-center gap-1 rounded px-2 py-1 text-[0.7rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
             >
               {loading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
@@ -419,6 +422,7 @@ export function AgendaObras() {
   const [configOpen, setConfigOpen] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
 
   // ── Drag and drop ──────────────────────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -663,11 +667,12 @@ export function AgendaObras() {
                         isMontador={isMontador}
                         actioning={actioning}
                         isDragging={draggingId === obra.id}
+                        onDetalhe={o => setDetalheObra(o)}
                         onEdit={openEdit}
                         onIniciar={handleIniciar}
+                        onFinalizar={handleFinalizar}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
-                        onFinalizar={handleFinalizar}
                       />
                     ))
                   )}
@@ -678,7 +683,21 @@ export function AgendaObras() {
         </div>
       )}
 
-      {/* Modal obra */}
+      {/* Modal detalhe (lousa + imagens) */}
+      <ObraDetalheModal
+        open={!!detalheObra}
+        obra={detalheObra}
+        canEdit={canEdit}
+        canUpload={canEdit}
+        isMontador={isMontador}
+        actioning={actioning}
+        onClose={() => setDetalheObra(null)}
+        onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}
+        onIniciar={handleIniciar}
+        onFinalizar={handleFinalizar}
+      />
+
+      {/* Modal obra (edição) */}
       <ObraModal
         open={obraOpen}
         obra={editObra}
