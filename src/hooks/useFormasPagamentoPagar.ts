@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { FormaPagamentoPagar } from '@/types'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export function useFormasPagamentoPagar() {
   const [formas, setFormas] = useState<FormaPagamentoPagar[]>([])
@@ -36,6 +37,7 @@ export function useFormasPagamentoPagar() {
   useEffect(() => {
     load()
   }, [load])
+  useAutoRefresh(load)
 
   const add = async (nome: string): Promise<FormaPagamentoPagar> => {
     const trimmed = nome.trim()

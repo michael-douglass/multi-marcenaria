@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchBibliotecaItems, removeBibliotecaItemById } from '@/lib/biblioteca'
 import type { BibliotecaItem } from '@/types'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export function useBiblioteca() {
   const [items, setItems] = useState<BibliotecaItem[]>([])
@@ -22,6 +23,7 @@ export function useBiblioteca() {
   useEffect(() => {
     load()
   }, [load])
+  useAutoRefresh(load)
 
   const remove = async (anexoId: string) => {
     try {

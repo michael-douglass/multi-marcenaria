@@ -10,6 +10,7 @@ interface AppContextType {
   userProfile: UserProfile | null
   role: UserRole | null
   authLoading: boolean
+  profileLoading: boolean
   signOut: () => Promise<void>
 }
 
@@ -25,6 +26,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         userProfile: auth.userProfile,
         role: auth.role,
         authLoading: auth.loading,
+        profileLoading: auth.profileLoading,
         signOut: auth.signOut,
       }}
     >

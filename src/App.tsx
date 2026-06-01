@@ -160,9 +160,9 @@ function AuthenticatedRoutes() {
 }
 
 function AppRoutes() {
-  const { authLoading, session } = useApp()
+  const { authLoading, profileLoading, session, userProfile, signOut } = useApp()
 
-  if (authLoading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
         Carregando...
@@ -172,6 +172,23 @@ function AppRoutes() {
 
   if (!session) {
     return <Login />
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-center text-[#d4a853]">
+        <div>
+          <p className="mb-1 text-lg font-semibold">Usuário não configurado.</p>
+          <p className="text-sm opacity-60">Contate o administrador para criar seu perfil de acesso.</p>
+          <button
+            onClick={signOut}
+            className="mt-6 text-xs underline opacity-40 hover:opacity-80"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return <AuthenticatedRoutes />
