@@ -8,6 +8,8 @@ import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
 import { showToast } from '../lib/toast'
 
+type TabCriacao = 'novo' | 'existente'
+
 // ── Perfis disponíveis ───────────────────────────────────────
 const PERFIS = [
   { value: 'administrador',  label: 'Administrador',  cor: '#d4a853' },
@@ -49,20 +51,22 @@ function UserModal({
   open: boolean
   editUser: UsuarioAdmin | null
   onClose: () => void
-  onSave: (form: UserFormState) => Promise<void>
+  onSave: (form: UserFormState, tab: TabCriacao) => Promise<void>
   saving: boolean
 }) {
+  const [tab, setTab] = useState<TabCriacao>('novo')
   const [form, setForm] = useState<UserFormState>(BLANK_FORM)
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setTab('novo')
+    setErr(null)
     if (editUser) {
       setForm({ email: editUser.email, nome: editUser.nome ?? '', perfil: editUser.perfil, senha: '', confirmSenha: '' })
     } else {
       setForm(BLANK_FORM)
     }
-    setErr(null)
   }, [open, editUser])
 
   const f = (k: keyof UserFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -70,36 +74,54 @@ function UserModal({
 
   const handleSave = async () => {
     setErr(null)
-    if (!editUser && !form.email.trim()) return setErr('E-mail obrigatório.')
-    if (!editUser && !form.senha) return setErr('Senha obrigatória.')
-    if (!editUser && form.senha !== form.confirmSenha) return setErr('Senhas não coincidem.')
-    if (!editUser && form.senha.length < 6) return setErr('Senha mínima: 6 caracteres.')
-    await onSave(form)
+    if (!form.email.trim()) return setErr('E-mail obrigatório.')
+    if (!editUser && tab === 'novo') {
+      if (!form.senha) return setErr('Senha obrigatória.')
+      if (form.senha !== form.confirmSenha) return setErr('Senhas não coincidem.')
+      if (form.senha.length < 6) return setErr('Senha mínima: 6 caracteres.')
+    }
+    await onSave(form, tab)
   }
 
   return (
     <Modal open={open} onClose={onClose} title={editUser ? 'EDITAR USUÁRIO' : 'NOVO USUÁRIO'}>
+
+      {/* Tabs de criação (só no modo criar) */}
       {!editUser && (
-        <Field label="E-mail *">
-          <input
-            type="email" className="glass-input"
-            value={form.email} onChange={f('email')}
-            placeholder="usuario@email.com"
-            autoComplete="off"
-          />
-        </Field>
-      )}
-      {editUser && (
-        <Field label="E-mail">
-          <input className="glass-input" value={form.email} disabled style={{ opacity: 0.5 }} />
-        </Field>
+        <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          {([
+            { key: 'novo' as TabCriacao, label: 'Criar novo usuário' },
+            { key: 'existente' as TabCriacao, label: 'Registrar usuário existente' },
+          ]).map(t => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); setErr(null) }}
+              className="flex-1 rounded py-1.5 text-xs font-semibold transition-colors"
+              style={tab === t.key
+                ? { backgroundColor: 'rgba(212,168,83,0.2)', color: '#d4a853' }
+                : { color: '#8a6a55' }
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       )}
 
-      <Field label="Nome">
+      {/* Campos comuns */}
+      <Field label="E-mail *">
         <input
-          className="glass-input" value={form.nome} onChange={f('nome')}
-          placeholder="Nome completo" autoComplete="off"
+          type="email" className="glass-input"
+          value={form.email} onChange={f('email')}
+          placeholder="usuario@dominio.com"
+          autoComplete="off"
+          disabled={!!editUser}
+          style={editUser ? { opacity: 0.5 } : undefined}
         />
+      </Field>
+
+      <Field label="Nome">
+        <input className="glass-input" value={form.nome} onChange={f('nome')} placeholder="Nome completo" autoComplete="off" />
       </Field>
 
       <Field label="Perfil *">
@@ -108,31 +130,32 @@ function UserModal({
         </select>
       </Field>
 
-      {!editUser && (
+      {/* Campos exclusivos: criar novo */}
+      {!editUser && tab === 'novo' && (
         <>
           <Field label="Senha temporária *">
-            <input
-              type="password" className="glass-input"
-              value={form.senha} onChange={f('senha')}
-              placeholder="Mínimo 6 caracteres" autoComplete="new-password"
-            />
+            <input type="password" className="glass-input" value={form.senha} onChange={f('senha')} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
           </Field>
           <Field label="Confirmar senha *">
-            <input
-              type="password" className="glass-input"
-              value={form.confirmSenha} onChange={f('confirmSenha')}
-              placeholder="Repita a senha" autoComplete="new-password"
-            />
+            <input type="password" className="glass-input" value={form.confirmSenha} onChange={f('confirmSenha')} placeholder="Repita a senha" autoComplete="new-password" />
           </Field>
-          <p className="text-[0.72rem] text-[#8a6a55]">
-            O usuário receberá estas credenciais e poderá alterá-las depois.
-          </p>
+          <p className="text-[0.72rem] text-[#8a6a55]">O usuário poderá alterar a senha após o primeiro acesso.</p>
         </>
       )}
 
-      {err && <p className="text-[0.8rem] text-red-400">{err}</p>}
+      {/* Aviso: registrar existente */}
+      {!editUser && tab === 'existente' && (
+        <div className="rounded-lg p-3 text-[0.75rem] text-[#8a6a55]" style={{ backgroundColor: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.15)' }}>
+          O usuário já deve ter conta no sistema (ex.: usuário do CRM). Informe o e-mail exato e o perfil desejado no Movelaria. A senha não será alterada.
+        </div>
+      )}
 
-      <ModalFormFooter onClose={onClose} onSave={handleSave} saving={saving} label={editUser ? 'Salvar' : 'Criar usuário'} />
+      {err && <p className="text-[0.8rem] text-red-400 mt-1">{err}</p>}
+
+      <ModalFormFooter
+        onClose={onClose} onSave={handleSave} saving={saving}
+        label={editUser ? 'Salvar' : tab === 'novo' ? 'Criar usuário' : 'Registrar acesso'}
+      />
     </Modal>
   )
 }
@@ -232,12 +255,15 @@ export function Configuracoes() {
   const openNovo = () => { setEditUser(null); setUserModalOpen(true) }
   const openEditar = (u: UsuarioAdmin) => { setEditUser(u); setUserModalOpen(true) }
 
-  const handleSaveUser = async (form: { email: string; nome: string; perfil: string; senha: string }) => {
+  const handleSaveUser = async (form: { email: string; nome: string; perfil: string; senha: string }, tab: TabCriacao) => {
     setSavingUser(true)
     try {
       if (editUser) {
         await hook.atualizar(editUser.id, form.perfil, form.nome || null, editUser.ativo)
         showToast('Usuário atualizado.', 'success')
+      } else if (tab === 'existente') {
+        await hook.registrarExistente(form.email, form.nome, form.perfil)
+        showToast('Usuário registrado com sucesso.', 'success')
       } else {
         await hook.criar(form.email, form.senha, form.nome, form.perfil)
         showToast('Usuário criado com sucesso.', 'success')
@@ -452,7 +478,7 @@ export function Configuracoes() {
         open={userModalOpen}
         editUser={editUser}
         onClose={() => setUserModalOpen(false)}
-        onSave={handleSaveUser}
+        onSave={(form, tab) => handleSaveUser(form, tab)}
         saving={savingUser}
       />
 

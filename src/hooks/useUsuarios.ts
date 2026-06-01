@@ -45,6 +45,16 @@ export function useUsuarios() {
     await load()
   }
 
+  const registrarExistente = async (email: string, nome: string, perfil: string) => {
+    const { error: err } = await supabase.rpc('movelaria_registrar_usuario_existente', {
+      p_email: email.trim().toLowerCase(),
+      p_nome: nome.trim() || null,
+      p_perfil: perfil,
+    })
+    if (err) throw new Error(err.message)
+    await load()
+  }
+
   const atualizar = async (id: string, perfil: string, nome: string | null, ativo: boolean) => {
     const { error: err } = await supabase.rpc('movelaria_atualizar_perfil_usuario', {
       p_id: id,
@@ -72,5 +82,5 @@ export function useUsuarios() {
     setData(prev => prev.filter(u => u.id !== id))
   }
 
-  return { data, loading, error, criar, atualizar, redefinirSenha, excluir, reload: load }
+  return { data, loading, error, criar, registrarExistente, atualizar, redefinirSenha, excluir, reload: load }
 }
