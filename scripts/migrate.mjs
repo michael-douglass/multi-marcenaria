@@ -41,6 +41,9 @@ const migrations = [
   '017_leads_ganhos_valor_negocio.sql',
   '018_contas_pagar_recorrencia.sql',
   '019_contas_receber_grupo_cartao.sql',
+  '020_caixa_pagamentos_adiados.sql',
+  '021_caixa_sync_trigger.sql',
+  '022_agenda_obras.sql',
 ]
 
 const client = new Client({

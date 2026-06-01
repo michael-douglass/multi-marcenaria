@@ -232,7 +232,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
             }}
           />
           <div
-            className="nav-glow-breathe pointer-events-none absolute bottom-0 left-0 h-[55vh] w-[55vw] rounded-full"
+            className="nav-glow-breathe pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[120vh] w-[120vw] rounded-full"
             style={{
               background: 'radial-gradient(circle, rgba(212,168,83,0.18) 0%, transparent 70%)',
             }}
@@ -240,7 +240,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
 
           <div
             className="nav-center-in pointer-events-none absolute"
-            style={{ left: '38%', top: '72%', transform: 'translate(-50%, -50%)' }}
+            style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
           >
             <div
               className="nav-ring-breathe absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(212,168,83,0.12)]"
@@ -309,7 +309,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   return (
     <>
       <style>{NAV_RADIAL_STYLES}</style>
-      <div className="fixed bottom-6 left-6 z-[201] flex flex-col items-center gap-1">
+      <div className="fixed bottom-6 right-6 z-[201] flex flex-col items-center gap-1">
         <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,83,0.65)]">
           Menu
         </span>

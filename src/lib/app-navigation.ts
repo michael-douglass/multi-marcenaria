@@ -12,11 +12,14 @@ import {
   Landmark,
   Wallet,
   Banknote,
+  HardHat,
+  CalendarDays,
+  BarChart3,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
 /** IDs de itens de menu (rotas ou agrupadores) */
-export type NavItemId = ActiveSection | 'financeiro'
+export type NavItemId = ActiveSection | 'financeiro' | 'obras'
 
 export interface NavChildItem {
   id: ActiveSection
@@ -108,6 +111,31 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
   },
 ]
 
+const OBRAS_CHILDREN: NavChildItem[] = [
+  {
+    id: 'agendaObras',
+    title: 'Agenda de Obras',
+    url: '/agenda-obras',
+    icon: HardHat,
+    radialColor: 'rgba(251,146,60,0.92)',
+  },
+  {
+    id: 'calendarioObras',
+    title: 'Calendário de Obras',
+    url: '/calendario-obras',
+    icon: CalendarDays,
+    radialColor: 'rgba(96,165,250,0.92)',
+  },
+  {
+    id: 'metricasObras',
+    title: 'Métricas de Obras',
+    url: '/metricas-obras',
+    icon: BarChart3,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Administrador', 'MontadorAdmin'],
+  },
+]
+
 export const NAV_MAIN_ITEMS: NavMainItem[] = [
   {
     id: 'dashboard',
@@ -125,6 +153,15 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     radialColor: 'rgba(212,168,83,0.92)',
     roles: ['Administrador', 'Financeiro'],
     children: FINANCEIRO_CHILDREN,
+  },
+  {
+    id: 'obras',
+    title: 'Obras',
+    url: '/agenda-obras',
+    icon: HardHat,
+    radialColor: 'rgba(251,146,60,0.92)',
+    roles: ['Administrador', 'Montador', 'MontadorAdmin'],
+    children: OBRAS_CHILDREN,
   },
   {
     id: 'biblioteca',
@@ -180,6 +217,10 @@ export function isFinanceiroSection(section: ActiveSection): boolean {
   return FINANCEIRO_CHILDREN.some(c => c.id === section)
 }
 
+export function isObrasSection(section: ActiveSection): boolean {
+  return OBRAS_CHILDREN.some(c => c.id === section)
+}
+
 export function sectionFromPath(pathname: string): ActiveSection {
   const map: Record<string, ActiveSection> = {
     '/': 'dashboard',
@@ -194,6 +235,9 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/caixa-fornecedor': 'caixaFornecedor',
     '/biblioteca': 'biblioteca',
     '/caixa': 'caixa',
+    '/agenda-obras': 'agendaObras',
+    '/calendario-obras': 'calendarioObras',
+    '/metricas-obras': 'metricasObras',
   }
   return map[pathname] ?? 'dashboard'
 }

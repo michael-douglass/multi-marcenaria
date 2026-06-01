@@ -21,6 +21,7 @@ import {
   getNavBadge,
   getVisibleNavMainItems,
   isFinanceiroSection,
+  isObrasSection,
   sectionFromPath,
   type NavMainItem,
 } from '@/lib/app-navigation'
@@ -41,9 +42,16 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
 
+  const obrasAbertoPorRota = isObrasSection(activeSection)
+  const [obrasOpen, setObrasOpen] = useState(obrasAbertoPorRota)
+
   useEffect(() => {
     if (financeiroAbertoPorRota) setFinanceiroOpen(true)
   }, [financeiroAbertoPorRota])
+
+  useEffect(() => {
+    if (obrasAbertoPorRota) setObrasOpen(true)
+  }, [obrasAbertoPorRota])
 
   const handleNavClick = (url: string) => {
     if (!open) {
@@ -109,13 +117,15 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
 
                 if (item.children?.length) {
                   const childActive = item.children.some(c => c.id === activeSection)
-                  const grupoAtivo = childActive || financeiroOpen
+                  const isObrasGroup = item.id === 'obras'
+                  const grupoAtivo = childActive || (isObrasGroup ? obrasOpen : financeiroOpen)
+                  const setGrupoOpen = isObrasGroup ? setObrasOpen : setFinanceiroOpen
 
                   return (
                     <Collapsible
                       key={item.id}
                       open={grupoAtivo}
-                      onOpenChange={setFinanceiroOpen}
+                      onOpenChange={setGrupoOpen}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem>
@@ -126,7 +136,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                               e.stopPropagation()
                               if (!open) {
                                 setOpen(true)
-                                setFinanceiroOpen(true)
+                                setGrupoOpen(true)
                                 return
                               }
                             }}

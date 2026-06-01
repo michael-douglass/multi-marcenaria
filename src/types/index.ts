@@ -1,10 +1,10 @@
-export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro'
+export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro' | 'Montador' | 'MontadorAdmin'
 
 export interface UserProfile {
   id: string
   email: string
   nome?: string
-  perfil: 'administrador' | 'financeiro' | 'marceneiro'
+  perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin'
   ativo: boolean
   criado_em: string
 }
@@ -21,6 +21,9 @@ export type ActiveSection =
   | 'caixaFornecedor'
   | 'biblioteca'
   | 'caixa'
+  | 'agendaObras'
+  | 'calendarioObras'
+  | 'metricasObras'
 
 // ── Fornecedor ──────────────────────────────────────────────
 export interface Fornecedor {
@@ -314,4 +317,98 @@ export interface ReservaConsolidada {
   totalItensConcluidosMes: number // qtd OS/itens concluídos
   mes_referencia: number
   ano_referencia: number
+}
+
+// ── Agenda de Obras ──────────────────────────────────────────
+export type StatusKanbanObra =
+  | 'datas_em_aberto'
+  | 'datas_em_atraso'
+  | 'datas_definidas'
+  | 'em_andamento'
+  | 'concluida'
+  | 'cancelada'
+
+export interface GrupoObra {
+  id: string
+  nome: string
+  descricao?: string | null
+  montador_admin_id?: string | null
+  ativo: boolean
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export type GrupoObraInput = Omit<GrupoObra, 'id' | 'criado_em' | 'atualizado_em'>
+
+export interface TipoObra {
+  id: string
+  nome: string
+  descricao?: string | null
+  tempo_medio_horas?: number | null
+  tempo_maximo_horas_default?: number | null
+  ativo: boolean
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export type TipoObraInput = Omit<TipoObra, 'id' | 'criado_em' | 'atualizado_em'>
+
+export interface UsuarioMontador {
+  id: string
+  email: string
+  nome?: string | null
+  perfil: string
+  ativo: boolean
+}
+
+export interface ObraFull {
+  id: string
+  origem_orcamento_id?: string | null
+  origem_lead_id?: string | null
+  cliente_id?: string | null
+  cliente_nome: string
+  lousa?: string | null
+  endereco_obra?: string | null
+  tipo_obra_id?: string | null
+  tipo_obra_nome?: string | null
+  grupo_obra_id?: string | null
+  grupo_obra_nome?: string | null
+  montador_admin_id?: string | null
+  montador_admin_nome?: string | null
+  montador_id?: string | null
+  montador_nome?: string | null
+  data_prevista_inicio?: string | null
+  data_prevista_fim?: string | null
+  tempo_maximo_horas?: number | null
+  status_kanban: StatusKanbanObra
+  iniciado_em?: string | null
+  finalizado_em?: string | null
+  concluido_em_atraso?: boolean | null
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export interface ObraInput {
+  cliente_nome: string
+  cliente_id?: string | null
+  lousa?: string | null
+  endereco_obra?: string | null
+  tipo_obra_id?: string | null
+  grupo_obra_id?: string | null
+  montador_admin_id?: string | null
+  montador_id?: string | null
+  data_prevista_inicio?: string | null
+  data_prevista_fim?: string | null
+  tempo_maximo_horas?: number | null
+  status_kanban?: StatusKanbanObra
+}
+
+export interface MetricaObra {
+  tipo_obra_id: string
+  tipo_obra_nome: string
+  total_obras: number
+  obras_concluidas: number
+  tempo_medio_real_horas: number | null
+  tempo_maximo_horas_default: number | null
+  obras_em_atraso: number
 }

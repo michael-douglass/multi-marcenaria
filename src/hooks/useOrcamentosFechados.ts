@@ -281,13 +281,17 @@ export function useOrcamentosFechados() {
       observacoes: input.observacoes ?? null,
     }
 
-    const { error: ofErrComCamposNovos } = await supabase
+    let orcamentoId: string | null = null
+
+    const { data: ofDataNovos, error: ofErrComCamposNovos } = await supabase
       .from('movelaria_orcamentos_fechados')
       .insert({
         ...registroBase,
         desconto_cartao_percentual: descontoPercentual > 0 ? descontoPercentual : null,
         valor_liquido: valorLiquido,
       })
+      .select('id')
+      .single()
 
     if (ofErrComCamposNovos) {
       const mensagem = ofErrComCamposNovos.message.toLowerCase()
@@ -299,10 +303,30 @@ export function useOrcamentosFechados() {
       if (!schemaDesatualizado) throw new Error(ofErrComCamposNovos.message)
 
       // Fallback para ambientes onde a migration nova ainda não foi aplicada.
-      const { error: ofErrSemCamposNovos } = await supabase
+      const { data: ofDataSem, error: ofErrSemCamposNovos } = await supabase
         .from('movelaria_orcamentos_fechados')
         .insert(registroBase)
+        .select('id')
+        .single()
       if (ofErrSemCamposNovos) throw new Error(ofErrSemCamposNovos.message)
+      orcamentoId = ofDataSem?.id ?? null
+    } else {
+      orcamentoId = ofDataNovos?.id ?? null
+    }
+
+    // Cria obra automaticamente ao fechar orçamento
+    if (orcamentoId && clienteId) {
+      try {
+        await supabase.rpc('movelaria_criar_obra_de_orcamento', {
+          p_orcamento_id: orcamentoId,
+          p_cliente_id: clienteId,
+          p_cliente_nome: input.lead.nome,
+          p_lead_id: input.lead.id,
+          p_lousa: input.lead.observacoes ?? input.descricao ?? null,
+        })
+      } catch (obraErr) {
+        console.warn('[darEntrada] Obra não criada automaticamente:', obraErr)
+      }
     }
 
     await load()

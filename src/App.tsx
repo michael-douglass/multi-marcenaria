@@ -22,13 +22,20 @@ import { ContasReceber } from '@/pages/ContasReceber'
 import { Biblioteca } from '@/pages/Biblioteca'
 import { CaixaFornecedor } from '@/pages/CaixaFornecedor'
 import { Caixa } from '@/pages/Caixa'
+import { AgendaObras } from '@/pages/AgendaObras'
+import { CalendarioObras } from '@/pages/CalendarioObras'
+import { MetricasObras } from '@/pages/MetricasObras'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
+const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'calendarioObras', 'metricasObras']
+
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
+  MontadorAdmin: ['dashboard', ...OBRAS_SECTIONS],
+  Montador: ['dashboard', 'agendaObras', 'calendarioObras'],
 }
 
 function Restricted({ message }: { message: string }) {
@@ -68,6 +75,7 @@ function AuthenticatedRoutes() {
   const contasPagarHook = useContasPagar()
   const contasReceberHook = useContasReceber()
   const caixaFornecedorHook = useCaixaFornecedor()
+
 
   const pendingOrders = pedidosHook.data.filter(o => o.status === 'aguardando_aprovacao').length
 
@@ -158,6 +166,33 @@ function AuthenticatedRoutes() {
             path="/caixa"
             element={guardReadOnly(<Caixa />)}
           />
+
+          {/* Agenda de Obras */}
+          <Route
+            path="/agenda-obras"
+            element={
+              role === 'Administrador' || role === 'MontadorAdmin' || role === 'Montador'
+                ? <AgendaObras />
+                : <Restricted message="Acesso restrito ao módulo de Obras." />
+            }
+          />
+          <Route
+            path="/calendario-obras"
+            element={
+              role === 'Administrador' || role === 'MontadorAdmin' || role === 'Montador'
+                ? <CalendarioObras />
+                : <Restricted message="Acesso restrito ao módulo de Obras." />
+            }
+          />
+          <Route
+            path="/metricas-obras"
+            element={
+              role === 'Administrador' || role === 'MontadorAdmin'
+                ? <MetricasObras />
+                : <Restricted message="Métricas disponíveis apenas para Admin e Montador Admin." />
+            }
+          />
+
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
