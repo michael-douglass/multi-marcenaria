@@ -80,6 +80,10 @@ function UserModal({
       if (form.senha !== form.confirmSenha) return setErr('Senhas não coincidem.')
       if (form.senha.length < 6) return setErr('Senha mínima: 6 caracteres.')
     }
+    if (!editUser && tab === 'existente' && form.senha) {
+      if (form.senha !== form.confirmSenha) return setErr('Senhas não coincidem.')
+      if (form.senha.length < 6) return setErr('Senha mínima: 6 caracteres.')
+    }
     await onSave(form, tab)
   }
 
@@ -143,11 +147,21 @@ function UserModal({
         </>
       )}
 
-      {/* Aviso: registrar existente */}
+      {/* Campos: registrar existente + senha opcional */}
       {!editUser && tab === 'existente' && (
-        <div className="rounded-lg p-3 text-[0.75rem] text-[#8a6a55]" style={{ backgroundColor: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.15)' }}>
-          O usuário já deve ter conta no sistema (ex.: usuário do CRM). Informe o e-mail exato e o perfil desejado no Movelaria. A senha não será alterada.
-        </div>
+        <>
+          <div className="rounded-lg p-3 text-[0.75rem] text-[#8a6a55]" style={{ backgroundColor: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.15)' }}>
+            Usuário que já tem conta no sistema (ex.: CRM). O perfil Movelaria será criado e a senha definida abaixo permitirá o login.
+          </div>
+          <Field label="Definir senha (opcional)">
+            <input type="password" className="glass-input" value={form.senha} onChange={f('senha')} placeholder="Deixe em branco para manter a senha atual" autoComplete="new-password" />
+          </Field>
+          {form.senha && (
+            <Field label="Confirmar senha">
+              <input type="password" className="glass-input" value={form.confirmSenha} onChange={f('confirmSenha')} placeholder="Repita a senha" autoComplete="new-password" />
+            </Field>
+          )}
+        </>
       )}
 
       {err && <p className="text-[0.8rem] text-red-400 mt-1">{err}</p>}
@@ -169,29 +183,38 @@ function SenhaModal({
   open: boolean
   user: UsuarioAdmin | null
   onClose: () => void
-  onSave: (senha: string) => Promise<void>
+  onSave: (senha: string, perfil: string) => Promise<void>
   saving: boolean
 }) {
   const [senha, setSenha] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [perfil, setPerfil] = useState('marceneiro')
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setSenha(''); setConfirm(''); setErr(null)
-  }, [open])
+    setPerfil(user?.perfil ?? 'marceneiro')
+  }, [open, user])
 
   const handleSave = async () => {
     setErr(null)
     if (!senha) return setErr('Senha obrigatória.')
     if (senha.length < 6) return setErr('Mínimo 6 caracteres.')
     if (senha !== confirm) return setErr('Senhas não coincidem.')
-    await onSave(senha)
+    await onSave(senha, perfil)
   }
 
   return (
     <Modal open={open} onClose={onClose} title="REDEFINIR SENHA">
-      <p className="text-sm text-[#8a6a55] mb-2">Usuário: <span className="text-cream font-semibold">{user?.email}</span></p>
+      <p className="text-sm text-[#8a6a55] mb-3">
+        Usuário: <span className="text-cream font-semibold">{user?.email}</span>
+      </p>
+      <Field label="Perfil *">
+        <select className="glass-input" value={perfil} onChange={e => setPerfil(e.target.value)}>
+          {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+      </Field>
       <Field label="Nova senha *">
         <input type="password" className="glass-input" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
       </Field>
@@ -264,7 +287,7 @@ export function Configuracoes() {
         await hook.atualizar(editUser.id, form.perfil, form.nome || null, editUser.ativo)
         showToast('Usuário atualizado.', 'success')
       } else if (tab === 'existente') {
-        await hook.registrarExistente(form.email, form.nome, form.perfil)
+        await hook.registrarExistente(form.email, form.nome, form.perfil, form.senha || undefined)
         showToast('Usuário registrado com sucesso.', 'success')
       } else {
         await hook.criar(form.email, form.senha, form.nome, form.perfil)
@@ -287,11 +310,13 @@ export function Configuracoes() {
     }
   }
 
-  const handleRedefinirSenha = async (senha: string) => {
+  const handleRedefinirSenha = async (senha: string, perfil: string) => {
     if (!senhaUser) return
     setSavingSenha(true)
     try {
-      await hook.redefinirSenha(senhaUser.id, senha)
+      await hook.redefinirSenha(senhaUser.id, senha, perfil, senhaUser.nome)
+      // Recarrega lista para refletir mudança de perfil
+      await hook.reload()
       showToast('Senha redefinida com sucesso.', 'success')
       setSenhaModalOpen(false)
     } catch (err) {
@@ -488,7 +513,7 @@ export function Configuracoes() {
         open={senhaModalOpen}
         user={senhaUser}
         onClose={() => setSenhaModalOpen(false)}
-        onSave={handleRedefinirSenha}
+        onSave={(senha, perfil) => handleRedefinirSenha(senha, perfil)}
         saving={savingSenha}
       />
 

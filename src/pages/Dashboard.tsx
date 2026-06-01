@@ -21,7 +21,7 @@ import {
   useGraficoReceitasMensal,
   useGraficoDespesasMensal
 } from '@/hooks/useFinanceiroDashboard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
