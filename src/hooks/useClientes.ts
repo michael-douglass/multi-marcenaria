@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Cliente, ClienteInput } from '../types'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export function useClientes() {
   const [data, setData] = useState<Cliente[]>([])
@@ -26,6 +27,7 @@ export function useClientes() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+  useAutoRefresh(load)
 
   const create = async (input: ClienteInput): Promise<Cliente> => {
     const { data: row, error: err } = await supabase

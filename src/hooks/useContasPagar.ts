@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
+import { useAutoRefresh } from './useAutoRefresh'
 
 interface GerarParcelasInput {
   pedido_id?: string
@@ -164,6 +165,7 @@ export function useContasPagar() {
   }
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(load)
 
   const gerarParcelas = async (
     input: GerarParcelasInput,

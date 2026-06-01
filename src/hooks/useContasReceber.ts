@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
 import { createId, addDays, addMonths, todayISO } from '../lib/utils'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export interface ParcelaInput {
   numero: number
@@ -57,6 +58,7 @@ export function useContasReceber() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(load)
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada

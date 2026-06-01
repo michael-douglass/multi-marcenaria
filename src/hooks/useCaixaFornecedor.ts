@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { CaixaFornecedor, FormaPagamentoCaixa, TransacaoCaixaFornecedor } from '../types'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export function useCaixaFornecedor() {
   const [caixas, setCaixas] = useState<CaixaFornecedor[]>([])
@@ -20,6 +21,7 @@ export function useCaixaFornecedor() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(load)
 
   const getSaldoFornecedor = useCallback(
     (fornecedorId: string): number =>

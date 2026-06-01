@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Fornecedor, FornecedorInput } from '../types'
+import { useAutoRefresh } from './useAutoRefresh'
 
 export function useFornecedores() {
   const [data, setData] = useState<Fornecedor[]>([])
@@ -19,6 +20,7 @@ export function useFornecedores() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(load)
 
   const create = async (input: FornecedorInput): Promise<Fornecedor> => {
     const { data: row, error: err } = await supabase

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Pedido, PedidoItem, PedidoStatus } from '../types'
 import { todayISO } from '../lib/utils'
+import { useAutoRefresh } from './useAutoRefresh'
 
 interface NewItemInput {
   produto_id: string
@@ -34,6 +35,7 @@ export function usePedidos() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(load)
 
   const create = async (
     fornecedor_id: string,
