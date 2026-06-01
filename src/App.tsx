@@ -25,13 +25,14 @@ import { Caixa } from '@/pages/Caixa'
 import { AgendaObras } from '@/pages/AgendaObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { MetricasObras } from '@/pages/MetricasObras'
+import { Configuracoes } from '@/pages/Configuracoes'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
 const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'calendarioObras', 'metricasObras']
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
   MontadorAdmin: ['dashboard', ...OBRAS_SECTIONS],
@@ -95,14 +96,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/dashboard"
             element={
-              <Dashboard
-                fornecedores={fornecedoresHook.data}
-                produtos={produtosHook.data}
-                pedidos={pedidosHook.data}
-                clientes={clientesHook.data}
-                contasPagar={contasPagarHook.data}
-                contasReceber={contasReceberHook.data}
-              />
+              <Dashboard />
             }
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
@@ -190,6 +184,16 @@ function AuthenticatedRoutes() {
               role === 'Administrador' || role === 'MontadorAdmin'
                 ? <MetricasObras />
                 : <Restricted message="Métricas disponíveis apenas para Admin e Montador Admin." />
+            }
+          />
+
+          {/* Configurações */}
+          <Route
+            path="/configuracoes"
+            element={
+              role === 'Administrador'
+                ? <Configuracoes />
+                : <Restricted message="Acesso restrito a Administradores." />
             }
           />
 

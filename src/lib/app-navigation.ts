@@ -15,11 +15,12 @@ import {
   HardHat,
   CalendarDays,
   BarChart3,
+  Settings,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
 /** IDs de itens de menu (rotas ou agrupadores) */
-export type NavItemId = ActiveSection | 'financeiro' | 'obras'
+export type NavItemId = ActiveSection | 'financeiro' | 'obras' | 'configuracoes'
 
 export interface NavChildItem {
   id: ActiveSection
@@ -171,6 +172,14 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     radialColor: 'rgba(244,114,182,0.92)',
     roles: ['Administrador', 'Financeiro'],
   },
+  {
+    id: 'configuracoes',
+    title: 'Configurações',
+    url: '/configuracoes',
+    icon: Settings,
+    radialColor: 'rgba(156,163,175,0.92)',
+    roles: ['Administrador'],
+  },
 ]
 
 export interface NavVisibilityContext {
@@ -238,6 +247,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/agenda-obras': 'agendaObras',
     '/calendario-obras': 'calendarioObras',
     '/metricas-obras': 'metricasObras',
+    '/configuracoes': 'configuracoes',
   }
   return map[pathname] ?? 'dashboard'
 }

@@ -24,6 +24,7 @@ export type ActiveSection =
   | 'agendaObras'
   | 'calendarioObras'
   | 'metricasObras'
+  | 'configuracoes'
 
 // ── Fornecedor ──────────────────────────────────────────────
 export interface Fornecedor {
@@ -403,12 +404,29 @@ export interface ObraInput {
   status_kanban?: StatusKanbanObra
 }
 
-export interface MetricaObra {
-  tipo_obra_id: string
-  tipo_obra_nome: string
-  total_obras: number
-  obras_concluidas: number
-  tempo_medio_real_horas: number | null
-  tempo_maximo_horas_default: number | null
-  obras_em_atraso: number
+// ── Financeiro Dashboard ────────────────────────────────────
+export interface FinanceiroStats {
+  clientesAtivos: number
+  clientesPendentesContrato: number
+  totalAReceber: number
+  totalRecebidoMes: number
+  totalAtrasado: number
+  previsaoProximoMes: number
+  previsaoAno: number
+  despesasProximoMes: number
+  ticketMedio: number // novos clientes do mês (valor plano / qtd)
+  ticketMedioGeral: number // média das parcelas do mês
+  receitaLiquidaAno: number
+  novosClientesMes: number
+}
+
+export interface DadoGraficoMensal {
+  mes: string
+  valor: number
+}
+
+export interface DadoGraficoComparativo {
+  mes: string
+  receitas: number
+  despesas: number
 }
