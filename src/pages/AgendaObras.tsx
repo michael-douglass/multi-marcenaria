@@ -360,9 +360,15 @@ export function AgendaObras() {
   }
 
   const obrasFiltradas = useMemo(() => {
+    // Só exibe obras com datas definidas OU que saíram do status padrão
+    const agendadas = obrasHook.data.filter(o =>
+      o.data_prevista_inicio !== null ||
+      o.data_prevista_fim    !== null ||
+      o.status_kanban !== 'datas_em_aberto'
+    )
     const q = busca.trim().toLowerCase()
-    if (!q) return obrasHook.data
-    return obrasHook.data.filter(o => {
+    if (!q) return agendadas
+    return agendadas.filter(o => {
       const haystack = [
         o.cliente_nome,
         o.lousa,
@@ -461,7 +467,7 @@ export function AgendaObras() {
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Agenda de Obras</h1>
           <p className="section-label mt-1">
-            {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+            {obrasFiltradas.length} obra{obrasFiltradas.length !== 1 ? 's' : ''} agendada{obrasFiltradas.length !== 1 ? 's' : ''}
             {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
           </p>
         </div>
