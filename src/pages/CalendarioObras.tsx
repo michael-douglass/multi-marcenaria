@@ -52,11 +52,12 @@ function fmtDayHeader(d: Date): string {
   return `${WEEKDAYS[d.getDay()]} ${d.getDate()}/${MONTHS[d.getMonth()]}`
 }
 function obrasForDay(obras: ObraFull[], iso: string): ObraFull[] {
-  return obras.filter(o => {
-    const s = o.data_prevista_inicio ?? iso
-    const e = o.data_prevista_fim   ?? iso
-    return iso >= s && iso <= e
-  })
+  return obras.filter(o =>
+    o.data_prevista_inicio !== null &&
+    o.data_prevista_fim    !== null &&
+    iso >= o.data_prevista_inicio &&
+    iso <= o.data_prevista_fim
+  )
 }
 
 // ── Popup do dia ─────────────────────────────────────────────

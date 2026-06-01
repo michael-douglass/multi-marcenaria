@@ -18,7 +18,6 @@ import { fmtDate } from '../lib/utils'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
-  { key: 'datas_em_aberto', label: 'Datas em Aberto', cor: '#6b7280' },
   { key: 'datas_em_atraso', label: 'Datas em Atraso', cor: '#ef4444' },
   { key: 'datas_definidas', label: 'Datas Definidas', cor: '#3b82f6' },
   { key: 'em_andamento',    label: 'Em Andamento',    cor: '#f59e0b' },
@@ -390,7 +389,9 @@ export function AgendaObras() {
     }
     for (const o of obrasFiltradas) {
       const col = computeKanbanKey(o)
-      map[col].push(o)
+      // Obras que caíam em "datas_em_aberto" mas têm datas vão para "datas_definidas"
+      const destino = col === 'datas_em_aberto' ? 'datas_definidas' : col
+      map[destino].push(o)
     }
     return map
   }, [obrasFiltradas])
