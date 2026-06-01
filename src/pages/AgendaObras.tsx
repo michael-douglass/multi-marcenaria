@@ -238,7 +238,7 @@ function ObraModal({
           <Field label="Montador Responsável">
             <select className="glass-input" value={form.montador_id ?? ''} onChange={s('montador_id')}>
               <option value="">— Nenhum —</option>
-              {montadores.map(m => (
+              {montadores.filter(m => m.perfil === 'montador').map(m => (
                 <option key={m.id} value={m.id}>{m.nome ?? m.email}</option>
               ))}
             </select>
@@ -246,7 +246,7 @@ function ObraModal({
           <Field label="Montador Admin">
             <select className="glass-input" value={form.montador_admin_id ?? ''} onChange={s('montador_admin_id')}>
               <option value="">— Nenhum —</option>
-              {montadores.map(m => (
+              {montadores.filter(m => m.perfil === 'montador_admin').map(m => (
                 <option key={m.id} value={m.id}>{m.nome ?? m.email}</option>
               ))}
             </select>
