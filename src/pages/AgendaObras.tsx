@@ -212,9 +212,6 @@ function ObraModal({
       <Field label="Cliente *">
         <input className="glass-input" value={form.cliente_nome} onChange={s('cliente_nome')} placeholder="Nome do cliente" />
       </Field>
-      <Field label="Lousa">
-        <input className="glass-input" value={form.lousa ?? ''} onChange={s('lousa')} placeholder="Descrição / lousa" />
-      </Field>
       <Field label="Endereço da Obra">
         <input className="glass-input" value={form.endereco_obra ?? ''} onChange={s('endereco_obra')} placeholder="Rua, número, bairro..." />
       </Field>
