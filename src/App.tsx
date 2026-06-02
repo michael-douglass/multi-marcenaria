@@ -26,14 +26,15 @@ import { AgendaObras } from '@/pages/AgendaObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { MetricasObras } from '@/pages/MetricasObras'
 import { Configuracoes } from '@/pages/Configuracoes'
+import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
 const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'calendarioObras', 'metricasObras']
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
   MontadorAdmin: [...OBRAS_SECTIONS],
   Montador: ['agendaObras', 'calendarioObras'],
@@ -107,6 +108,7 @@ function AuthenticatedRoutes() {
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
           <Route path="/cobrancas" element={guardReadOnly(<ContasReceber clientes={clientesHook.data} readOnly={readOnly} />)} />
+          <Route path="/contratos" element={guardReadOnly(<Contratos readOnly={readOnly} />)} />
           <Route
             path="/fornecedores"
             element={guardReadOnly(

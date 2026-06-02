@@ -44,6 +44,13 @@ const migrations = [
   '020_caixa_pagamentos_adiados.sql',
   '021_caixa_sync_trigger.sql',
   '022_agenda_obras.sql',
+  '023_admin_usuarios.sql',
+  '024_fix_trigger_usuarios.sql',
+  '025_obra_arquivos.sql',
+  '026_fix_criar_usuario_tokens.sql',
+  '027_usuario_role_garantido.sql',
+  '028_obra_evolucao.sql',
+  '029_recibo_config.sql',
 ]
 
 const client = new Client({

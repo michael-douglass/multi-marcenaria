@@ -14,13 +14,15 @@ import {
   Search,
   Copy,
   Download,
-  Info
+  Info,
+  FileText
 } from 'lucide-react'
 import {
   useFinanceiroStats,
   useGraficoReceitasMensal,
   useGraficoDespesasMensal
 } from '@/hooks/useFinanceiroDashboard'
+import { useReciboConfig } from '@/hooks/useReciboConfig'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Modal } from '@/components/ui/Modal'
@@ -183,6 +185,7 @@ export function Dashboard() {
           count={stats?.novosClientesMes ?? 0}
           ticketMedio={stats?.ticketMedio ?? 0}
         />
+        <ReciboConfigCard />
         <ResumoFinanceiroCard stats={stats} />
       </div>
 
@@ -373,29 +376,53 @@ function NovosClientesCard({ count, ticketMedio }: { count: number; ticketMedio:
 
 function ResumoFinanceiroCard({ stats }: { stats: any }) {
   return (
-    <Card className="border-[rgba(212,168,83,0.15)] bg-[rgba(15,8,5,0.6)] md:col-span-2">
+    <Card className="border-[rgba(212,168,83,0.15)] bg-[rgba(15,8,5,0.6)] md:col-span-1">
       <CardHeader className="pb-2">
         <CardTitle className="text-[#d4a853]">Resumo Estratégico</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <CardContent className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Ticket Médio Geral</p>
+          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Ticket Médio</p>
           <p className="text-sm font-bold text-cream">{fmtCur(stats?.ticketMedioGeral ?? 0)}</p>
         </div>
         <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Novos Clientes</p>
-          <p className="text-sm font-bold text-cyan-400">{stats?.novosClientesMes ?? 0}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Rec. Líquida Ano</p>
+          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Rec. Líquida</p>
           <p className={cn("text-sm font-bold", stats?.receitaLiquidaAno >= 0 ? "text-emerald-400" : "text-red-400")}>
             {fmtCur(stats?.receitaLiquidaAno ?? 0)}
           </p>
         </div>
-        <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-widest text-[#8a6a55]">Previsão Próx. Mês</p>
-          <p className="text-sm font-bold text-purple-400">{fmtCur(stats?.previsaoProximoMes ?? 0)}</p>
-        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ReciboConfigCard() {
+  const { config, loading } = useReciboConfig()
+
+  return (
+    <Card className="border-[rgba(212,168,83,0.15)] bg-[rgba(15,8,5,0.6)]">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+        <CardTitle className="text-[#d4a853] text-[10px] font-bold uppercase tracking-[0.2em]">Config de Recibo</CardTitle>
+        <FileText className="h-4 w-4 text-[#d4a853] opacity-70" />
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-6 w-24" />
+        ) : config ? (
+          <>
+            <div className="text-xl font-bold tracking-tight text-emerald-400">CONFIGURADO</div>
+            <p className="text-[10px] text-[#8a6a55] mt-1 font-medium opacity-80 uppercase tracking-wider">
+              CNPJ: {config.cnpj}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="text-xl font-bold tracking-tight text-red-400">PENDENTE</div>
+            <p className="text-[10px] text-[#8a6a55] mt-1 font-medium opacity-80 uppercase tracking-wider">
+              Configure em Cobranças > ⚙️
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   )

@@ -13,6 +13,7 @@ export type ActiveSection =
   | 'dashboard'
   | 'clientes'
   | 'cobranças'
+  | 'contratos'
   | 'fornecedores'
   | 'produtos'
   | 'pedidos'
@@ -429,4 +430,32 @@ export interface DadoGraficoComparativo {
   mes: string
   receitas: number
   despesas: number
+}
+
+// ── Contratos CRM (emp_garbo) ────────────────────────────────
+export type ContratoCRMStatus = 'rascunho' | 'gerado' | 'enviado' | 'assinado' | 'cancelado'
+
+export interface ContratoCRM {
+  id: string
+  identificador: string
+  cliente_nome: string
+  status: ContratoCRMStatus
+  created_at: string
+  lead_id?: number | null
+}
+
+export interface ContratoVariavel {
+  id: string
+  nome: string
+  label: string
+  tipo: 'texto' | 'data' | 'valor' | 'cpf'
+  obrigatorio: boolean
+  ordem: number
+}
+
+export interface ContratoCRMDetalhe extends ContratoCRM {
+  campos_valores: Record<string, string>
+  conteudo_final: string
+  criado_por?: string
+  variaveis: ContratoVariavel[]
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pencil, Plus, Settings, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Settings, Trash2, FileText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Field, FieldRow } from '@/components/ui/Field'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { showToast } from '@/lib/toast'
 import { TEMPLATE_PADRAO } from '@/hooks/useTemplatesCobranca'
 import { TIPOS_CHAVE_PIX } from '@/hooks/usePixConfig'
+import { useReciboConfig } from '@/hooks/useReciboConfig'
 import type { useTemplatesCobranca } from '@/hooks/useTemplatesCobranca'
 import type { usePixConfig } from '@/hooks/usePixConfig'
 import type { TemplateCobranca } from '@/lib/processarTemplate'
@@ -24,6 +25,9 @@ const VARIAVEIS: { label: string; chave: string }[] = [
   { label: 'Descrição',          chave: 'descricao_cobranca' },
   { label: 'Telefone',           chave: 'telefone' },
   { label: 'PIX copia e cola',   chave: 'pix_copia_cola' },
+  { label: 'Data de hoje',       chave: 'data_hoje' },
+  { label: 'CNPJ',               chave: 'cnpj' },
+  { label: 'Nome Empresa',       chave: 'nome_empresa' },
 ]
 
 // ── Button de entrada ─────────────────────────────────────────
@@ -67,6 +71,7 @@ interface ModalProps {
 function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalProps) {
   const { data: dbTemplates, loading, criar, editar, excluir } = templatesHook
   const { config: pixConfig, saving: pixSaving, salvar: salvarPix } = pixHook
+  const { config: reciboConfig, saving: reciboSaving, salvar: salvarRecibo } = useReciboConfig()
 
   // ── estado view de templates
   const [view, setView] = useState<'list' | 'form'>('list')
@@ -85,6 +90,13 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
   const [pixNome, setPixNome] = useState('')
   const [pixErro, setPixErro] = useState<string | null>(null)
 
+  // ── estado do formulário RECIBO
+  const [reciboFormOpen, setReciboFormOpen] = useState(false)
+  const [reciboCnpj, setReciboCnpj] = useState('')
+  const [reciboTemplate, setReciboTemplate] = useState('')
+  const [reciboErro, setReciboErro] = useState<string | null>(null)
+  const reciboTextareaRef = useRef<HTMLTextAreaElement>(null)
+
   // Reinicia ao abrir
   useEffect(() => {
     if (open) {
@@ -92,6 +104,8 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
       setEditingTemplate(null)
       setPixFormOpen(false)
       setPixErro(null)
+      setReciboFormOpen(false)
+      setReciboErro(null)
     }
   }, [open])
 
@@ -108,6 +122,18 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
     }
     setPixErro(null)
   }, [pixFormOpen, pixConfig])
+
+  // Preenche form RECIBO com dados existentes ao abrir
+  useEffect(() => {
+    if (reciboFormOpen && reciboConfig) {
+      setReciboCnpj(reciboConfig.cnpj)
+      setReciboTemplate(reciboConfig.template_texto)
+    } else if (reciboFormOpen && !reciboConfig) {
+      setReciboCnpj('')
+      setReciboTemplate('')
+    }
+    setReciboErro(null)
+  }, [reciboFormOpen, reciboConfig])
 
   const abrirForm = (template?: TemplateCobranca) => {
     if (template) {
@@ -131,14 +157,18 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
     setFormErro(null)
   }
 
-  const inserirVariavel = (chave: string) => {
-    const el = textareaRef.current
+  const inserirVariavel = (chave: string, isRecibo = false) => {
+    const el = isRecibo ? reciboTextareaRef.current : textareaRef.current
     if (!el) return
+    const content = isRecibo ? reciboTemplate : formConteudo
     const start = el.selectionStart
     const end = el.selectionEnd
     const tag = `{{${chave}}}`
-    const next = formConteudo.slice(0, start) + tag + formConteudo.slice(end)
-    setFormConteudo(next)
+    const next = content.slice(0, start) + tag + content.slice(end)
+    
+    if (isRecibo) setReciboTemplate(next)
+    else setFormConteudo(next)
+
     setTimeout(() => {
       el.focus()
       el.setSelectionRange(start + tag.length, start + tag.length)
@@ -193,6 +223,22 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
       setPixFormOpen(false)
     } catch (e) {
       setPixErro(e instanceof Error ? e.message : 'Erro ao salvar PIX.')
+    }
+  }
+
+  const handleSalvarRecibo = async () => {
+    if (!reciboCnpj.trim()) { setReciboErro('Informe o CNPJ.'); return }
+    if (!reciboTemplate.trim()) { setReciboErro('Informe o template do recibo.'); return }
+    setReciboErro(null)
+    try {
+      await salvarRecibo({
+        cnpj: reciboCnpj.trim(),
+        template_texto: reciboTemplate.trim(),
+      })
+      showToast('Recibo configurado!')
+      setReciboFormOpen(false)
+    } catch (e) {
+      setReciboErro(e instanceof Error ? e.message : 'Erro ao salvar recibo.')
     }
   }
 
@@ -347,108 +393,220 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
         )}
       </div>
 
-      {/* ── Bloco B: PIX ───────────────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
-            CONFIGURAÇÃO PIX
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* ── Bloco B: PIX ───────────────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
+              CONFIGURAÇÃO PIX
+            </p>
+            {!pixFormOpen && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setPixFormOpen(true)}
+              >
+                {pixConfig ? 'Alterar PIX' : 'Configurar PIX'}
+              </button>
+            )}
+          </div>
+
+          {/* Resumo da config atual */}
           {!pixFormOpen && (
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => setPixFormOpen(true)}
+            pixConfig ? (
+              <div
+                className="rounded-lg px-3 py-2.5 text-sm"
+                style={{ border: '1px solid rgba(74,222,128,.18)', background: 'rgba(74,222,128,.04)' }}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span style={{ color: '#4ade80', fontWeight: 700 }}>✓ PIX configurado</span>
+                  <span className="section-label" style={{ fontSize: '.7rem' }}>{tipoLabel}</span>
+                </div>
+                <div style={{ color: '#f4e4d6', fontFamily: 'monospace', fontSize: '.8rem' }}>
+                  {pixConfig.chave_pix}
+                </div>
+                {pixConfig.nome_beneficiario && (
+                  <div style={{ color: '#8a6a55', fontSize: '.78rem', marginTop: '.15rem' }}>
+                    Beneficiário: {pixConfig.nome_beneficiario}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className="rounded-lg px-3 py-2.5 text-sm"
+                style={{ border: '1px solid rgba(248,113,113,.18)', background: 'rgba(248,113,113,.04)', color: '#f87171' }}
+              >
+                PIX não configurado — a variável {'{{pix_copia_cola}}'} nos templates ficará em branco.
+              </div>
+            )
+          )}
+
+          {/* Formulário PIX */}
+          {pixFormOpen && (
+            <div
+              className="rounded-lg p-3"
+              style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
             >
-              {pixConfig ? 'Alterar PIX' : 'Configurar PIX'}
-            </button>
+              <Field label="Tipo de chave">
+                <select
+                  className="glass-input"
+                  value={pixTipo}
+                  onChange={e => setPixTipo(e.target.value)}
+                >
+                  {TIPOS_CHAVE_PIX.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Chave PIX *">
+                <input
+                  className="glass-input"
+                  value={pixChave}
+                  onChange={e => setPixChave(e.target.value)}
+                  placeholder={
+                    TIPOS_CHAVE_PIX.find(t => t.value === pixTipo)?.placeholder ?? ''
+                  }
+                />
+              </Field>
+
+              <Field label="Nome do beneficiário (opcional)">
+                <input
+                  className="glass-input"
+                  value={pixNome}
+                  onChange={e => setPixNome(e.target.value)}
+                  placeholder="Ex: GARBO MOVELARIA"
+                  maxLength={25}
+                />
+              </Field>
+
+              {pixErro && <p className="mb-2 text-sm text-red-400">{pixErro}</p>}
+
+              <ModalFormFooter
+                onCancel={() => setPixFormOpen(false)}
+                onSubmit={handleSalvarPix}
+                submitLabel="Salvar PIX"
+                submittingLabel="Salvando..."
+                submitting={pixSaving}
+                submitDisabled={!pixChave.trim()}
+              />
+            </div>
           )}
         </div>
 
-        {/* Resumo da config atual */}
-        {!pixFormOpen && (
-          pixConfig ? (
-            <div
-              className="rounded-lg px-3 py-2.5 text-sm"
-              style={{ border: '1px solid rgba(74,222,128,.18)', background: 'rgba(74,222,128,.04)' }}
-            >
-              <div className="flex items-center gap-2 mb-0.5">
-                <span style={{ color: '#4ade80', fontWeight: 700 }}>✓ PIX configurado</span>
-                <span className="section-label" style={{ fontSize: '.7rem' }}>{tipoLabel}</span>
-              </div>
-              <div style={{ color: '#f4e4d6', fontFamily: 'monospace', fontSize: '.8rem' }}>
-                {pixConfig.chave_pix}
-              </div>
-              {pixConfig.nome_beneficiario && (
-                <div style={{ color: '#8a6a55', fontSize: '.78rem', marginTop: '.15rem' }}>
-                  Beneficiário: {pixConfig.nome_beneficiario}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div
-              className="rounded-lg px-3 py-2.5 text-sm"
-              style={{ border: '1px solid rgba(248,113,113,.18)', background: 'rgba(248,113,113,.04)', color: '#f87171' }}
-            >
-              PIX não configurado — a variável {'{{pix_copia_cola}}'} nos templates ficará em branco.
-            </div>
-          )
-        )}
-
-        {/* Formulário PIX */}
-        {pixFormOpen && (
-          <div
-            className="rounded-lg p-3"
-            style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
-          >
-            <Field label="Tipo de chave">
-              <select
-                className="glass-input"
-                value={pixTipo}
-                onChange={e => setPixTipo(e.target.value)}
+        {/* ── Bloco C: RECIBO ────────────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
+              CONFIGURAÇÃO DE RECIBO
+            </p>
+            {!reciboFormOpen && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setReciboFormOpen(true)}
               >
-                {TIPOS_CHAVE_PIX.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Chave PIX *">
-              <input
-                className="glass-input"
-                value={pixChave}
-                onChange={e => setPixChave(e.target.value)}
-                placeholder={
-                  TIPOS_CHAVE_PIX.find(t => t.value === pixTipo)?.placeholder ?? ''
-                }
-              />
-            </Field>
-
-            <Field label="Nome do beneficiário (opcional)">
-              <input
-                className="glass-input"
-                value={pixNome}
-                onChange={e => setPixNome(e.target.value)}
-                placeholder="Ex: GARBO MOVELARIA"
-                maxLength={25}
-              />
-            </Field>
-
-            {pixErro && <p className="mb-2 text-sm text-red-400">{pixErro}</p>}
-
-            <ModalFormFooter
-              onCancel={() => setPixFormOpen(false)}
-              onSubmit={handleSalvarPix}
-              submitLabel="Salvar PIX"
-              submittingLabel="Salvando..."
-              submitting={pixSaving}
-              submitDisabled={!pixChave.trim()}
-            />
+                {reciboConfig ? 'Alterar Recibo' : 'Configurar Recibo'}
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Resumo da config atual */}
+          {!reciboFormOpen && (
+            reciboConfig ? (
+              <div
+                className="rounded-lg px-3 py-2.5 text-sm"
+                style={{ border: '1px solid rgba(212,168,83,.18)', background: 'rgba(212,168,83,.04)' }}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span style={{ color: '#d4a853', fontWeight: 700 }}>✓ Recibo configurado</span>
+                </div>
+                <div style={{ color: '#f4e4d6', fontSize: '.8rem' }}>
+                  CNPJ: {reciboConfig.cnpj}
+                </div>
+                <div className="mt-1 truncate text-xs text-[#8a6a55]">
+                  {reciboConfig.template_texto.slice(0, 50)}...
+                </div>
+              </div>
+            ) : (
+              <div
+                className="rounded-lg px-3 py-2.5 text-sm"
+                style={{ border: '1px solid rgba(248,113,113,.18)', background: 'rgba(248,113,113,.04)', color: '#f87171' }}
+              >
+                Recibo não configurado.
+              </div>
+            )
+          )}
+
+          {/* Formulário RECIBO */}
+          {reciboFormOpen && (
+            <div
+              className="rounded-lg p-3"
+              style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
+            >
+              <Field label="CNPJ da Empresa *">
+                <input
+                  className="glass-input"
+                  value={reciboCnpj}
+                  onChange={e => setReciboCnpj(e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                />
+              </Field>
+
+              <Field label="Template do Recibo *">
+                <textarea
+                  ref={reciboTextareaRef}
+                  className="glass-input min-h-[120px]"
+                  value={reciboTemplate}
+                  onChange={e => setReciboTemplate(e.target.value)}
+                  rows={5}
+                  style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '.75rem' }}
+                />
+              </Field>
+
+              {/* Painel de variáveis para recibo */}
+              <div className="mb-3">
+                <div className="flex flex-wrap gap-1">
+                  {VARIAVEIS.map(v => (
+                    <button
+                      key={v.chave}
+                      type="button"
+                      onClick={() => inserirVariavel(v.chave, true)}
+                      style={{
+                        padding: '.15rem .45rem',
+                        borderRadius: '9999px',
+                        fontSize: '.62rem',
+                        fontWeight: 600,
+                        border: '1px solid rgba(212,168,83,.3)',
+                        background: 'rgba(212,168,83,.08)',
+                        color: '#d4a853',
+                        cursor: 'pointer',
+                        fontFamily: 'Raleway, sans-serif',
+                      }}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {reciboErro && <p className="mb-2 text-sm text-red-400">{reciboErro}</p>}
+
+              <ModalFormFooter
+                onCancel={() => setReciboFormOpen(false)}
+                onSubmit={handleSalvarRecibo}
+                submitLabel="Salvar Config"
+                submittingLabel="Salvando..."
+                submitting={reciboSaving}
+                submitDisabled={!reciboCnpj.trim() || !reciboTemplate.trim()}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Rodapé */}
-      {view === 'list' && !pixFormOpen && (
+      {view === 'list' && !pixFormOpen && !reciboFormOpen && (
         <div className="mt-6 flex justify-end">
           <button type="button" className="btn btn-outline btn-md" onClick={onClose}>
             Fechar
