@@ -79,6 +79,10 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const [valoresCorrigidos, setValoresCorrigidos] = useState<Record<string, number>>({})
   const [editandoValor, setEditandoValor] = useState<string | null>(null)
   const [inputEdicao, setInputEdicao] = useState('')
+  const [previewLead, setPreviewLead] = useState<LeadGanho | null>(null)
+  const [leadOverrides, setLeadOverrides] = useState<Record<string, { nome?: string; telefone?: string; email?: string; observacoes?: string }>>({})
+  const [previewEditMode, setPreviewEditMode] = useState(false)
+  const [previewForm, setPreviewForm] = useState({ nome: '', telefone: '', email: '', valor: '', observacoes: '' })
 
   const val = parseFloat(form.valor) || 0
   const entradaVal = form.temEntrada ? (parseFloat(form.valorEntrada) || 0) : 0
@@ -159,8 +163,55 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
     setEditandoValor(null)
   }
 
+  const getMerged = (lead: LeadGanho): LeadGanho => ({
+    ...lead,
+    ...leadOverrides[lead.id],
+    valor_orcamento: valoresCorrigidos[lead.id] ?? lead.valor_orcamento,
+  })
+
+  const openPreview = (lead: LeadGanho) => {
+    const m = getMerged(lead)
+    setPreviewLead(lead)
+    setPreviewEditMode(false)
+    setPreviewForm({
+      nome: m.nome,
+      telefone: m.telefone ?? '',
+      email: m.email ?? '',
+      valor: String(valoresCorrigidos[lead.id] ?? lead.valor_orcamento ?? ''),
+      observacoes: m.observacoes ?? '',
+    })
+  }
+
+  const closePreview = () => {
+    setPreviewLead(null)
+    setPreviewEditMode(false)
+  }
+
+  const savePreviewEdit = () => {
+    if (!previewLead) return
+    const newVal = parseFloat(previewForm.valor.replace(',', '.'))
+    if (newVal > 0) setValoresCorrigidos(prev => ({ ...prev, [previewLead.id]: newVal }))
+    setLeadOverrides(prev => ({
+      ...prev,
+      [previewLead.id]: {
+        nome: previewForm.nome.trim() || previewLead.nome,
+        telefone: previewForm.telefone.trim() || undefined,
+        email: previewForm.email.trim() || undefined,
+        observacoes: previewForm.observacoes.trim() || undefined,
+      },
+    }))
+    setPreviewEditMode(false)
+  }
+
+  const handleDarEntradaFromPreview = () => {
+    if (!previewLead) return
+    const merged = getMerged(previewLead)
+    closePreview()
+    void openModal(merged)
+  }
+
   const openModal = async (lead: LeadGanho) => {
-    setSelected(lead)
+    setSelected({ ...lead, ...leadOverrides[lead.id] })
     const v = valorEfetivo(lead)
     setForm({ ...defaultForm(), valor: v > 0 ? String(v) : '' })
     setSaveError(null)
@@ -250,6 +301,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const descontoCartaoPercentual = Math.max(0, Math.min(100, parseFloat(form.descontoCartaoPercentual) || 0))
   const descontoCartaoValor = parseFloat(((valorBase * descontoCartaoPercentual) / 100).toFixed(2))
   const liquidoCartao = parseFloat((valorBase - descontoCartaoValor).toFixed(2))
+  const previewMerged = previewLead ? getMerged(previewLead) : null
 
   return (
     <div className="mb-8">
@@ -394,16 +446,282 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 )}
               </div>
             )}
-            <button
-              type="button"
-              className="btn btn-gold btn-sm w-full"
-              onClick={() => void openModal(lead)}
-            >
-              Ver histórico e dar entrada
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm flex-1"
+                onClick={() => openPreview(lead)}
+              >
+                Pré-visualizar
+              </button>
+              <button
+                type="button"
+                className="btn btn-gold btn-sm flex-1"
+                onClick={() => void openModal(lead)}
+              >
+                Dar entrada
+              </button>
+            </div>
           </div>
         ))}
       </div>
+
+      {previewMerged && previewLead && (
+        <Modal
+          open
+          onClose={closePreview}
+          title={`CONTRATO — ${previewMerged.nome.toUpperCase()}`}
+          wide
+        >
+          <div className="flex justify-end mb-3">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                if (!previewEditMode) {
+                  setPreviewForm({
+                    nome: previewMerged.nome,
+                    telefone: previewMerged.telefone ?? '',
+                    email: previewMerged.email ?? '',
+                    valor: String(valorEfetivo(previewLead)),
+                    observacoes: previewMerged.observacoes ?? '',
+                  })
+                }
+                setPreviewEditMode(e => !e)
+              }}
+            >
+              {previewEditMode ? '← Visualizar' : '✎ Editar dados'}
+            </button>
+          </div>
+
+          {previewEditMode ? (
+            <div>
+              <Field label="Nome do Cliente *">
+                <input
+                  className="glass-input"
+                  value={previewForm.nome}
+                  onChange={e => setPreviewForm(p => ({ ...p, nome: e.target.value }))}
+                />
+              </Field>
+              <FieldRow>
+                <Field label="Telefone" half>
+                  <input
+                    className="glass-input"
+                    value={previewForm.telefone}
+                    onChange={e => setPreviewForm(p => ({ ...p, telefone: e.target.value }))}
+                    placeholder="(11) 99999-9999"
+                  />
+                </Field>
+                <Field label="E-mail" half>
+                  <input
+                    className="glass-input"
+                    type="email"
+                    value={previewForm.email}
+                    onChange={e => setPreviewForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="email@exemplo.com"
+                  />
+                </Field>
+              </FieldRow>
+              <Field label="Valor do Contrato (R$)">
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={previewForm.valor}
+                  onChange={e => setPreviewForm(p => ({ ...p, valor: e.target.value }))}
+                  placeholder="0,00"
+                  min="0"
+                  step="0.01"
+                />
+              </Field>
+              <Field label="Escopo / Observações">
+                <textarea
+                  className="glass-input"
+                  value={previewForm.observacoes}
+                  onChange={e => setPreviewForm(p => ({ ...p, observacoes: e.target.value }))}
+                  placeholder="Descreva o escopo do serviço..."
+                  rows={4}
+                  style={{ resize: 'vertical', minHeight: 90 }}
+                />
+              </Field>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-md"
+                  onClick={() => setPreviewEditMode(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-gold btn-md"
+                  onClick={savePreviewEdit}
+                >
+                  ✓ Salvar alterações
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(212,168,83,0.2)',
+                borderRadius: 8,
+                padding: '1.5rem',
+              }}
+            >
+              {/* Cabeçalho */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '1rem',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid rgba(212,168,83,0.2)',
+              }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#d4a853', fontFamily: 'Raleway, sans-serif', letterSpacing: '.06em' }}>
+                    GARBO Movelaria
+                  </div>
+                  <div className="section-label" style={{ fontSize: '.67rem' }}>
+                    Marcenaria Planejada de Alta Qualidade
+                  </div>
+                </div>
+                <div className="section-label" style={{ textAlign: 'right', fontSize: '.72rem' }}>
+                  <div>
+                    Data: {previewMerged.criado_em
+                      ? new Date(previewMerged.criado_em).toLocaleDateString('pt-BR')
+                      : new Date().toLocaleDateString('pt-BR')}
+                  </div>
+                  <div style={{ marginTop: '.15rem', opacity: 0.55, fontSize: '.64rem' }}>
+                    Ref: {previewLead.id.slice(0, 8).toUpperCase()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Título */}
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#f4e4d6', letterSpacing: '.09em', textTransform: 'uppercase' }}>
+                  Proposta / Contrato de Prestação de Serviços
+                </div>
+                <div style={{ width: 56, height: 2, background: 'rgba(212,168,83,0.45)', margin: '.45rem auto 0' }} />
+              </div>
+
+              {/* Dados do cliente */}
+              <div style={{
+                marginBottom: '1rem',
+                padding: '.85rem 1rem',
+                background: 'rgba(212,168,83,0.04)',
+                border: '1px solid rgba(212,168,83,0.12)',
+                borderRadius: 6,
+              }}>
+                <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', marginBottom: '.55rem', textTransform: 'uppercase' }}>
+                  Dados do Contratante
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '.28rem .65rem', fontSize: '.82rem' }}>
+                  <span className="section-label">Nome</span>
+                  <span style={{ color: '#f4e4d6', fontWeight: 600 }}>{previewMerged.nome}</span>
+                  {previewMerged.telefone && (
+                    <>
+                      <span className="section-label">Telefone</span>
+                      <span style={{ color: '#f4e4d6' }}>{previewMerged.telefone}</span>
+                    </>
+                  )}
+                  {previewMerged.email && (
+                    <>
+                      <span className="section-label">E-mail</span>
+                      <span style={{ color: '#f4e4d6' }}>{previewMerged.email}</span>
+                    </>
+                  )}
+                  {previewMerged.origem && (
+                    <>
+                      <span className="section-label">Origem</span>
+                      <span style={{ color: '#f4e4d6' }}>{previewMerged.origem}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Valor */}
+              <div style={{
+                marginBottom: '1rem',
+                padding: '.85rem 1rem',
+                background: 'rgba(74,222,128,0.05)',
+                border: '1px solid rgba(74,222,128,0.18)',
+                borderRadius: 6,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.18rem' }}>
+                    Valor do Contrato
+                  </div>
+                  <div style={{ fontSize: '.72rem', color: '#8a6a55' }}>Sujeito a condições de pagamento</div>
+                </div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#4ade80', fontFamily: 'Raleway, sans-serif' }}>
+                  {valorEfetivo(previewLead) > 0 ? fmtCur(valorEfetivo(previewLead)) : '—'}
+                </div>
+              </div>
+
+              {/* Observações */}
+              {previewMerged.observacoes && (
+                <div style={{
+                  marginBottom: '1rem',
+                  padding: '.85rem 1rem',
+                  background: 'rgba(212,168,83,0.03)',
+                  border: '1px solid rgba(212,168,83,0.1)',
+                  borderRadius: 6,
+                }}>
+                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.45rem' }}>
+                    Escopo / Observações
+                  </div>
+                  <p style={{ fontSize: '.82rem', color: '#e8d8ca', lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: 0 }}>
+                    {previewMerged.observacoes}
+                  </p>
+                </div>
+              )}
+
+              {/* Assinaturas */}
+              <div style={{
+                marginTop: '1.5rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid rgba(212,168,83,0.15)',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '1.5rem',
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ borderBottom: '1px dashed rgba(212,168,83,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
+                  <div className="section-label" style={{ fontSize: '.67rem' }}>Assinatura do Cliente</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ borderBottom: '1px dashed rgba(212,168,83,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
+                  <div className="section-label" style={{ fontSize: '.67rem' }}>GARBO Movelaria</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!previewEditMode && (
+            <div className="flex justify-end gap-2 pt-4">
+              <button
+                type="button"
+                className="btn btn-outline btn-md"
+                onClick={closePreview}
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                className="btn btn-gold btn-md"
+                onClick={handleDarEntradaFromPreview}
+              >
+                Dar entrada →
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
 
       {selected && (
         <Modal
