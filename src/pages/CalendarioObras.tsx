@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
@@ -408,134 +409,127 @@ function CalendarioObrasContent() {
 
   return (
     <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
-      <KanbanPageToolbar className="space-y-4">
-        <div>
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
-                Calendário de Obras
-              </h1>
-              <p className="section-label mt-1">
-                {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-                {filtrosAtivos && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <KanbanPageZoomControls />
-              <div
-                className="flex items-center gap-1 p-1 rounded-xl"
-                style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(212,168,83,0.15)' }}
-              >
-              {(['day', 'week', 'month'] as CalView[]).map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={view === v ? {
-                    backgroundColor: 'rgba(212,168,83,0.2)',
-                    color: '#d4a853',
-                    border: '1px solid rgba(212,168,83,0.3)',
-                  } : { color: '#8a6a55' }}
-                >
-                  {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
-                </button>
-              ))}
+      <KanbanPageToolbar>
+        <ObraPageHeader
+          title="Calendário de Obras"
+          subtitle={
+            <>
+              {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+              {filtrosAtivos && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+            </>
+          }
+          actions={
+            <div className="obra-page-header__actions-inner">
+              <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
+              <div className="obra-page-view-tabs obra-page-header__action-buttons">
+                {(['day', 'week', 'month'] as CalView[]).map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    className="obra-page-view-tab"
+                    data-active={view === v ? 'true' : undefined}
+                  >
+                    {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
+          }
+          below={
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn btn-outline btn-sm whitespace-nowrap" onClick={() => setViewDate(new Date())}>
+                  Hoje
+                </button>
+                <div className="flex min-w-0 max-w-full items-center gap-1">
+                  <button type="button" className="btn btn-outline btn-sm shrink-0 p-2" onClick={() => navigate(-1)}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  <span
+                    className="obra-page-nav-label text-sm font-semibold text-[#d4a853] px-2 text-center"
+                    title={rangeLabel}
+                  >
+                    {rangeLabel}
+                  </span>
+                  <button type="button" className="btn btn-outline btn-sm shrink-0 p-2" onClick={() => navigate(1)}>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2 flex-wrap mt-4">
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setViewDate(new Date())}>
-              Hoje
-            </button>
-            <div className="flex items-center gap-1">
-              <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(-1)}>
-                <ChevronLeft size={15} />
-              </button>
-              <span
-                className="text-sm text-[#d4a853] font-semibold px-2 text-center"
-                style={{ minWidth: view === 'day' ? '240px' : '200px' }}
+              <div
+                className="obra-page-filters glass-card p-4"
+                style={{ borderColor: filtrosAtivos ? 'rgba(212,168,83,0.35)' : undefined }}
               >
-                {rangeLabel}
-              </span>
-              <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(1)}>
-                <ChevronRight size={15} />
-              </button>
-            </div>
-          </div>
-        </div>
+                <div className="flex items-center gap-2 text-[#8a6a55] shrink-0 pb-2 lg:pb-0">
+                  <Filter size={14} className="text-[#d4a853] shrink-0" />
+                  <span className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Filtros</span>
+                </div>
 
-        <div
-          className="glass-card p-4 flex flex-wrap items-end gap-3"
-          style={{ borderColor: filtrosAtivos ? 'rgba(212,168,83,0.35)' : undefined }}
-        >
-        <div className="flex items-center gap-2 text-[#8a6a55] shrink-0 pb-2">
-          <Filter size={14} className="text-[#d4a853]" />
-          <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
-        </div>
+                <div className="relative min-w-0">
+                  <Search
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+                  />
+                  <input
+                    className="glass-input w-full min-w-0 pl-9 pr-8"
+                    placeholder="Buscar por nome, montador, endereço..."
+                    value={busca}
+                    onChange={e => setBusca(e.target.value)}
+                  />
+                  {busca && (
+                    <button
+                      type="button"
+                      onClick={() => setBusca('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
 
-        <div className="relative flex-1 min-w-[200px]" style={{ maxWidth: 320 }}>
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
-          />
-          <input
-            className="glass-input pl-9 pr-8 w-full"
-            placeholder="Buscar por nome, montador, endereço..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
-          {busca && (
-            <button
-              type="button"
-              onClick={() => setBusca('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
+                <div className="min-w-0">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#8a6a55]">
+                    Etapa
+                  </label>
+                  <select
+                    className="glass-input w-full min-w-0"
+                    value={etapaFiltro}
+                    onChange={e => setEtapaFiltro(e.target.value as StatusKanbanObra | '')}
+                  >
+                    {ETAPAS_FILTRO.map(op => (
+                      <option key={op.value || 'todas'} value={op.value}>{op.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-        <div className="min-w-[160px]" style={{ maxWidth: 200 }}>
-          <label className="block text-[0.62rem] uppercase tracking-wider text-[#8a6a55] mb-1">
-            Etapa
-          </label>
-          <select
-            className="glass-input w-full"
-            value={etapaFiltro}
-            onChange={e => setEtapaFiltro(e.target.value as StatusKanbanObra | '')}
-          >
-            {ETAPAS_FILTRO.map(op => (
-              <option key={op.value || 'todas'} value={op.value}>{op.label}</option>
-            ))}
-          </select>
-        </div>
+                <div className="min-w-0">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#8a6a55]">
+                    Data
+                  </label>
+                  <input
+                    type="date"
+                    className="glass-input w-full min-w-0"
+                    value={dataFiltro}
+                    onChange={e => setDataFiltro(e.target.value)}
+                  />
+                </div>
 
-        <div className="min-w-[150px]" style={{ maxWidth: 180 }}>
-          <label className="block text-[0.62rem] uppercase tracking-wider text-[#8a6a55] mb-1">
-            Data
-          </label>
-          <input
-            type="date"
-            className="glass-input w-full"
-            value={dataFiltro}
-            onChange={e => setDataFiltro(e.target.value)}
-          />
-        </div>
-
-        {filtrosAtivos && (
-          <button
-            type="button"
-            onClick={limparFiltros}
-            className="btn btn-outline btn-sm flex items-center gap-1.5 mb-0.5"
-          >
-            <X size={12} />
-            Limpar
-          </button>
-        )}
-        </div>
+                {filtrosAtivos && (
+                  <button
+                    type="button"
+                    onClick={limparFiltros}
+                    className="btn btn-outline btn-sm flex items-center gap-1.5 whitespace-nowrap justify-self-start lg:justify-self-end"
+                  >
+                    <X size={12} />
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </>
+          }
+        />
       </KanbanPageToolbar>
 
       {obrasHook.loading && <LoadingState />}
@@ -568,10 +562,10 @@ function CalendarioObrasContent() {
                     className="w-full text-left glass-card p-4 hover:brightness-110 transition-all"
                     style={{ borderLeft: `3px solid ${cor}` }}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3 min-w-0">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="font-semibold text-cream leading-tight">{o.cliente_nome}</p>
+                        <div className="flex flex-wrap items-center gap-2 mb-1 min-w-0">
+                          <p className="font-semibold text-cream leading-tight break-words min-w-0">{o.cliente_nome}</p>
                           <span
                             className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
                             style={{ backgroundColor: `${cor}22`, color: cor }}
@@ -580,10 +574,14 @@ function CalendarioObrasContent() {
                           </span>
                           <ObraMontadorBadge obra={o} />
                         </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55]">
-                          {o.tipo_obra_nome  && <span>{o.tipo_obra_nome}</span>}
-                          {o.grupo_obra_nome && <span>Grupo: {o.grupo_obra_nome}</span>}
-                          {o.endereco_obra   && <span className="truncate max-w-[220px]">{o.endereco_obra}</span>}
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55] min-w-0">
+                          {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
+                          {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
+                          {o.endereco_obra   && (
+                            <span className="break-words min-w-0 max-w-full" title={o.endereco_obra}>
+                              {o.endereco_obra}
+                            </span>
+                          )}
                         </div>
                         {(o.data_prevista_inicio || o.data_prevista_fim) && (
                           <p className="text-xs text-[#8a6a55] mt-1.5">
@@ -626,8 +624,8 @@ function CalendarioObrasContent() {
                         hasObras     ? 'cursor-pointer hover:brightness-110' : '',
                       ].join(' ')}
                     >
-                      <div className={`text-[0.72rem] font-bold mb-2 pb-1.5 border-b border-[rgba(212,168,83,0.12)] flex items-center justify-between ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
-                        <span>
+                      <div className={`mb-2 flex min-w-0 items-center justify-between gap-1 border-b border-[rgba(212,168,83,0.12)] pb-1.5 text-[0.72rem] font-bold ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
+                        <span className="min-w-0 truncate" title={fmtDayHeader(day)}>
                           {fmtDayHeader(day)}
                           {isToday && <span className="ml-1 text-[0.6rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1">hoje</span>}
                         </span>

@@ -15,7 +15,7 @@ export function KanbanPageZoomControls({ className = '' }: PageZoomControlsProps
 
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(0,0,0,0.25)] p-1 ${className}`}
+      className={`obra-toolbar-zoom inline-flex max-w-full shrink items-center gap-0.5 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(0,0,0,0.25)] p-1 ${className}`}
       aria-label="Controles de zoom da página"
     >
       <button
@@ -29,7 +29,7 @@ export function KanbanPageZoomControls({ className = '' }: PageZoomControlsProps
       </button>
 
       <span
-        className="min-w-[3.25rem] text-center text-xs font-bold tabular-nums text-[#d4a853]"
+        className="min-w-[2.5rem] max-w-[3rem] shrink text-center text-[0.65rem] font-bold tabular-nums text-[#d4a853] sm:min-w-[3.25rem] sm:text-xs"
         aria-live="polite"
       >
         {loading ? '…' : `${zoom}%`}

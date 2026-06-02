@@ -11,6 +11,13 @@ import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraPageHeader } from '../components/obras/ObraPageHeader'
+import {
+  KANBAN_COL_CLASS,
+  KANBAN_COL_SHORT,
+  kanbanColHeaderClass,
+  kanbanColHeaderStyle,
+} from '../components/obras/obra-kanban-layout'
 import type {
   ObraFull, ObraInput, StatusKanbanObra,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
@@ -95,10 +102,10 @@ function duracao(obra: ObraFull): string | null {
 function CardInfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
-    <>
-      <dt className="text-[#8a6a55] shrink-0">{label}</dt>
-      <dd className="text-cream break-words min-w-0 m-0 leading-snug">{value}</dd>
-    </>
+    <div className="obra-card-meta-row">
+      <span className="obra-card-meta-label">{label}</span>
+      <span className="obra-card-meta-value" title={value}>{value}</span>
+    </div>
   )
 }
 
@@ -184,34 +191,31 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
       </div>
 
       {/* Campos informativos */}
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-[0.72rem] min-w-0">
-        <CardInfoRow label="Tipo:" value={obra.tipo_obra_nome} />
-        <CardInfoRow label="Grupo:" value={obra.grupo_obra_nome} />
-        <CardInfoRow label="End.:" value={obra.endereco_obra} />
+      <div className="obra-card-meta">
+        <CardInfoRow label="Tipo" value={obra.tipo_obra_nome} />
+        <CardInfoRow label="Grupo" value={obra.grupo_obra_nome} />
+        <CardInfoRow label="Endereço" value={obra.endereco_obra} />
         {obra.montador_admin_nome && obra.montador_admin_nome !== obra.montador_nome && (
-          <CardInfoRow label="Admin:" value={obra.montador_admin_nome} />
+          <CardInfoRow label="Admin" value={obra.montador_admin_nome} />
         )}
         {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
-          <>
-            <dt className="text-[#8a6a55] shrink-0">Datas:</dt>
-            <dd className="text-cream break-words min-w-0 m-0 leading-snug">
+          <div className="obra-card-meta-row">
+            <span className="obra-card-meta-label">Datas</span>
+            <span className="obra-card-meta-value">
               {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
               {' → '}
               {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
-            </dd>
-          </>
+            </span>
+          </div>
         )}
         {obra.tempo_maximo_horas != null && (
-          <CardInfoRow label="Prazo máx.:" value={`${Number(obra.tempo_maximo_horas)}h`} />
+          <CardInfoRow label="Prazo máx." value={`${Number(obra.tempo_maximo_horas)}h`} />
         )}
-        {duracao(obra) && <CardInfoRow label="Duração:" value={duracao(obra)} />}
+        {duracao(obra) && <CardInfoRow label="Duração" value={duracao(obra)} />}
         {obra.concluido_em_atraso && (
-          <>
-            <dt className="sr-only">Atraso</dt>
-            <dd className="col-span-2 text-red-400 font-semibold m-0">Concluída em atraso</dd>
-          </>
+          <p className="text-[0.72rem] font-semibold text-red-400 m-0">Concluída em atraso</p>
         )}
-      </dl>
+      </div>
 
       {/* Ações do montador */}
       {(isMontador || canEdit) && (
@@ -560,51 +564,71 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="fade-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <KanbanPageToolbar>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Agenda de Obras</h1>
-            <p className="section-label mt-1">
+        <ObraPageHeader
+          title="Agenda de Obras"
+          subtitle={
+            <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
               {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <KanbanPageZoomControls />
-            {canConfig && (
-              <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
-                <Settings size={14} /> Configurações
-              </button>
-            )}
-            {canEdit && (
-              <button type="button" className="btn btn-gold btn-md flex items-center gap-1.5" onClick={openNew}>
-                <Plus size={14} /> Nova Obra
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="relative mt-4" style={{ maxWidth: 400 }}>
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
-          />
-          <input
-            className="glass-input pl-9 pr-8 w-full"
-            placeholder="Buscar por cliente, montador, endereço, tipo..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
-          {busca && (
-            <button
-              onClick={() => setBusca('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
+            </>
+          }
+          actions={
+            <div className="obra-page-header__actions-inner">
+              <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
+              <div className="obra-page-header__action-buttons">
+                {canConfig && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm btn-toolbar-icon sm:btn-md"
+                    onClick={() => setConfigOpen(true)}
+                    aria-label="Configurações"
+                    title="Configurações"
+                  >
+                    <Settings size={14} className="shrink-0" />
+                    <span className="hidden sm:inline">Configurações</span>
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="btn btn-gold btn-sm sm:btn-md"
+                    onClick={openNew}
+                    aria-label="Nova obra"
+                  >
+                    <Plus size={14} className="shrink-0" />
+                    <span className="sm:hidden">Nova</span>
+                    <span className="hidden sm:inline">Nova Obra</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          }
+          below={
+            <div className="obra-page-search relative">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+              />
+              <input
+                className="glass-input pl-9 pr-8 w-full"
+                placeholder="Buscar por cliente, montador, endereço, tipo..."
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+              />
+              {busca && (
+                <button
+                  type="button"
+                  onClick={() => setBusca('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          }
+        />
       </KanbanPageToolbar>
 
       {/* Estados de carregamento/erro */}
@@ -627,25 +651,24 @@ function AgendaObrasContent() {
             return (
               <div
                 key={col.key}
-                className="flex flex-col gap-2 shrink-0 transition-all w-[clamp(260px,88vw,320px)] min-w-[clamp(260px,88vw,320px)]"
+                className={KANBAN_COL_CLASS}
                 onDragOver={canEdit ? e => handleDragOver(e, col.key) : undefined}
                 onDragLeave={canEdit ? () => setDragOverCol(null) : undefined}
                 onDrop={canEdit ? e => handleDrop(e, col.key) : undefined}
               >
-                {/* Cabeçalho da coluna */}
                 <div
-                  className="flex items-center justify-between px-3 py-2 rounded-lg transition-all"
-                  style={{
-                    backgroundColor: isOver ? `${col.cor}30` : `${col.cor}18`,
-                    border: `1px solid ${isOver ? col.cor : `${col.cor}33`}`,
-                    boxShadow: isOver ? `0 0 0 2px ${col.cor}40` : undefined,
-                  }}
+                  className={kanbanColHeaderClass(isOver, col.cor)}
+                  style={kanbanColHeaderStyle(isOver, col.cor)}
                 >
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: col.cor }}>
-                    {col.label}
+                  <span
+                    className="kanban-col-title min-w-0 flex-1"
+                    style={{ color: col.cor }}
+                    title={col.label}
+                  >
+                    {KANBAN_COL_SHORT[col.key]}
                   </span>
                   <span
-                    className="rounded-full w-5 h-5 flex items-center justify-center text-[0.65rem] font-bold"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold"
                     style={{ backgroundColor: `${col.cor}33`, color: col.cor }}
                   >
                     {obras.length}

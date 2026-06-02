@@ -86,13 +86,280 @@ body::before {
   top: 0;
   z-index: 30;
   margin-top: -0.25rem;
-  padding-top: 0.25rem;
-  padding-bottom: 1rem;
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+  padding: 0.25rem 0.25rem 1rem;
+  width: calc(100% + 0.5rem);
+  max-width: calc(100% + 0.5rem);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
   background: rgba(21, 12, 9, 0.94);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(212, 168, 83, 0.12);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Cabeçalho das páginas Agenda / Calendário — sempre empilhado */
+.obra-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.obra-page-header__title-block {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.obra-page-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(1.15rem, 4.2vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  color: #d4a853;
+  margin: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.obra-page-header__subtitle {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+}
+
+.obra-page-header__actions {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.obra-page-header__actions-inner {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.obra-page-header__action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Botões da toolbar: podem quebrar linha e encolher */
+.kanban-page-toolbar .btn {
+  white-space: normal;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 calc(50% - 0.25rem);
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  font-size: 0.72rem;
+}
+
+.kanban-page-toolbar .btn-toolbar-icon {
+  flex: 0 0 auto;
+  min-width: 2.25rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@media (min-width: 480px) {
+  .kanban-page-toolbar .btn {
+    flex: 0 1 auto;
+    font-size: 0.8rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .obra-page-header__actions-inner {
+    grid-template-columns: auto 1fr;
+  }
+}
+
+@media (max-width: 479px) {
+  .obra-page-header__actions-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .obra-page-header__action-buttons {
+    justify-content: stretch;
+  }
+
+  .kanban-page-toolbar .btn {
+    flex: 1 1 100%;
+  }
+
+  .obra-toolbar-zoom {
+    justify-self: start;
+    max-width: 100%;
+  }
+}
+
+.obra-page-header__below {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.obra-page-search {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.obra-page-nav-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(0.72rem, 2.8vw, 0.875rem);
+}
+
+@media (min-width: 640px) {
+  .obra-page-nav-label {
+    max-width: 16rem;
+  }
+}
+
+.obra-page-filters {
+  display: grid;
+  gap: 0.75rem;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.obra-page-filters > * {
+  min-width: 0;
+}
+
+@media (min-width: 480px) {
+  .obra-page-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .obra-page-filters {
+    grid-template-columns: auto minmax(0, 1.2fr) minmax(8rem, 11rem) minmax(8rem, 10rem) auto;
+  }
+}
+
+.obra-page-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.2rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(212, 168, 83, 0.15);
+}
+
+.obra-page-view-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: clamp(0.65rem, 2.5vw, 0.75rem);
+  font-weight: 600;
+  line-height: 1.2;
+  color: #8a6a55;
+  transition: background-color 0.15s, color 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obra-page-view-tab[data-active='true'] {
+  background: rgba(212, 168, 83, 0.2);
+  color: #d4a853;
+  border: 1px solid rgba(212, 168, 83, 0.3);
+}
+
+@media (min-width: 400px) {
+  .obra-page-view-tab {
+    flex: 0 1 auto;
+    padding: 0.4rem 0.75rem;
+  }
+}
+
+/* Colunas kanban */
+.kanban-col-header .kanban-col-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.obra-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.obra-card-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.obra-card-meta-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8a6a55;
+  line-height: 1.2;
+}
+
+.obra-card-meta-value {
+  font-size: 0.72rem;
+  color: #f4e4d6;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
 }
 
 /* ── Glass surfaces ── */
