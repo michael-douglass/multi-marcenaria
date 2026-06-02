@@ -22,6 +22,7 @@ function perfilToRole(perfil: UserProfile['perfil']): UserRole {
     marceneiro: 'Marceneiro',
     montador: 'Montador',
     montador_admin: 'MontadorAdmin',
+    administrador_obras: 'AdministradorObras',
   }
   return map[perfil]
 }

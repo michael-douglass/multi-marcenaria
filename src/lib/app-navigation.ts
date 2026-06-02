@@ -135,7 +135,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     url: '/acompanhamento-obras',
     icon: Camera,
     radialColor: 'rgba(212,168,83,0.92)',
-    roles: ['Administrador', 'MontadorAdmin'],
+    roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
   },
   {
     id: 'calendarioObras',
@@ -150,7 +150,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     url: '/metricas-obras',
     icon: BarChart3,
     radialColor: 'rgba(74,222,128,0.92)',
-    roles: ['Administrador', 'MontadorAdmin'],
+    roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
   },
 ]
 
@@ -178,7 +178,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/agenda-obras',
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
-    roles: ['Administrador', 'Montador', 'MontadorAdmin'],
+    roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin'],
     children: OBRAS_CHILDREN,
   },
   {
@@ -274,7 +274,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
 /** Rota inicial após login conforme o perfil do usuário. */
 export function defaultPathForRole(role: UserRole | null): string {
   if (role === 'Montador') return '/calendario-obras'
-  if (role === 'MontadorAdmin') return '/agenda-obras'
+  if (role === 'MontadorAdmin' || role === 'AdministradorObras') return '/agenda-obras'
   return '/dashboard'
 }
 

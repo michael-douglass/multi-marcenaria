@@ -11,6 +11,7 @@ import { useClientes } from '@/hooks/useClientes'
 import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
 import { sectionFromPath, defaultPathForRole } from '@/lib/app-navigation'
+import { hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
 import { Produtos } from '@/pages/Produtos'
@@ -38,6 +39,7 @@ const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
   Marceneiro: ['dashboard'],
   MontadorAdmin: [...OBRAS_SECTIONS],
+  AdministradorObras: [...OBRAS_SECTIONS],
   Montador: ['agendaObras', 'calendarioObras'],
 }
 
@@ -170,7 +172,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/agenda-obras"
             element={
-              role === 'Administrador' || role === 'MontadorAdmin' || role === 'Montador'
+              hasObrasMenuAccess(role)
                 ? <AgendaObras />
                 : <Restricted message="Acesso restrito ao módulo de Obras." />
             }
@@ -178,7 +180,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/calendario-obras"
             element={
-              role === 'Administrador' || role === 'MontadorAdmin' || role === 'Montador'
+              hasObrasMenuAccess(role)
                 ? <CalendarioObras />
                 : <Restricted message="Acesso restrito ao módulo de Obras." />
             }
@@ -186,17 +188,17 @@ function AuthenticatedRoutes() {
           <Route
             path="/acompanhamento-obras"
             element={
-              role === 'Administrador' || role === 'MontadorAdmin'
+              hasObrasAdminSectionsAccess(role)
                 ? <AcompanhamentoObras />
-                : <Restricted message="Acompanhamento disponível apenas para Admin e Montador Admin." />
+                : <Restricted message="Acompanhamento disponível apenas para perfis de gestão de Obras." />
             }
           />
           <Route
             path="/metricas-obras"
             element={
-              role === 'Administrador' || role === 'MontadorAdmin'
+              hasObrasAdminSectionsAccess(role)
                 ? <MetricasObras />
-                : <Restricted message="Métricas disponíveis apenas para Admin e Montador Admin." />
+                : <Restricted message="Métricas disponíveis apenas para perfis de gestão de Obras." />
             }
           />
 

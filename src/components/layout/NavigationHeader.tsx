@@ -10,6 +10,9 @@ const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
   financeiro: 'Financeiro',
   marceneiro: 'Marceneiro',
+  montador: 'Montador',
+  montador_admin: 'Montador Admin',
+  administrador_obras: 'Administrador de Obras',
 }
 
 interface NavigationHeaderProps {

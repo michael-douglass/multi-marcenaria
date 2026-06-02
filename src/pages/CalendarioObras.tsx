@@ -13,6 +13,11 @@ import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { filtrarObrasCalendario } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
 import type { ObraFull, ObraInput, StatusKanbanObra } from '../types'
+import {
+  canDeleteObras,
+  canEditObras,
+  canManageAllObras,
+} from '../lib/obra-permissions'
 
 type CalView = 'day' | 'week' | 'month'
 
@@ -234,11 +239,12 @@ export function CalendarioObras() {
   const tiposHook  = useTiposObra()
   const gruposHook = useGruposObra()
 
-  const isAdmin        = role === 'Administrador'
   const isMontadorAdmin = role === 'MontadorAdmin'
   const isMontador      = role === 'Montador'
-  const canEdit = isAdmin || isMontadorAdmin
+  const canEdit = canEditObras(role)
   const canEditMontador = canEdit
+  const canDelete = canDeleteObras(role)
+  const isObrasAdmin = canManageAllObras(role) || isMontadorAdmin
 
   const hojeISO = toISO(new Date())
 
@@ -745,7 +751,7 @@ export function CalendarioObras() {
         onEdit={openEdit}
         onIniciar={handleIniciar}
         onConcluir={handleConcluir}
-        canDelete={isAdmin}
+        canDelete={canDelete}
         onExcluir={handleExcluir}
       />
 
@@ -764,7 +770,7 @@ export function CalendarioObras() {
           montadores={gruposHook.montadores}
           canEditDates
           canEditMontador={canEditMontador}
-          isAdmin={isAdmin}
+          isAdmin={isObrasAdmin}
         />
       )}
     </div>

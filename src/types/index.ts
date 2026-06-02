@@ -1,10 +1,10 @@
-export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro' | 'Montador' | 'MontadorAdmin'
+export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro' | 'Montador' | 'MontadorAdmin' | 'AdministradorObras'
 
 export interface UserProfile {
   id: string
   email: string
   nome?: string
-  perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin'
+  perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin' | 'administrador_obras'
   ativo: boolean
   criado_em: string
 }

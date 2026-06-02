@@ -16,6 +16,12 @@ import type {
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
 } from '../types'
 import { fmtDate } from '../lib/utils'
+import {
+  canConfigObrasTiposGrupos,
+  canDeleteObras,
+  canEditObras,
+  canManageAllObras,
+} from '../lib/obra-permissions'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -373,12 +379,14 @@ export function AgendaObras() {
   const tiposHook = useTiposObra()
   const gruposHook = useGruposObra()
 
-  const isAdmin = role === 'Administrador'
   const isMontadorAdmin = role === 'MontadorAdmin'
   const isMontador = role === 'Montador'
-  const canEdit = isAdmin || isMontadorAdmin
-  const canEditMontador = isAdmin || isMontadorAdmin
-  const canEditDates = isAdmin || isMontadorAdmin
+  const canEdit = canEditObras(role)
+  const canEditMontador = canEdit
+  const canEditDates = canEdit
+  const canConfig = canConfigObrasTiposGrupos(role)
+  const canDelete = canDeleteObras(role)
+  const isObrasAdmin = canManageAllObras(role) || isMontadorAdmin
 
   const [obraOpen, setObraOpen] = useState(false)
   const [editObra, setEditObra] = useState<ObraFull | null>(null)
@@ -548,7 +556,7 @@ export function AgendaObras() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
+          {canConfig && (
             <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
               <Settings size={14} /> Configurações
             </button>
@@ -644,7 +652,7 @@ export function AgendaObras() {
                         key={obra.id}
                         obra={obra}
                         canEdit={canEdit}
-                        canDelete={isAdmin}
+                        canDelete={canDelete}
                         isMontador={isMontador}
                         actioning={actioning}
                         isDragging={draggingId === obra.id}
@@ -677,7 +685,7 @@ export function AgendaObras() {
         onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}
         onIniciar={handleIniciar}
         onConcluir={handleConcluir}
-        canDelete={isAdmin}
+        canDelete={canDelete}
         onExcluir={handleExcluir}
       />
 
@@ -695,11 +703,11 @@ export function AgendaObras() {
         montadores={gruposHook.montadores}
         canEditDates={canEditDates}
         canEditMontador={canEditMontador}
-        isAdmin={isAdmin || isMontadorAdmin}
+        isAdmin={isObrasAdmin}
       />
 
       {/* Modal configurações */}
-      {isAdmin && (
+      {canConfig && (
         <ConfigModal
           open={configOpen}
           onClose={() => setConfigOpen(false)}
