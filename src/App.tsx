@@ -10,7 +10,7 @@ import { usePedidos } from '@/hooks/usePedidos'
 import { useClientes } from '@/hooks/useClientes'
 import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
-import { sectionFromPath } from '@/lib/app-navigation'
+import { sectionFromPath, defaultPathForRole } from '@/lib/app-navigation'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
 import { Produtos } from '@/pages/Produtos'
@@ -55,7 +55,7 @@ function RoleRedirect() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const defaultPath = (role === 'Montador' || role === 'MontadorAdmin') ? '/agenda-obras' : '/dashboard'
+  const defaultPath = defaultPathForRole(role)
 
   useEffect(() => {
     if (!role) return
@@ -96,11 +96,7 @@ function AuthenticatedRoutes() {
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout pendingOrders={pendingOrders} />}>
-          <Route index element={
-            (role === 'Montador' || role === 'MontadorAdmin')
-              ? <Navigate to="/agenda-obras" replace />
-              : <Navigate to="/dashboard" replace />
-          } />
+          <Route index element={<Navigate to={defaultPathForRole(role)} replace />} />
           <Route
             path="/dashboard"
             element={
@@ -214,7 +210,7 @@ function AuthenticatedRoutes() {
             }
           />
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to={defaultPathForRole(role)} replace />} />
         </Route>
       </Routes>
     </>

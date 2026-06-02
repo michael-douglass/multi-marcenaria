@@ -27,11 +27,6 @@ function perfilToRole(perfil: UserProfile['perfil']): UserRole {
 }
 
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) {
-    throw new Error('Sessão inválida. Faça login novamente.')
-  }
-
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 15_000)
 

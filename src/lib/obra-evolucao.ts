@@ -100,6 +100,35 @@ export async function getEvolucaoUrl(path: string, expiresIn = 3600): Promise<st
   return data.signedUrl
 }
 
+const SIGNED_URL_BATCH = 25
+
+/** Assina vários caminhos em lotes para evitar timeout (544) no Storage. */
+async function signEvolucaoPaths(paths: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(paths.filter(Boolean))]
+  const map = new Map<string, string>()
+  if (unique.length === 0) return map
+
+  for (let i = 0; i < unique.length; i += SIGNED_URL_BATCH) {
+    const chunk = unique.slice(i, i + SIGNED_URL_BATCH)
+    const { data, error } = await supabase.storage
+      .from(EVOLUCAO_BUCKET)
+      .createSignedUrls(chunk, 3600)
+
+    if (error) {
+      console.warn('[obra-evolucao] Erro ao assinar URLs em lote:', error.message)
+      continue
+    }
+
+    for (const entry of data ?? []) {
+      if (entry.signedUrl && !entry.error) {
+        map.set(entry.path, entry.signedUrl)
+      }
+    }
+  }
+
+  return map
+}
+
 export async function listObraEvolucao(obraId: string): Promise<ObraEvolucaoItem[]> {
   const { data, error } = await supabase
     .from('movelaria_obra_evolucao')
@@ -111,19 +140,29 @@ export async function listObraEvolucao(obraId: string): Promise<ObraEvolucaoItem
 }
 
 async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { signedUrl: string | null; previewSignedUrl: string | null })[]> {
-  return Promise.all(items.map(async item => {
-    const [signedUrl, previewSignedUrl] = await Promise.all([
-      getEvolucaoUrl(item.storage_path).catch(() => null),
-      item.preview_path && item.preview_path !== item.storage_path
-        ? getEvolucaoUrl(item.preview_path).catch(() => null)
-        : Promise.resolve(null),
-    ])
-    return {
-      ...item,
-      signedUrl,
-      previewSignedUrl: item.kind === 'image' ? signedUrl : previewSignedUrl,
+  if (items.length === 0) return []
+
+  const paths: string[] = []
+  for (const item of items) {
+    paths.push(item.storage_path)
+    if (item.preview_path && item.preview_path !== item.storage_path) {
+      paths.push(item.preview_path)
     }
-  }))
+  }
+
+  const urlMap = await signEvolucaoPaths(paths)
+
+  return items.map(item => {
+    const signedUrl = urlMap.get(item.storage_path) ?? null
+    const previewSignedUrl =
+      item.kind === 'image'
+        ? signedUrl
+        : item.preview_path
+          ? urlMap.get(item.preview_path) ?? null
+          : null
+
+    return { ...item, signedUrl, previewSignedUrl }
+  })
 }
 
 export { addUrls as addEvolucaoUrls }

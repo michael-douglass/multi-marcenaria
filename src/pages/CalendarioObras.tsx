@@ -88,8 +88,9 @@ function isMobileCalendario(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEW_MQ).matches
 }
 
-function getInitialView(): CalView {
-  return isMobileCalendario() ? 'day' : 'week'
+function getInitialView(forceDay = false): CalView {
+  if (forceDay || isMobileCalendario()) return 'day'
+  return 'week'
 }
 function obrasForDay(obras: ObraFull[], iso: string): ObraFull[] {
   return obras.filter(o =>
@@ -239,7 +240,9 @@ export function CalendarioObras() {
   const canEdit = isAdmin || isMontadorAdmin
   const canEditMontador = canEdit
 
-  const [view, setView]               = useState<CalView>(() => getInitialView())
+  const hojeISO = toISO(new Date())
+
+  const [view, setView]               = useState<CalView>(() => getInitialView(isMontador))
   const [viewDate, setViewDate]       = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [detalheObra, setDetalheObra]     = useState<ObraFull | null>(null)
@@ -249,12 +252,12 @@ export function CalendarioObras() {
   const [actioning, setActioning]         = useState<string | null>(null)
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
-  const [dataFiltro, setDataFiltro]       = useState('')
+  const [dataFiltro, setDataFiltro]       = useState(() => (role === 'Montador' ? hojeISO : ''))
 
-  // No celular, sempre abrir na visão "Dia" (mais legível em telas pequenas)
+  // Montador e celular: visão Dia (hoje)
   useEffect(() => {
-    if (isMobileCalendario()) setView('day')
-  }, [])
+    if (isMontador || isMobileCalendario()) setView('day')
+  }, [isMontador])
 
   const obrasFiltradas = useMemo(
     () => filtrarObrasCalendario(obrasHook.data, {

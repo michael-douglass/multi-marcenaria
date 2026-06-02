@@ -5,7 +5,7 @@ import {
   type ObraEvolucaoItem, type EvolucaoPainelItem, type EvolucaoPainelItemComUrl,
 } from '../lib/obra-evolucao'
 import type { EvolucaoItemComUrl } from '../lib/obra-evolucao'
-import { useAuthReady } from './useAuthReady'
+import { useApp } from '../context/AppContext'
 
 // ── Hook para modal de detalhe (por obra) ────────────────────
 export function useObraEvolucao(obraId: string | null) {
@@ -56,9 +56,14 @@ function getPeriodo(filtro: FiltroPeriodo): { inicio: string; fim: string } {
     return { inicio: toISO(inicio), fim: toISO(fim) }
   }
   if (filtro === 'semana') {
-    const dow   = now.getDay()
-    const mon   = new Date(now); mon.setDate(now.getDate() - dow); mon.setHours(0, 0, 0, 0)
-    const sun   = new Date(mon); sun.setDate(mon.getDate() + 6);   sun.setHours(23, 59, 59, 999)
+    const dow = now.getDay()
+    const diffToMon = dow === 0 ? 6 : dow - 1
+    const mon = new Date(now)
+    mon.setDate(now.getDate() - diffToMon)
+    mon.setHours(0, 0, 0, 0)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    sun.setHours(23, 59, 59, 999)
     return { inicio: toISO(mon), fim: toISO(sun) }
   }
   // mês
@@ -77,13 +82,14 @@ export interface EvolucaoGrupoObra {
 }
 
 export function useEvolucaoPainel(filtro: FiltroPeriodo) {
-  const { isReady } = useAuthReady()
+  const { authLoading, session } = useApp()
+  const sessionReady = !authLoading && !!session
   const [raw, setRaw] = useState<EvolucaoPainelItemComUrl[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!isReady) return
+    if (!sessionReady) return
     setLoading(true)
     setError(null)
     try {
@@ -98,8 +104,9 @@ export function useEvolucaoPainel(filtro: FiltroPeriodo) {
       setRaw(comUrls)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar evolução.')
+      setRaw([])
     } finally { setLoading(false) }
-  }, [isReady, filtro])
+  }, [sessionReady, filtro])
 
   useEffect(() => { void load() }, [load])
 

@@ -271,6 +271,13 @@ export function sectionFromPath(pathname: string): ActiveSection {
   return map[pathname] ?? 'dashboard'
 }
 
+/** Rota inicial após login conforme o perfil do usuário. */
+export function defaultPathForRole(role: UserRole | null): string {
+  if (role === 'Montador') return '/calendario-obras'
+  if (role === 'MontadorAdmin') return '/agenda-obras'
+  return '/dashboard'
+}
+
 export function pathFromSection(section: ActiveSection): string {
   for (const item of NAV_MAIN_ITEMS) {
     if (item.id === section) return item.url
