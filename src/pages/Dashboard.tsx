@@ -419,7 +419,7 @@ function ReciboConfigCard() {
           <>
             <div className="text-xl font-bold tracking-tight text-red-400">PENDENTE</div>
             <p className="text-[10px] text-[#8a6a55] mt-1 font-medium opacity-80 uppercase tracking-wider">
-              Configure em Cobranças > ⚙️
+              Configure em Cobranças &gt; ⚙️
             </p>
           </>
         )}
