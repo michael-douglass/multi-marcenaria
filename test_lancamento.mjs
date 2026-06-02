@@ -11,7 +11,7 @@ page.on('console', msg => {
 page.on('pageerror', err => netErrs.push(`PAGE ERROR: ${err.message}`));
 page.on('requestfailed', req => netErrs.push(`REQ FAILED: ${req.url()} — ${req.failure()?.errorText}`));
 
-await page.goto('http://localhost:3007');
+await page.goto('http://localhost:3001');
 await page.waitForTimeout(4000);
 
 console.log('URL:', page.url());

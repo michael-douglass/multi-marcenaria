@@ -36,7 +36,7 @@ Essas chaves são secretas e não entram no frontend.
 No Supabase: **Authentication → URL Configuration**
 
 - **Site URL:** `https://SEU-SITE.netlify.app`
-- **Redirect URLs:** inclua o mesmo domínio (e `http://localhost:3007` para testes locais)
+- **Redirect URLs:** inclua o mesmo domínio (e `http://localhost:3001` para testes locais)
 
 Sem isso, login pode falhar em produção.
 
@@ -53,7 +53,7 @@ pnpm build
 pnpm preview
 ```
 
-Abra o endereço que o Vite mostrar (porta 3007).
+Abra o endereço que o Vite mostrar (porta 3001).
 
 ## 6. Problemas comuns
 
