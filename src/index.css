@@ -80,6 +80,21 @@ body::before {
   display: none;
 }
 
+/* Toolbar fixa das páginas de obras (título, zoom, busca, filtros) */
+.kanban-page-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin-top: -0.25rem;
+  padding-top: 0.25rem;
+  padding-bottom: 1rem;
+  background: rgba(21, 12, 9, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(212, 168, 83, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 /* ── Glass surfaces ── */
 @layer components {
   .glass-card {

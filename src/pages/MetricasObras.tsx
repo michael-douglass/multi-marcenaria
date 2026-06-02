@@ -3,6 +3,7 @@ import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyStat
 import {
   KanbanPageZoomControls,
   KanbanPageZoomShell,
+  KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
 
@@ -32,19 +33,21 @@ function MetricasObrasContent() {
   const totalAtraso = data.reduce((acc, m) => acc + Number(m.obras_em_atraso), 0)
 
   return (
-    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Métricas de Obras</h1>
-          <p className="section-label mt-1">Tempo médio de execução por tipo de obra</p>
+    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+      <KanbanPageToolbar>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Métricas de Obras</h1>
+            <p className="section-label mt-1">Tempo médio de execução por tipo de obra</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <KanbanPageZoomControls />
+            <button type="button" className="btn btn-outline btn-md" onClick={() => reload()}>
+              Atualizar
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <KanbanPageZoomControls />
-          <button type="button" className="btn btn-outline btn-md" onClick={() => reload()}>
-            Atualizar
-          </button>
-        </div>
-      </div>
+      </KanbanPageToolbar>
 
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} />}
@@ -55,7 +58,7 @@ function MetricasObrasContent() {
           horizontalScrollbar={false}
           verticalScrollbar
           contentSignal={data.length}
-          className="min-h-[420px] flex-1"
+          className="min-h-0 flex-1"
         >
           <>
           {/* Resumo geral */}

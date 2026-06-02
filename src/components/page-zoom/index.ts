@@ -1,4 +1,5 @@
 export { PageZoomProvider, usePageZoom } from './PageZoomProvider'
 export { KanbanPageZoomShell, PageZoomShell } from './KanbanPageZoomShell'
 export { KanbanPageZoomControls, PageZoomControls } from './KanbanPageZoomControls'
+export { KanbanPageToolbar } from './KanbanPageToolbar'
 export { KanbanFloatingScrollBar } from './KanbanFloatingScrollBar'

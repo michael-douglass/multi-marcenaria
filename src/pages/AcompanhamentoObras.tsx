@@ -7,6 +7,7 @@ import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import {
   KanbanPageZoomControls,
   KanbanPageZoomShell,
+  KanbanPageToolbar,
   PageZoomProvider,
 } from '@/components/page-zoom'
 
@@ -24,38 +25,38 @@ function AcompanhamentoObrasContent() {
   const [lightbox, setLightbox] = useState<{ url: string; nome: string } | null>(null)
 
   return (
-    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
-      {/* Cabeçalho */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
-            Acompanhamento de Obras
-          </h1>
-          <p className="section-label mt-1">
-            Visualização diária da evolução das montagens
-          </p>
-        </div>
+    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+      <KanbanPageToolbar>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+              Acompanhamento de Obras
+            </h1>
+            <p className="section-label mt-1">
+              Visualização diária da evolução das montagens
+            </p>
+          </div>
 
-        {/* Filtros + zoom */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <KanbanPageZoomControls />
-          <div className="flex bg-[#1a1412] p-1 rounded-lg border border-[rgba(212,168,83,0.15)]">
-          {(['hoje', 'semana', 'mes'] as FiltroPeriodo[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFiltro(f)}
-              className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                filtro === f
-                  ? 'bg-[#d4a853] text-[#1a1412] shadow-lg'
-                  : 'text-[#8a6a55] hover:text-[#d4a853]'
-              }`}
-            >
-              {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta Semana' : 'Este Mês'}
-            </button>
-          ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            <KanbanPageZoomControls />
+            <div className="flex bg-[#1a1412] p-1 rounded-lg border border-[rgba(212,168,83,0.15)]">
+            {(['hoje', 'semana', 'mes'] as FiltroPeriodo[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFiltro(f)}
+                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
+                  filtro === f
+                    ? 'bg-[#d4a853] text-[#1a1412] shadow-lg'
+                    : 'text-[#8a6a55] hover:text-[#d4a853]'
+                }`}
+              >
+                {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta Semana' : 'Este Mês'}
+              </button>
+            ))}
+            </div>
           </div>
         </div>
-      </div>
+      </KanbanPageToolbar>
 
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} />}
@@ -66,7 +67,7 @@ function AcompanhamentoObrasContent() {
           horizontalScrollbar
           verticalScrollbar
           contentSignal={`${filtro}-${grupos.length}`}
-          className="min-h-[420px] flex-1"
+          className="min-h-0 flex-1"
         >
           {grupos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-[#6b5544] w-full min-w-full">

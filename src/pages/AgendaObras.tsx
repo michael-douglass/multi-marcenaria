@@ -25,6 +25,7 @@ import {
 import {
   KanbanPageZoomControls,
   KanbanPageZoomShell,
+  KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
 
@@ -559,52 +560,52 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="fade-in flex min-h-0 flex-1 flex-col">
-      {/* Cabeçalho */}
-      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Agenda de Obras</h1>
-          <p className="section-label mt-1">
-            {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-            {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
-          </p>
+    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+      <KanbanPageToolbar>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Agenda de Obras</h1>
+            <p className="section-label mt-1">
+              {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+              {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <KanbanPageZoomControls />
+            {canConfig && (
+              <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
+                <Settings size={14} /> Configurações
+              </button>
+            )}
+            {canEdit && (
+              <button type="button" className="btn btn-gold btn-md flex items-center gap-1.5" onClick={openNew}>
+                <Plus size={14} /> Nova Obra
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <KanbanPageZoomControls />
-          {canConfig && (
-            <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
-              <Settings size={14} /> Configurações
-            </button>
-          )}
-          {canEdit && (
-            <button type="button" className="btn btn-gold btn-md flex items-center gap-1.5" onClick={openNew}>
-              <Plus size={14} /> Nova Obra
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* Busca */}
-      <div className="relative mb-5" style={{ maxWidth: 400 }}>
-        <Search
-          size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
-        />
-        <input
-          className="glass-input pl-9 pr-8 w-full"
-          placeholder="Buscar por cliente, montador, endereço, tipo..."
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-        />
-        {busca && (
-          <button
-            onClick={() => setBusca('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
-          >
-            <X size={13} />
-          </button>
-        )}
-      </div>
+        <div className="relative mt-4" style={{ maxWidth: 400 }}>
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+          />
+          <input
+            className="glass-input pl-9 pr-8 w-full"
+            placeholder="Buscar por cliente, montador, endereço, tipo..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+      </KanbanPageToolbar>
 
       {/* Estados de carregamento/erro */}
       {obrasHook.loading && <LoadingState />}

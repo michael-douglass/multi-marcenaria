@@ -21,6 +21,7 @@ import {
 import {
   KanbanPageZoomControls,
   KanbanPageZoomShell,
+  KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
 
@@ -406,73 +407,70 @@ function CalendarioObrasContent() {
   const canConcluir = canEdit || isMontador
 
   return (
-    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
-      {/* Cabeçalho */}
-      <div className="mb-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-          <div>
-            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
-              Calendário de Obras
-            </h1>
-            <p className="section-label mt-1">
-              {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-              {filtrosAtivos && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
-            </p>
+    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+      <KanbanPageToolbar className="space-y-4">
+        <div>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+                Calendário de Obras
+              </h1>
+              <p className="section-label mt-1">
+                {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+                {filtrosAtivos && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <KanbanPageZoomControls />
+              <div
+                className="flex items-center gap-1 p-1 rounded-xl"
+                style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(212,168,83,0.15)' }}
+              >
+              {(['day', 'week', 'month'] as CalView[]).map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={view === v ? {
+                    backgroundColor: 'rgba(212,168,83,0.2)',
+                    color: '#d4a853',
+                    border: '1px solid rgba(212,168,83,0.3)',
+                  } : { color: '#8a6a55' }}
+                >
+                  {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
+                </button>
+              ))}
+              </div>
+            </div>
           </div>
 
-          {/* Seletor de visão + zoom */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <KanbanPageZoomControls />
-            <div
-              className="flex items-center gap-1 p-1 rounded-xl"
-              style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(212,168,83,0.15)' }}
-            >
-            {(['day', 'week', 'month'] as CalView[]).map(v => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={view === v ? {
-                  backgroundColor: 'rgba(212,168,83,0.2)',
-                  color: '#d4a853',
-                  border: '1px solid rgba(212,168,83,0.3)',
-                } : { color: '#8a6a55' }}
-              >
-                {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
+          <div className="flex items-center gap-2 flex-wrap mt-4">
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setViewDate(new Date())}>
+              Hoje
+            </button>
+            <div className="flex items-center gap-1">
+              <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(-1)}>
+                <ChevronLeft size={15} />
               </button>
-            ))}
+              <span
+                className="text-sm text-[#d4a853] font-semibold px-2 text-center"
+                style={{ minWidth: view === 'day' ? '240px' : '200px' }}
+              >
+                {rangeLabel}
+              </span>
+              <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(1)}>
+                <ChevronRight size={15} />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Navegação */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => setViewDate(new Date())}>
-            Hoje
-          </button>
-          <div className="flex items-center gap-1">
-            <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(-1)}>
-              <ChevronLeft size={15} />
-            </button>
-            <span
-              className="text-sm text-[#d4a853] font-semibold px-2 text-center"
-              style={{ minWidth: view === 'day' ? '240px' : '200px' }}
-            >
-              {rangeLabel}
-            </span>
-            <button type="button" className="btn btn-outline btn-sm p-2" onClick={() => navigate(1)}>
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros */}
-      <div
-        className="glass-card p-4 mb-5 flex flex-wrap items-end gap-3"
-        style={{ borderColor: filtrosAtivos ? 'rgba(212,168,83,0.35)' : undefined }}
-      >
+        <div
+          className="glass-card p-4 flex flex-wrap items-end gap-3"
+          style={{ borderColor: filtrosAtivos ? 'rgba(212,168,83,0.35)' : undefined }}
+        >
         <div className="flex items-center gap-2 text-[#8a6a55] shrink-0 pb-2">
           <Filter size={14} className="text-[#d4a853]" />
           <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
@@ -537,7 +535,8 @@ function CalendarioObrasContent() {
             Limpar
           </button>
         )}
-      </div>
+        </div>
+      </KanbanPageToolbar>
 
       {obrasHook.loading && <LoadingState />}
       {!obrasHook.loading && obrasHook.error && <ErrorState message={obrasHook.error} />}
@@ -548,7 +547,7 @@ function CalendarioObrasContent() {
           horizontalScrollbar
           verticalScrollbar
           contentSignal={`${view}-${obrasFiltradas.length}`}
-          className="min-h-[420px]"
+          className="min-h-0 flex-1"
         >
           <>
           {/* ════════════ VISÃO DIA ════════════ */}
