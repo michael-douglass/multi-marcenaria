@@ -25,7 +25,7 @@ export function NavigationHeader({ pendingOrders }: NavigationHeaderProps) {
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(212,168,83,0.09)] bg-[rgba(5,2,1,0.65)] px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(212,168,83,0.09)] bg-[rgba(5,2,1,0.65)] px-4 backdrop-blur-md safe-area-top-offset">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
         <Button

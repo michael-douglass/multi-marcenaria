@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
+import { PwaManager } from '@/pwa'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { useCaixaFornecedor } from '@/hooks/useCaixaFornecedor'
@@ -284,6 +285,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <PwaManager />
       <AppToast />
     </BrowserRouter>
   )

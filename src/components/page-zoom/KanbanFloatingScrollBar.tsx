@@ -38,7 +38,7 @@ export function KanbanFloatingScrollBar({
     <>
       {horizontalMetrics.visible && (
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-2 z-40 flex items-center gap-2"
+          className="pointer-events-none absolute inset-x-3 bottom-2 z-50 flex items-center gap-2"
           aria-hidden={false}
         >
           {showScrollArrows && (

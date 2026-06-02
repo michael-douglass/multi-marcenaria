@@ -35,10 +35,9 @@ function safeRatio(numerator: number, denominator: number): number {
 }
 
 function getContentMetrics(el: HTMLElement) {
-  const content = el.querySelector('[data-zoom-content]') as HTMLElement | null
   return {
-    scrollWidth: content?.scrollWidth ?? el.scrollWidth,
-    scrollHeight: content?.scrollHeight ?? el.scrollHeight,
+    scrollWidth: el.scrollWidth,
+    scrollHeight: el.scrollHeight,
     clientWidth: el.clientWidth,
     clientHeight: el.clientHeight,
     scrollLeft: el.scrollLeft,

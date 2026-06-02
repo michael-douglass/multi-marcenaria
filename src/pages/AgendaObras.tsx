@@ -559,7 +559,7 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
+    <div className="fade-in flex min-h-0 flex-1 flex-col">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
@@ -616,10 +616,10 @@ function AgendaObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentSignal={obrasHook.data.length}
-          className="min-h-[420px] flex-1"
+          contentSignal={`${obrasHook.data.length}-${busca}-${obrasFiltradas.length}`}
+          className="min-h-0 flex-1"
         >
-          <div className="flex w-max min-w-full gap-4">
+          <div className="flex w-max min-w-full gap-4 pb-1">
           {COLUNAS.map(col => {
             const obras = obrasByCol[col.key]
             const isOver = dragOverCol === col.key && draggingId !== null

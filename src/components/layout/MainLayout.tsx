@@ -12,9 +12,9 @@ export function MainLayout({ pendingOrders }: MainLayoutProps) {
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar pendingOrders={pendingOrders} />
-      <SidebarInset>
+      <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
         <NavigationHeader pendingOrders={pendingOrders} />
-        <div className="flex-1 overflow-y-auto px-6 py-7 md:px-8">
+        <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-5 sm:px-6 sm:py-7 md:px-8 touch-pan-y">
           <Outlet />
         </div>
       </SidebarInset>

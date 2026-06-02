@@ -74,6 +74,7 @@ body::before {
 .kanban-scroll-host {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  touch-action: pan-x pan-y;
 }
 .kanban-scroll-host::-webkit-scrollbar {
   display: none;
@@ -341,5 +342,61 @@ body::before {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* ── PWA / Mobile nativo ── */
+html {
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.safe-area-top-offset {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+.safe-area-bottom-offset {
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }
