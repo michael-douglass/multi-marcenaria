@@ -70,6 +70,15 @@ body::before {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: rgba(212,168,83,.22); border-radius: 2px; }
 
+/* Scroll host das páginas de obras — barra nativa oculta (usa barra flutuante) */
+.kanban-scroll-host {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.kanban-scroll-host::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Glass surfaces ── */
 @layer components {
   .glass-card {

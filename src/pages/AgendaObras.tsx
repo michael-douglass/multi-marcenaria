@@ -22,6 +22,11 @@ import {
   canEditObras,
   canManageAllObras,
 } from '../lib/obra-permissions'
+import {
+  KanbanPageZoomControls,
+  KanbanPageZoomShell,
+  PageZoomProvider,
+} from '../components/page-zoom'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -71,7 +76,8 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 function computeKanbanKey(obra: ObraFull): StatusKanbanObra {
   if (
-    obra.status_kanban === 'datas_definidas' &&
+    obra.status_kanban !== 'concluida' &&
+    obra.status_kanban !== 'cancelada' &&
     obra.data_prevista_fim &&
     obra.data_prevista_fim < today()
   ) return 'datas_em_atraso'
@@ -374,6 +380,14 @@ function ConfigModal({
 
 // ── Página principal ─────────────────────────────────────────
 export function AgendaObras() {
+  return (
+    <PageZoomProvider pageKey="agenda_obras">
+      <AgendaObrasContent />
+    </PageZoomProvider>
+  )
+}
+
+function AgendaObrasContent() {
   const { role } = useApp()
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
@@ -545,7 +559,7 @@ export function AgendaObras() {
   }
 
   return (
-    <div className="fade-in flex flex-col h-full">
+    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
@@ -556,6 +570,7 @@ export function AgendaObras() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <KanbanPageZoomControls />
           {canConfig && (
             <button type="button" className="btn btn-outline btn-md flex items-center gap-1.5" onClick={() => setConfigOpen(true)}>
               <Settings size={14} /> Configurações
@@ -597,7 +612,14 @@ export function AgendaObras() {
 
       {/* Kanban */}
       {!obrasHook.loading && !obrasHook.error && (
-        <div className="flex gap-4 overflow-x-auto pb-4" style={{ flex: 1, minHeight: 0 }}>
+        <KanbanPageZoomShell
+          showScrollArrows
+          horizontalScrollbar
+          verticalScrollbar
+          contentSignal={obrasHook.data.length}
+          className="min-h-[420px] flex-1"
+        >
+          <div className="flex w-max min-w-full gap-4">
           {COLUNAS.map(col => {
             const obras = obrasByCol[col.key]
             const isOver = dragOverCol === col.key && draggingId !== null
@@ -670,7 +692,8 @@ export function AgendaObras() {
               </div>
             )
           })}
-        </div>
+          </div>
+        </KanbanPageZoomShell>
       )}
 
       {/* Modal detalhe (lousa + imagens) */}

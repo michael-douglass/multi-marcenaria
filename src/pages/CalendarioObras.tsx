@@ -10,7 +10,7 @@ import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
-import { filtrarObrasCalendario } from '../lib/obra-progresso'
+import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
 import type { ObraFull, ObraInput, StatusKanbanObra } from '../types'
 import {
@@ -18,6 +18,11 @@ import {
   canEditObras,
   canManageAllObras,
 } from '../lib/obra-permissions'
+import {
+  KanbanPageZoomControls,
+  KanbanPageZoomShell,
+  PageZoomProvider,
+} from '../components/page-zoom'
 
 type CalView = 'day' | 'week' | 'month'
 
@@ -159,7 +164,7 @@ function DayPopup({
             <p className="text-center text-sm text-[#8a6a55] py-6">Nenhuma obra neste dia.</p>
           ) : (
             obras.map(o => {
-              const cor = STATUS_COLORS[o.status_kanban]
+              const cor = STATUS_COLORS[getStatusEfetivo(o)]
               const loading = actioning === o.id
               return (
                 <div
@@ -200,7 +205,7 @@ function DayPopup({
                         className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
                         style={{ backgroundColor: `${cor}22`, color: cor }}
                       >
-                        {STATUS_LABEL[o.status_kanban]}
+                        {STATUS_LABEL[getStatusEfetivo(o)]}
                       </span>
                     </div>
                   </button>
@@ -234,6 +239,14 @@ function DayPopup({
 
 // ── Página ───────────────────────────────────────────────────
 export function CalendarioObras() {
+  return (
+    <PageZoomProvider pageKey="calendario_obras">
+      <CalendarioObrasContent />
+    </PageZoomProvider>
+  )
+}
+
+function CalendarioObrasContent() {
   const { role } = useApp()
   const obrasHook  = useObras()
   const tiposHook  = useTiposObra()
@@ -393,7 +406,7 @@ export function CalendarioObras() {
   const canConcluir = canEdit || isMontador
 
   return (
-    <div className="fade-in">
+    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
       {/* Cabeçalho */}
       <div className="mb-5">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
@@ -407,11 +420,13 @@ export function CalendarioObras() {
             </p>
           </div>
 
-          {/* Seletor de visão */}
-          <div
-            className="flex items-center gap-1 p-1 rounded-xl"
-            style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(212,168,83,0.15)' }}
-          >
+          {/* Seletor de visão + zoom */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <KanbanPageZoomControls />
+            <div
+              className="flex items-center gap-1 p-1 rounded-xl"
+              style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(212,168,83,0.15)' }}
+            >
             {(['day', 'week', 'month'] as CalView[]).map(v => (
               <button
                 key={v}
@@ -427,6 +442,7 @@ export function CalendarioObras() {
                 {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
@@ -527,7 +543,14 @@ export function CalendarioObras() {
       {!obrasHook.loading && obrasHook.error && <ErrorState message={obrasHook.error} />}
 
       {!obrasHook.loading && !obrasHook.error && (
-        <>
+        <KanbanPageZoomShell
+          showScrollArrows
+          horizontalScrollbar
+          verticalScrollbar
+          contentSignal={`${view}-${obrasFiltradas.length}`}
+          className="min-h-[420px]"
+        >
+          <>
           {/* ════════════ VISÃO DIA ════════════ */}
           {view === 'day' && (
             <div className="space-y-3">
@@ -537,7 +560,7 @@ export function CalendarioObras() {
                   <p className="text-[#8a6a55] text-sm">Nenhuma obra para este dia.</p>
                 </div>
               ) : dayViewObras.map(o => {
-                const cor = STATUS_COLORS[o.status_kanban]
+                const cor = STATUS_COLORS[getStatusEfetivo(o)]
                 return (
                   <button
                     key={o.id}
@@ -554,7 +577,7 @@ export function CalendarioObras() {
                             className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
                             style={{ backgroundColor: `${cor}22`, color: cor }}
                           >
-                            {STATUS_LABEL[o.status_kanban]}
+                            {STATUS_LABEL[getStatusEfetivo(o)]}
                           </span>
                           <ObraMontadorBadge obra={o} />
                         </div>
@@ -624,8 +647,8 @@ export function CalendarioObras() {
                               key={o.id}
                               className="rounded p-1.5 text-[0.62rem]"
                               style={{
-                                backgroundColor: `${STATUS_COLORS[o.status_kanban]}18`,
-                                borderLeft: `2px solid ${STATUS_COLORS[o.status_kanban]}`,
+                                backgroundColor: `${STATUS_COLORS[getStatusEfetivo(o)]}18`,
+                                borderLeft: `2px solid ${STATUS_COLORS[getStatusEfetivo(o)]}`,
                               }}
                             >
                               <p className="font-semibold text-cream leading-tight truncate">{o.cliente_nome}</p>
@@ -697,7 +720,7 @@ export function CalendarioObras() {
                             <span
                               key={i}
                               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: STATUS_COLORS[o.status_kanban] }}
+                              style={{ backgroundColor: STATUS_COLORS[getStatusEfetivo(o)] }}
                             />
                           ))}
                           {dayObras.length > 4 && (
@@ -723,7 +746,8 @@ export function CalendarioObras() {
               </div>
             ))}
           </div>
-        </>
+          </>
+        </KanbanPageZoomShell>
       )}
 
       {/* Popup do dia selecionado (semana / mês) */}

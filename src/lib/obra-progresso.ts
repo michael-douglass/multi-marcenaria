@@ -100,6 +100,19 @@ export function calcObraProgresso(
   }
 }
 
+/** Retorna o status efetivo da obra: se o prazo passou e não está concluída/cancelada, é atraso. */
+export function getStatusEfetivo(obra: ObraFull, refDate: Date = new Date()): StatusKanbanObra {
+  if (
+    obra.status_kanban !== 'concluida' &&
+    obra.status_kanban !== 'cancelada' &&
+    obra.data_prevista_fim &&
+    obra.data_prevista_fim < refDate.toISOString().slice(0, 10)
+  ) {
+    return 'datas_em_atraso'
+  }
+  return obra.status_kanban
+}
+
 export interface ObraFiltrosCalendario {
   busca: string
   etapa: StatusKanbanObra | ''
@@ -113,11 +126,12 @@ export function filtrarObrasCalendario(
   const q = filtros.busca.trim().toLowerCase()
 
   return obras.filter(obra => {
+    const statusEfetivo = getStatusEfetivo(obra)
     const ocultaDoCalendario =
-      obra.status_kanban === 'concluida' ||
-      obra.status_kanban === 'cancelada'
+      statusEfetivo === 'concluida' ||
+      statusEfetivo === 'cancelada'
 
-    if (ocultaDoCalendario && filtros.etapa !== obra.status_kanban) return false
+    if (ocultaDoCalendario && filtros.etapa !== statusEfetivo) return false
 
     if (q) {
       const haystack = [
@@ -128,7 +142,7 @@ export function filtrarObrasCalendario(
         obra.grupo_obra_nome,
         obra.montador_nome,
         obra.montador_admin_nome,
-        STATUS_LABEL_BUSCA[obra.status_kanban],
+        STATUS_LABEL_BUSCA[statusEfetivo],
       ]
         .filter(Boolean)
         .join(' ')
@@ -137,7 +151,7 @@ export function filtrarObrasCalendario(
       if (!haystack.includes(q)) return false
     }
 
-    if (filtros.etapa && obra.status_kanban !== filtros.etapa) return false
+    if (filtros.etapa && statusEfetivo !== filtros.etapa) return false
 
     if (filtros.data) {
       if (!obra.data_prevista_inicio || !obra.data_prevista_fim) return false

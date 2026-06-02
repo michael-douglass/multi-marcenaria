@@ -1,5 +1,10 @@
 import { useMetricasObras } from '../hooks/useMetricasObras'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
+import {
+  KanbanPageZoomControls,
+  KanbanPageZoomShell,
+  PageZoomProvider,
+} from '../components/page-zoom'
 
 function pct(n: number, total: number): string {
   if (total === 0) return '0%'
@@ -12,6 +17,14 @@ function fmtH(h: number | null): string {
 }
 
 export function MetricasObras() {
+  return (
+    <PageZoomProvider pageKey="metricas_obras">
+      <MetricasObrasContent />
+    </PageZoomProvider>
+  )
+}
+
+function MetricasObrasContent() {
   const { data, loading, error, reload } = useMetricasObras()
 
   const totalObras = data.reduce((acc, m) => acc + Number(m.total_obras), 0)
@@ -19,22 +32,32 @@ export function MetricasObras() {
   const totalAtraso = data.reduce((acc, m) => acc + Number(m.obras_em_atraso), 0)
 
   return (
-    <div className="fade-in">
+    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Métricas de Obras</h1>
           <p className="section-label mt-1">Tempo médio de execução por tipo de obra</p>
         </div>
-        <button type="button" className="btn btn-outline btn-md" onClick={() => reload()}>
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <KanbanPageZoomControls />
+          <button type="button" className="btn btn-outline btn-md" onClick={() => reload()}>
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} />}
 
       {!loading && !error && (
-        <>
+        <KanbanPageZoomShell
+          showScrollArrows={false}
+          horizontalScrollbar={false}
+          verticalScrollbar
+          contentSignal={data.length}
+          className="min-h-[420px] flex-1"
+        >
+          <>
           {/* Resumo geral */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             {[
@@ -107,7 +130,8 @@ export function MetricasObras() {
               </table>
             </div>
           )}
-        </>
+          </>
+        </KanbanPageZoomShell>
       )}
     </div>
   )

@@ -4,14 +4,27 @@ import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { fmtDate } from '@/lib/utils'
 import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
+import {
+  KanbanPageZoomControls,
+  KanbanPageZoomShell,
+  PageZoomProvider,
+} from '@/components/page-zoom'
 
 export function AcompanhamentoObras() {
+  return (
+    <PageZoomProvider pageKey="acompanhamento_obras">
+      <AcompanhamentoObrasContent />
+    </PageZoomProvider>
+  )
+}
+
+function AcompanhamentoObrasContent() {
   const [filtro, setFiltro] = useState<FiltroPeriodo>('hoje')
   const { grupos, loading, error } = useEvolucaoPainel(filtro)
   const [lightbox, setLightbox] = useState<{ url: string; nome: string } | null>(null)
 
   return (
-    <div className="fade-in flex flex-col h-full">
+    <div className="fade-in flex min-h-[calc(100dvh-11rem)] flex-col">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
@@ -23,8 +36,10 @@ export function AcompanhamentoObras() {
           </p>
         </div>
 
-        {/* Filtros */}
-        <div className="flex bg-[#1a1412] p-1 rounded-lg border border-[rgba(212,168,83,0.15)]">
+        {/* Filtros + zoom */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <KanbanPageZoomControls />
+          <div className="flex bg-[#1a1412] p-1 rounded-lg border border-[rgba(212,168,83,0.15)]">
           {(['hoje', 'semana', 'mes'] as FiltroPeriodo[]).map((f) => (
             <button
               key={f}
@@ -38,22 +53,29 @@ export function AcompanhamentoObras() {
               {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta Semana' : 'Este Mês'}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} />}
 
-      {!loading && !error && grupos.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-[#6b5544]">
-          <Camera size={48} className="mb-4 opacity-20" />
-          <p className="text-lg font-display">Nenhuma foto registrada no período</p>
-          <p className="text-sm">Os montadores ainda não enviaram atualizações.</p>
-        </div>
-      )}
-
-      {!loading && !error && grupos.length > 0 && (
-        <div className="space-y-8 overflow-y-auto pr-2" style={{ flex: 1 }}>
+      {!loading && !error && (
+        <KanbanPageZoomShell
+          showScrollArrows
+          horizontalScrollbar
+          verticalScrollbar
+          contentSignal={`${filtro}-${grupos.length}`}
+          className="min-h-[420px] flex-1"
+        >
+          {grupos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-[#6b5544] w-full min-w-full">
+              <Camera size={48} className="mb-4 opacity-20" />
+              <p className="text-lg font-display">Nenhuma foto registrada no período</p>
+              <p className="text-sm">Os montadores ainda não enviaram atualizações.</p>
+            </div>
+          ) : (
+          <div className="space-y-8 pr-2 w-max min-w-full">
           {grupos.map((grupo) => (
             <div key={grupo.obra_id} className="glass-card p-5 border-[rgba(212,168,83,0.12)]">
               <div className="flex items-center gap-3 mb-4">
@@ -119,7 +141,9 @@ export function AcompanhamentoObras() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+          )}
+        </KanbanPageZoomShell>
       )}
 
       {lightbox && (
