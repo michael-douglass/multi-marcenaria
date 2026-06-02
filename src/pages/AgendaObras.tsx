@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search } from 'lucide-react'
+import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search, Camera, Trash2 } from 'lucide-react'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
@@ -10,6 +10,7 @@ import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import type {
   ObraFull, ObraInput, StatusKanbanObra,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
@@ -31,6 +32,16 @@ const STATUS_LABELS: Record<StatusKanbanObra, string> = {
   datas_em_atraso: 'Datas em Atraso',
   datas_definidas: 'Datas Definidas',
   em_andamento:    'Em Andamento',
+  concluida:       'Concluída',
+  cancelada:       'Cancelada',
+}
+
+/** Rótulos curtos para caber no card do Kanban sem cortar. */
+const STATUS_SHORT: Record<StatusKanbanObra, string> = {
+  datas_em_aberto: 'Em aberto',
+  datas_em_atraso: 'Atraso',
+  datas_definidas: 'Definidas',
+  em_andamento:    'Andamento',
   concluida:       'Concluída',
   cancelada:       'Cancelada',
 }
@@ -68,114 +79,169 @@ function duracao(obra: ObraFull): string | null {
   return `${h}h`
 }
 
+function CardInfoRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null
+  return (
+    <>
+      <dt className="text-[#8a6a55] shrink-0">{label}</dt>
+      <dd className="text-cream break-words min-w-0 m-0 leading-snug">{value}</dd>
+    </>
+  )
+}
+
 // ── ObraCard ─────────────────────────────────────────────────
 interface ObraCardProps {
   obra: ObraFull
   canEdit: boolean
+  canDelete: boolean
   isMontador: boolean
   actioning: string | null
   isDragging: boolean
   onEdit: (obra: ObraFull) => void
   onDetalhe: (obra: ObraFull) => void
   onIniciar: (id: string) => void
-  onFinalizar: (id: string) => void
+  onConcluir: (id: string) => void
+  onExcluir: (obra: ObraFull) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragEnd: () => void
 }
 
-function ObraCard({ obra, canEdit, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onFinalizar, onDragStart, onDragEnd }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd }: ObraCardProps) {
   const loading = actioning === obra.id
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
   return (
     <div
-      className="glass-card p-3 text-sm flex flex-col gap-1.5 transition-opacity cursor-pointer"
+      className="glass-card p-3 text-sm flex flex-col gap-2 transition-opacity cursor-pointer overflow-hidden w-full min-w-0 box-border"
       draggable={canEdit}
       onDragStart={canEdit ? e => onDragStart(e, obra.id) : undefined}
       onDragEnd={canEdit ? onDragEnd : undefined}
       onClick={() => onDetalhe(obra)}
       style={{
-        minWidth: 0,
         opacity: isDragging ? 0.35 : 1,
         cursor: isDragging ? 'grabbing' : 'pointer',
       }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-1">
-        <div>
-          <p className="font-semibold text-[#d4a853] leading-tight truncate max-w-[160px]">{obra.cliente_nome}</p>
+      {/* Nome + ações */}
+      <div className="flex items-start gap-1.5 min-w-0">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-[#d4a853] leading-tight break-words">{obra.cliente_nome}</p>
           {obra.lousa && (
-            <p className="text-[0.7rem] text-[#8a6a55] truncate max-w-[160px]">{obra.lousa}</p>
+            <p className="text-[0.7rem] text-[#8a6a55] leading-snug break-words mt-0.5">{obra.lousa}</p>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <span
-            className="rounded-full px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide"
-            style={{ backgroundColor: `${colDef?.cor}22`, color: colDef?.cor, border: `1px solid ${colDef?.cor}44` }}
-          >
-            {STATUS_LABELS[obra.status_kanban]}
-          </span>
-          {canEdit && (
-            <button
-              onClick={e => { e.stopPropagation(); onEdit(obra) }}
-              className="p-1 rounded text-[#8a6a55] hover:text-[#d4a853] transition-colors"
-            >
-              <Pencil size={12} />
-            </button>
-          )}
-        </div>
+        {(canEdit || canDelete) && (
+          <div className="flex items-center gap-0.5 shrink-0">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onEdit(obra) }}
+                className="p-1 rounded text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                title="Editar"
+              >
+                <Pencil size={12} />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={e => { e.stopPropagation(); onExcluir(obra) }}
+                className="p-1 rounded text-[#8a6a55] hover:text-red-400 transition-colors disabled:opacity-50"
+                title="Excluir obra"
+              >
+                {loading ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Status + montador */}
+      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+        <span
+          className="inline-flex items-center rounded-full px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-wide leading-none shrink-0"
+          style={{ backgroundColor: `${colDef?.cor}22`, color: colDef?.cor, border: `1px solid ${colDef?.cor}44` }}
+          title={STATUS_LABELS[computedCol]}
+        >
+          {STATUS_SHORT[computedCol]}
+        </span>
+        <ObraMontadorBadge obra={obra} />
       </div>
 
       {/* Campos informativos */}
-      <div className="space-y-0.5 text-[0.72rem] text-[#8a6a55]">
-        {obra.tipo_obra_nome && <p>Tipo: <span className="text-cream">{obra.tipo_obra_nome}</span></p>}
-        {obra.grupo_obra_nome && <p>Grupo: <span className="text-cream">{obra.grupo_obra_nome}</span></p>}
-        {obra.endereco_obra && <p>End.: <span className="text-cream">{obra.endereco_obra}</span></p>}
-        {obra.montador_nome && <p>Montador: <span className="text-cream">{obra.montador_nome}</span></p>}
-        {obra.montador_admin_nome && <p>Admin: <span className="text-cream">{obra.montador_admin_nome}</span></p>}
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-[0.72rem] min-w-0">
+        <CardInfoRow label="Tipo:" value={obra.tipo_obra_nome} />
+        <CardInfoRow label="Grupo:" value={obra.grupo_obra_nome} />
+        <CardInfoRow label="End.:" value={obra.endereco_obra} />
+        {obra.montador_admin_nome && obra.montador_admin_nome !== obra.montador_nome && (
+          <CardInfoRow label="Admin:" value={obra.montador_admin_nome} />
+        )}
         {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
-          <p>
-            Datas:{' '}
-            <span className="text-cream">
+          <>
+            <dt className="text-[#8a6a55] shrink-0">Datas:</dt>
+            <dd className="text-cream break-words min-w-0 m-0 leading-snug">
               {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
               {' → '}
               {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
-            </span>
-          </p>
+            </dd>
+          </>
         )}
         {obra.tempo_maximo_horas != null && (
-          <p>Prazo máx.: <span className="text-cream">{Number(obra.tempo_maximo_horas)}h</span></p>
+          <CardInfoRow label="Prazo máx.:" value={`${Number(obra.tempo_maximo_horas)}h`} />
         )}
-        {duracao(obra) && (
-          <p>Duração real: <span className="text-cream">{duracao(obra)}</span></p>
-        )}
+        {duracao(obra) && <CardInfoRow label="Duração:" value={duracao(obra)} />}
         {obra.concluido_em_atraso && (
-          <p className="text-red-400 font-semibold">Concluída em atraso</p>
+          <>
+            <dt className="sr-only">Atraso</dt>
+            <dd className="col-span-2 text-red-400 font-semibold m-0">Concluída em atraso</dd>
+          </>
         )}
-      </div>
+      </dl>
 
       {/* Ações do montador */}
-      {isMontador && (
-        <div className="mt-1 flex gap-1.5">
-          {!obra.iniciado_em && (
+      {(isMontador || canEdit) && (
+        <div className="mt-0.5 flex flex-wrap gap-1.5 min-w-0">
+          {isMontador && !obra.iniciado_em && (
             <button
               disabled={loading}
               onClick={e => { e.stopPropagation(); onIniciar(obra.id) }}
-              className="flex items-center gap-1 rounded px-2 py-1 text-[0.7rem] font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
+              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
             >
-              {loading ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
-              Iniciar
+              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <Play size={10} className="shrink-0" />}
+              <span className="truncate">Iniciar</span>
             </button>
           )}
-          {obra.iniciado_em && !obra.finalizado_em && (
+          {isMontador && obra.iniciado_em && !obra.finalizado_em && (
             <button
               disabled={loading}
-              onClick={e => { e.stopPropagation(); onFinalizar(obra.id) }}
-              className="flex items-center gap-1 rounded px-2 py-1 text-[0.7rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
+              onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
+              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
             >
-              {loading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
-              Finalizar
+              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <CheckCircle size={10} className="shrink-0" />}
+              <span className="truncate">Concluir</span>
+            </button>
+          )}
+          {(isMontador || canEdit) && !obra.finalizado_em && obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada' && !obra.iniciado_em && (
+            <button
+              disabled={loading}
+              onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
+              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <CheckCircle size={10} className="shrink-0" />}
+              <span className="truncate">Concluir</span>
+            </button>
+          )}
+          
+          {/* Sempre permitir registrar progresso se a obra não estiver cancelada e se for montador ou admin */}
+          {obra.status_kanban !== 'cancelada' && (
+            <button
+              onClick={e => { e.stopPropagation(); onDetalhe(obra) }}
+              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#d4a853]/20 text-[#d4a853] hover:bg-[#d4a853]/30 transition-colors"
+            >
+              <Camera size={10} className="shrink-0" />
+              <span className="truncate">Progresso</span>
             </button>
           )}
         </div>
@@ -449,9 +515,25 @@ export function AgendaObras() {
     try { await obrasHook.iniciarObra(id) } finally { setActioning(null) }
   }
 
-  const handleFinalizar = async (id: string) => {
+  const handleConcluir = async (id: string) => {
     setActioning(id)
-    try { await obrasHook.finalizarObra(id) } finally { setActioning(null) }
+    try { await obrasHook.concluirObra(id) } finally { setActioning(null) }
+  }
+
+  const handleExcluir = async (obra: ObraFull) => {
+    const nome = obra.cliente_nome.trim() || 'esta obra'
+    if (!confirm(`Excluir a obra de "${nome}"? Essa ação não pode ser desfeita.`)) return
+
+    setActioning(obra.id)
+    try {
+      await obrasHook.remove(obra.id)
+      if (detalheObra?.id === obra.id) setDetalheObra(null)
+      if (editObra?.id === obra.id) setObraOpen(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível excluir a obra.')
+    } finally {
+      setActioning(null)
+    }
   }
 
   return (
@@ -514,8 +596,7 @@ export function AgendaObras() {
             return (
               <div
                 key={col.key}
-                className="flex flex-col gap-2 shrink-0 transition-all"
-                style={{ width: 240, minWidth: 240 }}
+                className="flex flex-col gap-2 shrink-0 transition-all w-[clamp(260px,88vw,320px)] min-w-[clamp(260px,88vw,320px)]"
                 onDragOver={canEdit ? e => handleDragOver(e, col.key) : undefined}
                 onDragLeave={canEdit ? () => setDragOverCol(null) : undefined}
                 onDrop={canEdit ? e => handleDrop(e, col.key) : undefined}
@@ -563,13 +644,15 @@ export function AgendaObras() {
                         key={obra.id}
                         obra={obra}
                         canEdit={canEdit}
+                        canDelete={isAdmin}
                         isMontador={isMontador}
                         actioning={actioning}
                         isDragging={draggingId === obra.id}
                         onDetalhe={o => setDetalheObra(o)}
                         onEdit={openEdit}
                         onIniciar={handleIniciar}
-                        onFinalizar={handleFinalizar}
+                        onConcluir={handleConcluir}
+                        onExcluir={handleExcluir}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                       />
@@ -593,7 +676,9 @@ export function AgendaObras() {
         onClose={() => setDetalheObra(null)}
         onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}
         onIniciar={handleIniciar}
-        onFinalizar={handleFinalizar}
+        onConcluir={handleConcluir}
+        canDelete={isAdmin}
+        onExcluir={handleExcluir}
       />
 
       {/* Modal obra (edição) */}

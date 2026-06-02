@@ -16,6 +16,7 @@ import {
   FileSignature,
   CalendarDays,
   BarChart3,
+  Camera,
   Settings,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
@@ -127,6 +128,14 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     url: '/agenda-obras',
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
+  },
+  {
+    id: 'acompanhamentoObras',
+    title: 'Acompanhamento',
+    url: '/acompanhamento-obras',
+    icon: Camera,
+    radialColor: 'rgba(212,168,83,0.92)',
+    roles: ['Administrador', 'MontadorAdmin'],
   },
   {
     id: 'calendarioObras',
@@ -254,6 +263,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/biblioteca': 'biblioteca',
     '/caixa': 'caixa',
     '/agenda-obras': 'agendaObras',
+    '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',
     '/metricas-obras': 'metricasObras',
     '/configuracoes': 'configuracoes',

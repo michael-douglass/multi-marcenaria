@@ -60,5 +60,32 @@ export function useObras() {
     await load()
   }
 
-  return { data, loading, error, create, update, remove, iniciarObra, finalizarObra, reload: load }
+  /** Marca a obra como concluída (Kanban + calendário). Funciona mesmo sem "Iniciar" antes. */
+  const concluirObra = async (id: string) => {
+    const obra = data.find(o => o.id === id)
+    if (!obra || obra.status_kanban === 'concluida' || obra.finalizado_em) return
+
+    if (obra.iniciado_em) {
+      await finalizarObra(id)
+      return
+    }
+
+    const now = new Date().toISOString()
+    const { error: err } = await supabase
+      .from('movelaria_obras')
+      .update({
+        status_kanban: 'concluida',
+        iniciado_em: now,
+        finalizado_em: now,
+      })
+      .eq('id', id)
+
+    if (err) throw new Error(err.message)
+    await load()
+  }
+
+  return {
+    data, loading, error, create, update, remove,
+    iniciarObra, finalizarObra, concluirObra, reload: load,
+  }
 }

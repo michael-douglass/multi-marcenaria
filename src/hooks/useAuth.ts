@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { UserProfile, UserRole } from '../types'
@@ -10,7 +10,9 @@ export interface AuthState {
   role: UserRole | null
   loading: boolean
   profileLoading: boolean
+  profileError: string | null
   signOut: () => Promise<void>
+  retryProfile: () => void
 }
 
 function perfilToRole(perfil: UserProfile['perfil']): UserRole {
@@ -25,13 +27,38 @@ function perfilToRole(perfil: UserProfile['perfil']): UserRole {
 }
 
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
-  const { data, error } = await supabase
-    .from('movelaria_usuarios')
-    .select('*')
-    .eq('id', userId)
-    .single()
-  if (error || !data) return null
-  return data as UserProfile
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    throw new Error('Sessão inválida. Faça login novamente.')
+  }
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), 15_000)
+
+  try {
+    const { data, error } = await supabase
+      .from('movelaria_usuarios')
+      .select('*')
+      .eq('id', userId)
+      .abortSignal(controller.signal)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw new Error(error.message)
+    }
+
+    return (data ?? null) as UserProfile | null
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(
+        'Não foi possível conectar ao banco de dados. Verifique se o projeto Supabase está ativo.',
+      )
+    }
+    throw err
+  } finally {
+    window.clearTimeout(timer)
+  }
 }
 
 export function useAuth(): AuthState {
@@ -40,81 +67,122 @@ export function useAuth(): AuthState {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileRetryKey, setProfileRetryKey] = useState(0)
 
   useEffect(() => {
-    // 1. Carga inicial da sessão (crítico para F5)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+    let active = true
 
-      if (session?.user) {
-        scheduleProfileFetch(session.user.id)
+    void (async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession()
+        if (!active) return
+
+        setSession(initialSession)
+        setUser(initialSession?.user ?? null)
+      } catch (err) {
+        if (!active) return
+        console.error('[useAuth] Erro ao buscar sessão inicial:', err)
+      } finally {
+        if (active) setLoading(false)
       }
-    }).catch(err => {
-      console.error('[useAuth] Erro ao buscar sessão inicial:', err)
-      setLoading(false)
-    })
+    })()
 
-    // 2. Listener de mudanças de estado
-    // O callback DEVE ser síncrono para evitar deadlocks em produção
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // console.log(`[useAuth] Evento: ${event}`, session?.user?.id)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return
+
+      if (event === 'INITIAL_SESSION') return
 
       if (event === 'SIGNED_OUT') {
         setSession(null)
         setUser(null)
         setUserProfile(null)
+        setProfileError(null)
         setProfileLoading(false)
         setLoading(false)
         return
       }
 
-      // TOKEN_REFRESHED só atualiza a sessão local
       if (event === 'TOKEN_REFRESHED') {
-        setSession(session)
+        setSession(nextSession)
         return
       }
 
-      setSession(session)
-      setUser(session?.user ?? null)
+      setSession(nextSession)
+      setUser(nextSession?.user ?? null)
       setLoading(false)
-
-      if (session?.user) {
-        scheduleProfileFetch(session.user.id)
-      }
     })
 
-    function scheduleProfileFetch(userId: string) {
-      setProfileLoading(true)
-      // setTimeout 0 garante que o fetch ocorra fora do loop síncrono do listener
-      // e após o Supabase atualizar internamente o estado do cliente (JWT)
-      setTimeout(async () => {
-        try {
-          const profile = await fetchProfile(userId)
-          setUserProfile(profile)
-          if (!profile) {
-            console.warn('[useAuth] Perfil não encontrado para o usuário:', userId)
-          }
-        } catch (err) {
-          console.error('[useAuth] Erro ao buscar perfil:', err)
-          setUserProfile(null)
-        } finally {
-          setProfileLoading(false)
-        }
-      }, 0)
-    }
-
     return () => {
+      active = false
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) {
+      setUserProfile(null)
+      setProfileError(null)
+      setProfileLoading(false)
+      return
+    }
+
+    let active = true
+
+    const run = () => {
+      void (async () => {
+        setProfileLoading(true)
+        setProfileError(null)
+
+        try {
+          const profile = await fetchProfile(userId)
+          if (!active) return
+
+          setUserProfile(profile)
+          if (!profile) {
+            setProfileError('Perfil não encontrado no sistema.')
+          }
+        } catch (err) {
+          if (!active) return
+          const message = err instanceof Error ? err.message : 'Erro ao carregar perfil.'
+          console.error('[useAuth] Erro ao buscar perfil:', err)
+          setUserProfile(null)
+          setProfileError(message)
+        } finally {
+          if (active) setProfileLoading(false)
+        }
+      })()
+    }
+
+    // Evita deadlock conhecido do Supabase ao consultar DB logo após auth
+    const deferId = window.setTimeout(run, 50)
+
+    return () => {
+      active = false
+      window.clearTimeout(deferId)
+    }
+  }, [session?.user?.id, profileRetryKey])
 
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
+  const retryProfile = useCallback(() => {
+    setProfileRetryKey(k => k + 1)
+  }, [])
+
   const role = userProfile ? perfilToRole(userProfile.perfil) : null
 
-  return { session, user, userProfile, role, loading, profileLoading, signOut }
+  return {
+    session,
+    user,
+    userProfile,
+    role,
+    loading,
+    profileLoading,
+    profileError,
+    signOut,
+    retryProfile,
+  }
 }

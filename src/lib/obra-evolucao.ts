@@ -127,3 +127,48 @@ async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { s
 }
 
 export { addUrls as addEvolucaoUrls }
+
+export interface EvolucaoDiaGrupo<T extends ObraEvolucaoItem = ObraEvolucaoItem> {
+  diaNumero: number
+  data: string
+  fotos: T[]
+}
+
+function evolucaoDayMs(iso: string): number {
+  return new Date(`${iso.slice(0, 10)}T12:00:00`).getTime()
+}
+
+function evolucaoDaysBetween(from: string, to: string): number {
+  return Math.round((evolucaoDayMs(to) - evolucaoDayMs(from)) / 86_400_000)
+}
+
+/** Agrupa fotos de evolução por dia calendário, numerando Dia 01, 02… desde o início da obra. */
+export function groupEvolucaoPorDia<T extends ObraEvolucaoItem>(
+  items: T[],
+  refInicio?: string | null,
+): EvolucaoDiaGrupo<T>[] {
+  if (items.length === 0) return []
+
+  const ref =
+    refInicio?.slice(0, 10) ??
+    items.reduce((earliest, item) => {
+      const d = item.tirado_em.slice(0, 10)
+      return !earliest || d < earliest ? d : earliest
+    }, '')
+
+  const byDate = new Map<string, T[]>()
+  for (const item of items) {
+    const d = item.tirado_em.slice(0, 10)
+    const list = byDate.get(d) ?? []
+    list.push(item)
+    byDate.set(d, list)
+  }
+
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([data, fotos]) => ({
+      diaNumero: Math.max(1, evolucaoDaysBetween(ref, data) + 1),
+      data,
+      fotos: [...fotos].sort((a, b) => a.tirado_em.localeCompare(b.tirado_em)),
+    }))
+}

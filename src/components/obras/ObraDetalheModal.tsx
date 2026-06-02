@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Clock } from 'lucide-react'
+import { useRef, useState, useMemo } from 'react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
 import { useObraEvolucao } from '@/hooks/useObraEvolucao'
 import { isAcceptedObraFile } from '@/lib/obra-arquivos'
-import { isAcceptedEvolucaoFile } from '@/lib/obra-evolucao'
-import type { ObraEvolucaoItem, EvolucaoItemComUrl } from '@/lib/obra-evolucao'
+import { isAcceptedEvolucaoFile, groupEvolucaoPorDia } from '@/lib/obra-evolucao'
+import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
+import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
 import { fmtDate } from '@/lib/utils'
 
@@ -38,7 +39,9 @@ interface Props {
   onClose: () => void
   onEdit: (obra: ObraFull) => void
   onIniciar: (id: string) => void
-  onFinalizar: (id: string) => void
+  onConcluir: (id: string) => void
+  canDelete?: boolean
+  onExcluir?: (obra: ObraFull) => void
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -53,7 +56,7 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
 
 export function ObraDetalheModal({
   open, obra, canEdit, canUpload, isMontador, actioning,
-  onClose, onEdit, onIniciar, onFinalizar,
+  onClose, onEdit, onIniciar, onConcluir, canDelete = false, onExcluir,
 }: Props) {
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
@@ -64,11 +67,6 @@ export function ObraDetalheModal({
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [uploadErr, setUploadErr]       = useState<string | null>(null)
   const [evolUploadErr, setEvolUploadErr] = useState<string | null>(null)
-
-  if (!obra) return null
-
-  const cor = STATUS_COR[obra.status_kanban]
-  const isActioning = actioning === obra.id
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -94,6 +92,46 @@ export function ObraDetalheModal({
     try { await arqHook.remove(arq) } finally { setDeletingId(null) }
   }
 
+  const handleEvolFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setEvolUploadErr(null)
+    for (const file of files) {
+      if (!isAcceptedEvolucaoFile(file)) {
+        setEvolUploadErr('Apenas imagens (JPG, PNG, WebP) e PDFs são aceitos.')
+        break
+      }
+      try {
+        await evolHook.upload(file)
+      } catch (err) {
+        setEvolUploadErr(err instanceof Error ? err.message : 'Erro no upload.')
+        break
+      }
+    }
+    e.target.value = ''
+  }
+
+  const handleEvolDelete = async (item: EvolucaoItemComUrl) => {
+    try { await evolHook.remove(item) } catch { /* silencioso */ }
+  }
+
+  const diasEvolucao = useMemo(() => {
+    if (!obra) return []
+    return groupEvolucaoPorDia(
+      evolHook.data,
+      obra.iniciado_em?.slice(0, 10) ?? obra.data_prevista_inicio,
+    )
+  }, [evolHook.data, obra])
+
+  if (!obra) return null
+
+  const cor = STATUS_COR[obra.status_kanban]
+  const isActioning = actioning === obra.id
+  const podeConcluir =
+    obra.status_kanban !== 'concluida' &&
+    obra.status_kanban !== 'cancelada' &&
+    !obra.finalizado_em
+
   const duracaoHoras = () => {
     if (!obra.iniciado_em || !obra.finalizado_em) return null
     const h = (new Date(obra.finalizado_em).getTime() - new Date(obra.iniciado_em).getTime()) / 3_600_000
@@ -116,6 +154,7 @@ export function ObraDetalheModal({
               {STATUS_LABEL[obra.status_kanban]}
             </span>
           </div>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {canEdit && (
             <button
               onClick={() => { onClose(); setTimeout(() => onEdit(obra), 80) }}
@@ -124,6 +163,18 @@ export function ObraDetalheModal({
               <Pencil size={12} /> Editar
             </button>
           )}
+          {canDelete && onExcluir && (
+            <button
+              type="button"
+              disabled={isActioning}
+              onClick={() => onExcluir(obra)}
+              className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0 text-red-400 border-red-400/30 hover:bg-red-400/10 disabled:opacity-50"
+            >
+              {isActioning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              Excluir
+            </button>
+          )}
+          </div>
         </div>
 
         {/* ── LOUSA ──────────────────────────────────────────── */}
@@ -147,7 +198,7 @@ export function ObraDetalheModal({
           <Campo label="Tipo de Obra"    value={obra.tipo_obra_nome} />
           <Campo label="Grupo de Obra"   value={obra.grupo_obra_nome} />
           <Campo label="Endereço"        value={obra.endereco_obra} />
-          <Campo label="Montador"        value={obra.montador_nome} />
+          <Campo label="Montador"        value={getMontadorResponsavelDisplay(obra)} />
           <Campo label="Montador Admin"  value={obra.montador_admin_nome} />
           {obra.tempo_maximo_horas != null && (
             <Campo label="Prazo Máximo"  value={`${Number(obra.tempo_maximo_horas)}h`} />
@@ -178,10 +229,10 @@ export function ObraDetalheModal({
           )}
         </div>
 
-        {/* ── AÇÕES INICIAR/FINALIZAR ────────────────────────── */}
+        {/* ── AÇÕES INICIAR/CONCLUIR ─────────────────────────── */}
         {(isMontador || canEdit) && (
-          <div className="flex gap-2 mb-5">
-            {!obra.iniciado_em && (
+          <div className="flex flex-wrap gap-2 mb-5">
+            {!obra.iniciado_em && podeConcluir && (
               <button
                 disabled={isActioning}
                 onClick={() => onIniciar(obra.id)}
@@ -191,18 +242,111 @@ export function ObraDetalheModal({
                 Iniciar Obra
               </button>
             )}
-            {obra.iniciado_em && !obra.finalizado_em && (
+            {podeConcluir && (
               <button
                 disabled={isActioning}
-                onClick={() => onFinalizar(obra.id)}
+                onClick={() => onConcluir(obra.id)}
                 className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
               >
                 {isActioning ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                Finalizar Obra
+                Marcar como Concluída
               </button>
             )}
           </div>
         )}
+
+        {/* ── EVOLUÇÃO DA OBRA (DIÁRIO) ───────────────────────── */}
+        <div className="border-t border-[rgba(212,168,83,0.12)] pt-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Camera size={15} className="text-[#d4a853]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+                Evolução da Obra (Diário)
+                {evolHook.data.length > 0 && (
+                  <span className="ml-2 text-[#8a6a55] normal-case font-normal">
+                    ({evolHook.data.length})
+                  </span>
+                )}
+              </p>
+            </div>
+            {(isMontador || canUpload) && (
+              <>
+                <button
+                  onClick={() => evolFileRef.current?.click()}
+                  disabled={evolHook.uploading}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
+                >
+                  {evolHook.uploading
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Camera size={12} />
+                  }
+                  {evolHook.uploading ? 'Enviando...' : 'Registrar Progresso'}
+                </button>
+                <input
+                  ref={evolFileRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
+                  className="hidden"
+                  onChange={handleEvolFileChange}
+                />
+              </>
+            )}
+          </div>
+
+          {evolUploadErr && (
+            <p className="text-xs text-red-400 mb-2">{evolUploadErr}</p>
+          )}
+
+          {evolHook.loading ? (
+            <div className="flex items-center gap-2 py-4 text-xs text-[#8a6a55]">
+              <Loader2 size={14} className="animate-spin" /> Carregando evolução...
+            </div>
+          ) : evolHook.data.length === 0 ? (
+            <p className="text-xs text-[#6b5544] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(212,168,83,0.1)]">
+              {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para tirar fotos do que foi feito.' : 'Nenhum progresso registrado.'}
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {diasEvolucao.map(dia => (
+                <div
+                  key={dia.data}
+                  className="relative pl-5 border-l border-[rgba(212,168,83,0.22)]"
+                >
+                  <div className="absolute -left-[5px] top-1 w-[9px] h-[9px] rounded-full bg-[#d4a853] shadow-[0_0_8px_rgba(212,168,83,0.45)]" />
+
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span className="text-sm font-bold text-[#d4a853] font-display tracking-wide">
+                      Dia {String(dia.diaNumero).padStart(2, '0')}
+                    </span>
+                    <span className="flex items-center gap-1 text-[0.68rem] text-[#8a6a55]">
+                      <Calendar size={11} />
+                      {fmtDate(dia.data)}
+                    </span>
+                    <span className="text-[0.62rem] text-[#6b5544]">
+                      · {dia.fotos.length} foto{dia.fotos.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {dia.fotos.map(item => (
+                      <AnexoThumb
+                        key={item.id}
+                        previewUrl={item.previewSignedUrl ?? item.signedUrl ?? ''}
+                        nome={item.nome_arquivo}
+                        kind={item.kind}
+                        onOpenFullscreen={() => {
+                          if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo })
+                        }}
+                        onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ── FOTOS E DOCUMENTOS ─────────────────────────────── */}
         <div className="border-t border-[rgba(212,168,83,0.12)] pt-4">

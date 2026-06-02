@@ -11,7 +11,9 @@ interface AppContextType {
   role: UserRole | null
   authLoading: boolean
   profileLoading: boolean
+  profileError: string | null
   signOut: () => Promise<void>
+  retryProfile: () => void
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -27,7 +29,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         role: auth.role,
         authLoading: auth.loading,
         profileLoading: auth.profileLoading,
+        profileError: auth.profileError,
         signOut: auth.signOut,
+        retryProfile: auth.retryProfile,
       }}
     >
       {children}

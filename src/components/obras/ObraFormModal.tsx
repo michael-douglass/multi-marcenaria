@@ -66,9 +66,13 @@ export function ObraFormModal({
           <Field label="Montador Responsável">
             <select className="glass-input" value={form.montador_id ?? ''} onChange={s('montador_id')}>
               <option value="">— Nenhum —</option>
-              {montadores.filter(m => m.perfil === 'montador').map(m => (
-                <option key={m.id} value={m.id}>{m.nome ?? m.email}</option>
-              ))}
+              {montadores
+                .filter(m => m.perfil === 'montador' || m.perfil === 'montador_admin')
+                .map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome ?? m.email}{m.perfil === 'montador_admin' ? ' (Admin)' : ''}
+                  </option>
+                ))}
             </select>
           </Field>
           <Field label="Montador Admin">

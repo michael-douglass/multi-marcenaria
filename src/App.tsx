@@ -23,6 +23,7 @@ import { Biblioteca } from '@/pages/Biblioteca'
 import { CaixaFornecedor } from '@/pages/CaixaFornecedor'
 import { Caixa } from '@/pages/Caixa'
 import { AgendaObras } from '@/pages/AgendaObras'
+import { AcompanhamentoObras } from '@/pages/AcompanhamentoObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { MetricasObras } from '@/pages/MetricasObras'
 import { Configuracoes } from '@/pages/Configuracoes'
@@ -30,7 +31,7 @@ import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
 import type { ActiveSection, UserRole } from '@/types'
 
-const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'calendarioObras', 'metricasObras']
+const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'acompanhamentoObras', 'calendarioObras', 'metricasObras']
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
@@ -63,7 +64,7 @@ function RoleRedirect() {
     if (!allowed.includes(section)) {
       navigate(defaultPath, { replace: true })
     }
-  }, [role, location.pathname, navigate])
+  }, [role, location.pathname, navigate, defaultPath])
 
   return null
 }
@@ -187,6 +188,14 @@ function AuthenticatedRoutes() {
             }
           />
           <Route
+            path="/acompanhamento-obras"
+            element={
+              role === 'Administrador' || role === 'MontadorAdmin'
+                ? <AcompanhamentoObras />
+                : <Restricted message="Acompanhamento disponível apenas para Admin e Montador Admin." />
+            }
+          />
+          <Route
             path="/metricas-obras"
             element={
               role === 'Administrador' || role === 'MontadorAdmin'
@@ -213,9 +222,10 @@ function AuthenticatedRoutes() {
 }
 
 function AppRoutes() {
-  const { authLoading, profileLoading, session, userProfile, signOut } = useApp()
+  const { authLoading, profileLoading, profileError, session, userProfile, signOut, retryProfile } = useApp()
 
-  if (authLoading || profileLoading) {
+  // Só bloqueia a tela inteira enquanto a sessão (login) não foi resolvida
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
         Carregando...
@@ -227,18 +237,43 @@ function AppRoutes() {
     return <Login />
   }
 
-  if (!userProfile) {
+  if (profileLoading && !userProfile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-center text-[#d4a853]">
-        <div>
-          <p className="mb-1 text-lg font-semibold">Usuário não configurado.</p>
-          <p className="text-sm opacity-60">Contate o administrador para criar seu perfil de acesso.</p>
-          <button
-            onClick={signOut}
-            className="mt-6 text-xs underline opacity-40 hover:opacity-80"
-          >
-            Sair
-          </button>
+      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
+        Carregando perfil...
+      </div>
+    )
+  }
+
+  if (!userProfile) {
+    const isConnectionError = profileError?.includes('banco') || profileError?.includes('conectar')
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-center text-[#d4a853] px-6">
+        <div className="max-w-md">
+          <p className="mb-1 text-lg font-semibold">
+            {isConnectionError ? 'Servidor indisponível' : 'Usuário não configurado'}
+          </p>
+          <p className="text-sm opacity-60">
+            {profileError ?? 'Contate o administrador para criar seu perfil de acesso.'}
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-4">
+            {isConnectionError && (
+              <button
+                type="button"
+                onClick={retryProfile}
+                className="text-xs font-semibold text-[#d4a853] underline opacity-80 hover:opacity-100"
+              >
+                Tentar novamente
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs underline opacity-40 hover:opacity-80"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </div>
     )
