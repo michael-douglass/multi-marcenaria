@@ -133,6 +133,7 @@ interface Props {
   fornecedores: Fornecedor[]
   getSaldoFornecedor: (id: string) => number
   debitarSaldo: (fornecedorId: string, valor: number, contaPagarId?: string, descricao?: string) => Promise<void>
+  estornarDebitosContaPagar: (contaPagarId: string) => Promise<void>
   readOnly?: boolean
 }
 
@@ -178,7 +179,7 @@ function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
   }
 }
 
-export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, readOnly }: Props) {
+export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, estornarDebitosContaPagar, readOnly }: Props) {
   const {
     data,
     loading,
@@ -187,6 +188,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
     criarRecorrencia,
     encerrarRecorrencia,
     marcarPago,
+    reverterPagamento,
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
@@ -254,6 +256,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
     open: false, conta: null, formaPagamentoId: '',
     valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
   })
+  const [revertingId, setRevertingId] = useState<string | null>(null)
 
   const defaultFormaId = formas[0]?.id ?? ''
 
@@ -571,6 +574,25 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
     }
   }
 
+  const handleReverterPagamento = async (conta: ContaPagar) => {
+    const ok = confirm(
+      `Reverter o pagamento de ${fmtCur(conta.valor_parcela)} (${conta.fornecedor_nome ?? conta.descricao ?? 'esta parcela'})?\n\n` +
+        'Somente esta parcela volta para "A pagar". A reserva no caixa referente a ela é removida.\n\n' +
+        'Pagamentos já registrados manualmente no Caixa (valor consolidado do mês) não são alterados automaticamente.',
+    )
+    if (!ok) return
+    setRevertingId(conta.id)
+    setSaveError(null)
+    try {
+      await estornarDebitosContaPagar(conta.id)
+      await reverterPagamento(conta.id)
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erro ao reverter pagamento.')
+    } finally {
+      setRevertingId(null)
+    }
+  }
+
   const removeConta = async (conta: ContaPagar) => {
     const shouldDelete = confirm('Deseja realmente apagar esta fatura?')
     if (!shouldDelete) return
@@ -600,6 +622,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
           </div>
         )}
       </div>
+
+      {saveError && (
+        <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          {saveError}
+        </p>
+      )}
 
       <PeriodFilterBar
         value={periodFilter}
@@ -997,6 +1025,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, re
                           )}
                           {!readOnly && s !== 'pago' ? (
                             <button type="button" className="btn btn-success btn-sm" onClick={() => handleMarcarPago(p)}>✓ Marcar Pago</button>
+                          ) : !readOnly && s === 'pago' ? (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              title={`Pago em ${fmtDate(p.data_pagamento)} — clique para reverter`}
+                              disabled={revertingId === p.id}
+                              onClick={() => void handleReverterPagamento(p)}
+                            >
+                              {revertingId === p.id ? 'Revertendo…' : `↩ Reverter (${fmtDate(p.data_pagamento)})`}
+                            </button>
                           ) : s === 'pago' ? (
                             <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(p.data_pagamento)}</span>
                           ) : null}

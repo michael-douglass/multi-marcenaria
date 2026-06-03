@@ -152,6 +152,7 @@ function AuthenticatedRoutes() {
                 fornecedores={fornecedoresHook.data}
                 getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
                 debitarSaldo={caixaFornecedorHook.debitarSaldo}
+                estornarDebitosContaPagar={caixaFornecedorHook.estornarDebitosContaPagar}
                 readOnly={readOnly}
               />
             )}

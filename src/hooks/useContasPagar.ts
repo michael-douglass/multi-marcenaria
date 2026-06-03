@@ -294,6 +294,68 @@ export function useContasPagar() {
     setData(prev => prev.map(x => (x.id === id ? row : x)))
   }
 
+  const reverterPagamento = async (id: string) => {
+    const { data: conta, error: fetchErr } = await supabase
+      .from('movelaria_contas_pagar')
+      .select('id, valor_parcela, fornecedor_nome, descricao, data_vencimento')
+      .eq('id', id)
+      .eq('status', 'pago')
+      .maybeSingle()
+    if (fetchErr) throw new Error(fetchErr.message)
+    if (!conta) throw new Error('Esta conta não está marcada como paga.')
+
+    const mesRef = Number(conta.data_vencimento?.slice(5, 7))
+    const anoRef = Number(conta.data_vencimento?.slice(0, 4))
+    const descricaoReserva =
+      `Reserva automática via pagamento: ${conta.descricao?.trim() || 'Sem descrição'}`
+
+    const { error: reservaIdErr } = await supabase
+      .from('movelaria_caixa_movimentacoes')
+      .delete()
+      .eq('conta_pagar_id', id)
+      .eq('tipo_movimentacao', 'reserva')
+    if (reservaIdErr) throw new Error(reservaIdErr.message)
+
+    if (conta.fornecedor_nome && mesRef && anoRef) {
+      const { data: dests } = await supabase
+        .from('movelaria_caixa_destinatarios')
+        .select('id')
+        .ilike('nome', conta.fornecedor_nome.trim())
+        .eq('ativo', true)
+        .limit(1)
+
+      const destId = dests?.[0]?.id
+      if (destId) {
+        const { error: legadoErr } = await supabase
+          .from('movelaria_caixa_movimentacoes')
+          .delete()
+          .eq('tipo_movimentacao', 'reserva')
+          .is('conta_pagar_id', null)
+          .eq('valor', conta.valor_parcela)
+          .eq('descricao', descricaoReserva)
+          .eq('mes_referencia', mesRef)
+          .eq('ano_referencia', anoRef)
+          .eq('destinatario_id', destId)
+        if (legadoErr) throw new Error(legadoErr.message)
+      }
+    }
+
+    const { data: row, error: err } = await supabase
+      .from('movelaria_contas_pagar')
+      .update({
+        status: 'pendente',
+        data_pagamento: null,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'pago')
+      .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
+      .maybeSingle()
+    if (err) throw new Error(err.message)
+    if (!row) throw new Error('Esta conta não está marcada como paga.')
+    setData(prev => prev.map(x => (x.id === id ? (row as ContaPagar) : x)))
+  }
+
   const vincularGrupoLancamento = async (id: string, grupoLancamentoId: string) => {
     const { error: err } = await supabase
       .from('movelaria_contas_pagar')
@@ -371,6 +433,7 @@ export function useContasPagar() {
     criarRecorrencia,
     encerrarRecorrencia,
     marcarPago,
+    reverterPagamento,
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
 import { useCaixa } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -7,13 +7,69 @@ import { Button } from '@/components/ui/button'
 import { GerenciarDestinatariosDialog } from '@/components/caixa/GerenciarDestinatariosDialog'
 import { RegistrarMovimentacaoDialog } from '@/components/caixa/RegistrarMovimentacaoDialog'
 import { PagarReservaDialog } from '@/components/caixa/PagarReservaDialog'
-import type { ReservaConsolidada } from '@/types'
+import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
+import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
+
+const normBusca = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+
+function matchBusca(q: string, ...parts: (string | number | null | undefined)[]): boolean {
+  if (!q) return true
+  const nq = normBusca(q)
+  return parts.some(p => p != null && normBusca(String(p)).includes(nq))
+}
 
 export function Caixa() {
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [ano, setAno] = useState(new Date().getFullYear())
   const { resumo, loading, reservasConsolidadas, movimentacoes } = useCaixa(mes, ano)
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
+  const [busca, setBusca] = useState('')
+
+  const reservasFiltradas = useMemo(() => {
+    const q = busca.trim()
+    if (!q) return reservasConsolidadas
+    return reservasConsolidadas.filter(item =>
+      matchBusca(
+        q,
+        item.destinatario_nome,
+        item.tipo_destinatario,
+        item.data_vencimento,
+        item.valor_total_real,
+        item.valor_em_reserva,
+        item.total_pago,
+      ),
+    )
+  }, [reservasConsolidadas, busca])
+
+  const totaisReservas = useMemo(() => {
+    return reservasFiltradas.reduce(
+      (acc, item) => {
+        const restante = Math.max(0, item.valor_total_real - item.total_pago)
+        return {
+          valorReal: acc.valorReal + item.valor_total_real,
+          reservado: acc.reservado + item.valor_em_reserva,
+          restante: acc.restante + restante,
+        }
+      },
+      { valorReal: 0, reservado: 0, restante: 0 },
+    )
+  }, [reservasFiltradas])
+
+  const movimentacoesFiltradas = useMemo(() => {
+    const q = busca.trim()
+    if (!q) return movimentacoes
+    return movimentacoes.filter((mov: CaixaMovimentacao) =>
+      matchBusca(
+        q,
+        mov.movelaria_caixa_destinatarios?.nome,
+        mov.descricao,
+        mov.tipo_movimentacao,
+        mov.data_movimentacao,
+        mov.valor,
+      ),
+    )
+  }, [movimentacoes, busca])
 
   // Dialogs
   const [destinatariosOpen, setDestinatariosOpen] = useState(false)
@@ -31,29 +87,17 @@ export function Caixa() {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
-          <select
-            value={mes}
-            onChange={e => setMes(Number(e.target.value))}
-            className="glass-input !h-9 !text-xs !w-32"
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {new Date(2000, i).toLocaleString('pt-BR', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select
-            value={ano}
-            onChange={e => setAno(Number(e.target.value))}
-            className="glass-input !h-9 !text-xs !w-24"
-          >
-            {Array.from({ length: 10 }, (_, i) => {
-              const year = new Date().getFullYear() - 2 + i
-              return <option key={year} value={year}>{year}</option>
-            })}
-          </select>
-        </div>
+        <CaixaMesFilterBar mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a) }} />
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
+        <input
+          className="glass-input w-full pl-9"
+          placeholder="Buscar destinatário, descrição ou valor..."
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+        />
       </div>
 
       {/* Cards de Resumo */}
@@ -153,14 +197,16 @@ export function Caixa() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {reservasConsolidadas.length === 0 ? (
+                  {reservasFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-6 py-20 text-center text-[#8a6a55] text-sm">
-                        Nenhuma reserva ou faturamento operacional neste período.
+                        {busca.trim()
+                          ? 'Nenhum resultado para essa busca neste mês.'
+                          : 'Nenhuma reserva ou faturamento operacional neste período.'}
                       </td>
                     </tr>
                   ) : (
-                    reservasConsolidadas.map(item => {
+                    reservasFiltradas.map(item => {
                       const restante = Math.max(0, item.valor_total_real - item.total_pago)
                       const isFullyPaid = item.total_pago >= item.valor_total_real && item.valor_total_real > 0
                       const isPartiallyPaid = item.total_pago > 0 && !isFullyPaid
@@ -208,6 +254,25 @@ export function Caixa() {
                     })
                   )}
                 </tbody>
+                {reservasFiltradas.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t border-[rgba(212,168,83,.25)] bg-[rgba(212,168,83,.06)] text-[0.85rem]">
+                      <td className="px-6 py-4 font-bold text-[#d4a853]" colSpan={3}>
+                        Total
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-cream">
+                        {fmtCur(totaisReservas.valorReal)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-cream">
+                        {fmtCur(totaisReservas.reservado)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-[#d4a853]">
+                        {fmtCur(totaisReservas.restante)}
+                      </td>
+                      <td className="px-6 py-4" colSpan={2} />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             )}
 
@@ -223,14 +288,16 @@ export function Caixa() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {movimentacoes.length === 0 ? (
+                  {movimentacoesFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-20 text-center text-[#8a6a55] text-sm">
-                        Nenhuma movimentação registrada neste período.
+                        {busca.trim()
+                          ? 'Nenhum resultado para essa busca neste mês.'
+                          : 'Nenhuma movimentação registrada neste período.'}
                       </td>
                     </tr>
                   ) : (
-                    movimentacoes.map(mov => (
+                    movimentacoesFiltradas.map(mov => (
                       <tr key={mov.id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
                         <td className="px-6 py-4 text-[#a07c65]">
                           {new Date(mov.data_movimentacao + 'T12:00:00').toLocaleDateString('pt-BR')}

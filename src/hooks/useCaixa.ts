@@ -62,9 +62,11 @@ export function useCaixa(mes: number, ano: number) {
       const startOfMonth = `${ano}-${String(mes).padStart(2, '0')}-01`
       const endOfMonthStr = new Date(ano, mes, 0).toISOString().split('T')[0]
 
+      // Só contas já marcadas como pagas entram no caixa (revertidas voltam só em Contas a Pagar)
       const { data: contasPagar } = await supabase
         .from('movelaria_contas_pagar')
         .select('fornecedor_nome, valor_parcela, data_vencimento')
+        .eq('status', 'pago')
         .gte('data_vencimento', startOfMonth)
         .lte('data_vencimento', endOfMonthStr)
 
@@ -109,7 +111,14 @@ export function useCaixa(mes: number, ano: number) {
         saldo_disponivel: (saldos ?? []).reduce((acc, s) => acc + (s.saldo || 0), 0),
         saldo_meses_anteriores: saldoAnterior
       })
-      setReservasConsolidadas(consolidado)
+      setReservasConsolidadas(
+        consolidado.filter(
+          item =>
+            item.valor_total_real > 0
+            || item.valor_em_reserva > 0
+            || item.total_pago > 0,
+        ),
+      )
     } catch (err) {
       console.error('[useCaixa] Erro ao carregar dados:', err)
     } finally {

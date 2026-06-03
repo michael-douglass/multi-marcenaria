@@ -185,6 +185,27 @@ export function useCaixaFornecedor() {
     await recalcularHistoricoSaldos(tx.fornecedor_id)
   }
 
+  /** Devolve ao caixa do fornecedor valores debitados ao marcar a conta como paga. */
+  const estornarDebitosContaPagar = async (contaPagarId: string): Promise<void> => {
+    const { data: txs, error: fetchErr } = await supabase
+      .from('movelaria_transacoes_caixa_fornecedor')
+      .select('fornecedor_id')
+      .eq('conta_pagar_id', contaPagarId)
+      .eq('tipo', 'debito')
+    if (fetchErr) throw new Error(fetchErr.message)
+    if (!txs?.length) return
+
+    const fornecedorId = txs[0].fornecedor_id
+    const { error: delErr } = await supabase
+      .from('movelaria_transacoes_caixa_fornecedor')
+      .delete()
+      .eq('conta_pagar_id', contaPagarId)
+      .eq('tipo', 'debito')
+    if (delErr) throw new Error(delErr.message)
+
+    await recalcularHistoricoSaldos(fornecedorId)
+  }
+
   return {
     caixas,
     loading,
@@ -193,6 +214,7 @@ export function useCaixaFornecedor() {
     getSaldoFornecedor,
     adicionarCredito,
     debitarSaldo,
+    estornarDebitosContaPagar,
     loadTransacoes,
     editarTransacao,
     excluirTransacao,

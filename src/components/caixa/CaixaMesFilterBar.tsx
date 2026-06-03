@@ -1,0 +1,119 @@
+import { addMonths, todayISO } from '@/lib/utils'
+
+export interface MesAnoRef {
+  mes: number
+  ano: number
+}
+
+const pillStyle = (active: boolean): React.CSSProperties => ({
+  padding: '.3rem .9rem',
+  borderRadius: '9999px',
+  fontSize: '.75rem',
+  fontWeight: 600,
+  border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
+  background: active ? 'rgba(212,168,83,.14)' : 'transparent',
+  color: active ? '#d4a853' : '#8a6a55',
+  cursor: 'pointer',
+  transition: 'all .15s',
+  fontFamily: 'Raleway, sans-serif',
+  whiteSpace: 'nowrap' as const,
+})
+
+export function mesAnoFromOffset(offset: number): MesAnoRef {
+  const shifted = addMonths(`${todayISO().slice(0, 7)}-01`, offset)
+  return {
+    mes: Number(shifted.slice(5, 7)),
+    ano: Number(shifted.slice(0, 4)),
+  }
+}
+
+export function mesAnoKey(mes: number, ano: number): string {
+  return `${ano}-${String(mes).padStart(2, '0')}`
+}
+
+function monthLabel(mes: number, ano: number): string {
+  const date = new Date(ano, mes - 1, 1)
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+}
+
+function buildMonthOptions(past = 2, future = 12): MesAnoRef[] {
+  const first = `${todayISO().slice(0, 7)}-01`
+  const total = past + future + 1
+  return Array.from({ length: total }, (_, i) => {
+    const shifted = addMonths(first, i - past)
+    return {
+      mes: Number(shifted.slice(5, 7)),
+      ano: Number(shifted.slice(0, 4)),
+    }
+  })
+}
+
+const QUICK_OFFSETS = [
+  { offset: 0, label: 'Este mês' },
+  { offset: 1, label: 'Próx. mês' },
+  { offset: 2, label: '+2 meses' },
+  { offset: 3, label: '+3 meses' },
+  { offset: 6, label: '+6 meses' },
+]
+
+interface CaixaMesFilterBarProps {
+  mes: number
+  ano: number
+  onChange: (mes: number, ano: number) => void
+}
+
+export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps) {
+  const monthOptions = buildMonthOptions(2, 12)
+  const selectedKey = mesAnoKey(mes, ano)
+
+  const isQuickActive = QUICK_OFFSETS.some(q => {
+    const ref = mesAnoFromOffset(q.offset)
+    return mes === ref.mes && ano === ref.ano
+  })
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {QUICK_OFFSETS.map(q => {
+        const ref = mesAnoFromOffset(q.offset)
+        const active = mes === ref.mes && ano === ref.ano
+        return (
+          <button
+            key={q.offset}
+            type="button"
+            style={pillStyle(active)}
+            onClick={() => onChange(ref.mes, ref.ano)}
+          >
+            {q.label}
+          </button>
+        )
+      })}
+
+      <span className="text-[#8a6a55] text-xs hidden sm:inline">|</span>
+
+      <select
+        className="glass-input !h-9 !text-xs min-w-[11rem]"
+        value={selectedKey}
+        onChange={e => {
+          const [y, m] = e.target.value.split('-').map(Number)
+          if (m && y) onChange(m, y)
+        }}
+        title="Ver outros meses (passados e próximos)"
+        style={{
+          borderColor: !isQuickActive ? 'rgba(212,168,83,.5)' : undefined,
+          background: !isQuickActive ? 'rgba(212,168,83,.07)' : undefined,
+        }}
+      >
+        <optgroup label="Próximos e anteriores">
+          {monthOptions.map(opt => {
+            const key = mesAnoKey(opt.mes, opt.ano)
+            return (
+              <option key={key} value={key}>
+                {monthLabel(opt.mes, opt.ano)}
+              </option>
+            )
+          })}
+        </optgroup>
+      </select>
+    </div>
+  )
+}
