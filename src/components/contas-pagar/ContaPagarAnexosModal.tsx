@@ -6,7 +6,11 @@ import {
   getAnexoSignedUrl,
   listAnexosByGrupo,
 } from '@/lib/contas-pagar-anexos'
-import type { ContaPagarAnexo } from '@/types'
+import {
+  lancamentoCompartilhaAnexos,
+  resolveGrupoLancamentoId,
+} from '@/lib/contas-pagar-grupo'
+import type { ContaPagar, ContaPagarAnexo } from '@/types'
 import { AnexoLightbox, AnexoThumb } from './AnexoLightbox'
 
 interface ContaPagarAnexosModalProps {
@@ -115,28 +119,36 @@ export function ContaPagarAnexosModal({
   )
 }
 
-/** Botão compacto na tabela para abrir anexos salvos */
+export function deveExibirBotaoAnexos(conta: ContaPagar, todasContas: ContaPagar[]): boolean {
+  return !!resolveGrupoLancamentoId(conta, todasContas) || lancamentoCompartilhaAnexos(conta)
+}
+
+/** Botão compacto na tabela — anexos compartilhados entre parcelas do mesmo lançamento */
 export function ContaPagarAnexosButton({
-  grupoLancamentoId,
+  conta,
+  todasContas,
 }: {
-  grupoLancamentoId?: string | null
+  conta: ContaPagar
+  todasContas: ContaPagar[]
 }) {
   const [open, setOpen] = useState(false)
-  if (!grupoLancamentoId) return null
+  const grupoId = resolveGrupoLancamentoId(conta, todasContas)
+
+  if (!deveExibirBotaoAnexos(conta, todasContas)) return null
 
   return (
     <>
       <button
         type="button"
         className="btn btn-outline btn-sm !px-2"
-        title="Ver anexos"
+        title="Ver anexos do lançamento (todas as parcelas)"
         onClick={() => setOpen(true)}
       >
         <Paperclip className="h-3.5 w-3.5" />
       </button>
       <ContaPagarAnexosModal
         open={open}
-        grupoLancamentoId={grupoLancamentoId}
+        grupoLancamentoId={grupoId}
         onClose={() => setOpen(false)}
       />
     </>

@@ -356,11 +356,22 @@ export function useContasPagar() {
     setData(prev => prev.map(x => (x.id === id ? (row as ContaPagar) : x)))
   }
 
-  const vincularGrupoLancamento = async (id: string, grupoLancamentoId: string) => {
+  const vincularGrupoLancamento = async (
+    contaId: string,
+    grupoLancamentoId: string,
+    contaIdsRelacionadas?: string[],
+  ) => {
+    const ids = contaIdsRelacionadas?.length
+      ? [...new Set([contaId, ...contaIdsRelacionadas])]
+      : [contaId]
+
     const { error: err } = await supabase
       .from('movelaria_contas_pagar')
-      .update({ grupo_lancamento_id: grupoLancamentoId, atualizado_em: new Date().toISOString() })
-      .eq('id', id)
+      .update({
+        grupo_lancamento_id: grupoLancamentoId,
+        atualizado_em: new Date().toISOString(),
+      })
+      .in('id', ids)
     if (err) throw new Error(err.message)
     await load()
   }

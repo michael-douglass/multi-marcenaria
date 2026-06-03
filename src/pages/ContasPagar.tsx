@@ -8,7 +8,10 @@ import { Badge } from '../components/ui/Badge'
 import { FilterBar } from '../components/ui/FilterBar'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ContaPagarAnexosField } from '../components/contas-pagar/ContaPagarAnexosField'
+import { ContaPagarAnexosGrupoField } from '../components/contas-pagar/ContaPagarAnexosGrupoField'
 import { ContaPagarAnexosButton } from '../components/contas-pagar/ContaPagarAnexosModal'
+import { getContasRelacionadas, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
+import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
@@ -318,6 +321,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     setEditOpen(true)
   }, [])
 
+  const selecionarParcelaParaEdicao = useCallback((conta: ContaPagar) => {
+    setEditingConta(conta)
+    setEditForm(editFormFromConta(conta))
+    setEditError(null)
+  }, [])
+
   /** Fecha o card mas mantém rascunho no navegador */
   const closeModalKeepDraft = useCallback(() => {
     persistDraft(form)
@@ -493,11 +502,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       )
 
       if (editAnexos.length > 0) {
-        let grupoId = editingConta.grupo_lancamento_id
-        if (!grupoId) {
-          grupoId = createId()
-          await vincularGrupoLancamento(editingConta.id, grupoId)
-        }
+        let grupoId = resolveGrupoLancamentoId(editingConta, data) ?? createId()
+        const idsRelacionadas = getContasRelacionadas(editingConta, data).map(c => c.id)
+        await vincularGrupoLancamento(editingConta.id, grupoId, idsRelacionadas)
         await uploadContaPagarAnexos(grupoId, editAnexos)
       }
 
@@ -828,6 +835,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         wide
         closeOnBackdrop={false}
       >
+        {editingConta && (
+          <ContaPagarParcelasAbertasPanel
+            contaAtual={editingConta}
+            todasContas={data}
+            onSelecionarParcela={selecionarParcelaParaEdicao}
+          />
+        )}
+
         <Field label="Fornecedor">
           <FornecedorSelect
             fornecedores={fornecedores}
@@ -872,7 +887,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           </Field>
         </FieldRow>
 
-        <ContaPagarAnexosField anexos={editAnexos} onChange={setEditAnexos} />
+        {editingConta && (
+          <ContaPagarAnexosGrupoField
+            conta={editingConta}
+            todasContas={data}
+            novosAnexos={editAnexos}
+            onNovosAnexosChange={setEditAnexos}
+          />
+        )}
 
         {editError && <p className="mb-2 text-sm text-red-400">{editError}</p>}
 
@@ -984,7 +1006,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
-                          <ContaPagarAnexosButton grupoLancamentoId={p.grupo_lancamento_id} />
+                          <ContaPagarAnexosButton conta={p} todasContas={data} />
                           {!readOnly && (
                             <>
                               <button
