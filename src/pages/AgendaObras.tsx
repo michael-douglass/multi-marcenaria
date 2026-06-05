@@ -12,6 +12,10 @@ import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { getObraMontadorIds } from '../lib/obra-montadores'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
+import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
+import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
+import { countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
   KANBAN_COL_CLASS,
@@ -71,7 +75,7 @@ const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
-  status_kanban: 'datas_em_aberto',
+  status_kanban: 'datas_em_aberto', pedido_material_feito: false,
 }
 const BLANK_TIPO: TipoObraInput = {
   nome: '', descricao: null, tempo_medio_horas: null, tempo_maximo_horas_default: null, ativo: true,
@@ -125,9 +129,11 @@ interface ObraCardProps {
   onExcluir: (obra: ObraFull) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragEnd: () => void
+  onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
+  togglingPedidoMaterial: string | null
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial }: ObraCardProps) {
   const loading = actioning === obra.id
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
@@ -189,7 +195,16 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
           {STATUS_SHORT[computedCol]}
         </span>
         <ObraMontadorBadge obra={obra} />
+        <ObraPedidoMaterialBadge obra={obra} />
       </div>
+
+      <ObraPedidoMaterialToggle
+        obra={obra}
+        canEdit={canEdit}
+        loading={togglingPedidoMaterial === obra.id}
+        onChange={feito => onTogglePedidoMaterial(obra, feito)}
+        compact
+      />
 
       {/* Campos informativos */}
       <div className="obra-card-meta">
@@ -414,6 +429,7 @@ function AgendaObrasContent() {
   const [savingObra, setSavingObra] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
+  const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
 
@@ -483,6 +499,11 @@ function AgendaObrasContent() {
     return map
   }, [obrasFiltradas])
 
+  const semPedidoMaterialCount = useMemo(
+    () => countObrasSemPedidoMaterial(obrasHook.data),
+    [obrasHook.data],
+  )
+
   const openNew = () => { setEditObra(null); setObraForm(BLANK_OBRA); setObraOpen(true) }
   const openEdit = (obra: ObraFull) => {
     setEditObra(obra)
@@ -500,11 +521,12 @@ function AgendaObrasContent() {
       data_prevista_fim: obra.data_prevista_fim ?? null,
       tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
       status_kanban: obra.status_kanban,
+      pedido_material_feito: obra.pedido_material_feito ?? false,
     })
     setObraOpen(true)
   }
 
-  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[]) => {
+  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[] | boolean) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
 
@@ -549,6 +571,18 @@ function AgendaObrasContent() {
     try { await obrasHook.concluirObra(id) } finally { setActioning(null) }
   }
 
+  const handleTogglePedidoMaterial = async (obra: ObraFull, feito: boolean) => {
+    if (!canEdit) return
+    setTogglingPedidoMaterial(obra.id)
+    try {
+      await obrasHook.update(obra.id, { pedido_material_feito: feito })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o pedido de material.')
+    } finally {
+      setTogglingPedidoMaterial(null)
+    }
+  }
+
   const handleExcluir = async (obra: ObraFull) => {
     const nome = obra.cliente_nome.trim() || 'esta obra'
     if (!confirm(`Excluir a obra de "${nome}"? Essa ação não pode ser desfeita.`)) return
@@ -580,6 +614,7 @@ function AgendaObrasContent() {
           }
           actions={
             <div className="obra-page-header__actions-inner">
+              <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
               <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
               <div className="obra-page-header__action-buttons">
                 {canConfig && (
@@ -713,6 +748,8 @@ function AgendaObrasContent() {
                         onExcluir={handleExcluir}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
+                        onTogglePedidoMaterial={handleTogglePedidoMaterial}
+                        togglingPedidoMaterial={togglingPedidoMaterial}
                       />
                     ))
                   )}

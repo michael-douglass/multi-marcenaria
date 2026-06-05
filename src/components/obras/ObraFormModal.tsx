@@ -17,7 +17,7 @@ interface ObraFormModalProps {
   open: boolean
   obra: ObraFull | null
   form: ObraInput
-  onChange: (k: keyof ObraInput, v: string | null | number | string[]) => void
+  onChange: (k: keyof ObraInput, v: string | null | number | string[] | boolean) => void
   onClose: () => void
   onSave: () => void
   saving: boolean
@@ -108,6 +108,18 @@ export function ObraFormModal({
           </select>
         </Field>
       )}
+
+      <Field label="Pedido de Material">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="accent-[#4ade80]"
+            checked={form.pedido_material_feito ?? false}
+            onChange={e => onChange('pedido_material_feito', e.target.checked)}
+          />
+          <span className="text-sm text-[#f4e4d6]">Confirmação de pedido de material feito</span>
+        </label>
+      </Field>
 
       <ModalFormFooter
         onCancel={onClose}

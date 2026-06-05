@@ -388,6 +388,7 @@ export interface ObraFull {
   iniciado_em?: string | null
   finalizado_em?: string | null
   concluido_em_atraso?: boolean | null
+  pedido_material_feito?: boolean
   criado_em?: string
   atualizado_em?: string
 }
@@ -406,6 +407,7 @@ export interface ObraInput {
   data_prevista_fim?: string | null
   tempo_maximo_horas?: number | null
   status_kanban?: StatusKanbanObra
+  pedido_material_feito?: boolean
 }
 
 // ── Financeiro Dashboard ────────────────────────────────────

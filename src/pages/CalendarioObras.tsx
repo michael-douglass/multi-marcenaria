@@ -9,6 +9,8 @@ import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { getObraMontadorIds } from '../lib/obra-montadores'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
+import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
@@ -67,7 +69,7 @@ const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
-  status_kanban: 'datas_em_aberto',
+  status_kanban: 'datas_em_aberto', pedido_material_feito: false,
 }
 
 // ── Helpers de data ──────────────────────────────────────────
@@ -129,6 +131,7 @@ function podeConcluirObra(obra: ObraFull): boolean {
 // ── Popup do dia ─────────────────────────────────────────────
 function DayPopup({
   date, obras, onClose, onObraClick, onConcluir, canConcluir, actioning,
+  canEdit, onTogglePedidoMaterial, togglingPedidoMaterial,
 }: {
   date: Date
   obras: ObraFull[]
@@ -137,6 +140,9 @@ function DayPopup({
   onConcluir: (id: string) => void
   canConcluir: boolean
   actioning: string | null
+  canEdit: boolean
+  onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
+  togglingPedidoMaterial: string | null
 }) {
   return createPortal(
     <div
@@ -192,6 +198,7 @@ function DayPopup({
                           <p className="text-xs text-[#8a6a55] mt-0.5">{o.tipo_obra_nome}</p>
                         )}
                         <ObraMontadorBadge obra={o} compact />
+                        <ObraPedidoMaterialBadge obra={o} compact />
                         {o.endereco_obra && (
                           <p className="text-xs text-[#8a6a55] truncate">{o.endereco_obra}</p>
                         )}
@@ -212,6 +219,16 @@ function DayPopup({
                       </span>
                     </div>
                   </button>
+
+                  <div className="px-3 pb-2">
+                    <ObraPedidoMaterialToggle
+                      obra={o}
+                      canEdit={canEdit}
+                      loading={togglingPedidoMaterial === o.id}
+                      onChange={feito => onTogglePedidoMaterial(o, feito)}
+                      compact
+                    />
+                  </div>
 
                   {canConcluir && podeConcluirObra(o) && (
                     <div className="px-3 pb-3 pt-0">
@@ -272,6 +289,7 @@ function CalendarioObrasContent() {
   const [obraForm, setObraForm]           = useState<ObraInput>(BLANK_OBRA)
   const [savingObra, setSavingObra]       = useState(false)
   const [actioning, setActioning]         = useState<string | null>(null)
+  const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
   const [dataFiltro, setDataFiltro]       = useState(() => (role === 'Montador' ? hojeISO : ''))
@@ -354,11 +372,12 @@ function CalendarioObrasContent() {
         data_prevista_fim: obra.data_prevista_fim ?? null,
         tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
         status_kanban: obra.status_kanban,
+        pedido_material_feito: obra.pedido_material_feito ?? false,
       })
     }, 80)
   }
 
-  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[]) => {
+  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[] | boolean) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
       if (k === 'tipo_obra_id' && v) {
@@ -389,6 +408,18 @@ function CalendarioObrasContent() {
       await obrasHook.concluirObra(id)
       setDetalheObra(null)
     } finally { setActioning(null) }
+  }
+
+  const handleTogglePedidoMaterial = async (obra: ObraFull, feito: boolean) => {
+    if (!canEdit) return
+    setTogglingPedidoMaterial(obra.id)
+    try {
+      await obrasHook.update(obra.id, { pedido_material_feito: feito })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o pedido de material.')
+    } finally {
+      setTogglingPedidoMaterial(null)
+    }
   }
 
   const handleExcluir = async (obra: ObraFull) => {
@@ -560,45 +591,59 @@ function CalendarioObrasContent() {
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
                 return (
-                  <button
+                  <div
                     key={o.id}
-                    type="button"
-                    onClick={() => setDetalheObra(o)}
-                    className="box-border w-full max-w-full min-w-0 overflow-hidden text-left glass-card p-4 hover:brightness-110 transition-all"
+                    className="box-border w-full max-w-full min-w-0 overflow-hidden glass-card hover:brightness-110 transition-all"
                     style={{ borderLeft: `3px solid ${cor}` }}
                   >
-                    <div className="flex w-full min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 overflow-hidden">
-                        <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
-                          <p className="font-semibold text-cream leading-tight break-words min-w-0">{o.cliente_nome}</p>
-                          <span
-                            className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
-                            style={{ backgroundColor: `${cor}22`, color: cor }}
-                          >
-                            {STATUS_LABEL[getStatusEfetivo(o)]}
-                          </span>
-                          <ObraMontadorBadge obra={o} />
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55] min-w-0">
-                          {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
-                          {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
-                          {o.endereco_obra   && (
-                            <span className="break-words min-w-0 max-w-full" title={o.endereco_obra}>
-                              {o.endereco_obra}
+                    <button
+                      type="button"
+                      onClick={() => setDetalheObra(o)}
+                      className="w-full max-w-full min-w-0 overflow-hidden text-left p-4 pb-2"
+                    >
+                      <div className="flex w-full min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
+                            <p className="font-semibold text-cream leading-tight break-words min-w-0">{o.cliente_nome}</p>
+                            <span
+                              className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
+                              style={{ backgroundColor: `${cor}22`, color: cor }}
+                            >
+                              {STATUS_LABEL[getStatusEfetivo(o)]}
                             </span>
+                            <ObraMontadorBadge obra={o} />
+                            <ObraPedidoMaterialBadge obra={o} />
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55] min-w-0">
+                            {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
+                            {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
+                            {o.endereco_obra   && (
+                              <span className="break-words min-w-0 max-w-full" title={o.endereco_obra}>
+                                {o.endereco_obra}
+                              </span>
+                            )}
+                          </div>
+                          {(o.data_prevista_inicio || o.data_prevista_fim) && (
+                            <p className="text-xs text-[#8a6a55] mt-1.5">
+                              {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
+                              {' → '}
+                              {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
+                            </p>
                           )}
+                          <ObraTempoBar obra={o} />
                         </div>
-                        {(o.data_prevista_inicio || o.data_prevista_fim) && (
-                          <p className="text-xs text-[#8a6a55] mt-1.5">
-                            {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
-                            {' → '}
-                            {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
-                          </p>
-                        )}
-                        <ObraTempoBar obra={o} />
                       </div>
+                    </button>
+                    <div className="px-4 pb-4">
+                      <ObraPedidoMaterialToggle
+                        obra={o}
+                        canEdit={canEdit}
+                        loading={togglingPedidoMaterial === o.id}
+                        onChange={feito => handleTogglePedidoMaterial(o, feito)}
+                        compact
+                      />
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -655,6 +700,7 @@ function CalendarioObrasContent() {
                             >
                               <p className="font-semibold text-cream leading-tight truncate">{o.cliente_nome}</p>
                               <ObraMontadorBadge obra={o} compact />
+                              <ObraPedidoMaterialBadge obra={o} compact />
                               <ObraTempoBar obra={o} compact />
                             </div>
                           ))
@@ -762,6 +808,9 @@ function CalendarioObrasContent() {
           onConcluir={handleConcluir}
           canConcluir={canConcluir}
           actioning={actioning}
+          canEdit={canEdit}
+          onTogglePedidoMaterial={handleTogglePedidoMaterial}
+          togglingPedidoMaterial={togglingPedidoMaterial}
         />
       )}
 
