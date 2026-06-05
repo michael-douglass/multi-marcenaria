@@ -606,9 +606,9 @@ function CalendarioObrasContent() {
 
           {/* ════════════ VISÃO SEMANA ════════════ */}
           {view === 'week' && (
-            <div className="overflow-x-auto -mx-1">
+            <div className="obra-scroll-x-mobile -mx-1">
               <div
-                className="grid gap-2 px-1"
+                className="grid min-w-[840px] gap-2 px-1"
                 style={{ gridTemplateColumns: 'repeat(7, minmax(120px, 1fr))' }}
               >
                 {weekDays.map(day => {
@@ -672,8 +672,8 @@ function CalendarioObrasContent() {
 
           {/* ════════════ VISÃO MÊS ════════════ */}
           {view === 'month' && (
-            <div className="overflow-x-auto -mx-1">
-              <div className="px-1" style={{ minWidth: '420px' }}>
+            <div className="obra-scroll-x-mobile -mx-1">
+              <div className="min-w-[420px] px-1">
                 {/* Cabeçalhos dias da semana */}
                 <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
                   {WEEKDAYS.map(wd => (

@@ -66,7 +66,7 @@ function AcompanhamentoObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentLayout="fluid"
+          contentLayout="kanban"
           contentSignal={`${filtro}-${grupos.length}`}
           className="min-h-0 flex-1"
         >

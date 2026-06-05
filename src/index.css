@@ -112,7 +112,7 @@ body::before {
   }
 
   .obra-page-shell {
-    overflow-x: hidden !important;
+    overflow-x: visible !important;
     overflow-y: visible !important;
     max-width: 100%;
     min-height: auto !important;
@@ -149,14 +149,37 @@ body::before {
   }
 
   .obra-page-shell .kanban-scroll-host {
-    overflow: visible !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
     flex: none !important;
     min-height: auto !important;
     padding-bottom: 0 !important;
+    max-width: 100%;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+  }
+
+  /* Kanban / zoom: conteúdo pode ultrapassar a largura da tela */
+  .obra-page-shell .kanban-scroll-host [data-zoom-content][data-content-layout='kanban'] {
+    display: inline-block !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    max-width: none !important;
   }
 
   .obra-page-shell .kanban-floating-scroll {
     display: none !important;
+  }
+
+  /* Rolagem horizontal nativa em blocos largos (semana, mês, kanban) */
+  .obra-scroll-x-mobile {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
   }
 
   .obra-page-shell .obra-page-title {
@@ -231,10 +254,10 @@ body::before {
     box-sizing: border-box;
   }
 
-  .obra-page-shell .kanban-page-zoom-shell,
-  .obra-page-shell .kanban-scroll-host {
+  .obra-page-shell .kanban-page-zoom-shell {
     max-width: 100%;
     width: 100%;
+    overflow-x: visible !important;
   }
 }
 

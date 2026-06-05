@@ -62,7 +62,7 @@ export function KanbanPageZoomShell({
     <div className={`kanban-page-zoom-shell relative flex min-h-0 min-w-0 w-full max-w-full flex-none flex-col overflow-visible md:flex-1 md:overflow-hidden ${className}`}>
       <div
         ref={scrollRef}
-        className="kanban-scroll-host min-h-0 min-w-0 w-full max-w-full flex-none overflow-visible overscroll-x-contain touch-pan-x touch-pan-y md:flex-1 md:overflow-auto"
+        className="kanban-scroll-host min-h-0 min-w-0 w-full max-w-full flex-none overflow-x-auto overflow-y-visible overscroll-x-contain touch-pan-x touch-pan-y max-md:overflow-x-auto max-md:overflow-y-visible md:flex-1 md:overflow-auto"
         style={{ paddingBottom: horizontalMetrics.visible ? 36 : 8 }}
         onScroll={handleScroll}
       >
