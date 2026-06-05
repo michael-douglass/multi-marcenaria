@@ -25,7 +25,7 @@ function AcompanhamentoObrasContent() {
   const [lightbox, setLightbox] = useState<{ url: string; nome: string } | null>(null)
 
   return (
-    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -66,6 +66,7 @@ function AcompanhamentoObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
+          contentLayout="fluid"
           contentSignal={`${filtro}-${grupos.length}`}
           className="min-h-0 flex-1"
         >
@@ -105,35 +106,41 @@ function AcompanhamentoObrasContent() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                       {dia.fotos.map((foto) => (
-                        <div
-                          key={foto.id}
-                          className="group relative aspect-square rounded-lg overflow-hidden border border-[rgba(212,168,83,0.15)] bg-black/40 cursor-pointer"
-                          onClick={() => setLightbox({ url: foto.signedUrl ?? '', nome: foto.nome_arquivo })}
-                        >
-                          {foto.previewSignedUrl ? (
-                            <img
-                              src={foto.previewSignedUrl}
-                              alt={foto.nome_arquivo}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[#8a6a55]">
-                              <Camera size={20} />
+                        <div key={foto.id} className="flex flex-col gap-2">
+                          <div
+                            className="group relative aspect-square rounded-lg overflow-hidden border border-[rgba(212,168,83,0.15)] bg-black/40 cursor-pointer"
+                            onClick={() => setLightbox({ url: foto.signedUrl ?? '', nome: foto.nome_arquivo })}
+                          >
+                            {foto.previewSignedUrl ? (
+                              <img
+                                src={foto.previewSignedUrl}
+                                alt={foto.nome_arquivo}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[#8a6a55]">
+                                <Camera size={20} />
+                              </div>
+                            )}
+
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center">
+                              <Maximize2 size={16} className="text-white mb-1" />
+                              <span className="text-[0.6rem] text-white/80 leading-tight">
+                                {foto.criador_nome?.split(' ')[0] || 'Sistema'}
+                              </span>
+                              <span className="text-[0.5rem] text-white/60">
+                                {new Date(foto.tirado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             </div>
-                          )}
-                          
-                          {/* Overlay */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center">
-                            <Maximize2 size={16} className="text-white mb-1" />
-                            <span className="text-[0.6rem] text-white/80 leading-tight">
-                              {foto.criador_nome?.split(' ')[0] || 'Sistema'}
-                            </span>
-                            <span className="text-[0.5rem] text-white/60">
-                              {new Date(foto.tirado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
                           </div>
+
+                          {foto.observacao?.trim() && (
+                            <p className="rounded-lg border border-[rgba(212,168,83,0.12)] bg-black/25 px-2.5 py-2 text-xs leading-relaxed text-[#e8d5c0]">
+                              {foto.observacao}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>

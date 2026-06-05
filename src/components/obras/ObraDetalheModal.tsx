@@ -5,7 +5,8 @@ import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightb
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
 import { useObraEvolucao } from '@/hooks/useObraEvolucao'
 import { isAcceptedObraFile } from '@/lib/obra-arquivos'
-import { isAcceptedEvolucaoFile, groupEvolucaoPorDia } from '@/lib/obra-evolucao'
+import { groupEvolucaoPorDia } from '@/lib/obra-evolucao'
+import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
 import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
@@ -60,13 +61,13 @@ export function ObraDetalheModal({
 }: Props) {
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
-  const fileRef     = useRef<HTMLInputElement>(null)
-  const evolFileRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const [lightbox, setLightbox]         = useState<{ url: string; nome: string; canDelete?: boolean; onDelete?: () => void } | null>(null)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [uploadErr, setUploadErr]       = useState<string | null>(null)
   const [evolUploadErr, setEvolUploadErr] = useState<string | null>(null)
+  const [evolModalOpen, setEvolModalOpen] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -92,23 +93,14 @@ export function ObraDetalheModal({
     try { await arqHook.remove(arq) } finally { setDeletingId(null) }
   }
 
-  const handleEvolFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
+  const handleEvolSubmit = async (files: File[], observacao: string) => {
     setEvolUploadErr(null)
-    for (const file of files) {
-      if (!isAcceptedEvolucaoFile(file)) {
-        setEvolUploadErr('Apenas imagens (JPG, PNG, WebP) e PDFs são aceitos.')
-        break
-      }
-      try {
-        await evolHook.upload(file)
-      } catch (err) {
-        setEvolUploadErr(err instanceof Error ? err.message : 'Erro no upload.')
-        break
-      }
+    try {
+      await evolHook.uploadMany(files, observacao || null)
+    } catch (err) {
+      setEvolUploadErr(err instanceof Error ? err.message : 'Erro no upload.')
+      throw err
     }
-    e.target.value = ''
   }
 
   const handleEvolDelete = async (item: EvolucaoItemComUrl) => {
@@ -198,7 +190,7 @@ export function ObraDetalheModal({
           <Campo label="Tipo de Obra"    value={obra.tipo_obra_nome} />
           <Campo label="Grupo de Obra"   value={obra.grupo_obra_nome} />
           <Campo label="Endereço"        value={obra.endereco_obra} />
-          <Campo label="Montador"        value={getMontadorResponsavelDisplay(obra)} />
+          <Campo label="Montadores"      value={getMontadorResponsavelDisplay(obra)} />
           <Campo label="Montador Admin"  value={obra.montador_admin_nome} />
           {obra.tempo_maximo_horas != null && (
             <Campo label="Prazo Máximo"  value={`${Number(obra.tempo_maximo_horas)}h`} />
@@ -270,27 +262,17 @@ export function ObraDetalheModal({
               </p>
             </div>
             {(isMontador || canUpload) && (
-              <>
-                <button
-                  onClick={() => evolFileRef.current?.click()}
-                  disabled={evolHook.uploading}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
-                >
-                  {evolHook.uploading
-                    ? <Loader2 size={12} className="animate-spin" />
-                    : <Camera size={12} />
-                  }
-                  {evolHook.uploading ? 'Enviando...' : 'Registrar Progresso'}
-                </button>
-                <input
-                  ref={evolFileRef}
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
-                  className="hidden"
-                  onChange={handleEvolFileChange}
-                />
-              </>
+              <button
+                onClick={() => setEvolModalOpen(true)}
+                disabled={evolHook.uploading}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
+              >
+                {evolHook.uploading
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : <Camera size={12} />
+                }
+                {evolHook.uploading ? 'Enviando...' : 'Registrar Progresso'}
+              </button>
             )}
           </div>
 
@@ -304,7 +286,7 @@ export function ObraDetalheModal({
             </div>
           ) : evolHook.data.length === 0 ? (
             <p className="text-xs text-[#6b5544] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(212,168,83,0.1)]">
-              {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para tirar fotos do que foi feito.' : 'Nenhum progresso registrado.'}
+              {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para enviar fotos e observações do que foi feito.' : 'Nenhum progresso registrado.'}
             </p>
           ) : (
             <div className="space-y-5">
@@ -330,16 +312,22 @@ export function ObraDetalheModal({
 
                   <div className="flex flex-wrap gap-3">
                     {dia.fotos.map(item => (
-                      <AnexoThumb
-                        key={item.id}
-                        previewUrl={item.previewSignedUrl ?? item.signedUrl ?? ''}
-                        nome={item.nome_arquivo}
-                        kind={item.kind}
-                        onOpenFullscreen={() => {
-                          if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo })
-                        }}
-                        onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
-                      />
+                      <div key={item.id} className="flex max-w-[140px] flex-col gap-1.5">
+                        <AnexoThumb
+                          previewUrl={item.previewSignedUrl ?? item.signedUrl ?? ''}
+                          nome={item.nome_arquivo}
+                          kind={item.kind}
+                          onOpenFullscreen={() => {
+                            if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo })
+                          }}
+                          onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
+                        />
+                        {item.observacao?.trim() && (
+                          <p className="text-[0.62rem] leading-snug text-[#c4a882] line-clamp-3" title={item.observacao}>
+                            {item.observacao}
+                          </p>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -414,6 +402,13 @@ export function ObraDetalheModal({
           )}
         </div>
       </Modal>
+
+      <ObraEvolucaoRegistrarModal
+        open={evolModalOpen}
+        uploading={evolHook.uploading}
+        onClose={() => setEvolModalOpen(false)}
+        onSubmit={handleEvolSubmit}
+      />
 
       {lightbox && (
         <AnexoLightbox

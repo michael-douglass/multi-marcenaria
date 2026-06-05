@@ -5,10 +5,10 @@ interface KanbanPageToolbarProps {
   className?: string
 }
 
-/** Barra superior fixa — título, zoom e ações permanecem visíveis ao rolar ou dar zoom no kanban. */
+/** Barra superior — sticky no desktop; no mobile rola junto com a página (.obra-page-shell). */
 export function KanbanPageToolbar({ children, className = '' }: KanbanPageToolbarProps) {
   return (
-    <div className={`kanban-page-toolbar shrink-0 ${className}`.trim()}>
+    <div className={`kanban-page-toolbar ${className}`.trim()}>
       {children}
     </div>
   )

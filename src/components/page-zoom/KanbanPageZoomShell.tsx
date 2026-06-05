@@ -11,6 +11,11 @@ interface PageZoomShellProps {
   verticalScrollbar?: boolean
   onZoomApplied?: () => void
   className?: string
+  /**
+   * fluid — cards/listas ocupam 100% da tela (Calendário dia, métricas).
+   * kanban — permite largura expandida para colunas horizontais (Agenda).
+   */
+  contentLayout?: 'fluid' | 'kanban'
   /** Recalcula barra quando conteúdo muda (ex.: lista de obras). */
   contentSignal?: unknown
 }
@@ -23,6 +28,7 @@ export function KanbanPageZoomShell({
   verticalScrollbar = true,
   onZoomApplied,
   className = '',
+  contentLayout = 'kanban',
   contentSignal,
 }: PageZoomShellProps) {
   const { zoom } = usePageZoom()
@@ -53,16 +59,21 @@ export function KanbanPageZoomShell({
   }, [zoom, handleZoomApplied])
 
   return (
-    <div className={`relative flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-hidden ${className}`}>
+    <div className={`kanban-page-zoom-shell relative flex min-h-0 min-w-0 w-full max-w-full flex-none flex-col overflow-visible md:flex-1 md:overflow-hidden ${className}`}>
       <div
         ref={scrollRef}
-        className="kanban-scroll-host min-h-0 min-w-0 w-full max-w-full flex-1 overflow-auto overscroll-x-contain touch-pan-x touch-pan-y"
+        className="kanban-scroll-host min-h-0 min-w-0 w-full max-w-full flex-none overflow-visible overscroll-x-contain touch-pan-x touch-pan-y md:flex-1 md:overflow-auto"
         style={{ paddingBottom: horizontalMetrics.visible ? 36 : 8 }}
         onScroll={handleScroll}
       >
         <div
           data-zoom-content
-          className="inline-block w-max min-w-full origin-top-left"
+          data-content-layout={contentLayout}
+          className={
+            contentLayout === 'fluid'
+              ? 'zoom-content-fluid block w-full max-w-full min-w-0 origin-top-left'
+              : 'inline-block w-max min-w-full origin-top-left'
+          }
           style={{ zoom: zoom / 100 }}
         >
           {children}
@@ -70,13 +81,15 @@ export function KanbanPageZoomShell({
       </div>
 
       {showFloatingScrollbar && (
-        <KanbanFloatingScrollBar
-          scrollRef={scrollRef}
-          horizontalMetrics={horizontalMetrics}
-          verticalMetrics={verticalMetrics}
-          onMetricsChange={computeMetrics}
-          showScrollArrows={showScrollArrows}
-        />
+        <div className="kanban-floating-scroll contents">
+          <KanbanFloatingScrollBar
+            scrollRef={scrollRef}
+            horizontalMetrics={horizontalMetrics}
+            verticalMetrics={verticalMetrics}
+            onMetricsChange={computeMetrics}
+            showScrollArrows={showScrollArrows}
+          />
+        </div>
       )}
     </div>
   )

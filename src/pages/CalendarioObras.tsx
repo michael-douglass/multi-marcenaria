@@ -7,6 +7,7 @@ import { useGruposObra } from '../hooks/useGruposObra'
 import { useApp } from '../context/AppContext'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { getObraMontadorIds } from '../lib/obra-montadores'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
@@ -64,7 +65,7 @@ const MONTHS_FULL   = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Ju
 
 const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
-  tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null,
+  tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
   status_kanban: 'datas_em_aberto',
 }
@@ -348,6 +349,7 @@ function CalendarioObrasContent() {
         grupo_obra_id: obra.grupo_obra_id ?? null,
         montador_admin_id: obra.montador_admin_id ?? null,
         montador_id: obra.montador_id ?? null,
+        montador_ids: getObraMontadorIds(obra),
         data_prevista_inicio: obra.data_prevista_inicio ?? null,
         data_prevista_fim: obra.data_prevista_fim ?? null,
         tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
@@ -356,7 +358,7 @@ function CalendarioObrasContent() {
     }, 80)
   }
 
-  const handleObraChange = (k: keyof ObraInput, v: string | null | number) => {
+  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[]) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
       if (k === 'tipo_obra_id' && v) {
@@ -408,10 +410,12 @@ function CalendarioObrasContent() {
   const canConcluir = canEdit || isMontador
 
   return (
-    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar>
         <ObraPageHeader
           title="Calendário de Obras"
+          collapseBelowOnMobile
+          belowMobileLabel="Filtros e período"
           subtitle={
             <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
@@ -540,13 +544,14 @@ function CalendarioObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
+          contentLayout="fluid"
           contentSignal={`${view}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
           <>
           {/* ════════════ VISÃO DIA ════════════ */}
           {view === 'day' && (
-            <div className="space-y-3">
+            <div className="w-full max-w-full min-w-0 space-y-3">
               {dayViewObras.length === 0 ? (
                 <div className="glass-card p-10 text-center">
                   <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#d4a853', opacity: 0.25 }} />
@@ -559,12 +564,12 @@ function CalendarioObrasContent() {
                     key={o.id}
                     type="button"
                     onClick={() => setDetalheObra(o)}
-                    className="w-full text-left glass-card p-4 hover:brightness-110 transition-all"
+                    className="box-border w-full max-w-full min-w-0 overflow-hidden text-left glass-card p-4 hover:brightness-110 transition-all"
                     style={{ borderLeft: `3px solid ${cor}` }}
                   >
-                    <div className="flex items-start justify-between gap-3 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1 min-w-0">
+                    <div className="flex w-full min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
                           <p className="font-semibold text-cream leading-tight break-words min-w-0">{o.cliente_nome}</p>
                           <span
                             className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"

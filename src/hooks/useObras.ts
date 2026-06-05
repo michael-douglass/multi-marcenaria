@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { splitObraInputForSave } from '../lib/obra-montadores'
 import type { ObraFull, ObraInput } from '../types'
 import { useAuthReady } from './useAuthReady'
+
+async function syncObraMontadores(obraId: string, montadorIds: string[]) {
+  const { error } = await supabase.rpc('movelaria_sincronizar_obra_montadores', {
+    p_obra_id: obraId,
+    p_montador_ids: montadorIds,
+  })
+  if (error) throw new Error(error.message)
+}
 
 export function useObras() {
   const { isReady } = useAuthReady()
@@ -28,17 +37,36 @@ export function useObras() {
   useEffect(() => { void load() }, [load])
 
   const create = async (input: ObraInput) => {
-    const { error: err } = await supabase.from('movelaria_obras').insert(input)
+    const { obraFields, montadorIds } = splitObraInputForSave(input)
+    const { data: row, error: err } = await supabase
+      .from('movelaria_obras')
+      .insert(obraFields)
+      .select('id')
+      .single()
     if (err) throw new Error(err.message)
+    await syncObraMontadores(row.id, montadorIds)
     await load()
   }
 
   const update = async (id: string, input: Partial<ObraInput>) => {
+    const { montador_ids, ...rest } = input
+    const updatePayload: Partial<ObraInput> = { ...rest }
+
+    if (montador_ids !== undefined) {
+      const ids = [...new Set(montador_ids.filter(Boolean))]
+      updatePayload.montador_id = ids[0] ?? null
+    }
+
     const { error: err } = await supabase
       .from('movelaria_obras')
-      .update(input)
+      .update(updatePayload)
       .eq('id', id)
     if (err) throw new Error(err.message)
+
+    if (montador_ids !== undefined) {
+      await syncObraMontadores(id, [...new Set(montador_ids.filter(Boolean))])
+    }
+
     await load()
   }
 

@@ -13,11 +13,11 @@ export function ObraTempoBar({ obra, compact = false }: ObraTempoBarProps) {
     progresso.variant !== 'cancelled'
 
   return (
-    <div className={compact ? 'mt-1' : 'mt-2.5'}>
-      <div className="flex items-center justify-between gap-1.5 mb-1">
+    <div className={`w-full max-w-full min-w-0 ${compact ? 'mt-1' : 'mt-2.5'}`}>
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-1.5">
         <span
           className={[
-            'font-semibold leading-tight',
+            'min-w-0 flex-1 font-semibold leading-tight',
             compact ? 'text-[0.58rem]' : 'text-xs',
             progresso.variant === 'overdue' ? 'animate-pulse' : '',
           ].join(' ')}
@@ -39,7 +39,7 @@ export function ObraTempoBar({ obra, compact = false }: ObraTempoBarProps) {
 
       <div
         className={[
-          'rounded-full overflow-hidden',
+          'w-full max-w-full min-w-0 rounded-full overflow-hidden',
           compact ? 'h-1' : 'h-1.5',
         ].join(' ')}
         style={{ backgroundColor: 'rgba(212,168,83,0.12)' }}

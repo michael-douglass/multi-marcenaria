@@ -25,11 +25,22 @@ export function useObraEvolucao(obraId: string | null) {
 
   useEffect(() => { void load() }, [load])
 
-  const upload = async (file: File) => {
+  const upload = async (file: File, observacao?: string | null) => {
     if (!obraId) return
     setUploading(true)
     try {
-      await uploadObraEvolucao(obraId, file)
+      await uploadObraEvolucao(obraId, file, observacao)
+      await load()
+    } finally { setUploading(false) }
+  }
+
+  const uploadMany = async (files: File[], observacao?: string | null) => {
+    if (!obraId || !files.length) return
+    setUploading(true)
+    try {
+      for (const file of files) {
+        await uploadObraEvolucao(obraId, file, observacao)
+      }
       await load()
     } finally { setUploading(false) }
   }
@@ -39,7 +50,7 @@ export function useObraEvolucao(obraId: string | null) {
     setData(prev => prev.filter(x => x.id !== item.id))
   }
 
-  return { data, loading, uploading, upload, remove, reload: load }
+  return { data, loading, uploading, upload, uploadMany, remove, reload: load }
 }
 
 // ── Hook para painel geral (por período) ─────────────────────

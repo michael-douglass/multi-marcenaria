@@ -1,6 +1,7 @@
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
+import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
 import type { ObraFull, ObraInput, StatusKanbanObra } from '@/types'
 
 const COLUNAS: { key: StatusKanbanObra; label: string }[] = [
@@ -16,7 +17,7 @@ interface ObraFormModalProps {
   open: boolean
   obra: ObraFull | null
   form: ObraInput
-  onChange: (k: keyof ObraInput, v: string | null | number) => void
+  onChange: (k: keyof ObraInput, v: string | null | number | string[]) => void
   onClose: () => void
   onSave: () => void
   saving: boolean
@@ -63,17 +64,12 @@ export function ObraFormModal({
 
       {canEditMontador && (
         <>
-          <Field label="Montador Responsável">
-            <select className="glass-input" value={form.montador_id ?? ''} onChange={s('montador_id')}>
-              <option value="">— Nenhum —</option>
-              {montadores
-                .filter(m => m.perfil === 'montador' || m.perfil === 'montador_admin')
-                .map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome ?? m.email}{m.perfil === 'montador_admin' ? ' (Admin)' : ''}
-                  </option>
-                ))}
-            </select>
+          <Field label="Montadores Responsáveis">
+            <ObraMontadoresField
+              montadores={montadores}
+              selectedIds={form.montador_ids ?? []}
+              onChange={ids => onChange('montador_ids', ids)}
+            />
           </Field>
           <Field label="Montador Admin">
             <select className="glass-input" value={form.montador_admin_id ?? ''} onChange={s('montador_admin_id')}>

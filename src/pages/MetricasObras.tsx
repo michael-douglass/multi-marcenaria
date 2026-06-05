@@ -33,7 +33,7 @@ function MetricasObrasContent() {
   const totalAtraso = data.reduce((acc, m) => acc + Number(m.obras_em_atraso), 0)
 
   return (
-    <div className="fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -57,6 +57,7 @@ function MetricasObrasContent() {
           showScrollArrows={false}
           horizontalScrollbar={false}
           verticalScrollbar
+          contentLayout="fluid"
           contentSignal={data.length}
           className="min-h-0 flex-1"
         >

@@ -15,6 +15,7 @@ export interface ObraEvolucaoItem {
   tirado_em: string
   criado_por: string | null
   criado_em: string
+  observacao?: string | null
 }
 
 export interface EvolucaoPainelItem extends ObraEvolucaoItem {
@@ -43,6 +44,7 @@ export function isAcceptedEvolucaoFile(file: File): boolean {
 export async function uploadObraEvolucao(
   obraId: string,
   file: File,
+  observacao?: string | null,
 ): Promise<ObraEvolucaoItem> {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
   const arquivoId = createId()
@@ -66,6 +68,8 @@ export async function uploadObraEvolucao(
     previewPath = storagePath
   }
 
+  const obs = observacao?.trim() || null
+
   const { data: row, error: dbErr } = await supabase
     .from('movelaria_obra_evolucao')
     .insert({
@@ -77,6 +81,7 @@ export async function uploadObraEvolucao(
       storage_path: storagePath,
       preview_path: previewPath,
       tirado_em: new Date().toISOString(),
+      observacao: obs,
     })
     .select()
     .single()

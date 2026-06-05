@@ -379,6 +379,8 @@ export interface ObraFull {
   montador_admin_nome?: string | null
   montador_id?: string | null
   montador_nome?: string | null
+  montador_ids?: string[]
+  montador_nomes?: string[]
   data_prevista_inicio?: string | null
   data_prevista_fim?: string | null
   tempo_maximo_horas?: number | null
@@ -399,6 +401,7 @@ export interface ObraInput {
   grupo_obra_id?: string | null
   montador_admin_id?: string | null
   montador_id?: string | null
+  montador_ids?: string[]
   data_prevista_inicio?: string | null
   data_prevista_fim?: string | null
   tempo_maximo_horas?: number | null

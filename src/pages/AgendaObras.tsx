@@ -10,6 +10,7 @@ import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { getObraMontadorIds } from '../lib/obra-montadores'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
@@ -68,7 +69,7 @@ const STATUS_SHORT: Record<StatusKanbanObra, string> = {
 // ── Blank forms ──────────────────────────────────────────────
 const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
-  tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null,
+  tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
   status_kanban: 'datas_em_aberto',
 }
@@ -494,6 +495,7 @@ function AgendaObrasContent() {
       grupo_obra_id: obra.grupo_obra_id ?? null,
       montador_admin_id: obra.montador_admin_id ?? null,
       montador_id: obra.montador_id ?? null,
+      montador_ids: getObraMontadorIds(obra),
       data_prevista_inicio: obra.data_prevista_inicio ?? null,
       data_prevista_fim: obra.data_prevista_fim ?? null,
       tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
@@ -502,7 +504,7 @@ function AgendaObrasContent() {
     setObraOpen(true)
   }
 
-  const handleObraChange = (k: keyof ObraInput, v: string | null | number) => {
+  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[]) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
 
@@ -564,10 +566,12 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="fade-in flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div className="obra-page-shell fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar>
         <ObraPageHeader
           title="Agenda de Obras"
+          collapseBelowOnMobile
+          belowMobileLabel="Busca"
           subtitle={
             <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}

@@ -80,7 +80,7 @@ body::before {
   display: none;
 }
 
-/* Toolbar fixa das páginas de obras (título, zoom, busca, filtros) */
+/* Toolbar das páginas de obras (título, zoom, busca, filtros) — sticky no desktop */
 .kanban-page-toolbar {
   position: sticky;
   top: 0;
@@ -99,6 +99,143 @@ body::before {
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(212, 168, 83, 0.12);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/*
+ * Mobile: cabeçalho da página rola junto com o conteúdo (sem sticky nem scroll interno).
+ * A classe .obra-page-shell ativa scroll unificado via MainLayout.
+ */
+@media (max-width: 767px) {
+  .obra-layout-scroll .obra-layout-outlet {
+    flex: none !important;
+    min-height: auto !important;
+  }
+
+  .obra-page-shell {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    max-width: 100%;
+    min-height: auto !important;
+    flex: none !important;
+  }
+
+  .obra-page-shell .kanban-page-toolbar {
+    position: relative;
+    top: auto;
+    z-index: 1;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 0 0.75rem;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: none;
+    box-shadow: none;
+  }
+
+  .obra-page-shell .kanban-page-toolbar::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin-top: 0.75rem;
+    background: linear-gradient(90deg, transparent, rgba(212, 168, 83, 0.28), transparent);
+  }
+
+  .obra-page-shell .kanban-page-zoom-shell {
+    overflow: visible !important;
+    flex: none !important;
+    min-height: auto !important;
+  }
+
+  .obra-page-shell .kanban-scroll-host {
+    overflow: visible !important;
+    flex: none !important;
+    min-height: auto !important;
+    padding-bottom: 0 !important;
+  }
+
+  .obra-page-shell .kanban-floating-scroll {
+    display: none !important;
+  }
+
+  .obra-page-shell .obra-page-title {
+    font-size: clamp(1.2rem, 5.5vw, 1.55rem);
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+  }
+
+  .obra-page-shell .obra-page-header {
+    gap: 0.65rem;
+  }
+
+  .obra-page-shell .obra-page-header__subtitle {
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+  }
+
+  .obra-page-shell .obra-page-header__below {
+    gap: 0.65rem;
+  }
+
+  .obra-page-header__below--collapsed-mobile {
+    display: none;
+  }
+
+  .obra-page-below-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(212, 168, 83, 0.22);
+    background: rgba(30, 13, 6, 0.55);
+    color: #d4a853;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .obra-page-below-toggle:hover {
+    background: rgba(212, 168, 83, 0.1);
+    border-color: rgba(212, 168, 83, 0.35);
+  }
+
+  .obra-page-shell .obra-page-filters {
+    padding: 0.75rem !important;
+    gap: 0.55rem;
+  }
+
+  .obra-page-shell .obra-toolbar-zoom {
+    scale: 0.92;
+    transform-origin: left center;
+  }
+
+  /* Listas/cards: nunca ultrapassam a largura da tela */
+  .zoom-content-fluid {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .zoom-content-fluid .glass-card,
+  .zoom-content-fluid button.glass-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .obra-page-shell .kanban-page-zoom-shell,
+  .obra-page-shell .kanban-scroll-host {
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
 /* Cabeçalho das páginas Agenda / Calendário — sempre empilhado */

@@ -1,0 +1,43 @@
+import type { ObraFull, ObraInput } from '@/types'
+
+/** IDs de montadores da obra (lista de responsáveis, com fallback no montador principal). */
+export function getObraMontadorIds(obra: Pick<ObraFull, 'montador_id' | 'montador_ids'>): string[] {
+  if (obra.montador_ids?.length) return obra.montador_ids
+  if (obra.montador_id) return [obra.montador_id]
+  return []
+}
+
+/** Nomes exibíveis dos montadores atribuídos à obra. */
+export function getObraMontadorNomes(obra: Pick<ObraFull, 'montador_id' | 'montador_nome' | 'montador_ids' | 'montador_nomes'>): string[] {
+  if (obra.montador_nomes?.length) return obra.montador_nomes.filter(Boolean)
+  if (obra.montador_nome?.trim()) return [obra.montador_nome.trim()]
+  return []
+}
+
+/** Texto resumido para badge / detalhe (ex.: "João, Maria" ou "João +2"). */
+export function formatObraMontadoresLabel(
+  nomes: string[],
+  compact = false,
+): string | null {
+  if (nomes.length === 0) return null
+  if (nomes.length === 1) return nomes[0]
+  if (compact && nomes.length > 2) return `${nomes[0]} +${nomes.length - 1}`
+  if (compact) return nomes.slice(0, 2).join(', ')
+  return nomes.join(', ')
+}
+
+/** Separa campos da obra e lista de montadores para persistência. */
+export function splitObraInputForSave(input: ObraInput): {
+  obraFields: Omit<ObraInput, 'montador_ids'>
+  montadorIds: string[]
+} {
+  const { montador_ids, ...obraFields } = input
+  const montadorIds = [...new Set((montador_ids ?? []).filter(Boolean))]
+  return {
+    obraFields: {
+      ...obraFields,
+      montador_id: montadorIds[0] ?? null,
+    },
+    montadorIds,
+  }
+}
