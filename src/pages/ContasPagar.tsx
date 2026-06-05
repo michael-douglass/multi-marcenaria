@@ -28,8 +28,9 @@ import {
 import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO } from '../lib/utils'
 import {
   applyPeriodFilter,
-  DEFAULT_PERIOD,
+  isSemDatasDefinidas,
   PeriodFilterBar,
+  sortContasPagarSemDatas,
   type PeriodFilter,
 } from '../components/ui/PeriodFilterBar'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
@@ -384,9 +385,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       return true
     })
 
+    if (isSemDatasDefinidas(periodFilter)) {
+      return sortContasPagarSemDatas(base)
+    }
+
     if (!isDefaultView) return base
 
-    // Modo padrão: vencidos primeiro (mais antigos no topo), depois pendentes
     return [...base].sort((a, b) => {
       const sa = getStatus(a.data_vencimento, a.status)
       const sb = getStatus(b.data_vencimento, b.status)

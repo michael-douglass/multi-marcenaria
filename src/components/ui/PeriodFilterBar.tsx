@@ -1,4 +1,4 @@
-import { addMonths, endOfMonth, todayISO } from '@/lib/utils'
+import { addMonths, endOfMonth, isOverdue, todayISO } from '@/lib/utils'
 import type { ContaPagar } from '@/types'
 
 export type PeriodMode =
@@ -18,7 +18,34 @@ export interface PeriodFilter {
   to?: string     // date-range end (YYYY-MM-DD)
 }
 
-export const DEFAULT_PERIOD: PeriodFilter = { mode: 'month' }
+export const DEFAULT_PERIOD: PeriodFilter = { mode: 'all' }
+
+/** Período "Tudo": lista completa, sem recorte por calendário. */
+export function isSemDatasDefinidas(period: PeriodFilter): boolean {
+  return period.mode === 'all'
+}
+
+/** 0 = atrasada, 1 = pendente no mês atual, 2 = pendente em meses futuros, 3 = paga */
+export function contasPagarSortGroup(vencimento: string, status: string): number {
+  if (status === 'pago') return 3
+  if (isOverdue(vencimento)) return 0
+  const today = todayISO()
+  const monthStart = `${today.slice(0, 7)}-01`
+  const monthEnd = endOfMonth(today)
+  if (vencimento >= monthStart && vencimento <= monthEnd) return 1
+  return 2
+}
+
+export function sortContasPagarSemDatas<T extends Pick<ContaPagar, 'data_vencimento' | 'status'>>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const ga = contasPagarSortGroup(a.data_vencimento, a.status)
+    const gb = contasPagarSortGroup(b.data_vencimento, b.status)
+    if (ga !== gb) return ga - gb
+    return a.data_vencimento.localeCompare(b.data_vencimento)
+  })
+}
 
 export function applyPeriodFilter<T extends Pick<ContaPagar, 'data_vencimento'>>(
   items: T[],
