@@ -566,8 +566,8 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="obra-page-shell fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
-      <KanbanPageToolbar>
+    <div className="obra-page-shell obra-page-shell--agenda fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
+      <KanbanPageToolbar className="agenda-kanban-toolbar">
         <ObraPageHeader
           title="Agenda de Obras"
           collapseBelowOnMobile
@@ -648,7 +648,7 @@ function AgendaObrasContent() {
           contentSignal={`${obrasHook.data.length}-${busca}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
-          <div className="obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">
+          <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">
           {COLUNAS.map(col => {
             const obras = obrasByCol[col.key]
             const isOver = dragOverCol === col.key && draggingId !== null

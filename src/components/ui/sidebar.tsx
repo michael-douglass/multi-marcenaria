@@ -188,14 +188,20 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
-      className={cn('h-8 w-8 text-[#dbb25a] hover:bg-[rgba(212,168,83,0.12)] hover:text-[#dbb25a]', className)}
+      className={cn(
+        'h-11 w-11 shrink-0 rounded-lg border border-[rgba(212,168,83,0.24)] bg-[rgba(212,168,83,0.07)]',
+        'text-[#dbb25a] shadow-[0_0_0_1px_rgba(212,168,83,0.06)]',
+        'hover:bg-[rgba(212,168,83,0.14)] hover:text-[#f0d48a] active:scale-[0.97]',
+        'md:h-8 md:w-8 md:rounded-md md:border-0 md:bg-transparent md:shadow-none',
+        className,
+      )}
       onClick={event => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
     >
-      <PanelLeft className="h-4 w-4" />
+      <PanelLeft className="h-6 w-6 md:h-4 md:w-4" strokeWidth={2.25} />
       <span className="sr-only">Alternar menu lateral</span>
     </Button>
   )

@@ -479,6 +479,27 @@ body::before {
   }
 }
 
+/* Agenda: respiro entre barra de busca e cabeçalhos das colunas */
+.obra-page-shell--agenda .agenda-kanban-toolbar {
+  padding-bottom: 1.35rem;
+}
+
+.obra-page-shell--agenda .agenda-kanban-board {
+  margin-top: 1rem;
+  padding-top: 0.35rem;
+}
+
+@media (min-width: 768px) {
+  .obra-page-shell--agenda .agenda-kanban-toolbar {
+    padding-bottom: 1.5rem;
+  }
+
+  .obra-page-shell--agenda .agenda-kanban-board {
+    margin-top: 1.25rem;
+    padding-top: 0.5rem;
+  }
+}
+
 /* Colunas kanban */
 .kanban-col-header .kanban-col-title {
   font-size: 0.65rem;
