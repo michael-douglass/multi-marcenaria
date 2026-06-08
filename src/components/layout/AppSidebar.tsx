@@ -34,11 +34,11 @@ interface AppSidebarProps {
 export function AppSidebar({ pendingOrders }: AppSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { role, userProfile } = useApp()
+  const { roles, userProfile } = useApp()
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
   const activeSection = sectionFromPath(location.pathname)
 
-  const items = getVisibleNavMainItems({ role, pendingOrders })
+  const items = getVisibleNavMainItems({ roles, pendingOrders })
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
 
@@ -113,7 +113,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
             <SidebarMenu>
               {items.map(item => {
                 const Icon = item.icon
-                const badge = getNavBadge(item, { role, pendingOrders })
+                const badge = getNavBadge(item, { roles, pendingOrders })
 
                 if (item.children?.length) {
                   const childActive = item.children.some(c => c.id === activeSection)

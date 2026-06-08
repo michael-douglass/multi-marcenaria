@@ -332,5 +332,14 @@ export function useOrcamentosFechados() {
     await load()
   }
 
-  return { leads, fechados, loading, error, darEntrada, carregarHistoricoCliente, reload: load }
+  const removerLead = async (leadId: string): Promise<void> => {
+    const { error: err } = await supabase
+      .from('movelaria_leads')
+      .delete()
+      .eq('id', leadId)
+    if (err) throw new Error(err.message)
+    setLeads(prev => prev.filter(l => l.id !== leadId))
+  }
+
+  return { leads, fechados, loading, error, darEntrada, carregarHistoricoCliente, removerLead, reload: load }
 }

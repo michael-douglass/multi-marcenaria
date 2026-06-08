@@ -169,6 +169,22 @@ export function ObraDetalheModal({
           </div>
         </div>
 
+        {/* ── DESCRIÇÃO DO PROJETO ───────────────────────────── */}
+        {obra.descricao && (
+          <div
+            className="mb-5 rounded-lg p-4"
+            style={{ backgroundColor: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileText size={13} className="text-emerald-400" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-emerald-400">
+                Descrição do Projeto
+              </p>
+            </div>
+            <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.descricao}</p>
+          </div>
+        )}
+
         {/* ── LOUSA ──────────────────────────────────────────── */}
         {obra.lousa && (
           <div

@@ -14,6 +14,9 @@ interface Props {
   error: string | null
   onDarEntrada: (input: DarEntradaInput) => Promise<void>
   onLoadHistorico: (lead: LeadGanho) => Promise<HistoricoCompraCliente[]>
+  onRemoverLead: (leadId: string) => Promise<void>
+  isAdmin?: boolean
+  readOnly?: boolean
 }
 
 const TIPO_LABELS: Record<TipoRecebimento, string> = {
@@ -31,6 +34,9 @@ const TIPO_ICONS: Record<TipoRecebimento, string> = {
 const TIPOS: TipoRecebimento[] = ['a_vista', 'cartao_parcelado', 'nosso_parcelamento']
 const PM_AVISTA: FormaPagamento[] = ['pix', 'dinheiro', 'cheque']
 const PM_LABELS: Record<FormaPagamento, string> = {
+  pix: 'PIX', dinheiro: 'Dinheiro', cheque: 'Cheque', boleto: 'Boleto', cartao: 'Cartão',
+}
+const PM_LABELS_ENTRADA: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', cheque: 'Cheque', boleto: 'Boleto', cartao: 'Cartão',
 }
 const PM_TODAS: FormaPagamento[] = ['pix', 'dinheiro', 'cheque', 'boleto', 'cartao']
@@ -66,7 +72,7 @@ function defaultForm(): EntradaForm {
   }
 }
 
-export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoadHistorico }: Props) {
+export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoadHistorico, onRemoverLead, isAdmin, readOnly }: Props) {
   const [selected, setSelected] = useState<LeadGanho | null>(null)
   const [form, setForm] = useState<EntradaForm>(defaultForm)
   const [saving, setSaving] = useState(false)
@@ -83,6 +89,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const [leadOverrides, setLeadOverrides] = useState<Record<string, { nome?: string; telefone?: string; email?: string; observacoes?: string }>>({})
   const [previewEditMode, setPreviewEditMode] = useState(false)
   const [previewForm, setPreviewForm] = useState({ nome: '', telefone: '', email: '', valor: '', observacoes: '' })
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState<string | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   const val = parseFloat(form.valor) || 0
   const entradaVal = form.temEntrada ? (parseFloat(form.valorEntrada) || 0) : 0
@@ -430,9 +438,9 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
               </div>
             ) : (
               <div
-                style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', cursor: 'pointer' }}
-                title="Clique para corrigir o valor"
-                onClick={e => iniciarEdicaoValor(lead, e)}
+                style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', cursor: !readOnly ? 'pointer' : 'default' }}
+                title={!readOnly ? "Clique para corrigir o valor" : undefined}
+                onClick={e => !readOnly && iniciarEdicaoValor(lead, e)}
               >
                 <span
                   className="font-display"
@@ -440,28 +448,103 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 >
                   {valorEfetivo(lead) > 0 ? fmtCur(valorEfetivo(lead)) : '—'}
                 </span>
-                <span style={{ fontSize: '.7rem', color: '#8a6a55', opacity: .7 }}>✎</span>
+                {!readOnly && <span style={{ fontSize: '.7rem', color: '#8a6a55', opacity: .7 }}>✎</span>}
                 {valoresCorrigidos[lead.id] != null && (
                   <span style={{ fontSize: '.62rem', color: '#d4a853', opacity: .8 }}>corrigido</span>
                 )}
               </div>
             )}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn btn-outline btn-sm flex-1"
-                onClick={() => openPreview(lead)}
+            {confirmandoExclusao === lead.id ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '.4rem',
+                  padding: '.5rem .6rem',
+                  borderRadius: 8,
+                  border: '1px solid rgba(248,113,113,.3)',
+                  background: 'rgba(248,113,113,.06)',
+                }}
               >
-                Pré-visualizar
-              </button>
-              <button
-                type="button"
-                className="btn btn-gold btn-sm flex-1"
-                onClick={() => void openModal(lead)}
-              >
-                Dar entrada
-              </button>
-            </div>
+                <p style={{ fontSize: '.72rem', color: '#f87171', margin: 0, textAlign: 'center' }}>
+                  Excluir este card permanentemente?
+                </p>
+                <div style={{ display: 'flex', gap: '.4rem' }}>
+                  <button
+                    type="button"
+                    disabled={excluindo}
+                    onClick={() => setConfirmandoExclusao(null)}
+                    style={{
+                      flex: 1, padding: '.3rem', borderRadius: 6,
+                      border: '1px solid rgba(255,255,255,.15)',
+                      background: 'transparent', color: '#8a6a55',
+                      cursor: 'pointer', fontSize: '.75rem', fontFamily: 'Raleway, sans-serif',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={excluindo}
+                    onClick={async () => {
+                      setExcluindo(true)
+                      try {
+                        await onRemoverLead(lead.id)
+                      } finally {
+                        setExcluindo(false)
+                        setConfirmandoExclusao(null)
+                      }
+                    }}
+                    style={{
+                      flex: 1, padding: '.3rem', borderRadius: 6,
+                      border: '1px solid rgba(248,113,113,.5)',
+                      background: 'rgba(248,113,113,.15)', color: '#f87171',
+                      cursor: excluindo ? 'not-allowed' : 'pointer',
+                      fontSize: '.75rem', fontFamily: 'Raleway, sans-serif', fontWeight: 700,
+                    }}
+                  >
+                    {excluindo ? 'Excluindo...' : 'Confirmar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm flex-1"
+                  onClick={() => openPreview(lead)}
+                >
+                  Pré-visualizar
+                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="btn btn-gold btn-sm flex-1"
+                    onClick={() => void openModal(lead)}
+                  >
+                    Dar entrada
+                  </button>
+                )}
+                {isAdmin && !readOnly && (
+                  <button
+                    type="button"
+                    title="Excluir card"
+                    onClick={() => setConfirmandoExclusao(lead.id)}
+                    style={{
+                      padding: '.3rem .45rem', borderRadius: 6,
+                      border: '1px solid rgba(248,113,113,.25)',
+                      background: 'transparent', color: '#f87171',
+                      cursor: 'pointer', fontSize: '.8rem', lineHeight: 1,
+                      opacity: .7, transition: 'opacity .15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '.7')}
+                  >
+                    🗑
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

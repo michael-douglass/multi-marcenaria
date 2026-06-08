@@ -104,6 +104,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     url: '/contas-pagar',
     icon: Receipt,
     radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Administrador'],
   },
   {
     id: 'caixaFornecedor',
@@ -111,6 +112,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     url: '/caixa-fornecedor',
     icon: Wallet,
     radialColor: 'rgba(52,211,153,0.92)',
+    roles: ['Administrador'],
   },
   {
     id: 'caixa',
@@ -118,6 +120,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     url: '/caixa',
     icon: Banknote,
     radialColor: 'rgba(212,168,83,0.92)',
+    roles: ['Administrador'],
   },
 ]
 
@@ -200,21 +203,20 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
 ]
 
 export interface NavVisibilityContext {
-  role: UserRole | null
+  roles: UserRole[]
   pendingOrders?: number
 }
 
-function filterChildren(item: NavMainItem, role: UserRole): NavChildItem[] {
-  if (!item.children) return []
-  return item.children.filter(c => !c.roles || c.roles.includes(role))
-}
-
 export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[] {
-  if (!ctx.role) return []
-  return NAV_MAIN_ITEMS.filter(item => item.roles.includes(ctx.role))
+  if (!ctx.roles.length) return []
+  return NAV_MAIN_ITEMS
+    .filter(item => item.roles.some(r => ctx.roles.includes(r)))
     .map(item => {
       if (!item.children) return item
-      return { ...item, children: filterChildren(item, ctx.role!) }
+      return {
+        ...item,
+        children: item.children.filter(c => !c.roles || c.roles.some(r => ctx.roles.includes(r))),
+      }
     })
     .filter(item => !item.children || item.children.length > 0)
 }
@@ -226,11 +228,11 @@ export function getNavBadge(
   if (item.badgeKey === 'pendingOrders' && ctx.pendingOrders && ctx.pendingOrders > 0) {
     return ctx.pendingOrders
   }
-  if (item.children && ctx.role) {
+  if (item.children && ctx.roles.length) {
     const childComBadge = item.children.find(
       c =>
         c.badgeKey === 'pendingOrders' &&
-        (!c.roles || c.roles.includes(ctx.role!)),
+        (!c.roles || c.roles.some(r => ctx.roles.includes(r))),
     )
     if (childComBadge && ctx.pendingOrders && ctx.pendingOrders > 0) {
       return ctx.pendingOrders

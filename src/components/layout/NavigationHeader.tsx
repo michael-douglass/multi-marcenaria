@@ -1,4 +1,4 @@
-import { Clock, Home, LogOut, User } from 'lucide-react'
+import { Clock, Home, LogOut, User, CalendarDays } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -17,11 +17,12 @@ const PERFIL_LABEL: Record<string, string> = {
 
 interface NavigationHeaderProps {
   pendingOrders: number
+  onOpenAgenda?: () => void
 }
 
-export function NavigationHeader({ pendingOrders }: NavigationHeaderProps) {
+export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHeaderProps) {
   const navigate = useNavigate()
-  const { role, userProfile, signOut } = useApp()
+  const { roles, userProfile, signOut } = useApp()
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
 
   return (
@@ -48,11 +49,24 @@ export function NavigationHeader({ pendingOrders }: NavigationHeaderProps) {
         >
           <Home className="h-4 w-4" />
         </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-[#d4a853] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+          onClick={onOpenAgenda}
+          title="Agenda e Calendário"
+          aria-label="Agenda e Calendário"
+        >
+          <CalendarDays className="h-4 w-4" />
+        </Button>
+
         <Logo full={false} />
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {role === 'Administrador' && pendingOrders > 0 && (
+        {roles.includes('Administrador') && pendingOrders > 0 && (
           <button
             type="button"
             onClick={() => navigate(pathFromSection('aprovacao'))}

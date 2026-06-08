@@ -33,17 +33,27 @@ function PerfilBadge({ perfil }: { perfil: string }) {
   )
 }
 
+function PerfisBadges({ perfil, perfis_extras }: { perfil: string; perfis_extras: string[] }) {
+  const all = [perfil, ...(perfis_extras ?? [])]
+  return (
+    <div className="flex flex-wrap gap-1">
+      {all.map(p => <PerfilBadge key={p} perfil={p} />)}
+    </div>
+  )
+}
+
 // ── Modal criar/editar usuário ───────────────────────────────
 interface UserFormState {
   email: string
   nome: string
   perfil: string
+  perfis_extras: string[]
   senha: string
   confirmSenha: string
 }
 
 const BLANK_FORM: UserFormState = {
-  email: '', nome: '', perfil: 'marceneiro', senha: '', confirmSenha: '',
+  email: '', nome: '', perfil: 'marceneiro', perfis_extras: [], senha: '', confirmSenha: '',
 }
 
 function UserModal({
@@ -64,14 +74,22 @@ function UserModal({
     setTab('novo')
     setErr(null)
     if (editUser) {
-      setForm({ email: editUser.email, nome: editUser.nome ?? '', perfil: editUser.perfil, senha: '', confirmSenha: '' })
+      setForm({ email: editUser.email, nome: editUser.nome ?? '', perfil: editUser.perfil, perfis_extras: editUser.perfis_extras ?? [], senha: '', confirmSenha: '' })
     } else {
       setForm(BLANK_FORM)
     }
   }, [open, editUser])
 
-  const f = (k: keyof UserFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(p => ({ ...p, [k]: e.target.value }))
+  const f = (k: keyof UserFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = e.target.value
+    setForm(p => {
+      const updated = { ...p, [k]: value }
+      if (k === 'perfil') {
+        updated.perfis_extras = p.perfis_extras.filter(x => x !== value)
+      }
+      return updated
+    })
+  }
 
   const handleSave = async () => {
     setErr(null)
@@ -129,10 +147,39 @@ function UserModal({
         <input className="glass-input" value={form.nome} onChange={f('nome')} placeholder="Nome completo" autoComplete="off" />
       </Field>
 
-      <Field label="Perfil *">
+      <Field label="Perfil principal *">
         <select className="glass-input" value={form.perfil} onChange={f('perfil')}>
           {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
+      </Field>
+
+      <Field label="Perfis adicionais">
+        <div className="flex flex-col gap-1.5 mt-0.5">
+          {PERFIS.filter(p => p.value !== form.perfil).map(p => {
+            const checked = form.perfis_extras.includes(p.value)
+            return (
+              <label key={p.value} className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => setForm(prev => ({
+                    ...prev,
+                    perfis_extras: checked
+                      ? prev.perfis_extras.filter(x => x !== p.value)
+                      : [...prev.perfis_extras, p.value],
+                  }))}
+                  className="accent-[#d4a853] w-3.5 h-3.5 shrink-0"
+                />
+                <span
+                  className="rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide"
+                  style={{ backgroundColor: `${p.cor}20`, color: p.cor, border: `1px solid ${p.cor}40` }}
+                >
+                  {p.label}
+                </span>
+              </label>
+            )
+          })}
+        </div>
       </Field>
 
       {/* Campos exclusivos: criar novo */}
@@ -281,11 +328,11 @@ export function Configuracoes() {
   const openNovo = () => { setEditUser(null); setUserModalOpen(true) }
   const openEditar = (u: UsuarioAdmin) => { setEditUser(u); setUserModalOpen(true) }
 
-  const handleSaveUser = async (form: { email: string; nome: string; perfil: string; senha: string }, tab: TabCriacao) => {
+  const handleSaveUser = async (form: UserFormState, tab: TabCriacao) => {
     setSavingUser(true)
     try {
       if (editUser) {
-        await hook.atualizar(editUser.id, form.perfil, form.nome || null, editUser.ativo)
+        await hook.atualizar(editUser.id, form.perfil, form.nome || null, editUser.ativo, form.perfis_extras)
         showToast('Usuário atualizado.', 'success')
       } else if (tab === 'existente') {
         await hook.registrarExistente(form.email, form.nome, form.perfil, form.senha || undefined)
@@ -416,7 +463,7 @@ export function Configuracoes() {
 
                     {/* Perfil */}
                     <td className="px-4 py-3">
-                      <PerfilBadge perfil={u.perfil} />
+                      <PerfisBadges perfil={u.perfil} perfis_extras={u.perfis_extras} />
                     </td>
 
                     {/* Status */}

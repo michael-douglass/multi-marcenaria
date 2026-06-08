@@ -267,17 +267,17 @@ export function CalendarioObras() {
 }
 
 function CalendarioObrasContent() {
-  const { role } = useApp()
+  const { roles } = useApp()
   const obrasHook  = useObras()
   const tiposHook  = useTiposObra()
   const gruposHook = useGruposObra()
 
-  const isMontadorAdmin = role === 'MontadorAdmin'
-  const isMontador      = role === 'Montador'
-  const canEdit = canEditObras(role)
+  const isMontadorAdmin = roles.includes('MontadorAdmin')
+  const isMontador      = roles.includes('Montador') && !isMontadorAdmin
+  const canEdit = canEditObras(roles)
   const canEditMontador = canEdit
-  const canDelete = canDeleteObras(role)
-  const isObrasAdmin = canManageAllObras(role) || isMontadorAdmin
+  const canDelete = canDeleteObras(roles)
+  const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
 
   const hojeISO = toISO(new Date())
 
@@ -292,7 +292,7 @@ function CalendarioObrasContent() {
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
-  const [dataFiltro, setDataFiltro]       = useState(() => (role === 'Montador' ? hojeISO : ''))
+  const [dataFiltro, setDataFiltro]       = useState(() => (isMontador ? hojeISO : ''))
 
   // Montador e celular: visão Dia (hoje)
   useEffect(() => {
@@ -362,6 +362,7 @@ function CalendarioObrasContent() {
         cliente_nome: obra.cliente_nome,
         cliente_id: obra.cliente_id ?? null,
         lousa: obra.lousa ?? null,
+        descricao: obra.descricao ?? null,
         endereco_obra: obra.endereco_obra ?? null,
         tipo_obra_id: obra.tipo_obra_id ?? null,
         grupo_obra_id: obra.grupo_obra_id ?? null,
@@ -846,6 +847,9 @@ function CalendarioObrasContent() {
           canEditDates
           canEditMontador={canEditMontador}
           isAdmin={isObrasAdmin}
+          pendingFiles={[]}
+          onAddFiles={() => {}}
+          onRemoveFile={() => {}}
         />
       )}
     </div>

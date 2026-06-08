@@ -5,6 +5,7 @@ export interface UserProfile {
   email: string
   nome?: string
   perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin' | 'administrador_obras'
+  perfis_extras: string[]
   ativo: boolean
   criado_em: string
 }
@@ -370,6 +371,7 @@ export interface ObraFull {
   cliente_id?: string | null
   cliente_nome: string
   lousa?: string | null
+  descricao?: string | null
   endereco_obra?: string | null
   tipo_obra_id?: string | null
   tipo_obra_nome?: string | null
@@ -397,6 +399,7 @@ export interface ObraInput {
   cliente_nome: string
   cliente_id?: string | null
   lousa?: string | null
+  descricao?: string | null
   endereco_obra?: string | null
   tipo_obra_id?: string | null
   grupo_obra_id?: string | null

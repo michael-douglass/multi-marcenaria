@@ -9,6 +9,7 @@ interface AppContextType {
   user: User | null
   userProfile: UserProfile | null
   role: UserRole | null
+  roles: UserRole[]
   authLoading: boolean
   profileLoading: boolean
   profileError: string | null
@@ -27,6 +28,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         user: auth.user,
         userProfile: auth.userProfile,
         role: auth.role,
+        roles: auth.roles,
         authLoading: auth.loading,
         profileLoading: auth.profileLoading,
         profileError: auth.profileError,

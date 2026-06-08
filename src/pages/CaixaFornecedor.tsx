@@ -30,11 +30,11 @@ interface EditTxForm {
 
 interface Props {
   fornecedores: Fornecedor[]
-  role?: UserRole | null
+  roles?: UserRole[]
   readOnly?: boolean
 }
 
-export function CaixaFornecedor({ fornecedores, role, readOnly }: Props) {
+export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
   const {
     caixas,
     loading,
@@ -46,7 +46,7 @@ export function CaixaFornecedor({ fornecedores, role, readOnly }: Props) {
     excluirTransacao,
   } = useCaixaFornecedor()
 
-  const isAdmin = role === 'Administrador'
+  const isAdmin = roles.includes('Administrador')
 
   // --- Estado: Adicionar Crédito ---
   const [creditoOpen, setCreditoOpen] = useState(false)

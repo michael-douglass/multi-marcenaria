@@ -8,6 +8,7 @@ export interface AuthState {
   user: User | null
   userProfile: UserProfile | null
   role: UserRole | null
+  roles: UserRole[]
   loading: boolean
   profileLoading: boolean
   profileError: string | null
@@ -15,16 +16,30 @@ export interface AuthState {
   retryProfile: () => void
 }
 
+const PERFIL_TO_ROLE: Record<UserProfile['perfil'], UserRole> = {
+  administrador: 'Administrador',
+  financeiro: 'Financeiro',
+  marceneiro: 'Marceneiro',
+  montador: 'Montador',
+  montador_admin: 'MontadorAdmin',
+  administrador_obras: 'AdministradorObras',
+}
+
 function perfilToRole(perfil: UserProfile['perfil']): UserRole {
-  const map: Record<UserProfile['perfil'], UserRole> = {
-    administrador: 'Administrador',
-    financeiro: 'Financeiro',
-    marceneiro: 'Marceneiro',
-    montador: 'Montador',
-    montador_admin: 'MontadorAdmin',
-    administrador_obras: 'AdministradorObras',
+  return PERFIL_TO_ROLE[perfil]
+}
+
+function computeRoles(profile: UserProfile): UserRole[] {
+  const primary = PERFIL_TO_ROLE[profile.perfil]
+  const extras = (profile.perfis_extras ?? [])
+    .map(p => PERFIL_TO_ROLE[p as UserProfile['perfil']])
+    .filter(Boolean)
+  const seen = new Set<UserRole>()
+  const result: UserRole[] = []
+  for (const r of [primary, ...extras]) {
+    if (r && !seen.has(r)) { seen.add(r); result.push(r) }
   }
-  return map[perfil]
+  return result
 }
 
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
@@ -169,12 +184,14 @@ export function useAuth(): AuthState {
   }, [])
 
   const role = userProfile ? perfilToRole(userProfile.perfil) : null
+  const roles = userProfile ? computeRoles(userProfile) : []
 
   return {
     session,
     user,
     userProfile,
     role,
+    roles,
     loading,
     profileLoading,
     profileError,

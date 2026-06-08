@@ -36,7 +36,7 @@ export function useObras() {
 
   useEffect(() => { void load() }, [load])
 
-  const create = async (input: ObraInput) => {
+  const create = async (input: ObraInput): Promise<string> => {
     const { obraFields, montadorIds } = splitObraInputForSave(input)
     const { data: row, error: err } = await supabase
       .from('movelaria_obras')
@@ -46,6 +46,7 @@ export function useObras() {
     if (err) throw new Error(err.message)
     await syncObraMontadores(row.id, montadorIds)
     await load()
+    return row.id as string
   }
 
   const update = async (id: string, input: Partial<ObraInput>) => {

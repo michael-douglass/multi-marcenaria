@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search, Camera, Trash2 } from 'lucide-react'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
@@ -9,7 +9,8 @@ import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
-import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { ObraFormModal, type PendingFile } from '../components/obras/ObraFormModal'
+import { buildPendingObraArquivo, uploadObraArquivo } from '../lib/obra-arquivos'
 import { getObraMontadorIds } from '../lib/obra-montadores'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
@@ -72,7 +73,7 @@ const STATUS_SHORT: Record<StatusKanbanObra, string> = {
 
 // ── Blank forms ──────────────────────────────────────────────
 const BLANK_OBRA: ObraInput = {
-  cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
+  cliente_nome: '', cliente_id: null, lousa: null, descricao: null, endereco_obra: null,
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
   status_kanban: 'datas_em_aberto', pedido_material_feito: false,
@@ -409,24 +410,50 @@ export function AgendaObras() {
 }
 
 function AgendaObrasContent() {
-  const { role } = useApp()
+  const { roles, userProfile } = useApp()
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
   const gruposHook = useGruposObra()
 
-  const isMontadorAdmin = role === 'MontadorAdmin'
-  const isMontador = role === 'Montador'
-  const canEdit = canEditObras(role)
+  const isMontadorAdmin = roles.includes('MontadorAdmin')
+  const isMontador = roles.includes('Montador') && !isMontadorAdmin
+  const canEdit = canEditObras(roles)
   const canEditMontador = canEdit
   const canEditDates = canEdit
-  const canConfig = canConfigObrasTiposGrupos(role)
-  const canDelete = canDeleteObras(role)
-  const isObrasAdmin = canManageAllObras(role) || isMontadorAdmin
+  const canConfig = canConfigObrasTiposGrupos(roles)
+  const canDelete = canDeleteObras(roles)
+  const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
+
+  const draftKey = userProfile?.id ? `movelaria-obra-rascunho-${userProfile.id}` : null
 
   const [obraOpen, setObraOpen] = useState(false)
   const [editObra, setEditObra] = useState<ObraFull | null>(null)
   const [obraForm, setObraForm] = useState<ObraInput>(BLANK_OBRA)
   const [savingObra, setSavingObra] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [hasDraft, setHasDraft] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  // Inicializa hasDraft quando o usuário carrega
+  useEffect(() => {
+    if (!draftKey) return
+    try {
+      const saved = localStorage.getItem(draftKey)
+      if (!saved) return
+      const d = JSON.parse(saved) as ObraInput
+      setHasDraft(!!(d.cliente_nome?.trim() || d.descricao || d.endereco_obra || d.lousa))
+    } catch { /* ignorar */ }
+  }, [draftKey])
+
+  // Persiste rascunho enquanto o formulário de nova obra estiver aberto
+  useEffect(() => {
+    if (!obraOpen || editObra !== null || !draftKey) return
+    const hasContent = !!(obraForm.cliente_nome?.trim() || obraForm.descricao || obraForm.endereco_obra || obraForm.lousa)
+    if (hasContent) {
+      localStorage.setItem(draftKey, JSON.stringify(obraForm))
+      setHasDraft(true)
+    }
+  }, [obraForm, obraOpen, editObra, draftKey])
   const [configOpen, setConfigOpen] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
@@ -504,13 +531,48 @@ function AgendaObrasContent() {
     [obrasHook.data],
   )
 
-  const openNew = () => { setEditObra(null); setObraForm(BLANK_OBRA); setObraOpen(true) }
+  const openNew = () => {
+    setEditObra(null)
+    let restored = false
+    if (draftKey) {
+      try {
+        const saved = localStorage.getItem(draftKey)
+        if (saved) {
+          const draft = JSON.parse(saved) as ObraInput
+          const hasContent = !!(draft.cliente_nome?.trim() || draft.descricao || draft.endereco_obra || draft.lousa)
+          if (hasContent) {
+            setObraForm({ ...BLANK_OBRA, ...draft })
+            restored = true
+          } else {
+            setObraForm(BLANK_OBRA)
+          }
+        } else {
+          setObraForm(BLANK_OBRA)
+        }
+      } catch {
+        setObraForm(BLANK_OBRA)
+      }
+    } else {
+      setObraForm(BLANK_OBRA)
+    }
+    setDraftRestored(restored)
+    setPendingFiles([])
+    setObraOpen(true)
+  }
+
+  const clearDraft = () => {
+    if (draftKey) localStorage.removeItem(draftKey)
+    setHasDraft(false)
+    setDraftRestored(false)
+    setObraForm(BLANK_OBRA)
+  }
   const openEdit = (obra: ObraFull) => {
     setEditObra(obra)
     setObraForm({
       cliente_nome: obra.cliente_nome,
       cliente_id: obra.cliente_id ?? null,
       lousa: obra.lousa ?? null,
+      descricao: obra.descricao ?? null,
       endereco_obra: obra.endereco_obra ?? null,
       tipo_obra_id: obra.tipo_obra_id ?? null,
       grupo_obra_id: obra.grupo_obra_id ?? null,
@@ -523,6 +585,7 @@ function AgendaObrasContent() {
       status_kanban: obra.status_kanban,
       pedido_material_feito: obra.pedido_material_feito ?? false,
     })
+    setPendingFiles([])
     setObraOpen(true)
   }
 
@@ -551,12 +614,46 @@ function AgendaObrasContent() {
     })
   }
 
+  const handleAddFiles = useCallback(async (files: File[]) => {
+    const pending: PendingFile[] = await Promise.all(
+      files.map(async file => {
+        const isImg = file.type.startsWith('image/')
+        return { file, previewUrl: isImg ? URL.createObjectURL(file) : null }
+      })
+    )
+    setPendingFiles(prev => [...prev, ...pending])
+  }, [])
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setPendingFiles(prev => {
+      const pf = prev[index]
+      if (pf?.previewUrl) URL.revokeObjectURL(pf.previewUrl)
+      return prev.filter((_, i) => i !== index)
+    })
+  }, [])
+
   const saveObra = async () => {
     if (!obraForm.cliente_nome.trim()) return
     setSavingObra(true)
     try {
-      if (editObra) await obrasHook.update(editObra.id, obraForm)
-      else await obrasHook.create(obraForm)
+      if (editObra) {
+        await obrasHook.update(editObra.id, obraForm)
+      } else {
+        const obraId = await obrasHook.create(obraForm)
+        // Upload pending files sequentially after creation
+        for (const pf of pendingFiles) {
+          try {
+            const pending = await buildPendingObraArquivo(pf.file)
+            await uploadObraArquivo(obraId, pending)
+            URL.revokeObjectURL(pending.previewUrl)
+          } catch { /* ignora erro individual de arquivo */ }
+        }
+        setPendingFiles([])
+        // Obra criada com sucesso — apaga rascunho
+        if (draftKey) localStorage.removeItem(draftKey)
+        setHasDraft(false)
+        setDraftRestored(false)
+      }
       setObraOpen(false)
     } finally { setSavingObra(false) }
   }
@@ -632,13 +729,19 @@ function AgendaObrasContent() {
                 {canEdit && (
                   <button
                     type="button"
-                    className="btn btn-gold btn-sm sm:btn-md"
+                    className="btn btn-gold btn-sm sm:btn-md relative"
                     onClick={openNew}
                     aria-label="Nova obra"
                   >
                     <Plus size={14} className="shrink-0" />
                     <span className="sm:hidden">Nova</span>
                     <span className="hidden sm:inline">Nova Obra</span>
+                    {hasDraft && (
+                      <span
+                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[rgba(10,4,2,0.8)] bg-amber-400"
+                        title="Rascunho salvo"
+                      />
+                    )}
                   </button>
                 )}
               </div>
@@ -792,6 +895,11 @@ function AgendaObrasContent() {
         canEditDates={canEditDates}
         canEditMontador={canEditMontador}
         isAdmin={isObrasAdmin}
+        pendingFiles={pendingFiles}
+        onAddFiles={handleAddFiles}
+        onRemoveFile={handleRemoveFile}
+        isDraftRestored={draftRestored}
+        onClearDraft={clearDraft}
       />
 
       {/* Modal configurações */}

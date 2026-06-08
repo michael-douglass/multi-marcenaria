@@ -154,12 +154,12 @@ interface AppNavRadialMenuProps {
 export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { role } = useApp()
+  const { roles } = useApp()
   const [open, setOpen] = useState(false)
   const [submenuParent, setSubmenuParent] = useState<NavMainItem | null>(null)
 
   const activeSection = sectionFromPath(location.pathname)
-  const items = getVisibleNavMainItems({ role, pendingOrders })
+  const items = getVisibleNavMainItems({ roles, pendingOrders })
 
   const closeAll = useCallback(() => {
     setOpen(false)

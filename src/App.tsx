@@ -37,11 +37,19 @@ const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'acompanhamentoObras', '
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca'],
   Marceneiro: ['dashboard'],
   MontadorAdmin: [...OBRAS_SECTIONS],
   AdministradorObras: [...OBRAS_SECTIONS],
   Montador: ['agendaObras', 'calendarioObras'],
+}
+
+function getAllowedSections(roles: UserRole[]): ActiveSection[] {
+  const sections = new Set<ActiveSection>()
+  for (const r of roles) {
+    for (const s of ROLE_SECTIONS[r] ?? []) sections.add(s)
+  }
+  return [...sections]
 }
 
 function Restricted({ message }: { message: string }) {
@@ -54,27 +62,27 @@ function Restricted({ message }: { message: string }) {
 }
 
 function RoleRedirect() {
-  const { role } = useApp()
+  const { role, roles } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
 
   const defaultPath = defaultPathForRole(role)
 
   useEffect(() => {
-    if (!role) return
+    if (!roles.length) return
     const section = sectionFromPath(location.pathname)
-    const allowed = ROLE_SECTIONS[role] ?? ['dashboard']
+    const allowed = getAllowedSections(roles)
     if (!allowed.includes(section)) {
       navigate(defaultPath, { replace: true })
     }
-  }, [role, location.pathname, navigate, defaultPath])
+  }, [roles, location.pathname, navigate, defaultPath])
 
   return null
 }
 
 function AuthenticatedRoutes() {
-  const { role } = useApp()
-  const readOnly = role === 'Marceneiro'
+  const { role, roles } = useApp()
+  const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
 
   const fornecedoresHook = useFornecedores()
   const produtosHook = useProdutos()
@@ -138,7 +146,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/aprovacao"
             element={
-              role === 'Administrador' ? (
+              roles.includes('Administrador') ? (
                 <Aprovacao fornecedores={fornecedoresHook.data} produtos={produtosHook.data} />
               ) : (
                 <Restricted message="Exclusivo para Administradores." />
@@ -147,19 +155,29 @@ function AuthenticatedRoutes() {
           />
           <Route
             path="/contas-pagar"
-            element={guardReadOnly(
-              <ContasPagar
-                fornecedores={fornecedoresHook.data}
-                getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
-                debitarSaldo={caixaFornecedorHook.debitarSaldo}
-                estornarDebitosContaPagar={caixaFornecedorHook.estornarDebitosContaPagar}
-                readOnly={readOnly}
-              />
-            )}
+            element={
+              roles.includes('Administrador') ? (
+                <ContasPagar
+                  fornecedores={fornecedoresHook.data}
+                  getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
+                  debitarSaldo={caixaFornecedorHook.debitarSaldo}
+                  estornarDebitosContaPagar={caixaFornecedorHook.estornarDebitosContaPagar}
+                  readOnly={readOnly}
+                />
+              ) : (
+                <Restricted message="Acesso restrito a Administradores." />
+              )
+            }
           />
           <Route
             path="/caixa-fornecedor"
-            element={guardReadOnly(<CaixaFornecedor fornecedores={fornecedoresHook.data} role={role} readOnly={readOnly} />)}
+            element={
+              roles.includes('Administrador') ? (
+                <CaixaFornecedor fornecedores={fornecedoresHook.data} roles={roles} readOnly={readOnly} />
+              ) : (
+                <Restricted message="Acesso restrito a Administradores." />
+              )
+            }
           />
           <Route
             path="/biblioteca"
@@ -167,14 +185,20 @@ function AuthenticatedRoutes() {
           />
           <Route
             path="/caixa"
-            element={guardReadOnly(<Caixa />)}
+            element={
+              roles.includes('Administrador') ? (
+                <Caixa />
+              ) : (
+                <Restricted message="Acesso restrito a Administradores." />
+              )
+            }
           />
 
           {/* Agenda de Obras */}
           <Route
             path="/agenda-obras"
             element={
-              hasObrasMenuAccess(role)
+              hasObrasMenuAccess(roles)
                 ? <AgendaObras />
                 : <Restricted message="Acesso restrito ao módulo de Obras." />
             }
@@ -182,7 +206,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/calendario-obras"
             element={
-              hasObrasMenuAccess(role)
+              hasObrasMenuAccess(roles)
                 ? <CalendarioObras />
                 : <Restricted message="Acesso restrito ao módulo de Obras." />
             }
@@ -190,7 +214,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/acompanhamento-obras"
             element={
-              hasObrasAdminSectionsAccess(role)
+              hasObrasAdminSectionsAccess(roles)
                 ? <AcompanhamentoObras />
                 : <Restricted message="Acompanhamento disponível apenas para perfis de gestão de Obras." />
             }
@@ -198,7 +222,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/metricas-obras"
             element={
-              hasObrasAdminSectionsAccess(role)
+              hasObrasAdminSectionsAccess(roles)
                 ? <MetricasObras />
                 : <Restricted message="Métricas disponíveis apenas para perfis de gestão de Obras." />
             }
@@ -208,7 +232,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/configuracoes"
             element={
-              role === 'Administrador'
+              roles.includes('Administrador')
                 ? <Configuracoes />
                 : <Restricted message="Acesso restrito a Administradores." />
             }
@@ -284,7 +308,7 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppRoutes />
       <PwaManager />
       <AppToast />

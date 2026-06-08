@@ -54,8 +54,9 @@ const getStatus = (vencimento: string, status: string): string => {
 }
 
 export function ContasReceber({ clientes, readOnly }: Props) {
-  const { role } = useApp()
+  const { role, roles } = useApp()
   const isAdmin = role === 'Administrador'
+  const isFinanceiroOnly = roles.includes('Financeiro') && !roles.includes('Administrador')
   const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
   const orcamentos = useOrcamentosFechados()
   const templatesHook = useTemplatesCobranca()
@@ -613,6 +614,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         error={orcamentos.error}
         onDarEntrada={orcamentos.darEntrada}
         onLoadHistorico={orcamentos.carregarHistoricoCliente}
+        onRemoverLead={orcamentos.removerLead}
       />
 
       {/* New Billing Modal */}
@@ -1028,16 +1030,19 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       {/* KPI strip — acompanha o filtro de período */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
         {[
-          { l: 'A Receber',       v: kpiAReceber,    c: '#4ade80' },
-          { l: 'Recebido',        v: kpiRecebido,    c: '#d4a853' },
+          !isFinanceiroOnly && { l: 'A Receber',     v: kpiAReceber,    c: '#4ade80' },
+          !isFinanceiroOnly && { l: 'Recebido',       v: kpiRecebido,    c: '#d4a853' },
           { l: 'Em Atraso',       v: kpiEmAtraso,    c: '#f87171' },
-          { l: 'Fechado Bruto',   v: kpiFechadoBruto, c: '#f4e4d6' },
-        ].map((x, i) => (
-          <div key={i} className="glass-card p-4 text-center">
-            <div className="section-label mb-1">{x.l}</div>
-            <div className="font-display" style={{ fontSize: '1.35rem', color: x.c }}>{fmtCur(x.v)}</div>
-          </div>
-        ))}
+          !isFinanceiroOnly && { l: 'Fechado Bruto',  v: kpiFechadoBruto, c: '#f4e4d6' },
+        ].filter(Boolean).map((x, i) => {
+          const kpi = x as { l: string; v: number; c: string }
+          return (
+            <div key={i} className="glass-card p-4 text-center">
+              <div className="section-label mb-1">{kpi.l}</div>
+              <div className="font-display" style={{ fontSize: '1.35rem', color: kpi.c }}>{fmtCur(kpi.v)}</div>
+            </div>
+          )
+        })}
       </div>
 
       <FilterBar

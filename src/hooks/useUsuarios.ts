@@ -7,6 +7,7 @@ export interface UsuarioAdmin {
   email: string
   nome: string | null
   perfil: string
+  perfis_extras: string[]
   ativo: boolean
   criado_em: string
 }
@@ -56,16 +57,18 @@ export function useUsuarios() {
     await load()
   }
 
-  const atualizar = async (id: string, perfil: string, nome: string | null, ativo: boolean) => {
+  const atualizar = async (id: string, perfil: string, nome: string | null, ativo: boolean, perfis_extras?: string[]) => {
     const { error: err } = await supabase.rpc('movelaria_atualizar_perfil_usuario', {
       p_id: id,
       p_perfil: perfil,
       p_nome: nome,
       p_ativo: ativo,
+      // undefined → null no Supabase → COALESCE mantém o valor existente no banco
+      p_perfis_extras: perfis_extras !== undefined ? perfis_extras : null,
     })
     if (err) throw new Error(err.message)
     setData(prev => prev.map(u =>
-      u.id === id ? { ...u, perfil, nome, ativo } : u
+      u.id === id ? { ...u, perfil, nome, ativo, perfis_extras: perfis_extras ?? u.perfis_extras } : u
     ))
   }
 
