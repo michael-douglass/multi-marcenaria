@@ -334,9 +334,8 @@ export function useOrcamentosFechados() {
 
   const removerLead = async (leadId: string): Promise<void> => {
     const { error: err } = await supabase
-      .from('movelaria_leads')
-      .delete()
-      .eq('id', leadId)
+      .from('movelaria_leads_ganhos_excluidos')
+      .upsert({ lead_id: leadId })
     if (err) throw new Error(err.message)
     setLeads(prev => prev.filter(l => l.id !== leadId))
   }

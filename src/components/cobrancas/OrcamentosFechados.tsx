@@ -350,9 +350,28 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
           <div
             key={lead.id}
             className="glass-card p-5"
-            style={{ borderLeft: '3px solid rgba(212,168,83,.5)' }}
+            style={{ borderLeft: '3px solid rgba(212,168,83,.5)', position: 'relative' }}
           >
-            <div style={{ fontWeight: 700, color: '#f4e4d6', fontSize: '1rem', marginBottom: '.35rem' }}>
+            {isAdmin && !readOnly && confirmandoExclusao !== lead.id && (
+              <button
+                type="button"
+                title="Excluir card"
+                onClick={() => setConfirmandoExclusao(lead.id)}
+                style={{
+                  position: 'absolute', top: '.6rem', right: '.6rem',
+                  padding: '.25rem .4rem', borderRadius: 6,
+                  border: '1px solid rgba(248,113,113,.25)',
+                  background: 'transparent', color: '#f87171',
+                  cursor: 'pointer', fontSize: '.8rem', lineHeight: 1,
+                  opacity: .65, transition: 'opacity .15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '.65')}
+              >
+                🗑
+              </button>
+            )}
+            <div style={{ fontWeight: 700, color: '#f4e4d6', fontSize: '1rem', marginBottom: '.35rem', paddingRight: isAdmin && !readOnly ? '1.8rem' : '0' }}>
               {lead.nome}
             </div>
             {lead.telefone && (
@@ -523,24 +542,6 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     onClick={() => void openModal(lead)}
                   >
                     Dar entrada
-                  </button>
-                )}
-                {isAdmin && !readOnly && (
-                  <button
-                    type="button"
-                    title="Excluir card"
-                    onClick={() => setConfirmandoExclusao(lead.id)}
-                    style={{
-                      padding: '.3rem .45rem', borderRadius: 6,
-                      border: '1px solid rgba(248,113,113,.25)',
-                      background: 'transparent', color: '#f87171',
-                      cursor: 'pointer', fontSize: '.8rem', lineHeight: 1,
-                      opacity: .7, transition: 'opacity .15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '.7')}
-                  >
-                    🗑
                   </button>
                 )}
               </div>

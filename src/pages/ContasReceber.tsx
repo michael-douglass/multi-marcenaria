@@ -615,6 +615,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         onDarEntrada={orcamentos.darEntrada}
         onLoadHistorico={orcamentos.carregarHistoricoCliente}
         onRemoverLead={orcamentos.removerLead}
+        isAdmin={isAdmin}
+        readOnly={readOnly}
       />
 
       {/* New Billing Modal */}
