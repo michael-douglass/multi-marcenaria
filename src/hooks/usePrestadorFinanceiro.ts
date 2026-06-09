@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
-import { mesAnterior, resumoFromItens, sumPrestadorItens } from '@/lib/prestador-financeiro'
+import {
+  fetchPrestadorMes,
+  mesAnterior,
+  PRESTADOR_MONTHS_SHORT,
+  resumoFromItens,
+  sumPrestadorItens,
+} from '@/lib/prestador-financeiro'
 import type { PrestadorFinanceiroItem } from '@/types'
 import { useAuthReady } from './useAuthReady'
 
@@ -9,17 +14,6 @@ export interface PrestadorComparativoMes {
   aReceberEsteMes: number
   mesPassadoLabel: string
   mesAtualLabel: string
-}
-
-const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
-async function fetchPrestadorMes(mes: number, ano: number): Promise<PrestadorFinanceiroItem[]> {
-  const { data: rows, error } = await supabase.rpc('movelaria_prestador_financeiro', {
-    p_mes: mes,
-    p_ano: ano,
-  })
-  if (error) throw error
-  return (rows ?? []) as PrestadorFinanceiroItem[]
 }
 
 export function usePrestadorFinanceiro(mes: number, ano: number) {
@@ -60,8 +54,8 @@ export function usePrestadorFinanceiro(mes: number, ano: number) {
           mesAtualRows,
           i => i.tipo === 'previsto' || (i.tipo === 'pagamento' && i.status !== 'pago'),
         ),
-        mesPassadoLabel: MONTHS_SHORT[ant.mes - 1] ?? '',
-        mesAtualLabel: MONTHS_SHORT[mesAtual - 1] ?? '',
+        mesPassadoLabel: PRESTADOR_MONTHS_SHORT[ant.mes - 1] ?? '',
+        mesAtualLabel: PRESTADOR_MONTHS_SHORT[mesAtual - 1] ?? '',
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar financeiro.')

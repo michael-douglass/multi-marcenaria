@@ -1,24 +1,34 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Banknote, Wallet, CircleDollarSign } from 'lucide-react'
 import { usePrestadorFinanceiro } from '@/hooks/usePrestadorFinanceiro'
+import { usePrestadorHistoricoMes } from '@/hooks/usePrestadorHistoricoMes'
 import { PrestadorComparativoChart } from '@/components/meu-financeiro/PrestadorComparativoChart'
 import { PrestadorObrasHistorico } from '@/components/meu-financeiro/PrestadorObrasHistorico'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
+import { PRESTADOR_MONTHS_FULL } from '@/lib/prestador-financeiro'
 import { fmtCur } from '@/lib/utils'
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-]
+const MONTHS = [...PRESTADOR_MONTHS_FULL]
 
 export function MeuFinanceiro() {
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
+  const [mesReceber, setMesReceber] = useState(now.getMonth() + 1)
+  const [mesRecebidas, setMesRecebidas] = useState(now.getMonth() + 1)
+
   const { resumo, comparativo, loading, error, reload } = usePrestadorFinanceiro(mes, ano)
+  const historicoReceber = usePrestadorHistoricoMes(mesReceber, ano)
+  const historicoRecebidas = usePrestadorHistoricoMes(mesRecebidas, ano)
 
   const anos = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
   const periodoLabel = `${MONTHS[mes - 1]} ${ano}`
+
+  // Filtro do topo sincroniza os cards na primeira carga ou ao trocar período global
+  useEffect(() => {
+    setMesReceber(mes)
+    setMesRecebidas(mes)
+  }, [mes, ano])
 
   return (
     <div className="fade-in obra-page-shell flex flex-col gap-6 p-1">
@@ -52,7 +62,15 @@ export function MeuFinanceiro() {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
-          <button type="button" className="btn btn-outline btn-md" onClick={() => reload()}>
+          <button
+            type="button"
+            className="btn btn-outline btn-md"
+            onClick={() => {
+              void reload()
+              void historicoReceber.reload()
+              void historicoRecebidas.reload()
+            }}
+          >
             Atualizar
           </button>
         </div>
@@ -111,25 +129,33 @@ export function MeuFinanceiro() {
           {/* Gráfico: mês passado recebido × este mês a receber */}
           <PrestadorComparativoChart comparativo={comparativo} />
 
-          {/* Históricos do período filtrado */}
+          {/* Históricos — altura fixa, rolagem e mês independente em cada card */}
           <div>
             <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[#8a6a55]">
-              Histórico — {periodoLabel}
+              Histórico por mês · resumo geral em {periodoLabel}
             </p>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
               <PrestadorObrasHistorico
                 variant="receber"
                 titulo="Obras a receber"
                 subtitulo="Comissões previstas ou pagamentos ainda não quitados"
-                itens={resumo.aReceber}
-                emptyMessage={`Nenhuma obra a receber em ${periodoLabel}.`}
+                itens={historicoReceber.aReceber}
+                loading={historicoReceber.loading}
+                mes={mesReceber}
+                ano={ano}
+                onMesChange={setMesReceber}
+                emptyMessage={`Nenhuma obra a receber em ${MONTHS[mesReceber - 1]} ${ano}.`}
               />
               <PrestadorObrasHistorico
                 variant="recebidas"
                 titulo="Obras recebidas"
                 subtitulo="Comissões já pagas e confirmadas"
-                itens={resumo.recebidas}
-                emptyMessage={`Nenhuma obra recebida em ${periodoLabel}.`}
+                itens={historicoRecebidas.recebidas}
+                loading={historicoRecebidas.loading}
+                mes={mesRecebidas}
+                ano={ano}
+                onMesChange={setMesRecebidas}
+                emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
               />
             </div>
           </div>

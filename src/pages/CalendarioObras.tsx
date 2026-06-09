@@ -303,11 +303,12 @@ function DayPopup({
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
               const loading = actioning === o.id
               return (
-                <div key={o.id} className="flex flex-col gap-1">
+                <div key={o.id} className="flex flex-col gap-1.5">
                   <ObraComissaoStrip
                     obra={o}
                     prestadorId={prestadorId}
                     showAll={showAllComissao}
+                    variant="prominent"
                   />
                 <div
                   className="rounded-lg overflow-hidden transition-all hover:brightness-110"
@@ -842,8 +843,14 @@ function CalendarioObrasContent() {
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
                 return (
+                  <div key={o.id} className="flex w-full max-w-full min-w-0 flex-col gap-1.5">
+                  <ObraComissaoStrip
+                    obra={o}
+                    prestadorId={userProfile?.id}
+                    showAll={!isMontador}
+                    variant="prominent"
+                  />
                   <div
-                    key={o.id}
                     className="box-border w-full max-w-full min-w-0 overflow-hidden glass-card hover:brightness-110 transition-all"
                     style={{ borderLeft: `3px solid ${cor}` }}
                   >
@@ -894,6 +901,7 @@ function CalendarioObrasContent() {
                         compact
                       />
                     </div>
+                  </div>
                   </div>
                 )
               })}
@@ -959,6 +967,12 @@ function CalendarioObrasContent() {
                                 borderLeft: `2px solid ${STATUS_COLORS[getStatusEfetivo(o)]}`,
                               }}
                             >
+                              <ObraComissaoStrip
+                                obra={o}
+                                prestadorId={userProfile?.id}
+                                showAll={!isMontador}
+                                variant="compact"
+                              />
                               <p className="font-semibold text-cream leading-tight truncate">{o.cliente_nome}</p>
                               <ObraMontadorBadge obra={o} compact />
                               <ObraPedidoMaterialBadge obra={o} compact />
