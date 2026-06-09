@@ -12,6 +12,8 @@ import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal, type PendingFile } from '../components/obras/ObraFormModal'
 import { buildPendingObraArquivo, uploadObraArquivo } from '../lib/obra-arquivos'
 import { getObraMontadorIds } from '../lib/obra-montadores'
+import { parseObraComissaoItens } from '../lib/obra-comissao'
+import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
@@ -34,6 +36,8 @@ import {
   canDeleteObras,
   canEditObras,
   canManageAllObras,
+  canEditComissao,
+  canAplicarComissao,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -77,6 +81,7 @@ const BLANK_OBRA: ObraInput = {
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
   status_kanban: 'datas_em_aberto', pedido_material_feito: false,
+  comissao_habilitada: false, comissao_itens: [],
 }
 const BLANK_TIPO: TipoObraInput = {
   nome: '', descricao: null, tempo_medio_horas: null, tempo_maximo_horas_default: null, ativo: true,
@@ -459,6 +464,7 @@ function AgendaObrasContent() {
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
+  const [applyingComissao, setApplyingComissao] = useState(false)
 
   // ── Drag and drop ──────────────────────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -584,6 +590,11 @@ function AgendaObrasContent() {
       tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
       status_kanban: obra.status_kanban,
       pedido_material_feito: obra.pedido_material_feito ?? false,
+      dias_trabalho: obra.dias_trabalho ?? null,
+      horario_inicio: obra.horario_inicio ?? null,
+      horario_fim: obra.horario_fim ?? null,
+      comissao_habilitada: obra.comissao_habilitada ?? false,
+      comissao_itens: parseObraComissaoItens(obra),
     })
     setPendingFiles([])
     setObraOpen(true)
@@ -677,6 +688,18 @@ function AgendaObrasContent() {
       alert(err instanceof Error ? err.message : 'Não foi possível atualizar o pedido de material.')
     } finally {
       setTogglingPedidoMaterial(null)
+    }
+  }
+
+  const handleAplicarComissao = async (obraId: string) => {
+    setApplyingComissao(true)
+    try {
+      await obrasHook.aplicarComissao(obraId)
+      setDetalheObra(prev => prev?.id === obraId ? { ...prev, comissao_gerada: true } : prev)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível gerar os pagamentos.')
+    } finally {
+      setApplyingComissao(false)
     }
   }
 
@@ -836,24 +859,30 @@ function AgendaObrasContent() {
                     </div>
                   ) : (
                     obras.map(obra => (
-                      <ObraCard
-                        key={obra.id}
-                        obra={obra}
-                        canEdit={canEdit}
-                        canDelete={canDelete}
-                        isMontador={isMontador}
-                        actioning={actioning}
-                        isDragging={draggingId === obra.id}
-                        onDetalhe={o => setDetalheObra(o)}
-                        onEdit={openEdit}
-                        onIniciar={handleIniciar}
-                        onConcluir={handleConcluir}
-                        onExcluir={handleExcluir}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onTogglePedidoMaterial={handleTogglePedidoMaterial}
-                        togglingPedidoMaterial={togglingPedidoMaterial}
-                      />
+                      <div key={obra.id} className="flex flex-col gap-1 min-w-0">
+                        <ObraComissaoStrip
+                          obra={obra}
+                          prestadorId={userProfile?.id}
+                          showAll={!isMontador}
+                        />
+                        <ObraCard
+                          obra={obra}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                          isMontador={isMontador}
+                          actioning={actioning}
+                          isDragging={draggingId === obra.id}
+                          onDetalhe={o => setDetalheObra(o)}
+                          onEdit={openEdit}
+                          onIniciar={handleIniciar}
+                          onConcluir={handleConcluir}
+                          onExcluir={handleExcluir}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onTogglePedidoMaterial={handleTogglePedidoMaterial}
+                          togglingPedidoMaterial={togglingPedidoMaterial}
+                        />
+                      </div>
                     ))
                   )}
                 </div>
@@ -878,6 +907,11 @@ function AgendaObrasContent() {
         onConcluir={handleConcluir}
         canDelete={canDelete}
         onExcluir={handleExcluir}
+        canAplicarComissao={canAplicarComissao(roles)}
+        applyingComissao={applyingComissao}
+        onAplicarComissao={handleAplicarComissao}
+        prestadorId={userProfile?.id}
+        showAllComissao={!isMontador}
       />
 
       {/* Modal obra (edição) */}
@@ -895,6 +929,7 @@ function AgendaObrasContent() {
         canEditDates={canEditDates}
         canEditMontador={canEditMontador}
         isAdmin={isObrasAdmin}
+        canEditComissao={canEditComissao(roles)}
         pendingFiles={pendingFiles}
         onAddFiles={handleAddFiles}
         onRemoveFile={handleRemoveFile}

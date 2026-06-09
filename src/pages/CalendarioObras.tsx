@@ -1,13 +1,16 @@
-import { useState, useMemo, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays } from 'lucide-react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
 import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { getObraMontadorIds } from '../lib/obra-montadores'
+import { parseObraComissaoItens } from '../lib/obra-comissao'
+import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
@@ -16,11 +19,13 @@ import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
-import type { ObraFull, ObraInput, StatusKanbanObra } from '../types'
+import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '../types'
 import {
   canDeleteObras,
   canEditObras,
   canManageAllObras,
+  canEditComissao,
+  canAplicarComissao,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -70,6 +75,8 @@ const BLANK_OBRA: ObraInput = {
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
   status_kanban: 'datas_em_aberto', pedido_material_feito: false,
+  dias_trabalho: null, horario_inicio: null, horario_fim: null,
+  comissao_habilitada: false, comissao_itens: [],
 }
 
 // ── Helpers de data ──────────────────────────────────────────
@@ -120,6 +127,123 @@ function hasFiltrosAtivos(busca: string, etapa: StatusKanbanObra | '', data: str
   return Boolean(busca.trim() || etapa || data)
 }
 
+// ── Config dias de trabalho ──────────────────────────────────
+const UI_SETTINGS_KEY = 'calendario_dias_trabalho'
+
+interface HorarioDia { inicio: string; fim: string }
+interface ConfigDiasTrabalho {
+  diasAtivos: number[]  // 0=Dom … 6=Sáb
+  horarios: Partial<Record<number, HorarioDia>>
+}
+const DEFAULT_DIAS_CONFIG: ConfigDiasTrabalho = {
+  diasAtivos: [1, 2, 3, 4, 5],
+  horarios: {},
+}
+
+function obrasForDayUtil(obras: ObraFull[], iso: string, config: ConfigDiasTrabalho): ObraFull[] {
+  const d = new Date(`${iso}T12:00:00`)
+  const dow = d.getDay()
+  if (!config.diasAtivos.includes(dow)) return []
+  return obras.filter(o => {
+    if (!o.data_prevista_inicio || !o.data_prevista_fim) return false
+    if (iso < o.data_prevista_inicio || iso > o.data_prevista_fim) return false
+    // se a obra tiver dias_trabalho definidos, respeita eles
+    if (o.dias_trabalho && o.dias_trabalho.length > 0) {
+      return o.dias_trabalho.includes(dow)
+    }
+    return true
+  })
+}
+
+// ── Painel de configuração de dias/horários ──────────────────
+function ConfigDiasPanel({
+  config, onClose, onToggleDia, onSetHorario,
+}: {
+  config: ConfigDiasTrabalho
+  onClose: () => void
+  onToggleDia: (d: number) => void
+  onSetHorario: (d: number, field: 'inicio' | 'fim', val: string) => void
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
+    >
+      <div
+        className="glass-panel rounded-2xl w-full max-w-sm"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(212,168,83,0.18)]">
+          <p className="font-display text-lg text-[#d4a853] tracking-widest">Dias de Trabalho</p>
+          <button onClick={onClose} className="btn btn-outline btn-sm !px-2">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-2">
+          <p className="text-[0.68rem] text-[#8a6a55] mb-3 uppercase tracking-wider">
+            Selecione os dias e defina os horários
+          </p>
+          {([0, 1, 2, 3, 4, 5, 6] as number[]).map(d => {
+            const ativo   = config.diasAtivos.includes(d)
+            const horario = config.horarios[d]
+            return (
+              <div key={d} className="flex flex-col gap-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => onToggleDia(d)}
+                    className={[
+                      'w-14 shrink-0 rounded-full px-2 py-1.5 text-xs font-bold transition-all',
+                      ativo
+                        ? 'bg-[#d4a853]/20 text-[#d4a853] border border-[#d4a853]/50'
+                        : 'bg-[rgba(212,168,83,0.04)] text-[#4a3328] border border-[rgba(212,168,83,0.08)]',
+                    ].join(' ')}
+                  >
+                    {WEEKDAYS[d]}
+                  </button>
+
+                  {ativo ? (
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <input
+                        type="time"
+                        className="glass-input !py-1 !px-2 w-[88px] text-xs"
+                        value={horario?.inicio ?? ''}
+                        onChange={e => onSetHorario(d, 'inicio', e.target.value)}
+                      />
+                      <span className="text-[#8a6a55] text-xs shrink-0">→</span>
+                      <input
+                        type="time"
+                        className="glass-input !py-1 !px-2 w-[88px] text-xs"
+                        value={horario?.fim ?? ''}
+                        onChange={e => onSetHorario(d, 'fim', e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-[0.68rem] text-[#4a3328]/50">não trabalha</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full btn btn-sm bg-[#d4a853]/20 text-[#d4a853] hover:bg-[#d4a853]/30 transition-colors rounded-lg py-2 text-xs font-semibold"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function podeConcluirObra(obra: ObraFull): boolean {
   return (
     obra.status_kanban !== 'concluida' &&
@@ -132,6 +256,7 @@ function podeConcluirObra(obra: ObraFull): boolean {
 function DayPopup({
   date, obras, onClose, onObraClick, onConcluir, canConcluir, actioning,
   canEdit, onTogglePedidoMaterial, togglingPedidoMaterial,
+  prestadorId, showAllComissao,
 }: {
   date: Date
   obras: ObraFull[]
@@ -143,6 +268,8 @@ function DayPopup({
   canEdit: boolean
   onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
   togglingPedidoMaterial: string | null
+  prestadorId?: string | null
+  showAllComissao?: boolean
 }) {
   return createPortal(
     <div
@@ -176,8 +303,13 @@ function DayPopup({
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
               const loading = actioning === o.id
               return (
+                <div key={o.id} className="flex flex-col gap-1">
+                  <ObraComissaoStrip
+                    obra={o}
+                    prestadorId={prestadorId}
+                    showAll={showAllComissao}
+                  />
                 <div
-                  key={o.id}
                   className="rounded-lg overflow-hidden transition-all hover:brightness-110"
                   style={{
                     backgroundColor: `${cor}14`,
@@ -247,6 +379,7 @@ function DayPopup({
                     </div>
                   )}
                 </div>
+                </div>
               )
             })
           )}
@@ -267,7 +400,7 @@ export function CalendarioObras() {
 }
 
 function CalendarioObrasContent() {
-  const { roles } = useApp()
+  const { roles, userProfile } = useApp()
   const obrasHook  = useObras()
   const tiposHook  = useTiposObra()
   const gruposHook = useGruposObra()
@@ -285,6 +418,7 @@ function CalendarioObrasContent() {
   const [viewDate, setViewDate]       = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [detalheObra, setDetalheObra]     = useState<ObraFull | null>(null)
+  const [applyingComissao, setApplyingComissao] = useState(false)
   const [editObra, setEditObra]           = useState<ObraFull | null>(null)
   const [obraForm, setObraForm]           = useState<ObraInput>(BLANK_OBRA)
   const [savingObra, setSavingObra]       = useState(false)
@@ -293,6 +427,9 @@ function CalendarioObrasContent() {
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
   const [dataFiltro, setDataFiltro]       = useState(() => (isMontador ? hojeISO : ''))
+  const [configDias, setConfigDias]         = useState<ConfigDiasTrabalho>(DEFAULT_DIAS_CONFIG)
+  const [showConfigDias, setShowConfigDias] = useState(false)
+  const saveTimerRef                        = useRef<number | null>(null)
 
   // Montador e celular: visão Dia (hoje)
   useEffect(() => {
@@ -345,12 +482,74 @@ function CalendarioObrasContent() {
     else                      setViewDate(d => addMonths(d, dir))
   }
 
-  const dayViewObras = obrasForDay(obrasFiltradas, toISO(viewDate))
+  const dayViewObras   = obrasForDayUtil(obrasFiltradas, toISO(viewDate), configDias)
+  const dayIsDiaUtil   = configDias.diasAtivos.includes(viewDate.getDay())
+  const horarioDiaAtual = configDias.horarios[viewDate.getDay()]
 
   const limparFiltros = () => {
     setBusca('')
     setEtapaFiltro('')
     setDataFiltro('')
+  }
+
+  // Carrega config do Supabase na montagem
+  useEffect(() => {
+    if (!userProfile?.id) return
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('movelaria_ui_settings')
+          .select('value')
+          .eq('usuario_id', userProfile.id)
+          .eq('key', UI_SETTINGS_KEY)
+          .maybeSingle()
+        if (error) throw error
+        if (data?.value) {
+          setConfigDias({ ...DEFAULT_DIAS_CONFIG, ...(data.value as ConfigDiasTrabalho) })
+        }
+      } catch (err) {
+        console.error('[CalendarioObras] Erro ao carregar config dias:', err)
+      }
+    })()
+  }, [userProfile?.id])
+
+  const persistConfigDias = useCallback((cfg: ConfigDiasTrabalho) => {
+    if (!userProfile?.id) return
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(() => {
+      void supabase
+        .from('movelaria_ui_settings')
+        .upsert({
+          usuario_id: userProfile.id,
+          key: UI_SETTINGS_KEY,
+          value: cfg,
+          atualizado_em: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.error('[CalendarioObras] Erro ao salvar config dias:', error)
+        })
+    }, 600)
+  }, [userProfile?.id])
+
+  const updateConfigDias = (update: Partial<ConfigDiasTrabalho>) => {
+    setConfigDias(prev => {
+      const next = { ...prev, ...update }
+      persistConfigDias(next)
+      return next
+    })
+  }
+
+  const toggleDia = (d: number) => {
+    const dias = configDias.diasAtivos.includes(d)
+      ? configDias.diasAtivos.filter(x => x !== d)
+      : [...configDias.diasAtivos, d].sort((a, b) => a - b)
+    updateConfigDias({ diasAtivos: dias })
+  }
+
+  const setHorario = (d: number, field: 'inicio' | 'fim', val: string) => {
+    const horarios = { ...configDias.horarios }
+    horarios[d] = { ...(horarios[d] ?? { inicio: '', fim: '' }), [field]: val }
+    updateConfigDias({ horarios })
   }
 
   // ── Handlers de obra ──────────────────────────────────────
@@ -374,11 +573,16 @@ function CalendarioObrasContent() {
         tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
         status_kanban: obra.status_kanban,
         pedido_material_feito: obra.pedido_material_feito ?? false,
+        dias_trabalho: obra.dias_trabalho ?? null,
+        horario_inicio: obra.horario_inicio ?? null,
+        horario_fim: obra.horario_fim ?? null,
+        comissao_habilitada: obra.comissao_habilitada ?? false,
+        comissao_itens: parseObraComissaoItens(obra),
       })
     }, 80)
   }
 
-  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[] | boolean) => {
+  const handleObraChange = (k: keyof ObraInput, v: string | null | number | string[] | boolean | ObraComissaoItem[]) => {
     setObraForm(p => {
       const next = { ...p, [k]: v }
       if (k === 'tipo_obra_id' && v) {
@@ -409,6 +613,18 @@ function CalendarioObrasContent() {
       await obrasHook.concluirObra(id)
       setDetalheObra(null)
     } finally { setActioning(null) }
+  }
+
+  const handleAplicarComissao = async (obraId: string) => {
+    setApplyingComissao(true)
+    try {
+      await obrasHook.aplicarComissao(obraId)
+      setDetalheObra(prev => prev?.id === obraId ? { ...prev, comissao_gerada: true } : prev)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível gerar os pagamentos.')
+    } finally {
+      setApplyingComissao(false)
+    }
   }
 
   const handleTogglePedidoMaterial = async (obra: ObraFull, feito: boolean) => {
@@ -457,6 +673,15 @@ function CalendarioObrasContent() {
           actions={
             <div className="obra-page-header__actions-inner">
               <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
+              <button
+                type="button"
+                onClick={() => setShowConfigDias(true)}
+                className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0"
+                title="Dias e horários de trabalho"
+              >
+                <Settings size={13} />
+                <span className="hidden sm:inline text-xs">Horário</span>
+              </button>
               <div className="obra-page-view-tabs obra-page-header__action-buttons">
                 {(['day', 'week', 'month'] as CalView[]).map(v => (
                   <button
@@ -584,7 +809,32 @@ function CalendarioObrasContent() {
           {/* ════════════ VISÃO DIA ════════════ */}
           {view === 'day' && (
             <div className="w-full max-w-full min-w-0 space-y-3">
-              {dayViewObras.length === 0 ? (
+              {/* Horário do dia */}
+              {dayIsDiaUtil && horarioDiaAtual && (horarioDiaAtual.inicio || horarioDiaAtual.fim) && (
+                <div className="flex items-center gap-2 px-1 text-xs text-[#8a6a55]">
+                  <Settings size={11} className="text-[#d4a853] shrink-0" />
+                  <span>
+                    {horarioDiaAtual.inicio && horarioDiaAtual.fim
+                      ? `${horarioDiaAtual.inicio} → ${horarioDiaAtual.fim}`
+                      : horarioDiaAtual.inicio
+                      ? `A partir das ${horarioDiaAtual.inicio}`
+                      : `Até ${horarioDiaAtual.fim}`}
+                  </span>
+                </div>
+              )}
+              {!dayIsDiaUtil ? (
+                <div className="glass-card p-10 text-center opacity-60">
+                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#8a6a55', opacity: 0.3 }} />
+                  <p className="text-[#8a6a55] text-sm">Este dia não é um dia de trabalho.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigDias(true)}
+                    className="mt-3 text-xs text-[#d4a853]/70 hover:text-[#d4a853] transition-colors underline underline-offset-2"
+                  >
+                    Configurar dias de trabalho
+                  </button>
+                </div>
+              ) : dayViewObras.length === 0 ? (
                 <div className="glass-card p-10 text-center">
                   <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#d4a853', opacity: 0.25 }} />
                   <p className="text-[#8a6a55] text-sm">Nenhuma obra para este dia.</p>
@@ -661,28 +911,38 @@ function CalendarioObrasContent() {
                   const iso          = toISO(day)
                   const isToday      = iso === todayISO
                   const isDataFiltro = dataFiltro === iso
-                  const dayObras     = obrasForDay(obrasFiltradas, iso)
+                  const isDiaUtil    = configDias.diasAtivos.includes(day.getDay())
+                  const dayObras     = obrasForDayUtil(obrasFiltradas, iso, configDias)
                   const hasObras     = dayObras.length > 0
+                  const horarioSem   = isDiaUtil ? configDias.horarios[day.getDay()] : undefined
 
                   return (
                     <div
                       key={iso}
-                      onClick={() => hasObras && setSelectedDay(day)}
+                      onClick={() => isDiaUtil && hasObras && setSelectedDay(day)}
                       className={[
                         'glass-card p-2 flex flex-col min-h-[200px] transition-all',
+                        !isDiaUtil   ? 'opacity-40' : '',
                         isToday      ? 'ring-1 ring-[#d4a853]/40' : '',
                         isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
-                        hasObras     ? 'cursor-pointer hover:brightness-110' : '',
+                        isDiaUtil && hasObras ? 'cursor-pointer hover:brightness-110' : '',
                       ].join(' ')}
                     >
-                      <div className={`mb-2 flex min-w-0 items-center justify-between gap-1 border-b border-[rgba(212,168,83,0.12)] pb-1.5 text-[0.72rem] font-bold ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
-                        <span className="min-w-0 truncate" title={fmtDayHeader(day)}>
-                          {fmtDayHeader(day)}
-                          {isToday && <span className="ml-1 text-[0.6rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1">hoje</span>}
-                        </span>
-                        {hasObras && (
-                          <span className="rounded-full w-4 h-4 flex items-center justify-center text-[0.6rem] font-bold bg-[rgba(212,168,83,0.2)] text-[#d4a853]">
-                            {dayObras.length}
+                      <div className={`mb-2 flex min-w-0 flex-col gap-0.5 border-b border-[rgba(212,168,83,0.12)] pb-1.5`}>
+                        <div className={`flex min-w-0 items-center justify-between gap-1 text-[0.72rem] font-bold ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
+                          <span className="min-w-0 truncate" title={fmtDayHeader(day)}>
+                            {fmtDayHeader(day)}
+                            {isToday && <span className="ml-1 text-[0.6rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1">hoje</span>}
+                          </span>
+                          {hasObras && (
+                            <span className="rounded-full w-4 h-4 flex items-center justify-center text-[0.6rem] font-bold bg-[rgba(212,168,83,0.2)] text-[#d4a853]">
+                              {dayObras.length}
+                            </span>
+                          )}
+                        </div>
+                        {isDiaUtil && horarioSem && (horarioSem.inicio || horarioSem.fim) && (
+                          <span className="text-[0.6rem] text-[#8a6a55]/60">
+                            {horarioSem.inicio}{horarioSem.inicio && horarioSem.fim ? ' – ' : ''}{horarioSem.fim}
                           </span>
                         )}
                       </div>
@@ -723,8 +983,14 @@ function CalendarioObrasContent() {
               <div className="min-w-[420px] px-1">
                 {/* Cabeçalhos dias da semana */}
                 <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-                  {WEEKDAYS.map(wd => (
-                    <div key={wd} className="text-center text-[0.65rem] font-bold text-[#8a6a55] py-1 uppercase tracking-widest">
+                  {WEEKDAYS.map((wd, wdIdx) => (
+                    <div
+                      key={wd}
+                      className={[
+                        'text-center text-[0.65rem] font-bold py-1 uppercase tracking-widest transition-opacity',
+                        configDias.diasAtivos.includes(wdIdx) ? 'text-[#8a6a55]' : 'text-[#8a6a55] opacity-30',
+                      ].join(' ')}
+                    >
                       {wd}
                     </div>
                   ))}
@@ -737,7 +1003,8 @@ function CalendarioObrasContent() {
                     const isToday      = iso === todayISO
                     const isDataFiltro = dataFiltro === iso
                     const isThisMonth  = day.getMonth() === viewDate.getMonth()
-                    const dayObras     = obrasForDay(obrasFiltradas, iso)
+                    const isDiaUtil    = configDias.diasAtivos.includes(day.getDay())
+                    const dayObras     = obrasForDayUtil(obrasFiltradas, iso, configDias)
                     const hasObras     = dayObras.length > 0
 
                     return (
@@ -745,14 +1012,15 @@ function CalendarioObrasContent() {
                         key={idx}
                         onClick={() => {
                           if (!isThisMonth) { setViewDate(day); return }
-                          if (hasObras) setSelectedDay(day)
+                          if (isDiaUtil && hasObras) setSelectedDay(day)
                         }}
                         className={[
                           'rounded-lg p-1.5 flex flex-col transition-all',
                           isThisMonth  ? 'glass-card' : 'opacity-30',
+                          isThisMonth && !isDiaUtil ? '!opacity-35' : '',
                           isToday      ? 'ring-1 ring-[#d4a853]/50' : '',
                           isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
-                          (hasObras || !isThisMonth) ? 'cursor-pointer hover:brightness-110' : '',
+                          (isDiaUtil && hasObras) || !isThisMonth ? 'cursor-pointer hover:brightness-110' : '',
                         ].join(' ')}
                         style={{ minHeight: '64px' }}
                       >
@@ -799,6 +1067,16 @@ function CalendarioObrasContent() {
         </KanbanPageZoomShell>
       )}
 
+      {/* Painel de config dias/horários */}
+      {showConfigDias && (
+        <ConfigDiasPanel
+          config={configDias}
+          onClose={() => setShowConfigDias(false)}
+          onToggleDia={toggleDia}
+          onSetHorario={setHorario}
+        />
+      )}
+
       {/* Popup do dia selecionado (semana / mês) */}
       {selectedDay && !detalheObra && !editObra && (
         <DayPopup
@@ -812,6 +1090,8 @@ function CalendarioObrasContent() {
           canEdit={canEdit}
           onTogglePedidoMaterial={handleTogglePedidoMaterial}
           togglingPedidoMaterial={togglingPedidoMaterial}
+          prestadorId={userProfile?.id}
+          showAllComissao={!isMontador}
         />
       )}
 
@@ -829,6 +1109,11 @@ function CalendarioObrasContent() {
         onConcluir={handleConcluir}
         canDelete={canDelete}
         onExcluir={handleExcluir}
+        canAplicarComissao={canAplicarComissao(roles)}
+        applyingComissao={applyingComissao}
+        onAplicarComissao={handleAplicarComissao}
+        prestadorId={userProfile?.id}
+        showAllComissao={!isMontador}
       />
 
       {/* Modal edição */}
@@ -847,6 +1132,7 @@ function CalendarioObrasContent() {
           canEditDates
           canEditMontador={canEditMontador}
           isAdmin={isObrasAdmin}
+          canEditComissao={canEditComissao(roles)}
           pendingFiles={[]}
           onAddFiles={() => {}}
           onRemoveFile={() => {}}

@@ -28,6 +28,7 @@ import { AgendaObras } from '@/pages/AgendaObras'
 import { AcompanhamentoObras } from '@/pages/AcompanhamentoObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { MetricasObras } from '@/pages/MetricasObras'
+import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
 import { Configuracoes } from '@/pages/Configuracoes'
 import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
@@ -39,9 +40,9 @@ const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro'],
   AdministradorObras: [...OBRAS_SECTIONS],
-  Montador: ['agendaObras', 'calendarioObras'],
+  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro'],
 }
 
 function getAllowedSections(roles: UserRole[]): ActiveSection[] {
@@ -225,6 +226,14 @@ function AuthenticatedRoutes() {
               hasObrasAdminSectionsAccess(roles)
                 ? <MetricasObras />
                 : <Restricted message="Métricas disponíveis apenas para perfis de gestão de Obras." />
+            }
+          />
+          <Route
+            path="/meu-financeiro"
+            element={
+              roles.includes('Montador') || roles.includes('MontadorAdmin')
+                ? <MeuFinanceiro />
+                : <Restricted message="Disponível apenas para montadores." />
             }
           />
 

@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar } from 'lucide-react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
@@ -8,6 +8,13 @@ import { isAcceptedObraFile } from '@/lib/obra-arquivos'
 import { groupEvolucaoPorDia } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
+import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
+import {
+  formatObraHorarioRange,
+  getObraDiasTrabalhoLongLabels,
+  hasObraDiasHorarios,
+} from '@/lib/obra-dias-trabalho'
+import { fmtCur } from '@/lib/utils'
 import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
 import { fmtDate } from '@/lib/utils'
@@ -43,6 +50,11 @@ interface Props {
   onConcluir: (id: string) => void
   canDelete?: boolean
   onExcluir?: (obra: ObraFull) => void
+  canAplicarComissao?: boolean
+  applyingComissao?: boolean
+  onAplicarComissao?: (obraId: string) => void
+  prestadorId?: string | null
+  showAllComissao?: boolean
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -58,6 +70,8 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
 export function ObraDetalheModal({
   open, obra, canEdit, canUpload, isMontador, actioning,
   onClose, onEdit, onIniciar, onConcluir, canDelete = false, onExcluir,
+  canAplicarComissao = false, applyingComissao = false, onAplicarComissao,
+  prestadorId, showAllComissao = false,
 }: Props) {
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
@@ -124,6 +138,20 @@ export function ObraDetalheModal({
     obra.status_kanban !== 'cancelada' &&
     !obra.finalizado_em
 
+  const comissaoItens = getObraComissaoItensVisiveis(obra, {
+    prestadorId,
+    showAll: showAllComissao,
+  })
+  const comissaoTotal = sumObraComissao(comissaoItens)
+  const podeGerarComissao =
+    canAplicarComissao
+    && obra.comissao_habilitada
+    && !obra.comissao_gerada
+    && comissaoTotal > 0
+
+  const diasTrabalhoLabels = getObraDiasTrabalhoLongLabels(obra.dias_trabalho)
+  const horarioTrabalho = formatObraHorarioRange(obra.horario_inicio, obra.horario_fim)
+
   const duracaoHoras = () => {
     if (!obra.iniciado_em || !obra.finalizado_em) return null
     const h = (new Date(obra.finalizado_em).getTime() - new Date(obra.iniciado_em).getTime()) / 3_600_000
@@ -185,6 +213,46 @@ export function ObraDetalheModal({
           </div>
         )}
 
+        {/* ── DIAS E HORÁRIOS DE TRABALHO ───────────────────── */}
+        {hasObraDiasHorarios(obra) && (
+          <div
+            className="mb-5 rounded-lg p-4"
+            style={{ backgroundColor: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)' }}
+          >
+            <div className="flex items-center gap-1.5 mb-3">
+              <Calendar size={13} className="text-sky-400" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-sky-400">
+                Dias e Horários de Trabalho
+              </p>
+            </div>
+
+            {diasTrabalhoLabels.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55] mb-2">Dias</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {diasTrabalhoLabels.map(dia => (
+                    <span
+                      key={dia}
+                      className="rounded-full px-3 py-1 text-xs font-semibold text-sky-300 border border-sky-400/30"
+                      style={{ backgroundColor: 'rgba(59,130,246,0.12)' }}
+                    >
+                      {dia}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {horarioTrabalho && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Clock size={13} className="text-sky-400 shrink-0" />
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">Horário</p>
+                <p className="text-sm text-cream font-medium">{horarioTrabalho}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── LOUSA ──────────────────────────────────────────── */}
         {obra.lousa && (
           <div
@@ -236,6 +304,51 @@ export function ObraDetalheModal({
             </div>
           )}
         </div>
+
+        {obra.comissao_habilitada && comissaoItens.length > 0 && (
+          <div
+            className="mb-5 rounded-lg p-4"
+            style={{ backgroundColor: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.2)' }}
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <Banknote size={13} className="text-[#d4a853]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+                Comissão
+                {obra.comissao_gerada && (
+                  <span className="ml-2 text-emerald-400 normal-case">· Pagamentos gerados</span>
+                )}
+              </p>
+            </div>
+            <ul className="space-y-1 mb-2">
+              {comissaoItens.map(item => (
+                <li key={item.prestador_id} className="flex justify-between text-sm text-cream gap-3">
+                  <span className="truncate">{item.prestador_nome ?? 'Montador'}</span>
+                  <span className="font-mono text-[#d4a853] shrink-0">{fmtCur(item.valor)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-right text-sm font-semibold text-[#d4a853]">
+              Total: {fmtCur(comissaoTotal)}
+            </p>
+            {podeGerarComissao && onAplicarComissao && (
+              <button
+                type="button"
+                disabled={applyingComissao}
+                onClick={() => {
+                  if (!confirm('Gerar pagamentos de comissão em Contas a Pagar para os prestadores?')) return
+                  onAplicarComissao(obra.id)
+                }}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-[#d4a853]/15 text-[#d4a853] hover:bg-[#d4a853]/25 transition-colors disabled:opacity-50"
+              >
+                {applyingComissao
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Banknote size={14} />
+                }
+                Gerar pagamentos de comissão
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── AÇÕES INICIAR/CONCLUIR ─────────────────────────── */}
         {(isMontador || canEdit) && (

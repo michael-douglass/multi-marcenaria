@@ -26,3 +26,15 @@ export function canDeleteObras(roles: UserRole[]): boolean {
 export function canConfigObrasTiposGrupos(roles: UserRole[]): boolean {
   return canManageAllObras(roles)
 }
+
+export function canEditComissao(roles: UserRole[]): boolean {
+  return (
+    roles.includes('Administrador')
+    || roles.includes('AdministradorObras')
+    || roles.includes('Financeiro')
+  )
+}
+
+export function canAplicarComissao(roles: UserRole[]): boolean {
+  return canEditComissao(roles)
+}

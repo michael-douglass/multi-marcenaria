@@ -62,11 +62,11 @@ export function useCaixa(mes: number, ano: number) {
       const startOfMonth = `${ano}-${String(mes).padStart(2, '0')}-01`
       const endOfMonthStr = new Date(ano, mes, 0).toISOString().split('T')[0]
 
-      // Só contas já marcadas como pagas entram no caixa (revertidas voltam só em Contas a Pagar)
+      // Dívida operacional do mês: pendentes (comissão gerada) + pagas
       const { data: contasPagar } = await supabase
         .from('movelaria_contas_pagar')
-        .select('fornecedor_nome, valor_parcela, data_vencimento')
-        .eq('status', 'pago')
+        .select('fornecedor_nome, valor_parcela, data_vencimento, status, prestador_id')
+        .in('status', ['pendente', 'pago'])
         .gte('data_vencimento', startOfMonth)
         .lte('data_vencimento', endOfMonthStr)
 
@@ -87,7 +87,7 @@ export function useCaixa(mes: number, ano: number) {
       const consolidado: ReservaConsolidada[] = (dests ?? []).map(d => {
         const saldo = saldos?.find(s => s.destinatario_id === d.id)
         const oper = operationalMap.get(d.nome.toLowerCase().trim())
-        
+
         return {
           destinatario_id: d.id,
           destinatario_nome: d.nome,
@@ -99,9 +99,27 @@ export function useCaixa(mes: number, ano: number) {
           totalLancamentosMes: oper?.count || 0,
           totalItensConcluidosMes: 0,
           mes_referencia: mes,
-          ano_referencia: ano
+          ano_referencia: ano,
         }
       })
+
+      // Linhas virtuais: dívida operacional sem destinatário cadastrado ainda
+      for (const [nomeKey, oper] of operationalMap) {
+        if (consolidado.some(c => c.destinatario_nome.toLowerCase().trim() === nomeKey)) continue
+        consolidado.push({
+          destinatario_id: '',
+          destinatario_nome: nomeKey,
+          tipo_destinatario: 'marceneiro',
+          data_vencimento: oper.vencimento,
+          valor_total_real: oper.total,
+          valor_em_reserva: 0,
+          total_pago: 0,
+          totalLancamentosMes: oper.count,
+          totalItensConcluidosMes: 0,
+          mes_referencia: mes,
+          ano_referencia: ano,
+        })
+      }
 
       setDestinatarios(dests ?? [])
       setMovimentacoes((movs as any) ?? [])

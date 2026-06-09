@@ -1,4 +1,5 @@
 import { useMetricasObras } from '../hooks/useMetricasObras'
+import { fmtCur } from '../lib/utils'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
 import {
   KanbanPageZoomControls,
@@ -31,6 +32,7 @@ function MetricasObrasContent() {
   const totalObras = data.reduce((acc, m) => acc + Number(m.total_obras), 0)
   const totalConcluidas = data.reduce((acc, m) => acc + Number(m.obras_concluidas), 0)
   const totalAtraso = data.reduce((acc, m) => acc + Number(m.obras_em_atraso), 0)
+  const totalComissoes = data.reduce((acc, m) => acc + Number(m.total_comissoes ?? 0), 0)
 
   return (
     <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
@@ -63,11 +65,12 @@ function MetricasObrasContent() {
         >
           <>
           {/* Resumo geral */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             {[
               { label: 'Total de Obras', value: totalObras, color: '#d4a853' },
               { label: 'Obras Concluídas', value: `${totalConcluidas} (${pct(totalConcluidas, totalObras)})`, color: '#10b981' },
               { label: 'Concluídas em Atraso', value: `${totalAtraso}`, color: '#ef4444' },
+              { label: 'Comissões Geradas', value: fmtCur(totalComissoes), color: '#d4a853' },
             ].map(({ label, value, color }) => (
               <div key={label} className="glass-card p-4 text-center">
                 <p className="text-xs uppercase tracking-wider text-[#8a6a55] mb-1">{label}</p>
@@ -84,7 +87,7 @@ function MetricasObrasContent() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(212,168,83,0.12)]">
-                    {['Tipo de Obra', 'Total', 'Concluídas', 'Em Atraso', 'Tempo Médio Real', 'Prazo Máx. Padrão', '% Conclusão'].map(h => (
+                    {['Tipo de Obra', 'Total', 'Concluídas', 'Em Atraso', 'Comissões', 'Tempo Médio Real', 'Prazo Máx. Padrão', '% Conclusão'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">{h}</th>
                     ))}
                   </tr>
@@ -110,6 +113,7 @@ function MetricasObrasContent() {
                             : <span className="text-[#8a6a55]">0</span>
                           }
                         </td>
+                        <td className="px-4 py-3 font-mono text-[#d4a853]">{fmtCur(Number(m.total_comissoes ?? 0))}</td>
                         <td className="px-4 py-3 text-cream font-mono">{fmtH(m.tempo_medio_real_horas)}</td>
                         <td className="px-4 py-3 text-[#8a6a55] font-mono">{fmtH(m.tempo_maximo_horas_default)}</td>
                         <td className="px-4 py-3">

@@ -26,6 +26,7 @@ export type ActiveSection =
   | 'agendaObras'
   | 'calendarioObras'
   | 'metricasObras'
+  | 'meuFinanceiro'
   | 'configuracoes'
 
 // ── Fornecedor ──────────────────────────────────────────────
@@ -364,6 +365,12 @@ export interface UsuarioMontador {
   ativo: boolean
 }
 
+export interface ObraComissaoItem {
+  prestador_id: string
+  prestador_nome?: string
+  valor: number
+}
+
 export interface ObraFull {
   id: string
   origem_orcamento_id?: string | null
@@ -391,6 +398,15 @@ export interface ObraFull {
   finalizado_em?: string | null
   concluido_em_atraso?: boolean | null
   pedido_material_feito?: boolean
+  dias_trabalho?: number[] | null
+  horario_inicio?: string | null
+  horario_fim?: string | null
+  comissao_habilitada?: boolean
+  comissao_total?: number
+  comissao_gerada?: boolean
+  comissao_prestador_ids?: string[]
+  comissao_prestador_nomes?: string[]
+  comissao_valores?: number[]
   criado_em?: string
   atualizado_em?: string
 }
@@ -411,6 +427,35 @@ export interface ObraInput {
   tempo_maximo_horas?: number | null
   status_kanban?: StatusKanbanObra
   pedido_material_feito?: boolean
+  dias_trabalho?: number[] | null
+  horario_inicio?: string | null
+  horario_fim?: string | null
+  comissao_habilitada?: boolean
+  comissao_itens?: ObraComissaoItem[]
+}
+
+export interface MetricaObra {
+  tipo_obra_id: string
+  tipo_obra_nome: string
+  total_obras: number
+  obras_concluidas: number
+  tempo_medio_real_horas: number | null
+  tempo_maximo_horas_default: number | null
+  obras_em_atraso: number
+  total_comissoes: number
+}
+
+export type PrestadorFinanceiroTipo = 'previsto' | 'pagamento'
+
+export interface PrestadorFinanceiroItem {
+  tipo: PrestadorFinanceiroTipo
+  obra_id?: string | null
+  conta_pagar_id?: string | null
+  cliente_nome: string
+  descricao?: string | null
+  valor: number
+  status: string
+  data_referencia?: string | null
 }
 
 // ── Financeiro Dashboard ────────────────────────────────────

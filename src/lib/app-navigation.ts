@@ -185,6 +185,14 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     children: OBRAS_CHILDREN,
   },
   {
+    id: 'meuFinanceiro',
+    title: 'Meu Financeiro',
+    url: '/meu-financeiro',
+    icon: Wallet,
+    radialColor: 'rgba(212,168,83,0.92)',
+    roles: ['Montador', 'MontadorAdmin'],
+  },
+  {
     id: 'biblioteca',
     title: 'Biblioteca',
     url: '/biblioteca',
@@ -268,6 +276,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',
     '/metricas-obras': 'metricasObras',
+    '/meu-financeiro': 'meuFinanceiro',
     '/configuracoes': 'configuracoes',
   }
   return map[pathname] ?? 'dashboard'

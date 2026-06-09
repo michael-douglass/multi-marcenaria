@@ -1,11 +1,14 @@
 import { useRef } from 'react'
-import { Upload, X, FileText, Image } from 'lucide-react'
+import { Upload, X, FileText, Image, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
 import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
+import { ObraComissaoField } from '@/components/obras/ObraComissaoField'
 import { isAcceptedObraFile } from '@/lib/obra-arquivos'
-import type { ObraFull, ObraInput, StatusKanbanObra } from '@/types'
+import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '@/types'
+
+const WEEKDAYS_FORM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 const COLUNAS: { key: StatusKanbanObra; label: string }[] = [
   { key: 'datas_em_aberto', label: 'Datas em Aberto' },
@@ -25,7 +28,7 @@ interface ObraFormModalProps {
   open: boolean
   obra: ObraFull | null
   form: ObraInput
-  onChange: (k: keyof ObraInput, v: string | null | number | string[] | boolean) => void
+  onChange: (k: keyof ObraInput, v: string | null | number | string[] | boolean | ObraComissaoItem[]) => void
   onClose: () => void
   onSave: () => void
   saving: boolean
@@ -35,6 +38,7 @@ interface ObraFormModalProps {
   canEditDates: boolean
   canEditMontador: boolean
   isAdmin: boolean
+  canEditComissao?: boolean
   // arquivos pendentes (só em criação)
   pendingFiles: PendingFile[]
   onAddFiles: (files: File[]) => void
@@ -46,7 +50,7 @@ interface ObraFormModalProps {
 
 export function ObraFormModal({
   open, obra, form, onChange, onClose, onSave, saving,
-  tipos, grupos, montadores, canEditDates, canEditMontador, isAdmin,
+  tipos, grupos, montadores, canEditDates, canEditMontador, isAdmin, canEditComissao = false,
   pendingFiles, onAddFiles, onRemoveFile,
   isDraftRestored, onClearDraft,
 }: ObraFormModalProps) {
@@ -152,6 +156,58 @@ export function ObraFormModal({
               placeholder="Ex: 48"
             />
           </Field>
+
+          {/* ── Dias e Horários de Trabalho ─────────────────── */}
+          <Field label="Dias de Trabalho">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {WEEKDAYS_FORM.map((wd, idx) => {
+                  const dias  = form.dias_trabalho ?? []
+                  const ativo = dias.includes(idx)
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        const next = ativo
+                          ? dias.filter(d => d !== idx)
+                          : [...dias, idx].sort((a, b) => a - b)
+                        onChange('dias_trabalho', next.length > 0 ? next : null)
+                      }}
+                      className={[
+                        'rounded-full px-3 py-1 text-xs font-bold transition-all',
+                        ativo
+                          ? 'bg-[#d4a853]/20 text-[#d4a853] border border-[#d4a853]/50'
+                          : 'bg-[rgba(212,168,83,0.04)] text-[#6b5544] border border-[rgba(212,168,83,0.1)]',
+                      ].join(' ')}
+                    >
+                      {wd}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {(form.dias_trabalho ?? []).length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Clock size={13} className="text-[#d4a853] shrink-0" />
+                  <span className="text-[0.72rem] text-[#8a6a55] shrink-0">Horário:</span>
+                  <input
+                    type="time"
+                    className="glass-input !py-1 !px-2 w-[100px] text-xs"
+                    value={form.horario_inicio ?? ''}
+                    onChange={e => onChange('horario_inicio', e.target.value || null)}
+                  />
+                  <span className="text-[#8a6a55] text-xs">→</span>
+                  <input
+                    type="time"
+                    className="glass-input !py-1 !px-2 w-[100px] text-xs"
+                    value={form.horario_fim ?? ''}
+                    onChange={e => onChange('horario_fim', e.target.value || null)}
+                  />
+                </div>
+              )}
+            </div>
+          </Field>
         </>
       )}
 
@@ -161,6 +217,19 @@ export function ObraFormModal({
             {COLUNAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
         </Field>
+      )}
+
+      {canEditComissao && (
+        <ObraComissaoField
+          obra={obra}
+          habilitada={form.comissao_habilitada ?? false}
+          itens={form.comissao_itens ?? []}
+          montadorIds={form.montador_ids ?? []}
+          montadores={montadores}
+          locked={!!obra?.comissao_gerada}
+          onHabilitadaChange={v => onChange('comissao_habilitada', v)}
+          onItensChange={itens => onChange('comissao_itens', itens)}
+        />
       )}
 
       <Field label="Pedido de Material">
