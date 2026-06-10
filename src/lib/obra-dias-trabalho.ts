@@ -42,3 +42,43 @@ export function formatObraHorarioRange(
   if (f) return `até ${f}`
   return null
 }
+
+function dayOfWeekFromIso(iso: string): number {
+  return new Date(`${iso}T12:00:00`).getDay()
+}
+
+/** Verifica se a obra está ativa em um dia (intervalo de datas + dias da semana). */
+export function obraAtivaNoDia(
+  obra: Pick<ObraFull, 'data_prevista_inicio' | 'data_prevista_fim' | 'dias_trabalho'>,
+  iso: string,
+  diasPadraoAtivos: number[],
+): boolean {
+  if (!obra.data_prevista_inicio || !obra.data_prevista_fim) return false
+  if (iso < obra.data_prevista_inicio || iso > obra.data_prevista_fim) return false
+
+  const dow = dayOfWeekFromIso(iso)
+
+  if (obra.dias_trabalho && obra.dias_trabalho.length > 0) {
+    return obra.dias_trabalho.includes(dow)
+  }
+
+  return diasPadraoAtivos.includes(dow)
+}
+
+/** Obras visíveis em um dia do calendário, respeitando dias_trabalho de cada obra. */
+export function obrasParaDiaCalendario(
+  obras: ObraFull[],
+  iso: string,
+  diasPadraoAtivos: number[],
+): ObraFull[] {
+  return obras.filter(o => obraAtivaNoDia(o, iso, diasPadraoAtivos))
+}
+
+/** Dia ativo no calendário: config global ou pelo menos uma obra naquele dia. */
+export function isDiaAtivoNoCalendario(
+  dow: number,
+  diasPadraoAtivos: number[],
+  obrasNoDia: ObraFull[],
+): boolean {
+  return diasPadraoAtivos.includes(dow) || obrasNoDia.length > 0
+}

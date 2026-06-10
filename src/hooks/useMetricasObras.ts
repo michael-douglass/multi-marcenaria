@@ -1,11 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { MetricaObra } from '../types'
+import type { MetricaObra, MetricaObraDetalhe, MetricasObrasResumo } from '../types'
 import { useAuthReady } from './useAuthReady'
 
-export function useMetricasObras() {
+const RESUMO_VAZIO: MetricasObrasResumo = {
+  comissao_a_pagar_mes: 0,
+  comissao_em_aberto: 0,
+  comissoes_geradas_mes: 0,
+  obras_concluidas_mes: 0,
+  obras_abertas_comissao: 0,
+  mes_referencia: new Date().getMonth() + 1,
+  ano_referencia: new Date().getFullYear(),
+}
+
+export interface MetricasPeriodo {
+  mes: number
+  ano: number
+}
+
+export function useMetricasObras(periodo: MetricasPeriodo) {
   const { isReady } = useAuthReady()
   const [data, setData] = useState<MetricaObra[]>([])
+  const [resumo, setResumo] = useState<MetricasObrasResumo>(RESUMO_VAZIO)
+  const [porObra, setPorObra] = useState<MetricaObraDetalhe[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -13,18 +30,42 @@ export function useMetricasObras() {
     if (!isReady) return
     setLoading(true)
     setError(null)
+
+    const { mes, ano } = periodo
+
     try {
-      const { data: rows, error: err } = await supabase.rpc('movelaria_metricas_obras')
-      if (err) throw err
-      setData((rows ?? []) as MetricaObra[])
+      const [tiposRes, resumoRes, obrasRes] = await Promise.all([
+        supabase.rpc('movelaria_metricas_obras', { p_mes: mes, p_ano: ano }),
+        supabase.rpc('movelaria_metricas_obras_resumo', { p_mes: mes, p_ano: ano }),
+        supabase.rpc('movelaria_metricas_obras_por_obra', { p_mes: mes, p_ano: ano }),
+      ])
+
+      if (tiposRes.error) throw tiposRes.error
+      if (resumoRes.error) throw resumoRes.error
+      if (obrasRes.error) throw obrasRes.error
+
+      setData((tiposRes.data ?? []) as MetricaObra[])
+
+      const row = (resumoRes.data as MetricasObrasResumo[] | null)?.[0]
+      setResumo(row ? {
+        comissao_a_pagar_mes: Number(row.comissao_a_pagar_mes ?? 0),
+        comissao_em_aberto: Number(row.comissao_em_aberto ?? 0),
+        comissoes_geradas_mes: Number(row.comissoes_geradas_mes ?? 0),
+        obras_concluidas_mes: Number(row.obras_concluidas_mes ?? 0),
+        obras_abertas_comissao: Number(row.obras_abertas_comissao ?? 0),
+        mes_referencia: Number(row.mes_referencia ?? mes),
+        ano_referencia: Number(row.ano_referencia ?? ano),
+      } : { ...RESUMO_VAZIO, mes_referencia: mes, ano_referencia: ano })
+
+      setPorObra((obrasRes.data ?? []) as MetricaObraDetalhe[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar métricas.')
     } finally {
       setLoading(false)
     }
-  }, [isReady])
+  }, [isReady, periodo.mes, periodo.ano])
 
   useEffect(() => { void load() }, [load])
 
-  return { data, loading, error, reload: load }
+  return { data, resumo, porObra, loading, error, reload: load }
 }

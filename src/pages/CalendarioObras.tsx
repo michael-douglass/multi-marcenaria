@@ -17,6 +17,7 @@ import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterial
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
+import { isDiaAtivoNoCalendario, obrasParaDiaCalendario } from '../lib/obra-dias-trabalho'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
 import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '../types'
@@ -114,14 +115,6 @@ function getInitialView(forceDay = false): CalView {
   if (forceDay || isMobileCalendario()) return 'day'
   return 'week'
 }
-function obrasForDay(obras: ObraFull[], iso: string): ObraFull[] {
-  return obras.filter(o =>
-    o.data_prevista_inicio !== null &&
-    o.data_prevista_fim    !== null &&
-    iso >= o.data_prevista_inicio &&
-    iso <= o.data_prevista_fim
-  )
-}
 
 function hasFiltrosAtivos(busca: string, etapa: StatusKanbanObra | '', data: string): boolean {
   return Boolean(busca.trim() || etapa || data)
@@ -141,18 +134,7 @@ const DEFAULT_DIAS_CONFIG: ConfigDiasTrabalho = {
 }
 
 function obrasForDayUtil(obras: ObraFull[], iso: string, config: ConfigDiasTrabalho): ObraFull[] {
-  const d = new Date(`${iso}T12:00:00`)
-  const dow = d.getDay()
-  if (!config.diasAtivos.includes(dow)) return []
-  return obras.filter(o => {
-    if (!o.data_prevista_inicio || !o.data_prevista_fim) return false
-    if (iso < o.data_prevista_inicio || iso > o.data_prevista_fim) return false
-    // se a obra tiver dias_trabalho definidos, respeita eles
-    if (o.dias_trabalho && o.dias_trabalho.length > 0) {
-      return o.dias_trabalho.includes(dow)
-    }
-    return true
-  })
+  return obrasParaDiaCalendario(obras, iso, config.diasAtivos)
 }
 
 // ── Painel de configuração de dias/horários ──────────────────
@@ -484,7 +466,7 @@ function CalendarioObrasContent() {
   }
 
   const dayViewObras   = obrasForDayUtil(obrasFiltradas, toISO(viewDate), configDias)
-  const dayIsDiaUtil   = configDias.diasAtivos.includes(viewDate.getDay())
+  const dayIsDiaUtil   = isDiaAtivoNoCalendario(viewDate.getDay(), configDias.diasAtivos, dayViewObras)
   const horarioDiaAtual = configDias.horarios[viewDate.getDay()]
 
   const limparFiltros = () => {
@@ -919,8 +901,8 @@ function CalendarioObrasContent() {
                   const iso          = toISO(day)
                   const isToday      = iso === todayISO
                   const isDataFiltro = dataFiltro === iso
-                  const isDiaUtil    = configDias.diasAtivos.includes(day.getDay())
                   const dayObras     = obrasForDayUtil(obrasFiltradas, iso, configDias)
+                  const isDiaUtil    = isDiaAtivoNoCalendario(day.getDay(), configDias.diasAtivos, dayObras)
                   const hasObras     = dayObras.length > 0
                   const horarioSem   = isDiaUtil ? configDias.horarios[day.getDay()] : undefined
 
@@ -1017,8 +999,8 @@ function CalendarioObrasContent() {
                     const isToday      = iso === todayISO
                     const isDataFiltro = dataFiltro === iso
                     const isThisMonth  = day.getMonth() === viewDate.getMonth()
-                    const isDiaUtil    = configDias.diasAtivos.includes(day.getDay())
                     const dayObras     = obrasForDayUtil(obrasFiltradas, iso, configDias)
+                    const isDiaUtil    = isDiaAtivoNoCalendario(day.getDay(), configDias.diasAtivos, dayObras)
                     const hasObras     = dayObras.length > 0
 
                     return (
@@ -1095,7 +1077,7 @@ function CalendarioObrasContent() {
       {selectedDay && !detalheObra && !editObra && (
         <DayPopup
           date={selectedDay}
-          obras={obrasForDay(obrasFiltradas, toISO(selectedDay))}
+          obras={obrasForDayUtil(obrasFiltradas, toISO(selectedDay), configDias)}
           onClose={() => setSelectedDay(null)}
           onObraClick={o => { setSelectedDay(null); setDetalheObra(o) }}
           onConcluir={handleConcluir}

@@ -440,9 +440,34 @@ export interface MetricaObra {
   total_obras: number
   obras_concluidas: number
   tempo_medio_real_horas: number | null
+  tempo_total_real_horas: number | null
   tempo_maximo_horas_default: number | null
   obras_em_atraso: number
   total_comissoes: number
+}
+
+export interface MetricasObrasResumo {
+  comissao_a_pagar_mes: number
+  comissao_em_aberto: number
+  comissoes_geradas_mes: number
+  obras_concluidas_mes: number
+  obras_abertas_comissao: number
+  mes_referencia: number
+  ano_referencia: number
+}
+
+export interface MetricaObraDetalhe {
+  obra_id: string
+  cliente_nome: string
+  tipo_obra_nome: string | null
+  status_kanban: string
+  iniciado_em: string | null
+  finalizado_em: string | null
+  duracao_horas: number | null
+  duracao_em_andamento: boolean
+  mes_referencia: string | null
+  comissao_habilitada: boolean
+  comissao_valor: number
 }
 
 export type PrestadorFinanceiroTipo = 'previsto' | 'pagamento'
