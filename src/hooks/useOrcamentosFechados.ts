@@ -332,13 +332,33 @@ export function useOrcamentosFechados() {
     await load()
   }
 
-  const removerLead = async (leadId: string): Promise<void> => {
+  const marcarLeadsExcluidos = async (leadIds: string[]): Promise<void> => {
+    const unique = [...new Set(leadIds.map(id => id?.trim()).filter(Boolean))]
+    if (!unique.length) return
+
     const { error: err } = await supabase
       .from('movelaria_leads_ganhos_excluidos')
-      .upsert({ lead_id: leadId })
+      .upsert(
+        unique.map(lead_id => ({ lead_id })),
+        { onConflict: 'lead_id' },
+      )
     if (err) throw new Error(err.message)
+  }
+
+  const removerLead = async (leadId: string): Promise<void> => {
+    await marcarLeadsExcluidos([leadId])
     setLeads(prev => prev.filter(l => l.id !== leadId))
   }
 
-  return { leads, fechados, loading, error, darEntrada, carregarHistoricoCliente, removerLead, reload: load }
+  return {
+    leads,
+    fechados,
+    loading,
+    error,
+    darEntrada,
+    carregarHistoricoCliente,
+    removerLead,
+    marcarLeadsExcluidos,
+    reload: load,
+  }
 }

@@ -244,14 +244,50 @@ export function useContasReceber() {
     })
   }
 
+  const marcarLeadsExcluidos = async (leadIds: string[]) => {
+    const unique = [...new Set(leadIds.map(lid => lid?.trim()).filter(Boolean))]
+    if (!unique.length) return
+
+    const { error: err } = await supabase
+      .from('movelaria_leads_ganhos_excluidos')
+      .upsert(
+        unique.map(lead_id => ({ lead_id })),
+        { onConflict: 'lead_id' },
+      )
+    if (err) throw new Error(err.message)
+  }
+
+  const coletarLeadIdsOrcamento = async (conta: ContaReceber): Promise<string[]> => {
+    const ids = new Set<string>()
+    if (conta.origem_lead_id) ids.add(conta.origem_lead_id)
+
+    let query = supabase
+      .from('movelaria_orcamentos_fechados')
+      .select('lead_id')
+      .eq('cliente_nome', conta.cliente_nome ?? '')
+
+    if (typeof conta.valor_total === 'number') {
+      query = query.eq('valor_total', conta.valor_total)
+    }
+
+    const { data: orcs, error } = await query
+    if (error) throw new Error(error.message)
+    for (const row of orcs ?? []) {
+      if (row.lead_id) ids.add(row.lead_id)
+    }
+    return [...ids]
+  }
+
   const removerTransacao = async (id: string) => {
     const conta = data.find(x => x.id === id)
     if (!conta) return
 
-    let leadIdRelacionado = conta.origem_lead_id ?? null
-    let grupoIdManual = (conta as any).grupo_id ?? null
+    const leadIdRelacionado = conta.origem_lead_id ?? null
+    const grupoIdManual = (conta as any).grupo_id ?? null
 
     if (conta.origem_tipo === 'orcamento_fechado' || !!leadIdRelacionado) {
+      const leadIdsExcluir = await coletarLeadIdsOrcamento(conta)
+
       if (leadIdRelacionado) {
         const { error: delParcelasPorLeadErr } = await supabase
           .from('movelaria_contas_receber')
@@ -292,6 +328,8 @@ export function useContasReceber() {
         const { error: delOrcamentoFallbackErr } = await delOrcamentoFallback
         if (delOrcamentoFallbackErr) throw new Error(delOrcamentoFallbackErr.message)
       }
+
+      await marcarLeadsExcluidos(leadIdsExcluir)
 
       setData(prev =>
         prev.filter(item => {

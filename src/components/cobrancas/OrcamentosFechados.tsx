@@ -91,6 +91,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const [previewForm, setPreviewForm] = useState({ nome: '', telefone: '', email: '', valor: '', observacoes: '' })
   const [confirmandoExclusao, setConfirmandoExclusao] = useState<string | null>(null)
   const [excluindo, setExcluindo] = useState(false)
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
 
   const val = parseFloat(form.valor) || 0
   const entradaVal = form.temEntrada ? (parseFloat(form.valorEntrada) || 0) : 0
@@ -356,7 +357,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
               <button
                 type="button"
                 title="Excluir card"
-                onClick={() => setConfirmandoExclusao(lead.id)}
+                onClick={() => { setConfirmandoExclusao(lead.id); setErroExclusao(null) }}
                 style={{
                   position: 'absolute', top: '.6rem', right: '.6rem',
                   padding: '.25rem .4rem', borderRadius: 6,
@@ -488,6 +489,11 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 <p style={{ fontSize: '.72rem', color: '#f87171', margin: 0, textAlign: 'center' }}>
                   Excluir este card permanentemente?
                 </p>
+                {erroExclusao && (
+                  <p style={{ fontSize: '.68rem', color: '#f87171', margin: 0, textAlign: 'center' }}>
+                    {erroExclusao}
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: '.4rem' }}>
                   <button
                     type="button"
@@ -507,11 +513,14 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     disabled={excluindo}
                     onClick={async () => {
                       setExcluindo(true)
+                      setErroExclusao(null)
                       try {
                         await onRemoverLead(lead.id)
+                        setConfirmandoExclusao(null)
+                      } catch (err) {
+                        setErroExclusao(err instanceof Error ? err.message : 'Não foi possível excluir este card.')
                       } finally {
                         setExcluindo(false)
-                        setConfirmandoExclusao(null)
                       }
                     }}
                     style={{

@@ -480,12 +480,18 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   }
 
   const excluirTransacao = async (conta: ContaReceber) => {
-    const ok = window.confirm(`Apagar a transação ${conta.numero_parcela}/${conta.total_parcelas} de ${conta.cliente_nome}?`)
+    const veioDeLead = conta.origem_tipo === 'orcamento_fechado' || !!conta.origem_lead_id
+    const msg = veioDeLead
+      ? `Apagar todas as parcelas de ${conta.cliente_nome}?\n\nA cobrança será removida e o card não voltará para "Orçamentos Fechados".`
+      : `Apagar a transação ${conta.numero_parcela}/${conta.total_parcelas} de ${conta.cliente_nome}?`
+    const ok = window.confirm(msg)
     if (!ok) return
-    await removerTransacao(conta.id)
-    // Recarrega orçamentos para refletir retorno ao card de "aguardando lançamento"
-    // e recalcular KPIs dependentes de orçamentos fechados.
-    await orcamentos.reload()
+    try {
+      await removerTransacao(conta.id)
+      await orcamentos.reload()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao apagar cobrança.')
+    }
   }
 
   const verHistorico = async (conta: ContaReceber) => {
