@@ -33,6 +33,10 @@ import {
   sortContasPagarSemDatas,
   type PeriodFilter,
 } from '../components/ui/PeriodFilterBar'
+import {
+  getValorPagoConta,
+  somarPagamentosNoPeriodo,
+} from '../lib/contas-pagar-valores'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 
 // ── Componente de seleção de fornecedor com busca ─────────────
@@ -166,6 +170,7 @@ function editFormFromConta(conta: ContaPagar): EditContaForm {
 const getStatus = (vencimento: string, status: string): string => {
   if (status === 'pago') return 'pago'
   if (isOverdue(vencimento)) return 'vencido'
+  if (status === 'parcialmente_pago') return 'parcialmente_pago'
   return 'pendente'
 }
 
@@ -250,15 +255,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   interface PagarModalState {
     open: boolean
     conta: ContaPagar | null
-    formaPagamentoId: string        // UUID normal ou FORMA_CAIXA
-    valorCaixa: string              // quanto retirar do caixa (só quando FORMA_CAIXA)
+    valorPagarAgora: string          // quanto pagar nesta operação
+    formaPagamentoId: string         // UUID normal ou FORMA_CAIXA
+    valorCaixa: string               // quanto retirar do caixa (só quando FORMA_CAIXA)
     formaPagamentoRestanteId: string // forma para o restante (só quando parcial)
     saving: boolean
     erro: string | null
   }
   const [pagarModal, setPagarModal] = useState<PagarModalState>({
-    open: false, conta: null, formaPagamentoId: '',
-    valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
+    open: false, conta: null, valorPagarAgora: '',
+    formaPagamentoId: '', valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
   })
   const [revertingId, setRevertingId] = useState<string | null>(null)
 
@@ -350,10 +356,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }, [form, open, persistDraft])
 
   const periodBase = applyPeriodFilter(data, periodFilter)
-  const periodFiltered =
-    periodFilter.mode === 'next-month'
-      ? periodBase.filter(p => p.status !== 'pago')
-      : periodBase
+  const ocultarPagasProximoMes =
+    periodFilter.mode === 'next-month' && isDefaultView && filter !== 'Pago'
+  const periodFiltered = ocultarPagasProximoMes
+    ? periodBase.filter(p => p.status !== 'pago')
+    : periodBase
 
   const filtered = (() => {
     const base = periodFiltered.filter(p => {
@@ -362,7 +369,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         if (getStatus(p.data_vencimento, p.status) === 'pago') return false
       } else if (filter !== 'Todos') {
         const s = getStatus(p.data_vencimento, p.status)
-        if (s !== filter.toLowerCase()) return false
+        if (filter === 'Pendente') {
+          if (s !== 'pendente' && s !== 'parcialmente_pago') return false
+        } else if (s !== filter.toLowerCase()) {
+          return false
+        }
       }
 
       // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
@@ -405,9 +416,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     ? filtered
     : applyPeriodFilter(data, { mode: 'month' })
 
-  const totPend = kpiBase.filter(p => p.status !== 'pago').reduce((s, p) => s + p.valor_parcela, 0)
-  const totPaid = kpiBase.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor_parcela, 0)
-  const totOver = kpiBase.filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento)).reduce((s, p) => s + p.valor_parcela, 0)
+  const kpiPeriodoPagamento: PeriodFilter =
+    !isDefaultView || search.trim() ? periodFilter : { mode: 'month' }
+
+  const totPend = kpiBase
+    .filter(p => p.status !== 'pago')
+    .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
+  const totPaid = somarPagamentosNoPeriodo(data, kpiPeriodoPagamento)
+  const totOver = kpiBase
+    .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
+    .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
 
   const save = async () => {
     const tot = parseMoneyBr(form.total)
@@ -534,13 +552,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const handleMarcarPago = (conta: ContaPagar) => {
+    const restanteDevido = parseFloat(Math.max(0, conta.valor_parcela - (conta.valor_pago ?? 0)).toFixed(2))
     setPagarModal({
       open: true,
       conta,
+      valorPagarAgora: String(restanteDevido),
       formaPagamentoId: defaultFormaId,
       valorCaixa: parseFloat(Math.min(
         conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0,
-        conta.valor_parcela,
+        restanteDevido,
       ).toFixed(2)).toString(),
       formaPagamentoRestanteId: defaultFormaId,
       saving: false,
@@ -549,21 +569,29 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const confirmarPagamento = async () => {
-    const { conta, formaPagamentoId, valorCaixa, formaPagamentoRestanteId } = pagarModal
+    const { conta, valorPagarAgora, formaPagamentoId, valorCaixa, formaPagamentoRestanteId } = pagarModal
     if (!conta) return
+    const valorPagarAgoraNum = parseMoneyBr(valorPagarAgora) || 0
+    const restanteDevido = parseFloat(Math.max(0, conta.valor_parcela - (conta.valor_pago ?? 0)).toFixed(2))
     const usarCaixa = formaPagamentoId === FORMA_CAIXA
     const valorCaixaNum = usarCaixa ? (parseMoneyBr(valorCaixa) || 0) : 0
     const saldo = conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0
-    const restante = parseFloat(Math.max(0, conta.valor_parcela - valorCaixaNum).toFixed(2))
+    const restanteForma = parseFloat(Math.max(0, valorPagarAgoraNum - valorCaixaNum).toFixed(2))
 
+    if (valorPagarAgoraNum <= 0) {
+      setPagarModal(p => ({ ...p, erro: 'Informe o valor a pagar.' })); return
+    }
+    if (valorPagarAgoraNum > restanteDevido + 0.005) {
+      setPagarModal(p => ({ ...p, erro: `Valor superior ao restante (${fmtCur(restanteDevido)}).` })); return
+    }
     if (!formaPagamentoId) {
       setPagarModal(p => ({ ...p, erro: 'Selecione a forma de pagamento.' })); return
     }
     if (usarCaixa) {
       if (valorCaixaNum <= 0) { setPagarModal(p => ({ ...p, erro: 'Informe o valor a retirar do caixa.' })); return }
       if (valorCaixaNum > saldo) { setPagarModal(p => ({ ...p, erro: 'Valor superior ao saldo disponível.' })); return }
-      if (valorCaixaNum > conta.valor_parcela) { setPagarModal(p => ({ ...p, erro: 'Valor superior ao da parcela.' })); return }
-      if (restante > 0.005 && !formaPagamentoRestanteId) {
+      if (valorCaixaNum > valorPagarAgoraNum) { setPagarModal(p => ({ ...p, erro: 'Valor do caixa superior ao valor a pagar.' })); return }
+      if (restanteForma > 0.005 && !formaPagamentoRestanteId) {
         setPagarModal(p => ({ ...p, erro: 'Selecione a forma de pagamento para o valor restante.' })); return
       }
     }
@@ -578,7 +606,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           `Abatimento parcela ${conta.numero_parcela}/${conta.total_parcelas}`,
         )
       }
-      await marcarPago(conta.id)
+      await marcarPago(conta.id, valorPagarAgoraNum)
+      setFilter('Pago')
+      setIsDefaultView(false)
       setPagarModal(p => ({ ...p, open: false, conta: null, saving: false }))
     } catch (e) {
       setPagarModal(p => ({ ...p, erro: e instanceof Error ? e.message : 'Erro ao processar pagamento.', saving: false }))
@@ -586,9 +616,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const handleReverterPagamento = async (conta: ContaPagar) => {
+    const isParcial = conta.status === 'parcialmente_pago'
+    const valorMostrar = isParcial ? (conta.valor_pago ?? 0) : conta.valor_parcela
     const ok = confirm(
-      `Reverter o pagamento de ${fmtCur(conta.valor_parcela)} (${conta.fornecedor_nome ?? conta.descricao ?? 'esta parcela'})?\n\n` +
-        'Somente esta parcela volta para "A pagar". A reserva no caixa referente a ela é removida.\n\n' +
+      `Reverter ${isParcial ? 'o pagamento parcial' : 'o pagamento'} de ${fmtCur(valorMostrar)} (${conta.fornecedor_nome ?? conta.descricao ?? 'esta parcela'})?\n\n` +
+        `Esta parcela volta para "A pagar"${isParcial ? ' e o valor pago é zerado' : ''}. A reserva no caixa referente a ela é removida.\n\n` +
         'Pagamentos já registrados manualmente no Caixa (valor consolidado do mês) não são alterados automaticamente.',
     )
     if (!ok) return
@@ -968,7 +1000,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
-                {['Fornecedor', 'Pagamento', 'Parcela', 'Valor', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
+                {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
               </tr></thead>
               <tbody>
                 {filtered.map(p => {
@@ -1006,6 +1038,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       </td>
                       <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{p.numero_parcela}/{p.total_parcelas}</td>
                       <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 600 }}>{fmtCur(p.valor_parcela)}</td>
+                      <td className="px-4 py-3" style={{ color: getValorPagoConta(p) > 0 ? '#4ade80' : '#4a5568', fontWeight: 600 }}>{fmtCur(getValorPagoConta(p))}</td>
+                      <td className="px-4 py-3" style={{ color: p.status === 'pago' ? '#4ade80' : '#f4e4d6', fontWeight: 600 }}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
                       <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#8a6a55', fontSize: '.85rem' }}>{fmtDate(p.data_vencimento)}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
@@ -1050,7 +1084,22 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                             </>
                           )}
                           {!readOnly && s !== 'pago' ? (
-                            <button type="button" className="btn btn-success btn-sm" onClick={() => handleMarcarPago(p)}>✓ Marcar Pago</button>
+                            <>
+                              <button type="button" className="btn btn-success btn-sm" onClick={() => handleMarcarPago(p)}>
+                                {s === 'parcialmente_pago' ? '+ Pagar mais' : '✓ Marcar Pago'}
+                              </button>
+                              {s === 'parcialmente_pago' && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  title="Zerar pagamento parcial"
+                                  disabled={revertingId === p.id}
+                                  onClick={() => void handleReverterPagamento(p)}
+                                >
+                                  {revertingId === p.id ? 'Revertendo…' : '↩ Zerar'}
+                                </button>
+                              )}
+                            </>
                           ) : !readOnly && s === 'pago' ? (
                             <button
                               type="button"
@@ -1153,33 +1202,87 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           const conta = pagarModal.conta!
           const nomeForn = conta.fornecedor_nome ?? fornecedores.find(x => x.id === conta.fornecedor_id)?.nome ?? null
           const saldo = conta.fornecedor_id ? getSaldoFornecedor(conta.fornecedor_id) : 0
+          const valorPagoAtual = conta.valor_pago ?? 0
+          const restanteDevido = parseFloat(Math.max(0, conta.valor_parcela - valorPagoAtual).toFixed(2))
+          const valorPagarAgoraNum = parseMoneyBr(pagarModal.valorPagarAgora) || 0
           const usarCaixa = pagarModal.formaPagamentoId === FORMA_CAIXA
           const valorCaixaNum = usarCaixa ? (parseMoneyBr(pagarModal.valorCaixa) || 0) : 0
-          const maxCaixa = parseFloat(Math.min(saldo, conta.valor_parcela).toFixed(2))
-          const restante = parseFloat(Math.max(0, conta.valor_parcela - valorCaixaNum).toFixed(2))
-          const quitado = usarCaixa && restante < 0.01
+          const maxCaixa = parseFloat(Math.min(saldo, valorPagarAgoraNum || restanteDevido).toFixed(2))
+          const restanteForma = parseFloat(Math.max(0, valorPagarAgoraNum - valorCaixaNum).toFixed(2))
+          const quitado = usarCaixa && restanteForma < 0.01
           return (
             <>
-              {/* Cards: parcela + saldo */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div style={{ background: 'rgba(212,168,83,.06)', border: '1px solid rgba(212,168,83,.2)', borderRadius: 8, padding: '.6rem .85rem' }}>
-                  <div className="text-xs text-[#8a6a55] mb-1">Valor da parcela</div>
-                  <div className="font-display" style={{ fontSize: '1.15rem', color: '#d4a853' }}>{fmtCur(conta.valor_parcela)}</div>
+              {/* Cards: Valor Total | Já Pago | Restante */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div style={{ background: 'rgba(212,168,83,.06)', border: '1px solid rgba(212,168,83,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
+                  <div className="text-xs text-[#8a6a55] mb-1">Valor Total</div>
+                  <div className="font-display" style={{ fontSize: '1.05rem', color: '#d4a853' }}>{fmtCur(conta.valor_parcela)}</div>
                 </div>
-                {nomeForn && (
-                  <div style={{ background: 'rgba(74,222,128,.06)', border: '1px solid rgba(74,222,128,.2)', borderRadius: 8, padding: '.6rem .85rem' }}>
-                    <div className="text-xs text-[#8a6a55] mb-1">Caixa — {nomeForn}</div>
-                    <div className="font-display" style={{ fontSize: '1.15rem', color: saldo > 0 ? '#4ade80' : '#8a6a55' }}>{fmtCur(saldo)}</div>
-                  </div>
-                )}
+                <div style={{ background: 'rgba(74,222,128,.06)', border: '1px solid rgba(74,222,128,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
+                  <div className="text-xs text-[#8a6a55] mb-1">Já Pago</div>
+                  <div className="font-display" style={{ fontSize: '1.05rem', color: valorPagoAtual > 0 ? '#4ade80' : '#8a6a55' }}>{fmtCur(valorPagoAtual)}</div>
+                </div>
+                <div style={{ background: 'rgba(248,113,113,.06)', border: '1px solid rgba(248,113,113,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
+                  <div className="text-xs text-[#8a6a55] mb-1">Restante</div>
+                  <div className="font-display" style={{ fontSize: '1.05rem', color: '#f87171' }}>{fmtCur(restanteDevido)}</div>
+                </div>
               </div>
+
+              {/* Caixa do fornecedor (se houver saldo) */}
+              {nomeForn && saldo > 0 && (
+                <div style={{ background: 'rgba(74,222,128,.04)', border: '1px solid rgba(74,222,128,.15)', borderRadius: 6, padding: '.4rem .75rem', marginBottom: '.75rem' }}>
+                  <span className="text-xs text-[#8a6a55]">Caixa — {nomeForn}: </span>
+                  <span style={{ fontWeight: 700, color: '#4ade80', fontSize: '.85rem' }}>{fmtCur(saldo)} disponível</span>
+                </div>
+              )}
+
+              {/* Campo: quanto pagar agora */}
+              <Field label="Valor a pagar agora (R$)">
+                <input
+                  className="glass-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max={restanteDevido}
+                  value={pagarModal.valorPagarAgora}
+                  onChange={e => {
+                    const v = e.target.value
+                    const num = parseMoneyBr(v) || 0
+                    const novoMaxCaixa = parseFloat(Math.min(saldo, num).toFixed(2))
+                    setPagarModal(p => ({
+                      ...p,
+                      valorPagarAgora: v,
+                      valorCaixa: p.formaPagamentoId === FORMA_CAIXA
+                        ? String(novoMaxCaixa)
+                        : p.valorCaixa,
+                      erro: null,
+                    }))
+                  }}
+                />
+              </Field>
+              {valorPagarAgoraNum > 0 && valorPagarAgoraNum < restanteDevido - 0.005 && (
+                <p style={{ fontSize: '.72rem', color: '#93c5fd', marginBottom: '.5rem', marginTop: '-.25rem' }}>
+                  Pagamento parcial — restará {fmtCur(restanteDevido - valorPagarAgoraNum)} após este lançamento.
+                </p>
+              )}
 
               {/* Forma de pagamento — com opção de caixa embutida */}
               <Field label="Forma de Pagamento">
                 <select
                   className="glass-input"
                   value={pagarModal.formaPagamentoId}
-                  onChange={e => setPagarModal(p => ({ ...p, formaPagamentoId: e.target.value, erro: null }))}
+                  onChange={e => {
+                    const v = e.target.value
+                    const num = parseMoneyBr(pagarModal.valorPagarAgora) || restanteDevido
+                    setPagarModal(p => ({
+                      ...p,
+                      formaPagamentoId: v,
+                      valorCaixa: v === FORMA_CAIXA
+                        ? String(parseFloat(Math.min(saldo, num).toFixed(2)))
+                        : p.valorCaixa,
+                      erro: null,
+                    }))
+                  }}
                   disabled={loadingFormas}
                 >
                   <option value="">Selecionar...</option>
@@ -1207,16 +1310,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                     />
                   </Field>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-[#8a6a55]">Restante a pagar:</span>
+                    <span className="text-xs text-[#8a6a55]">Restante a pagar (outra forma):</span>
                     <span style={{ fontWeight: 700, fontSize: '.9rem', color: quitado ? '#4ade80' : '#f4e4d6' }}>
-                      {quitado ? '✓ Conta quitada pelo caixa' : fmtCur(restante)}
+                      {quitado ? '✓ Coberto pelo caixa' : fmtCur(restanteForma)}
                     </span>
                   </div>
 
                   {/* Forma de pagamento do restante quando parcial */}
-                  {restante > 0.005 && (
+                  {restanteForma > 0.005 && (
                     <div className="mt-3">
-                      <Field label={`Forma de pagamento do restante — ${fmtCur(restante)}`}>
+                      <Field label={`Forma de pagamento do restante — ${fmtCur(restanteForma)}`}>
                         <select
                           className="glass-input"
                           value={pagarModal.formaPagamentoRestanteId}

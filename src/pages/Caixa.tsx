@@ -19,6 +19,14 @@ function matchBusca(q: string, ...parts: (string | number | null | undefined)[])
   return parts.some(p => p != null && normBusca(String(p)).includes(nq))
 }
 
+function calcValorRestante(valorReservado: number, valorReal: number) {
+  return Math.max(0, valorReal - valorReservado)
+}
+
+function isReservaAberta(valorReal: number, saldoReserva: number) {
+  return valorReal > 0 && saldoReserva < valorReal
+}
+
 export function Caixa() {
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [ano, setAno] = useState(new Date().getFullYear())
@@ -45,7 +53,7 @@ export function Caixa() {
   const totaisReservas = useMemo(() => {
     return reservasFiltradas.reduce(
       (acc, item) => {
-        const restante = Math.max(0, item.valor_total_real - item.total_pago)
+        const restante = calcValorRestante(item.valor_em_reserva, item.valor_total_real)
         return {
           valorReal: acc.valorReal + item.valor_total_real,
           reservado: acc.reservado + item.valor_em_reserva,
@@ -207,9 +215,8 @@ export function Caixa() {
                     </tr>
                   ) : (
                     reservasFiltradas.map(item => {
-                      const restante = Math.max(0, item.valor_total_real - item.total_pago)
-                      const isFullyPaid = item.total_pago >= item.valor_total_real && item.valor_total_real > 0
-                      const isPartiallyPaid = item.total_pago > 0 && !isFullyPaid
+                      const restante = calcValorRestante(item.valor_em_reserva, item.valor_total_real)
+                      const aberto = isReservaAberta(item.valor_total_real, item.valor_em_reserva)
 
                       return (
                         <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
@@ -233,10 +240,8 @@ export function Caixa() {
                             {fmtCur(restante)}
                           </td>
                           <td className="px-6 py-4 text-center">
-                            {isFullyPaid ? (
-                              <Badge variant="success">PAGO</Badge>
-                            ) : isPartiallyPaid ? (
-                              <Badge variant="warning">FALTANDO</Badge>
+                            {aberto ? (
+                              <Badge status="aberto" />
                             ) : null}
                           </td>
                           <td className="px-6 py-4 text-right">

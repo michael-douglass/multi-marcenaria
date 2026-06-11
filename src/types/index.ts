@@ -91,7 +91,7 @@ export interface Pedido {
 }
 
 // ── Conta a Pagar ───────────────────────────────────────────
-export type ContaPagarStatus = 'pendente' | 'pago'
+export type ContaPagarStatus = 'pendente' | 'parcialmente_pago' | 'pago'
 
 export interface FormaPagamentoPagar {
   id: string
@@ -110,6 +110,7 @@ export interface ContaPagar {
   observacao?: string | null
   forma_pagamento_id?: string | null
   valor_total?: number
+  valor_pago?: number
   numero_parcela: number
   total_parcelas: number
   valor_parcela: number
@@ -315,7 +316,7 @@ export interface ReservaConsolidada {
   tipo_destinatario: TipoDestinatarioCaixa
   data_vencimento?: string
   valor_total_real: number      // quanto deve receber (operacional)
-  valor_em_reserva: number      // quanto foi reservado no banco
+  valor_em_reserva: number      // saldo disponível (reservado − pago)
   total_pago: number            // quanto já foi pago
   totalLancamentosMes: number   // qtd lançamentos operacionais
   totalItensConcluidosMes: number // qtd OS/itens concluídos

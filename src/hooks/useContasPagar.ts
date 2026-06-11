@@ -38,7 +38,8 @@ interface UpdateContaPagarInput {
   forma_pagamento_id?: string | null
   valor_parcela?: number
   data_vencimento?: string
-  status?: 'pendente' | 'pago'
+  status?: 'pendente' | 'parcialmente_pago' | 'pago'
+  valor_pago?: number
   data_pagamento?: string | null
 }
 
@@ -283,26 +284,37 @@ export function useContasPagar() {
     await load()
   }
 
-  const marcarPago = async (id: string) => {
+  const marcarPago = async (id: string, valorPagar: number) => {
+    const contaAtual = data.find(c => c.id === id)
+    if (!contaAtual) throw new Error('Conta não encontrada.')
+    const valorPagoAtual = contaAtual.valor_pago ?? 0
+    const novoValorPago = parseFloat((valorPagoAtual + valorPagar).toFixed(2))
+    const novoStatus = novoValorPago >= contaAtual.valor_parcela ? 'pago' : 'parcialmente_pago'
+
     const { data: row, error: err } = await supabase
       .from('movelaria_contas_pagar')
-      .update({ status: 'pago', data_pagamento: todayISO(), atualizado_em: new Date().toISOString() })
+      .update({
+        valor_pago: novoValorPago,
+        status: novoStatus,
+        data_pagamento: todayISO(),
+        atualizado_em: new Date().toISOString(),
+      })
       .eq('id', id)
-      .select()
+      .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
       .single()
     if (err) throw new Error(err.message)
-    setData(prev => prev.map(x => (x.id === id ? row : x)))
+    setData(prev => prev.map(x => (x.id === id ? (row as ContaPagar) : x)))
   }
 
   const reverterPagamento = async (id: string) => {
     const { data: conta, error: fetchErr } = await supabase
       .from('movelaria_contas_pagar')
-      .select('id, valor_parcela, fornecedor_nome, descricao, data_vencimento')
+      .select('id, valor_parcela, valor_pago, fornecedor_nome, descricao, data_vencimento')
       .eq('id', id)
-      .eq('status', 'pago')
+      .in('status', ['pago', 'parcialmente_pago'])
       .maybeSingle()
     if (fetchErr) throw new Error(fetchErr.message)
-    if (!conta) throw new Error('Esta conta não está marcada como paga.')
+    if (!conta) throw new Error('Esta conta não está marcada como paga ou parcialmente paga.')
 
     const mesRef = Number(conta.data_vencimento?.slice(5, 7))
     const anoRef = Number(conta.data_vencimento?.slice(0, 4))
@@ -345,14 +357,15 @@ export function useContasPagar() {
       .update({
         status: 'pendente',
         data_pagamento: null,
+        valor_pago: 0,
         atualizado_em: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('status', 'pago')
+      .in('status', ['pago', 'parcialmente_pago'])
       .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
       .maybeSingle()
     if (err) throw new Error(err.message)
-    if (!row) throw new Error('Esta conta não está marcada como paga.')
+    if (!row) throw new Error('Esta conta não está marcada como paga ou parcialmente paga.')
     setData(prev => prev.map(x => (x.id === id ? (row as ContaPagar) : x)))
   }
 

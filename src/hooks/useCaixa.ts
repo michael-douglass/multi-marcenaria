@@ -66,7 +66,7 @@ export function useCaixa(mes: number, ano: number) {
       const { data: contasPagar } = await supabase
         .from('movelaria_contas_pagar')
         .select('fornecedor_nome, valor_parcela, data_vencimento, status, prestador_id')
-        .in('status', ['pendente', 'pago'])
+        .in('status', ['pendente', 'parcialmente_pago', 'pago'])
         .gte('data_vencimento', startOfMonth)
         .lte('data_vencimento', endOfMonthStr)
 
@@ -94,7 +94,7 @@ export function useCaixa(mes: number, ano: number) {
           tipo_destinatario: d.tipo,
           data_vencimento: oper?.vencimento || undefined,
           valor_total_real: oper?.total || 0,
-          valor_em_reserva: saldo?.total_reservado || 0,
+          valor_em_reserva: saldo?.saldo ?? 0,
           total_pago: saldo?.total_pago || 0,
           totalLancamentosMes: oper?.count || 0,
           totalItensConcluidosMes: 0,
