@@ -270,6 +270,26 @@ body::before {
   }
 }
 
+/* Acompanhamento de Obras — rolagem vertical na página inteira */
+.obra-page-shell--acompanhamento,
+.obra-page-shell--acompanhamento .kanban-page-zoom-shell,
+.obra-page-shell--acompanhamento .kanban-scroll-host {
+  flex: none !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+
+.obra-page-shell--acompanhamento .kanban-scroll-host {
+  padding-bottom: 1.5rem !important;
+}
+
+@media (min-width: 768px) {
+  .obra-layout-outlet:has(> .obra-page-shell--acompanhamento) {
+    flex: none !important;
+    min-height: auto !important;
+  }
+}
+
 /* Cabeçalho das páginas Agenda / Calendário — sempre empilhado */
 .obra-page-header {
   display: flex;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { splitObraInputForSave } from '../lib/obra-montadores'
 import { splitComissaoForSave } from '../lib/obra-comissao'
+import { createId } from '../lib/utils'
 import type { ObraFull, ObraInput } from '../types'
 import { useAuthReady } from './useAuthReady'
 
@@ -73,7 +74,7 @@ export function useObras() {
     }
 
     const channel = supabase
-      .channel(`movelaria-obras-${crypto.randomUUID()}`)
+      .channel(`movelaria-obras-${createId()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_obras' },
