@@ -14,6 +14,7 @@ import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
+import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
@@ -75,7 +76,8 @@ const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, endereco_obra: null,
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
-  status_kanban: 'datas_em_aberto', pedido_material_feito: false,
+  status_kanban: 'datas_em_aberto', pedido_material_feito: false, data_entrega_pedido: null,
+  numero_pedido_cort_claud: null,
   dias_trabalho: null, horario_inicio: null, horario_fim: null,
   comissao_habilitada: false, comissao_itens: [],
 }
@@ -238,6 +240,7 @@ function podeConcluirObra(obra: ObraFull): boolean {
 function DayPopup({
   date, obras, onClose, onObraClick, onConcluir, canConcluir, actioning,
   canEdit, onTogglePedidoMaterial, togglingPedidoMaterial,
+  onUpdateDataEntrega, updatingDataEntrega,
   prestadorId, showAllComissao,
 }: {
   date: Date
@@ -250,6 +253,8 @@ function DayPopup({
   canEdit: boolean
   onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
   togglingPedidoMaterial: string | null
+  onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
+  updatingDataEntrega: string | null
   prestadorId?: string | null
   showAllComissao?: boolean
 }) {
@@ -335,12 +340,20 @@ function DayPopup({
                     </div>
                   </button>
 
-                  <div className="px-3 pb-2">
+                  <div className="px-3 pb-2 flex flex-col gap-1.5">
                     <ObraPedidoMaterialToggle
                       obra={o}
                       canEdit={canEdit}
                       loading={togglingPedidoMaterial === o.id}
                       onChange={feito => onTogglePedidoMaterial(o, feito)}
+                      compact
+                    />
+
+                    <ObraDataEntregaInput
+                      obra={o}
+                      canEdit={canEdit}
+                      loading={updatingDataEntrega === o.id}
+                      onChange={data => onUpdateDataEntrega(o, data)}
                       compact
                     />
                   </div>
@@ -407,12 +420,47 @@ function CalendarioObrasContent() {
   const [savingObra, setSavingObra]       = useState(false)
   const [actioning, setActioning]         = useState<string | null>(null)
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
+  const [updatingDataEntrega, setUpdatingDataEntrega] = useState<string | null>(null)
+  const [updatingNumeroPedidoCortClaud, setUpdatingNumeroPedidoCortClaud] = useState<string | null>(null)
+
+  const handleUpdateDataEntrega = async (obra: ObraFull, data: string | null) => {
+    if (!canEdit) return
+    setUpdatingDataEntrega(obra.id)
+    try {
+      await obrasHook.update(obra.id, { data_entrega_pedido: data })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar a data de entrega.')
+    } finally {
+      setUpdatingDataEntrega(null)
+    }
+  }
+
+  const handleUpdateNumeroPedidoCortClaud = async (obra: ObraFull, numero: string | null) => {
+    if (!canEdit) return
+    setUpdatingNumeroPedidoCortClaud(obra.id)
+    try {
+      await obrasHook.update(obra.id, { numero_pedido_cort_claud: numero })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o número do pedido.')
+    } finally {
+      setUpdatingNumeroPedidoCortClaud(null)
+    }
+  }
+
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
   const [dataFiltro, setDataFiltro]       = useState(() => (isMontador ? hojeISO : ''))
   const [configDias, setConfigDias]         = useState<ConfigDiasTrabalho>(DEFAULT_DIAS_CONFIG)
   const [showConfigDias, setShowConfigDias] = useState(false)
   const saveTimerRef                        = useRef<number | null>(null)
+
+  // Mantém o modal de detalhes sincronizado após iniciar/concluir obra
+  useEffect(() => {
+    if (!detalheObra) return
+    const fresh = obrasHook.data.find(o => o.id === detalheObra.id)
+    if (fresh) setDetalheObra(fresh)
+    else setDetalheObra(null)
+  }, [obrasHook.data, detalheObra?.id])
 
   // Montador e celular: visão Dia (hoje)
   useEffect(() => {
@@ -556,6 +604,8 @@ function CalendarioObrasContent() {
         tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
         status_kanban: obra.status_kanban,
         pedido_material_feito: obra.pedido_material_feito ?? false,
+        data_entrega_pedido: obra.data_entrega_pedido ?? null,
+        numero_pedido_cort_claud: obra.numero_pedido_cort_claud ?? null,
         dias_trabalho: obra.dias_trabalho ?? null,
         horario_inicio: obra.horario_inicio ?? null,
         horario_fim: obra.horario_fim ?? null,
@@ -588,13 +638,19 @@ function CalendarioObrasContent() {
 
   const handleIniciar = async (id: string) => {
     setActioning(id)
-    try { await obrasHook.iniciarObra(id) } finally { setActioning(null) }
+    try {
+      await obrasHook.iniciarObra(id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível iniciar a obra.')
+    } finally { setActioning(null) }
   }
   const handleConcluir = async (id: string) => {
     setActioning(id)
     try {
       await obrasHook.concluirObra(id)
       setDetalheObra(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível concluir a obra.')
     } finally { setActioning(null) }
   }
 
@@ -641,7 +697,13 @@ function CalendarioObrasContent() {
   const canConcluir = canEdit || isMontador
 
   return (
-    <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
+    <div
+      className={[
+        'obra-page-shell obra-page-shell--calendario fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden',
+        view === 'week' ? 'obra-page-shell--cal-week' : '',
+        view === 'month' ? 'obra-page-shell--cal-month' : '',
+      ].filter(Boolean).join(' ')}
+    >
       <KanbanPageToolbar>
         <ObraPageHeader
           title="Calendário de Obras"
@@ -782,9 +844,9 @@ function CalendarioObrasContent() {
       {!obrasHook.loading && !obrasHook.error && (
         <KanbanPageZoomShell
           showScrollArrows
-          horizontalScrollbar
+          horizontalScrollbar={view !== 'day'}
           verticalScrollbar
-          contentLayout="fluid"
+          contentLayout={view === 'day' ? 'fluid' : 'kanban'}
           contentSignal={`${view}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
@@ -857,6 +919,9 @@ function CalendarioObrasContent() {
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55] min-w-0">
                             {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
                             {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
+                            {o.pedido_material_feito && o.data_entrega_pedido && (
+                              <span className="break-words">Entrega: {fmtDate(o.data_entrega_pedido)}</span>
+                            )}
                             {o.endereco_obra   && (
                               <span className="break-words min-w-0 max-w-full" title={o.endereco_obra}>
                                 {o.endereco_obra}
@@ -874,12 +939,20 @@ function CalendarioObrasContent() {
                         </div>
                       </div>
                     </button>
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4 flex flex-col gap-1.5">
                       <ObraPedidoMaterialToggle
                         obra={o}
                         canEdit={canEdit}
                         loading={togglingPedidoMaterial === o.id}
                         onChange={feito => handleTogglePedidoMaterial(o, feito)}
+                        compact
+                      />
+
+                      <ObraDataEntregaInput
+                        obra={o}
+                        canEdit={canEdit}
+                        loading={updatingDataEntrega === o.id}
+                        onChange={data => handleUpdateDataEntrega(o, data)}
                         compact
                       />
                     </div>
@@ -892,11 +965,8 @@ function CalendarioObrasContent() {
 
           {/* ════════════ VISÃO SEMANA ════════════ */}
           {view === 'week' && (
-            <div className="obra-scroll-x-mobile -mx-1">
-              <div
-                className="grid min-w-[840px] gap-2 px-1"
-                style={{ gridTemplateColumns: 'repeat(7, minmax(120px, 1fr))' }}
-              >
+            <div className="cal-week-wrap">
+              <div className="cal-week-grid">
                 {weekDays.map(day => {
                   const iso          = toISO(day)
                   const isToday      = iso === todayISO
@@ -911,39 +981,44 @@ function CalendarioObrasContent() {
                       key={iso}
                       onClick={() => isDiaUtil && hasObras && setSelectedDay(day)}
                       className={[
-                        'glass-card p-2 flex flex-col min-h-[200px] transition-all',
+                        'cal-week-day glass-card p-2 flex flex-col min-h-[200px] transition-all',
                         !isDiaUtil   ? 'opacity-40' : '',
                         isToday      ? 'ring-1 ring-[#d4a853]/40' : '',
                         isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
                         isDiaUtil && hasObras ? 'cursor-pointer hover:brightness-110' : '',
                       ].join(' ')}
                     >
-                      <div className={`mb-2 flex min-w-0 flex-col gap-0.5 border-b border-[rgba(212,168,83,0.12)] pb-1.5`}>
-                        <div className={`flex min-w-0 items-center justify-between gap-1 text-[0.72rem] font-bold ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
-                          <span className="min-w-0 truncate" title={fmtDayHeader(day)}>
-                            {fmtDayHeader(day)}
-                            {isToday && <span className="ml-1 text-[0.6rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1">hoje</span>}
+                      <div className="cal-week-day__header">
+                        <div className={`cal-week-day__title-row ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
+                          <span className="cal-week-day__label" title={fmtDayHeader(day)}>
+                            {WEEKDAYS[day.getDay()]}
+                            {isToday && (
+                              <span className="ml-1 text-[0.55rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1 align-middle">
+                                hoje
+                              </span>
+                            )}
                           </span>
                           {hasObras && (
-                            <span className="rounded-full w-4 h-4 flex items-center justify-center text-[0.6rem] font-bold bg-[rgba(212,168,83,0.2)] text-[#d4a853]">
+                            <span className="shrink-0 rounded-full w-4 h-4 flex items-center justify-center text-[0.55rem] font-bold bg-[rgba(212,168,83,0.2)] text-[#d4a853]">
                               {dayObras.length}
                             </span>
                           )}
                         </div>
+                        <span className="cal-week-day__date">{day.getDate()}/{MONTHS[day.getMonth()]}</span>
                         {isDiaUtil && horarioSem && (horarioSem.inicio || horarioSem.fim) && (
-                          <span className="text-[0.6rem] text-[#8a6a55]/60">
+                          <span className="text-[0.55rem] text-[#8a6a55]/60 truncate">
                             {horarioSem.inicio}{horarioSem.inicio && horarioSem.fim ? ' – ' : ''}{horarioSem.fim}
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-col gap-1.5 flex-1">
+                      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                         {dayObras.length === 0 ? (
                           <p className="text-[0.62rem] text-[#4a3328] mt-2 text-center">—</p>
                         ) : (
                           dayObras.slice(0, 2).map(o => (
                             <div
                               key={o.id}
-                              className="rounded p-1.5 text-[0.62rem]"
+                              className="cal-week-card"
                               style={{
                                 backgroundColor: `${STATUS_COLORS[getStatusEfetivo(o)]}18`,
                                 borderLeft: `2px solid ${STATUS_COLORS[getStatusEfetivo(o)]}`,
@@ -975,8 +1050,8 @@ function CalendarioObrasContent() {
 
           {/* ════════════ VISÃO MÊS ════════════ */}
           {view === 'month' && (
-            <div className="obra-scroll-x-mobile -mx-1">
-              <div className="min-w-[420px] px-1">
+            <div className="cal-month-wrap">
+              <div className="cal-month-grid">
                 {/* Cabeçalhos dias da semana */}
                 <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
                   {WEEKDAYS.map((wd, wdIdx) => (
@@ -1086,6 +1161,8 @@ function CalendarioObrasContent() {
           canEdit={canEdit}
           onTogglePedidoMaterial={handleTogglePedidoMaterial}
           togglingPedidoMaterial={togglingPedidoMaterial}
+          onUpdateDataEntrega={handleUpdateDataEntrega}
+          updatingDataEntrega={updatingDataEntrega}
           prestadorId={userProfile?.id}
           showAllComissao={!isMontador}
         />
@@ -1110,6 +1187,10 @@ function CalendarioObrasContent() {
         onAplicarComissao={handleAplicarComissao}
         prestadorId={userProfile?.id}
         showAllComissao={!isMontador}
+        onUpdateDataEntrega={handleUpdateDataEntrega}
+        updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
+        onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
+        updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
       />
 
       {/* Modal edição */}

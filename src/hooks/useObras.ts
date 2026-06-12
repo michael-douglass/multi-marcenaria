@@ -38,9 +38,9 @@ export function useObras() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const { data: rows, error: err } = await supabase.rpc('movelaria_listar_obras')
@@ -48,9 +48,9 @@ export function useObras() {
       setData((rows ?? []) as ObraFull[])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar obras.')
-      setData([])
+      if (!opts?.silent) setData([])
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [isReady])
 
@@ -100,7 +100,7 @@ export function useObras() {
       })
     }
 
-    await load()
+    await load({ silent: true })
   }
 
   const remove = async (id: string) => {
@@ -112,29 +112,29 @@ export function useObras() {
   const iniciarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_iniciar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load()
+    await load({ silent: true })
   }
 
   const finalizarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_finalizar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load()
+    await load({ silent: true })
   }
 
   /** Marca a obra como concluída e gera comissões automaticamente no servidor. */
   const concluirObra = async (id: string) => {
     const obra = data.find(o => o.id === id)
-    if (!obra || obra.status_kanban === 'concluida' || obra.finalizado_em) return
+    if (obra && (obra.status_kanban === 'concluida' || obra.finalizado_em)) return
 
     const { error: err } = await supabase.rpc('movelaria_concluir_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load()
+    await load({ silent: true })
   }
 
   const aplicarComissao = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_aplicar_comissao_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load()
+    await load({ silent: true })
   }
 
   return {

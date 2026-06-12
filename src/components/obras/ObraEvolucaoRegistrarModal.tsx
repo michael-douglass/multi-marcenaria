@@ -42,7 +42,7 @@ export function ObraEvolucaoRegistrarModal({
 
     const invalid = files.find(f => !isAcceptedEvolucaoFile(f))
     if (invalid) {
-      setError('Apenas imagens (JPG, PNG, WebP) e PDFs são aceitos.')
+      setError('Apenas imagens (JPG, PNG, WebP), PDFs e vídeos são aceitos.')
       e.target.value = ''
       return
     }
@@ -52,7 +52,7 @@ export function ObraEvolucaoRegistrarModal({
 
   const handleSubmit = async () => {
     if (!selectedFiles.length) {
-      setError('Selecione pelo menos uma foto ou PDF.')
+      setError('Selecione pelo menos uma foto, PDF ou vídeo.')
       return
     }
     setError(null)
@@ -87,7 +87,7 @@ export function ObraEvolucaoRegistrarModal({
 
         <div>
           <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#8a6a55]">
-            Fotos ou PDF
+            Fotos, PDF ou Vídeo
           </label>
           <button
             type="button"
@@ -96,13 +96,13 @@ export function ObraEvolucaoRegistrarModal({
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[rgba(212,168,83,0.35)] bg-black/20 px-4 py-6 text-sm font-semibold text-[#d4a853] transition hover:border-[rgba(212,168,83,0.55)] hover:bg-[rgba(212,168,83,0.06)] disabled:opacity-50"
           >
             <Camera size={18} />
-            {selectedFiles.length ? 'Trocar arquivos' : 'Escolher foto ou PDF'}
+            {selectedFiles.length ? 'Trocar arquivos' : 'Escolher foto, PDF ou vídeo'}
           </button>
           <input
             ref={fileRef}
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
+            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,video/*"
             className="hidden"
             onChange={handleFileChange}
           />

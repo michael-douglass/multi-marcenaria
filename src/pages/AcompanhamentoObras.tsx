@@ -22,7 +22,7 @@ export function AcompanhamentoObras() {
 function AcompanhamentoObrasContent() {
   const [filtro, setFiltro] = useState<FiltroPeriodo>('hoje')
   const { grupos, loading, error } = useEvolucaoPainel(filtro)
-  const [lightbox, setLightbox] = useState<{ url: string; nome: string } | null>(null)
+  const [lightbox, setLightbox] = useState<{ url: string; nome: string; kind: 'image' | 'pdf' | 'video' } | null>(null)
 
   return (
     <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
@@ -111,7 +111,7 @@ function AcompanhamentoObrasContent() {
                         <div key={foto.id} className="flex flex-col gap-2">
                           <div
                             className="group relative aspect-square rounded-lg overflow-hidden border border-[rgba(212,168,83,0.15)] bg-black/40 cursor-pointer"
-                            onClick={() => setLightbox({ url: foto.signedUrl ?? '', nome: foto.nome_arquivo })}
+                            onClick={() => setLightbox({ url: foto.signedUrl ?? '', nome: foto.nome_arquivo, kind: foto.kind })}
                           >
                             {foto.previewSignedUrl ? (
                               <img
@@ -123,6 +123,11 @@ function AcompanhamentoObrasContent() {
                               <div className="w-full h-full flex items-center justify-center text-[#8a6a55]">
                                 <Camera size={20} />
                               </div>
+                            )}
+                            {foto.kind === 'video' && (
+                              <span className="absolute left-1 top-1 rounded bg-[rgba(59,130,246,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-white">
+                                VÍD
+                              </span>
                             )}
 
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center">
@@ -159,6 +164,7 @@ function AcompanhamentoObrasContent() {
           open
           imageUrl={lightbox.url}
           title={lightbox.nome}
+          kind={lightbox.kind}
           onClose={() => setLightbox(null)}
         />
       )}

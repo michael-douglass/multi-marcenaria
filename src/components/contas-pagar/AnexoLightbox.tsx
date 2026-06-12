@@ -1,11 +1,14 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, X, ZoomIn } from 'lucide-react'
+import { Trash2, X, ZoomIn, Play } from 'lucide-react'
+
+type Kind = 'image' | 'pdf' | 'video'
 
 interface AnexoLightboxProps {
   open: boolean
   imageUrl: string
   title: string
+  kind?: Kind
   onClose: () => void
   onDelete?: () => void
   deleting?: boolean
@@ -15,6 +18,7 @@ export function AnexoLightbox({
   open,
   imageUrl,
   title,
+  kind = 'image',
   onClose,
   onDelete,
   deleting = false,
@@ -73,11 +77,21 @@ export function AnexoLightbox({
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-        <img
-          src={imageUrl}
-          alt={title}
-          className="max-h-full max-w-full rounded-lg object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
-        />
+        {kind === 'video' ? (
+          <video
+            src={imageUrl}
+            controls
+            autoPlay={false}
+            playsInline
+            className="max-h-full max-w-full rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
+          />
+        ) : (
+          <img
+            src={imageUrl}
+            alt={title}
+            className="max-h-full max-w-full rounded-lg object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
+          />
+        )}
       </div>
     </div>,
     document.body,
@@ -87,12 +101,14 @@ export function AnexoLightbox({
 interface AnexoThumbProps {
   previewUrl: string
   nome: string
-  kind: 'image' | 'pdf'
+  kind: Kind
   onOpenFullscreen: () => void
   onDelete?: () => void
 }
 
 export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete }: AnexoThumbProps) {
+  const hasPreview = !!previewUrl
+
   return (
     <div className="group relative overflow-hidden rounded-lg border border-[rgba(212,168,83,0.28)] bg-[rgba(15,7,3,0.65)]">
       <button
@@ -102,13 +118,28 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
         aria-label={`Ver ${nome} em tela cheia`}
       >
         <div className="relative aspect-[4/3] w-full min-w-[120px] max-w-[160px]">
-          <img src={previewUrl} alt={nome} className="h-full w-full object-cover" />
+          {hasPreview ? (
+            <img src={previewUrl} alt={nome} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[rgba(0,0,0,0.4)]">
+              <Play className="h-8 w-8 text-[#d4a853] opacity-60" />
+            </div>
+          )}
           <div className="absolute inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.35)] opacity-0 transition-opacity group-hover:opacity-100">
-            <ZoomIn className="h-6 w-6 text-[#d4a853]" />
+            {kind === 'video' ? (
+              <Play className="h-6 w-6 text-[#d4a853]" />
+            ) : (
+              <ZoomIn className="h-6 w-6 text-[#d4a853]" />
+            )}
           </div>
           {kind === 'pdf' && (
             <span className="absolute left-1 top-1 rounded bg-[rgba(212,168,83,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-[#150c09]">
               PDF
+            </span>
+          )}
+          {kind === 'video' && (
+            <span className="absolute left-1 top-1 rounded bg-[rgba(59,130,246,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-white">
+              VÍD
             </span>
           )}
         </div>

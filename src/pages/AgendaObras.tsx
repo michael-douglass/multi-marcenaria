@@ -11,6 +11,7 @@ import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal, type PendingFile } from '../components/obras/ObraFormModal'
 import { buildPendingObraArquivo, uploadObraArquivo } from '../lib/obra-arquivos'
+import { videoFirstFrameToJpegBlob } from '../lib/video-to-image'
 import { getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
@@ -18,6 +19,7 @@ import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
+import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
@@ -80,7 +82,8 @@ const BLANK_OBRA: ObraInput = {
   cliente_nome: '', cliente_id: null, lousa: null, descricao: null, endereco_obra: null,
   tipo_obra_id: null, grupo_obra_id: null, montador_admin_id: null, montador_id: null, montador_ids: [],
   data_prevista_inicio: null, data_prevista_fim: null, tempo_maximo_horas: null,
-  status_kanban: 'datas_em_aberto', pedido_material_feito: false,
+  status_kanban: 'datas_em_aberto', pedido_material_feito: false, data_entrega_pedido: null,
+  numero_pedido_cort_claud: null,
   comissao_habilitada: false, comissao_itens: [],
 }
 const BLANK_TIPO: TipoObraInput = {
@@ -137,9 +140,11 @@ interface ObraCardProps {
   onDragEnd: () => void
   onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
   togglingPedidoMaterial: string | null
+  onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
+  updatingDataEntrega: string | null
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega }: ObraCardProps) {
   const loading = actioning === obra.id
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
@@ -204,19 +209,32 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
         <ObraPedidoMaterialBadge obra={obra} />
       </div>
 
-      <ObraPedidoMaterialToggle
-        obra={obra}
-        canEdit={canEdit}
-        loading={togglingPedidoMaterial === obra.id}
-        onChange={feito => onTogglePedidoMaterial(obra, feito)}
-        compact
-      />
+      <div className="flex flex-col gap-1.5">
+        <ObraPedidoMaterialToggle
+          obra={obra}
+          canEdit={canEdit}
+          loading={togglingPedidoMaterial === obra.id}
+          onChange={feito => onTogglePedidoMaterial(obra, feito)}
+          compact
+        />
+
+        <ObraDataEntregaInput
+          obra={obra}
+          canEdit={canEdit}
+          loading={updatingDataEntrega === obra.id}
+          onChange={data => onUpdateDataEntrega(obra, data)}
+          compact
+        />
+      </div>
 
       {/* Campos informativos */}
       <div className="obra-card-meta">
         <CardInfoRow label="Tipo" value={obra.tipo_obra_nome} />
         <CardInfoRow label="Grupo" value={obra.grupo_obra_nome} />
         <CardInfoRow label="Endereço" value={obra.endereco_obra} />
+        {obra.pedido_material_feito && obra.data_entrega_pedido && (
+          <CardInfoRow label="Entrega" value={fmtDate(obra.data_entrega_pedido)} />
+        )}
         {obra.montador_admin_nome && obra.montador_admin_nome !== obra.montador_nome && (
           <CardInfoRow label="Admin" value={obra.montador_admin_nome} />
         )}
@@ -462,9 +480,44 @@ function AgendaObrasContent() {
   const [configOpen, setConfigOpen] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
+  const [updatingDataEntrega, setUpdatingDataEntrega] = useState<string | null>(null)
+  const [updatingNumeroPedidoCortClaud, setUpdatingNumeroPedidoCortClaud] = useState<string | null>(null)
+
+  const handleUpdateDataEntrega = async (obra: ObraFull, data: string | null) => {
+    if (!canEdit) return
+    setUpdatingDataEntrega(obra.id)
+    try {
+      await obrasHook.update(obra.id, { data_entrega_pedido: data })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar a data de entrega.')
+    } finally {
+      setUpdatingDataEntrega(null)
+    }
+  }
+
+  const handleUpdateNumeroPedidoCortClaud = async (obra: ObraFull, numero: string | null) => {
+    if (!canEdit) return
+    setUpdatingNumeroPedidoCortClaud(obra.id)
+    try {
+      await obrasHook.update(obra.id, { numero_pedido_cort_claud: numero })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o número do pedido.')
+    } finally {
+      setUpdatingNumeroPedidoCortClaud(null)
+    }
+  }
+
   const [busca, setBusca] = useState('')
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
+
+  // Mantém o modal de detalhes sincronizado após iniciar/concluir obra
+  useEffect(() => {
+    if (!detalheObra) return
+    const fresh = obrasHook.data.find(o => o.id === detalheObra.id)
+    if (fresh) setDetalheObra(fresh)
+    else setDetalheObra(null)
+  }, [obrasHook.data, detalheObra?.id])
 
   // ── Drag and drop ──────────────────────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -590,6 +643,8 @@ function AgendaObrasContent() {
       tempo_maximo_horas: obra.tempo_maximo_horas ?? null,
       status_kanban: obra.status_kanban,
       pedido_material_feito: obra.pedido_material_feito ?? false,
+      data_entrega_pedido: obra.data_entrega_pedido ?? null,
+      numero_pedido_cort_claud: obra.numero_pedido_cort_claud ?? null,
       dias_trabalho: obra.dias_trabalho ?? null,
       horario_inicio: obra.horario_inicio ?? null,
       horario_fim: obra.horario_fim ?? null,
@@ -628,8 +683,14 @@ function AgendaObrasContent() {
   const handleAddFiles = useCallback(async (files: File[]) => {
     const pending: PendingFile[] = await Promise.all(
       files.map(async file => {
-        const isImg = file.type.startsWith('image/')
-        return { file, previewUrl: isImg ? URL.createObjectURL(file) : null }
+        if (file.type.startsWith('image/')) {
+          return { file, previewUrl: URL.createObjectURL(file) }
+        }
+        if (file.type.startsWith('video/') || /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/i.test(file.name)) {
+          const thumbBlob = await videoFirstFrameToJpegBlob(file).catch(() => null)
+          return { file, previewUrl: thumbBlob ? URL.createObjectURL(thumbBlob) : null }
+        }
+        return { file, previewUrl: null }
       })
     )
     setPendingFiles(prev => [...prev, ...pending])
@@ -671,12 +732,20 @@ function AgendaObrasContent() {
 
   const handleIniciar = async (id: string) => {
     setActioning(id)
-    try { await obrasHook.iniciarObra(id) } finally { setActioning(null) }
+    try {
+      await obrasHook.iniciarObra(id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível iniciar a obra.')
+    } finally { setActioning(null) }
   }
 
   const handleConcluir = async (id: string) => {
     setActioning(id)
-    try { await obrasHook.concluirObra(id) } finally { setActioning(null) }
+    try {
+      await obrasHook.concluirObra(id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível concluir a obra.')
+    } finally { setActioning(null) }
   }
 
   const handleTogglePedidoMaterial = async (obra: ObraFull, feito: boolean) => {
@@ -881,7 +950,9 @@ function AgendaObrasContent() {
                           onDragEnd={handleDragEnd}
                           onTogglePedidoMaterial={handleTogglePedidoMaterial}
                           togglingPedidoMaterial={togglingPedidoMaterial}
-                        />
+                          onUpdateDataEntrega={handleUpdateDataEntrega}
+                          updatingDataEntrega={updatingDataEntrega}
+                          />
                       </div>
                     ))
                   )}
@@ -912,6 +983,10 @@ function AgendaObrasContent() {
         onAplicarComissao={handleAplicarComissao}
         prestadorId={userProfile?.id}
         showAllComissao={!isMontador}
+        onUpdateDataEntrega={handleUpdateDataEntrega}
+        updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
+        onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
+        updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
       />
 
       {/* Modal obra (edição) */}

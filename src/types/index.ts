@@ -399,6 +399,8 @@ export interface ObraFull {
   finalizado_em?: string | null
   concluido_em_atraso?: boolean | null
   pedido_material_feito?: boolean
+  data_entrega_pedido?: string | null
+  numero_pedido_cort_claud?: string | null
   dias_trabalho?: number[] | null
   horario_inicio?: string | null
   horario_fim?: string | null
@@ -428,6 +430,8 @@ export interface ObraInput {
   tempo_maximo_horas?: number | null
   status_kanban?: StatusKanbanObra
   pedido_material_feito?: boolean
+  data_entrega_pedido?: string | null
+  numero_pedido_cort_claud?: string | null
   dias_trabalho?: number[] | null
   horario_inicio?: string | null
   horario_fim?: string | null

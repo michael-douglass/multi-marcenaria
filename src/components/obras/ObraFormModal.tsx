@@ -244,6 +244,30 @@ export function ObraFormModal({
         </label>
       </Field>
 
+      {form.pedido_material_feito && (
+        <>
+          <Field label="Chegada Material">
+            <input
+              type="date"
+              className="glass-input"
+              value={form.data_entrega_pedido ?? ''}
+              onChange={s('data_entrega_pedido')}
+              disabled={!canEditDates}
+            />
+          </Field>
+          <Field label="Nº Pedido Cort Claud">
+            <input
+              type="text"
+              className="glass-input"
+              value={form.numero_pedido_cort_claud ?? ''}
+              onChange={s('numero_pedido_cort_claud')}
+              disabled={!canEditDates}
+              placeholder="Ex: 12345"
+            />
+          </Field>
+        </>
+      )}
+
       {/* ── Fotos e Documentos (apenas na criação) ───────────── */}
       {!obra && (
         <Field label="Fotos e Documentos">
@@ -258,13 +282,13 @@ export function ObraFormModal({
             <p className="text-[0.75rem] text-[#8a6a55]">
               Arraste arquivos ou <span className="text-[#d4a853] font-semibold">clique para selecionar</span>
             </p>
-            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF</p>
+            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos</p>
           </div>
           <input
             ref={fileRef}
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
+            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,video/*"
             className="hidden"
             onChange={handleFileChange}
           />

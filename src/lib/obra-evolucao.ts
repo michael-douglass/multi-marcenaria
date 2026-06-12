@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { pdfFirstPageToPngBlob } from '@/lib/pdf-to-image'
+import { videoFirstFrameToJpegBlob } from '@/lib/video-to-image'
 import { createId } from '@/lib/utils'
 
 export const EVOLUCAO_BUCKET = 'movelaria-obra-evolucao'
@@ -9,7 +10,7 @@ export interface ObraEvolucaoItem {
   obra_id: string
   nome_arquivo: string
   tipo_mime: string
-  kind: 'image' | 'pdf'
+  kind: 'image' | 'pdf' | 'video'
   storage_path: string
   preview_path: string | null
   tirado_em: string
@@ -35,9 +36,12 @@ export interface EvolucaoPainelItemComUrl extends EvolucaoPainelItem {
 
 export function isAcceptedEvolucaoFile(file: File): boolean {
   const lower = file.name.toLowerCase()
+  if (['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(file.type)) return true
+  if (file.type.startsWith('video/')) return true
   return (
-    ['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(file.type) ||
-    lower.endsWith('.pdf') || /\.(jpe?g|png|webp|gif)$/.test(lower)
+    lower.endsWith('.pdf') ||
+    /\.(jpe?g|png|webp|gif)$/.test(lower) ||
+    /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/.test(lower)
   )
 }
 
@@ -46,9 +50,11 @@ export async function uploadObraEvolucao(
   file: File,
   observacao?: string | null,
 ): Promise<ObraEvolucaoItem> {
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  const lower = file.name.toLowerCase()
+  const isPdf   = file.type === 'application/pdf' || lower.endsWith('.pdf')
+  const isVideo = !isPdf && (file.type.startsWith('video/') || /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/.test(lower))
   const arquivoId = createId()
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const ext = lower.split('.').pop() ?? (isVideo ? 'mp4' : 'jpg')
   const now = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const storagePath = `${obraId}/${now}_${arquivoId}.${ext}`
 
@@ -64,10 +70,19 @@ export async function uploadObraEvolucao(
     await supabase.storage.from(EVOLUCAO_BUCKET).upload(previewPath, blob, {
       contentType: 'image/png', upsert: false,
     })
+  } else if (isVideo) {
+    const thumbBlob = await videoFirstFrameToJpegBlob(file).catch(() => null)
+    if (thumbBlob) {
+      previewPath = `${obraId}/${now}_${arquivoId}_preview.jpg`
+      await supabase.storage.from(EVOLUCAO_BUCKET).upload(previewPath, thumbBlob, {
+        contentType: 'image/jpeg', upsert: false,
+      })
+    }
   } else {
     previewPath = storagePath
   }
 
+  const kind: 'image' | 'pdf' | 'video' = isPdf ? 'pdf' : isVideo ? 'video' : 'image'
   const obs = observacao?.trim() || null
 
   const { data: row, error: dbErr } = await supabase
@@ -77,7 +92,7 @@ export async function uploadObraEvolucao(
       obra_id: obraId,
       nome_arquivo: file.name,
       tipo_mime: file.type || 'image/jpeg',
-      kind: isPdf ? 'pdf' : 'image',
+      kind,
       storage_path: storagePath,
       preview_path: previewPath,
       tirado_em: new Date().toISOString(),

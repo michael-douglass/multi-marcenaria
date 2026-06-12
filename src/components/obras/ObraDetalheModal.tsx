@@ -17,6 +17,8 @@ import {
 import { fmtCur } from '@/lib/utils'
 import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
+import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
+import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
 import { fmtDate } from '@/lib/utils'
 
 const STATUS_COR: Record<StatusKanbanObra, string> = {
@@ -55,6 +57,10 @@ interface Props {
   onAplicarComissao?: (obraId: string) => void
   prestadorId?: string | null
   showAllComissao?: boolean
+  onUpdateDataEntrega?: (obra: ObraFull, date: string | null) => void
+  updatingDataEntrega?: boolean
+  onUpdateNumeroPedidoCortClaud?: (obra: ObraFull, numero: string | null) => void
+  updatingNumeroPedidoCortClaud?: boolean
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -72,12 +78,14 @@ export function ObraDetalheModal({
   onClose, onEdit, onIniciar, onConcluir, canDelete = false, onExcluir,
   canAplicarComissao = false, applyingComissao = false, onAplicarComissao,
   prestadorId, showAllComissao = false,
+  onUpdateDataEntrega, updatingDataEntrega = false,
+  onUpdateNumeroPedidoCortClaud, updatingNumeroPedidoCortClaud = false,
 }: Props) {
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [lightbox, setLightbox]         = useState<{ url: string; nome: string; canDelete?: boolean; onDelete?: () => void } | null>(null)
+  const [lightbox, setLightbox]         = useState<{ url: string; nome: string; kind: 'image' | 'pdf' | 'video'; canDelete?: boolean; onDelete?: () => void } | null>(null)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [uploadErr, setUploadErr]       = useState<string | null>(null)
   const [evolUploadErr, setEvolUploadErr] = useState<string | null>(null)
@@ -89,7 +97,7 @@ export function ObraDetalheModal({
     setUploadErr(null)
     for (const file of files) {
       if (!isAcceptedObraFile(file)) {
-        setUploadErr('Apenas imagens (JPG, PNG, WebP) e PDFs são aceitos.')
+        setUploadErr('Apenas imagens (JPG, PNG, WebP), PDFs e vídeos são aceitos.')
         break
       }
       try {
@@ -266,6 +274,24 @@ export function ObraDetalheModal({
               </p>
             </div>
             <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
+          </div>
+        )}
+
+        {/* ── CHEGADA DO MATERIAL ────────────────────────────── */}
+        {obra.pedido_material_feito && (
+          <div className="mb-5 flex flex-col gap-2">
+            <ObraDataEntregaInput
+              obra={obra}
+              canEdit={canEdit}
+              loading={updatingDataEntrega}
+              onChange={date => onUpdateDataEntrega?.(obra, date)}
+            />
+            <ObraNumeroPedidoCortClaudInput
+              obra={obra}
+              canEdit={canEdit}
+              loading={updatingNumeroPedidoCortClaud}
+              onChange={numero => onUpdateNumeroPedidoCortClaud?.(obra, numero)}
+            />
           </div>
         )}
 
@@ -447,7 +473,7 @@ export function ObraDetalheModal({
                           nome={item.nome_arquivo}
                           kind={item.kind}
                           onOpenFullscreen={() => {
-                            if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo })
+                            if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo, kind: item.kind })
                           }}
                           onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
                         />
@@ -493,7 +519,7 @@ export function ObraDetalheModal({
                   ref={fileRef}
                   type="file"
                   multiple
-                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,video/*"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -511,7 +537,7 @@ export function ObraDetalheModal({
             </div>
           ) : arqHook.data.length === 0 ? (
             <p className="text-xs text-[#6b5544] py-4">
-              {canUpload ? 'Nenhum arquivo. Clique em "Adicionar" para enviar fotos ou PDFs.' : 'Nenhum arquivo enviado.'}
+              {canUpload ? 'Nenhum arquivo. Clique em "Adicionar" para enviar fotos, PDFs ou vídeos.' : 'Nenhum arquivo enviado.'}
             </p>
           ) : (
             <div className="flex flex-wrap gap-3">
@@ -522,7 +548,7 @@ export function ObraDetalheModal({
                   nome={arq.nome_arquivo}
                   kind={arq.kind}
                   onOpenFullscreen={() => {
-                    if (arq.signedUrl) setLightbox({ url: arq.signedUrl, nome: arq.nome_arquivo })
+                    if (arq.signedUrl) setLightbox({ url: arq.signedUrl, nome: arq.nome_arquivo, kind: arq.kind })
                   }}
                   onDelete={canUpload ? () => handleDelete(arq) : undefined}
                 />
@@ -544,6 +570,7 @@ export function ObraDetalheModal({
           open
           imageUrl={lightbox.url}
           title={lightbox.nome}
+          kind={lightbox.kind}
           onClose={() => setLightbox(null)}
           onDelete={canUpload && arqHook.data.find(a => a.signedUrl === lightbox.url)
             ? () => {

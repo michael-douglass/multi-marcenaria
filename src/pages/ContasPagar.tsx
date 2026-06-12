@@ -145,8 +145,6 @@ interface Props {
   readOnly?: boolean
 }
 
-type Filter = 'Todos' | 'Pendente' | 'Pago' | 'Vencido'
-
 interface EditContaForm {
   supplierId: string
   desc: string
@@ -217,7 +215,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   })
   const formasHook = useFormasPagamentoPagar()
   const { formas, loading: loadingFormas } = formasHook
-  const [filter, setFilter] = useState<Filter>('Todos')
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(() => {
     try {
@@ -225,7 +223,6 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       return s ? (JSON.parse(s) as PeriodFilter) : { mode: 'all' }
     } catch { return { mode: 'all' } }
   })
-  const [isDefaultView, setIsDefaultView] = useState(true)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<LancamentoPagarDraftForm>(() => emptyForm())
   const [anexos, setAnexos] = useState<PendingContaPagarAnexo[]>([])
@@ -267,6 +264,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     formaPagamentoId: '', valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
   })
   const [revertingId, setRevertingId] = useState<string | null>(null)
+
+  const [ocultarOpen, setOcultarOpen] = useState(false)
+  const [ocultarStatuses, setOcultarStatuses] = useState<Set<string>>(new Set())
+  const [ocultarIds, setOcultarIds] = useState<Set<string>>(new Set())
+  const [ocultarBusca, setOcultarBusca] = useState('')
+  const ocultarRef = useRef<HTMLDivElement>(null)
 
   const defaultFormaId = formas[0]?.id ?? ''
 
@@ -348,6 +351,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     closeModalUi()
   }, [defaultFormaId, closeModalUi])
 
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ocultarRef.current && !ocultarRef.current.contains(e.target as Node)) setOcultarOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
   // Salvamento automático enquanto o formulário está aberto
   useEffect(() => {
     if (!open) return
@@ -355,25 +366,55 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     return () => window.clearTimeout(timer)
   }, [form, open, persistDraft])
 
+  const isDefaultView = activeFilters.size === 0
+
   const periodBase = applyPeriodFilter(data, periodFilter)
   const ocultarPagasProximoMes =
-    periodFilter.mode === 'next-month' && isDefaultView && filter !== 'Pago'
+    periodFilter.mode === 'next-month' && isDefaultView
   const periodFiltered = ocultarPagasProximoMes
     ? periodBase.filter(p => p.status !== 'pago')
     : periodBase
 
+  // idsOcultos: apenas IDs marcados individualmente — status pills só filtram a lista do dropdown
+  const idsOcultos = ocultarIds
+
+  const ocultarListaFiltrada = useMemo(() => {
+    let items = periodFiltered
+
+    // Pills de status filtram a lista do dropdown (não ocultam da tabela)
+    if (ocultarStatuses.size > 0 && !ocultarStatuses.has('todos')) {
+      items = items.filter(c => {
+        const s = getStatus(c.data_vencimento, c.status)
+        return ocultarStatuses.has(s)
+      })
+    }
+
+    const term = ocultarBusca.trim().toLowerCase().replace(/[\s.,]/g, '')
+    if (term) {
+      items = items.filter(c => {
+        const nome = (c.fornecedor_nome ?? fornecedores.find(x => x.id === c.fornecedor_id)?.nome ?? c.descricao ?? '').toLowerCase().replace(/[\s.,]/g, '')
+        const desc = (c.descricao ?? '').toLowerCase().replace(/[\s.,]/g, '')
+        return nome.includes(term) || desc.includes(term)
+      })
+    }
+
+    return items.slice(0, 60)
+  }, [periodFiltered, ocultarStatuses, ocultarBusca, fornecedores])
+
   const filtered = (() => {
     const base = periodFiltered.filter(p => {
-      // 1. Filtro de Status / Modo Padrão
+      if (idsOcultos.has(p.id)) return false
+
+      // 1. Filtro de Status
+      const s = getStatus(p.data_vencimento, p.status)
       if (isDefaultView) {
-        if (getStatus(p.data_vencimento, p.status) === 'pago') return false
-      } else if (filter !== 'Todos') {
-        const s = getStatus(p.data_vencimento, p.status)
-        if (filter === 'Pendente') {
-          if (s !== 'pendente' && s !== 'parcialmente_pago') return false
-        } else if (s !== filter.toLowerCase()) {
-          return false
-        }
+        if (s === 'pago') return false
+      } else {
+        const show =
+          (activeFilters.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
+          (activeFilters.has('Pago')     && s === 'pago') ||
+          (activeFilters.has('Vencido')  && s === 'vencido')
+        if (!show) return false
       }
 
       // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
@@ -411,18 +452,22 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     })
   })()
 
-  // Cards: mês atual no estado padrão sem busca; ao interagir seguem os filtros ativos
-  const kpiBase = (!isDefaultView || search.trim())
-    ? filtered
-    : applyPeriodFilter(data, { mode: 'month' })
+  const totaisColunas = {
+    valorTotal: filtered.reduce((s, p) => s + p.valor_parcela, 0),
+    pago: filtered.reduce((s, p) => s + getValorPagoConta(p), 0),
+    restante: filtered.reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0),
+  }
 
-  const kpiPeriodoPagamento: PeriodFilter =
-    !isDefaultView || search.trim() ? periodFilter : { mode: 'month' }
+  // Cards: sempre seguem o filtro de período ativo, excluindo itens ocultos
+  const kpiBase = applyPeriodFilter(data, periodFilter).filter(c => !idsOcultos.has(c.id))
 
   const totPend = kpiBase
     .filter(p => p.status !== 'pago')
     .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
-  const totPaid = somarPagamentosNoPeriodo(data, kpiPeriodoPagamento)
+  const totPaid = somarPagamentosNoPeriodo(
+    data.filter(c => !idsOcultos.has(c.id)),
+    periodFilter,
+  )
   const totOver = kpiBase
     .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
     .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
@@ -607,8 +652,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         )
       }
       await marcarPago(conta.id, valorPagarAgoraNum)
-      setFilter('Pago')
-      setIsDefaultView(false)
+      setActiveFilters(new Set(['Pago']))
       setPagarModal(p => ({ ...p, open: false, conta: null, saving: false }))
     } catch (e) {
       setPagarModal(p => ({ ...p, erro: e instanceof Error ? e.message : 'Erro ao processar pagamento.', saving: false }))
@@ -675,7 +719,6 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       <PeriodFilterBar
         value={periodFilter}
         onChange={v => {
-          setIsDefaultView(false)
           setPeriodFilter(v)
           localStorage.setItem('movelaria_contaspagar_period', JSON.stringify(v))
         }}
@@ -973,14 +1016,185 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         </div>
       </Modal>
 
-      <FilterBar
-        options={['Todos', 'Pendente', 'Pago', 'Vencido']}
-        value={filter}
-        onChange={v => {
-          setIsDefaultView(false)
-          setFilter(v as Filter)
-        }}
-      />
+      <div className="flex items-start gap-2 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <FilterBar
+            options={['Todos', 'Pendente', 'Pago', 'Vencido']}
+            multi
+            values={activeFilters}
+            onChange={v => {
+              if (v === 'Todos') {
+                setActiveFilters(new Set())
+                return
+              }
+              const next = new Set(activeFilters)
+              if (next.has(v)) next.delete(v); else next.add(v)
+              setActiveFilters(next)
+            }}
+          />
+        </div>
+
+        {/* Ocultar Dívida */}
+        <div ref={ocultarRef} className="relative mb-4 shrink-0">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm flex items-center gap-1.5"
+            onClick={() => setOcultarOpen(p => !p)}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            <span>Ocultar Dívida</span>
+            {idsOcultos.size > 0 && (
+              <span style={{
+                background: '#d4a853', color: '#1a0f0a', borderRadius: 9999,
+                fontSize: '.65rem', fontWeight: 700, padding: '0 .4rem',
+                lineHeight: '1.35rem', minWidth: '1.35rem', textAlign: 'center' as const,
+              }}>
+                {idsOcultos.size}
+              </span>
+            )}
+            <span style={{ opacity: .5, fontSize: '.7rem' }}>{ocultarOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {ocultarOpen && (
+            <div
+              className="absolute right-0 z-[200] rounded-lg border border-[rgba(212,168,83,.2)]"
+              style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.7)', width: 320, top: 'calc(100% + 4px)' }}
+            >
+              {/* Filtrar lista por status */}
+              <div className="px-3 pt-3 pb-2 border-b border-[rgba(212,168,83,.1)]">
+                <div className="section-label mb-2" style={{ fontSize: '.7rem' }}>Filtrar lista por status</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { key: 'todos', label: 'Todos' },
+                    { key: 'pago', label: 'Pagas' },
+                    { key: 'pendente', label: 'Pendentes' },
+                    { key: 'vencido', label: 'Vencidos' },
+                    { key: 'parcialmente_pago', label: 'Parc. Pagas' },
+                  ] as const).map(opt => {
+                    const active = ocultarStatuses.has(opt.key)
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setOcultarStatuses(p => {
+                          const next = new Set(p)
+                          if (active) next.delete(opt.key); else next.add(opt.key)
+                          return next
+                        })}
+                        style={{
+                          padding: '.2rem .55rem', borderRadius: 9999,
+                          border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
+                          background: active ? 'rgba(212,168,83,.14)' : 'transparent',
+                          color: active ? '#d4a853' : '#8a6a55',
+                          cursor: 'pointer', fontSize: '.75rem', fontWeight: 600,
+                          fontFamily: 'Raleway, sans-serif', transition: 'all .15s',
+                        }}
+                      >
+                        {active ? '✕ ' : ''}{opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Busca individual */}
+              <div className="px-3 py-2 border-b border-[rgba(212,168,83,.1)]">
+                <input
+                  type="text"
+                  className="glass-input w-full"
+                  placeholder="Buscar dívida específica..."
+                  value={ocultarBusca}
+                  onChange={e => setOcultarBusca(e.target.value)}
+                  style={{ fontSize: '.82rem', padding: '.4rem .7rem' }}
+                />
+              </div>
+
+              {/* Marcar todos */}
+              {ocultarListaFiltrada.length > 0 && (
+                <div className="px-3 py-1.5 border-b border-[rgba(212,168,83,.08)] flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    ref={el => {
+                      if (!el) return
+                      const allChecked = ocultarListaFiltrada.every(c => ocultarIds.has(c.id))
+                      const someChecked = ocultarListaFiltrada.some(c => ocultarIds.has(c.id))
+                      el.checked = allChecked
+                      el.indeterminate = someChecked && !allChecked
+                    }}
+                    onChange={e => setOcultarIds(p => {
+                      const next = new Set(p)
+                      if (e.target.checked) ocultarListaFiltrada.forEach(c => next.add(c.id))
+                      else ocultarListaFiltrada.forEach(c => next.delete(c.id))
+                      return next
+                    })}
+                    style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                  />
+                  <span style={{ color: '#8a6a55', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
+                    Marcar todos ({ocultarListaFiltrada.length})
+                  </span>
+                </div>
+              )}
+
+              {/* Lista individual */}
+              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                {ocultarListaFiltrada.length === 0 ? (
+                  <div className="px-3 py-3 text-sm text-[#8a6a55]">Nenhuma dívida encontrada.</div>
+                ) : (
+                  ocultarListaFiltrada.map(c => {
+                    const s = getStatus(c.data_vencimento, c.status)
+                    const nome = c.fornecedor_nome ?? fornecedores.find(x => x.id === c.fornecedor_id)?.nome ?? c.descricao ?? '—'
+                    const checked = ocultarIds.has(c.id)
+                    return (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(212,168,83,.05)]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => setOcultarIds(p => {
+                            const next = new Set(p)
+                            if (e.target.checked) next.add(c.id); else next.delete(c.id)
+                            return next
+                          })}
+                          style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div style={{
+                            color: checked ? '#8a6a55' : '#f4e4d6',
+                            fontSize: '.82rem', overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {nome}
+                          </div>
+                          <div style={{ color: '#8a6a55', fontSize: '.7rem' }}>
+                            {fmtCur(c.valor_parcela)} · {fmtDate(c.data_vencimento)}
+                          </div>
+                        </div>
+                        <Badge status={s} />
+                      </label>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Rodapé */}
+              {ocultarIds.size > 0 && (
+                <div className="px-3 py-2 border-t border-[rgba(212,168,83,.1)] flex items-center justify-between">
+                  <span style={{ fontSize: '.75rem', color: '#8a6a55' }}>{ocultarIds.size} item(s) oculto(s)</span>
+                  <button
+                    type="button"
+                    onClick={() => setOcultarIds(new Set())}
+                    style={{ color: '#f87171', fontSize: '.75rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Raleway, sans-serif' }}
+                  >
+                    Limpar tudo
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="mb-4">
         <input
@@ -1119,6 +1333,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   )
                 })}
               </tbody>
+              <tfoot>
+                <tr style={{ borderTop: '1px solid rgba(212,168,83,.18)', background: 'rgba(212,168,83,.04)' }}>
+                  <td colSpan={3} className="px-4 py-3 section-label" style={{ fontWeight: 700 }}>Total</td>
+                  <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 700 }}>{fmtCur(totaisColunas.valorTotal)}</td>
+                  <td className="px-4 py-3" style={{ color: totaisColunas.pago > 0 ? '#4ade80' : '#4a5568', fontWeight: 700 }}>{fmtCur(totaisColunas.pago)}</td>
+                  <td className="px-4 py-3" style={{ color: totaisColunas.restante > 0 ? '#f87171' : '#4ade80', fontWeight: 700 }}>{fmtCur(totaisColunas.restante)}</td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

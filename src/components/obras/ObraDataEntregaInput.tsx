@@ -1,0 +1,70 @@
+import { Calendar } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import type { ObraFull } from '@/types'
+
+interface ObraDataEntregaInputProps {
+  obra: Pick<ObraFull, 'id' | 'pedido_material_feito' | 'data_entrega_pedido'>
+  canEdit: boolean
+  loading?: boolean
+  onChange: (date: string | null) => void
+  compact?: boolean
+}
+
+/** Input de data de entrega do pedido — exibido no card da obra quando o pedido está feito. */
+export function ObraDataEntregaInput({
+  obra,
+  canEdit,
+  loading = false,
+  onChange,
+  compact = false,
+}: ObraDataEntregaInputProps) {
+  const [localDate, setLocalDate] = useState<string>(obra.data_entrega_pedido ?? '')
+
+  // Sincroniza estado local se a obra mudar externamente
+  useEffect(() => {
+    setLocalDate(obra.data_entrega_pedido ?? '')
+  }, [obra.data_entrega_pedido])
+
+  if (!obra.pedido_material_feito) return null
+
+  const handleBlur = () => {
+    const val = localDate || null
+    if (val !== obra.data_entrega_pedido) {
+      onChange(val)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
+
+  return (
+    <div 
+      className={[
+        'flex items-center gap-1.5 rounded-md border border-[rgba(212,168,83,0.18)] bg-[rgba(255,255,255,0.02)] transition-colors min-w-0',
+        compact ? 'p-1.5' : 'p-2',
+        canEdit && !loading ? 'hover:border-[rgba(212,168,83,0.35)]' : '',
+      ].join(' ')}
+      onClick={e => e.stopPropagation()}
+    >
+      <Calendar size={compact ? 12 : 14} className="text-[#d4a853] shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[#8a6a55] text-[0.55rem] uppercase tracking-wider leading-none mb-1">
+          Chegada Material
+        </p>
+        <input
+          type="date"
+          className="w-full bg-transparent border-none p-0 text-[#f4e4d6] text-[0.65rem] focus:ring-0 cursor-pointer"
+          value={localDate}
+          disabled={!canEdit || loading}
+          onChange={e => setLocalDate(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          onClick={e => e.stopPropagation()}
+        />
+      </div>
+    </div>
+  )
+}
