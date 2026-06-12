@@ -16,11 +16,12 @@ import { getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
-import { countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
+import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
   KANBAN_COL_CLASS,
@@ -585,6 +586,11 @@ function AgendaObrasContent() {
     return map
   }, [obrasFiltradas])
 
+  const obrasEmAbertoCount = useMemo(
+    () => countObrasEmAberto(obrasHook.data),
+    [obrasHook.data],
+  )
+
   const semPedidoMaterialCount = useMemo(
     () => countObrasSemPedidoMaterial(obrasHook.data),
     [obrasHook.data],
@@ -803,7 +809,10 @@ function AgendaObrasContent() {
           }
           actions={
             <div className="obra-page-header__actions-inner">
-              <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
+              <div className="obra-page-header__badges flex flex-col items-start gap-1">
+                <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
+                <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
+              </div>
               <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
               <div className="obra-page-header__action-buttons">
                 {canConfig && (

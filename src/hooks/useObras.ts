@@ -56,6 +56,37 @@ export function useObras() {
 
   useEffect(() => { void load() }, [load])
 
+  useEffect(() => {
+    if (!isReady) return
+
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduleReload = () => {
+      if (reloadTimer) clearTimeout(reloadTimer)
+      reloadTimer = setTimeout(() => {
+        void load({ silent: true })
+      }, 350)
+    }
+
+    const channel = supabase
+      .channel(`movelaria-obras-${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_obras' },
+        scheduleReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_obra_responsaveis' },
+        scheduleReload,
+      )
+      .subscribe()
+
+    return () => {
+      if (reloadTimer) clearTimeout(reloadTimer)
+      void supabase.removeChannel(channel)
+    }
+  }, [isReady, load])
+
   const create = async (input: ObraInput): Promise<string> => {
     const { obraFields, montadorIds } = splitObraInputForSave(stripComissaoFromObraPayload(input))
     const { data: row, error: err } = await supabase

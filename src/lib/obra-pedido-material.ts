@@ -11,3 +11,12 @@ export function obraPrecisaPedidoMaterial(obra: Pick<ObraFull, 'status_kanban' |
 export function countObrasSemPedidoMaterial(obras: ObraFull[]): number {
   return obras.filter(obraPrecisaPedidoMaterial).length
 }
+
+/** Obra ainda não concluída nem cancelada. */
+export function obraEmAberto(obra: Pick<ObraFull, 'status_kanban'>): boolean {
+  return !STATUS_INATIVOS.has(obra.status_kanban)
+}
+
+export function countObrasEmAberto(obras: ObraFull[]): number {
+  return obras.filter(obraEmAberto).length
+}
