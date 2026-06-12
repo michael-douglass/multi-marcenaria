@@ -631,8 +631,10 @@ function CalendarioObrasContent() {
     if (!obraForm.cliente_nome.trim() || !editObra) return
     setSavingObra(true)
     try {
-      await obrasHook.update(editObra.id, obraForm)
+      await obrasHook.update(editObra.id, obraForm, { syncComissao: canEditComissao(roles) })
       setEditObra(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível salvar a obra.')
     } finally { setSavingObra(false) }
   }
 

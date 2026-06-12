@@ -715,7 +715,7 @@ function AgendaObrasContent() {
     setSavingObra(true)
     try {
       if (editObra) {
-        await obrasHook.update(editObra.id, obraForm)
+        await obrasHook.update(editObra.id, obraForm, { syncComissao: canEditComissao(roles) })
       } else {
         const obraId = await obrasHook.create(obraForm)
         // Upload pending files sequentially after creation
@@ -733,6 +733,8 @@ function AgendaObrasContent() {
         setDraftRestored(false)
       }
       setObraOpen(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível salvar a obra.')
     } finally { setSavingObra(false) }
   }
 

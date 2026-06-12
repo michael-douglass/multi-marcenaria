@@ -32,6 +32,11 @@ function stripComissaoFromObraPayload<T extends ObraInput>(input: T) {
   return rest
 }
 
+export interface ObraUpdateOptions {
+  /** Sincroniza comissão apenas quando o usuário tem permissão (evita falha em edições parciais). */
+  syncComissao?: boolean
+}
+
 export function useObras() {
   const { isReady } = useAuthReady()
   const [data, setData] = useState<ObraFull[]>([])
@@ -103,7 +108,7 @@ export function useObras() {
     return row.id as string
   }
 
-  const update = async (id: string, input: Partial<ObraInput>) => {
+  const update = async (id: string, input: Partial<ObraInput>, options?: ObraUpdateOptions) => {
     const { montador_ids, comissao_habilitada, comissao_itens, ...rest } = input
     const updatePayload: Partial<ObraInput> = stripComissaoFromObraPayload({ ...rest } as ObraInput)
 
@@ -124,7 +129,10 @@ export function useObras() {
       await syncObraMontadores(id, [...new Set(montador_ids.filter(Boolean))])
     }
 
-    if (comissao_habilitada !== undefined || comissao_itens !== undefined) {
+    if (
+      options?.syncComissao
+      && (comissao_habilitada !== undefined || comissao_itens !== undefined)
+    ) {
       await syncObraComissao(id, {
         comissao_habilitada,
         comissao_itens,
