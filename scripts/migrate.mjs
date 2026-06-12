@@ -1,18 +1,18 @@
 /**
- * GARBO Movelaria — Script de Migration
- * Executa o SQL em supabase/migrations/001_movelaria_schema.sql
- * via conexão direta PostgreSQL (DATABASE_URL no .env)
+ * GARBO Movelaria — Aplica migrations incrementais em supabase/migrations/
  *
  * Uso: node --env-file=.env scripts/migrate.mjs
+ * Requer: DATABASE_URL no .env
  */
 
 import pkg from 'pg'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const { Client } = pkg
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const MIGRATIONS_DIR = join(__dirname, '../supabase/migrations')
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) {
@@ -20,38 +20,19 @@ if (!DATABASE_URL) {
   process.exit(1)
 }
 
-const migrations = [
-  '001_movelaria_schema.sql',
-  '002_movelaria_auth.sql',
-  '003_contas_pagar_anexos.sql',
-  '004_contas_pagar_observacao.sql',
-  '004_fornecedor_vendedor.sql',
-  '005_formas_pagamento_pagar.sql',
-  '006_clientes_sync_leads.sql',
-  '007_clientes_sync_trigger_leads.sql',
-  '008_orcamentos_fechados.sql',
-  '009_orcamentos_fechados_liquido_desconto.sql',
-  '010_transacoes_historico.sql',
-  '011_contas_receber_origem.sql',
-  '012_orcamentos_fechados_delete_policy.sql',
-  '013_leads_ganhos_observacoes.sql',
-  '014_caixa_fornecedor.sql',
-  '015_fornecedor_limite.sql',
-  '016_leads_ganhos_valor_br_format.sql',
-  '017_leads_ganhos_valor_negocio.sql',
-  '018_contas_pagar_recorrencia.sql',
-  '019_contas_receber_grupo_cartao.sql',
-  '020_caixa_pagamentos_adiados.sql',
-  '021_caixa_sync_trigger.sql',
-  '022_agenda_obras.sql',
-  '023_admin_usuarios.sql',
-  '024_fix_trigger_usuarios.sql',
-  '025_obra_arquivos.sql',
-  '026_fix_criar_usuario_tokens.sql',
-  '027_usuario_role_garantido.sql',
-  '028_obra_evolucao.sql',
-  '029_recibo_config.sql',
-]
+function migrationSortKey(filename) {
+  const match = filename.match(/^(\d+)/)
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER
+}
+
+function listMigrationFiles() {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter(f => f.endsWith('.sql'))
+    .sort((a, b) => {
+      const diff = migrationSortKey(a) - migrationSortKey(b)
+      return diff !== 0 ? diff : a.localeCompare(b)
+    })
+}
 
 const client = new Client({
   connectionString: DATABASE_URL,
@@ -64,16 +45,71 @@ try {
   await client.connect()
   console.log('✅ Conexão estabelecida.')
 
-  for (const file of migrations) {
-    const sqlPath = join(__dirname, '../supabase/migrations', file)
-    const sql = readFileSync(sqlPath, 'utf-8')
-    console.log(`⚙️  Executando ${file}...`)
-    await client.query(sql)
-    console.log(`✅ ${file} aplicado.`)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS movelaria_schema_migrations (
+      filename TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `)
+
+  const { rows: applied } = await client.query(
+    'SELECT filename FROM movelaria_schema_migrations',
+  )
+  const appliedSet = new Set(applied.map(r => r.filename))
+  const files = listMigrationFiles()
+
+  if (appliedSet.size === 0) {
+    const { rows: existing } = await client.query(`
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'movelaria_obras'
+      LIMIT 1
+    `)
+    if (existing.length > 0) {
+      console.log('📋 Banco já existente — registrando migrations anteriores como aplicadas...')
+      for (const file of files) {
+        await client.query(
+          'INSERT INTO movelaria_schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING',
+          [file],
+        )
+        appliedSet.add(file)
+      }
+    }
+  }
+
+  let count = 0
+
+  for (const file of files) {
+    if (appliedSet.has(file)) {
+      console.log(`⏭️  ${file} (já aplicada)`)
+      continue
+    }
+
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf-8')
+    console.log(`⚙️  Aplicando ${file}...`)
+
+    await client.query('BEGIN')
+    try {
+      await client.query(sql)
+      await client.query(
+        'INSERT INTO movelaria_schema_migrations (filename) VALUES ($1)',
+        [file],
+      )
+      await client.query('COMMIT')
+      console.log(`✅ ${file} aplicada.`)
+      count++
+    } catch (err) {
+      await client.query('ROLLBACK')
+      console.error(`❌ Falha em ${file}:`, err.message)
+      process.exit(1)
+    }
   }
 
   console.log('')
-  console.log('🚀 Banco pronto. Execute: pnpm dev')
+  if (count === 0) {
+    console.log('✨ Nenhuma migration pendente — banco já está atualizado.')
+  } else {
+    console.log(`🚀 ${count} migration(s) aplicada(s) com sucesso.`)
+  }
 } catch (err) {
   console.error('❌ Erro na migration:', err.message)
   process.exit(1)

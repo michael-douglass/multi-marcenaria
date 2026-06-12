@@ -122,11 +122,24 @@ export async function getEvolucaoUrl(path: string, expiresIn = 3600): Promise<st
 
 const SIGNED_URL_BATCH = 25
 
-/** Assina vários caminhos em lotes para evitar timeout (544) no Storage. */
+type SignedUrlEntry = {
+  path?: string
+  signedUrl?: string | null
+  signedURL?: string | null
+  error?: string | null
+}
+
+function pickSignedUrl(entry: SignedUrlEntry): string | null {
+  return entry.signedUrl ?? entry.signedURL ?? null
+}
+
+/** Assina vários caminhos em lotes; caminhos que falharem são tentados um a um. */
 async function signEvolucaoPaths(paths: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))]
   const map = new Map<string, string>()
   if (unique.length === 0) return map
+
+  const missing = new Set(unique)
 
   for (let i = 0; i < unique.length; i += SIGNED_URL_BATCH) {
     const chunk = unique.slice(i, i + SIGNED_URL_BATCH)
@@ -139,14 +152,35 @@ async function signEvolucaoPaths(paths: string[]): Promise<Map<string, string>> 
       continue
     }
 
-    for (const entry of data ?? []) {
-      if (entry.signedUrl && !entry.error) {
-        map.set(entry.path, entry.signedUrl)
+    for (const entry of (data ?? []) as SignedUrlEntry[]) {
+      const url = pickSignedUrl(entry)
+      if (entry.path && url && !entry.error) {
+        map.set(entry.path, url)
+        missing.delete(entry.path)
       }
     }
   }
 
+  if (missing.size > 0) {
+    await Promise.all([...missing].map(async path => {
+      try {
+        const url = await getEvolucaoUrl(path)
+        map.set(path, url)
+      } catch {
+        /* mantém ausente — UI mostra placeholder */
+      }
+    }))
+  }
+
   return map
+}
+
+/** URL para miniatura na grade (preview ou arquivo original). */
+export function evolucaoThumbUrl(item: {
+  previewSignedUrl: string | null
+  signedUrl: string | null
+}): string | null {
+  return item.previewSignedUrl ?? item.signedUrl ?? null
 }
 
 export async function listObraEvolucao(obraId: string): Promise<ObraEvolucaoItem[]> {
@@ -174,12 +208,14 @@ async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { s
 
   return items.map(item => {
     const signedUrl = urlMap.get(item.storage_path) ?? null
+    const previewFromPath =
+      item.preview_path && item.preview_path !== item.storage_path
+        ? urlMap.get(item.preview_path) ?? null
+        : null
     const previewSignedUrl =
       item.kind === 'image'
         ? signedUrl
-        : item.preview_path
-          ? urlMap.get(item.preview_path) ?? null
-          : null
+        : previewFromPath ?? signedUrl
 
     return { ...item, signedUrl, previewSignedUrl }
   })
