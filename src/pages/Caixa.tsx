@@ -19,12 +19,15 @@ function matchBusca(q: string, ...parts: (string | number | null | undefined)[])
   return parts.some(p => p != null && normBusca(String(p)).includes(nq))
 }
 
-function calcValorRestante(valorReservado: number, valorReal: number) {
-  return Math.max(0, valorReal - valorReservado)
+function calcValorRestante(valorReal: number, totalPago: number) {
+  return Math.max(0, valorReal - totalPago)
 }
 
-function isReservaAberta(valorReal: number, saldoReserva: number) {
-  return valorReal > 0 && saldoReserva < valorReal
+function getStatusReserva(valorReal: number, totalPago: number): 'pago' | 'parcialmente_pago' | 'aberto' | null {
+  if (valorReal <= 0) return null
+  if (totalPago >= valorReal - 0.009) return 'pago'
+  if (totalPago > 0) return 'parcialmente_pago'
+  return 'aberto'
 }
 
 export function Caixa() {
@@ -53,7 +56,7 @@ export function Caixa() {
   const totaisReservas = useMemo(() => {
     return reservasFiltradas.reduce(
       (acc, item) => {
-        const restante = calcValorRestante(item.valor_em_reserva, item.valor_total_real)
+        const restante = calcValorRestante(item.valor_total_real, item.total_pago)
         return {
           valorReal: acc.valorReal + item.valor_total_real,
           reservado: acc.reservado + item.valor_em_reserva,
@@ -215,8 +218,8 @@ export function Caixa() {
                     </tr>
                   ) : (
                     reservasFiltradas.map(item => {
-                      const restante = calcValorRestante(item.valor_em_reserva, item.valor_total_real)
-                      const aberto = isReservaAberta(item.valor_total_real, item.valor_em_reserva)
+                      const restante = calcValorRestante(item.valor_total_real, item.total_pago)
+                      const status = getStatusReserva(item.valor_total_real, item.total_pago)
 
                       return (
                         <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
@@ -240,19 +243,19 @@ export function Caixa() {
                             {fmtCur(restante)}
                           </td>
                           <td className="px-6 py-4 text-center">
-                            {aberto ? (
-                              <Badge status="aberto" />
-                            ) : null}
+                            {status ? <Badge status={status} /> : null}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 text-xs text-[#d4a853] hover:text-[#d4a853] hover:bg-[#d4a853]/10"
-                              onClick={() => setPagarReserva(item)}
-                            >
-                              Pagar
-                            </Button>
+                            {status !== 'pago' ? (
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 text-xs text-[#d4a853] hover:text-[#d4a853] hover:bg-[#d4a853]/10"
+                                onClick={() => setPagarReserva(item)}
+                              >
+                                Pagar
+                              </Button>
+                            ) : null}
                           </td>
                         </tr>
                       )

@@ -94,7 +94,7 @@ export function useCaixa(mes: number, ano: number) {
           tipo_destinatario: d.tipo,
           data_vencimento: oper?.vencimento || undefined,
           valor_total_real: oper?.total || 0,
-          valor_em_reserva: saldo?.saldo ?? 0,
+          valor_em_reserva: saldo?.total_reservado ?? 0,
           total_pago: saldo?.total_pago || 0,
           totalLancamentosMes: oper?.count || 0,
           totalItensConcluidosMes: 0,

@@ -316,7 +316,7 @@ export interface ReservaConsolidada {
   tipo_destinatario: TipoDestinatarioCaixa
   data_vencimento?: string
   valor_total_real: number      // quanto deve receber (operacional)
-  valor_em_reserva: number      // saldo disponível (reservado − pago)
+  valor_em_reserva: number      // total reservado no caixa
   total_pago: number            // quanto já foi pago
   totalLancamentosMes: number   // qtd lançamentos operacionais
   totalItensConcluidosMes: number // qtd OS/itens concluídos
