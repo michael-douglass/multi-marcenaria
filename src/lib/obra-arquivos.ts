@@ -86,6 +86,20 @@ export async function buildPendingObraArquivo(file: File): Promise<PendingObraAr
   }
 }
 
+export function revokePendingObraArquivoUrl(pending: PendingObraArquivo): void {
+  if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl)
+}
+
+export function obraArquivoLightboxUrl(arq: {
+  kind: 'image' | 'pdf' | 'video'
+  signedUrl: string | null
+  previewSignedUrl: string | null
+}): string | null {
+  if (arq.kind === 'video') return arq.signedUrl
+  if (arq.kind === 'pdf') return arq.previewSignedUrl ?? arq.signedUrl
+  return arq.signedUrl ?? arq.previewSignedUrl
+}
+
 export async function uploadObraArquivo(
   obraId: string,
   pending: PendingObraArquivo,

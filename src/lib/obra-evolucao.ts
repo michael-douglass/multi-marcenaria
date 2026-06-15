@@ -183,6 +183,17 @@ export function evolucaoThumbUrl(item: {
   return item.previewSignedUrl ?? item.signedUrl ?? null
 }
 
+/** URL para visualização em tela cheia (PDF usa a imagem convertida). */
+export function evolucaoLightboxUrl(item: {
+  kind: 'image' | 'pdf' | 'video'
+  previewSignedUrl: string | null
+  signedUrl: string | null
+}): string | null {
+  if (item.kind === 'video') return item.signedUrl
+  if (item.kind === 'pdf') return item.previewSignedUrl ?? item.signedUrl
+  return item.signedUrl ?? item.previewSignedUrl
+}
+
 export async function listObraEvolucao(obraId: string): Promise<ObraEvolucaoItem[]> {
   const { data, error } = await supabase
     .from('movelaria_obra_evolucao')

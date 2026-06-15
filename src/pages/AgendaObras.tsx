@@ -9,9 +9,13 @@ import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
-import { ObraFormModal, type PendingFile } from '../components/obras/ObraFormModal'
-import { buildPendingObraArquivo, uploadObraArquivo } from '../lib/obra-arquivos'
-import { videoFirstFrameToJpegBlob } from '../lib/video-to-image'
+import { ObraFormModal } from '../components/obras/ObraFormModal'
+import {
+  buildPendingObraArquivo,
+  revokePendingObraArquivoUrl,
+  uploadObraArquivo,
+  type PendingObraArquivo,
+} from '../lib/obra-arquivos'
 import { getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
@@ -454,7 +458,7 @@ function AgendaObrasContent() {
   const [editObra, setEditObra] = useState<ObraFull | null>(null)
   const [obraForm, setObraForm] = useState<ObraInput>(BLANK_OBRA)
   const [savingObra, setSavingObra] = useState(false)
-  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [pendingFiles, setPendingFiles] = useState<PendingObraArquivo[]>([])
   const [hasDraft, setHasDraft] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)
 
@@ -596,6 +600,26 @@ function AgendaObrasContent() {
     [obrasHook.data],
   )
 
+  const clearPendingFiles = useCallback(() => {
+    setPendingFiles(prev => {
+      prev.forEach(revokePendingObraArquivoUrl)
+      return []
+    })
+  }, [])
+
+  const handleAddFiles = useCallback(async (files: File[]) => {
+    const pending = await Promise.all(files.map(file => buildPendingObraArquivo(file)))
+    setPendingFiles(prev => [...prev, ...pending])
+  }, [])
+
+  const handleRemoveFile = useCallback((localId: string) => {
+    setPendingFiles(prev => {
+      const item = prev.find(p => p.localId === localId)
+      if (item) revokePendingObraArquivoUrl(item)
+      return prev.filter(p => p.localId !== localId)
+    })
+  }, [])
+
   const openNew = () => {
     setEditObra(null)
     let restored = false
@@ -621,7 +645,7 @@ function AgendaObrasContent() {
       setObraForm(BLANK_OBRA)
     }
     setDraftRestored(restored)
-    setPendingFiles([])
+    clearPendingFiles()
     setObraOpen(true)
   }
 
@@ -657,7 +681,7 @@ function AgendaObrasContent() {
       comissao_habilitada: obra.comissao_habilitada ?? false,
       comissao_itens: parseObraComissaoItens(obra),
     })
-    setPendingFiles([])
+    clearPendingFiles()
     setObraOpen(true)
   }
 
@@ -686,30 +710,6 @@ function AgendaObrasContent() {
     })
   }
 
-  const handleAddFiles = useCallback(async (files: File[]) => {
-    const pending: PendingFile[] = await Promise.all(
-      files.map(async file => {
-        if (file.type.startsWith('image/')) {
-          return { file, previewUrl: URL.createObjectURL(file) }
-        }
-        if (file.type.startsWith('video/') || /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/i.test(file.name)) {
-          const thumbBlob = await videoFirstFrameToJpegBlob(file).catch(() => null)
-          return { file, previewUrl: thumbBlob ? URL.createObjectURL(thumbBlob) : null }
-        }
-        return { file, previewUrl: null }
-      })
-    )
-    setPendingFiles(prev => [...prev, ...pending])
-  }, [])
-
-  const handleRemoveFile = useCallback((index: number) => {
-    setPendingFiles(prev => {
-      const pf = prev[index]
-      if (pf?.previewUrl) URL.revokeObjectURL(pf.previewUrl)
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
-
   const saveObra = async () => {
     if (!obraForm.cliente_nome.trim()) return
     setSavingObra(true)
@@ -719,14 +719,13 @@ function AgendaObrasContent() {
       } else {
         const obraId = await obrasHook.create(obraForm)
         // Upload pending files sequentially after creation
-        for (const pf of pendingFiles) {
+        for (const pending of pendingFiles) {
           try {
-            const pending = await buildPendingObraArquivo(pf.file)
             await uploadObraArquivo(obraId, pending)
-            URL.revokeObjectURL(pending.previewUrl)
+            revokePendingObraArquivoUrl(pending)
           } catch { /* ignora erro individual de arquivo */ }
         }
-        setPendingFiles([])
+        clearPendingFiles()
         // Obra criada com sucesso — apaga rascunho
         if (draftKey) localStorage.removeItem(draftKey)
         setHasDraft(false)

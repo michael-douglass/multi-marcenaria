@@ -1,11 +1,12 @@
-import { useRef } from 'react'
-import { Upload, X, FileText, Image, Clock } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Upload } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
 import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
 import { ObraComissaoField } from '@/components/obras/ObraComissaoField'
-import { isAcceptedObraFile } from '@/lib/obra-arquivos'
+import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
+import { isAcceptedObraFile, type PendingObraArquivo } from '@/lib/obra-arquivos'
 import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '@/types'
 
 const WEEKDAYS_FORM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -19,10 +20,7 @@ const COLUNAS: { key: StatusKanbanObra; label: string }[] = [
   { key: 'cancelada',       label: 'Cancelada' },
 ]
 
-export interface PendingFile {
-  file: File
-  previewUrl: string | null
-}
+export interface PendingFile extends PendingObraArquivo {}
 
 interface ObraFormModalProps {
   open: boolean
@@ -40,9 +38,9 @@ interface ObraFormModalProps {
   isAdmin: boolean
   canEditComissao?: boolean
   // arquivos pendentes (só em criação)
-  pendingFiles: PendingFile[]
+  pendingFiles: PendingObraArquivo[]
   onAddFiles: (files: File[]) => void
-  onRemoveFile: (index: number) => void
+  onRemoveFile: (localId: string) => void
   // rascunho
   isDraftRestored?: boolean
   onClearDraft?: () => void
@@ -55,6 +53,7 @@ export function ObraFormModal({
   isDraftRestored, onClearDraft,
 }: ObraFormModalProps) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [previewFile, setPreviewFile] = useState<PendingObraArquivo | null>(null)
 
   const s = (k: keyof ObraInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange(k, e.target.value || null)
@@ -282,7 +281,7 @@ export function ObraFormModal({
             <p className="text-[0.75rem] text-[#8a6a55]">
               Arraste arquivos ou <span className="text-[#d4a853] font-semibold">clique para selecionar</span>
             </p>
-            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos</p>
+            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos · PDFs viram imagem na pré-visualização</p>
           </div>
           <input
             ref={fileRef}
@@ -295,37 +294,31 @@ export function ObraFormModal({
 
           {/* Lista de arquivos pendentes */}
           {pendingFiles.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {pendingFiles.map((pf, i) => (
-                <div
-                  key={i}
-                  className="relative flex items-center gap-2 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(0,0,0,0.25)] px-2 py-1.5 pr-7 max-w-[200px]"
-                >
-                  {pf.previewUrl ? (
-                    <img
-                      src={pf.previewUrl}
-                      alt={pf.file.name}
-                      className="w-8 h-8 rounded object-cover shrink-0"
-                    />
-                  ) : (
-                    <FileText size={20} className="text-[#d4a853] shrink-0" />
-                  )}
-                  <span className="text-[0.7rem] text-[#c4a882] truncate leading-tight">
-                    {pf.file.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); onRemoveFile(i) }}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-red-400 transition-colors"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {pendingFiles.map(pf => (
+                <AnexoThumb
+                  key={pf.localId}
+                  previewUrl={pf.previewUrl}
+                  nome={pf.nome}
+                  kind={pf.kind}
+                  onOpenFullscreen={() => {
+                    if (pf.previewUrl || pf.kind === 'video') setPreviewFile(pf)
+                  }}
+                  onDelete={() => onRemoveFile(pf.localId)}
+                />
               ))}
             </div>
           )}
         </Field>
       )}
+
+      <AnexoLightbox
+        open={!!previewFile && !!(previewFile.previewUrl || previewFile.kind === 'video')}
+        imageUrl={previewFile?.previewUrl ?? ''}
+        title={previewFile?.nome ?? ''}
+        kind={previewFile?.kind ?? 'image'}
+        onClose={() => setPreviewFile(null)}
+      />
 
       <ModalFormFooter
         onCancel={onClose}

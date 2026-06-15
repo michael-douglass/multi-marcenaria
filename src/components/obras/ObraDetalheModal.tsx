@@ -4,8 +4,8 @@ import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
 import { useObraEvolucao } from '@/hooks/useObraEvolucao'
-import { isAcceptedObraFile } from '@/lib/obra-arquivos'
-import { groupEvolucaoPorDia } from '@/lib/obra-evolucao'
+import { isAcceptedObraFile, obraArquivoLightboxUrl } from '@/lib/obra-arquivos'
+import { groupEvolucaoPorDia, evolucaoLightboxUrl } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
 import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
@@ -85,7 +85,7 @@ export function ObraDetalheModal({
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [lightbox, setLightbox]         = useState<{ url: string; nome: string; kind: 'image' | 'pdf' | 'video'; canDelete?: boolean; onDelete?: () => void } | null>(null)
+  const [lightbox, setLightbox]         = useState<{ url: string; nome: string; kind: 'image' | 'pdf' | 'video'; arquivoId?: string } | null>(null)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [uploadErr, setUploadErr]       = useState<string | null>(null)
   const [evolUploadErr, setEvolUploadErr] = useState<string | null>(null)
@@ -473,7 +473,8 @@ export function ObraDetalheModal({
                           nome={item.nome_arquivo}
                           kind={item.kind}
                           onOpenFullscreen={() => {
-                            if (item.signedUrl) setLightbox({ url: item.signedUrl, nome: item.nome_arquivo, kind: item.kind })
+                            const url = evolucaoLightboxUrl(item)
+                            if (url) setLightbox({ url, nome: item.nome_arquivo, kind: item.kind })
                           }}
                           onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
                         />
@@ -548,7 +549,8 @@ export function ObraDetalheModal({
                   nome={arq.nome_arquivo}
                   kind={arq.kind}
                   onOpenFullscreen={() => {
-                    if (arq.signedUrl) setLightbox({ url: arq.signedUrl, nome: arq.nome_arquivo, kind: arq.kind })
+                    const url = obraArquivoLightboxUrl(arq)
+                    if (url) setLightbox({ url, nome: arq.nome_arquivo, kind: arq.kind, arquivoId: arq.id })
                   }}
                   onDelete={canUpload ? () => handleDelete(arq) : undefined}
                 />
@@ -572,11 +574,12 @@ export function ObraDetalheModal({
           title={lightbox.nome}
           kind={lightbox.kind}
           onClose={() => setLightbox(null)}
-          onDelete={canUpload && arqHook.data.find(a => a.signedUrl === lightbox.url)
+          onDelete={canUpload && lightbox.arquivoId
             ? () => {
-                const arq = arqHook.data.find(a => a.signedUrl === lightbox.url)!
+                const arq = arqHook.data.find(a => a.id === lightbox.arquivoId)
+                if (!arq) return
                 setLightbox(null)
-                handleDelete(arq)
+                void handleDelete(arq)
               }
             : undefined
           }

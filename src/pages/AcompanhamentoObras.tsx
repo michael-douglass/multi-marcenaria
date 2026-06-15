@@ -4,7 +4,7 @@ import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { fmtDate } from '@/lib/utils'
 import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
-import { evolucaoThumbUrl } from '@/lib/obra-evolucao'
+import { evolucaoThumbUrl, evolucaoLightboxUrl } from '@/lib/obra-evolucao'
 import type { EvolucaoPainelItemComUrl } from '@/lib/obra-evolucao'
 import {
   KanbanPageZoomControls,
@@ -81,7 +81,7 @@ function AcompanhamentoObrasContent() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
 
   const openFoto = (foto: EvolucaoPainelItemComUrl) => {
-    const url = foto.signedUrl ?? evolucaoThumbUrl(foto) ?? ''
+    const url = evolucaoLightboxUrl(foto) ?? ''
     if (!url) return
     setLightbox({ url, nome: foto.nome_arquivo, kind: foto.kind })
   }
