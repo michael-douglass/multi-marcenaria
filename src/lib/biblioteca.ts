@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { deleteContaPagarAnexo, getAnexoSignedUrl } from '@/lib/contas-pagar-anexos'
+import { deleteContaPagarAnexo, getAnexoPreviewSignedUrls } from '@/lib/contas-pagar-anexos'
 import type { BibliotecaItem, ContaPagarAnexo } from '@/types'
 
 function anexoKind(row: ContaPagarAnexo): 'image' | 'pdf' {
@@ -38,10 +38,9 @@ export async function fetchBibliotecaItems(): Promise<BibliotecaItem[]> {
 
   const items: BibliotecaItem[] = await Promise.all(
     anexos.map(async row => {
-      const path = row.preview_path ?? row.storage_path
-      let previewUrl = ''
+      let previewUrls: string[] = []
       try {
-        previewUrl = await getAnexoSignedUrl(path)
+        previewUrls = await getAnexoPreviewSignedUrls(row as ContaPagarAnexo)
       } catch {
         // URL failed; item shown without preview
       }
@@ -51,7 +50,8 @@ export async function fetchBibliotecaItems(): Promise<BibliotecaItem[]> {
         nome_arquivo: row.nome_arquivo,
         tipo_mime: row.tipo_mime,
         kind: anexoKind(row as ContaPagarAnexo),
-        previewUrl,
+        previewUrl: previewUrls[0] ?? '',
+        previewUrls,
         criado_em: row.criado_em,
         origem: 'contas_pagar',
         grupo_lancamento_id: row.grupo_lancamento_id,

@@ -281,7 +281,7 @@ export function ObraFormModal({
             <p className="text-[0.75rem] text-[#8a6a55]">
               Arraste arquivos ou <span className="text-[#d4a853] font-semibold">clique para selecionar</span>
             </p>
-            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos · PDFs viram imagem na pré-visualização</p>
+            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos · PDFs: todas as páginas viram imagem</p>
           </div>
           <input
             ref={fileRef}
@@ -315,6 +315,7 @@ export function ObraFormModal({
       <AnexoLightbox
         open={!!previewFile && !!(previewFile.previewUrl || previewFile.kind === 'video')}
         imageUrl={previewFile?.previewUrl ?? ''}
+        pages={previewFile?.previewUrls}
         title={previewFile?.nome ?? ''}
         kind={previewFile?.kind ?? 'image'}
         onClose={() => setPreviewFile(null)}

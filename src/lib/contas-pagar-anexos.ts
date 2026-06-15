@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { pdfFirstPageToPngBlob } from '@/lib/pdf-to-image'
+import { pdfAllPagesToPngBlobs } from '@/lib/pdf-to-image'
+import { pdfPreviewPathAt, collectPreviewStoragePaths, resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { createId } from '@/lib/utils'
 import type { ContaPagarAnexo, PendingContaPagarAnexo } from '@/types'
 
@@ -22,15 +23,17 @@ export async function buildPendingAnexo(file: File): Promise<PendingContaPagarAn
     file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 
   if (isPdf) {
-    const previewBlob = await pdfFirstPageToPngBlob(file)
+    const previewBlobs = await pdfAllPagesToPngBlobs(file)
+    const previewUrls = previewBlobs.map(blob => URL.createObjectURL(blob))
     return {
       localId: createId(),
       file,
       nome: file.name,
       tipoMime: file.type || 'application/pdf',
       kind: 'pdf',
-      previewUrl: URL.createObjectURL(previewBlob),
-      previewBlob,
+      previewUrl: previewUrls[0] ?? '',
+      previewUrls,
+      previewBlobs,
     }
   }
 
@@ -45,7 +48,10 @@ export async function buildPendingAnexo(file: File): Promise<PendingContaPagarAn
 }
 
 export function revokePendingAnexoUrls(anexos: PendingContaPagarAnexo[]) {
-  anexos.forEach(a => URL.revokeObjectURL(a.previewUrl))
+  anexos.forEach(a => {
+    const urls = a.previewUrls?.length ? a.previewUrls : a.previewUrl ? [a.previewUrl] : []
+    urls.forEach(url => URL.revokeObjectURL(url))
+  })
 }
 
 export async function uploadContaPagarAnexos(
@@ -66,15 +72,22 @@ export async function uploadContaPagarAnexos(
     if (upErr) throw new Error(upErr.message)
 
     let previewPath: string | null = null
-    if (anexo.kind === 'pdf' && anexo.previewBlob) {
-      previewPath = `${grupoLancamentoId}/${anexoId}/preview.png`
-      const { error: prevErr } = await supabase.storage
-        .from(ANEXOS_BUCKET)
-        .upload(previewPath, anexo.previewBlob, {
-          contentType: 'image/png',
-          upsert: false,
-        })
-      if (prevErr) throw new Error(prevErr.message)
+    let previewPaths: string[] | null = null
+    if (anexo.kind === 'pdf' && anexo.previewBlobs?.length) {
+      const basePrefix = `${grupoLancamentoId}/${anexoId}`
+      previewPaths = []
+      for (let i = 0; i < anexo.previewBlobs.length; i++) {
+        const path = pdfPreviewPathAt(basePrefix, i + 1, 'folder')
+        const { error: prevErr } = await supabase.storage
+          .from(ANEXOS_BUCKET)
+          .upload(path, anexo.previewBlobs[i], {
+            contentType: 'image/png',
+            upsert: false,
+          })
+        if (prevErr) throw new Error(prevErr.message)
+        previewPaths.push(path)
+      }
+      previewPath = previewPaths[0] ?? null
     } else if (anexo.kind === 'image') {
       previewPath = storagePath
     }
@@ -86,6 +99,7 @@ export async function uploadContaPagarAnexos(
       tipo_mime: anexo.tipoMime,
       storage_path: storagePath,
       preview_path: previewPath,
+      preview_paths: previewPaths,
     })
     if (dbErr) throw new Error(dbErr.message)
   }
@@ -115,12 +129,23 @@ export async function getAnexoSignedUrl(path: string, expiresIn = 3600): Promise
   return result.data.signedUrl
 }
 
-export async function deleteContaPagarAnexo(anexo: ContaPagarAnexo): Promise<void> {
-  const paths = [anexo.storage_path]
-  if (anexo.preview_path && anexo.preview_path !== anexo.storage_path) {
-    paths.push(anexo.preview_path)
+export async function getAnexoPreviewSignedUrls(anexo: ContaPagarAnexo): Promise<string[]> {
+  const paths = resolveStoredPreviewPaths(anexo)
+  const targetPaths = paths.length ? paths : [anexo.storage_path]
+  const urls: string[] = []
+  for (const path of targetPaths) {
+    try {
+      urls.push(await getAnexoSignedUrl(path))
+    } catch {
+      /* ignora página indisponível */
+    }
   }
-  const { error: stErr } = await supabase.storage.from(ANEXOS_BUCKET).remove(paths)
+  return urls
+}
+
+export async function deleteContaPagarAnexo(anexo: ContaPagarAnexo): Promise<void> {
+  const paths = [anexo.storage_path, ...collectPreviewStoragePaths(anexo)]
+  const { error: stErr } = await supabase.storage.from(ANEXOS_BUCKET).remove([...new Set(paths)])
   if (stErr) throw new Error(stErr.message)
 
   const { error: dbErr } = await supabase

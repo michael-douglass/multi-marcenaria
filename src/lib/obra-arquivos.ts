@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { pdfFirstPageToPngBlob } from '@/lib/pdf-to-image'
+import { pdfAllPagesToPngBlobs } from '@/lib/pdf-to-image'
+import { pdfPreviewPathAt, collectPreviewStoragePaths, resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { videoFirstFrameToJpegBlob } from '@/lib/video-to-image'
 import { createId } from '@/lib/utils'
 
@@ -17,6 +18,7 @@ export interface ObraArquivo {
   kind: 'image' | 'pdf' | 'video'
   storage_path: string
   preview_path: string | null
+  preview_paths?: string[] | null
   criado_por: string | null
   criado_em: string
 }
@@ -28,6 +30,8 @@ export interface PendingObraArquivo {
   tipoMime: string
   kind: 'image' | 'pdf' | 'video'
   previewUrl: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
   previewBlob?: Blob
 }
 
@@ -51,15 +55,17 @@ export async function buildPendingObraArquivo(file: File): Promise<PendingObraAr
   const isVideo = !isPdf && (file.type.startsWith('video/') || /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/.test(lower))
 
   if (isPdf) {
-    const previewBlob = await pdfFirstPageToPngBlob(file)
+    const previewBlobs = await pdfAllPagesToPngBlobs(file)
+    const previewUrls = previewBlobs.map(blob => URL.createObjectURL(blob))
     return {
       localId: createId(),
       file,
       nome: file.name,
       tipoMime: file.type || 'application/pdf',
       kind: 'pdf',
-      previewUrl: URL.createObjectURL(previewBlob),
-      previewBlob,
+      previewUrl: previewUrls[0] ?? '',
+      previewUrls,
+      previewBlobs,
     }
   }
 
@@ -87,7 +93,24 @@ export async function buildPendingObraArquivo(file: File): Promise<PendingObraAr
 }
 
 export function revokePendingObraArquivoUrl(pending: PendingObraArquivo): void {
-  if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl)
+  const urls = pending.previewUrls?.length
+    ? pending.previewUrls
+    : pending.previewUrl
+      ? [pending.previewUrl]
+      : []
+  urls.forEach(url => URL.revokeObjectURL(url))
+}
+
+export function obraArquivoLightboxPages(arq: {
+  kind: 'image' | 'pdf' | 'video'
+  signedUrl: string | null
+  previewSignedUrl: string | null
+  previewSignedUrls?: string[] | null
+}): string[] {
+  if (arq.kind === 'video') return arq.signedUrl ? [arq.signedUrl] : []
+  if (arq.previewSignedUrls?.length) return arq.previewSignedUrls
+  const one = obraArquivoLightboxUrl(arq)
+  return one ? [one] : []
 }
 
 export function obraArquivoLightboxUrl(arq: {
@@ -114,13 +137,24 @@ export async function uploadObraArquivo(
   if (upErr) throw new Error(upErr.message)
 
   let previewPath: string | null = null
-  if ((pending.kind === 'pdf' || pending.kind === 'video') && pending.previewBlob) {
-    const previewExt = pending.kind === 'video' ? 'jpg' : 'png'
-    const previewMime = pending.kind === 'video' ? 'image/jpeg' : 'image/png'
-    previewPath = `${obraId}/${arquivoId}/preview.${previewExt}`
+  let previewPaths: string[] | null = null
+  if (pending.kind === 'pdf' && pending.previewBlobs?.length) {
+    const basePrefix = `${obraId}/${arquivoId}`
+    previewPaths = []
+    for (let i = 0; i < pending.previewBlobs.length; i++) {
+      const path = pdfPreviewPathAt(basePrefix, i + 1, 'folder')
+      const { error: pvErr } = await supabase.storage
+        .from(OBRA_ARQUIVOS_BUCKET)
+        .upload(path, pending.previewBlobs[i], { contentType: 'image/png', upsert: false })
+      if (pvErr) throw new Error(pvErr.message)
+      previewPaths.push(path)
+    }
+    previewPath = previewPaths[0] ?? null
+  } else if (pending.kind === 'video' && pending.previewBlob) {
+    previewPath = `${obraId}/${arquivoId}/preview.jpg`
     const { error: pvErr } = await supabase.storage
       .from(OBRA_ARQUIVOS_BUCKET)
-      .upload(previewPath, pending.previewBlob, { contentType: previewMime, upsert: false })
+      .upload(previewPath, pending.previewBlob, { contentType: 'image/jpeg', upsert: false })
     if (pvErr) throw new Error(pvErr.message)
   } else if (pending.kind === 'image') {
     previewPath = storagePath
@@ -136,6 +170,7 @@ export async function uploadObraArquivo(
       kind: pending.kind,
       storage_path: storagePath,
       preview_path: previewPath,
+      preview_paths: previewPaths,
     })
     .select()
     .single()
@@ -144,9 +179,8 @@ export async function uploadObraArquivo(
 }
 
 export async function deleteObraArquivo(arq: ObraArquivo): Promise<void> {
-  const paths = [arq.storage_path]
-  if (arq.preview_path && arq.preview_path !== arq.storage_path) paths.push(arq.preview_path)
-  await supabase.storage.from(OBRA_ARQUIVOS_BUCKET).remove(paths)
+  const paths = [arq.storage_path, ...collectPreviewStoragePaths(arq)]
+  await supabase.storage.from(OBRA_ARQUIVOS_BUCKET).remove([...new Set(paths)])
   const { error } = await supabase.from('movelaria_obra_arquivos').delete().eq('id', arq.id)
   if (error) throw new Error(error.message)
 }

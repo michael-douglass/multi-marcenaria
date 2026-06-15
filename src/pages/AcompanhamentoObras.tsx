@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Camera, Calendar, HardHat, Maximize2 } from 'lucide-react'
 import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
-import { fmtDate } from '@/lib/utils'
+import { fmtDate, fmtTime } from '@/lib/utils'
 import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
-import { evolucaoThumbUrl, evolucaoLightboxUrl } from '@/lib/obra-evolucao'
+import { evolucaoThumbUrl, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import type { EvolucaoPainelItemComUrl } from '@/lib/obra-evolucao'
 import {
   KanbanPageZoomControls,
@@ -23,6 +23,7 @@ export function AcompanhamentoObras() {
 
 type LightboxState = {
   url: string
+  pages?: string[]
   nome: string
   kind: 'image' | 'pdf' | 'video'
 }
@@ -35,13 +36,14 @@ function EvolucaoThumb({
   onOpen: () => void
 }) {
   const thumbUrl = evolucaoThumbUrl(foto)
+  const horario = fmtTime(foto.tirado_em)
 
   return (
     <button
       type="button"
       onClick={onOpen}
       className="group relative h-[7.5rem] w-[7.5rem] shrink-0 overflow-hidden rounded-md border border-[rgba(212,168,83,0.15)] bg-black/40 sm:h-[8.25rem] sm:w-[8.25rem]"
-      aria-label={`Ver foto de ${foto.obra_nome}`}
+      aria-label={`Ver foto de ${foto.obra_nome} às ${horario}`}
     >
       {thumbUrl ? (
         <img
@@ -68,6 +70,10 @@ function EvolucaoThumb({
         </span>
       )}
 
+      <span className="absolute bottom-0.5 left-0.5 rounded bg-black/75 px-1 py-px text-[0.5rem] font-semibold tabular-nums leading-tight text-white">
+        {horario}
+      </span>
+
       <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
         <Maximize2 size={12} className="text-white" />
       </div>
@@ -81,9 +87,9 @@ function AcompanhamentoObrasContent() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
 
   const openFoto = (foto: EvolucaoPainelItemComUrl) => {
-    const url = evolucaoLightboxUrl(foto) ?? ''
-    if (!url) return
-    setLightbox({ url, nome: foto.nome_arquivo, kind: foto.kind })
+    const pages = evolucaoLightboxPages(foto)
+    if (!pages.length) return
+    setLightbox({ url: pages[0], pages, nome: foto.nome_arquivo, kind: foto.kind })
   }
 
   const totalFotos = grupos.reduce(
@@ -204,6 +210,7 @@ function AcompanhamentoObrasContent() {
         <AnexoLightbox
           open
           imageUrl={lightbox.url}
+          pages={lightbox.pages}
           title={lightbox.nome}
           kind={lightbox.kind}
           onClose={() => setLightbox(null)}

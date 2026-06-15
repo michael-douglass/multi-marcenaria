@@ -3,7 +3,7 @@ import { Paperclip } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import {
   deleteContaPagarAnexo,
-  getAnexoSignedUrl,
+  getAnexoPreviewSignedUrls,
   listAnexosByGrupo,
 } from '@/lib/contas-pagar-anexos'
 import {
@@ -21,6 +21,7 @@ interface ContaPagarAnexosModalProps {
 
 interface AnexoView extends ContaPagarAnexo {
   previewUrl: string
+  previewUrls: string[]
   kind: 'image' | 'pdf'
 }
 
@@ -43,14 +44,14 @@ export function ContaPagarAnexosModal({
       const rows = await listAnexosByGrupo(grupoLancamentoId)
       const views: AnexoView[] = await Promise.all(
         rows.map(async row => {
-          const path = row.preview_path ?? row.storage_path
-          const previewUrl = await getAnexoSignedUrl(path)
+          const previewUrls = await getAnexoPreviewSignedUrls(row)
+          const previewUrl = previewUrls[0] ?? ''
           const kind =
             row.tipo_mime === 'application/pdf' ||
             row.nome_arquivo.toLowerCase().endsWith('.pdf')
               ? 'pdf'
               : 'image'
-          return { ...row, previewUrl, kind }
+          return { ...row, previewUrl, previewUrls, kind }
         }),
       )
       setAnexos(views)
@@ -110,7 +111,9 @@ export function ContaPagarAnexosModal({
       <AnexoLightbox
         open={!!lightbox}
         imageUrl={lightbox?.previewUrl ?? ''}
+        pages={lightbox?.previewUrls}
         title={lightbox?.nome_arquivo ?? ''}
+        kind={lightbox?.kind}
         onClose={() => setLightbox(null)}
         onDelete={lightbox ? () => handleDelete(lightbox) : undefined}
         deleting={deleting}

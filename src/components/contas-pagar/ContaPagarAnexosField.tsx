@@ -49,7 +49,10 @@ export function ContaPagarAnexosField({ anexos, onChange }: ContaPagarAnexosFiel
 
   const remove = (localId: string) => {
     const alvo = anexos.find(a => a.localId === localId)
-    if (alvo) URL.revokeObjectURL(alvo.previewUrl)
+    if (alvo) {
+      const urls = alvo.previewUrls?.length ? alvo.previewUrls : alvo.previewUrl ? [alvo.previewUrl] : []
+      urls.forEach(url => URL.revokeObjectURL(url))
+    }
     onChange(anexos.filter(a => a.localId !== localId))
     if (lightbox?.localId === localId) setLightbox(null)
   }
@@ -73,7 +76,7 @@ export function ContaPagarAnexosField({ anexos, onChange }: ContaPagarAnexosFiel
             Clique para anexar JPG, PNG, WebP, GIF ou PDF
           </p>
           <p className="mt-0.5 text-center text-[0.65rem] text-[#8a6a55]/80">
-            PDFs viram imagem na pré-visualização
+            PDFs viram imagem na pré-visualização (todas as páginas)
           </p>
         </div>
 
@@ -107,7 +110,9 @@ export function ContaPagarAnexosField({ anexos, onChange }: ContaPagarAnexosFiel
       <AnexoLightbox
         open={!!lightbox}
         imageUrl={lightbox?.previewUrl ?? ''}
+        pages={lightbox?.previewUrls}
         title={lightbox?.nome ?? ''}
+        kind={lightbox?.kind}
         onClose={() => setLightbox(null)}
         onDelete={
           lightbox

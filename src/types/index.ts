@@ -134,6 +134,7 @@ export interface ContaPagarAnexo {
   tipo_mime: string
   storage_path: string
   preview_path?: string | null
+  preview_paths?: string[] | null
   criado_em?: string
 }
 
@@ -145,6 +146,9 @@ export interface PendingContaPagarAnexo {
   tipoMime: string
   kind: 'image' | 'pdf'
   previewUrl: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
+  /** @deprecated use previewBlobs */
   previewBlob?: Blob
 }
 
@@ -155,6 +159,7 @@ export interface BibliotecaItem {
   tipo_mime: string
   kind: 'image' | 'pdf'
   previewUrl: string
+  previewUrls: string[]
   criado_em: string
   origem: 'contas_pagar'
   grupo_lancamento_id: string

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { pdfFirstPageToPngBlob } from '@/lib/pdf-to-image'
+import { pdfAllPagesToPngBlobs } from '@/lib/pdf-to-image'
+import { pdfPreviewPathAt, collectPreviewStoragePaths, resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { videoFirstFrameToJpegBlob } from '@/lib/video-to-image'
 import { createId } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ export interface ObraEvolucaoItem {
   kind: 'image' | 'pdf' | 'video'
   storage_path: string
   preview_path: string | null
+  preview_paths?: string[] | null
   tirado_em: string
   criado_por: string | null
   criado_em: string
@@ -27,11 +29,13 @@ export interface EvolucaoPainelItem extends ObraEvolucaoItem {
 export interface EvolucaoItemComUrl extends ObraEvolucaoItem {
   signedUrl: string | null
   previewSignedUrl: string | null
+  previewSignedUrls?: string[]
 }
 
 export interface EvolucaoPainelItemComUrl extends EvolucaoPainelItem {
   signedUrl: string | null
   previewSignedUrl: string | null
+  previewSignedUrls: string[]
 }
 
 export function isAcceptedEvolucaoFile(file: File): boolean {
@@ -64,12 +68,19 @@ export async function uploadObraEvolucao(
   if (upErr) throw new Error(upErr.message)
 
   let previewPath: string | null = null
+  let previewPaths: string[] | null = null
   if (isPdf) {
-    const blob = await pdfFirstPageToPngBlob(file)
-    previewPath = `${obraId}/${now}_${arquivoId}_preview.png`
-    await supabase.storage.from(EVOLUCAO_BUCKET).upload(previewPath, blob, {
-      contentType: 'image/png', upsert: false,
-    })
+    const blobs = await pdfAllPagesToPngBlobs(file)
+    const basePrefix = `${obraId}/${now}_${arquivoId}`
+    previewPaths = []
+    for (let i = 0; i < blobs.length; i++) {
+      const path = pdfPreviewPathAt(basePrefix, i + 1, 'suffix')
+      await supabase.storage.from(EVOLUCAO_BUCKET).upload(path, blobs[i], {
+        contentType: 'image/png', upsert: false,
+      })
+      previewPaths.push(path)
+    }
+    previewPath = previewPaths[0] ?? null
   } else if (isVideo) {
     const thumbBlob = await videoFirstFrameToJpegBlob(file).catch(() => null)
     if (thumbBlob) {
@@ -95,6 +106,7 @@ export async function uploadObraEvolucao(
       kind,
       storage_path: storagePath,
       preview_path: previewPath,
+      preview_paths: previewPaths,
       tirado_em: new Date().toISOString(),
       observacao: obs,
     })
@@ -105,9 +117,8 @@ export async function uploadObraEvolucao(
 }
 
 export async function deleteObraEvolucao(item: ObraEvolucaoItem): Promise<void> {
-  const paths = [item.storage_path]
-  if (item.preview_path && item.preview_path !== item.storage_path) paths.push(item.preview_path)
-  await supabase.storage.from(EVOLUCAO_BUCKET).remove(paths)
+  const paths = [item.storage_path, ...collectPreviewStoragePaths(item)]
+  await supabase.storage.from(EVOLUCAO_BUCKET).remove([...new Set(paths)])
   const { error } = await supabase.from('movelaria_obra_evolucao').delete().eq('id', item.id)
   if (error) throw new Error(error.message)
 }
@@ -183,7 +194,19 @@ export function evolucaoThumbUrl(item: {
   return item.previewSignedUrl ?? item.signedUrl ?? null
 }
 
-/** URL para visualização em tela cheia (PDF usa a imagem convertida). */
+/** URL para visualização em tela cheia (PDF usa imagens convertidas). */
+export function evolucaoLightboxPages(item: {
+  kind: 'image' | 'pdf' | 'video'
+  previewSignedUrls?: string[] | null
+  previewSignedUrl: string | null
+  signedUrl: string | null
+}): string[] {
+  if (item.kind === 'video') return item.signedUrl ? [item.signedUrl] : []
+  if (item.previewSignedUrls?.length) return item.previewSignedUrls
+  const one = evolucaoLightboxUrl(item)
+  return one ? [one] : []
+}
+
 export function evolucaoLightboxUrl(item: {
   kind: 'image' | 'pdf' | 'video'
   previewSignedUrl: string | null
@@ -204,14 +227,14 @@ export async function listObraEvolucao(obraId: string): Promise<ObraEvolucaoItem
   return (data ?? []) as ObraEvolucaoItem[]
 }
 
-async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { signedUrl: string | null; previewSignedUrl: string | null })[]> {
+async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { signedUrl: string | null; previewSignedUrl: string | null; previewSignedUrls: string[] })[]> {
   if (items.length === 0) return []
 
   const paths: string[] = []
   for (const item of items) {
     paths.push(item.storage_path)
-    if (item.preview_path && item.preview_path !== item.storage_path) {
-      paths.push(item.preview_path)
+    for (const p of resolveStoredPreviewPaths(item)) {
+      if (p !== item.storage_path) paths.push(p)
     }
   }
 
@@ -219,16 +242,17 @@ async function addUrls<T extends ObraEvolucaoItem>(items: T[]): Promise<(T & { s
 
   return items.map(item => {
     const signedUrl = urlMap.get(item.storage_path) ?? null
-    const previewFromPath =
-      item.preview_path && item.preview_path !== item.storage_path
-        ? urlMap.get(item.preview_path) ?? null
-        : null
+    const previewPaths = resolveStoredPreviewPaths(item)
+    const previewSignedUrls = previewPaths
+      .map(p => urlMap.get(p) ?? null)
+      .filter((u): u is string => !!u)
+    const previewFromPath = previewSignedUrls[0] ?? null
     const previewSignedUrl =
       item.kind === 'image'
         ? signedUrl
         : previewFromPath ?? signedUrl
 
-    return { ...item, signedUrl, previewSignedUrl }
+    return { ...item, signedUrl, previewSignedUrl, previewSignedUrls }
   })
 }
 

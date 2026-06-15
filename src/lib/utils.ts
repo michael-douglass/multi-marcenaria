@@ -14,6 +14,13 @@ export const fmtDate = (s?: string | null): string => {
   return `${d}/${m}/${y}`
 }
 
+export const fmtTime = (s?: string | null): string => {
+  if (!s) return '—'
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(d)
+}
+
 export const todayISO = (): string => {
   const n = new Date()
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`

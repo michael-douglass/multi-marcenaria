@@ -6,12 +6,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 const PDF_RENDER_SCALE = 1.5
+const MAX_PDF_PAGES = 50
 
-/** Converte a 1ª página do PDF em PNG para pré-visualização */
-export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
-  const data = await file.arrayBuffer()
-  const pdf = await pdfjs.getDocument({ data }).promise
-  const page = await pdf.getPage(1)
+async function renderPdfPageToPngBlob(
+  pdf: pdfjs.PDFDocumentProxy,
+  pageNumber: number,
+): Promise<Blob> {
+  const page = await pdf.getPage(pageNumber)
   const viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
 
   const canvas = document.createElement('canvas')
@@ -29,4 +30,28 @@ export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
       0.92,
     )
   })
+}
+
+/** Converte todas as páginas do PDF em PNGs para pré-visualização. */
+export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
+  const data = await file.arrayBuffer()
+  const pdf = await pdfjs.getDocument({ data }).promise
+
+  if (pdf.numPages > MAX_PDF_PAGES) {
+    throw new Error(`PDF com ${pdf.numPages} páginas. O limite é ${MAX_PDF_PAGES} páginas por arquivo.`)
+  }
+
+  const blobs: Blob[] = []
+  for (let page = 1; page <= pdf.numPages; page++) {
+    blobs.push(await renderPdfPageToPngBlob(pdf, page))
+  }
+  return blobs
+}
+
+/** Converte a 1ª página do PDF em PNG para pré-visualização. */
+export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
+  const data = await file.arrayBuffer()
+  const pdf = await pdfjs.getDocument({ data }).promise
+  if (pdf.numPages < 1) throw new Error('PDF vazio.')
+  return renderPdfPageToPngBlob(pdf, 1)
 }

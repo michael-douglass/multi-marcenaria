@@ -152,7 +152,9 @@ export function Biblioteca({ readOnly }: Props) {
       <AnexoLightbox
         open={!!lightbox}
         imageUrl={lightbox?.previewUrl ?? ''}
+        pages={lightbox?.previewUrls}
         title={lightbox?.nome_arquivo ?? ''}
+        kind={lightbox?.kind}
         onClose={() => setLightbox(null)}
         onDelete={
           lightbox && !readOnly ? () => handleDelete(lightbox) : undefined

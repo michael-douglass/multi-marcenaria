@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play } from 'lucide-react'
+import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type Kind = 'image' | 'pdf' | 'video'
 
 interface AnexoLightboxProps {
   open: boolean
   imageUrl: string
+  /** Todas as páginas (PDF multipágina). Se omitido, usa só imageUrl. */
+  pages?: string[]
   title: string
   kind?: Kind
   onClose: () => void
@@ -148,15 +150,69 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
   )
 }
 
+function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
+  const [pageIndex, setPageIndex] = useState(0)
+  const total = pages.length
+  const currentUrl = pages[Math.min(pageIndex, total - 1)] ?? ''
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [pages])
+
+  useEffect(() => {
+    if (total <= 1) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') setPageIndex(i => Math.max(0, i - 1))
+      if (e.key === 'ArrowRight') setPageIndex(i => Math.min(total - 1, i + 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [total])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {total > 1 && (
+        <div className="flex shrink-0 items-center justify-center gap-3 border-b border-[rgba(212,168,83,0.12)] px-4 py-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm !px-2"
+            disabled={pageIndex <= 0}
+            onClick={() => setPageIndex(i => Math.max(0, i - 1))}
+            aria-label="Página anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="min-w-[5.5rem] text-center text-xs text-[#d4a853]">
+            Página {pageIndex + 1} / {total}
+          </span>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm !px-2"
+            disabled={pageIndex >= total - 1}
+            onClick={() => setPageIndex(i => Math.min(total - 1, i + 1))}
+            aria-label="Próxima página"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <ZoomableImage src={currentUrl} alt={`${title} — página ${pageIndex + 1}`} />
+    </div>
+  )
+}
+
 export function AnexoLightbox({
   open,
   imageUrl,
+  pages,
   title,
   kind = 'image',
   onClose,
   onDelete,
   deleting = false,
 }: AnexoLightboxProps) {
+  const pageUrls = pages?.length ? pages : imageUrl ? [imageUrl] : []
+
   useEffect(() => {
     if (!open) return
     const prev = document.body.style.overflow
@@ -174,6 +230,7 @@ export function AnexoLightbox({
   if (!open) return null
 
   const isVideo = kind === 'video'
+  const isMultiPagePdf = kind === 'pdf' && pageUrls.length > 1
 
   return createPortal(
     <div
@@ -186,7 +243,11 @@ export function AnexoLightbox({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-cream">{title}</p>
           <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">
-            {isVideo ? 'Vídeo · Esc para fechar' : kind === 'pdf' ? 'PDF convertido · Esc para fechar' : 'Tela cheia · Esc para fechar'}
+            {isVideo
+              ? 'Vídeo · Esc para fechar'
+              : kind === 'pdf'
+                ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
+                : 'Tela cheia · Esc para fechar'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -222,8 +283,10 @@ export function AnexoLightbox({
             className="max-h-full max-w-full rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
           />
         </div>
+      ) : kind === 'pdf' ? (
+        <PdfPagesViewer pages={pageUrls} title={title} />
       ) : (
-        <ZoomableImage src={imageUrl} alt={title} />
+        <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} />
       )}
     </div>,
     document.body,

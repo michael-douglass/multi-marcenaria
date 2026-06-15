@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Field } from '@/components/ui/Field'
 import {
   deleteContaPagarAnexo,
-  getAnexoSignedUrl,
+  getAnexoPreviewSignedUrls,
   listAnexosByGrupo,
 } from '@/lib/contas-pagar-anexos'
 import { resolveGrupoLancamentoId } from '@/lib/contas-pagar-grupo'
@@ -19,6 +19,7 @@ interface ContaPagarAnexosGrupoFieldProps {
 
 interface AnexoSalvoView extends ContaPagarAnexo {
   previewUrl: string
+  previewUrls: string[]
   kind: 'image' | 'pdf'
 }
 
@@ -45,14 +46,14 @@ export function ContaPagarAnexosGrupoField({
       const rows = await listAnexosByGrupo(grupoId)
       const views: AnexoSalvoView[] = await Promise.all(
         rows.map(async row => {
-          const path = row.preview_path ?? row.storage_path
-          const previewUrl = await getAnexoSignedUrl(path)
+          const previewUrls = await getAnexoPreviewSignedUrls(row)
+          const previewUrl = previewUrls[0] ?? ''
           const kind =
             row.tipo_mime === 'application/pdf'
             || row.nome_arquivo.toLowerCase().endsWith('.pdf')
               ? 'pdf'
               : 'image'
-          return { ...row, previewUrl, kind }
+          return { ...row, previewUrl, previewUrls, kind }
         }),
       )
       setSalvos(views)
@@ -115,7 +116,9 @@ export function ContaPagarAnexosGrupoField({
       <AnexoLightbox
         open={!!lightbox}
         imageUrl={lightbox?.previewUrl ?? ''}
+        pages={lightbox?.previewUrls}
         title={lightbox?.nome_arquivo ?? ''}
+        kind={lightbox?.kind}
         onClose={() => setLightbox(null)}
         onDelete={lightbox ? () => void handleDeleteSalvo(lightbox) : undefined}
       />

@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   listObraArquivos, uploadObraArquivo, deleteObraArquivo, getObraArquivoUrl,
-  buildPendingObraArquivo,
+  buildPendingObraArquivo, revokePendingObraArquivoUrl,
   type ObraArquivo, type PendingObraArquivo,
 } from '../lib/obra-arquivos'
+import { resolveStoredPreviewPaths } from '../lib/pdf-preview-storage'
 
 export type { ObraArquivo, PendingObraArquivo }
 
 interface ArquivoComUrl extends ObraArquivo {
   signedUrl: string | null
   previewSignedUrl: string | null
+  previewSignedUrls: string[]
 }
 
 export function useObraArquivos(obraId: string | null) {
@@ -22,18 +24,24 @@ export function useObraArquivos(obraId: string | null) {
     setLoading(true)
     try {
       const arqs = await listObraArquivos(obraId)
-      // Gera signed URLs em paralelo
       const comUrls = await Promise.all(arqs.map(async a => {
-        const [signedUrl, previewSignedUrl] = await Promise.all([
+        const [signedUrl, ...previewUrls] = await Promise.all([
           getObraArquivoUrl(a.storage_path).catch(() => null),
-          a.preview_path && a.preview_path !== a.storage_path
-            ? getObraArquivoUrl(a.preview_path).catch(() => null)
-            : Promise.resolve(null),
+          ...resolveStoredPreviewPaths(a).map(p =>
+            getObraArquivoUrl(p).catch(() => null),
+          ),
         ])
+        const previewSignedUrls = previewUrls.filter((u): u is string => !!u)
+        const previewSignedUrl =
+          a.kind === 'image'
+            ? signedUrl
+            : previewSignedUrls[0] ?? signedUrl
+
         return {
           ...a,
           signedUrl,
-          previewSignedUrl: a.kind === 'image' ? signedUrl : previewSignedUrl,
+          previewSignedUrl,
+          previewSignedUrls,
         }
       }))
       setData(comUrls)
@@ -52,7 +60,7 @@ export function useObraArquivos(obraId: string | null) {
     try {
       const pending = await buildPendingObraArquivo(file)
       await uploadObraArquivo(obraId, pending)
-      URL.revokeObjectURL(pending.previewUrl)
+      revokePendingObraArquivoUrl(pending)
       await load()
     } finally {
       setUploading(false)
