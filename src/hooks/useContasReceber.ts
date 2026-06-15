@@ -248,13 +248,17 @@ export function useContasReceber() {
     const unique = [...new Set(leadIds.map(lid => lid?.trim()).filter(Boolean))]
     if (!unique.length) return
 
-    const { error: err } = await supabase
-      .from('movelaria_leads_ganhos_excluidos')
-      .upsert(
-        unique.map(lead_id => ({ lead_id })),
-        { onConflict: 'lead_id' },
-      )
-    if (err) throw new Error(err.message)
+    for (const leadId of unique) {
+      const { error: rpcErr } = await supabase.rpc('movelaria_excluir_lead_ganho', {
+        p_lead_id: leadId,
+      })
+      if (!rpcErr) continue
+
+      const { error: upsertErr } = await supabase
+        .from('movelaria_leads_ganhos_excluidos')
+        .upsert({ lead_id: leadId }, { onConflict: 'lead_id' })
+      if (upsertErr) throw new Error(upsertErr.message)
+    }
   }
 
   const coletarLeadIdsOrcamento = async (conta: ContaReceber): Promise<string[]> => {
