@@ -21,7 +21,12 @@ import {
 } from '../components/ui/PeriodFilterBar'
 import { fmtCur, fmtDate, isOverdue, todayISO, addMonths } from '../lib/utils'
 import type { Cliente, ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
-import type { ParcelaInput } from '../hooks/useContasReceber'
+import {
+  cobrancaTemParcelamento,
+  parcelasRelacionadas,
+  type ParcelaInput,
+  type ContaReceberExclusaoScope,
+} from '../hooks/useContasReceber'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 
@@ -165,6 +170,9 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const [savingEdit, setSavingEdit] = useState(false)
   const [savingBulk, setSavingBulk] = useState(false)
   const [openHistory, setOpenHistory] = useState(false)
+  const [deleteScopeOpen, setDeleteScopeOpen] = useState(false)
+  const [contaToDelete, setContaToDelete] = useState<ContaReceber | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyRows, setHistoryRows] = useState<Array<{
     id: string
@@ -174,11 +182,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   }>>([])
 
   const openBulkEditModal = (conta: ContaReceber) => {
-    // Busca todas as parcelas da mesma venda
-    const related = data.filter(item => {
-      if (conta.origem_lead_id) return item.origem_lead_id === conta.origem_lead_id
-      return item.cliente_nome === conta.cliente_nome && item.valor_total === conta.valor_total
-    }).sort((a, b) => a.numero_parcela - b.numero_parcela)
+    const related = parcelasRelacionadas(conta, data)
+      .sort((a, b) => a.numero_parcela - b.numero_parcela)
 
     setBulkParcelas(related)
     setOpenBulkEdit(true)
@@ -479,19 +484,35 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     }
   }
 
-  const excluirTransacao = async (conta: ContaReceber) => {
-    const veioDeLead = conta.origem_tipo === 'orcamento_fechado' || !!conta.origem_lead_id
-    const msg = veioDeLead
-      ? `Apagar todas as parcelas de ${conta.cliente_nome}?\n\nA cobrança será removida e o card não voltará para "Orçamentos Fechados".`
-      : `Apagar a transação ${conta.numero_parcela}/${conta.total_parcelas} de ${conta.cliente_nome}?`
-    const ok = window.confirm(msg)
-    if (!ok) return
+  const executarExclusao = async (conta: ContaReceber, scope: ContaReceberExclusaoScope) => {
+    setDeleting(true)
     try {
-      await removerTransacao(conta.id)
+      await removerTransacao(conta.id, scope)
       await orcamentos.reload()
+      setDeleteScopeOpen(false)
+      setContaToDelete(null)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erro ao apagar cobrança.')
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  const excluirTransacao = (conta: ContaReceber) => {
+    if (cobrancaTemParcelamento(conta, data)) {
+      setContaToDelete(conta)
+      setDeleteScopeOpen(true)
+      return
+    }
+
+    const ok = window.confirm(`Apagar a cobrança de ${conta.cliente_nome}?`)
+    if (!ok) return
+    void executarExclusao(conta, 'single')
+  }
+
+  const confirmarExclusaoEscopo = (scope: ContaReceberExclusaoScope) => {
+    if (!contaToDelete) return
+    void executarExclusao(contaToDelete, scope)
   }
 
   const verHistorico = async (conta: ContaReceber) => {
@@ -1027,6 +1048,64 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         )}
       </Modal>
 
+      <Modal
+        open={deleteScopeOpen}
+        onClose={() => {
+          if (deleting) return
+          setDeleteScopeOpen(false)
+          setContaToDelete(null)
+        }}
+        title="APAGAR COBRANÇA"
+        closeOnBackdrop={false}
+      >
+        {contaToDelete && (
+          <>
+            <p className="mb-4 text-sm text-[#f4e4d6]">
+              <strong>{contaToDelete.cliente_nome}</strong> — parcela{' '}
+              {contaToDelete.numero_parcela}/{contaToDelete.total_parcelas} ({fmtCur(contaToDelete.valor_parcela)}).
+              <br /><br />
+              Esta cobrança faz parte de um parcelamento. Deseja apagar apenas esta parcela ou todas as parcelas desta venda?
+            </p>
+            {(contaToDelete.origem_tipo === 'orcamento_fechado' || contaToDelete.origem_lead_id) && (
+              <p className="mb-4 rounded-lg border border-[rgba(251,191,36,.25)] bg-[rgba(251,191,36,.08)] px-3 py-2 text-xs text-[#fbbf24]">
+                Se apagar todas as parcelas de um orçamento fechado, o card não voltará para &quot;Orçamentos Fechados&quot;.
+              </p>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setDeleteScopeOpen(false)
+                  setContaToDelete(null)
+                }}
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => confirmarExclusaoEscopo('single')}
+                disabled={deleting}
+              >
+                {deleting ? 'Apagando...' : `Só esta parcela (${contaToDelete.numero_parcela}/${contaToDelete.total_parcelas})`}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => confirmarExclusaoEscopo('all')}
+                disabled={deleting}
+              >
+                {deleting
+                  ? 'Apagando...'
+                  : `Todas as parcelas (${parcelasRelacionadas(contaToDelete, data).length || contaToDelete.total_parcelas})`}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
       <PeriodFilterBar
         value={periodFilter}
         onChange={v => {
@@ -1124,7 +1203,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                             <button className="btn btn-outline btn-sm" onClick={() => void verHistorico(r)}>Histórico</button>
                             <button className="btn btn-outline btn-sm" onClick={() => openEditModal(r)}>Editar Única</button>
                             <button className="btn btn-gold btn-sm" onClick={() => openBulkEditModal(r)}>Editar Parcelamento</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => void excluirTransacao(r)}>Apagar</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => excluirTransacao(r)}>Apagar</button>
                           </div>
                         )}
                       </td>

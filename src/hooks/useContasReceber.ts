@@ -36,6 +36,20 @@ export interface AtualizarTransacaoInput {
   data_recebimento?: string | null
 }
 
+export type ContaReceberExclusaoScope = 'single' | 'all'
+
+export function parcelasRelacionadas(conta: ContaReceber, todas: ContaReceber[]): ContaReceber[] {
+  return todas.filter(item => {
+    if (conta.origem_lead_id) return item.origem_lead_id === conta.origem_lead_id
+    if (conta.grupo_id) return item.grupo_id === conta.grupo_id
+    return item.cliente_nome === conta.cliente_nome && item.valor_total === conta.valor_total
+  })
+}
+
+export function cobrancaTemParcelamento(conta: ContaReceber, todas: ContaReceber[]): boolean {
+  return conta.total_parcelas > 1 || parcelasRelacionadas(conta, todas).length > 1
+}
+
 export function useContasReceber() {
   const { isReady } = useAuthReady()
   const [data, setData] = useState<ContaReceber[]>([])
@@ -282,12 +296,22 @@ export function useContasReceber() {
     return [...ids]
   }
 
-  const removerTransacao = async (id: string) => {
+  const removerTransacao = async (id: string, scope: ContaReceberExclusaoScope = 'single') => {
     const conta = data.find(x => x.id === id)
     if (!conta) return
 
+    if (scope === 'single') {
+      const { error: err } = await supabase
+        .from('movelaria_contas_receber')
+        .delete()
+        .eq('id', id)
+      if (err) throw new Error(err.message)
+      setData(prev => prev.filter(x => x.id !== id))
+      return
+    }
+
     const leadIdRelacionado = conta.origem_lead_id ?? null
-    const grupoIdManual = (conta as any).grupo_id ?? null
+    const grupoIdManual = conta.grupo_id ?? null
 
     if (conta.origem_tipo === 'orcamento_fechado' || !!leadIdRelacionado) {
       const leadIdsExcluir = await coletarLeadIdsOrcamento(conta)
@@ -352,7 +376,19 @@ export function useContasReceber() {
         .delete()
         .eq('grupo_id', grupoIdManual)
       if (err) throw new Error(err.message)
-      setData(prev => prev.filter(x => (x as any).grupo_id !== grupoIdManual))
+      setData(prev => prev.filter(x => x.grupo_id !== grupoIdManual))
+      return
+    }
+
+    const relacionadas = parcelasRelacionadas(conta, data)
+    const idsRelacionados = relacionadas.map(item => item.id)
+    if (idsRelacionados.length > 1) {
+      const { error: err } = await supabase
+        .from('movelaria_contas_receber')
+        .delete()
+        .in('id', idsRelacionados)
+      if (err) throw new Error(err.message)
+      setData(prev => prev.filter(x => !idsRelacionados.includes(x.id)))
       return
     }
 

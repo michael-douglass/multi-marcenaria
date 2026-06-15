@@ -257,6 +257,7 @@ export interface ContaReceber {
   data_recebimento?: string
   origem_tipo?: 'manual' | 'orcamento_fechado'
   origem_lead_id?: string | null
+  grupo_id?: string | null
   criado_em?: string
   atualizado_em?: string
 }
