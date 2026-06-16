@@ -32,6 +32,7 @@ import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
 import { Configuracoes } from '@/pages/Configuracoes'
 import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
+import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import type { ActiveSection, UserRole } from '@/types'
 
 const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'acompanhamentoObras', 'calendarioObras', 'metricasObras']
@@ -318,7 +319,10 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppRoutes />
+      <Routes>
+        <Route path="/orcamento/:schema/:id" element={<OrcamentoPublico />} />
+        <Route path="*" element={<AppRoutes />} />
+      </Routes>
       <PwaManager />
       <AppToast />
     </BrowserRouter>
