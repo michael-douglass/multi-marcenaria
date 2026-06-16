@@ -10,6 +10,8 @@ interface AnexoLightboxProps {
   /** Todas as páginas (PDF multipágina). Se omitido, usa só imageUrl. */
   pages?: string[]
   title: string
+  /** Descrição / observação do anexo (ex.: evolução da obra). */
+  description?: string | null
   kind?: Kind
   onClose: () => void
   onDelete?: () => void
@@ -206,6 +208,7 @@ export function AnexoLightbox({
   imageUrl,
   pages,
   title,
+  description,
   kind = 'image',
   onClose,
   onDelete,
@@ -242,6 +245,11 @@ export function AnexoLightbox({
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(212,168,83,0.15)] px-4 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-cream">{title}</p>
+          {description?.trim() && (
+            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[#d4c4a8] whitespace-pre-wrap">
+              {description.trim()}
+            </p>
+          )}
           <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">
             {isVideo
               ? 'Vídeo · Esc para fechar'

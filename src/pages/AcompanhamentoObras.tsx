@@ -26,6 +26,7 @@ type LightboxState = {
   pages?: string[]
   nome: string
   kind: 'image' | 'pdf' | 'video'
+  observacao?: string | null
 }
 
 function EvolucaoThumb({
@@ -89,7 +90,13 @@ function AcompanhamentoObrasContent() {
   const openFoto = (foto: EvolucaoPainelItemComUrl) => {
     const pages = evolucaoLightboxPages(foto)
     if (!pages.length) return
-    setLightbox({ url: pages[0], pages, nome: foto.nome_arquivo, kind: foto.kind })
+    setLightbox({
+      url: pages[0],
+      pages,
+      nome: foto.nome_arquivo,
+      kind: foto.kind,
+      observacao: foto.observacao,
+    })
   }
 
   const totalFotos = grupos.reduce(
@@ -180,14 +187,17 @@ function AcompanhamentoObrasContent() {
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-2">
                           {dia.fotos.map((foto) => (
-                            <div key={foto.id} className="flex flex-col gap-0.5">
+                            <div
+                              key={foto.id}
+                              className="flex w-[7.5rem] shrink-0 flex-col gap-1 sm:w-[8.25rem]"
+                            >
                               <EvolucaoThumb foto={foto} onOpen={() => openFoto(foto)} />
 
                               {foto.observacao?.trim() && (
                                 <p
-                                  className="max-w-[7.5rem] truncate text-[0.5rem] leading-tight text-[#c4a882] sm:max-w-[8.25rem]"
+                                  className="text-[0.7rem] leading-snug text-[#d4c4a8] line-clamp-3 whitespace-pre-wrap break-words"
                                   title={foto.observacao}
                                 >
                                   {foto.observacao}
@@ -212,6 +222,7 @@ function AcompanhamentoObrasContent() {
           imageUrl={lightbox.url}
           pages={lightbox.pages}
           title={lightbox.nome}
+          description={lightbox.observacao}
           kind={lightbox.kind}
           onClose={() => setLightbox(null)}
         />
