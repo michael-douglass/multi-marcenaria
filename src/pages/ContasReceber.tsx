@@ -72,6 +72,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
   const [isDefaultView, setIsDefaultView] = useState(true)
+  const [open, setOpen] = useState(false)
   const [openRecibo, setOpenRecibo] = useState(false)
   const [reciboConta, setReciboConta] = useState<ContaReceber | null>(null)
   const [openEdit, setOpenEdit] = useState(false)
