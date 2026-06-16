@@ -71,14 +71,27 @@ export function buildReciboTexto(
   return texto
 }
 
-export function imprimirRecibo(
+/** Texto completo do recibo para edição antes de imprimir. */
+export function buildReciboCompleto(
   conta: ContaReceber,
   config: ReciboConfig,
   overrides: ReciboPrintOverrides,
   pmLabel: Record<FormaPagamento, string>,
-): void {
-  const texto = buildReciboTexto(conta, config, overrides, pmLabel)
-  const textoHtml = escapeHtml(texto).replace(/\n/g, '<br>')
+): string {
+  const corpo = buildReciboTexto(conta, config, overrides, pmLabel)
+  return [
+    'GARBO MOVELARIA',
+    'Móveis Planejados de Alta Qualidade',
+    '',
+    corpo,
+    '',
+    '________________________________________',
+    'GARBO MOVELARIA',
+  ].join('\n')
+}
+
+export function imprimirReciboTexto(conta: ContaReceber, texto: string): void {
+  const textoHtml = escapeHtml(texto.trim()).replace(/\n/g, '<br>')
   const cliente = escapeHtml(conta.cliente_nome ?? 'Cliente')
 
   const printWindow = window.open('', '_blank')
@@ -125,38 +138,8 @@ export function imprimirRecibo(
             overflow: hidden;
             white-space: pre-wrap;
             word-break: break-word;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 1px solid #ccc;
-            margin-bottom: 8mm;
-            padding-bottom: 4mm;
-          }
-          .header h2 {
-            margin: 0;
-            font-size: 16pt;
-            letter-spacing: 0.04em;
-          }
-          .header .sub {
-            font-size: 9pt;
-            color: #555;
-            margin-top: 2mm;
-          }
-          .conteudo {
             font-size: 11pt;
             line-height: 1.4;
-          }
-          .footer {
-            margin-top: 10mm;
-            text-align: center;
-          }
-          .assinatura {
-            border-top: 1px solid #333;
-            display: inline-block;
-            min-width: 70mm;
-            margin-top: 8mm;
-            padding-top: 3mm;
-            font-size: 10pt;
           }
           @media print {
             body { padding: 0; }
@@ -169,16 +152,7 @@ export function imprimirRecibo(
       </head>
       <body>
         <div class="recibo-page">
-          <div class="recibo-box">
-            <div class="header">
-              <h2>GARBO MOVELARIA</h2>
-              <div class="sub">Móveis Planejados de Alta Qualidade</div>
-            </div>
-            <div class="conteudo">${textoHtml}</div>
-            <div class="footer">
-              <div class="assinatura">GARBO MOVELARIA</div>
-            </div>
-          </div>
+          <div class="recibo-box">${textoHtml}</div>
         </div>
         <script>
           window.onload = function() {
@@ -190,4 +164,13 @@ export function imprimirRecibo(
     </html>
   `)
   printWindow.document.close()
+}
+
+export function imprimirRecibo(
+  conta: ContaReceber,
+  config: ReciboConfig,
+  overrides: ReciboPrintOverrides,
+  pmLabel: Record<FormaPagamento, string>,
+): void {
+  imprimirReciboTexto(conta, buildReciboCompleto(conta, config, overrides, pmLabel))
 }
