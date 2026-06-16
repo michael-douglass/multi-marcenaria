@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, Calendar, HardHat, Maximize2 } from 'lucide-react'
 import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
-import { fmtDate, fmtTime } from '@/lib/utils'
+import { cn, fmtDate, fmtTime } from '@/lib/utils'
 import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { evolucaoThumbUrl, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import type { EvolucaoPainelItemComUrl } from '@/lib/obra-evolucao'
@@ -79,6 +79,58 @@ function EvolucaoThumb({
         <Maximize2 size={12} className="text-white" />
       </div>
     </button>
+  )
+}
+
+function EvolucaoObservacao({ texto }: { texto: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [overflows, setOverflows] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || expanded) return
+
+    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    check()
+
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [texto, expanded])
+
+  const canToggle = overflows || expanded
+
+  return (
+    <p
+      ref={ref}
+      role={canToggle ? 'button' : undefined}
+      tabIndex={canToggle ? 0 : undefined}
+      onClick={() => {
+        if (canToggle) setExpanded(prev => !prev)
+      }}
+      onKeyDown={e => {
+        if (!canToggle) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setExpanded(prev => !prev)
+        }
+      }}
+      className={cn(
+        'text-[0.7rem] leading-snug text-[#d4c4a8] whitespace-pre-wrap break-words transition-colors',
+        !expanded && 'line-clamp-3',
+        canToggle && 'cursor-pointer hover:text-[#e8d4b0]',
+      )}
+      title={
+        !expanded && overflows
+          ? 'Clique para ver o texto completo'
+          : expanded
+            ? 'Clique para recolher'
+            : undefined
+      }
+    >
+      {texto}
+    </p>
   )
 }
 
@@ -196,12 +248,7 @@ function AcompanhamentoObrasContent() {
                               <EvolucaoThumb foto={foto} onOpen={() => openFoto(foto)} />
 
                               {foto.observacao?.trim() && (
-                                <p
-                                  className="text-[0.7rem] leading-snug text-[#d4c4a8] line-clamp-3 whitespace-pre-wrap break-words"
-                                  title={foto.observacao}
-                                >
-                                  {foto.observacao}
-                                </p>
+                                <EvolucaoObservacao texto={foto.observacao.trim()} />
                               )}
                             </div>
                           ))}
