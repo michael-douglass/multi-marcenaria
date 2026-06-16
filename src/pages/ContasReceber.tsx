@@ -8,6 +8,7 @@ import { useReciboConfig } from '../hooks/useReciboConfig'
 import { OrcamentosFechados } from '../components/cobrancas/OrcamentosFechados'
 import { CobrancaCopyButton } from '../components/cobrancas/CobrancaCopyButton'
 import { TemplatesConfigButton } from '../components/cobrancas/TemplatesConfigModal'
+import { ReciboPrintModal } from '../components/cobrancas/ReciboPrintModal'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
@@ -71,7 +72,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
   const [isDefaultView, setIsDefaultView] = useState(true)
-  const [open, setOpen] = useState(false)
+  const [openRecibo, setOpenRecibo] = useState(false)
+  const [reciboConta, setReciboConta] = useState<ContaReceber | null>(null)
   const [openEdit, setOpenEdit] = useState(false)
   const [openBulkEdit, setOpenBulkEdit] = useState(false)
   const [selectedConta, setSelectedConta] = useState<ContaReceber | null>(null)
@@ -538,79 +540,13 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     }
   }
 
-  const gerarRecibo = (conta: ContaReceber) => {
+  const abrirRecibo = (conta: ContaReceber) => {
     if (!reciboHook.config) {
       alert('Configuração de recibo não encontrada. Configure em Cobranças > ⚙️')
       return
     }
-
-    const { cnpj, template_texto } = reciboHook.config
-    const vencimento = conta.data_vencimento ?? ''
-    const [ano, mes] = vencimento ? vencimento.split('-').map(Number) : [0, 0]
-    const MESES_PT = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-    ]
-
-    const vars: Record<string, string> = {
-      nome_cliente: conta.cliente_nome ?? '',
-      valor_fatura: fmtCur(conta.valor_parcela),
-      data_vencimento: fmtDate(conta.data_vencimento),
-      mes_referencia: mes ? MESES_PT[mes - 1] : '',
-      ano_referencia: ano ? String(ano) : '',
-      numero_parcela: String(conta.numero_parcela),
-      total_parcelas: String(conta.total_parcelas),
-      descricao_cobranca: conta.total_parcelas > 1 ? `Parcela ${conta.numero_parcela}/${conta.total_parcelas}` : 'Pagamento à vista',
-      data_hoje: new Date().toLocaleDateString('pt-BR'),
-      cnpj: cnpj,
-      nome_empresa: 'GARBO MOVELARIA',
-    }
-
-    let texto = template_texto
-    for (const [key, val] of Object.entries(vars)) {
-      texto = texto.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
-    }
-
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Recibo - ${conta.cliente_nome}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; line-height: 1.6; color: #333; }
-            .recibo-box { border: 2px solid #333; padding: 30px; max-width: 800px; margin: 0 auto; white-space: pre-wrap; }
-            .header { text-align: center; border-bottom: 1px solid #ccc; margin-bottom: 20px; padding-bottom: 10px; }
-            .footer { margin-top: 50px; text-align: center; }
-            .assinatura { border-top: 1px solid #333; display: inline-block; min-width: 300px; margin-top: 40px; padding-top: 10px; }
-            @media print {
-              body { padding: 0; }
-              .recibo-box { border: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="recibo-box">
-            <div class="header">
-              <h2 style="margin:0">GARBO MOVELARIA</h2>
-              <div style="font-size: 12px">Móveis Planejados de Alta Qualidade</div>
-            </div>
-            <div>${texto}</div>
-            <div class="footer">
-              <div class="assinatura">GARBO MOVELARIA</div>
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    setReciboConta(conta)
+    setOpenRecibo(true)
   }
 
   return (
@@ -1180,7 +1116,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                           type="button"
                           className="btn btn-outline btn-sm !p-1.5"
                           title="Gerar Recibo"
-                          onClick={() => gerarRecibo(r)}
+                          onClick={() => abrirRecibo(r)}
                         >
                           <FileText className="h-4 w-4 text-[#d4a853]" />
                         </button>
@@ -1215,6 +1151,18 @@ export function ContasReceber({ clientes, readOnly }: Props) {
           </div>
         )}
       </div>
+
+      <ReciboPrintModal
+        open={openRecibo}
+        conta={reciboConta}
+        reciboConfig={reciboHook.config}
+        chavePixInicial={pixHook.config?.chave_pix ?? ''}
+        nomeBeneficiario={pixHook.config?.nome_beneficiario}
+        onClose={() => {
+          setOpenRecibo(false)
+          setReciboConta(null)
+        }}
+      />
     </div>
   )
 }

@@ -26,6 +26,9 @@ const VARIAVEIS: { label: string; chave: string }[] = [
   { label: 'Telefone',           chave: 'telefone' },
   { label: 'PIX copia e cola',   chave: 'pix_copia_cola' },
   { label: 'Data de hoje',       chave: 'data_hoje' },
+  { label: 'Data pagamento',     chave: 'data_pagamento' },
+  { label: 'Forma pagamento',    chave: 'forma_pagamento' },
+  { label: 'Chave PIX',          chave: 'chave_pix' },
   { label: 'CNPJ',               chave: 'cnpj' },
   { label: 'Nome Empresa',       chave: 'nome_empresa' },
 ]
