@@ -53,15 +53,25 @@ export function ReciboPrintModal({
 
   useEffect(() => {
     if (!open || !conta || !reciboConfig) return
+    const forma = (conta.forma_pagamento as FormaPagamento) || 'pix'
+    const data = conta.data_recebimento?.slice(0, 10) || todayISO()
     setChavePix(chavePixInicial)
-    setFormaPagamento((conta.forma_pagamento as FormaPagamento) || 'pix')
-    setDataPagamento(conta.data_recebimento?.slice(0, 10) || todayISO())
-  }, [open, conta, chavePixInicial, reciboConfig])
-
-  useEffect(() => {
-    if (!open || !conta || !reciboConfig) return
-    setTextoRecibo(gerarTextoDoModelo())
-  }, [open, conta, reciboConfig, chavePixInicial, gerarTextoDoModelo])
+    setFormaPagamento(forma)
+    setDataPagamento(data)
+    setTextoRecibo(
+      buildReciboCompleto(
+        conta,
+        reciboConfig,
+        {
+          chavePix: chavePixInicial,
+          formaPagamento: forma,
+          dataPagamento: data,
+          nomeBeneficiario,
+        },
+        PM_LABEL,
+      ),
+    )
+  }, [open, conta, reciboConfig, chavePixInicial, nomeBeneficiario])
 
   const aplicarCamposAoTexto = () => {
     setTextoRecibo(gerarTextoDoModelo())
@@ -78,9 +88,9 @@ export function ReciboPrintModal({
   return (
     <Modal open={open} onClose={onClose} title="IMPRIMIR RECIBO" wide closeOnBackdrop={false}>
       <p className="mb-4 text-sm text-[#8a6a55]">
-        Edite o texto completo do recibo antes de imprimir. Os campos abaixo servem para preencher
-        automaticamente — use &quot;Atualizar texto&quot; para aplicá-los sem perder edições manuais
-        até você clicar no botão.
+        O texto abaixo é o que será impresso. Você pode alterar qualquer parte livremente.
+        Os campos de PIX, forma e data servem para preencher automaticamente — clique em
+        &quot;Atualizar texto&quot; quando quiser aplicá-los.
       </p>
 
       <div className="mb-4 rounded-lg border border-[rgba(212,168,83,0.15)] bg-black/20 px-3 py-2 text-sm">
