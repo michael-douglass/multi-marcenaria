@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Trash2, RefreshCw, Wallet } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
@@ -1584,28 +1584,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         })()}
       </Modal>
 
-      {/* Ícone flutuante — abre o Caixa em popup reposicionável */}
-      <div className="fixed bottom-6 z-[90] flex flex-col items-center gap-1" style={{ left: '1.5rem' }}>
-        <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,83,0.65)]">
-          Caixa
-        </span>
-        <button
-          type="button"
-          onClick={() => setCaixaOpen(p => !p)}
-          className="flex h-14 w-14 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all hover:scale-105"
-          style={{
-            borderColor: caixaOpen ? '#dbb25a' : 'rgba(212,168,83,0.55)',
-            boxShadow: caixaOpen ? '0 0 28px rgba(212,168,83,0.35)' : undefined,
-          }}
-          aria-label={caixaOpen ? 'Fechar caixa' : 'Abrir caixa de pagamentos'}
-          title="Abrir Caixa de Pagamentos"
-        >
-          <Wallet
-            className="h-6 w-6"
-            style={{ color: caixaOpen ? '#dbb25a' : 'rgba(212,168,83,0.85)' }}
-          />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setCaixaOpen(true)}
+        className="fixed top-5 right-5 z-[95] rounded-full border border-[rgba(212,168,83,0.45)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#d4a853] shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:scale-105 hover:border-[#dbb25a] hover:text-[#dbb25a]"
+        aria-label="Abrir caixa de pagamentos"
+        title="Abrir Caixa de Pagamentos"
+      >
+        Caixa
+      </button>
 
       <CaixaPopup open={caixaOpen} onClose={() => setCaixaOpen(false)} />
     </div>
