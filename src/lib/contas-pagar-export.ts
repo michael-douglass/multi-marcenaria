@@ -87,6 +87,43 @@ export function buildContaPagarExportRow(
   }
 }
 
+export interface ContaPagarExportTotais {
+  valor: number
+  pago: number
+  restante: number
+}
+
+export function summarizeExportRows(rows: ContaPagarExportRow[]): ContaPagarExportTotais {
+  return rows.reduce(
+    (acc, row) => ({
+      valor: acc.valor + row.valorParcela,
+      pago: acc.pago + row.pago,
+      restante: acc.restante + row.restante,
+    }),
+    { valor: 0, pago: 0, restante: 0 },
+  )
+}
+
+function buildExportFilename(periodLabel: string, extension: string): string {
+  const safePeriod = periodLabel
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+
+  return `contas-a-pagar-${safePeriod || 'export'}.${extension}`
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 function csvEscape(value: string | number): string {
   const text = String(value ?? '')
   if (/[;"\n\r]/.test(text)) {
@@ -133,14 +170,7 @@ export function downloadContasPagarCsv(
     ].join(';')),
   ]
 
-  const totais = rows.reduce(
-    (acc, row) => ({
-      valor: acc.valor + row.valorParcela,
-      pago: acc.pago + row.pago,
-      restante: acc.restante + row.restante,
-    }),
-    { valor: 0, pago: 0, restante: 0 },
-  )
+  const totais = summarizeExportRows(rows)
 
   lines.push('')
   lines.push([
@@ -156,19 +186,134 @@ export function downloadContasPagarCsv(
   ].join(';'))
 
   const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  const safePeriod = periodLabel
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase()
+  downloadBlob(blob, buildExportFilename(periodLabel, 'csv'))
+}
 
-  anchor.href = url
-  anchor.download = `contas-a-pagar-${safePeriod || 'export'}.csv`
-  anchor.click()
-  URL.revokeObjectURL(url)
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function xlsCellString(value: string): string {
+  return `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`
+}
+
+function xlsCellNumber(value: number): string {
+  return `<Cell><Data ss:Type="Number">${value}</Data></Cell>`
+}
+
+function xlsRow(cells: string): string {
+  return `<Row>${cells}</Row>`
+}
+
+export function downloadContasPagarXls(
+  rows: ContaPagarExportRow[],
+  periodLabel: string,
+): void {
+  const totais = summarizeExportRows(rows)
+  const header = xlsRow([
+    xlsCellString('Fornecedor'),
+    xlsCellString('Forma de Pagamento'),
+    xlsCellString('Parcela'),
+    xlsCellString('Valor da Parcela'),
+    xlsCellString('Pago'),
+    xlsCellString('Restante'),
+    xlsCellString('Vencimento'),
+    xlsCellString('Status'),
+    xlsCellString('Observação'),
+  ].join(''))
+
+  const body = rows.map(row => xlsRow([
+    xlsCellString(row.fornecedor),
+    xlsCellString(row.pagamento),
+    xlsCellString(row.parcela),
+    xlsCellNumber(row.valorParcela),
+    xlsCellNumber(row.pago),
+    xlsCellNumber(row.restante),
+    xlsCellString(row.vencimento),
+    xlsCellString(row.status),
+    xlsCellString(row.observacao),
+  ].join(''))).join('')
+
+  const footer = xlsRow([
+    xlsCellString('TOTAL'),
+    xlsCellString(''),
+    xlsCellString(''),
+    xlsCellNumber(totais.valor),
+    xlsCellNumber(totais.pago),
+    xlsCellNumber(totais.restante),
+    xlsCellString(''),
+    xlsCellString(''),
+    xlsCellString(''),
+  ].join(''))
+
+  const worksheetName = xmlEscape(periodLabel.slice(0, 31))
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="${worksheetName}">
+    <Table>
+      ${xlsRow(xlsCellString(`Contas a Pagar - ${periodLabel}`))}
+      ${xlsRow(xlsCellString(`Gerado em ${fmtDate(todayISO())}`))}
+      ${xlsRow(xlsCellString(''))}
+      ${header}
+      ${body}
+      ${footer}
+    </Table>
+  </Worksheet>
+</Workbook>`
+
+  const blob = new Blob(['\uFEFF' + xml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  downloadBlob(blob, buildExportFilename(periodLabel, 'xls'))
+}
+
+function textCell(value: string | number): string {
+  return String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')
+}
+
+export function buildContasPagarExportText(
+  rows: ContaPagarExportRow[],
+  periodLabel: string,
+): string {
+  const totais = summarizeExportRows(rows)
+  const columns = [
+    'Fornecedor',
+    'Pagamento',
+    'Parcela',
+    'Valor',
+    'Pago',
+    'Restante',
+    'Vencimento',
+    'Status',
+    'Observação',
+  ]
+
+  const lines = [
+    `CONTAS A PAGAR - ${periodLabel.toUpperCase()}`,
+    `Gerado em ${fmtDate(todayISO())} · ${rows.length} conta(s)`,
+    '',
+    columns.join('\t'),
+    ...rows.map(row => [
+      textCell(row.fornecedor),
+      textCell(row.pagamento),
+      textCell(row.parcela),
+      textCell(fmtCur(row.valorParcela)),
+      textCell(fmtCur(row.pago)),
+      textCell(fmtCur(row.restante)),
+      textCell(row.vencimento),
+      textCell(row.status),
+      textCell(row.observacao),
+    ].join('\t')),
+    '',
+    ['TOTAL', '', '', fmtCur(totais.valor), fmtCur(totais.pago), fmtCur(totais.restante), '', '', ''].join('\t'),
+  ]
+
+  return lines.join('\n')
 }
 
 function escapeHtml(value: string): string {
@@ -183,14 +328,7 @@ export function imprimirContasPagarPdf(
   rows: ContaPagarExportRow[],
   periodLabel: string,
 ): void {
-  const totais = rows.reduce(
-    (acc, row) => ({
-      valor: acc.valor + row.valorParcela,
-      pago: acc.pago + row.pago,
-      restante: acc.restante + row.restante,
-    }),
-    { valor: 0, pago: 0, restante: 0 },
-  )
+  const totais = summarizeExportRows(rows)
 
   const tableRows = rows.map(row => `
     <tr>

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import {
   buildContaPagarExportRow,
+  buildContasPagarExportText,
   downloadContasPagarCsv,
+  downloadContasPagarXls,
   formatPeriodFilterLabel,
   imprimirContasPagarPdf,
   periodFilterRequiresMonth,
@@ -46,6 +49,7 @@ export function ContasPagarExportButton({
     [todasContas, periodFilter],
   )
   const [open, setOpen] = useState(false)
+  const [textModalOpen, setTextModalOpen] = useState(false)
   const [statuses, setStatuses] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [busca, setBusca] = useState('')
@@ -140,24 +144,58 @@ export function ContasPagarExportButton({
     [selectedContas, fornecedores, getStatus],
   )
 
-  const runExport = (mode: 'csv' | 'pdf') => {
+  const exportText = useMemo(
+    () => buildContasPagarExportText(exportRows, periodLabel),
+    [exportRows, periodLabel],
+  )
+
+  const validateExport = (): boolean => {
     if (needsMonth) {
       showToast('Selecione um mês ou período específico para exportar.', 'error')
-      return
+      return false
     }
     if (exportRows.length === 0) {
       showToast('Marque pelo menos uma conta para exportar.', 'error')
-      return
+      return false
     }
+    return true
+  }
+
+  const runExport = (mode: 'csv' | 'xls' | 'pdf' | 'text') => {
+    if (!validateExport()) return
 
     if (mode === 'csv') {
       downloadContasPagarCsv(exportRows, periodLabel)
-      showToast(`Planilha gerada com ${exportRows.length} conta(s).`)
-    } else {
+      showToast(`Planilha CSV gerada com ${exportRows.length} conta(s).`)
+      setOpen(false)
+      return
+    }
+
+    if (mode === 'xls') {
+      downloadContasPagarXls(exportRows, periodLabel)
+      showToast(`Planilha XLS gerada com ${exportRows.length} conta(s).`)
+      setOpen(false)
+      return
+    }
+
+    if (mode === 'pdf') {
       imprimirContasPagarPdf(exportRows, periodLabel)
       showToast(`PDF aberto com ${exportRows.length} conta(s).`)
+      setOpen(false)
+      return
     }
+
     setOpen(false)
+    setTextModalOpen(true)
+  }
+
+  const copyExportText = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText)
+      showToast('Texto copiado para a área de transferência.')
+    } catch {
+      showToast('Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.', 'error')
+    }
   }
 
   return (
@@ -335,10 +373,26 @@ export function ContasPagarExportButton({
             <button
               type="button"
               className="btn btn-gold btn-sm w-full"
+              onClick={() => runExport('xls')}
+              disabled={needsMonth || exportRows.length === 0}
+            >
+              Baixar planilha (XLS)
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm w-full"
               onClick={() => runExport('csv')}
               disabled={needsMonth || exportRows.length === 0}
             >
               Baixar planilha (CSV)
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm w-full"
+              onClick={() => runExport('text')}
+              disabled={needsMonth || exportRows.length === 0}
+            >
+              Copiar como texto
             </button>
             <button
               type="button"
@@ -351,6 +405,41 @@ export function ContasPagarExportButton({
           </div>
         </div>
       )}
+
+      <Modal
+        open={textModalOpen}
+        onClose={() => setTextModalOpen(false)}
+        title="TEXTO PARA COPIAR"
+        wide
+      >
+        <p className="mb-3 text-sm text-[#8a6a55]">
+          Selecione o texto abaixo ou use o botão copiar para colar em WhatsApp, e-mail ou outra planilha.
+        </p>
+        <textarea
+          className="glass-input w-full font-mono text-xs leading-relaxed"
+          readOnly
+          value={exportText}
+          rows={16}
+          onFocus={e => e.target.select()}
+          style={{ resize: 'vertical', minHeight: 280 }}
+        />
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setTextModalOpen(false)}
+          >
+            Fechar
+          </button>
+          <button
+            type="button"
+            className="btn btn-gold btn-sm"
+            onClick={() => void copyExportText()}
+          >
+            Copiar texto
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }
