@@ -23,6 +23,13 @@ export function contaPagaNoPeriodo(conta: ContaPagar, period: PeriodFilter): boo
   return applyPeriodFilter([{ data_vencimento: dataRef }], period).length > 0
 }
 
+/** Conta entra na exportação se vence no período ou foi paga no período. */
+export function contaNoPeriodoExport(conta: ContaPagar, period: PeriodFilter): boolean {
+  if (period.mode === 'all') return true
+  if (applyPeriodFilter([conta], period).length > 0) return true
+  return contaPagaNoPeriodo(conta, period)
+}
+
 export function somarPagamentosNoPeriodo(contas: ContaPagar[], period: PeriodFilter): number {
   return contas
     .filter(c => contaPagaNoPeriodo(c, period))

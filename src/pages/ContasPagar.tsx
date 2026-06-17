@@ -13,6 +13,7 @@ import { ContaPagarAnexosButton } from '../components/contas-pagar/ContaPagarAne
 import { getContasRelacionadas, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
+import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -1032,6 +1033,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             }}
           />
         </div>
+
+        <ContasPagarExportButton
+          todasContas={data}
+          fornecedores={fornecedores}
+          periodFilter={periodFilter}
+          getStatus={getStatus}
+        />
 
         {/* Ocultar Dívida */}
         <div ref={ocultarRef} className="relative mb-4 shrink-0">
