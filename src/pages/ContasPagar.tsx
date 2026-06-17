@@ -36,7 +36,6 @@ import {
 import {
   getValorPagoConta,
   getValorTotalLancamento,
-  somarPagamentosNoPeriodo,
 } from '../lib/contas-pagar-valores'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 import { CaixaPopup } from '@/components/layout/CaixaPopup'
@@ -381,6 +380,31 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   // idsOcultos: apenas IDs marcados individualmente — status pills só filtram a lista do dropdown
   const idsOcultos = ocultarIds
 
+  const matchesSearch = useCallback((p: ContaPagar) => {
+    if (!search.trim()) return true
+    const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
+    const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
+    const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
+    const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
+    const valorTotalLanc = getValorTotalLancamento(p)
+    const valorTotal = valorTotalLanc != null ? String(valorTotalLanc).replace(/[\s\.\,]/g, '') : ''
+    const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
+    return forn.includes(term) || desc.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
+  }, [search, fornecedores])
+
+  const matchesStatusFilter = useCallback((p: ContaPagar, forList: boolean) => {
+    const s = getStatus(p.data_vencimento, p.status)
+    if (isDefaultView) {
+      if (forList && s === 'pago') return false
+      return true
+    }
+    return (
+      (activeFilters.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
+      (activeFilters.has('Pago') && s === 'pago') ||
+      (activeFilters.has('Vencido') && s === 'vencido')
+    )
+  }, [isDefaultView, activeFilters])
+
   const ocultarListaFiltrada = useMemo(() => {
     let items = periodFiltered
 
@@ -404,44 +428,18 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     return items.slice(0, 60)
   }, [periodFiltered, ocultarStatuses, ocultarBusca, fornecedores])
 
+  const baseFiltered = useMemo(
+    () => periodFiltered.filter(p => !idsOcultos.has(p.id) && matchesSearch(p)),
+    [periodFiltered, idsOcultos, matchesSearch],
+  )
+
+  const kpiSource = useMemo(
+    () => baseFiltered.filter(p => matchesStatusFilter(p, false)),
+    [baseFiltered, matchesStatusFilter],
+  )
+
   const filtered = (() => {
-    const base = periodFiltered.filter(p => {
-      if (idsOcultos.has(p.id)) return false
-
-      // 1. Filtro de Status
-      const s = getStatus(p.data_vencimento, p.status)
-      if (isDefaultView) {
-        if (s === 'pago') return false
-      } else {
-        const show =
-          (activeFilters.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
-          (activeFilters.has('Pago')     && s === 'pago') ||
-          (activeFilters.has('Vencido')  && s === 'vencido')
-        if (!show) return false
-      }
-
-      // 2. Filtro de Busca (Fornecedor, Descrição, Valor parcela/total, Data)
-      if (search.trim()) {
-        const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
-
-        const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
-        const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
-        const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
-        const valorTotalLanc = getValorTotalLancamento(p)
-        const valorTotal = valorTotalLanc != null ? String(valorTotalLanc).replace(/[\s\.\,]/g, '') : ''
-        const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
-
-        const match = forn.includes(term) ||
-                      desc.includes(term) ||
-                      valor.includes(term) ||
-                      valorTotal.includes(term) ||
-                      dataVenc.includes(term)
-
-        if (!match) return false
-      }
-
-      return true
-    })
+    const base = baseFiltered.filter(p => matchesStatusFilter(p, true))
 
     if (isSemDatasDefinidas(periodFilter)) {
       return sortContasPagarSemDatas(base)
@@ -464,17 +462,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     restante: filtered.reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0),
   }
 
-  // Cards: sempre seguem o filtro de período ativo, excluindo itens ocultos
-  const kpiBase = applyPeriodFilter(data, periodFilter).filter(c => !idsOcultos.has(c.id))
-
-  const totPend = kpiBase
+  // Cards: seguem período, status, busca e itens ocultos (mesma base dos filtros ativos)
+  const totPend = kpiSource
     .filter(p => p.status !== 'pago')
     .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
-  const totPaid = somarPagamentosNoPeriodo(
-    data.filter(c => !idsOcultos.has(c.id)),
-    periodFilter,
-  )
-  const totOver = kpiBase
+  const totPaid = kpiSource.reduce((s, p) => s + getValorPagoConta(p), 0)
+  const totOver = kpiSource
     .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
     .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
 
