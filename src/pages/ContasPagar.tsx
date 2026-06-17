@@ -420,18 +420,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         if (!show) return false
       }
 
-      // 2. Filtro de Busca (Fornecedor, Descrição, Valor, Data)
+      // 2. Filtro de Busca (Fornecedor, Descrição, Valor parcela/total, Data)
       if (search.trim()) {
         const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
 
         const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
         const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
         const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
+        const valorTotalLanc = getValorTotalLancamento(p)
+        const valorTotal = valorTotalLanc != null ? String(valorTotalLanc).replace(/[\s\.\,]/g, '') : ''
         const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
 
         const match = forn.includes(term) ||
                       desc.includes(term) ||
                       valor.includes(term) ||
+                      valorTotal.includes(term) ||
                       dataVenc.includes(term)
 
         if (!match) return false
@@ -1203,7 +1206,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         <input
           type="text"
           className="glass-input w-full"
-          placeholder="Buscar por fornecedor, descrição, valor ou data..."
+          placeholder="Buscar por fornecedor, descrição, valor total, valor da parcela ou data..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
