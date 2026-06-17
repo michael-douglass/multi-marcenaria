@@ -248,7 +248,7 @@ export function ChegadaMaterialCalendario({
                   key={iso}
                   onClick={() => hasObras && setSelectedDay(day)}
                   className={[
-                    'cal-week-day glass-card p-2 flex flex-col min-h-[180px] transition-all',
+                    'cal-week-day cal-week-day--scroll-cards glass-card p-2 flex flex-col min-h-[180px] transition-all',
                     isToday ? 'ring-1 ring-[#d4a853]/40' : '',
                     hasObras ? 'cursor-pointer hover:brightness-110' : '',
                   ].join(' ')}
@@ -272,17 +272,29 @@ export function ChegadaMaterialCalendario({
                     <span className="cal-week-day__date">{day.getDate()}/{MONTHS[day.getMonth()]}</span>
                   </div>
 
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                  <div
+                    className="cal-week-day__cards"
+                    onClick={e => e.stopPropagation()}
+                  >
                     {dayObras.length === 0 ? (
                       <p className="text-[0.62rem] text-[#4a3328] mt-2 text-center">—</p>
                     ) : (
-                      dayObras.slice(0, 3).map(obra => {
+                      dayObras.map(obra => {
                         const cor = getChegadaCardColor(obra, hoje)
                         return (
                           <div
                             key={obra.id}
-                            className="cal-week-card"
+                            className="cal-week-card shrink-0"
                             style={{ backgroundColor: `${cor}18`, borderLeft: `2px solid ${cor}` }}
+                            onClick={() => onObraClick(obra)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                onObraClick(obra)
+                              }
+                            }}
                           >
                             <p className="font-semibold text-cream leading-tight truncate">{obra.cliente_nome}</p>
                             {obra.lousa && <p className="text-[0.62rem] text-[#8a6a55] truncate">{obra.lousa}</p>}
@@ -290,9 +302,6 @@ export function ChegadaMaterialCalendario({
                           </div>
                         )
                       })
-                    )}
-                    {dayObras.length > 3 && (
-                      <p className="text-[0.62rem] text-[#d4a853] text-center">+{dayObras.length - 3} mais</p>
                     )}
                   </div>
                 </div>

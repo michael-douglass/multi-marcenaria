@@ -26,6 +26,7 @@ import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialB
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
+import { groupObrasAgendaKanban } from '../lib/obra-progresso'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
   KANBAN_COL_CLASS,
@@ -578,17 +579,10 @@ function AgendaObrasContent() {
     })
   }, [obrasHook.data, busca])
 
-  const obrasByCol = useMemo(() => {
-    const map: Record<StatusKanbanObra, ObraFull[]> = {
-      datas_em_aberto: [], datas_em_atraso: [],
-      datas_definidas: [], em_andamento: [], concluida: [], cancelada: [],
-    }
-    for (const o of obrasFiltradas) {
-      const col = computeKanbanKey(o)
-      map[col].push(o)
-    }
-    return map
-  }, [obrasFiltradas])
+  const obrasByCol = useMemo(
+    () => groupObrasAgendaKanban(obrasFiltradas),
+    [obrasFiltradas],
+  )
 
   const obrasEmAbertoCount = useMemo(
     () => countObrasEmAberto(obrasHook.data),

@@ -2,7 +2,6 @@ export type PageZoomKey =
   | 'agenda_obras'
   | 'acompanhamento_obras'
   | 'calendario_obras'
-  | 'chegada_materiais'
   | 'calendario_chegada_materiais'
   | 'metricas_obras'
 

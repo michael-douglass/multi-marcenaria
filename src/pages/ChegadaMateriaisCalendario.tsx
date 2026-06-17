@@ -152,7 +152,7 @@ function ChegadaMateriaisCalendarioContent() {
     <div className="obra-page-shell obra-page-shell--calendario fade-in flex flex-col min-h-0">
       <KanbanPageToolbar className="shrink-0">
         <ObraPageHeader
-          title="Calendário de Chegadas"
+          title="Chegada de Materiais"
           collapseBelowOnMobile
           belowMobileLabel="Busca"
           subtitle={

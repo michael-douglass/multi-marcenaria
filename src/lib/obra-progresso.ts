@@ -175,3 +175,85 @@ const STATUS_LABEL_BUSCA: Record<StatusKanbanObra, string> = {
   concluida: 'concluida concluída',
   cancelada: 'cancelada',
 }
+
+/** Data principal usada para ordenar cards no kanban da agenda. */
+export function obraAgendaKanbanSortDate(
+  obra: ObraFull,
+  col: StatusKanbanObra,
+): string | null {
+  switch (col) {
+    case 'datas_em_aberto':
+      return obra.data_prevista_inicio ?? obra.data_prevista_fim ?? null
+    case 'datas_em_atraso':
+    case 'em_andamento':
+      return obra.data_prevista_fim ?? obra.data_prevista_inicio ?? null
+    case 'datas_definidas':
+      return obra.data_prevista_inicio ?? obra.data_prevista_fim ?? null
+    case 'concluida':
+      return (
+        obra.finalizado_em?.slice(0, 10) ??
+        obra.data_prevista_fim ??
+        obra.data_prevista_inicio ??
+        null
+      )
+    case 'cancelada':
+      return obra.data_prevista_fim ?? obra.data_prevista_inicio ?? null
+  }
+}
+
+export function compareObrasAgendaKanban(
+  a: ObraFull,
+  b: ObraFull,
+  col: StatusKanbanObra,
+): number {
+  const da = obraAgendaKanbanSortDate(a, col)
+  const db = obraAgendaKanbanSortDate(b, col)
+
+  if (!da && !db) {
+    return a.cliente_nome.localeCompare(b.cliente_nome, 'pt-BR')
+  }
+  if (!da) return 1
+  if (!db) return -1
+
+  const dateCmp = da.localeCompare(db)
+  if (dateCmp !== 0) {
+    // Concluídas: data mais recente (mais próxima de hoje) primeiro.
+    if (col === 'concluida') return -dateCmp
+    // Demais colunas: data mais próxima / urgente primeiro.
+    return dateCmp
+  }
+
+  const fimA = a.data_prevista_fim ?? ''
+  const fimB = b.data_prevista_fim ?? ''
+  if (fimA !== fimB) return fimA.localeCompare(fimB)
+
+  return a.cliente_nome.localeCompare(b.cliente_nome, 'pt-BR')
+}
+
+export function sortObrasAgendaKanban(
+  obras: ObraFull[],
+  col: StatusKanbanObra,
+): ObraFull[] {
+  return [...obras].sort((a, b) => compareObrasAgendaKanban(a, b, col))
+}
+
+export function groupObrasAgendaKanban(obras: ObraFull[]): Record<StatusKanbanObra, ObraFull[]> {
+  const map: Record<StatusKanbanObra, ObraFull[]> = {
+    datas_em_aberto: [],
+    datas_em_atraso: [],
+    datas_definidas: [],
+    em_andamento: [],
+    concluida: [],
+    cancelada: [],
+  }
+
+  for (const obra of obras) {
+    map[getStatusEfetivo(obra)].push(obra)
+  }
+
+  for (const col of Object.keys(map) as StatusKanbanObra[]) {
+    map[col] = sortObrasAgendaKanban(map[col], col)
+  }
+
+  return map
+}

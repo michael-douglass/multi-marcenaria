@@ -179,27 +179,12 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(96,165,250,0.92)',
   },
   {
-    id: 'chegadaMateriaisGroup',
+    id: 'calendarioChegadaMateriais',
     title: 'Chegada de Materiais',
+    url: '/chegada-materiais',
     icon: PackageCheck,
     radialColor: 'rgba(52,211,153,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
-    children: [
-      {
-        id: 'chegadaMateriais',
-        title: 'Painel',
-        url: '/chegada-materiais',
-        icon: PackageCheck,
-        radialColor: 'rgba(52,211,153,0.92)',
-      },
-      {
-        id: 'calendarioChegadaMateriais',
-        title: 'Calendário',
-        url: '/chegada-materiais/calendario',
-        icon: CalendarDays,
-        radialColor: 'rgba(96,165,250,0.92)',
-      },
-    ],
   },
   {
     id: 'metricasObras',
@@ -316,7 +301,7 @@ export function isObrasSection(section: ActiveSection): boolean {
 }
 
 export function isChegadaMateriaisSection(section: ActiveSection): boolean {
-  return section === 'chegadaMateriais' || section === 'calendarioChegadaMateriais'
+  return section === 'calendarioChegadaMateriais'
 }
 
 export function sectionFromPath(pathname: string): ActiveSection {
@@ -337,9 +322,9 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/agenda-obras': 'agendaObras',
     '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',
-    '/chegada-materiais': 'chegadaMateriais',
+    '/chegada-materiais': 'calendarioChegadaMateriais',
     '/chegada-materiais/calendario': 'calendarioChegadaMateriais',
-    '/calendario-chegada-materiais': 'chegadaMateriais',
+    '/calendario-chegada-materiais': 'calendarioChegadaMateriais',
     '/metricas-obras': 'metricasObras',
     '/meu-financeiro': 'meuFinanceiro',
     '/configuracoes': 'configuracoes',

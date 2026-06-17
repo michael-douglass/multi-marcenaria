@@ -26,7 +26,6 @@ export type ActiveSection =
   | 'agendaObras'
   | 'acompanhamentoObras'
   | 'calendarioObras'
-  | 'chegadaMateriais'
   | 'calendarioChegadaMateriais'
   | 'metricasObras'
   | 'meuFinanceiro'

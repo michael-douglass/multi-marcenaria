@@ -37,10 +37,13 @@ export function SaldoDisponivelDialog({
 
   const {
     alocacoes,
+    contasGlobais,
+    totalGlobalContas,
     saldoDisponivel,
     totalAlocado,
     diferenca,
     loading,
+    loadingGlobal,
     error,
     adicionar,
     atualizar,
@@ -116,6 +119,42 @@ export function SaldoDisponivelDialog({
       title="ONDE ESTÁ O SALDO"
       wide
       closeOnBackdrop={false}
+      headerTop={
+        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+                Total em todas as contas (todos os meses)
+              </p>
+              {loadingGlobal ? (
+                <p className="mt-1 text-lg font-bold text-emerald-400/60 animate-pulse">Carregando...</p>
+              ) : contasGlobais.length === 0 ? (
+                <p className="mt-1 text-sm text-[#8a6a55]">Nenhuma conta cadastrada ainda.</p>
+              ) : (
+                <p className="mt-1 text-2xl font-bold text-emerald-400">{fmtCur(totalGlobalContas)}</p>
+              )}
+            </div>
+            {!loadingGlobal && contasGlobais.length > 0 && (
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2 sm:justify-end">
+                {contasGlobais.map(conta => (
+                  <div
+                    key={conta.descricao}
+                    className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5"
+                  >
+                    <Landmark className="h-3.5 w-3.5 shrink-0 text-[#d4a853]" />
+                    <span className="truncate text-xs font-medium text-cream max-w-[140px] sm:max-w-[180px]">
+                      {conta.descricao}
+                    </span>
+                    <span className="shrink-0 text-xs font-bold text-emerald-400">
+                      {fmtCur(conta.total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      }
       headerExtra={
         <div className="space-y-3">
           <p className="text-xs text-[#8a6a55]">

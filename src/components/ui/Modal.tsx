@@ -9,6 +9,8 @@ interface ModalProps {
   title: string
   children: ReactNode
   wide?: boolean
+  /** Conteúdo no topo do cabeçalho, acima do título */
+  headerTop?: ReactNode
   /** Conteúdo extra no cabeçalho (ex.: resumo financeiro do fornecedor) */
   headerExtra?: ReactNode
   /** Se false, clique no fundo escuro não fecha (útil em formulários longos) */
@@ -21,6 +23,7 @@ export function Modal({
   title,
   children,
   wide,
+  headerTop,
   headerExtra,
   closeOnBackdrop = true,
 }: ModalProps) {
@@ -81,6 +84,7 @@ export function Modal({
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-panel-header shrink-0 border-b border-[rgba(212,168,83,0.18)] px-4 py-3 sm:px-5 sm:py-4">
+          {headerTop ? <div className="mb-3">{headerTop}</div> : null}
           <div className="flex items-center justify-between gap-3">
             <span
               id="modal-title"

@@ -27,7 +27,6 @@ import { Caixa } from '@/pages/Caixa'
 import { AgendaObras } from '@/pages/AgendaObras'
 import { AcompanhamentoObras } from '@/pages/AcompanhamentoObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
-import { ChegadaMateriais } from '@/pages/CalendarioChegadaMateriais'
 import { ChegadaMateriaisCalendario } from '@/pages/ChegadaMateriaisCalendario'
 import { MetricasObras } from '@/pages/MetricasObras'
 import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
@@ -41,7 +40,6 @@ const OBRAS_SECTIONS: ActiveSection[] = [
   'agendaObras',
   'acompanhamentoObras',
   'calendarioObras',
-  'chegadaMateriais',
   'calendarioChegadaMateriais',
   'metricasObras',
 ]
@@ -234,17 +232,13 @@ function AuthenticatedRoutes() {
             path="/chegada-materiais"
             element={
               hasChegadaMateriaisAccess(roles)
-                ? <ChegadaMateriais />
+                ? <ChegadaMateriaisCalendario />
                 : <Restricted message="Chegada de materiais disponível apenas para perfis de gestão de Obras." />
             }
           />
           <Route
             path="/chegada-materiais/calendario"
-            element={
-              hasChegadaMateriaisAccess(roles)
-                ? <ChegadaMateriaisCalendario />
-                : <Restricted message="Chegada de materiais disponível apenas para perfis de gestão de Obras." />
-            }
+            element={<Navigate to="/chegada-materiais" replace />}
           />
           <Route
             path="/calendario-chegada-materiais"

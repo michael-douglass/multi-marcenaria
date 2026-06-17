@@ -529,41 +529,10 @@ body::before {
   }
 }
 
-.obra-page-shell--chegada-material,
-.obra-page-shell--chegada-material .kanban-page-zoom-shell,
-.obra-page-shell--chegada-material .kanban-scroll-host {
-  flex: none !important;
-  min-height: auto !important;
-  overflow: visible !important;
-}
-
-.obra-page-shell--chegada-material .chegada-kanban-shell {
-  max-height: min(46vh, 520px);
-  min-height: 280px;
-  overflow: hidden !important;
-}
-
-.obra-page-shell--chegada-material .chegada-kanban-shell .kanban-scroll-host {
-  overflow: auto !important;
-  max-height: min(46vh, 520px);
-}
-
-.obra-page-shell--chegada-material .agenda-kanban-board {
-  margin-top: 0.75rem;
-  padding-top: 0.25rem;
-}
-
 .chegada-material-calendario {
   padding-bottom: 2rem;
   width: 100%;
   min-width: 0;
-}
-
-@media (min-width: 768px) {
-  .obra-layout-outlet:has(> .obra-page-shell--chegada-material) {
-    flex: none !important;
-    min-height: auto !important;
-  }
 }
 
 /* ── Calendário: grade semanal — 7 colunas + scroll quando a tela é estreita ── */
@@ -595,6 +564,32 @@ body::before {
 .cal-week-day {
   min-width: 0;
   overflow: hidden;
+}
+
+.cal-week-day--scroll-cards {
+  max-height: min(22rem, 55vh);
+}
+
+.cal-week-day__cards {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 168, 83, 0.35) transparent;
+}
+
+.cal-week-day__cards::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cal-week-day__cards::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(212, 168, 83, 0.35);
 }
 
 .cal-week-day__header {
