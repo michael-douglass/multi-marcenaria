@@ -23,12 +23,122 @@ import {
   isFinanceiroSection,
   isObrasSection,
   sectionFromPath,
+  type NavChildItem,
   type NavMainItem,
 } from '@/lib/app-navigation'
 import { cn } from '@/lib/utils'
+import type { ActiveSection } from '@/types'
 
 interface AppSidebarProps {
   pendingOrders: number
+}
+
+function isNavChildActive(item: NavChildItem, section: ActiveSection): boolean {
+  if (item.children?.length) {
+    return item.children.some(child => isNavChildActive(child, section))
+  }
+  return item.id === section
+}
+
+interface NavChildTreeProps {
+  child: NavChildItem
+  activeSection: ActiveSection
+  pendingOrders: number
+  depth: number
+  sidebarOpen: boolean
+  renderLeaf: (
+    url: string,
+    title: string,
+    Icon: NavMainItem['icon'],
+    isActive: boolean,
+    badge?: number,
+    nested?: boolean,
+    depth?: number,
+  ) => React.ReactNode
+}
+
+function NavChildTree({
+  child,
+  activeSection,
+  pendingOrders,
+  depth,
+  sidebarOpen,
+  renderLeaf,
+}: NavChildTreeProps) {
+  const ChildIcon = child.icon
+  const hasNested = Boolean(child.children?.length)
+  const isActive = hasNested
+    ? child.children!.some(c => isNavChildActive(c, activeSection))
+    : activeSection === child.id
+  const [open, setOpen] = useState(isActive)
+
+  useEffect(() => {
+    if (isActive) setOpen(true)
+  }, [isActive])
+
+  if (!hasNested) {
+    const childBadge =
+      child.badgeKey === 'pendingOrders' && pendingOrders > 0 ? pendingOrders : undefined
+    return (
+      <li>
+        {renderLeaf(
+          child.url!,
+          child.title,
+          ChildIcon,
+          activeSection === child.id,
+          childBadge,
+          true,
+          depth,
+        )}
+      </li>
+    )
+  }
+
+  return (
+    <li>
+      <Collapsible open={open} onOpenChange={setOpen} className="group/nested">
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            isActive={isActive}
+            onClick={e => {
+              e.stopPropagation()
+              if (!sidebarOpen) setOpen(true)
+            }}
+            className={cn(!isActive && 'text-[#a07c65]', 'cursor-pointer w-full', depth > 0 && 'pl-7')}
+          >
+            <ChildIcon className="h-4 w-4 shrink-0" />
+            <span className="group-data-[collapsible=icon]:hidden">{child.title}</span>
+            <ChevronRight
+              className={cn(
+                'ml-auto h-4 w-4 shrink-0 text-[#8a6a55] transition-transform group-data-[collapsible=icon]:hidden',
+                open && 'rotate-90',
+              )}
+            />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
+          <ul
+            className={cn(
+              'mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(212,168,83,0.15)]',
+              depth === 0 ? 'ml-2 pl-2' : 'ml-4 pl-2',
+            )}
+          >
+            {child.children!.map(sub => (
+              <NavChildTree
+                key={sub.id}
+                child={sub}
+                activeSection={activeSection}
+                pendingOrders={pendingOrders}
+                depth={depth + 1}
+                sidebarOpen={sidebarOpen}
+                renderLeaf={renderLeaf}
+              />
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
+    </li>
+  )
 }
 
 export function AppSidebar({ pendingOrders }: AppSidebarProps) {
@@ -70,6 +180,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
     isActive: boolean,
     badge?: number,
     nested = false,
+    depth = 0,
   ) => (
     <SidebarMenuButton
       isActive={isActive}
@@ -80,7 +191,8 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
       className={cn(
         !isActive && 'text-[#a07c65]',
         'cursor-pointer',
-        nested && 'pl-7 group-data-[collapsible=icon]:!pl-2',
+        nested && (depth === 0 ? 'pl-7' : depth === 1 ? 'pl-10' : 'pl-12'),
+        nested && 'group-data-[collapsible=icon]:!pl-2',
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -116,7 +228,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                 const badge = getNavBadge(item, { roles, pendingOrders })
 
                 if (item.children?.length) {
-                  const childActive = item.children.some(c => c.id === activeSection)
+                  const childActive = item.children.some(c => isNavChildActive(c, activeSection))
                   const isObrasGroup = item.id === 'obras'
                   const grupoAtivo = childActive || (isObrasGroup ? obrasOpen : financeiroOpen)
                   const setGrupoOpen = isObrasGroup ? setObrasOpen : setFinanceiroOpen
@@ -164,26 +276,17 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                         </CollapsibleTrigger>
                         <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
                           <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(212,168,83,0.15)] pl-2">
-                            {item.children.map(child => {
-                              const ChildIcon = child.icon
-                              const isActive = activeSection === child.id
-                              const childBadge =
-                                child.badgeKey === 'pendingOrders' && pendingOrders > 0
-                                  ? pendingOrders
-                                  : undefined
-                              return (
-                                <li key={child.id}>
-                                  {renderLeaf(
-                                    child.url,
-                                    child.title,
-                                    ChildIcon,
-                                    isActive,
-                                    childBadge,
-                                    true,
-                                  )}
-                                </li>
-                              )
-                            })}
+                            {item.children.map(child => (
+                              <NavChildTree
+                                key={child.id}
+                                child={child}
+                                activeSection={activeSection}
+                                pendingOrders={pendingOrders}
+                                depth={0}
+                                sidebarOpen={open}
+                                renderLeaf={renderLeaf}
+                              />
+                            ))}
                           </ul>
                         </CollapsibleContent>
                       </SidebarMenuItem>

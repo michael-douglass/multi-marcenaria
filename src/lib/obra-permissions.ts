@@ -11,6 +11,10 @@ export function hasObrasAdminSectionsAccess(roles: UserRole[]): boolean {
   return OBRAS_ADMIN_SECTION_ROLES.some(r => roles.includes(r))
 }
 
+export function hasChegadaMateriaisAccess(roles: UserRole[]): boolean {
+  return hasObrasAdminSectionsAccess(roles)
+}
+
 export function canManageAllObras(roles: UserRole[]): boolean {
   return roles.includes('Administrador') || roles.includes('AdministradorObras')
 }

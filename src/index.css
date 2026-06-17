@@ -529,6 +529,43 @@ body::before {
   }
 }
 
+.obra-page-shell--chegada-material,
+.obra-page-shell--chegada-material .kanban-page-zoom-shell,
+.obra-page-shell--chegada-material .kanban-scroll-host {
+  flex: none !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+
+.obra-page-shell--chegada-material .chegada-kanban-shell {
+  max-height: min(46vh, 520px);
+  min-height: 280px;
+  overflow: hidden !important;
+}
+
+.obra-page-shell--chegada-material .chegada-kanban-shell .kanban-scroll-host {
+  overflow: auto !important;
+  max-height: min(46vh, 520px);
+}
+
+.obra-page-shell--chegada-material .agenda-kanban-board {
+  margin-top: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.chegada-material-calendario {
+  padding-bottom: 2rem;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .obra-layout-outlet:has(> .obra-page-shell--chegada-material) {
+    flex: none !important;
+    min-height: auto !important;
+  }
+}
+
 /* ── Calendário: grade semanal — 7 colunas + scroll quando a tela é estreita ── */
 .cal-week-wrap {
   width: 100%;

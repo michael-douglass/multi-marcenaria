@@ -272,8 +272,8 @@ export function downloadContasPagarXls(
   downloadBlob(blob, buildExportFilename(periodLabel, 'xls'))
 }
 
-function textCell(value: string | number): string {
-  return String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')
+function textLine(label: string, value: string): string {
+  return `${label}: ${value}`
 }
 
 export function buildContasPagarExportText(
@@ -281,36 +281,24 @@ export function buildContasPagarExportText(
   periodLabel: string,
 ): string {
   const totais = summarizeExportRows(rows)
-  const columns = [
-    'Fornecedor',
-    'Pagamento',
-    'Parcela',
-    'Valor',
-    'Pago',
-    'Restante',
-    'Vencimento',
-    'Status',
-    'Observação',
-  ]
+
+  const blocos = rows.map(row => [
+    textLine('Conta', row.fornecedor),
+    textLine('Parcela', row.parcela),
+    textLine('Valor', fmtCur(row.valorParcela)),
+    row.observacao ? textLine('Observação', row.observacao) : null,
+  ].filter((line): line is string => line != null).join('\n'))
 
   const lines = [
     `CONTAS A PAGAR - ${periodLabel.toUpperCase()}`,
     `Gerado em ${fmtDate(todayISO())} · ${rows.length} conta(s)`,
     '',
-    columns.join('\t'),
-    ...rows.map(row => [
-      textCell(row.fornecedor),
-      textCell(row.pagamento),
-      textCell(row.parcela),
-      textCell(fmtCur(row.valorParcela)),
-      textCell(fmtCur(row.pago)),
-      textCell(fmtCur(row.restante)),
-      textCell(row.vencimento),
-      textCell(row.status),
-      textCell(row.observacao),
-    ].join('\t')),
+    ...blocos.flatMap((bloco, index) => (
+      index === 0 ? [bloco] : ['', bloco]
+    )),
     '',
-    ['TOTAL', '', '', fmtCur(totais.valor), fmtCur(totais.pago), fmtCur(totais.restante), '', '', ''].join('\t'),
+    '────────────────────────────',
+    textLine('Total', fmtCur(totais.valor)),
   ]
 
   return lines.join('\n')

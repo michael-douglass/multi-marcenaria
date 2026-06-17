@@ -17,6 +17,7 @@ import {
   CalendarDays,
   BarChart3,
   Camera,
+  PackageCheck,
   Settings,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
@@ -25,14 +26,44 @@ import type { ActiveSection, UserRole } from '@/types'
 export type NavItemId = ActiveSection | 'financeiro' | 'obras' | 'configuracoes'
 
 export interface NavChildItem {
-  id: ActiveSection
+  id: string
   title: string
-  url: string
+  url?: string
   icon: LucideIcon
   radialColor: string
   /** Se omitido, herda visibilidade do menu pai */
   roles?: UserRole[]
   badgeKey?: 'pendingOrders'
+  children?: NavChildItem[]
+}
+
+function filterNavChildren(items: NavChildItem[], roles: UserRole[]): NavChildItem[] {
+  return items
+    .filter(c => !c.roles || c.roles.some(r => roles.includes(r)))
+    .map(c => {
+      if (!c.children?.length) return c
+      const children = filterNavChildren(c.children, roles)
+      if (children.length === 0) return null
+      return { ...c, children }
+    })
+    .filter((c): c is NavChildItem => c != null)
+}
+
+function walkNavChildren(items: NavChildItem[], visit: (item: NavChildItem) => void) {
+  for (const item of items) {
+    visit(item)
+    if (item.children?.length) walkNavChildren(item.children, visit)
+  }
+}
+
+function findNavChildUrl(items: NavChildItem[], section: ActiveSection): string | null {
+  let found: string | null = null
+  walkNavChildren(items, item => {
+    if (!item.children?.length && item.id === section && item.url) {
+      found = item.url
+    }
+  })
+  return found
 }
 
 export interface NavMainItem {
@@ -148,6 +179,29 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(96,165,250,0.92)',
   },
   {
+    id: 'chegadaMateriaisGroup',
+    title: 'Chegada de Materiais',
+    icon: PackageCheck,
+    radialColor: 'rgba(52,211,153,0.92)',
+    roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
+    children: [
+      {
+        id: 'chegadaMateriais',
+        title: 'Painel',
+        url: '/chegada-materiais',
+        icon: PackageCheck,
+        radialColor: 'rgba(52,211,153,0.92)',
+      },
+      {
+        id: 'calendarioChegadaMateriais',
+        title: 'Calendário',
+        url: '/chegada-materiais/calendario',
+        icon: CalendarDays,
+        radialColor: 'rgba(96,165,250,0.92)',
+      },
+    ],
+  },
+  {
     id: 'metricasObras',
     title: 'Métricas de Obras',
     url: '/metricas-obras',
@@ -223,7 +277,7 @@ export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[]
       if (!item.children) return item
       return {
         ...item,
-        children: item.children.filter(c => !c.roles || c.roles.some(r => ctx.roles.includes(r))),
+        children: filterNavChildren(item.children, ctx.roles),
       }
     })
     .filter(item => !item.children || item.children.length > 0)
@@ -254,7 +308,15 @@ export function isFinanceiroSection(section: ActiveSection): boolean {
 }
 
 export function isObrasSection(section: ActiveSection): boolean {
-  return OBRAS_CHILDREN.some(c => c.id === section)
+  let found = false
+  walkNavChildren(OBRAS_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
+}
+
+export function isChegadaMateriaisSection(section: ActiveSection): boolean {
+  return section === 'chegadaMateriais' || section === 'calendarioChegadaMateriais'
 }
 
 export function sectionFromPath(pathname: string): ActiveSection {
@@ -275,6 +337,9 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/agenda-obras': 'agendaObras',
     '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',
+    '/chegada-materiais': 'chegadaMateriais',
+    '/chegada-materiais/calendario': 'calendarioChegadaMateriais',
+    '/calendario-chegada-materiais': 'chegadaMateriais',
     '/metricas-obras': 'metricasObras',
     '/meu-financeiro': 'meuFinanceiro',
     '/configuracoes': 'configuracoes',
@@ -292,8 +357,10 @@ export function defaultPathForRole(role: UserRole | null): string {
 export function pathFromSection(section: ActiveSection): string {
   for (const item of NAV_MAIN_ITEMS) {
     if (item.id === section) return item.url
-    const child = item.children?.find(c => c.id === section)
-    if (child) return child.url
+    if (item.children) {
+      const nested = findNavChildUrl(item.children, section)
+      if (nested) return nested
+    }
   }
   return '/dashboard'
 }

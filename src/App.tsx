@@ -12,7 +12,7 @@ import { useClientes } from '@/hooks/useClientes'
 import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
 import { sectionFromPath, defaultPathForRole } from '@/lib/app-navigation'
-import { hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
+import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
 import { Produtos } from '@/pages/Produtos'
@@ -27,6 +27,8 @@ import { Caixa } from '@/pages/Caixa'
 import { AgendaObras } from '@/pages/AgendaObras'
 import { AcompanhamentoObras } from '@/pages/AcompanhamentoObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
+import { ChegadaMateriais } from '@/pages/CalendarioChegadaMateriais'
+import { ChegadaMateriaisCalendario } from '@/pages/ChegadaMateriaisCalendario'
 import { MetricasObras } from '@/pages/MetricasObras'
 import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
 import { Configuracoes } from '@/pages/Configuracoes'
@@ -35,7 +37,14 @@ import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import type { ActiveSection, UserRole } from '@/types'
 
-const OBRAS_SECTIONS: ActiveSection[] = ['agendaObras', 'acompanhamentoObras', 'calendarioObras', 'metricasObras']
+const OBRAS_SECTIONS: ActiveSection[] = [
+  'agendaObras',
+  'acompanhamentoObras',
+  'calendarioObras',
+  'chegadaMateriais',
+  'calendarioChegadaMateriais',
+  'metricasObras',
+]
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
@@ -220,6 +229,26 @@ function AuthenticatedRoutes() {
                 ? <AcompanhamentoObras />
                 : <Restricted message="Acompanhamento disponível apenas para perfis de gestão de Obras." />
             }
+          />
+          <Route
+            path="/chegada-materiais"
+            element={
+              hasChegadaMateriaisAccess(roles)
+                ? <ChegadaMateriais />
+                : <Restricted message="Chegada de materiais disponível apenas para perfis de gestão de Obras." />
+            }
+          />
+          <Route
+            path="/chegada-materiais/calendario"
+            element={
+              hasChegadaMateriaisAccess(roles)
+                ? <ChegadaMateriaisCalendario />
+                : <Restricted message="Chegada de materiais disponível apenas para perfis de gestão de Obras." />
+            }
+          />
+          <Route
+            path="/calendario-chegada-materiais"
+            element={<Navigate to="/chegada-materiais" replace />}
           />
           <Route
             path="/metricas-obras"
