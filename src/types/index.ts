@@ -316,6 +316,18 @@ export interface ResumoCaixa {
   saldo_meses_anteriores: number
 }
 
+/** Onde o saldo disponível está guardado (banco, conta, caixa físico, etc.) */
+export interface CaixaSaldoAlocacao {
+  id: string
+  mes_referencia: number
+  ano_referencia: number
+  descricao: string
+  valor: number
+  criado_por?: string | null
+  criado_em?: string
+  atualizado_em?: string
+}
+
 export interface ReservaConsolidada {
   destinatario_id: string
   destinatario_nome: string

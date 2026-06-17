@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { GerenciarDestinatariosDialog } from '@/components/caixa/GerenciarDestinatariosDialog'
 import { RegistrarMovimentacaoDialog } from '@/components/caixa/RegistrarMovimentacaoDialog'
 import { PagarReservaDialog } from '@/components/caixa/PagarReservaDialog'
+import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
@@ -90,6 +91,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
   // Dialogs
   const [destinatariosOpen, setDestinatariosOpen] = useState(false)
   const [novaMovOpen, setNovaMovOpen] = useState(false)
+  const [saldoDialogOpen, setSaldoDialogOpen] = useState(false)
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
 
   return (
@@ -133,10 +135,16 @@ export function Caixa({ embedded = false }: CaixaProps) {
           <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Total Pago</p>
           <p className="text-xl font-bold text-red-400">{fmtCur(resumo.total_pago)}</p>
         </div>
-        <div className="glass-card p-4 space-y-2 border-l-2 border-l-emerald-500/30">
+        <button
+          type="button"
+          onClick={() => setSaldoDialogOpen(true)}
+          className="glass-card p-4 space-y-2 border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40"
+          title="Clique para ver onde o saldo está guardado"
+        >
           <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Saldo Disponível</p>
           <p className="text-xl font-bold text-emerald-400">{fmtCur(resumo.saldo_disponivel)}</p>
-        </div>
+          <p className="text-[0.65rem] text-[#8a6a55]">Clique para justificar contas →</p>
+        </button>
         <div className="glass-card p-4 space-y-2 bg-white/5">
           <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Anteriores</p>
           <p className={cn("text-xl font-bold", resumo.saldo_meses_anteriores >= 0 ? "text-cream" : "text-red-400")}>
@@ -380,6 +388,13 @@ export function Caixa({ embedded = false }: CaixaProps) {
         open={!!pagarReserva}
         onOpenChange={open => !open && setPagarReserva(null)}
         reserva={pagarReserva}
+      />
+
+      <SaldoDisponivelDialog
+        open={saldoDialogOpen}
+        onOpenChange={setSaldoDialogOpen}
+        mesInicial={mes}
+        anoInicial={ano}
       />
     </div>
   )
