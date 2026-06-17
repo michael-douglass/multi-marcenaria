@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { MetricaObra, MetricaObraDetalhe, MetricasObrasResumo } from '../types'
+import type { MetricaObra, MetricaObraDetalhe, MetricaObraMontador, MetricasObrasResumo } from '../types'
 import { useAuthReady } from './useAuthReady'
 
 const RESUMO_VAZIO: MetricasObrasResumo = {
@@ -23,6 +23,7 @@ export function useMetricasObras(periodo: MetricasPeriodo) {
   const [data, setData] = useState<MetricaObra[]>([])
   const [resumo, setResumo] = useState<MetricasObrasResumo>(RESUMO_VAZIO)
   const [porObra, setPorObra] = useState<MetricaObraDetalhe[]>([])
+  const [porMontador, setPorMontador] = useState<MetricaObraMontador[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,15 +35,17 @@ export function useMetricasObras(periodo: MetricasPeriodo) {
     const { mes, ano } = periodo
 
     try {
-      const [tiposRes, resumoRes, obrasRes] = await Promise.all([
+      const [tiposRes, resumoRes, obrasRes, montadoresRes] = await Promise.all([
         supabase.rpc('movelaria_metricas_obras', { p_mes: mes, p_ano: ano }),
         supabase.rpc('movelaria_metricas_obras_resumo', { p_mes: mes, p_ano: ano }),
         supabase.rpc('movelaria_metricas_obras_por_obra', { p_mes: mes, p_ano: ano }),
+        supabase.rpc('movelaria_metricas_obras_por_montador', { p_mes: mes, p_ano: ano }),
       ])
 
       if (tiposRes.error) throw tiposRes.error
       if (resumoRes.error) throw resumoRes.error
       if (obrasRes.error) throw obrasRes.error
+      if (montadoresRes.error) throw montadoresRes.error
 
       setData((tiposRes.data ?? []) as MetricaObra[])
 
@@ -58,6 +61,16 @@ export function useMetricasObras(periodo: MetricasPeriodo) {
       } : { ...RESUMO_VAZIO, mes_referencia: mes, ano_referencia: ano })
 
       setPorObra((obrasRes.data ?? []) as MetricaObraDetalhe[])
+
+      setPorMontador(((montadoresRes.data ?? []) as MetricaObraMontador[]).map(row => ({
+        montador_id: row.montador_id,
+        montador_nome: row.montador_nome,
+        comissao_concluida: Number(row.comissao_concluida ?? 0),
+        comissao_em_aberto: Number(row.comissao_em_aberto ?? 0),
+        comissao_gerada: Number(row.comissao_gerada ?? 0),
+        obras_concluidas: Number(row.obras_concluidas ?? 0),
+        obras_em_aberto: Number(row.obras_em_aberto ?? 0),
+      })))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar métricas.')
     } finally {
@@ -67,5 +80,5 @@ export function useMetricasObras(periodo: MetricasPeriodo) {
 
   useEffect(() => { void load() }, [load])
 
-  return { data, resumo, porObra, loading, error, reload: load }
+  return { data, resumo, porObra, porMontador, loading, error, reload: load }
 }

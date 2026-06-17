@@ -28,3 +28,10 @@ export function somarPagamentosNoPeriodo(contas: ContaPagar[], period: PeriodFil
     .filter(c => contaPagaNoPeriodo(c, period))
     .reduce((s, c) => s + getValorPagoConta(c), 0)
 }
+
+/** Valor original do lançamento parcelado (ex.: R$ 100 em 10× de R$ 10). */
+export function getValorTotalLancamento(conta: ContaPagar): number | null {
+  if (conta.total_parcelas <= 1) return null
+  if (conta.valor_total != null && conta.valor_total > 0) return conta.valor_total
+  return parseFloat((conta.valor_parcela * conta.total_parcelas).toFixed(2))
+}

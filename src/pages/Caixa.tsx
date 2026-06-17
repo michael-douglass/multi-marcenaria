@@ -30,7 +30,12 @@ function getStatusReserva(valorReal: number, totalPago: number): 'pago' | 'parci
   return 'aberto'
 }
 
-export function Caixa() {
+interface CaixaProps {
+  /** Quando true, renderiza dentro do popup flutuante (sem título de página). */
+  embedded?: boolean
+}
+
+export function Caixa({ embedded = false }: CaixaProps) {
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [ano, setAno] = useState(new Date().getFullYear())
   const { resumo, loading, reservasConsolidadas, movimentacoes } = useCaixa(mes, ano)
@@ -88,20 +93,27 @@ export function Caixa() {
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className={cn('animate-in fade-in duration-500', embedded ? 'space-y-4' : 'space-y-6')}>
       {/* Header & Resumo */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-cream">Caixa de Pagamentos</h1>
-          <p className="text-[0.9rem] text-[#8a6a55]">
-            Controle de valores reservados e pagamentos efetuados.
-          </p>
-        </div>
-        
+      <div
+        className={cn(
+          'flex flex-col gap-4 md:flex-row md:items-end md:justify-between',
+          embedded ? 'gap-3' : 'gap-6',
+        )}
+      >
+        {!embedded && (
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-cream">Caixa de Pagamentos</h1>
+            <p className="text-[0.9rem] text-[#8a6a55]">
+              Controle de valores reservados e pagamentos efetuados.
+            </p>
+          </div>
+        )}
+
         <CaixaMesFilterBar mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a) }} />
       </div>
 
-      <div className="relative max-w-md">
+      <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
         <input
           className="glass-input w-full pl-9"
@@ -112,7 +124,7 @@ export function Caixa() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={cn('grid gap-3 sm:gap-4', embedded ? 'grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-4')}>
         <div className="glass-card p-4 space-y-2">
           <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Total Reservado</p>
           <p className="text-xl font-bold text-cream">{fmtCur(resumo.total_reservado)}</p>
@@ -188,7 +200,7 @@ export function Caixa() {
       </div>
 
       {/* Content */}
-      <div className="glass-card min-h-[400px]">
+      <div className={cn('glass-card', embedded ? 'min-h-[280px]' : 'min-h-[400px]')}>
         {loading ? (
           <div className="p-20 text-center text-[#8a6a55] animate-pulse">Carregando dados...</div>
         ) : (

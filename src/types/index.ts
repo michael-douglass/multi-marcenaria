@@ -481,6 +481,16 @@ export interface MetricaObraDetalhe {
   comissao_valor: number
 }
 
+export interface MetricaObraMontador {
+  montador_id: string
+  montador_nome: string
+  comissao_concluida: number
+  comissao_em_aberto: number
+  comissao_gerada: number
+  obras_concluidas: number
+  obras_em_aberto: number
+}
+
 export type PrestadorFinanceiroTipo = 'previsto' | 'pagamento'
 
 export interface PrestadorFinanceiroItem {

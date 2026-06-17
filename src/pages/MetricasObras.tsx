@@ -64,7 +64,7 @@ function MetricasObrasContent() {
     ano: hoje.getFullYear(),
   })
 
-  const { data, resumo, porObra, loading, error, reload } = useMetricasObras(periodo)
+  const { data, resumo, porObra, porMontador, loading, error, reload } = useMetricasObras(periodo)
   const periodoLabel = labelMesAno(periodo.mes, periodo.ano, MESES)
   const isMesAtual = periodo.mes === hoje.getMonth() + 1 && periodo.ano === hoje.getFullYear()
 
@@ -160,7 +160,7 @@ function MetricasObrasContent() {
           horizontalScrollbar={false}
           verticalScrollbar
           contentLayout="fluid"
-          contentSignal={`${periodo.mes}-${periodo.ano}-${data.length}-${porObra.length}`}
+          contentSignal={`${periodo.mes}-${periodo.ano}-${data.length}-${porObra.length}-${porMontador.length}`}
           className="min-h-0 flex-1"
         >
           <>
@@ -195,6 +195,96 @@ function MetricasObrasContent() {
                 )}
               </p>
             </div>
+          </div>
+
+          {/* Comissão por montador */}
+          <div className="glass-card overflow-hidden mb-6">
+            <div className="px-4 py-3 border-b border-[rgba(212,168,83,0.12)]">
+              <h2 className="text-sm font-semibold text-[#d4a853] uppercase tracking-wider">
+                Comissão por montador — {periodoLabel}
+              </h2>
+              <p className="text-xs text-[#8a6a55] mt-1">
+                Valores individuais de cada montador no mês selecionado
+              </p>
+            </div>
+
+            {porMontador.length === 0 ? (
+              <div className="p-8">
+                <EmptyState message={`Nenhuma comissão registrada para ${periodoLabel}.`} />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[720px]">
+                  <thead>
+                    <tr className="border-b border-[rgba(212,168,83,0.12)]">
+                      {[
+                        'Montador', 'Concluída (a pagar)', 'Em aberto', 'Gerada no caixa', 'Total previsto',
+                      ].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {porMontador.map((m, i) => {
+                      const totalPrevisto = m.comissao_concluida + m.comissao_em_aberto
+                      return (
+                        <tr
+                          key={m.montador_id}
+                          className={`border-b border-[rgba(212,168,83,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
+                        >
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-cream">{m.montador_nome}</p>
+                            {(m.obras_concluidas > 0 || m.obras_em_aberto > 0) && (
+                              <p className="text-[0.65rem] text-[#6b5544] mt-0.5">
+                                {m.obras_concluidas > 0 && `${m.obras_concluidas} concluída(s)`}
+                                {m.obras_concluidas > 0 && m.obras_em_aberto > 0 && ' · '}
+                                {m.obras_em_aberto > 0 && `${m.obras_em_aberto} em aberto`}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-emerald-400">
+                            {m.comissao_concluida > 0 ? fmtCur(m.comissao_concluida) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-amber-400">
+                            {m.comissao_em_aberto > 0 ? fmtCur(m.comissao_em_aberto) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[#d4a853]">
+                            {m.comissao_gerada > 0 ? fmtCur(m.comissao_gerada) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-semibold text-cream">
+                            {totalPrevisto > 0 ? fmtCur(totalPrevisto) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.04)]">
+                      <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#d4a853]">
+                        Total do mês
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold text-emerald-400">
+                        {fmtCur(porMontador.reduce((s, m) => s + m.comissao_concluida, 0))}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold text-amber-400">
+                        {fmtCur(porMontador.reduce((s, m) => s + m.comissao_em_aberto, 0))}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold text-[#d4a853]">
+                        {fmtCur(porMontador.reduce((s, m) => s + m.comissao_gerada, 0))}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-cream">
+                        {fmtCur(porMontador.reduce(
+                          (s, m) => s + m.comissao_concluida + m.comissao_em_aberto,
+                          0,
+                        ))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Resumo geral */}

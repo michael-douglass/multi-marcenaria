@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Trash2, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw, Wallet } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
@@ -35,9 +35,11 @@ import {
 } from '../components/ui/PeriodFilterBar'
 import {
   getValorPagoConta,
+  getValorTotalLancamento,
   somarPagamentosNoPeriodo,
 } from '../lib/contas-pagar-valores'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
+import { CaixaPopup } from '@/components/layout/CaixaPopup'
 
 // ── Componente de seleção de fornecedor com busca ─────────────
 const normForn = (s: string) => s.toLowerCase().replace(/[\s.]/g, '')
@@ -242,6 +244,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     status: 'pendente',
   }))
   const [editAnexos, setEditAnexos] = useState<PendingContaPagarAnexo[]>([])
+  const [caixaOpen, setCaixaOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [scopePromptOpen, setScopePromptOpen] = useState(false)
@@ -1220,6 +1223,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
+                  const valorTotalLancamento = getValorTotalLancamento(p)
                   return (
                     <tr key={p.id} className="trow">
                       <td className="px-4 py-3" style={{ color: '#f4e4d6', maxWidth: 220 }}>
@@ -1233,6 +1237,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                           )}
                           <span>{nomeExibido}</span>
                         </div>
+                        {valorTotalLancamento != null && (
+                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#d4a853' }}>
+                            {fmtCur(valorTotalLancamento)}
+                          </div>
+                        )}
                         {p.fornecedor_id && getSaldoFornecedor(p.fornecedor_id) > 0 && s !== 'pago' && (
                           <div className="mt-0.5 text-[0.72rem]" style={{ color: '#4ade80' }}>
                             Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
@@ -1571,6 +1580,31 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           )
         })()}
       </Modal>
+
+      {/* Ícone flutuante — abre o Caixa em popup reposicionável */}
+      <div className="fixed bottom-6 z-[90] flex flex-col items-center gap-1" style={{ left: '1.5rem' }}>
+        <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,83,0.65)]">
+          Caixa
+        </span>
+        <button
+          type="button"
+          onClick={() => setCaixaOpen(p => !p)}
+          className="flex h-14 w-14 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all hover:scale-105"
+          style={{
+            borderColor: caixaOpen ? '#dbb25a' : 'rgba(212,168,83,0.55)',
+            boxShadow: caixaOpen ? '0 0 28px rgba(212,168,83,0.35)' : undefined,
+          }}
+          aria-label={caixaOpen ? 'Fechar caixa' : 'Abrir caixa de pagamentos'}
+          title="Abrir Caixa de Pagamentos"
+        >
+          <Wallet
+            className="h-6 w-6"
+            style={{ color: caixaOpen ? '#dbb25a' : 'rgba(212,168,83,0.85)' }}
+          />
+        </button>
+      </div>
+
+      <CaixaPopup open={caixaOpen} onClose={() => setCaixaOpen(false)} />
     </div>
   )
 }
