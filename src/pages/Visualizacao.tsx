@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useContasReceber } from '@/hooks/useContasReceber'
+import { useEvolucaoPainel } from '@/hooks/useObraEvolucao'
 import { useVisualizacaoAutoScroll } from '@/hooks/useVisualizacaoAutoScroll'
 import {
   readVizAutoScrollEnabled,
@@ -9,6 +10,10 @@ import {
 } from '@/lib/visualizacao-autoscroll-storage'
 import { VisualizacaoPanel } from '@/components/visualizacao/VisualizacaoPanel'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
+import {
+  filterEvolucaoGruposPorObras,
+  VisualizacaoAcompanhamentoHoje,
+} from '@/components/visualizacao/VisualizacaoAcompanhamentoHoje'
 import { ObraMontadorBadge } from '@/components/obras/ObraMontadorBadge'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import {
@@ -108,6 +113,7 @@ export function Visualizacao() {
 function VisualizacaoContent() {
   const obrasHook = useObras()
   const contasHook = useContasReceber()
+  const evolucaoHook = useEvolucaoPainel('hoje')
   const relogio = useRelogio()
   const scrollHostRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(() => readVizAutoScrollEnabled())
@@ -124,12 +130,14 @@ function VisualizacaoContent() {
   useEffect(() => {
     const reloadObras = obrasHook.reload
     const reloadContas = contasHook.reload
+    const reloadEvolucao = evolucaoHook.reload
     const id = setInterval(() => {
       void reloadObras({ silent: true })
       void reloadContas()
+      void reloadEvolucao()
     }, 120_000)
     return () => clearInterval(id)
-  }, [obrasHook.reload, contasHook.reload])
+  }, [obrasHook.reload, contasHook.reload, evolucaoHook.reload])
 
   const obrasCalendario = useMemo(
     () => obrasHook.data.filter(o => {
@@ -137,6 +145,24 @@ function VisualizacaoContent() {
       return s !== 'concluida' && s !== 'cancelada'
     }),
     [obrasHook.data],
+  )
+
+  const obrasDoDia = useMemo(
+    () => obrasParaDiaCalendario(obrasCalendario, hoje, DIAS_ATIVOS),
+    [obrasCalendario, hoje],
+  )
+
+  const evolucaoHoje = useMemo(
+    () => filterEvolucaoGruposPorObras(evolucaoHook.grupos, obrasDoDia),
+    [evolucaoHook.grupos, obrasDoDia],
+  )
+
+  const totalFotosHoje = useMemo(
+    () => evolucaoHoje.reduce(
+      (acc, grupo) => acc + grupo.dias.reduce((sum, dia) => sum + dia.fotos.length, 0),
+      0,
+    ),
+    [evolucaoHoje],
   )
 
   const obrasChegada = useMemo(
@@ -185,11 +211,12 @@ function VisualizacaoContent() {
     month: 'long',
   })
 
-  const contentSignal = `${obrasChegada.length}-${obrasCalendario.length}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}`
+  const contentSignal = `${obrasChegada.length}-${obrasCalendario.length}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
 
   const handleRefresh = () => {
     void obrasHook.reload()
     void contasHook.reload()
+    void evolucaoHook.reload()
   }
 
   const handleToggleAutoScroll = () => {
@@ -324,11 +351,26 @@ function VisualizacaoContent() {
               </VisualizacaoPanel>
 
               <VisualizacaoPanel
+                title="Acompanhamento de Obras"
+                subtitle={`Hoje · ${fmtDate(hoje)} · obras do dia`}
+                accent="#f2d892"
+                badge={totalFotosHoje || obrasDoDia.length}
+                className="viz-panel--span-2 viz-stagger-3"
+              >
+                <VisualizacaoAcompanhamentoHoje
+                  grupos={evolucaoHoje}
+                  loading={evolucaoHook.loading}
+                  error={evolucaoHook.error}
+                  obrasDoDiaCount={obrasDoDia.length}
+                />
+              </VisualizacaoPanel>
+
+              <VisualizacaoPanel
                 title="Obras Atrasadas"
                 subtitle="Todas as obras com prazo vencido"
                 accent="#ef4444"
                 badge={obrasAtrasadas.length}
-                className="viz-panel--span-2 viz-stagger-3"
+                className="viz-panel--span-2 viz-stagger-4"
               >
                 {obrasAtrasadas.length === 0 ? (
                   <p className="viz-empty viz-empty--center">Nenhuma obra em atraso no momento.</p>
@@ -362,7 +404,7 @@ function VisualizacaoContent() {
                 subtitle="Clientes com parcelas vencidas"
                 accent="#f59e0b"
                 badge={clientesAtrasados.length}
-                className="viz-panel--span-2 viz-stagger-4"
+                className="viz-panel--span-2 viz-stagger-5"
               >
                 {clientesAtrasados.length === 0 ? (
                   <p className="viz-empty viz-empty--center">Nenhum cliente em atraso.</p>

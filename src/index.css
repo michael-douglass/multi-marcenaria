@@ -1253,6 +1253,11 @@ body {
 .viz-stagger-2 { animation-delay: 0.12s; }
 .viz-stagger-3 { animation-delay: 0.19s; }
 .viz-stagger-4 { animation-delay: 0.26s; }
+.viz-stagger-5 { animation-delay: 0.33s; }
+
+.viz-acomp-card {
+  background: var(--viz-surface-soft);
+}
 
 @keyframes viz-fade-up {
   from {
