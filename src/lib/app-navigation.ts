@@ -350,6 +350,8 @@ export function defaultPathForRole(role: UserRole | null): string {
   return '/dashboard'
 }
 
+export { defaultPathForRoles, isVisualizadorOnly, canAccessSection, getAllowedSections } from './role-access'
+
 export function pathFromSection(section: ActiveSection): string {
   for (const item of NAV_MAIN_ITEMS) {
     if (item.id === section) return item.url

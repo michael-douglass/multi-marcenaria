@@ -4,7 +4,8 @@ import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { useApp } from '@/context/AppContext'
-import { pathFromSection } from '@/lib/app-navigation'
+import { defaultPathForRoles, pathFromSection } from '@/lib/app-navigation'
+import { isVisualizadorOnly } from '@/lib/role-access'
 
 const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
@@ -13,6 +14,7 @@ const PERFIL_LABEL: Record<string, string> = {
   montador: 'Montador',
   montador_admin: 'Montador Admin',
   administrador_obras: 'Administrador de Obras',
+  visualizador: 'Visualizador',
 }
 
 interface NavigationHeaderProps {
@@ -44,12 +46,13 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
-          onClick={() => navigate(pathFromSection('dashboard'))}
+          onClick={() => navigate(defaultPathForRoles(roles))}
           aria-label="Início"
         >
           <Home className="h-4 w-4" />
         </Button>
 
+        {!isVisualizadorOnly(roles) && (
         <Button
           type="button"
           variant="ghost"
@@ -61,6 +64,7 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
         >
           <CalendarDays className="h-4 w-4" />
         </Button>
+        )}
 
         <Logo full={false} />
       </div>

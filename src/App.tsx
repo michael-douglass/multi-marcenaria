@@ -11,7 +11,8 @@ import { usePedidos } from '@/hooks/usePedidos'
 import { useClientes } from '@/hooks/useClientes'
 import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
-import { sectionFromPath, defaultPathForRole } from '@/lib/app-navigation'
+import { sectionFromPath, defaultPathForRoles } from '@/lib/app-navigation'
+import { canAccessSection } from '@/lib/role-access'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
@@ -35,33 +36,6 @@ import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
-import type { ActiveSection, UserRole } from '@/types'
-
-const OBRAS_SECTIONS: ActiveSection[] = [
-  'agendaObras',
-  'acompanhamentoObras',
-  'calendarioObras',
-  'calendarioChegadaMateriais',
-  'metricasObras',
-]
-
-const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca', 'visualizacao'],
-  Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'visualizacao'],
-  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao'],
-  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro'],
-  Visualizador: ['visualizacao'],
-}
-
-function getAllowedSections(roles: UserRole[]): ActiveSection[] {
-  const sections = new Set<ActiveSection>()
-  for (const r of roles) {
-    for (const s of ROLE_SECTIONS[r] ?? []) sections.add(s)
-  }
-  return [...sections]
-}
 
 function Restricted({ message }: { message: string }) {
   return (
@@ -73,17 +47,16 @@ function Restricted({ message }: { message: string }) {
 }
 
 function RoleRedirect() {
-  const { role, roles } = useApp()
+  const { roles } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
 
-  const defaultPath = defaultPathForRole(role)
+  const defaultPath = defaultPathForRoles(roles)
 
   useEffect(() => {
     if (!roles.length) return
     const section = sectionFromPath(location.pathname)
-    const allowed = getAllowedSections(roles)
-    if (!allowed.includes(section)) {
+    if (!canAccessSection(roles, section)) {
       navigate(defaultPath, { replace: true })
     }
   }, [roles, location.pathname, navigate, defaultPath])
@@ -92,7 +65,7 @@ function RoleRedirect() {
 }
 
 function AuthenticatedRoutes() {
-  const { role, roles } = useApp()
+  const { roles } = useApp()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
 
   const fornecedoresHook = useFornecedores()
@@ -118,11 +91,13 @@ function AuthenticatedRoutes() {
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout pendingOrders={pendingOrders} />}>
-          <Route index element={<Navigate to={defaultPathForRole(role)} replace />} />
+          <Route index element={<Navigate to={defaultPathForRoles(roles)} replace />} />
           <Route
             path="/dashboard"
             element={
-              <Dashboard />
+              canAccessSection(roles, 'dashboard')
+                ? <Dashboard />
+                : <Navigate to={defaultPathForRoles(roles)} replace />
             }
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
@@ -287,7 +262,7 @@ function AuthenticatedRoutes() {
             }
           />
 
-          <Route path="*" element={<Navigate to={defaultPathForRole(role)} replace />} />
+          <Route path="*" element={<Navigate to={defaultPathForRoles(roles)} replace />} />
         </Route>
       </Routes>
     </>
