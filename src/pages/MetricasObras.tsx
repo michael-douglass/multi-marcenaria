@@ -46,6 +46,8 @@ function fmtDateTime(s?: string | null): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   })
 }
 
@@ -290,11 +292,26 @@ function MetricasObrasContent() {
           {/* Resumo geral */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             {[
-              { label: 'Total de Obras', value: totalObras, color: '#f2d892' },
-              { label: 'Obras Concluídas', value: `${totalConcluidas} (${pct(totalConcluidas, totalObras)})`, color: '#10b981' },
-              { label: 'Concluídas em Atraso', value: `${totalAtraso}`, color: '#ef4444' },
               {
-                label: `Comissões Geradas em ${periodoLabel}`,
+                label: `Obras a finalizar em ${periodoLabel}`,
+                value: totalObras,
+                color: '#f2d892',
+                hint: 'Previstas para entrega neste mês (abertas, concluídas e em atraso)',
+              },
+              {
+                label: 'Obras concluídas',
+                value: `${totalConcluidas} (${pct(totalConcluidas, totalObras)})`,
+                color: '#10b981',
+                hint: 'Concluídas em relação ao total previsto para entrega no mês',
+              },
+              {
+                label: 'Concluídas em atraso',
+                value: `${totalAtraso}${totalConcluidas > 0 ? ` (${pct(totalAtraso, totalConcluidas)})` : ''}`,
+                color: '#ef4444',
+                hint: 'Entre as concluídas do mês, as que passaram do prazo máximo de execução',
+              },
+              {
+                label: `Comissões geradas em ${periodoLabel}`,
                 value: fmtCur(resumo.comissoes_geradas_mes),
                 color: '#f2d892',
                 hint: 'Lançamentos em Contas a Pagar',
@@ -315,15 +332,18 @@ function MetricasObrasContent() {
             <div className="glass-card overflow-hidden mb-8">
               <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
                 <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
-                  Tempo por tipo de obra — {periodoLabel}
+                  Tempo por tipo de obra — entrega em {periodoLabel}
                 </h2>
+                <p className="text-xs text-[#edd9c4] mt-1">
+                  Total e conclusão consideram obras com prazo de entrega neste mês
+                </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
                   <thead>
                     <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
-                        'Tipo de Obra', 'Total', 'Concluídas', 'Em Atraso', 'Comissões',
+                        'Tipo de Obra', 'A finalizar', 'Concluídas', 'Em atraso', 'Comissões',
                         'Tempo Médio', 'Tempo Total', 'Prazo Máx.', '% Conclusão',
                       ].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
@@ -395,7 +415,7 @@ function MetricasObrasContent() {
                 Histórico por obra
               </h2>
               <p className="text-xs text-[#edd9c4] mt-1">
-                Obras de {periodoLabel} — início, fim e duração registrada em horas
+                Obras de {periodoLabel} — início, fim e duração de cada montador
               </p>
             </div>
 
@@ -405,11 +425,11 @@ function MetricasObrasContent() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[1000px]">
+                <table className="w-full text-sm min-w-[1100px]">
                   <thead>
                     <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
-                        'Cliente', 'Tipo', 'Status', 'Mês ref.', 'Início', 'Fim', 'Duração (horas)', 'Comissão',
+                        'Cliente', 'Montador', 'Tipo', 'Status', 'Mês ref.', 'Início', 'Fim', 'Duração (horas)', 'Comissão',
                       ].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
@@ -420,10 +440,11 @@ function MetricasObrasContent() {
                   <tbody>
                     {porObra.map((o, i) => (
                       <tr
-                        key={o.obra_id}
+                        key={`${o.obra_id}-${o.montador_id}`}
                         className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                       >
                         <td className="px-4 py-3 font-semibold text-cream">{o.cliente_nome}</td>
+                        <td className="px-4 py-3 text-[#edd9c4]">{o.montador_nome ?? '—'}</td>
                         <td className="px-4 py-3 text-[#edd9c4]">{o.tipo_obra_nome ?? '—'}</td>
                         <td className="px-4 py-3">
                           <span className="text-xs font-semibold text-[#f2d892]">

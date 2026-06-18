@@ -6,6 +6,7 @@ interface VisualizacaoPanelProps {
   subtitle?: string
   accent?: string
   badge?: string | number
+  headerEnd?: ReactNode
   headerExtra?: ReactNode
   children: ReactNode
   className?: string
@@ -17,6 +18,7 @@ export function VisualizacaoPanel({
   subtitle,
   accent = '#f2d892',
   badge,
+  headerEnd,
   headerExtra,
   children,
   className,
@@ -43,7 +45,9 @@ export function VisualizacaoPanel({
         {headerExtra ? (
           <div className="viz-panel__header-center">{headerExtra}</div>
         ) : null}
-        {badge !== undefined ? (
+        {headerEnd ? (
+          <div className="viz-panel__header-end">{headerEnd}</div>
+        ) : badge !== undefined ? (
           <span className="viz-panel__header-end viz-panel__badge">{badge}</span>
         ) : null}
       </header>

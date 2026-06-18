@@ -1204,6 +1204,7 @@ function CalendarioObrasContent() {
         canEdit={canEdit}
         canUpload={canEdit}
         isMontador={isMontador}
+        montadorUserId={userProfile?.id}
         actioning={actioning}
         onClose={() => { setDetalheObra(null) }}
         onEdit={openEdit}

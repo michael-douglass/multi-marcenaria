@@ -16,7 +16,7 @@ import {
   uploadObraArquivo,
   type PendingObraArquivo,
 } from '../lib/obra-arquivos'
-import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
+import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
@@ -142,6 +142,7 @@ interface ObraCardProps {
   canEdit: boolean
   canDelete: boolean
   isMontador: boolean
+  montadorUserId?: string | null
   actioning: string | null
   isDragging: boolean
   onEdit: (obra: ObraFull) => void
@@ -157,8 +158,10 @@ interface ObraCardProps {
   updatingDataEntrega: string | null
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega }: ObraCardProps) {
   const loading = actioning === obra.id
+  const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
+  const marcacaoIndividual = isMontador || euSouMontadorNaObra
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
@@ -271,9 +274,9 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
       </div>
 
       {/* Ações do montador */}
-      {(isMontador || canEdit) && (
+      {(marcacaoIndividual || canEdit) && (
         <div className="mt-0.5 flex flex-wrap gap-1.5 min-w-0">
-          {isMontador && !obra.iniciado_em && (
+          {marcacaoIndividual && !montadorIniciouObra(obra, montadorUserId) && !obra.finalizado_em && (
             <button
               disabled={loading}
               onClick={e => { e.stopPropagation(); onIniciar(obra.id) }}
@@ -283,7 +286,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
               <span className="truncate">Iniciar</span>
             </button>
           )}
-          {isMontador && obra.iniciado_em && !obra.finalizado_em && (
+          {marcacaoIndividual && montadorIniciouObra(obra, montadorUserId) && !montadorConcluiuObra(obra, montadorUserId) && !obra.finalizado_em && (
             <button
               disabled={loading}
               onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
@@ -293,7 +296,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
               <span className="truncate">Concluir</span>
             </button>
           )}
-          {(isMontador || canEdit) && !obra.finalizado_em && obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada' && !obra.iniciado_em && (
+          {canEdit && !marcacaoIndividual && !obra.finalizado_em && obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada' && !obra.iniciado_em && (
             <button
               disabled={loading}
               onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
@@ -856,7 +859,7 @@ function AgendaObrasContent() {
                 <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
                 <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
               </div>
-              <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
+              <KanbanPageZoomControls compact className="obra-toolbar-zoom shrink-0" />
               <div className="obra-page-header__action-buttons">
                 {canConfig && (
                   <button
@@ -892,33 +895,37 @@ function AgendaObrasContent() {
             </div>
           }
           below={
-            <div className="flex flex-col gap-3">
-              <AgendaMesFilterBar
-                value={mesFiltro}
-                onChange={setMesFiltro}
-                minimized={filtroMinimized}
-                onMinimizedChange={setFiltroMinimized}
-              />
-              <div className="obra-page-search relative">
+            <div className="agenda-toolbar-below">
+              <div className={filtroMinimized ? 'agenda-toolbar-below__row' : 'agenda-toolbar-below__stack'}>
+                <AgendaMesFilterBar
+                  value={mesFiltro}
+                  onChange={setMesFiltro}
+                  minimized={filtroMinimized}
+                  onMinimizedChange={setFiltroMinimized}
+                />
+                <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
                 <Search
-                  size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
+                  size={12}
+                  className="agenda-toolbar-search__icon absolute left-2.5 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
                 />
                 <input
-                  className="glass-input pl-9 pr-8 w-full"
-                  placeholder="Buscar por cliente, montador, endereço, tipo..."
+                  className="glass-input agenda-toolbar-search__input w-full"
+                  placeholder="Buscar..."
                   value={busca}
                   onChange={e => setBusca(e.target.value)}
+                  aria-label="Buscar por cliente, montador, endereço ou tipo"
                 />
                 {busca && (
                   <button
                     type="button"
                     onClick={() => setBusca('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                    className="agenda-toolbar-search__clear absolute right-2 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                    aria-label="Limpar busca"
                   >
-                    <X size={13} />
+                    <X size={12} />
                   </button>
                 )}
+                </div>
               </div>
             </div>
           }
@@ -999,6 +1006,7 @@ function AgendaObrasContent() {
                           canEdit={canEdit}
                           canDelete={canDelete}
                           isMontador={isMontador}
+                          montadorUserId={userProfile?.id}
                           actioning={actioning}
                           isDragging={draggingId === obra.id}
                           onDetalhe={o => setDetalheObra(o)}
@@ -1031,6 +1039,7 @@ function AgendaObrasContent() {
         canEdit={canEdit}
         canUpload={canEdit}
         isMontador={isMontador}
+        montadorUserId={userProfile?.id}
         actioning={actioning}
         onClose={() => setDetalheObra(null)}
         onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}

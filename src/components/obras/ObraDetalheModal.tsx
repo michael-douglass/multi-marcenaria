@@ -8,6 +8,7 @@ import { isAcceptedObraFile, obraArquivoLightboxPages } from '@/lib/obra-arquivo
 import { groupEvolucaoPorDia, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
+import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '@/lib/obra-montadores'
 import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
 import {
   formatObraHorarioRange,
@@ -45,6 +46,7 @@ interface Props {
   canEdit: boolean
   canUpload: boolean
   isMontador: boolean
+  montadorUserId?: string | null
   actioning: string | null
   onClose: () => void
   onEdit: (obra: ObraFull) => void
@@ -74,7 +76,7 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
 }
 
 export function ObraDetalheModal({
-  open, obra, canEdit, canUpload, isMontador, actioning,
+  open, obra, canEdit, canUpload, isMontador, montadorUserId, actioning,
   onClose, onEdit, onIniciar, onConcluir, canDelete = false, onExcluir,
   canAplicarComissao = false, applyingComissao = false, onAplicarComissao,
   prestadorId, showAllComissao = false,
@@ -145,6 +147,16 @@ export function ObraDetalheModal({
     obra.status_kanban !== 'concluida' &&
     obra.status_kanban !== 'cancelada' &&
     !obra.finalizado_em
+
+  const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
+  const marcacaoIndividual = isMontador || euSouMontadorNaObra
+
+  const euIniciei = marcacaoIndividual ? montadorIniciouObra(obra, montadorUserId) : !!obra.iniciado_em
+  const euConclui = marcacaoIndividual ? montadorConcluiuObra(obra, montadorUserId) : !!obra.finalizado_em
+  const mostrarIniciar = podeConcluir && !euIniciei && (marcacaoIndividual || canEdit)
+  const mostrarConcluir = podeConcluir && !euConclui && (
+    marcacaoIndividual ? euIniciei : true
+  )
 
   const comissaoItens = getObraComissaoItensVisiveis(obra, {
     prestadorId,
@@ -377,9 +389,9 @@ export function ObraDetalheModal({
         )}
 
         {/* ── AÇÕES INICIAR/CONCLUIR ─────────────────────────── */}
-        {(isMontador || canEdit) && (
+        {(marcacaoIndividual || canEdit) && (mostrarIniciar || mostrarConcluir) && (
           <div className="flex flex-wrap gap-2 mb-5">
-            {!obra.iniciado_em && podeConcluir && (
+            {mostrarIniciar && (
               <button
                 disabled={isActioning}
                 onClick={() => onIniciar(obra.id)}
@@ -389,7 +401,7 @@ export function ObraDetalheModal({
                 Iniciar Obra
               </button>
             )}
-            {podeConcluir && (
+            {mostrarConcluir && (
               <button
                 disabled={isActioning}
                 onClick={() => onConcluir(obra.id)}

@@ -4,7 +4,7 @@ import {
   mesAnoKey,
   type MesAnoRef,
 } from '@/components/caixa/CaixaMesFilterBar'
-import { describeAgendaMesFiltro } from '@/lib/obra-mes-filtro'
+import { describeAgendaMesFiltro, describeAgendaMesFiltroShort } from '@/lib/obra-mes-filtro'
 import { cn } from '@/lib/utils'
 import type { AgendaMesFiltro } from '@/lib/agenda-mes-filtro-storage'
 
@@ -42,6 +42,7 @@ export function AgendaMesFilterBar({
   const isAll = value.mode === 'all'
   const selectedKey = value.mode === 'month' ? mesAnoKey(value.mes, value.ano) : ''
   const summary = describeAgendaMesFiltro(value)
+  const summaryShort = describeAgendaMesFiltroShort(value)
 
   const isQuickActive = value.mode === 'month' && QUICK_OFFSETS.some(q => {
     const ref = mesAnoFromOffset(q.offset)
@@ -56,10 +57,14 @@ export function AgendaMesFilterBar({
     >
       <div className="agenda-mes-filter__head">
         <div className="agenda-mes-filter__head-main">
-          <CalendarRange size={14} className="agenda-mes-filter__head-icon" aria-hidden />
-          <span className="agenda-mes-filter__head-label">Prazo de entrega</span>
+          <CalendarRange size={minimized ? 12 : 14} className="agenda-mes-filter__head-icon" aria-hidden />
+          {!minimized ? (
+            <span className="agenda-mes-filter__head-label">Prazo de entrega</span>
+          ) : null}
           {minimized ? (
-            <span className="agenda-mes-filter__summary capitalize">{summary}</span>
+            <span className="agenda-mes-filter__summary capitalize" title={summary}>
+              {summaryShort}
+            </span>
           ) : null}
         </div>
         <button
@@ -70,7 +75,7 @@ export function AgendaMesFilterBar({
           aria-label={minimized ? 'Expandir filtro de prazo' : 'Minimizar filtro de prazo'}
           title={minimized ? 'Expandir filtro' : 'Minimizar filtro'}
         >
-          {minimized ? <ChevronDown size={16} aria-hidden /> : <ChevronUp size={16} aria-hidden />}
+          {minimized ? <ChevronDown size={14} aria-hidden /> : <ChevronUp size={14} aria-hidden />}
         </button>
       </div>
 

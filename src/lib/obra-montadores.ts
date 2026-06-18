@@ -1,4 +1,4 @@
-import type { ObraFull, ObraInput } from '@/types'
+import type { ObraFull, ObraInput, ObraMontadorExecucao } from '@/types'
 
 /** IDs de montadores da obra (lista de responsáveis, com fallback no montador principal). */
 export function getObraMontadorIds(obra: Pick<ObraFull, 'montador_id' | 'montador_ids'>): string[] {
@@ -24,6 +24,31 @@ export function formatObraMontadoresLabel(
   if (compact && nomes.length > 2) return `${nomes[0]} +${nomes.length - 1}`
   if (compact) return nomes.slice(0, 2).join(', ')
   return nomes.join(', ')
+}
+
+/** Marcações de início/fim do montador logado nesta obra. */
+export function getObraMontadorExecucao(
+  obra: Pick<ObraFull, 'montadores_execucao'>,
+  montadorId: string | null | undefined,
+): ObraMontadorExecucao | undefined {
+  if (!montadorId) return undefined
+  return obra.montadores_execucao?.find(m => m.montador_id === montadorId)
+}
+
+/** Montador já iniciou a obra (marcação individual). */
+export function montadorIniciouObra(
+  obra: Pick<ObraFull, 'montadores_execucao'>,
+  montadorId: string | null | undefined,
+): boolean {
+  return !!getObraMontadorExecucao(obra, montadorId)?.iniciado_em
+}
+
+/** Montador já concluiu a parte dele na obra. */
+export function montadorConcluiuObra(
+  obra: Pick<ObraFull, 'montadores_execucao'>,
+  montadorId: string | null | undefined,
+): boolean {
+  return !!getObraMontadorExecucao(obra, montadorId)?.finalizado_em
 }
 
 /** Preenche montador admin e grupo padrão quando um Montador Admin cria ou edita obra. */

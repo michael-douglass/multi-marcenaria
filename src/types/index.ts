@@ -393,6 +393,12 @@ export interface ObraComissaoItem {
   valor: number
 }
 
+export interface ObraMontadorExecucao {
+  montador_id: string
+  iniciado_em?: string | null
+  finalizado_em?: string | null
+}
+
 export interface ObraFull {
   id: string
   origem_orcamento_id?: string | null
@@ -412,6 +418,7 @@ export interface ObraFull {
   montador_nome?: string | null
   montador_ids?: string[]
   montador_nomes?: string[]
+  montadores_execucao?: ObraMontadorExecucao[]
   data_prevista_inicio?: string | null
   data_prevista_fim?: string | null
   tempo_maximo_horas?: number | null
@@ -484,6 +491,8 @@ export interface MetricasObrasResumo {
 
 export interface MetricaObraDetalhe {
   obra_id: string
+  montador_id: string
+  montador_nome: string
   cliente_nome: string
   tipo_obra_nome: string | null
   status_kanban: string

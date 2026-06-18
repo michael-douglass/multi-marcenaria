@@ -39,3 +39,10 @@ export function describeAgendaMesFiltro(filtro: AgendaMesFiltro): string {
   if (filtro.mode === 'all') return 'Todas as obras'
   return `Entrega em ${formatObraMesAnoLabel(filtro.mes, filtro.ano)}`
 }
+
+/** Rótulo curto para o chip minimizado do filtro. */
+export function describeAgendaMesFiltroShort(filtro: AgendaMesFiltro): string {
+  if (filtro.mode === 'all') return 'Todas'
+  const date = new Date(filtro.ano, filtro.mes - 1, 1)
+  return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' }).format(date)
+}

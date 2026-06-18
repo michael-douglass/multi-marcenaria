@@ -10,6 +10,7 @@ import {
 } from '@/lib/visualizacao-autoscroll-storage'
 import { VisualizacaoPanel } from '@/components/visualizacao/VisualizacaoPanel'
 import { VisualizacaoChegadaSemPedidoAlert } from '@/components/visualizacao/VisualizacaoChegadaSemPedidoAlert'
+import { VisualizacaoCalendarioStats } from '@/components/visualizacao/VisualizacaoCalendarioStats'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
 import {
   filterEvolucaoGruposPorObras,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/obra-chegada-material'
 import { getStatusEfetivo } from '@/lib/obra-progresso'
 import { countObrasSemPedidoMaterial } from '@/lib/obra-pedido-material'
+import { getVisualizacaoObrasMesStats } from '@/lib/visualizacao-obras-stats'
 import {
   formatVisualizacaoRangeLabel,
   getVisualizacaoRange,
@@ -180,6 +182,14 @@ function VisualizacaoContent() {
     [obrasHook.data],
   )
 
+  const mesAtual = relogio.getMonth() + 1
+  const anoAtual = relogio.getFullYear()
+
+  const calendarioMesStats = useMemo(
+    () => getVisualizacaoObrasMesStats(obrasHook.data, mesAtual, anoAtual),
+    [obrasHook.data, mesAtual, anoAtual],
+  )
+
   const obrasAtrasadas = useMemo(
     () => obrasHook.data
       .filter(o => getStatusEfetivo(o) === 'datas_em_atraso')
@@ -221,7 +231,7 @@ function VisualizacaoContent() {
     month: 'long',
   })
 
-  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
+  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${calendarioMesStats.total}-${calendarioMesStats.aFinalizarMes}-${calendarioMesStats.concluidasMes}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
 
   const handleToggleAutoScroll = () => {
     setAutoScroll(prev => {
@@ -327,7 +337,13 @@ function VisualizacaoContent() {
                 title="Calendário de Obras"
                 subtitle={rangeLabel}
                 accent="#60a5fa"
-                badge={obrasCalendario.length}
+                headerEnd={
+                  <VisualizacaoCalendarioStats
+                    stats={calendarioMesStats}
+                    mes={mesAtual}
+                    ano={anoAtual}
+                  />
+                }
                 className="viz-panel--span-2 viz-stagger-2"
               >
                 <div className="viz-week-wrap">
