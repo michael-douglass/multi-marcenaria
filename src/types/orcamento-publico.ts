@@ -18,10 +18,6 @@ export interface OrcamentoPrecificacao {
   desconto_percent?: number
   forma_pagamento_id?: string
   forma_pagamento_tipo?: string
-  formas_pagamento_ids?: string[]
-  formas_pagamento_valores?: Record<string, number>
-  formas_pagamento_parcelas?: Record<string, number>
-  formas_pagamento_descontos?: Record<string, number>
 }
 
 export interface OrcamentoSlide {
