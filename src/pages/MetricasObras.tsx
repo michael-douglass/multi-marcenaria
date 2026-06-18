@@ -335,7 +335,7 @@ function MetricasObrasContent() {
             ))}
           </div>
 
-          <MetricasMontadorTempoChart porObra={porObra} periodoLabel={periodoLabel} />
+          <MetricasMontadorTempoChart porObra={porObra} periodo={periodo} periodoLabel={periodoLabel} />
 
           {/* Tabela por tipo */}
           {data.length === 0 ? (
@@ -494,7 +494,7 @@ function MetricasObrasContent() {
       <MetricasMontadorComissaoModal
         open={!!montadorComissao}
         montador={montadorComissao}
-        porObra={porObra}
+        periodo={periodo}
         periodoLabel={periodoLabel}
         onClose={() => setMontadorComissao(null)}
       />

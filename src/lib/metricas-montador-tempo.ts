@@ -1,5 +1,10 @@
 import type { MetricaObraDetalhe } from '@/types'
 
+export interface MetricasTempoPeriodo {
+  mes: number
+  ano: number
+}
+
 export interface MontadorObraTempo {
   obra_id: string
   cliente_nome: string
@@ -17,6 +22,32 @@ export interface MontadorTempoResumo {
   tempo_total_horas: number
   tempo_medio_horas: number
   obras_com_duracao: number
+}
+
+function isFinalizadoNoMes(iso: string, mes: number, ano: number): boolean {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    month: 'numeric',
+    year: 'numeric',
+  }).formatToParts(new Date(iso))
+
+  const m = Number(parts.find(p => p.type === 'month')?.value)
+  const y = Number(parts.find(p => p.type === 'year')?.value)
+  return m === mes && y === ano
+}
+
+/** Apenas obras com término do montador no mês selecionado. */
+export function filterObrasTerminoNoMes(
+  porObra: MetricaObraDetalhe[],
+  periodo: MetricasTempoPeriodo,
+): MetricaObraDetalhe[] {
+  return porObra.filter(row =>
+    !row.duracao_em_andamento
+    && row.finalizado_em != null
+    && row.duracao_horas != null
+    && !Number.isNaN(Number(row.duracao_horas))
+    && isFinalizadoNoMes(row.finalizado_em, periodo.mes, periodo.ano),
+  )
 }
 
 /** Agrupa duração por montador e ordena do menor tempo médio ao maior. */

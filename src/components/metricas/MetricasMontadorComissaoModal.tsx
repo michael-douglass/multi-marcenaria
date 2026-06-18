@@ -1,12 +1,14 @@
+import { useEffect, useState } from 'react'
 import { Banknote, CircleDollarSign } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import {
-  getMontadorComissaoObras,
+  fetchMontadorComissaoObras,
   sumMontadorComissaoObras,
+  type MetricasComissaoPeriodo,
   type MontadorComissaoObra,
 } from '@/lib/metricas-montador-comissao'
 import { fmtCur } from '@/lib/utils'
-import type { MetricaObraDetalhe, MetricaObraMontador } from '@/types'
+import type { MetricaObraMontador } from '@/types'
 
 const STATUS_LABEL: Record<string, string> = {
   datas_em_aberto: 'Em aberto',
@@ -20,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 interface Props {
   open: boolean
   montador: MetricaObraMontador | null
-  porObra: MetricaObraDetalhe[]
+  periodo: MetricasComissaoPeriodo
   periodoLabel: string
   onClose: () => void
 }
@@ -77,16 +79,51 @@ function ObraLista({
 export function MetricasMontadorComissaoModal({
   open,
   montador,
-  porObra,
+  periodo,
   periodoLabel,
   onClose,
 }: Props) {
+  const [obras, setObras] = useState<MontadorComissaoObra[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open || !montador) {
+      setObras([])
+      setError(null)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    void fetchMontadorComissaoObras(periodo, montador.montador_id)
+      .then(rows => {
+        if (!cancelled) setObras(rows)
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setObras([])
+          setError(err instanceof Error ? err.message : 'Erro ao carregar obras do montador.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, montador, periodo.mes, periodo.ano])
+
   if (!montador) return null
 
-  const obras = getMontadorComissaoObras(porObra, montador.montador_id)
   const concluidas = obras.filter(o => o.situacao === 'concluida')
   const emAberto = obras.filter(o => o.situacao === 'em_aberto')
-  const totalPrevisto = montador.comissao_concluida + montador.comissao_em_aberto
+  const totalConcluida = sumMontadorComissaoObras(concluidas)
+  const totalEmAberto = sumMontadorComissaoObras(emAberto)
+  const totalPrevisto = totalConcluida + totalEmAberto
 
   return (
     <Modal
@@ -100,10 +137,10 @@ export function MetricasMontadorComissaoModal({
             Período: {periodoLabel}
           </span>
           <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-emerald-400">
-            A pagar: {fmtCur(montador.comissao_concluida)}
+            A pagar: {fmtCur(totalConcluida)}
           </span>
           <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-400">
-            Em aberto: {fmtCur(montador.comissao_em_aberto)}
+            Em aberto: {fmtCur(totalEmAberto)}
           </span>
           {montador.comissao_gerada > 0 && (
             <span className="rounded-full border border-[#f2d892]/25 bg-[#f2d892]/10 px-2.5 py-1 text-[#f2d892]">
@@ -113,7 +150,11 @@ export function MetricasMontadorComissaoModal({
         </div>
       }
     >
-      {obras.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-[#edd9c4] text-center py-6">Carregando obras de {periodoLabel}…</p>
+      ) : error ? (
+        <p className="text-sm text-red-400 text-center py-6">{error}</p>
+      ) : obras.length === 0 ? (
         <p className="text-sm text-[#edd9c4] text-center py-6">
           Nenhuma obra com comissão registrada para este montador em {periodoLabel}.
         </p>

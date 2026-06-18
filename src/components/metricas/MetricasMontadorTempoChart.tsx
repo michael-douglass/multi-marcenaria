@@ -13,13 +13,16 @@ import { Gauge, Timer, Trophy } from 'lucide-react'
 import { fmtDuracaoHoras } from '@/lib/obra-metricas'
 import {
   buildMontadorTempoRanking,
+  filterObrasTerminoNoMes,
   fmtHorasChart,
+  type MetricasTempoPeriodo,
   type MontadorTempoResumo,
 } from '@/lib/metricas-montador-tempo'
 import type { MetricaObraDetalhe } from '@/types'
 
 interface Props {
   porObra: MetricaObraDetalhe[]
+  periodo: MetricasTempoPeriodo
   periodoLabel: string
 }
 
@@ -72,8 +75,12 @@ function CustomTooltip({
   )
 }
 
-export function MetricasMontadorTempoChart({ porObra, periodoLabel }: Props) {
-  const ranking = useMemo(() => buildMontadorTempoRanking(porObra), [porObra])
+export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: Props) {
+  const obrasFiltradas = useMemo(
+    () => filterObrasTerminoNoMes(porObra, periodo),
+    [porObra, periodo.mes, periodo.ano],
+  )
+  const ranking = useMemo(() => buildMontadorTempoRanking(obrasFiltradas), [obrasFiltradas])
 
   const chartData = useMemo(() =>
     ranking.map((resumo, i) => ({
@@ -96,7 +103,7 @@ export function MetricasMontadorTempoChart({ porObra, periodoLabel }: Props) {
     return (
       <section className="metricas-montador-tempo glass-card mb-8 p-6">
         <p className="text-sm text-[#edd9c4] text-center">
-          Nenhuma duração registrada por montador em {periodoLabel}.
+          Nenhuma obra finalizada por montador em {periodoLabel}.
         </p>
       </section>
     )
@@ -118,7 +125,7 @@ export function MetricasMontadorTempoChart({ porObra, periodoLabel }: Props) {
             Tempo médio por montador
           </h2>
           <p className="mt-1 text-xs text-[#edd9c4] max-w-2xl">
-            Quem concluiu obras em menos tempo em {periodoLabel} — barras = média por obra;
+            Obras finalizadas em {periodoLabel} — barras = tempo médio por obra;
             detalhes de cada cliente abaixo.
           </p>
         </div>
