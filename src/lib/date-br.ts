@@ -6,6 +6,51 @@ export function isoToBrDate(iso: string | null | undefined): string {
   return `${match[3]}/${match[2]}/${match[1]}`
 }
 
+export function parseIsoDate(iso: string | null | undefined): { year: number; month: number; day: number } | null {
+  if (!iso) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2]) - 1
+  const day = Number(match[3])
+  if (!isValidCalendarDate(day, month + 1, year)) return null
+  return { year, month, day }
+}
+
+export function buildIsoDate(year: number, month: number, day: number): string | null {
+  if (!isValidCalendarDate(day, month + 1, year)) return null
+  return `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+export const MONTHS_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+] as const
+
+export const WEEKDAYS_PT_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const
+
+export interface CalendarDayCell {
+  day: number | null
+  iso: string | null
+}
+
+/** grade do mês (month 0–11), com dias vazios no início da semana. */
+export function buildCalendarMonthGrid(year: number, month: number): CalendarDayCell[] {
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: CalendarDayCell[] = []
+
+  for (let i = 0; i < firstWeekday; i++) {
+    cells.push({ day: null, iso: null })
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ day, iso: buildIsoDate(year, month, day) })
+  }
+
+  return cells
+}
+
 /** Aplica máscara DD/MM/YYYY enquanto o usuário digita. */
 export function maskBrDateInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 8)
