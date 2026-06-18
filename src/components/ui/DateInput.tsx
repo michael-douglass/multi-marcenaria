@@ -40,6 +40,13 @@ function DatePickerCalendar({
   const [viewYear, setViewYear] = useState(parsed?.year ?? today?.year ?? new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed?.month ?? today?.month ?? new Date().getMonth())
 
+  useEffect(() => {
+    const next = parseIsoDate(value)
+    if (!next) return
+    setViewYear(next.year)
+    setViewMonth(next.month)
+  }, [value])
+
   const shiftMonth = (delta: number) => {
     const next = new Date(viewYear, viewMonth + delta, 1)
     setViewYear(next.getFullYear())
@@ -177,6 +184,12 @@ export function DateInput({ value, onChange, className, disabled, onBlur, ...res
     const rect = wrapperRef.current?.getBoundingClientRect()
     if (!rect) return
 
+    // Garante que o texto do campo reflita a data já salva antes de abrir o calendário.
+    const isoFromDisplay = brDateToIso(display)
+    if (isoFromDisplay && isoFromDisplay !== value?.slice(0, 10)) {
+      onChange(isoFromDisplay)
+    }
+
     const spaceBelow = window.innerHeight - rect.bottom
     const top = spaceBelow >= 320 ? rect.bottom + 6 : Math.max(8, rect.top - 306)
 
@@ -188,20 +201,24 @@ export function DateInput({ value, onChange, className, disabled, onBlur, ...res
   }
 
   const selectFromCalendar = (iso: string) => {
+    const br = isoToBrDate(iso)
     onChange(iso)
-    setDisplay(isoToBrDate(iso))
+    setDisplay(br)
     setCalendarOpen(false)
   }
 
   return (
-    <div ref={wrapperRef} className="flex w-full min-w-0 items-stretch gap-1.5">
+    <div ref={wrapperRef} className="date-input-group flex w-full min-w-0 items-stretch gap-1.5">
       <input
         {...rest}
         type="text"
         inputMode="numeric"
         autoComplete="off"
         placeholder="dd/mm/aaaa"
-        className={cn('glass-input min-w-0 flex-1', className)}
+        className={cn(
+          'glass-input min-w-[11rem] flex-[1_1_0] !w-auto text-[0.95rem] tracking-wide',
+          className,
+        )}
         disabled={disabled}
         value={display}
         onChange={e => setDisplay(maskBrDateInput(e.target.value))}
@@ -213,7 +230,7 @@ export function DateInput({ value, onChange, className, disabled, onBlur, ...res
       <button
         type="button"
         className={cn(
-          'glass-input flex shrink-0 items-center justify-center px-2.5 transition',
+          'glass-input flex h-[42px] w-10 shrink-0 items-center justify-center !px-0 transition',
           disabled
             ? 'cursor-not-allowed opacity-50'
             : 'text-[#f2d892] hover:border-[rgba(240,210,140,0.45)] hover:bg-[rgba(240,210,140,0.08)]',

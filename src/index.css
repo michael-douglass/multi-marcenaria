@@ -791,6 +791,20 @@ body::before {
 
   textarea.glass-input { resize: vertical; min-height: 72px; }
 
+  /* DateInput: input + botão calendário no mesmo flex (evita campo esmagado) */
+  .date-input-group > input.glass-input {
+    width: auto !important;
+    flex: 1 1 0;
+    min-width: 11rem;
+  }
+  .date-input-group > button.glass-input {
+    width: 2.5rem !important;
+    min-width: 2.5rem;
+    flex: 0 0 auto;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   /* ── Buttons ── */
   .btn {
     @apply inline-flex items-center gap-1.5 rounded-lg font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap;
