@@ -1,5 +1,6 @@
 ﻿import { useState, FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
+import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -40,6 +41,7 @@ export function Login() {
         ].join(', '),
       }}
     >
+      <AppRefreshButton variant="floating" />
       {/* Logo block — displayed prominently above the card */}
       <div
         style={{

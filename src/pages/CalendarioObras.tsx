@@ -448,7 +448,7 @@ function CalendarioObrasContent() {
 
   const [busca, setBusca]                 = useState('')
   const [etapaFiltro, setEtapaFiltro]     = useState<StatusKanbanObra | ''>('')
-  const [dataFiltro, setDataFiltro]       = useState(() => (isMontador ? hojeISO : ''))
+  const [dataFiltro, setDataFiltro]       = useState('')
   const [configDias, setConfigDias]         = useState<ConfigDiasTrabalho>(DEFAULT_DIAS_CONFIG)
   const [showConfigDias, setShowConfigDias] = useState(false)
   const saveTimerRef                        = useRef<number | null>(null)

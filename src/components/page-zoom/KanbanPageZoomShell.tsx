@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode, type Ref } from 'react'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { usePageZoom } from './PageZoomProvider'
 import { KanbanFloatingScrollBar } from './KanbanFloatingScrollBar'
 import { useFloatingScrollMetrics } from './useFloatingScrollBar'
@@ -44,15 +45,17 @@ export function KanbanPageZoomShell({
   scrollHostRef,
 }: PageZoomShellProps) {
   const { zoom } = usePageZoom()
+  const isMobile = useMobileLayout()
+  const effectiveZoom = isMobile ? 100 : zoom
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { horizontalMetrics, verticalMetrics, computeMetrics } = useFloatingScrollMetrics(
     scrollRef,
     {
-      enabled: showFloatingScrollbar,
+      enabled: showFloatingScrollbar && !isMobile,
       horizontal: horizontalScrollbar,
       vertical: verticalScrollbar,
-      zoom,
+      zoom: effectiveZoom,
       contentSignal,
     },
   )
@@ -68,7 +71,7 @@ export function KanbanPageZoomShell({
 
   useEffect(() => {
     handleZoomApplied()
-  }, [zoom, handleZoomApplied])
+  }, [effectiveZoom, handleZoomApplied])
 
   return (
     <div className={`kanban-page-zoom-shell relative flex min-h-0 min-w-0 w-full max-w-full flex-none flex-col overflow-visible md:flex-1 md:overflow-hidden ${className}`}>
@@ -86,7 +89,7 @@ export function KanbanPageZoomShell({
               ? 'zoom-content-fluid block w-full max-w-full min-w-0 origin-top-left'
               : 'inline-block w-max min-w-full origin-top-left'
           }
-          style={{ zoom: zoom / 100 }}
+          style={effectiveZoom === 100 ? undefined : { zoom: effectiveZoom / 100 }}
         >
           {children}
         </div>

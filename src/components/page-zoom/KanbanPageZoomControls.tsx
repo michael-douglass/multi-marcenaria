@@ -1,4 +1,5 @@
 ﻿import { Minus, Plus, RotateCcw } from 'lucide-react'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { PAGE_ZOOM_DEFAULT } from '@/lib/page-zoom'
 import { PAGE_ZOOM_MAX, PAGE_ZOOM_MIN, usePageZoom } from './PageZoomProvider'
 
@@ -7,7 +8,10 @@ interface PageZoomControlsProps {
 }
 
 export function KanbanPageZoomControls({ className = '' }: PageZoomControlsProps) {
+  const isMobile = useMobileLayout()
   const { zoom, loading, zoomIn, zoomOut, resetZoom } = usePageZoom()
+
+  if (isMobile) return null
 
   const atMin = zoom <= PAGE_ZOOM_MIN
   const atMax = zoom >= PAGE_ZOOM_MAX

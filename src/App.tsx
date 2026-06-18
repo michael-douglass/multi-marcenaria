@@ -36,6 +36,8 @@ import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
+import { ObrasProvider } from '@/context/ObrasContext'
+import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 
 function Restricted({ message }: { message: string }) {
   return (
@@ -87,7 +89,7 @@ function AuthenticatedRoutes() {
     )
 
   return (
-    <>
+    <ObrasProvider>
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout pendingOrders={pendingOrders} />}>
@@ -265,7 +267,7 @@ function AuthenticatedRoutes() {
           <Route path="*" element={<Navigate to={defaultPathForRoles(roles)} replace />} />
         </Route>
       </Routes>
-    </>
+    </ObrasProvider>
   )
 }
 
@@ -305,6 +307,7 @@ function AppRoutes() {
             {profileError ?? 'Contate o administrador para criar seu perfil de acesso.'}
           </p>
           <div className="mt-6 flex items-center justify-center gap-4">
+            <AppRefreshButton variant="toolbar" showLabel />
             {isConnectionError && (
               <button
                 type="button"

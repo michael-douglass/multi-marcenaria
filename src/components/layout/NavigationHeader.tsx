@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
+import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles, pathFromSection } from '@/lib/app-navigation'
 import { isVisualizadorOnly } from '@/lib/role-access'
@@ -80,6 +81,10 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
             {pendingOrders} pendente{pendingOrders > 1 ? 's' : ''}
           </button>
         )}
+
+        <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
+
+        <AppRefreshButton showLabel />
 
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
 

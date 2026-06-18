@@ -271,8 +271,24 @@ body::before {
   }
 
   .obra-page-shell .obra-toolbar-zoom {
-    scale: 0.92;
-    transform-origin: left center;
+    display: none !important;
+  }
+
+  /* Zoom de página é só desktop — no celular sempre 100% */
+  [data-zoom-content] {
+    zoom: 1 !important;
+  }
+
+  /* Evita zoom automático do iOS ao focar campos (fonte < 16px) */
+  input,
+  select,
+  textarea,
+  .glass-input {
+    font-size: 16px !important;
+  }
+
+  html {
+    touch-action: manipulation;
   }
 
   /* Listas/cards: nunca ultrapassam a largura da tela */

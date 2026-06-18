@@ -128,16 +128,14 @@ function VisualizacaoContent() {
   useVisualizacaoAutoScroll(autoScroll, contentReady, scrollHostRef)
 
   useEffect(() => {
-    const reloadObras = obrasHook.reload
     const reloadContas = contasHook.reload
     const reloadEvolucao = evolucaoHook.reload
     const id = setInterval(() => {
-      void reloadObras({ silent: true })
       void reloadContas()
       void reloadEvolucao()
     }, 120_000)
     return () => clearInterval(id)
-  }, [obrasHook.reload, contasHook.reload, evolucaoHook.reload])
+  }, [contasHook.reload, evolucaoHook.reload])
 
   const obrasCalendario = useMemo(
     () => obrasHook.data.filter(o => {
@@ -217,12 +215,6 @@ function VisualizacaoContent() {
 
   const contentSignal = `${obrasChegada.length}-${obrasCalendario.length}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
 
-  const handleRefresh = () => {
-    void obrasHook.reload()
-    void contasHook.reload()
-    void evolucaoHook.reload()
-  }
-
   const handleToggleAutoScroll = () => {
     setAutoScroll(prev => {
       const next = !prev
@@ -255,7 +247,6 @@ function VisualizacaoContent() {
               <VisualizacaoToolbar
                 autoScroll={autoScroll}
                 onToggleAutoScroll={handleToggleAutoScroll}
-                onRefresh={handleRefresh}
               />
             </div>
           </div>

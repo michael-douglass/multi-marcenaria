@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { OrcamentoPublicoSlides } from '@/components/orcamento-publico/OrcamentoPublicoSlides'
+import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { fetchOrcamentoPublico, isValidOrcamentoSchema } from '@/lib/orcamento-publico-api'
 import type { OrcamentoPublicoPayload } from '@/types/orcamento-publico'
 
@@ -49,7 +50,8 @@ export function OrcamentoPublico() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5e8d8] font-raleway text-[#3d2b1f]">
+      <div className="relative flex min-h-screen items-center justify-center bg-[#f5e8d8] font-raleway text-[#3d2b1f]">
+        <AppRefreshButton variant="floating" className="!right-4 !top-4" />
         Carregando orçamento...
       </div>
     )
@@ -57,7 +59,8 @@ export function OrcamentoPublico() {
 
   if (error || !payload) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5e8d8] px-6 font-raleway text-[#3d2b1f]">
+      <div className="relative flex min-h-screen items-center justify-center bg-[#f5e8d8] px-6 font-raleway text-[#3d2b1f]">
+        <AppRefreshButton variant="floating" className="!right-4 !top-4" />
         <div className="max-w-md text-center">
           <p className="text-5xl">📄</p>
           <h1 className="mt-4 text-2xl font-semibold">Orçamento não encontrado</h1>
@@ -78,9 +81,10 @@ export function OrcamentoPublico() {
 
   return (
     <div
-      className="min-h-screen bg-[var(--orc-cor-fundo)] font-raleway text-[var(--orc-cor-texto)]"
+      className="relative min-h-screen bg-[var(--orc-cor-fundo)] font-raleway text-[var(--orc-cor-texto)]"
       style={style}
     >
+      <AppRefreshButton variant="floating" className="!right-4 !top-4" />
       {payload.template.logo_url && (
         <div className="fixed left-4 top-4 z-50 rounded-2xl bg-white/80 p-2 shadow-lg backdrop-blur-sm md:left-8 md:top-8">
           <img

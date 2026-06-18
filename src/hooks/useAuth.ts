@@ -176,6 +176,13 @@ export function useAuth(): AuthState {
     }
   }, [session?.user?.id, profileRetryKey])
 
+  useEffect(() => {
+    const token = session?.access_token
+    if (token) {
+      supabase.realtime.setAuth(token)
+    }
+  }, [session?.access_token])
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
