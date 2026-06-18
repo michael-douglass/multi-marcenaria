@@ -1,6 +1,8 @@
 import type {
+  OrcamentoPrecificacao,
   OrcamentoPublicoPayload,
   OrcamentoSlideBloco,
+  OrcamentoSlideFormaPagamento,
   OrcamentoSlideOpcao,
   OrcamentoSlidePergunta,
 } from '@/types/orcamento-publico'
@@ -239,6 +241,63 @@ function BlocoDadosProjeto({
   )
 }
 
+function resolveFormasPagamentoIds(prec: OrcamentoPrecificacao): string[] {
+  if (prec.formas_pagamento_ids?.length) return prec.formas_pagamento_ids
+  if (prec.forma_pagamento_id) return [prec.forma_pagamento_id]
+  return []
+}
+
+function valorFormaPagamento(prec: OrcamentoPrecificacao, formaId: string): number | undefined {
+  const valorMap = prec.formas_pagamento_valores?.[formaId]
+  if (valorMap != null) return valorMap
+  if (formaId === prec.forma_pagamento_id) return prec.valor_final
+  return undefined
+}
+
+function descontoFormaPagamento(prec: OrcamentoPrecificacao, formaId: string): number | undefined {
+  const descontoMap = prec.formas_pagamento_descontos?.[formaId]
+  if (descontoMap != null) return descontoMap
+  if (formaId === prec.forma_pagamento_id) return prec.desconto_percent
+  return undefined
+}
+
+function detalhesFormaPagamento(
+  prec: OrcamentoPrecificacao,
+  forma: OrcamentoSlideFormaPagamento,
+  formaId: string,
+  valor: number,
+): string[] {
+  const linhas: string[] = []
+  const isPrincipal = formaId === prec.forma_pagamento_id
+
+  if (forma.tipo === 'entrada_entrega') {
+    const entrada = isPrincipal && prec.valor_entrada != null && prec.valor_entrada > 0
+      ? prec.valor_entrada
+      : valor * 0.6
+    const entrega = isPrincipal && prec.valor_entrega != null && prec.valor_entrega > 0
+      ? prec.valor_entrega
+      : valor * 0.4
+    linhas.push(`Entrada: ${fmtCur(entrada)}`)
+    linhas.push(`Na entrega: ${fmtCur(entrega)}`)
+    return linhas
+  }
+
+  if (forma.tipo === 'parcelado') {
+    const parcelas =
+      prec.formas_pagamento_parcelas?.[formaId]
+      ?? (isPrincipal ? prec.parcelas : undefined)
+    if (parcelas && parcelas > 1) {
+      const valorParcela = isPrincipal && prec.valor_parcela
+        ? prec.valor_parcela
+        : valor / parcelas
+      linhas.push(`${parcelas}x de ${fmtCur(valorParcela)}`)
+    }
+    return linhas
+  }
+
+  return linhas
+}
+
 function BlocoPrecificacao({
   bloco,
   payload,
@@ -248,7 +307,7 @@ function BlocoPrecificacao({
 }) {
   const titulo = cfg(bloco, 'titulo', 'Investimento')
   const prec = payload.slide.dados.precificacao
-  const forma = payload.formasPagamento.find(item => item.id === prec?.forma_pagamento_id)
+  const formaIds = prec ? resolveFormasPagamentoIds(prec) : []
 
   if (!prec) {
     return (
@@ -259,43 +318,93 @@ function BlocoPrecificacao({
     )
   }
 
+  const formas = formaIds
+    .map(id => {
+      const forma = payload.formasPagamento.find(item => item.id === id)
+      const valor = valorFormaPagamento(prec, id)
+      if (!forma || valor == null) return null
+      return {
+        id,
+        forma,
+        valor,
+        desconto: descontoFormaPagamento(prec, id),
+        detalhes: detalhesFormaPagamento(prec, forma, id, valor),
+        selecionada: id === prec.forma_pagamento_id,
+      }
+    })
+    .filter(Boolean) as Array<{
+      id: string
+      forma: OrcamentoSlideFormaPagamento
+      valor: number
+      desconto?: number
+      detalhes: string[]
+      selecionada: boolean
+    }>
+
   return (
     <section className="px-6 py-16 md:px-16">
       <h2 className="font-['Bebas_Neue'] text-4xl text-[var(--orc-cor-texto)] md:text-5xl">{titulo}</h2>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <div className="rounded-3xl bg-[var(--orc-cor-primaria)] p-8 text-white shadow-xl">
-          <p className="text-sm uppercase tracking-[0.25em] text-white/60">Valor final</p>
-          <p className="mt-3 font-['Bebas_Neue'] text-5xl text-[var(--orc-cor-secundaria)] md:text-6xl">
-            {fmtCur(prec.valor_final)}
-          </p>
-          {prec.desconto_percent ? (
-            <p className="mt-3 text-sm text-white/75">
-              Desconto de {prec.desconto_percent}% sobre {fmtCur(prec.valor_integral)}
+
+      {prec.valor_integral != null && prec.valor_integral > 0 && (
+        <p className="mt-3 text-sm text-[var(--orc-cor-texto)]/65">
+          Valor integral do projeto: <strong>{fmtCur(prec.valor_integral)}</strong>
+        </p>
+      )}
+
+      <div className="mt-8 flex flex-col gap-4">
+        {formas.length > 0 ? (
+          formas.map(item => (
+            <article
+              key={item.id}
+              className={`rounded-3xl border p-6 md:p-8 ${
+                item.selecionada
+                  ? 'border-[var(--orc-cor-secundaria)] bg-[var(--orc-cor-secundaria)]/10 shadow-md'
+                  : 'border-black/10 bg-white/70'
+              }`}
+            >
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--orc-cor-texto)]/60">
+                    Forma de pagamento
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-[var(--orc-cor-texto)]">{item.forma.nome}</p>
+                  {item.forma.descricao && (
+                    <p className="mt-2 text-sm text-[var(--orc-cor-texto)]/70">{item.forma.descricao}</p>
+                  )}
+                </div>
+                <p className="mt-3 font-['Bebas_Neue'] text-4xl text-[var(--orc-cor-primaria)] sm:mt-0 sm:text-5xl">
+                  {fmtCur(item.valor)}
+                </p>
+              </div>
+
+              {item.desconto != null && item.desconto > 0 && prec.valor_integral != null && prec.valor_integral > 0 && (
+                <p className="mt-3 text-sm text-[var(--orc-cor-texto)]/75">
+                  Desconto de {item.desconto}% sobre {fmtCur(prec.valor_integral)}
+                </p>
+              )}
+
+              {item.detalhes.length > 0 && (
+                <div className="mt-4 space-y-2 border-t border-black/10 pt-4 text-sm text-[var(--orc-cor-texto)]">
+                  {item.detalhes.map(linha => (
+                    <p key={linha}>{linha}</p>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))
+        ) : (
+          <div className="rounded-3xl bg-[var(--orc-cor-primaria)] p-8 text-white shadow-xl">
+            <p className="text-sm uppercase tracking-[0.25em] text-white/60">Valor final</p>
+            <p className="mt-3 font-['Bebas_Neue'] text-5xl text-[var(--orc-cor-secundaria)] md:text-6xl">
+              {fmtCur(prec.valor_final)}
             </p>
-          ) : null}
-        </div>
-        <div className="rounded-3xl border border-black/10 bg-white/70 p-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--orc-cor-texto)]/60">
-            Forma de pagamento
-          </p>
-          <p className="mt-3 text-xl font-semibold text-[var(--orc-cor-texto)]">{forma?.nome ?? '—'}</p>
-          {forma?.descricao && (
-            <p className="mt-2 text-sm text-[var(--orc-cor-texto)]/70">{forma.descricao}</p>
-          )}
-          <div className="mt-6 space-y-3 text-sm text-[var(--orc-cor-texto)]">
-            {prec.valor_entrada != null && prec.valor_entrada > 0 && (
-              <p>Entrada: <strong>{fmtCur(prec.valor_entrada)}</strong></p>
-            )}
-            {prec.valor_entrega != null && prec.valor_entrega > 0 && (
-              <p>Na entrega: <strong>{fmtCur(prec.valor_entrega)}</strong></p>
-            )}
-            {prec.parcelas && prec.parcelas > 1 && (
-              <p>
-                {prec.parcelas}x de <strong>{fmtCur(prec.valor_parcela)}</strong>
+            {prec.desconto_percent ? (
+              <p className="mt-3 text-sm text-white/75">
+                Desconto de {prec.desconto_percent}% sobre {fmtCur(prec.valor_integral)}
               </p>
-            )}
+            ) : null}
           </div>
-        </div>
+        )}
       </div>
     </section>
   )
