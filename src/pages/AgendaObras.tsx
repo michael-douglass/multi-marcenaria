@@ -26,7 +26,12 @@ import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialB
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
-import { filterObrasPorMes, formatObraMesAnoLabel } from '../lib/obra-mes-filtro'
+import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
+import {
+  readAgendaMesFiltro,
+  writeAgendaMesFiltro,
+  type AgendaMesFiltro,
+} from '../lib/agenda-mes-filtro-storage'
 import { groupObrasAgendaKanban } from '../lib/obra-progresso'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
@@ -54,7 +59,7 @@ import {
   KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
-import { CaixaMesFilterBar } from '../components/caixa/CaixaMesFilterBar'
+import { AgendaMesFilterBar } from '../components/obras/AgendaMesFilterBar'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -516,10 +521,18 @@ function AgendaObrasContent() {
   }
 
   const [busca, setBusca] = useState('')
-  const [mes, setMes] = useState(() => new Date().getMonth() + 1)
-  const [ano, setAno] = useState(() => new Date().getFullYear())
+  const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(() => readAgendaMesFiltro())
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
+
+  useEffect(() => {
+    if (!userProfile?.id) return
+    setMesFiltro(readAgendaMesFiltro(userProfile.id))
+  }, [userProfile?.id])
+
+  useEffect(() => {
+    writeAgendaMesFiltro(userProfile?.id, mesFiltro)
+  }, [userProfile?.id, mesFiltro])
 
   // Mantém o modal de detalhes sincronizado após iniciar/concluir obra
   useEffect(() => {
@@ -566,8 +579,8 @@ function AgendaObrasContent() {
   }
 
   const obrasDoMes = useMemo(
-    () => filterObrasPorMes(obrasHook.data, mes, ano),
-    [obrasHook.data, mes, ano],
+    () => applyAgendaMesFiltro(obrasHook.data, mesFiltro),
+    [obrasHook.data, mesFiltro],
   )
 
   const obrasFiltradas = useMemo(() => {
@@ -588,7 +601,8 @@ function AgendaObrasContent() {
     })
   }, [obrasDoMes, busca])
 
-  const mesAnoLabel = useMemo(() => formatObraMesAnoLabel(mes, ano), [mes, ano])
+  const filtroLabel = useMemo(() => describeAgendaMesFiltro(mesFiltro), [mesFiltro])
+  const totalBase = mesFiltro.mode === 'all' ? obrasHook.data.length : obrasDoMes.length
 
   const obrasByCol = useMemo(
     () => groupObrasAgendaKanban(obrasFiltradas),
@@ -820,9 +834,9 @@ function AgendaObrasContent() {
           belowMobileLabel="Busca"
           subtitle={
             <>
-              {obrasFiltradas.length} de {obrasDoMes.length} obra{obrasDoMes.length !== 1 ? 's' : ''}
+              {obrasFiltradas.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
               {' · '}
-              <span className="text-[#f2d892] capitalize">{mesAnoLabel}</span>
+              <span className="text-[#f2d892] capitalize">{filtroLabel}</span>
               {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
             </>
           }
@@ -869,13 +883,9 @@ function AgendaObrasContent() {
           }
           below={
             <div className="flex flex-col gap-3">
-              <CaixaMesFilterBar
-                mes={mes}
-                ano={ano}
-                onChange={(m, a) => {
-                  setMes(m)
-                  setAno(a)
-                }}
+              <AgendaMesFilterBar
+                value={mesFiltro}
+                onChange={setMesFiltro}
               />
               <div className="obra-page-search relative">
                 <Search
@@ -913,7 +923,7 @@ function AgendaObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentSignal={`${obrasHook.data.length}-${mes}-${ano}-${busca}-${obrasFiltradas.length}`}
+          contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
           <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">

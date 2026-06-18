@@ -552,6 +552,107 @@ body::before {
   }
 }
 
+/* Agenda: filtro por mês de entrega */
+.agenda-mes-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(212, 168, 83, 0.18);
+  background:
+    linear-gradient(145deg, rgba(36, 20, 12, 0.72) 0%, rgba(18, 8, 4, 0.55) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 252, 248, 0.06) inset,
+    0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.agenda-mes-filter__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.agenda-mes-filter__head-icon {
+  color: #f2d892;
+  opacity: 0.85;
+}
+
+.agenda-mes-filter__head-label {
+  font-family: Raleway, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(237, 217, 196, 0.72);
+}
+
+.agenda-mes-filter__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.agenda-mes-filter__divider {
+  width: 1px;
+  height: 1.35rem;
+  background: rgba(212, 168, 83, 0.22);
+  margin: 0 0.1rem;
+}
+
+.agenda-mes-filter__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 210, 140, 0.2);
+  background: transparent;
+  color: #edd9c4;
+  font-family: Raleway, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.agenda-mes-filter__pill:hover {
+  border-color: rgba(240, 210, 140, 0.38);
+  color: #f5e0a8;
+}
+
+.agenda-mes-filter__pill--active {
+  border-color: rgba(242, 216, 146, 0.72);
+  background: rgba(240, 210, 140, 0.14);
+  color: #f2d892;
+  box-shadow: 0 0 16px rgba(212, 168, 83, 0.12);
+}
+
+.agenda-mes-filter__pill--all.agenda-mes-filter__pill--active {
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.22) 0%, rgba(240, 210, 140, 0.1) 100%);
+}
+
+.agenda-mes-filter__select {
+  min-width: 11rem;
+  height: 2.1rem !important;
+  font-size: 0.72rem !important;
+  cursor: pointer;
+}
+
+.agenda-mes-filter__select--highlight {
+  border-color: rgba(240, 210, 140, 0.5) !important;
+  background: rgba(240, 210, 140, 0.07) !important;
+}
+
+.agenda-mes-filter__hint {
+  margin: 0;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  color: rgba(184, 149, 127, 0.88);
+}
+
 /* Agenda: respiro entre barra de busca e cabeçalhos das colunas */
 .obra-page-shell--agenda .agenda-kanban-toolbar {
   padding-bottom: 1.35rem;

@@ -1,35 +1,41 @@
-import { endOfMonth } from '@/lib/utils'
+import type { AgendaMesFiltro } from '@/lib/agenda-mes-filtro-storage'
 import type { ObraFull } from '@/types'
 
-function monthBounds(mes: number, ano: number): { start: string; end: string } {
-  const start = `${ano}-${String(mes).padStart(2, '0')}-01`
-  return { start, end: endOfMonth(start) }
+/** Mês/ano da data de entrega (último prazo) da obra. */
+export function mesAnoFromDataEntrega(data: string): { mes: number; ano: number } {
+  const [ano, mes] = data.slice(0, 10).split('-').map(Number)
+  return { mes, ano }
 }
 
-function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  return aStart <= bEnd && aEnd >= bStart
-}
-
-/** Obra aparece no mês se o período previsto cruza o mês ou ainda não tem datas definidas. */
-export function obraIntersectsMes(
-  obra: Pick<ObraFull, 'data_prevista_inicio' | 'data_prevista_fim'>,
+/**
+ * Obra pertence ao mês pela data prevista de fim (entrega).
+ * Ex.: 20/06 → 05/07 entra em julho, não em junho.
+ */
+export function obraPertenceAoMesPorEntrega(
+  obra: Pick<ObraFull, 'data_prevista_fim'>,
   mes: number,
   ano: number,
 ): boolean {
-  if (!obra.data_prevista_inicio && !obra.data_prevista_fim) return true
-
-  const { start, end } = monthBounds(mes, ano)
-  const obraStart = obra.data_prevista_inicio ?? obra.data_prevista_fim!
-  const obraEnd = obra.data_prevista_fim ?? obra.data_prevista_inicio!
-
-  return rangesOverlap(obraStart, obraEnd, start, end)
+  if (!obra.data_prevista_fim) return false
+  const ref = mesAnoFromDataEntrega(obra.data_prevista_fim)
+  return ref.mes === mes && ref.ano === ano
 }
 
-export function filterObrasPorMes(obras: ObraFull[], mes: number, ano: number): ObraFull[] {
-  return obras.filter(obra => obraIntersectsMes(obra, mes, ano))
+export function filterObrasPorMesEntrega(obras: ObraFull[], mes: number, ano: number): ObraFull[] {
+  return obras.filter(obra => obraPertenceAoMesPorEntrega(obra, mes, ano))
+}
+
+export function applyAgendaMesFiltro(obras: ObraFull[], filtro: AgendaMesFiltro): ObraFull[] {
+  if (filtro.mode === 'all') return obras
+  return filterObrasPorMesEntrega(obras, filtro.mes, filtro.ano)
 }
 
 export function formatObraMesAnoLabel(mes: number, ano: number): string {
   const date = new Date(ano, mes - 1, 1)
   return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+}
+
+export function describeAgendaMesFiltro(filtro: AgendaMesFiltro): string {
+  if (filtro.mode === 'all') return 'Todas as obras'
+  return `Entrega em ${formatObraMesAnoLabel(filtro.mes, filtro.ano)}`
 }
