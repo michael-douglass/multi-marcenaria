@@ -1,5 +1,7 @@
 ﻿import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { MetricasMontadorComissaoModal } from '../components/metricas/MetricasMontadorComissaoModal'
+import { MetricasMontadorTempoChart } from '../components/metricas/MetricasMontadorTempoChart'
 import { useMetricasObras } from '../hooks/useMetricasObras'
 import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
 import { addMonths, fmtCur } from '../lib/utils'
@@ -10,7 +12,7 @@ import {
   KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
-import type { StatusKanbanObra } from '../types'
+import type { MetricaObraMontador, StatusKanbanObra } from '../types'
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
   datas_em_aberto: 'Em aberto',
@@ -65,6 +67,7 @@ function MetricasObrasContent() {
     mes: hoje.getMonth() + 1,
     ano: hoje.getFullYear(),
   })
+  const [montadorComissao, setMontadorComissao] = useState<MetricaObraMontador | null>(null)
 
   const { data, resumo, porObra, porMontador, loading, error, reload } = useMetricasObras(periodo)
   const periodoLabel = labelMesAno(periodo.mes, periodo.ano, MESES)
@@ -237,7 +240,14 @@ function MetricasObrasContent() {
                           className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                         >
                           <td className="px-4 py-3">
-                            <p className="font-semibold text-cream">{m.montador_nome}</p>
+                            <button
+                              type="button"
+                              onClick={() => setMontadorComissao(m)}
+                              className="metricas-montador-link text-left"
+                              title={`Ver obras com comissão de ${m.montador_nome}`}
+                            >
+                              <p className="font-semibold text-cream">{m.montador_nome}</p>
+                            </button>
                             {(m.obras_concluidas > 0 || m.obras_em_aberto > 0) && (
                               <p className="text-[0.65rem] text-[#d4bc9f] mt-0.5">
                                 {m.obras_concluidas > 0 && `${m.obras_concluidas} concluída(s)`}
@@ -324,6 +334,8 @@ function MetricasObrasContent() {
               </div>
             ))}
           </div>
+
+          <MetricasMontadorTempoChart porObra={porObra} periodoLabel={periodoLabel} />
 
           {/* Tabela por tipo */}
           {data.length === 0 ? (
@@ -478,6 +490,14 @@ function MetricasObrasContent() {
           </>
         </KanbanPageZoomShell>
       )}
+
+      <MetricasMontadorComissaoModal
+        open={!!montadorComissao}
+        montador={montadorComissao}
+        porObra={porObra}
+        periodoLabel={periodoLabel}
+        onClose={() => setMontadorComissao(null)}
+      />
     </div>
   )
 }

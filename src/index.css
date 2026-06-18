@@ -577,40 +577,42 @@ body::before {
   box-shadow: 0 1px 0 rgba(255, 252, 248, 0.04) inset;
 }
 
-.agenda-toolbar-below {
-  width: 100%;
-  min-width: 0;
-}
-
-.agenda-toolbar-below__stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.agenda-toolbar-below__row {
+.agenda-toolbar-inline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-.agenda-toolbar-below__row .obra-page-search {
+.agenda-toolbar-inline .obra-page-search {
   flex: 1 1 7rem;
   min-width: 0;
   max-width: 11.5rem;
 }
 
 @media (min-width: 640px) {
-  .agenda-toolbar-below__row .obra-page-search {
+  .agenda-toolbar-inline .obra-page-search {
     max-width: 13rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .agenda-toolbar-below__row .obra-page-search {
+  .agenda-toolbar-inline .obra-page-search {
     max-width: 14.5rem;
   }
+}
+
+.agenda-toolbar-inline--expanded {
+  flex-basis: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.agenda-toolbar-inline--expanded .agenda-toolbar-search {
+  max-width: 100%;
 }
 
 .agenda-toolbar-search__input {
@@ -626,11 +628,7 @@ body::before {
   font-size: 0.72rem;
 }
 
-.agenda-toolbar-below__stack .agenda-toolbar-search {
-  max-width: 100%;
-}
-
-.agenda-toolbar-below__stack .agenda-toolbar-search__input {
+.agenda-toolbar-inline--expanded .agenda-toolbar-search__input {
   height: 2rem;
   min-height: 2rem;
   font-size: 0.75rem;
@@ -2169,3 +2167,243 @@ body {
     animation: none;
   }
 }
+
+/* Métricas — comparativo tempo por montador */
+.metricas-montador-tempo {
+  position: relative;
+  border: 1px solid rgba(240, 210, 140, 0.18);
+  background: linear-gradient(
+    155deg,
+    rgba(24, 14, 10, 0.96) 0%,
+    rgba(14, 8, 5, 0.92) 55%,
+    rgba(240, 210, 140, 0.05) 100%
+  );
+}
+
+.metricas-montador-tempo__glow {
+  pointer-events: none;
+  position: absolute;
+  top: -3rem;
+  right: -2rem;
+  width: 14rem;
+  height: 14rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.14) 0%, transparent 68%);
+}
+
+.metricas-montador-tempo__header {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem 0.75rem;
+}
+
+.metricas-montador-tempo__destaque {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(242, 216, 146, 0.28);
+  background: rgba(242, 216, 146, 0.08);
+  box-shadow: 0 1px 0 rgba(255, 252, 248, 0.05) inset;
+}
+
+.metricas-montador-tempo__chart {
+  position: relative;
+  min-height: 200px;
+}
+
+.metricas-montador-tooltip {
+  max-width: min(92vw, 22rem);
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(240, 210, 140, 0.25);
+  background: #2a1812;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.metricas-montador-tooltip__title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f2d892;
+}
+
+.metricas-montador-tooltip__meta {
+  margin: 0.25rem 0 0.55rem;
+  font-size: 0.65rem;
+  color: #edd9c4;
+}
+
+.metricas-montador-tooltip__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 9rem;
+  overflow-y: auto;
+}
+
+.metricas-montador-tooltip__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(240, 210, 140, 0.08);
+  font-size: 0.68rem;
+}
+
+.metricas-montador-tooltip__cliente {
+  color: #edd9c4;
+  min-width: 0;
+}
+
+.metricas-montador-tooltip__duracao {
+  color: #a7f3d0;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+}
+
+.metricas-montador-tempo__detalhe {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.metricas-montador-tempo__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  padding: 0 1rem 1.1rem;
+}
+
+@media (min-width: 768px) {
+  .metricas-montador-tempo__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .metricas-montador-tempo__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.metricas-montador-tempo__card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(240, 210, 140, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  border-left: 3px solid var(--rank-cor, #f2d892);
+}
+
+.metricas-montador-tempo__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid rgba(240, 210, 140, 0.08);
+  background: rgba(240, 210, 140, 0.04);
+}
+
+.metricas-montador-tempo__rank {
+  font-family: var(--font-display, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--rank-cor, #f2d892);
+}
+
+.metricas-montador-tempo__obras {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.5rem;
+  list-style: none;
+}
+
+.metricas-montador-tempo__obra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 0.45rem;
+}
+
+.metricas-montador-tempo__obra:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.metricas-montador-tempo__obra-horas {
+  font-size: 0.68rem;
+  font-family: ui-monospace, monospace;
+  color: #a7f3d0;
+  text-align: right;
+  max-width: 46%;
+}
+
+.metricas-montador-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0.35rem;
+  transition: color 0.15s ease;
+}
+
+.metricas-montador-link:hover .font-semibold,
+.metricas-montador-link:focus-visible .font-semibold {
+  color: #f2d892;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.metricas-montador-link:focus-visible {
+  outline: 2px solid rgba(242, 216, 146, 0.45);
+  outline-offset: 2px;
+}
+
+.metricas-comissao-modal__resumo {
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(240, 210, 140, 0.18);
+  background: linear-gradient(135deg, rgba(242, 216, 146, 0.08), rgba(0, 0, 0, 0.25));
+}
+
+.metricas-comissao-modal__secao {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(240, 210, 140, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.metricas-comissao-modal__secao-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(240, 210, 140, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.metricas-comissao-modal__lista {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.5rem;
+  list-style: none;
+}
+
+.metricas-comissao-modal__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.45rem;
+  border-radius: 0.45rem;
+}
+
+.metricas-comissao-modal__item:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.015);
+}
+

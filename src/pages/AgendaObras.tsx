@@ -843,8 +843,6 @@ function AgendaObrasContent() {
       <KanbanPageToolbar className="agenda-kanban-toolbar">
         <ObraPageHeader
           title="Agenda de Obras"
-          collapseBelowOnMobile
-          belowMobileLabel="Busca"
           subtitle={
             <>
               {obrasFiltradas.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
@@ -858,6 +856,43 @@ function AgendaObrasContent() {
               <div className="obra-page-header__badges flex flex-col items-start gap-1">
                 <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
                 <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
+              </div>
+              <div
+                className={
+                  filtroMinimized
+                    ? 'agenda-toolbar-inline'
+                    : 'agenda-toolbar-inline agenda-toolbar-inline--expanded'
+                }
+              >
+                <AgendaMesFilterBar
+                  value={mesFiltro}
+                  onChange={setMesFiltro}
+                  minimized={filtroMinimized}
+                  onMinimizedChange={setFiltroMinimized}
+                />
+                <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
+                  <Search
+                    size={12}
+                    className="agenda-toolbar-search__icon absolute left-2.5 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
+                  />
+                  <input
+                    className="glass-input agenda-toolbar-search__input w-full"
+                    placeholder="Buscar..."
+                    value={busca}
+                    onChange={e => setBusca(e.target.value)}
+                    aria-label="Buscar por cliente, montador, endereço ou tipo"
+                  />
+                  {busca && (
+                    <button
+                      type="button"
+                      onClick={() => setBusca('')}
+                      className="agenda-toolbar-search__clear absolute right-2 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                      aria-label="Limpar busca"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
               <KanbanPageZoomControls compact className="obra-toolbar-zoom shrink-0" />
               <div className="obra-page-header__action-buttons">
@@ -891,41 +926,6 @@ function AgendaObrasContent() {
                     )}
                   </button>
                 )}
-              </div>
-            </div>
-          }
-          below={
-            <div className="agenda-toolbar-below">
-              <div className={filtroMinimized ? 'agenda-toolbar-below__row' : 'agenda-toolbar-below__stack'}>
-                <AgendaMesFilterBar
-                  value={mesFiltro}
-                  onChange={setMesFiltro}
-                  minimized={filtroMinimized}
-                  onMinimizedChange={setFiltroMinimized}
-                />
-                <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
-                <Search
-                  size={12}
-                  className="agenda-toolbar-search__icon absolute left-2.5 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
-                />
-                <input
-                  className="glass-input agenda-toolbar-search__input w-full"
-                  placeholder="Buscar..."
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                  aria-label="Buscar por cliente, montador, endereço ou tipo"
-                />
-                {busca && (
-                  <button
-                    type="button"
-                    onClick={() => setBusca('')}
-                    className="agenda-toolbar-search__clear absolute right-2 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
-                    aria-label="Limpar busca"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-                </div>
               </div>
             </div>
           }
