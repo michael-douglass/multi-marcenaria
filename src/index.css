@@ -1407,16 +1407,33 @@ body {
   font-weight: 700;
 }
 
+.viz-week-day {
+  --viz-week-cards-visible: 5;
+  --viz-mini-card-row: 2.85rem;
+  --viz-week-cards-gap: 0.35rem;
+}
+
 .viz-week-day__cards {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-height: 200px;
+  gap: var(--viz-week-cards-gap);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(
+    var(--viz-week-cards-visible) * var(--viz-mini-card-row) +
+    (var(--viz-week-cards-visible) - 1) * var(--viz-week-cards-gap)
+  );
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .viz-mini-card {
+  flex-shrink: 0;
+  min-height: var(--viz-mini-card-row);
+  box-sizing: border-box;
   border-left: 3px solid;
   border-radius: 0.35rem;
   padding: 0.4rem 0.5rem;

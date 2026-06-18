@@ -80,12 +80,13 @@ function SemanaDia({ iso, count, children }: SemanaDiaProps) {
 
   return (
     <div
-      className={[
-        'viz-week-day glass-card flex flex-col min-h-[160px] p-2',
-        isToday ? 'ring-1 ring-[#f2d892]/65' : '',
-      ].join(' ')}
+      className={cn(
+        'viz-week-day glass-card flex flex-col p-2',
+        count === 0 && 'min-h-[120px]',
+        isToday && 'ring-1 ring-[#f2d892]/65',
+      )}
     >
-      <div className="viz-week-day__header">
+      <div className="viz-week-day__header shrink-0">
         <div className={cn('viz-week-day__title', isToday && 'text-[#f2d892]')}>
           <span>{WEEKDAYS[day.getDay()]}</span>
           {count > 0 ? (
@@ -97,7 +98,7 @@ function SemanaDia({ iso, count, children }: SemanaDiaProps) {
           {isToday ? <span className="viz-week-day__hoje">hoje</span> : null}
         </span>
       </div>
-      <div className="viz-week-day__cards">{children}</div>
+      <div className="viz-week-day__cards min-h-0 flex-1">{children}</div>
     </div>
   )
 }
