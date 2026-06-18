@@ -15,10 +15,12 @@ export function EmptyState({ message }: EmptyStateProps) {
 
 interface LoadingStateProps {
   message?: string
+  /** page = centralizado na área da página, sem cabeçalho; inline = bloco compacto. */
+  variant?: 'inline' | 'page'
 }
 
-export function LoadingState({ message = 'Carregando...' }: LoadingStateProps) {
-  return <GarboLoadingBrand variant="inline" message={message} />
+export function LoadingState({ message = 'Carregando...', variant = 'inline' }: LoadingStateProps) {
+  return <GarboLoadingBrand variant={variant} message={message} />
 }
 
 export function ErrorState({ message }: { message: string }) {

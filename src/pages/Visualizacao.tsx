@@ -9,6 +9,7 @@ import {
   writeVizAutoScrollEnabled,
 } from '@/lib/visualizacao-autoscroll-storage'
 import { VisualizacaoPanel } from '@/components/visualizacao/VisualizacaoPanel'
+import { VisualizacaoChegadaSemPedidoAlert } from '@/components/visualizacao/VisualizacaoChegadaSemPedidoAlert'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
 import {
   filterEvolucaoGruposPorObras,
@@ -28,6 +29,7 @@ import {
   todayISO,
 } from '@/lib/obra-chegada-material'
 import { getStatusEfetivo } from '@/lib/obra-progresso'
+import { countObrasSemPedidoMaterial } from '@/lib/obra-pedido-material'
 import {
   formatVisualizacaoRangeLabel,
   getVisualizacaoRange,
@@ -173,6 +175,11 @@ function VisualizacaoContent() {
     [obrasHook.data, range],
   )
 
+  const semPedidoMaterialCount = useMemo(
+    () => countObrasSemPedidoMaterial(obrasHook.data),
+    [obrasHook.data],
+  )
+
   const obrasAtrasadas = useMemo(
     () => obrasHook.data
       .filter(o => getStatusEfetivo(o) === 'datas_em_atraso')
@@ -214,7 +221,7 @@ function VisualizacaoContent() {
     month: 'long',
   })
 
-  const contentSignal = `${obrasChegada.length}-${obrasCalendario.length}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
+  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
 
   const handleToggleAutoScroll = () => {
     setAutoScroll(prev => {
@@ -226,39 +233,42 @@ function VisualizacaoContent() {
 
   return (
     <div className="obra-page-shell obra-page-shell--visualizacao fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
-      <KanbanPageToolbar className="shrink-0">
-        <div className="viz-page__hero relative overflow-hidden">
-          <div className="viz-page__hero-glow" aria-hidden />
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="viz-page__eyebrow">
-                <Monitor size={14} />
-                Painel operacional
+      {loading ? (
+        <LoadingState variant="page" message="" />
+      ) : (
+        <>
+          <KanbanPageToolbar className="shrink-0">
+            <div className="viz-page__hero relative overflow-hidden">
+              <div className="viz-page__hero-glow" aria-hidden />
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <div className="viz-page__eyebrow">
+                    <Monitor size={14} />
+                    Painel operacional
+                  </div>
+                  <h1 className="viz-page__title">Visualização</h1>
+                  <p className="viz-page__desc">
+                    Acompanhamento em tempo real — janela de <strong>{rangeLabel}</strong>
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="viz-page__clock text-right">
+                    <p className="viz-page__clock-time">{horaLabel}</p>
+                    <p className="viz-page__clock-date capitalize">{dataLabel}</p>
+                  </div>
+                  <VisualizacaoToolbar
+                    autoScroll={autoScroll}
+                    onToggleAutoScroll={handleToggleAutoScroll}
+                  />
+                </div>
               </div>
-              <h1 className="viz-page__title">Visualização</h1>
-              <p className="viz-page__desc">
-                Acompanhamento em tempo real — janela de <strong>{rangeLabel}</strong>
-              </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="viz-page__clock text-right">
-                <p className="viz-page__clock-time">{horaLabel}</p>
-                <p className="viz-page__clock-date capitalize">{dataLabel}</p>
-              </div>
-              <VisualizacaoToolbar
-                autoScroll={autoScroll}
-                onToggleAutoScroll={handleToggleAutoScroll}
-              />
-            </div>
-          </div>
-        </div>
-      </KanbanPageToolbar>
+          </KanbanPageToolbar>
 
-      {loading && <LoadingState />}
-      {!loading && error && <ErrorState message={error} />}
+          {error && <ErrorState message={error} />}
 
-      {!loading && !error && (
-        <KanbanPageZoomShell
+          {!error && (
+            <KanbanPageZoomShell
           scrollHostRef={scrollHostRef}
           showScrollArrows={false}
           horizontalScrollbar={false}
@@ -276,35 +286,38 @@ function VisualizacaoContent() {
                 badge={obrasChegada.length}
                 className="viz-panel--span-2 viz-stagger-1"
               >
-                <div className="viz-week-wrap">
-                  <div className="viz-week-grid">
-                    {range.days.map(iso => {
-                      const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
-                      return (
-                        <SemanaDia key={iso} iso={iso} count={dayObras.length}>
-                          {dayObras.length === 0 ? (
-                            <p className="viz-empty">—</p>
-                          ) : (
-                            dayObras.map(obra => {
-                              const cor = getChegadaCardColor(obra, hoje)
-                              return (
-                                <div
-                                  key={obra.id}
-                                  className="viz-mini-card"
-                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
-                                >
-                                  <p className="viz-mini-card__title">{obra.cliente_nome}</p>
-                                  {obra.lousa ? (
-                                    <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
-                                  ) : null}
-                                </div>
-                              )
-                            })
-                          )}
-                        </SemanaDia>
-                      )
-                    })}
+                <div className="viz-chegada-panel-body">
+                  <div className="viz-week-wrap">
+                    <div className="viz-week-grid">
+                      {range.days.map(iso => {
+                        const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
+                        return (
+                          <SemanaDia key={iso} iso={iso} count={dayObras.length}>
+                            {dayObras.length === 0 ? (
+                              <p className="viz-empty">—</p>
+                            ) : (
+                              dayObras.map(obra => {
+                                const cor = getChegadaCardColor(obra, hoje)
+                                return (
+                                  <div
+                                    key={obra.id}
+                                    className="viz-mini-card"
+                                    style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
+                                  >
+                                    <p className="viz-mini-card__title">{obra.cliente_nome}</p>
+                                    {obra.lousa ? (
+                                      <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
+                                    ) : null}
+                                  </div>
+                                )
+                              })
+                            )}
+                          </SemanaDia>
+                        )
+                      })}
+                    </div>
                   </div>
+                  <VisualizacaoChegadaSemPedidoAlert obras={obrasHook.data} />
                 </div>
               </VisualizacaoPanel>
 
@@ -424,6 +437,8 @@ function VisualizacaoContent() {
             </div>
           </div>
         </KanbanPageZoomShell>
+          )}
+        </>
       )}
     </div>
   )

@@ -4,13 +4,14 @@ import { cn } from '@/lib/utils'
 export interface GarboLoadingBrandProps {
   /** Texto abaixo da logo. */
   message?: string
-  /** inline = dentro da página; fullscreen = tela inteira; overlay = cobre o conteúdo atual. */
-  variant?: 'inline' | 'fullscreen' | 'overlay'
+  /** inline = bloco na página; page = ocupa a área útil centralizada; fullscreen = tela inteira; overlay = cobre o conteúdo atual. */
+  variant?: 'inline' | 'page' | 'fullscreen' | 'overlay'
   className?: string
 }
 
 const LOGO_HEIGHT: Record<NonNullable<GarboLoadingBrandProps['variant']>, number> = {
   inline: 104,
+  page: 176,
   fullscreen: 152,
   overlay: 132,
 }
@@ -29,13 +30,14 @@ export function GarboLoadingBrand({
         'garbo-loading-brand',
         variant === 'fullscreen' && 'garbo-loading-brand--fullscreen',
         variant === 'overlay' && 'garbo-loading-brand--overlay',
+        variant === 'page' && 'garbo-loading-brand--page',
         variant === 'inline' && 'garbo-loading-brand--inline',
         className,
       )}
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label={message}
+      aria-label={message || 'Carregando...'}
     >
       <div
         className="garbo-loading-brand__stage"
