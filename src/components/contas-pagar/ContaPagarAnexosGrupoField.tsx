@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Field } from '@/components/ui/Field'
 import {
   deleteContaPagarAnexo,
@@ -84,13 +84,13 @@ export function ContaPagarAnexosGrupoField({
   return (
     <div className="space-y-3">
       {compartilhado && (
-        <p className="text-xs text-[#d4a853]">
+        <p className="text-xs text-[#f2d892]">
           Anexos deste lançamento aparecem em todas as parcelas do grupo.
         </p>
       )}
 
       {loading && (
-        <p className="text-xs text-[#8a6a55]">Carregando anexos do lançamento...</p>
+        <p className="text-xs text-[#edd9c4]">Carregando anexos do lançamento...</p>
       )}
       {error && <p className="text-xs text-red-400">{error}</p>}
 

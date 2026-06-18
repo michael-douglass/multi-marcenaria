@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useContasReceber } from '@/hooks/useContasReceber'
@@ -77,11 +77,11 @@ function SemanaDia({ iso, count, children }: SemanaDiaProps) {
     <div
       className={[
         'viz-week-day glass-card flex flex-col min-h-[160px] p-2',
-        isToday ? 'ring-1 ring-[#e8c878]/55' : '',
+        isToday ? 'ring-1 ring-[#f2d892]/65' : '',
       ].join(' ')}
     >
       <div className="viz-week-day__header">
-        <div className={cn('viz-week-day__title', isToday && 'text-[#e8c878]')}>
+        <div className={cn('viz-week-day__title', isToday && 'text-[#f2d892]')}>
           <span>{WEEKDAYS[day.getDay()]}</span>
           {count > 0 ? (
             <span className="viz-week-day__count">{count}</span>
@@ -109,6 +109,7 @@ function VisualizacaoContent() {
   const obrasHook = useObras()
   const contasHook = useContasReceber()
   const relogio = useRelogio()
+  const scrollHostRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(() => readVizAutoScrollEnabled())
   const range = useMemo(() => getVisualizacaoRange(), [])
   const rangeLabel = formatVisualizacaoRangeLabel(range.start, range.end)
@@ -118,7 +119,7 @@ function VisualizacaoContent() {
   const error = obrasHook.error ?? contasHook.error
   const contentReady = !loading && !error
 
-  useVisualizacaoAutoScroll(autoScroll, contentReady)
+  useVisualizacaoAutoScroll(autoScroll, contentReady, scrollHostRef)
 
   useEffect(() => {
     const reloadObras = obrasHook.reload
@@ -235,6 +236,7 @@ function VisualizacaoContent() {
 
       {!loading && !error && (
         <KanbanPageZoomShell
+          scrollHostRef={scrollHostRef}
           showScrollArrows={false}
           horizontalScrollbar={false}
           verticalScrollbar
@@ -266,7 +268,7 @@ function VisualizacaoContent() {
                                 <div
                                   key={obra.id}
                                   className="viz-mini-card"
-                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}30` }}
+                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
                                 >
                                   <p className="viz-mini-card__title">{obra.cliente_nome}</p>
                                   {obra.lousa ? (
@@ -306,7 +308,7 @@ function VisualizacaoContent() {
                                 <div
                                   key={obra.id}
                                   className="viz-mini-card"
-                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}30` }}
+                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
                                 >
                                   <p className="viz-mini-card__title">{obra.cliente_nome}</p>
                                   <p className="viz-mini-card__meta">{STATUS_LABEL[status]}</p>
@@ -344,7 +346,7 @@ function VisualizacaoContent() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="viz-list-item__date text-red-300">
+                          <p className="viz-list-item__date text-red-200">
                             até {fmtDate(obra.data_prevista_fim)}
                           </p>
                           <p className="viz-list-item__meta">{STATUS_LABEL[getStatusEfetivo(obra)]}</p>

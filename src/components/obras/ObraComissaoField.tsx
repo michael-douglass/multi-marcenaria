@@ -1,4 +1,4 @@
-import { buildComissaoItensFromObra, sumObraComissao } from '@/lib/obra-comissao'
+﻿import { buildComissaoItensFromObra, sumObraComissao } from '@/lib/obra-comissao'
 import { fmtCur } from '@/lib/utils'
 import type { ObraComissaoItem, ObraFull } from '@/types'
 
@@ -60,13 +60,13 @@ export function ObraComissaoField({
   }
 
   return (
-    <div className="obra-comissao-field rounded-lg border border-[rgba(212,168,83,0.18)] bg-[rgba(15,7,3,0.35)] p-3">
+    <div className="obra-comissao-field rounded-lg border border-[rgba(240,210,140,0.18)] bg-[rgba(68,46,34,0.35)] p-3">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-[#d4a853]">Comissão</p>
+        <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-[#f2d892]">Comissão</p>
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            className="accent-[#d4a853]"
+            className="accent-[#f2d892]"
             checked={habilitada}
             disabled={locked}
             onChange={e => onHabilitadaChange(e.target.checked)}
@@ -84,24 +84,24 @@ export function ObraComissaoField({
       {habilitada && (
         <>
           {rows.length === 0 ? (
-            <p className="text-xs text-[#8a6a55]">
+            <p className="text-xs text-[#edd9c4]">
               Selecione montadores responsáveis para definir os valores de comissão.
             </p>
           ) : (
             <>
-              <p className="text-[0.65rem] text-[#8a6a55] mb-2">
+              <p className="text-[0.65rem] text-[#edd9c4] mb-2">
                 Marque o montador e informe o valor da comissão.
               </p>
               <div className="flex flex-col gap-2">
                 {rows.map(row => (
                   <div
                     key={row.prestador_id}
-                    className="flex flex-wrap items-center gap-2 rounded-lg border border-[rgba(212,168,83,0.12)] bg-[rgba(0,0,0,0.2)] px-3 py-2"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.2)] px-3 py-2"
                   >
                     <label className="flex items-center gap-2 min-w-[140px] flex-1 cursor-pointer">
                       <input
                         type="checkbox"
-                        className="accent-[#d4a853]"
+                        className="accent-[#f2d892]"
                         checked={row.incluido}
                         disabled={locked}
                         onChange={e => toggleIncluido(row.prestador_id, e.target.checked)}
@@ -109,7 +109,7 @@ export function ObraComissaoField({
                       <span className="text-sm text-cream truncate">{row.prestador_nome}</span>
                     </label>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-[#8a6a55]">R$</span>
+                      <span className="text-xs text-[#edd9c4]">R$</span>
                       <input
                         type="number"
                         min={0}
@@ -127,7 +127,7 @@ export function ObraComissaoField({
             </>
           )}
 
-          <p className="mt-3 text-right text-sm font-semibold text-[#d4a853]">
+          <p className="mt-3 text-right text-sm font-semibold text-[#f2d892]">
             Total: {fmtCur(total)}
           </p>
         </>

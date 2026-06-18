@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pencil, Search, Trash2 } from 'lucide-react'
 import { useFornecedores } from '../hooks/useFornecedores'
 import { Modal } from '../components/ui/Modal'
@@ -189,7 +189,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
   }
 
   const headerKpis = [
-    { l: 'Limite total', v: totais.limiteTotal, c: '#d4a853' },
+    { l: 'Limite total', v: totais.limiteTotal, c: '#f2d892' },
     { l: 'A pagar', v: totais.aPagarTotal, c: '#f87171' },
     { l: 'Limite disponível', v: totais.disponivelTotal, c: totais.disponivelTotal < 0 ? '#f87171' : '#4ade80' },
     { l: 'Caixa fornecedor', v: totais.caixaTotal, c: '#60a5fa' },
@@ -201,7 +201,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
         <div>
           <h1
             className="font-display"
-            style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}
+            style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}
           >
             Fornecedores
           </h1>
@@ -243,7 +243,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
         }
       >
         {(draftHint || hasFornecedorDraft()) && (
-          <p className="mb-3 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.08)] px-3 py-2 text-xs text-[#d4a853]">
+          <p className="mb-3 rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.08)] px-3 py-2 text-xs text-[#f2d892]">
             Seus dados são salvos automaticamente neste navegador. Ao reabrir, você continua de onde parou.
           </p>
         )}
@@ -264,7 +264,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
             placeholder="0,00"
             inputMode="decimal"
           />
-          <p className="mt-1 text-xs text-[#8a6a55]">
+          <p className="mt-1 text-xs text-[#edd9c4]">
             Contas a pagar pendentes abatem deste limite automaticamente.
           </p>
         </Field>
@@ -333,7 +333,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
       </Modal>
 
       <div className="relative mb-4" style={{ maxWidth: 380 }}>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" />
         <input
           className="glass-input pl-9"
           placeholder="Buscar por nome ou CNPJ/CPF..."
@@ -358,9 +358,9 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
               <div key={fornecedor.id} className="glass-card flex flex-col p-4">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-[#f4e4d6]">{fornecedor.nome}</h3>
+                    <h3 className="truncate font-semibold text-[#fffaf4]">{fornecedor.nome}</h3>
                     {fornecedor.cnpj_cpf && (
-                      <p className="text-xs text-[#8a6a55]">{fornecedor.cnpj_cpf}</p>
+                      <p className="text-xs text-[#edd9c4]">{fornecedor.cnpj_cpf}</p>
                     )}
                   </div>
                   {!readOnly && (
@@ -386,10 +386,10 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
                 </div>
 
                 {semLimite ? (
-                  <p className="mb-2 text-xs text-[#8a6a55]">Limite não definido</p>
+                  <p className="mb-2 text-xs text-[#edd9c4]">Limite não definido</p>
                 ) : (
                   <div className="mb-2">
-                    <div className="mb-1 flex justify-between text-xs text-[#8a6a55]">
+                    <div className="mb-1 flex justify-between text-xs text-[#edd9c4]">
                       <span>Limite utilizado</span>
                       <span>
                         {fmtCur(resumo.aPagar)} / {fmtCur(resumo.limite)}
@@ -415,7 +415,7 @@ export function Fornecedores({ readOnly, contasPagar = [], getSaldoFornecedor }:
                 <ResumoFinanceiroFornecedor resumo={resumo} compact />
 
                 {(fornecedor.telefone || fornecedor.email || fornecedor.nome_vendedor) && (
-                  <div className="mt-3 border-t border-[rgba(212,168,83,0.12)] pt-2 text-xs text-[#8a6a55]">
+                  <div className="mt-3 border-t border-[rgba(240,210,140,0.12)] pt-2 text-xs text-[#edd9c4]">
                     {fornecedor.telefone && <div>Tel: {fornecedor.telefone}</div>}
                     {fornecedor.email && <div>{fornecedor.email}</div>}
                     {fornecedor.nome_vendedor && (

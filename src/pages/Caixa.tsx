@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
 import { useCaixa } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
@@ -106,7 +106,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
         {!embedded && (
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight text-cream">Caixa de Pagamentos</h1>
-            <p className="text-[0.9rem] text-[#8a6a55]">
+            <p className="text-[0.9rem] text-[#edd9c4]">
               Controle de valores reservados e pagamentos efetuados.
             </p>
           </div>
@@ -116,7 +116,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
       </div>
 
       <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" />
         <input
           className="glass-input w-full pl-9"
           placeholder="Buscar destinatário, descrição ou valor..."
@@ -128,11 +128,11 @@ export function Caixa({ embedded = false }: CaixaProps) {
       {/* Cards de Resumo */}
       <div className={cn('grid gap-3 sm:gap-4', embedded ? 'grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-4')}>
         <div className="glass-card p-4 space-y-2">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Total Reservado</p>
+          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Total Reservado</p>
           <p className="text-xl font-bold text-cream">{fmtCur(resumo.total_reservado)}</p>
         </div>
         <div className="glass-card p-4 space-y-2 border-l-2 border-l-red-500/30">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Total Pago</p>
+          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Total Pago</p>
           <p className="text-xl font-bold text-red-400">{fmtCur(resumo.total_pago)}</p>
         </div>
         <button
@@ -141,12 +141,12 @@ export function Caixa({ embedded = false }: CaixaProps) {
           className="glass-card p-4 space-y-2 border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40"
           title="Clique para ver onde o saldo está guardado"
         >
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Saldo Disponível</p>
+          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Saldo Disponível</p>
           <p className="text-xl font-bold text-emerald-400">{fmtCur(resumo.saldo_disponivel)}</p>
-          <p className="text-[0.65rem] text-[#8a6a55]">Clique para justificar contas →</p>
+          <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
         </button>
         <div className="glass-card p-4 space-y-2 bg-white/5">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#8a6a55] font-bold">Anteriores</p>
+          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Anteriores</p>
           <p className={cn("text-xl font-bold", resumo.saldo_meses_anteriores >= 0 ? "text-cream" : "text-red-400")}>
             {fmtCur(resumo.saldo_meses_anteriores)}
           </p>
@@ -160,7 +160,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
             onClick={() => setTab('reservas')}
             className={cn(
               "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'reservas' ? "bg-[#d4a853] text-[#150c09]" : "text-[#8a6a55] hover:text-cream hover:bg-white/5"
+              tab === 'reservas' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
             )}
           >
             <Receipt className="w-3.5 h-3.5" />
@@ -170,7 +170,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
             onClick={() => setTab('movimentacoes')}
             className={cn(
               "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'movimentacoes' ? "bg-[#d4a853] text-[#150c09]" : "text-[#8a6a55] hover:text-cream hover:bg-white/5"
+              tab === 'movimentacoes' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
             )}
           >
             <History className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
             onClick={() => setTab('historico')}
             className={cn(
               "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'historico' ? "bg-[#d4a853] text-[#150c09]" : "text-[#8a6a55] hover:text-cream hover:bg-white/5"
+              tab === 'historico' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
             )}
           >
             <Users className="w-3.5 h-3.5" />
@@ -194,11 +194,11 @@ export function Caixa({ embedded = false }: CaixaProps) {
             className="text-xs h-9 border-white/10 hover:bg-white/5"
             onClick={() => setDestinatariosOpen(true)}
           >
-            <Users className="w-3.5 h-3.5 mr-2 text-[#d4a853]" />
+            <Users className="w-3.5 h-3.5 mr-2 text-[#f2d892]" />
             Destinatários
           </Button>
           <Button 
-            className="text-xs h-9 bg-[#d4a853] text-[#150c09] hover:bg-[#b88f44]"
+            className="text-xs h-9 bg-[#f2d892] text-[#2a1812] hover:bg-[#b88f44]"
             onClick={() => setNovaMovOpen(true)}
           >
             <Plus className="w-3.5 h-3.5 mr-2" />
@@ -210,13 +210,13 @@ export function Caixa({ embedded = false }: CaixaProps) {
       {/* Content */}
       <div className={cn('glass-card', embedded ? 'min-h-[280px]' : 'min-h-[400px]')}>
         {loading ? (
-          <div className="p-20 text-center text-[#8a6a55] animate-pulse">Carregando dados...</div>
+          <div className="p-20 text-center text-[#edd9c4] animate-pulse">Carregando dados...</div>
         ) : (
           <div className="overflow-x-auto">
             {tab === 'reservas' && (
               <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
-                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#8a6a55] font-bold">
+                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
                     <th className="px-6 py-4">Destinatário</th>
                     <th className="px-6 py-4">Vencimento</th>
                     <th className="px-6 py-4 text-center">Lanç.</th>
@@ -230,7 +230,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                 <tbody className="divide-y divide-white/5">
                   {reservasFiltradas.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-20 text-center text-[#8a6a55] text-sm">
+                      <td colSpan={8} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
                         {busca.trim()
                           ? 'Nenhum resultado para essa busca neste mês.'
                           : 'Nenhuma reserva ou faturamento operacional neste período.'}
@@ -245,9 +245,9 @@ export function Caixa({ embedded = false }: CaixaProps) {
                         <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
                           <td className="px-6 py-4">
                             <div className="font-semibold text-cream">{item.destinatario_nome}</div>
-                            <div className="text-[0.7rem] text-[#8a6a55] uppercase tracking-tighter">{item.tipo_destinatario}</div>
+                            <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">{item.tipo_destinatario}</div>
                           </td>
-                          <td className="px-6 py-4 text-[#a07c65]">
+                          <td className="px-6 py-4 text-[#d4bc9f]">
                             {item.data_vencimento ? new Date(item.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
                           </td>
                           <td className="px-6 py-4 text-center text-cream/70 font-mono">
@@ -259,7 +259,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                           <td className="px-6 py-4 text-right font-semibold text-cream/60">
                             {fmtCur(item.valor_em_reserva)}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-[#d4a853]">
+                          <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                             {fmtCur(restante)}
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -270,7 +270,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
-                                className="h-8 text-xs text-[#d4a853] hover:text-[#d4a853] hover:bg-[#d4a853]/10"
+                                className="h-8 text-xs text-[#f2d892] hover:text-[#f2d892] hover:bg-[#f2d892]/10"
                                 onClick={() => setPagarReserva(item)}
                               >
                                 Pagar
@@ -284,8 +284,8 @@ export function Caixa({ embedded = false }: CaixaProps) {
                 </tbody>
                 {reservasFiltradas.length > 0 && (
                   <tfoot>
-                    <tr className="border-t border-[rgba(212,168,83,.25)] bg-[rgba(212,168,83,.06)] text-[0.85rem]">
-                      <td className="px-6 py-4 font-bold text-[#d4a853]" colSpan={3}>
+                    <tr className="border-t border-[rgba(240,210,140,.25)] bg-[rgba(240,210,140,.06)] text-[0.85rem]">
+                      <td className="px-6 py-4 font-bold text-[#f2d892]" colSpan={3}>
                         Total
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-cream">
@@ -294,7 +294,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                       <td className="px-6 py-4 text-right font-bold text-cream">
                         {fmtCur(totaisReservas.reservado)}
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-[#d4a853]">
+                      <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                         {fmtCur(totaisReservas.restante)}
                       </td>
                       <td className="px-6 py-4" colSpan={2} />
@@ -307,7 +307,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
             {tab === 'movimentacoes' && (
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
-                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#8a6a55] font-bold">
+                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
                     <th className="px-6 py-4">Data</th>
                     <th className="px-6 py-4">Destinatário</th>
                     <th className="px-6 py-4">Descrição</th>
@@ -318,7 +318,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                 <tbody className="divide-y divide-white/5">
                   {movimentacoesFiltradas.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center text-[#8a6a55] text-sm">
+                      <td colSpan={5} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
                         {busca.trim()
                           ? 'Nenhum resultado para essa busca neste mês.'
                           : 'Nenhuma movimentação registrada neste período.'}
@@ -327,13 +327,13 @@ export function Caixa({ embedded = false }: CaixaProps) {
                   ) : (
                     movimentacoesFiltradas.map(mov => (
                       <tr key={mov.id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
-                        <td className="px-6 py-4 text-[#a07c65]">
+                        <td className="px-6 py-4 text-[#d4bc9f]">
                           {new Date(mov.data_movimentacao + 'T12:00:00').toLocaleDateString('pt-BR')}
                         </td>
                         <td className="px-6 py-4 font-semibold text-cream">
                           {mov.movelaria_caixa_destinatarios?.nome || '—'}
                         </td>
-                        <td className="px-6 py-4 text-[#8a6a55]">
+                        <td className="px-6 py-4 text-[#edd9c4]">
                           {mov.descricao || '—'}
                         </td>
                         <td className={cn(
@@ -363,7 +363,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
             )}
 
             {tab === 'historico' && (
-              <div className="p-20 text-center text-[#8a6a55] text-sm">
+              <div className="p-20 text-center text-[#edd9c4] text-sm">
                 Aba de Histórico em implementação...
               </div>
             )}

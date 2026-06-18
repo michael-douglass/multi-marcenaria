@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react'
+﻿import { ReactNode, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -83,12 +83,12 @@ export function Modal({
         onPointerDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
       >
-        <div className="modal-panel-header shrink-0 border-b border-[rgba(212,168,83,0.18)] px-4 py-3 sm:px-5 sm:py-4">
+        <div className="modal-panel-header shrink-0 border-b border-[rgba(240,210,140,0.18)] px-4 py-3 sm:px-5 sm:py-4">
           {headerTop ? <div className="mb-3">{headerTop}</div> : null}
           <div className="flex items-center justify-between gap-3">
             <span
               id="modal-title"
-              className="min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[#d4a853] sm:text-xl"
+              className="min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[#f2d892] sm:text-xl"
             >
               {title}
             </span>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
@@ -210,7 +210,7 @@ export function ContasPagarExportButton({
         <span>Exportar</span>
         {selectedIds.size > 0 && selectedIds.size < contas.length && (
           <span style={{
-            background: '#d4a853', color: '#1a0f0a', borderRadius: 9999,
+            background: '#f2d892', color: '#1a0f0a', borderRadius: 9999,
             fontSize: '.65rem', fontWeight: 700, padding: '0 .4rem',
             lineHeight: '1.35rem', minWidth: '1.35rem', textAlign: 'center' as const,
           }}>
@@ -222,25 +222,25 @@ export function ContasPagarExportButton({
 
       {open && (
         <div
-          className="absolute right-0 z-[200] rounded-lg border border-[rgba(212,168,83,.2)]"
+          className="absolute right-0 z-[200] rounded-lg border border-[rgba(240,210,140,.2)]"
           style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.7)', width: 340, top: 'calc(100% + 4px)' }}
         >
-          <div className="px-3 pt-3 pb-2 border-b border-[rgba(212,168,83,.1)]">
+          <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
             <div className="section-label mb-1" style={{ fontSize: '.7rem' }}>Período atual</div>
-            <div style={{ color: '#f4e4d6', fontSize: '.85rem', fontWeight: 600 }}>{periodLabel}</div>
+            <div style={{ color: '#fffaf4', fontSize: '.85rem', fontWeight: 600 }}>{periodLabel}</div>
             {needsMonth && (
               <p className="mt-2 text-xs text-[#f87171]">
                 Escolha um mês no filtro acima para exportar as despesas desse período.
               </p>
             )}
             {!needsMonth && statuses.has('pago') && (
-              <p className="mt-2 text-xs text-[#8a6a55]">
+              <p className="mt-2 text-xs text-[#edd9c4]">
                 Inclui contas pagas neste período, mesmo que o vencimento seja em outro mês.
               </p>
             )}
           </div>
 
-          <div className="px-3 pt-3 pb-2 border-b border-[rgba(212,168,83,.1)]">
+          <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
             <div className="section-label mb-2" style={{ fontSize: '.7rem' }}>Filtrar lista por status</div>
             <div className="flex flex-wrap gap-1.5">
               {STATUS_OPTIONS.map(opt => {
@@ -257,9 +257,9 @@ export function ContasPagarExportButton({
                     })}
                     style={{
                       padding: '.2rem .55rem', borderRadius: 9999,
-                      border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-                      background: active ? 'rgba(212,168,83,.14)' : 'transparent',
-                      color: active ? '#d4a853' : '#8a6a55',
+                      border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+                      background: active ? 'rgba(240,210,140,.14)' : 'transparent',
+                      color: active ? '#f2d892' : '#edd9c4',
                       cursor: 'pointer', fontSize: '.75rem', fontWeight: 600,
                       fontFamily: 'Raleway, sans-serif', transition: 'all .15s',
                     }}
@@ -271,7 +271,7 @@ export function ContasPagarExportButton({
             </div>
           </div>
 
-          <div className="px-3 py-2 border-b border-[rgba(212,168,83,.1)]">
+          <div className="px-3 py-2 border-b border-[rgba(240,210,140,.1)]">
             <input
               type="text"
               className="glass-input w-full"
@@ -283,7 +283,7 @@ export function ContasPagarExportButton({
           </div>
 
           {listaFiltrada.length > 0 && (
-            <div className="px-3 py-1.5 border-b border-[rgba(212,168,83,.08)] flex items-center gap-2">
+            <div className="px-3 py-1.5 border-b border-[rgba(240,210,140,.08)] flex items-center gap-2">
               <input
                 type="checkbox"
                 ref={el => {
@@ -299,9 +299,9 @@ export function ContasPagarExportButton({
                   else listaFiltrada.forEach(c => next.delete(c.id))
                   return next
                 })}
-                style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                style={{ accentColor: '#f2d892', flexShrink: 0 }}
               />
-              <span style={{ color: '#8a6a55', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
+              <span style={{ color: '#edd9c4', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
                 Marcar todos ({listaFiltrada.length})
               </span>
             </div>
@@ -309,7 +309,7 @@ export function ContasPagarExportButton({
 
           <div style={{ maxHeight: 320, overflowY: 'auto' }}>
             {listaFiltrada.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-[#8a6a55]">Nenhuma conta encontrada.</div>
+              <div className="px-3 py-3 text-sm text-[#edd9c4]">Nenhuma conta encontrada.</div>
             ) : (
               listaFiltrada.map(c => {
                 const s = getStatus(c.data_vencimento, c.status)
@@ -322,7 +322,7 @@ export function ContasPagarExportButton({
                 return (
                   <label
                     key={c.id}
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(212,168,83,.05)]"
+                    className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.05)]"
                   >
                     <input
                       type="checkbox"
@@ -333,17 +333,17 @@ export function ContasPagarExportButton({
                         else next.delete(c.id)
                         return next
                       })}
-                      style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                      style={{ accentColor: '#f2d892', flexShrink: 0 }}
                     />
                     <div className="flex-1 min-w-0">
                       <div style={{
-                        color: checked ? '#f4e4d6' : '#8a6a55',
+                        color: checked ? '#fffaf4' : '#edd9c4',
                         fontSize: '.82rem', overflow: 'hidden',
                         textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {nome}
                       </div>
-                      <div style={{ color: '#8a6a55', fontSize: '.7rem' }}>
+                      <div style={{ color: '#edd9c4', fontSize: '.7rem' }}>
                         {fmtCur(c.valor_parcela)} · {detalheData}
                       </div>
                     </div>
@@ -354,8 +354,8 @@ export function ContasPagarExportButton({
             )}
           </div>
 
-          <div className="px-3 py-2 border-t border-[rgba(212,168,83,.1)] flex items-center justify-between gap-2">
-            <span style={{ fontSize: '.75rem', color: '#8a6a55' }}>
+          <div className="px-3 py-2 border-t border-[rgba(240,210,140,.1)] flex items-center justify-between gap-2">
+            <span style={{ fontSize: '.75rem', color: '#edd9c4' }}>
               {selectedIds.size} de {contas.length} selecionada(s)
             </span>
             {selectedIds.size > 0 && (
@@ -412,7 +412,7 @@ export function ContasPagarExportButton({
         title="TEXTO PARA COPIAR"
         wide
       >
-        <p className="mb-3 text-sm text-[#8a6a55]">
+        <p className="mb-3 text-sm text-[#edd9c4]">
           Selecione o texto abaixo ou use o botão copiar para colar em WhatsApp, e-mail ou outra planilha.
         </p>
         <textarea

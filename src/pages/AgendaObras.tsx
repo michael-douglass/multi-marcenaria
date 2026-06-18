@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+﻿import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search, Camera, Trash2 } from 'lucide-react'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
@@ -170,9 +170,9 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
       {/* Nome + ações */}
       <div className="flex items-start gap-1.5 min-w-0">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#d4a853] leading-tight break-words">{obra.cliente_nome}</p>
+          <p className="font-semibold text-[#f2d892] leading-tight break-words">{obra.cliente_nome}</p>
           {obra.lousa && (
-            <p className="text-[0.7rem] text-[#8a6a55] leading-snug break-words mt-0.5">{obra.lousa}</p>
+            <p className="text-[0.7rem] text-[#edd9c4] leading-snug break-words mt-0.5">{obra.lousa}</p>
           )}
         </div>
         {(canEdit || canDelete) && (
@@ -181,7 +181,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); onEdit(obra) }}
-                className="p-1 rounded text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                className="p-1 rounded text-[#edd9c4] hover:text-[#f2d892] transition-colors"
                 title="Editar"
               >
                 <Pencil size={12} />
@@ -192,7 +192,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
                 type="button"
                 disabled={loading}
                 onClick={e => { e.stopPropagation(); onExcluir(obra) }}
-                className="p-1 rounded text-[#8a6a55] hover:text-red-400 transition-colors disabled:opacity-50"
+                className="p-1 rounded text-[#edd9c4] hover:text-red-400 transition-colors disabled:opacity-50"
                 title="Excluir obra"
               >
                 {loading ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
@@ -301,7 +301,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, actioning, isDragging,
           {obra.status_kanban !== 'cancelada' && (
             <button
               onClick={e => { e.stopPropagation(); onDetalhe(obra) }}
-              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#d4a853]/20 text-[#d4a853] hover:bg-[#d4a853]/30 transition-colors"
+              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#f2d892]/20 text-[#f2d892] hover:bg-[#f2d892]/30 transition-colors"
             >
               <Camera size={10} className="shrink-0" />
               <span className="truncate">Progresso</span>
@@ -385,11 +385,11 @@ function ConfigModal({
               <div key={t.id} className="flex items-center justify-between glass-card p-2 text-sm">
                 <div>
                   <p className="font-semibold text-cream">{t.nome}</p>
-                  <p className="text-[0.7rem] text-[#8a6a55]">Médio: {t.tempo_medio_horas ?? '—'}h / Máx.: {t.tempo_maximo_horas_default ?? '—'}h</p>
+                  <p className="text-[0.7rem] text-[#edd9c4]">Médio: {t.tempo_medio_horas ?? '—'}h / Máx.: {t.tempo_maximo_horas_default ?? '—'}h</p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => { setTipoEdit(t.id); setTipoForm({ nome: t.nome, descricao: t.descricao ?? null, tempo_medio_horas: t.tempo_medio_horas ?? null, tempo_maximo_horas_default: t.tempo_maximo_horas_default ?? null, ativo: t.ativo }) }} className="p-1 text-[#8a6a55] hover:text-[#d4a853]"><Pencil size={12} /></button>
-                  <button onClick={() => tiposHook.remove(t.id)} className="p-1 text-[#8a6a55] hover:text-red-400"><X size={12} /></button>
+                  <button onClick={() => { setTipoEdit(t.id); setTipoForm({ nome: t.nome, descricao: t.descricao ?? null, tempo_medio_horas: t.tempo_medio_horas ?? null, tempo_maximo_horas_default: t.tempo_maximo_horas_default ?? null, ativo: t.ativo }) }} className="p-1 text-[#edd9c4] hover:text-[#f2d892]"><Pencil size={12} /></button>
+                  <button onClick={() => tiposHook.remove(t.id)} className="p-1 text-[#edd9c4] hover:text-red-400"><X size={12} /></button>
                 </div>
               </div>
             ))}
@@ -417,8 +417,8 @@ function ConfigModal({
               <div key={g.id} className="flex items-center justify-between glass-card p-2 text-sm">
                 <p className="font-semibold text-cream">{g.nome}</p>
                 <div className="flex gap-1">
-                  <button onClick={() => { setGrupoEdit(g.id); setGrupoForm({ nome: g.nome, descricao: g.descricao ?? null, montador_admin_id: g.montador_admin_id ?? null, ativo: g.ativo }) }} className="p-1 text-[#8a6a55] hover:text-[#d4a853]"><Pencil size={12} /></button>
-                  <button onClick={() => gruposHook.remove(g.id)} className="p-1 text-[#8a6a55] hover:text-red-400"><X size={12} /></button>
+                  <button onClick={() => { setGrupoEdit(g.id); setGrupoForm({ nome: g.nome, descricao: g.descricao ?? null, montador_admin_id: g.montador_admin_id ?? null, ativo: g.ativo }) }} className="p-1 text-[#edd9c4] hover:text-[#f2d892]"><Pencil size={12} /></button>
+                  <button onClick={() => gruposHook.remove(g.id)} className="p-1 text-[#edd9c4] hover:text-red-400"><X size={12} /></button>
                 </div>
               </div>
             ))}
@@ -799,7 +799,7 @@ function AgendaObrasContent() {
           subtitle={
             <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-              {busca && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+              {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
             </>
           }
           actions={
@@ -847,7 +847,7 @@ function AgendaObrasContent() {
             <div className="obra-page-search relative">
               <Search
                 size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
               />
               <input
                 className="glass-input pl-9 pr-8 w-full"
@@ -859,7 +859,7 @@ function AgendaObrasContent() {
                 <button
                   type="button"
                   onClick={() => setBusca('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
                 >
                   <X size={13} />
                 </button>
@@ -925,7 +925,7 @@ function AgendaObrasContent() {
                   }}
                 >
                   {obras.length === 0 && !isOver ? (
-                    <div className="text-center py-8 text-[0.75rem] text-[#6b5544]">Nenhuma obra</div>
+                    <div className="text-center py-8 text-[0.75rem] text-[#d4bc9f]">Nenhuma obra</div>
                   ) : obras.length === 0 && isOver ? (
                     <div className="flex items-center justify-center py-8 text-[0.75rem]" style={{ color: col.cor }}>
                       Soltar aqui

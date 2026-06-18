@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Wallet, Maximize2, Minimize2, GripHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -145,27 +145,27 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
       <div
         ref={popupRef}
         className={cn(
-          'flex h-full w-full flex-col overflow-hidden glass-panel border border-[rgba(212,168,83,0.3)] shadow-2xl transition-transform',
+          'flex h-full w-full flex-col overflow-hidden glass-panel border border-[rgba(240,210,140,0.3)] shadow-2xl transition-transform',
           isDragging ? 'scale-[1.01] cursor-grabbing' : '',
         )}
       >
         <div
           className={cn(
-            'flex shrink-0 items-center justify-between border-b border-[rgba(212,168,83,0.18)] bg-[rgba(10,4,2,0.85)] px-4 py-3',
+            'flex shrink-0 items-center justify-between border-b border-[rgba(240,210,140,0.18)] bg-[rgba(10,4,2,0.85)] px-4 py-3',
             !isMobile && 'cursor-grab active:cursor-grabbing select-none',
           )}
           onPointerDown={!isMobile ? handlePointerDown : undefined}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgba(212,168,83,0.12)] text-[#d4a853]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[rgba(240,210,140,0.12)] text-[#f2d892]">
               <Wallet size={18} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-display truncate text-sm tracking-widest text-[#d4a853] sm:text-base">
+              <h3 className="font-display truncate text-sm tracking-widest text-[#f2d892] sm:text-base">
                 CAIXA DE PAGAMENTOS
               </h3>
               {!isMinimized && (
-                <p className="truncate text-[0.65rem] text-[#8a6a55]">
+                <p className="truncate text-[0.65rem] text-[#edd9c4]">
                   Arraste esta barra para mover · busca, filtros e ações completas
                 </p>
               )}
@@ -177,7 +177,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
               <button
                 type="button"
                 onClick={() => setIsMinimized(v => !v)}
-                className="rounded-md p-1.5 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+                className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
                 title={isMinimized ? 'Maximizar' : 'Minimizar'}
               >
                 {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
@@ -186,7 +186,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1.5 text-[#8a6a55] hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400"
+              className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400"
               title="Fechar"
             >
               <X size={18} />
@@ -195,7 +195,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
         </div>
 
         {!isMinimized && (
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-[rgba(5,2,1,0.4)]">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[rgba(52,34,26,0.4)]">
             <div className="absolute inset-0 overflow-auto p-3 sm:p-4">
               <Caixa embedded />
             </div>
@@ -203,8 +203,8 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
         )}
 
         {!isMobile && !isMinimized && (
-          <div className="flex h-4 shrink-0 items-center justify-center border-t border-[rgba(212,168,83,0.08)] bg-[rgba(10,4,2,0.6)]">
-            <GripHorizontal size={12} className="text-[rgba(212,168,83,0.3)]" />
+          <div className="flex h-4 shrink-0 items-center justify-center border-t border-[rgba(240,210,140,0.08)] bg-[rgba(10,4,2,0.6)]">
+            <GripHorizontal size={12} className="text-[rgba(240,210,140,0.3)]" />
           </div>
         )}
       </div>

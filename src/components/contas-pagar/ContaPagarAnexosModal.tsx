@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Paperclip } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import {
@@ -88,11 +88,11 @@ export function ContaPagarAnexosModal({
     <>
       <Modal open={open} onClose={onClose} title="ANEXOS DO LANÇAMENTO">
         {loading && (
-          <p className="text-center text-sm text-[#8a6a55]">Carregando anexos...</p>
+          <p className="text-center text-sm text-[#edd9c4]">Carregando anexos...</p>
         )}
         {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
         {!loading && anexos.length === 0 && !error && (
-          <p className="text-center text-sm text-[#8a6a55]">Nenhum anexo neste lançamento.</p>
+          <p className="text-center text-sm text-[#edd9c4]">Nenhum anexo neste lançamento.</p>
         )}
         <div className="flex flex-wrap gap-3">
           {anexos.map(a => (

@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/Badge'
+﻿import { Badge } from '@/components/ui/Badge'
 import {
   getParcelasEmAberto,
   getTituloLancamento,
@@ -30,17 +30,17 @@ export function ContaPagarParcelasAbertasPanel({
 
   return (
     <div
-      className="mb-5 rounded-lg border border-[rgba(212,168,83,.22)] bg-[rgba(212,168,83,.06)] p-4"
+      className="mb-5 rounded-lg border border-[rgba(240,210,140,.22)] bg-[rgba(240,210,140,.06)] p-4"
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+          <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
             {getTituloLancamento(contaAtual)}
           </p>
-          <p className="text-base font-semibold text-[#f4e4d6]">{nome}</p>
-          <p className="mt-1 text-xs text-[#8a6a55]">
+          <p className="text-base font-semibold text-[#fffaf4]">{nome}</p>
+          <p className="mt-1 text-xs text-[#edd9c4]">
             Parcela em edição:{' '}
-            <span className="text-[#d4a853] font-semibold">
+            <span className="text-[#f2d892] font-semibold">
               {contaAtual.numero_parcela}/{contaAtual.total_parcelas}
             </span>
             {' · '}
@@ -50,25 +50,25 @@ export function ContaPagarParcelasAbertasPanel({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+          <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
             Total em aberto
           </p>
           <p className="text-lg font-bold text-[#fbbf24]">{fmtCur(totalAberto)}</p>
-          <p className="text-xs text-[#8a6a55]">
+          <p className="text-xs text-[#edd9c4]">
             {parcelasAbertas.length} parcela{parcelasAbertas.length !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
       {parcelasAbertas.length === 0 ? (
-        <p className="text-sm text-[#8a6a55]">
+        <p className="text-sm text-[#edd9c4]">
           Todas as parcelas deste lançamento estão pagas.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-white/5">
           <table className="w-full min-w-[480px] text-left text-[0.82rem]">
             <thead>
-              <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">
+              <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
                 <th className="px-3 py-2">Parcela</th>
                 <th className="px-3 py-2">Vencimento</th>
                 <th className="px-3 py-2 text-right">Valor</th>
@@ -87,25 +87,25 @@ export function ContaPagarParcelasAbertasPanel({
                     key={p.id}
                     className={
                       isAtual
-                        ? 'bg-[rgba(212,168,83,.12)]'
+                        ? 'bg-[rgba(240,210,140,.12)]'
                         : 'hover:bg-white/[0.02]'
                     }
                   >
-                    <td className="px-3 py-2 font-medium text-[#f4e4d6]">
+                    <td className="px-3 py-2 font-medium text-[#fffaf4]">
                       {p.numero_parcela}/{p.total_parcelas}
                       {isAtual ? (
-                        <span className="ml-1.5 text-[0.65rem] text-[#d4a853]">
+                        <span className="ml-1.5 text-[0.65rem] text-[#f2d892]">
                           (editando)
                         </span>
                       ) : null}
                     </td>
                     <td
                       className="px-3 py-2"
-                      style={{ color: s === 'vencido' ? '#f87171' : '#8a6a55' }}
+                      style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4' }}
                     >
                       {fmtDate(p.data_vencimento)}
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold text-[#d4a853]">
+                    <td className="px-3 py-2 text-right font-semibold text-[#f2d892]">
                       {fmtCur(p.valor_parcela)}
                     </td>
                     <td className="px-3 py-2 text-center">
@@ -129,8 +129,8 @@ export function ContaPagarParcelasAbertasPanel({
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t border-[rgba(212,168,83,.2)] bg-black/20">
-                <td className="px-3 py-2 font-bold text-[#d4a853]" colSpan={2}>
+              <tr className="border-t border-[rgba(240,210,140,.2)] bg-black/20">
+                <td className="px-3 py-2 font-bold text-[#f2d892]" colSpan={2}>
                   Soma em aberto
                 </td>
                 <td className="px-3 py-2 text-right font-bold text-[#fbbf24]">

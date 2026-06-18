@@ -1,4 +1,4 @@
-import { Hash } from 'lucide-react'
+﻿import { Hash } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ObraFull } from '@/types'
 
@@ -42,20 +42,20 @@ export function ObraNumeroPedidoCortClaudInput({
   return (
     <div
       className={[
-        'flex items-center gap-1.5 rounded-md border border-[rgba(212,168,83,0.18)] bg-[rgba(255,255,255,0.02)] transition-colors min-w-0',
+        'flex items-center gap-1.5 rounded-md border border-[rgba(240,210,140,0.18)] bg-[rgba(255,255,255,0.02)] transition-colors min-w-0',
         compact ? 'p-1.5' : 'p-2',
-        canEdit && !loading ? 'hover:border-[rgba(212,168,83,0.35)]' : '',
+        canEdit && !loading ? 'hover:border-[rgba(240,210,140,0.35)]' : '',
       ].join(' ')}
       onClick={e => e.stopPropagation()}
     >
-      <Hash size={compact ? 12 : 14} className="text-[#d4a853] shrink-0" />
+      <Hash size={compact ? 12 : 14} className="text-[#f2d892] shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[#8a6a55] text-[0.55rem] uppercase tracking-wider leading-none mb-1">
+        <p className="text-[#edd9c4] text-[0.55rem] uppercase tracking-wider leading-none mb-1">
           Nº Pedido Cort Claud
         </p>
         <input
           type="text"
-          className="w-full bg-transparent border-none p-0 text-[#f4e4d6] text-[0.65rem] focus:ring-0 placeholder:text-[#6b5544] disabled:cursor-default"
+          className="w-full bg-transparent border-none p-0 text-[#fffaf4] text-[0.65rem] focus:ring-0 placeholder:text-[#d4bc9f] disabled:cursor-default"
           value={localValue}
           disabled={!canEdit || loading}
           placeholder="Ex: 12345"

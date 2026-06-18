@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
@@ -60,16 +60,16 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
     >
       <div className="space-y-4">
         <div className="glass-card p-3 bg-white/5 border-white/5 space-y-1">
-          <p className="text-[0.65rem] text-[#8a6a55] uppercase font-bold tracking-wider">Destinatário</p>
+          <p className="text-[0.65rem] text-[#edd9c4] uppercase font-bold tracking-wider">Destinatário</p>
           <p className="text-sm font-semibold text-cream">{reserva.destinatario_nome}</p>
           <div className="flex justify-between pt-2">
             <div>
-              <p className="text-[0.6rem] text-[#8a6a55] uppercase">Total Real</p>
+              <p className="text-[0.6rem] text-[#edd9c4] uppercase">Total Real</p>
               <p className="text-xs font-mono text-cream/70">{fmtCur(reserva.valor_total_real)}</p>
             </div>
             <div>
-              <p className="text-[0.6rem] text-[#8a6a55] uppercase text-right">Falta Pagar</p>
-              <p className="text-xs font-mono text-[#d4a853] text-right">
+              <p className="text-[0.6rem] text-[#edd9c4] uppercase text-right">Falta Pagar</p>
+              <p className="text-xs font-mono text-[#f2d892] text-right">
                 {fmtCur(Math.max(0, reserva.valor_total_real - reserva.total_pago))}
               </p>
             </div>
@@ -82,7 +82,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
               type="text"
               value={valor}
               onChange={e => setValor(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
               placeholder="0,00"
             />
           </Field>
@@ -91,7 +91,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
               type="date"
               value={data}
               onChange={e => setData(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
             />
           </Field>
         </div>
@@ -100,14 +100,14 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
           <input
             value={descricao}
             onChange={e => setDescricao(e.target.value)}
-            className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+            className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
           />
         </Field>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button
-            className="bg-[#d4a853] text-[#150c09] hover:bg-[#b88f44]"
+            className="bg-[#f2d892] text-[#2a1812] hover:bg-[#b88f44]"
             onClick={handleSave}
             disabled={isSubmitting}
           >

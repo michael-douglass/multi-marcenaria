@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
@@ -87,18 +87,18 @@ export function ReciboPrintModal({
 
   return (
     <Modal open={open} onClose={onClose} title="IMPRIMIR RECIBO" wide closeOnBackdrop={false}>
-      <p className="mb-4 text-sm text-[#8a6a55]">
+      <p className="mb-4 text-sm text-[#edd9c4]">
         O texto abaixo é o que será impresso. Você pode alterar qualquer parte livremente.
         Os campos de PIX, forma e data servem para preencher automaticamente — clique em
         &quot;Atualizar texto&quot; quando quiser aplicá-los.
       </p>
 
-      <div className="mb-4 rounded-lg border border-[rgba(212,168,83,0.15)] bg-black/20 px-3 py-2 text-sm">
-        <span className="text-[#d4a853] font-semibold">{conta.cliente_nome}</span>
-        <span className="mx-2 text-[#6b5544]">·</span>
+      <div className="mb-4 rounded-lg border border-[rgba(240,210,140,0.15)] bg-black/20 px-3 py-2 text-sm">
+        <span className="text-[#f2d892] font-semibold">{conta.cliente_nome}</span>
+        <span className="mx-2 text-[#d4bc9f]">·</span>
         <span className="text-[#4ade80]">{fmtCur(conta.valor_parcela)}</span>
-        <span className="mx-2 text-[#6b5544]">·</span>
-        <span className="text-[#8a6a55]">
+        <span className="mx-2 text-[#d4bc9f]">·</span>
+        <span className="text-[#edd9c4]">
           Parcela {conta.numero_parcela}/{conta.total_parcelas}
         </span>
       </div>
@@ -157,7 +157,7 @@ export function ReciboPrintModal({
         />
       </Field>
 
-      <p className="mt-2 text-[0.72rem] text-[#6b5544]">
+      <p className="mt-2 text-[0.72rem] text-[#d4bc9f]">
         O recibo será impresso em uma única folha A4.
       </p>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useProdutos } from '../hooks/useProdutos'
 import { Modal } from '../components/ui/Modal'
@@ -45,7 +45,7 @@ export function Produtos({ fornecedores, readOnly }: Props) {
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Produtos</h1>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Produtos</h1>
           <p className="section-label mt-1">{data.length} produto{data.length !== 1 ? 's' : ''}</p>
         </div>
         {!readOnly && (
@@ -94,7 +94,7 @@ export function Produtos({ fornecedores, readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+                <tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                   {['Descrição', 'Fornecedor', 'Unidade', 'Especificações', 'Preço Unit.', ''].map((h, i) => (
                     <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                   ))}
@@ -103,11 +103,11 @@ export function Produtos({ fornecedores, readOnly }: Props) {
               <tbody>
                 {data.map(p => (
                   <tr key={p.id} className="trow">
-                    <td className="px-4 py-3" style={{ color: '#f4e4d6', fontWeight: 500 }}>{p.descricao}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{p.movelaria_fornecedores?.nome ?? '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>{p.descricao}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{p.movelaria_fornecedores?.nome ?? '—'}</td>
                     <td className="px-4 py-3"><span className="badge badge-blue">{p.unidade_medida}</span></td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.8rem', maxWidth: 200 }}>{p.especificacoes || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 600 }}>{fmtCur(p.preco_unitario)}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.8rem', maxWidth: 200 }}>{p.especificacoes || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 600 }}>{fmtCur(p.preco_unitario)}</td>
                     <td className="px-4 py-3 text-right">
                       {!readOnly && (
                         <div className="flex gap-2 justify-end">

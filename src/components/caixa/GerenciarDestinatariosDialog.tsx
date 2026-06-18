@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Plus, Trash2, UserPlus } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
@@ -41,8 +41,8 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
     >
       <div className="space-y-6">
         {isAdding ? (
-          <div className="glass-card p-4 space-y-4 border-[#d4a853]/20 bg-[#d4a853]/5">
-            <h4 className="text-xs font-bold text-[#d4a853] uppercase tracking-wider flex items-center gap-2">
+          <div className="glass-card p-4 space-y-4 border-[#f2d892]/20 bg-[#f2d892]/5">
+            <h4 className="text-xs font-bold text-[#f2d892] uppercase tracking-wider flex items-center gap-2">
               <UserPlus className="w-3.5 h-3.5" />
               Novo Destinatário
             </h4>
@@ -51,7 +51,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
                 <input
                   value={nome}
                   onChange={e => setNome(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+                  className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
                   placeholder="Ex: João Marceneiro"
                 />
               </Field>
@@ -59,7 +59,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
                 <select
                   value={tipo}
                   onChange={e => setTipo(e.target.value as TipoDestinatarioCaixa)}
-                  className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+                  className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
                 >
                   <option value="marceneiro">Marceneiro / Produção</option>
                   <option value="fornecedor">Fornecedor</option>
@@ -70,7 +70,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>Cancelar</Button>
-              <Button size="sm" className="bg-[#d4a853] text-[#150c09]" onClick={handleAdd}>Salvar</Button>
+              <Button size="sm" className="bg-[#f2d892] text-[#2a1812]" onClick={handleAdd}>Salvar</Button>
             </div>
           </div>
         ) : (
@@ -79,7 +79,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
             className="w-full border-dashed border-white/10 hover:bg-white/5"
             variant="outline"
           >
-            <Plus className="w-3.5 h-3.5 mr-2 text-[#d4a853]" />
+            <Plus className="w-3.5 h-3.5 mr-2 text-[#f2d892]" />
             Adicionar Destinatário
           </Button>
         )}
@@ -89,7 +89,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
             <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 group hover:border-white/10 transition-all">
               <div>
                 <p className="text-sm font-semibold text-cream">{d.nome}</p>
-                <p className="text-[0.65rem] text-[#8a6a55] uppercase tracking-wider">{d.tipo}</p>
+                <p className="text-[0.65rem] text-[#edd9c4] uppercase tracking-wider">{d.tipo}</p>
               </div>
               <button
                 onClick={() => {
@@ -102,7 +102,7 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
             </div>
           ))}
           {destinatarios.length === 0 && (
-            <p className="text-center py-10 text-xs text-[#8a6a55]">Nenhum destinatário cadastrado.</p>
+            <p className="text-center py-10 text-xs text-[#edd9c4]">Nenhum destinatário cadastrado.</p>
           )}
         </div>
       </div>

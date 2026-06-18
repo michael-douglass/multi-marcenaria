@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, CalendarDays, Maximize2, Minimize2, GripHorizontal, LayoutGrid, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -144,31 +144,31 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
       <div 
         ref={popupRef}
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden glass-panel border border-[rgba(212,168,83,0.3)] shadow-2xl transition-transform",
+          "flex h-full w-full flex-col overflow-hidden glass-panel border border-[rgba(240,210,140,0.3)] shadow-2xl transition-transform",
           isDragging ? "scale-[1.01] cursor-grabbing" : ""
         )}
       >
         {/* Header/Draggable area */}
         <div 
           className={cn(
-            "flex shrink-0 items-center justify-between border-b border-[rgba(212,168,83,0.18)] bg-[rgba(10,4,2,0.85)] px-4 py-3",
+            "flex shrink-0 items-center justify-between border-b border-[rgba(240,210,140,0.18)] bg-[rgba(10,4,2,0.85)] px-4 py-3",
             !isMobile && "cursor-grab"
           )}
           onPointerDown={!isMobile ? handlePointerDown : undefined}
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(212,168,83,0.12)] text-[#d4a853]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(240,210,140,0.12)] text-[#f2d892]">
               <CalendarDays size={18} />
             </div>
             <div>
-              <h3 className="font-display text-sm tracking-widest text-[#d4a853] sm:text-base">AGENDA E CALENDÁRIO</h3>
+              <h3 className="font-display text-sm tracking-widest text-[#f2d892] sm:text-base">AGENDA E CALENDÁRIO</h3>
               {!isMinimized && (
                 <div className="mt-1 flex gap-4">
                   <button 
                     onClick={() => setTab('agenda')}
                     className={cn(
                       "flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors",
-                      tab === 'agenda' ? "text-[#dbb25a]" : "text-[#8a6a55] hover:text-[#dbb25a]"
+                      tab === 'agenda' ? "text-[#f5e0a8]" : "text-[#edd9c4] hover:text-[#f5e0a8]"
                     )}
                   >
                     <LayoutGrid size={12} />
@@ -178,7 +178,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
                     onClick={() => setTab('calendario')}
                     className={cn(
                       "flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors",
-                      tab === 'calendario' ? "text-[#dbb25a]" : "text-[#8a6a55] hover:text-[#dbb25a]"
+                      tab === 'calendario' ? "text-[#f5e0a8]" : "text-[#edd9c4] hover:text-[#f5e0a8]"
                     )}
                   >
                     <Calendar size={12} />
@@ -193,7 +193,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
             {!isMobile && (
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
-                className="rounded-md p-1.5 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+                className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
                 title={isMinimized ? "Maximizar" : "Minimizar"}
               >
                 {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
@@ -201,7 +201,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
             )}
             <button
               onClick={onClose}
-              className="rounded-md p-1.5 text-[#8a6a55] hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400"
+              className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400"
               title="Fechar"
             >
               <X size={18} />
@@ -211,7 +211,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
 
         {/* Content */}
         {!isMinimized && (
-          <div className="relative flex-1 overflow-hidden bg-[rgba(5,2,1,0.4)]">
+          <div className="relative flex-1 overflow-hidden bg-[rgba(52,34,26,0.4)]">
              <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
                {tab === 'agenda' ? <AgendaObras /> : <CalendarioObras />}
              </div>
@@ -220,8 +220,8 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
         
         {/* Resize handle (optional, but let's keep it simple with fixed size or maximized) */}
         {!isMobile && !isMinimized && (
-          <div className="flex h-4 items-center justify-center border-t border-[rgba(212,168,83,0.08)] bg-[rgba(10,4,2,0.6)]">
-            <GripHorizontal size={12} className="text-[rgba(212,168,83,0.3)]" />
+          <div className="flex h-4 items-center justify-center border-t border-[rgba(240,210,140,0.08)] bg-[rgba(10,4,2,0.6)]">
+            <GripHorizontal size={12} className="text-[rgba(240,210,140,0.3)]" />
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { FileUp, Loader2 } from 'lucide-react'
 import { Field } from '@/components/ui/Field'
 import { buildPendingAnexo } from '@/lib/contas-pagar-anexos'
@@ -61,21 +61,21 @@ export function ContaPagarAnexosField({ anexos, onChange }: ContaPagarAnexosFiel
     <Field label="Anexos (imagem ou PDF)">
       <div className="space-y-3">
         <div
-          className="flex min-h-[88px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[rgba(212,168,83,0.35)] bg-[rgba(15,7,3,0.45)] px-4 py-4 transition-colors hover:border-[rgba(212,168,83,0.55)] hover:bg-[rgba(212,168,83,0.06)]"
+          className="flex min-h-[88px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[rgba(240,210,140,0.35)] bg-[rgba(68,46,34,0.45)] px-4 py-4 transition-colors hover:border-[rgba(240,210,140,0.55)] hover:bg-[rgba(240,210,140,0.06)]"
           onClick={() => !processing && inputRef.current?.click()}
           onKeyDown={e => e.key === 'Enter' && inputRef.current?.click()}
           role="button"
           tabIndex={0}
         >
           {processing ? (
-            <Loader2 className="h-6 w-6 animate-spin text-[#d4a853]" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#f2d892]" />
           ) : (
-            <FileUp className="h-6 w-6 text-[#d4a853]" />
+            <FileUp className="h-6 w-6 text-[#f2d892]" />
           )}
-          <p className="mt-2 text-center text-xs text-[#8a6a55]">
+          <p className="mt-2 text-center text-xs text-[#edd9c4]">
             Clique para anexar JPG, PNG, WebP, GIF ou PDF
           </p>
-          <p className="mt-0.5 text-center text-[0.65rem] text-[#8a6a55]/80">
+          <p className="mt-0.5 text-center text-[0.65rem] text-[#edd9c4]/80">
             PDFs viram imagem na pré-visualização (todas as páginas)
           </p>
         </div>

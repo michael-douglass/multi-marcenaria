@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+﻿import { useState, FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function Login() {
@@ -28,14 +28,14 @@ export function Login() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#150c09',
+        background: '#2a1812',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '2rem 1.5rem',
         backgroundImage: [
-          'radial-gradient(ellipse 90% 55% at 50% -5%, rgba(212,168,83,.09) 0%, transparent 65%)',
+          'radial-gradient(ellipse 90% 55% at 50% -5%, rgba(240,210,140,.09) 0%, transparent 65%)',
           'radial-gradient(ellipse 55% 45% at 85% 90%, rgba(80,25,8,.5) 0%, transparent 65%)',
         ].join(', '),
       }}
@@ -55,7 +55,7 @@ export function Login() {
             background: '#fff',
             borderRadius: '16px',
             padding: '18px 24px',
-            boxShadow: '0 8px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(212,168,83,.18)',
+            boxShadow: '0 8px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(240,210,140,.18)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -71,7 +71,7 @@ export function Login() {
 
         <p
           style={{
-            color: 'rgba(212,168,83,.55)',
+            color: 'rgba(240,210,140,.55)',
             fontSize: '.72rem',
             letterSpacing: '.18em',
             textTransform: 'uppercase',
@@ -90,7 +90,7 @@ export function Login() {
           maxWidth: 380,
           background: 'rgba(28,12,5,0.88)',
           backdropFilter: 'blur(28px)',
-          border: '1px solid rgba(212,168,83,.2)',
+          border: '1px solid rgba(240,210,140,.2)',
           borderRadius: '14px',
           padding: '2.25rem 2rem',
         }}
@@ -102,7 +102,7 @@ export function Login() {
             <label
               htmlFor="login-email"
               style={{
-                color: '#c9a07b',
+                color: '#e8c878',
                 fontSize: '.72rem',
                 fontWeight: 700,
                 letterSpacing: '.1em',
@@ -130,7 +130,7 @@ export function Login() {
             <label
               htmlFor="login-password"
               style={{
-                color: '#c9a07b',
+                color: '#e8c878',
                 fontSize: '.72rem',
                 fontWeight: 700,
                 letterSpacing: '.1em',
@@ -178,8 +178,8 @@ export function Login() {
               marginTop: '.1rem',
               width: '100%',
               padding: '.75rem 1rem',
-              background: loading ? 'rgba(212,168,83,.35)' : 'linear-gradient(135deg, #d4a853 0%, #a87830 100%)',
-              color: '#150c09',
+              background: loading ? 'rgba(240,210,140,.35)' : 'linear-gradient(135deg, #f2d892 0%, #a87830 100%)',
+              color: '#2a1812',
               border: 'none',
               borderRadius: '8px',
               fontSize: '.88rem',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -37,7 +37,7 @@ export function MainLayout({ pendingOrders }: MainLayoutProps) {
       {!hideAgenda && (
         <>
           <div className="fixed bottom-6 z-[201] flex flex-col items-center gap-1" style={{ right: '6rem' }}>
-            <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,83,0.65)]">
+            <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(240,210,140,0.65)]">
               Agenda
             </span>
             <button
@@ -45,14 +45,14 @@ export function MainLayout({ pendingOrders }: MainLayoutProps) {
               onClick={() => setIsAgendaOpen(p => !p)}
               className="flex h-14 w-14 items-center justify-center rounded-full border-2 bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all hover:scale-105"
               style={{
-                borderColor: isAgendaOpen ? '#dbb25a' : 'rgba(212,168,83,0.55)',
-                boxShadow: isAgendaOpen ? '0 0 28px rgba(212,168,83,0.35)' : undefined,
+                borderColor: isAgendaOpen ? '#f5e0a8' : 'rgba(240,210,140,0.55)',
+                boxShadow: isAgendaOpen ? '0 0 28px rgba(240,210,140,0.35)' : undefined,
               }}
               aria-label="Abrir agenda"
             >
               <CalendarDays
                 className="h-6 w-6"
-                style={{ color: isAgendaOpen ? '#dbb25a' : 'rgba(212,168,83,0.85)' }}
+                style={{ color: isAgendaOpen ? '#f5e0a8' : 'rgba(240,210,140,0.85)' }}
               />
             </button>
           </div>

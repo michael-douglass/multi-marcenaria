@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -91,7 +91,7 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[rgba(212,168,83,0.12)] px-4 py-2">
+      <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[rgba(240,210,140,0.12)] px-4 py-2">
         <button
           type="button"
           className="btn btn-outline btn-sm !px-2"
@@ -101,7 +101,7 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
         >
           <ZoomOut className="h-4 w-4" />
         </button>
-        <span className="min-w-[3.5rem] text-center text-xs text-[#8a6a55]">
+        <span className="min-w-[3.5rem] text-center text-xs text-[#edd9c4]">
           {Math.round(scale * 100)}%
         </span>
         <button
@@ -122,7 +122,7 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
         >
           <RotateCcw className="h-4 w-4" />
         </button>
-        <span className="hidden text-[0.65rem] text-[#6b5544] sm:inline">
+        <span className="hidden text-[0.65rem] text-[#d4bc9f] sm:inline">
           Scroll ou botões para zoom · arraste para mover
         </span>
       </div>
@@ -174,7 +174,7 @@ function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {total > 1 && (
-        <div className="flex shrink-0 items-center justify-center gap-3 border-b border-[rgba(212,168,83,0.12)] px-4 py-2">
+        <div className="flex shrink-0 items-center justify-center gap-3 border-b border-[rgba(240,210,140,0.12)] px-4 py-2">
           <button
             type="button"
             className="btn btn-outline btn-sm !px-2"
@@ -184,7 +184,7 @@ function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[5.5rem] text-center text-xs text-[#d4a853]">
+          <span className="min-w-[5.5rem] text-center text-xs text-[#f2d892]">
             Página {pageIndex + 1} / {total}
           </span>
           <button
@@ -242,7 +242,7 @@ export function AnexoLightbox({
       aria-modal="true"
       aria-label={`Visualização: ${title}`}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(212,168,83,0.15)] px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(240,210,140,0.15)] px-4 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-cream">{title}</p>
           {description?.trim() && (
@@ -250,7 +250,7 @@ export function AnexoLightbox({
               {description.trim()}
             </p>
           )}
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">
+          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
             {isVideo
               ? 'Vídeo · Esc para fechar'
               : kind === 'pdf'
@@ -313,7 +313,7 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
   const hasPreview = !!previewUrl
 
   return (
-    <div className="group relative overflow-hidden rounded-lg border border-[rgba(212,168,83,0.28)] bg-[rgba(15,7,3,0.65)]">
+    <div className="group relative overflow-hidden rounded-lg border border-[rgba(240,210,140,0.28)] bg-[rgba(68,46,34,0.65)]">
       <button
         type="button"
         className="block w-full"
@@ -325,18 +325,18 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
             <img src={previewUrl} alt={nome} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[rgba(0,0,0,0.4)]">
-              <Play className="h-8 w-8 text-[#d4a853] opacity-60" />
+              <Play className="h-8 w-8 text-[#f2d892] opacity-60" />
             </div>
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.35)] opacity-0 transition-opacity group-hover:opacity-100">
             {kind === 'video' ? (
-              <Play className="h-6 w-6 text-[#d4a853]" />
+              <Play className="h-6 w-6 text-[#f2d892]" />
             ) : (
-              <ZoomIn className="h-6 w-6 text-[#d4a853]" />
+              <ZoomIn className="h-6 w-6 text-[#f2d892]" />
             )}
           </div>
           {kind === 'pdf' && (
-            <span className="absolute left-1 top-1 rounded bg-[rgba(212,168,83,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-[#150c09]">
+            <span className="absolute left-1 top-1 rounded bg-[rgba(240,210,140,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-[#2a1812]">
               PDF
             </span>
           )}
@@ -347,7 +347,7 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
           )}
         </div>
       </button>
-      <p className="truncate px-2 py-1 text-[0.65rem] text-[#8a6a55]" title={nome}>
+      <p className="truncate px-2 py-1 text-[0.65rem] text-[#edd9c4]" title={nome}>
         {nome}
       </p>
       {onDelete && (

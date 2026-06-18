@@ -1,4 +1,4 @@
-import { fmtDate } from './utils'
+﻿import { fmtDate } from './utils'
 import type { ObraFull, StatusKanbanObra } from '../types'
 
 export type ObraProgressoVariant =
@@ -89,7 +89,7 @@ export function calcObraProgresso(
   }
 
   const urgente = daysRemaining <= 2 || percentElapsed >= 75
-  const barColor = urgente ? '#f59e0b' : '#d4a853'
+  const barColor = urgente ? '#f59e0b' : '#f2d892'
 
   return {
     variant: obra.status_kanban === 'em_andamento' ? 'running' : 'scheduled',

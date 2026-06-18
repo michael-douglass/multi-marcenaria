@@ -1,4 +1,4 @@
-import { Clock, Home, LogOut, User, CalendarDays } from 'lucide-react'
+﻿import { Clock, Home, LogOut, User, CalendarDays } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -28,14 +28,14 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(212,168,83,0.09)] bg-[rgba(5,2,1,0.65)] px-4 backdrop-blur-md safe-area-top-offset">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.28)] bg-[rgba(52,34,26,0.94)] px-4 backdrop-blur-md safe-area-top-offset">
       <div className="flex items-center gap-2">
         <SidebarTrigger />
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+          className="h-8 w-8 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
           onClick={() => navigate(-1)}
           aria-label="Voltar"
         >
@@ -45,7 +45,7 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+          className="h-8 w-8 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
           onClick={() => navigate(defaultPathForRoles(roles))}
           aria-label="Início"
         >
@@ -57,7 +57,7 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#d4a853] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#dbb25a]"
+          className="h-8 w-8 text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
           onClick={onOpenAgenda}
           title="Agenda e Calendário"
           aria-label="Agenda e Calendário"
@@ -74,23 +74,23 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
           <button
             type="button"
             onClick={() => navigate(pathFromSection('aprovacao'))}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(212,168,83,0.38)] bg-[rgba(212,168,83,0.12)] px-3 py-1 text-[0.72rem] font-semibold text-[#d4a853] transition-colors hover:bg-[rgba(212,168,83,0.2)]"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(240,210,140,0.38)] bg-[rgba(240,210,140,0.12)] px-3 py-1 text-[0.72rem] font-semibold text-[#f2d892] transition-colors hover:bg-[rgba(240,210,140,0.2)]"
           >
             <Clock className="h-3 w-3" />
             {pendingOrders} pendente{pendingOrders > 1 ? 's' : ''}
           </button>
         )}
 
-        <div className="hidden h-4 w-px bg-[rgba(212,168,83,0.18)] sm:block" />
+        <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
 
         <div className="flex items-center gap-2">
-          <User className="h-3.5 w-3.5 shrink-0 text-[#8a6a55]" />
+          <User className="h-3.5 w-3.5 shrink-0 text-[#edd9c4]" />
           <div className="hidden flex-col items-end sm:flex">
             <span className="max-w-[180px] truncate text-[0.72rem] font-semibold text-cream">
               {userProfile?.email ?? ''}
             </span>
             {perfilLabel && (
-              <span className="text-[0.6rem] font-bold uppercase tracking-wider text-[#d4a853]">
+              <span className="text-[0.6rem] font-bold uppercase tracking-wider text-[#f2d892]">
                 {perfilLabel}
               </span>
             )}
@@ -101,7 +101,7 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#8a6a55] hover:text-[#dbb25a]"
+          className="h-8 w-8 text-[#edd9c4] hover:text-[#f5e0a8]"
           onClick={() => signOut()}
           title="Sair"
         >

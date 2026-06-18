@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Copy } from 'lucide-react'
 import { processarTemplate } from '@/lib/processarTemplate'
 import { showToast } from '@/lib/toast'
@@ -78,7 +78,7 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
           className="absolute z-[300] right-0 mt-1 rounded-lg"
           style={{
             background: '#1a0f0a',
-            border: '1px solid rgba(212,168,83,.25)',
+            border: '1px solid rgba(240,210,140,.25)',
             boxShadow: '0 8px 32px rgba(0,0,0,.65)',
             minWidth: 230,
             maxWidth: 280,
@@ -88,9 +88,9 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
           <div
             className="px-3 py-2 section-label"
             style={{
-              borderBottom: '1px solid rgba(212,168,83,.12)',
+              borderBottom: '1px solid rgba(240,210,140,.12)',
               fontSize: '.68rem',
-              color: '#d4a853',
+              color: '#f2d892',
             }}
           >
             COPIAR COBRANÇA
@@ -106,10 +106,10 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
                   className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 transition-colors"
                   style={{
                     background: selectedId === t.id
-                      ? 'rgba(212,168,83,.12)'
+                      ? 'rgba(240,210,140,.12)'
                       : 'transparent',
                     border: selectedId === t.id
-                      ? '1px solid rgba(212,168,83,.3)'
+                      ? '1px solid rgba(240,210,140,.3)'
                       : '1px solid transparent',
                   }}
                 >
@@ -119,9 +119,9 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
                     value={t.id}
                     checked={selectedId === t.id}
                     onChange={() => setSelectedId(t.id)}
-                    style={{ accentColor: '#d4a853' }}
+                    style={{ accentColor: '#f2d892' }}
                   />
-                  <span style={{ color: '#f4e4d6', fontSize: '.8rem', fontFamily: 'Raleway, sans-serif' }}>
+                  <span style={{ color: '#fffaf4', fontSize: '.8rem', fontFamily: 'Raleway, sans-serif' }}>
                     {t.nome}
                   </span>
                 </label>
@@ -132,7 +132,7 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
           {/* Info PIX */}
           <div
             className="mx-3 mb-2.5 mt-2 rounded px-2.5 py-2"
-            style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(212,168,83,.1)' }}
+            style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(240,210,140,.1)' }}
           >
             <div className="flex items-center justify-between mb-0.5">
               <p className="section-label" style={{ fontSize: '.63rem' }}>Chave PIX</p>
@@ -158,10 +158,10 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
             </div>
             {pixConfig ? (
               <>
-                <p style={{ color: '#f4e4d6', fontSize: '.78rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                <p style={{ color: '#fffaf4', fontSize: '.78rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                   {pixConfig.chave_pix}
                 </p>
-                <p style={{ color: '#8a6a55', fontSize: '.68rem', marginTop: '.1rem' }}>
+                <p style={{ color: '#edd9c4', fontSize: '.68rem', marginTop: '.1rem' }}>
                   {tipoLabel}
                   {pixConfig.nome_beneficiario ? ` · ${pixConfig.nome_beneficiario}` : ''}
                 </p>
@@ -176,7 +176,7 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
           {/* Botão copiar */}
           <div
             className="px-3 pb-3"
-            style={{ borderTop: '1px solid rgba(212,168,83,.1)', paddingTop: '.6rem' }}
+            style={{ borderTop: '1px solid rgba(240,210,140,.1)', paddingTop: '.6rem' }}
           >
             <button
               type="button"

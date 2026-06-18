@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react'
+﻿import { useRef, useState, useMemo } from 'react'
 import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
@@ -67,7 +67,7 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
     <div>
-      <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">{label}</p>
+      <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">{label}</p>
       <p className="text-sm text-cream mt-0.5">{value}</p>
     </div>
   )
@@ -172,7 +172,7 @@ export function ObraDetalheModal({
         {/* Cabeçalho: cliente + status + botão editar */}
         <div className="flex items-start justify-between gap-3 mb-5">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-[#d4a853] font-display leading-tight">
+            <h2 className="text-xl font-bold text-[#f2d892] font-display leading-tight">
               {obra.cliente_nome}
             </h2>
             <span
@@ -236,7 +236,7 @@ export function ObraDetalheModal({
 
             {diasTrabalhoLabels.length > 0 && (
               <div className="mb-3">
-                <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55] mb-2">Dias</p>
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] mb-2">Dias</p>
                 <div className="flex flex-wrap gap-1.5">
                   {diasTrabalhoLabels.map(dia => (
                     <span
@@ -254,7 +254,7 @@ export function ObraDetalheModal({
             {horarioTrabalho && (
               <div className="flex items-center gap-2 flex-wrap">
                 <Clock size={13} className="text-sky-400 shrink-0" />
-                <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">Horário</p>
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">Horário</p>
                 <p className="text-sm text-cream font-medium">{horarioTrabalho}</p>
               </div>
             )}
@@ -265,11 +265,11 @@ export function ObraDetalheModal({
         {obra.lousa && (
           <div
             className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(212,168,83,0.07)', border: '1px solid rgba(212,168,83,0.18)' }}
+            style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
           >
             <div className="flex items-center gap-1.5 mb-2">
-              <FileText size={13} className="text-[#d4a853]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+              <FileText size={13} className="text-[#f2d892]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
                 Lousa (CRM)
               </p>
             </div>
@@ -307,7 +307,7 @@ export function ObraDetalheModal({
           )}
           {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
             <div className="col-span-2">
-              <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">Período Previsto</p>
+              <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">Período Previsto</p>
               <p className="text-sm text-cream mt-0.5">
                 {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
                 {' → '}
@@ -334,11 +334,11 @@ export function ObraDetalheModal({
         {obra.comissao_habilitada && comissaoItens.length > 0 && (
           <div
             className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.2)' }}
+            style={{ backgroundColor: 'rgba(240,210,140,0.06)', border: '1px solid rgba(240,210,140,0.2)' }}
           >
             <div className="flex items-center gap-1.5 mb-2">
-              <Banknote size={13} className="text-[#d4a853]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+              <Banknote size={13} className="text-[#f2d892]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
                 Comissão
                 {obra.comissao_gerada && (
                   <span className="ml-2 text-emerald-400 normal-case">· Pagamentos gerados</span>
@@ -349,11 +349,11 @@ export function ObraDetalheModal({
               {comissaoItens.map(item => (
                 <li key={item.prestador_id} className="flex justify-between text-sm text-cream gap-3">
                   <span className="truncate">{item.prestador_nome ?? 'Montador'}</span>
-                  <span className="font-mono text-[#d4a853] shrink-0">{fmtCur(item.valor)}</span>
+                  <span className="font-mono text-[#f2d892] shrink-0">{fmtCur(item.valor)}</span>
                 </li>
               ))}
             </ul>
-            <p className="text-right text-sm font-semibold text-[#d4a853]">
+            <p className="text-right text-sm font-semibold text-[#f2d892]">
               Total: {fmtCur(comissaoTotal)}
             </p>
             {podeGerarComissao && onAplicarComissao && (
@@ -364,7 +364,7 @@ export function ObraDetalheModal({
                   if (!confirm('Gerar pagamentos de comissão em Contas a Pagar para os prestadores?')) return
                   onAplicarComissao(obra.id)
                 }}
-                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-[#d4a853]/15 text-[#d4a853] hover:bg-[#d4a853]/25 transition-colors disabled:opacity-50"
+                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-[#f2d892]/15 text-[#f2d892] hover:bg-[#f2d892]/25 transition-colors disabled:opacity-50"
               >
                 {applyingComissao
                   ? <Loader2 size={14} className="animate-spin" />
@@ -403,14 +403,14 @@ export function ObraDetalheModal({
         )}
 
         {/* ── EVOLUÇÃO DA OBRA (DIÁRIO) ───────────────────────── */}
-        <div className="border-t border-[rgba(212,168,83,0.12)] pt-4 mb-5">
+        <div className="border-t border-[rgba(240,210,140,0.12)] pt-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Camera size={15} className="text-[#d4a853]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+              <Camera size={15} className="text-[#f2d892]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
                 Evolução da Obra (Diário)
                 {evolHook.data.length > 0 && (
-                  <span className="ml-2 text-[#8a6a55] normal-case font-normal">
+                  <span className="ml-2 text-[#edd9c4] normal-case font-normal">
                     ({evolHook.data.length})
                   </span>
                 )}
@@ -436,11 +436,11 @@ export function ObraDetalheModal({
           )}
 
           {evolHook.loading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-[#8a6a55]">
+            <div className="flex items-center gap-2 py-4 text-xs text-[#edd9c4]">
               <Loader2 size={14} className="animate-spin" /> Carregando evolução...
             </div>
           ) : evolHook.data.length === 0 ? (
-            <p className="text-xs text-[#6b5544] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(212,168,83,0.1)]">
+            <p className="text-xs text-[#d4bc9f] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(240,210,140,0.1)]">
               {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para enviar fotos e observações do que foi feito.' : 'Nenhum progresso registrado.'}
             </p>
           ) : (
@@ -448,19 +448,19 @@ export function ObraDetalheModal({
               {diasEvolucao.map(dia => (
                 <div
                   key={dia.data}
-                  className="relative pl-5 border-l border-[rgba(212,168,83,0.22)]"
+                  className="relative pl-5 border-l border-[rgba(240,210,140,0.22)]"
                 >
-                  <div className="absolute -left-[5px] top-1 w-[9px] h-[9px] rounded-full bg-[#d4a853] shadow-[0_0_8px_rgba(212,168,83,0.45)]" />
+                  <div className="absolute -left-[5px] top-1 w-[9px] h-[9px] rounded-full bg-[#f2d892] shadow-[0_0_8px_rgba(240,210,140,0.45)]" />
 
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className="text-sm font-bold text-[#d4a853] font-display tracking-wide">
+                    <span className="text-sm font-bold text-[#f2d892] font-display tracking-wide">
                       Dia {String(dia.diaNumero).padStart(2, '0')}
                     </span>
-                    <span className="flex items-center gap-1 text-[0.68rem] text-[#8a6a55]">
+                    <span className="flex items-center gap-1 text-[0.68rem] text-[#edd9c4]">
                       <Calendar size={11} />
                       {fmtDate(dia.data)}
                     </span>
-                    <span className="text-[0.62rem] text-[#6b5544]">
+                    <span className="text-[0.62rem] text-[#d4bc9f]">
                       · {dia.fotos.length} foto{dia.fotos.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -494,12 +494,12 @@ export function ObraDetalheModal({
         </div>
 
         {/* ── FOTOS E DOCUMENTOS ─────────────────────────────── */}
-        <div className="border-t border-[rgba(212,168,83,0.12)] pt-4">
+        <div className="border-t border-[rgba(240,210,140,0.12)] pt-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#d4a853]">
+            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
               Fotos e Documentos
               {arqHook.data.length > 0 && (
-                <span className="ml-2 text-[#8a6a55] normal-case font-normal">
+                <span className="ml-2 text-[#edd9c4] normal-case font-normal">
                   ({arqHook.data.length})
                 </span>
               )}
@@ -509,7 +509,7 @@ export function ObraDetalheModal({
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={arqHook.uploading}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(212,168,83,0.12)] text-[#d4a853] hover:bg-[rgba(212,168,83,0.22)] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(240,210,140,0.12)] text-[#f2d892] hover:bg-[rgba(240,210,140,0.22)] transition-colors disabled:opacity-50"
                 >
                   {arqHook.uploading
                     ? <Loader2 size={12} className="animate-spin" />
@@ -534,11 +534,11 @@ export function ObraDetalheModal({
           )}
 
           {arqHook.loading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-[#8a6a55]">
+            <div className="flex items-center gap-2 py-4 text-xs text-[#edd9c4]">
               <Loader2 size={14} className="animate-spin" /> Carregando arquivos...
             </div>
           ) : arqHook.data.length === 0 ? (
-            <p className="text-xs text-[#6b5544] py-4">
+            <p className="text-xs text-[#d4bc9f] py-4">
               {canUpload ? 'Nenhum arquivo. Clique em "Adicionar" para enviar fotos, PDFs ou vídeos.' : 'Nenhum arquivo enviado.'}
             </p>
           ) : (

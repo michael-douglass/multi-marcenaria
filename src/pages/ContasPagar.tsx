@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
@@ -94,18 +94,18 @@ function FornecedorSelect({ fornecedores, value, onChange, getSaldoFornecedor, c
       />
       {open && (
         <div
-          className="absolute z-[200] w-full mt-1 rounded-lg border border-[rgba(212,168,83,.2)] overflow-y-auto"
+          className="absolute z-[200] w-full mt-1 rounded-lg border border-[rgba(240,210,140,.2)] overflow-y-auto"
           style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.6)', maxHeight: 224 }}
         >
           <div
-            className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(212,168,83,.08)]"
-            style={{ color: '#8a6a55' }}
+            className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(240,210,140,.08)]"
+            style={{ color: '#edd9c4' }}
             onClick={() => handleSelect('')}
           >
             — Nenhum —
           </div>
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-[#8a6a55]">Nenhum resultado.</div>
+            <div className="px-3 py-2 text-sm text-[#edd9c4]">Nenhum resultado.</div>
           ) : (
             filtered.map(f => {
               const saldo = getSaldoFornecedor(f.id)
@@ -113,10 +113,10 @@ function FornecedorSelect({ fornecedores, value, onChange, getSaldoFornecedor, c
               return (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[rgba(212,168,83,.08)]"
+                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.08)]"
                   onClick={() => handleSelect(f.id)}
                 >
-                  <span style={{ color: '#f4e4d6', fontSize: '.9rem' }}>{f.nome}</span>
+                  <span style={{ color: '#fffaf4', fontSize: '.9rem' }}>{f.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     {saldo > 0 && (
                       <span style={{ color: '#4ade80', fontSize: '.72rem', fontWeight: 700 }}>
@@ -694,7 +694,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Contas a Pagar</h1>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Contas a Pagar</h1>
           <p className="section-label mt-1">
             {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''} no período
             {hasLancamentoPagarDraft() && !open ? ' · rascunho salvo' : ''}
@@ -745,7 +745,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         closeOnBackdrop={false}
       >
         {(draftHint || hasLancamentoPagarDraft()) && (
-          <p className="mb-3 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.08)] px-3 py-2 text-xs text-[#d4a853]">
+          <p className="mb-3 rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.08)] px-3 py-2 text-xs text-[#f2d892]">
             Seus dados são salvos automaticamente neste navegador. Ao reabrir, você continua de onde parou.
             {hasLancamentoPagarDraft() ? ' (Anexos precisam ser adicionados de novo.)' : ''}
           </p>
@@ -812,12 +812,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   padding: '.6rem .75rem',
                   borderRadius: 8,
                   border: form.recorrente === opt.value
-                    ? '1.5px solid #d4a853'
-                    : '1px solid rgba(212,168,83,.2)',
+                    ? '1.5px solid #f2d892'
+                    : '1px solid rgba(240,210,140,.2)',
                   background: form.recorrente === opt.value
-                    ? 'rgba(212,168,83,.12)'
+                    ? 'rgba(240,210,140,.12)'
                     : 'transparent',
-                  color: form.recorrente === opt.value ? '#d4a853' : '#8a6a55',
+                  color: form.recorrente === opt.value ? '#f2d892' : '#edd9c4',
                   cursor: 'pointer',
                   fontSize: '.8rem',
                   fontWeight: 600,
@@ -834,7 +834,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             ))}
           </div>
           {form.recorrente && (
-            <p style={{ fontSize: '.72rem', color: '#8a6a55', marginTop: '.4rem' }}>
+            <p style={{ fontSize: '.72rem', color: '#edd9c4', marginTop: '.4rem' }}>
               Gera cobranças todo mês automaticamente. O sistema sempre mantém 12 meses à frente.
             </p>
           )}
@@ -992,7 +992,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         title="APLICAR EM PARCELAS"
         closeOnBackdrop={false}
       >
-        <p className="mb-4 text-sm text-[#f4e4d6]">
+        <p className="mb-4 text-sm text-[#fffaf4]">
           Esta conta faz parte de um lançamento parcelado. Deseja editar apenas esta parcela ou
           também as outras parcelas do mesmo lançamento?
         </p>
@@ -1052,7 +1052,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             <span>Ocultar Dívida</span>
             {idsOcultos.size > 0 && (
               <span style={{
-                background: '#d4a853', color: '#1a0f0a', borderRadius: 9999,
+                background: '#f2d892', color: '#1a0f0a', borderRadius: 9999,
                 fontSize: '.65rem', fontWeight: 700, padding: '0 .4rem',
                 lineHeight: '1.35rem', minWidth: '1.35rem', textAlign: 'center' as const,
               }}>
@@ -1064,11 +1064,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
           {ocultarOpen && (
             <div
-              className="absolute right-0 z-[200] rounded-lg border border-[rgba(212,168,83,.2)]"
+              className="absolute right-0 z-[200] rounded-lg border border-[rgba(240,210,140,.2)]"
               style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.7)', width: 320, top: 'calc(100% + 4px)' }}
             >
               {/* Filtrar lista por status */}
-              <div className="px-3 pt-3 pb-2 border-b border-[rgba(212,168,83,.1)]">
+              <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
                 <div className="section-label mb-2" style={{ fontSize: '.7rem' }}>Filtrar lista por status</div>
                 <div className="flex flex-wrap gap-1.5">
                   {([
@@ -1090,9 +1090,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         })}
                         style={{
                           padding: '.2rem .55rem', borderRadius: 9999,
-                          border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-                          background: active ? 'rgba(212,168,83,.14)' : 'transparent',
-                          color: active ? '#d4a853' : '#8a6a55',
+                          border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+                          background: active ? 'rgba(240,210,140,.14)' : 'transparent',
+                          color: active ? '#f2d892' : '#edd9c4',
                           cursor: 'pointer', fontSize: '.75rem', fontWeight: 600,
                           fontFamily: 'Raleway, sans-serif', transition: 'all .15s',
                         }}
@@ -1105,7 +1105,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               </div>
 
               {/* Busca individual */}
-              <div className="px-3 py-2 border-b border-[rgba(212,168,83,.1)]">
+              <div className="px-3 py-2 border-b border-[rgba(240,210,140,.1)]">
                 <input
                   type="text"
                   className="glass-input w-full"
@@ -1118,7 +1118,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
               {/* Marcar todos */}
               {ocultarListaFiltrada.length > 0 && (
-                <div className="px-3 py-1.5 border-b border-[rgba(212,168,83,.08)] flex items-center gap-2">
+                <div className="px-3 py-1.5 border-b border-[rgba(240,210,140,.08)] flex items-center gap-2">
                   <input
                     type="checkbox"
                     ref={el => {
@@ -1134,9 +1134,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       else ocultarListaFiltrada.forEach(c => next.delete(c.id))
                       return next
                     })}
-                    style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                    style={{ accentColor: '#f2d892', flexShrink: 0 }}
                   />
-                  <span style={{ color: '#8a6a55', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
+                  <span style={{ color: '#edd9c4', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
                     Marcar todos ({ocultarListaFiltrada.length})
                   </span>
                 </div>
@@ -1145,7 +1145,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               {/* Lista individual */}
               <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                 {ocultarListaFiltrada.length === 0 ? (
-                  <div className="px-3 py-3 text-sm text-[#8a6a55]">Nenhuma dívida encontrada.</div>
+                  <div className="px-3 py-3 text-sm text-[#edd9c4]">Nenhuma dívida encontrada.</div>
                 ) : (
                   ocultarListaFiltrada.map(c => {
                     const s = getStatus(c.data_vencimento, c.status)
@@ -1154,7 +1154,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                     return (
                       <label
                         key={c.id}
-                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(212,168,83,.05)]"
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.05)]"
                       >
                         <input
                           type="checkbox"
@@ -1164,17 +1164,17 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                             if (e.target.checked) next.add(c.id); else next.delete(c.id)
                             return next
                           })}
-                          style={{ accentColor: '#d4a853', flexShrink: 0 }}
+                          style={{ accentColor: '#f2d892', flexShrink: 0 }}
                         />
                         <div className="flex-1 min-w-0">
                           <div style={{
-                            color: checked ? '#8a6a55' : '#f4e4d6',
+                            color: checked ? '#edd9c4' : '#fffaf4',
                             fontSize: '.82rem', overflow: 'hidden',
                             textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
                             {nome}
                           </div>
-                          <div style={{ color: '#8a6a55', fontSize: '.7rem' }}>
+                          <div style={{ color: '#edd9c4', fontSize: '.7rem' }}>
                             {fmtCur(c.valor_parcela)} · {fmtDate(c.data_vencimento)}
                           </div>
                         </div>
@@ -1187,8 +1187,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
               {/* Rodapé */}
               {ocultarIds.size > 0 && (
-                <div className="px-3 py-2 border-t border-[rgba(212,168,83,.1)] flex items-center justify-between">
-                  <span style={{ fontSize: '.75rem', color: '#8a6a55' }}>{ocultarIds.size} item(s) oculto(s)</span>
+                <div className="px-3 py-2 border-t border-[rgba(240,210,140,.1)] flex items-center justify-between">
+                  <span style={{ fontSize: '.75rem', color: '#edd9c4' }}>{ocultarIds.size} item(s) oculto(s)</span>
                   <button
                     type="button"
                     onClick={() => setOcultarIds(new Set())}
@@ -1220,7 +1220,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         ) : (
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+              <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                 {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
               </tr></thead>
               <tbody>
@@ -1230,11 +1230,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   const valorTotalLancamento = getValorTotalLancamento(p)
                   return (
                     <tr key={p.id} className="trow">
-                      <td className="px-4 py-3" style={{ color: '#f4e4d6', maxWidth: 220 }}>
+                      <td className="px-4 py-3" style={{ color: '#fffaf4', maxWidth: 220 }}>
                         <div className="flex items-center gap-1.5">
                           {p.recorrente && (
                             <RefreshCw
-                              className="shrink-0 text-[#d4a853]"
+                              className="shrink-0 text-[#f2d892]"
                               style={{ width: 11, height: 11 }}
                               title="Cobrança recorrente"
                             />
@@ -1242,7 +1242,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                           <span>{nomeExibido}</span>
                         </div>
                         {valorTotalLancamento != null && (
-                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#d4a853' }}>
+                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#f2d892' }}>
                             {fmtCur(valorTotalLancamento)}
                           </div>
                         )}
@@ -1253,21 +1253,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         )}
                         {p.observacao ? (
                           <p
-                            className="mt-1 line-clamp-2 text-[0.75rem] italic text-[#8a6a55]"
+                            className="mt-1 line-clamp-2 text-[0.75rem] italic text-[#edd9c4]"
                             title={p.observacao}
                           >
                             {p.observacao}
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-[0.82rem] text-[#8a6a55]">
+                      <td className="px-4 py-3 text-[0.82rem] text-[#edd9c4]">
                         {p.movelaria_formas_pagamento_pagar?.nome ?? '—'}
                       </td>
-                      <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{p.numero_parcela}/{p.total_parcelas}</td>
-                      <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 600 }}>{fmtCur(p.valor_parcela)}</td>
+                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{p.numero_parcela}/{p.total_parcelas}</td>
+                      <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 600 }}>{fmtCur(p.valor_parcela)}</td>
                       <td className="px-4 py-3" style={{ color: getValorPagoConta(p) > 0 ? '#4ade80' : '#4a5568', fontWeight: 600 }}>{fmtCur(getValorPagoConta(p))}</td>
-                      <td className="px-4 py-3" style={{ color: p.status === 'pago' ? '#4ade80' : '#f4e4d6', fontWeight: 600 }}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
-                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#8a6a55', fontSize: '.85rem' }}>{fmtDate(p.data_vencimento)}</td>
+                      <td className="px-4 py-3" style={{ color: p.status === 'pago' ? '#4ade80' : '#fffaf4', fontWeight: 600 }}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
+                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(p.data_vencimento)}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -1347,9 +1347,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: '1px solid rgba(212,168,83,.18)', background: 'rgba(212,168,83,.04)' }}>
+                <tr style={{ borderTop: '1px solid rgba(240,210,140,.18)', background: 'rgba(240,210,140,.04)' }}>
                   <td colSpan={3} className="px-4 py-3 section-label" style={{ fontWeight: 700 }}>Total</td>
-                  <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 700 }}>{fmtCur(totaisColunas.valorTotal)}</td>
+                  <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 700 }}>{fmtCur(totaisColunas.valorTotal)}</td>
                   <td className="px-4 py-3" style={{ color: totaisColunas.pago > 0 ? '#4ade80' : '#4a5568', fontWeight: 700 }}>{fmtCur(totaisColunas.pago)}</td>
                   <td className="px-4 py-3" style={{ color: totaisColunas.restante > 0 ? '#f87171' : '#4ade80', fontWeight: 700 }}>{fmtCur(totaisColunas.restante)}</td>
                   <td colSpan={3} />
@@ -1367,8 +1367,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         title="ENCERRAR RECORRÊNCIA"
         closeOnBackdrop={false}
       >
-        <p className="mb-4 text-sm" style={{ color: '#f4e4d6' }}>
-          <strong style={{ color: '#d4a853' }}>{encerrarModal.descricao}</strong>
+        <p className="mb-4 text-sm" style={{ color: '#fffaf4' }}>
+          <strong style={{ color: '#f2d892' }}>{encerrarModal.descricao}</strong>
           {' '}— Como deseja encerrar esta cobrança recorrente?
         </p>
 
@@ -1390,7 +1390,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 background: encerrarModal.modo === opt.value
                   ? 'rgba(248,113,113,.1)'
                   : 'transparent',
-                color: encerrarModal.modo === opt.value ? '#f87171' : '#8a6a55',
+                color: encerrarModal.modo === opt.value ? '#f87171' : '#edd9c4',
                 cursor: 'pointer',
                 fontSize: '.75rem',
                 fontWeight: 600,
@@ -1450,16 +1450,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             <>
               {/* Cards: Valor Total | Já Pago | Restante */}
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <div style={{ background: 'rgba(212,168,83,.06)', border: '1px solid rgba(212,168,83,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
-                  <div className="text-xs text-[#8a6a55] mb-1">Valor Total</div>
-                  <div className="font-display" style={{ fontSize: '1.05rem', color: '#d4a853' }}>{fmtCur(conta.valor_parcela)}</div>
+                <div style={{ background: 'rgba(240,210,140,.06)', border: '1px solid rgba(240,210,140,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
+                  <div className="text-xs text-[#edd9c4] mb-1">Valor Total</div>
+                  <div className="font-display" style={{ fontSize: '1.05rem', color: '#f2d892' }}>{fmtCur(conta.valor_parcela)}</div>
                 </div>
                 <div style={{ background: 'rgba(74,222,128,.06)', border: '1px solid rgba(74,222,128,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
-                  <div className="text-xs text-[#8a6a55] mb-1">Já Pago</div>
-                  <div className="font-display" style={{ fontSize: '1.05rem', color: valorPagoAtual > 0 ? '#4ade80' : '#8a6a55' }}>{fmtCur(valorPagoAtual)}</div>
+                  <div className="text-xs text-[#edd9c4] mb-1">Já Pago</div>
+                  <div className="font-display" style={{ fontSize: '1.05rem', color: valorPagoAtual > 0 ? '#4ade80' : '#edd9c4' }}>{fmtCur(valorPagoAtual)}</div>
                 </div>
                 <div style={{ background: 'rgba(248,113,113,.06)', border: '1px solid rgba(248,113,113,.2)', borderRadius: 8, padding: '.6rem .75rem' }}>
-                  <div className="text-xs text-[#8a6a55] mb-1">Restante</div>
+                  <div className="text-xs text-[#edd9c4] mb-1">Restante</div>
                   <div className="font-display" style={{ fontSize: '1.05rem', color: '#f87171' }}>{fmtCur(restanteDevido)}</div>
                 </div>
               </div>
@@ -1467,7 +1467,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               {/* Caixa do fornecedor (se houver saldo) */}
               {nomeForn && saldo > 0 && (
                 <div style={{ background: 'rgba(74,222,128,.04)', border: '1px solid rgba(74,222,128,.15)', borderRadius: 6, padding: '.4rem .75rem', marginBottom: '.75rem' }}>
-                  <span className="text-xs text-[#8a6a55]">Caixa — {nomeForn}: </span>
+                  <span className="text-xs text-[#edd9c4]">Caixa — {nomeForn}: </span>
                   <span style={{ fontWeight: 700, color: '#4ade80', fontSize: '.85rem' }}>{fmtCur(saldo)} disponível</span>
                 </div>
               )}
@@ -1546,8 +1546,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                     />
                   </Field>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-[#8a6a55]">Restante a pagar (outra forma):</span>
-                    <span style={{ fontWeight: 700, fontSize: '.9rem', color: quitado ? '#4ade80' : '#f4e4d6' }}>
+                    <span className="text-xs text-[#edd9c4]">Restante a pagar (outra forma):</span>
+                    <span style={{ fontWeight: 700, fontSize: '.9rem', color: quitado ? '#4ade80' : '#fffaf4' }}>
                       {quitado ? '✓ Coberto pelo caixa' : fmtCur(restanteForma)}
                     </span>
                   </div>
@@ -1588,7 +1588,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       <button
         type="button"
         onClick={() => setCaixaOpen(true)}
-        className="fixed top-5 right-5 z-[95] rounded-full border border-[rgba(212,168,83,0.45)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#d4a853] shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:scale-105 hover:border-[#dbb25a] hover:text-[#dbb25a]"
+        className="fixed top-5 right-5 z-[95] rounded-full border border-[rgba(240,210,140,0.45)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#f2d892] shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:scale-105 hover:border-[#f5e0a8] hover:text-[#f5e0a8]"
         aria-label="Abrir caixa de pagamentos"
         title="Abrir Caixa de Pagamentos"
       >

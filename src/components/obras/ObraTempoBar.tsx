@@ -1,4 +1,4 @@
-import { calcObraProgresso } from '@/lib/obra-progresso'
+﻿import { calcObraProgresso } from '@/lib/obra-progresso'
 import type { ObraFull } from '@/types'
 
 interface ObraTempoBarProps {
@@ -28,7 +28,7 @@ export function ObraTempoBar({ obra, compact = false }: ObraTempoBarProps) {
         {showPercent && (
           <span
             className={[
-              'tabular-nums text-[#8a6a55]',
+              'tabular-nums text-[#edd9c4]',
               compact ? 'text-[0.55rem]' : 'text-[0.65rem]',
             ].join(' ')}
           >
@@ -42,7 +42,7 @@ export function ObraTempoBar({ obra, compact = false }: ObraTempoBarProps) {
           'w-full max-w-full min-w-0 rounded-full overflow-hidden',
           compact ? 'h-1' : 'h-1.5',
         ].join(' ')}
-        style={{ backgroundColor: 'rgba(212,168,83,0.12)' }}
+        style={{ backgroundColor: 'rgba(240,210,140,0.12)' }}
         role="progressbar"
         aria-valuenow={progresso.percentElapsed}
         aria-valuemin={0}
@@ -65,7 +65,7 @@ export function ObraTempoBar({ obra, compact = false }: ObraTempoBarProps) {
       </div>
 
       {!compact && progresso.sublabel && (
-        <p className="text-[0.62rem] text-[#8a6a55] mt-0.5">{progresso.sublabel}</p>
+        <p className="text-[0.62rem] text-[#edd9c4] mt-0.5">{progresso.sublabel}</p>
       )}
     </div>
   )

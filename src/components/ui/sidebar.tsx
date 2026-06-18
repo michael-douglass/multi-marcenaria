@@ -1,4 +1,4 @@
-import * as React from 'react'
+﻿import * as React from 'react'
 import { PanelLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -167,7 +167,7 @@ const Sidebar = React.forwardRef<
           onClick={() => {
             if (!isMobile) toggleSidebar()
           }}
-          className="flex h-full w-full cursor-pointer flex-col border-r border-[rgba(212,168,83,0.30)] bg-[rgba(10,4,2,0.97)] shadow-[4px_0_32px_rgba(0,0,0,0.45),inset_-1px_0_0_rgba(212,168,83,0.12)] backdrop-blur-[32px]"
+          className="flex h-full w-full cursor-pointer flex-col border-r border-[rgba(240,210,140,0.30)] bg-[rgba(10,4,2,0.97)] shadow-[4px_0_32px_rgba(0,0,0,0.45),inset_-1px_0_0_rgba(240,210,140,0.12)] backdrop-blur-[32px]"
         >
           {children}
         </div>
@@ -189,9 +189,9 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn(
-        'h-11 w-11 shrink-0 rounded-lg border border-[rgba(212,168,83,0.24)] bg-[rgba(212,168,83,0.07)]',
-        'text-[#dbb25a] shadow-[0_0_0_1px_rgba(212,168,83,0.06)]',
-        'hover:bg-[rgba(212,168,83,0.14)] hover:text-[#f0d48a] active:scale-[0.97]',
+        'h-11 w-11 shrink-0 rounded-lg border border-[rgba(240,210,140,0.24)] bg-[rgba(240,210,140,0.07)]',
+        'text-[#f5e0a8] shadow-[0_0_0_1px_rgba(240,210,140,0.06)]',
+        'hover:bg-[rgba(240,210,140,0.14)] hover:text-[#f0d48a] active:scale-[0.97]',
         'md:h-8 md:w-8 md:rounded-md md:border-0 md:bg-transparent md:shadow-none',
         className,
       )}
@@ -296,7 +296,7 @@ const SidebarMenuButton = React.forwardRef<
     className={cn(
       'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none transition-[width,height,padding] hover:text-sidebar-accent-foreground focus-visible:ring-2',
       'h-8 text-sm group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
-      isActive ? 'sidebar-item-active' : 'sidebar-item-hover text-[#a07c65]',
+      isActive ? 'sidebar-item-active' : 'sidebar-item-hover text-[#d4bc9f]',
       className,
     )}
     {...props}

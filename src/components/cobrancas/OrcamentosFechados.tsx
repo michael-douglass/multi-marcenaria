@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Modal } from '../ui/Modal'
 import { ModalFormFooter } from '../ui/ModalFormFooter'
 import { Field, FieldRow } from '../ui/Field'
@@ -318,7 +318,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
         <div>
           <h2
             className="font-display"
-            style={{ fontSize: '1.3rem', color: '#d4a853', letterSpacing: '.06em' }}
+            style={{ fontSize: '1.3rem', color: '#f2d892', letterSpacing: '.06em' }}
           >
             Orçamentos Fechados — Dar entrada no caixa
           </h2>
@@ -328,12 +328,12 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
         </div>
         <div
           className="glass-card px-4 py-2 text-right"
-          style={{ borderLeft: '3px solid rgba(212,168,83,.5)' }}
+          style={{ borderLeft: '3px solid rgba(240,210,140,.5)' }}
         >
           <div className="section-label" style={{ fontSize: '.68rem' }}>Total em aberto</div>
           <div
             className="font-display"
-            style={{ fontSize: '1.2rem', color: '#d4a853' }}
+            style={{ fontSize: '1.2rem', color: '#f2d892' }}
           >
             {fmtCur(leads.reduce((s, l) => s + valorEfetivo(l), 0))}
           </div>
@@ -351,7 +351,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
           <div
             key={lead.id}
             className="glass-card p-5"
-            style={{ borderLeft: '3px solid rgba(212,168,83,.5)', position: 'relative' }}
+            style={{ borderLeft: '3px solid rgba(240,210,140,.5)', position: 'relative' }}
           >
             {isAdmin && !readOnly && confirmandoExclusao !== lead.id && (
               <button
@@ -372,7 +372,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 🗑
               </button>
             )}
-            <div style={{ fontWeight: 700, color: '#f4e4d6', fontSize: '1rem', marginBottom: '.35rem', paddingRight: isAdmin && !readOnly ? '1.8rem' : '0' }}>
+            <div style={{ fontWeight: 700, color: '#fffaf4', fontSize: '1rem', marginBottom: '.35rem', paddingRight: isAdmin && !readOnly ? '1.8rem' : '0' }}>
               {lead.nome}
             </div>
             {lead.telefone && (
@@ -399,8 +399,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   marginBottom: '.65rem',
                   padding: '.45rem .55rem',
                   borderRadius: 8,
-                  border: '1px solid rgba(212,168,83,.2)',
-                  background: 'rgba(212,168,83,.05)',
+                  border: '1px solid rgba(240,210,140,.2)',
+                  background: 'rgba(240,210,140,.05)',
                 }}
               >
                 <div className="section-label" style={{ fontSize: '.64rem', marginBottom: '.18rem' }}>
@@ -452,7 +452,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   onClick={() => setEditandoValor(null)}
                   style={{
                     padding: '.3rem .6rem', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)',
-                    background: 'transparent', color: '#8a6a55', cursor: 'pointer', fontSize: '.8rem',
+                    background: 'transparent', color: '#edd9c4', cursor: 'pointer', fontSize: '.8rem',
                   }}
                 >✕</button>
               </div>
@@ -468,9 +468,9 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 >
                   {valorEfetivo(lead) > 0 ? fmtCur(valorEfetivo(lead)) : '—'}
                 </span>
-                {!readOnly && <span style={{ fontSize: '.7rem', color: '#8a6a55', opacity: .7 }}>✎</span>}
+                {!readOnly && <span style={{ fontSize: '.7rem', color: '#edd9c4', opacity: .7 }}>✎</span>}
                 {valoresCorrigidos[lead.id] != null && (
-                  <span style={{ fontSize: '.62rem', color: '#d4a853', opacity: .8 }}>corrigido</span>
+                  <span style={{ fontSize: '.62rem', color: '#f2d892', opacity: .8 }}>corrigido</span>
                 )}
               </div>
             )}
@@ -502,7 +502,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     style={{
                       flex: 1, padding: '.3rem', borderRadius: 6,
                       border: '1px solid rgba(255,255,255,.15)',
-                      background: 'transparent', color: '#8a6a55',
+                      background: 'transparent', color: '#edd9c4',
                       cursor: 'pointer', fontSize: '.75rem', fontFamily: 'Raleway, sans-serif',
                     }}
                   >
@@ -657,7 +657,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
             <div
               style={{
                 background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(212,168,83,0.2)',
+                border: '1px solid rgba(240,210,140,0.2)',
                 borderRadius: 8,
                 padding: '1.5rem',
               }}
@@ -669,10 +669,10 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 alignItems: 'flex-start',
                 marginBottom: '1rem',
                 paddingBottom: '1rem',
-                borderBottom: '1px solid rgba(212,168,83,0.2)',
+                borderBottom: '1px solid rgba(240,210,140,0.2)',
               }}>
                 <div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#d4a853', fontFamily: 'Raleway, sans-serif', letterSpacing: '.06em' }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f2d892', fontFamily: 'Raleway, sans-serif', letterSpacing: '.06em' }}>
                     GARBO Movelaria
                   </div>
                   <div className="section-label" style={{ fontSize: '.67rem' }}>
@@ -693,42 +693,42 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
 
               {/* Título */}
               <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-                <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#f4e4d6', letterSpacing: '.09em', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#fffaf4', letterSpacing: '.09em', textTransform: 'uppercase' }}>
                   Proposta / Contrato de Prestação de Serviços
                 </div>
-                <div style={{ width: 56, height: 2, background: 'rgba(212,168,83,0.45)', margin: '.45rem auto 0' }} />
+                <div style={{ width: 56, height: 2, background: 'rgba(240,210,140,0.45)', margin: '.45rem auto 0' }} />
               </div>
 
               {/* Dados do cliente */}
               <div style={{
                 marginBottom: '1rem',
                 padding: '.85rem 1rem',
-                background: 'rgba(212,168,83,0.04)',
-                border: '1px solid rgba(212,168,83,0.12)',
+                background: 'rgba(240,210,140,0.04)',
+                border: '1px solid rgba(240,210,140,0.12)',
                 borderRadius: 6,
               }}>
-                <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', marginBottom: '.55rem', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#f2d892', letterSpacing: '.1em', marginBottom: '.55rem', textTransform: 'uppercase' }}>
                   Dados do Contratante
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '.28rem .65rem', fontSize: '.82rem' }}>
                   <span className="section-label">Nome</span>
-                  <span style={{ color: '#f4e4d6', fontWeight: 600 }}>{previewMerged.nome}</span>
+                  <span style={{ color: '#fffaf4', fontWeight: 600 }}>{previewMerged.nome}</span>
                   {previewMerged.telefone && (
                     <>
                       <span className="section-label">Telefone</span>
-                      <span style={{ color: '#f4e4d6' }}>{previewMerged.telefone}</span>
+                      <span style={{ color: '#fffaf4' }}>{previewMerged.telefone}</span>
                     </>
                   )}
                   {previewMerged.email && (
                     <>
                       <span className="section-label">E-mail</span>
-                      <span style={{ color: '#f4e4d6' }}>{previewMerged.email}</span>
+                      <span style={{ color: '#fffaf4' }}>{previewMerged.email}</span>
                     </>
                   )}
                   {previewMerged.origem && (
                     <>
                       <span className="section-label">Origem</span>
-                      <span style={{ color: '#f4e4d6' }}>{previewMerged.origem}</span>
+                      <span style={{ color: '#fffaf4' }}>{previewMerged.origem}</span>
                     </>
                   )}
                 </div>
@@ -746,10 +746,10 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 alignItems: 'center',
               }}>
                 <div>
-                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.18rem' }}>
+                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#f2d892', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.18rem' }}>
                     Valor do Contrato
                   </div>
-                  <div style={{ fontSize: '.72rem', color: '#8a6a55' }}>Sujeito a condições de pagamento</div>
+                  <div style={{ fontSize: '.72rem', color: '#edd9c4' }}>Sujeito a condições de pagamento</div>
                 </div>
                 <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#4ade80', fontFamily: 'Raleway, sans-serif' }}>
                   {valorEfetivo(previewLead) > 0 ? fmtCur(valorEfetivo(previewLead)) : '—'}
@@ -761,11 +761,11 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 <div style={{
                   marginBottom: '1rem',
                   padding: '.85rem 1rem',
-                  background: 'rgba(212,168,83,0.03)',
-                  border: '1px solid rgba(212,168,83,0.1)',
+                  background: 'rgba(240,210,140,0.03)',
+                  border: '1px solid rgba(240,210,140,0.1)',
                   borderRadius: 6,
                 }}>
-                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#d4a853', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.45rem' }}>
+                  <div style={{ fontSize: '.63rem', fontWeight: 700, color: '#f2d892', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '.45rem' }}>
                     Escopo / Observações
                   </div>
                   <p style={{ fontSize: '.82rem', color: '#e8d8ca', lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: 0 }}>
@@ -778,17 +778,17 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
               <div style={{
                 marginTop: '1.5rem',
                 paddingTop: '1rem',
-                borderTop: '1px solid rgba(212,168,83,0.15)',
+                borderTop: '1px solid rgba(240,210,140,0.15)',
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '1.5rem',
               }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ borderBottom: '1px dashed rgba(212,168,83,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
+                  <div style={{ borderBottom: '1px dashed rgba(240,210,140,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
                   <div className="section-label" style={{ fontSize: '.67rem' }}>Assinatura do Cliente</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ borderBottom: '1px dashed rgba(212,168,83,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
+                  <div style={{ borderBottom: '1px dashed rgba(240,210,140,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
                   <div className="section-label" style={{ fontSize: '.67rem' }}>GARBO Movelaria</div>
                 </div>
               </div>
@@ -825,8 +825,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
           {/* Histórico */}
           <div
             style={{
-              background: 'rgba(212,168,83,.06)',
-              border: '1px solid rgba(212,168,83,.2)',
+              background: 'rgba(240,210,140,.06)',
+              border: '1px solid rgba(240,210,140,.2)',
               borderRadius: 8,
               padding: '.65rem .85rem',
               marginBottom: '.75rem',
@@ -847,7 +847,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   <div
                     key={item.id}
                     style={{
-                      border: '1px solid rgba(212,168,83,.14)',
+                      border: '1px solid rgba(240,210,140,.14)',
                       borderRadius: 8,
                       padding: '.45rem .55rem',
                       background: 'rgba(255,255,255,.01)',
@@ -895,9 +895,9 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 width: '100%',
                 padding: '.5rem .85rem',
                 borderRadius: 8,
-                border: form.temEntrada ? '1.5px solid #d4a853' : '1px solid rgba(212,168,83,.25)',
-                background: form.temEntrada ? 'rgba(212,168,83,.1)' : 'transparent',
-                color: form.temEntrada ? '#d4a853' : '#8a6a55',
+                border: form.temEntrada ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.25)',
+                background: form.temEntrada ? 'rgba(240,210,140,.1)' : 'transparent',
+                color: form.temEntrada ? '#f2d892' : '#edd9c4',
                 cursor: 'pointer',
                 fontSize: '.78rem',
                 fontWeight: 600,
@@ -914,8 +914,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 style={{
                   marginTop: '.4rem',
                   padding: '.65rem .85rem',
-                  background: 'rgba(212,168,83,.04)',
-                  border: '1px solid rgba(212,168,83,.15)',
+                  background: 'rgba(240,210,140,.04)',
+                  border: '1px solid rgba(240,210,140,.15)',
                   borderRadius: 8,
                 }}
               >
@@ -953,7 +953,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     style={{
                       marginTop: '.5rem',
                       paddingTop: '.5rem',
-                      borderTop: '1px solid rgba(212,168,83,.15)',
+                      borderTop: '1px solid rgba(240,210,140,.15)',
                       display: 'grid',
                       gridTemplateColumns: '1fr auto',
                       gap: '.28rem .75rem',
@@ -961,12 +961,12 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     }}
                   >
                     <span className="section-label">Total da venda</span>
-                    <span style={{ color: '#f4e4d6', textAlign: 'right' }}>{fmtCur(val)}</span>
+                    <span style={{ color: '#fffaf4', textAlign: 'right' }}>{fmtCur(val)}</span>
                     <span className="section-label">Entrada</span>
-                    <span style={{ color: '#d4a853', textAlign: 'right' }}>− {fmtCur(entradaVal)}</span>
+                    <span style={{ color: '#f2d892', textAlign: 'right' }}>− {fmtCur(entradaVal)}</span>
                     <span
                       className="section-label"
-                      style={{ borderTop: '1px solid rgba(212,168,83,.18)', paddingTop: '.28rem', fontWeight: 600 }}
+                      style={{ borderTop: '1px solid rgba(240,210,140,.18)', paddingTop: '.28rem', fontWeight: 600 }}
                     >
                       Restante a pagar
                     </span>
@@ -975,7 +975,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                         color: entradaVal < val ? '#4ade80' : '#f87171',
                         fontWeight: 700,
                         textAlign: 'right',
-                        borderTop: '1px solid rgba(212,168,83,.18)',
+                        borderTop: '1px solid rgba(240,210,140,.18)',
                         paddingTop: '.28rem',
                       }}
                     >
@@ -998,9 +998,9 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   style={{
                     padding: '.65rem .4rem',
                     borderRadius: 8,
-                    border: form.tipo === t ? '1.5px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-                    background: form.tipo === t ? 'rgba(212,168,83,.12)' : 'transparent',
-                    color: form.tipo === t ? '#d4a853' : '#8a6a55',
+                    border: form.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+                    background: form.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
+                    color: form.tipo === t ? '#f2d892' : '#edd9c4',
                     cursor: 'pointer',
                     fontSize: '.7rem',
                     fontWeight: 600,
@@ -1087,7 +1087,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
 
           {form.tipo === 'nosso_parcelamento' && parcelas.length > 0 && (
             <div className="mb-4">
-              <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+              <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
                 Detalhamento das Parcelas
               </div>
               <div
@@ -1097,8 +1097,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   maxHeight: '300px',
                   overflowY: 'auto',
                   padding: '.5rem',
-                  background: 'rgba(212,168,83,.03)',
-                  border: '1px solid rgba(212,168,83,.1)',
+                  background: 'rgba(240,210,140,.03)',
+                  border: '1px solid rgba(240,210,140,.1)',
                   borderRadius: 8,
                 }}
               >
@@ -1173,7 +1173,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     paddingBottom: '.35rem',
                     borderBottom: '1px solid rgba(74,222,128,.15)',
                     fontSize: '.78rem',
-                    color: '#d4a853',
+                    color: '#f2d892',
                   }}
                 >
                   Entrada {fmtCur(entradaVal)} via {PM_LABELS[form.formaEntrada]} · {form.dataEntrada}

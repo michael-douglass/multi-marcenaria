@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, User } from 'lucide-react'
 import { Logo } from '@/components/Logo'
@@ -104,13 +104,13 @@ function NavChildTree({
               e.stopPropagation()
               if (!sidebarOpen) setOpen(true)
             }}
-            className={cn(!isActive && 'text-[#a07c65]', 'cursor-pointer w-full', depth > 0 && 'pl-7')}
+            className={cn(!isActive && 'text-[#d4bc9f]', 'cursor-pointer w-full', depth > 0 && 'pl-7')}
           >
             <ChildIcon className="h-4 w-4 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">{child.title}</span>
             <ChevronRight
               className={cn(
-                'ml-auto h-4 w-4 shrink-0 text-[#8a6a55] transition-transform group-data-[collapsible=icon]:hidden',
+                'ml-auto h-4 w-4 shrink-0 text-[#edd9c4] transition-transform group-data-[collapsible=icon]:hidden',
                 open && 'rotate-90',
               )}
             />
@@ -119,7 +119,7 @@ function NavChildTree({
         <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
           <ul
             className={cn(
-              'mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(212,168,83,0.15)]',
+              'mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(240,210,140,0.15)]',
               depth === 0 ? 'ml-2 pl-2' : 'ml-4 pl-2',
             )}
           >
@@ -189,7 +189,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
         handleNavClick(url)
       }}
       className={cn(
-        !isActive && 'text-[#a07c65]',
+        !isActive && 'text-[#d4bc9f]',
         'cursor-pointer',
         nested && (depth === 0 ? 'pl-7' : depth === 1 ? 'pl-10' : 'pl-12'),
         nested && 'group-data-[collapsible=icon]:!pl-2',
@@ -198,7 +198,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
       <Icon className="h-4 w-4 shrink-0" />
       <span className="group-data-[collapsible=icon]:hidden">{title}</span>
       {badge ? (
-        <span className="ml-auto rounded-full bg-[#d4a853] px-1.5 py-0 text-[0.62rem] font-bold text-[#150c09] group-data-[collapsible=icon]:hidden">
+        <span className="ml-auto rounded-full bg-[#f2d892] px-1.5 py-0 text-[0.62rem] font-bold text-[#2a1812] group-data-[collapsible=icon]:hidden">
           {badge}
         </span>
       ) : null}
@@ -207,7 +207,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-[rgba(212,168,83,0.12)] pb-3">
+      <SidebarHeader className="border-b border-[rgba(240,210,140,0.12)] pb-3">
         <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
           <div className="hidden shrink-0 group-data-[collapsible=icon]:block">
             <Logo full={false} />
@@ -253,7 +253,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                               }
                             }}
                             className={cn(
-                              !childActive && 'text-[#a07c65]',
+                              !childActive && 'text-[#d4bc9f]',
                               'cursor-pointer w-full',
                             )}
                           >
@@ -262,20 +262,20 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                               {item.title}
                             </span>
                             {badge ? (
-                              <span className="ml-auto rounded-full bg-[#d4a853] px-1.5 py-0 text-[0.62rem] font-bold text-[#150c09] group-data-[collapsible=icon]:hidden">
+                              <span className="ml-auto rounded-full bg-[#f2d892] px-1.5 py-0 text-[0.62rem] font-bold text-[#2a1812] group-data-[collapsible=icon]:hidden">
                                 {badge}
                               </span>
                             ) : null}
                             <ChevronRight
                               className={cn(
-                                'ml-auto h-4 w-4 shrink-0 text-[#8a6a55] transition-transform group-data-[collapsible=icon]:hidden',
+                                'ml-auto h-4 w-4 shrink-0 text-[#edd9c4] transition-transform group-data-[collapsible=icon]:hidden',
                                 grupoAtivo && 'rotate-90',
                               )}
                             />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
-                          <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(212,168,83,0.15)] pl-2">
+                          <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(240,210,140,0.15)] pl-2">
                             {item.children.map(child => (
                               <NavChildTree
                                 key={child.id}
@@ -306,16 +306,16 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
         </ScrollArea>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-[rgba(212,168,83,0.12)]">
+      <SidebarFooter className="border-t border-[rgba(240,210,140,0.12)]">
         <div className="flex items-center gap-2 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(212,168,83,0.35)] bg-[rgba(212,168,83,0.12)]">
-            <User className="h-4 w-4 text-[#d4a853]" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(240,210,140,0.35)] bg-[rgba(240,210,140,0.12)]">
+            <User className="h-4 w-4 text-[#f2d892]" />
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-xs font-semibold text-cream">
               {userProfile?.email ?? 'Usuário'}
             </p>
-            <p className="text-[0.65rem] uppercase tracking-wider text-[#8a6a55]">
+            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
               GARBO · v1.0
             </p>
           </div>

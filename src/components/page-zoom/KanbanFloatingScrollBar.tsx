@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react'
+﻿import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react'
 import {
   SCROLLBAR_HEIGHT,
   type HorizontalScrollMetrics,
@@ -45,7 +45,7 @@ export function KanbanFloatingScrollBar({
             <button
               type="button"
               aria-label="Rolar para a esquerda"
-              className="pointer-events-auto shrink-0 rounded-full border border-[rgba(212,168,83,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#d4a853] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(212,168,83,0.18)]"
+              className="pointer-events-auto shrink-0 rounded-full border border-[rgba(240,210,140,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#f2d892] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(240,210,140,0.18)]"
               onClick={() => scrollBy('x', -SCROLL_STEP)}
             >
               <ChevronLeft size={16} />
@@ -57,7 +57,7 @@ export function KanbanFloatingScrollBar({
             aria-orientation="horizontal"
             aria-valuemin={0}
             aria-valuemax={100}
-            className="pointer-events-auto relative flex-1 cursor-pointer rounded-full border border-[rgba(212,168,83,0.35)] bg-[rgba(12,6,3,0.95)] shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
+            className="pointer-events-auto relative flex-1 cursor-pointer rounded-full border border-[rgba(240,210,140,0.35)] bg-[rgba(12,6,3,0.95)] shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
             style={{ height: SCROLLBAR_HEIGHT }}
             onPointerDown={e => {
               const rect = e.currentTarget.getBoundingClientRect()
@@ -72,7 +72,7 @@ export function KanbanFloatingScrollBar({
           >
             <div
               data-scrollbar-thumb="true"
-              className="absolute top-0.5 h-[calc(100%-4px)] rounded-full bg-[#d4a853] shadow-[0_0_12px_rgba(212,168,83,0.45)]"
+              className="absolute top-0.5 h-[calc(100%-4px)] rounded-full bg-[#f2d892] shadow-[0_0_12px_rgba(240,210,140,0.45)]"
               style={{
                 width: `${horizontalMetrics.thumbWidthPercent}%`,
                 left: `${horizontalMetrics.thumbLeftPercent}%`,
@@ -98,7 +98,7 @@ export function KanbanFloatingScrollBar({
             <button
               type="button"
               aria-label="Rolar para a direita"
-              className="pointer-events-auto shrink-0 rounded-full border border-[rgba(212,168,83,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#d4a853] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(212,168,83,0.18)]"
+              className="pointer-events-auto shrink-0 rounded-full border border-[rgba(240,210,140,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#f2d892] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(240,210,140,0.18)]"
               onClick={() => scrollBy('x', SCROLL_STEP)}
             >
               <ChevronRight size={16} />
@@ -114,7 +114,7 @@ export function KanbanFloatingScrollBar({
           <button
             type="button"
             aria-label="Rolar para cima"
-            className="pointer-events-auto shrink-0 rounded-full border border-[rgba(212,168,83,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#d4a853] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(212,168,83,0.18)]"
+            className="pointer-events-auto shrink-0 rounded-full border border-[rgba(240,210,140,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#f2d892] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(240,210,140,0.18)]"
             onClick={() => scrollBy('y', -SCROLL_STEP)}
           >
             <ChevronUp size={14} />
@@ -125,7 +125,7 @@ export function KanbanFloatingScrollBar({
             aria-orientation="vertical"
             aria-valuemin={0}
             aria-valuemax={100}
-            className="pointer-events-auto relative flex-1 cursor-pointer rounded-full border border-[rgba(212,168,83,0.35)] bg-[rgba(12,6,3,0.95)] shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
+            className="pointer-events-auto relative flex-1 cursor-pointer rounded-full border border-[rgba(240,210,140,0.35)] bg-[rgba(12,6,3,0.95)] shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
             style={{ width: SCROLLBAR_HEIGHT }}
             onPointerDown={e => {
               const rect = e.currentTarget.getBoundingClientRect()
@@ -140,7 +140,7 @@ export function KanbanFloatingScrollBar({
           >
             <div
               data-scrollbar-thumb="true"
-              className="absolute left-0.5 w-[calc(100%-4px)] rounded-full bg-[#d4a853] shadow-[0_0_12px_rgba(212,168,83,0.45)]"
+              className="absolute left-0.5 w-[calc(100%-4px)] rounded-full bg-[#f2d892] shadow-[0_0_12px_rgba(240,210,140,0.45)]"
               style={{
                 height: `${verticalMetrics.thumbHeightPercent}%`,
                 top: `${verticalMetrics.thumbTopPercent}%`,
@@ -165,7 +165,7 @@ export function KanbanFloatingScrollBar({
           <button
             type="button"
             aria-label="Rolar para baixo"
-            className="pointer-events-auto shrink-0 rounded-full border border-[rgba(212,168,83,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#d4a853] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(212,168,83,0.18)]"
+            className="pointer-events-auto shrink-0 rounded-full border border-[rgba(240,210,140,0.45)] bg-[rgba(8,3,1,0.95)] p-1.5 text-[#f2d892] shadow-[0_4px_20px_rgba(0,0,0,0.45)] transition hover:bg-[rgba(240,210,140,0.18)]"
             onClick={() => scrollBy('y', SCROLL_STEP)}
           >
             <ChevronDown size={14} />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RefreshCw, Search } from 'lucide-react'
 import { useBiblioteca } from '@/hooks/useBiblioteca'
@@ -51,7 +51,7 @@ export function Biblioteca({ readOnly }: Props) {
         <div>
           <h1
             className="font-display"
-            style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}
+            style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}
           >
             Biblioteca
           </h1>
@@ -86,8 +86,8 @@ export function Biblioteca({ readOnly }: Props) {
               onClick={() => setFiltro(id)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                 filtro === id
-                  ? 'border border-[#d4a853] bg-[rgba(212,168,83,0.14)] text-[#d4a853]'
-                  : 'border border-[rgba(212,168,83,0.2)] text-[#8a6a55] hover:text-cream'
+                  ? 'border border-[#f2d892] bg-[rgba(240,210,140,0.14)] text-[#f2d892]'
+                  : 'border border-[rgba(240,210,140,0.2)] text-[#edd9c4] hover:text-cream'
               }`}
             >
               {label}
@@ -95,7 +95,7 @@ export function Biblioteca({ readOnly }: Props) {
           ))}
         </div>
         <div className="relative min-w-0 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a6a55]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" />
           <input
             className="glass-input !pl-9"
             placeholder="Buscar por nome ou lançamento..."
@@ -129,17 +129,17 @@ export function Biblioteca({ readOnly }: Props) {
                 onDelete={readOnly ? undefined : () => handleDelete(item)}
               />
               <div className="px-0.5">
-                <p className="text-[0.62rem] text-[#8a6a55]">
+                <p className="text-[0.62rem] text-[#edd9c4]">
                   {item.criado_em ? fmtDate(item.criado_em.slice(0, 10)) : '—'}
                 </p>
                 {item.contexto && (
-                  <p className="mt-0.5 line-clamp-2 text-[0.65rem] text-[#a07c65]" title={item.contexto}>
+                  <p className="mt-0.5 line-clamp-2 text-[0.65rem] text-[#d4bc9f]" title={item.contexto}>
                     {item.contexto}
                   </p>
                 )}
                 <Link
                   to="/contas-pagar"
-                  className="mt-1 inline-block text-[0.62rem] font-semibold text-[#d4a853] hover:underline"
+                  className="mt-1 inline-block text-[0.62rem] font-semibold text-[#f2d892] hover:underline"
                 >
                   Contas a Pagar
                 </Link>

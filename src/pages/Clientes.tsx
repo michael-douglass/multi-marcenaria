@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useClientes } from '../hooks/useClientes'
 import { Modal } from '../components/ui/Modal'
@@ -63,7 +63,7 @@ export function Clientes({ readOnly }: Props) {
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Clientes</h1>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Clientes</h1>
           <p className="section-label mt-1">{filteredData.length} cliente{filteredData.length !== 1 ? 's' : ''}</p>
         </div>
         {!readOnly && (
@@ -117,7 +117,7 @@ export function Clientes({ readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+                <tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                   {['Nome', 'CPF', 'Celular', 'E-mail', 'Origem', 'Cadastro', 'Endereço', ''].map((h, i) => (
                     <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                   ))}
@@ -126,13 +126,13 @@ export function Clientes({ readOnly }: Props) {
               <tbody>
                 {filteredData.map(c => (
                   <tr key={c.id} className="trow">
-                    <td className="px-4 py-3" style={{ color: '#f4e4d6', fontWeight: 500 }}>{c.nome}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{c.cpf || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{c.telefone || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{c.email || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.82rem' }}>{c.origem || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.82rem' }}>{fmtDate(c.data_cadastro || c.criado_em)}</td>
-                    <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.82rem', maxWidth: 200 }}>{c.endereco || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>{c.nome}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{c.cpf || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{c.telefone || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{c.email || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.82rem' }}>{c.origem || '—'}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.82rem' }}>{fmtDate(c.data_cadastro || c.criado_em)}</td>
+                    <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.82rem', maxWidth: 200 }}>{c.endereco || '—'}</td>
                     <td className="px-4 py-3 text-right">
                       {!readOnly && (
                         <div className="flex gap-2 justify-end">

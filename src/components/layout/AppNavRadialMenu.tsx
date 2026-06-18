@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
@@ -37,8 +37,8 @@ const NAV_RADIAL_STYLES = `
   50% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.03); }
 }
 @keyframes nav-trigger-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,83,0.35); }
-  50% { box-shadow: 0 0 0 10px rgba(212,168,83,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240,210,140,0.35); }
+  50% { box-shadow: 0 0 0 10px rgba(240,210,140,0); }
 }
 @keyframes nav-glow-breathe {
   0%, 100% { opacity: 0.5; }
@@ -55,8 +55,8 @@ const NAV_RADIAL_STYLES = `
 function CompassRose() {
   return (
     <svg viewBox="0 0 48 48" className="h-7 w-7" aria-hidden>
-      <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(212,168,83,0.35)" strokeWidth="0.75" />
-      <circle cx="24" cy="24" r="8" fill="none" stroke="rgba(212,168,83,0.5)" strokeWidth="0.75" />
+      <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(240,210,140,0.35)" strokeWidth="0.75" />
+      <circle cx="24" cy="24" r="8" fill="none" stroke="rgba(240,210,140,0.5)" strokeWidth="0.75" />
       {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => {
         const rad = (deg * Math.PI) / 180
         const x2 = 24 + Math.cos(rad) * 18
@@ -68,12 +68,12 @@ function CompassRose() {
             y1="24"
             x2={x2}
             y2={y2}
-            stroke="rgba(212,168,83,0.45)"
+            stroke="rgba(240,210,140,0.45)"
             strokeWidth="0.75"
           />
         )
       })}
-      <circle cx="24" cy="24" r="2.5" fill="rgba(212,168,83,0.85)" />
+      <circle cx="24" cy="24" r="2.5" fill="rgba(240,210,140,0.85)" />
     </svg>
   )
 }
@@ -234,7 +234,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
           <div
             className="nav-glow-breathe pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[120vh] w-[120vw] rounded-full"
             style={{
-              background: 'radial-gradient(circle, rgba(212,168,83,0.18) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(240,210,140,0.18) 0%, transparent 70%)',
             }}
           />
 
@@ -243,10 +243,10 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
             style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
           >
             <div
-              className="nav-ring-breathe absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(212,168,83,0.12)]"
+              className="nav-ring-breathe absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(240,210,140,0.12)]"
             />
             <div
-              className="nav-ring-breathe absolute left-1/2 top-1/2 h-[260px] w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(212,168,83,0.08)]"
+              className="nav-ring-breathe absolute left-1/2 top-1/2 h-[260px] w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[rgba(240,210,140,0.08)]"
               style={{ animationDelay: '0.5s' }}
             />
 
@@ -257,7 +257,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
                   : items.find(n => n.id === item.id)
                 const Icon = item.icon ?? navItem?.icon ?? items[0]?.icon
                 if (!Icon) return null
-                const color = item.radialColor ?? navItem?.radialColor ?? 'rgba(212,168,83,0.92)'
+                const color = item.radialColor ?? navItem?.radialColor ?? 'rgba(240,210,140,0.92)'
                 const hasChildren =
                   !submenuParent && !!navItem?.children && navItem.children.length > 0
 
@@ -285,7 +285,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
 
               <button
                 type="button"
-                className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-[rgba(212,168,83,0.5)] bg-[rgba(10,4,2,0.95)] transition-transform hover:scale-105"
+                className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-[rgba(240,210,140,0.5)] bg-[rgba(10,4,2,0.95)] transition-transform hover:scale-105"
                 style={{ width: CENTER_SZ, height: CENTER_SZ }}
                 onClick={() => {
                   if (submenuParent) setSubmenuParent(null)
@@ -294,9 +294,9 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
                 aria-label={submenuParent ? 'Voltar' : 'Fechar'}
               >
                 {submenuParent ? (
-                  <span className="text-lg text-[#dbb25a]">←</span>
+                  <span className="text-lg text-[#f5e0a8]">←</span>
                 ) : (
-                  <X className="h-6 w-6 text-[#dbb25a]" />
+                  <X className="h-6 w-6 text-[#f5e0a8]" />
                 )}
               </button>
             </div>
@@ -310,16 +310,16 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
     <>
       <style>{NAV_RADIAL_STYLES}</style>
       <div className="fixed bottom-6 right-6 z-[201] flex flex-col items-center gap-1">
-        <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,83,0.65)]">
+        <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(240,210,140,0.65)]">
           Menu
         </span>
         <button
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            'flex h-14 w-14 items-center justify-center rounded-full border-2 border-[rgba(212,168,83,0.55)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all',
+            'flex h-14 w-14 items-center justify-center rounded-full border-2 border-[rgba(240,210,140,0.55)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all',
             !open && 'nav-trigger-pulse',
-            open && 'border-[#dbb25a] shadow-[0_0_28px_rgba(212,168,83,0.35)]',
+            open && 'border-[#f5e0a8] shadow-[0_0_28px_rgba(240,210,140,0.35)]',
           )}
           aria-label="Abrir menu radial"
           aria-expanded={open}

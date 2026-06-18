@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+﻿import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
@@ -98,7 +98,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     title: 'Contratos',
     url: '/contratos',
     icon: FileSignature,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
   },
   {
     id: 'fornecedores',
@@ -151,7 +151,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     title: 'Caixa',
     url: '/caixa',
     icon: Banknote,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador'],
   },
 ]
@@ -169,7 +169,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     title: 'Acompanhamento',
     url: '/acompanhamento-obras',
     icon: Camera,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
   },
   {
@@ -203,7 +203,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     title: 'Dashboard',
     url: '/dashboard',
     icon: LayoutDashboard,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador', 'Financeiro', 'Marceneiro'],
   },
   {
@@ -211,7 +211,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     title: 'Financeiro',
     url: '/clientes',
     icon: Landmark,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador', 'Financeiro'],
     children: FINANCEIRO_CHILDREN,
   },
@@ -229,7 +229,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     title: 'Meu Financeiro',
     url: '/meu-financeiro',
     icon: Wallet,
-    radialColor: 'rgba(212,168,83,0.92)',
+    radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Montador', 'MontadorAdmin'],
   },
   {

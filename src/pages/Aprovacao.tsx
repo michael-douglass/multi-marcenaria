@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { usePedidos } from '../hooks/usePedidos'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
@@ -54,7 +54,7 @@ export function Aprovacao({ fornecedores, produtos }: Props) {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: '1.5rem' }}>
-        <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Aprovação de Pedidos</h1>
+        <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Aprovação de Pedidos</h1>
         <p className="section-label mt-1">{pending.length} pedido{pending.length !== 1 ? 's' : ''} aguardando</p>
       </div>
 
@@ -62,10 +62,10 @@ export function Aprovacao({ fornecedores, produtos }: Props) {
       <Modal open={!!appOrder} onClose={() => setAppOrder(null)} title="CONFIRMAR APROVAÇÃO">
         {appOrder && (
           <>
-            <div style={{ background: 'rgba(212,168,83,.07)', border: '1px solid rgba(212,168,83,.2)', borderRadius: 8, padding: '.85rem 1rem', marginBottom: '1rem' }}>
+            <div style={{ background: 'rgba(240,210,140,.07)', border: '1px solid rgba(240,210,140,.2)', borderRadius: 8, padding: '.85rem 1rem', marginBottom: '1rem' }}>
               <div className="flex justify-between items-center">
-                <span style={{ color: '#f4e4d6', fontWeight: 600 }}>{fornecedores.find(s => s.id === appOrder.fornecedor_id)?.nome}</span>
-                <span className="font-display" style={{ fontSize: '1.4rem', color: '#d4a853' }}>{fmtCur(appOrder.total)}</span>
+                <span style={{ color: '#fffaf4', fontWeight: 600 }}>{fornecedores.find(s => s.id === appOrder.fornecedor_id)?.nome}</span>
+                <span className="font-display" style={{ fontSize: '1.4rem', color: '#f2d892' }}>{fmtCur(appOrder.total)}</span>
               </div>
             </div>
             <FieldRow>
@@ -108,13 +108,13 @@ export function Aprovacao({ fornecedores, produtos }: Props) {
                 <div className="flex flex-wrap gap-4 justify-between items-start mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-display" style={{ color: '#d4a853', fontSize: '1rem', letterSpacing: '.08em' }}>PEDIDO #{o.id.slice(-6)}</span>
+                      <span className="font-display" style={{ color: '#f2d892', fontSize: '1rem', letterSpacing: '.08em' }}>PEDIDO #{o.id.slice(-6)}</span>
                       <Badge status={o.status} />
                     </div>
-                    <p style={{ color: '#f4e4d6', fontWeight: 600 }}>{sup?.nome}</p>
-                    <p style={{ color: '#8a6a55', fontSize: '.78rem', marginTop: 2 }}>{fmtDate(o.data_pedido)} · {o.movelaria_pedidos_itens?.length ?? 0} item(s)</p>
+                    <p style={{ color: '#fffaf4', fontWeight: 600 }}>{sup?.nome}</p>
+                    <p style={{ color: '#edd9c4', fontSize: '.78rem', marginTop: 2 }}>{fmtDate(o.data_pedido)} · {o.movelaria_pedidos_itens?.length ?? 0} item(s)</p>
                   </div>
-                  <span className="font-display" style={{ fontSize: '1.8rem', color: '#d4a853' }}>{fmtCur(o.total)}</span>
+                  <span className="font-display" style={{ fontSize: '1.8rem', color: '#f2d892' }}>{fmtCur(o.total)}</span>
                 </div>
                 <div className="divider-gold" />
                 <div className="overflow-x-auto mb-4">
@@ -126,11 +126,11 @@ export function Aprovacao({ fornecedores, produtos }: Props) {
                       {o.movelaria_pedidos_itens?.map((it, i) => {
                         const pr = produtos.find(p => p.id === it.produto_id) ?? it.movelaria_produtos
                         return (
-                          <tr key={i} style={{ borderBottom: '1px solid rgba(212,168,83,.07)' }}>
-                            <td className="py-1.5 pr-4" style={{ color: '#f4e4d6' }}>{pr?.descricao ?? '—'}</td>
-                            <td className="py-1.5 pr-4" style={{ color: '#8a6a55' }}>{it.quantidade} {pr?.unidade_medida}</td>
-                            <td className="py-1.5 pr-4" style={{ color: '#8a6a55' }}>{fmtCur(it.valor_unitario)}</td>
-                            <td className="py-1.5" style={{ color: '#d4a853', fontWeight: 600 }}>{fmtCur(it.valor_total)}</td>
+                          <tr key={i} style={{ borderBottom: '1px solid rgba(240,210,140,.07)' }}>
+                            <td className="py-1.5 pr-4" style={{ color: '#fffaf4' }}>{pr?.descricao ?? '—'}</td>
+                            <td className="py-1.5 pr-4" style={{ color: '#edd9c4' }}>{it.quantidade} {pr?.unidade_medida}</td>
+                            <td className="py-1.5 pr-4" style={{ color: '#edd9c4' }}>{fmtCur(it.valor_unitario)}</td>
+                            <td className="py-1.5" style={{ color: '#f2d892', fontWeight: 600 }}>{fmtCur(it.valor_total)}</td>
                           </tr>
                         )
                       })}
@@ -156,16 +156,16 @@ export function Aprovacao({ fornecedores, produtos }: Props) {
           <div className="glass-card overflow-hidden">
             <div className="overflow-x-auto">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead><tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+                <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                   {['#', 'Fornecedor', 'Data', 'Total', 'Status'].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {processed.map(o => (
                     <tr key={o.id} className="trow">
-                      <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 600 }}>#{o.id.slice(-6)}</td>
-                      <td className="px-4 py-3" style={{ color: '#f4e4d6' }}>{fornecedores.find(s => s.id === o.fornecedor_id)?.nome ?? '—'}</td>
-                      <td className="px-4 py-3" style={{ color: '#8a6a55' }}>{fmtDate(o.data_pedido)}</td>
-                      <td className="px-4 py-3" style={{ color: '#d4a853', fontWeight: 600 }}>{fmtCur(o.total)}</td>
+                      <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 600 }}>#{o.id.slice(-6)}</td>
+                      <td className="px-4 py-3" style={{ color: '#fffaf4' }}>{fornecedores.find(s => s.id === o.fornecedor_id)?.nome ?? '—'}</td>
+                      <td className="px-4 py-3" style={{ color: '#edd9c4' }}>{fmtDate(o.data_pedido)}</td>
+                      <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 600 }}>{fmtCur(o.total)}</td>
                       <td className="px-4 py-3"><Badge status={o.status} /></td>
                     </tr>
                   ))}

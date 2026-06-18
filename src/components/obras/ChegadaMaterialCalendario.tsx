@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { ObraMontadorBadge } from '@/components/obras/ObraMontadorBadge'
@@ -80,12 +80,12 @@ function DayPopup({
         className="glass-panel rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(212,168,83,0.18)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(240,210,140,0.18)]">
           <div>
-            <p className="font-display text-lg text-[#d4a853] tracking-widest">
+            <p className="font-display text-lg text-[#f2d892] tracking-widest">
               {WEEKDAYS_LONG[date.getDay()]}, {date.getDate()} de {MONTHS_FULL[date.getMonth()]}
             </p>
-            <p className="text-xs text-[#8a6a55]">
+            <p className="text-xs text-[#edd9c4]">
               {obras.length} chegada{obras.length !== 1 ? 's' : ''} programada{obras.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -96,7 +96,7 @@ function DayPopup({
 
         <div className="overflow-y-auto flex-1 p-4 space-y-2">
           {obras.length === 0 ? (
-            <p className="text-center text-sm text-[#8a6a55] py-6">Nenhuma chegada neste dia.</p>
+            <p className="text-center text-sm text-[#edd9c4] py-6">Nenhuma chegada neste dia.</p>
           ) : (
             obras.map(obra => {
               const cor = getChegadaCardColor(obra, hoje)
@@ -112,10 +112,10 @@ function DayPopup({
                     className="w-full text-left p-3"
                   >
                     <p className="font-semibold text-cream text-sm leading-tight break-words">{obra.cliente_nome}</p>
-                    {obra.lousa && <p className="text-xs text-[#8a6a55] mt-0.5">{obra.lousa}</p>}
+                    {obra.lousa && <p className="text-xs text-[#edd9c4] mt-0.5">{obra.lousa}</p>}
                     <ObraMontadorBadge obra={obra} compact />
                     {obra.numero_pedido_cort_claud && (
-                      <p className="text-xs text-[#8a6a55] mt-1">Pedido: {obra.numero_pedido_cort_claud}</p>
+                      <p className="text-xs text-[#edd9c4] mt-1">Pedido: {obra.numero_pedido_cort_claud}</p>
                     )}
                   </button>
                   <div className="px-3 pb-3 flex flex-col gap-1.5">
@@ -187,15 +187,15 @@ export function ChegadaMaterialCalendario({
       className={[
         'chegada-material-calendario shrink-0',
         embedded
-          ? 'border-t-2 border-[rgba(212,168,83,0.28)] bg-[rgba(10,4,2,0.55)] px-4 py-5 sm:px-6'
+          ? 'border-t-2 border-[rgba(240,210,140,0.28)] bg-[rgba(10,4,2,0.55)] px-4 py-5 sm:px-6'
           : 'flex flex-1 flex-col min-h-0 px-4 py-4 sm:px-6',
       ].join(' ')}
     >
       <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', showHeader ? 'mb-4' : 'mb-3')}>
         {showHeader ? (
           <div>
-            <h2 className="font-display text-lg text-[#d4a853] tracking-widest">Calendário de Chegadas</h2>
-            <p className="text-xs text-[#8a6a55] mt-0.5">Materiais com data de chegada definida</p>
+            <h2 className="font-display text-lg text-[#f2d892] tracking-widest">Calendário de Chegadas</h2>
+            <p className="text-xs text-[#edd9c4] mt-0.5">Materiais com data de chegada definida</p>
           </div>
         ) : (
           <div className="min-w-0" />
@@ -224,7 +224,7 @@ export function ChegadaMaterialCalendario({
             <button type="button" className="btn btn-outline btn-sm shrink-0 p-2" onClick={() => navigate(-1)} aria-label="Período anterior">
               <ChevronLeft size={15} />
             </button>
-            <span className="obra-page-nav-label text-sm font-semibold text-[#d4a853] px-2 text-center min-w-[9rem]" title={rangeLabel}>
+            <span className="obra-page-nav-label text-sm font-semibold text-[#f2d892] px-2 text-center min-w-[9rem]" title={rangeLabel}>
               {rangeLabel}
             </span>
             <button type="button" className="btn btn-outline btn-sm shrink-0 p-2" onClick={() => navigate(1)} aria-label="Próximo período">
@@ -249,16 +249,16 @@ export function ChegadaMaterialCalendario({
                   onClick={() => hasObras && setSelectedDay(day)}
                   className={[
                     'cal-week-day cal-week-day--scroll-cards glass-card p-2 flex flex-col min-h-[180px] transition-all',
-                    isToday ? 'ring-1 ring-[#d4a853]/40' : '',
+                    isToday ? 'ring-1 ring-[#f2d892]/40' : '',
                     hasObras ? 'cursor-pointer hover:brightness-110' : '',
                   ].join(' ')}
                 >
                   <div className="cal-week-day__header">
-                    <div className={`cal-week-day__title-row ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
+                    <div className={`cal-week-day__title-row ${isToday ? 'text-[#f2d892]' : 'text-[#edd9c4]'}`}>
                       <span className="cal-week-day__label">
                         {WEEKDAYS[day.getDay()]}
                         {isToday && (
-                          <span className="ml-1 text-[0.55rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1 align-middle">
+                          <span className="ml-1 text-[0.55rem] bg-[#f2d892]/20 text-[#f2d892] rounded px-1 align-middle">
                             hoje
                           </span>
                         )}
@@ -277,7 +277,7 @@ export function ChegadaMaterialCalendario({
                     onClick={e => e.stopPropagation()}
                   >
                     {dayObras.length === 0 ? (
-                      <p className="text-[0.62rem] text-[#4a3328] mt-2 text-center">—</p>
+                      <p className="text-[0.62rem] text-[#c4a88a] mt-2 text-center">—</p>
                     ) : (
                       dayObras.map(obra => {
                         const cor = getChegadaCardColor(obra, hoje)
@@ -297,7 +297,7 @@ export function ChegadaMaterialCalendario({
                             }}
                           >
                             <p className="font-semibold text-cream leading-tight truncate">{obra.cliente_nome}</p>
-                            {obra.lousa && <p className="text-[0.62rem] text-[#8a6a55] truncate">{obra.lousa}</p>}
+                            {obra.lousa && <p className="text-[0.62rem] text-[#edd9c4] truncate">{obra.lousa}</p>}
                             <ObraMontadorBadge obra={obra} compact />
                           </div>
                         )
@@ -316,7 +316,7 @@ export function ChegadaMaterialCalendario({
           <div className="cal-month-grid">
             <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
               {WEEKDAYS.map(wd => (
-                <div key={wd} className="text-center text-[0.65rem] font-bold py-1 uppercase tracking-widest text-[#8a6a55]">
+                <div key={wd} className="text-center text-[0.65rem] font-bold py-1 uppercase tracking-widest text-[#edd9c4]">
                   {wd}
                 </div>
               ))}
@@ -343,7 +343,7 @@ export function ChegadaMaterialCalendario({
                     className={[
                       'rounded-lg p-1.5 flex flex-col transition-all',
                       isThisMonth ? 'glass-card' : 'opacity-30',
-                      isToday ? 'ring-1 ring-[#d4a853]/50' : '',
+                      isToday ? 'ring-1 ring-[#f2d892]/50' : '',
                       hasObras || !isThisMonth ? 'cursor-pointer hover:brightness-110' : '',
                     ].join(' ')}
                     style={{ minHeight: '72px' }}
@@ -351,8 +351,8 @@ export function ChegadaMaterialCalendario({
                     <span className={[
                       'text-[0.7rem] font-bold self-start w-5 h-5 flex items-center justify-center rounded-full mb-1',
                       isToday
-                        ? 'bg-[#d4a853] text-[#1a0f0a]'
-                        : isThisMonth ? 'text-[#a08040]' : 'text-[#4a3328]',
+                        ? 'bg-[#f2d892] text-[#1a0f0a]'
+                        : isThisMonth ? 'text-[#a08040]' : 'text-[#c4a88a]',
                     ].join(' ')}>
                       {day.getDate()}
                     </span>
@@ -366,7 +366,7 @@ export function ChegadaMaterialCalendario({
                         />
                       ))}
                       {dayObras.length > 4 && (
-                        <span className="text-[0.55rem] text-[#d4a853] font-bold leading-none self-center">
+                        <span className="text-[0.55rem] text-[#f2d892] font-bold leading-none self-center">
                           +{dayObras.length - 4}
                         </span>
                       )}
@@ -385,7 +385,7 @@ export function ChegadaMaterialCalendario({
           { cor: '#ef4444', label: 'Atrasada' },
           { cor: '#10b981', label: 'Obra concluída' },
         ].map(item => (
-          <div key={item.label} className="flex items-center gap-1.5 text-[0.7rem] text-[#8a6a55]">
+          <div key={item.label} className="flex items-center gap-1.5 text-[0.7rem] text-[#edd9c4]">
             <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.cor }} />
             {item.label}
           </div>

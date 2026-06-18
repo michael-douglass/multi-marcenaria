@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMetricasObras } from '../hooks/useMetricasObras'
 import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
@@ -94,7 +94,7 @@ function MetricasObrasContent() {
       <KanbanPageToolbar>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
               Métricas de Obras
             </h1>
             <p className="section-label mt-1">
@@ -102,17 +102,17 @@ function MetricasObrasContent() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 rounded-lg border border-[rgba(212,168,83,0.25)] bg-[rgba(10,4,2,0.5)] px-1 py-1">
+            <div className="flex items-center gap-1 rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(10,4,2,0.5)] px-1 py-1">
               <button
                 type="button"
                 onClick={() => navegarMes(-1)}
-                className="rounded p-1.5 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#d4a853]"
+                className="rounded p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f2d892]"
                 aria-label="Mês anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <select
-                className="glass-input !h-8 !min-w-[9rem] !border-0 !bg-transparent !text-xs font-semibold text-[#d4a853]"
+                className="glass-input !h-8 !min-w-[9rem] !border-0 !bg-transparent !text-xs font-semibold text-[#f2d892]"
                 value={`${periodo.ano}-${periodo.mes}`}
                 onChange={e => {
                   const [ano, mes] = e.target.value.split('-').map(Number)
@@ -128,7 +128,7 @@ function MetricasObrasContent() {
               <button
                 type="button"
                 onClick={() => navegarMes(1)}
-                className="rounded p-1.5 text-[#8a6a55] hover:bg-[rgba(212,168,83,0.1)] hover:text-[#d4a853]"
+                className="rounded p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f2d892]"
                 aria-label="Próximo mês"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -137,7 +137,7 @@ function MetricasObrasContent() {
                 <button
                   type="button"
                   onClick={() => setPeriodo({ mes: hoje.getMonth() + 1, ano: hoje.getFullYear() })}
-                  className="ml-1 rounded px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-[#d4a853] hover:bg-[rgba(212,168,83,0.12)]"
+                  className="ml-1 rounded px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-[#f2d892] hover:bg-[rgba(240,210,140,0.12)]"
                 >
                   Hoje
                 </button>
@@ -167,13 +167,13 @@ function MetricasObrasContent() {
           {/* Comissões do mês */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="glass-card p-5 border border-emerald-500/20">
-              <p className="text-xs uppercase tracking-wider text-[#8a6a55] mb-1">
+              <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">
                 Comissão a pagar em {periodoLabel}
               </p>
               <p className="text-3xl font-bold font-display text-emerald-400">
                 {fmtCur(resumo.comissao_a_pagar_mes)}
               </p>
-              <p className="mt-2 text-xs text-[#8a6a55]">
+              <p className="mt-2 text-xs text-[#edd9c4]">
                 Obras já concluídas neste mês com comissão configurada
                 {resumo.obras_concluidas_mes > 0 && (
                   <span className="text-emerald-400/80"> · {resumo.obras_concluidas_mes} obra(s)</span>
@@ -182,13 +182,13 @@ function MetricasObrasContent() {
             </div>
 
             <div className="glass-card p-5 border border-amber-500/20">
-              <p className="text-xs uppercase tracking-wider text-[#8a6a55] mb-1">
+              <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">
                 Comissão em aberto em {periodoLabel}
               </p>
               <p className="text-3xl font-bold font-display text-amber-400">
                 {fmtCur(resumo.comissao_em_aberto)}
               </p>
-              <p className="mt-2 text-xs text-[#8a6a55]">
+              <p className="mt-2 text-xs text-[#edd9c4]">
                 Obras previstas para {periodoLabel}, ainda não concluídas, com comissão definida
                 {resumo.obras_abertas_comissao > 0 && (
                   <span className="text-amber-400/80"> · {resumo.obras_abertas_comissao} obra(s)</span>
@@ -199,11 +199,11 @@ function MetricasObrasContent() {
 
           {/* Comissão por montador */}
           <div className="glass-card overflow-hidden mb-6">
-            <div className="px-4 py-3 border-b border-[rgba(212,168,83,0.12)]">
-              <h2 className="text-sm font-semibold text-[#d4a853] uppercase tracking-wider">
+            <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
+              <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
                 Comissão por montador — {periodoLabel}
               </h2>
-              <p className="text-xs text-[#8a6a55] mt-1">
+              <p className="text-xs text-[#edd9c4] mt-1">
                 Valores individuais de cada montador no mês selecionado
               </p>
             </div>
@@ -216,11 +216,11 @@ function MetricasObrasContent() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[720px]">
                   <thead>
-                    <tr className="border-b border-[rgba(212,168,83,0.12)]">
+                    <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
                         'Montador', 'Concluída (a pagar)', 'Em aberto', 'Gerada no caixa', 'Total previsto',
                       ].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">
+                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
                         </th>
                       ))}
@@ -232,12 +232,12 @@ function MetricasObrasContent() {
                       return (
                         <tr
                           key={m.montador_id}
-                          className={`border-b border-[rgba(212,168,83,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
+                          className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                         >
                           <td className="px-4 py-3">
                             <p className="font-semibold text-cream">{m.montador_nome}</p>
                             {(m.obras_concluidas > 0 || m.obras_em_aberto > 0) && (
-                              <p className="text-[0.65rem] text-[#6b5544] mt-0.5">
+                              <p className="text-[0.65rem] text-[#d4bc9f] mt-0.5">
                                 {m.obras_concluidas > 0 && `${m.obras_concluidas} concluída(s)`}
                                 {m.obras_concluidas > 0 && m.obras_em_aberto > 0 && ' · '}
                                 {m.obras_em_aberto > 0 && `${m.obras_em_aberto} em aberto`}
@@ -250,7 +250,7 @@ function MetricasObrasContent() {
                           <td className="px-4 py-3 font-mono text-amber-400">
                             {m.comissao_em_aberto > 0 ? fmtCur(m.comissao_em_aberto) : '—'}
                           </td>
-                          <td className="px-4 py-3 font-mono text-[#d4a853]">
+                          <td className="px-4 py-3 font-mono text-[#f2d892]">
                             {m.comissao_gerada > 0 ? fmtCur(m.comissao_gerada) : '—'}
                           </td>
                           <td className="px-4 py-3 font-mono font-semibold text-cream">
@@ -261,8 +261,8 @@ function MetricasObrasContent() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.04)]">
-                      <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#d4a853]">
+                    <tr className="border-t border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.04)]">
+                      <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#f2d892]">
                         Total do mês
                       </td>
                       <td className="px-4 py-3 font-mono font-semibold text-emerald-400">
@@ -271,7 +271,7 @@ function MetricasObrasContent() {
                       <td className="px-4 py-3 font-mono font-semibold text-amber-400">
                         {fmtCur(porMontador.reduce((s, m) => s + m.comissao_em_aberto, 0))}
                       </td>
-                      <td className="px-4 py-3 font-mono font-semibold text-[#d4a853]">
+                      <td className="px-4 py-3 font-mono font-semibold text-[#f2d892]">
                         {fmtCur(porMontador.reduce((s, m) => s + m.comissao_gerada, 0))}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-cream">
@@ -290,20 +290,20 @@ function MetricasObrasContent() {
           {/* Resumo geral */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             {[
-              { label: 'Total de Obras', value: totalObras, color: '#d4a853' },
+              { label: 'Total de Obras', value: totalObras, color: '#f2d892' },
               { label: 'Obras Concluídas', value: `${totalConcluidas} (${pct(totalConcluidas, totalObras)})`, color: '#10b981' },
               { label: 'Concluídas em Atraso', value: `${totalAtraso}`, color: '#ef4444' },
               {
                 label: `Comissões Geradas em ${periodoLabel}`,
                 value: fmtCur(resumo.comissoes_geradas_mes),
-                color: '#d4a853',
+                color: '#f2d892',
                 hint: 'Lançamentos em Contas a Pagar',
               },
             ].map(({ label, value, color, hint }) => (
               <div key={label} className="glass-card p-4 text-center">
-                <p className="text-xs uppercase tracking-wider text-[#8a6a55] mb-1">{label}</p>
+                <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">{label}</p>
                 <p className="text-3xl font-bold font-display" style={{ color }}>{value}</p>
-                {hint && <p className="mt-1 text-[0.65rem] text-[#6b5544]">{hint}</p>}
+                {hint && <p className="mt-1 text-[0.65rem] text-[#d4bc9f]">{hint}</p>}
               </div>
             ))}
           </div>
@@ -313,20 +313,20 @@ function MetricasObrasContent() {
             <EmptyState message="Nenhum tipo de obra cadastrado ainda." />
           ) : (
             <div className="glass-card overflow-hidden mb-8">
-              <div className="px-4 py-3 border-b border-[rgba(212,168,83,0.12)]">
-                <h2 className="text-sm font-semibold text-[#d4a853] uppercase tracking-wider">
+              <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
+                <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
                   Tempo por tipo de obra — {periodoLabel}
                 </h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
                   <thead>
-                    <tr className="border-b border-[rgba(212,168,83,0.12)]">
+                    <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
                         'Tipo de Obra', 'Total', 'Concluídas', 'Em Atraso', 'Comissões',
                         'Tempo Médio', 'Tempo Total', 'Prazo Máx.', '% Conclusão',
                       ].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">
+                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
                         </th>
                       ))}
@@ -342,25 +342,25 @@ function MetricasObrasContent() {
                       return (
                         <tr
                           key={m.tipo_obra_id}
-                          className={`border-b border-[rgba(212,168,83,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
+                          className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                         >
                           <td className="px-4 py-3 font-semibold text-cream">{m.tipo_obra_nome}</td>
-                          <td className="px-4 py-3 text-[#8a6a55]">{total}</td>
+                          <td className="px-4 py-3 text-[#edd9c4]">{total}</td>
                           <td className="px-4 py-3">
                             <span className="text-emerald-400">{concluidas}</span>
-                            <span className="text-[#6b5544] ml-1">({pct(concluidas, total)})</span>
+                            <span className="text-[#d4bc9f] ml-1">({pct(concluidas, total)})</span>
                           </td>
                           <td className="px-4 py-3">
                             {atraso > 0
                               ? <span className="text-red-400 font-semibold">{atraso}</span>
-                              : <span className="text-[#8a6a55]">0</span>}
+                              : <span className="text-[#edd9c4]">0</span>}
                           </td>
-                          <td className="px-4 py-3 font-mono text-[#d4a853]">
+                          <td className="px-4 py-3 font-mono text-[#f2d892]">
                             {fmtCur(Number(m.total_comissoes ?? 0))}
                           </td>
                           <td className="px-4 py-3 text-cream font-mono">{fmtH(m.tempo_medio_real_horas)}</td>
                           <td className="px-4 py-3 text-cream font-mono">{fmtH(m.tempo_total_real_horas)}</td>
-                          <td className="px-4 py-3 text-[#8a6a55] font-mono">{fmtH(m.tempo_maximo_horas_default)}</td>
+                          <td className="px-4 py-3 text-[#edd9c4] font-mono">{fmtH(m.tempo_maximo_horas_default)}</td>
                           <td className="px-4 py-3">
                             {onTimeRate != null ? (
                               <div className="flex items-center gap-2">
@@ -373,10 +373,10 @@ function MetricasObrasContent() {
                                     }}
                                   />
                                 </div>
-                                <span className="text-xs text-[#8a6a55] w-10 text-right">{Math.round(onTimeRate)}%</span>
+                                <span className="text-xs text-[#edd9c4] w-10 text-right">{Math.round(onTimeRate)}%</span>
                               </div>
                             ) : (
-                              <span className="text-[#6b5544]">—</span>
+                              <span className="text-[#d4bc9f]">—</span>
                             )}
                           </td>
                         </tr>
@@ -390,11 +390,11 @@ function MetricasObrasContent() {
 
           {/* Histórico por obra */}
           <div className="glass-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-[rgba(212,168,83,0.12)]">
-              <h2 className="text-sm font-semibold text-[#d4a853] uppercase tracking-wider">
+            <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
+              <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
                 Histórico por obra
               </h2>
-              <p className="text-xs text-[#8a6a55] mt-1">
+              <p className="text-xs text-[#edd9c4] mt-1">
                 Obras de {periodoLabel} — início, fim e duração registrada em horas
               </p>
             </div>
@@ -407,11 +407,11 @@ function MetricasObrasContent() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[1000px]">
                   <thead>
-                    <tr className="border-b border-[rgba(212,168,83,0.12)]">
+                    <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
                         'Cliente', 'Tipo', 'Status', 'Mês ref.', 'Início', 'Fim', 'Duração (horas)', 'Comissão',
                       ].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">
+                        <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
                         </th>
                       ))}
@@ -421,16 +421,16 @@ function MetricasObrasContent() {
                     {porObra.map((o, i) => (
                       <tr
                         key={o.obra_id}
-                        className={`border-b border-[rgba(212,168,83,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
+                        className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                       >
                         <td className="px-4 py-3 font-semibold text-cream">{o.cliente_nome}</td>
-                        <td className="px-4 py-3 text-[#8a6a55]">{o.tipo_obra_nome ?? '—'}</td>
+                        <td className="px-4 py-3 text-[#edd9c4]">{o.tipo_obra_nome ?? '—'}</td>
                         <td className="px-4 py-3">
-                          <span className="text-xs font-semibold text-[#d4a853]">
+                          <span className="text-xs font-semibold text-[#f2d892]">
                             {STATUS_LABEL[o.status_kanban as StatusKanbanObra] ?? o.status_kanban}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-[#8a6a55] text-xs">
+                        <td className="px-4 py-3 text-[#edd9c4] text-xs">
                           {o.mes_referencia
                             ? labelMesAno(
                                 Number(o.mes_referencia.slice(5, 7)),
@@ -444,7 +444,7 @@ function MetricasObrasContent() {
                         <td className="px-4 py-3 text-cream text-xs">
                           {fmtDuracaoHoras(o.duracao_horas, o.duracao_em_andamento)}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[#d4a853]">
+                        <td className="px-4 py-3 font-mono text-[#f2d892]">
                           {o.comissao_habilitada ? fmtCur(Number(o.comissao_valor)) : '—'}
                         </td>
                       </tr>

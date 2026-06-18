@@ -1,4 +1,4 @@
-import type { ObraFull } from '@/types'
+﻿import type { ObraFull } from '@/types'
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -51,7 +51,7 @@ export function obrasParaDiaChegada(
 }
 
 export function getChegadaCardColor(obra: ObraFull, hoje = todayISO()): string {
-  if (!obra.data_entrega_pedido) return '#8a6a55'
+  if (!obra.data_entrega_pedido) return '#edd9c4'
   if (obra.data_entrega_pedido < hoje && obra.status_kanban !== 'concluida') return '#ef4444'
   if (obra.status_kanban === 'concluida') return '#10b981'
   return '#34d399'

@@ -1,4 +1,4 @@
-import { fmtCur } from '@/lib/utils'
+﻿import { fmtCur } from '@/lib/utils'
 import type { ResumoFinanceiroFornecedor as ResumoFinanceiro } from '@/lib/fornecedor-financeiro'
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 
 export function ResumoFinanceiroFornecedor({ resumo, compact }: Props) {
   const items = [
-    { label: 'Limite', value: resumo.limite, color: '#d4a853' },
+    { label: 'Limite', value: resumo.limite, color: '#f2d892' },
     { label: 'A pagar', value: resumo.aPagar, color: '#f87171' },
     {
       label: 'Disponível',
@@ -29,7 +29,7 @@ export function ResumoFinanceiroFornecedor({ resumo, compact }: Props) {
       {items.map(item => (
         <div
           key={item.label}
-          className="rounded-lg border border-[rgba(212,168,83,0.15)] bg-[rgba(0,0,0,0.2)] px-2.5 py-2"
+          className="rounded-lg border border-[rgba(240,210,140,0.15)] bg-[rgba(0,0,0,0.2)] px-2.5 py-2"
         >
           <div className="section-label mb-0.5 text-[0.65rem]">{item.label}</div>
           <div

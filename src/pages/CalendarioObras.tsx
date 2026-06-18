@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useObras } from '../hooks/useObras'
@@ -158,15 +158,15 @@ function ConfigDiasPanel({
         className="glass-panel rounded-2xl w-full max-w-sm"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(212,168,83,0.18)]">
-          <p className="font-display text-lg text-[#d4a853] tracking-widest">Dias de Trabalho</p>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(240,210,140,0.18)]">
+          <p className="font-display text-lg text-[#f2d892] tracking-widest">Dias de Trabalho</p>
           <button onClick={onClose} className="btn btn-outline btn-sm !px-2">
             <X size={15} />
           </button>
         </div>
 
         <div className="p-4 space-y-2">
-          <p className="text-[0.68rem] text-[#8a6a55] mb-3 uppercase tracking-wider">
+          <p className="text-[0.68rem] text-[#edd9c4] mb-3 uppercase tracking-wider">
             Selecione os dias e defina os horários
           </p>
           {([0, 1, 2, 3, 4, 5, 6] as number[]).map(d => {
@@ -181,8 +181,8 @@ function ConfigDiasPanel({
                     className={[
                       'w-14 shrink-0 rounded-full px-2 py-1.5 text-xs font-bold transition-all',
                       ativo
-                        ? 'bg-[#d4a853]/20 text-[#d4a853] border border-[#d4a853]/50'
-                        : 'bg-[rgba(212,168,83,0.04)] text-[#4a3328] border border-[rgba(212,168,83,0.08)]',
+                        ? 'bg-[#f2d892]/20 text-[#f2d892] border border-[#f2d892]/50'
+                        : 'bg-[rgba(240,210,140,0.04)] text-[#c4a88a] border border-[rgba(240,210,140,0.08)]',
                     ].join(' ')}
                   >
                     {WEEKDAYS[d]}
@@ -196,7 +196,7 @@ function ConfigDiasPanel({
                         value={horario?.inicio ?? ''}
                         onChange={e => onSetHorario(d, 'inicio', e.target.value)}
                       />
-                      <span className="text-[#8a6a55] text-xs shrink-0">→</span>
+                      <span className="text-[#edd9c4] text-xs shrink-0">→</span>
                       <input
                         type="time"
                         className="glass-input !py-1 !px-2 w-[88px] text-xs"
@@ -205,7 +205,7 @@ function ConfigDiasPanel({
                       />
                     </div>
                   ) : (
-                    <span className="text-[0.68rem] text-[#4a3328]/50">não trabalha</span>
+                    <span className="text-[0.68rem] text-[#c4a88a]/50">não trabalha</span>
                   )}
                 </div>
               </div>
@@ -217,7 +217,7 @@ function ConfigDiasPanel({
           <button
             type="button"
             onClick={onClose}
-            className="w-full btn btn-sm bg-[#d4a853]/20 text-[#d4a853] hover:bg-[#d4a853]/30 transition-colors rounded-lg py-2 text-xs font-semibold"
+            className="w-full btn btn-sm bg-[#f2d892]/20 text-[#f2d892] hover:bg-[#f2d892]/30 transition-colors rounded-lg py-2 text-xs font-semibold"
           >
             Fechar
           </button>
@@ -269,12 +269,12 @@ function DayPopup({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(212,168,83,0.18)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(240,210,140,0.18)]">
           <div>
-            <p className="font-display text-lg text-[#d4a853] tracking-widest">
+            <p className="font-display text-lg text-[#f2d892] tracking-widest">
               {WEEKDAYS_LONG[date.getDay()]}, {date.getDate()} de {MONTHS_FULL[date.getMonth()]}
             </p>
-            <p className="text-xs text-[#8a6a55]">{obras.length} obra{obras.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-[#edd9c4]">{obras.length} obra{obras.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="btn btn-outline btn-sm !px-2">
             <X size={15} />
@@ -284,7 +284,7 @@ function DayPopup({
         {/* Lista de obras */}
         <div className="overflow-y-auto flex-1 p-4 space-y-2">
           {obras.length === 0 ? (
-            <p className="text-center text-sm text-[#8a6a55] py-6">Nenhuma obra neste dia.</p>
+            <p className="text-center text-sm text-[#edd9c4] py-6">Nenhuma obra neste dia.</p>
           ) : (
             obras.map(o => {
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
@@ -315,15 +315,15 @@ function DayPopup({
                           {o.cliente_nome}
                         </p>
                         {o.tipo_obra_nome && (
-                          <p className="text-xs text-[#8a6a55] mt-0.5">{o.tipo_obra_nome}</p>
+                          <p className="text-xs text-[#edd9c4] mt-0.5">{o.tipo_obra_nome}</p>
                         )}
                         <ObraMontadorBadge obra={o} compact />
                         <ObraPedidoMaterialBadge obra={o} compact />
                         {o.endereco_obra && (
-                          <p className="text-xs text-[#8a6a55] truncate">{o.endereco_obra}</p>
+                          <p className="text-xs text-[#edd9c4] truncate">{o.endereco_obra}</p>
                         )}
                         {(o.data_prevista_inicio || o.data_prevista_fim) && (
-                          <p className="text-xs text-[#8a6a55] mt-0.5">
+                          <p className="text-xs text-[#edd9c4] mt-0.5">
                             {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
                             {' → '}
                             {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
@@ -714,7 +714,7 @@ function CalendarioObrasContent() {
           subtitle={
             <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-              {filtrosAtivos && <span className="ml-1 text-[#d4a853]">· filtrado</span>}
+              {filtrosAtivos && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
             </>
           }
           actions={
@@ -755,7 +755,7 @@ function CalendarioObrasContent() {
                     <ChevronLeft size={15} />
                   </button>
                   <span
-                    className="obra-page-nav-label text-sm font-semibold text-[#d4a853] px-2 text-center"
+                    className="obra-page-nav-label text-sm font-semibold text-[#f2d892] px-2 text-center"
                     title={rangeLabel}
                   >
                     {rangeLabel}
@@ -768,17 +768,17 @@ function CalendarioObrasContent() {
 
               <div
                 className="obra-page-filters glass-card p-4"
-                style={{ borderColor: filtrosAtivos ? 'rgba(212,168,83,0.35)' : undefined }}
+                style={{ borderColor: filtrosAtivos ? 'rgba(240,210,140,0.35)' : undefined }}
               >
-                <div className="flex items-center gap-2 text-[#8a6a55] shrink-0 pb-2 lg:pb-0">
-                  <Filter size={14} className="text-[#d4a853] shrink-0" />
+                <div className="flex items-center gap-2 text-[#edd9c4] shrink-0 pb-2 lg:pb-0">
+                  <Filter size={14} className="text-[#f2d892] shrink-0" />
                   <span className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Filtros</span>
                 </div>
 
                 <div className="relative min-w-0">
                   <Search
                     size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
                   />
                   <input
                     className="glass-input w-full min-w-0 pl-9 pr-8"
@@ -790,7 +790,7 @@ function CalendarioObrasContent() {
                     <button
                       type="button"
                       onClick={() => setBusca('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
                     >
                       <X size={13} />
                     </button>
@@ -798,7 +798,7 @@ function CalendarioObrasContent() {
                 </div>
 
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#8a6a55]">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#edd9c4]">
                     Etapa
                   </label>
                   <select
@@ -813,7 +813,7 @@ function CalendarioObrasContent() {
                 </div>
 
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#8a6a55]">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#edd9c4]">
                     Data
                   </label>
                   <input
@@ -858,8 +858,8 @@ function CalendarioObrasContent() {
             <div className="w-full max-w-full min-w-0 space-y-3">
               {/* Horário do dia */}
               {dayIsDiaUtil && horarioDiaAtual && (horarioDiaAtual.inicio || horarioDiaAtual.fim) && (
-                <div className="flex items-center gap-2 px-1 text-xs text-[#8a6a55]">
-                  <Settings size={11} className="text-[#d4a853] shrink-0" />
+                <div className="flex items-center gap-2 px-1 text-xs text-[#edd9c4]">
+                  <Settings size={11} className="text-[#f2d892] shrink-0" />
                   <span>
                     {horarioDiaAtual.inicio && horarioDiaAtual.fim
                       ? `${horarioDiaAtual.inicio} → ${horarioDiaAtual.fim}`
@@ -871,20 +871,20 @@ function CalendarioObrasContent() {
               )}
               {!dayIsDiaUtil ? (
                 <div className="glass-card p-10 text-center opacity-60">
-                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#8a6a55', opacity: 0.3 }} />
-                  <p className="text-[#8a6a55] text-sm">Este dia não é um dia de trabalho.</p>
+                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#edd9c4', opacity: 0.3 }} />
+                  <p className="text-[#edd9c4] text-sm">Este dia não é um dia de trabalho.</p>
                   <button
                     type="button"
                     onClick={() => setShowConfigDias(true)}
-                    className="mt-3 text-xs text-[#d4a853]/70 hover:text-[#d4a853] transition-colors underline underline-offset-2"
+                    className="mt-3 text-xs text-[#f2d892]/70 hover:text-[#f2d892] transition-colors underline underline-offset-2"
                   >
                     Configurar dias de trabalho
                   </button>
                 </div>
               ) : dayViewObras.length === 0 ? (
                 <div className="glass-card p-10 text-center">
-                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#d4a853', opacity: 0.25 }} />
-                  <p className="text-[#8a6a55] text-sm">Nenhuma obra para este dia.</p>
+                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#f2d892', opacity: 0.25 }} />
+                  <p className="text-[#edd9c4] text-sm">Nenhuma obra para este dia.</p>
                 </div>
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
@@ -918,7 +918,7 @@ function CalendarioObrasContent() {
                             <ObraMontadorBadge obra={o} />
                             <ObraPedidoMaterialBadge obra={o} />
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#8a6a55] min-w-0">
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#edd9c4] min-w-0">
                             {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
                             {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
                             {o.pedido_material_feito && o.data_entrega_pedido && (
@@ -931,7 +931,7 @@ function CalendarioObrasContent() {
                             )}
                           </div>
                           {(o.data_prevista_inicio || o.data_prevista_fim) && (
-                            <p className="text-xs text-[#8a6a55] mt-1.5">
+                            <p className="text-xs text-[#edd9c4] mt-1.5">
                               {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
                               {' → '}
                               {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
@@ -985,37 +985,37 @@ function CalendarioObrasContent() {
                       className={[
                         'cal-week-day glass-card p-2 flex flex-col min-h-[200px] transition-all',
                         !isDiaUtil   ? 'opacity-40' : '',
-                        isToday      ? 'ring-1 ring-[#d4a853]/40' : '',
+                        isToday      ? 'ring-1 ring-[#f2d892]/40' : '',
                         isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
                         isDiaUtil && hasObras ? 'cursor-pointer hover:brightness-110' : '',
                       ].join(' ')}
                     >
                       <div className="cal-week-day__header">
-                        <div className={`cal-week-day__title-row ${isToday ? 'text-[#d4a853]' : 'text-[#8a6a55]'}`}>
+                        <div className={`cal-week-day__title-row ${isToday ? 'text-[#f2d892]' : 'text-[#edd9c4]'}`}>
                           <span className="cal-week-day__label" title={fmtDayHeader(day)}>
                             {WEEKDAYS[day.getDay()]}
                             {isToday && (
-                              <span className="ml-1 text-[0.55rem] bg-[#d4a853]/20 text-[#d4a853] rounded px-1 align-middle">
+                              <span className="ml-1 text-[0.55rem] bg-[#f2d892]/20 text-[#f2d892] rounded px-1 align-middle">
                                 hoje
                               </span>
                             )}
                           </span>
                           {hasObras && (
-                            <span className="shrink-0 rounded-full w-4 h-4 flex items-center justify-center text-[0.55rem] font-bold bg-[rgba(212,168,83,0.2)] text-[#d4a853]">
+                            <span className="shrink-0 rounded-full w-4 h-4 flex items-center justify-center text-[0.55rem] font-bold bg-[rgba(240,210,140,0.2)] text-[#f2d892]">
                               {dayObras.length}
                             </span>
                           )}
                         </div>
                         <span className="cal-week-day__date">{day.getDate()}/{MONTHS[day.getMonth()]}</span>
                         {isDiaUtil && horarioSem && (horarioSem.inicio || horarioSem.fim) && (
-                          <span className="text-[0.55rem] text-[#8a6a55]/60 truncate">
+                          <span className="text-[0.55rem] text-[#edd9c4]/60 truncate">
                             {horarioSem.inicio}{horarioSem.inicio && horarioSem.fim ? ' – ' : ''}{horarioSem.fim}
                           </span>
                         )}
                       </div>
                       <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                         {dayObras.length === 0 ? (
-                          <p className="text-[0.62rem] text-[#4a3328] mt-2 text-center">—</p>
+                          <p className="text-[0.62rem] text-[#c4a88a] mt-2 text-center">—</p>
                         ) : (
                           dayObras.slice(0, 2).map(o => (
                             <div
@@ -1040,7 +1040,7 @@ function CalendarioObrasContent() {
                           ))
                         )}
                         {dayObras.length > 2 && (
-                          <p className="text-[0.62rem] text-[#d4a853] text-center">+{dayObras.length - 2} mais</p>
+                          <p className="text-[0.62rem] text-[#f2d892] text-center">+{dayObras.length - 2} mais</p>
                         )}
                       </div>
                     </div>
@@ -1061,7 +1061,7 @@ function CalendarioObrasContent() {
                       key={wd}
                       className={[
                         'text-center text-[0.65rem] font-bold py-1 uppercase tracking-widest transition-opacity',
-                        configDias.diasAtivos.includes(wdIdx) ? 'text-[#8a6a55]' : 'text-[#8a6a55] opacity-30',
+                        configDias.diasAtivos.includes(wdIdx) ? 'text-[#edd9c4]' : 'text-[#edd9c4] opacity-30',
                       ].join(' ')}
                     >
                       {wd}
@@ -1091,7 +1091,7 @@ function CalendarioObrasContent() {
                           'rounded-lg p-1.5 flex flex-col transition-all',
                           isThisMonth  ? 'glass-card' : 'opacity-30',
                           isThisMonth && !isDiaUtil ? '!opacity-35' : '',
-                          isToday      ? 'ring-1 ring-[#d4a853]/50' : '',
+                          isToday      ? 'ring-1 ring-[#f2d892]/50' : '',
                           isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
                           (isDiaUtil && hasObras) || !isThisMonth ? 'cursor-pointer hover:brightness-110' : '',
                         ].join(' ')}
@@ -1100,8 +1100,8 @@ function CalendarioObrasContent() {
                         <span className={[
                           'text-[0.7rem] font-bold self-start w-5 h-5 flex items-center justify-center rounded-full mb-1',
                           isToday
-                            ? 'bg-[#d4a853] text-[#1a0f0a]'
-                            : isThisMonth ? 'text-[#a08040]' : 'text-[#4a3328]',
+                            ? 'bg-[#f2d892] text-[#1a0f0a]'
+                            : isThisMonth ? 'text-[#a08040]' : 'text-[#c4a88a]',
                         ].join(' ')}>
                           {day.getDate()}
                         </span>
@@ -1114,7 +1114,7 @@ function CalendarioObrasContent() {
                             />
                           ))}
                           {dayObras.length > 4 && (
-                            <span className="text-[0.55rem] text-[#d4a853] font-bold leading-none self-center">
+                            <span className="text-[0.55rem] text-[#f2d892] font-bold leading-none self-center">
                               +{dayObras.length - 4}
                             </span>
                           )}
@@ -1130,7 +1130,7 @@ function CalendarioObrasContent() {
           {/* Legenda */}
           <div className="mt-6 flex flex-wrap gap-3">
             {Object.entries(STATUS_COLORS).map(([key, cor]) => (
-              <div key={key} className="flex items-center gap-1.5 text-[0.7rem] text-[#8a6a55]">
+              <div key={key} className="flex items-center gap-1.5 text-[0.7rem] text-[#edd9c4]">
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cor }} />
                 {STATUS_LABEL[key as StatusKanbanObra]}
               </div>

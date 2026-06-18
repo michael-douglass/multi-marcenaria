@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { Camera, Loader2, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { isAcceptedEvolucaoFile } from '@/lib/obra-evolucao'
@@ -69,8 +69,8 @@ export function ObraEvolucaoRegistrarModal({
     <Modal open={open} onClose={handleClose} title="REGISTRAR PROGRESSO">
       <div className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#8a6a55]">
-            Observação <span className="normal-case font-normal text-[#6b5544]">(opcional)</span>
+          <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#edd9c4]">
+            Observação <span className="normal-case font-normal text-[#d4bc9f]">(opcional)</span>
           </label>
           <textarea
             className="glass-input min-h-[88px] resize-y"
@@ -80,20 +80,20 @@ export function ObraEvolucaoRegistrarModal({
             maxLength={500}
             disabled={uploading}
           />
-          <p className="mt-1 text-right text-[0.62rem] text-[#6b5544]">
+          <p className="mt-1 text-right text-[0.62rem] text-[#d4bc9f]">
             {observacao.length}/500
           </p>
         </div>
 
         <div>
-          <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#8a6a55]">
+          <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#edd9c4]">
             Fotos, PDF ou Vídeo
           </label>
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[rgba(212,168,83,0.35)] bg-black/20 px-4 py-6 text-sm font-semibold text-[#d4a853] transition hover:border-[rgba(212,168,83,0.55)] hover:bg-[rgba(212,168,83,0.06)] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[rgba(240,210,140,0.35)] bg-black/20 px-4 py-6 text-sm font-semibold text-[#f2d892] transition hover:border-[rgba(240,210,140,0.55)] hover:bg-[rgba(240,210,140,0.06)] disabled:opacity-50"
           >
             <Camera size={18} />
             {selectedFiles.length ? 'Trocar arquivos' : 'Escolher foto, PDF ou vídeo'}
@@ -111,14 +111,14 @@ export function ObraEvolucaoRegistrarModal({
               {selectedFiles.map(file => (
                 <li
                   key={`${file.name}-${file.size}`}
-                  className="flex items-center justify-between gap-2 rounded-md bg-[rgba(212,168,83,0.08)] px-2.5 py-1.5 text-xs text-cream"
+                  className="flex items-center justify-between gap-2 rounded-md bg-[rgba(240,210,140,0.08)] px-2.5 py-1.5 text-xs text-cream"
                 >
                   <span className="min-w-0 truncate">{file.name}</span>
                   <button
                     type="button"
                     onClick={() => setSelectedFiles(prev => prev.filter(f => f !== file))}
                     disabled={uploading}
-                    className="shrink-0 text-[#8a6a55] hover:text-[#d4a853]"
+                    className="shrink-0 text-[#edd9c4] hover:text-[#f2d892]"
                     aria-label="Remover arquivo"
                   >
                     <X size={14} />

@@ -47,15 +47,15 @@ export default {
           ring: 'hsl(var(--sidebar-ring))',
         },
         gold: {
-          DEFAULT: '#d4a853',
-          muted: '#c9a07b',
-          dim: 'rgba(212,168,83,0.22)',
+          DEFAULT: '#f2d892',
+          muted: '#e8c878',
+          dim: 'rgba(240,210,140,0.35)',
         },
-        cream: '#f4e4d6',
+        cream: '#fffaf4',
         mahogany: {
-          DEFAULT: '#150c09',
-          card: 'rgba(36,16,8,0.84)',
-          deep: 'rgba(15,7,3,0.65)',
+          DEFAULT: '#2a1812',
+          card: 'rgba(78,52,40,0.97)',
+          deep: 'rgba(68,46,34,0.88)',
         },
       },
       fontFamily: {
@@ -70,7 +70,7 @@ export default {
       },
       backgroundImage: {
         'radial-mahogany':
-          'radial-gradient(ellipse at 15% 15%,rgba(90,45,10,.45) 0,transparent 55%),radial-gradient(ellipse at 85% 85%,rgba(60,25,5,.35) 0,transparent 55%)',
+          'radial-gradient(ellipse at 15% 15%,rgba(120,72,40,.35) 0,transparent 55%),radial-gradient(ellipse at 85% 85%,rgba(90,50,28,.28) 0,transparent 55%)',
       },
     },
   },

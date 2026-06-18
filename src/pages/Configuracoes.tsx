@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useUsuarios, type UsuarioAdmin } from '../hooks/useUsuarios'
 import { useApp } from '../context/AppContext'
@@ -12,7 +12,7 @@ type TabCriacao = 'novo' | 'existente'
 
 // ── Perfis disponíveis ───────────────────────────────────────
 const PERFIS = [
-  { value: 'administrador',  label: 'Administrador',  cor: '#d4a853' },
+  { value: 'administrador',  label: 'Administrador',  cor: '#f2d892' },
   { value: 'financeiro',     label: 'Financeiro',     cor: '#3b82f6' },
   { value: 'marceneiro',     label: 'Marceneiro',     cor: '#8b5cf6' },
   { value: 'montador',       label: 'Montador',       cor: '#f59e0b' },
@@ -23,7 +23,7 @@ const PERFIS = [
 
 function PerfilBadge({ perfil }: { perfil: string }) {
   const p = PERFIS.find(x => x.value === perfil)
-  if (!p) return <span className="text-[#8a6a55] text-xs">{perfil}</span>
+  if (!p) return <span className="text-[#edd9c4] text-xs">{perfil}</span>
   return (
     <span
       className="rounded-full px-2.5 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide"
@@ -122,8 +122,8 @@ function UserModal({
               onClick={() => { setTab(t.key); setErr(null) }}
               className="flex-1 rounded py-1.5 text-xs font-semibold transition-colors"
               style={tab === t.key
-                ? { backgroundColor: 'rgba(212,168,83,0.2)', color: '#d4a853' }
-                : { color: '#8a6a55' }
+                ? { backgroundColor: 'rgba(240,210,140,0.2)', color: '#f2d892' }
+                : { color: '#edd9c4' }
               }
             >
               {t.label}
@@ -169,7 +169,7 @@ function UserModal({
                       ? prev.perfis_extras.filter(x => x !== p.value)
                       : [...prev.perfis_extras, p.value],
                   }))}
-                  className="accent-[#d4a853] w-3.5 h-3.5 shrink-0"
+                  className="accent-[#f2d892] w-3.5 h-3.5 shrink-0"
                 />
                 <span
                   className="rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide"
@@ -192,14 +192,14 @@ function UserModal({
           <Field label="Confirmar senha *">
             <input type="password" className="glass-input" value={form.confirmSenha} onChange={f('confirmSenha')} placeholder="Repita a senha" autoComplete="new-password" />
           </Field>
-          <p className="text-[0.72rem] text-[#8a6a55]">O usuário poderá alterar a senha após o primeiro acesso.</p>
+          <p className="text-[0.72rem] text-[#edd9c4]">O usuário poderá alterar a senha após o primeiro acesso.</p>
         </>
       )}
 
       {/* Campos: registrar existente + senha opcional */}
       {!editUser && tab === 'existente' && (
         <>
-          <div className="rounded-lg p-3 text-[0.75rem] text-[#8a6a55]" style={{ backgroundColor: 'rgba(212,168,83,0.08)', border: '1px solid rgba(212,168,83,0.15)' }}>
+          <div className="rounded-lg p-3 text-[0.75rem] text-[#edd9c4]" style={{ backgroundColor: 'rgba(240,210,140,0.08)', border: '1px solid rgba(240,210,140,0.15)' }}>
             Usuário que já tem conta no sistema (ex.: CRM). O perfil Movelaria será criado e a senha definida abaixo permitirá o login.
           </div>
           <Field label="Definir senha (opcional)">
@@ -256,7 +256,7 @@ function SenhaModal({
 
   return (
     <Modal open={open} onClose={onClose} title="REDEFINIR SENHA">
-      <p className="text-sm text-[#8a6a55] mb-3">
+      <p className="text-sm text-[#edd9c4] mb-3">
         Usuário: <span className="text-cream font-semibold">{user?.email}</span>
       </p>
       <Field label="Perfil *">
@@ -288,11 +288,11 @@ function ConfirmDeleteModal({
 }) {
   return (
     <Modal open={open} onClose={onClose} title="CONFIRMAR EXCLUSÃO">
-      <p className="text-sm text-[#8a6a55]">
+      <p className="text-sm text-[#edd9c4]">
         Deseja <span className="text-red-400 font-semibold">excluir permanentemente</span> o usuário:
       </p>
       <p className="mt-1 font-semibold text-cream">{user?.email}</p>
-      <p className="mt-2 text-xs text-[#8a6a55]">
+      <p className="mt-2 text-xs text-[#edd9c4]">
         Esta ação é irreversível e remove o acesso imediatamente.
       </p>
       <div className="flex justify-end gap-2 mt-4">
@@ -397,7 +397,7 @@ export function Configuracoes() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
             Configurações
           </h1>
           <p className="section-label mt-1">
@@ -425,9 +425,9 @@ export function Configuracoes() {
         <div className="glass-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[rgba(212,168,83,0.12)]">
+              <tr className="border-b border-[rgba(240,210,140,0.12)]">
                 {['Usuário', 'Perfil', 'Status', 'Criado em', 'Ações'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#8a6a55]">
+                  <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                     {h}
                   </th>
                 ))}
@@ -439,25 +439,25 @@ export function Configuracoes() {
                 return (
                   <tr
                     key={u.id}
-                    className={`border-b border-[rgba(212,168,83,0.06)] transition-colors ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''} ${!u.ativo ? 'opacity-50' : ''}`}
+                    className={`border-b border-[rgba(240,210,140,0.06)] transition-colors ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''} ${!u.ativo ? 'opacity-50' : ''}`}
                   >
                     {/* Usuário */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[0.65rem] font-bold"
-                          style={{ backgroundColor: 'rgba(212,168,83,0.15)', color: '#d4a853' }}
+                          style={{ backgroundColor: 'rgba(240,210,140,0.15)', color: '#f2d892' }}
                         >
                           {(u.nome ?? u.email).charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className="font-semibold text-cream">
-                            {u.nome ?? <span className="text-[#8a6a55] italic">sem nome</span>}
+                            {u.nome ?? <span className="text-[#edd9c4] italic">sem nome</span>}
                             {isMe && (
-                              <span className="ml-1.5 text-[0.6rem] bg-[#d4a853]/15 text-[#d4a853] rounded px-1">você</span>
+                              <span className="ml-1.5 text-[0.6rem] bg-[#f2d892]/15 text-[#f2d892] rounded px-1">você</span>
                             )}
                           </p>
-                          <p className="text-[0.72rem] text-[#8a6a55]">{u.email}</p>
+                          <p className="text-[0.72rem] text-[#edd9c4]">{u.email}</p>
                         </div>
                       </div>
                     </td>
@@ -469,13 +469,13 @@ export function Configuracoes() {
 
                     {/* Status */}
                     <td className="px-4 py-3">
-                      <span className={`text-[0.72rem] font-semibold ${u.ativo ? 'text-emerald-400' : 'text-[#8a6a55]'}`}>
+                      <span className={`text-[0.72rem] font-semibold ${u.ativo ? 'text-emerald-400' : 'text-[#edd9c4]'}`}>
                         {u.ativo ? '● Ativo' : '○ Inativo'}
                       </span>
                     </td>
 
                     {/* Criado em */}
-                    <td className="px-4 py-3 text-[0.75rem] text-[#8a6a55]">
+                    <td className="px-4 py-3 text-[0.75rem] text-[#edd9c4]">
                       {new Date(u.criado_em).toLocaleDateString('pt-BR')}
                     </td>
 
@@ -486,7 +486,7 @@ export function Configuracoes() {
                         <button
                           title="Editar usuário"
                           onClick={() => openEditar(u)}
-                          className="p-1.5 rounded text-[#8a6a55] hover:text-[#d4a853] hover:bg-[rgba(212,168,83,0.1)] transition-colors"
+                          className="p-1.5 rounded text-[#edd9c4] hover:text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] transition-colors"
                         >
                           <Pencil size={13} />
                         </button>
@@ -495,7 +495,7 @@ export function Configuracoes() {
                         <button
                           title="Redefinir senha"
                           onClick={() => { setSenhaUser(u); setSenhaModalOpen(true) }}
-                          className="p-1.5 rounded text-[#8a6a55] hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                          className="p-1.5 rounded text-[#edd9c4] hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
                         >
                           <KeyRound size={13} />
                         </button>
@@ -505,7 +505,7 @@ export function Configuracoes() {
                           <button
                             title={u.ativo ? 'Desativar usuário' : 'Reativar usuário'}
                             onClick={() => handleToggleAtivo(u)}
-                            className={`p-1.5 rounded transition-colors ${u.ativo ? 'text-[#8a6a55] hover:text-amber-400 hover:bg-amber-400/10' : 'text-[#8a6a55] hover:text-emerald-400 hover:bg-emerald-400/10'}`}
+                            className={`p-1.5 rounded transition-colors ${u.ativo ? 'text-[#edd9c4] hover:text-amber-400 hover:bg-amber-400/10' : 'text-[#edd9c4] hover:text-emerald-400 hover:bg-emerald-400/10'}`}
                           >
                             {u.ativo ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
                           </button>
@@ -516,7 +516,7 @@ export function Configuracoes() {
                           <button
                             title="Excluir usuário"
                             onClick={() => { setDeleteUser(u); setDeleteModalOpen(true) }}
-                            className="p-1.5 rounded text-[#8a6a55] hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                            className="p-1.5 rounded text-[#edd9c4] hover:text-red-400 hover:bg-red-400/10 transition-colors"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -524,7 +524,7 @@ export function Configuracoes() {
 
                         {isMe && (
                           <span title="Seu próprio usuário">
-                            <ShieldCheck size={14} className="text-[#d4a853] ml-1" />
+                            <ShieldCheck size={14} className="text-[#f2d892] ml-1" />
                           </span>
                         )}
                       </div>
@@ -541,7 +541,7 @@ export function Configuracoes() {
       {!hook.loading && (
         <div className="mt-6 flex flex-wrap gap-3">
           {PERFIS.map(p => (
-            <div key={p.value} className="flex items-center gap-1.5 text-[0.72rem] text-[#8a6a55]">
+            <div key={p.value} className="flex items-center gap-1.5 text-[0.72rem] text-[#edd9c4]">
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.cor }} />
               {p.label}
             </div>

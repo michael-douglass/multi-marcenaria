@@ -1,4 +1,4 @@
-import { addMonths, endOfMonth, isOverdue, todayISO } from '@/lib/utils'
+﻿import { addMonths, endOfMonth, isOverdue, todayISO } from '@/lib/utils'
 import type { ContaPagar } from '@/types'
 
 export type PeriodMode =
@@ -115,9 +115,9 @@ const pillStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: '9999px',
   fontSize: '.75rem',
   fontWeight: 600,
-  border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-  background: active ? 'rgba(212,168,83,.14)' : 'transparent',
-  color: active ? '#d4a853' : '#8a6a55',
+  border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+  background: active ? 'rgba(240,210,140,.14)' : 'transparent',
+  color: active ? '#f2d892' : '#edd9c4',
   cursor: 'pointer',
   transition: 'all .15s',
   fontFamily: 'Raleway, sans-serif',
@@ -135,9 +135,9 @@ const dateInputStyle = (active: boolean): React.CSSProperties => ({
   padding: '0 .6rem',
   fontSize: '.75rem',
   borderRadius: 8,
-  border: active ? '1px solid rgba(212,168,83,.5)' : '1px solid rgba(212,168,83,.2)',
-  background: active ? 'rgba(212,168,83,.07)' : 'rgba(255,255,255,.03)',
-  color: active ? '#f4e4d6' : '#8a6a55',
+  border: active ? '1px solid rgba(240,210,140,.5)' : '1px solid rgba(240,210,140,.2)',
+  background: active ? 'rgba(240,210,140,.07)' : 'rgba(255,255,255,.03)',
+  color: active ? '#fffaf4' : '#edd9c4',
   fontFamily: 'Raleway, sans-serif',
   outline: 'none',
   transition: 'all .15s',
@@ -205,7 +205,7 @@ export function PeriodFilterBar({ value, onChange }: PeriodFilterBarProps) {
       </select>
 
       {/* Separador visual */}
-      <span style={{ color: 'rgba(212,168,83,.2)', fontSize: '.85rem', lineHeight: '30px' }}>|</span>
+      <span style={{ color: 'rgba(240,210,140,.2)', fontSize: '.85rem', lineHeight: '30px' }}>|</span>
 
       {/* Dia específico */}
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '.3rem' }}>
@@ -245,7 +245,7 @@ export function PeriodFilterBar({ value, onChange }: PeriodFilterBarProps) {
           onChange={e => onChange({ ...value, mode: 'date-range', from: e.target.value })}
           title="Data inicial do período"
         />
-        <span style={{ color: '#8a6a55', fontSize: '.75rem', lineHeight: '30px' }}>→</span>
+        <span style={{ color: '#edd9c4', fontSize: '.75rem', lineHeight: '30px' }}>→</span>
         <input
           type="date"
           style={dateInputStyle(isRangeActive)}

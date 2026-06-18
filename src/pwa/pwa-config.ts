@@ -1,9 +1,9 @@
-export const PWA_CONFIG = {
+﻿export const PWA_CONFIG = {
   name: 'GARBO Movelaria — Sistema Financeiro',
   shortName: 'GARBO',
   description: 'Gestão financeira, obras e operação — GARBO Movelaria',
   themeColor: '#f5a623',
-  backgroundColor: '#150c09',
+  backgroundColor: '#2a1812',
   lang: 'pt-BR',
 } as const
 

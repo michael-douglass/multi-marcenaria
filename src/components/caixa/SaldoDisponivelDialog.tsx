@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Landmark, Wallet } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
@@ -123,13 +123,13 @@ export function SaldoDisponivelDialog({
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
                 Total em todas as contas (todos os meses)
               </p>
               {loadingGlobal ? (
                 <p className="mt-1 text-lg font-bold text-emerald-400/60 animate-pulse">Carregando...</p>
               ) : contasGlobais.length === 0 ? (
-                <p className="mt-1 text-sm text-[#8a6a55]">Nenhuma conta cadastrada ainda.</p>
+                <p className="mt-1 text-sm text-[#edd9c4]">Nenhuma conta cadastrada ainda.</p>
               ) : (
                 <p className="mt-1 text-2xl font-bold text-emerald-400">{fmtCur(totalGlobalContas)}</p>
               )}
@@ -141,7 +141,7 @@ export function SaldoDisponivelDialog({
                     key={conta.descricao}
                     className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5"
                   >
-                    <Landmark className="h-3.5 w-3.5 shrink-0 text-[#d4a853]" />
+                    <Landmark className="h-3.5 w-3.5 shrink-0 text-[#f2d892]" />
                     <span className="truncate text-xs font-medium text-cream max-w-[140px] sm:max-w-[180px]">
                       {conta.descricao}
                     </span>
@@ -157,7 +157,7 @@ export function SaldoDisponivelDialog({
       }
       headerExtra={
         <div className="space-y-3">
-          <p className="text-xs text-[#8a6a55]">
+          <p className="text-xs text-[#edd9c4]">
             Registre em quais bancos ou contas o saldo disponível de{' '}
             <span className="text-cream font-semibold">{monthLabel(mes, ano)}</span> está guardado.
           </p>
@@ -176,16 +176,16 @@ export function SaldoDisponivelDialog({
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
               Saldo disponível
             </p>
             <p className="mt-1 text-lg font-bold text-emerald-400">{fmtCur(saldoDisponivel)}</p>
           </div>
-          <div className="rounded-lg border border-[#d4a853]/20 bg-[#d4a853]/5 p-3">
-            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+          <div className="rounded-lg border border-[#f2d892]/20 bg-[#f2d892]/5 p-3">
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
               Total alocado
             </p>
-            <p className="mt-1 text-lg font-bold text-[#d4a853]">{fmtCur(totalAlocado)}</p>
+            <p className="mt-1 text-lg font-bold text-[#f2d892]">{fmtCur(totalAlocado)}</p>
           </div>
           <div
             className={cn(
@@ -197,7 +197,7 @@ export function SaldoDisponivelDialog({
                   : 'border-red-500/20 bg-red-500/5',
             )}
           >
-            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
               {Math.abs(diferenca) < 0.01
                 ? 'Tudo justificado'
                 : diferenca > 0
@@ -220,7 +220,7 @@ export function SaldoDisponivelDialog({
         </div>
 
         <div className="rounded-lg border border-white/10 bg-black/20 p-4 space-y-4">
-          <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#d4a853]">
+          <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#f2d892]">
             {editing ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {editing ? 'Editar conta / banco' : 'Adicionar conta / banco'}
           </h4>
@@ -251,7 +251,7 @@ export function SaldoDisponivelDialog({
             )}
             <Button
               size="sm"
-              className="bg-[#d4a853] text-[#150c09] hover:bg-[#b88f44]"
+              className="bg-[#f2d892] text-[#2a1812] hover:bg-[#b88f44]"
               onClick={() => void handleSave()}
               disabled={saving}
             >
@@ -267,21 +267,21 @@ export function SaldoDisponivelDialog({
         )}
 
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#8a6a55]">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#edd9c4]">
             Contas cadastradas — {monthLabel(mes, ano)}
           </h4>
 
           {loading ? (
-            <div className="py-10 text-center text-sm text-[#8a6a55] animate-pulse">
+            <div className="py-10 text-center text-sm text-[#edd9c4] animate-pulse">
               Carregando...
             </div>
           ) : alocacoes.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/10 py-10 text-center">
-              <Wallet className="h-8 w-8 text-[#8a6a55]/50" />
-              <p className="text-sm text-[#8a6a55]">
+              <Wallet className="h-8 w-8 text-[#edd9c4]/50" />
+              <p className="text-sm text-[#edd9c4]">
                 Nenhuma conta cadastrada para este mês.
               </p>
-              <p className="text-xs text-[#8a6a55]/80">
+              <p className="text-xs text-[#edd9c4]/80">
                 Adicione onde o dinheiro está guardado (banco, caixa, etc.).
               </p>
             </div>
@@ -292,8 +292,8 @@ export function SaldoDisponivelDialog({
                   key={item.id}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#d4a853]/10">
-                    <Landmark className="h-4 w-4 text-[#d4a853]" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f2d892]/10">
+                    <Landmark className="h-4 w-4 text-[#f2d892]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-cream text-sm">{item.descricao}</p>

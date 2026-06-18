@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface VisualizacaoPanelProps {
@@ -14,7 +14,7 @@ interface VisualizacaoPanelProps {
 export function VisualizacaoPanel({
   title,
   subtitle,
-  accent = '#d4a853',
+  accent = '#f2d892',
   badge,
   children,
   className,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
@@ -64,7 +64,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
               <button
                 onClick={() => setTipo('reserva')}
                 className={`flex-1 py-1.5 text-[0.7rem] font-bold rounded-md transition-all ${
-                  tipo === 'reserva' ? 'bg-[#d4a853] text-[#150c09]' : 'text-[#8a6a55] hover:text-cream'
+                  tipo === 'reserva' ? 'bg-[#f2d892] text-[#2a1812]' : 'text-[#edd9c4] hover:text-cream'
                 }`}
               >
                 RESERVA
@@ -72,7 +72,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
               <button
                 onClick={() => setTipo('pagamento')}
                 className={`flex-1 py-1.5 text-[0.7rem] font-bold rounded-md transition-all ${
-                  tipo === 'pagamento' ? 'bg-red-500 text-white' : 'text-[#8a6a55] hover:text-cream'
+                  tipo === 'pagamento' ? 'bg-red-500 text-white' : 'text-[#edd9c4] hover:text-cream'
                 }`}
               >
                 PAGAMENTO
@@ -84,7 +84,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
             <select
               value={destinatarioId}
               onChange={e => setDestinatarioId(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
             >
               <option value="">Selecione...</option>
               {destinatarios.map(d => (
@@ -98,7 +98,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
               type="text"
               value={valor}
               onChange={e => setValor(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
               placeholder="0,00"
             />
           </Field>
@@ -108,7 +108,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
               type="date"
               value={data}
               onChange={e => setData(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50 appearance-none"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50 appearance-none"
             />
           </Field>
 
@@ -116,7 +116,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
             <select
               value={mes}
               onChange={e => setMes(Number(e.target.value))}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
             >
               {Array.from({ length: 12 }, (_, i) => (
                 <option key={i + 1} value={i + 1}>
@@ -130,7 +130,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
             <select
               value={ano}
               onChange={e => setAno(Number(e.target.value))}
-              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+              className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
             >
               {Array.from({ length: 10 }, (_, i) => {
                 const year = new Date().getFullYear() - 2 + i
@@ -145,7 +145,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
             value={descricao}
             onChange={e => setDescricao(e.target.value)}
             rows={2}
-            className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#d4a853]/50"
+            className="w-full bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50"
             placeholder="Opcional..."
           />
         </Field>
@@ -153,7 +153,7 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
         <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button
-            className="bg-[#d4a853] text-[#150c09] hover:bg-[#b88f44]"
+            className="bg-[#f2d892] text-[#2a1812] hover:bg-[#b88f44]"
             onClick={handleSave}
             disabled={isSubmitting}
           >

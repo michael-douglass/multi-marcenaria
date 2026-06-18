@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '@/hooks/useTiposObra'
@@ -162,7 +162,7 @@ function ChegadaMateriaisCalendarioContent() {
           }
           below={
             <div className="obra-page-search relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a6a55] pointer-events-none" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none" />
               <input
                 className="glass-input pl-9 pr-8 w-full"
                 placeholder="Buscar por cliente, pedido, montador, endereço..."
@@ -173,7 +173,7 @@ function ChegadaMateriaisCalendarioContent() {
                 <button
                   type="button"
                   onClick={() => setBusca('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a6a55] hover:text-[#d4a853] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
                 >
                   <X size={13} />
                 </button>

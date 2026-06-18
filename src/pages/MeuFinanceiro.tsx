@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Banknote, Wallet, CircleDollarSign } from 'lucide-react'
 import { usePrestadorFinanceiro } from '@/hooks/usePrestadorFinanceiro'
 import { usePrestadorHistoricoMes } from '@/hooks/usePrestadorHistoricoMes'
@@ -35,7 +35,7 @@ export function MeuFinanceiro() {
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#d4a853]">
+          <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#f2d892]">
             <Banknote size={28} />
             Meu Financeiro
           </h1>
@@ -87,7 +87,7 @@ export function MeuFinanceiro() {
               {
                 label: 'Previsto no período',
                 value: resumo.totalPrevisto,
-                color: '#d4a853',
+                color: '#f2d892',
                 icon: CircleDollarSign,
                 hint: 'Comissão configurada, pagamento ainda não gerado',
               },
@@ -117,10 +117,10 @@ export function MeuFinanceiro() {
                 <div className="relative">
                   <div className="mb-2 flex items-center gap-2">
                     <Icon size={14} style={{ color }} />
-                    <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#8a6a55]">{label}</p>
+                    <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">{label}</p>
                   </div>
                   <p className="font-display text-2xl" style={{ color }}>{fmtCur(value)}</p>
-                  <p className="mt-1 text-[0.62rem] leading-relaxed text-[#6b5544]">{hint}</p>
+                  <p className="mt-1 text-[0.62rem] leading-relaxed text-[#d4bc9f]">{hint}</p>
                 </div>
               </div>
             ))}
@@ -131,7 +131,7 @@ export function MeuFinanceiro() {
 
           {/* Históricos — altura fixa, rolagem e mês independente em cada card */}
           <div>
-            <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[#8a6a55]">
+            <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[#edd9c4]">
               Histórico por mês · resumo geral em {periodoLabel}
             </p>
             <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">

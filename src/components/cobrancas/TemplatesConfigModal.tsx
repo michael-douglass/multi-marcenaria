@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Settings, Trash2, FileText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Field, FieldRow } from '@/components/ui/Field'
@@ -258,7 +258,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
       {/* ── Bloco A: Templates ─────────────────────────────── */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
+          <p className="section-label" style={{ color: '#f2d892', fontWeight: 700, fontSize: '.78rem' }}>
             TEMPLATES DE MENSAGEM
           </p>
           {view === 'list' && (
@@ -276,11 +276,11 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
         {view === 'list' ? (
           <>
             {loading ? (
-              <p className="text-sm text-[#8a6a55]">Carregando...</p>
+              <p className="text-sm text-[#edd9c4]">Carregando...</p>
             ) : dbTemplates.length === 0 ? (
               <div
                 className="rounded-lg px-3 py-3 text-sm"
-                style={{ background: 'rgba(212,168,83,.04)', border: '1px solid rgba(212,168,83,.12)', color: '#8a6a55' }}
+                style={{ background: 'rgba(240,210,140,.04)', border: '1px solid rgba(240,210,140,.12)', color: '#edd9c4' }}
               >
                 Nenhum template cadastrado — usando o template padrão. Crie um para personalizar.
               </div>
@@ -290,12 +290,12 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
                   <li
                     key={t.id}
                     className="flex items-start justify-between gap-3 rounded-lg px-3 py-2.5"
-                    style={{ border: '1px solid rgba(212,168,83,.18)', background: 'rgba(36,16,8,.5)' }}
+                    style={{ border: '1px solid rgba(240,210,140,.18)', background: 'rgba(78,52,40,.5)' }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-[#f4e4d6]">{t.nome}</div>
+                      <div className="text-sm font-semibold text-[#fffaf4]">{t.nome}</div>
                       <div
-                        className="mt-0.5 truncate text-xs text-[#8a6a55]"
+                        className="mt-0.5 truncate text-xs text-[#edd9c4]"
                         title={t.conteudo}
                       >
                         {t.conteudo.slice(0, 70)}{t.conteudo.length > 70 ? '…' : ''}
@@ -328,7 +328,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
           /* ── Formulário de edição ── */
           <div
             className="rounded-lg p-3"
-            style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
+            style={{ background: 'rgba(240,210,140,.03)', border: '1px solid rgba(240,210,140,.14)' }}
           >
             <FieldRow>
               <Field label="Nome do template" half={false}>
@@ -368,9 +368,9 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
                       borderRadius: '9999px',
                       fontSize: '.68rem',
                       fontWeight: 600,
-                      border: '1px solid rgba(212,168,83,.3)',
-                      background: 'rgba(212,168,83,.08)',
-                      color: '#d4a853',
+                      border: '1px solid rgba(240,210,140,.3)',
+                      background: 'rgba(240,210,140,.08)',
+                      color: '#f2d892',
                       cursor: 'pointer',
                       fontFamily: 'Raleway, sans-serif',
                       transition: 'background .12s',
@@ -400,7 +400,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
         {/* ── Bloco B: PIX ───────────────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
+            <p className="section-label" style={{ color: '#f2d892', fontWeight: 700, fontSize: '.78rem' }}>
               CONFIGURAÇÃO PIX
             </p>
             {!pixFormOpen && (
@@ -425,11 +425,11 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
                   <span style={{ color: '#4ade80', fontWeight: 700 }}>✓ PIX configurado</span>
                   <span className="section-label" style={{ fontSize: '.7rem' }}>{tipoLabel}</span>
                 </div>
-                <div style={{ color: '#f4e4d6', fontFamily: 'monospace', fontSize: '.8rem' }}>
+                <div style={{ color: '#fffaf4', fontFamily: 'monospace', fontSize: '.8rem' }}>
                   {pixConfig.chave_pix}
                 </div>
                 {pixConfig.nome_beneficiario && (
-                  <div style={{ color: '#8a6a55', fontSize: '.78rem', marginTop: '.15rem' }}>
+                  <div style={{ color: '#edd9c4', fontSize: '.78rem', marginTop: '.15rem' }}>
                     Beneficiário: {pixConfig.nome_beneficiario}
                   </div>
                 )}
@@ -448,7 +448,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
           {pixFormOpen && (
             <div
               className="rounded-lg p-3"
-              style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
+              style={{ background: 'rgba(240,210,140,.03)', border: '1px solid rgba(240,210,140,.14)' }}
             >
               <Field label="Tipo de chave">
                 <select
@@ -500,7 +500,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
         {/* ── Bloco C: RECIBO ────────────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="section-label" style={{ color: '#d4a853', fontWeight: 700, fontSize: '.78rem' }}>
+            <p className="section-label" style={{ color: '#f2d892', fontWeight: 700, fontSize: '.78rem' }}>
               CONFIGURAÇÃO DE RECIBO
             </p>
             {!reciboFormOpen && (
@@ -519,15 +519,15 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
             reciboConfig ? (
               <div
                 className="rounded-lg px-3 py-2.5 text-sm"
-                style={{ border: '1px solid rgba(212,168,83,.18)', background: 'rgba(212,168,83,.04)' }}
+                style={{ border: '1px solid rgba(240,210,140,.18)', background: 'rgba(240,210,140,.04)' }}
               >
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span style={{ color: '#d4a853', fontWeight: 700 }}>✓ Recibo configurado</span>
+                  <span style={{ color: '#f2d892', fontWeight: 700 }}>✓ Recibo configurado</span>
                 </div>
-                <div style={{ color: '#f4e4d6', fontSize: '.8rem' }}>
+                <div style={{ color: '#fffaf4', fontSize: '.8rem' }}>
                   CNPJ: {reciboConfig.cnpj}
                 </div>
-                <div className="mt-1 truncate text-xs text-[#8a6a55]">
+                <div className="mt-1 truncate text-xs text-[#edd9c4]">
                   {reciboConfig.template_texto.slice(0, 50)}...
                 </div>
               </div>
@@ -545,7 +545,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
           {reciboFormOpen && (
             <div
               className="rounded-lg p-3"
-              style={{ background: 'rgba(212,168,83,.03)', border: '1px solid rgba(212,168,83,.14)' }}
+              style={{ background: 'rgba(240,210,140,.03)', border: '1px solid rgba(240,210,140,.14)' }}
             >
               <Field label="CNPJ da Empresa *">
                 <input
@@ -580,9 +580,9 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
                         borderRadius: '9999px',
                         fontSize: '.62rem',
                         fontWeight: 600,
-                        border: '1px solid rgba(212,168,83,.3)',
-                        background: 'rgba(212,168,83,.08)',
-                        color: '#d4a853',
+                        border: '1px solid rgba(240,210,140,.3)',
+                        background: 'rgba(240,210,140,.08)',
+                        color: '#f2d892',
                         cursor: 'pointer',
                         fontFamily: 'Raleway, sans-serif',
                       }}

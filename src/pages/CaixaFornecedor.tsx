@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { History, Pencil, PlusCircle, Search, Trash2 } from 'lucide-react'
 import { useCaixaFornecedor } from '../hooks/useCaixaFornecedor'
 import { Modal } from '../components/ui/Modal'
@@ -192,7 +192,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
             Caixa Fornecedor
           </h1>
           <p className="section-label mt-1">Créditos e saldos por fornecedor</p>
@@ -267,7 +267,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
       >
         {editingTx && (
           <>
-            <div className="mb-3 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.06)] px-3 py-2 text-xs text-[#d4a853]">
+            <div className="mb-3 rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.06)] px-3 py-2 text-xs text-[#f2d892]">
               Tipo: <strong>{editingTx.tipo === 'credito' ? 'Crédito' : 'Débito'}</strong>
               {editingTx.conta_pagar_id && ' · vinculado a uma conta a pagar'}
             </div>
@@ -323,7 +323,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+                <tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                   {['Data', 'Tipo', 'Valor', 'Forma', 'Saldo Anterior', 'Saldo Posterior', 'Descrição', ...(isAdmin ? [''] : [])].map((h, i) => (
                     <th key={i} className="section-label text-left px-3 py-2">{h}</th>
                   ))}
@@ -332,7 +332,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
               <tbody>
                 {histTransacoes.map(tx => (
                   <tr key={tx.id} className="trow">
-                    <td className="px-3 py-2 text-sm text-[#8a6a55]">{fmtDate(tx.criado_em ?? '')}</td>
+                    <td className="px-3 py-2 text-sm text-[#edd9c4]">{fmtDate(tx.criado_em ?? '')}</td>
                     <td className="px-3 py-2">
                       <span style={{ color: tx.tipo === 'credito' ? '#4ade80' : '#f87171', fontSize: '.82rem', fontWeight: 600 }}>
                         {tx.tipo === 'credito' ? '▲ Crédito' : '▼ Débito'}
@@ -341,12 +341,12 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
                     <td className="px-3 py-2 font-semibold" style={{ color: tx.tipo === 'credito' ? '#4ade80' : '#f87171' }}>
                       {fmtCur(tx.valor)}
                     </td>
-                    <td className="px-3 py-2 text-sm text-[#8a6a55] capitalize">
+                    <td className="px-3 py-2 text-sm text-[#edd9c4] capitalize">
                       {tx.forma_pagamento ?? '—'}
                     </td>
-                    <td className="px-3 py-2 text-sm text-[#8a6a55]">{fmtCur(tx.saldo_anterior)}</td>
-                    <td className="px-3 py-2 text-sm" style={{ color: '#d4a853' }}>{fmtCur(tx.saldo_posterior)}</td>
-                    <td className="px-3 py-2 text-sm text-[#8a6a55]">{tx.descricao ?? '—'}</td>
+                    <td className="px-3 py-2 text-sm text-[#edd9c4]">{fmtCur(tx.saldo_anterior)}</td>
+                    <td className="px-3 py-2 text-sm" style={{ color: '#f2d892' }}>{fmtCur(tx.saldo_posterior)}</td>
+                    <td className="px-3 py-2 text-sm text-[#edd9c4]">{tx.descricao ?? '—'}</td>
                     {isAdmin && (
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -379,7 +379,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
 
       {/* Campo de busca */}
       <div className="relative mb-4" style={{ maxWidth: 380 }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8a6a55] pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#edd9c4] pointer-events-none" />
         <input
           className="glass-input pl-9"
           placeholder="Buscar por nome ou CNPJ/CPF..."
@@ -398,7 +398,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+                <tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                   {['Fornecedor', 'Saldo Disponível', ''].map((h, i) => (
                     <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                   ))}
@@ -407,7 +407,7 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
               <tbody>
                 {fornecedoresFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-[#8a6a55]">
+                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-[#edd9c4]">
                       {busca ? 'Nenhum fornecedor encontrado para essa busca.' : 'Nenhum fornecedor cadastrado.'}
                     </td>
                   </tr>
@@ -416,12 +416,12 @@ export function CaixaFornecedor({ fornecedores, roles = [], readOnly }: Props) {
                     const saldo = getSaldoFornecedor(f.id)
                     return (
                       <tr key={f.id} className="trow">
-                        <td className="px-4 py-3" style={{ color: '#f4e4d6' }}>
+                        <td className="px-4 py-3" style={{ color: '#fffaf4' }}>
                           <div>{f.nome}</div>
-                          {f.cnpj_cpf && <div className="text-xs text-[#8a6a55]">{f.cnpj_cpf}</div>}
+                          {f.cnpj_cpf && <div className="text-xs text-[#edd9c4]">{f.cnpj_cpf}</div>}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-display" style={{ fontSize: '1.1rem', color: saldo > 0 ? '#4ade80' : '#8a6a55' }}>
+                          <span className="font-display" style={{ fontSize: '1.1rem', color: saldo > 0 ? '#4ade80' : '#edd9c4' }}>
                             {fmtCur(saldo)}
                           </span>
                         </td>

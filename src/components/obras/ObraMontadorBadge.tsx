@@ -1,4 +1,4 @@
-import { User } from 'lucide-react'
+﻿import { User } from 'lucide-react'
 import type { ObraFull } from '@/types'
 import { formatObraMontadoresLabel, getObraMontadorNomes } from '@/lib/obra-montadores'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
@@ -30,7 +30,7 @@ export function ObraMontadorBadge({ obra, compact }: ObraMontadorBadgeProps) {
     <span
       className={[
         'inline-flex items-center gap-1 rounded-full font-medium min-w-0 max-w-full',
-        'bg-[rgba(212,168,83,0.12)] text-[#d4a853] border border-[rgba(212,168,83,0.25)]',
+        'bg-[rgba(240,210,140,0.12)] text-[#f2d892] border border-[rgba(240,210,140,0.25)]',
         compact ? 'px-1.5 py-0.5 text-[0.55rem]' : 'px-2 py-0.5 text-[0.65rem]',
       ].join(' ')}
       title={titulo}

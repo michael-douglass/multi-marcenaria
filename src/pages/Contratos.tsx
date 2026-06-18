@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useContratos } from '../hooks/useContratos'
 import { Modal } from '../components/ui/Modal'
@@ -138,7 +138,7 @@ function EditModal({ detalhe, onClose, onSave }: EditModalProps) {
       wide
     >
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ background: 'rgba(212,168,83,0.06)', border: '1px solid rgba(212,168,83,0.12)' }}>
+      <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ background: 'rgba(240,210,140,0.06)', border: '1px solid rgba(240,210,140,0.12)' }}>
         {(['dados', 'preview'] as const).map(t => (
           <button
             key={t}
@@ -149,8 +149,8 @@ function EditModal({ detalhe, onClose, onSave }: EditModalProps) {
               padding: '.4rem',
               borderRadius: 6,
               border: 'none',
-              background: tab === t ? 'rgba(212,168,83,0.18)' : 'transparent',
-              color: tab === t ? '#d4a853' : '#8a6a55',
+              background: tab === t ? 'rgba(240,210,140,0.18)' : 'transparent',
+              color: tab === t ? '#f2d892' : '#edd9c4',
               fontWeight: 600,
               fontSize: '.75rem',
               cursor: 'pointer',
@@ -167,8 +167,8 @@ function EditModal({ detalhe, onClose, onSave }: EditModalProps) {
       {tab === 'dados' ? (
         <>
           {/* Campos fixos */}
-          <div style={{ marginBottom: '.5rem', paddingBottom: '.75rem', borderBottom: '1px solid rgba(212,168,83,0.12)' }}>
-            <div className="section-label" style={{ fontSize: '.63rem', color: '#d4a853', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '.5rem' }}>
+          <div style={{ marginBottom: '.5rem', paddingBottom: '.75rem', borderBottom: '1px solid rgba(240,210,140,0.12)' }}>
+            <div className="section-label" style={{ fontSize: '.63rem', color: '#f2d892', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '.5rem' }}>
               Dados do Contrato
             </div>
             <Field label="Nome do Cliente *">
@@ -203,7 +203,7 @@ function EditModal({ detalhe, onClose, onSave }: EditModalProps) {
           {/* Campos dinâmicos */}
           {camposOrdenados.length > 0 && (
             <div>
-              <div className="section-label" style={{ fontSize: '.63rem', color: '#d4a853', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '.5rem' }}>
+              <div className="section-label" style={{ fontSize: '.63rem', color: '#f2d892', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '.5rem' }}>
                 Campos do Contrato
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.5rem .75rem' }}>
@@ -254,7 +254,7 @@ function EditModal({ detalhe, onClose, onSave }: EditModalProps) {
           <div
             style={{
               background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(212,168,83,0.18)',
+              border: '1px solid rgba(240,210,140,0.18)',
               borderRadius: 8,
               padding: '1.25rem',
               maxHeight: '60vh',
@@ -333,7 +333,7 @@ export function Contratos({ readOnly }: Props) {
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
             Contratos
           </h1>
           <p className="section-label mt-1">
@@ -351,8 +351,8 @@ export function Contratos({ readOnly }: Props) {
             onClick={() => setFilterStatus('todos')}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
               filterStatus === 'todos'
-                ? 'border border-[#d4a853] bg-[rgba(212,168,83,0.14)] text-[#d4a853]'
-                : 'border border-[rgba(212,168,83,0.2)] text-[#8a6a55] hover:text-cream'
+                ? 'border border-[#f2d892] bg-[rgba(240,210,140,0.14)] text-[#f2d892]'
+                : 'border border-[rgba(240,210,140,0.2)] text-[#edd9c4] hover:text-cream'
             }`}
           >
             Todos ({data.length})
@@ -373,7 +373,7 @@ export function Contratos({ readOnly }: Props) {
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                   filterStatus === s
                     ? ''
-                    : 'border border-[rgba(212,168,83,0.2)] text-[#8a6a55] hover:text-cream'
+                    : 'border border-[rgba(240,210,140,0.2)] text-[#edd9c4] hover:text-cream'
                 }`}
               >
                 {STATUS_LABEL[s]} ({count})
@@ -389,7 +389,7 @@ export function Contratos({ readOnly }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#8a6a55', fontSize: '.85rem', pointerEvents: 'none' }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#edd9c4', fontSize: '.85rem', pointerEvents: 'none' }}>
             🔍
           </span>
         </div>
@@ -423,11 +423,11 @@ export function Contratos({ readOnly }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <StatusBadge status={c.status} />
-                    <span style={{ fontSize: '.68rem', color: '#8a6a55' }}>
+                    <span style={{ fontSize: '.68rem', color: '#edd9c4' }}>
                       {fmtDate(c.created_at)}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 700, color: '#f4e4d6', fontSize: '.98rem', marginBottom: '.2rem' }}>
+                  <div style={{ fontWeight: 700, color: '#fffaf4', fontSize: '.98rem', marginBottom: '.2rem' }}>
                     {c.cliente_nome}
                   </div>
                   <div className="section-label" style={{ fontSize: '.72rem' }}>

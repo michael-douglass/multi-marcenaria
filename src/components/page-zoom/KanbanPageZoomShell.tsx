@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, type ReactNode, type Ref } from 'react'
 import { usePageZoom } from './PageZoomProvider'
 import { KanbanFloatingScrollBar } from './KanbanFloatingScrollBar'
 import { useFloatingScrollMetrics } from './useFloatingScrollBar'
+
+function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
+  return (value: T | null) => {
+    for (const ref of refs) {
+      if (!ref) continue
+      if (typeof ref === 'function') ref(value)
+      else (ref as React.MutableRefObject<T | null>).current = value
+    }
+  }
+}
 
 interface PageZoomShellProps {
   children: ReactNode
@@ -11,6 +21,7 @@ interface PageZoomShellProps {
   verticalScrollbar?: boolean
   onZoomApplied?: () => void
   className?: string
+  scrollHostRef?: Ref<HTMLDivElement>
   /**
    * fluid — cards/listas ocupam 100% da tela (Calendário dia, métricas).
    * kanban — permite largura expandida para colunas horizontais (Agenda).
@@ -30,6 +41,7 @@ export function KanbanPageZoomShell({
   className = '',
   contentLayout = 'kanban',
   contentSignal,
+  scrollHostRef,
 }: PageZoomShellProps) {
   const { zoom } = usePageZoom()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -61,7 +73,7 @@ export function KanbanPageZoomShell({
   return (
     <div className={`kanban-page-zoom-shell relative flex min-h-0 min-w-0 w-full max-w-full flex-none flex-col overflow-visible md:flex-1 md:overflow-hidden ${className}`}>
       <div
-        ref={scrollRef}
+        ref={mergeRefs(scrollRef, scrollHostRef)}
         className="kanban-scroll-host min-h-0 min-w-0 w-full max-w-full flex-none overflow-x-auto overflow-y-visible overscroll-x-contain touch-pan-x touch-pan-y max-md:overflow-x-auto max-md:overflow-y-visible md:flex-1 md:overflow-auto"
         style={{ paddingBottom: horizontalMetrics.visible ? 36 : 8 }}
         onScroll={handleScroll}

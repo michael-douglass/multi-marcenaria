@@ -1,4 +1,4 @@
-interface FilterBarProps {
+﻿interface FilterBarProps {
   options: string[]
   value?: string
   values?: Set<string>
@@ -27,9 +27,9 @@ export function FilterBar({ options, value, values, onChange, labels, multi }: F
               borderRadius: '9999px',
               fontSize: '.75rem',
               fontWeight: 600,
-              border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-              background: active ? 'rgba(212,168,83,.14)' : 'transparent',
-              color: active ? '#d4a853' : '#8a6a55',
+              border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+              background: active ? 'rgba(240,210,140,.14)' : 'transparent',
+              color: active ? '#f2d892' : '#edd9c4',
               cursor: 'pointer',
               transition: 'all .15s',
               fontFamily: 'Raleway, sans-serif',

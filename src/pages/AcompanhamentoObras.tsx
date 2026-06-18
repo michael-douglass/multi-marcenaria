@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Camera, Calendar, HardHat, Maximize2 } from 'lucide-react'
 import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
@@ -43,7 +43,7 @@ function EvolucaoThumb({
     <button
       type="button"
       onClick={onOpen}
-      className="group relative h-[7.5rem] w-[7.5rem] shrink-0 overflow-hidden rounded-md border border-[rgba(212,168,83,0.15)] bg-black/40 sm:h-[8.25rem] sm:w-[8.25rem]"
+      className="group relative h-[7.5rem] w-[7.5rem] shrink-0 overflow-hidden rounded-md border border-[rgba(240,210,140,0.15)] bg-black/40 sm:h-[8.25rem] sm:w-[8.25rem]"
       aria-label={`Ver foto de ${foto.obra_nome} às ${horario}`}
     >
       {thumbUrl ? (
@@ -55,7 +55,7 @@ function EvolucaoThumb({
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-[#8a6a55]">
+        <div className="flex h-full w-full items-center justify-center text-[#edd9c4]">
           <Camera size={14} />
         </div>
       )}
@@ -66,7 +66,7 @@ function EvolucaoThumb({
         </span>
       )}
       {foto.kind === 'pdf' && (
-        <span className="absolute left-0.5 top-0.5 rounded bg-[rgba(212,168,83,0.9)] px-0.5 text-[0.45rem] font-bold uppercase text-[#150c09]">
+        <span className="absolute left-0.5 top-0.5 rounded bg-[rgba(240,210,140,0.9)] px-0.5 text-[0.45rem] font-bold uppercase text-[#2a1812]">
           PDF
         </span>
       )}
@@ -161,7 +161,7 @@ function AcompanhamentoObrasContent() {
       <KanbanPageToolbar>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>
+            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
               Acompanhamento de Obras
             </h1>
             <p className="section-label mt-1">
@@ -171,15 +171,15 @@ function AcompanhamentoObrasContent() {
 
           <div className="flex flex-wrap items-center gap-3">
             <KanbanPageZoomControls />
-            <div className="flex rounded-lg border border-[rgba(212,168,83,0.15)] bg-[#1a1412] p-1">
+            <div className="flex rounded-lg border border-[rgba(240,210,140,0.15)] bg-[#1a1412] p-1">
               {(['hoje', 'semana', 'mes'] as FiltroPeriodo[]).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFiltro(f)}
                   className={`rounded-md px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
                     filtro === f
-                      ? 'bg-[#d4a853] text-[#1a1412] shadow-lg'
-                      : 'text-[#8a6a55] hover:text-[#d4a853]'
+                      ? 'bg-[#f2d892] text-[#1a1412] shadow-lg'
+                      : 'text-[#edd9c4] hover:text-[#f2d892]'
                   }`}
                 >
                   {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta Semana' : 'Este Mês'}
@@ -204,7 +204,7 @@ function AcompanhamentoObrasContent() {
           className="flex-none"
         >
           {grupos.length === 0 ? (
-            <div className="flex w-full flex-col items-center justify-center py-20 text-[#6b5544]">
+            <div className="flex w-full flex-col items-center justify-center py-20 text-[#d4bc9f]">
               <Camera size={48} className="mb-4 opacity-20" />
               <p className="text-lg font-display">Nenhuma foto registrada no período</p>
               <p className="text-sm">Os montadores ainda não enviaram atualizações.</p>
@@ -212,9 +212,9 @@ function AcompanhamentoObrasContent() {
           ) : (
             <div className="w-full space-y-4 pb-8 pr-1">
               {grupos.map((grupo) => (
-                <div key={grupo.obra_id} className="glass-card border-[rgba(212,168,83,0.12)] p-3 sm:p-4">
+                <div key={grupo.obra_id} className="glass-card border-[rgba(240,210,140,0.12)] p-3 sm:p-4">
                   <div className="mb-2 flex items-center gap-2">
-                    <div className="rounded-full bg-[#d4a853]/10 p-1.5 text-[#d4a853]">
+                    <div className="rounded-full bg-[#f2d892]/10 p-1.5 text-[#f2d892]">
                       <HardHat size={16} />
                     </div>
                     <div className="min-w-0">
@@ -226,15 +226,15 @@ function AcompanhamentoObrasContent() {
 
                   <div className="space-y-3">
                     {grupo.dias.map((dia) => (
-                      <div key={dia.data} className="relative border-l border-[rgba(212,168,83,0.2)] pl-4">
-                        <div className="absolute -left-[4px] top-0 h-[7px] w-[7px] rounded-full bg-[#d4a853]" />
+                      <div key={dia.data} className="relative border-l border-[rgba(240,210,140,0.2)] pl-4">
+                        <div className="absolute -left-[4px] top-0 h-[7px] w-[7px] rounded-full bg-[#f2d892]" />
 
                         <div className="mb-1.5 flex items-center gap-1.5">
-                          <Calendar size={10} className="text-[#d4a853]" />
-                          <span className="text-[0.65rem] font-bold uppercase tracking-wider text-[#d4a853]">
+                          <Calendar size={10} className="text-[#f2d892]" />
+                          <span className="text-[0.65rem] font-bold uppercase tracking-wider text-[#f2d892]">
                             {fmtDate(dia.data)}
                           </span>
-                          <span className="text-[0.6rem] text-[#8a6a55]">
+                          <span className="text-[0.6rem] text-[#edd9c4]">
                             · {dia.fotos.length} {dia.fotos.length === 1 ? 'foto' : 'fotos'}
                           </span>
                         </div>

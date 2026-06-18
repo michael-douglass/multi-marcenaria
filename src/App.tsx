@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
@@ -275,7 +275,7 @@ function AppRoutes() {
   // Só bloqueia a tela inteira enquanto a sessão (login) não foi resolvida
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
+      <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-sm tracking-wider text-[#f2d892]">
         Carregando...
       </div>
     )
@@ -287,7 +287,7 @@ function AppRoutes() {
 
   if (profileLoading && !userProfile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-sm tracking-wider text-[#d4a853]">
+      <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-sm tracking-wider text-[#f2d892]">
         Carregando perfil...
       </div>
     )
@@ -296,7 +296,7 @@ function AppRoutes() {
   if (!userProfile) {
     const isConnectionError = profileError?.includes('banco') || profileError?.includes('conectar')
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#150c09] font-raleway text-center text-[#d4a853] px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-center text-[#f2d892] px-6">
         <div className="max-w-md">
           <p className="mb-1 text-lg font-semibold">
             {isConnectionError ? 'Servidor indisponível' : 'Usuário não configurado'}
@@ -309,7 +309,7 @@ function AppRoutes() {
               <button
                 type="button"
                 onClick={retryProfile}
-                className="text-xs font-semibold text-[#d4a853] underline opacity-80 hover:opacity-100"
+                className="text-xs font-semibold text-[#f2d892] underline opacity-80 hover:opacity-100"
               >
                 Tentar novamente
               </button>

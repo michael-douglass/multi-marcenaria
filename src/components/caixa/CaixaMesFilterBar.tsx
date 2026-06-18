@@ -1,4 +1,4 @@
-import { addMonths, todayISO } from '@/lib/utils'
+﻿import { addMonths, todayISO } from '@/lib/utils'
 
 export interface MesAnoRef {
   mes: number
@@ -10,9 +10,9 @@ const pillStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: '9999px',
   fontSize: '.75rem',
   fontWeight: 600,
-  border: active ? '1px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-  background: active ? 'rgba(212,168,83,.14)' : 'transparent',
-  color: active ? '#d4a853' : '#8a6a55',
+  border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+  background: active ? 'rgba(240,210,140,.14)' : 'transparent',
+  color: active ? '#f2d892' : '#edd9c4',
   cursor: 'pointer',
   transition: 'all .15s',
   fontFamily: 'Raleway, sans-serif',
@@ -88,7 +88,7 @@ export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps
         )
       })}
 
-      <span className="text-[#8a6a55] text-xs hidden sm:inline">|</span>
+      <span className="text-[#edd9c4] text-xs hidden sm:inline">|</span>
 
       <select
         className="glass-input !h-9 !text-xs min-w-[11rem]"
@@ -99,8 +99,8 @@ export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps
         }}
         title="Ver outros meses (passados e próximos)"
         style={{
-          borderColor: !isQuickActive ? 'rgba(212,168,83,.5)' : undefined,
-          background: !isQuickActive ? 'rgba(212,168,83,.07)' : undefined,
+          borderColor: !isQuickActive ? 'rgba(240,210,140,.5)' : undefined,
+          background: !isQuickActive ? 'rgba(240,210,140,.07)' : undefined,
         }}
       >
         <optgroup label="Próximos e anteriores">

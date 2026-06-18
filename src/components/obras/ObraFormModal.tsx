@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { Upload, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
@@ -73,12 +73,12 @@ export function ObraFormModal({
   return (
     <Modal open={open} onClose={onClose} title={obra ? 'EDITAR OBRA' : 'NOVA OBRA'}>
       {isDraftRestored && (
-        <div className="mb-3 flex items-center justify-between rounded-lg border border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.07)] px-3 py-2">
-          <span className="text-[0.72rem] text-[#d4a853]">Rascunho restaurado — continue de onde parou</span>
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(240,210,140,0.07)] px-3 py-2">
+          <span className="text-[0.72rem] text-[#f2d892]">Rascunho restaurado — continue de onde parou</span>
           <button
             type="button"
             onClick={onClearDraft}
-            className="text-[0.68rem] text-[#8a6a55] hover:text-red-400 transition-colors ml-3 shrink-0"
+            className="text-[0.68rem] text-[#edd9c4] hover:text-red-400 transition-colors ml-3 shrink-0"
           >
             Limpar
           </button>
@@ -176,8 +176,8 @@ export function ObraFormModal({
                       className={[
                         'rounded-full px-3 py-1 text-xs font-bold transition-all',
                         ativo
-                          ? 'bg-[#d4a853]/20 text-[#d4a853] border border-[#d4a853]/50'
-                          : 'bg-[rgba(212,168,83,0.04)] text-[#6b5544] border border-[rgba(212,168,83,0.1)]',
+                          ? 'bg-[#f2d892]/20 text-[#f2d892] border border-[#f2d892]/50'
+                          : 'bg-[rgba(240,210,140,0.04)] text-[#d4bc9f] border border-[rgba(240,210,140,0.1)]',
                       ].join(' ')}
                     >
                       {wd}
@@ -188,15 +188,15 @@ export function ObraFormModal({
 
               {(form.dias_trabalho ?? []).length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Clock size={13} className="text-[#d4a853] shrink-0" />
-                  <span className="text-[0.72rem] text-[#8a6a55] shrink-0">Horário:</span>
+                  <Clock size={13} className="text-[#f2d892] shrink-0" />
+                  <span className="text-[0.72rem] text-[#edd9c4] shrink-0">Horário:</span>
                   <input
                     type="time"
                     className="glass-input !py-1 !px-2 w-[100px] text-xs"
                     value={form.horario_inicio ?? ''}
                     onChange={e => onChange('horario_inicio', e.target.value || null)}
                   />
-                  <span className="text-[#8a6a55] text-xs">→</span>
+                  <span className="text-[#edd9c4] text-xs">→</span>
                   <input
                     type="time"
                     className="glass-input !py-1 !px-2 w-[100px] text-xs"
@@ -239,7 +239,7 @@ export function ObraFormModal({
             checked={form.pedido_material_feito ?? false}
             onChange={e => onChange('pedido_material_feito', e.target.checked)}
           />
-          <span className="text-sm text-[#f4e4d6]">Confirmação de pedido de material feito</span>
+          <span className="text-sm text-[#fffaf4]">Confirmação de pedido de material feito</span>
         </label>
       </Field>
 
@@ -275,13 +275,13 @@ export function ObraFormModal({
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.04)] px-4 py-4 text-center cursor-pointer transition-colors hover:border-[rgba(212,168,83,0.55)] hover:bg-[rgba(212,168,83,0.08)]"
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[rgba(240,210,140,0.3)] bg-[rgba(240,210,140,0.04)] px-4 py-4 text-center cursor-pointer transition-colors hover:border-[rgba(240,210,140,0.55)] hover:bg-[rgba(240,210,140,0.08)]"
           >
-            <Upload size={18} className="text-[#d4a853] opacity-70" />
-            <p className="text-[0.75rem] text-[#8a6a55]">
-              Arraste arquivos ou <span className="text-[#d4a853] font-semibold">clique para selecionar</span>
+            <Upload size={18} className="text-[#f2d892] opacity-70" />
+            <p className="text-[0.75rem] text-[#edd9c4]">
+              Arraste arquivos ou <span className="text-[#f2d892] font-semibold">clique para selecionar</span>
             </p>
-            <p className="text-[0.65rem] text-[#6b5544]">JPG, PNG, WebP, PDF, Vídeos · PDFs: todas as páginas viram imagem</p>
+            <p className="text-[0.65rem] text-[#d4bc9f]">JPG, PNG, WebP, PDF, Vídeos · PDFs: todas as páginas viram imagem</p>
           </div>
           <input
             ref={fileRef}

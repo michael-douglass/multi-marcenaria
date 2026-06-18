@@ -1,4 +1,4 @@
-import { User } from 'lucide-react'
+﻿import { User } from 'lucide-react'
 
 interface MontadorOption {
   id: string
@@ -27,7 +27,7 @@ export function ObraMontadoresField({ montadores, selectedIds, onChange }: ObraM
 
   if (options.length === 0) {
     return (
-      <p className="text-xs text-[#8a6a55]">Nenhum montador cadastrado.</p>
+      <p className="text-xs text-[#edd9c4]">Nenhum montador cadastrado.</p>
     )
   }
 
@@ -42,22 +42,22 @@ export function ObraMontadoresField({ montadores, selectedIds, onChange }: ObraM
             className={[
               'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors',
               checked
-                ? 'border-[rgba(212,168,83,0.45)] bg-[rgba(212,168,83,0.1)]'
-                : 'border-[rgba(212,168,83,0.15)] bg-[rgba(15,7,3,0.45)] hover:border-[rgba(212,168,83,0.28)]',
+                ? 'border-[rgba(240,210,140,0.45)] bg-[rgba(240,210,140,0.1)]'
+                : 'border-[rgba(240,210,140,0.15)] bg-[rgba(68,46,34,0.45)] hover:border-[rgba(240,210,140,0.28)]',
             ].join(' ')}
           >
             <input
               type="checkbox"
-              className="h-4 w-4 shrink-0 accent-[#d4a853]"
+              className="h-4 w-4 shrink-0 accent-[#f2d892]"
               checked={checked}
               onChange={() => toggle(m.id)}
             />
-            <User size={14} className="shrink-0 text-[#d4a853]" aria-hidden />
+            <User size={14} className="shrink-0 text-[#f2d892]" aria-hidden />
             <span className="min-w-0 flex-1 text-sm text-cream">{label}</span>
           </label>
         )
       })}
-      <p className="text-[0.65rem] leading-relaxed text-[#8a6a55]">
+      <p className="text-[0.65rem] leading-relaxed text-[#edd9c4]">
         Todos os montadores marcados verão esta obra no calendário e na agenda.
       </p>
     </div>

@@ -1,25 +1,29 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import {
   applyVizScrollRatio,
   readVizScrollRatio,
   writeVizScrollRatio,
 } from '@/lib/visualizacao-autoscroll-storage'
 
-const PIXELS_PER_SECOND = 32
-const PAUSE_AT_BOTTOM_MS = 1200
+/** Velocidade da rolagem automática (px/s) — mais lento para leitura em TV/monitor. */
+const PIXELS_PER_SECOND = 18
+const PAUSE_AT_BOTTOM_MS = 1500
 const PERSIST_INTERVAL_MS = 400
-
-function resolveScrollElement(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(
-    '.obra-page-shell--visualizacao .kanban-scroll-host',
-  )
-}
+const MIN_SCROLL_RANGE = 4
 
 function blockWheelWhileAutoScroll(event: WheelEvent) {
   event.preventDefault()
 }
 
-export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
+function getScrollRange(el: HTMLElement): number {
+  return el.scrollHeight - el.clientHeight
+}
+
+export function useVisualizacaoAutoScroll(
+  enabled: boolean,
+  ready: boolean,
+  scrollHostRef: RefObject<HTMLDivElement | null>,
+) {
   const enabledRef = useRef(enabled)
   enabledRef.current = enabled
 
@@ -37,8 +41,8 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
     if (!ready) return
 
     let restored = false
-    let detachWheel: (() => void) | null = null
     let detachScroll: (() => void) | null = null
+    let resizeObserver: ResizeObserver | null = null
 
     const restoreOnce = (el: HTMLElement) => {
       if (restored) return
@@ -58,23 +62,55 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
       return () => el.removeEventListener('scroll', onScroll)
     }
 
-    const waitForElement = window.setInterval(() => {
-      const el = resolveScrollElement()
-      if (!el) return
-
-      window.clearInterval(waitForElement)
+    const bindElement = (el: HTMLElement) => {
       restoreOnce(el)
+      detachScroll?.()
       detachScroll = attachScrollPersistence(el)
-    }, 50)
+    }
+
+    const tryBind = () => {
+      const el = scrollHostRef.current
+      if (!el) return false
+      bindElement(el)
+      return true
+    }
+
+    if (!tryBind()) {
+      const waitId = window.setInterval(() => {
+        if (tryBind()) window.clearInterval(waitId)
+      }, 50)
+
+      resizeObserver = new ResizeObserver(() => {
+        tryBind()
+      })
+
+      const pollTarget = scrollHostRef.current?.parentElement
+      if (pollTarget) resizeObserver.observe(pollTarget)
+
+      return () => {
+        window.clearInterval(waitId)
+        resizeObserver?.disconnect()
+        detachScroll?.()
+        const el = scrollHostRef.current
+        if (el) writeVizScrollRatio(el)
+      }
+    }
+
+    resizeObserver = new ResizeObserver(() => {
+      const el = scrollHostRef.current
+      if (el) restoreOnce(el)
+    })
+    resizeObserver.observe(scrollHostRef.current)
+    const content = scrollHostRef.current.querySelector('[data-zoom-content]')
+    if (content) resizeObserver.observe(content)
 
     return () => {
-      window.clearInterval(waitForElement)
-      detachWheel?.()
+      resizeObserver?.disconnect()
       detachScroll?.()
-      const el = resolveScrollElement()
+      const el = scrollHostRef.current
       if (el) writeVizScrollRatio(el)
     }
-  }, [ready])
+  }, [ready, scrollHostRef])
 
   useEffect(() => {
     if (!enabled || !ready) return
@@ -83,7 +119,6 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
     let lastTime = 0
     let pauseUntil = 0
     let lastPersist = 0
-    let scrollEl: HTMLElement | null = null
     let detachWheel: (() => void) | null = null
 
     const attachWheelBlock = (el: HTMLElement) => {
@@ -98,17 +133,15 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
     const tick = (time: number) => {
       if (!enabledRef.current) return
 
-      if (!scrollEl || !scrollEl.isConnected) {
-        scrollEl = resolveScrollElement()
-        if (scrollEl && !detachWheel) {
-          applyVizScrollRatio(scrollEl, readVizScrollRatio())
-          detachWheel = attachWheelBlock(scrollEl)
-        }
-      }
-
+      const scrollEl = scrollHostRef.current
       if (!scrollEl) {
         raf = requestAnimationFrame(tick)
         return
+      }
+
+      if (!detachWheel) {
+        applyVizScrollRatio(scrollEl, readVizScrollRatio())
+        detachWheel = attachWheelBlock(scrollEl)
       }
 
       if (!lastTime) lastTime = time
@@ -116,15 +149,17 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
       lastTime = time
 
       if (time >= pauseUntil) {
-        const max = scrollEl.scrollHeight - scrollEl.clientHeight
-        if (max > 8) {
+        const max = getScrollRange(scrollEl)
+        if (max > MIN_SCROLL_RANGE) {
           const delta = (PIXELS_PER_SECOND * dt) / 1000
-          if (scrollEl.scrollTop >= max - 2) {
-            scrollEl.scrollTop = 0
+          const nextTop = scrollEl.scrollTop + delta
+
+          if (nextTop >= max - 1) {
+            scrollEl.scrollTo({ top: 0, behavior: 'instant' })
             writeVizScrollRatio(scrollEl)
             pauseUntil = time + PAUSE_AT_BOTTOM_MS
           } else {
-            scrollEl.scrollTop += delta
+            scrollEl.scrollTo({ top: nextTop, behavior: 'instant' })
             if (time - lastPersist >= PERSIST_INTERVAL_MS) {
               lastPersist = time
               writeVizScrollRatio(scrollEl)
@@ -141,7 +176,8 @@ export function useVisualizacaoAutoScroll(enabled: boolean, ready: boolean) {
     return () => {
       cancelAnimationFrame(raf)
       detachWheel?.()
-      if (scrollEl) writeVizScrollRatio(scrollEl)
+      const el = scrollHostRef.current
+      if (el) writeVizScrollRatio(el)
     }
-  }, [enabled, ready])
+  }, [enabled, ready, scrollHostRef])
 }

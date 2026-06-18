@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { FileText } from 'lucide-react'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
@@ -554,7 +554,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     <div className="fade-in">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#d4a853', letterSpacing: '.08em' }}>Cobranças & Contas a Receber</h1>
+          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Cobranças & Contas a Receber</h1>
           <p className="section-label mt-1">
             {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
           </p>
@@ -606,9 +606,9 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                 style={{
                   padding: '.65rem .4rem',
                   borderRadius: 8,
-                  border: form.tipo === t ? '1.5px solid #d4a853' : '1px solid rgba(212,168,83,.2)',
-                  background: form.tipo === t ? 'rgba(212,168,83,.12)' : 'transparent',
-                  color: form.tipo === t ? '#d4a853' : '#8a6a55',
+                  border: form.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+                  background: form.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
+                  color: form.tipo === t ? '#f2d892' : '#edd9c4',
                   cursor: 'pointer',
                   fontSize: '.7rem',
                   fontWeight: 600,
@@ -627,7 +627,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
         {/* Opção de Entrada */}
         <div className="mb-4">
-          <label className="flex items-center gap-2 cursor-pointer section-label" style={{ color: '#d4a853' }}>
+          <label className="flex items-center gap-2 cursor-pointer section-label" style={{ color: '#f2d892' }}>
             <input
               type="checkbox"
               checked={form.entradaAtiva}
@@ -642,8 +642,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
             style={{
               padding: '.75rem',
               borderRadius: 8,
-              border: '1px solid rgba(212,168,83,.2)',
-              background: 'rgba(212,168,83,.04)',
+              border: '1px solid rgba(240,210,140,.2)',
+              background: 'rgba(240,210,140,.04)',
               marginBottom: '1rem',
             }}
           >
@@ -739,7 +739,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
             {billingParcelas.length > 0 && (
               <div className="mb-4">
-                <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+                <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
                   Detalhamento do Parcelamento
                 </div>
                 <div
@@ -749,8 +749,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                     maxHeight: '250px',
                     overflowY: 'auto',
                     padding: '.5rem',
-                    background: 'rgba(212,168,83,.03)',
-                    border: '1px solid rgba(212,168,83,.1)',
+                    background: 'rgba(240,210,140,.03)',
+                    border: '1px solid rgba(240,210,140,.1)',
                     borderRadius: 8,
                   }}
                 >
@@ -878,7 +878,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
       <Modal open={openBulkEdit} onClose={() => setOpenBulkEdit(false)} title="EDITAR PARCELAMENTO">
         <div className="mb-4">
-          <div className="section-label mb-2" style={{ color: '#d4a853', fontWeight: 600 }}>
+          <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
             {bulkParcelas[0]?.cliente_nome} — Total: {fmtCur(bulkParcelas[0]?.valor_total)}
           </div>
           <div
@@ -888,8 +888,8 @@ export function ContasReceber({ clientes, readOnly }: Props) {
               maxHeight: '400px',
               overflowY: 'auto',
               padding: '.5rem',
-              background: 'rgba(212,168,83,.03)',
-              border: '1px solid rgba(212,168,83,.1)',
+              background: 'rgba(240,210,140,.03)',
+              border: '1px solid rgba(240,210,140,.1)',
               borderRadius: 8,
             }}
           >
@@ -968,7 +968,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
               <div
                 key={row.id}
                 style={{
-                  border: '1px solid rgba(212,168,83,.18)',
+                  border: '1px solid rgba(240,210,140,.18)',
                   borderRadius: 8,
                   padding: '.55rem .7rem',
                 }}
@@ -997,7 +997,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       >
         {contaToDelete && (
           <>
-            <p className="mb-4 text-sm text-[#f4e4d6]">
+            <p className="mb-4 text-sm text-[#fffaf4]">
               <strong>{contaToDelete.cliente_nome}</strong> — parcela{' '}
               {contaToDelete.numero_parcela}/{contaToDelete.total_parcelas} ({fmtCur(contaToDelete.valor_parcela)}).
               <br /><br />
@@ -1055,9 +1055,9 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
         {[
           !isFinanceiroOnly && { l: 'A Receber',     v: kpiAReceber,    c: '#4ade80' },
-          !isFinanceiroOnly && { l: 'Recebido',       v: kpiRecebido,    c: '#d4a853' },
+          !isFinanceiroOnly && { l: 'Recebido',       v: kpiRecebido,    c: '#f2d892' },
           { l: 'Em Atraso',       v: kpiEmAtraso,    c: '#f87171' },
-          !isFinanceiroOnly && { l: 'Fechado Bruto',  v: kpiFechadoBruto, c: '#f4e4d6' },
+          !isFinanceiroOnly && { l: 'Fechado Bruto',  v: kpiFechadoBruto, c: '#fffaf4' },
         ].filter(Boolean).map((x, i) => {
           const kpi = x as { l: string; v: number; c: string }
           return (
@@ -1095,7 +1095,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         ) : (
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: '1px solid rgba(212,168,83,.18)' }}>
+              <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
                 {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Pagamento', 'Status', 'Recibo', ''].map((h, i) => (
                   <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                 ))}
@@ -1106,11 +1106,11 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                   const pm = r.forma_pagamento as FormaPagamento
                   return (
                     <tr key={r.id} className="trow">
-                      <td className="px-4 py-3" style={{ color: '#f4e4d6', fontWeight: 500 }}>{r.cliente_nome}</td>
-                      <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{r.numero_parcela}/{r.total_parcelas}</td>
+                      <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>{r.cliente_nome}</td>
+                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{r.numero_parcela}/{r.total_parcelas}</td>
                       <td className="px-4 py-3" style={{ color: '#4ade80', fontWeight: 600 }}>{fmtCur(r.valor_parcela)}</td>
-                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#8a6a55', fontSize: '.85rem' }}>{fmtDate(r.data_vencimento)}</td>
-                      <td className="px-4 py-3" style={{ color: '#8a6a55', fontSize: '.85rem' }}>{PM_ICON[pm]} {PM_LABEL[pm]}</td>
+                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(r.data_vencimento)}</td>
+                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{PM_ICON[pm]} {PM_LABEL[pm]}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3">
                         <button
@@ -1119,7 +1119,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                           title="Gerar Recibo"
                           onClick={() => abrirRecibo(r)}
                         >
-                          <FileText className="h-4 w-4 text-[#d4a853]" />
+                          <FileText className="h-4 w-4 text-[#f2d892]" />
                         </button>
                       </td>
                       <td className="px-4 py-3 text-right">
