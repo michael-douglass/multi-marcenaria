@@ -26,6 +26,7 @@ import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialB
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
+import { filterObrasPorMes, formatObraMesAnoLabel } from '../lib/obra-mes-filtro'
 import { groupObrasAgendaKanban } from '../lib/obra-progresso'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
@@ -53,6 +54,7 @@ import {
   KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
+import { CaixaMesFilterBar } from '../components/caixa/CaixaMesFilterBar'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -514,6 +516,8 @@ function AgendaObrasContent() {
   }
 
   const [busca, setBusca] = useState('')
+  const [mes, setMes] = useState(() => new Date().getMonth() + 1)
+  const [ano, setAno] = useState(() => new Date().getFullYear())
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
 
@@ -561,10 +565,15 @@ function AgendaObrasContent() {
     }
   }
 
+  const obrasDoMes = useMemo(
+    () => filterObrasPorMes(obrasHook.data, mes, ano),
+    [obrasHook.data, mes, ano],
+  )
+
   const obrasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
-    if (!q) return obrasHook.data
-    return obrasHook.data.filter(o => {
+    if (!q) return obrasDoMes
+    return obrasDoMes.filter(o => {
       const haystack = [
         o.cliente_nome,
         o.lousa,
@@ -577,7 +586,9 @@ function AgendaObrasContent() {
       ].filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(q)
     })
-  }, [obrasHook.data, busca])
+  }, [obrasDoMes, busca])
+
+  const mesAnoLabel = useMemo(() => formatObraMesAnoLabel(mes, ano), [mes, ano])
 
   const obrasByCol = useMemo(
     () => groupObrasAgendaKanban(obrasFiltradas),
@@ -809,7 +820,9 @@ function AgendaObrasContent() {
           belowMobileLabel="Busca"
           subtitle={
             <>
-              {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
+              {obrasFiltradas.length} de {obrasDoMes.length} obra{obrasDoMes.length !== 1 ? 's' : ''}
+              {' · '}
+              <span className="text-[#f2d892] capitalize">{mesAnoLabel}</span>
               {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
             </>
           }
@@ -855,26 +868,36 @@ function AgendaObrasContent() {
             </div>
           }
           below={
-            <div className="obra-page-search relative">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
+            <div className="flex flex-col gap-3">
+              <CaixaMesFilterBar
+                mes={mes}
+                ano={ano}
+                onChange={(m, a) => {
+                  setMes(m)
+                  setAno(a)
+                }}
               />
-              <input
-                className="glass-input pl-9 pr-8 w-full"
-                placeholder="Buscar por cliente, montador, endereço, tipo..."
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-              />
-              {busca && (
-                <button
-                  type="button"
-                  onClick={() => setBusca('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
-                >
-                  <X size={13} />
-                </button>
-              )}
+              <div className="obra-page-search relative">
+                <Search
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
+                />
+                <input
+                  className="glass-input pl-9 pr-8 w-full"
+                  placeholder="Buscar por cliente, montador, endereço, tipo..."
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                />
+                {busca && (
+                  <button
+                    type="button"
+                    onClick={() => setBusca('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
             </div>
           }
         />
@@ -890,7 +913,7 @@ function AgendaObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentSignal={`${obrasHook.data.length}-${busca}-${obrasFiltradas.length}`}
+          contentSignal={`${obrasHook.data.length}-${mes}-${ano}-${busca}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
           <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">
