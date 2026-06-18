@@ -12,7 +12,7 @@ export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca', 'visualizacao'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'visualizacao'],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro'],
   AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao'],
   Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro'],
   Visualizador: ['visualizacao'],

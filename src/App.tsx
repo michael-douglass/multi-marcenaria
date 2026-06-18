@@ -245,11 +245,7 @@ function AuthenticatedRoutes() {
           <Route
             path="/visualizacao"
             element={
-              roles.includes('Visualizador')
-                || roles.includes('Administrador')
-                || roles.includes('Financeiro')
-                || roles.includes('AdministradorObras')
-                || roles.includes('MontadorAdmin')
+              canAccessSection(roles, 'visualizacao')
                 ? <Visualizacao />
                 : <Restricted message="Acesso restrito ao painel de visualização." />
             }

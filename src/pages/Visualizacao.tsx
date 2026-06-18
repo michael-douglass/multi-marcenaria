@@ -284,40 +284,42 @@ function VisualizacaoContent() {
                 subtitle={rangeLabel}
                 accent="#34d399"
                 badge={obrasChegada.length}
+                headerExtra={
+                  semPedidoMaterialCount > 0
+                    ? <VisualizacaoChegadaSemPedidoAlert obras={obrasHook.data} />
+                    : undefined
+                }
                 className="viz-panel--span-2 viz-stagger-1"
               >
-                <div className="viz-chegada-panel-body">
-                  <div className="viz-week-wrap">
-                    <div className="viz-week-grid">
-                      {range.days.map(iso => {
-                        const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
-                        return (
-                          <SemanaDia key={iso} iso={iso} count={dayObras.length}>
-                            {dayObras.length === 0 ? (
-                              <p className="viz-empty">—</p>
-                            ) : (
-                              dayObras.map(obra => {
-                                const cor = getChegadaCardColor(obra, hoje)
-                                return (
-                                  <div
-                                    key={obra.id}
-                                    className="viz-mini-card"
-                                    style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
-                                  >
-                                    <p className="viz-mini-card__title">{obra.cliente_nome}</p>
-                                    {obra.lousa ? (
-                                      <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
-                                    ) : null}
-                                  </div>
-                                )
-                              })
-                            )}
-                          </SemanaDia>
-                        )
-                      })}
-                    </div>
+                <div className="viz-week-wrap">
+                  <div className="viz-week-grid">
+                    {range.days.map(iso => {
+                      const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
+                      return (
+                        <SemanaDia key={iso} iso={iso} count={dayObras.length}>
+                          {dayObras.length === 0 ? (
+                            <p className="viz-empty">—</p>
+                          ) : (
+                            dayObras.map(obra => {
+                              const cor = getChegadaCardColor(obra, hoje)
+                              return (
+                                <div
+                                  key={obra.id}
+                                  className="viz-mini-card"
+                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
+                                >
+                                  <p className="viz-mini-card__title">{obra.cliente_nome}</p>
+                                  {obra.lousa ? (
+                                    <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
+                                  ) : null}
+                                </div>
+                              )
+                            })
+                          )}
+                        </SemanaDia>
+                      )
+                    })}
                   </div>
-                  <VisualizacaoChegadaSemPedidoAlert obras={obrasHook.data} />
                 </div>
               </VisualizacaoPanel>
 

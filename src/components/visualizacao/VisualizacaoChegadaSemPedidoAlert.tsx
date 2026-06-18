@@ -6,7 +6,7 @@ interface VisualizacaoChegadaSemPedidoAlertProps {
   obras: ObraFull[]
 }
 
-/** Aviso em destaque: obras ativas ainda sem pedido de material confirmado. */
+/** Aviso compacto no cabeçalho: obras ativas sem pedido de material confirmado. */
 export function VisualizacaoChegadaSemPedidoAlert({ obras }: VisualizacaoChegadaSemPedidoAlertProps) {
   const semPedido = obras
     .filter(obraPrecisaPedidoMaterial)
@@ -16,6 +16,8 @@ export function VisualizacaoChegadaSemPedidoAlert({ obras }: VisualizacaoChegada
 
   const count = semPedido.length
   const obraLabel = count === 1 ? 'obra sem pedido feito' : 'obras sem pedidos feitos'
+  const nomesResumo = semPedido.map(o => o.cliente_nome).join(', ')
+  const marqueeDuration = Math.max(14, Math.round(nomesResumo.length * 0.32))
 
   return (
     <div
@@ -23,29 +25,28 @@ export function VisualizacaoChegadaSemPedidoAlert({ obras }: VisualizacaoChegada
       role="alert"
       aria-live="polite"
     >
-      <div className="viz-chegada-sem-pedido__veil" aria-hidden />
-      <div className="viz-chegada-sem-pedido__card">
-        <div className="viz-chegada-sem-pedido__glow" aria-hidden />
-        <div className="viz-chegada-sem-pedido__icon-wrap">
-          <AlertTriangle className="viz-chegada-sem-pedido__icon" aria-hidden />
-        </div>
+      <AlertTriangle className="viz-chegada-sem-pedido__icon" aria-hidden />
+      <div className="viz-chegada-sem-pedido__copy min-w-0">
         <p className="viz-chegada-sem-pedido__headline">
           Temos{' '}
           <span className="viz-chegada-sem-pedido__count">{count}</span>
           {' '}
           {obraLabel}:
         </p>
-        <ul className="viz-chegada-sem-pedido__list">
-          {semPedido.map(obra => (
-            <li key={obra.id} className="viz-chegada-sem-pedido__item">
-              <span className="viz-chegada-sem-pedido__dot" aria-hidden />
-              <span className="viz-chegada-sem-pedido__name">{obra.cliente_nome}</span>
-              {obra.lousa ? (
-                <span className="viz-chegada-sem-pedido__meta">{obra.lousa}</span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <div
+          className="viz-chegada-sem-pedido__marquee"
+          aria-label={nomesResumo}
+        >
+          <div
+            className="viz-chegada-sem-pedido__marquee-track"
+            style={{ ['--viz-marquee-duration' as string]: `${marqueeDuration}s` }}
+          >
+            <span className="viz-chegada-sem-pedido__names">{nomesResumo}</span>
+            <span className="viz-chegada-sem-pedido__names" aria-hidden>
+              {nomesResumo}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )

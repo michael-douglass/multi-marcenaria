@@ -246,7 +246,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/visualizacao',
     icon: Monitor,
     radialColor: 'rgba(167,139,250,0.92)',
-    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Visualizador'],
+    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'Visualizador'],
   },
   {
     id: 'configuracoes',
