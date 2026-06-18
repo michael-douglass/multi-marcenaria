@@ -34,6 +34,7 @@ import { Configuracoes } from '@/pages/Configuracoes'
 import { Contratos } from '@/pages/Contratos'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
+import { Visualizacao } from '@/pages/Visualizacao'
 import type { ActiveSection, UserRole } from '@/types'
 
 const OBRAS_SECTIONS: ActiveSection[] = [
@@ -45,12 +46,13 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 ]
 
 const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'configuracoes'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca', 'visualizacao'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro'],
-  AdministradorObras: [...OBRAS_SECTIONS],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'visualizacao'],
+  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao'],
   Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro'],
+  Visualizador: ['visualizacao'],
 }
 
 function getAllowedSections(roles: UserRole[]): ActiveSection[] {
@@ -258,6 +260,20 @@ function AuthenticatedRoutes() {
               roles.includes('Montador') || roles.includes('MontadorAdmin')
                 ? <MeuFinanceiro />
                 : <Restricted message="Disponível apenas para montadores." />
+            }
+          />
+
+          {/* Visualização */}
+          <Route
+            path="/visualizacao"
+            element={
+              roles.includes('Visualizador')
+                || roles.includes('Administrador')
+                || roles.includes('Financeiro')
+                || roles.includes('AdministradorObras')
+                || roles.includes('MontadorAdmin')
+                ? <Visualizacao />
+                : <Restricted message="Acesso restrito ao painel de visualização." />
             }
           />
 

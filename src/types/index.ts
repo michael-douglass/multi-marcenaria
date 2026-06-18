@@ -1,10 +1,10 @@
-export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro' | 'Montador' | 'MontadorAdmin' | 'AdministradorObras'
+export type UserRole = 'Administrador' | 'Financeiro' | 'Marceneiro' | 'Montador' | 'MontadorAdmin' | 'AdministradorObras' | 'Visualizador'
 
 export interface UserProfile {
   id: string
   email: string
   nome?: string
-  perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin' | 'administrador_obras'
+  perfil: 'administrador' | 'financeiro' | 'marceneiro' | 'montador' | 'montador_admin' | 'administrador_obras' | 'visualizador'
   perfis_extras: string[]
   ativo: boolean
   criado_em: string
@@ -30,6 +30,7 @@ export type ActiveSection =
   | 'metricasObras'
   | 'meuFinanceiro'
   | 'configuracoes'
+  | 'visualizacao'
 
 // ── Fornecedor ──────────────────────────────────────────────
 export interface Fornecedor {

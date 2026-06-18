@@ -18,6 +18,7 @@ const PERFIS = [
   { value: 'montador',       label: 'Montador',       cor: '#f59e0b' },
   { value: 'montador_admin', label: 'Montador Admin', cor: '#10b981' },
   { value: 'administrador_obras', label: 'Administrador de Obras', cor: '#fb923c' },
+  { value: 'visualizador', label: 'Visualizador', cor: '#a78bfa' },
 ]
 
 function PerfilBadge({ perfil }: { perfil: string }) {

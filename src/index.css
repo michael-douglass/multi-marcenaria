@@ -1029,3 +1029,324 @@ body {
     scroll-behavior: smooth;
   }
 }
+
+/* ── Painel de Visualização ───────────────────────────────── */
+.obra-page-shell--visualizacao .kanban-page-toolbar {
+  padding-bottom: 0;
+}
+
+.obra-page-shell--visualizacao .viz-page__hero {
+  border-radius: 1rem;
+  margin-bottom: 0;
+}
+
+.viz-toolbar {
+  flex-wrap: wrap;
+}
+
+.viz-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  padding-bottom: 2rem;
+}
+
+.viz-page__hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 168, 83, 0.22);
+  background: linear-gradient(135deg, rgba(21, 12, 9, 0.95) 0%, rgba(30, 18, 12, 0.88) 55%, rgba(52, 211, 153, 0.06) 100%);
+  padding: 1.25rem 1.5rem;
+}
+
+.viz-page__hero-glow {
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 168, 83, 0.14) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.viz-page__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(212, 168, 83, 0.75);
+  margin-bottom: 0.35rem;
+}
+
+.viz-page__title {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: 0.08em;
+  color: #f5e6c8;
+  margin: 0;
+}
+
+.viz-page__desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #8a6a55;
+}
+
+.viz-page__desc strong {
+  color: #d4a853;
+  font-weight: 600;
+}
+
+.viz-page__clock-time {
+  font-family: var(--font-display, inherit);
+  font-size: 1.75rem;
+  letter-spacing: 0.06em;
+  color: #d4a853;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.viz-page__clock-date {
+  font-size: 0.75rem;
+  color: #8a6a55;
+  margin: 0.15rem 0 0;
+}
+
+.viz-page__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1100px) {
+  .viz-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .viz-panel--span-2 {
+    grid-column: span 2;
+  }
+}
+
+.viz-panel {
+  border: 1px solid rgba(212, 168, 83, 0.16);
+  animation: viz-fade-up 0.55s ease both;
+}
+
+.viz-stagger-1 { animation-delay: 0.05s; }
+.viz-stagger-2 { animation-delay: 0.12s; }
+.viz-stagger-3 { animation-delay: 0.19s; }
+.viz-stagger-4 { animation-delay: 0.26s; }
+
+@keyframes viz-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.viz-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.12);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--viz-accent) 10%, transparent), transparent 65%);
+}
+
+.viz-panel__title {
+  font-family: var(--font-display, inherit);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--viz-accent);
+  margin: 0;
+}
+
+.viz-panel__subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: #8a6a55;
+}
+
+.viz-panel__badge {
+  flex-shrink: 0;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #150c09;
+  background: var(--viz-accent);
+}
+
+.viz-panel__body {
+  padding: 0.85rem 1rem 1rem;
+  min-width: 0;
+}
+
+.viz-week-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+
+.viz-week-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(96px, 1fr));
+  gap: 0.4rem;
+  min-width: 800px;
+}
+
+.viz-week-day__header {
+  border-bottom: 1px solid rgba(212, 168, 83, 0.1);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.viz-week-day__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8a6a55;
+}
+
+.viz-week-day__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  background: rgba(212, 168, 83, 0.18);
+  color: #d4a853;
+}
+
+.viz-week-day__date {
+  display: block;
+  font-size: 0.58rem;
+  color: #6b5544;
+  margin-top: 0.1rem;
+}
+
+.viz-week-day__hoje {
+  margin-left: 0.25rem;
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d4a853;
+}
+
+.viz-week-day__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.viz-mini-card {
+  border-left: 2px solid;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  min-width: 0;
+}
+
+.viz-mini-card__title {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #f5e6c8;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.viz-mini-card__meta {
+  font-size: 0.55rem;
+  color: #8a6a55;
+  margin: 0.1rem 0 0;
+}
+
+.viz-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.viz-list-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 168, 83, 0.1);
+  background: rgba(10, 4, 2, 0.35);
+}
+
+.viz-list-item--alert {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.viz-list-item__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f5e6c8;
+  margin: 0;
+}
+
+.viz-list-item__meta {
+  font-size: 0.68rem;
+  color: #8a6a55;
+  margin: 0.15rem 0 0;
+}
+
+.viz-list-item__date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.viz-list-item__value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.viz-empty {
+  font-size: 0.68rem;
+  color: #4a3328;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.viz-empty--center {
+  padding: 1.5rem 0.5rem;
+}

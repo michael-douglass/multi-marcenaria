@@ -4,6 +4,7 @@ export type PageZoomKey =
   | 'calendario_obras'
   | 'calendario_chegada_materiais'
   | 'metricas_obras'
+  | 'visualizacao'
 
 export const PAGE_ZOOM_MIN = 50
 export const PAGE_ZOOM_MAX = 200

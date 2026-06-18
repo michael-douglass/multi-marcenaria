@@ -23,6 +23,7 @@ const PERFIL_TO_ROLE: Record<UserProfile['perfil'], UserRole> = {
   montador: 'Montador',
   montador_admin: 'MontadorAdmin',
   administrador_obras: 'AdministradorObras',
+  visualizador: 'Visualizador',
 }
 
 function perfilToRole(perfil: UserProfile['perfil']): UserRole {

@@ -19,6 +19,7 @@ import {
   Camera,
   PackageCheck,
   Settings,
+  Monitor,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
@@ -240,6 +241,14 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     roles: ['Administrador', 'Financeiro'],
   },
   {
+    id: 'visualizacao',
+    title: 'Visualização',
+    url: '/visualizacao',
+    icon: Monitor,
+    radialColor: 'rgba(167,139,250,0.92)',
+    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Visualizador'],
+  },
+  {
     id: 'configuracoes',
     title: 'Configurações',
     url: '/configuracoes',
@@ -327,6 +336,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/calendario-chegada-materiais': 'calendarioChegadaMateriais',
     '/metricas-obras': 'metricasObras',
     '/meu-financeiro': 'meuFinanceiro',
+    '/visualizacao': 'visualizacao',
     '/configuracoes': 'configuracoes',
   }
   return map[pathname] ?? 'dashboard'
@@ -334,6 +344,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
 
 /** Rota inicial após login conforme o perfil do usuário. */
 export function defaultPathForRole(role: UserRole | null): string {
+  if (role === 'Visualizador') return '/visualizacao'
   if (role === 'Montador') return '/calendario-obras'
   if (role === 'MontadorAdmin' || role === 'AdministradorObras') return '/agenda-obras'
   return '/dashboard'
