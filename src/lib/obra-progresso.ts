@@ -1,4 +1,6 @@
 ﻿import { fmtDate } from './utils'
+import { normalizeObraDate } from './date-br'
+import { obraAtivaNoDia } from './obra-dias-trabalho'
 import type { ObraFull, StatusKanbanObra } from '../types'
 
 export type ObraProgressoVariant =
@@ -102,11 +104,13 @@ export function calcObraProgresso(
 
 /** Retorna o status efetivo da obra: se o prazo passou e não está concluída/cancelada, é atraso. */
 export function getStatusEfetivo(obra: ObraFull, refDate: Date = new Date()): StatusKanbanObra {
+  const fim = normalizeObraDate(obra.data_prevista_fim)
+  const hoje = refDate.toISOString().slice(0, 10)
   if (
     obra.status_kanban !== 'concluida' &&
     obra.status_kanban !== 'cancelada' &&
-    obra.data_prevista_fim &&
-    obra.data_prevista_fim < refDate.toISOString().slice(0, 10)
+    fim &&
+    fim < hoje
   ) {
     return 'datas_em_atraso'
   }
@@ -154,13 +158,7 @@ export function filtrarObrasCalendario(
     if (filtros.etapa && statusEfetivo !== filtros.etapa) return false
 
     if (filtros.data) {
-      if (!obra.data_prevista_inicio || !obra.data_prevista_fim) return false
-      if (
-        filtros.data < obra.data_prevista_inicio ||
-        filtros.data > obra.data_prevista_fim
-      ) {
-        return false
-      }
+      if (!obraAtivaNoDia(obra, filtros.data, [0, 1, 2, 3, 4, 5, 6])) return false
     }
 
     return true

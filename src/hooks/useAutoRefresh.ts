@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-const POLL_MS = 30_000
+const POLL_MS = 10_000
 
 /**
  * Recarrega dados automaticamente:

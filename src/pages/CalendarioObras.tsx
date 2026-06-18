@@ -22,6 +22,7 @@ import { TimeInput } from '../components/ui/TimeInput'
 import { isDiaAtivoNoCalendario, obrasParaDiaCalendario } from '../lib/obra-dias-trabalho'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
+import { normalizeObraDate } from '../lib/date-br'
 import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '../types'
 import {
   canDeleteObras,
@@ -622,8 +623,26 @@ function CalendarioObrasContent() {
         if (tipo?.tempo_maximo_horas_default != null)
           next.tempo_maximo_horas = Number(tipo.tempo_maximo_horas_default)
       }
+
+      if ((k === 'data_prevista_inicio' || k === 'data_prevista_fim') && !editObra?.iniciado_em) {
+        const fim = k === 'data_prevista_fim' ? (v as string) : p.data_prevista_fim
+        if (fim) {
+          next.status_kanban = fim < todayISO ? 'datas_em_atraso' : 'datas_definidas'
+        } else if (!p.data_prevista_inicio && !p.data_prevista_fim) {
+          next.status_kanban = 'datas_em_aberto'
+        }
+      }
+
       return next
     })
+  }
+
+  const focusCalendarioNaData = (iso: string | null | undefined) => {
+    const dia = normalizeObraDate(iso)
+    if (!dia) return
+    setViewDate(new Date(`${dia}T12:00:00`))
+    setDataFiltro('')
+    if (view === 'month') setView(isMobileCalendario() ? 'day' : 'week')
   }
 
   const saveObra = async () => {
@@ -637,6 +656,9 @@ function CalendarioObrasContent() {
         isMontadorAdmin,
       )
       await obrasHook.update(editObra.id, formToSave, { syncComissao: canEditComissao(roles) })
+      focusCalendarioNaData(
+        formToSave.data_prevista_inicio ?? formToSave.data_prevista_fim,
+      )
       setEditObra(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível salvar a obra.')

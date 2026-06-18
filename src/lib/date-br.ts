@@ -51,6 +51,13 @@ export function buildCalendarMonthGrid(year: number, month: number): CalendarDay
   return cells
 }
 
+/** Extrai YYYY-MM-DD de ISO, timestamp ou string do banco. */
+export function normalizeObraDate(value: string | null | undefined): string | null {
+  if (!value) return null
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value)
+  return match ? match[1] : null
+}
+
 /** Aplica máscara DD/MM/YYYY enquanto o usuário digita. */
 export function maskBrDateInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 8)

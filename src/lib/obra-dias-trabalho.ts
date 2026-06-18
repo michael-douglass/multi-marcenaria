@@ -1,4 +1,5 @@
 import type { ObraFull } from '@/types'
+import { normalizeObraDate } from '@/lib/date-br'
 
 export const OBRA_WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const
 export const OBRA_WEEKDAYS_LONG = [
@@ -53,8 +54,13 @@ export function obraAtivaNoDia(
   iso: string,
   diasPadraoAtivos: number[],
 ): boolean {
-  if (!obra.data_prevista_inicio || !obra.data_prevista_fim) return false
-  if (iso < obra.data_prevista_inicio || iso > obra.data_prevista_fim) return false
+  const inicio = normalizeObraDate(obra.data_prevista_inicio)
+  const fim = normalizeObraDate(obra.data_prevista_fim)
+  if (!inicio || !fim) return false
+  if (iso < inicio || iso > fim) return false
+
+  // Sempre exibir no dia de início e no dia de término (mesmo fora dos dias_trabalho).
+  if (iso === inicio || iso === fim) return true
 
   const dow = dayOfWeekFromIso(iso)
 
