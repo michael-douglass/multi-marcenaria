@@ -18,7 +18,11 @@ export const fmtTime = (s?: string | null): string => {
   if (!s) return '—'
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(d)
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d)
 }
 
 export const todayISO = (): string => {

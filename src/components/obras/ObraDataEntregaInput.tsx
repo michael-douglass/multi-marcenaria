@@ -1,5 +1,6 @@
 ﻿import { Calendar } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { DateInput } from '@/components/ui/DateInput'
 import type { ObraFull } from '@/types'
 
 interface ObraDataEntregaInputProps {
@@ -18,25 +19,19 @@ export function ObraDataEntregaInput({
   onChange,
   compact = false,
 }: ObraDataEntregaInputProps) {
-  const [localDate, setLocalDate] = useState<string>(obra.data_entrega_pedido ?? '')
+  const [localDate, setLocalDate] = useState<string | null>(obra.data_entrega_pedido ?? null)
 
   // Sincroniza estado local se a obra mudar externamente
   useEffect(() => {
-    setLocalDate(obra.data_entrega_pedido ?? '')
+    setLocalDate(obra.data_entrega_pedido ?? null)
   }, [obra.data_entrega_pedido])
 
   if (!obra.pedido_material_feito) return null
 
-  const handleBlur = () => {
-    const val = localDate || null
-    if (val !== obra.data_entrega_pedido) {
-      onChange(val)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      ;(e.target as HTMLInputElement).blur()
+  const handleChange = (date: string | null) => {
+    setLocalDate(date)
+    if (date !== obra.data_entrega_pedido) {
+      onChange(date)
     }
   }
 
@@ -54,14 +49,11 @@ export function ObraDataEntregaInput({
         <p className="text-[#edd9c4] text-[0.55rem] uppercase tracking-wider leading-none mb-1">
           Chegada Material
         </p>
-        <input
-          type="date"
-          className="w-full bg-transparent border-none p-0 text-[#fffaf4] text-[0.65rem] focus:ring-0 cursor-pointer"
+        <DateInput
+          className="w-full bg-transparent border-none p-0 text-[#fffaf4] text-[0.65rem] focus:ring-0"
           value={localDate}
           disabled={!canEdit || loading}
-          onChange={e => setLocalDate(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
+          onChange={handleChange}
           onClick={e => e.stopPropagation()}
         />
       </div>

@@ -18,6 +18,7 @@ import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
+import { TimeInput } from '../components/ui/TimeInput'
 import { isDiaAtivoNoCalendario, obrasParaDiaCalendario } from '../lib/obra-dias-trabalho'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
@@ -190,18 +191,16 @@ function ConfigDiasPanel({
 
                   {ativo ? (
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <input
-                        type="time"
+                      <TimeInput
                         className="glass-input !py-1 !px-2 w-[88px] text-xs"
-                        value={horario?.inicio ?? ''}
-                        onChange={e => onSetHorario(d, 'inicio', e.target.value)}
+                        value={horario?.inicio}
+                        onChange={v => onSetHorario(d, 'inicio', v ?? '')}
                       />
                       <span className="text-[#edd9c4] text-xs shrink-0">→</span>
-                      <input
-                        type="time"
+                      <TimeInput
                         className="glass-input !py-1 !px-2 w-[88px] text-xs"
-                        value={horario?.fim ?? ''}
-                        onChange={e => onSetHorario(d, 'fim', e.target.value)}
+                        value={horario?.fim}
+                        onChange={v => onSetHorario(d, 'fim', v ?? '')}
                       />
                     </div>
                   ) : (

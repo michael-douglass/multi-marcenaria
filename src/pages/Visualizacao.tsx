@@ -204,7 +204,11 @@ function VisualizacaoContent() {
       .sort((a, b) => a.vencimentoMaisAntigo.localeCompare(b.vencimentoMaisAntigo))
   }, [cobrancasAtrasadas])
 
-  const horaLabel = relogio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const horaLabel = relogio.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
   const dataLabel = relogio.toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',

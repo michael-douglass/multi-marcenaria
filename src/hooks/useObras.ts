@@ -94,19 +94,32 @@ export function useObras() {
   }, [isReady, load])
 
   const create = async (input: ObraInput): Promise<string> => {
-    const { obraFields, montadorIds } = splitObraInputForSave(stripComissaoFromObraPayload(input))
-    const { data: row, error: err } = await supabase
+    let payload = stripComissaoFromObraPayload(input)
+    if (!payload.montador_admin_id) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from('movelaria_usuarios')
+          .select('perfil')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (profile?.perfil === 'montador_admin') {
+          payload = { ...payload, montador_admin_id: user.id }
+        }
+      }
+    }
+    const obraId = createId()
+    const { obraFields, montadorIds } = splitObraInputForSave(payload)
+    const { error: err } = await supabase
       .from('movelaria_obras')
-      .insert(obraFields)
-      .select('id')
-      .single()
+      .insert({ ...obraFields, id: obraId })
     if (err) throw new Error(err.message)
-    await syncObraMontadores(row.id, montadorIds)
+    await syncObraMontadores(obraId, montadorIds)
     if (input.comissao_habilitada || (input.comissao_itens?.length ?? 0) > 0) {
-      await syncObraComissao(row.id, input)
+      await syncObraComissao(obraId, input)
     }
     await load()
-    return row.id as string
+    return obraId
   }
 
   const update = async (id: string, input: Partial<ObraInput>, options?: ObraUpdateOptions) => {

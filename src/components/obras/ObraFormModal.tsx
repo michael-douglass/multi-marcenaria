@@ -3,6 +3,8 @@ import { Upload, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
+import { DateInput } from '@/components/ui/DateInput'
+import { TimeInput } from '@/components/ui/TimeInput'
 import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
 import { ObraComissaoField } from '@/components/obras/ObraComissaoField'
 import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
@@ -142,10 +144,18 @@ export function ObraFormModal({
       {canEditDates && (
         <>
           <Field label="Início Previsto">
-            <input type="date" className="glass-input" value={form.data_prevista_inicio ?? ''} onChange={s('data_prevista_inicio')} />
+            <DateInput
+              className="glass-input"
+              value={form.data_prevista_inicio}
+              onChange={v => onChange('data_prevista_inicio', v)}
+            />
           </Field>
           <Field label="Término Previsto">
-            <input type="date" className="glass-input" value={form.data_prevista_fim ?? ''} onChange={s('data_prevista_fim')} />
+            <DateInput
+              className="glass-input"
+              value={form.data_prevista_fim}
+              onChange={v => onChange('data_prevista_fim', v)}
+            />
           </Field>
           <Field label="Prazo Máximo (horas)">
             <input
@@ -190,18 +200,16 @@ export function ObraFormModal({
                 <div className="flex items-center gap-2 flex-wrap">
                   <Clock size={13} className="text-[#f2d892] shrink-0" />
                   <span className="text-[0.72rem] text-[#edd9c4] shrink-0">Horário:</span>
-                  <input
-                    type="time"
+                  <TimeInput
                     className="glass-input !py-1 !px-2 w-[100px] text-xs"
-                    value={form.horario_inicio ?? ''}
-                    onChange={e => onChange('horario_inicio', e.target.value || null)}
+                    value={form.horario_inicio}
+                    onChange={v => onChange('horario_inicio', v)}
                   />
                   <span className="text-[#edd9c4] text-xs">→</span>
-                  <input
-                    type="time"
+                  <TimeInput
                     className="glass-input !py-1 !px-2 w-[100px] text-xs"
-                    value={form.horario_fim ?? ''}
-                    onChange={e => onChange('horario_fim', e.target.value || null)}
+                    value={form.horario_fim}
+                    onChange={v => onChange('horario_fim', v)}
                   />
                 </div>
               )}
@@ -246,11 +254,10 @@ export function ObraFormModal({
       {form.pedido_material_feito && (
         <>
           <Field label="Chegada Material">
-            <input
-              type="date"
+            <DateInput
               className="glass-input"
-              value={form.data_entrega_pedido ?? ''}
-              onChange={s('data_entrega_pedido')}
+              value={form.data_entrega_pedido}
+              onChange={v => onChange('data_entrega_pedido', v)}
               disabled={!canEditDates}
             />
           </Field>

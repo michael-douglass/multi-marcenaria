@@ -16,7 +16,7 @@ import {
   uploadObraArquivo,
   type PendingObraArquivo,
 } from '../lib/obra-arquivos'
-import { getObraMontadorIds } from '../lib/obra-montadores'
+import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
@@ -614,6 +614,14 @@ function AgendaObrasContent() {
     })
   }, [])
 
+  const buildNovaObraForm = (base: ObraInput = BLANK_OBRA) =>
+    applyMontadorAdminObraDefaults(
+      base,
+      userProfile?.id,
+      gruposHook.data,
+      isMontadorAdmin,
+    )
+
   const openNew = () => {
     setEditObra(null)
     let restored = false
@@ -624,19 +632,19 @@ function AgendaObrasContent() {
           const draft = JSON.parse(saved) as ObraInput
           const hasContent = !!(draft.cliente_nome?.trim() || draft.descricao || draft.endereco_obra || draft.lousa)
           if (hasContent) {
-            setObraForm({ ...BLANK_OBRA, ...draft })
+            setObraForm(buildNovaObraForm({ ...BLANK_OBRA, ...draft }))
             restored = true
           } else {
-            setObraForm(BLANK_OBRA)
+            setObraForm(buildNovaObraForm())
           }
         } else {
-          setObraForm(BLANK_OBRA)
+          setObraForm(buildNovaObraForm())
         }
       } catch {
-        setObraForm(BLANK_OBRA)
+        setObraForm(buildNovaObraForm())
       }
     } else {
-      setObraForm(BLANK_OBRA)
+      setObraForm(buildNovaObraForm())
     }
     setDraftRestored(restored)
     clearPendingFiles()
@@ -708,10 +716,13 @@ function AgendaObrasContent() {
     if (!obraForm.cliente_nome.trim()) return
     setSavingObra(true)
     try {
+      const formToSave = editObra
+        ? obraForm
+        : buildNovaObraForm(obraForm)
       if (editObra) {
-        await obrasHook.update(editObra.id, obraForm, { syncComissao: canEditComissao(roles) })
+        await obrasHook.update(editObra.id, formToSave, { syncComissao: canEditComissao(roles) })
       } else {
-        const obraId = await obrasHook.create(obraForm)
+        const obraId = await obrasHook.create(formToSave)
         // Upload pending files sequentially after creation
         for (const pending of pendingFiles) {
           try {

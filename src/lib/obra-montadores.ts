@@ -26,6 +26,27 @@ export function formatObraMontadoresLabel(
   return nomes.join(', ')
 }
 
+/** Preenche montador admin e grupo padrão quando um Montador Admin cria obra. */
+export function applyMontadorAdminObraDefaults(
+  input: ObraInput,
+  userId: string | undefined,
+  grupos: { id: string; montador_admin_id?: string | null }[],
+  isMontadorAdmin: boolean,
+): ObraInput {
+  if (!isMontadorAdmin || !userId) return input
+
+  const next = { ...input }
+  // Montador Admin sempre cria obras sob sua própria responsabilidade.
+  next.montador_admin_id = userId
+  if (!next.grupo_obra_id) {
+    const meusGrupos = grupos.filter(g => g.montador_admin_id === userId)
+    if (meusGrupos.length === 1) {
+      next.grupo_obra_id = meusGrupos[0].id
+    }
+  }
+  return next
+}
+
 /** Separa campos da obra e lista de montadores para persistência. */
 export function splitObraInputForSave(input: ObraInput): {
   obraFields: Omit<ObraInput, 'montador_ids'>
