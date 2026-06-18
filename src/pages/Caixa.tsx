@@ -2,6 +2,7 @@
 import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
 import { useCaixa } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
+import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { GerenciarDestinatariosDialog } from '@/components/caixa/GerenciarDestinatariosDialog'
@@ -210,7 +211,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
       {/* Content */}
       <div className={cn('glass-card', embedded ? 'min-h-[280px]' : 'min-h-[400px]')}>
         {loading ? (
-          <div className="p-20 text-center text-[#edd9c4] animate-pulse">Carregando dados...</div>
+          <LoadingState message="Carregando dados..." />
         ) : (
           <div className="overflow-x-auto">
             {tab === 'reservas' && (

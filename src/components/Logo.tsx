@@ -1,8 +1,8 @@
+import { garboBrandLogo } from '@/lib/garbo-brand'
+
 interface LogoProps {
   full?: boolean
 }
-
-import garboLogo from '../../imagens/identidade vizual.pdf (1).png'
 
 export function Logo({ full = true }: LogoProps) {
   if (full) {
@@ -19,7 +19,7 @@ export function Logo({ full = true }: LogoProps) {
         }}
       >
         <img
-          src={garboLogo}
+          src={garboBrandLogo}
           alt="GARBO Movelaria"
           style={{ height: 44, width: 'auto', display: 'block' }}
           draggable={false}
@@ -45,7 +45,7 @@ export function Logo({ full = true }: LogoProps) {
       }}
     >
       <img
-        src={garboLogo}
+        src={garboBrandLogo}
         alt="GARBO"
         style={{
           width: '100%',

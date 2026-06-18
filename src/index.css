@@ -1519,3 +1519,105 @@ body {
 .viz-empty--center {
   padding: 1.5rem 0.5rem;
 }
+
+/* ── GARBO loading brand ───────────────────────────────────── */
+@keyframes garbo-brand-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes garbo-brand-glow {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+.garbo-loading-brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.15rem;
+  text-align: center;
+}
+
+.garbo-loading-brand--inline {
+  padding: 3.5rem 1rem;
+}
+
+.garbo-loading-brand--fullscreen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  background: #150c09;
+  background-image:
+    radial-gradient(ellipse 82% 52% at 50% -8%, rgba(212, 168, 83, 0.14) 0%, transparent 62%),
+    radial-gradient(ellipse 58% 48% at 88% 94%, rgba(80, 25, 8, 0.58) 0%, transparent 66%),
+    radial-gradient(ellipse 40% 35% at 8% 78%, rgba(36, 16, 8, 0.75) 0%, transparent 70%);
+}
+
+.garbo-loading-brand--overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(21, 12, 9, 0.86);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% 38%, rgba(212, 168, 83, 0.1) 0%, transparent 68%);
+}
+
+.garbo-loading-brand__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.garbo-loading-brand__halo {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 168, 83, 0.28) 0%, rgba(212, 168, 83, 0.06) 48%, transparent 72%);
+  animation: garbo-brand-glow 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.garbo-loading-brand__logo {
+  position: relative;
+  z-index: 1;
+  display: block;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 14px 36px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 28px rgba(212, 168, 83, 0.28));
+  animation: garbo-brand-spin 2.8s linear infinite;
+  transform-origin: center center;
+}
+
+.garbo-loading-brand__message {
+  margin: 0;
+  font-family: Raleway, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(237, 217, 196, 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garbo-loading-brand__logo,
+  .garbo-loading-brand__halo {
+    animation: none;
+  }
+}

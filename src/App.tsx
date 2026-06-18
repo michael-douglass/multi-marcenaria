@@ -38,6 +38,7 @@ import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
 import { ObrasProvider } from '@/context/ObrasContext'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
+import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
 function Restricted({ message }: { message: string }) {
   return (
@@ -276,11 +277,7 @@ function AppRoutes() {
 
   // Só bloqueia a tela inteira enquanto a sessão (login) não foi resolvida
   if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-sm tracking-wider text-[#f2d892]">
-        Carregando...
-      </div>
-    )
+    return <GarboLoadingBrand variant="fullscreen" message="Carregando..." />
   }
 
   if (!session) {
@@ -288,11 +285,7 @@ function AppRoutes() {
   }
 
   if (profileLoading && !userProfile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-sm tracking-wider text-[#f2d892]">
-        Carregando perfil...
-      </div>
-    )
+    return <GarboLoadingBrand variant="fullscreen" message="Carregando perfil..." />
   }
 
   if (!userProfile) {

@@ -106,7 +106,7 @@ export function Biblioteca({ readOnly }: Props) {
       </div>
 
       {loading ? (
-        <LoadingState />
+        <LoadingState message={items.length > 0 ? 'Atualizando...' : 'Carregando...'} />
       ) : error ? (
         <ErrorState message={error} />
       ) : filtrados.length === 0 ? (

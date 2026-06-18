@@ -1,6 +1,7 @@
 ﻿import { useState, FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
+import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -39,8 +40,10 @@ export function Login() {
           'radial-gradient(ellipse 90% 55% at 50% -5%, rgba(240,210,140,.09) 0%, transparent 65%)',
           'radial-gradient(ellipse 55% 45% at 85% 90%, rgba(80,25,8,.5) 0%, transparent 65%)',
         ].join(', '),
+        position: 'relative',
       }}
     >
+      {loading ? <GarboLoadingBrand variant="overlay" message="Entrando..." /> : null}
       <AppRefreshButton variant="floating" />
       {/* Logo block — displayed prominently above the card */}
       <div
