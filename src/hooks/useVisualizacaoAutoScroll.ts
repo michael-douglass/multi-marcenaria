@@ -5,8 +5,8 @@ import {
   writeVizScrollRatio,
 } from '@/lib/visualizacao-autoscroll-storage'
 
-/** Velocidade da rolagem automática (px/s) — mais lento para leitura em TV/monitor. */
-const PIXELS_PER_SECOND = 18
+/** Velocidade da rolagem automática (px/s). */
+const PIXELS_PER_SECOND = 30
 const PAUSE_AT_BOTTOM_MS = 1500
 const PERSIST_INTERVAL_MS = 400
 const MIN_SCROLL_RANGE = 4
