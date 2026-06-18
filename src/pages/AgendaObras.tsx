@@ -717,7 +717,7 @@ function AgendaObrasContent() {
     setSavingObra(true)
     try {
       const formToSave = editObra
-        ? obraForm
+        ? applyMontadorAdminObraDefaults(obraForm, userProfile?.id, gruposHook.data, isMontadorAdmin)
         : buildNovaObraForm(obraForm)
       if (editObra) {
         await obrasHook.update(editObra.id, formToSave, { syncComissao: canEditComissao(roles) })

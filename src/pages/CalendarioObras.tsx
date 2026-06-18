@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
-import { getObraMontadorIds } from '../lib/obra-montadores'
+import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
@@ -630,7 +630,13 @@ function CalendarioObrasContent() {
     if (!obraForm.cliente_nome.trim() || !editObra) return
     setSavingObra(true)
     try {
-      await obrasHook.update(editObra.id, obraForm, { syncComissao: canEditComissao(roles) })
+      const formToSave = applyMontadorAdminObraDefaults(
+        obraForm,
+        userProfile?.id,
+        gruposHook.data,
+        isMontadorAdmin,
+      )
+      await obrasHook.update(editObra.id, formToSave, { syncComissao: canEditComissao(roles) })
       setEditObra(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível salvar a obra.')

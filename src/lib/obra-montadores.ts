@@ -26,7 +26,7 @@ export function formatObraMontadoresLabel(
   return nomes.join(', ')
 }
 
-/** Preenche montador admin e grupo padrão quando um Montador Admin cria obra. */
+/** Preenche montador admin e grupo padrão quando um Montador Admin cria ou edita obra. */
 export function applyMontadorAdminObraDefaults(
   input: ObraInput,
   userId: string | undefined,
