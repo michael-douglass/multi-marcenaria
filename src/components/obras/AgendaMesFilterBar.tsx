@@ -1,9 +1,10 @@
-import { CalendarRange, LayoutGrid } from 'lucide-react'
+import { CalendarRange, ChevronDown, ChevronUp, LayoutGrid } from 'lucide-react'
 import {
   mesAnoFromOffset,
   mesAnoKey,
   type MesAnoRef,
 } from '@/components/caixa/CaixaMesFilterBar'
+import { describeAgendaMesFiltro } from '@/lib/obra-mes-filtro'
 import { cn } from '@/lib/utils'
 import type { AgendaMesFiltro } from '@/lib/agenda-mes-filtro-storage'
 
@@ -27,12 +28,20 @@ function buildMonthOptions(past = 3, future = 14): MesAnoRef[] {
 interface AgendaMesFilterBarProps {
   value: AgendaMesFiltro
   onChange: (value: AgendaMesFiltro) => void
+  minimized: boolean
+  onMinimizedChange: (minimized: boolean) => void
 }
 
-export function AgendaMesFilterBar({ value, onChange }: AgendaMesFilterBarProps) {
+export function AgendaMesFilterBar({
+  value,
+  onChange,
+  minimized,
+  onMinimizedChange,
+}: AgendaMesFilterBarProps) {
   const monthOptions = buildMonthOptions(3, 14)
   const isAll = value.mode === 'all'
   const selectedKey = value.mode === 'month' ? mesAnoKey(value.mes, value.ano) : ''
+  const summary = describeAgendaMesFiltro(value)
 
   const isQuickActive = value.mode === 'month' && QUICK_OFFSETS.some(q => {
     const ref = mesAnoFromOffset(q.offset)
@@ -40,77 +49,100 @@ export function AgendaMesFilterBar({ value, onChange }: AgendaMesFilterBarProps)
   })
 
   return (
-    <div className="agenda-mes-filter" role="group" aria-label="Filtrar obras por mês de entrega">
+    <div
+      className={cn('agenda-mes-filter', minimized && 'agenda-mes-filter--minimized')}
+      role="group"
+      aria-label="Filtrar obras por mês de entrega"
+    >
       <div className="agenda-mes-filter__head">
-        <CalendarRange size={14} className="agenda-mes-filter__head-icon" aria-hidden />
-        <span className="agenda-mes-filter__head-label">Prazo de entrega</span>
-      </div>
-
-      <div className="agenda-mes-filter__row">
+        <div className="agenda-mes-filter__head-main">
+          <CalendarRange size={14} className="agenda-mes-filter__head-icon" aria-hidden />
+          <span className="agenda-mes-filter__head-label">Prazo de entrega</span>
+          {minimized ? (
+            <span className="agenda-mes-filter__summary capitalize">{summary}</span>
+          ) : null}
+        </div>
         <button
           type="button"
-          className={cn(
-            'agenda-mes-filter__pill agenda-mes-filter__pill--all',
-            isAll && 'agenda-mes-filter__pill--active',
-          )}
-          onClick={() => onChange({ mode: 'all' })}
-          aria-pressed={isAll}
+          className="agenda-mes-filter__toggle"
+          onClick={() => onMinimizedChange(!minimized)}
+          aria-expanded={!minimized}
+          aria-label={minimized ? 'Expandir filtro de prazo' : 'Minimizar filtro de prazo'}
+          title={minimized ? 'Expandir filtro' : 'Minimizar filtro'}
         >
-          <LayoutGrid size={13} className="shrink-0" aria-hidden />
-          Todas
+          {minimized ? <ChevronDown size={16} aria-hidden /> : <ChevronUp size={16} aria-hidden />}
         </button>
-
-        <span className="agenda-mes-filter__divider" aria-hidden />
-
-        {QUICK_OFFSETS.map(q => {
-          const ref = mesAnoFromOffset(q.offset)
-          const active = value.mode === 'month' && value.mes === ref.mes && value.ano === ref.ano
-          return (
-            <button
-              key={q.offset}
-              type="button"
-              className={cn('agenda-mes-filter__pill', active && 'agenda-mes-filter__pill--active')}
-              onClick={() => onChange({ mode: 'month', mes: ref.mes, ano: ref.ano })}
-              aria-pressed={active}
-            >
-              {q.label}
-            </button>
-          )
-        })}
-
-        <select
-          className={cn(
-            'agenda-mes-filter__select glass-input',
-            value.mode === 'month' && !isQuickActive && 'agenda-mes-filter__select--highlight',
-          )}
-          value={isAll ? '' : selectedKey}
-          onChange={e => {
-            const key = e.target.value
-            if (!key) return
-            const [y, m] = key.split('-').map(Number)
-            if (m && y) onChange({ mode: 'month', mes: m, ano: y })
-          }}
-          title="Escolher mês pelo prazo final da obra"
-        >
-          <option value="" disabled={!isAll}>
-            {isAll ? 'Escolher mês…' : monthLabel(value.mes, value.ano)}
-          </option>
-          {monthOptions.map(opt => {
-            const key = mesAnoKey(opt.mes, opt.ano)
-            return (
-              <option key={key} value={key}>
-                {monthLabel(opt.mes, opt.ano)}
-              </option>
-            )
-          })}
-        </select>
       </div>
 
-      <p className="agenda-mes-filter__hint">
-        {isAll
-          ? 'Exibindo todas as obras, sem filtro de mês.'
-          : 'O mês considera a data final da obra (último prazo de entrega).'}
-      </p>
+      {!minimized ? (
+        <>
+          <div className="agenda-mes-filter__row">
+            <button
+              type="button"
+              className={cn(
+                'agenda-mes-filter__pill agenda-mes-filter__pill--all',
+                isAll && 'agenda-mes-filter__pill--active',
+              )}
+              onClick={() => onChange({ mode: 'all' })}
+              aria-pressed={isAll}
+            >
+              <LayoutGrid size={13} className="shrink-0" aria-hidden />
+              Todas
+            </button>
+
+            <span className="agenda-mes-filter__divider" aria-hidden />
+
+            {QUICK_OFFSETS.map(q => {
+              const ref = mesAnoFromOffset(q.offset)
+              const active = value.mode === 'month' && value.mes === ref.mes && value.ano === ref.ano
+              return (
+                <button
+                  key={q.offset}
+                  type="button"
+                  className={cn('agenda-mes-filter__pill', active && 'agenda-mes-filter__pill--active')}
+                  onClick={() => onChange({ mode: 'month', mes: ref.mes, ano: ref.ano })}
+                  aria-pressed={active}
+                >
+                  {q.label}
+                </button>
+              )
+            })}
+
+            <select
+              className={cn(
+                'agenda-mes-filter__select glass-input',
+                value.mode === 'month' && !isQuickActive && 'agenda-mes-filter__select--highlight',
+              )}
+              value={isAll ? '' : selectedKey}
+              onChange={e => {
+                const key = e.target.value
+                if (!key) return
+                const [y, m] = key.split('-').map(Number)
+                if (m && y) onChange({ mode: 'month', mes: m, ano: y })
+              }}
+              title="Escolher mês pelo prazo final da obra"
+            >
+              <option value="" disabled={!isAll}>
+                {isAll ? 'Escolher mês…' : monthLabel(value.mes, value.ano)}
+              </option>
+              {monthOptions.map(opt => {
+                const key = mesAnoKey(opt.mes, opt.ano)
+                return (
+                  <option key={key} value={key}>
+                    {monthLabel(opt.mes, opt.ano)}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          <p className="agenda-mes-filter__hint">
+            {isAll
+              ? 'Exibindo todas as obras, sem filtro de mês.'
+              : 'O mês considera a data final da obra (último prazo de entrega).'}
+          </p>
+        </>
+      ) : null}
     </div>
   )
 }

@@ -28,8 +28,8 @@ import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
-  readAgendaMesFiltro,
-  writeAgendaMesFiltro,
+  readAgendaMesFiltroPrefs,
+  writeAgendaMesFiltroPrefs,
   type AgendaMesFiltro,
 } from '../lib/agenda-mes-filtro-storage'
 import { groupObrasAgendaKanban } from '../lib/obra-progresso'
@@ -521,18 +521,28 @@ function AgendaObrasContent() {
   }
 
   const [busca, setBusca] = useState('')
-  const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(() => readAgendaMesFiltro())
+  const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(
+    () => readAgendaMesFiltroPrefs().filtro,
+  )
+  const [filtroMinimized, setFiltroMinimized] = useState(
+    () => readAgendaMesFiltroPrefs().minimized,
+  )
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
 
   useEffect(() => {
     if (!userProfile?.id) return
-    setMesFiltro(readAgendaMesFiltro(userProfile.id))
+    const prefs = readAgendaMesFiltroPrefs(userProfile.id)
+    setMesFiltro(prefs.filtro)
+    setFiltroMinimized(prefs.minimized)
   }, [userProfile?.id])
 
   useEffect(() => {
-    writeAgendaMesFiltro(userProfile?.id, mesFiltro)
-  }, [userProfile?.id, mesFiltro])
+    writeAgendaMesFiltroPrefs(userProfile?.id, {
+      filtro: mesFiltro,
+      minimized: filtroMinimized,
+    })
+  }, [userProfile?.id, mesFiltro, filtroMinimized])
 
   // Mantém o modal de detalhes sincronizado após iniciar/concluir obra
   useEffect(() => {
@@ -886,6 +896,8 @@ function AgendaObrasContent() {
               <AgendaMesFilterBar
                 value={mesFiltro}
                 onChange={setMesFiltro}
+                minimized={filtroMinimized}
+                onMinimizedChange={setFiltroMinimized}
               />
               <div className="obra-page-search relative">
                 <Search
