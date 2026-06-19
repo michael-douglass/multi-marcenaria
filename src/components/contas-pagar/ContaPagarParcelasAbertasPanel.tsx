@@ -27,6 +27,8 @@ export function ContaPagarParcelasAbertasPanel({
   const totalAberto = parcelasAbertas.reduce((s, p) => s + p.valor_parcela, 0)
   const nome =
     contaAtual.fornecedor_nome ?? contaAtual.descricao ?? 'Sem nome'
+  const valorMensalRecorrente =
+    contaAtual.recorrencia_valor_base ?? contaAtual.valor_parcela
 
   return (
     <div
@@ -48,6 +50,15 @@ export function ContaPagarParcelasAbertasPanel({
             {' · '}
             {fmtCur(contaAtual.valor_parcela)}
           </p>
+          {contaAtual.recorrente && contaAtual.recorrencia_id ? (
+            <p className="mt-1 text-xs text-[#d4bc9f]">
+              Valor mensal recorrente:{' '}
+              <span className="text-[#fbbf24] font-semibold">{fmtCur(valorMensalRecorrente)}</span>
+              {contaAtual.recorrencia_encerramento
+                ? ` · encerra em ${fmtDate(contaAtual.recorrencia_encerramento)}`
+                : ' · geração contínua (12 meses à frente)'}
+            </p>
+          ) : null}
         </div>
         <div className="text-right">
           <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">

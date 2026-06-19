@@ -6,11 +6,12 @@ import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
 import { Badge } from '../components/ui/Badge'
 import { FilterBar } from '../components/ui/FilterBar'
+import { DateInput } from '../components/ui/DateInput'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ContaPagarAnexosField } from '../components/contas-pagar/ContaPagarAnexosField'
 import { ContaPagarAnexosGrupoField } from '../components/contas-pagar/ContaPagarAnexosGrupoField'
 import { ContaPagarAnexosButton } from '../components/contas-pagar/ContaPagarAnexosModal'
-import { getContasRelacionadas, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
+import { getContasRelacionadas, getModeloRecorrencia, getTextoDetalheContaPagar, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
@@ -27,9 +28,10 @@ import {
   uploadContaPagarAnexos,
 } from '../lib/contas-pagar-anexos'
 import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO } from '../lib/utils'
+import { normalizeObraDate, parseIsoDate } from '../lib/date-br'
 import {
   applyPeriodFilter,
-  isSemDatasDefinidas,
+  isVencimentoNoMesAtual,
   PeriodFilterBar,
   sortContasPagarSemDatas,
   type PeriodFilter,
@@ -154,16 +156,39 @@ interface EditContaForm {
   formaPagamentoId: string
   valorParcela: string
   vencimento: string
+  recorrenciaValorMensal: string
+  recorrenciaDiaMensal: string
+  recorrenciaEncerramento: string
+  aplicarValorFuturas: boolean
 }
 
-function editFormFromConta(conta: ContaPagar): EditContaForm {
+interface RecorrenciaEdicaoSnapshot {
+  encerramento: string
+  diaMensal: string
+}
+
+function diaFromIso(iso: string): string {
+  return String(parseIsoDate(normalizeObraDate(iso) ?? iso)?.day ?? 1)
+}
+
+function editFormFromConta(conta: ContaPagar, todasContas?: ContaPagar[]): EditContaForm {
+  const vencimento = normalizeObraDate(conta.data_vencimento) ?? todayISO()
+  let textoRef = conta
+  if (conta.recorrente && conta.recorrencia_id && todasContas?.length) {
+    const serie = todasContas.filter(c => c.recorrencia_id === conta.recorrencia_id)
+    if (serie.length > 0) textoRef = getModeloRecorrencia(serie)
+  }
   return {
     supplierId: conta.fornecedor_id ?? '',
-    desc: conta.descricao ?? conta.fornecedor_nome ?? '',
-    observacao: conta.observacao ?? '',
+    desc: textoRef.descricao ?? conta.fornecedor_nome ?? '',
+    observacao: textoRef.observacao ?? '',
     formaPagamentoId: conta.forma_pagamento_id ?? '',
     valorParcela: String(conta.valor_parcela ?? ''),
-    vencimento: conta.data_vencimento ?? todayISO(),
+    vencimento,
+    recorrenciaValorMensal: String(conta.recorrencia_valor_base ?? conta.valor_parcela ?? ''),
+    recorrenciaDiaMensal: diaFromIso(vencimento),
+    recorrenciaEncerramento: normalizeObraDate(conta.recorrencia_encerramento) ?? '',
+    aplicarValorFuturas: true,
   }
 }
 
@@ -173,6 +198,9 @@ const getStatus = (vencimento: string, status: string): string => {
   if (status === 'parcialmente_pago') return 'parcialmente_pago'
   return 'pendente'
 }
+
+const STATUS_FILTER_OPTIONS = ['Pendente', 'Pago', 'Vencido'] as const
+type StatusFilterOption = (typeof STATUS_FILTER_OPTIONS)[number]
 
 function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
   return {
@@ -196,6 +224,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     gerarParcelas,
     criarRecorrencia,
     encerrarRecorrencia,
+    atualizarRecorrencia,
     marcarPago,
     reverterPagamento,
     vincularGrupoLancamento,
@@ -217,7 +246,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   })
   const formasHook = useFormasPagamentoPagar()
   const { formas, loading: loadingFormas } = formasHook
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set())
+  const [activeFilters, setActiveFilters] = useState<StatusFilterOption[]>([])
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(() => {
     try {
@@ -233,6 +262,10 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   const [draftHint, setDraftHint] = useState(false)
   const anexosRef = useRef(anexos)
   anexosRef.current = anexos
+  const recorrenciaEdicaoRef = useRef<RecorrenciaEdicaoSnapshot>({
+    encerramento: '',
+    diaMensal: '1',
+  })
   const [editOpen, setEditOpen] = useState(false)
   const [editingConta, setEditingConta] = useState<ContaPagar | null>(null)
   const [editForm, setEditForm] = useState<EditContaForm>(() => editFormFromConta({
@@ -326,19 +359,29 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     setScopePromptOpen(false)
   }, [editAnexos])
 
+  const bindRecorrenciaSnapshot = useCallback((conta: ContaPagar) => {
+    const vencimento = normalizeObraDate(conta.data_vencimento) ?? todayISO()
+    recorrenciaEdicaoRef.current = {
+      encerramento: normalizeObraDate(conta.recorrencia_encerramento) ?? '',
+      diaMensal: diaFromIso(vencimento),
+    }
+  }, [])
+
   const openEditModal = useCallback((conta: ContaPagar) => {
+    bindRecorrenciaSnapshot(conta)
     setEditingConta(conta)
-    setEditForm(editFormFromConta(conta))
+    setEditForm(editFormFromConta(conta, data))
     setEditAnexos([])
     setEditError(null)
     setEditOpen(true)
-  }, [])
+  }, [bindRecorrenciaSnapshot, data])
 
   const selecionarParcelaParaEdicao = useCallback((conta: ContaPagar) => {
+    bindRecorrenciaSnapshot(conta)
     setEditingConta(conta)
-    setEditForm(editFormFromConta(conta))
+    setEditForm(editFormFromConta(conta, data))
     setEditError(null)
-  }, [])
+  }, [bindRecorrenciaSnapshot, data])
 
   /** Fecha o card mas mantém rascunho no navegador */
   const closeModalKeepDraft = useCallback(() => {
@@ -369,7 +412,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     return () => window.clearTimeout(timer)
   }, [form, open, persistDraft])
 
-  const isDefaultView = activeFilters.size === 0
+  const isDefaultView = activeFilters.length === 0
+  const activeFilterSet = useMemo(() => new Set(activeFilters), [activeFilters])
 
   const periodBase = applyPeriodFilter(data, periodFilter)
   const ocultarPagasProximoMes =
@@ -380,6 +424,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
   // idsOcultos: apenas IDs marcados individualmente — status pills só filtram a lista do dropdown
   const idsOcultos = ocultarIds
+
+  const hasCardsFiltroAtivo = useMemo(
+    () =>
+      activeFilters.length > 0
+      || search.trim().length > 0
+      || periodFilter.mode !== 'all'
+      || idsOcultos.size > 0,
+    [activeFilters, search, periodFilter.mode, idsOcultos.size],
+  )
 
   const matchesSearch = useCallback((p: ContaPagar) => {
     if (!search.trim()) return true
@@ -400,11 +453,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       return true
     }
     return (
-      (activeFilters.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
-      (activeFilters.has('Pago') && s === 'pago') ||
-      (activeFilters.has('Vencido') && s === 'vencido')
+      (activeFilterSet.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
+      (activeFilterSet.has('Pago') && s === 'pago') ||
+      (activeFilterSet.has('Vencido') && s === 'vencido')
     )
-  }, [isDefaultView, activeFilters])
+  }, [isDefaultView, activeFilterSet])
 
   const ocultarListaFiltrada = useMemo(() => {
     let items = periodFiltered
@@ -439,23 +492,63 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     [baseFiltered, matchesStatusFilter],
   )
 
-  const filtered = (() => {
-    const base = baseFiltered.filter(p => matchesStatusFilter(p, true))
+  const kpiCards = useMemo(() => {
+    const restante = (p: ContaPagar) =>
+      Math.max(0, p.valor_parcela - getValorPagoConta(p))
 
-    if (isSemDatasDefinidas(periodFilter)) {
-      return sortContasPagarSemDatas(base)
+    if (hasCardsFiltroAtivo) {
+      return [
+        {
+          l: 'A Pagar',
+          v: kpiSource.filter(p => p.status !== 'pago').reduce((s, p) => s + restante(p), 0),
+          c: '#fbbf24',
+        },
+        {
+          l: 'Pago',
+          v: kpiSource.reduce((s, p) => s + getValorPagoConta(p), 0),
+          c: '#4ade80',
+        },
+        {
+          l: 'Vencido',
+          v: kpiSource
+            .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
+            .reduce((s, p) => s + restante(p), 0),
+          c: '#f87171',
+        },
+      ]
     }
 
-    if (!isDefaultView) return base
+    const baseKpi = data.filter(p => !idsOcultos.has(p.id))
 
-    return [...base].sort((a, b) => {
-      const sa = getStatus(a.data_vencimento, a.status)
-      const sb = getStatus(b.data_vencimento, b.status)
-      if (sa === 'vencido' && sb !== 'vencido') return -1
-      if (sa !== 'vencido' && sb === 'vencido') return 1
-      return a.data_vencimento.localeCompare(b.data_vencimento)
-    })
-  })()
+    return [
+      {
+        l: 'A Pagar (mês atual)',
+        v: baseKpi
+          .filter(p => isVencimentoNoMesAtual(p.data_vencimento) && p.status !== 'pago')
+          .reduce((s, p) => s + restante(p), 0),
+        c: '#fbbf24',
+      },
+      {
+        l: 'Pago (mês atual)',
+        v: baseKpi
+          .filter(p => isVencimentoNoMesAtual(p.data_vencimento))
+          .reduce((s, p) => s + getValorPagoConta(p), 0),
+        c: '#4ade80',
+      },
+      {
+        l: 'Vencidas (todas)',
+        v: baseKpi
+          .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
+          .reduce((s, p) => s + restante(p), 0),
+        c: '#f87171',
+      },
+    ]
+  }, [hasCardsFiltroAtivo, kpiSource, data, idsOcultos])
+
+  const filtered = useMemo(() => {
+    const base = baseFiltered.filter(p => matchesStatusFilter(p, true))
+    return sortContasPagarSemDatas(base)
+  }, [baseFiltered, matchesStatusFilter])
 
   const totaisColunas = {
     valorTotal: filtered.reduce((s, p) => s + p.valor_parcela, 0),
@@ -463,14 +556,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     restante: filtered.reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0),
   }
 
-  // Cards: seguem período, status, busca e itens ocultos (mesma base dos filtros ativos)
-  const totPend = kpiSource
-    .filter(p => p.status !== 'pago')
-    .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
-  const totPaid = kpiSource.reduce((s, p) => s + getValorPagoConta(p), 0)
-  const totOver = kpiSource
-    .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
-    .reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0)
+  // Cards: padrão = mês atual + vencidas globais; com filtro = reflete a seleção
 
   const save = async () => {
     const tot = parseMoneyBr(form.total)
@@ -550,23 +636,76 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       return
     }
 
+    const isRecorrente = !!(editingConta.recorrente && editingConta.recorrencia_id)
+    let recorrenciaValorMensal = valorParcela
+
+    if (isRecorrente) {
+      recorrenciaValorMensal = parseMoneyBr(editForm.recorrenciaValorMensal)
+      if (!recorrenciaValorMensal || recorrenciaValorMensal <= 0) {
+        setEditError('Informe um valor mensal recorrente válido.')
+        return
+      }
+    }
+
     setEditSaving(true)
     setEditError(null)
     try {
-      await editarContaPagar(
-        editingConta,
-        {
-          fornecedor_id: editForm.supplierId || null,
-          fornecedor_nome:
-            fornecedores.find(x => x.id === editForm.supplierId)?.nome || editForm.desc || null,
-          descricao: editForm.desc || null,
-          observacao: editForm.observacao || null,
-          forma_pagamento_id: editForm.formaPagamentoId || null,
-          valor_parcela: valorParcela,
-          data_vencimento: editForm.vencimento,
-        },
-        scope,
-      )
+      const vencimentoAtual = normalizeObraDate(editForm.vencimento) ?? editForm.vencimento
+      const encerramentoAtual = normalizeObraDate(editForm.recorrenciaEncerramento) ?? ''
+      const encerramentoAlterado =
+        encerramentoAtual !== recorrenciaEdicaoRef.current.encerramento
+      const diaMensal = Number.parseInt(editForm.recorrenciaDiaMensal, 10)
+      const diaAlterado = editForm.recorrenciaDiaMensal !== recorrenciaEdicaoRef.current.diaMensal
+
+      if (isRecorrente && (diaAlterado && (diaMensal < 1 || diaMensal > 31))) {
+        setEditError('Informe um dia de vencimento mensal válido (1 a 31).')
+        setEditSaving(false)
+        return
+      }
+
+      const metadados = {
+        fornecedor_id: editForm.supplierId || null,
+        fornecedor_nome:
+          fornecedores.find(x => x.id === editForm.supplierId)?.nome || editForm.desc || null,
+        descricao: editForm.desc?.trim() || null,
+        observacao: editForm.observacao?.trim() || null,
+        forma_pagamento_id: editForm.formaPagamentoId || null,
+      }
+
+      if (isRecorrente && editingConta.recorrencia_id) {
+        await editarContaPagar(
+          editingConta,
+          {
+            valor_parcela: valorParcela,
+            valor_total: valorParcela,
+            data_vencimento: vencimentoAtual,
+          },
+          'single',
+        )
+
+        await atualizarRecorrencia({
+          recorrencia_id: editingConta.recorrencia_id,
+          conta_referencia_vencimento: vencimentoAtual,
+          recorrencia_valor_base: recorrenciaValorMensal,
+          recorrencia_encerramento: encerramentoAtual || null,
+          encerramento_alterado: encerramentoAlterado,
+          dia_vencimento_alterado: diaAlterado,
+          novo_dia_vencimento: diaAlterado ? diaMensal : null,
+          aplicar_valor_futuras_pendentes: editForm.aplicarValorFuturas,
+          metadados,
+        })
+      } else {
+        await editarContaPagar(
+          editingConta,
+          {
+            ...metadados,
+            valor_parcela: valorParcela,
+            valor_total: valorParcela,
+            data_vencimento: vencimentoAtual,
+          },
+          scope,
+        )
+      }
 
       if (editAnexos.length > 0) {
         let grupoId = resolveGrupoLancamentoId(editingConta, data) ?? createId()
@@ -652,7 +791,6 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         )
       }
       await marcarPago(conta.id, valorPagarAgoraNum)
-      setActiveFilters(new Set(['Pago']))
       setPagarModal(p => ({ ...p, open: false, conta: null, saving: false }))
     } catch (e) {
       setPagarModal(p => ({ ...p, erro: e instanceof Error ? e.message : 'Erro ao processar pagamento.', saving: false }))
@@ -725,11 +863,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
-        {[
-          { l: 'A Pagar', v: totPend, c: '#fbbf24' },
-          { l: 'Pago',    v: totPaid, c: '#4ade80' },
-          { l: 'Vencido', v: totOver, c: '#f87171' },
-        ].map((x, i) => (
+        {kpiCards.map((x, i) => (
           <div key={i} className="glass-card p-4 text-center">
             <div className="section-label mb-1">{x.l}</div>
             <div className="font-display" style={{ fontSize: '1.35rem', color: x.c }}>{fmtCur(x.v)}</div>
@@ -842,17 +976,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
         {form.recorrente ? (
           <>
-            <Field label="1º Vencimento (dia de cobrança mensal)">
-              <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+            <Field label="1º vencimento — dia / mês / ano">
+              <DateInput
+                value={form.fdd}
+                onChange={iso => setForm(p => ({ ...p, fdd: iso ?? todayISO() }))}
+              />
             </Field>
-            <Field label="Encerrar em (opcional)">
-              <input
-                className="glass-input"
-                type="date"
-                value={form.recorrenciaEncerramento}
-                onChange={f('recorrenciaEncerramento')}
-                placeholder="Sem data de encerramento"
-                min={form.fdd}
+            <Field label="Encerrar recorrência em (opcional) — dia / mês / ano">
+              <DateInput
+                value={form.recorrenciaEncerramento || null}
+                onChange={iso => setForm(p => ({ ...p, recorrenciaEncerramento: iso ?? '' }))}
               />
             </Field>
             {parseMoneyBr(form.total) > 0 && (
@@ -870,8 +1003,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               <Field label="Nº de Parcelas" half>
                 <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="1" max="60" />
               </Field>
-              <Field label="1º Vencimento" half>
-                <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+              <Field label="1º vencimento — dia / mês / ano" half>
+                <DateInput
+                  value={form.fdd}
+                  onChange={iso => setForm(p => ({ ...p, fdd: iso ?? todayISO() }))}
+                />
               </Field>
             </FieldRow>
             {form.total && parseInt(form.inst) > 0 && parseMoneyBr(form.total) > 0 && (
@@ -933,6 +1069,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         </Field>
         <Field label="Descrição / Referência">
           <input className="glass-input" value={editForm.desc} onChange={ef('desc')} />
+          {editingConta?.recorrente && editingConta.recorrencia_id ? (
+            <p className="mt-1 text-[0.68rem] text-[#d4bc9f]">
+              Vale para todas as parcelas desta recorrência (passadas, atuais e futuras).
+            </p>
+          ) : null}
         </Field>
         <Field label="Observação">
           <textarea
@@ -940,7 +1081,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             value={editForm.observacao}
             onChange={ef('observacao')}
             rows={3}
+            placeholder="Ex.: Salário base mais comissão — início em dd/mm/aaaa"
           />
+          {editingConta?.recorrente && editingConta.recorrencia_id ? (
+            <p className="mt-1 text-[0.68rem] text-[#d4bc9f]">
+              Este texto aparece em todas as cobranças recorrentes ao salvar.
+            </p>
+          ) : null}
         </Field>
         <Field label="Forma de Pagamento">
           <select
@@ -958,13 +1105,83 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           </select>
         </Field>
         <FieldRow>
-          <Field label="Valor da Parcela (R$)" half>
+          <Field
+            label={editingConta?.recorrente ? 'Valor desta cobrança (R$)' : 'Valor da Parcela (R$)'}
+            half
+          >
             <input className="glass-input" value={editForm.valorParcela} onChange={ef('valorParcela')} />
           </Field>
-          <Field label="Vencimento" half>
-            <input className="glass-input" type="date" value={editForm.vencimento} onChange={ef('vencimento')} />
+          <Field label="Vencimento desta cobrança — dia / mês / ano" half>
+            <DateInput
+              value={editForm.vencimento}
+              onChange={iso => setEditForm(p => ({ ...p, vencimento: iso ?? todayISO() }))}
+            />
           </Field>
         </FieldRow>
+
+        {editingConta?.recorrente && editingConta.recorrencia_id ? (
+          <div className="mb-4 rounded-lg border border-[rgba(240,210,140,.22)] bg-[rgba(240,210,140,.04)] p-4">
+            <p className="mb-3 text-[0.68rem] font-bold uppercase tracking-wider text-[#f2d892]">
+              Configurações da recorrência
+            </p>
+            <p className="mb-3 text-xs text-[#edd9c4]">
+              O sistema mantém automaticamente 12 meses de cobranças à frente. Só altere
+              &quot;Encerrar recorrência&quot; se quiser parar de gerar novos meses.
+            </p>
+            <Field label="Valor mensal recorrente (R$)">
+              <input
+                className="glass-input"
+                value={editForm.recorrenciaValorMensal}
+                onChange={ef('recorrenciaValorMensal')}
+                placeholder="0,00"
+              />
+            </Field>
+            <FieldRow>
+              <Field label="Dia do vencimento mensal (próximas cobranças)" half>
+                <select
+                  className="glass-input"
+                  value={editForm.recorrenciaDiaMensal}
+                  onChange={ef('recorrenciaDiaMensal')}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(dia => (
+                    <option key={dia} value={String(dia)}>
+                      Dia {dia}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Encerrar recorrência em (opcional) — dia / mês / ano" half>
+                <DateInput
+                  value={editForm.recorrenciaEncerramento || null}
+                  onChange={iso =>
+                    setEditForm(p => ({ ...p, recorrenciaEncerramento: iso ?? '' }))
+                  }
+                />
+              </Field>
+            </FieldRow>
+            <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-[#edd9c4]">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={editForm.aplicarValorFuturas}
+                onChange={e => setEditForm(p => ({ ...p, aplicarValorFuturas: e.target.checked }))}
+              />
+              <span>
+                Atualizar parcelas futuras pendentes com o novo valor mensal
+                {' '}
+                <span className="text-[#d4bc9f]">(a partir do próximo vencimento)</span>
+              </span>
+            </label>
+            {parseMoneyBr(editForm.recorrenciaValorMensal) > 0 && (
+              <div className="mt-3 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                {fmtCur(parseMoneyBr(editForm.recorrenciaValorMensal))}/mês
+                {editForm.recorrenciaEncerramento
+                  ? ` · até ${fmtDate(editForm.recorrenciaEncerramento)}`
+                  : ' · sem data de encerramento'}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         {editingConta && (
           <ContaPagarAnexosGrupoField
@@ -1019,17 +1236,22 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       <div className="flex items-start gap-2 flex-wrap">
         <div className="flex-1 min-w-0">
           <FilterBar
-            options={['Todos', 'Pendente', 'Pago', 'Vencido']}
+            options={['Todos', ...STATUS_FILTER_OPTIONS]}
             multi
-            values={activeFilters}
+            values={activeFilterSet}
+            multiHint="Clique em um ou mais status para combinar os filtros. Toque de novo para remover."
             onChange={v => {
               if (v === 'Todos') {
-                setActiveFilters(new Set())
+                setActiveFilters([])
                 return
               }
-              const next = new Set(activeFilters)
-              if (next.has(v)) next.delete(v); else next.add(v)
-              setActiveFilters(next)
+              const option = v as StatusFilterOption
+              if (!STATUS_FILTER_OPTIONS.includes(option)) return
+              setActiveFilters(prev =>
+                prev.includes(option)
+                  ? prev.filter(item => item !== option)
+                  : [...prev, option],
+              )
             }}
           />
         </div>
@@ -1227,6 +1449,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
+                  const textoDetalhe = getTextoDetalheContaPagar(p, nomeExibido)
                   const valorTotalLancamento = getValorTotalLancamento(p)
                   return (
                     <tr key={p.id} className="trow">
@@ -1251,12 +1474,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                             Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
                           </div>
                         )}
-                        {p.observacao ? (
+                        {textoDetalhe ? (
                           <p
                             className="mt-1 line-clamp-2 text-[0.75rem] italic text-[#edd9c4]"
-                            title={p.observacao}
+                            title={textoDetalhe}
                           >
-                            {p.observacao}
+                            {textoDetalhe}
                           </p>
                         ) : null}
                       </td>
@@ -1406,12 +1629,10 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         </div>
 
         {encerrarModal.modo === 'definir_data' && (
-          <Field label="Encerrar em (última parcela a manter)">
-            <input
-              className="glass-input"
-              type="date"
+          <Field label="Encerrar em — dia / mês / ano (última parcela a manter)">
+            <DateInput
               value={encerrarModal.data}
-              onChange={e => setEncerrarModal(p => ({ ...p, data: e.target.value }))}
+              onChange={iso => setEncerrarModal(p => ({ ...p, data: iso ?? todayISO() }))}
             />
           </Field>
         )}

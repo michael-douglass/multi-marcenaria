@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
+import { setIsoDay } from '../lib/date-br'
+import { getModeloRecorrencia } from '../lib/contas-pagar-grupo'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
 
@@ -37,10 +39,29 @@ interface UpdateContaPagarInput {
   observacao?: string | null
   forma_pagamento_id?: string | null
   valor_parcela?: number
+  valor_total?: number
   data_vencimento?: string
   status?: 'pendente' | 'parcialmente_pago' | 'pago'
   valor_pago?: number
   data_pagamento?: string | null
+}
+
+interface AtualizarRecorrenciaInput {
+  recorrencia_id: string
+  conta_referencia_vencimento: string
+  recorrencia_valor_base: number
+  recorrencia_encerramento: string | null
+  encerramento_alterado: boolean
+  dia_vencimento_alterado: boolean
+  novo_dia_vencimento?: number | null
+  aplicar_valor_futuras_pendentes: boolean
+  metadados?: {
+    fornecedor_id?: string | null
+    fornecedor_nome?: string | null
+    descricao?: string | null
+    observacao?: string | null
+    forma_pagamento_id?: string | null
+  }
 }
 
 const MESES_HORIZONTE = 12
@@ -115,7 +136,7 @@ export function useContasPagar() {
     const novas: ContaPagar[] = []
 
     for (const [recorrenciaId, serie] of series) {
-      const modelo = serie[0]
+      const modelo = getModeloRecorrencia(serie)
       const encerramento = modelo.recorrencia_encerramento
       const valorBase = modelo.recorrencia_valor_base ?? modelo.valor_parcela
       const limiteGerado = encerramento && encerramento < horizonte ? encerramento : horizonte
@@ -281,6 +302,91 @@ export function useContasPagar() {
         .eq('recorrencia_id', recorrenciaId)
       if (err) throw new Error(err.message)
     }
+    await load()
+  }
+
+  /** Atualiza série recorrente: valor base, encerramento e metadados compartilhados. */
+  const atualizarRecorrencia = async (input: AtualizarRecorrenciaInput): Promise<void> => {
+    const updatedAt = new Date().toISOString()
+    const {
+      recorrencia_id,
+      conta_referencia_vencimento,
+      recorrencia_valor_base,
+      recorrencia_encerramento,
+      encerramento_alterado,
+      dia_vencimento_alterado,
+      novo_dia_vencimento,
+      aplicar_valor_futuras_pendentes,
+      metadados,
+    } = input
+
+    const seriesUpdate: Record<string, unknown> = {
+      recorrencia_valor_base,
+      atualizado_em: updatedAt,
+    }
+    if (encerramento_alterado) {
+      seriesUpdate.recorrencia_encerramento = recorrencia_encerramento
+    }
+    if (metadados) Object.assign(seriesUpdate, metadados)
+
+    const { error: seriesErr } = await supabase
+      .from('movelaria_contas_pagar')
+      .update(seriesUpdate)
+      .eq('recorrencia_id', recorrencia_id)
+    if (seriesErr) throw new Error(seriesErr.message)
+
+    if (aplicar_valor_futuras_pendentes) {
+      const { error: futurasErr } = await supabase
+        .from('movelaria_contas_pagar')
+        .update({
+          valor_parcela: recorrencia_valor_base,
+          valor_total: recorrencia_valor_base,
+          recorrencia_valor_base,
+          atualizado_em: updatedAt,
+        })
+        .eq('recorrencia_id', recorrencia_id)
+        .eq('status', 'pendente')
+        .gt('data_vencimento', conta_referencia_vencimento)
+      if (futurasErr) throw new Error(futurasErr.message)
+    }
+
+    if (dia_vencimento_alterado && novo_dia_vencimento != null) {
+      const { data: pendentes, error: fetchErr } = await supabase
+        .from('movelaria_contas_pagar')
+        .select('id, data_vencimento')
+        .eq('recorrencia_id', recorrencia_id)
+        .eq('status', 'pendente')
+        .gt('data_vencimento', conta_referencia_vencimento)
+
+      if (fetchErr) throw new Error(fetchErr.message)
+
+      for (const row of pendentes ?? []) {
+        const vencimento = row.data_vencimento?.slice(0, 10)
+        if (!vencimento) continue
+        const novaData = setIsoDay(vencimento, novo_dia_vencimento)
+        if (!novaData) continue
+
+        const { error: rowErr } = await supabase
+          .from('movelaria_contas_pagar')
+          .update({
+            data_vencimento: novaData,
+            atualizado_em: updatedAt,
+          })
+          .eq('id', row.id)
+        if (rowErr) throw new Error(rowErr.message)
+      }
+    }
+
+    if (encerramento_alterado && recorrencia_encerramento) {
+      const { error: trimErr } = await supabase
+        .from('movelaria_contas_pagar')
+        .delete()
+        .eq('recorrencia_id', recorrencia_id)
+        .eq('status', 'pendente')
+        .gt('data_vencimento', recorrencia_encerramento)
+      if (trimErr) throw new Error(trimErr.message)
+    }
+
     await load()
   }
 
@@ -456,6 +562,7 @@ export function useContasPagar() {
     gerarParcelas,
     criarRecorrencia,
     encerrarRecorrencia,
+    atualizarRecorrencia,
     marcarPago,
     reverterPagamento,
     vincularGrupoLancamento,

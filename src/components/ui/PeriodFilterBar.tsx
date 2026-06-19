@@ -25,6 +25,14 @@ export function isSemDatasDefinidas(period: PeriodFilter): boolean {
   return period.mode === 'all'
 }
 
+export function isVencimentoNoMesAtual(vencimento: string): boolean {
+  if (!vencimento) return false
+  const today = todayISO()
+  const monthStart = `${today.slice(0, 7)}-01`
+  const monthEnd = endOfMonth(today)
+  return vencimento >= monthStart && vencimento <= monthEnd
+}
+
 /** 0 = atrasada, 1 = pendente no mês atual, 2 = pendente em meses futuros, 3 = paga */
 export function contasPagarSortGroup(vencimento: string, status: string): number {
   if (status === 'pago') return 3

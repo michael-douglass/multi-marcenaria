@@ -65,3 +65,21 @@ export function getTituloLancamento(conta: ContaPagar): string {
   }
   return 'Lançamento'
 }
+
+/** Modelo mais recente da série — garante texto/descrição nas novas parcelas geradas. */
+export function getModeloRecorrencia(serie: ContaPagar[]): ContaPagar {
+  const byDate = [...serie].sort((a, b) => b.data_vencimento.localeCompare(a.data_vencimento))
+  return byDate.find(r => r.observacao?.trim() || r.descricao?.trim()) ?? byDate[0]
+}
+
+/** Texto exibido abaixo do fornecedor (observação ou descrição distinta do nome). */
+export function getTextoDetalheContaPagar(
+  conta: ContaPagar,
+  nomeFornecedor: string,
+): string | null {
+  const obs = conta.observacao?.trim()
+  if (obs) return obs
+  const desc = conta.descricao?.trim()
+  if (desc && desc.toLowerCase() !== nomeFornecedor.trim().toLowerCase()) return desc
+  return null
+}

@@ -22,6 +22,13 @@ export function buildIsoDate(year: number, month: number, day: number): string |
   return `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+/** Mantém mês/ano e troca apenas o dia (ex.: vencimento todo dia 10). */
+export function setIsoDay(iso: string, day: number): string | null {
+  const parsed = parseIsoDate(iso)
+  if (!parsed) return null
+  return buildIsoDate(parsed.year, parsed.month, day)
+}
+
 export const MONTHS_PT = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
