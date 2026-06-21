@@ -1,5 +1,5 @@
 ﻿import { useRef, useState } from 'react'
-import { Camera, Loader2, X } from 'lucide-react'
+import { Camera, Loader2, MessageSquareText, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { isAcceptedEvolucaoFile } from '@/lib/obra-evolucao'
 
@@ -10,7 +10,7 @@ interface ObraEvolucaoRegistrarModalProps {
   onSubmit: (files: File[], observacao: string) => Promise<void>
 }
 
-/** Modal para enviar foto de progresso com observação opcional. */
+/** Modal para enviar foto de progresso e/ou observação (texto sem limite). */
 export function ObraEvolucaoRegistrarModal({
   open,
   uploading,
@@ -51,13 +51,14 @@ export function ObraEvolucaoRegistrarModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedFiles.length) {
-      setError('Selecione pelo menos uma foto, PDF ou vídeo.')
+    const texto = observacao.trim()
+    if (!selectedFiles.length && !texto) {
+      setError('Escreva uma observação ou selecione pelo menos uma foto, PDF ou vídeo.')
       return
     }
     setError(null)
     try {
-      await onSubmit(selectedFiles, observacao.trim())
+      await onSubmit(selectedFiles, texto)
       reset()
       onClose()
     } catch (err) {
@@ -65,29 +66,31 @@ export function ObraEvolucaoRegistrarModal({
     }
   }
 
+  const podeEnviar = !!observacao.trim() || selectedFiles.length > 0
+
   return (
     <Modal open={open} onClose={handleClose} title="REGISTRAR PROGRESSO">
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#edd9c4]">
-            Observação <span className="normal-case font-normal text-[#d4bc9f]">(opcional)</span>
+            Observação
+            <span className="normal-case font-normal text-[#d4bc9f]">
+              {' '}(opcional se enviar arquivos; pode ser enviada sozinha)
+            </span>
           </label>
           <textarea
-            className="glass-input min-h-[88px] resize-y"
-            placeholder="Descreva o que foi feito hoje na obra..."
+            className="glass-input min-h-[120px] resize-y"
+            placeholder="Descreva o que foi feito na obra, pendências, materiais usados, etc..."
             value={observacao}
             onChange={e => setObservacao(e.target.value)}
-            maxLength={500}
             disabled={uploading}
           />
-          <p className="mt-1 text-right text-[0.62rem] text-[#d4bc9f]">
-            {observacao.length}/500
-          </p>
         </div>
 
         <div>
           <label className="mb-1.5 block text-[0.65rem] font-semibold uppercase tracking-wider text-[#edd9c4]">
             Fotos, PDF ou Vídeo
+            <span className="normal-case font-normal text-[#d4bc9f]"> (opcional)</span>
           </label>
           <button
             type="button"
@@ -143,10 +146,16 @@ export function ObraEvolucaoRegistrarModal({
           <button
             type="button"
             onClick={() => void handleSubmit()}
-            disabled={uploading || !selectedFiles.length}
+            disabled={uploading || !podeEnviar}
             className="btn btn-gold btn-sm flex items-center gap-1.5"
           >
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+            {uploading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : selectedFiles.length ? (
+              <Camera size={14} />
+            ) : (
+              <MessageSquareText size={14} />
+            )}
             {uploading ? 'Enviando...' : 'Enviar'}
           </button>
         </div>

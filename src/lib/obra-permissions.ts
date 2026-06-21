@@ -42,3 +42,13 @@ export function canEditComissao(roles: UserRole[]): boolean {
 export function canAplicarComissao(roles: UserRole[]): boolean {
   return canEditComissao(roles)
 }
+
+/** Quem pode ver quem já marcou conclusão individual na obra. */
+export function canViewMontadoresConclusaoObra(roles: UserRole[]): boolean {
+  return (
+    canManageAllObras(roles)
+    || roles.includes('MontadorAdmin')
+    || roles.includes('Montador')
+    || roles.includes('Visualizador')
+  )
+}

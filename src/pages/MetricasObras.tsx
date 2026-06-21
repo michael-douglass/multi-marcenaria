@@ -2,7 +2,12 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MetricasMontadorComissaoModal } from '../components/metricas/MetricasMontadorComissaoModal'
 import { MetricasMontadorTempoChart } from '../components/metricas/MetricasMontadorTempoChart'
+import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { useMetricasObras } from '../hooks/useMetricasObras'
+import { useObras } from '../hooks/useObras'
+import { useApp } from '../context/AppContext'
+import { getObraMontadoresConclusao } from '../lib/obra-montadores'
+import { canViewMontadoresConclusaoObra } from '../lib/obra-permissions'
 import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
 import { addMonths, fmtCur } from '../lib/utils'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
@@ -13,6 +18,7 @@ import {
   PageZoomProvider,
 } from '../components/page-zoom'
 import type { MetricaObraMontador, StatusKanbanObra } from '../types'
+import type { ObraMontadorConclusaoStatus } from '../lib/obra-montadores'
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
   datas_em_aberto: 'Em aberto',
@@ -62,6 +68,8 @@ export function MetricasObras() {
 }
 
 function MetricasObrasContent() {
+  const { roles } = useApp()
+  const obrasHook = useObras()
   const hoje = new Date()
   const [periodo, setPeriodo] = useState({
     mes: hoje.getMonth() + 1,
@@ -72,6 +80,8 @@ function MetricasObrasContent() {
   const { data, resumo, porObra, porMontador, loading, error, reload } = useMetricasObras(periodo)
   const periodoLabel = labelMesAno(periodo.mes, periodo.ano, MESES)
   const isMesAtual = periodo.mes === hoje.getMonth() + 1 && periodo.ano === hoje.getFullYear()
+  const isMontadorAdmin = roles.includes('MontadorAdmin')
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
 
   const opcoesMesAno = useMemo(() => {
     const base = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
@@ -94,6 +104,48 @@ function MetricasObrasContent() {
   const totalObras = data.reduce((acc, m) => acc + Number(m.total_obras), 0)
   const totalConcluidas = data.reduce((acc, m) => acc + Number(m.obras_concluidas), 0)
   const totalAtraso = data.reduce((acc, m) => acc + Number(m.obras_em_atraso), 0)
+
+  const conclusaoPorObra = useMemo(() => {
+    const map = new Map<string, {
+      cliente_nome: string
+      status_kanban: string
+      montadores: ObraMontadorConclusaoStatus[]
+    }>()
+
+    for (const row of porObra) {
+      const atual = map.get(row.obra_id) ?? {
+        cliente_nome: row.cliente_nome,
+        status_kanban: row.status_kanban,
+        montadores: [] as ObraMontadorConclusaoStatus[],
+      }
+
+      atual.montadores.push({
+        montador_id: row.montador_id,
+        nome: row.montador_nome ?? 'Montador',
+        concluiu: !!row.finalizado_em,
+        finalizado_em: row.finalizado_em,
+      })
+
+      map.set(row.obra_id, atual)
+    }
+
+    return [...map.entries()]
+      .map(([obra_id, item]) => ({ obra_id, ...item }))
+      .filter(item =>
+        item.montadores.length > 1
+        || item.montadores.some(m => m.concluiu && item.montadores.some(x => !x.concluiu)),
+      )
+  }, [porObra])
+
+  const obrasConclusaoGestao = useMemo(() => {
+    if (!canViewMontadoresConclusao || !isMontadorAdmin) return []
+
+    return obrasHook.data.filter(obra => {
+      if (obra.status_kanban === 'cancelada') return false
+      return getObraMontadoresConclusao(obra).length > 0
+    })
+  }, [obrasHook.data, canViewMontadoresConclusao, isMontadorAdmin])
+
   return (
     <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar>
@@ -420,6 +472,56 @@ function MetricasObrasContent() {
             </div>
           )}
 
+          {obrasConclusaoGestao.length > 0 && (
+            <div className="glass-card overflow-hidden mb-6">
+              <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
+                <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
+                  Conclusão das suas obras
+                </h2>
+                <p className="text-xs text-[#edd9c4] mt-1">
+                  Acompanhe quem já marcou conclusão e quem ainda está pendente nas obras do seu grupo
+                </p>
+              </div>
+              <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {obrasConclusaoGestao.map(obra => (
+                  <div key={obra.id} className="min-w-0">
+                    <p className="mb-1.5 text-sm font-semibold text-cream truncate">{obra.cliente_nome}</p>
+                    <ObraMontadoresConclusao obra={obra} compact visible />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {canViewMontadoresConclusao && conclusaoPorObra.length > 0 && (
+            <div className="glass-card overflow-hidden mb-6">
+              <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
+                <h2 className="text-sm font-semibold text-[#f2d892] uppercase tracking-wider">
+                  Marcações de conclusão por obra
+                </h2>
+                <p className="text-xs text-[#edd9c4] mt-1">
+                  Quem já marcou conclusão individual e quem ainda está pendente em {periodoLabel}
+                </p>
+              </div>
+              <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {conclusaoPorObra.map(item => (
+                  <div key={item.obra_id} className="min-w-0">
+                    <p className="mb-1.5 text-sm font-semibold text-cream truncate">{item.cliente_nome}</p>
+                    <ObraMontadoresConclusao
+                      montadores={item.montadores}
+                      fechadaPeloAdmin={
+                        item.status_kanban === 'concluida'
+                        && item.montadores.some(m => !m.concluiu)
+                      }
+                      compact
+                      visible
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Histórico por obra */}
           <div className="glass-card overflow-hidden">
             <div className="px-4 py-3 border-b border-[rgba(240,210,140,0.12)]">
@@ -437,11 +539,11 @@ function MetricasObrasContent() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[1100px]">
+                <table className="w-full text-sm min-w-[1180px]">
                   <thead>
                     <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
-                        'Cliente', 'Montador', 'Tipo', 'Status', 'Mês ref.', 'Início', 'Fim', 'Duração (horas)', 'Comissão',
+                        'Cliente', 'Montador', 'Tipo', 'Status', 'Marcação', 'Mês ref.', 'Início', 'Fim', 'Duração (horas)', 'Comissão',
                       ].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
@@ -462,6 +564,17 @@ function MetricasObrasContent() {
                           <span className="text-xs font-semibold text-[#f2d892]">
                             {STATUS_LABEL[o.status_kanban as StatusKanbanObra] ?? o.status_kanban}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {o.finalizado_em ? (
+                            <span className="inline-flex items-center rounded-full border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-300">
+                              Concluiu
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-300">
+                              Pendente
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-[#edd9c4] text-xs">
                           {o.mes_referencia

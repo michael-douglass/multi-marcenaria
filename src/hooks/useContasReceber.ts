@@ -56,27 +56,33 @@ export function useContasReceber() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
+    setError(null)
     const { data: rows, error: err } = await supabase
       .from('movelaria_contas_receber')
       .select('*, movelaria_clientes(telefone)')
       .order('data_vencimento', { ascending: true })
-    if (err) setError(err.message)
-    else {
+    if (err) {
+      if (!opts?.silent) setError(err.message)
+    } else {
       const flattened = (rows ?? []).map((r: any) => ({
         ...r,
         cliente_telefone: r.movelaria_clientes?.telefone || null,
       }))
       setData(flattened)
     }
-    setLoading(false)
+    if (!opts?.silent) setLoading(false)
   }, [isReady])
 
-  useEffect(() => { load() }, [load])
-  useAutoRefresh(load)
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
+  useEffect(() => { void load() }, [load])
+  useAutoRefresh(silentReload)
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada

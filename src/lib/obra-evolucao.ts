@@ -11,7 +11,7 @@ export interface ObraEvolucaoItem {
   obra_id: string
   nome_arquivo: string
   tipo_mime: string
-  kind: 'image' | 'pdf' | 'video'
+  kind: 'image' | 'pdf' | 'video' | 'text'
   storage_path: string
   preview_path: string | null
   preview_paths?: string[] | null
@@ -47,6 +47,35 @@ export function isAcceptedEvolucaoFile(file: File): boolean {
     /\.(jpe?g|png|webp|gif)$/.test(lower) ||
     /\.(mp4|webm|mov|avi|ogv|mpeg|mpg|m4v|3gp)$/.test(lower)
   )
+}
+
+/** Registro de observação sem foto/PDF/vídeo anexo. */
+export async function uploadObraEvolucaoObservacao(
+  obraId: string,
+  observacao: string,
+): Promise<ObraEvolucaoItem> {
+  const texto = observacao.trim()
+  if (!texto) throw new Error('Informe a observação.')
+
+  const arquivoId = createId()
+  const { data: row, error: dbErr } = await supabase
+    .from('movelaria_obra_evolucao')
+    .insert({
+      id: arquivoId,
+      obra_id: obraId,
+      nome_arquivo: 'Observação',
+      tipo_mime: 'text/plain',
+      kind: 'text',
+      storage_path: `_text/${obraId}/${arquivoId}`,
+      preview_path: null,
+      preview_paths: null,
+      tirado_em: new Date().toISOString(),
+      observacao: texto,
+    })
+    .select()
+    .single()
+  if (dbErr) throw new Error(dbErr.message)
+  return row as ObraEvolucaoItem
 }
 
 export async function uploadObraEvolucao(
@@ -93,7 +122,7 @@ export async function uploadObraEvolucao(
     previewPath = storagePath
   }
 
-  const kind: 'image' | 'pdf' | 'video' = isPdf ? 'pdf' : isVideo ? 'video' : 'image'
+  const kind: 'image' | 'pdf' | 'video' | 'text' = isPdf ? 'pdf' : isVideo ? 'video' : 'image'
   const obs = observacao?.trim() || null
 
   const { data: row, error: dbErr } = await supabase
@@ -117,8 +146,10 @@ export async function uploadObraEvolucao(
 }
 
 export async function deleteObraEvolucao(item: ObraEvolucaoItem): Promise<void> {
-  const paths = [item.storage_path, ...collectPreviewStoragePaths(item)]
-  await supabase.storage.from(EVOLUCAO_BUCKET).remove([...new Set(paths)])
+  if (item.kind !== 'text') {
+    const paths = [item.storage_path, ...collectPreviewStoragePaths(item)]
+    await supabase.storage.from(EVOLUCAO_BUCKET).remove([...new Set(paths)])
+  }
   const { error } = await supabase.from('movelaria_obra_evolucao').delete().eq('id', item.id)
   if (error) throw new Error(error.message)
 }
@@ -196,7 +227,7 @@ export function evolucaoThumbUrl(item: {
 
 /** URL para visualização em tela cheia (PDF usa imagens convertidas). */
 export function evolucaoLightboxPages(item: {
-  kind: 'image' | 'pdf' | 'video'
+  kind: 'image' | 'pdf' | 'video' | 'text' | 'text'
   previewSignedUrls?: string[] | null
   previewSignedUrl: string | null
   signedUrl: string | null
@@ -208,7 +239,7 @@ export function evolucaoLightboxPages(item: {
 }
 
 export function evolucaoLightboxUrl(item: {
-  kind: 'image' | 'pdf' | 'video'
+  kind: 'image' | 'pdf' | 'video' | 'text' | 'text'
   previewSignedUrl: string | null
   signedUrl: string | null
 }): string | null {

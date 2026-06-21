@@ -51,6 +51,72 @@ export function montadorConcluiuObra(
   return !!getObraMontadorExecucao(obra, montadorId)?.finalizado_em
 }
 
+export interface ObraMontadorConclusaoStatus {
+  montador_id: string
+  nome: string
+  concluiu: boolean
+  finalizado_em?: string | null
+}
+
+/** Status de conclusão individual de cada montador atribuído à obra. */
+export function getObraMontadoresConclusao(
+  obra: Pick<
+    ObraFull,
+    | 'montador_id'
+    | 'montador_ids'
+    | 'montador_nome'
+    | 'montador_nomes'
+    | 'montadores_execucao'
+  >,
+): ObraMontadorConclusaoStatus[] {
+  const ids = getObraMontadorIds(obra)
+  const nomes = getObraMontadorNomes(obra)
+
+  return ids.map((montadorId, index) => {
+    const exec = getObraMontadorExecucao(obra, montadorId)
+    return {
+      montador_id: montadorId,
+      nome: nomes[index] ?? nomes[0] ?? 'Montador',
+      concluiu: !!exec?.finalizado_em,
+      finalizado_em: exec?.finalizado_em ?? null,
+    }
+  })
+}
+
+/** Todos os montadores atribuídos já marcaram conclusão individual. */
+export function todosMontadoresConcluiramObra(
+  obra: Pick<
+    ObraFull,
+    | 'montador_id'
+    | 'montador_ids'
+    | 'montador_nome'
+    | 'montador_nomes'
+    | 'montadores_execucao'
+  >,
+): boolean {
+  const lista = getObraMontadoresConclusao(obra)
+  if (lista.length === 0) return true
+  return lista.every(m => m.concluiu)
+}
+
+/** Obra fechada no kanban, mas ainda há montador sem marcação individual. */
+export function obraFechadaPeloAdministrador(
+  obra: Pick<
+    ObraFull,
+    | 'montador_id'
+    | 'montador_ids'
+    | 'montador_nome'
+    | 'montador_nomes'
+    | 'montadores_execucao'
+    | 'status_kanban'
+    | 'finalizado_em'
+  >,
+): boolean {
+  const obraFechada = obra.status_kanban === 'concluida' || !!obra.finalizado_em
+  if (!obraFechada) return false
+  return !todosMontadoresConcluiramObra(obra)
+}
+
 /** Preenche montador admin e grupo padrão quando um Montador Admin cria ou edita obra. */
 export function applyMontadorAdminObraDefaults(
   input: ObraInput,

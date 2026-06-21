@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings, Monitor, Sun } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
@@ -12,6 +12,7 @@ import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
@@ -19,6 +20,7 @@ import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { TimeInput } from '../components/ui/TimeInput'
+import { addDaysISO } from '../lib/obra-chegada-material'
 import { isDiaAtivoNoCalendario, obrasParaDiaCalendario } from '../lib/obra-dias-trabalho'
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
@@ -30,6 +32,7 @@ import {
   canManageAllObras,
   canEditComissao,
   canAplicarComissao,
+  canViewMontadoresConclusaoObra,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -37,8 +40,12 @@ import {
   KanbanPageToolbar,
   PageZoomProvider,
 } from '../components/page-zoom'
+import { VisualizacaoCalendarioSemanaContent } from '../components/visualizacao/VisualizacaoCalendarioSemanaContent'
+import { VisualizacaoFullscreenOverlay } from '../components/visualizacao/VisualizacaoFullscreenOverlay'
+import { VisualizacaoObrasDoDiaContent } from '../components/visualizacao/VisualizacaoObrasDoDiaContent'
 
 type CalView = 'day' | 'week' | 'month'
+type CalVizOverlay = 'calendario' | 'obras_do_dia' | null
 
 // ── Constantes ───────────────────────────────────────────────
 const STATUS_COLORS: Record<StatusKanbanObra, string> = {
@@ -110,6 +117,9 @@ function getMonthGrid(d: Date): Date[] {
   return days
 }
 const MOBILE_VIEW_MQ = '(max-width: 768px)'
+
+/** Na visão semana: até este número de obras expande o dia; acima disso a lista rola. */
+const CAL_WEEK_MAX_OBRAS_SEM_SCROLL = 5
 
 function isMobileCalendario(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEW_MQ).matches
@@ -241,7 +251,7 @@ function DayPopup({
   date, obras, onClose, onObraClick, onConcluir, canConcluir, actioning,
   canEdit, onTogglePedidoMaterial, togglingPedidoMaterial,
   onUpdateDataEntrega, updatingDataEntrega,
-  prestadorId, showAllComissao,
+  prestadorId, showAllComissao, canViewMontadoresConclusao,
 }: {
   date: Date
   obras: ObraFull[]
@@ -257,6 +267,7 @@ function DayPopup({
   updatingDataEntrega: string | null
   prestadorId?: string | null
   showAllComissao?: boolean
+  canViewMontadoresConclusao: boolean
 }) {
   return createPortal(
     <div
@@ -329,6 +340,7 @@ function DayPopup({
                             {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
                           </p>
                         )}
+                        <ObraMontadoresConclusao obra={o} compact visible={canViewMontadoresConclusao} />
                         <ObraTempoBar obra={o} />
                       </div>
                       <span
@@ -407,6 +419,7 @@ function CalendarioObrasContent() {
   const canEditMontador = canEdit
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
 
   const hojeISO = toISO(new Date())
 
@@ -452,6 +465,7 @@ function CalendarioObrasContent() {
   const [dataFiltro, setDataFiltro]       = useState('')
   const [configDias, setConfigDias]         = useState<ConfigDiasTrabalho>(DEFAULT_DIAS_CONFIG)
   const [showConfigDias, setShowConfigDias] = useState(false)
+  const [vizOverlay, setVizOverlay] = useState<CalVizOverlay>(null)
   const saveTimerRef                        = useRef<number | null>(null)
 
   // Mantém o modal de detalhes sincronizado após iniciar/concluir obra
@@ -490,6 +504,16 @@ function CalendarioObrasContent() {
     const ws = startOfWeek(viewDate)
     return Array.from({ length: 7 }, (_, i) => addDays(ws, i))
   }, [viewDate])
+
+  const weekDaysIso = useMemo(() => weekDays.map(toISO), [weekDays])
+
+  const obrasCalendarioViz = useMemo(
+    () => obrasFiltradas.filter(o => {
+      const s = getStatusEfetivo(o)
+      return s !== 'concluida' && s !== 'cancelada'
+    }),
+    [obrasFiltradas],
+  )
 
   const monthGrid = useMemo(() => getMonthGrid(viewDate), [viewDate])
 
@@ -756,6 +780,24 @@ function CalendarioObrasContent() {
                 <Settings size={13} />
                 <span className="hidden sm:inline text-xs">Horário</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setVizOverlay('obras_do_dia')}
+                className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0"
+                title="Obras de hoje e amanhã em tela cheia"
+              >
+                <Sun size={13} />
+                <span className="hidden sm:inline text-xs">Obras do dia</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVizOverlay('calendario')}
+                className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0"
+                title="Abrir calendário em tela cheia"
+              >
+                <Monitor size={13} />
+                <span className="hidden sm:inline text-xs">Visualização</span>
+              </button>
               <div className="obra-page-view-tabs obra-page-header__action-buttons">
                 {(['day', 'week', 'month'] as CalView[]).map(v => (
                   <button
@@ -964,6 +1006,7 @@ function CalendarioObrasContent() {
                               {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
                             </p>
                           )}
+                          <ObraMontadoresConclusao obra={o} compact visible={canViewMontadoresConclusao} />
                           <ObraTempoBar obra={o} />
                         </div>
                       </div>
@@ -1040,11 +1083,16 @@ function CalendarioObrasContent() {
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                      <div
+                        className={[
+                          'cal-week-day__cards',
+                          dayObras.length > CAL_WEEK_MAX_OBRAS_SEM_SCROLL && 'cal-week-day__cards--scroll',
+                        ].filter(Boolean).join(' ')}
+                      >
                         {dayObras.length === 0 ? (
                           <p className="text-[0.62rem] text-[#c4a88a] mt-2 text-center">—</p>
                         ) : (
-                          dayObras.slice(0, 2).map(o => (
+                          dayObras.map(o => (
                             <div
                               key={o.id}
                               className="cal-week-card"
@@ -1062,12 +1110,10 @@ function CalendarioObrasContent() {
                               <p className="font-semibold text-cream leading-tight truncate">{o.cliente_nome}</p>
                               <ObraMontadorBadge obra={o} compact />
                               <ObraPedidoMaterialBadge obra={o} compact />
+                              <ObraMontadoresConclusao obra={o} compact visible={canViewMontadoresConclusao} />
                               <ObraTempoBar obra={o} compact />
                             </div>
                           ))
-                        )}
-                        {dayObras.length > 2 && (
-                          <p className="text-[0.62rem] text-[#f2d892] text-center">+{dayObras.length - 2} mais</p>
                         )}
                       </div>
                     </div>
@@ -1194,6 +1240,7 @@ function CalendarioObrasContent() {
           updatingDataEntrega={updatingDataEntrega}
           prestadorId={userProfile?.id}
           showAllComissao={!isMontador}
+          canViewMontadoresConclusao={canViewMontadoresConclusao}
         />
       )}
 
@@ -1245,6 +1292,32 @@ function CalendarioObrasContent() {
           onRemoveFile={() => {}}
         />
       )}
+
+      <VisualizacaoFullscreenOverlay
+        open={vizOverlay !== null}
+        panelId={vizOverlay === 'obras_do_dia' ? 'obras_do_dia' : 'calendario_obras'}
+        subtitle={
+          vizOverlay === 'obras_do_dia'
+            ? `${fmtDate(hojeISO)} · amanhã ${fmtDate(addDaysISO(hojeISO, 1))}`
+            : rangeLabel
+        }
+        onClose={() => setVizOverlay(null)}
+      >
+        {vizOverlay === 'obras_do_dia' ? (
+          <VisualizacaoObrasDoDiaContent
+            obrasCalendario={obrasCalendarioViz}
+            hoje={hojeISO}
+            diasAtivos={configDias.diasAtivos}
+          />
+        ) : vizOverlay === 'calendario' ? (
+          <VisualizacaoCalendarioSemanaContent
+            rangeDays={weekDaysIso}
+            obrasCalendario={obrasCalendarioViz}
+            diasAtivos={configDias.diasAtivos}
+            variant="fullscreen"
+          />
+        ) : null}
+      </VisualizacaoFullscreenOverlay>
     </div>
   )
 }

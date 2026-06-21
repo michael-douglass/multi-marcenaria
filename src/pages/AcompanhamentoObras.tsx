@@ -1,5 +1,8 @@
-﻿import { useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useEvolucaoPainel, type FiltroPeriodo } from '@/hooks/useObraEvolucao'
+import { useObras } from '@/hooks/useObras'
+import { useApp } from '@/context/AppContext'
+import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { EvolucaoPainelGrupos } from '@/components/obras/EvolucaoPainelGrupos'
 import {
@@ -18,8 +21,16 @@ export function AcompanhamentoObras() {
 }
 
 function AcompanhamentoObrasContent() {
+  const { roles } = useApp()
+  const obrasHook = useObras()
   const [filtro, setFiltro] = useState<FiltroPeriodo>('hoje')
   const { grupos, loading, error } = useEvolucaoPainel(filtro)
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
+
+  const obrasById = useMemo(
+    () => new Map(obrasHook.data.map(obra => [obra.id, obra])),
+    [obrasHook.data],
+  )
 
   const totalFotos = grupos.reduce(
     (acc, g) => acc + g.dias.reduce((d, dia) => d + dia.fotos.length, 0),
@@ -60,21 +71,25 @@ function AcompanhamentoObrasContent() {
         </div>
       </KanbanPageToolbar>
 
-      {loading && <LoadingState />}
-      {!loading && error && <ErrorState message={error} />}
+      {loading && grupos.length === 0 && <LoadingState />}
+      {(!loading || grupos.length > 0) && error && <ErrorState message={error} />}
 
-      {!loading && !error && (
+      {(!loading || grupos.length > 0) && !error && (
         <KanbanPageZoomShell
           showScrollArrows={false}
           showFloatingScrollbar={false}
           horizontalScrollbar={false}
           verticalScrollbar={false}
           contentLayout="fluid"
-          contentSignal={`${filtro}-${grupos.length}-${totalFotos}`}
+          contentSignal={`${filtro}-${grupos.length}-${totalFotos}-${obrasHook.data.length}`}
           className="flex-none"
         >
           <div className="w-full pb-8 pr-1">
-            <EvolucaoPainelGrupos grupos={grupos} />
+            <EvolucaoPainelGrupos
+              grupos={grupos}
+              obrasById={obrasById}
+              showMontadoresConclusao={canViewMontadoresConclusao}
+            />
           </div>
         </KanbanPageZoomShell>
       )}

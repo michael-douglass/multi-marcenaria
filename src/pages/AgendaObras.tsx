@@ -20,6 +20,7 @@ import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorConcluiuObr
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
@@ -52,6 +53,7 @@ import {
   canManageAllObras,
   canEditComissao,
   canAplicarComissao,
+  canViewMontadoresConclusaoObra,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -156,9 +158,10 @@ interface ObraCardProps {
   togglingPedidoMaterial: string | null
   onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
   updatingDataEntrega: string | null
+  canViewMontadoresConclusao: boolean
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -224,6 +227,8 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, action
         <ObraMontadorBadge obra={obra} />
         <ObraPedidoMaterialBadge obra={obra} />
       </div>
+
+      <ObraMontadoresConclusao obra={obra} compact visible={canViewMontadoresConclusao} />
 
       <div className="flex flex-col gap-1.5">
         <ObraPedidoMaterialToggle
@@ -462,6 +467,7 @@ function AgendaObrasContent() {
   const canConfig = canConfigObrasTiposGrupos(roles)
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
 
   const draftKey = userProfile?.id ? `movelaria-obra-rascunho-${userProfile.id}` : null
 
@@ -1020,6 +1026,7 @@ function AgendaObrasContent() {
                           togglingPedidoMaterial={togglingPedidoMaterial}
                           onUpdateDataEntrega={handleUpdateDataEntrega}
                           updatingDataEntrega={updatingDataEntrega}
+                          canViewMontadoresConclusao={canViewMontadoresConclusao}
                           />
                       </div>
                     ))

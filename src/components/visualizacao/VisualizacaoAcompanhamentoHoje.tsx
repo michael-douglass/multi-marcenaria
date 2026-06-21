@@ -24,7 +24,7 @@ export function VisualizacaoAcompanhamentoHoje({
   error,
   obrasDoDiaCount,
 }: VisualizacaoAcompanhamentoHojeProps) {
-  if (loading) return <LoadingState />
+  if (loading && grupos.length === 0) return <LoadingState />
   if (error) return <ErrorState message={error} />
 
   return (

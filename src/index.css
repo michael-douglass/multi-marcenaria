@@ -870,30 +870,43 @@ body::before {
   overflow: hidden;
 }
 
-.cal-week-day--scroll-cards {
-  max-height: min(22rem, 55vh);
-}
-
 .cal-week-day__cards {
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   flex-direction: column;
   gap: 0.375rem;
+}
+
+/* Altura fixa ≈ 5 cards; acima disso rola dentro do dia */
+.cal-week-day__cards--scroll {
+  max-height: 30rem;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--color-gold-border) transparent;
+  padding-right: 0.125rem;
 }
 
-.cal-week-day__cards::-webkit-scrollbar {
+.cal-week-day__cards--scroll::-webkit-scrollbar {
   width: 4px;
 }
 
-.cal-week-day__cards::-webkit-scrollbar-thumb {
+.cal-week-day__cards--scroll::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: var(--color-gold-border);
+}
+
+/* Legado: ChegadaMaterialCalendario */
+.cal-week-day--scroll-cards .cal-week-day__cards {
+  max-height: 30rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gold-border) transparent;
 }
 
 .cal-week-day__header {
@@ -1544,6 +1557,7 @@ body {
 .viz-stagger-3 { animation-delay: 0.19s; }
 .viz-stagger-4 { animation-delay: 0.26s; }
 .viz-stagger-5 { animation-delay: 0.33s; }
+.viz-stagger-6 { animation-delay: 0.4s; }
 
 .viz-acomp-card {
   background: var(--viz-surface-soft);
@@ -2049,6 +2063,647 @@ body {
 
 .viz-empty--center {
   padding: 1.5rem 0.5rem;
+}
+
+/* ── Visualização: botão tela cheia nos painéis ─────────────── */
+.viz-panel__fs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(242, 216, 146, 0.28);
+  background: rgba(10, 4, 2, 0.45);
+  color: rgba(237, 217, 196, 0.88);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.viz-panel__fs-btn:hover {
+  border-color: rgba(242, 216, 146, 0.55);
+  background: rgba(242, 216, 146, 0.12);
+  color: #f2d892;
+}
+
+.viz-panel__fs-btn--gold {
+  border-color: rgba(242, 216, 146, 0.55);
+  background: rgba(242, 216, 146, 0.14);
+  color: #f2d892;
+}
+
+.viz-panel__fs-btn--gold:hover {
+  background: rgba(242, 216, 146, 0.24);
+}
+
+.viz-panel__header-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.viz-obras-dia-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 216, 146, 0.35);
+  background: rgba(242, 216, 146, 0.1);
+  color: #f2d892;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.viz-obras-dia-btn:hover {
+  border-color: rgba(242, 216, 146, 0.55);
+  background: rgba(242, 216, 146, 0.2);
+}
+
+.viz-obras-dia-btn__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #f2d892;
+  color: #2a1812;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── Visualização: overlay tela cheia (TV / apresentação) ──── */
+@keyframes viz-fs-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes viz-fs-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.viz-fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1.25rem);
+}
+
+.viz-fs-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(242, 216, 146, 0.08) 0%, transparent 55%),
+    rgba(4, 2, 1, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.viz-fs-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 96rem);
+  max-height: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(242, 216, 146, 0.22);
+  background:
+    linear-gradient(165deg, rgba(42, 24, 18, 0.98) 0%, rgba(16, 8, 6, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 252, 248, 0.04) inset,
+    0 24px 80px rgba(0, 0, 0, 0.55);
+  animation: viz-fs-enter 0.35s ease-out;
+  overflow: hidden;
+}
+
+.viz-fs-overlay__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.85rem;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.12);
+}
+
+.viz-fs-overlay__eyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(242, 216, 146, 0.65);
+}
+
+.viz-fs-overlay__title {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display, Raleway, sans-serif);
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f2d892;
+}
+
+.viz-fs-overlay__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(237, 217, 196, 0.72);
+}
+
+.viz-fs-overlay__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.viz-fs-overlay__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.viz-fs-overlay__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(237, 217, 196, 0.25);
+}
+
+.viz-fs-overlay__dot.is-active {
+  background: #f2d892;
+  box-shadow: 0 0 10px rgba(242, 216, 146, 0.55);
+}
+
+.viz-fs-overlay__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(242, 216, 146, 0.25);
+  background: rgba(10, 4, 2, 0.5);
+  color: rgba(237, 217, 196, 0.85);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.viz-fs-overlay__close:hover {
+  border-color: rgba(242, 216, 146, 0.55);
+  color: #f2d892;
+}
+
+.viz-fs-overlay__progress {
+  height: 3px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #f2d892 0%, #d4a853 100%);
+  animation-name: viz-fs-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.viz-fs-overlay__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.viz-fs-overlay__body--obras-dia {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.45rem 0.65rem 0.65rem;
+}
+
+.viz-fs-overlay__panel:has(.viz-fs-overlay__body--obras-dia) .viz-fs-overlay__header {
+  padding: 0.55rem 0.85rem 0.45rem;
+}
+
+.viz-fs-overlay__panel:has(.viz-fs-overlay__body--obras-dia) .viz-fs-overlay__title {
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+}
+
+.viz-fs-overlay__panel:has(.viz-fs-overlay__body--obras-dia) .viz-fs-overlay__subtitle {
+  font-size: 0.78rem;
+  margin-top: 0.1rem;
+}
+
+/* Calendário em tela cheia */
+.viz-fs-cal-grid-wrap {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.viz-fs-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(120px, 1fr));
+  gap: 0.65rem;
+  min-width: 960px;
+}
+
+.viz-fs-cal-day {
+  min-height: 22rem;
+  padding: 0.65rem !important;
+}
+
+.viz-fs-cal-day .viz-week-day__title {
+  font-size: 0.95rem;
+}
+
+.viz-fs-cal-day .viz-week-day__date {
+  font-size: 0.82rem;
+}
+
+.viz-fs-cal-day .viz-week-day__cards {
+  max-height: none;
+}
+
+.viz-fs-mini-card {
+  border-left: 4px solid;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  min-height: 3.5rem;
+  background: rgba(62, 38, 28, 0.88);
+}
+
+.viz-fs-mini-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff7ed;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.viz-fs-mini-card__meta {
+  font-size: 0.78rem;
+  color: rgba(237, 217, 196, 0.75);
+  margin: 0.2rem 0 0;
+}
+
+/* Obras do dia — quadro TV compacto (só tela cheia) */
+.viz-obras-dia--fs {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.viz-obras-dia__board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.viz-obras-dia-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(212, 168, 83, 0.18);
+  background:
+    linear-gradient(180deg, rgba(10, 4, 2, 0.42) 0%, rgba(10, 4, 2, 0.18) 100%);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 252, 248, 0.03) inset;
+}
+
+.viz-obras-dia-col--fs {
+  min-height: 0;
+  height: 100%;
+}
+
+.viz-obras-dia-col__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.1);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--viz-dia-accent) 18%, transparent) 0%,
+    transparent 70%
+  );
+  flex-shrink: 0;
+}
+
+.viz-obras-dia-col__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.45rem;
+  color: var(--viz-dia-accent);
+  background: color-mix(in srgb, var(--viz-dia-accent) 16%, transparent);
+  flex-shrink: 0;
+}
+
+.viz-obras-dia-col__title {
+  margin: 0;
+  font-family: var(--font-display, Raleway, sans-serif);
+  font-size: clamp(0.88rem, 1.35vw, 1.05rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--viz-dia-accent);
+  line-height: 1.1;
+}
+
+.viz-obras-dia-col__date {
+  margin: 0.05rem 0 0;
+  font-size: clamp(0.68rem, 0.95vw, 0.78rem);
+  color: rgba(237, 217, 196, 0.65);
+  line-height: 1.15;
+}
+
+.viz-obras-dia-col__count {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #2a1812;
+  background: var(--viz-dia-accent);
+}
+
+.viz-obras-dia-col__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem 0.45rem;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.viz-obras-dia-col__list--fill {
+  overflow: hidden;
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card--fs {
+  flex: 1 1 0;
+  min-height: 2.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.15rem, 1.2vh, 0.55rem);
+  padding: clamp(0.35rem, 1.8vh, 1rem) clamp(0.45rem, 1.2vw, 0.9rem);
+  container-type: size;
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__row-main {
+  gap: clamp(0.25rem, 1vh, 0.55rem) clamp(0.35rem, 1vw, 0.75rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__cliente {
+  font-size: clamp(0.82rem, 14cqh, 1.35rem);
+  line-height: 1.2;
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__horario {
+  font-size: clamp(0.72rem, 11cqh, 1.05rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__status {
+  font-size: clamp(0.58rem, 8cqh, 0.78rem);
+  padding: clamp(0.12rem, 1vh, 0.28rem) clamp(0.35rem, 1.2vw, 0.55rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__row-meta {
+  margin-top: 0;
+  gap: clamp(0.2rem, 1vh, 0.45rem) clamp(0.25rem, 0.8vw, 0.5rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__tipo {
+  font-size: clamp(0.62rem, 9cqh, 0.88rem);
+  max-width: none;
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-chip {
+  font-size: clamp(0.62rem, 9cqh, 0.92rem);
+  padding: clamp(0.12rem, 1vh, 0.32rem) clamp(0.35rem, 1vw, 0.55rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__sem-montador {
+  font-size: clamp(0.65rem, 9cqh, 0.88rem);
+}
+
+.viz-obras-dia-col__list--scroll {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.viz-obras-dia-col__list--scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.viz-obras-dia-col__empty {
+  margin: 0;
+  padding: 0.75rem 0.35rem;
+  text-align: center;
+  font-size: clamp(0.75rem, 1vw, 0.85rem);
+  color: rgba(237, 217, 196, 0.5);
+}
+
+.viz-obras-dia-card--fs {
+  border-radius: 0.45rem;
+  border: 1px solid rgba(212, 168, 83, 0.14);
+  border-left: 3px solid var(--viz-obra-status, #f2d892);
+  background: rgba(62, 38, 28, 0.88);
+  padding: 0.32rem 0.42rem;
+}
+
+.viz-obras-dia-col__list--scroll .viz-obras-dia-card--fs {
+  flex-shrink: 0;
+}
+
+.viz-obras-dia-card__content {
+  min-width: 0;
+  width: 100%;
+}
+
+.viz-obras-dia-card__progress {
+  margin-top: 0.35rem;
+  min-width: 0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__progress {
+  margin-top: auto;
+  padding-top: clamp(0.2rem, 1vh, 0.45rem);
+}
+
+.viz-obras-dia-col__list--fill .viz-obras-dia-card__progress > div {
+  margin-top: 0 !important;
+}
+
+.viz-obras-dia-card__row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.25rem 0.4rem;
+  align-items: center;
+}
+
+.viz-obras-dia-card__cliente {
+  margin: 0;
+  font-size: clamp(0.78rem, 1.05vw, 0.92rem);
+  font-weight: 700;
+  color: #fff7ed;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viz-obras-dia-card__status {
+  flex-shrink: 0;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--viz-obra-status) 55%, transparent);
+  background: color-mix(in srgb, var(--viz-obra-status) 14%, transparent);
+  color: var(--viz-obra-status);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.viz-obras-dia-card__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.35rem;
+  margin-top: 0.18rem;
+}
+
+.viz-obras-dia-card__tipo {
+  font-size: 0.62rem;
+  color: rgba(237, 217, 196, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8rem;
+}
+
+.viz-obras-dia-card__horario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: clamp(0.68rem, 0.95vw, 0.78rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f2d892;
+  white-space: nowrap;
+}
+
+.viz-obras-dia-card__horario--empty {
+  font-weight: 500;
+  color: rgba(237, 217, 196, 0.38);
+  font-style: italic;
+}
+
+.viz-obras-dia-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.viz-obras-dia-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 216, 146, 0.24);
+  background: rgba(242, 216, 146, 0.08);
+  font-size: clamp(0.62rem, 0.85vw, 0.72rem);
+  font-weight: 600;
+  color: #f2d892;
+  white-space: nowrap;
+}
+
+.viz-obras-dia-card__sem-montador {
+  font-size: 0.65rem;
+  color: rgba(237, 217, 196, 0.4);
+  font-style: italic;
+}
+
+/* Listas em tela cheia */
+.viz-fs-list {
+  max-height: none;
+  gap: 0.65rem;
+}
+
+.viz-fs-list .viz-list-item {
+  padding: 0.85rem 1rem;
+}
+
+.viz-fs-list .viz-list-item__title {
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+}
+
+.viz-fs-list .viz-list-item__meta,
+.viz-fs-list .viz-list-item__date {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .viz-obras-dia__board {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .viz-fs-overlay__panel {
+    animation: none;
+  }
+
+  .viz-fs-overlay__progress {
+    animation: none;
+    transform: scaleX(1);
+  }
 }
 
 /* ── GARBO loading brand ───────────────────────────────────── */

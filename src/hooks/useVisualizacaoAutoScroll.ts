@@ -23,9 +23,12 @@ export function useVisualizacaoAutoScroll(
   enabled: boolean,
   ready: boolean,
   scrollHostRef: RefObject<HTMLDivElement | null>,
+  onReachBottom?: () => void,
 ) {
   const enabledRef = useRef(enabled)
   enabledRef.current = enabled
+  const onReachBottomRef = useRef(onReachBottom)
+  onReachBottomRef.current = onReachBottom
 
   useEffect(() => {
     const layout = document.querySelector('.obra-layout-scroll')
@@ -155,6 +158,7 @@ export function useVisualizacaoAutoScroll(
           const nextTop = scrollEl.scrollTop + delta
 
           if (nextTop >= max - 1) {
+            onReachBottomRef.current?.()
             scrollEl.scrollTo({ top: 0, behavior: 'instant' })
             writeVizScrollRatio(scrollEl)
             pauseUntil = time + PAUSE_AT_BOTTOM_MS

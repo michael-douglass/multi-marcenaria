@@ -1,5 +1,5 @@
 ﻿import { useRef, useState, useMemo } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock } from 'lucide-react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
@@ -7,6 +7,8 @@ import { useObraEvolucao } from '@/hooks/useObraEvolucao'
 import { isAcceptedObraFile, obraArquivoLightboxPages } from '@/lib/obra-arquivos'
 import { groupEvolucaoPorDia, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
+import { EvolucaoObservacao } from '@/components/obras/EvolucaoObservacao'
+import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
 import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '@/lib/obra-montadores'
 import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
@@ -21,6 +23,8 @@ import type { ObraFull, StatusKanbanObra } from '@/types'
 import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
 import { fmtDate } from '@/lib/utils'
+import { useApp } from '@/context/AppContext'
+import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
 
 const STATUS_COR: Record<StatusKanbanObra, string> = {
   datas_em_aberto: '#6b7280',
@@ -83,6 +87,8 @@ export function ObraDetalheModal({
   onUpdateDataEntrega, updatingDataEntrega = false,
   onUpdateNumeroPedidoCortClaud, updatingNumeroPedidoCortClaud = false,
 }: Props) {
+  const { roles } = useApp()
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -343,6 +349,10 @@ export function ObraDetalheModal({
           )}
         </div>
 
+        <div className="mb-5">
+          <ObraMontadoresConclusao obra={obra} visible={canViewMontadoresConclusao} />
+        </div>
+
         {obra.comissao_habilitada && comissaoItens.length > 0 && (
           <div
             className="mb-5 rounded-lg p-4"
@@ -453,7 +463,7 @@ export function ObraDetalheModal({
             </div>
           ) : evolHook.data.length === 0 ? (
             <p className="text-xs text-[#d4bc9f] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(240,210,140,0.1)]">
-              {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para enviar fotos e observações do que foi feito.' : 'Nenhum progresso registrado.'}
+              {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para enviar fotos, vídeos ou observações do que foi feito.' : 'Nenhum progresso registrado.'}
             </p>
           ) : (
             <div className="space-y-5">
@@ -473,12 +483,39 @@ export function ObraDetalheModal({
                       {fmtDate(dia.data)}
                     </span>
                     <span className="text-[0.62rem] text-[#d4bc9f]">
-                      · {dia.fotos.length} foto{dia.fotos.length !== 1 ? 's' : ''}
+                      · {dia.fotos.length} registro{dia.fotos.length !== 1 ? 's' : ''}
                     </span>
                   </div>
 
                   <div className="flex flex-wrap gap-3">
                     {dia.fotos.map(item => (
+                      item.kind === 'text' ? (
+                        <div
+                          key={item.id}
+                          className="relative min-w-[min(100%,16rem)] max-w-full flex-1 rounded-lg border border-[rgba(240,210,140,0.18)] bg-black/25 p-3"
+                        >
+                          <div className="mb-2 flex items-center gap-1.5 text-[#f2d892]">
+                            <MessageSquareText size={13} />
+                            <span className="text-[0.65rem] font-semibold uppercase tracking-wide">Observação</span>
+                          </div>
+                          {item.observacao?.trim() && (
+                            <EvolucaoObservacao
+                              texto={item.observacao.trim()}
+                              className="text-[0.75rem] text-[#c4a882]"
+                            />
+                          )}
+                          {(isMontador || canUpload) && (
+                            <button
+                              type="button"
+                              onClick={() => handleEvolDelete(item)}
+                              className="absolute right-2 top-2 rounded p-1 text-[#edd9c4] hover:bg-red-500/10 hover:text-red-400"
+                              aria-label="Excluir observação"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
                       <div key={item.id} className="flex max-w-[140px] flex-col gap-1.5">
                         <AnexoThumb
                           previewUrl={item.previewSignedUrl ?? item.signedUrl ?? ''}
@@ -492,11 +529,13 @@ export function ObraDetalheModal({
                           onDelete={(isMontador || canUpload) ? () => handleEvolDelete(item) : undefined}
                         />
                         {item.observacao?.trim() && (
-                          <p className="text-[0.62rem] leading-snug text-[#c4a882] line-clamp-3" title={item.observacao}>
-                            {item.observacao}
-                          </p>
+                          <EvolucaoObservacao
+                            texto={item.observacao.trim()}
+                            className="text-[0.62rem] text-[#c4a882]"
+                          />
                         )}
                       </div>
+                      )
                     ))}
                   </div>
                 </div>

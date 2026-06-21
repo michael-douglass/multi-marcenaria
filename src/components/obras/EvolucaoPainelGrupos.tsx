@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
-import { Calendar, Camera, HardHat, Maximize2 } from 'lucide-react'
+import { useState } from 'react'
+import { Calendar, Camera, HardHat, Maximize2, MessageSquareText } from 'lucide-react'
 import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
+import { EvolucaoObservacao } from '@/components/obras/EvolucaoObservacao'
+import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
 import {
   evolucaoLightboxPages,
   evolucaoThumbUrl,
   type EvolucaoPainelItemComUrl,
 } from '@/lib/obra-evolucao'
 import type { EvolucaoGrupoObra } from '@/hooks/useObraEvolucao'
-import { cn, fmtDate, fmtTime } from '@/lib/utils'
+import type { ObraFull } from '@/types'
+import { fmtDate, fmtTime } from '@/lib/utils'
 
 type LightboxState = {
   url: string
   pages?: string[]
   nome: string
-  kind: 'image' | 'pdf' | 'video'
+  kind: 'image' | 'pdf' | 'video' | 'text'
   observacao?: string | null
 }
 
@@ -70,68 +73,20 @@ function EvolucaoThumb({
   )
 }
 
-function EvolucaoObservacao({ texto }: { texto: string }) {
-  const [expanded, setExpanded] = useState(false)
-  const ref = useRef<HTMLParagraphElement>(null)
-  const [overflows, setOverflows] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el || expanded) return
-
-    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
-    check()
-
-    const observer = new ResizeObserver(check)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [texto, expanded])
-
-  const canToggle = overflows || expanded
-
-  return (
-    <p
-      ref={ref}
-      role={canToggle ? 'button' : undefined}
-      tabIndex={canToggle ? 0 : undefined}
-      onClick={() => {
-        if (canToggle) setExpanded(prev => !prev)
-      }}
-      onKeyDown={e => {
-        if (!canToggle) return
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          setExpanded(prev => !prev)
-        }
-      }}
-      className={cn(
-        'text-[0.7rem] leading-snug text-[#d4c4a8] whitespace-pre-wrap break-words transition-colors',
-        !expanded && 'line-clamp-3',
-        canToggle && 'cursor-pointer hover:text-[#e8d4b0]',
-      )}
-      title={
-        !expanded && overflows
-          ? 'Clique para ver o texto completo'
-          : expanded
-            ? 'Clique para recolher'
-            : undefined
-      }
-    >
-      {texto}
-    </p>
-  )
-}
-
 interface EvolucaoPainelGruposProps {
   grupos: EvolucaoGrupoObra[]
   emptyMessage?: string
   emptySubmessage?: string
+  obrasById?: Map<string, ObraFull>
+  showMontadoresConclusao?: boolean
 }
 
 export function EvolucaoPainelGrupos({
   grupos,
   emptyMessage = 'Nenhuma foto registrada no período',
   emptySubmessage = 'Os montadores ainda não enviaram atualizações.',
+  obrasById,
+  showMontadoresConclusao = false,
 }: EvolucaoPainelGruposProps) {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
 
@@ -171,6 +126,16 @@ export function EvolucaoPainelGrupos({
               </h3>
             </div>
 
+            {showMontadoresConclusao && obrasById?.get(grupo.obra_id) && (
+              <div className="mb-3">
+                <ObraMontadoresConclusao
+                  obra={obrasById.get(grupo.obra_id)!}
+                  compact
+                  visible
+                />
+              </div>
+            )}
+
             <div className="space-y-3">
               {grupo.dias.map(dia => (
                 <div key={dia.data} className="relative border-l border-[rgba(240,210,140,0.2)] pl-4">
@@ -182,12 +147,27 @@ export function EvolucaoPainelGrupos({
                       {fmtDate(dia.data)}
                     </span>
                     <span className="text-[0.6rem] text-[#edd9c4]">
-                      · {dia.fotos.length} {dia.fotos.length === 1 ? 'foto' : 'fotos'}
+                      · {dia.fotos.length} {dia.fotos.length === 1 ? 'registro' : 'registros'}
                     </span>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     {dia.fotos.map(foto => (
+                      foto.kind === 'text' ? (
+                        <div
+                          key={foto.id}
+                          className="min-w-[12rem] max-w-full flex-1 rounded-md border border-[rgba(240,210,140,0.18)] bg-black/25 p-2.5"
+                        >
+                          <div className="mb-1.5 flex items-center gap-1.5 text-[#f2d892]">
+                            <MessageSquareText size={12} />
+                            <span className="text-[0.62rem] font-semibold uppercase tracking-wide">Observação</span>
+                            <span className="text-[0.58rem] text-[#edd9c4]">{fmtTime(foto.tirado_em)}</span>
+                          </div>
+                          {foto.observacao?.trim() ? (
+                            <EvolucaoObservacao texto={foto.observacao.trim()} />
+                          ) : null}
+                        </div>
+                      ) : (
                       <div
                         key={foto.id}
                         className="flex w-[7.5rem] shrink-0 flex-col gap-1 sm:w-[8.25rem]"
@@ -197,6 +177,7 @@ export function EvolucaoPainelGrupos({
                           <EvolucaoObservacao texto={foto.observacao.trim()} />
                         ) : null}
                       </div>
+                      )
                     ))}
                   </div>
                 </div>

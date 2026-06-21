@@ -4,6 +4,7 @@ import { useObras } from '@/hooks/useObras'
 import { useContasReceber } from '@/hooks/useContasReceber'
 import { useEvolucaoPainel } from '@/hooks/useObraEvolucao'
 import { useVisualizacaoAutoScroll } from '@/hooks/useVisualizacaoAutoScroll'
+import { useVisualizacaoObrasDoDiaAutoFullscreen } from '@/hooks/useVisualizacaoObrasDoDiaAutoFullscreen'
 import {
   readVizAutoScrollEnabled,
   writeVizAutoScrollEnabled,
@@ -11,13 +12,32 @@ import {
 import { VisualizacaoPanel } from '@/components/visualizacao/VisualizacaoPanel'
 import { VisualizacaoChegadaSemPedidoAlert } from '@/components/visualizacao/VisualizacaoChegadaSemPedidoAlert'
 import { VisualizacaoCalendarioStats } from '@/components/visualizacao/VisualizacaoCalendarioStats'
+import { VisualizacaoCalendarioSemanaContent } from '@/components/visualizacao/VisualizacaoCalendarioSemanaContent'
+import { VisualizacaoFullscreenOverlay } from '@/components/visualizacao/VisualizacaoFullscreenOverlay'
+import { VisualizacaoObrasDoDiaContent } from '@/components/visualizacao/VisualizacaoObrasDoDiaContent'
+import { VisualizacaoObrasDoDiaButton } from '@/components/visualizacao/VisualizacaoObrasDoDiaButton'
+import { VisualizacaoSemanaDia } from '@/components/visualizacao/VisualizacaoSemanaDia'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
+import { VisualizacaoPaineisConfigModal } from '@/components/visualizacao/VisualizacaoPaineisConfigModal'
 import {
   filterEvolucaoGruposPorObras,
   VisualizacaoAcompanhamentoHoje,
 } from '@/components/visualizacao/VisualizacaoAcompanhamentoHoje'
-import { ObraMontadorBadge } from '@/components/obras/ObraMontadorBadge'
+import { useVisualizacaoConfig } from '@/hooks/useVisualizacaoConfig'
+import {
+  canConfigurarVisualizacaoPaineis,
+  shouldFiltrarPaineisVisualizacao,
+  VISUALIZACAO_PAINEL_GRID_IDS,
+  painelApareceNoGrid,
+  type VisualizacaoPainelId,
+} from '@/lib/visualizacao-paineis'
+import {
+  VIZ_OBRAS_DIA_SHOW_MS,
+} from '@/hooks/useVisualizacaoObrasDoDiaAutoFullscreen'
+import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
+import { useApp } from '@/context/AppContext'
+import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
 import {
   KanbanPageZoomShell,
   KanbanPageToolbar,
@@ -28,6 +48,7 @@ import {
   getChegadaCardColor,
   obrasParaDiaChegada,
   todayISO,
+  addDaysISO,
 } from '@/lib/obra-chegada-material'
 import { getStatusEfetivo } from '@/lib/obra-progresso'
 import { countObrasSemPedidoMaterial } from '@/lib/obra-pedido-material'
@@ -37,21 +58,10 @@ import {
   getVisualizacaoRange,
   isoEstaNoRange,
 } from '@/lib/visualizacao-range'
-import { fmtCur, fmtDate, isOverdue, cn } from '@/lib/utils'
+import { fmtCur, fmtDate, isOverdue } from '@/lib/utils'
 import type { ContaReceber, StatusKanbanObra } from '@/types'
 
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const DIAS_ATIVOS = [1, 2, 3, 4, 5]
-
-const STATUS_COLORS: Record<StatusKanbanObra, string> = {
-  datas_em_aberto: '#6b7280',
-  datas_em_atraso: '#ef4444',
-  datas_definidas: '#3b82f6',
-  em_andamento: '#f59e0b',
-  concluida: '#10b981',
-  cancelada: '#9ca3af',
-}
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
   datas_em_aberto: 'Em aberto',
@@ -71,41 +81,7 @@ function useRelogio() {
   return now
 }
 
-interface SemanaDiaProps {
-  iso: string
-  count: number
-  children: React.ReactNode
-}
-
-function SemanaDia({ iso, count, children }: SemanaDiaProps) {
-  const hoje = todayISO()
-  const day = new Date(`${iso}T12:00:00`)
-  const isToday = iso === hoje
-
-  return (
-    <div
-      className={cn(
-        'viz-week-day glass-card flex flex-col p-2',
-        count === 0 && 'min-h-[120px]',
-        isToday && 'ring-1 ring-[#f2d892]/65',
-      )}
-    >
-      <div className="viz-week-day__header shrink-0">
-        <div className={cn('viz-week-day__title', isToday && 'text-[#f2d892]')}>
-          <span>{WEEKDAYS[day.getDay()]}</span>
-          {count > 0 ? (
-            <span className="viz-week-day__count">{count}</span>
-          ) : null}
-        </div>
-        <span className="viz-week-day__date">
-          {day.getDate()}/{MONTHS[day.getMonth()]}
-          {isToday ? <span className="viz-week-day__hoje">hoje</span> : null}
-        </span>
-      </div>
-      <div className="viz-week-day__cards min-h-0 flex-1">{children}</div>
-    </div>
-  )
-}
+type PainelId = VisualizacaoPainelId
 
 export function Visualizacao() {
   return (
@@ -116,31 +92,60 @@ export function Visualizacao() {
 }
 
 function VisualizacaoContent() {
+  const { roles } = useApp()
   const obrasHook = useObras()
   const contasHook = useContasReceber()
   const evolucaoHook = useEvolucaoPainel('hoje')
+  const configHook = useVisualizacaoConfig()
   const relogio = useRelogio()
   const scrollHostRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(() => readVizAutoScrollEnabled())
+  const [paineisConfigOpen, setPaineisConfigOpen] = useState(false)
+  const [manualObrasDoDiaOpen, setManualObrasDoDiaOpen] = useState(false)
   const range = useMemo(() => getVisualizacaoRange(), [])
   const rangeLabel = formatVisualizacaoRangeLabel(range.start, range.end)
   const hoje = todayISO()
+  const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
+  const canConfigPaineis = canConfigurarVisualizacaoPaineis(roles)
+  const filtrarPaineis = shouldFiltrarPaineisVisualizacao(roles)
 
-  const loading = obrasHook.loading || contasHook.loading
+  const painelVisivel = (id: VisualizacaoPainelId) => {
+    if (!filtrarPaineis) return true
+    if (configHook.loading) return false
+    return configHook.paineisVisiveis.has(id)
+  }
+
+
   const error = obrasHook.error ?? contasHook.error
-  const contentReady = !loading && !error
+  const isInitialLoading =
+    (obrasHook.loading && obrasHook.data.length === 0)
+    || (contasHook.loading && contasHook.data.length === 0)
+    || (filtrarPaineis && configHook.loading && configHook.salvos === null)
+  const contentReady = !isInitialLoading && !error
 
-  useVisualizacaoAutoScroll(autoScroll, contentReady, scrollHostRef)
+  const obrasDoDiaAutoEnabled =
+    autoScroll && contentReady && painelVisivel('obras_do_dia') && !manualObrasDoDiaOpen
+  const obrasDoDiaAuto = useVisualizacaoObrasDoDiaAutoFullscreen(obrasDoDiaAutoEnabled)
+  const overlayAutoOpen = obrasDoDiaAuto.open
+  const overlayOpen = overlayAutoOpen || manualObrasDoDiaOpen
 
+  useVisualizacaoAutoScroll(
+    autoScroll && !overlayOpen,
+    contentReady,
+    scrollHostRef,
+    obrasDoDiaAutoEnabled ? obrasDoDiaAuto.trigger : undefined,
+  )
+
+  // Atualização periódica em segundo plano — sem piscar a tela (reload silencioso).
   useEffect(() => {
-    const reloadContas = contasHook.reload
-    const reloadEvolucao = evolucaoHook.reload
+    if (!contentReady) return
     const id = setInterval(() => {
-      void reloadContas()
-      void reloadEvolucao()
-    }, 120_000)
+      void obrasHook.reload({ silent: true })
+      void contasHook.reload({ silent: true })
+      void evolucaoHook.reload({ silent: true })
+    }, 60_000)
     return () => clearInterval(id)
-  }, [contasHook.reload, evolucaoHook.reload])
+  }, [contentReady, obrasHook.reload, contasHook.reload, evolucaoHook.reload])
 
   const obrasCalendario = useMemo(
     () => obrasHook.data.filter(o => {
@@ -154,6 +159,12 @@ function VisualizacaoContent() {
     () => obrasParaDiaCalendario(obrasCalendario, hoje, DIAS_ATIVOS),
     [obrasCalendario, hoje],
   )
+
+  const obrasHojeAmanhaCount = useMemo(() => {
+    const amanha = addDaysISO(hoje, 1)
+    return obrasParaDiaCalendario(obrasCalendario, hoje, DIAS_ATIVOS).length
+      + obrasParaDiaCalendario(obrasCalendario, amanha, DIAS_ATIVOS).length
+  }, [obrasCalendario, hoje])
 
   const evolucaoHoje = useMemo(
     () => filterEvolucaoGruposPorObras(evolucaoHook.grupos, obrasDoDia),
@@ -231,7 +242,7 @@ function VisualizacaoContent() {
     month: 'long',
   })
 
-  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${calendarioMesStats.total}-${calendarioMesStats.aFinalizarMes}-${calendarioMesStats.concluidasMes}-${obrasDoDia.length}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${loading}-${evolucaoHook.loading}`
+  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${calendarioMesStats.total}-${calendarioMesStats.aFinalizarMes}-${calendarioMesStats.concluidasMes}-${obrasDoDia.length}-${obrasHojeAmanhaCount}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}`
 
   const handleToggleAutoScroll = () => {
     setAutoScroll(prev => {
@@ -241,9 +252,128 @@ function VisualizacaoContent() {
     })
   }
 
+  const obrasDoDiaSubtitle = `${fmtDate(hoje)} · amanhã ${fmtDate(addDaysISO(hoje, 1))}`
+
+  const renderPainelContent = (id: PainelId) => {
+    switch (id) {
+      case 'chegada_materiais':
+        return (
+          <div className="viz-week-wrap">
+            <div className="viz-week-grid">
+              {range.days.map(iso => {
+                const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
+                return (
+                  <VisualizacaoSemanaDia
+                    key={iso}
+                    iso={iso}
+                    count={dayObras.length}
+                  >
+                    {dayObras.length === 0 ? (
+                      <p className="viz-empty">—</p>
+                    ) : (
+                      dayObras.map(obra => {
+                        const cor = getChegadaCardColor(obra, hoje)
+                        return (
+                          <div
+                            key={obra.id}
+                            className="viz-mini-card"
+                            style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
+                          >
+                            <p className="viz-mini-card__title">{obra.cliente_nome}</p>
+                            {obra.lousa ? (
+                              <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
+                            ) : null}
+                          </div>
+                        )
+                      })
+                    )}
+                  </VisualizacaoSemanaDia>
+                )
+              })}
+            </div>
+          </div>
+        )
+
+      case 'calendario_obras':
+        return (
+          <VisualizacaoCalendarioSemanaContent
+            rangeDays={range.days}
+            obrasCalendario={obrasCalendario}
+            diasAtivos={DIAS_ATIVOS}
+          />
+        )
+      case 'acompanhamento_obras':
+        return (
+          <VisualizacaoAcompanhamentoHoje
+            grupos={evolucaoHoje}
+            loading={evolucaoHook.loading}
+            error={evolucaoHook.error}
+            obrasDoDiaCount={obrasDoDia.length}
+          />
+        )
+
+      case 'obras_atrasadas':        if (obrasAtrasadas.length === 0) {
+          return (
+            <p className="viz-empty viz-empty--center">
+              Nenhuma obra em atraso no momento.
+            </p>
+          )
+        }
+        return (
+          <ul className="viz-list">            {obrasAtrasadas.map(obra => (
+              <li key={obra.id} className="viz-list-item viz-list-item--alert flex-col items-stretch">
+                <div className="flex w-full min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="viz-list-item__title">{obra.cliente_nome}</p>
+                    {obra.lousa ? (
+                      <p className="viz-list-item__meta truncate">{obra.lousa}</p>
+                    ) : null}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="viz-list-item__date text-red-200">
+                      até {fmtDate(obra.data_prevista_fim)}
+                    </p>
+                    <p className="viz-list-item__meta">{STATUS_LABEL[getStatusEfetivo(obra)]}</p>
+                  </div>
+                </div>
+                <ObraMontadoresConclusao
+                  obra={obra}
+                  compact
+                  visible={canViewMontadoresConclusao}
+                />
+              </li>
+            ))}
+          </ul>
+        )
+
+      case 'cobrancas_atrasadas':
+        if (clientesAtrasados.length === 0) {
+          return <p className="viz-empty viz-empty--center">Nenhum cliente em atraso.</p>
+        }
+        return (
+          <ul className="viz-list">
+            {clientesAtrasados.map(grupo => (              <li key={grupo.cliente_nome} className="viz-list-item">
+                <div className="min-w-0 flex-1">
+                  <p className="viz-list-item__title">{grupo.cliente_nome}</p>
+                  <p className="viz-list-item__meta">
+                    {grupo.parcelas.length} parcela{grupo.parcelas.length !== 1 ? 's' : ''} vencida{grupo.parcelas.length !== 1 ? 's' : ''}
+                    {' · '}desde {fmtDate(grupo.vencimentoMaisAntigo)}
+                  </p>
+                </div>
+                <p className="viz-list-item__value shrink-0">{fmtCur(grupo.total)}</p>
+              </li>
+            ))}
+          </ul>
+        )
+
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="obra-page-shell obra-page-shell--visualizacao fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
-      {loading ? (
+      {isInitialLoading ? (
         <LoadingState variant="page" message="" />
       ) : (
         <>
@@ -269,8 +399,9 @@ function VisualizacaoContent() {
                   <VisualizacaoToolbar
                     autoScroll={autoScroll}
                     onToggleAutoScroll={handleToggleAutoScroll}
-                  />
-                </div>
+                    canConfigPaineis={canConfigPaineis}
+                    onOpenPaineisConfig={() => setPaineisConfigOpen(true)}
+                  />                </div>
               </div>
             </div>
           </KanbanPageToolbar>
@@ -289,6 +420,7 @@ function VisualizacaoContent() {
         >
           <div className="viz-page">
             <div className="viz-page__grid">
+              {painelVisivel('chegada_materiais') && painelApareceNoGrid('chegada_materiais') && (
               <VisualizacaoPanel
                 title="Chegada de Materiais"
                 subtitle={rangeLabel}
@@ -301,82 +433,37 @@ function VisualizacaoContent() {
                 }
                 className="viz-panel--span-2 viz-stagger-1"
               >
-                <div className="viz-week-wrap">
-                  <div className="viz-week-grid">
-                    {range.days.map(iso => {
-                      const dayObras = obrasParaDiaChegada(obrasHook.data, iso)
-                      return (
-                        <SemanaDia key={iso} iso={iso} count={dayObras.length}>
-                          {dayObras.length === 0 ? (
-                            <p className="viz-empty">—</p>
-                          ) : (
-                            dayObras.map(obra => {
-                              const cor = getChegadaCardColor(obra, hoje)
-                              return (
-                                <div
-                                  key={obra.id}
-                                  className="viz-mini-card"
-                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
-                                >
-                                  <p className="viz-mini-card__title">{obra.cliente_nome}</p>
-                                  {obra.lousa ? (
-                                    <p className="viz-mini-card__meta truncate">{obra.lousa}</p>
-                                  ) : null}
-                                </div>
-                              )
-                            })
-                          )}
-                        </SemanaDia>
-                      )
-                    })}
-                  </div>
-                </div>
+                {renderPainelContent('chegada_materiais')}
               </VisualizacaoPanel>
+              )}
 
+              {painelVisivel('calendario_obras') && painelApareceNoGrid('calendario_obras') && (
               <VisualizacaoPanel
                 title="Calendário de Obras"
                 subtitle={rangeLabel}
                 accent="#60a5fa"
                 headerEnd={
-                  <VisualizacaoCalendarioStats
-                    stats={calendarioMesStats}
-                    mes={mesAtual}
-                    ano={anoAtual}
-                  />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {painelVisivel('obras_do_dia') ? (
+                      <VisualizacaoObrasDoDiaButton
+                        count={obrasHojeAmanhaCount}
+                        onClick={() => setManualObrasDoDiaOpen(true)}
+                      />
+                    ) : null}
+                    <VisualizacaoCalendarioStats
+                      stats={calendarioMesStats}
+                      mes={mesAtual}
+                      ano={anoAtual}
+                    />
+                  </div>
                 }
                 className="viz-panel--span-2 viz-stagger-2"
               >
-                <div className="viz-week-wrap">
-                  <div className="viz-week-grid">
-                    {range.days.map(iso => {
-                      const dayObras = obrasParaDiaCalendario(obrasCalendario, iso, DIAS_ATIVOS)
-                      return (
-                        <SemanaDia key={iso} iso={iso} count={dayObras.length}>
-                          {dayObras.length === 0 ? (
-                            <p className="viz-empty">—</p>
-                          ) : (
-                            dayObras.map(obra => {
-                              const status = getStatusEfetivo(obra)
-                              const cor = STATUS_COLORS[status]
-                              return (
-                                <div
-                                  key={obra.id}
-                                  className="viz-mini-card"
-                                  style={{ borderLeftColor: cor, backgroundColor: `${cor}48` }}
-                                >
-                                  <p className="viz-mini-card__title">{obra.cliente_nome}</p>
-                                  <p className="viz-mini-card__meta">{STATUS_LABEL[status]}</p>
-                                </div>
-                              )
-                            })
-                          )}
-                        </SemanaDia>
-                      )
-                    })}
-                  </div>
-                </div>
+                {renderPainelContent('calendario_obras')}
               </VisualizacaoPanel>
+              )}
 
+              {painelVisivel('acompanhamento_obras') && painelApareceNoGrid('acompanhamento_obras') && (
               <VisualizacaoPanel
                 title="Acompanhamento de Obras"
                 subtitle={`Hoje · ${fmtDate(hoje)} · obras do dia`}
@@ -384,78 +471,70 @@ function VisualizacaoContent() {
                 badge={totalFotosHoje || obrasDoDia.length}
                 className="viz-panel--span-2 viz-stagger-3"
               >
-                <VisualizacaoAcompanhamentoHoje
-                  grupos={evolucaoHoje}
-                  loading={evolucaoHook.loading}
-                  error={evolucaoHook.error}
-                  obrasDoDiaCount={obrasDoDia.length}
-                />
+                {renderPainelContent('acompanhamento_obras')}
               </VisualizacaoPanel>
+              )}
 
+              {painelVisivel('obras_atrasadas') && painelApareceNoGrid('obras_atrasadas') && (
               <VisualizacaoPanel
                 title="Obras Atrasadas"
                 subtitle="Todas as obras com prazo vencido"
                 accent="#ef4444"
                 badge={obrasAtrasadas.length}
-                className="viz-panel--span-2 viz-stagger-4"
+                className="viz-panel--span-2 viz-stagger-5"
               >
-                {obrasAtrasadas.length === 0 ? (
-                  <p className="viz-empty viz-empty--center">Nenhuma obra em atraso no momento.</p>
-                ) : (
-                  <ul className="viz-list">
-                    {obrasAtrasadas.map(obra => (
-                      <li key={obra.id} className="viz-list-item viz-list-item--alert">
-                        <div className="min-w-0 flex-1">
-                          <p className="viz-list-item__title">{obra.cliente_nome}</p>
-                          {obra.lousa ? (
-                            <p className="viz-list-item__meta truncate">{obra.lousa}</p>
-                          ) : null}
-                          <div className="mt-1.5">
-                            <ObraMontadorBadge obra={obra} compact />
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="viz-list-item__date text-red-200">
-                            até {fmtDate(obra.data_prevista_fim)}
-                          </p>
-                          <p className="viz-list-item__meta">{STATUS_LABEL[getStatusEfetivo(obra)]}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                {renderPainelContent('obras_atrasadas')}
               </VisualizacaoPanel>
+              )}
 
+              {painelVisivel('cobrancas_atrasadas') && painelApareceNoGrid('cobrancas_atrasadas') && (
               <VisualizacaoPanel
                 title="Cobranças Atrasadas"
                 subtitle="Clientes com parcelas vencidas"
                 accent="#f59e0b"
                 badge={clientesAtrasados.length}
-                className="viz-panel--span-2 viz-stagger-5"
+                className="viz-panel--span-2 viz-stagger-6"
               >
-                {clientesAtrasados.length === 0 ? (
-                  <p className="viz-empty viz-empty--center">Nenhum cliente em atraso.</p>
-                ) : (
-                  <ul className="viz-list">
-                    {clientesAtrasados.map(grupo => (
-                      <li key={grupo.cliente_nome} className="viz-list-item">
-                        <div className="min-w-0 flex-1">
-                          <p className="viz-list-item__title">{grupo.cliente_nome}</p>
-                          <p className="viz-list-item__meta">
-                            {grupo.parcelas.length} parcela{grupo.parcelas.length !== 1 ? 's' : ''} vencida{grupo.parcelas.length !== 1 ? 's' : ''}
-                            {' · '}desde {fmtDate(grupo.vencimentoMaisAntigo)}
-                          </p>
-                        </div>
-                        <p className="viz-list-item__value shrink-0">{fmtCur(grupo.total)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                {renderPainelContent('cobrancas_atrasadas')}
               </VisualizacaoPanel>
+              )}
+
+              {filtrarPaineis && !configHook.loading && VISUALIZACAO_PAINEL_GRID_IDS.every(id => !painelVisivel(id)) && (
+                <div className="viz-panel--span-2 glass-card p-10 text-center">
+                  <p className="text-sm text-[#edd9c4]">
+                    {painelVisivel('obras_do_dia') && !painelApareceNoGrid('obras_do_dia')
+                      ? 'Nenhum painel fixo disponível. Use o botão Obras do dia no Calendário de Obras ou ative a rolagem automática.'
+                      : 'Nenhum painel está disponível para visualização no momento.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </KanbanPageZoomShell>
           )}
+
+      <VisualizacaoPaineisConfigModal
+        open={paineisConfigOpen}
+        onClose={() => setPaineisConfigOpen(false)}
+        salvos={configHook.salvos}
+        saving={configHook.saving}
+        onSave={configHook.save}
+      />
+
+      <VisualizacaoFullscreenOverlay
+        open={overlayOpen}
+        panelId="obras_do_dia"
+        subtitle={obrasDoDiaSubtitle}
+        showProgress={overlayAutoOpen}
+        autoCloseMs={VIZ_OBRAS_DIA_SHOW_MS}
+        onClose={manualObrasDoDiaOpen ? () => setManualObrasDoDiaOpen(false) : undefined}
+      >
+        <VisualizacaoObrasDoDiaContent
+          obrasCalendario={obrasCalendario}
+          hoje={hoje}
+          diasAtivos={DIAS_ATIVOS}
+        />
+      </VisualizacaoFullscreenOverlay>
         </>
       )}
     </div>

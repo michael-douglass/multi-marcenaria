@@ -44,6 +44,19 @@ export function formatObraHorarioRange(
   return null
 }
 
+/** Ordena obras pelo horário de início (mais cedo primeiro); sem horário vai ao final. */
+export function sortObrasPorHorarioInicio(obras: ObraFull[]): ObraFull[] {
+  return [...obras].sort((a, b) => {
+    const ha = a.horario_inicio?.trim() || '99:99'
+    const hb = b.horario_inicio?.trim() || '99:99'
+    if (ha !== hb) return ha.localeCompare(hb)
+    const fa = a.horario_fim?.trim() || '99:99'
+    const fb = b.horario_fim?.trim() || '99:99'
+    if (fa !== fb) return fa.localeCompare(fb)
+    return a.cliente_nome.localeCompare(b.cliente_nome, 'pt-BR')
+  })
+}
+
 function dayOfWeekFromIso(iso: string): number {
   return new Date(`${iso}T12:00:00`).getDay()
 }
@@ -77,7 +90,9 @@ export function obrasParaDiaCalendario(
   iso: string,
   diasPadraoAtivos: number[],
 ): ObraFull[] {
-  return obras.filter(o => obraAtivaNoDia(o, iso, diasPadraoAtivos))
+  return sortObrasPorHorarioInicio(
+    obras.filter(o => obraAtivaNoDia(o, iso, diasPadraoAtivos)),
+  )
 }
 
 /** Dia ativo no calendário: config global ou pelo menos uma obra naquele dia. */

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  listObraEvolucao, uploadObraEvolucao, deleteObraEvolucao, addEvolucaoUrls,
+  listObraEvolucao, uploadObraEvolucao, uploadObraEvolucaoObservacao, deleteObraEvolucao, addEvolucaoUrls,
   type ObraEvolucaoItem, type EvolucaoPainelItem, type EvolucaoPainelItemComUrl,
 } from '../lib/obra-evolucao'
 import type { EvolucaoItemComUrl } from '../lib/obra-evolucao'
 import { useApp } from '../context/AppContext'
+import { useAutoRefresh } from './useAutoRefresh'
 
 // ── Hook para modal de detalhe (por obra) ────────────────────
 export function useObraEvolucao(obraId: string | null) {
@@ -35,11 +36,17 @@ export function useObraEvolucao(obraId: string | null) {
   }
 
   const uploadMany = async (files: File[], observacao?: string | null) => {
-    if (!obraId || !files.length) return
+    if (!obraId) return
     setUploading(true)
     try {
-      for (const file of files) {
-        await uploadObraEvolucao(obraId, file, observacao)
+      const obs = observacao?.trim() || null
+      if (!files.length) {
+        if (!obs) return
+        await uploadObraEvolucaoObservacao(obraId, obs)
+      } else {
+        for (const file of files) {
+          await uploadObraEvolucao(obraId, file, obs)
+        }
       }
       await load()
     } finally { setUploading(false) }
@@ -99,9 +106,9 @@ export function useEvolucaoPainel(filtro: FiltroPeriodo) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!sessionReady) return
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const { inicio, fim } = getPeriodo(filtro)
@@ -114,12 +121,21 @@ export function useEvolucaoPainel(filtro: FiltroPeriodo) {
       const comUrls = await addEvolucaoUrls(items) as EvolucaoPainelItemComUrl[]
       setRaw(comUrls)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar evolução.')
-      setRaw([])
-    } finally { setLoading(false) }
+      if (!opts?.silent) {
+        setError(e instanceof Error ? e.message : 'Erro ao carregar evolução.')
+        setRaw([])
+      }
+    } finally {
+      if (!opts?.silent) setLoading(false)
+    }
   }, [sessionReady, filtro])
 
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
   useEffect(() => { void load() }, [load])
+  useAutoRefresh(silentReload)
 
   // Agrupa por obra e depois por dia
   const grupos: EvolucaoGrupoObra[] = []
