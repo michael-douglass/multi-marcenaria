@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { MOBILE_LAYOUT_MEDIA } from '@/hooks/useMobileLayout'
 import {
   applyVizScrollRatio,
   readVizScrollRatio,
@@ -15,8 +16,26 @@ function blockWheelWhileAutoScroll(event: WheelEvent) {
   event.preventDefault()
 }
 
+function blockTouchWhileAutoScroll(event: TouchEvent) {
+  event.preventDefault()
+}
+
 function getScrollRange(el: HTMLElement): number {
   return el.scrollHeight - el.clientHeight
+}
+
+function isMobileLayout(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA).matches
+}
+
+/** No mobile a página rola em .obra-layout-scroll; no desktop, no kanban-scroll-host. */
+function resolveVizScrollElement(
+  scrollHostRef: RefObject<HTMLDivElement | null>,
+): HTMLElement | null {
+  if (isMobileLayout()) {
+    return document.querySelector<HTMLElement>('.obra-layout-scroll')
+  }
+  return scrollHostRef.current
 }
 
 export function useVisualizacaoAutoScroll(
@@ -72,7 +91,7 @@ export function useVisualizacaoAutoScroll(
     }
 
     const tryBind = () => {
-      const el = scrollHostRef.current
+      const el = resolveVizScrollElement(scrollHostRef)
       if (!el) return false
       bindElement(el)
       return true
@@ -88,29 +107,37 @@ export function useVisualizacaoAutoScroll(
       })
 
       const pollTarget = scrollHostRef.current?.parentElement
+        ?? document.querySelector('.obra-layout-scroll')
       if (pollTarget) resizeObserver.observe(pollTarget)
 
       return () => {
         window.clearInterval(waitId)
         resizeObserver?.disconnect()
         detachScroll?.()
-        const el = scrollHostRef.current
+        const el = resolveVizScrollElement(scrollHostRef)
         if (el) writeVizScrollRatio(el)
       }
     }
 
     resizeObserver = new ResizeObserver(() => {
-      const el = scrollHostRef.current
+      const el = resolveVizScrollElement(scrollHostRef)
       if (el) restoreOnce(el)
     })
-    resizeObserver.observe(scrollHostRef.current)
-    const content = scrollHostRef.current.querySelector('[data-zoom-content]')
-    if (content) resizeObserver.observe(content)
+
+    const layoutScroll = document.querySelector('.obra-layout-scroll')
+    if (layoutScroll) resizeObserver.observe(layoutScroll)
+
+    const host = scrollHostRef.current
+    if (host) {
+      resizeObserver.observe(host)
+      const content = host.querySelector('[data-zoom-content]')
+      if (content) resizeObserver.observe(content)
+    }
 
     return () => {
       resizeObserver?.disconnect()
       detachScroll?.()
-      const el = scrollHostRef.current
+      const el = resolveVizScrollElement(scrollHostRef)
       if (el) writeVizScrollRatio(el)
     }
   }, [ready, scrollHostRef])
@@ -122,9 +149,16 @@ export function useVisualizacaoAutoScroll(
     let lastTime = 0
     let pauseUntil = 0
     let lastPersist = 0
-    let detachWheel: (() => void) | null = null
+    let detachInputBlock: (() => void) | null = null
 
-    const attachWheelBlock = (el: HTMLElement) => {
+    const attachInputBlock = (el: HTMLElement) => {
+      if (isMobileLayout()) {
+        el.addEventListener('touchmove', blockTouchWhileAutoScroll, { passive: false, capture: true })
+        return () => {
+          el.removeEventListener('touchmove', blockTouchWhileAutoScroll, { capture: true })
+        }
+      }
+
       el.classList.add('kanban-scroll-host--viz-autoscroll')
       el.addEventListener('wheel', blockWheelWhileAutoScroll, { passive: false, capture: true })
       return () => {
@@ -136,15 +170,15 @@ export function useVisualizacaoAutoScroll(
     const tick = (time: number) => {
       if (!enabledRef.current) return
 
-      const scrollEl = scrollHostRef.current
+      const scrollEl = resolveVizScrollElement(scrollHostRef)
       if (!scrollEl) {
         raf = requestAnimationFrame(tick)
         return
       }
 
-      if (!detachWheel) {
+      if (!detachInputBlock) {
         applyVizScrollRatio(scrollEl, readVizScrollRatio())
-        detachWheel = attachWheelBlock(scrollEl)
+        detachInputBlock = attachInputBlock(scrollEl)
       }
 
       if (!lastTime) lastTime = time
@@ -179,8 +213,8 @@ export function useVisualizacaoAutoScroll(
 
     return () => {
       cancelAnimationFrame(raf)
-      detachWheel?.()
-      const el = scrollHostRef.current
+      detachInputBlock?.()
+      const el = resolveVizScrollElement(scrollHostRef)
       if (el) writeVizScrollRatio(el)
     }
   }, [enabled, ready, scrollHostRef])

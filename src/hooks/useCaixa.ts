@@ -9,6 +9,11 @@ import type {
 } from '../types'
 import { useAuthReady } from './useAuthReady'
 
+/** Linha de reserva sem destinatário cadastrado no caixa (só dívida operacional). */
+export function isCaixaDestinatarioVirtual(destinatarioId: string): boolean {
+  return destinatarioId.startsWith('__virtual__:')
+}
+
 export function useCaixa(mes: number, ano: number) {
   const { isReady } = useAuthReady()
   const [destinatarios, setDestinatarios] = useState<CaixaDestinatario[]>([])
@@ -71,11 +76,15 @@ export function useCaixa(mes: number, ano: number) {
         .lte('data_vencimento', endOfMonthStr)
 
       // Consolidação
-      const operationalMap = new Map<string, { total: number, count: number, vencimento?: string }>()
+      const operationalMap = new Map<string, { total: number, count: number, vencimento?: string, nomeExibicao: string }>()
       contasPagar?.forEach(cp => {
         const nome = cp.fornecedor_nome?.toLowerCase().trim() || ''
         if (!nome) return
-        const entry = operationalMap.get(nome) || { total: 0, count: 0 }
+        const entry = operationalMap.get(nome) || {
+          total: 0,
+          count: 0,
+          nomeExibicao: cp.fornecedor_nome?.trim() || nome,
+        }
         entry.total += cp.valor_parcela
         entry.count += 1
         if (!entry.vencimento || cp.data_vencimento < entry.vencimento) {
@@ -107,8 +116,8 @@ export function useCaixa(mes: number, ano: number) {
       for (const [nomeKey, oper] of operationalMap) {
         if (consolidado.some(c => c.destinatario_nome.toLowerCase().trim() === nomeKey)) continue
         consolidado.push({
-          destinatario_id: '',
-          destinatario_nome: nomeKey,
+          destinatario_id: `__virtual__:${nomeKey}`,
+          destinatario_nome: oper.nomeExibicao,
           tipo_destinatario: 'marceneiro',
           data_vencimento: oper.vencimento,
           valor_total_real: oper.total,

@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 
 type Kind = 'image' | 'pdf' | 'video'
 
@@ -22,7 +23,7 @@ const MIN_SCALE = 1
 const MAX_SCALE = 5
 const ZOOM_STEP = 0.2
 
-function ZoomableImage({ src, alt }: { src: string; alt: string }) {
+function ZoomableImage({ src, alt, compact = false }: { src: string; alt: string; compact?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -90,46 +91,86 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[rgba(240,210,140,0.12)] px-4 py-2">
-        <button
-          type="button"
-          className="btn btn-outline btn-sm !px-2"
-          onClick={() => applyZoom(-ZOOM_STEP)}
-          disabled={scale <= MIN_SCALE}
-          aria-label="Diminuir zoom"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <span className="min-w-[3.5rem] text-center text-xs text-[#edd9c4]">
-          {Math.round(scale * 100)}%
-        </span>
-        <button
-          type="button"
-          className="btn btn-outline btn-sm !px-2"
-          onClick={() => applyZoom(ZOOM_STEP)}
-          disabled={scale >= MAX_SCALE}
-          aria-label="Aumentar zoom"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="btn btn-outline btn-sm !px-2"
-          onClick={resetView}
-          disabled={scale === 1 && pos.x === 0 && pos.y === 0}
-          aria-label="Redefinir zoom"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
-        <span className="hidden text-[0.65rem] text-[#d4bc9f] sm:inline">
-          Scroll ou botões para zoom · arraste para mover
-        </span>
-      </div>
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {compact ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-2">
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[rgba(240,210,140,0.2)] bg-[rgba(8,4,2,0.88)] px-2 py-1 shadow-lg backdrop-blur-sm">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm !h-8 !min-h-8 !w-8 !px-0"
+              onClick={() => applyZoom(-ZOOM_STEP)}
+              disabled={scale <= MIN_SCALE}
+              aria-label="Diminuir zoom"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <span className="min-w-[2.75rem] text-center text-[0.65rem] text-[#edd9c4]">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm !h-8 !min-h-8 !w-8 !px-0"
+              onClick={() => applyZoom(ZOOM_STEP)}
+              disabled={scale >= MAX_SCALE}
+              aria-label="Aumentar zoom"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm !h-8 !min-h-8 !w-8 !px-0"
+              onClick={resetView}
+              disabled={scale === 1 && pos.x === 0 && pos.y === 0}
+              aria-label="Redefinir zoom"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[rgba(240,210,140,0.12)] px-4 py-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm !px-2"
+            onClick={() => applyZoom(-ZOOM_STEP)}
+            disabled={scale <= MIN_SCALE}
+            aria-label="Diminuir zoom"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <span className="min-w-[3.5rem] text-center text-xs text-[#edd9c4]">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm !px-2"
+            onClick={() => applyZoom(ZOOM_STEP)}
+            disabled={scale >= MAX_SCALE}
+            aria-label="Aumentar zoom"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm !px-2"
+            onClick={resetView}
+            disabled={scale === 1 && pos.x === 0 && pos.y === 0}
+            aria-label="Redefinir zoom"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          <span className="hidden text-[0.65rem] text-[#d4bc9f] sm:inline">
+            Scroll ou botões para zoom · arraste para mover
+          </span>
+        </div>
+      )}
 
       <div
         ref={containerRef}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4 touch-none"
+        className={[
+          'flex min-h-0 flex-1 items-center justify-center overflow-hidden touch-none',
+          compact ? 'p-1 pb-14' : 'p-4',
+        ].join(' ')}
         onDoubleClick={() => (scale > 1 ? resetView() : applyZoom(ZOOM_STEP * 2))}
       >
         <img
@@ -152,7 +193,7 @@ function ZoomableImage({ src, alt }: { src: string; alt: string }) {
   )
 }
 
-function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
+function PdfPagesViewer({ pages, title, compact = false }: { pages: string[]; title: string; compact?: boolean }) {
   const [pageIndex, setPageIndex] = useState(0)
   const total = pages.length
   const currentUrl = pages[Math.min(pageIndex, total - 1)] ?? ''
@@ -174,7 +215,10 @@ function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {total > 1 && (
-        <div className="flex shrink-0 items-center justify-center gap-3 border-b border-[rgba(240,210,140,0.12)] px-4 py-2">
+        <div className={[
+          'flex shrink-0 items-center justify-center gap-3 border-b border-[rgba(240,210,140,0.12)]',
+          compact ? 'px-2 py-1' : 'px-4 py-2',
+        ].join(' ')}>
           <button
             type="button"
             className="btn btn-outline btn-sm !px-2"
@@ -198,7 +242,7 @@ function PdfPagesViewer({ pages, title }: { pages: string[]; title: string }) {
           </button>
         </div>
       )}
-      <ZoomableImage src={currentUrl} alt={`${title} — página ${pageIndex + 1}`} />
+      <ZoomableImage src={currentUrl} alt={`${title} — página ${pageIndex + 1}`} compact={compact} />
     </div>
   )
 }
@@ -214,6 +258,7 @@ export function AnexoLightbox({
   onDelete,
   deleting = false,
 }: AnexoLightboxProps) {
+  const isMobile = useMobileLayout()
   const pageUrls = pages?.length ? pages : imageUrl ? [imageUrl] : []
 
   useEffect(() => {
@@ -242,47 +287,79 @@ export function AnexoLightbox({
       aria-modal="true"
       aria-label={`Visualização: ${title}`}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(240,210,140,0.15)] px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-cream">{title}</p>
-          {description?.trim() && (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[#d4c4a8] whitespace-pre-wrap">
-              {description.trim()}
-            </p>
-          )}
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
-            {isVideo
-              ? 'Vídeo · Esc para fechar'
-              : kind === 'pdf'
-                ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
-                : 'Tela cheia · Esc para fechar'}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {onDelete && (
-            <button
-              type="button"
-              className="btn btn-danger btn-sm"
-              onClick={onDelete}
-              disabled={deleting}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {deleting ? 'Excluindo...' : 'Excluir'}
-            </button>
-          )}
+      {isMobile ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2">
+          <div className="pointer-events-auto flex min-w-0 items-center gap-1.5">
+            {onDelete ? (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm !h-9 !min-h-9 !w-9 !px-0"
+                onClick={onDelete}
+                disabled={deleting}
+                aria-label={deleting ? 'Excluindo anexo' : 'Excluir anexo'}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
           <button
             type="button"
-            className="btn btn-outline btn-sm !px-2"
+            className="pointer-events-auto btn btn-outline btn-sm !h-9 !min-h-9 !w-9 !px-0"
             onClick={onClose}
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[rgba(240,210,140,0.15)] px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-cream">{title}</p>
+            {description?.trim() && (
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[#d4c4a8] whitespace-pre-wrap">
+                {description.trim()}
+              </p>
+            )}
+            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
+              {isVideo
+                ? 'Vídeo · Esc para fechar'
+                : kind === 'pdf'
+                  ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
+                  : 'Tela cheia · Esc para fechar'}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {onDelete && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={onDelete}
+                disabled={deleting}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-outline btn-sm !px-2"
+              onClick={onClose}
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isMobile && description?.trim() ? (
+        <p className="pointer-events-none absolute bottom-14 left-0 right-0 z-10 line-clamp-2 px-3 text-center text-[0.62rem] leading-snug text-[#d4c4a8]/90">
+          {description.trim()}
+        </p>
+      ) : null}
 
       {isVideo ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        <div className={`flex min-h-0 flex-1 items-center justify-center overflow-auto ${isMobile ? 'p-2 pt-12' : 'p-4'}`}>
           <video
             src={imageUrl}
             controls
@@ -292,9 +369,9 @@ export function AnexoLightbox({
           />
         </div>
       ) : kind === 'pdf' ? (
-        <PdfPagesViewer pages={pageUrls} title={title} />
+        <PdfPagesViewer pages={pageUrls} title={title} compact={isMobile} />
       ) : (
-        <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} />
+        <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} compact={isMobile} />
       )}
     </div>,
     document.body,

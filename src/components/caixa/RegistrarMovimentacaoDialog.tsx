@@ -53,9 +53,9 @@ export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, an
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onClose={() => onOpenChange(false)}
       title="Nova Movimentação"
-      size="lg"
+      wide
     >
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">

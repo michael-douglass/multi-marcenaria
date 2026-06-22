@@ -35,9 +35,9 @@ export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDe
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onClose={() => onOpenChange(false)}
       title="Gerenciar Destinatários"
-      size="lg"
+      wide
     >
       <div className="space-y-6">
         {isAdding ? (

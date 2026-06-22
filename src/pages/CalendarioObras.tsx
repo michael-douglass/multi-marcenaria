@@ -25,7 +25,7 @@ import { isDiaAtivoNoCalendario, obrasParaDiaCalendario } from '../lib/obra-dias
 import { filtrarObrasCalendario, getStatusEfetivo } from '../lib/obra-progresso'
 import { fmtDate } from '../lib/utils'
 import { normalizeObraDate } from '../lib/date-br'
-import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '../types'
+import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra, UserRole } from '../types'
 import {
   canDeleteObras,
   canEditObras,
@@ -33,6 +33,7 @@ import {
   canEditComissao,
   canAplicarComissao,
   canViewMontadoresConclusaoObra,
+  podeExibirBotaoConcluirObra,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -238,18 +239,11 @@ function ConfigDiasPanel({
   )
 }
 
-function podeConcluirObra(obra: ObraFull): boolean {
-  return (
-    obra.status_kanban !== 'concluida' &&
-    obra.status_kanban !== 'cancelada' &&
-    !obra.finalizado_em
-  )
-}
-
 // ── Popup do dia ─────────────────────────────────────────────
 function DayPopup({
-  date, obras, onClose, onObraClick, onConcluir, canConcluir, actioning,
-  canEdit, onTogglePedidoMaterial, togglingPedidoMaterial,
+  date, obras, onClose, onObraClick, onConcluir, actioning,
+  canEdit, isMontador, montadorUserId, roles,
+  onTogglePedidoMaterial, togglingPedidoMaterial,
   onUpdateDataEntrega, updatingDataEntrega,
   prestadorId, showAllComissao, canViewMontadoresConclusao,
 }: {
@@ -258,9 +252,11 @@ function DayPopup({
   onClose: () => void
   onObraClick: (o: ObraFull) => void
   onConcluir: (id: string) => void
-  canConcluir: boolean
   actioning: string | null
   canEdit: boolean
+  isMontador: boolean
+  montadorUserId?: string | null
+  roles: UserRole[]
   onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
   togglingPedidoMaterial: string | null
   onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
@@ -300,6 +296,13 @@ function DayPopup({
             obras.map(o => {
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
               const loading = actioning === o.id
+              const mostrarConcluir = podeExibirBotaoConcluirObra({
+                obra: o,
+                roles,
+                canEdit,
+                isMontador,
+                montadorUserId,
+              })
               return (
                 <div key={o.id} className="flex flex-col gap-1.5">
                   <ObraComissaoStrip
@@ -370,7 +373,7 @@ function DayPopup({
                     />
                   </div>
 
-                  {canConcluir && podeConcluirObra(o) && (
+                  {mostrarConcluir && (
                     <div className="px-3 pb-3 pt-0">
                       <button
                         type="button"
@@ -747,7 +750,6 @@ function CalendarioObrasContent() {
     }
   }
 
-  const canConcluir = canEdit || isMontador
 
   return (
     <div
@@ -957,6 +959,14 @@ function CalendarioObrasContent() {
                 </div>
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
+                const loading = actioning === o.id
+                const mostrarConcluir = podeExibirBotaoConcluirObra({
+                  obra: o,
+                  roles,
+                  canEdit,
+                  isMontador,
+                  montadorUserId: userProfile?.id,
+                })
                 return (
                   <div key={o.id} className="flex w-full max-w-full min-w-0 flex-col gap-1.5">
                   <ObraComissaoStrip
@@ -1027,6 +1037,21 @@ function CalendarioObrasContent() {
                         onChange={data => handleUpdateDataEntrega(o, data)}
                         compact
                       />
+
+                      {mostrarConcluir && (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleConcluir(o.id)}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/35 transition-colors disabled:opacity-50"
+                        >
+                          {loading
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : <CheckCircle size={12} />
+                          }
+                          Marcar como Concluída
+                        </button>
+                      )}
                     </div>
                   </div>
                   </div>
@@ -1231,9 +1256,11 @@ function CalendarioObrasContent() {
           onClose={() => setSelectedDay(null)}
           onObraClick={o => { setSelectedDay(null); setDetalheObra(o) }}
           onConcluir={handleConcluir}
-          canConcluir={canConcluir}
           actioning={actioning}
           canEdit={canEdit}
+          isMontador={isMontador}
+          montadorUserId={userProfile?.id}
+          roles={roles}
           onTogglePedidoMaterial={handleTogglePedidoMaterial}
           togglingPedidoMaterial={togglingPedidoMaterial}
           onUpdateDataEntrega={handleUpdateDataEntrega}

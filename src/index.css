@@ -1433,12 +1433,24 @@ body {
   }
 }
 
-.obra-page-shell--visualizacao .kanban-scroll-host.kanban-scroll-host--viz-autoscroll {
-  touch-action: none;
+@media (max-width: 767px) {
+  .obra-layout-scroll--viz-autoscroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: none;
+  }
+
+  .obra-page-shell--visualizacao .kanban-scroll-host {
+    overflow-y: visible !important;
+    flex: none !important;
+    min-height: auto !important;
+  }
 }
 
-.obra-layout-scroll--viz-autoscroll {
-  overflow-y: hidden !important;
+.obra-page-shell--visualizacao .kanban-scroll-host.kanban-scroll-host--viz-autoscroll {
+  touch-action: none;
 }
 
 .obra-page-shell--visualizacao .viz-page__hero {
@@ -1629,14 +1641,19 @@ body {
 
 .viz-panel__badge {
   flex-shrink: 0;
+  box-sizing: border-box;
   min-width: 1.75rem;
   height: 1.75rem;
-  display: flex;
+  padding: 0 0.4rem;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
   color: var(--color-on-gold);
   background: var(--viz-accent);
 }

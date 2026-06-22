@@ -1,4 +1,5 @@
-import type { UserRole } from '@/types'
+import type { ObraFull, UserRole } from '@/types'
+import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from './obra-montadores'
 
 const OBRAS_MENU_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin', 'Montador']
 const OBRAS_ADMIN_SECTION_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin']
@@ -41,6 +42,53 @@ export function canEditComissao(roles: UserRole[]): boolean {
 
 export function canAplicarComissao(roles: UserRole[]): boolean {
   return canEditComissao(roles)
+}
+
+/** Obra ainda não foi concluída nem cancelada. */
+export function obraPendenteConclusao(
+  obra: Pick<ObraFull, 'status_kanban' | 'finalizado_em'>,
+): boolean {
+  return (
+    obra.status_kanban !== 'concluida' &&
+    obra.status_kanban !== 'cancelada' &&
+    !obra.finalizado_em
+  )
+}
+
+/** Administrador / Administrador Obras: pode encerrar qualquer obra em aberto. */
+export function podeAdminForcarConclusaoObra(roles: UserRole[]): boolean {
+  return canManageAllObras(roles)
+}
+
+export interface ObraConclusaoUiOpts {
+  obra: ObraFull
+  roles: UserRole[]
+  canEdit: boolean
+  isMontador: boolean
+  montadorUserId?: string | null
+}
+
+/** Exibe o botão "Concluir" conforme perfil e estágio da obra. */
+export function podeExibirBotaoConcluirObra(opts: ObraConclusaoUiOpts): boolean {
+  const { obra, roles, canEdit, isMontador, montadorUserId } = opts
+  if (!obraPendenteConclusao(obra)) return false
+
+  if (podeAdminForcarConclusaoObra(roles)) return true
+
+  const euSouMontadorNaObra =
+    !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
+  const marcacaoIndividual = isMontador || euSouMontadorNaObra
+
+  if (marcacaoIndividual) {
+    return (
+      montadorIniciouObra(obra, montadorUserId) &&
+      !montadorConcluiuObra(obra, montadorUserId)
+    )
+  }
+
+  if (canEdit && !obra.iniciado_em) return true
+
+  return false
 }
 
 /** Quem pode ver quem já marcou conclusão individual na obra. */

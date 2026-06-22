@@ -48,7 +48,9 @@ export function VisualizacaoPanel({
         {headerEnd ? (
           <div className="viz-panel__header-end">{headerEnd}</div>
         ) : badge !== undefined ? (
-          <span className="viz-panel__header-end viz-panel__badge">{badge}</span>
+          <span className="viz-panel__header-end">
+            <span className="viz-panel__badge">{badge}</span>
+          </span>
         ) : null}
       </header>
       <div className="viz-panel__body">{children}</div>

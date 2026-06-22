@@ -55,7 +55,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onClose={() => onOpenChange(false)}
       title="Registrar Pagamento"
     >
       <div className="space-y-4">

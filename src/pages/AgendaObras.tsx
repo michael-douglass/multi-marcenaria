@@ -16,7 +16,7 @@ import {
   uploadObraArquivo,
   type PendingObraArquivo,
 } from '../lib/obra-arquivos'
-import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '../lib/obra-montadores'
+import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorIniciouObra } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
@@ -42,7 +42,7 @@ import {
   kanbanColHeaderStyle,
 } from '../components/obras/obra-kanban-layout'
 import type {
-  ObraFull, ObraInput, StatusKanbanObra,
+  ObraFull, ObraInput, StatusKanbanObra, UserRole,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
 } from '../types'
 import { fmtDate } from '../lib/utils'
@@ -53,6 +53,7 @@ import {
   canManageAllObras,
   canEditComissao,
   canAplicarComissao,
+  podeExibirBotaoConcluirObra,
   canViewMontadoresConclusaoObra,
 } from '../lib/obra-permissions'
 import {
@@ -145,6 +146,7 @@ interface ObraCardProps {
   canDelete: boolean
   isMontador: boolean
   montadorUserId?: string | null
+  roles: UserRole[]
   actioning: string | null
   isDragging: boolean
   onEdit: (obra: ObraFull) => void
@@ -161,10 +163,17 @@ interface ObraCardProps {
   canViewMontadoresConclusao: boolean
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
+  const mostrarConcluir = podeExibirBotaoConcluirObra({
+    obra,
+    roles,
+    canEdit,
+    isMontador,
+    montadorUserId,
+  })
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
@@ -291,17 +300,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, action
               <span className="truncate">Iniciar</span>
             </button>
           )}
-          {marcacaoIndividual && montadorIniciouObra(obra, montadorUserId) && !montadorConcluiuObra(obra, montadorUserId) && !obra.finalizado_em && (
-            <button
-              disabled={loading}
-              onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
-              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <CheckCircle size={10} className="shrink-0" />}
-              <span className="truncate">Concluir</span>
-            </button>
-          )}
-          {canEdit && !marcacaoIndividual && !obra.finalizado_em && obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada' && !obra.iniciado_em && (
+          {mostrarConcluir && (
             <button
               disabled={loading}
               onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
@@ -1013,6 +1012,7 @@ function AgendaObrasContent() {
                           canDelete={canDelete}
                           isMontador={isMontador}
                           montadorUserId={userProfile?.id}
+                          roles={roles}
                           actioning={actioning}
                           isDragging={draggingId === obra.id}
                           onDetalhe={o => setDetalheObra(o)}

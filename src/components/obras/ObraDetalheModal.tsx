@@ -24,7 +24,7 @@ import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
-import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
+import { canViewMontadoresConclusaoObra, obraPendenteConclusao, podeAdminForcarConclusaoObra } from '@/lib/obra-permissions'
 
 const STATUS_COR: Record<StatusKanbanObra, string> = {
   datas_em_aberto: '#6b7280',
@@ -149,19 +149,18 @@ export function ObraDetalheModal({
 
   const cor = STATUS_COR[obra.status_kanban]
   const isActioning = actioning === obra.id
-  const podeConcluir =
-    obra.status_kanban !== 'concluida' &&
-    obra.status_kanban !== 'cancelada' &&
-    !obra.finalizado_em
+  const podeConcluir = obraPendenteConclusao(obra)
 
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
+  const adminForcaConclusao = podeAdminForcarConclusaoObra(roles)
 
   const euIniciei = marcacaoIndividual ? montadorIniciouObra(obra, montadorUserId) : !!obra.iniciado_em
   const euConclui = marcacaoIndividual ? montadorConcluiuObra(obra, montadorUserId) : !!obra.finalizado_em
-  const mostrarIniciar = podeConcluir && !euIniciei && (marcacaoIndividual || canEdit)
-  const mostrarConcluir = podeConcluir && !euConclui && (
-    marcacaoIndividual ? euIniciei : true
+  const mostrarIniciar = podeConcluir && !euIniciei && (marcacaoIndividual || canEdit) && !adminForcaConclusao
+  const mostrarConcluir = podeConcluir && (
+    adminForcaConclusao ||
+    (!euConclui && (marcacaoIndividual ? euIniciei : true))
   )
 
   const comissaoItens = getObraComissaoItensVisiveis(obra, {

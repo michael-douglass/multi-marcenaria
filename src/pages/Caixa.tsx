@@ -1,6 +1,6 @@
 ﻿import { useMemo, useState } from 'react'
 import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
-import { useCaixa } from '@/hooks/useCaixa'
+import { useCaixa, isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
 import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
@@ -241,12 +241,18 @@ export function Caixa({ embedded = false }: CaixaProps) {
                     reservasFiltradas.map(item => {
                       const restante = calcValorRestante(item.valor_total_real, item.total_pago)
                       const status = getStatusReserva(item.valor_total_real, item.total_pago)
+                      const virtual = isCaixaDestinatarioVirtual(item.destinatario_id)
 
                       return (
                         <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
                           <td className="px-6 py-4">
                             <div className="font-semibold text-cream">{item.destinatario_nome}</div>
-                            <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">{item.tipo_destinatario}</div>
+                            <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">
+                              {item.tipo_destinatario}
+                              {virtual && (
+                                <span className="ml-1 normal-case text-amber-400/90">· cadastre em Destinatários</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-[#d4bc9f]">
                             {item.data_vencimento ? new Date(item.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
@@ -267,7 +273,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                             {status ? <Badge status={status} /> : null}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {status !== 'pago' ? (
+                            {status !== 'pago' && !virtual ? (
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
