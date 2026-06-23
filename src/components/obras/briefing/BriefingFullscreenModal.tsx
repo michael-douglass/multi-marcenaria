@@ -122,7 +122,7 @@ export function BriefingFullscreenModal({
   if (!open || !briefing) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0d0a08]/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[380] flex flex-col bg-[#0d0a08]/95 backdrop-blur-sm">
       <header className="flex shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.18)] px-4 py-3 sm:px-6">
         <button type="button" onClick={onClose} className="btn btn-outline btn-sm shrink-0">
           <ChevronLeft size={16} />
@@ -153,7 +153,17 @@ export function BriefingFullscreenModal({
 
       <main className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          {perguntas.map((p, idx) => {
+          {perguntas.length === 0 ? (
+            <div className="glass-card p-8 text-center">
+              <p className="text-sm text-[#edd9c4]">
+                Este briefing ainda não tem perguntas cadastradas.
+              </p>
+              <p className="mt-2 text-[0.72rem] text-[#edd9c4]/70">
+                Configure o modelo em Agenda de Obras → Configurações → Briefings Pré-Obra.
+              </p>
+            </div>
+          ) : (
+          perguntas.map((p, idx) => {
             const saved = briefing.respostas?.find(r => r.pergunta_id === p.id)
             const draft = drafts[p.id]
             const resposta = saved
@@ -214,7 +224,8 @@ export function BriefingFullscreenModal({
                 />
               </div>
             )
-          })}
+          })
+          )}
         </div>
       </main>
 

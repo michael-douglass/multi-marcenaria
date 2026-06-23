@@ -95,7 +95,10 @@ export function BriefingFieldEntry({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setFullscreenId(b.id)}
+                      onClick={e => {
+                        e.stopPropagation()
+                        setFullscreenId(b.id)
+                      }}
                       className="btn btn-outline btn-sm shrink-0"
                     >
                       <ExternalLink size={12} />
