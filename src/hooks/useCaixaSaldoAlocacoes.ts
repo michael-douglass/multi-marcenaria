@@ -40,6 +40,8 @@ export function useCaixaSaldoAlocacoes(mes: number, ano: number) {
   const { isReady } = useAuthReady()
   const [alocacoes, setAlocacoes] = useState<CaixaSaldoAlocacao[]>([])
   const [contasGlobais, setContasGlobais] = useState<ContaSaldoAgrupada[]>([])
+  const [saldoSistemaGlobal, setSaldoSistemaGlobal] = useState(0)
+  const [totalPagoSistemaGlobal, setTotalPagoSistemaGlobal] = useState(0)
   const [saldoDisponivel, setSaldoDisponivel] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadingGlobal, setLoadingGlobal] = useState(true)
@@ -50,12 +52,25 @@ export function useCaixaSaldoAlocacoes(mes: number, ano: number) {
 
     setLoadingGlobal(true)
     try {
-      const { data, error: globalErr } = await supabase
-        .from('movelaria_caixa_saldo_alocacoes')
-        .select('descricao, valor')
+      const [alocRes, saldoRes] = await Promise.all([
+        supabase
+          .from('movelaria_caixa_saldo_alocacoes')
+          .select('descricao, valor'),
+        supabase
+          .from('movelaria_caixa_saldo_acumulado')
+          .select('saldo, total_pago'),
+      ])
 
-      if (globalErr) throw globalErr
-      setContasGlobais(agruparContasSaldoPorNome((data as CaixaSaldoAlocacao[]) ?? []))
+      if (alocRes.error) throw alocRes.error
+      if (saldoRes.error) throw saldoRes.error
+
+      setContasGlobais(agruparContasSaldoPorNome((alocRes.data as CaixaSaldoAlocacao[]) ?? []))
+      setSaldoSistemaGlobal(
+        (saldoRes.data ?? []).reduce((acc, row) => acc + (Number(row.saldo) || 0), 0),
+      )
+      setTotalPagoSistemaGlobal(
+        (saldoRes.data ?? []).reduce((acc, row) => acc + (Number(row.total_pago) || 0), 0),
+      )
     } catch (err) {
       console.error('[useCaixaSaldoAlocacoes] global', err)
     } finally {
@@ -160,6 +175,8 @@ export function useCaixaSaldoAlocacoes(mes: number, ano: number) {
     alocacoes,
     contasGlobais,
     totalGlobalContas,
+    saldoSistemaGlobal,
+    totalPagoSistemaGlobal,
     saldoDisponivel,
     totalAlocado,
     diferenca,
