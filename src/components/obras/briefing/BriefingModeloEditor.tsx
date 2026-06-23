@@ -31,12 +31,20 @@ const BLANK_PERGUNTA: BriefingPerguntaInput = {
 interface BriefingModeloEditorProps {
   modelos: BriefingModelo[]
   hook: ReturnType<typeof useBriefingModelos>
+  canEdit?: boolean
   canDelete: boolean
   loading?: boolean
   error?: string | null
 }
 
-export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error }: BriefingModeloEditorProps) {
+export function BriefingModeloEditor({
+  modelos,
+  hook,
+  canEdit = true,
+  canDelete,
+  loading,
+  error,
+}: BriefingModeloEditorProps) {
   const [modeloForm, setModeloForm] = useState(BLANK_MODELO)
   const [modeloEdit, setModeloEdit] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -44,26 +52,37 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
   const [perguntaEdit, setPerguntaEdit] = useState<string | null>(null)
   const [opcoesText, setOpcoesText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const expanded = modelos.find(m => m.id === expandedId)
 
-  const saveModelo = async () => {
-    if (!modeloForm.nome.trim()) return
+  const runAction = async (action: () => Promise<void>) => {
+    setActionError(null)
     setSaving(true)
     try {
-      if (modeloEdit) await hook.update(modeloEdit, modeloForm)
-      else await hook.create(modeloForm)
-      setModeloForm(BLANK_MODELO)
-      setModeloEdit(null)
+      await action()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Não foi possível salvar as alterações.'
+      setActionError(message)
+      console.error('[BriefingModeloEditor]', err)
     } finally {
       setSaving(false)
     }
   }
 
+  const saveModelo = async () => {
+    if (!canEdit || !modeloForm.nome.trim()) return
+    await runAction(async () => {
+      if (modeloEdit) await hook.update(modeloEdit, modeloForm)
+      else await hook.create(modeloForm)
+      setModeloForm(BLANK_MODELO)
+      setModeloEdit(null)
+    })
+  }
+
   const savePergunta = async () => {
-    if (!expandedId || !perguntaForm.enunciado.trim()) return
-    setSaving(true)
-    try {
+    if (!canEdit || !expandedId || !perguntaForm.enunciado.trim()) return
+    await runAction(async () => {
       const opcoes = perguntaForm.tipo === 'multipla_escolha'
         ? opcoesText.split('\n').filter(Boolean).map(label => ({
           id: label.toLowerCase().replace(/\s+/g, '_'),
@@ -83,9 +102,7 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
       setPerguntaForm(BLANK_PERGUNTA)
       setPerguntaEdit(null)
       setOpcoesText('')
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   const editPergunta = (p: NonNullable<BriefingModelo['perguntas']>[number]) => {
@@ -105,11 +122,14 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
   }
 
   const movePergunta = async (modeloId: string, perguntas: NonNullable<BriefingModelo['perguntas']>, idx: number, dir: -1 | 1) => {
+    if (!canEdit) return
     const next = idx + dir
     if (next < 0 || next >= perguntas.length) return
     const ids = perguntas.map(p => p.id)
     ;[ids[idx], ids[next]] = [ids[next], ids[idx]]
-    await hook.reorderPerguntas(modeloId, ids)
+    await runAction(async () => {
+      await hook.reorderPerguntas(modeloId, ids)
+    })
   }
 
   return (
@@ -126,6 +146,12 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
       {error && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
+        </p>
+      )}
+
+      {actionError && (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          {actionError}
         </p>
       )}
 
@@ -153,29 +179,35 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
                 </div>
               </button>
               <div className="flex shrink-0 gap-1">
-                <button
-                  type="button"
-                  title="Duplicar"
-                  onClick={() => void hook.duplicate(m)}
-                  className="p-1 text-[#edd9c4] hover:text-[#f2d892]"
-                >
-                  <Copy size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModeloEdit(m.id)
-                    setModeloForm({ nome: m.nome, descricao: m.descricao ?? '', ordem: m.ordem, ativo: m.ativo })
-                    setExpandedId(m.id)
-                  }}
-                  className="p-1 text-[#edd9c4] hover:text-[#f2d892]"
-                >
-                  <Pencil size={12} />
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      title="Duplicar"
+                      onClick={() => void runAction(async () => { await hook.duplicate(m) })}
+                      className="p-1 text-[#edd9c4] hover:text-[#f2d892]"
+                    >
+                      <Copy size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar ambiente"
+                      onClick={() => {
+                        setModeloEdit(m.id)
+                        setModeloForm({ nome: m.nome, descricao: m.descricao ?? '', ordem: m.ordem, ativo: m.ativo })
+                        setExpandedId(m.id)
+                      }}
+                      className="p-1 text-[#edd9c4] hover:text-[#f2d892]"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  </>
+                )}
                 {canDelete && (
                   <button
                     type="button"
-                    onClick={() => void hook.remove(m.id)}
+                    title="Excluir ambiente"
+                    onClick={() => void runAction(async () => { await hook.remove(m.id) })}
                     className="p-1 text-[#edd9c4] hover:text-red-400"
                   >
                     <Trash2 size={12} />
@@ -203,15 +235,25 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
                         {p.obrigatoria && ' · Obrigatória'}
                       </p>
                     </div>
-                    <button type="button" onClick={() => editPergunta(p)} className="p-1 text-[#edd9c4] hover:text-[#f2d892]">
-                      <Pencil size={12} />
-                    </button>
-                    <button type="button" onClick={() => void hook.removePergunta(p.id)} className="p-1 text-[#edd9c4] hover:text-red-400">
-                      <X size={12} />
-                    </button>
+                    {canEdit && (
+                      <>
+                        <button type="button" title="Editar pergunta" onClick={() => editPergunta(p)} className="p-1 text-[#edd9c4] hover:text-[#f2d892]">
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Excluir pergunta"
+                          onClick={() => void runAction(async () => { await hook.removePergunta(p.id) })}
+                          className="p-1 text-[#edd9c4] hover:text-red-400"
+                        >
+                          <X size={12} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
 
+                {canEdit && (
                 <div className="space-y-2 rounded-lg bg-[rgba(0,0,0,0.15)] p-3">
                   <p className="flex items-center gap-1 text-[0.72rem] text-[#f2d892]">
                     <Plus size={12} />
@@ -274,12 +316,14 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
                     )}
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
         ))}
       </div>
 
+      {canEdit && (
       <div className="space-y-3 rounded-lg border border-[rgba(240,210,140,0.12)] p-3">
         <p className="text-[0.72rem] uppercase tracking-wider text-[#edd9c4]">Novo modelo de ambiente</p>
         <Field label="Nome do ambiente *">
@@ -312,6 +356,7 @@ export function BriefingModeloEditor({ modelos, hook, canDelete, loading, error 
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

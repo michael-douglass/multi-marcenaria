@@ -408,6 +408,7 @@ function ConfigModal({
         <BriefingModeloEditor
           modelos={briefingHook.data}
           hook={briefingHook}
+          canEdit={canEditBriefings}
           canDelete={canDeleteBriefings}
           loading={briefingHook.loading}
           error={briefingHook.error}

@@ -116,17 +116,28 @@ export function useBriefingModelos() {
   }
 
   const update = async (id: string, input: Partial<BriefingModeloInput>) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('movelaria_briefing_modelos')
       .update(input)
       .eq('id', id)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) {
+      throw new Error('Sem permissão para editar este ambiente de briefing.')
+    }
     await load()
   }
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('movelaria_briefing_modelos').delete().eq('id', id)
+    const { data, error } = await supabase
+      .from('movelaria_briefing_modelos')
+      .delete()
+      .eq('id', id)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) {
+      throw new Error('Sem permissão para excluir este ambiente de briefing.')
+    }
     setData(prev => prev.filter(m => m.id !== id))
   }
 
@@ -157,36 +168,60 @@ export function useBriefingModelos() {
   }
 
   const createPergunta = async (input: BriefingPerguntaInput) => {
-    const { error } = await supabase.from('movelaria_briefing_perguntas').insert(input)
+    const { data, error } = await supabase
+      .from('movelaria_briefing_perguntas')
+      .insert(input)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) {
+      throw new Error('Sem permissão para adicionar perguntas ao briefing.')
+    }
     await load()
   }
 
   const updatePergunta = async (id: string, input: Partial<BriefingPerguntaInput>) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('movelaria_briefing_perguntas')
       .update(input)
       .eq('id', id)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) {
+      throw new Error('Sem permissão para editar esta pergunta do briefing.')
+    }
     await load()
   }
 
   const removePergunta = async (id: string) => {
-    const { error } = await supabase.from('movelaria_briefing_perguntas').delete().eq('id', id)
+    const { data, error } = await supabase
+      .from('movelaria_briefing_perguntas')
+      .delete()
+      .eq('id', id)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!data?.length) {
+      throw new Error('Sem permissão para excluir esta pergunta do briefing.')
+    }
     await load()
   }
 
   const reorderPerguntas = async (modeloId: string, orderedIds: string[]) => {
-    await Promise.all(
+    const results = await Promise.all(
       orderedIds.map((id, idx) =>
         supabase
           .from('movelaria_briefing_perguntas')
           .update({ ordem: idx + 1 })
           .eq('id', id)
-          .eq('modelo_id', modeloId),
+          .eq('modelo_id', modeloId)
+          .select('id'),
       ),
     )
+    for (const result of results) {
+      if (result.error) throw new Error(result.error.message)
+      if (!result.data?.length) {
+        throw new Error('Sem permissão para reordenar perguntas do briefing.')
+      }
+    }
     await load()
   }
 
