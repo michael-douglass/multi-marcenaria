@@ -46,6 +46,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Bundle principal (~2.1 MB) + pdf.worker; limite padrão do Workbox é 2 MiB.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
