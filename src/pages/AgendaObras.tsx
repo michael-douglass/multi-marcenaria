@@ -10,6 +10,9 @@ import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { BriefingModeloEditor } from '../components/obras/briefing/BriefingModeloEditor'
+import { ObraBriefingSection } from '../components/obras/briefing/ObraBriefingSection'
+import { useBriefingModelos } from '../hooks/useBriefingModelos'
 import {
   buildPendingObraArquivo,
   revokePendingObraArquivoUrl,
@@ -48,6 +51,11 @@ import type {
 import { fmtDate } from '../lib/utils'
 import {
   canConfigObrasTiposGrupos,
+  canConfigBriefingTemplates,
+  canDeleteBriefingTemplates,
+  canOpenAgendaConfig,
+  canEditObraBriefing,
+  canViewObraBriefing,
   canDeleteObras,
   canEditObras,
   canManageAllObras,
@@ -334,6 +342,7 @@ const ObraModal = ObraFormModal
 // ── Modal Configurações (tipos e grupos) ─────────────────────
 function ConfigModal({
   open, onClose, tipos, grupos, montadores, tiposHook, gruposHook,
+  briefingHook, canEditTiposGrupos, canEditBriefings, canDeleteBriefings,
 }: {
   open: boolean
   onClose: () => void
@@ -342,13 +351,24 @@ function ConfigModal({
   montadores: { id: string; nome?: string | null; email: string }[]
   tiposHook: ReturnType<typeof useTiposObra>
   gruposHook: ReturnType<typeof useGruposObra>
+  briefingHook: ReturnType<typeof useBriefingModelos>
+  canEditTiposGrupos: boolean
+  canEditBriefings: boolean
+  canDeleteBriefings: boolean
 }) {
-  const [tab, setTab] = useState<'tipos' | 'grupos'>('tipos')
+  const defaultTab = canEditTiposGrupos ? 'tipos' : 'briefings'
+  const [tab, setTab] = useState<'tipos' | 'grupos' | 'briefings'>(defaultTab)
   const [tipoForm, setTipoForm] = useState<TipoObraInput>(BLANK_TIPO)
   const [tipoEdit, setTipoEdit] = useState<string | null>(null)
   const [grupoForm, setGrupoForm] = useState<GrupoObraInput>(BLANK_GRUPO)
   const [grupoEdit, setGrupoEdit] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open && canEditBriefings) {
+      void briefingHook.reload()
+    }
+  }, [open, canEditBriefings, briefingHook.reload])
 
   const saveTipo = async () => {
     if (!tipoForm.nome.trim()) return
@@ -371,13 +391,30 @@ function ConfigModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="CONFIGURAÇÕES DE OBRAS">
-      <div className="flex gap-2 mb-4">
-        <button onClick={() => setTab('tipos')} className={`btn btn-md ${tab === 'tipos' ? 'btn-gold' : 'btn-outline'}`}>Tipos de Obra</button>
-        <button onClick={() => setTab('grupos')} className={`btn btn-md ${tab === 'grupos' ? 'btn-gold' : 'btn-outline'}`}>Grupos de Obra</button>
+    <Modal open={open} onClose={onClose} title="CONFIGURAÇÕES DE OBRAS" wide>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {canEditTiposGrupos && (
+          <>
+            <button onClick={() => setTab('tipos')} className={`btn btn-md ${tab === 'tipos' ? 'btn-gold' : 'btn-outline'}`}>Tipos de Obra</button>
+            <button onClick={() => setTab('grupos')} className={`btn btn-md ${tab === 'grupos' ? 'btn-gold' : 'btn-outline'}`}>Grupos de Obra</button>
+          </>
+        )}
+        {canEditBriefings && (
+          <button onClick={() => setTab('briefings')} className={`btn btn-md ${tab === 'briefings' ? 'btn-gold' : 'btn-outline'}`}>Briefings Pré-Obra</button>
+        )}
       </div>
 
-      {tab === 'tipos' && (
+      {tab === 'briefings' && canEditBriefings && (
+        <BriefingModeloEditor
+          modelos={briefingHook.data}
+          hook={briefingHook}
+          canDelete={canDeleteBriefings}
+          loading={briefingHook.loading}
+          error={briefingHook.error}
+        />
+      )}
+
+      {tab === 'tipos' && canEditTiposGrupos && (
         <div className="space-y-3">
           <Field label="Nome *">
             <input className="glass-input" value={tipoForm.nome} onChange={e => setTipoForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Montagem Completa" />
@@ -411,7 +448,7 @@ function ConfigModal({
         </div>
       )}
 
-      {tab === 'grupos' && (
+      {tab === 'grupos' && canEditTiposGrupos && (
         <div className="space-y-3">
           <Field label="Nome *">
             <input className="glass-input" value={grupoForm.nome} onChange={e => setGrupoForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Grupo Zona Sul" />
@@ -457,13 +494,19 @@ function AgendaObrasContent() {
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
   const gruposHook = useGruposObra()
+  const briefingHook = useBriefingModelos()
 
   const isMontadorAdmin = roles.includes('MontadorAdmin')
   const isMontador = roles.includes('Montador') && !isMontadorAdmin
   const canEdit = canEditObras(roles)
   const canEditMontador = canEdit
   const canEditDates = canEdit
-  const canConfig = canConfigObrasTiposGrupos(roles)
+  const canConfigTiposGrupos = canConfigObrasTiposGrupos(roles)
+  const canConfigBriefings = canConfigBriefingTemplates(roles)
+  const canConfig = canOpenAgendaConfig(roles)
+  const canEditBriefing = canEditObraBriefing(roles)
+  const canViewBriefing = canViewObraBriefing(roles)
+  const canDeleteBriefingModelos = canDeleteBriefingTemplates(roles)
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
@@ -1063,6 +1106,8 @@ function AgendaObrasContent() {
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
         onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
         updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
+        canViewBriefing={canViewBriefing}
+        canEditBriefing={canEditBriefing}
       />
 
       {/* Modal obra (edição) */}
@@ -1086,6 +1131,14 @@ function AgendaObrasContent() {
         onRemoveFile={handleRemoveFile}
         isDraftRestored={draftRestored}
         onClearDraft={clearDraft}
+        obraBriefingSection={
+          canViewBriefing ? (
+            <ObraBriefingSection
+              obraId={editObra?.id ?? null}
+              canEdit={canEditBriefing}
+            />
+          ) : null
+        }
       />
 
       {/* Modal configurações */}
@@ -1098,6 +1151,10 @@ function AgendaObrasContent() {
           montadores={gruposHook.montadores}
           tiposHook={tiposHook}
           gruposHook={gruposHook}
+          briefingHook={briefingHook}
+          canEditTiposGrupos={canConfigTiposGrupos}
+          canEditBriefings={canConfigBriefings}
+          canDeleteBriefings={canDeleteBriefingModelos}
         />
       )}
     </div>

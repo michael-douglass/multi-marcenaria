@@ -32,6 +32,26 @@ export function canConfigObrasTiposGrupos(roles: UserRole[]): boolean {
   return canManageAllObras(roles)
 }
 
+export function canViewObraBriefing(roles: UserRole[]): boolean {
+  return hasObrasMenuAccess(roles) || roles.includes('Financeiro') || roles.includes('Visualizador')
+}
+
+export function canEditObraBriefing(roles: UserRole[]): boolean {
+  return canManageAllObras(roles) || roles.includes('MontadorAdmin')
+}
+
+export function canConfigBriefingTemplates(roles: UserRole[]): boolean {
+  return canEditObraBriefing(roles)
+}
+
+export function canDeleteBriefingTemplates(roles: UserRole[]): boolean {
+  return canManageAllObras(roles)
+}
+
+export function canOpenAgendaConfig(roles: UserRole[]): boolean {
+  return canConfigObrasTiposGrupos(roles) || canConfigBriefingTemplates(roles)
+}
+
 export function canEditComissao(roles: UserRole[]): boolean {
   return (
     roles.includes('Administrador')

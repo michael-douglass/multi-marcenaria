@@ -379,6 +379,96 @@ export interface TipoObra {
 
 export type TipoObraInput = Omit<TipoObra, 'id' | 'criado_em' | 'atualizado_em'>
 
+export type BriefingPerguntaTipo =
+  | 'texto'
+  | 'numero'
+  | 'multipla_escolha'
+  | 'desenho'
+  | 'fotos'
+  | 'videos'
+  | 'pdf'
+
+export type BriefingStatus = 'rascunho' | 'concluido'
+
+export interface BriefingOpcao {
+  id: string
+  label: string
+}
+
+export interface BriefingModelo {
+  id: string
+  nome: string
+  descricao?: string | null
+  ordem: number
+  ativo: boolean
+  criado_por?: string | null
+  criado_em?: string
+  atualizado_em?: string
+  perguntas?: BriefingPergunta[]
+}
+
+export type BriefingModeloInput = Omit<BriefingModelo, 'id' | 'criado_em' | 'atualizado_em' | 'perguntas'>
+
+export interface BriefingPergunta {
+  id: string
+  modelo_id: string
+  enunciado: string
+  tipo: BriefingPerguntaTipo
+  opcoes?: BriefingOpcao[] | null
+  obrigatoria: boolean
+  texto_ajuda?: string | null
+  unidade_padrao?: string | null
+  ordem: number
+  ativo: boolean
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export type BriefingPerguntaInput = Omit<BriefingPergunta, 'id' | 'criado_em' | 'atualizado_em'>
+
+export interface ObraBriefing {
+  id: string
+  obra_id: string
+  modelo_id: string
+  modelo_nome?: string
+  status: BriefingStatus
+  preenchido_por?: string | null
+  criado_em?: string
+  atualizado_em?: string
+  perguntas?: BriefingPergunta[]
+  respostas?: ObraBriefingResposta[]
+}
+
+export interface ObraBriefingResposta {
+  id: string
+  obra_briefing_id: string
+  pergunta_id: string
+  valor_texto?: string | null
+  valor_numero?: number | null
+  unidade?: string | null
+  valor_opcoes?: string[] | null
+  criado_em?: string
+  atualizado_em?: string
+  anexos?: ObraBriefingAnexo[]
+}
+
+export interface ObraBriefingAnexo {
+  id: string
+  resposta_id: string
+  nome_arquivo: string
+  tipo_mime: string
+  kind: 'image' | 'pdf' | 'video' | 'drawing'
+  storage_path: string
+  preview_path?: string | null
+  preview_paths?: string[] | null
+  ordem: number
+  criado_por?: string | null
+  criado_em?: string
+  signedUrl?: string | null
+  previewSignedUrl?: string | null
+  previewSignedUrls?: string[] | null
+}
+
 export interface UsuarioMontador {
   id: string
   email: string

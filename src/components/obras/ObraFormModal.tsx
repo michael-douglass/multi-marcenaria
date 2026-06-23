@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+﻿import { useRef, useState, type ReactNode } from 'react'
 import { Upload, Clock } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
@@ -46,6 +46,7 @@ interface ObraFormModalProps {
   // rascunho
   isDraftRestored?: boolean
   onClearDraft?: () => void
+  obraBriefingSection?: ReactNode
 }
 
 export function ObraFormModal({
@@ -53,6 +54,7 @@ export function ObraFormModal({
   tipos, grupos, montadores, canEditDates, canEditMontador, isAdmin, canEditComissao = false,
   pendingFiles, onAddFiles, onRemoveFile,
   isDraftRestored, onClearDraft,
+  obraBriefingSection,
 }: ObraFormModalProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [previewFile, setPreviewFile] = useState<PendingObraArquivo | null>(null)
@@ -103,6 +105,8 @@ export function ObraFormModal({
           placeholder="Descreva detalhes do projeto, materiais, observações importantes para os montadores..."
         />
       </Field>
+
+      {obraBriefingSection}
 
       {isAdmin && (
         <>

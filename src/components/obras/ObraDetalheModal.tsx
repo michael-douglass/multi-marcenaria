@@ -22,6 +22,7 @@ import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
 import type { ObraFull, StatusKanbanObra } from '@/types'
 import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
+import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import { canViewMontadoresConclusaoObra, obraPendenteConclusao, podeAdminForcarConclusaoObra } from '@/lib/obra-permissions'
@@ -67,6 +68,8 @@ interface Props {
   updatingDataEntrega?: boolean
   onUpdateNumeroPedidoCortClaud?: (obra: ObraFull, numero: string | null) => void
   updatingNumeroPedidoCortClaud?: boolean
+  canViewBriefing?: boolean
+  canEditBriefing?: boolean
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -86,6 +89,7 @@ export function ObraDetalheModal({
   prestadorId, showAllComissao = false,
   onUpdateDataEntrega, updatingDataEntrega = false,
   onUpdateNumeroPedidoCortClaud, updatingNumeroPedidoCortClaud = false,
+  canViewBriefing = false, canEditBriefing = false,
 }: Props) {
   const { roles } = useApp()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
@@ -235,6 +239,12 @@ export function ObraDetalheModal({
               </p>
             </div>
             <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.descricao}</p>
+          </div>
+        )}
+
+        {canViewBriefing && (
+          <div className="mb-5">
+            <ObraBriefingSection obraId={obra.id} canEdit={canEditBriefing} />
           </div>
         )}
 

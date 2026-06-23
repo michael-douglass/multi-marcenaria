@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
+import { ObraBriefingSection } from '../components/obras/briefing/ObraBriefingSection'
 import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
@@ -34,6 +35,8 @@ import {
   canAplicarComissao,
   canViewMontadoresConclusaoObra,
   podeExibirBotaoConcluirObra,
+  canViewObraBriefing,
+  canEditObraBriefing,
 } from '../lib/obra-permissions'
 import {
   KanbanPageZoomControls,
@@ -423,6 +426,8 @@ function CalendarioObrasContent() {
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
+  const canViewBriefing = canViewObraBriefing(roles)
+  const canEditBriefing = canEditObraBriefing(roles)
 
   const hojeISO = toISO(new Date())
 
@@ -1295,6 +1300,8 @@ function CalendarioObrasContent() {
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
         onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
         updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
+        canViewBriefing={canViewBriefing}
+        canEditBriefing={canEditBriefing}
       />
 
       {/* Modal edição */}
@@ -1317,6 +1324,14 @@ function CalendarioObrasContent() {
           pendingFiles={[]}
           onAddFiles={() => {}}
           onRemoveFile={() => {}}
+          obraBriefingSection={
+            canViewBriefing ? (
+              <ObraBriefingSection
+                obraId={editObra?.id ?? null}
+                canEdit={canEditBriefing}
+              />
+            ) : null
+          }
         />
       )}
 

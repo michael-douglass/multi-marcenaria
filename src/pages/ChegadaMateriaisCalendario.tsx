@@ -6,11 +6,12 @@ import { useGruposObra } from '@/hooks/useGruposObra'
 import { useApp } from '@/context/AppContext'
 import { ObraDetalheModal } from '@/components/obras/ObraDetalheModal'
 import { ObraFormModal } from '@/components/obras/ObraFormModal'
+import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { ObraPageHeader } from '@/components/obras/ObraPageHeader'
 import { ChegadaMaterialCalendario } from '@/components/obras/ChegadaMaterialCalendario'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { KanbanPageToolbar, PageZoomProvider } from '@/components/page-zoom'
-import { canEditObras, canDeleteObras } from '@/lib/obra-permissions'
+import { canEditObras, canDeleteObras, canViewObraBriefing, canEditObraBriefing } from '@/lib/obra-permissions'
 import type { ObraFull, ObraInput } from '@/types'
 
 const BLANK_OBRA: ObraInput = {
@@ -37,6 +38,8 @@ function ChegadaMateriaisCalendarioContent() {
   const gruposHook = useGruposObra()
   const canEdit = canEditObras(roles)
   const canDelete = canDeleteObras(roles)
+  const canViewBriefing = canViewObraBriefing(roles)
+  const canEditBriefing = canEditObraBriefing(roles)
 
   const [viewDate, setViewDate] = useState(() => new Date())
   const [busca, setBusca] = useState('')
@@ -221,6 +224,8 @@ function ChegadaMateriaisCalendarioContent() {
         showAllComissao
         onUpdateDataEntrega={handleUpdateDataEntrega}
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
+        canViewBriefing={canViewBriefing}
+        canEditBriefing={canEditBriefing}
       />
 
       <ObraFormModal
@@ -241,6 +246,14 @@ function ChegadaMateriaisCalendarioContent() {
         pendingFiles={[]}
         onAddFiles={() => {}}
         onRemoveFile={() => {}}
+        obraBriefingSection={
+          canViewBriefing ? (
+            <ObraBriefingSection
+              obraId={editObra?.id ?? null}
+              canEdit={canEditBriefing}
+            />
+          ) : null
+        }
       />
     </div>
   )
