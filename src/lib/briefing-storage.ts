@@ -190,6 +190,16 @@ export async function deleteBriefingAnexo(anexo: ObraBriefingAnexo): Promise<voi
   if (error) throw new Error(error.message)
 }
 
+export async function replaceBriefingDrawingFile(
+  anexo: ObraBriefingAnexo,
+  file: File,
+): Promise<void> {
+  const { error } = await supabase.storage
+    .from(BRIEFING_BUCKET)
+    .upload(anexo.storage_path, file, { contentType: file.type || 'image/png', upsert: true })
+  if (error) throw new Error(error.message)
+}
+
 export async function getBriefingAnexoUrl(path: string, expiresIn = 3600): Promise<string> {
   const { data, error } = await supabase.storage
     .from(BRIEFING_BUCKET)

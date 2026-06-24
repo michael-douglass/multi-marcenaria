@@ -17,3 +17,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
   },
 })
+
+/** Remove sessão salva no navegador sem chamar o servidor (útil após erro 429). */
+export async function clearLocalAuthSession(): Promise<void> {
+  await supabase.auth.signOut({ scope: 'local' })
+}

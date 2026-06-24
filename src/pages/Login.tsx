@@ -1,5 +1,5 @@
 ﻿import { useState, FormEvent } from 'react'
-import { supabase } from '@/lib/supabase'
+import { clearLocalAuthSession, supabase } from '@/lib/supabase'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
@@ -8,6 +8,17 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [clearingSession, setClearingSession] = useState(false)
+
+  function authErrorMessage(message: string, status?: number): string {
+    if (status === 429 || /rate limit|too many requests|429/i.test(message)) {
+      return 'Muitas tentativas em pouco tempo. Aguarde cerca de 15 minutos, feche outras abas do sistema e tente novamente.'
+    }
+    if (message === 'Invalid login credentials') {
+      return 'E-mail ou senha incorretos.'
+    }
+    return message
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -17,13 +28,21 @@ export function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'E-mail ou senha incorretos.'
-          : error.message
-      )
+      setError(authErrorMessage(error.message, error.status))
     }
     setLoading(false)
+  }
+
+  async function handleClearSession() {
+    setClearingSession(true)
+    setError(null)
+    try {
+      await clearLocalAuthSession()
+      window.location.reload()
+    } catch {
+      setError('Não foi possível limpar a sessão. Tente fechar o navegador e abrir de novo.')
+      setClearingSession(false)
+    }
   }
 
   return (
@@ -178,7 +197,7 @@ export function Login() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || clearingSession}
             style={{
               marginTop: '.1rem',
               width: '100%',
@@ -191,11 +210,32 @@ export function Login() {
               fontWeight: 700,
               fontFamily: 'Raleway, sans-serif',
               letterSpacing: '.06em',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: loading || clearingSession ? 'not-allowed' : 'pointer',
               transition: 'opacity .15s',
             }}
           >
             {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleClearSession()}
+            disabled={loading || clearingSession}
+            style={{
+              marginTop: '.25rem',
+              width: '100%',
+              padding: '.45rem .75rem',
+              background: 'transparent',
+              color: 'rgba(240,210,140,.55)',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '.72rem',
+              fontFamily: 'Raleway, sans-serif',
+              cursor: loading || clearingSession ? 'not-allowed' : 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            {clearingSession ? 'Limpando sessão...' : 'Problemas para entrar? Limpar sessão antiga'}
           </button>
         </form>
       </div>

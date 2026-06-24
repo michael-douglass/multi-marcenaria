@@ -19,6 +19,7 @@ interface BriefingFieldEntryProps {
   onSaveDraft: (briefingId: string, drafts: BriefingRespostaDraft[]) => Promise<void>
   onConcluir: (briefingId: string) => Promise<void>
   onUploadFiles: (briefingId: string, perguntaId: string, files: File[]) => Promise<void>
+  onReplaceDrawing: (briefingId: string, perguntaId: string, blob: Blob) => Promise<void>
   onRemoveAnexo: (anexo: ObraBriefingAnexo) => Promise<void>
 }
 
@@ -34,6 +35,7 @@ export function BriefingFieldEntry({
   onSaveDraft,
   onConcluir,
   onUploadFiles,
+  onReplaceDrawing,
   onRemoveAnexo,
 }: BriefingFieldEntryProps) {
   const [fullscreenId, setFullscreenId] = useState<string | null>(null)
@@ -121,6 +123,9 @@ export function BriefingFieldEntry({
         onConcluir={() => activeBriefing ? onConcluir(activeBriefing.id) : Promise.resolve()}
         onUploadFiles={(perguntaId, files) =>
           activeBriefing ? onUploadFiles(activeBriefing.id, perguntaId, files) : Promise.resolve()
+        }
+        onReplaceDrawing={(perguntaId, blob) =>
+          activeBriefing ? onReplaceDrawing(activeBriefing.id, perguntaId, blob) : Promise.resolve()
         }
         onRemoveAnexo={onRemoveAnexo}
       />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { BriefingFieldEntry } from '@/components/obras/briefing/BriefingFieldEntry'
-import { buildPendingBriefingAnexo, revokePendingBriefingAnexo } from '@/lib/briefing-storage'
+import { buildPendingBriefingAnexo, buildPendingDrawingAnexo, revokePendingBriefingAnexo } from '@/lib/briefing-storage'
 import { useBriefingModelos } from '@/hooks/useBriefingModelos'
 import { useObraBriefing, type BriefingRespostaDraft } from '@/hooks/useObraBriefing'
 
@@ -15,10 +15,11 @@ export function ObraBriefingSection({ obraId, canEdit }: ObraBriefingSectionProp
     briefings,
     loading,
     linkModelos,
-    upsertResposta,
     uploadAnexo,
+    replaceDrawingAnexo,
     removeAnexo,
     setStatus,
+    upsertRespostasBatch,
   } = useObraBriefing(obraId)
 
   useEffect(() => {
@@ -28,9 +29,9 @@ export function ObraBriefingSection({ obraId, canEdit }: ObraBriefingSectionProp
   }, [obraId, modelosHook.reload])
 
   const handleSaveDraft = useCallback(async (briefingId: string, drafts: BriefingRespostaDraft[]) => {
-    await Promise.all(drafts.map(d => upsertResposta(briefingId, d)))
+    await upsertRespostasBatch(briefingId, drafts)
     await setStatus(briefingId, 'rascunho')
-  }, [upsertResposta, setStatus])
+  }, [upsertRespostasBatch, setStatus])
 
   const handleConcluir = useCallback(async (briefingId: string) => {
     await setStatus(briefingId, 'concluido')
@@ -55,6 +56,15 @@ export function ObraBriefingSection({ obraId, canEdit }: ObraBriefingSectionProp
     }
   }, [linkModelos])
 
+  const handleReplaceDrawing = useCallback(async (briefingId: string, perguntaId: string, blob: Blob) => {
+    const pending = buildPendingDrawingAnexo(blob)
+    try {
+      await replaceDrawingAnexo(briefingId, perguntaId, pending)
+    } finally {
+      revokePendingBriefingAnexo(pending)
+    }
+  }, [replaceDrawingAnexo])
+
   return (
     <BriefingFieldEntry
       obraId={obraId}
@@ -68,6 +78,7 @@ export function ObraBriefingSection({ obraId, canEdit }: ObraBriefingSectionProp
       onSaveDraft={handleSaveDraft}
       onConcluir={handleConcluir}
       onUploadFiles={handleUploadFiles}
+      onReplaceDrawing={handleReplaceDrawing}
       onRemoveAnexo={removeAnexo}
     />
   )

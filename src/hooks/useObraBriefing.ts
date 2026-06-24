@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import {
   deleteBriefingAnexo,
   enrichBriefingAnexos,
+  replaceBriefingDrawingFile,
   uploadBriefingAnexo,
   type PendingBriefingAnexo,
 } from '@/lib/briefing-storage'
@@ -169,7 +170,9 @@ export function useObraBriefing(obraId: string | null | undefined) {
   const upsertResposta = async (
     obraBriefingId: string,
     draft: BriefingRespostaDraft,
+    options?: { reload?: boolean },
   ): Promise<ObraBriefingResposta> => {
+    const shouldReload = options?.reload !== false
     const existing = briefings
       .find(b => b.id === obraBriefingId)
       ?.respostas?.find(r => r.pergunta_id === draft.pergunta_id)
@@ -187,7 +190,7 @@ export function useObraBriefing(obraId: string | null | undefined) {
         .select()
         .single()
       if (error) throw new Error(error.message)
-      await load()
+      if (shouldReload) await load()
       return data as ObraBriefingResposta
     }
 
@@ -204,17 +207,28 @@ export function useObraBriefing(obraId: string | null | undefined) {
       .select()
       .single()
     if (error) throw new Error(error.message)
-    await load()
+    if (shouldReload) await load()
     return data as ObraBriefingResposta
   }
 
-  const ensureResposta = async (obraBriefingId: string, perguntaId: string): Promise<string> => {
+  const upsertRespostasBatch = async (obraBriefingId: string, drafts: BriefingRespostaDraft[]) => {
+    for (const draft of drafts) {
+      await upsertResposta(obraBriefingId, draft, { reload: false })
+    }
+    await load()
+  }
+
+  const ensureResposta = async (
+    obraBriefingId: string,
+    perguntaId: string,
+    options?: { reload?: boolean },
+  ): Promise<string> => {
     const existing = briefings
       .find(b => b.id === obraBriefingId)
       ?.respostas?.find(r => r.pergunta_id === perguntaId)
     if (existing) return existing.id
 
-    const row = await upsertResposta(obraBriefingId, { pergunta_id: perguntaId })
+    const row = await upsertResposta(obraBriefingId, { pergunta_id: perguntaId }, options)
     return row.id
   }
 
@@ -224,12 +238,34 @@ export function useObraBriefing(obraId: string | null | undefined) {
     pending: PendingBriefingAnexo,
   ) => {
     if (!obraId) throw new Error('Obra não informada')
-    const respostaId = await ensureResposta(obraBriefingId, perguntaId)
+    const respostaId = await ensureResposta(obraBriefingId, perguntaId, { reload: false })
     const ordem = briefings
       .find(b => b.id === obraBriefingId)
       ?.respostas?.find(r => r.id === respostaId)
       ?.anexos?.length ?? 0
     await uploadBriefingAnexo(obraId, obraBriefingId, respostaId, pending, ordem)
+    await load()
+  }
+
+  const replaceDrawingAnexo = async (
+    obraBriefingId: string,
+    perguntaId: string,
+    pending: PendingBriefingAnexo,
+  ) => {
+    if (!obraId) throw new Error('Obra não informada')
+    const respostaId = await ensureResposta(obraBriefingId, perguntaId, { reload: false })
+    const existing = briefings
+      .find(b => b.id === obraBriefingId)
+      ?.respostas?.find(r => r.id === respostaId)
+      ?.anexos?.find(a => a.kind === 'drawing' || a.nome_arquivo === 'desenho.png')
+
+    if (existing) {
+      await replaceBriefingDrawingFile(existing, pending.file)
+      await load()
+      return
+    }
+
+    await uploadBriefingAnexo(obraId, obraBriefingId, respostaId, pending, 0)
     await load()
   }
 
@@ -256,7 +292,9 @@ export function useObraBriefing(obraId: string | null | undefined) {
     reload: load,
     linkModelos,
     upsertResposta,
+    upsertRespostasBatch,
     uploadAnexo,
+    replaceDrawingAnexo,
     removeAnexo,
     setStatus,
     getBriefingProgress,

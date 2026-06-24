@@ -20,6 +20,7 @@ interface BriefingQuestionRendererProps {
   onOpcoesChange?: (opcoes: string[]) => void
   onUploadFiles?: (files: File[]) => Promise<void>
   onUploadDrawing?: (blob: Blob) => Promise<void>
+  onClearDrawing?: () => Promise<void>
   onRemoveAnexo?: (anexo: ObraBriefingAnexo) => Promise<void>
 }
 
@@ -32,6 +33,7 @@ export function BriefingQuestionRenderer({
   onOpcoesChange,
   onUploadFiles,
   onUploadDrawing,
+  onClearDrawing,
   onRemoveAnexo,
 }: BriefingQuestionRendererProps) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -213,16 +215,13 @@ export function BriefingQuestionRenderer({
       <div className="space-y-2">
         <DrawingCanvas
           readOnly={readOnly}
+          imageKey={firstAnexo?.id ?? null}
           initialDataUrl={firstAnexo?.previewSignedUrl ?? firstAnexo?.signedUrl ?? null}
           onExport={readOnly ? undefined : blob => {
             if (onUploadDrawing) void onUploadDrawing(blob)
           }}
+          onClearDrawing={readOnly || !onClearDrawing ? undefined : () => onClearDrawing()}
         />
-        {!readOnly && onUploadDrawing && (
-          <p className="text-[0.68rem] text-[#edd9c4]/70">
-            O desenho é salvo automaticamente ao terminar cada traço.
-          </p>
-        )}
       </div>
     )
   }

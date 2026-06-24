@@ -2,10 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCircle2, ChevronLeft, X } from 'lucide-react'
 import { BriefingQuestionRenderer } from '@/components/obras/briefing/BriefingQuestionRenderer'
-import {
-  buildPendingDrawingAnexo,
-  revokePendingBriefingAnexo,
-} from '@/lib/briefing-storage'
 import { getBriefingProgress, useBriefingAutosave } from '@/hooks/useObraBriefing'
 import type { BriefingRespostaDraft } from '@/hooks/useObraBriefing'
 import type { ObraBriefing, ObraBriefingAnexo } from '@/types'
@@ -18,6 +14,7 @@ interface BriefingFullscreenModalProps {
   onSaveDraft: (drafts: BriefingRespostaDraft[]) => Promise<void>
   onConcluir: () => Promise<void>
   onUploadFiles: (perguntaId: string, files: File[]) => Promise<void>
+  onReplaceDrawing: (perguntaId: string, blob: Blob) => Promise<void>
   onRemoveAnexo: (anexo: ObraBriefingAnexo) => Promise<void>
 }
 
@@ -29,6 +26,7 @@ export function BriefingFullscreenModal({
   onSaveDraft,
   onConcluir,
   onUploadFiles,
+  onReplaceDrawing,
   onRemoveAnexo,
 }: BriefingFullscreenModalProps) {
   const [drafts, setDrafts] = useState<Record<string, BriefingRespostaDraft>>({})
@@ -210,16 +208,18 @@ export function BriefingFullscreenModal({
                     await onUploadFiles(p.id, files)
                   }}
                   onUploadDrawing={async blob => {
-                    const pending = buildPendingDrawingAnexo(blob)
-                    try {
-                      await persistDrafts()
-                      if (saved?.anexos?.[0]) await onRemoveAnexo(saved.anexos[0])
-                      const file = new File([blob], 'desenho.png', { type: 'image/png' })
-                      await onUploadFiles(p.id, [file])
-                    } finally {
-                      revokePendingBriefingAnexo(pending)
-                    }
+                    await onReplaceDrawing(p.id, blob)
                   }}
+                  onClearDrawing={saved?.anexos?.some(a => a.kind === 'drawing' || a.nome_arquivo === 'desenho.png')
+                    ? async () => {
+                      const croquis = (saved?.anexos ?? []).filter(
+                        a => a.kind === 'drawing' || a.nome_arquivo === 'desenho.png',
+                      )
+                      for (const anexo of croquis) {
+                        await onRemoveAnexo(anexo)
+                      }
+                    }
+                    : undefined}
                   onRemoveAnexo={onRemoveAnexo}
                 />
               </div>

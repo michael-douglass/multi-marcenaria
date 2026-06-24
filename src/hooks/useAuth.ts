@@ -85,25 +85,15 @@ export function useAuth(): AuthState {
   useEffect(() => {
     let active = true
 
-    void (async () => {
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession()
-        if (!active) return
-
-        setSession(initialSession)
-        setUser(initialSession?.user ?? null)
-      } catch (err) {
-        if (!active) return
-        console.error('[useAuth] Erro ao buscar sessão inicial:', err)
-      } finally {
-        if (active) setLoading(false)
-      }
-    })()
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return
 
-      if (event === 'INITIAL_SESSION') return
+      if (event === 'INITIAL_SESSION') {
+        setSession(nextSession)
+        setUser(nextSession?.user ?? null)
+        setLoading(false)
+        return
+      }
 
       if (event === 'SIGNED_OUT') {
         setSession(null)
