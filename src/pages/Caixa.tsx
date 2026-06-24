@@ -67,10 +67,11 @@ export function Caixa({ embedded = false }: CaixaProps) {
         return {
           valorReal: acc.valorReal + item.valor_total_real,
           reservado: acc.reservado + item.valor_em_reserva,
+          pago: acc.pago + item.total_pago,
           restante: acc.restante + restante,
         }
       },
-      { valorReal: 0, reservado: 0, restante: 0 },
+      { valorReal: 0, reservado: 0, pago: 0, restante: 0 },
     )
   }, [reservasFiltradas])
 
@@ -215,7 +216,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
         ) : (
           <div className="overflow-x-auto">
             {tab === 'reservas' && (
-              <table className="w-full text-left border-collapse min-w-[900px]">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
                     <th className="px-6 py-4">Destinatário</th>
@@ -223,6 +224,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                     <th className="px-6 py-4 text-center">Lanç.</th>
                     <th className="px-6 py-4 text-right">Valor Real</th>
                     <th className="px-6 py-4 text-right">Reservado</th>
+                    <th className="px-6 py-4 text-right">Já Pago</th>
                     <th className="px-6 py-4 text-right">Restante</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-right">Ações</th>
@@ -231,7 +233,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
                 <tbody className="divide-y divide-white/5">
                   {reservasFiltradas.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
+                      <td colSpan={9} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
                         {busca.trim()
                           ? 'Nenhum resultado para essa busca neste mês.'
                           : 'Nenhuma reserva ou faturamento operacional neste período.'}
@@ -265,6 +267,9 @@ export function Caixa({ embedded = false }: CaixaProps) {
                           </td>
                           <td className="px-6 py-4 text-right font-semibold text-cream/60">
                             {fmtCur(item.valor_em_reserva)}
+                          </td>
+                          <td className="px-6 py-4 text-right font-semibold text-red-400">
+                            {item.total_pago > 0 ? fmtCur(item.total_pago) : '—'}
                           </td>
                           <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                             {fmtCur(restante)}
@@ -300,6 +305,9 @@ export function Caixa({ embedded = false }: CaixaProps) {
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-cream">
                         {fmtCur(totaisReservas.reservado)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-red-400">
+                        {fmtCur(totaisReservas.pago)}
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                         {fmtCur(totaisReservas.restante)}
