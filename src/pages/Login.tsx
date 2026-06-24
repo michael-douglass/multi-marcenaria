@@ -1,5 +1,10 @@
-﻿import { useState, FormEvent } from 'react'
-import { clearLocalAuthSession, supabase } from '@/lib/supabase'
+﻿import { useState, useEffect, FormEvent } from 'react'
+import {
+  clearLocalAuthSession,
+  getAuthRateLimitMessage,
+  supabase,
+} from '@/lib/supabase'
+import { isAuthRateLimited } from '@/lib/supabase-auth-storage'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
@@ -10,9 +15,18 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const [clearingSession, setClearingSession] = useState(false)
 
+  useEffect(() => {
+    if (!isAuthRateLimited()) return
+    void clearLocalAuthSession({ keepRateLimit: true }).then(() => {
+      setError(
+        `${getAuthRateLimitMessage()} A sessão antiga do navegador foi removida automaticamente.`,
+      )
+    })
+  }, [])
+
   function authErrorMessage(message: string, status?: number): string {
     if (status === 429 || /rate limit|too many requests|429/i.test(message)) {
-      return 'Muitas tentativas em pouco tempo. Aguarde cerca de 15 minutos, feche outras abas do sistema e tente novamente.'
+      return getAuthRateLimitMessage()
     }
     if (message === 'Invalid login credentials') {
       return 'E-mail ou senha incorretos.'

@@ -85,6 +85,18 @@ export function useAuth(): AuthState {
   useEffect(() => {
     let active = true
 
+    const handleRateLimited = () => {
+      if (!active) return
+      setSession(null)
+      setUser(null)
+      setUserProfile(null)
+      setProfileError(null)
+      setProfileLoading(false)
+      setLoading(false)
+    }
+
+    window.addEventListener('supabase:auth-rate-limited', handleRateLimited)
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return
 
@@ -117,6 +129,7 @@ export function useAuth(): AuthState {
 
     return () => {
       active = false
+      window.removeEventListener('supabase:auth-rate-limited', handleRateLimited)
       subscription.unsubscribe()
     }
   }, [])
