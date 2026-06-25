@@ -20,8 +20,30 @@ export function normalizePrestadorItem(item: PrestadorFinanceiroItem): Prestador
   }
 }
 
+export function dedupeFixoPrestadorItens(data: PrestadorFinanceiroItem[]): PrestadorFinanceiroItem[] {
+  const nonFixo = data.filter(i => i.categoria !== 'fixo')
+  const fixoByMes = new Map<string, PrestadorFinanceiroItem>()
+
+  for (const item of data.filter(i => i.categoria === 'fixo')) {
+    const key = item.data_referencia?.slice(0, 7) ?? item.conta_pagar_id ?? item.descricao ?? 'fixo'
+    const existing = fixoByMes.get(key)
+    if (!existing) {
+      fixoByMes.set(key, item)
+      continue
+    }
+    const rank = (i: PrestadorFinanceiroItem) => {
+      if (i.status === 'pago') return 3
+      if (i.conta_pagar_id) return 2
+      return 1
+    }
+    if (rank(item) >= rank(existing)) fixoByMes.set(key, item)
+  }
+
+  return [...nonFixo, ...fixoByMes.values()]
+}
+
 export function normalizePrestadorItens(data: PrestadorFinanceiroItem[]): PrestadorFinanceiroItem[] {
-  return data.map(normalizePrestadorItem)
+  return dedupeFixoPrestadorItens(data.map(normalizePrestadorItem))
 }
 
 export async function fetchPrestadorMes(
@@ -101,7 +123,7 @@ export function resumoFromItens(data: PrestadorFinanceiroItem[]) {
     data,
     i => (i.categoria ?? 'comissao') === 'comissao',
   )
-  const totalMes = totalPrevisto + totalPendente + totalPago
+  const totalMes = totalFixoMes + totalComissaoMes
   return {
     aReceber,
     recebidas,

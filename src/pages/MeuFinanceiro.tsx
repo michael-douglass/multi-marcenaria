@@ -16,20 +16,17 @@ export function MeuFinanceiro() {
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
-  const [mesReceber, setMesReceber] = useState(now.getMonth() + 1)
   const [mesRecebidas, setMesRecebidas] = useState(now.getMonth() + 1)
 
   const { resumo, comparativo, loading, error, reload } = usePrestadorFinanceiro(mes, ano)
-  const historicoReceber = usePrestadorHistoricoMes(mesReceber, ano)
   const historicoRecebidas = usePrestadorHistoricoMes(mesRecebidas, ano)
   const obrasFinalizando = usePrestadorObrasFinalizando(mes, ano)
 
   const anos = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
   const periodoLabel = `${MONTHS[mes - 1]} ${ano}`
 
-  // Filtro do topo sincroniza os cards na primeira carga ou ao trocar período global
+  // Filtro do topo sincroniza o card de recebidas na primeira carga ou ao trocar período global
   useEffect(() => {
-    setMesReceber(mes)
     setMesRecebidas(mes)
   }, [mes, ano])
 
@@ -70,7 +67,6 @@ export function MeuFinanceiro() {
             className="btn btn-outline btn-md"
             onClick={() => {
               void reload()
-              void historicoReceber.reload()
               void historicoRecebidas.reload()
               void obrasFinalizando.reload()
             }}
@@ -157,35 +153,22 @@ export function MeuFinanceiro() {
             </p>
             <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
               <PrestadorObrasHistorico
-                variant="receber"
-                titulo="Obras a receber"
-                subtitulo="Comissões previstas ou pagamentos ainda não quitados"
-                itens={historicoReceber.aReceber}
-                loading={historicoReceber.loading}
-                mes={mesReceber}
+                variant="recebidas"
+                titulo="Obras recebidas"
+                subtitulo="Comissões já pagas e confirmadas"
+                itens={historicoRecebidas.recebidas}
+                loading={historicoRecebidas.loading}
+                mes={mesRecebidas}
                 ano={ano}
-                onMesChange={setMesReceber}
-                emptyMessage={`Nenhuma obra a receber em ${MONTHS[mesReceber - 1]} ${ano}.`}
+                onMesChange={setMesRecebidas}
+                emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
               />
-              <div className="flex flex-col gap-4">
-                <PrestadorObrasHistorico
-                  variant="recebidas"
-                  titulo="Obras recebidas"
-                  subtitulo="Comissões já pagas e confirmadas"
-                  itens={historicoRecebidas.recebidas}
-                  loading={historicoRecebidas.loading}
-                  mes={mesRecebidas}
-                  ano={ano}
-                  onMesChange={setMesRecebidas}
-                  emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
-                />
-                <PrestadorObrasFinalizando
-                  obras={obrasFinalizando.obras}
-                  loading={obrasFinalizando.loading}
-                  mes={mes}
-                  ano={ano}
-                />
-              </div>
+              <PrestadorObrasFinalizando
+                obras={obrasFinalizando.obras}
+                loading={obrasFinalizando.loading}
+                mes={mes}
+                ano={ano}
+              />
             </div>
           </div>
         </>
