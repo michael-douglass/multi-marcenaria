@@ -2,12 +2,13 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MetricasMontadorComissaoModal } from '../components/metricas/MetricasMontadorComissaoModal'
 import { MetricasMontadorTempoChart } from '../components/metricas/MetricasMontadorTempoChart'
+import { FixoMontadorSection } from '../components/metricas/FixoMontadorSection'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { useMetricasObras } from '../hooks/useMetricasObras'
 import { useObras } from '../hooks/useObras'
 import { useApp } from '../context/AppContext'
 import { getObraMontadoresConclusao } from '../lib/obra-montadores'
-import { canViewMontadoresConclusaoObra } from '../lib/obra-permissions'
+import { canViewMontadoresConclusaoObra, canEditFixoMontador } from '../lib/obra-permissions'
 import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
 import { addMonths, fmtCur } from '../lib/utils'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
@@ -82,6 +83,7 @@ function MetricasObrasContent() {
   const isMesAtual = periodo.mes === hoje.getMonth() + 1 && periodo.ano === hoje.getFullYear()
   const isMontadorAdmin = roles.includes('MontadorAdmin')
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
+  const canEditFixo = canEditFixoMontador(roles)
 
   const opcoesMesAno = useMemo(() => {
     const base = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
@@ -253,6 +255,13 @@ function MetricasObrasContent() {
               </p>
             </div>
           </div>
+
+          <FixoMontadorSection
+            mes={periodo.mes}
+            ano={periodo.ano}
+            periodoLabel={periodoLabel}
+            canEdit={canEditFixo}
+          />
 
           {/* Comissão por montador */}
           <div className="glass-card overflow-hidden mb-6">

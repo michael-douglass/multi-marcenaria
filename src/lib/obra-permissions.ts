@@ -20,6 +20,10 @@ export function canManageAllObras(roles: UserRole[]): boolean {
   return roles.includes('Administrador') || roles.includes('AdministradorObras')
 }
 
+export function canEditFixoMontador(roles: UserRole[]): boolean {
+  return canManageAllObras(roles)
+}
+
 export function canEditObras(roles: UserRole[]): boolean {
   return canManageAllObras(roles) || roles.includes('MontadorAdmin')
 }

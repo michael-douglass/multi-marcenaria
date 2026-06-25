@@ -1,9 +1,11 @@
 ﻿import { useEffect, useState } from 'react'
-import { Banknote, Wallet, CircleDollarSign } from 'lucide-react'
+import { Banknote, Wallet, PiggyBank } from 'lucide-react'
 import { usePrestadorFinanceiro } from '@/hooks/usePrestadorFinanceiro'
 import { usePrestadorHistoricoMes } from '@/hooks/usePrestadorHistoricoMes'
+import { usePrestadorObrasFinalizando } from '@/hooks/usePrestadorObrasFinalizando'
 import { PrestadorComparativoChart } from '@/components/meu-financeiro/PrestadorComparativoChart'
 import { PrestadorObrasHistorico } from '@/components/meu-financeiro/PrestadorObrasHistorico'
+import { PrestadorObrasFinalizando } from '@/components/meu-financeiro/PrestadorObrasFinalizando'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { PRESTADOR_MONTHS_FULL } from '@/lib/prestador-financeiro'
 import { fmtCur } from '@/lib/utils'
@@ -20,6 +22,7 @@ export function MeuFinanceiro() {
   const { resumo, comparativo, loading, error, reload } = usePrestadorFinanceiro(mes, ano)
   const historicoReceber = usePrestadorHistoricoMes(mesReceber, ano)
   const historicoRecebidas = usePrestadorHistoricoMes(mesRecebidas, ano)
+  const obrasFinalizando = usePrestadorObrasFinalizando(mes, ano)
 
   const anos = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
   const periodoLabel = `${MONTHS[mes - 1]} ${ano}`
@@ -40,7 +43,7 @@ export function MeuFinanceiro() {
             Meu Financeiro
           </h1>
           <p className="section-label mt-1">
-            Suas comissões de obras — o que já entrou e o que ainda falta receber
+            Seu recebimento fixo e comissões de obras — o que já entrou e o que ainda falta receber
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -69,6 +72,7 @@ export function MeuFinanceiro() {
               void reload()
               void historicoReceber.reload()
               void historicoRecebidas.reload()
+              void obrasFinalizando.reload()
             }}
           >
             Atualizar
@@ -81,16 +85,33 @@ export function MeuFinanceiro() {
 
       {!loading && !error && (
         <>
+          {/* Total combinado: fixo + comissão */}
+          <div className="glass-card relative overflow-hidden border border-[#f2d892]/25 p-5">
+            <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[radial-gradient(circle,#f2d892_0%,transparent_70%)] opacity-20" />
+            <div className="relative">
+              <div className="mb-2 flex items-center gap-2">
+                <PiggyBank size={16} className="text-[#f2d892]" />
+                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
+                  Previsão de recebimento
+                </p>
+              </div>
+              <p className="font-display text-3xl text-[#f2d892]">
+                {fmtCur(resumo.totalMes)}
+              </p>
+              <p className="mt-2 text-sm text-[#edd9c4]">
+                <span className="font-semibold text-[#f2d892]">Fixo + Comissão</span>
+                {' · '}
+                {fmtCur(resumo.totalFixoMes)} fixo + {fmtCur(resumo.totalComissaoMes)} comissão
+              </p>
+              <p className="mt-1 text-[0.62rem] leading-relaxed text-[#d4bc9f]">
+                Todo o recebimento de {periodoLabel} — previsto, gerado e já pago
+              </p>
+            </div>
+          </div>
+
           {/* Resumo do período selecionado */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
-              {
-                label: 'Previsto no período',
-                value: resumo.totalPrevisto,
-                color: '#f2d892',
-                icon: CircleDollarSign,
-                hint: 'Comissão configurada, pagamento ainda não gerado',
-              },
               {
                 label: 'Gerado — aguardando pagamento',
                 value: resumo.totalPendente,
@@ -146,17 +167,25 @@ export function MeuFinanceiro() {
                 onMesChange={setMesReceber}
                 emptyMessage={`Nenhuma obra a receber em ${MONTHS[mesReceber - 1]} ${ano}.`}
               />
-              <PrestadorObrasHistorico
-                variant="recebidas"
-                titulo="Obras recebidas"
-                subtitulo="Comissões já pagas e confirmadas"
-                itens={historicoRecebidas.recebidas}
-                loading={historicoRecebidas.loading}
-                mes={mesRecebidas}
-                ano={ano}
-                onMesChange={setMesRecebidas}
-                emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
-              />
+              <div className="flex flex-col gap-4">
+                <PrestadorObrasHistorico
+                  variant="recebidas"
+                  titulo="Obras recebidas"
+                  subtitulo="Comissões já pagas e confirmadas"
+                  itens={historicoRecebidas.recebidas}
+                  loading={historicoRecebidas.loading}
+                  mes={mesRecebidas}
+                  ano={ano}
+                  onMesChange={setMesRecebidas}
+                  emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
+                />
+                <PrestadorObrasFinalizando
+                  obras={obrasFinalizando.obras}
+                  loading={obrasFinalizando.loading}
+                  mes={mes}
+                  ano={ano}
+                />
+              </div>
             </div>
           </div>
         </>

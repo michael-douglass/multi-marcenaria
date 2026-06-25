@@ -17,6 +17,10 @@ interface PrestadorObrasHistoricoProps {
 }
 
 function statusLabel(item: PrestadorFinanceiroItem): string {
+  if (item.categoria === 'fixo') {
+    if (item.status === 'pago') return 'Pago'
+    return 'Gerado'
+  }
   if (item.tipo === 'previsto') return 'Previsto'
   if (item.status === 'pago') return 'Pago'
   if (item.status === 'pendente') return 'Pendente'

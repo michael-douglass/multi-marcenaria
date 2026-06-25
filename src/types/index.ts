@@ -605,6 +605,8 @@ export interface MetricaObraMontador {
   obras_em_aberto: number
 }
 
+export type PrestadorFinanceiroCategoria = 'comissao' | 'fixo'
+
 export type PrestadorFinanceiroTipo = 'previsto' | 'pagamento'
 
 export interface PrestadorFinanceiroItem {
@@ -616,6 +618,18 @@ export interface PrestadorFinanceiroItem {
   valor: number
   status: string
   data_referencia?: string | null
+  categoria?: PrestadorFinanceiroCategoria
+}
+
+export type MontadorFixoStatusMes = 'pendente' | 'pago' | 'sem_fixo'
+
+export interface MontadorFixoMensal {
+  montador_id: string
+  montador_nome: string
+  valor_fixo_mensal: number
+  primeiro_vencimento?: string | null
+  status_mes: MontadorFixoStatusMes
+  conta_pagar_id?: string | null
 }
 
 // ── Financeiro Dashboard ────────────────────────────────────

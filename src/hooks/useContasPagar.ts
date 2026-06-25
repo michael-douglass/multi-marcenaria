@@ -4,6 +4,7 @@ import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
 import { getModeloRecorrencia } from '../lib/contas-pagar-grupo'
+import { expandirTodosFixoMontadores } from '../lib/fixo-montador'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
 
@@ -85,6 +86,15 @@ export function useContasPagar() {
 
     setLoading(true)
     setError(null)
+
+    try {
+      await expandirTodosFixoMontadores()
+    } catch (err) {
+      console.warn(
+        '[contas a pagar] Não foi possível expandir fixo dos montadores.',
+        err instanceof Error ? err.message : err,
+      )
+    }
 
     const withForma = await supabase
       .from('movelaria_contas_pagar')

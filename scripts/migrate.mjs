@@ -109,6 +109,8 @@ try {
     console.log('✨ Nenhuma migration pendente — banco já está atualizado.')
   } else {
     console.log(`🚀 ${count} migration(s) aplicada(s) com sucesso.`)
+    await client.query(`NOTIFY pgrst, 'reload schema'`)
+    console.log('🔄 Cache da API Supabase (PostgREST) recarregado.')
   }
 } catch (err) {
   console.error('❌ Erro na migration:', err.message)

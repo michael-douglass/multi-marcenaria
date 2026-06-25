@@ -19,15 +19,15 @@ interface PrestadorComparativoChartProps {
 export function PrestadorComparativoChart({ comparativo }: PrestadorComparativoChartProps) {
   const chartData = [
     {
-      nome: comparativo.mesPassadoLabel,
-      legenda: 'Recebido mês passado',
-      valor: comparativo.recebidoMesPassado,
+      nome: 'Recebido',
+      legenda: `Recebido em ${comparativo.periodoLabel}`,
+      valor: comparativo.recebidoPeriodo,
       cor: '#10b981',
     },
     {
-      nome: comparativo.mesAtualLabel,
-      legenda: 'A receber este mês',
-      valor: comparativo.aReceberEsteMes,
+      nome: 'A receber',
+      legenda: `A receber em ${comparativo.periodoLabel}`,
+      valor: comparativo.aReceberPeriodo,
       cor: '#f2d892',
     },
   ]
@@ -58,21 +58,21 @@ export function PrestadorComparativoChart({ comparativo }: PrestadorComparativoC
             Recebido × A receber
           </h2>
           <p className="mt-1 text-xs text-[#edd9c4]">
-            Quanto você já recebeu no mês passado versus o que ainda falta receber neste mês.
+            Quanto você já recebeu e o que ainda falta receber em {comparativo.periodoLabel}.
           </p>
         </div>
 
         <div className="flex flex-col gap-2 text-right text-xs">
           <div>
-            <span className="text-[#edd9c4]">Recebido ({comparativo.mesPassadoLabel})</span>
+            <span className="text-[#edd9c4]">Recebido ({comparativo.periodoLabel})</span>
             <p className="font-mono text-lg font-semibold text-emerald-400">
-              {fmtCur(comparativo.recebidoMesPassado)}
+              {fmtCur(comparativo.recebidoPeriodo)}
             </p>
           </div>
           <div>
-            <span className="text-[#edd9c4]">A receber ({comparativo.mesAtualLabel})</span>
+            <span className="text-[#edd9c4]">A receber ({comparativo.periodoLabel})</span>
             <p className="font-mono text-lg font-semibold text-[#f2d892]">
-              {fmtCur(comparativo.aReceberEsteMes)}
+              {fmtCur(comparativo.aReceberPeriodo)}
             </p>
           </div>
         </div>
