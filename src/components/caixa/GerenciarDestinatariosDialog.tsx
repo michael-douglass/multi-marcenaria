@@ -3,7 +3,7 @@ import { Plus, Trash2, UserPlus } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
-import { useCaixa } from '@/hooks/useCaixa'
+import { useCaixaContext } from '@/context/CaixaContext'
 import type { TipoDestinatarioCaixa } from '@/types'
 
 interface GerenciarDestinatariosDialogProps {
@@ -12,7 +12,7 @@ interface GerenciarDestinatariosDialogProps {
 }
 
 export function GerenciarDestinatariosDialog({ open, onOpenChange }: GerenciarDestinatariosDialogProps) {
-  const { destinatarios, addDestinatario, removeDestinatario } = useCaixa(1, 2024) // Mes/ano não importa aqui
+  const { destinatarios, addDestinatario, removeDestinatario } = useCaixaContext()
   const [isAdding, setIsAdding] = useState(false)
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<TipoDestinatarioCaixa>('outros')

@@ -1,6 +1,7 @@
 ﻿import { useMemo, useState } from 'react'
 import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
-import { useCaixa, isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
+import { CaixaProvider, useCaixaContext } from '@/context/CaixaContext'
+import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
 import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
@@ -40,7 +41,34 @@ interface CaixaProps {
 export function Caixa({ embedded = false }: CaixaProps) {
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [ano, setAno] = useState(new Date().getFullYear())
-  const { resumo, loading, reservasConsolidadas, movimentacoes } = useCaixa(mes, ano)
+
+  return (
+    <CaixaProvider mes={mes} ano={ano}>
+      <CaixaContent
+        embedded={embedded}
+        mes={mes}
+        ano={ano}
+        onPeriodoChange={(m, a) => {
+          setMes(m)
+          setAno(a)
+        }}
+      />
+    </CaixaProvider>
+  )
+}
+
+function CaixaContent({
+  embedded,
+  mes,
+  ano,
+  onPeriodoChange,
+}: {
+  embedded: boolean
+  mes: number
+  ano: number
+  onPeriodoChange: (mes: number, ano: number) => void
+}) {
+  const { resumo, loading, reservasConsolidadas, movimentacoes } = useCaixaContext()
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
   const [busca, setBusca] = useState('')
 
@@ -114,7 +142,7 @@ export function Caixa({ embedded = false }: CaixaProps) {
           </div>
         )}
 
-        <CaixaMesFilterBar mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a) }} />
+        <CaixaMesFilterBar mes={mes} ano={ano} onChange={onPeriodoChange} />
       </div>
 
       <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>

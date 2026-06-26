@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { 
-  CaixaDestinatario, 
-  CaixaMovimentacao, 
-  CaixaSaldoAcumulado, 
-  ResumoCaixa, 
-  ReservaConsolidada
+import { useAutoRefresh } from './useAutoRefresh'
+import type {
+  CaixaDestinatario,
+  CaixaMovimentacao,
+  ResumoCaixa,
+  ReservaConsolidada,
 } from '../types'
 import { useAuthReady } from './useAuthReady'
+
+const CAIXA_REALTIME_CHANNEL = 'movelaria-caixa-sync'
 
 /** Linha de reserva sem destinatário cadastrado no caixa (só dívida operacional). */
 export function isCaixaDestinatarioVirtual(destinatarioId: string): boolean {
@@ -27,9 +29,9 @@ export function useCaixa(mes: number, ano: number) {
   const [reservasConsolidadas, setReservasConsolidadas] = useState<ReservaConsolidada[]>([])
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
 
     try {
       // 1. Destinatários
@@ -149,11 +151,48 @@ export function useCaixa(mes: number, ano: number) {
     } catch (err) {
       console.error('[useCaixa] Erro ao carregar dados:', err)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [isReady, mes, ano])
 
-  useEffect(() => { load() }, [load])
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
+  useEffect(() => { void load() }, [load])
+  useAutoRefresh(silentReload)
+
+  useEffect(() => {
+    if (!isReady) return
+
+    const channel = supabase
+      .channel(CAIXA_REALTIME_CHANNEL)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_caixa_movimentacoes' },
+        silentReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_caixa_saldo_acumulado' },
+        silentReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_caixa_destinatarios' },
+        silentReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_contas_pagar' },
+        silentReload,
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [isReady, silentReload])
 
   const registrarMovimentacao = async (mov: Omit<CaixaMovimentacao, 'id' | 'criado_em' | 'criado_por'>) => {
     const { data: userData } = await supabase.auth.getUser()
@@ -161,7 +200,7 @@ export function useCaixa(mes: number, ano: number) {
       .from('movelaria_caixa_movimentacoes')
       .insert({ ...mov, criado_por: userData.user?.id })
     if (error) throw error
-    await load()
+    await load({ silent: true })
   }
 
   const addDestinatario = async (dest: Omit<CaixaDestinatario, 'id' | 'criado_em' | 'atualizado_em'>) => {
@@ -169,7 +208,7 @@ export function useCaixa(mes: number, ano: number) {
       .from('movelaria_caixa_destinatarios')
       .insert(dest)
     if (error) throw error
-    await load()
+    await load({ silent: true })
   }
 
   const removeDestinatario = async (id: string) => {
@@ -178,7 +217,7 @@ export function useCaixa(mes: number, ano: number) {
       .update({ ativo: false })
       .eq('id', id)
     if (error) throw error
-    await load()
+    await load({ silent: true })
   }
 
   return {

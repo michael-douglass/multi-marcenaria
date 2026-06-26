@@ -2,7 +2,7 @@
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
-import { useCaixa } from '@/hooks/useCaixa'
+import { useCaixaContext } from '@/context/CaixaContext'
 import { todayISO, parseMoneyBr, fmtCur } from '@/lib/utils'
 import type { ReservaConsolidada } from '@/types'
 
@@ -13,7 +13,7 @@ interface PagarReservaDialogProps {
 }
 
 export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReservaDialogProps) {
-  const { registrarMovimentacao } = useCaixa(reserva?.mes_referencia || 1, reserva?.ano_referencia || 2024)
+  const { registrarMovimentacao } = useCaixaContext()
   const [valor, setValor] = useState('')
   const [data, setData] = useState(todayISO())
   const [descricao, setDescricao] = useState('')

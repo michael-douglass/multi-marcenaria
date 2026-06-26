@@ -66,6 +66,7 @@ interface AtualizarRecorrenciaInput {
 }
 
 const MESES_HORIZONTE = 12
+const CONTAS_PAGAR_REALTIME_CHANNEL = 'movelaria-contas-pagar-sync'
 
 function proximoVencimento(serie: ContaPagar[]): string | null {
   const pendentes = serie
@@ -81,10 +82,10 @@ export function useContasPagar() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
 
     try {
@@ -119,11 +120,15 @@ export function useContasPagar() {
       }
     }
 
-    if (err) { setError(err.message); setLoading(false); return }
+    if (err) {
+      if (!opts?.silent) setError(err.message)
+      if (!opts?.silent) setLoading(false)
+      return
+    }
 
     const allRows: ContaPagar[] = rows ?? []
     setData(allRows)
-    setLoading(false)
+    if (!opts?.silent) setLoading(false)
 
     // Auto-expansão de recorrências: mantém sempre MESES_HORIZONTE meses à frente
     await expandirRecorrencias(allRows)
@@ -200,8 +205,29 @@ export function useContasPagar() {
     }
   }
 
-  useEffect(() => { load() }, [load])
-  useAutoRefresh(load)
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
+  useEffect(() => { void load() }, [load])
+  useAutoRefresh(silentReload)
+
+  useEffect(() => {
+    if (!isReady) return
+
+    const channel = supabase
+      .channel(CONTAS_PAGAR_REALTIME_CHANNEL)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_contas_pagar' },
+        silentReload,
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [isReady, silentReload])
 
   const gerarParcelas = async (
     input: GerarParcelasInput,

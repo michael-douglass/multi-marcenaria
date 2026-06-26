@@ -50,6 +50,8 @@ export function cobrancaTemParcelamento(conta: ContaReceber, todas: ContaReceber
   return conta.total_parcelas > 1 || parcelasRelacionadas(conta, todas).length > 1
 }
 
+const CONTAS_RECEBER_REALTIME_CHANNEL = 'movelaria-contas-receber-sync'
+
 export function useContasReceber() {
   const { isReady } = useAuthReady()
   const [data, setData] = useState<ContaReceber[]>([])
@@ -83,6 +85,23 @@ export function useContasReceber() {
 
   useEffect(() => { void load() }, [load])
   useAutoRefresh(silentReload)
+
+  useEffect(() => {
+    if (!isReady) return
+
+    const channel = supabase
+      .channel(CONTAS_RECEBER_REALTIME_CHANNEL)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'movelaria_contas_receber' },
+        silentReload,
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [isReady, silentReload])
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada

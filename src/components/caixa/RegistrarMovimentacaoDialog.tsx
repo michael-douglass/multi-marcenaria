@@ -2,7 +2,7 @@
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
-import { useCaixa } from '@/hooks/useCaixa'
+import { useCaixaContext } from '@/context/CaixaContext'
 import { todayISO, parseMoneyBr } from '@/lib/utils'
 import type { TipoMovimentacaoCaixa } from '@/types'
 
@@ -14,7 +14,7 @@ interface RegistrarMovimentacaoDialogProps {
 }
 
 export function RegistrarMovimentacaoDialog({ open, onOpenChange, mesInicial, anoInicial }: RegistrarMovimentacaoDialogProps) {
-  const { destinatarios, registrarMovimentacao } = useCaixa(mesInicial, anoInicial)
+  const { destinatarios, registrarMovimentacao } = useCaixaContext()
   const [destinatarioId, setDestinatarioId] = useState('')
   const [tipo, setTipo] = useState<TipoMovimentacaoCaixa>('reserva')
   const [valor, setValor] = useState('')
