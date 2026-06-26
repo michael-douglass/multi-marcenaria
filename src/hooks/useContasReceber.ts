@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useId } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
 import { createId, addDays, addMonths, todayISO } from '../lib/utils'
@@ -54,6 +54,7 @@ const CONTAS_RECEBER_REALTIME_CHANNEL = 'movelaria-contas-receber-sync'
 
 export function useContasReceber() {
   const { isReady } = useAuthReady()
+  const realtimeChannelId = useId().replace(/:/g, '')
   const [data, setData] = useState<ContaReceber[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -90,7 +91,7 @@ export function useContasReceber() {
     if (!isReady) return
 
     const channel = supabase
-      .channel(CONTAS_RECEBER_REALTIME_CHANNEL)
+      .channel(`${CONTAS_RECEBER_REALTIME_CHANNEL}-${realtimeChannelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_contas_receber' },
@@ -101,7 +102,7 @@ export function useContasReceber() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload])
+  }, [isReady, silentReload, realtimeChannelId])
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada

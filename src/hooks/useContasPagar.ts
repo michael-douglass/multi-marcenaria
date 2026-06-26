@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useId } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
@@ -78,6 +78,7 @@ function proximoVencimento(serie: ContaPagar[]): string | null {
 
 export function useContasPagar() {
   const { isReady } = useAuthReady()
+  const realtimeChannelId = useId().replace(/:/g, '')
   const [data, setData] = useState<ContaPagar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -216,7 +217,7 @@ export function useContasPagar() {
     if (!isReady) return
 
     const channel = supabase
-      .channel(CONTAS_PAGAR_REALTIME_CHANNEL)
+      .channel(`${CONTAS_PAGAR_REALTIME_CHANNEL}-${realtimeChannelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_contas_pagar' },
@@ -227,7 +228,7 @@ export function useContasPagar() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload])
+  }, [isReady, silentReload, realtimeChannelId])
 
   const gerarParcelas = async (
     input: GerarParcelasInput,
