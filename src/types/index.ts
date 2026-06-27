@@ -481,6 +481,7 @@ export interface ObraComissaoItem {
   prestador_id: string
   prestador_nome?: string
   valor: number
+  oculto_prestador?: boolean
 }
 
 export interface ObraMontadorExecucao {
@@ -528,6 +529,7 @@ export interface ObraFull {
   comissao_prestador_ids?: string[]
   comissao_prestador_nomes?: string[]
   comissao_valores?: number[]
+  comissao_ocultos?: boolean[]
   criado_em?: string
   atualizado_em?: string
 }

@@ -9,6 +9,7 @@ export interface MontadorComissaoObra {
   status_kanban: string
   comissao_valor: number
   situacao: MontadorComissaoSituacao
+  oculto_prestador?: boolean
 }
 
 export interface MetricasComissaoPeriodo {
@@ -36,6 +37,7 @@ export async function fetchMontadorComissaoObras(
     status_kanban: string
     comissao_valor: number
     situacao: string
+    oculto_prestador?: boolean
   }>).map(row => ({
     obra_id: row.obra_id,
     cliente_nome: row.cliente_nome,
@@ -43,6 +45,7 @@ export async function fetchMontadorComissaoObras(
     status_kanban: row.status_kanban,
     comissao_valor: Number(row.comissao_valor),
     situacao: row.situacao === 'concluida' ? 'concluida' : 'em_aberto',
+    oculto_prestador: !!row.oculto_prestador,
   }))
 }
 

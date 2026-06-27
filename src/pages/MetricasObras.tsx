@@ -8,7 +8,7 @@ import { useMetricasObras } from '../hooks/useMetricasObras'
 import { useObras } from '../hooks/useObras'
 import { useApp } from '../context/AppContext'
 import { getObraMontadoresConclusao } from '../lib/obra-montadores'
-import { canViewMontadoresConclusaoObra, canEditFixoMontador } from '../lib/obra-permissions'
+import { canViewMontadoresConclusaoObra, canEditFixoMontador, canEditComissao } from '../lib/obra-permissions'
 import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
 import { addMonths, fmtCur } from '../lib/utils'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
@@ -84,6 +84,7 @@ function MetricasObrasContent() {
   const isMontadorAdmin = roles.includes('MontadorAdmin')
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const canEditFixo = canEditFixoMontador(roles)
+  const canManageComissao = canEditComissao(roles)
 
   const opcoesMesAno = useMemo(() => {
     const base = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
@@ -284,7 +285,7 @@ function MetricasObrasContent() {
                   <thead>
                     <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
-                        'Montador', 'Concluída (a pagar)', 'Em aberto', 'Gerada no caixa', 'Total previsto',
+                        'Montador', 'Concluída (a pagar)', 'Em aberto', 'Total previsto',
                       ].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
@@ -323,9 +324,6 @@ function MetricasObrasContent() {
                           <td className="px-4 py-3 font-mono text-amber-400">
                             {m.comissao_em_aberto > 0 ? fmtCur(m.comissao_em_aberto) : '—'}
                           </td>
-                          <td className="px-4 py-3 font-mono text-[#f2d892]">
-                            {m.comissao_gerada > 0 ? fmtCur(m.comissao_gerada) : '—'}
-                          </td>
                           <td className="px-4 py-3 font-mono font-semibold text-cream">
                             {totalPrevisto > 0 ? fmtCur(totalPrevisto) : '—'}
                           </td>
@@ -343,9 +341,6 @@ function MetricasObrasContent() {
                       </td>
                       <td className="px-4 py-3 font-mono font-semibold text-amber-400">
                         {fmtCur(porMontador.reduce((s, m) => s + m.comissao_em_aberto, 0))}
-                      </td>
-                      <td className="px-4 py-3 font-mono font-semibold text-[#f2d892]">
-                        {fmtCur(porMontador.reduce((s, m) => s + m.comissao_gerada, 0))}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-cream">
                         {fmtCur(porMontador.reduce(
@@ -618,6 +613,7 @@ function MetricasObrasContent() {
         montador={montadorComissao}
         periodo={periodo}
         periodoLabel={periodoLabel}
+        canManageComissao={canManageComissao}
         onClose={() => setMontadorComissao(null)}
       />
     </div>

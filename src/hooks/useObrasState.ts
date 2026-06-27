@@ -18,7 +18,7 @@ async function syncObraMontadores(obraId: string, montadorIds: string[]) {
 }
 
 async function syncObraComissao(obraId: string, input: Pick<ObraInput, 'comissao_habilitada' | 'comissao_itens'>) {
-  const { habilitada, prestadorIds, valores } = splitComissaoForSave({
+  const { habilitada, prestadorIds, valores, ocultos } = splitComissaoForSave({
     comissao_habilitada: input.comissao_habilitada ?? false,
     comissao_itens: input.comissao_itens ?? [],
   })
@@ -27,6 +27,7 @@ async function syncObraComissao(obraId: string, input: Pick<ObraInput, 'comissao
     p_habilitada: habilitada,
     p_prestador_ids: prestadorIds,
     p_valores: valores,
+    p_ocultos: ocultos,
   })
   if (error) throw new Error(error.message)
 }

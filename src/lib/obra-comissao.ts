@@ -4,15 +4,17 @@ import { getObraMontadorIds, getObraMontadorNomes } from '@/lib/obra-montadores'
 /** Converte arrays paralelos da obra em itens de comissão. */
 export function parseObraComissaoItens(obra: Pick<
   ObraFull,
-  'comissao_prestador_ids' | 'comissao_prestador_nomes' | 'comissao_valores'
+  'comissao_prestador_ids' | 'comissao_prestador_nomes' | 'comissao_valores' | 'comissao_ocultos'
 >): ObraComissaoItem[] {
   const ids = obra.comissao_prestador_ids ?? []
   const nomes = obra.comissao_prestador_nomes ?? []
   const valores = obra.comissao_valores ?? []
+  const ocultos = obra.comissao_ocultos ?? []
   return ids.map((prestador_id, i) => ({
     prestador_id,
     prestador_nome: nomes[i],
     valor: Number(valores[i] ?? 0),
+    oculto_prestador: !!ocultos[i],
   })).filter(item => item.valor > 0)
 }
 
@@ -20,14 +22,17 @@ export function parseObraComissaoItens(obra: Pick<
 export function getObraComissaoItensVisiveis(
   obra: Pick<
     ObraFull,
-    'comissao_habilitada' | 'comissao_prestador_ids' | 'comissao_prestador_nomes' | 'comissao_valores'
+    'comissao_habilitada' | 'comissao_prestador_ids' | 'comissao_prestador_nomes' | 'comissao_valores' | 'comissao_ocultos'
   >,
   options?: { prestadorId?: string | null; showAll?: boolean },
 ): ObraComissaoItem[] {
   if (!obra.comissao_habilitada) return []
   const itens = parseObraComissaoItens(obra)
   if (options?.showAll || !options?.prestadorId) return itens
-  return itens.filter(i => i.prestador_id === options.prestadorId)
+  return itens.filter(i =>
+    i.prestador_id === options.prestadorId
+    && !i.oculto_prestador,
+  )
 }
 
 /** Soma dos valores de comissão da obra. */
@@ -52,6 +57,7 @@ export function buildComissaoItensFromObra(
         prestador_id: id,
         prestador_nome: nome,
         valor: existente?.valor ?? 0,
+        oculto_prestador: existente?.oculto_prestador ?? false,
       }
     })
   }
@@ -70,6 +76,7 @@ export function splitComissaoForSave(input: ObraInput): {
   habilitada: boolean
   prestadorIds: string[]
   valores: number[]
+  ocultos: boolean[]
 } {
   const habilitada = input.comissao_habilitada ?? false
   const itens = (input.comissao_itens ?? []).filter(i => i.valor > 0)
@@ -77,6 +84,7 @@ export function splitComissaoForSave(input: ObraInput): {
     habilitada,
     prestadorIds: itens.map(i => i.prestador_id),
     valores: itens.map(i => Number(i.valor) || 0),
+    ocultos: itens.map(i => !!i.oculto_prestador),
   }
 }
 

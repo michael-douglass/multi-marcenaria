@@ -31,6 +31,7 @@ export function ObraComissaoField({
       ...op,
       incluido: !!atual,
       valor: atual?.valor ?? 0,
+      oculto: atual?.oculto_prestador ?? false,
     }
   })
 
@@ -46,7 +47,7 @@ export function ObraComissaoField({
     if (itens.some(i => i.prestador_id === prestadorId)) return
     onItensChange([
       ...itens,
-      { prestador_id: prestadorId, prestador_nome: row.prestador_nome, valor: 0 },
+      { prestador_id: prestadorId, prestador_nome: row.prestador_nome, valor: 0, oculto_prestador: false },
     ])
   }
 
@@ -55,6 +56,14 @@ export function ObraComissaoField({
     onItensChange(
       itens.map(i =>
         i.prestador_id === prestadorId ? { ...i, valor } : i,
+      ),
+    )
+  }
+
+  const setOculto = (prestadorId: string, oculto: boolean) => {
+    onItensChange(
+      itens.map(i =>
+        i.prestador_id === prestadorId ? { ...i, oculto_prestador: oculto } : i,
       ),
     )
   }
@@ -121,6 +130,18 @@ export function ObraComissaoField({
                         onChange={e => setValor(row.prestador_id, e.target.value)}
                       />
                     </div>
+                    {row.incluido && (
+                      <label className="flex items-center gap-1.5 shrink-0 cursor-pointer" title="O montador não verá esta comissão">
+                        <input
+                          type="checkbox"
+                          className="accent-[#d4bc9f]"
+                          checked={row.oculto}
+                          disabled={locked}
+                          onChange={e => setOculto(row.prestador_id, e.target.checked)}
+                        />
+                        <span className="text-[0.65rem] text-[#d4bc9f] whitespace-nowrap">Ocultar</span>
+                      </label>
+                    )}
                   </div>
                 ))}
               </div>
