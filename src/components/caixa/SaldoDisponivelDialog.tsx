@@ -39,8 +39,6 @@ export function SaldoDisponivelDialog({
     alocacoes,
     contasGlobais,
     totalGlobalContas,
-    saldoSistemaGlobal,
-    totalPagoSistemaGlobal,
     saldoDisponivel,
     totalAlocado,
     diferenca,
@@ -123,36 +121,17 @@ export function SaldoDisponivelDialog({
       closeOnBackdrop={false}
       headerTop={
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 sm:p-4">
-              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
-                Total em todas as contas (todos os meses)
-              </p>
-              {loadingGlobal ? (
-                <p className="mt-1 text-lg font-bold text-emerald-400/60 animate-pulse">Carregando...</p>
-              ) : contasGlobais.length === 0 ? (
-                <p className="mt-1 text-sm text-[#edd9c4]">Nenhuma conta cadastrada ainda.</p>
-              ) : (
-                <p className="mt-1 text-2xl font-bold text-emerald-400">{fmtCur(totalGlobalContas)}</p>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-[#f2d892]/25 bg-[#f2d892]/5 p-3 sm:p-4">
-              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
-                Saldo disponível reservado no sistema
-              </p>
-              {loadingGlobal ? (
-                <p className="mt-1 text-lg font-bold text-[#f2d892]/60 animate-pulse">Carregando...</p>
-              ) : (
-                <>
-                  <p className="mt-1 text-2xl font-bold text-[#f2d892]">{fmtCur(saldoSistemaGlobal)}</p>
-                  <p className="mt-2 text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
-                    Total pago no sistema
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-red-400/90">{fmtCur(totalPagoSistemaGlobal)}</p>
-                </>
-              )}
-            </div>
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 sm:p-4">
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
+              Total em todas as contas (todos os meses)
+            </p>
+            {loadingGlobal ? (
+              <p className="mt-1 text-lg font-bold text-emerald-400/60 animate-pulse">Carregando...</p>
+            ) : contasGlobais.length === 0 ? (
+              <p className="mt-1 text-sm text-[#edd9c4]">Nenhuma conta cadastrada ainda.</p>
+            ) : (
+              <p className="mt-1 text-2xl font-bold text-emerald-400">{fmtCur(totalGlobalContas)}</p>
+            )}
           </div>
 
           {!loadingGlobal && contasGlobais.length > 0 && (
