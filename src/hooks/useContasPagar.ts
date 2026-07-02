@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
-import { getModeloRecorrencia } from '../lib/contas-pagar-grupo'
+import { getContasRelacionadas, getModeloRecorrencia } from '../lib/contas-pagar-grupo'
 import { expandirTodosFixoMontadores } from '../lib/fixo-montador'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
@@ -45,6 +45,8 @@ interface UpdateContaPagarInput {
   status?: 'pendente' | 'parcialmente_pago' | 'pago'
   valor_pago?: number
   data_pagamento?: string | null
+  /** Recalcula vencimentos de todas as parcelas a partir da 1ª (escopo group). */
+  primeiro_vencimento_grupo?: string
 }
 
 interface AtualizarRecorrenciaInput {
@@ -236,7 +238,7 @@ export function useContasPagar() {
   ): Promise<{ rows: ContaPagar[]; grupo_lancamento_id: string | null }> => {
     const n = input.num_parcelas
     const valorUnitario = input.valor_total / n
-    const grupoId = grupoLancamentoId ?? (input.pedido_id ? null : createId())
+    const grupoId = grupoLancamentoId ?? createId()
 
     const parcelas = Array.from({ length: n }, (_, i) => ({
       pedido_id: input.pedido_id ?? null,
@@ -538,25 +540,29 @@ export function useContasPagar() {
     scope: ContaPagarScope,
   ) => {
     const updatedAt = new Date().toISOString()
+    const { primeiro_vencimento_grupo, ...restPayload } = payload
 
-    if (scope === 'group' && conta.grupo_lancamento_id) {
-      const { data: groupRows, error: fetchErr } = await supabase
-        .from('movelaria_contas_pagar')
-        .select('id, numero_parcela')
-        .eq('grupo_lancamento_id', conta.grupo_lancamento_id)
-        .order('numero_parcela', { ascending: true })
+    const relacionadas =
+      scope === 'group' ? getContasRelacionadas(conta, data) : [conta]
 
-      if (fetchErr) throw new Error(fetchErr.message)
-
-      const anchorParcela = conta.numero_parcela || 1
-      for (const row of groupRows ?? []) {
-        const monthOffset = row.numero_parcela - anchorParcela
-        const scopedPayload = {
-          ...payload,
-          data_vencimento: payload.data_vencimento
-            ? addMonths(payload.data_vencimento, monthOffset)
-            : undefined,
+    if (scope === 'group' && relacionadas.length > 1) {
+      for (const row of relacionadas) {
+        const monthOffset = row.numero_parcela - 1
+        const scopedPayload: Record<string, unknown> = {
+          ...restPayload,
           atualizado_em: updatedAt,
+        }
+
+        if (primeiro_vencimento_grupo) {
+          scopedPayload.data_vencimento = addMonths(primeiro_vencimento_grupo, monthOffset)
+        } else if (restPayload.data_vencimento) {
+          const anchorParcela = conta.numero_parcela || 1
+          scopedPayload.data_vencimento = addMonths(
+            restPayload.data_vencimento,
+            row.numero_parcela - anchorParcela,
+          )
+        } else {
+          delete scopedPayload.data_vencimento
         }
 
         const { error: rowErr } = await supabase
@@ -567,7 +573,7 @@ export function useContasPagar() {
         if (rowErr) throw new Error(rowErr.message)
       }
     } else {
-      const singlePayload = { ...payload, atualizado_em: updatedAt }
+      const singlePayload = { ...restPayload, atualizado_em: updatedAt }
       const { error: err } = await supabase
         .from('movelaria_contas_pagar')
         .update(singlePayload)
@@ -579,15 +585,15 @@ export function useContasPagar() {
   }
 
   const excluirContaPagar = async (conta: ContaPagar, scope: ContaPagarScope) => {
-    let query = supabase.from('movelaria_contas_pagar').delete()
+    const relacionadas =
+      scope === 'group' ? getContasRelacionadas(conta, data) : [conta]
+    const ids = relacionadas.map(c => c.id)
 
-    if (scope === 'group' && conta.grupo_lancamento_id) {
-      query = query.eq('grupo_lancamento_id', conta.grupo_lancamento_id)
-    } else {
-      query = query.eq('id', conta.id)
-    }
+    const { error: err } = await supabase
+      .from('movelaria_contas_pagar')
+      .delete()
+      .in('id', ids)
 
-    const { error: err } = await query
     if (err) throw new Error(err.message)
     await load()
   }

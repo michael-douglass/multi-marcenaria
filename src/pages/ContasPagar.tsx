@@ -11,7 +11,7 @@ import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyStat
 import { ContaPagarAnexosField } from '../components/contas-pagar/ContaPagarAnexosField'
 import { ContaPagarAnexosGrupoField } from '../components/contas-pagar/ContaPagarAnexosGrupoField'
 import { ContaPagarAnexosButton } from '../components/contas-pagar/ContaPagarAnexosModal'
-import { getContasRelacionadas, getModeloRecorrencia, getTextoDetalheContaPagar, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
+import { getContasRelacionadas, getModeloRecorrencia, getPrimeiraParcela, getTextoDetalheContaPagar, lancamentoTemParcelamento, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
@@ -27,7 +27,7 @@ import {
   revokePendingAnexoUrls,
   uploadContaPagarAnexos,
 } from '../lib/contas-pagar-anexos'
-import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO } from '../lib/utils'
+import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO, addMonths } from '../lib/utils'
 import { normalizeObraDate, parseIsoDate } from '../lib/date-br'
 import {
   applyPeriodFilter,
@@ -156,6 +156,7 @@ interface EditContaForm {
   formaPagamentoId: string
   valorParcela: string
   vencimento: string
+  primeiroVencimentoParcelado: string
   recorrenciaValorMensal: string
   recorrenciaDiaMensal: string
   recorrenciaEncerramento: string
@@ -178,6 +179,12 @@ function editFormFromConta(conta: ContaPagar, todasContas?: ContaPagar[]): EditC
     const serie = todasContas.filter(c => c.recorrencia_id === conta.recorrencia_id)
     if (serie.length > 0) textoRef = getModeloRecorrencia(serie)
   }
+  const primeira =
+    todasContas?.length
+      ? getPrimeiraParcela(conta, todasContas)
+      : conta
+  const primeiroVencimento =
+    normalizeObraDate(primeira.data_vencimento) ?? vencimento
   return {
     supplierId: conta.fornecedor_id ?? '',
     desc: textoRef.descricao ?? conta.fornecedor_nome ?? '',
@@ -185,6 +192,7 @@ function editFormFromConta(conta: ContaPagar, todasContas?: ContaPagar[]): EditC
     formaPagamentoId: conta.forma_pagamento_id ?? '',
     valorParcela: String(conta.valor_parcela ?? ''),
     vencimento,
+    primeiroVencimentoParcelado: primeiroVencimento,
     recorrenciaValorMensal: String(conta.recorrencia_valor_base ?? conta.valor_parcela ?? ''),
     recorrenciaDiaMensal: diaFromIso(vencimento),
     recorrenciaEncerramento: normalizeObraDate(conta.recorrencia_encerramento) ?? '',
@@ -281,6 +289,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [scopePromptOpen, setScopePromptOpen] = useState(false)
+  const [deleteScopeOpen, setDeleteScopeOpen] = useState(false)
+  const [contaToDelete, setContaToDelete] = useState<ContaPagar | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Sentinel para identificar a opção "Caixa Fornecedor" no select de forma de pagamento
   const FORMA_CAIXA = '__caixa_fornecedor__'
@@ -695,13 +706,19 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           metadados,
         })
       } else {
+        const isParcelado = lancamentoTemParcelamento(editingConta, data)
+        const primeiroVenc =
+          normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? vencimentoAtual
+
         await editarContaPagar(
           editingConta,
           {
             ...metadados,
             valor_parcela: valorParcela,
             valor_total: valorParcela,
-            data_vencimento: vencimentoAtual,
+            data_vencimento: scope === 'single' ? vencimentoAtual : undefined,
+            primeiro_vencimento_grupo:
+              scope === 'group' && isParcelado ? primeiroVenc : undefined,
           },
           scope,
         )
@@ -724,15 +741,36 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const askEditScopeIfNeeded = () => {
-    if (
-      editingConta &&
-      editingConta.total_parcelas > 1 &&
-      editingConta.grupo_lancamento_id
-    ) {
+    if (editingConta && lancamentoTemParcelamento(editingConta, data)) {
       setScopePromptOpen(true)
       return
     }
     void persistEdit('single')
+  }
+
+  const askDeleteScope = (conta: ContaPagar) => {
+    if (lancamentoTemParcelamento(conta, data)) {
+      setContaToDelete(conta)
+      setDeleteScopeOpen(true)
+      return
+    }
+    const ok = confirm('Deseja realmente apagar esta fatura?')
+    if (!ok) return
+    void confirmarExclusaoEscopo(conta, 'single')
+  }
+
+  const confirmarExclusaoEscopo = async (conta: ContaPagar, scope: 'single' | 'group') => {
+    setDeleting(true)
+    setSaveError(null)
+    try {
+      await excluirContaPagar(conta, scope)
+      setDeleteScopeOpen(false)
+      setContaToDelete(null)
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erro ao excluir fatura.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const handleMarcarPago = (conta: ContaPagar) => {
@@ -818,14 +856,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     }
   }
 
-  const removeConta = async (conta: ContaPagar) => {
-    const shouldDelete = confirm('Deseja realmente apagar esta fatura?')
-    if (!shouldDelete) return
-    try {
-      await excluirContaPagar(conta, 'single')
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : 'Erro ao excluir fatura.')
-    }
+  const removeConta = (conta: ContaPagar) => {
+    askDeleteScope(conta)
   }
 
   return (
@@ -1050,7 +1082,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         wide
         closeOnBackdrop={false}
       >
-        {editingConta && (
+        {editingConta && (lancamentoTemParcelamento(editingConta, data) || (editingConta.recorrente && editingConta.recorrencia_id)) && (
           <ContaPagarParcelasAbertasPanel
             contaAtual={editingConta}
             todasContas={data}
@@ -1118,6 +1150,37 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             />
           </Field>
         </FieldRow>
+
+        {editingConta && lancamentoTemParcelamento(editingConta, data) ? (
+          <div className="mb-4 rounded-lg border border-[rgba(240,210,140,.22)] bg-[rgba(240,210,140,.04)] p-4">
+            <p className="mb-3 text-[0.68rem] font-bold uppercase tracking-wider text-[#f2d892]">
+              Vencimentos do parcelamento
+            </p>
+            <Field label="Vencimento da 1ª parcela — dia / mês / ano">
+              <DateInput
+                value={editForm.primeiroVencimentoParcelado}
+                onChange={iso =>
+                  setEditForm(p => ({
+                    ...p,
+                    primeiroVencimentoParcelado: iso ?? todayISO(),
+                  }))
+                }
+              />
+            </Field>
+            <p className="mt-2 text-xs text-[#edd9c4]">
+              Ao salvar em &quot;Editar todas as parcelas&quot;, os vencimentos serão recalculados
+              mês a mês a partir desta data.
+            </p>
+            {editForm.primeiroVencimentoParcelado && editingConta.total_parcelas > 1 ? (
+              <div className="mt-3 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                Previsão:{' '}
+                {Array.from({ length: editingConta.total_parcelas }, (_, i) =>
+                  fmtDate(addMonths(editForm.primeiroVencimentoParcelado, i)),
+                ).join(' · ')}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {editingConta?.recorrente && editingConta.recorrencia_id ? (
           <div className="mb-4 rounded-lg border border-[rgba(240,210,140,.22)] bg-[rgba(240,210,140,.04)] p-4">
@@ -1231,6 +1294,66 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             Editar todas as parcelas
           </button>
         </div>
+      </Modal>
+
+      <Modal
+        open={deleteScopeOpen}
+        onClose={() => {
+          if (deleting) return
+          setDeleteScopeOpen(false)
+          setContaToDelete(null)
+        }}
+        title="APAGAR FATURA"
+        closeOnBackdrop={false}
+      >
+        {contaToDelete && (
+          <>
+            <p className="mb-4 text-sm text-[#fffaf4]">
+              <strong style={{ color: '#f2d892' }}>
+                {contaToDelete.fornecedor_nome ?? contaToDelete.descricao ?? 'Esta fatura'}
+              </strong>
+              {' '}— parcela{' '}
+              {contaToDelete.numero_parcela}/{contaToDelete.total_parcelas}{' '}
+              ({fmtCur(contaToDelete.valor_parcela)}).
+              <br /><br />
+              Esta conta faz parte de um lançamento parcelado. Deseja apagar apenas esta parcela
+              ou todas as parcelas deste lançamento?
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setDeleteScopeOpen(false)
+                  setContaToDelete(null)
+                }}
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => void confirmarExclusaoEscopo(contaToDelete, 'single')}
+                disabled={deleting}
+              >
+                {deleting
+                  ? 'Apagando...'
+                  : `Só esta parcela (${contaToDelete.numero_parcela}/${contaToDelete.total_parcelas})`}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => void confirmarExclusaoEscopo(contaToDelete, 'group')}
+                disabled={deleting}
+              >
+                {deleting
+                  ? 'Apagando...'
+                  : `Todas as parcelas (${getContasRelacionadas(contaToDelete, data).length || contaToDelete.total_parcelas})`}
+              </button>
+            </div>
+          </>
+        )}
       </Modal>
 
       <div className="flex items-start gap-2 flex-wrap">

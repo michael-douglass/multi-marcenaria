@@ -13,12 +13,18 @@ function mesmaParcelaLancamento(a: ContaPagar, b: ContaPagar): boolean {
   return (a.descricao ?? '') === (b.descricao ?? '')
 }
 
-/** Parcelas do mesmo lançamento (grupo parcelado ou recorrência). */
+/** Parcelas do mesmo lançamento (grupo parcelado, pedido ou recorrência). */
 export function getContasRelacionadas(conta: ContaPagar, all: ContaPagar[]): ContaPagar[] {
   if (conta.grupo_lancamento_id) {
     return all
       .filter(c => c.grupo_lancamento_id === conta.grupo_lancamento_id)
       .sort((a, b) => a.numero_parcela - b.numero_parcela)
+  }
+  if (conta.pedido_id) {
+    const irmaos = all.filter(c => c.pedido_id === conta.pedido_id)
+    if (irmaos.length > 1) {
+      return irmaos.sort((a, b) => a.numero_parcela - b.numero_parcela)
+    }
   }
   if (conta.recorrente && conta.recorrencia_id) {
     return all
@@ -32,6 +38,18 @@ export function getContasRelacionadas(conta: ContaPagar, all: ContaPagar[]): Con
     }
   }
   return [conta]
+}
+
+/** Lançamento parcelado (não recorrente) com mais de uma parcela. */
+export function lancamentoTemParcelamento(conta: ContaPagar, all: ContaPagar[]): boolean {
+  if (conta.recorrente && conta.recorrencia_id) return false
+  return conta.total_parcelas > 1 || getContasRelacionadas(conta, all).length > 1
+}
+
+/** Primeira parcela do lançamento (para recalcular vencimentos). */
+export function getPrimeiraParcela(conta: ContaPagar, all: ContaPagar[]): ContaPagar {
+  const relacionadas = getContasRelacionadas(conta, all)
+  return relacionadas.find(c => c.numero_parcela === 1) ?? relacionadas[0]
 }
 
 /** ID do grupo de anexos compartilhado entre parcelas do mesmo lançamento. */
@@ -57,7 +75,7 @@ export function getParcelasEmAberto(conta: ContaPagar, all: ContaPagar[]): Conta
 }
 
 export function getTituloLancamento(conta: ContaPagar): string {
-  if (conta.grupo_lancamento_id && conta.total_parcelas > 1) {
+  if (conta.total_parcelas > 1 && !(conta.recorrente && conta.recorrencia_id)) {
     return `Lançamento parcelado (${conta.total_parcelas} parcelas)`
   }
   if (conta.recorrente && conta.recorrencia_id) {

@@ -1,6 +1,6 @@
 ﻿import { Badge } from '@/components/ui/Badge'
 import {
-  getParcelasEmAberto,
+  getContasRelacionadas,
   getTituloLancamento,
 } from '@/lib/contas-pagar-grupo'
 import { fmtCur, fmtDate, isOverdue } from '@/lib/utils'
@@ -23,7 +23,8 @@ export function ContaPagarParcelasAbertasPanel({
   todasContas,
   onSelecionarParcela,
 }: ContaPagarParcelasAbertasPanelProps) {
-  const parcelasAbertas = getParcelasEmAberto(contaAtual, todasContas)
+  const parcelas = getContasRelacionadas(contaAtual, todasContas)
+  const parcelasAbertas = parcelas.filter(c => c.status !== 'pago')
   const totalAberto = parcelasAbertas.reduce((s, p) => s + p.valor_parcela, 0)
   const nome =
     contaAtual.fornecedor_nome ?? contaAtual.descricao ?? 'Sem nome'
@@ -71,9 +72,9 @@ export function ContaPagarParcelasAbertasPanel({
         </div>
       </div>
 
-      {parcelasAbertas.length === 0 ? (
+      {parcelas.length === 0 ? (
         <p className="text-sm text-[#edd9c4]">
-          Todas as parcelas deste lançamento estão pagas.
+          Nenhuma parcela encontrada neste lançamento.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-white/5">
@@ -90,7 +91,7 @@ export function ContaPagarParcelasAbertasPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {parcelasAbertas.map(p => {
+              {parcelas.map(p => {
                 const isAtual = p.id === contaAtual.id
                 const s = statusParcela(p)
                 return (
