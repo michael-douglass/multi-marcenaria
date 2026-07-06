@@ -43,24 +43,36 @@ function computeRoles(profile: UserProfile): UserRole[] {
   return result
 }
 
+function mapRpcProfile(row: Record<string, unknown>): UserProfile {
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    nome: row.nome ? String(row.nome) : undefined,
+    perfil: row.perfil as UserProfile['perfil'],
+    perfis_extras: Array.isArray(row.perfis_extras) ? row.perfis_extras.map(String) : [],
+    ativo: row.ativo === true,
+    criado_em: String(row.criado_em ?? ''),
+  }
+}
+
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token || session.user.id !== userId) {
+    return null
+  }
+
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 15_000)
 
   try {
     const { data, error } = await supabase
-      .from('movelaria_usuarios')
-      .select('*')
-      .eq('id', userId)
+      .rpc('movelaria_obter_meu_usuario')
       .abortSignal(controller.signal)
-      .single()
 
-    if (error) {
-      if (error.code === 'PGRST116') return null
-      throw new Error(error.message)
-    }
+    if (error) throw new Error(error.message)
 
-    return (data ?? null) as UserProfile | null
+    const row = (data ?? [])[0] as Record<string, unknown> | undefined
+    return row ? mapRpcProfile(row) : null
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(
@@ -71,6 +83,26 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
   } finally {
     window.clearTimeout(timer)
   }
+}
+
+async function fetchProfileWithRetry(userId: string, attempts = 4): Promise<UserProfile | null> {
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const profile = await fetchProfile(userId)
+      if (profile) return profile
+    } catch (err) {
+      lastError = err
+    }
+
+    if (attempt < attempts - 1) {
+      await new Promise(resolve => window.setTimeout(resolve, 150 * (attempt + 1)))
+    }
+  }
+
+  if (lastError) throw lastError
+  return null
 }
 
 export function useAuth(): AuthState {
@@ -151,13 +183,24 @@ export function useAuth(): AuthState {
         setProfileError(null)
 
         try {
-          const profile = await fetchProfile(userId)
+          const profile = await fetchProfileWithRetry(userId)
           if (!active) return
 
-          setUserProfile(profile)
           if (!profile) {
-            setProfileError('Perfil não encontrado no sistema.')
+            setUserProfile(null)
+            setProfileError('Perfil não encontrado no sistema. Contate o administrador.')
+            return
           }
+
+          if (profile.ativo === false) {
+            setUserProfile(null)
+            setProfileError(
+              'Conta pendente de aprovação. Aguarde o administrador ativar seu acesso em Configurações.',
+            )
+            return
+          }
+
+          setUserProfile(profile)
         } catch (err) {
           if (!active) return
           const message = err instanceof Error ? err.message : 'Erro ao carregar perfil.'
@@ -171,7 +214,7 @@ export function useAuth(): AuthState {
     }
 
     // Evita deadlock conhecido do Supabase ao consultar DB logo após auth
-    const deferId = window.setTimeout(run, 50)
+    const deferId = window.setTimeout(run, 200)
 
     return () => {
       active = false

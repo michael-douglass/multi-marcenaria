@@ -286,18 +286,23 @@ function AppRoutes() {
 
   if (!userProfile) {
     const isConnectionError = profileError?.includes('banco') || profileError?.includes('conectar')
+    const isPendingApproval = profileError?.includes('pendente de aprovação')
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-center text-[#f2d892] px-6">
         <div className="max-w-md">
           <p className="mb-1 text-lg font-semibold">
-            {isConnectionError ? 'Servidor indisponível' : 'Usuário não configurado'}
+            {isConnectionError
+              ? 'Servidor indisponível'
+              : isPendingApproval
+                ? 'Conta pendente de aprovação'
+                : 'Usuário não configurado'}
           </p>
           <p className="text-sm opacity-60">
             {profileError ?? 'Contate o administrador para criar seu perfil de acesso.'}
           </p>
           <div className="mt-6 flex items-center justify-center gap-4">
             <AppRefreshButton variant="toolbar" showLabel />
-            {isConnectionError && (
+            {(isConnectionError || isPendingApproval || profileError) && (
               <button
                 type="button"
                 onClick={retryProfile}
