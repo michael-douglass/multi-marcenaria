@@ -1,4 +1,6 @@
-﻿import { addMonths, endOfMonth, isOverdue, todayISO } from '@/lib/utils'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { addMonths, endOfMonth, isOverdue, todayISO } from '@/lib/utils'
+import { MONTHS_PT, normalizeObraDate } from '@/lib/date-br'
 import type { ContaPagar } from '@/types'
 
 export type PeriodMode =
@@ -55,11 +57,18 @@ export function sortContasPagarSemDatas<T extends Pick<ContaPagar, 'data_vencime
   })
 }
 
+export function isPeriodoAtivo(period: PeriodFilter): boolean {
+  return period.mode !== 'all'
+}
+
 export function applyPeriodFilter<T extends Pick<ContaPagar, 'data_vencimento'>>(
   items: T[],
   period: PeriodFilter,
 ): T[] {
   const today = todayISO()
+
+  const vencimentoIso = (v: string | null | undefined): string | null =>
+    normalizeObraDate(v ?? null)
 
   switch (period.mode) {
     case 'all':
@@ -70,48 +79,53 @@ export function applyPeriodFilter<T extends Pick<ContaPagar, 'data_vencimento'>>
       if (!month) return items
       const start = `${month}-01`
       const end = endOfMonth(start)
-      return items.filter(
-        p => !!p.data_vencimento && p.data_vencimento >= start && p.data_vencimento <= end,
-      )
+      return items.filter(p => {
+        const v = vencimentoIso(p.data_vencimento)
+        return !!v && v >= start && v <= end
+      })
     }
 
     case 'month': {
       const start = today.slice(0, 7) + '-01'
       const end = endOfMonth(today)
-      return items.filter(
-        p => !!p.data_vencimento && p.data_vencimento >= start && p.data_vencimento <= end,
-      )
+      return items.filter(p => {
+        const v = vencimentoIso(p.data_vencimento)
+        return !!v && v >= start && v <= end
+      })
     }
 
     case 'next-month': {
       const firstOfNext = addMonths(today.slice(0, 7) + '-01', 1)
       const start = firstOfNext.slice(0, 7) + '-01'
       const end = endOfMonth(firstOfNext)
-      return items.filter(
-        p => !!p.data_vencimento && p.data_vencimento >= start && p.data_vencimento <= end,
-      )
+      return items.filter(p => {
+        const v = vencimentoIso(p.data_vencimento)
+        return !!v && v >= start && v <= end
+      })
     }
 
     case 'next-6m': {
       const end = addMonths(today, 6)
-      return items.filter(
-        p => !!p.data_vencimento && p.data_vencimento >= today && p.data_vencimento <= end,
-      )
+      return items.filter(p => {
+        const v = vencimentoIso(p.data_vencimento)
+        return !!v && v >= today && v <= end
+      })
     }
 
     case 'fixed-day': {
       const day = period.day
       if (!day) return items
-      return items.filter(p => !!p.data_vencimento && p.data_vencimento === day)
+      return items.filter(p => vencimentoIso(p.data_vencimento) === day)
     }
 
     case 'date-range': {
       const { from, to } = period
       if (!from && !to) return items
       return items.filter(p => {
-        if (!p.data_vencimento) return false
-        if (from && p.data_vencimento < from) return false
-        if (to && p.data_vencimento > to) return false
+        const v = vencimentoIso(p.data_vencimento)
+        if (!v) return false
+        if (from && v < from) return false
+        if (to && v > to) return false
         return true
       })
     }
@@ -159,24 +173,86 @@ const PRESETS: { mode: PeriodMode; label: string }[] = [
   { mode: 'next-6m', label: '6 Meses' },
 ]
 
-function monthLabel(ym: string): string {
+export function monthLabel(ym: string): string {
   const [year, month] = ym.split('-').map(Number)
   const date = new Date(year, month - 1, 1)
   return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
 }
 
-function buildMonthOptions(count = 12): string[] {
-  const first = todayISO().slice(0, 7) + '-01'
-  return Array.from({ length: count }, (_, i) => addMonths(first, i).slice(0, 7))
+/** Anos disponíveis no seletor (do mais recente ao mais antigo). */
+export function buildYearOptions(yearsBack = 2, yearsForward = 3): number[] {
+  const currentYear = Number(todayISO().slice(0, 4))
+  const years: number[] = []
+  for (let year = currentYear + yearsForward; year >= currentYear - yearsBack; year--) {
+    years.push(year)
+  }
+  return years
 }
+
+const MONTH_NUMBERS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
+
+const selectCompactStyle = (active: boolean): React.CSSProperties => ({
+  height: 30,
+  minHeight: 30,
+  width: 'auto',
+  minWidth: 0,
+  padding: '0 .75rem',
+  fontSize: '.75rem',
+  border: active ? '1px solid rgba(240,210,140,.5)' : undefined,
+  background: active ? 'rgba(240,210,140,.07)' : undefined,
+})
 
 interface PeriodFilterBarProps {
   value: PeriodFilter
   onChange: (v: PeriodFilter) => void
+  /** Anos para trás/à frente nos seletores de ano/mês. */
+  monthYearSpan?: { back: number; forward: number }
 }
 
-export function PeriodFilterBar({ value, onChange }: PeriodFilterBarProps) {
-  const monthOptions = buildMonthOptions(12)
+export function PeriodFilterBar({ value, onChange, monthYearSpan }: PeriodFilterBarProps) {
+  const yearsBack = monthYearSpan?.back ?? 2
+  const yearsForward = monthYearSpan?.forward ?? 3
+  const yearOptions = useMemo(
+    () => buildYearOptions(yearsBack, yearsForward),
+    [yearsBack, yearsForward],
+  )
+
+  const [pickYear, setPickYear] = useState('')
+  const [pickMonth, setPickMonth] = useState('')
+
+  useEffect(() => {
+    if (value.mode === 'fixed-month' && value.month) {
+      setPickYear(value.month.slice(0, 4))
+      setPickMonth(value.month.slice(5, 7))
+      return
+    }
+    if (value.mode !== 'fixed-month') {
+      setPickYear('')
+      setPickMonth('')
+    }
+  }, [value.mode, value.month])
+
+  const isFixedMonthActive = value.mode === 'fixed-month' && !!value.month
+
+  const commitYearMonth = (year: string, month: string) => {
+    if (year && month) {
+      onChange({ ...value, mode: 'fixed-month', month: `${year}-${month}` })
+      return
+    }
+    onChange({ ...value, mode: 'all', month: undefined })
+  }
+
+  const handleYearChange = (year: string) => {
+    setPickYear(year)
+    const month = year ? pickMonth : ''
+    if (!year) setPickMonth('')
+    commitYearMonth(year, month)
+  }
+
+  const handleMonthChange = (month: string) => {
+    setPickMonth(month)
+    commitYearMonth(pickYear, month)
+  }
 
   const isDayActive = value.mode === 'fixed-day'
   const isRangeActive = value.mode === 'date-range'
@@ -188,29 +264,46 @@ export function PeriodFilterBar({ value, onChange }: PeriodFilterBarProps) {
           key={p.mode}
           type="button"
           style={pillStyle(value.mode === p.mode)}
-          onClick={() => onChange({ ...value, mode: p.mode })}
+          onClick={() => onChange({ ...value, mode: p.mode, month: undefined })}
         >
           {p.label}
         </button>
       ))}
 
-      <select
-        className="glass-input"
-        style={{ height: 30, minHeight: 30, width: 'auto', padding: '0 .75rem', fontSize: '.75rem' }}
-        value={value.mode === 'fixed-month' ? value.month ?? '' : ''}
-        onChange={e => {
-          const month = e.target.value
-          if (!month) return
-          onChange({ ...value, mode: 'fixed-month', month })
-        }}
-      >
-        <option value="">Selecionar mês</option>
-        {monthOptions.map(month => (
-          <option key={month} value={month}>
-            {monthLabel(month)}
-          </option>
-        ))}
-      </select>
+      <div className="inline-flex items-center gap-1.5">
+        <select
+          className="glass-input"
+          style={selectCompactStyle(isFixedMonthActive)}
+          value={pickYear}
+          onChange={e => handleYearChange(e.target.value)}
+          title="Selecionar ano"
+          aria-label="Selecionar ano"
+        >
+          <option value="">Ano</option>
+          {yearOptions.map(year => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="glass-input"
+          style={selectCompactStyle(isFixedMonthActive)}
+          value={pickMonth}
+          onChange={e => handleMonthChange(e.target.value)}
+          disabled={!pickYear}
+          title={pickYear ? 'Selecionar mês' : 'Selecione o ano primeiro'}
+          aria-label="Selecionar mês"
+        >
+          <option value="">Mês</option>
+          {MONTH_NUMBERS.map((mm, index) => (
+            <option key={mm} value={mm}>
+              {MONTHS_PT[index]}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Separador visual */}
       <span style={{ color: 'rgba(240,210,140,.2)', fontSize: '.85rem', lineHeight: '30px' }}>|</span>

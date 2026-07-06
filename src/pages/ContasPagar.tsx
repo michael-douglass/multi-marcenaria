@@ -31,7 +31,9 @@ import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO, addMonths
 import { normalizeObraDate, parseIsoDate } from '../lib/date-br'
 import {
   applyPeriodFilter,
+  isPeriodoAtivo,
   isVencimentoNoMesAtual,
+  monthLabel,
   PeriodFilterBar,
   sortContasPagarSemDatas,
   type PeriodFilter,
@@ -424,6 +426,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }, [form, open, persistDraft])
 
   const isDefaultView = activeFilters.length === 0
+  const periodoLabel = useMemo(() => {
+    if (periodFilter.mode === 'fixed-month' && periodFilter.month) {
+      return monthLabel(periodFilter.month)
+    }
+    if (periodFilter.mode === 'month') return 'este mês'
+    if (periodFilter.mode === 'next-month') return 'próximo mês'
+    if (periodFilter.mode === 'next-6m') return 'próximos 6 meses'
+    if (periodFilter.mode === 'fixed-day' && periodFilter.day) return fmtDate(periodFilter.day)
+    if (periodFilter.mode === 'date-range') {
+      const from = periodFilter.from ? fmtDate(periodFilter.from) : '…'
+      const to = periodFilter.to ? fmtDate(periodFilter.to) : '…'
+      return `${from} – ${to}`
+    }
+    return null
+  }, [periodFilter])
   const activeFilterSet = useMemo(() => new Set(activeFilters), [activeFilters])
 
   const periodBase = applyPeriodFilter(data, periodFilter)
@@ -457,10 +474,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     return forn.includes(term) || desc.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
   }, [search, fornecedores])
 
+  const periodoAtivo = isPeriodoAtivo(periodFilter)
+
   const matchesStatusFilter = useCallback((p: ContaPagar, forList: boolean) => {
     const s = getStatus(p.data_vencimento, p.status)
     if (isDefaultView) {
-      if (forList && s === 'pago') return false
+      // Sem período fixo: esconde pagas na lista (foco no que ainda falta pagar).
+      // Com mês/período selecionado: mostra tudo daquele recorte, inclusive pagas.
+      if (forList && !periodoAtivo && s === 'pago') return false
       return true
     }
     return (
@@ -468,7 +489,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       (activeFilterSet.has('Pago') && s === 'pago') ||
       (activeFilterSet.has('Vencido') && s === 'vencido')
     )
-  }, [isDefaultView, activeFilterSet])
+  }, [isDefaultView, activeFilterSet, periodoAtivo])
 
   const ocultarListaFiltrada = useMemo(() => {
     let items = periodFiltered
@@ -866,7 +887,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Contas a Pagar</h1>
           <p className="section-label mt-1">
-            {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''} no período
+            {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''}
+            {periodoLabel ? ` em ${periodoLabel}` : ' no período'}
             {hasLancamentoPagarDraft() && !open ? ' · rascunho salvo' : ''}
           </p>
         </div>
@@ -1561,7 +1583,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
       <div className="glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
-          <EmptyState message="Nenhuma conta para este filtro." />
+          <EmptyState
+            message={
+              periodoLabel
+                ? `Nenhuma conta com vencimento em ${periodoLabel} para este filtro.`
+                : 'Nenhuma conta para este filtro.'
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
