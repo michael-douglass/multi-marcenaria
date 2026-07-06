@@ -1,7 +1,8 @@
 ﻿import { useMemo, useState } from 'react'
-import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search, Undo2 } from 'lucide-react'
+import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search, Undo2, FileText } from 'lucide-react'
 import { CaixaProvider, useCaixaContext } from '@/context/CaixaContext'
 import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
+import { useReciboConfig } from '@/hooks/useReciboConfig'
 import { fmtCur, cn } from '@/lib/utils'
 import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { GerenciarDestinatariosDialog } from '@/components/caixa/GerenciarDestinatariosDialog'
 import { RegistrarMovimentacaoDialog } from '@/components/caixa/RegistrarMovimentacaoDialog'
 import { PagarReservaDialog } from '@/components/caixa/PagarReservaDialog'
+import { CaixaReciboPrintModal } from '@/components/caixa/CaixaReciboPrintModal'
 import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
@@ -69,6 +71,7 @@ function CaixaContent({
   onPeriodoChange: (mes: number, ano: number) => void
 }) {
   const { resumo, loading, reservasConsolidadas, movimentacoes, desfazerReserva } = useCaixaContext()
+  const reciboHook = useReciboConfig()
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
   const [busca, setBusca] = useState('')
   const [desfazendoId, setDesfazendoId] = useState<string | null>(null)
@@ -124,6 +127,11 @@ function CaixaContent({
   const [novaMovOpen, setNovaMovOpen] = useState(false)
   const [saldoDialogOpen, setSaldoDialogOpen] = useState(false)
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
+  const [reciboReserva, setReciboReserva] = useState<ReservaConsolidada | null>(null)
+
+  const abrirRecibo = (item: ReservaConsolidada) => {
+    setReciboReserva(item)
+  }
 
   const handleDesfazerReserva = async (item: ReservaConsolidada) => {
     const ok = confirm(
@@ -348,6 +356,18 @@ function CaixaContent({
                                   Pagar
                                 </Button>
                               ) : null}
+                              {!virtual ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs text-[#edd9c4] hover:text-cream hover:bg-white/5"
+                                  title="Gerar recibo com logo e assinatura da empresa"
+                                  onClick={() => abrirRecibo(item)}
+                                >
+                                  <FileText className="mr-1 h-3.5 w-3.5" />
+                                  Recibo
+                                </Button>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -471,6 +491,13 @@ function CaixaContent({
         onOpenChange={setSaldoDialogOpen}
         mesInicial={mes}
         anoInicial={ano}
+      />
+
+      <CaixaReciboPrintModal
+        open={!!reciboReserva}
+        reserva={reciboReserva}
+        reciboConfig={reciboHook.config}
+        onClose={() => setReciboReserva(null)}
       />
     </div>
   )
