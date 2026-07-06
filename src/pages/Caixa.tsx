@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { GerenciarDestinatariosDialog } from '@/components/caixa/GerenciarDestinatariosDialog'
 import { RegistrarMovimentacaoDialog } from '@/components/caixa/RegistrarMovimentacaoDialog'
 import { PagarReservaDialog } from '@/components/caixa/PagarReservaDialog'
-import { CaixaReciboPrintModal } from '@/components/caixa/CaixaReciboPrintModal'
+import { CaixaComprovantePrintModal } from '@/components/caixa/CaixaComprovantePrintModal'
 import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
@@ -127,10 +127,10 @@ function CaixaContent({
   const [novaMovOpen, setNovaMovOpen] = useState(false)
   const [saldoDialogOpen, setSaldoDialogOpen] = useState(false)
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
-  const [reciboReserva, setReciboReserva] = useState<ReservaConsolidada | null>(null)
+  const [comprovanteReserva, setComprovanteReserva] = useState<ReservaConsolidada | null>(null)
 
-  const abrirRecibo = (item: ReservaConsolidada) => {
-    setReciboReserva(item)
+  const abrirComprovante = (item: ReservaConsolidada) => {
+    setComprovanteReserva(item)
   }
 
   const handleDesfazerReserva = async (item: ReservaConsolidada) => {
@@ -361,11 +361,11 @@ function CaixaContent({
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 text-xs text-[#edd9c4] hover:text-cream hover:bg-white/5"
-                                  title="Gerar recibo com logo e assinatura da empresa"
-                                  onClick={() => abrirRecibo(item)}
+                                  title="Comprovante de que pagamos ao destinatário"
+                                  onClick={() => abrirComprovante(item)}
                                 >
                                   <FileText className="mr-1 h-3.5 w-3.5" />
-                                  Recibo
+                                  Comprovante
                                 </Button>
                               ) : null}
                             </div>
@@ -493,11 +493,11 @@ function CaixaContent({
         anoInicial={ano}
       />
 
-      <CaixaReciboPrintModal
-        open={!!reciboReserva}
-        reserva={reciboReserva}
+      <CaixaComprovantePrintModal
+        open={!!comprovanteReserva}
+        reserva={comprovanteReserva}
         reciboConfig={reciboHook.config}
-        onClose={() => setReciboReserva(null)}
+        onClose={() => setComprovanteReserva(null)}
       />
     </div>
   )

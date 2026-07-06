@@ -3,33 +3,33 @@ import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import {
-  buildCaixaReciboTexto,
-  imprimirCaixaReciboTexto,
-  type CaixaReciboInput,
-} from '@/lib/caixa-recibo-print'
+  buildCaixaComprovanteTexto,
+  imprimirCaixaComprovante,
+  type CaixaComprovanteInput,
+} from '@/lib/caixa-comprovante-print'
 import type { ReciboConfig } from '@/hooks/useReciboConfig'
 import type { ReservaConsolidada } from '@/types'
 import { fmtCur, todayISO } from '@/lib/utils'
 
-interface CaixaReciboPrintModalProps {
+interface CaixaComprovantePrintModalProps {
   open: boolean
   reserva: ReservaConsolidada | null
   reciboConfig: ReciboConfig | null
   onClose: () => void
 }
 
-export function CaixaReciboPrintModal({
+export function CaixaComprovantePrintModal({
   open,
   reserva,
   reciboConfig,
   onClose,
-}: CaixaReciboPrintModalProps) {
+}: CaixaComprovantePrintModalProps) {
   const [valor, setValor] = useState('')
   const [dataPagamento, setDataPagamento] = useState(todayISO())
   const [descricao, setDescricao] = useState('')
-  const [textoRecibo, setTextoRecibo] = useState('')
+  const [textoComprovante, setTextoComprovante] = useState('')
 
-  const montarInput = useCallback((): CaixaReciboInput | null => {
+  const montarInput = useCallback((): CaixaComprovanteInput | null => {
     if (!reserva) return null
     const valorNum = Number(valor.replace(/\./g, '').replace(',', '.'))
     if (!Number.isFinite(valorNum) || valorNum <= 0) return null
@@ -46,7 +46,7 @@ export function CaixaReciboPrintModal({
   const gerarTexto = useCallback(() => {
     const input = montarInput()
     if (!input) return ''
-    return buildCaixaReciboTexto(input, reciboConfig)
+    return buildCaixaComprovanteTexto(input, reciboConfig)
   }, [montarInput, reciboConfig])
 
   useEffect(() => {
@@ -61,30 +61,35 @@ export function CaixaReciboPrintModal({
 
   useEffect(() => {
     if (!open || !reserva) return
-    setTextoRecibo(gerarTexto())
+    setTextoComprovante(gerarTexto())
   }, [open, reserva, gerarTexto, valor, dataPagamento, descricao, reciboConfig])
 
   const handlePrint = () => {
     const input = montarInput()
-    if (!input || !textoRecibo.trim()) return
-    imprimirCaixaReciboTexto(input, textoRecibo, reciboConfig)
+    if (!input || !textoComprovante.trim()) return
+    imprimirCaixaComprovante(input, textoComprovante, reciboConfig)
     onClose()
   }
 
   if (!reserva) return null
 
   return (
-    <Modal open={open} onClose={onClose} title="Gerar recibo de pagamento" wide>
+    <Modal open={open} onClose={onClose} title="Comprovante de pagamento" wide>
+      <p className="mb-4 text-[0.78rem] leading-relaxed text-[#d4bc9f]">
+        Documento que comprova que a <span className="text-cream">GARBO Movelaria</span> pagou
+        o destinatário abaixo. Não é recibo de cobrança de cliente.
+      </p>
+
       <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3">
-        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">Destinatário</p>
+        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">Pagamos a</p>
         <p className="text-sm font-semibold text-cream">{reserva.destinatario_nome}</p>
         <p className="mt-1 text-[0.72rem] text-[#d4bc9f]">
-          Já pago no período: {reserva.total_pago > 0 ? fmtCur(reserva.total_pago) : '—'}
+          Total já pago no período: {reserva.total_pago > 0 ? fmtCur(reserva.total_pago) : '—'}
         </p>
       </div>
 
       <div className="mb-4 grid gap-4 md:grid-cols-2">
-        <Field label="Valor do recibo *">
+        <Field label="Valor pago *">
           <input
             className="glass-input w-full"
             value={valor}
@@ -102,7 +107,7 @@ export function CaixaReciboPrintModal({
         </Field>
       </div>
 
-      <Field label="Descrição / referência">
+      <Field label="Descrição / referência do pagamento">
         <input
           className="glass-input w-full"
           value={descricao}
@@ -114,31 +119,31 @@ export function CaixaReciboPrintModal({
         <button
           type="button"
           className="btn btn-outline btn-sm"
-          onClick={() => setTextoRecibo(gerarTexto())}
+          onClick={() => setTextoComprovante(gerarTexto())}
         >
-          Atualizar texto do recibo
+          Atualizar texto do comprovante
         </button>
       </div>
 
-      <Field label="Texto do recibo (será impresso com logo e assinatura da empresa)">
+      <Field label="Texto do comprovante (impresso com logo e assinatura da empresa)">
         <textarea
           className="glass-input mt-1 min-h-[180px] w-full font-mono text-sm"
-          value={textoRecibo}
-          onChange={e => setTextoRecibo(e.target.value)}
+          value={textoComprovante}
+          onChange={e => setTextoComprovante(e.target.value)}
         />
       </Field>
 
-      {!reciboConfig && (
+      {!reciboConfig?.cnpj?.trim() && (
         <p className="mt-2 text-[0.72rem] text-amber-400/90">
-          Recibo não configurado em Cobranças — usando modelo padrão. Configure o CNPJ em Cobranças → ⚙️ para aparecer no documento.
+          CNPJ não configurado — configure em Cobranças → ⚙️ para aparecer no comprovante.
         </p>
       )}
 
       <ModalFormFooter
         onCancel={onClose}
         onSubmit={handlePrint}
-        submitLabel="Imprimir recibo"
-        submitDisabled={!textoRecibo.trim() || !montarInput()}
+        submitLabel="Imprimir comprovante"
+        submitDisabled={!textoComprovante.trim() || !montarInput()}
       />
     </Modal>
   )
