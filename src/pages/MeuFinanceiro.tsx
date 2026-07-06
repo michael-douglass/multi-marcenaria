@@ -100,7 +100,7 @@ export function MeuFinanceiro() {
                 {fmtCur(resumo.totalFixoMes)} fixo + {fmtCur(resumo.totalComissaoMes)} comissão
               </p>
               <p className="mt-1 text-[0.62rem] leading-relaxed text-[#d4bc9f]">
-                Todo o recebimento de {periodoLabel} — previsto, gerado e já pago
+                Comissões de obras concluídas e fixo mensal em {periodoLabel}
               </p>
             </div>
           </div>

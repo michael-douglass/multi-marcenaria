@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Save } from 'lucide-react'
 import { DateInput } from '@/components/ui/DateInput'
-import { useFixoMontador } from '@/hooks/useFixoMontador'
+import type { useFixoMontador } from '@/hooks/useFixoMontador'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { MontadorFixoMensal } from '@/types'
@@ -23,6 +23,8 @@ interface FixoMontadorSectionProps {
   ano: number
   periodoLabel: string
   canEdit: boolean
+  comissaoConcluidaPorMontador?: Record<string, number>
+  fixo: ReturnType<typeof useFixoMontador>
 }
 
 function defaultVencimento(): string {
@@ -37,8 +39,10 @@ export function FixoMontadorSection({
   ano,
   periodoLabel,
   canEdit,
+  comissaoConcluidaPorMontador = {},
+  fixo,
 }: FixoMontadorSectionProps) {
-  const { data, loading, error, savingId, salvarFixo } = useFixoMontador(mes, ano)
+  const { data, loading, error, savingId, salvarFixo } = fixo
   const [draftsValor, setDraftsValor] = useState<Record<string, string>>({})
   const [draftsData, setDraftsData] = useState<Record<string, string>>({})
   const [visiveis, setVisiveis] = useState<Set<string>>(new Set())
@@ -73,6 +77,30 @@ export function FixoMontadorSection({
     }
     return data.filter(row => visiveis.has(row.montador_id))
   }, [canEdit, data, visiveis])
+
+  const parseDraftValor = (montadorId: string, fallback: number): number => {
+    const raw = draftsValor[montadorId] ?? ''
+    if (raw === '') return fallback
+    return Math.max(0, Number(raw.replace(',', '.')) || 0)
+  }
+
+  const totais = useMemo(() => {
+    let fixo = 0
+    let comissao = 0
+    let aPagar = 0
+
+    for (const row of linhasVisiveis) {
+      const fixoLinha = canEdit
+        ? parseDraftValor(row.montador_id, row.valor_fixo_mensal)
+        : row.valor_fixo_mensal
+      const comissaoLinha = comissaoConcluidaPorMontador[row.montador_id] ?? 0
+      fixo += fixoLinha
+      comissao += comissaoLinha
+      aPagar += fixoLinha + comissaoLinha
+    }
+
+    return { fixo, comissao, aPagar }
+  }, [linhasVisiveis, canEdit, draftsValor, comissaoConcluidaPorMontador])
 
   const adicionarMontador = () => {
     if (!montadorSelecionado) return
@@ -169,12 +197,13 @@ export function FixoMontadorSection({
 
       {!loading && linhasVisiveis.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[920px] text-sm">
             <thead>
               <tr className="border-b border-[rgba(240,210,140,0.12)]">
                 {[
                   'Montador',
                   'Valor fixo mensal',
+                  'Valor a pagar',
                   'Data de pagamento',
                   `Status em ${periodoLabel}`,
                   '',
@@ -194,6 +223,11 @@ export function FixoMontadorSection({
                 const draftValor = draftsValor[row.montador_id] ?? ''
                 const draftData = draftsData[row.montador_id] ?? defaultVencimento()
                 const valorAtual = row.valor_fixo_mensal
+                const fixoEfetivo = canEdit
+                  ? parseDraftValor(row.montador_id, valorAtual)
+                  : valorAtual
+                const comissaoConcluida = comissaoConcluidaPorMontador[row.montador_id] ?? 0
+                const valorAPagar = fixoEfetivo + comissaoConcluida
 
                 return (
                   <tr
@@ -225,6 +259,16 @@ export function FixoMontadorSection({
                         <span className="font-mono text-[#f2d892]">
                           {valorAtual > 0 ? fmtCur(valorAtual) : '—'}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono font-semibold text-emerald-400">
+                        {valorAPagar > 0 ? fmtCur(valorAPagar) : '—'}
+                      </span>
+                      {comissaoConcluida > 0 && (
+                        <p className="mt-0.5 text-[0.62rem] text-[#d4bc9f]">
+                          {fmtCur(fixoEfetivo)} fixo + {fmtCur(comissaoConcluida)} concluídas
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -272,10 +316,20 @@ export function FixoMontadorSection({
             <tfoot>
               <tr className="border-t border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.04)]">
                 <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#f2d892]">
-                  Total fixo mensal
+                  Total do mês
                 </td>
-                <td className="px-4 py-3 font-mono font-bold text-[#f2d892]" colSpan={4}>
-                  {fmtCur(linhasVisiveis.reduce((s, r) => s + r.valor_fixo_mensal, 0))}
+                <td className="px-4 py-3 font-mono font-bold text-[#f2d892]">
+                  {fmtCur(totais.fixo)}
+                </td>
+                <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                  {fmtCur(totais.aPagar)}
+                </td>
+                <td className="px-4 py-3 text-[0.65rem] text-[#d4bc9f]" colSpan={3}>
+                  {totais.comissao > 0 && (
+                    <>
+                      {fmtCur(totais.fixo)} fixo + {fmtCur(totais.comissao)} concluídas (a pagar)
+                    </>
+                  )}
                 </td>
               </tr>
             </tfoot>

@@ -17,7 +17,7 @@ export function usePrestadorObrasFinalizando(mes: number, ano: number) {
     setError(null)
     try {
       const rows = await fetchMontadorComissaoObras({ mes, ano }, userProfile.id)
-      setObras(rows.filter(o => o.situacao === 'em_aberto'))
+      setObras(rows.filter(o => o.situacao === 'concluida'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar obras em finalização.')
       setObras([])

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useId } from 'react'
 import { supabase } from '../lib/supabase'
+import { desfazerReservaDestinatarioMes } from '../lib/caixa-desfazer-reserva'
 import { useAutoRefresh } from './useAutoRefresh'
 import type {
   CaixaDestinatario,
@@ -221,6 +222,22 @@ export function useCaixa(mes: number, ano: number) {
     await load({ silent: true })
   }
 
+  const desfazerReserva = async (item: ReservaConsolidada) => {
+    if (isCaixaDestinatarioVirtual(item.destinatario_id)) {
+      throw new Error('Cadastre este destinatário em Destinatários antes de desfazer.')
+    }
+    if (item.valor_em_reserva <= 0) {
+      throw new Error('Não há valor reservado para desfazer nesta linha.')
+    }
+
+    await desfazerReservaDestinatarioMes({
+      destinatarioId: item.destinatario_id,
+      mes: item.mes_referencia,
+      ano: item.ano_referencia,
+    })
+    await load({ silent: true })
+  }
+
   return {
     destinatarios,
     movimentacoes,
@@ -230,6 +247,7 @@ export function useCaixa(mes: number, ano: number) {
     registrarMovimentacao,
     addDestinatario,
     removeDestinatario,
+    desfazerReserva,
     reload: load
   }
 }

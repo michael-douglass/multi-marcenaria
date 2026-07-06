@@ -17,7 +17,7 @@ export interface MetricasComissaoPeriodo {
   ano: number
 }
 
-/** Obras com comissão do montador no mês — mesma regra da tabela por montador. */
+/** Obras concluídas e previsão (em andamento) do montador no mês. */
 export async function fetchMontadorComissaoObras(
   periodo: MetricasComissaoPeriodo,
   montadorId: string,

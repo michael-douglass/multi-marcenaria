@@ -208,10 +208,10 @@ export function MetricasMontadorComissaoModal({
   if (!montador) return null
 
   const concluidas = obras.filter(o => o.situacao === 'concluida')
-  const emAberto = obras.filter(o => o.situacao === 'em_aberto')
+  const emPrevisao = obras.filter(o => o.situacao === 'em_aberto')
   const totalConcluida = sumMontadorComissaoObras(concluidas)
-  const totalEmAberto = sumMontadorComissaoObras(emAberto)
-  const totalComissao = totalConcluida + totalEmAberto
+  const totalPrevisao = sumMontadorComissaoObras(emPrevisao)
+  const totalComissao = totalConcluida + totalPrevisao
   const valorFixo = fixo?.valor_fixo_mensal ?? 0
   const totalPrevisto = totalComissao + valorFixo
   const totalOculto = obras.filter(o => o.oculto_prestador).reduce((s, o) => s + o.comissao_valor, 0)
@@ -247,10 +247,10 @@ export function MetricasMontadorComissaoModal({
             Período: {periodoLabel}
           </span>
           <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-emerald-400">
-            A pagar: {fmtCur(totalConcluida)}
+            Concluídas: {fmtCur(totalConcluida)}
           </span>
           <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-400">
-            Em aberto: {fmtCur(totalEmAberto)}
+            Previsão: {fmtCur(totalPrevisao)}
           </span>
           {valorFixo > 0 && (
             <span className="rounded-full border border-[#f2d892]/25 bg-[#f2d892]/10 px-2.5 py-1 text-[#f2d892]">
@@ -287,7 +287,7 @@ export function MetricasMontadorComissaoModal({
 
             <div className="mt-3 space-y-2 border-t border-[rgba(240,210,140,0.12)] pt-3">
               <ResumoLinha label="Comissão concluída (a pagar)" valor={totalConcluida} cor="#34d399" />
-              <ResumoLinha label="Comissão em aberto" valor={totalEmAberto} cor="#fbbf24" />
+              <ResumoLinha label="Previsão de comissão" valor={totalPrevisao} cor="#fbbf24" />
               <ResumoLinha label="Subtotal comissões" valor={totalComissao} cor="#edd9c4" />
               <ResumoLinha label="Fixo mensal" valor={valorFixo} cor="#f2d892" />
               <div className="border-t border-[rgba(240,210,140,0.1)] pt-2">
@@ -322,7 +322,7 @@ export function MetricasMontadorComissaoModal({
           </div>
 
           <ObraLista
-            titulo="Concluídas — comissão a pagar"
+            titulo="Obras concluídas neste mês"
             cor="#34d399"
             obras={concluidas}
             vazio="Nenhuma obra concluída com comissão neste período."
@@ -332,10 +332,10 @@ export function MetricasMontadorComissaoModal({
           />
 
           <ObraLista
-            titulo="Em aberto — comissão prevista"
+            titulo="Previsão — obras em andamento"
             cor="#fbbf24"
-            obras={emAberto}
-            vazio="Nenhuma obra em andamento com comissão prevista."
+            obras={emPrevisao}
+            vazio="Nenhuma obra em andamento com comissão prevista para este mês."
             canManageComissao={canManageComissao}
             togglingObraId={togglingObraId}
             onToggleOculto={handleToggleOculto}

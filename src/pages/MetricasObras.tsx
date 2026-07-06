@@ -5,11 +5,12 @@ import { MetricasMontadorTempoChart } from '../components/metricas/MetricasMonta
 import { FixoMontadorSection } from '../components/metricas/FixoMontadorSection'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { useMetricasObras } from '../hooks/useMetricasObras'
+import { useFixoMontador } from '../hooks/useFixoMontador'
 import { useObras } from '../hooks/useObras'
 import { useApp } from '../context/AppContext'
 import { getObraMontadoresConclusao } from '../lib/obra-montadores'
 import { canViewMontadoresConclusaoObra, canEditFixoMontador, canEditComissao } from '../lib/obra-permissions'
-import { fmtDuracaoHoras, labelMesAno } from '../lib/obra-metricas'
+import { fmtDuracaoHoras, labelMesAno, mesReferenciaNoPeriodo, obraDataReferencia, dataNoPeriodo } from '../lib/obra-metricas'
 import { addMonths, fmtCur } from '../lib/utils'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
 import {
@@ -79,6 +80,7 @@ function MetricasObrasContent() {
   const [montadorComissao, setMontadorComissao] = useState<MetricaObraMontador | null>(null)
 
   const { data, resumo, porObra, porMontador, loading, error, reload } = useMetricasObras(periodo)
+  const fixoHook = useFixoMontador(periodo.mes, periodo.ano)
   const periodoLabel = labelMesAno(periodo.mes, periodo.ano, MESES)
   const isMesAtual = periodo.mes === hoje.getMonth() + 1 && periodo.ano === hoje.getFullYear()
   const isMontadorAdmin = roles.includes('MontadorAdmin')
@@ -116,6 +118,8 @@ function MetricasObrasContent() {
     }>()
 
     for (const row of porObra) {
+      if (!mesReferenciaNoPeriodo(row.mes_referencia, periodo.mes, periodo.ano)) continue
+
       const atual = map.get(row.obra_id) ?? {
         cliente_nome: row.cliente_nome,
         status_kanban: row.status_kanban,
@@ -138,16 +142,36 @@ function MetricasObrasContent() {
         item.montadores.length > 1
         || item.montadores.some(m => m.concluiu && item.montadores.some(x => !x.concluiu)),
       )
-  }, [porObra])
+  }, [porObra, periodo.mes, periodo.ano])
 
   const obrasConclusaoGestao = useMemo(() => {
     if (!canViewMontadoresConclusao || !isMontadorAdmin) return []
 
     return obrasHook.data.filter(obra => {
       if (obra.status_kanban === 'cancelada') return false
-      return getObraMontadoresConclusao(obra).length > 0
+      if (getObraMontadoresConclusao(obra).length === 0) return false
+      const ref = obraDataReferencia(
+        obra.data_prevista_fim,
+        obra.data_prevista_inicio,
+        obra.criado_em,
+      )
+      return dataNoPeriodo(ref, periodo.mes, periodo.ano)
     })
-  }, [obrasHook.data, canViewMontadoresConclusao, isMontadorAdmin])
+  }, [obrasHook.data, canViewMontadoresConclusao, isMontadorAdmin, periodo.mes, periodo.ano])
+
+  const comissaoConcluidaPorMontador = useMemo(
+    () => Object.fromEntries(
+      porMontador.map(m => [m.montador_id, m.comissao_concluida]),
+    ),
+    [porMontador],
+  )
+
+  const fixoPorMontador = useMemo(
+    () => Object.fromEntries(
+      fixoHook.data.map(f => [f.montador_id, f.valor_fixo_mensal]),
+    ),
+    [fixoHook.data],
+  )
 
   return (
     <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
@@ -224,7 +248,7 @@ function MetricasObrasContent() {
           className="min-h-0 flex-1"
         >
           <>
-          {/* Comissões do mês */}
+          {/* Comissões do mês — somente obras concluídas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="glass-card p-5 border border-emerald-500/20">
               <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">
@@ -234,25 +258,22 @@ function MetricasObrasContent() {
                 {fmtCur(resumo.comissao_a_pagar_mes)}
               </p>
               <p className="mt-2 text-xs text-[#edd9c4]">
-                Obras já concluídas neste mês com comissão configurada
+                Obras concluídas neste mês com comissão configurada
                 {resumo.obras_concluidas_mes > 0 && (
                   <span className="text-emerald-400/80"> · {resumo.obras_concluidas_mes} obra(s)</span>
                 )}
               </p>
             </div>
 
-            <div className="glass-card p-5 border border-amber-500/20">
+            <div className="glass-card p-5 border border-[#f2d892]/20">
               <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">
-                Comissão em aberto em {periodoLabel}
+                Comissões geradas em {periodoLabel}
               </p>
-              <p className="text-3xl font-bold font-display text-amber-400">
-                {fmtCur(resumo.comissao_em_aberto)}
+              <p className="text-3xl font-bold font-display text-[#f2d892]">
+                {fmtCur(resumo.comissoes_geradas_mes)}
               </p>
               <p className="mt-2 text-xs text-[#edd9c4]">
-                Obras previstas para {periodoLabel}, ainda não concluídas, com comissão definida
-                {resumo.obras_abertas_comissao > 0 && (
-                  <span className="text-amber-400/80"> · {resumo.obras_abertas_comissao} obra(s)</span>
-                )}
+                Lançamentos em Contas a Pagar (obra concluída no mês)
               </p>
             </div>
           </div>
@@ -262,6 +283,8 @@ function MetricasObrasContent() {
             ano={periodo.ano}
             periodoLabel={periodoLabel}
             canEdit={canEditFixo}
+            comissaoConcluidaPorMontador={comissaoConcluidaPorMontador}
+            fixo={fixoHook}
           />
 
           {/* Comissão por montador */}
@@ -271,7 +294,7 @@ function MetricasObrasContent() {
                 Comissão por montador — {periodoLabel}
               </h2>
               <p className="text-xs text-[#edd9c4] mt-1">
-                Valores individuais de cada montador no mês selecionado
+                Concluídas (a pagar) e previsão de obras em andamento — {periodoLabel}
               </p>
             </div>
 
@@ -281,11 +304,11 @@ function MetricasObrasContent() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[720px]">
+                <table className="w-full text-sm min-w-[860px]">
                   <thead>
                     <tr className="border-b border-[rgba(240,210,140,0.12)]">
                       {[
-                        'Montador', 'Concluída (a pagar)', 'Em aberto', 'Total previsto',
+                        'Montador', 'Concluída (a pagar)', 'Previsão de comissão', 'Total', 'Total com fixo',
                       ].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                           {h}
@@ -295,7 +318,9 @@ function MetricasObrasContent() {
                   </thead>
                   <tbody>
                     {porMontador.map((m, i) => {
-                      const totalPrevisto = m.comissao_concluida + m.comissao_em_aberto
+                      const total = m.comissao_concluida + m.comissao_em_aberto
+                      const fixo = fixoPorMontador[m.montador_id] ?? 0
+                      const totalComFixo = total + fixo
                       return (
                         <tr
                           key={m.montador_id}
@@ -314,7 +339,7 @@ function MetricasObrasContent() {
                               <p className="text-[0.65rem] text-[#d4bc9f] mt-0.5">
                                 {m.obras_concluidas > 0 && `${m.obras_concluidas} concluída(s)`}
                                 {m.obras_concluidas > 0 && m.obras_em_aberto > 0 && ' · '}
-                                {m.obras_em_aberto > 0 && `${m.obras_em_aberto} em aberto`}
+                                {m.obras_em_aberto > 0 && `${m.obras_em_aberto} em previsão`}
                               </p>
                             )}
                           </td>
@@ -325,7 +350,10 @@ function MetricasObrasContent() {
                             {m.comissao_em_aberto > 0 ? fmtCur(m.comissao_em_aberto) : '—'}
                           </td>
                           <td className="px-4 py-3 font-mono font-semibold text-cream">
-                            {totalPrevisto > 0 ? fmtCur(totalPrevisto) : '—'}
+                            {total > 0 ? fmtCur(total) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-semibold text-[#f2d892]">
+                            {totalComFixo > 0 ? fmtCur(totalComFixo) : '—'}
                           </td>
                         </tr>
                       )
@@ -345,6 +373,12 @@ function MetricasObrasContent() {
                       <td className="px-4 py-3 font-mono font-bold text-cream">
                         {fmtCur(porMontador.reduce(
                           (s, m) => s + m.comissao_concluida + m.comissao_em_aberto,
+                          0,
+                        ))}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-[#f2d892]">
+                        {fmtCur(porMontador.reduce(
+                          (s, m) => s + m.comissao_concluida + m.comissao_em_aberto + (fixoPorMontador[m.montador_id] ?? 0),
                           0,
                         ))}
                       </td>
@@ -483,7 +517,7 @@ function MetricasObrasContent() {
                   Conclusão das suas obras
                 </h2>
                 <p className="text-xs text-[#edd9c4] mt-1">
-                  Acompanhe quem já marcou conclusão e quem ainda está pendente nas obras do seu grupo
+                  Obras com entrega prevista em {periodoLabel} — acompanhe quem já marcou conclusão e quem está pendente
                 </p>
               </div>
               <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -504,7 +538,7 @@ function MetricasObrasContent() {
                   Marcações de conclusão por obra
                 </h2>
                 <p className="text-xs text-[#edd9c4] mt-1">
-                  Quem já marcou conclusão individual e quem ainda está pendente em {periodoLabel}
+                  Obras com entrega prevista em {periodoLabel} — quem já marcou conclusão e quem ainda está pendente
                 </p>
               </div>
               <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">

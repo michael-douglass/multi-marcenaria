@@ -57,10 +57,10 @@ export function PrestadorObrasFinalizando({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-xl tracking-wide" style={{ color: accent }}>
-            Obras a finalizar
+            Obras concluídas
           </h3>
           <p className="text-[0.72rem] text-[#edd9c4]">
-            Comissão prevista para obras com entrega prevista em {periodoLabel}
+            Comissão de obras finalizadas em {periodoLabel}
           </p>
           <p className="mt-1 text-xs font-semibold text-cream">
             {loading ? (
@@ -86,7 +86,7 @@ export function PrestadorObrasFinalizando({
           </div>
         ) : obras.length === 0 ? (
           <div className="flex h-full min-h-[8rem] items-center justify-center">
-            <EmptyState message={`Nenhuma obra a finalizar em ${periodoLabel}.`} />
+            <EmptyState message={`Nenhuma obra concluída com comissão em ${periodoLabel}.`} />
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -120,7 +120,7 @@ export function PrestadorObrasFinalizando({
                       border: `1px solid ${accent}33`,
                     }}
                   >
-                    Comissão prevista
+                    Comissão concluída
                   </span>
                 </div>
                 <p className="shrink-0 font-mono text-sm font-semibold" style={{ color: accent }}>

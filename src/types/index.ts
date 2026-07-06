@@ -296,6 +296,7 @@ export interface CaixaMovimentacao {
   ano_referencia: number
   descricao?: string | null
   comprovante_url?: string | null
+  conta_pagar_id?: string | null
   criado_por?: string
   criado_em?: string
   // join

@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react'
-import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react'
+import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search, Undo2 } from 'lucide-react'
 import { CaixaProvider, useCaixaContext } from '@/context/CaixaContext'
 import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { fmtCur, cn } from '@/lib/utils'
@@ -68,9 +68,10 @@ function CaixaContent({
   ano: number
   onPeriodoChange: (mes: number, ano: number) => void
 }) {
-  const { resumo, loading, reservasConsolidadas, movimentacoes } = useCaixaContext()
+  const { resumo, loading, reservasConsolidadas, movimentacoes, desfazerReserva } = useCaixaContext()
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
   const [busca, setBusca] = useState('')
+  const [desfazendoId, setDesfazendoId] = useState<string | null>(null)
 
   const reservasFiltradas = useMemo(() => {
     const q = busca.trim()
@@ -123,6 +124,23 @@ function CaixaContent({
   const [novaMovOpen, setNovaMovOpen] = useState(false)
   const [saldoDialogOpen, setSaldoDialogOpen] = useState(false)
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
+
+  const handleDesfazerReserva = async (item: ReservaConsolidada) => {
+    const ok = confirm(
+      `Desfazer a reserva de ${fmtCur(item.valor_em_reserva)} para ${item.destinatario_nome}?\n\n` +
+        'O valor sai do caixa e do saldo disponível. Contas vinculadas voltam para "a pagar".',
+    )
+    if (!ok) return
+
+    setDesfazendoId(item.destinatario_id)
+    try {
+      await desfazerReserva(item)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível desfazer a reserva.')
+    } finally {
+      setDesfazendoId(null)
+    }
+  }
 
   return (
     <div className={cn('animate-in fade-in duration-500', embedded ? 'space-y-4' : 'space-y-6')}>
@@ -306,16 +324,31 @@ function CaixaContent({
                             {status ? <Badge status={status} /> : null}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {status !== 'pago' && !virtual ? (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 text-xs text-[#f2d892] hover:text-[#f2d892] hover:bg-[#f2d892]/10"
-                                onClick={() => setPagarReserva(item)}
-                              >
-                                Pagar
-                              </Button>
-                            ) : null}
+                            <div className="flex items-center justify-end gap-1">
+                              {item.valor_em_reserva > 0 && !virtual ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs text-[#edd9c4] hover:text-cream hover:bg-white/5"
+                                  disabled={desfazendoId === item.destinatario_id}
+                                  title="Remove a reserva do caixa e devolve a conta para a pagar"
+                                  onClick={() => void handleDesfazerReserva(item)}
+                                >
+                                  <Undo2 className="mr-1 h-3.5 w-3.5" />
+                                  {desfazendoId === item.destinatario_id ? 'Desfazendo…' : 'Desfazer'}
+                                </Button>
+                              ) : null}
+                              {status !== 'pago' && !virtual ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs text-[#f2d892] hover:text-[#f2d892] hover:bg-[#f2d892]/10"
+                                  onClick={() => setPagarReserva(item)}
+                                >
+                                  Pagar
+                                </Button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       )
