@@ -232,18 +232,20 @@ function SenhaModal({
   open: boolean
   user: UsuarioAdmin | null
   onClose: () => void
-  onSave: (senha: string, perfil: string) => Promise<void>
+  onSave: (senha: string) => Promise<void>
   saving: boolean
 }) {
   const [senha, setSenha] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [perfil, setPerfil] = useState('marceneiro')
+  const [mostrarSenha, setMostrarSenha] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
-    setSenha(''); setConfirm(''); setErr(null)
-    setPerfil(user?.perfil ?? 'marceneiro')
+    setSenha('')
+    setConfirm('')
+    setMostrarSenha(false)
+    setErr(null)
   }, [open, user])
 
   const handleSave = async () => {
@@ -251,27 +253,40 @@ function SenhaModal({
     if (!senha) return setErr('Senha obrigatória.')
     if (senha.length < 6) return setErr('Mínimo 6 caracteres.')
     if (senha !== confirm) return setErr('Senhas não coincidem.')
-    await onSave(senha, perfil)
+    try {
+      await onSave(senha)
+    } catch (saveErr) {
+      setErr(saveErr instanceof Error ? saveErr.message : 'Erro ao redefinir senha.')
+    }
   }
+
+  const inputType = mostrarSenha ? 'text' : 'password'
 
   return (
     <Modal open={open} onClose={onClose} title="REDEFINIR SENHA">
       <p className="text-sm text-[#edd9c4] mb-3">
         Usuário: <span className="text-cream font-semibold">{user?.email}</span>
       </p>
-      <Field label="Perfil *">
-        <select className="glass-input" value={perfil} onChange={e => setPerfil(e.target.value)}>
-          {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-        </select>
-      </Field>
+      <p className="mb-4 text-xs leading-relaxed text-[#edd9c4]">
+        Anote a nova senha e repasse ao usuário. Ele precisará usar exatamente o que você digitar aqui.
+      </p>
       <Field label="Nova senha *">
-        <input type="password" className="glass-input" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
+        <input type={inputType} className="glass-input" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
       </Field>
       <Field label="Confirmar *">
-        <input type="password" className="glass-input" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
+        <input type={inputType} className="glass-input" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
       </Field>
+      <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs text-[#edd9c4]">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-[#f2d892]"
+          checked={mostrarSenha}
+          onChange={e => setMostrarSenha(e.target.checked)}
+        />
+        Mostrar senha
+      </label>
       {err && <p className="text-[0.8rem] text-red-400">{err}</p>}
-      <ModalFormFooter onCancel={onClose} onSubmit={handleSave} submitting={saving} submitLabel="Redefinir" />
+      <ModalFormFooter onCancel={onClose} onSubmit={() => void handleSave()} submitting={saving} submitLabel="Redefinir" submittingLabel="Redefinindo..." />
     </Modal>
   )
 }
@@ -359,17 +374,16 @@ export function Configuracoes() {
     }
   }
 
-  const handleRedefinirSenha = async (senha: string, perfil: string) => {
+  const handleRedefinirSenha = async (senha: string) => {
     if (!senhaUser) return
     setSavingSenha(true)
     try {
-      await hook.redefinirSenha(senhaUser.id, senha, perfil, senhaUser.nome)
-      // Recarrega lista para refletir mudança de perfil
-      await hook.reload()
-      showToast('Senha redefinida com sucesso.', 'success')
+      await hook.redefinirSenha(senhaUser.id, senha)
+      showToast(`Senha de ${senhaUser.email} redefinida. Informe a nova senha ao usuário.`, 'success')
       setSenhaModalOpen(false)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao redefinir senha.', 'error')
+      throw err
     } finally {
       setSavingSenha(false)
     }

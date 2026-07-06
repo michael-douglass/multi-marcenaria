@@ -72,12 +72,10 @@ export function useUsuarios() {
     ))
   }
 
-  const redefinirSenha = async (id: string, novaSenha: string, perfil?: string, nome?: string) => {
+  const redefinirSenha = async (id: string, novaSenha: string) => {
     const { error: err } = await supabase.rpc('movelaria_redefinir_senha', {
       p_id: id,
       p_senha: novaSenha,
-      p_perfil: perfil ?? null,
-      p_nome: nome ?? null,
     })
     if (err) throw new Error(err.message)
   }
