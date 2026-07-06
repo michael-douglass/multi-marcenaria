@@ -32,7 +32,7 @@ export function PrestadorObrasFinalizando({
 
   return (
     <section
-      className="prestador-obras-finalizando flex flex-col overflow-hidden rounded-2xl border"
+      className="prestador-obras-finalizando flex h-[32rem] flex-col overflow-hidden rounded-2xl border"
       style={{
         borderColor: 'rgba(96,165,250,0.18)',
         background: 'rgba(68,46,34,0.55)',
@@ -79,13 +79,13 @@ export function PrestadorObrasFinalizando({
         </div>
       </header>
 
-      <div className="max-h-[20rem] min-h-[10rem] overflow-y-auto overscroll-contain p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
         {loading ? (
-          <div className="flex h-full min-h-[8rem] items-center justify-center">
+          <div className="flex h-full min-h-[12rem] items-center justify-center">
             <Loader2 size={28} className="animate-spin text-[#edd9c4]" aria-label="Carregando obras" />
           </div>
         ) : obras.length === 0 ? (
-          <div className="flex h-full min-h-[8rem] items-center justify-center">
+          <div className="flex h-full min-h-[12rem] items-center justify-center">
             <EmptyState message={`Nenhuma obra concluída com comissão em ${periodoLabel}.`} />
           </div>
         ) : (

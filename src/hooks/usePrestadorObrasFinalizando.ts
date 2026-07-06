@@ -8,6 +8,7 @@ import { useAuthReady } from './useAuthReady'
 export function usePrestadorObrasFinalizando(mes: number, ano: number) {
   const { isReady, userProfile } = useAuthReady()
   const [obras, setObras] = useState<MontadorComissaoObra[]>([])
+  const [previsao, setPrevisao] = useState<MontadorComissaoObra[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,9 +19,11 @@ export function usePrestadorObrasFinalizando(mes: number, ano: number) {
     try {
       const rows = await fetchMontadorComissaoObras({ mes, ano }, userProfile.id)
       setObras(rows.filter(o => o.situacao === 'concluida'))
+      setPrevisao(rows.filter(o => o.situacao === 'em_aberto'))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar obras em finalização.')
       setObras([])
+      setPrevisao([])
     } finally {
       setLoading(false)
     }
@@ -28,5 +31,5 @@ export function usePrestadorObrasFinalizando(mes: number, ano: number) {
 
   useEffect(() => { void load() }, [load])
 
-  return { obras, loading, error, reload: load }
+  return { obras, previsao, loading, error, reload: load }
 }

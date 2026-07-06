@@ -75,6 +75,31 @@ export function mesAnterior(mes: number, ano: number): { mes: number; ano: numbe
   return { mes: mes - 1, ano }
 }
 
+export function proximoMes(mes: number, ano: number): { mes: number; ano: number } {
+  if (mes >= 12) return { mes: 1, ano: ano + 1 }
+  return { mes: mes + 1, ano }
+}
+
+/** Quinto dia útil (seg–sex) de um mês/ano. */
+export function quintoDiaUtilMes(mes: number, ano: number): Date {
+  let utilCount = 0
+  const lastDay = new Date(ano, mes, 0).getDate()
+  for (let day = 1; day <= lastDay; day++) {
+    const d = new Date(ano, mes - 1, day)
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) {
+      utilCount++
+      if (utilCount === 5) return d
+    }
+  }
+  return new Date(ano, mes - 1, lastDay)
+}
+
+export function quintoDiaUtilProximoMes(mes: number, ano: number): Date {
+  const prox = proximoMes(mes, ano)
+  return quintoDiaUtilMes(prox.mes, prox.ano)
+}
+
 export function splitPrestadorItens(data: PrestadorFinanceiroItem[]) {
   const aReceber = data.filter(
     i => i.tipo === 'previsto' || (i.tipo === 'pagamento' && i.status !== 'pago'),

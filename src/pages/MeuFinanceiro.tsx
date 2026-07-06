@@ -1,14 +1,14 @@
-﻿import { useEffect, useState } from 'react'
-import { Banknote, Wallet, PiggyBank } from 'lucide-react'
+﻿import { useMemo, useState } from 'react'
+import { Banknote, Wallet, PiggyBank, CalendarCheck } from 'lucide-react'
 import { usePrestadorFinanceiro } from '@/hooks/usePrestadorFinanceiro'
-import { usePrestadorHistoricoMes } from '@/hooks/usePrestadorHistoricoMes'
 import { usePrestadorObrasFinalizando } from '@/hooks/usePrestadorObrasFinalizando'
 import { PrestadorComparativoChart } from '@/components/meu-financeiro/PrestadorComparativoChart'
-import { PrestadorObrasHistorico } from '@/components/meu-financeiro/PrestadorObrasHistorico'
+import { PrestadorObrasPrevisao } from '@/components/meu-financeiro/PrestadorObrasPrevisao'
 import { PrestadorObrasFinalizando } from '@/components/meu-financeiro/PrestadorObrasFinalizando'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
-import { PRESTADOR_MONTHS_FULL } from '@/lib/prestador-financeiro'
-import { fmtCur } from '@/lib/utils'
+import { PRESTADOR_MONTHS_FULL, quintoDiaUtilProximoMes } from '@/lib/prestador-financeiro'
+import { sumMontadorComissaoObras } from '@/lib/metricas-montador-comissao'
+import { fmtCur, fmtDate } from '@/lib/utils'
 
 const MONTHS = [...PRESTADOR_MONTHS_FULL]
 
@@ -16,18 +16,26 @@ export function MeuFinanceiro() {
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
-  const [mesRecebidas, setMesRecebidas] = useState(now.getMonth() + 1)
 
   const { resumo, comparativo, loading, error, reload } = usePrestadorFinanceiro(mes, ano)
-  const historicoRecebidas = usePrestadorHistoricoMes(mesRecebidas, ano)
-  const obrasFinalizando = usePrestadorObrasFinalizando(mes, ano)
+  const obrasComissao = usePrestadorObrasFinalizando(mes, ano)
 
   const anos = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
   const periodoLabel = `${MONTHS[mes - 1]} ${ano}`
 
-  // Filtro do topo sincroniza o card de recebidas na primeira carga ou ao trocar período global
-  useEffect(() => {
-    setMesRecebidas(mes)
+  const totalPrevisaoComissao = useMemo(
+    () => sumMontadorComissaoObras(obrasComissao.previsao),
+    [obrasComissao.previsao],
+  )
+  const totalPrevisaoRecebimento = resumo.totalMes + totalPrevisaoComissao
+
+  const dataDeposito = useMemo(() => {
+    const d = quintoDiaUtilProximoMes(mes, ano)
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return {
+      iso,
+      mesLabel: PRESTADOR_MONTHS_FULL[d.getMonth()],
+    }
   }, [mes, ano])
 
   return (
@@ -67,8 +75,7 @@ export function MeuFinanceiro() {
             className="btn btn-outline btn-md"
             onClick={() => {
               void reload()
-              void historicoRecebidas.reload()
-              void obrasFinalizando.reload()
+              void obrasComissao.reload()
             }}
           >
             Atualizar
@@ -92,16 +99,49 @@ export function MeuFinanceiro() {
                 </p>
               </div>
               <p className="font-display text-3xl text-[#f2d892]">
-                {fmtCur(resumo.totalMes)}
+                {fmtCur(totalPrevisaoRecebimento)}
               </p>
               <p className="mt-2 text-sm text-[#edd9c4]">
-                <span className="font-semibold text-[#f2d892]">Fixo + Comissão</span>
+                <span className="font-semibold text-[#f2d892]">Fixo + Comissão + Previsão</span>
                 {' · '}
                 {fmtCur(resumo.totalFixoMes)} fixo + {fmtCur(resumo.totalComissaoMes)} comissão
+                {totalPrevisaoComissao > 0 && (
+                  <>
+                    {' + '}
+                    <span className="text-[#fbbf24]">{fmtCur(totalPrevisaoComissao)} previsão</span>
+                  </>
+                )}
               </p>
               <p className="mt-1 text-[0.62rem] leading-relaxed text-[#d4bc9f]">
-                Comissões de obras concluídas e fixo mensal em {periodoLabel}
+                Fixo mensal, comissões de obras concluídas e previsão de obras em andamento em {periodoLabel}
               </p>
+
+              <div
+                className="mt-4 flex items-start gap-3 rounded-xl border px-4 py-3.5"
+                style={{
+                  borderColor: 'rgba(242,216,146,0.35)',
+                  background: 'linear-gradient(90deg, rgba(242,216,146,0.14) 0%, rgba(242,216,146,0.04) 100%)',
+                  boxShadow: 'inset 0 1px 0 rgba(242,216,146,0.12)',
+                }}
+              >
+                <div
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    backgroundColor: 'rgba(242,216,146,0.18)',
+                    border: '1px solid rgba(242,216,146,0.35)',
+                  }}
+                >
+                  <CalendarCheck size={16} className="text-[#f2d892]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-snug text-[#f2d892]">
+                    Esse valor será depositado no quinto dia útil do próximo mês.
+                  </p>
+                  <p className="mt-1 text-[0.72rem] font-medium text-[#edd9c4]">
+                    Previsão de depósito: {fmtDate(dataDeposito.iso)} ({dataDeposito.mesLabel})
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -149,23 +189,18 @@ export function MeuFinanceiro() {
           {/* Históricos — altura fixa, rolagem e mês independente em cada card */}
           <div>
             <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[#edd9c4]">
-              Histórico por mês · resumo geral em {periodoLabel}
+              Obras do período · {periodoLabel}
             </p>
             <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-              <PrestadorObrasHistorico
-                variant="recebidas"
-                titulo="Obras recebidas"
-                subtitulo="Comissões já pagas e confirmadas"
-                itens={historicoRecebidas.recebidas}
-                loading={historicoRecebidas.loading}
-                mes={mesRecebidas}
+              <PrestadorObrasPrevisao
+                obras={obrasComissao.previsao}
+                loading={obrasComissao.loading}
+                mes={mes}
                 ano={ano}
-                onMesChange={setMesRecebidas}
-                emptyMessage={`Nenhuma obra recebida em ${MONTHS[mesRecebidas - 1]} ${ano}.`}
               />
               <PrestadorObrasFinalizando
-                obras={obrasFinalizando.obras}
-                loading={obrasFinalizando.loading}
+                obras={obrasComissao.obras}
+                loading={obrasComissao.loading}
                 mes={mes}
                 ano={ano}
               />
