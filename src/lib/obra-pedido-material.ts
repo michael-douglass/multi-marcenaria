@@ -12,6 +12,10 @@ export function countObrasSemPedidoMaterial(obras: ObraFull[]): number {
   return obras.filter(obraPrecisaPedidoMaterial).length
 }
 
+export function filterObrasSemPedidoMaterial(obras: ObraFull[]): ObraFull[] {
+  return obras.filter(obraPrecisaPedidoMaterial)
+}
+
 /** Obra ainda não concluída nem cancelada. */
 export function obraEmAberto(obra: Pick<ObraFull, 'status_kanban'>): boolean {
   return !STATUS_INATIVOS.has(obra.status_kanban)

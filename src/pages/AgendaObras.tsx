@@ -29,7 +29,7 @@ import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialA
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
-import { countObrasEmAberto, countObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
+import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
   readAgendaMesFiltroPrefs,
@@ -573,6 +573,7 @@ function AgendaObrasContent() {
   }
 
   const [busca, setBusca] = useState('')
+  const [somenteSemPedido, setSomenteSemPedido] = useState(false)
   const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(
     () => readAgendaMesFiltroPrefs().filtro,
   )
@@ -646,9 +647,13 @@ function AgendaObrasContent() {
   )
 
   const obrasFiltradas = useMemo(() => {
+    let lista = obrasDoMes
+    if (somenteSemPedido) {
+      lista = filterObrasSemPedidoMaterial(lista)
+    }
     const q = busca.trim().toLowerCase()
-    if (!q) return obrasDoMes
-    return obrasDoMes.filter(o => {
+    if (!q) return lista
+    return lista.filter(o => {
       const haystack = [
         o.cliente_nome,
         o.lousa,
@@ -661,7 +666,7 @@ function AgendaObrasContent() {
       ].filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(q)
     })
-  }, [obrasDoMes, busca])
+  }, [obrasDoMes, busca, somenteSemPedido])
 
   const filtroLabel = useMemo(() => describeAgendaMesFiltro(mesFiltro), [mesFiltro])
   const totalBase = mesFiltro.mode === 'all' ? obrasHook.data.length : obrasDoMes.length
@@ -680,6 +685,10 @@ function AgendaObrasContent() {
     () => countObrasSemPedidoMaterial(obrasHook.data),
     [obrasHook.data],
   )
+
+  useEffect(() => {
+    if (semPedidoMaterialCount === 0) setSomenteSemPedido(false)
+  }, [semPedidoMaterialCount])
 
   const clearPendingFiles = useCallback(() => {
     setPendingFiles(prev => {
@@ -898,12 +907,20 @@ function AgendaObrasContent() {
               {' · '}
               <span className="text-[#f2d892] capitalize">{filtroLabel}</span>
               {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
+              {somenteSemPedido && (
+                <span className="ml-1 text-[#fbbf24]">· só sem pedido</span>
+              )}
             </>
           }
           actions={
             <div className="obra-page-header__actions-inner">
               <div className="obra-page-header__badges flex flex-col items-start gap-1">
-                <ObraPedidoMaterialAlert count={semPedidoMaterialCount} compact />
+                <ObraPedidoMaterialAlert
+                  count={semPedidoMaterialCount}
+                  compact
+                  active={somenteSemPedido}
+                  onClick={() => setSomenteSemPedido(v => !v)}
+                />
                 <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
               </div>
               <div
@@ -991,7 +1008,7 @@ function AgendaObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${obrasFiltradas.length}`}
+          contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${somenteSemPedido}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
           <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">
