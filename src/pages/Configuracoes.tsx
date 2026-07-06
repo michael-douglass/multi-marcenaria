@@ -268,7 +268,7 @@ function SenhaModal({
         Usuário: <span className="text-cream font-semibold">{user?.email}</span>
       </p>
       <p className="mb-4 text-xs leading-relaxed text-[#edd9c4]">
-        Anote a nova senha e repasse ao usuário. Ele precisará usar exatamente o que você digitar aqui.
+        Pode ser só números, letras ou misturado — mínimo de 6 caracteres. Anote e repasse ao usuário.
       </p>
       <Field label="Nova senha *">
         <input type={inputType} className="glass-input" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
