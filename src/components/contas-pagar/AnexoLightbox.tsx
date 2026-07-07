@@ -247,6 +247,25 @@ function PdfPagesViewer({ pages, title, compact = false }: { pages: string[]; ti
   )
 }
 
+/** Celular em paisagem (ex.: iPhone) usa layout compacto mesmo com largura > 767px. */
+const LANDSCAPE_PHONE_MEDIA = '(max-height: 520px) and (pointer: coarse)'
+
+function useLightboxCompact(): boolean {
+  const isMobile = useMobileLayout()
+  const [landscapePhone, setLandscapePhone] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(LANDSCAPE_PHONE_MEDIA).matches : false,
+  )
+
+  useEffect(() => {
+    const mql = window.matchMedia(LANDSCAPE_PHONE_MEDIA)
+    const onChange = () => setLandscapePhone(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [])
+
+  return isMobile || landscapePhone
+}
+
 export function AnexoLightbox({
   open,
   imageUrl,
@@ -258,7 +277,7 @@ export function AnexoLightbox({
   onDelete,
   deleting = false,
 }: AnexoLightboxProps) {
-  const isMobile = useMobileLayout()
+  const compact = useLightboxCompact()
   const pageUrls = pages?.length ? pages : imageUrl ? [imageUrl] : []
 
   useEffect(() => {
@@ -282,18 +301,18 @@ export function AnexoLightbox({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[400] flex flex-col bg-[rgba(4,2,1,0.96)] backdrop-blur-md"
+      className="fixed inset-0 z-[400] flex flex-col bg-[rgba(4,2,1,0.96)] pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))] backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-label={`Visualização: ${title}`}
     >
-      {isMobile ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2">
+      {compact ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 px-3 py-2">
           <div className="pointer-events-auto flex min-w-0 items-center gap-1.5">
             {onDelete ? (
               <button
                 type="button"
-                className="btn btn-danger btn-sm !h-9 !min-h-9 !w-9 !px-0"
+                className="btn btn-danger btn-sm !h-11 !min-h-11 !w-11 !px-0"
                 onClick={onDelete}
                 disabled={deleting}
                 aria-label={deleting ? 'Excluindo anexo' : 'Excluir anexo'}
@@ -304,11 +323,11 @@ export function AnexoLightbox({
           </div>
           <button
             type="button"
-            className="pointer-events-auto btn btn-outline btn-sm !h-9 !min-h-9 !w-9 !px-0"
+            className="pointer-events-auto btn btn-outline btn-sm !h-11 !min-h-11 !w-11 !px-0"
             onClick={onClose}
             aria-label="Fechar"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       ) : (
@@ -342,7 +361,7 @@ export function AnexoLightbox({
             )}
             <button
               type="button"
-              className="btn btn-outline btn-sm !px-2"
+              className="btn btn-outline btn-sm !min-h-11 !min-w-11 !px-2"
               onClick={onClose}
               aria-label="Fechar"
             >
@@ -352,14 +371,14 @@ export function AnexoLightbox({
         </div>
       )}
 
-      {isMobile && description?.trim() ? (
-        <p className="pointer-events-none absolute bottom-14 left-0 right-0 z-10 line-clamp-2 px-3 text-center text-[0.62rem] leading-snug text-[#d4c4a8]/90">
+      {compact && description?.trim() ? (
+        <p className="pointer-events-none absolute bottom-[max(3.5rem,env(safe-area-inset-bottom))] left-0 right-0 z-10 line-clamp-2 px-3 text-center text-[0.62rem] leading-snug text-[#d4c4a8]/90">
           {description.trim()}
         </p>
       ) : null}
 
       {isVideo ? (
-        <div className={`flex min-h-0 flex-1 items-center justify-center overflow-auto ${isMobile ? 'p-2 pt-12' : 'p-4'}`}>
+        <div className={`flex min-h-0 flex-1 items-center justify-center overflow-auto ${compact ? 'p-2 pt-14' : 'p-4'}`}>
           <video
             src={imageUrl}
             controls
@@ -369,9 +388,9 @@ export function AnexoLightbox({
           />
         </div>
       ) : kind === 'pdf' ? (
-        <PdfPagesViewer pages={pageUrls} title={title} compact={isMobile} />
+        <PdfPagesViewer pages={pageUrls} title={title} compact={compact} />
       ) : (
-        <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} compact={isMobile} />
+        <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} compact={compact} />
       )}
     </div>,
     document.body,
