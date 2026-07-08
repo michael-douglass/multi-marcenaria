@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles, pathFromSection } from '@/lib/app-navigation'
-import { isVisualizadorOnly } from '@/lib/role-access'
+import { isFuncionarioCampo, isVisualizadorOnly } from '@/lib/role-access'
 
 const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
@@ -65,6 +65,20 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
         >
           <CalendarDays className="h-4 w-4" />
         </Button>
+        )}
+
+        {isFuncionarioCampo(roles) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-[#4ade80] hover:bg-[rgba(74,222,128,0.12)] hover:text-[#86efac]"
+            onClick={() => navigate('/bater-ponto')}
+            title="Bater Ponto"
+            aria-label="Bater Ponto"
+          >
+            <Clock className="h-4 w-4" />
+          </Button>
         )}
 
         <Logo full={false} />

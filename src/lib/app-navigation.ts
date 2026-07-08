@@ -176,6 +176,14 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
 
 const OBRAS_CHILDREN: NavChildItem[] = [
   {
+    id: 'baterPonto',
+    title: 'Bater Ponto',
+    url: '/bater-ponto',
+    icon: Clock,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
+  },
+  {
     id: 'agendaObras',
     title: 'Agenda de Obras',
     url: '/agenda-obras',
@@ -213,14 +221,6 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(74,222,128,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
   },
-  {
-    id: 'baterPonto',
-    title: 'Bater Ponto',
-    url: '/bater-ponto',
-    icon: Clock,
-    radialColor: 'rgba(74,222,128,0.92)',
-    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
-  },
 ]
 
 export const NAV_MAIN_ITEMS: NavMainItem[] = [
@@ -251,6 +251,14 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     children: OBRAS_CHILDREN,
   },
   {
+    id: 'baterPonto',
+    title: 'Bater Ponto',
+    url: '/bater-ponto',
+    icon: Clock,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
+  },
+  {
     id: 'meuFinanceiro',
     title: 'Meu Financeiro',
     url: '/meu-financeiro',
@@ -265,14 +273,6 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     icon: UserCircle,
     radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Montador', 'MontadorAdmin', 'AdministradorObras', 'Financeiro'],
-  },
-  {
-    id: 'baterPonto',
-    title: 'Bater Ponto',
-    url: '/bater-ponto',
-    icon: Clock,
-    radialColor: 'rgba(74,222,128,0.92)',
-    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
   },
   {
     id: 'biblioteca',
