@@ -15,7 +15,7 @@ import { PontoLocalizacaoLabel } from '@/components/ponto/PontoLocalizacaoLabel'
 import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { PontoWizardStep } from '@/components/ponto/PontoWizardStep'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
-import { labelPontoTipo } from '@/lib/funcionario-ponto'
+import { labelPontoTipo, formatJornadaResumo } from '@/lib/funcionario-ponto'
 import { useBaterPonto } from '@/hooks/useBaterPonto'
 
 const STEPS = ['Localização', 'Selfie', 'Assinatura', 'Confirmar']
@@ -79,6 +79,12 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
 
       {!loading && status && (
         <>
+          {status.jornada && (
+            <p className="text-center text-sm text-[#edd9c4]">
+              Horário de hoje:{' '}
+              <strong className="text-[#f2d892]">{formatJornadaResumo(status.jornada)}</strong>
+            </p>
+          )}
           <PontoStatusCard status={status} />
 
           {bloqueado && step !== 'sucesso' && (

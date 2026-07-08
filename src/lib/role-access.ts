@@ -38,6 +38,13 @@ export function isAdministrador(roles: UserRole[]): boolean {
   return roles.includes('Administrador')
 }
 
+const CAMPO_ROLES: UserRole[] = ['Montador', 'MontadorAdmin', 'AdministradorObras']
+
+/** Perfis de funcionário que batem ponto no campo. */
+export function isFuncionarioCampo(roles: UserRole[]): boolean {
+  return roles.some(r => CAMPO_ROLES.includes(r))
+}
+
 export function defaultPathForRoles(roles: UserRole[]): string {
   if (isVisualizadorOnly(roles)) return '/visualizacao'
   if (roles.includes('Montador') && roles.length === 1) return '/calendario-obras'

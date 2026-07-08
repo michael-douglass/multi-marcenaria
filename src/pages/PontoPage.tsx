@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import { Clock, LayoutGrid, UserCheck } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
-import { canAccessSection } from '@/lib/role-access'
+import { canAccessSection, isFuncionarioCampo } from '@/lib/role-access'
 import { BaterPonto } from '@/pages/BaterPonto'
 import { PontoControleFuncionarios } from '@/components/ponto/PontoControleFuncionarios'
 
 type PontoTab = 'bater' | 'controle'
-
-function isCampo(roles: string[]): boolean {
-  return roles.some(r => ['Montador', 'MontadorAdmin', 'AdministradorObras'].includes(r))
-}
 
 function isRh(roles: string[]): boolean {
   return roles.includes('Administrador') || roles.includes('Financeiro')
@@ -17,14 +13,16 @@ function isRh(roles: string[]): boolean {
 
 export function PontoPage() {
   const { roles } = useApp()
-  const showBater = canAccessSection(roles, 'baterPonto') && isCampo(roles)
+  const showBater = canAccessSection(roles, 'baterPonto') && isFuncionarioCampo(roles)
   const showControle = isRh(roles)
 
   const [tab, setTab] = useState<PontoTab>(
     showControle && !showBater ? 'controle' : 'bater',
   )
 
-  const onlyOne = (showBater && !showControle) || (!showBater && showControle)
+  const onlyBater = showBater && !showControle
+  const onlyControle = showControle && !showBater
+  const onlyOne = onlyBater || onlyControle
 
   if (!showBater && !showControle) {
     return (
@@ -32,6 +30,11 @@ export function PontoPage() {
         <p className="text-[#edd9c4]">Você não tem acesso ao módulo de ponto.</p>
       </div>
     )
+  }
+
+  // Montador / Montador Admin / Adm. Obras: página completa de bater ponto com status e batidas
+  if (onlyBater) {
+    return <BaterPonto />
   }
 
   return (
@@ -44,9 +47,7 @@ export function PontoPage() {
         <p className="section-label mt-1">
           {showControle && showBater
             ? 'Registre sua jornada ou acompanhe a equipe'
-            : showControle
-              ? 'Controle diário de chegadas e batidas'
-              : 'Registre sua jornada com localização, foto e assinatura'}
+            : 'Controle diário de chegadas e batidas'}
         </p>
       </div>
 

@@ -121,7 +121,7 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
         url: '/bater-ponto',
         icon: Clock,
         radialColor: 'rgba(74,222,128,0.92)',
-        roles: ['Administrador', 'Financeiro'],
+        roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
       },
     ],
   },
@@ -212,6 +212,14 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     icon: BarChart3,
     radialColor: 'rgba(74,222,128,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
+  },
+  {
+    id: 'baterPonto',
+    title: 'Bater Ponto',
+    url: '/bater-ponto',
+    icon: Clock,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
   },
 ]
 
