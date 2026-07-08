@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Monitor } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Clock, Monitor } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useContasReceber } from '@/hooks/useContasReceber'
 import { useEvolucaoPainel } from '@/hooks/useObraEvolucao'
@@ -19,13 +20,16 @@ import { VisualizacaoObrasDoDiaButton } from '@/components/visualizacao/Visualiz
 import { VisualizacaoSemanaDia } from '@/components/visualizacao/VisualizacaoSemanaDia'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
 import { VisualizacaoPaineisConfigModal } from '@/components/visualizacao/VisualizacaoPaineisConfigModal'
+import { VisualizacaoPontoDiario } from '@/components/visualizacao/VisualizacaoPontoDiario'
 import {
   filterEvolucaoGruposPorObras,
   VisualizacaoAcompanhamentoHoje,
 } from '@/components/visualizacao/VisualizacaoAcompanhamentoHoje'
 import { useVisualizacaoConfig } from '@/hooks/useVisualizacaoConfig'
+import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
 import {
   canConfigurarVisualizacaoPaineis,
+  canViewPontoPainelVisualizacao,
   shouldFiltrarPaineisVisualizacao,
   VISUALIZACAO_PAINEL_GRID_IDS,
   painelApareceNoGrid,
@@ -107,7 +111,9 @@ function VisualizacaoContent() {
   const hoje = todayISO()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const canConfigPaineis = canConfigurarVisualizacaoPaineis(roles)
+  const canViewPontoPainel = canViewPontoPainelVisualizacao(roles)
   const filtrarPaineis = shouldFiltrarPaineisVisualizacao(roles)
+  const pontoHook = useControlePontoDiario(hoje, { enabled: canViewPontoPainel })
 
   const painelVisivel = (id: VisualizacaoPainelId) => {
     if (!filtrarPaineis) return true
@@ -143,9 +149,10 @@ function VisualizacaoContent() {
       void obrasHook.reload({ silent: true })
       void contasHook.reload({ silent: true })
       void evolucaoHook.reload({ silent: true })
+      if (canViewPontoPainel) void pontoHook.reload()
     }, 60_000)
     return () => clearInterval(id)
-  }, [contentReady, obrasHook.reload, contasHook.reload, evolucaoHook.reload])
+  }, [contentReady, obrasHook.reload, contasHook.reload, evolucaoHook.reload, canViewPontoPainel, pontoHook.reload])
 
   const obrasCalendario = useMemo(
     () => obrasHook.data.filter(o => {
@@ -242,7 +249,19 @@ function VisualizacaoContent() {
     month: 'long',
   })
 
-  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${calendarioMesStats.total}-${calendarioMesStats.aFinalizarMes}-${calendarioMesStats.concluidasMes}-${obrasDoDia.length}-${obrasHojeAmanhaCount}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}`
+  const pontoResumo = useMemo(() => {
+    let presentes = 0
+    let atrasados = 0
+    let faltas = 0
+    for (const r of pontoHook.rows) {
+      if (r.status_dia === 'falta') faltas++
+      else if (r.status_dia === 'atraso') atrasados++
+      else if (r.entrada) presentes++
+    }
+    return { presentes, atrasados, faltas, total: pontoHook.rows.length }
+  }, [pontoHook.rows])
+
+  const contentSignal = `${obrasChegada.length}-${semPedidoMaterialCount}-${obrasCalendario.length}-${calendarioMesStats.total}-${calendarioMesStats.aFinalizarMes}-${calendarioMesStats.concluidasMes}-${obrasDoDia.length}-${obrasHojeAmanhaCount}-${totalFotosHoje}-${obrasAtrasadas.length}-${clientesAtrasados.length}-${pontoResumo.presentes}-${pontoResumo.atrasados}-${pontoResumo.faltas}-${pontoResumo.total}`
 
   const handleToggleAutoScroll = () => {
     setAutoScroll(prev => {
@@ -496,6 +515,32 @@ function VisualizacaoContent() {
                 className="viz-panel--span-2 viz-stagger-6"
               >
                 {renderPainelContent('cobrancas_atrasadas')}
+              </VisualizacaoPanel>
+              )}
+
+              {canViewPontoPainel && (
+              <VisualizacaoPanel
+                title="Ponto"
+                subtitle={`Hoje · ${fmtDate(hoje)} · registros diários da equipe`}
+                accent="#a78bfa"
+                badge={pontoResumo.total}
+                headerEnd={
+                  <Link
+                    to="/bater-ponto"
+                    className="viz-panel__fs-btn inline-flex items-center gap-1.5 no-underline"
+                  >
+                    <Clock size={14} />
+                    Abrir Ponto
+                  </Link>
+                }
+                className="viz-panel--span-2 viz-stagger-7"
+              >
+                <VisualizacaoPontoDiario
+                  rows={pontoHook.rows}
+                  loading={pontoHook.loading}
+                  error={pontoHook.error}
+                  onRetry={() => void pontoHook.reload()}
+                />
               </VisualizacaoPanel>
               )}
 

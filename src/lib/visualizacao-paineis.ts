@@ -101,3 +101,8 @@ export function shouldFiltrarPaineisVisualizacao(roles: UserRole[]): boolean {
   if (canConfigurarVisualizacaoPaineis(roles)) return false
   return roles.includes('Visualizador')
 }
+
+/** Painel de ponto diário — exclusivo para Administrador na página Visualização. */
+export function canViewPontoPainelVisualizacao(roles: UserRole[]): boolean {
+  return roles.includes('Administrador')
+}

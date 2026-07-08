@@ -2046,6 +2046,63 @@ body {
   background: rgba(239, 68, 68, 0.2);
 }
 
+.viz-list-item--warn {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.viz-list-item--ok {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.viz-ponto__resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.viz-ponto__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 168, 83, 0.22);
+  background: rgba(36, 16, 8, 0.55);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--viz-text-muted, #b8957f);
+}
+
+.viz-ponto__chip strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--viz-text-primary, #edd9c4);
+}
+
+.viz-ponto__chip--gold {
+  border-color: rgba(212, 168, 83, 0.4);
+  color: #f2d892;
+}
+
+.viz-ponto__chip--green {
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+.viz-ponto__chip--amber {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
+.viz-ponto__chip--red {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
 .viz-list-item__title {
   font-size: 0.88rem;
   font-weight: 600;

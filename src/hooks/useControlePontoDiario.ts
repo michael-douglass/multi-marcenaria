@@ -3,15 +3,24 @@ import { fetchControlePontoDiario } from '@/lib/funcionario-ponto'
 import type { PontoControleFuncionarioRow } from '@/types'
 import { useAuthReady } from './useAuthReady'
 
-export function useControlePontoDiario(initialDate?: string) {
+interface UseControlePontoDiarioOptions {
+  /** Quando false, não busca dados (evita RPC sem permissão). */
+  enabled?: boolean
+}
+
+export function useControlePontoDiario(
+  initialDate?: string,
+  options?: UseControlePontoDiarioOptions,
+) {
+  const enabled = options?.enabled ?? true
   const { isReady } = useAuthReady()
   const [data, setData] = useState(initialDate ?? new Date().toISOString().slice(0, 10))
   const [rows, setRows] = useState<PontoControleFuncionarioRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!isReady) return
+    if (!isReady || !enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -22,9 +31,17 @@ export function useControlePontoDiario(initialDate?: string) {
     } finally {
       setLoading(false)
     }
-  }, [isReady, data])
+  }, [isReady, enabled, data])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (!enabled) {
+      setLoading(false)
+      setRows([])
+      setError(null)
+      return
+    }
+    void load()
+  }, [load, enabled])
 
   return { data, setData, rows, loading, error, reload: load }
 }
