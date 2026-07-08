@@ -14,8 +14,8 @@ export type ActiveSection =
   | 'dashboard'
   | 'clientes'
   | 'cobranças'
-  | 'contratos'
   | 'fornecedores'
+  | 'funcionarios'
   | 'produtos'
   | 'pedidos'
   | 'aprovacao'
@@ -29,6 +29,8 @@ export type ActiveSection =
   | 'calendarioChegadaMateriais'
   | 'metricasObras'
   | 'meuFinanceiro'
+  | 'meuPerfil'
+  | 'baterPonto'
   | 'configuracoes'
   | 'visualizacao'
 
@@ -109,6 +111,8 @@ export interface ContaPagar {
   pedido_id?: string
   fornecedor_id?: string
   fornecedor_nome?: string
+  prestador_id?: string
+  obra_id?: string
   descricao?: string
   observacao?: string | null
   forma_pagamento_id?: string | null
@@ -662,30 +666,235 @@ export interface DadoGraficoComparativo {
   despesas: number
 }
 
-// ── Contratos CRM (emp_garbo) ────────────────────────────────
-export type ContratoCRMStatus = 'rascunho' | 'gerado' | 'enviado' | 'assinado' | 'cancelado'
+// ── Funcionários RH ─────────────────────────────────────────
+export type FuncionarioTipo =
+  | 'montador'
+  | 'montador_admin'
+  | 'administrador_obras'
+  | 'financeiro'
 
-export interface ContratoCRM {
-  id: string
-  identificador: string
-  cliente_nome: string
-  status: ContratoCRMStatus
-  created_at: string
-  lead_id?: number | null
+export type FuncionarioAdmissaoStatus = 'pendente' | 'preenchido_funcionario' | 'completo'
+
+export type FuncionarioReciboStatus = 'gerado' | 'aguardando_assinatura' | 'assinado'
+
+export interface FuncionarioAdmissaoDados {
+  pis?: string
+  endereco?: string
+  tem_filhos?: boolean
+  filhos_info?: string
+  escolaridade?: '1o_grau' | '2o_grau' | 'superior'
+  email_pessoal?: string
+  data_admissao?: string
+  salario?: string
+  funcao?: string
+  telefone_empresa?: string
+  horario_seg_sex?: string
+  horario_seg_sab?: string
+  trabalha_seg_sex?: boolean
+  trabalha_seg_sab?: boolean
+  usa_vale_transporte?: boolean
+  onibus_1?: string
+  valor_onibus_1?: string
+  onibus_2?: string
+  valor_onibus_2?: string
+  documentos_enviados?: Record<string, boolean>
+  [key: string]: unknown
 }
 
-export interface ContratoVariavel {
+export interface Funcionario {
   id: string
   nome: string
-  label: string
-  tipo: 'texto' | 'data' | 'valor' | 'cpf'
-  obrigatorio: boolean
-  ordem: number
+  cpf?: string | null
+  telefone?: string | null
+  email?: string | null
+  tipo: FuncionarioTipo
+  usuario_id?: string | null
+  ativo: boolean
+  admissao_token: string
+  admissao_status: FuncionarioAdmissaoStatus
+  admissao_dados: FuncionarioAdmissaoDados
+  foto_perfil_path?: string | null
+  criado_em?: string
+  atualizado_em?: string
+  recibos_pendentes?: number
+  ponto_resumo?: PontoResumoFuncionario
 }
 
-export interface ContratoCRMDetalhe extends ContratoCRM {
-  campos_valores: Record<string, string>
-  conteudo_final: string
-  criado_por?: string
-  variaveis: ContratoVariavel[]
+export type FuncionarioInput = Pick<Funcionario, 'nome' | 'tipo'> &
+  Partial<Pick<Funcionario, 'cpf' | 'telefone' | 'email' | 'usuario_id' | 'ativo' | 'admissao_dados' | 'admissao_status'>>
+
+export interface FuncionarioDocumento {
+  id: string
+  funcionario_id: string
+  categoria: 'admissao' | 'rh' | 'outros' | 'ponto'
+  tipo_documento: string
+  nome_arquivo: string
+  tipo_mime: string
+  storage_path: string
+  preview_path?: string | null
+  preview_paths?: string[] | null
+  kind: 'image' | 'pdf'
+  origem: 'admin' | 'funcionario_publico' | 'funcionario_sistema'
+  criado_em?: string
+  signedUrl?: string
+  previewSignedUrl?: string
+}
+
+export interface PendingFuncionarioDocumento {
+  localId: string
+  file: File
+  nome: string
+  tipoMime: string
+  kind: 'image' | 'pdf'
+  tipoDocumento: string
+  categoria: FuncionarioDocumento['categoria']
+  previewUrl?: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
+}
+
+export interface FuncionarioRecibo {
+  id: string
+  funcionario_id: string
+  conta_pagar_id?: string | null
+  conta_pagar_status?: ContaPagarStatus | null
+  status: FuncionarioReciboStatus
+  texto_recibo: string
+  arquivo_original_path?: string | null
+  arquivo_assinado_path?: string | null
+  valor?: number | null
+  data_pagamento?: string | null
+  enviado_em?: string | null
+  assinado_em?: string | null
+  criado_em?: string
+  atualizado_em?: string
+}
+
+// ── Ponto Eletrônico REP-P ──────────────────────────────────
+export type PontoMarcacaoTipo = 'entrada' | 'saida_intervalo' | 'retorno_intervalo' | 'saida'
+
+export type PontoMarcacaoStatus = 'normal' | 'atraso' | 'irregular'
+
+export type PontoOcorrenciaTipo = 'folga' | 'falta' | 'abono'
+
+export type PontoStatusDia = 'pendente' | 'em_dia' | 'atraso' | 'completo' | 'folga' | 'falta'
+
+export interface FuncionarioJornada {
+  id: string
+  funcionario_id: string
+  hora_entrada: string
+  hora_saida_intervalo: string
+  hora_retorno_intervalo: string
+  hora_saida: string
+  tolerancia_minutos: number
+  dias_uteis: number[]
+  ativo: boolean
+  criado_em?: string
+  atualizado_em?: string
+}
+
+export interface PontoMarcacao {
+  id: string
+  nsr: number
+  funcionario_id: string
+  usuario_id: string
+  tipo: PontoMarcacaoTipo
+  registrado_em: string
+  latitude?: number | null
+  longitude?: number | null
+  precisao_metros?: number | null
+  foto_path?: string | null
+  assinatura_path?: string | null
+  comprovante_pdf_path?: string | null
+  documento_id?: string | null
+  hash_sha256: string
+  status: PontoMarcacaoStatus
+  atraso_minutos: number
+  offline: boolean
+  criado_em?: string
+}
+
+export interface PontoOcorrencia {
+  id: string
+  funcionario_id: string
+  data: string
+  tipo: PontoOcorrenciaTipo
+  observacao?: string | null
+  automatica: boolean
+  registrado_por?: string | null
+  criado_em?: string
+}
+
+export interface PontoStatusDiaPayload {
+  funcionario_id: string
+  data: string
+  jornada: FuncionarioJornada | null
+  proximo_tipo: PontoMarcacaoTipo | null
+  ocorrencia: PontoOcorrenciaTipo | null
+  status_dia: PontoStatusDia
+  marcacoes: PontoMarcacao[]
+}
+
+export interface PontoResumoFuncionario {
+  hora_entrada?: string | null
+  hora_saida?: string | null
+  jornada_ativa?: boolean | null
+  status_hoje?: PontoStatusDia | null
+  batidas_mes?: number | null
+}
+
+export interface RepConfig {
+  id: string
+  razao_social: string
+  cnpj: string
+  inpi_registro?: string | null
+  versao_software: string
+  certificado_valido_ate?: string | null
+  nsr_atual: number
+  ativo: boolean
+}
+
+export interface RepArquivo {
+  id: string
+  tipo: 'afd' | 'aej' | 'espelho'
+  periodo_inicio: string
+  periodo_fim: string
+  arquivo_path: string
+  assinatura_path?: string | null
+  hash_sha256?: string | null
+  criado_em?: string
+}
+
+export interface PontoControleFuncionarioRow {
+  funcionario_id: string
+  nome: string
+  tipo: FuncionarioTipo
+  hora_prevista?: string | null
+  status_dia: PontoStatusDia
+  ocorrencia?: string | null
+  entrada: PontoMarcacao | null
+  marcacoes: PontoMarcacao[]
+  fotoUrl?: string
+  assinaturaUrl?: string
+}
+
+export interface MeuFuncionarioPayload {
+  id: string
+  nome: string
+  tipo: FuncionarioTipo
+  cpf?: string | null
+  telefone?: string | null
+  email?: string | null
+  admissao_status: FuncionarioAdmissaoStatus
+  admissao_dados: FuncionarioAdmissaoDados
+  foto_perfil_path?: string | null
+  documentos: Array<{
+    id: string
+    tipo_documento: string
+    nome_arquivo: string
+    kind: 'image' | 'pdf'
+    storage_path: string
+    preview_path?: string | null
+    criado_em?: string
+  }>
 }

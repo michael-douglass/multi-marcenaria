@@ -1,5 +1,16 @@
 import { supabase } from '@/lib/supabase'
-import type { MontadorFixoMensal, UsuarioMontador } from '@/types'
+import type { MontadorFixoMensal, UserRole, UsuarioMontador } from '@/types'
+
+/** Perfis que podem gerar cobranças de fixo mensal dos montadores. */
+export function podeExpandirFixoMontadores(roles: UserRole[]): boolean {
+  return roles.some(
+    r =>
+      r === 'Administrador'
+      || r === 'Financeiro'
+      || r === 'MontadorAdmin'
+      || r === 'AdministradorObras',
+  )
+}
 
 function mapFixoRow(row: Record<string, unknown>): MontadorFixoMensal {
   return {

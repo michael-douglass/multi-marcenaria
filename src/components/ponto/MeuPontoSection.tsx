@@ -1,0 +1,51 @@
+import { Link } from 'react-router-dom'
+import { Clock } from 'lucide-react'
+import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
+import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
+import { formatJornadaResumo } from '@/lib/funcionario-ponto'
+import { useBaterPonto } from '@/hooks/useBaterPonto'
+
+const TIPOS_PONTO = new Set(['montador', 'montador_admin', 'administrador_obras'])
+
+interface Props {
+  funcionarioTipo: string
+}
+
+export function MeuPontoSection({ funcionarioTipo }: Props) {
+  const { status, loading } = useBaterPonto()
+
+  if (!TIPOS_PONTO.has(funcionarioTipo)) return null
+
+  return (
+    <div className="glass-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-xl text-[#f2d892]">
+          <Clock size={20} />
+          Meu Ponto
+        </h2>
+        <Link to="/bater-ponto" className="btn btn-gold btn-sm">
+          Bater ponto
+        </Link>
+      </div>
+
+      {loading && <p className="text-sm text-[#b8957f]">Carregando…</p>}
+
+      {!loading && status && (
+        <div className="space-y-4">
+          {status.jornada && (
+            <p className="text-sm text-[#edd9c4]">
+              Horário: <strong className="text-[#f2d892]">{formatJornadaResumo(status.jornada)}</strong>
+            </p>
+          )}
+          <PontoStatusCard status={status} />
+          {status.marcacoes.length > 0 && (
+            <div>
+              <h3 className="section-label mb-2">Batidas de hoje</h3>
+              <PontoHistoricoDia marcacoes={status.marcacoes} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

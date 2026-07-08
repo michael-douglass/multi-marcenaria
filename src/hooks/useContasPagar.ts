@@ -4,9 +4,10 @@ import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
 import { getContasRelacionadas, getModeloRecorrencia } from '../lib/contas-pagar-grupo'
-import { expandirTodosFixoMontadores } from '../lib/fixo-montador'
+import { expandirTodosFixoMontadores, podeExpandirFixoMontadores } from '../lib/fixo-montador'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
+import { useApp } from '@/context/AppContext'
 
 interface GerarParcelasInput {
   pedido_id?: string
@@ -80,6 +81,7 @@ function proximoVencimento(serie: ContaPagar[]): string | null {
 
 export function useContasPagar() {
   const { isReady } = useAuthReady()
+  const { roles } = useApp()
   const realtimeChannelId = useId().replace(/:/g, '')
   const [data, setData] = useState<ContaPagar[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,13 +93,15 @@ export function useContasPagar() {
     if (!opts?.silent) setLoading(true)
     setError(null)
 
-    try {
-      await expandirTodosFixoMontadores()
-    } catch (err) {
-      console.warn(
-        '[contas a pagar] Não foi possível expandir fixo dos montadores.',
-        err instanceof Error ? err.message : err,
-      )
+    if (podeExpandirFixoMontadores(roles)) {
+      try {
+        await expandirTodosFixoMontadores()
+      } catch (err) {
+        console.warn(
+          '[contas a pagar] Não foi possível expandir fixo dos montadores.',
+          err instanceof Error ? err.message : err,
+        )
+      }
     }
 
     const withForma = await supabase
@@ -135,7 +139,7 @@ export function useContasPagar() {
 
     // Auto-expansão de recorrências: mantém sempre MESES_HORIZONTE meses à frente
     await expandirRecorrencias(allRows)
-  }, [isReady])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady, roles])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Agrupa por recorrencia_id e gera meses que faltam
   const expandirRecorrencias = async (rows: ContaPagar[]) => {

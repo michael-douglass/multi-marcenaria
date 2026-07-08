@@ -1,0 +1,385 @@
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, Upload } from 'lucide-react'
+import { Field } from '@/components/ui/Field'
+import { salvarMeuFuncionario } from '@/lib/meu-perfil-api'
+import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
+import { ADMISSAO_DOC_TIPOS, ADMISSAO_STATUS_LABEL } from '@/lib/funcionario-constants'
+import {
+  buildPendingFuncionarioDoc,
+  deleteFuncionarioDocumento,
+  revokePendingFuncionarioDocUrls,
+  uploadFuncionarioDocumento,
+} from '@/lib/funcionario-documentos'
+import type { FuncionarioAdmissaoDados, FuncionarioDocumento, MeuFuncionarioPayload } from '@/types'
+
+interface Props {
+  payload: MeuFuncionarioPayload
+  onReload: () => void
+  mode?: 'self' | 'rh'
+  readOnly?: boolean
+  onSaveRh?: (dados: FuncionarioAdmissaoDados, finalizar: boolean) => Promise<void>
+  documentosAdmissao?: FuncionarioDocumento[]
+  permiteSubstituirDocumentos?: boolean
+}
+
+type Step = 1 | 2 | 3
+
+export function FuncionarioMeusDocumentosForm({
+  payload,
+  onReload,
+  mode = 'self',
+  readOnly = false,
+  onSaveRh,
+  documentosAdmissao = [],
+  permiteSubstituirDocumentos = false,
+}: Props) {
+  const isRh = mode === 'rh'
+  const [step, setStep] = useState<Step>(1)
+  const [dados, setDados] = useState<FuncionarioAdmissaoDados>(payload.admissao_dados ?? {})
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const bloqueado = isRh ? readOnly : payload.admissao_status === 'completo'
+  const [enviado, setEnviado] = useState(
+    !isRh && (payload.admissao_status === 'preenchido_funcionario' || payload.admissao_status === 'completo'),
+  )
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  useEffect(() => {
+    setDados(payload.admissao_dados ?? {})
+  }, [payload.id, payload.admissao_dados])
+
+  const setDado = (key: keyof FuncionarioAdmissaoDados, value: string | boolean) => {
+    setDados(prev => ({ ...prev, [key]: value }))
+  }
+
+  const docsEnviados = new Set(payload.documentos.map(d => d.tipo_documento))
+  const progress = Math.round(
+    (ADMISSAO_DOC_TIPOS.filter(d => docsEnviados.has(d.id)).length / ADMISSAO_DOC_TIPOS.length) * 100,
+  )
+
+  const dadosParaSalvar = (): FuncionarioAdmissaoDados => ({
+    ...dados,
+    cpf: dados.cpf ?? payload.cpf ?? undefined,
+    telefone: dados.telefone ?? payload.telefone ?? undefined,
+    email: dados.email_pessoal ?? payload.email ?? undefined,
+  })
+
+  const salvarRascunho = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const payloadDados = dadosParaSalvar()
+      if (isRh) {
+        if (!onSaveRh) throw new Error('Salvamento indisponível.')
+        await onSaveRh(payloadDados, false)
+      } else {
+        await salvarMeuFuncionario(payloadDados, false)
+      }
+      onReload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const enviarFinal = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const payloadDados = dadosParaSalvar()
+      if (isRh) {
+        if (!onSaveRh) throw new Error('Salvamento indisponível.')
+        await onSaveRh(payloadDados, true)
+        onReload()
+        return
+      }
+      await salvarMeuFuncionario(payloadDados, true)
+      setEnviado(true)
+      onReload()
+      setStep(3)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const uploadDoc = async (tipoId: string, file: File) => {
+    setUploading(tipoId)
+    setError(null)
+    let pending = null
+    try {
+      const existente = documentosAdmissao.find(d => d.tipo_documento === tipoId)
+        ?? payload.documentos.find(d => d.tipo_documento === tipoId)
+
+      if (existente) {
+        if (permiteSubstituirDocumentos && documentosAdmissao.length > 0) {
+          const docCompleto = documentosAdmissao.find(d => d.tipo_documento === tipoId)
+          if (docCompleto) await deleteFuncionarioDocumento(docCompleto)
+        } else {
+          setError('Este documento já foi enviado. Somente o administrador pode excluí-lo para reenviar.')
+          return
+        }
+      }
+
+      pending = await buildPendingFuncionarioDoc(file, tipoId, 'admissao')
+      await uploadFuncionarioDocumento(
+        payload.id,
+        pending,
+        isRh ? 'admin' : 'funcionario_sistema',
+      )
+      onReload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro no upload.')
+    } finally {
+      if (pending) revokePendingFuncionarioDocUrls([pending])
+      setUploading(null)
+    }
+  }
+
+  if (!isRh && enviado && step === 3) {
+    return (
+      <div className="mx-auto max-w-lg text-center fade-in">
+        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#d4a853] bg-[rgba(212,168,83,0.12)]">
+          <Check size={32} className="text-[#f2d892]" />
+        </div>
+        <h2 className="font-display text-3xl tracking-wide text-[#f2d892]">Documentos enviados!</h2>
+        <p className="mt-4 text-[#edd9c4]">
+          Obrigado, {payload.nome}. Seus dados foram recebidos pelo RH.
+          {bloqueado ? ' Sua admissão já está completa.' : ' Aguarde a validação da equipe.'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`fade-in ${isRh ? 'w-full' : 'mx-auto max-w-2xl'}`}>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="section-label">Formulário de admissão</p>
+          <h2 className="font-display mt-1 text-2xl tracking-wide text-[#f2d892]">
+            {isRh ? `Dados de ${payload.nome}` : 'Meus documentos'}
+          </h2>
+          {isRh && (
+            <p className="mt-1 text-sm text-[#b8957f]">
+              Preencha em nome do colaborador e anexe os documentos solicitados.
+            </p>
+          )}
+        </div>
+        <span className="rounded-full border border-[rgba(212,168,83,0.3)] px-3 py-1 text-xs text-[#edd9c4]">
+          {ADMISSAO_STATUS_LABEL[payload.admissao_status]}
+        </span>
+      </div>
+
+      <div className="mb-8 flex justify-center gap-2">
+        {[1, 2, 3].map(n => (
+          <div
+            key={n}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition ${
+              step === n
+                ? 'border-[#f2d892] bg-[rgba(242,216,146,0.15)] text-[#f2d892]'
+                : step > n
+                  ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
+                  : 'border-[rgba(212,168,83,0.2)] text-[#b8957f]'
+            }`}
+          >
+            {step > n ? <Check size={16} /> : n}
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="glass-card space-y-4 p-6">
+          <h3 className="font-semibold text-[#f2d892]">Dados pessoais</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="CPF">
+              <input
+                className="glass-input"
+                disabled={bloqueado}
+                value={String(dados.cpf ?? payload.cpf ?? '')}
+                onChange={e => setDado('cpf', e.target.value)}
+              />
+            </Field>
+            <Field label="PIS">
+              <input
+                className="glass-input"
+                disabled={bloqueado}
+                value={dados.pis ?? ''}
+                onChange={e => setDado('pis', e.target.value)}
+              />
+            </Field>
+            <Field label="Telefone">
+              <input
+                className="glass-input"
+                disabled={bloqueado}
+                value={String(dados.telefone ?? payload.telefone ?? '')}
+                onChange={e => setDado('telefone', e.target.value)}
+              />
+            </Field>
+            <Field label="E-mail">
+              <input
+                type="email"
+                className="glass-input"
+                disabled={bloqueado}
+                value={dados.email_pessoal ?? payload.email ?? ''}
+                onChange={e => setDado('email_pessoal', e.target.value)}
+              />
+            </Field>
+            <Field label="Endereço completo">
+              <input
+                className="glass-input"
+                disabled={bloqueado}
+                value={dados.endereco ?? ''}
+                onChange={e => setDado('endereco', e.target.value)}
+              />
+            </Field>
+            <Field label="Escolaridade">
+              <select
+                className="glass-input"
+                disabled={bloqueado}
+                value={dados.escolaridade ?? ''}
+                onChange={e => setDado('escolaridade', e.target.value)}
+              >
+                <option value="">— Selecione —</option>
+                <option value="1o_grau">1º Grau</option>
+                <option value="2o_grau">2º Grau</option>
+                <option value="superior">Superior</option>
+              </select>
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-[#edd9c4]">
+            <input
+              type="checkbox"
+              disabled={bloqueado}
+              checked={!!dados.tem_filhos}
+              onChange={e => setDado('tem_filhos', e.target.checked)}
+            />
+            Possuo filho(a) menor
+          </label>
+          {dados.tem_filhos && (
+            <Field label="Informações sobre filhos">
+              <textarea
+                className="glass-input min-h-[80px]"
+                disabled={bloqueado}
+                value={dados.filhos_info ?? ''}
+                onChange={e => setDado('filhos_info', e.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="glass-card p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="font-semibold text-[#f2d892]">Documentos solicitados</h3>
+            <span className="text-sm text-[#b8957f]">{progress}% enviado</span>
+          </div>
+          <div className="mb-4 h-2 overflow-hidden rounded-full bg-[rgba(0,0,0,0.3)]">
+            <div className="h-full bg-gradient-to-r from-[#c9a045] to-[#f2d892] transition-all" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="mb-4 text-xs text-[#b8957f]">Envie PDF ou foto (JPG, PNG, WebP).</p>
+          <div className="space-y-3">
+            {ADMISSAO_DOC_TIPOS.map(doc => {
+              const enviadoDoc = docsEnviados.has(doc.id)
+              const podeEnviar = !bloqueado && (!enviadoDoc || permiteSubstituirDocumentos)
+              return (
+                <div
+                  key={doc.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[rgba(212,168,83,0.15)] p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    {enviadoDoc && <Check size={16} className="text-emerald-400" />}
+                    <span className="text-sm text-[#f0e0d2]">{doc.label}</span>
+                  </div>
+                  <input
+                    ref={el => { fileRefs.current[doc.id] = el }}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    disabled={!podeEnviar}
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (f) void uploadDoc(doc.id, f)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={!podeEnviar || uploading === doc.id}
+                    onClick={() => fileRefs.current[doc.id]?.click()}
+                  >
+                    <Upload size={14} />
+                    {uploading === doc.id
+                      ? 'Enviando…'
+                      : enviadoDoc
+                        ? (permiteSubstituirDocumentos ? 'Substituir' : 'Enviado')
+                        : 'Enviar'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (!enviado || isRh) && (
+        <div className="glass-card p-6 text-center">
+          <h3 className="font-semibold text-[#f2d892]">
+            {isRh ? 'Salvar admissão' : 'Revisão e envio'}
+          </h3>
+          <p className="mt-3 text-sm text-[#b8957f]">
+            {isRh
+              ? 'Salve o rascunho ou marque o formulário como preenchido pelo RH.'
+              : 'Confirme o envio do formulário e dos documentos para o RH.'}
+          </p>
+          <button
+            type="button"
+            className="btn btn-gold btn-lg mt-6"
+            disabled={saving || bloqueado}
+            onClick={() => void enviarFinal()}
+          >
+            {saving
+              ? 'Salvando…'
+              : isRh
+                ? 'Salvar como preenchido'
+                : 'Confirmar envio'}
+          </button>
+        </div>
+      )}
+
+      {!bloqueado && (
+        <div className="mt-6 flex justify-between gap-3">
+          {step > 1 && (
+            <button type="button" className="btn btn-outline btn-md" onClick={() => setStep((step - 1) as Step)}>
+              <ChevronLeft size={16} />
+              Voltar
+            </button>
+          )}
+          <div className="ml-auto flex gap-2">
+            {step < 3 && (
+              <>
+                <button type="button" className="btn btn-outline btn-md" disabled={saving} onClick={() => void salvarRascunho()}>
+                  Salvar rascunho
+                </button>
+                <button type="button" className="btn btn-gold btn-md" onClick={() => setStep((step + 1) as Step)}>
+                  Próximo
+                  <ChevronRight size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

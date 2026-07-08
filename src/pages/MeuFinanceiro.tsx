@@ -1,10 +1,12 @@
-﻿import { useMemo, useState } from 'react'
-import { Banknote, Wallet, PiggyBank, CalendarCheck } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Banknote, Wallet, PiggyBank, CalendarCheck, FileSignature } from 'lucide-react'
 import { usePrestadorFinanceiro } from '@/hooks/usePrestadorFinanceiro'
 import { usePrestadorObrasFinalizando } from '@/hooks/usePrestadorObrasFinalizando'
+import { usePrestadorRecibos } from '@/hooks/usePrestadorRecibos'
 import { PrestadorComparativoChart } from '@/components/meu-financeiro/PrestadorComparativoChart'
 import { PrestadorObrasPrevisao } from '@/components/meu-financeiro/PrestadorObrasPrevisao'
 import { PrestadorObrasFinalizando } from '@/components/meu-financeiro/PrestadorObrasFinalizando'
+import { PrestadorRecibosTab } from '@/components/funcionarios/PrestadorRecibosTab'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { PRESTADOR_MONTHS_FULL, quintoDiaUtilProximoMes } from '@/lib/prestador-financeiro'
 import { sumMontadorComissaoObras } from '@/lib/metricas-montador-comissao'
@@ -12,13 +14,17 @@ import { fmtCur, fmtDate } from '@/lib/utils'
 
 const MONTHS = [...PRESTADOR_MONTHS_FULL]
 
+type MeuFinTab = 'resumo' | 'recibos'
+
 export function MeuFinanceiro() {
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [ano, setAno] = useState(now.getFullYear())
+  const [tab, setTab] = useState<MeuFinTab>('resumo')
 
   const { resumo, comparativo, loading, error, reload } = usePrestadorFinanceiro(mes, ano)
   const obrasComissao = usePrestadorObrasFinalizando(mes, ano)
+  const { pendentes: recibosPendentes } = usePrestadorRecibos()
 
   const anos = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i)
   const periodoLabel = `${MONTHS[mes - 1]} ${ano}`
@@ -83,10 +89,43 @@ export function MeuFinanceiro() {
         </div>
       </div>
 
-      {loading && <LoadingState />}
-      {!loading && error && <ErrorState message={error} />}
+      <div className="flex gap-2 border-b border-[rgba(212,168,83,0.15)] pb-1">
+        <button
+          type="button"
+          className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+            tab === 'resumo'
+              ? 'border border-b-0 border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.1)] text-[#f2d892]'
+              : 'text-[#b8957f] hover:text-[#edd9c4]'
+          }`}
+          onClick={() => setTab('resumo')}
+        >
+          Resumo
+        </button>
+        <button
+          type="button"
+          className={`flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+            tab === 'recibos'
+              ? 'border border-b-0 border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.1)] text-[#f2d892]'
+              : 'text-[#b8957f] hover:text-[#edd9c4]'
+          }`}
+          onClick={() => setTab('recibos')}
+        >
+          <FileSignature size={14} />
+          Recibos
+          {recibosPendentes.length > 0 && (
+            <span className="rounded-full bg-amber-500/25 px-1.5 text-[0.65rem] text-amber-200">
+              {recibosPendentes.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-      {!loading && !error && (
+      {tab === 'recibos' && <PrestadorRecibosTab />}
+
+      {tab === 'resumo' && loading && <LoadingState />}
+      {tab === 'resumo' && !loading && error && <ErrorState message={error} />}
+
+      {tab === 'resumo' && !loading && !error && (
         <>
           {/* Total combinado: fixo + comissão */}
           <div className="glass-card relative overflow-hidden border border-[#f2d892]/25 p-5">

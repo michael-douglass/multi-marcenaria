@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
@@ -31,8 +31,11 @@ import { CalendarioObras } from '@/pages/CalendarioObras'
 import { ChegadaMateriaisCalendario } from '@/pages/ChegadaMateriaisCalendario'
 import { MetricasObras } from '@/pages/MetricasObras'
 import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
+import { MeuPerfil } from '@/pages/MeuPerfil'
+import { PontoPage } from '@/pages/PontoPage'
 import { Configuracoes } from '@/pages/Configuracoes'
-import { Contratos } from '@/pages/Contratos'
+import { Funcionarios } from '@/pages/Funcionarios'
+import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
@@ -105,7 +108,6 @@ function AuthenticatedRoutes() {
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
           <Route path="/cobrancas" element={guardReadOnly(<ContasReceber clientes={clientesHook.data} readOnly={readOnly} />)} />
-          <Route path="/contratos" element={guardReadOnly(<Contratos readOnly={readOnly} />)} />
           <Route
             path="/fornecedores"
             element={guardReadOnly(
@@ -116,6 +118,8 @@ function AuthenticatedRoutes() {
               />,
             )}
           />
+          <Route path="/funcionarios" element={guardReadOnly(<Funcionarios readOnly={readOnly} />)} />
+          <Route path="/funcionarios/:id" element={guardReadOnly(<FuncionarioDetalhe readOnly={readOnly} />)} />
           <Route
             path="/produtos"
             element={guardReadOnly(<Produtos fornecedores={fornecedoresHook.data} readOnly={readOnly} />)}
@@ -238,6 +242,22 @@ function AuthenticatedRoutes() {
               roles.includes('Montador') || roles.includes('MontadorAdmin')
                 ? <MeuFinanceiro />
                 : <Restricted message="Disponível apenas para montadores." />
+            }
+          />
+          <Route
+            path="/bater-ponto"
+            element={
+              canAccessSection(roles, 'baterPonto')
+                ? <PontoPage />
+                : <Restricted message="Disponível para funcionários de campo e RH." />
+            }
+          />
+          <Route
+            path="/meu-perfil"
+            element={
+              canAccessSection(roles, 'meuPerfil')
+                ? <MeuPerfil />
+                : <Restricted message="Disponível apenas para funcionários vinculados." />
             }
           />
 

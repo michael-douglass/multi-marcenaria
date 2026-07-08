@@ -9,12 +9,12 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 ]
 
 export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'contratos', 'fornecedores', 'produtos', 'pedidos', 'biblioteca', 'visualizacao'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'produtos', 'pedidos', 'aprovacao', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'produtos', 'pedidos', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro'],
-  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao'],
-  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro'],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'meuPerfil', 'baterPonto'],
+  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao', 'meuPerfil', 'baterPonto'],
+  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro', 'meuPerfil', 'baterPonto'],
   Visualizador: ['visualizacao'],
 }
 
@@ -32,6 +32,10 @@ export function isVisualizadorOnly(roles: UserRole[]): boolean {
 
 export function canAccessSection(roles: UserRole[], section: ActiveSection): boolean {
   return getAllowedSections(roles).includes(section)
+}
+
+export function isAdministrador(roles: UserRole[]): boolean {
+  return roles.includes('Administrador')
 }
 
 export function defaultPathForRoles(roles: UserRole[]): string {
