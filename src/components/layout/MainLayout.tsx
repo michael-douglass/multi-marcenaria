@@ -9,30 +9,23 @@ import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly } from '@/lib/role-access'
 
-interface MainLayoutProps {
-  pendingOrders: number
-}
-
-export function MainLayout({ pendingOrders }: MainLayoutProps) {
+export function MainLayout() {
   const [isAgendaOpen, setIsAgendaOpen] = useState(false)
   const { roles } = useApp()
   const hideAgenda = isVisualizadorOnly(roles)
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <AppSidebar pendingOrders={pendingOrders} />
+      <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
-        <NavigationHeader
-          pendingOrders={pendingOrders}
-          onOpenAgenda={() => setIsAgendaOpen(true)}
-        />
+        <NavigationHeader onOpenAgenda={() => setIsAgendaOpen(true)} />
         <div className="obra-layout-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-7 md:px-8 touch-pan-y">
           <div className="obra-layout-outlet flex min-h-0 min-w-0 flex-none flex-col md:flex-1">
             <Outlet />
           </div>
         </div>
       </SidebarInset>
-      <AppNavRadialMenu pendingOrders={pendingOrders} />
+      <AppNavRadialMenu />
 
       {!hideAgenda && (
         <>

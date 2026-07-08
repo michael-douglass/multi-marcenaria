@@ -6,8 +6,6 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { useCaixaFornecedor } from '@/hooks/useCaixaFornecedor'
 import { useFornecedores } from '@/hooks/useFornecedores'
-import { useProdutos } from '@/hooks/useProdutos'
-import { usePedidos } from '@/hooks/usePedidos'
 import { useClientes } from '@/hooks/useClientes'
 import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
@@ -16,9 +14,6 @@ import { canAccessSection } from '@/lib/role-access'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
-import { Produtos } from '@/pages/Produtos'
-import { PedidosCompra } from '@/pages/PedidosCompra'
-import { Aprovacao } from '@/pages/Aprovacao'
 import { ContasPagar } from '@/pages/ContasPagar'
 import { Clientes } from '@/pages/Clientes'
 import { ContasReceber } from '@/pages/ContasReceber'
@@ -75,15 +70,11 @@ function AuthenticatedRoutes() {
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
 
   const fornecedoresHook = useFornecedores()
-  const produtosHook = useProdutos()
-  const pedidosHook = usePedidos()
   const clientesHook = useClientes()
   const contasPagarHook = useContasPagar()
   const contasReceberHook = useContasReceber()
   const caixaFornecedorHook = useCaixaFornecedor()
 
-
-  const pendingOrders = pedidosHook.data.filter(o => o.status === 'aguardando_aprovacao').length
 
   const guardReadOnly = (page: React.ReactNode) =>
     readOnly ? (
@@ -96,7 +87,7 @@ function AuthenticatedRoutes() {
     <ObrasProvider>
       <RoleRedirect />
       <Routes>
-        <Route element={<MainLayout pendingOrders={pendingOrders} />}>
+        <Route element={<MainLayout />}>
           <Route index element={<Navigate to={defaultPathForRoles(roles)} replace />} />
           <Route
             path="/dashboard"
@@ -120,32 +111,6 @@ function AuthenticatedRoutes() {
           />
           <Route path="/funcionarios" element={guardReadOnly(<Funcionarios readOnly={readOnly} />)} />
           <Route path="/funcionarios/:id" element={guardReadOnly(<FuncionarioDetalhe readOnly={readOnly} />)} />
-          <Route
-            path="/produtos"
-            element={guardReadOnly(<Produtos fornecedores={fornecedoresHook.data} readOnly={readOnly} />)}
-          />
-          <Route
-            path="/pedidos"
-            element={
-              guardReadOnly(
-                <PedidosCompra
-                  fornecedores={fornecedoresHook.data}
-                  produtos={produtosHook.data}
-                  readOnly={readOnly}
-                />,
-              )
-            }
-          />
-          <Route
-            path="/aprovacao"
-            element={
-              roles.includes('Administrador') ? (
-                <Aprovacao fornecedores={fornecedoresHook.data} produtos={produtosHook.data} />
-              ) : (
-                <Restricted message="Exclusivo para Administradores." />
-              )
-            }
-          />
           <Route
             path="/contas-pagar"
             element={

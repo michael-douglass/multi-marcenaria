@@ -18,7 +18,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp } from '@/context/AppContext'
 import {
-  getNavBadge,
   getVisibleNavMainItems,
   isFinanceiroSection,
   isObrasSection,
@@ -29,21 +28,9 @@ import {
 import { cn } from '@/lib/utils'
 import type { ActiveSection } from '@/types'
 
-interface AppSidebarProps {
-  pendingOrders: number
-}
-
-function isNavChildActive(item: NavChildItem, section: ActiveSection): boolean {
-  if (item.children?.length) {
-    return item.children.some(child => isNavChildActive(child, section))
-  }
-  return item.id === section
-}
-
 interface NavChildTreeProps {
   child: NavChildItem
   activeSection: ActiveSection
-  pendingOrders: number
   depth: number
   sidebarOpen: boolean
   renderLeaf: (
@@ -51,7 +38,6 @@ interface NavChildTreeProps {
     title: string,
     Icon: NavMainItem['icon'],
     isActive: boolean,
-    badge?: number,
     nested?: boolean,
     depth?: number,
   ) => React.ReactNode
@@ -60,7 +46,6 @@ interface NavChildTreeProps {
 function NavChildTree({
   child,
   activeSection,
-  pendingOrders,
   depth,
   sidebarOpen,
   renderLeaf,
@@ -77,8 +62,6 @@ function NavChildTree({
   }, [isActive])
 
   if (!hasNested) {
-    const childBadge =
-      child.badgeKey === 'pendingOrders' && pendingOrders > 0 ? pendingOrders : undefined
     return (
       <li>
         {renderLeaf(
@@ -86,7 +69,6 @@ function NavChildTree({
           child.title,
           ChildIcon,
           activeSection === child.id,
-          childBadge,
           true,
           depth,
         )}
@@ -128,7 +110,6 @@ function NavChildTree({
                 key={sub.id}
                 child={sub}
                 activeSection={activeSection}
-                pendingOrders={pendingOrders}
                 depth={depth + 1}
                 sidebarOpen={sidebarOpen}
                 renderLeaf={renderLeaf}
@@ -141,14 +122,21 @@ function NavChildTree({
   )
 }
 
-export function AppSidebar({ pendingOrders }: AppSidebarProps) {
+function isNavChildActive(item: NavChildItem, section: ActiveSection): boolean {
+  if (item.children?.length) {
+    return item.children.some(child => isNavChildActive(child, section))
+  }
+  return item.id === section
+}
+
+export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { roles, userProfile } = useApp()
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
   const activeSection = sectionFromPath(location.pathname)
 
-  const items = getVisibleNavMainItems({ roles, pendingOrders })
+  const items = getVisibleNavMainItems({ roles })
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
 
@@ -178,7 +166,6 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
     title: string,
     Icon: NavMainItem['icon'],
     isActive: boolean,
-    badge?: number,
     nested = false,
     depth = 0,
   ) => (
@@ -197,11 +184,6 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
     >
       <Icon className="h-4 w-4 shrink-0" />
       <span className="group-data-[collapsible=icon]:hidden">{title}</span>
-      {badge ? (
-        <span className="ml-auto rounded-full bg-[#f2d892] px-1.5 py-0 text-[0.62rem] font-bold text-[#2a1812] group-data-[collapsible=icon]:hidden">
-          {badge}
-        </span>
-      ) : null}
     </SidebarMenuButton>
   )
 
@@ -225,7 +207,6 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
             <SidebarMenu>
               {items.map(item => {
                 const Icon = item.icon
-                const badge = getNavBadge(item, { roles, pendingOrders })
 
                 if (item.children?.length) {
                   const childActive = item.children.some(c => isNavChildActive(c, activeSection))
@@ -261,11 +242,6 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                             <span className="group-data-[collapsible=icon]:hidden">
                               {item.title}
                             </span>
-                            {badge ? (
-                              <span className="ml-auto rounded-full bg-[#f2d892] px-1.5 py-0 text-[0.62rem] font-bold text-[#2a1812] group-data-[collapsible=icon]:hidden">
-                                {badge}
-                              </span>
-                            ) : null}
                             <ChevronRight
                               className={cn(
                                 'ml-auto h-4 w-4 shrink-0 text-[#edd9c4] transition-transform group-data-[collapsible=icon]:hidden',
@@ -281,7 +257,6 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                                 key={child.id}
                                 child={child}
                                 activeSection={activeSection}
-                                pendingOrders={pendingOrders}
                                 depth={0}
                                 sidebarOpen={open}
                                 renderLeaf={renderLeaf}
@@ -297,7 +272,7 @@ export function AppSidebar({ pendingOrders }: AppSidebarProps) {
                 const isActive = activeSection === item.id
                 return (
                   <SidebarMenuItem key={item.id}>
-                    {renderLeaf(item.url, item.title, Icon, isActive, badge)}
+                    {renderLeaf(item.url, item.title, Icon, isActive)}
                   </SidebarMenuItem>
                 )
               })}

@@ -4,9 +4,6 @@ import {
   Users,
   TrendingUp,
   Truck,
-  Package,
-  ClipboardList,
-  CheckCircle,
   Receipt,
   Images,
   Landmark,
@@ -36,7 +33,6 @@ export interface NavChildItem {
   radialColor: string
   /** Se omitido, herda visibilidade do menu pai */
   roles?: UserRole[]
-  badgeKey?: 'pendingOrders'
   children?: NavChildItem[]
 }
 
@@ -77,7 +73,6 @@ export interface NavMainItem {
   radialColor: string
   roles: UserRole[]
   children?: NavChildItem[]
-  badgeKey?: 'pendingOrders'
 }
 
 const FINANCEIRO_CHILDREN: NavChildItem[] = [
@@ -124,29 +119,6 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
         roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
       },
     ],
-  },
-  {
-    id: 'produtos',
-    title: 'Produtos',
-    url: '/produtos',
-    icon: Package,
-    radialColor: 'rgba(167,139,250,0.92)',
-  },
-  {
-    id: 'pedidos',
-    title: 'Pedidos',
-    url: '/pedidos',
-    icon: ClipboardList,
-    radialColor: 'rgba(96,165,250,0.92)',
-  },
-  {
-    id: 'aprovacao',
-    title: 'Aprovação',
-    url: '/aprovacao',
-    icon: CheckCircle,
-    radialColor: 'rgba(251,146,60,0.92)',
-    roles: ['Administrador'],
-    badgeKey: 'pendingOrders',
   },
   {
     id: 'contasPagar',
@@ -294,7 +266,6 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
 
 export interface NavVisibilityContext {
   roles: UserRole[]
-  pendingOrders?: number
 }
 
 export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[] {
@@ -311,23 +282,7 @@ export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[]
     .filter(item => !item.children || item.children.length > 0)
 }
 
-export function getNavBadge(
-  item: NavMainItem,
-  ctx: NavVisibilityContext,
-): number | undefined {
-  if (item.badgeKey === 'pendingOrders' && ctx.pendingOrders && ctx.pendingOrders > 0) {
-    return ctx.pendingOrders
-  }
-  if (item.children && ctx.roles.length) {
-    const childComBadge = item.children.find(
-      c =>
-        c.badgeKey === 'pendingOrders' &&
-        (!c.roles || c.roles.some(r => ctx.roles.includes(r))),
-    )
-    if (childComBadge && ctx.pendingOrders && ctx.pendingOrders > 0) {
-      return ctx.pendingOrders
-    }
-  }
+export function getNavBadge(_item: NavMainItem, _ctx: NavVisibilityContext): number | undefined {
   return undefined
 }
 
@@ -361,9 +316,6 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/cobrancas': 'cobranças',
     '/fornecedores': 'fornecedores',
     '/funcionarios': 'funcionarios',
-    '/produtos': 'produtos',
-    '/pedidos': 'pedidos',
-    '/aprovacao': 'aprovacao',
     '/contas-pagar': 'contasPagar',
     '/caixa-fornecedor': 'caixaFornecedor',
     '/biblioteca': 'biblioteca',

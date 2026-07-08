@@ -5,7 +5,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { useApp } from '@/context/AppContext'
-import { defaultPathForRoles, pathFromSection } from '@/lib/app-navigation'
+import { defaultPathForRoles } from '@/lib/app-navigation'
 import { isFuncionarioCampo, isVisualizadorOnly } from '@/lib/role-access'
 
 const PERFIL_LABEL: Record<string, string> = {
@@ -19,11 +19,10 @@ const PERFIL_LABEL: Record<string, string> = {
 }
 
 interface NavigationHeaderProps {
-  pendingOrders: number
   onOpenAgenda?: () => void
 }
 
-export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHeaderProps) {
+export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   const navigate = useNavigate()
   const { roles, userProfile, signOut } = useApp()
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
@@ -85,17 +84,6 @@ export function NavigationHeader({ pendingOrders, onOpenAgenda }: NavigationHead
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {roles.includes('Administrador') && pendingOrders > 0 && (
-          <button
-            type="button"
-            onClick={() => navigate(pathFromSection('aprovacao'))}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(240,210,140,0.38)] bg-[rgba(240,210,140,0.12)] px-3 py-1 text-[0.72rem] font-semibold text-[#f2d892] transition-colors hover:bg-[rgba(240,210,140,0.2)]"
-          >
-            <Clock className="h-3 w-3" />
-            {pendingOrders} pendente{pendingOrders > 1 ? 's' : ''}
-          </button>
-        )}
-
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
 
         <AppRefreshButton showLabel />

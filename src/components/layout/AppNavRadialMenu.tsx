@@ -148,11 +148,7 @@ function RadialSlot({
   )
 }
 
-interface AppNavRadialMenuProps {
-  pendingOrders: number
-}
-
-export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
+export function AppNavRadialMenu() {
   const navigate = useNavigate()
   const location = useLocation()
   const { roles } = useApp()
@@ -161,7 +157,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   const [submenuChild, setSubmenuChild] = useState<NavChildItem | null>(null)
 
   const activeSection = sectionFromPath(location.pathname)
-  const items = getVisibleNavMainItems({ roles, pendingOrders })
+  const items = getVisibleNavMainItems({ roles })
 
   const closeAll = useCallback(() => {
     setOpen(false)
