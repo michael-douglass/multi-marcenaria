@@ -13,6 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const FORNECEDOR_IDS = {
   'j r ferragens': '7dfbd21b-9c7d-4286-91fd-0c16a2d76b23',
+  jreferragens: '7dfbd21b-9c7d-4286-91fd-0c16a2d76b23',
 }
 
 function normalizeText(value) {
@@ -112,12 +113,8 @@ function parseRecords(text) {
 
 function resolveFornecedorId(nome) {
   const override = process.env.IMPORT_FORNECEDOR_OVERRIDE?.trim()
-  if (override) {
-    const alvo = normalizeText(override)
-    const entry = Object.entries(FORNECEDOR_IDS).find(([key]) => key === alvo)
-    if (entry) return entry[1]
-  }
-  return FORNECEDOR_IDS[normalizeText(nome)] ?? null
+  const alvo = normalizeText(override || nome)
+  return FORNECEDOR_IDS[alvo] ?? null
 }
 
 function resolveFornecedorNome(nome) {

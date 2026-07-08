@@ -1,0 +1,191 @@
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158027-2/5
+Observação 248754
+1º vencimento — dia / mês / ano : 03/08/2026
+Valor Total (R$) 1.377,75
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158026-2/5
+Observação 248749
+1º vencimento — dia / mês / ano : 03/08/2026
+Valor Total (R$) 728,53
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-4/10
+Observação 202062
+1º vencimento — dia / mês / ano : 11/08/2026
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-4/10
+Observação 202052
+1º vencimento — dia / mês / ano : 11/08/2026
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-4/10
+Observação 202038
+1º vencimento — dia / mês / ano : 11/08/2026
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0157335-3/5
+Observação 241159
+1º vencimento — dia / mês / ano : 24/08/2026
+Valor Total (R$) 222,43
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158027-3/5
+Observação 248755
+1º vencimento — dia / mês / ano : 03/09/2026
+Valor Total (R$) 1.377,75
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158026-3/5
+Observação 248750
+1º vencimento — dia / mês / ano : 03/09/2026
+Valor Total (R$) 728,53
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-5/10
+Observação 202063
+1º vencimento — dia / mês / ano : 10/09/2026
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-5/10
+Observação 202053
+1º vencimento — dia / mês / ano : 10/09/2026
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-5/10
+Observação 202039
+1º vencimento — dia / mês / ano : 14/09/2026
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0157335-4/5
+Observação 241160
+1º vencimento — dia / mês / ano : 22/09/2026
+Valor Total (R$) 222,43
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158027-4/5
+Observação 248756
+1º vencimento — dia / mês / ano : 05/10/2026
+Valor Total (R$) 1.377,75
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158026-4/5
+Observação 248751
+1º vencimento — dia / mês / ano : 05/10/2026
+Valor Total (R$) 728,53
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-6/10
+Observação 202064
+1º vencimento — dia / mês / ano : 12/10/2026
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-6/10
+Observação 202054
+1º vencimento — dia / mês / ano : 12/10/2026
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-6/10
+Observação 202040
+1º vencimento — dia / mês / ano : 12/10/2026
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0157335-5/5
+Observação 241161
+1º vencimento — dia / mês / ano : 22/10/2026
+Valor Total (R$) 222,42
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158027-5/5
+Observação 248757
+1º vencimento — dia / mês / ano : 03/11/2026
+Valor Total (R$) 1.377,77
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0158026-5/5
+Observação 248752
+1º vencimento — dia / mês / ano : 03/11/2026
+Valor Total (R$) 728,54
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-7/10
+Observação 202065
+1º vencimento — dia / mês / ano : 09/11/2026
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-7/10
+Observação 202055
+1º vencimento — dia / mês / ano : 09/11/2026
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-7/10
+Observação 202041
+1º vencimento — dia / mês / ano : 09/11/2026
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-8/10
+Observação 202066
+1º vencimento — dia / mês / ano : 09/12/2026
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-8/10
+Observação 202056
+1º vencimento — dia / mês / ano : 09/12/2026
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-8/10
+Observação 202042
+1º vencimento — dia / mês / ano : 09/12/2026
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-9/10
+Observação 202067
+1º vencimento — dia / mês / ano : 11/01/2027
+Valor Total (R$) 70,93
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-9/10
+Observação 202057
+1º vencimento — dia / mês / ano : 11/01/2027
+Valor Total (R$) 449,35
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-9/10
+Observação 202043
+1º vencimento — dia / mês / ano : 11/01/2027
+Valor Total (R$) 360,08
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153348-10/10
+Observação 202068
+1º vencimento — dia / mês / ano : 08/02/2027
+Valor Total (R$) 70,97
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153347-10/10
+Observação 202058
+1º vencimento — dia / mês / ano : 08/02/2027
+Valor Total (R$) 449,30
+
+FORNECEDOR J. R. FERRAGENS
+Descrição / Referência R1-0153342-10/10
+Observação 202044
+1º vencimento — dia / mês / ano : 08/02/2027
+Valor Total (R$) 360,06
