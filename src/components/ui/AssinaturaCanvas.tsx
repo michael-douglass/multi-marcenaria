@@ -83,7 +83,6 @@ export function AssinaturaCanvas({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
-    exportSignature()
   }
 
   const clear = () => {
@@ -126,11 +125,14 @@ export function AssinaturaCanvas({
           <Eraser size={14} />
           Limpar assinatura
         </button>
-        {hasStroke && (
-          <button type="button" className="btn btn-gold btn-sm" onClick={exportSignature}>
-            Usar esta assinatura
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-gold btn-sm"
+          disabled={!hasStroke}
+          onClick={exportSignature}
+        >
+          Salvar
+        </button>
       </div>
     </div>
   )

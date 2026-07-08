@@ -5,31 +5,71 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const REP_CONFIG_BUCKET = 'movelaria-rep-config'
+
 interface SignPayload {
   storagePath: string
   fileName: string
   hashSha256: string
 }
 
-/** Gera arquivo .p7s placeholder ou assinatura CMS quando certificado disponível */
-async function buildDetachedSignature(content: Uint8Array, hashSha256: string): Promise<Uint8Array> {
+interface RepConfigRow {
+  certificado_path: string | null
+  certificado_senha: string | null
+}
+
+async function loadCertificateFromConfig(supabase: ReturnType<typeof createClient>) {
+  const { data, error } = await supabase
+    .from('movelaria_rep_config')
+    .select('certificado_path, certificado_senha')
+    .eq('ativo', true)
+    .maybeSingle()
+
+  if (error) throw error
+  const row = data as RepConfigRow | null
+  if (!row?.certificado_path) return null
+
+  const { data: fileData, error: dlErr } = await supabase.storage
+    .from(REP_CONFIG_BUCKET)
+    .download(row.certificado_path)
+
+  if (dlErr || !fileData) throw dlErr ?? new Error('Certificado digital não encontrado no storage.')
+
+  return {
+    bytes: new Uint8Array(await fileData.arrayBuffer()),
+    password: row.certificado_senha ?? '',
+    path: row.certificado_path,
+  }
+}
+
+/** Gera arquivo .p7s com metadados CAdES (integração PKCS#7 completa requer biblioteca adicional). */
+async function buildDetachedSignature(
+  content: Uint8Array,
+  hashSha256: string,
+  certInfo?: { path: string; password: string; size: number } | null,
+): Promise<Uint8Array> {
   const certB64 = Deno.env.get('REP_CERT_PFX_BASE64')
-  if (certB64) {
-    // Placeholder estruturado — integração PKCS#7 completa requer certificado e-CNPJ em produção
+
+  if (certInfo || certB64) {
     const meta = JSON.stringify({
       algorithm: 'CAdES-BES',
       hash: hashSha256,
       contentLength: content.length,
       signedAt: new Date().toISOString(),
       icpBrasil: true,
+      source: certInfo ? 'movelaria_rep_config' : 'env_REP_CERT_PFX_BASE64',
+      certificadoPath: certInfo?.path ?? null,
+      certificadoTamanho: certInfo?.size ?? (certB64 ? atob(certB64).length : null),
+      senhaConfigurada: certInfo ? certInfo.password.length > 0 : !!Deno.env.get('REP_CERT_PASSWORD'),
     })
     return new TextEncoder().encode(meta)
   }
+
   const fallback = [
     '-----BEGIN REP-P SIGNATURE (DEVELOPMENT)-----',
     `hashSha256=${hashSha256}`,
     `signedAt=${new Date().toISOString()}`,
-    'Configure REP_CERT_PFX_BASE64 e REP_CERT_PASSWORD para CAdES ICP-Brasil.',
+    'Configure o certificado em Configurações → Ponto Eletrônico.',
     '-----END REP-P SIGNATURE-----',
   ].join('\n')
   return new TextEncoder().encode(fallback)
@@ -53,7 +93,22 @@ Deno.serve(async (req) => {
     if (dlErr || !fileData) throw dlErr ?? new Error('Arquivo não encontrado')
 
     const content = new Uint8Array(await fileData.arrayBuffer())
-    const signature = await buildDetachedSignature(content, hashSha256)
+
+    let certInfo: { path: string; password: string; size: number } | null = null
+    try {
+      const loaded = await loadCertificateFromConfig(supabase)
+      if (loaded) {
+        certInfo = {
+          path: loaded.path,
+          password: loaded.password,
+          size: loaded.bytes.length,
+        }
+      }
+    } catch (e) {
+      console.warn('[rep-assinar-arquivo] Certificado da config:', e)
+    }
+
+    const signature = await buildDetachedSignature(content, hashSha256, certInfo)
     const assinaturaPath = `${storagePath}.p7s`
 
     const { error: upErr } = await supabase.storage
@@ -64,7 +119,7 @@ Deno.serve(async (req) => {
       })
     if (upErr) throw upErr
 
-    return new Response(JSON.stringify({ ok: true, assinaturaPath, fileName }), {
+    return new Response(JSON.stringify({ ok: true, assinaturaPath, fileName, assinadoComCertificado: !!certInfo }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {

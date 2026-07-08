@@ -103,18 +103,27 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(251,191,36,0.92)',
   },
   {
-    id: 'funcionarios',
+    id: 'funcionariosGrupo',
     title: 'Funcionários',
-    url: '/funcionarios',
     icon: UserCog,
     radialColor: 'rgba(240,210,140,0.92)',
-  },
-  {
-    id: 'baterPonto',
-    title: 'Ponto',
-    url: '/bater-ponto',
-    icon: Clock,
-    radialColor: 'rgba(74,222,128,0.92)',
+    children: [
+      {
+        id: 'funcionarios',
+        title: 'Pastas',
+        url: '/funcionarios',
+        icon: UserCog,
+        radialColor: 'rgba(240,210,140,0.92)',
+      },
+      {
+        id: 'baterPonto',
+        title: 'Ponto',
+        url: '/bater-ponto',
+        icon: Clock,
+        radialColor: 'rgba(74,222,128,0.92)',
+        roles: ['Administrador', 'Financeiro'],
+      },
+    ],
   },
   {
     id: 'produtos',
@@ -323,7 +332,11 @@ export function getNavBadge(
 }
 
 export function isFinanceiroSection(section: ActiveSection): boolean {
-  return FINANCEIRO_CHILDREN.some(c => c.id === section)
+  let found = false
+  walkNavChildren(FINANCEIRO_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
 }
 
 export function isObrasSection(section: ActiveSection): boolean {
@@ -339,6 +352,8 @@ export function isChegadaMateriaisSection(section: ActiveSection): boolean {
 }
 
 export function sectionFromPath(pathname: string): ActiveSection {
+  if (pathname.startsWith('/funcionarios')) return 'funcionarios'
+
   const map: Record<string, ActiveSection> = {
     '/': 'dashboard',
     '/dashboard': 'dashboard',

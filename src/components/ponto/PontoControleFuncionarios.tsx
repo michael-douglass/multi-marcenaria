@@ -1,21 +1,11 @@
 import { useMemo } from 'react'
-import {
-  AlertTriangle,
-  CalendarDays,
-  ExternalLink,
-  MapPin,
-  UserX,
-} from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import {
   FUNCIONARIO_TIPO_LABEL,
   PONTO_STATUS_DIA_LABEL,
 } from '@/lib/funcionario-constants'
-import {
-  formatHoraPonto,
-  googleMapsUrl,
-  labelPontoTipo,
-} from '@/lib/funcionario-ponto'
+import { PontoDiaEscala } from '@/components/ponto/PontoDiaEscala'
 import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
 import type { PontoControleFuncionarioRow, PontoStatusDia } from '@/types'
 
@@ -62,10 +52,6 @@ function ResumoChip({
 }
 
 function FuncionarioPontoCard({ row }: { row: PontoControleFuncionarioRow }) {
-  const entrada = row.entrada
-  const previsto = formatHoraPonto(row.hora_prevista)
-  const chegada = formatHoraPonto(entrada?.registrado_em)
-
   return (
     <article
       className="group relative overflow-hidden rounded-2xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno transition-all duration-300 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
@@ -83,100 +69,13 @@ function FuncionarioPontoCard({ row }: { row: PontoControleFuncionarioRow }) {
         </span>
       </header>
 
-      <div className="grid gap-4 p-5 sm:grid-cols-2">
-        <div className="space-y-3">
-          <div className="rounded-xl border border-[rgba(212,168,83,0.15)] bg-[rgba(20,10,6,0.55)] p-4">
-            <p className="text-[0.65rem] uppercase tracking-widest text-[#b8957f]">Chegada</p>
-            <div className="mt-2 flex items-end gap-3">
-              <span className="font-display text-3xl tabular-nums text-[#f2d892]">
-                {entrada ? chegada : '—'}
-              </span>
-              {entrada?.status === 'atraso' && (
-                <span className="mb-1 flex items-center gap-1 text-xs text-amber-400">
-                  <AlertTriangle size={12} />
-                  +{entrada.atraso_minutos} min
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-[#b8957f]">
-              Previsto: <span className="text-[#edd9c4]">{previsto}</span>
-            </p>
-          </div>
-
-          {entrada?.latitude != null && entrada.longitude != null ? (
-            <a
-              href={googleMapsUrl(entrada.latitude, entrada.longitude)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-xl border border-sky-500/25 bg-sky-500/5 px-4 py-3 text-sm text-sky-200 transition hover:border-sky-400/40 hover:bg-sky-500/10"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/15">
-                <MapPin size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">Local da batida</p>
-                <p className="truncate text-xs opacity-80">
-                  {entrada.latitude.toFixed(5)}, {entrada.longitude.toFixed(5)}
-                  {entrada.precisao_metros != null && ` (±${Math.round(entrada.precisao_metros)}m)`}
-                </p>
-              </div>
-              <ExternalLink size={14} className="shrink-0 opacity-60" />
-            </a>
-          ) : (
-            <div className="flex items-center gap-2 rounded-xl border border-dashed border-[rgba(212,168,83,0.2)] px-4 py-3 text-sm text-[#b8957f]">
-              <MapPin size={16} />
-              {row.status_dia === 'falta' || row.status_dia === 'folga'
-                ? 'Sem localização (ocorrência registrada)'
-                : 'Aguardando batida de entrada'}
-            </div>
-          )}
-
-          {row.marcacoes.length > 1 && (
-            <ul className="space-y-1 text-xs text-[#b8957f]">
-              {row.marcacoes.filter(m => m.tipo !== 'entrada').map(m => (
-                <li key={m.id} className="flex justify-between gap-2">
-                  <span>{labelPontoTipo(m.tipo)}</span>
-                  <span className="text-[#edd9c4]">{formatHoraPonto(m.registrado_em)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="overflow-hidden rounded-xl border border-[rgba(212,168,83,0.2)] bg-[#1a1208]">
-            <p className="border-b border-[rgba(212,168,83,0.12)] px-3 py-1.5 text-[0.6rem] uppercase tracking-widest text-[#b8957f]">
-              Selfie
-            </p>
-            {row.fotoUrl ? (
-              <img
-                src={row.fotoUrl}
-                alt={`Foto de ${row.nome}`}
-                className="aspect-[3/4] w-full object-cover"
-              />
-            ) : (
-              <div className="flex aspect-[3/4] items-center justify-center text-[#6b5344]">
-                <UserX size={32} strokeWidth={1.2} />
-              </div>
-            )}
-          </div>
-          <div className="overflow-hidden rounded-xl border border-[rgba(212,168,83,0.2)] bg-[#faf8f5]">
-            <p className="border-b border-[rgba(212,168,83,0.2)] bg-[#1a1208] px-3 py-1.5 text-[0.6rem] uppercase tracking-widest text-[#b8957f]">
-              Assinatura
-            </p>
-            {row.assinaturaUrl ? (
-              <img
-                src={row.assinaturaUrl}
-                alt={`Assinatura de ${row.nome}`}
-                className="aspect-[3/4] w-full object-contain p-2"
-              />
-            ) : (
-              <div className="flex aspect-[3/4] items-center justify-center bg-[#faf8f5] text-[#c4b8a8]">
-                <span className="text-xs">Sem assinatura</span>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="p-5">
+        {row.ocorrencia && (row.status_dia === 'folga' || row.status_dia === 'falta') && (
+          <p className="mb-4 rounded-lg border border-violet-500/25 bg-violet-500/5 px-3 py-2 text-sm text-violet-200">
+            Ocorrência registrada: <strong>{row.ocorrencia}</strong>
+          </p>
+        )}
+        <PontoDiaEscala marcacoes={row.marcacoes} jornada={row.jornada} />
       </div>
     </article>
   )
@@ -193,7 +92,7 @@ export function PontoControleFuncionarios() {
     for (const r of rows) {
       if (r.status_dia === 'falta') faltas++
       else if (r.status_dia === 'atraso') atrasados++
-      else if (r.entrada) presentes++
+      else if (r.marcacoes.some(m => m.tipo === 'entrada')) presentes++
       else if (r.status_dia === 'folga') { /* folga não conta pendente */ }
       else pendentes++
     }

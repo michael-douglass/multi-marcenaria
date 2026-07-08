@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { FUNCIONARIO_DOCS_BUCKET } from '@/lib/funcionario-documentos'
 import { generateAfdContent } from '@/lib/rep/afd-generator'
 import { generateAejContent } from '@/lib/rep/aej-generator'
+import { validarExportacaoRep } from '@/lib/rep/rep-validation'
 import type {
   FuncionarioJornada,
   PontoMarcacao,
@@ -39,14 +40,20 @@ function filterPeriodo<T extends { registrado_em?: string; data?: string }>(
 }
 
 export async function exportarRepArquivos(input: ExportRepInput): Promise<void> {
-  const config = input.repConfig ?? {
-    id: '',
-    razao_social: 'GARBO MOVELARIA',
-    cnpj: '',
-    versao_software: '1.0.0',
-    nsr_atual: 0,
-    ativo: true,
+  const checklist = validarExportacaoRep({
+    tipo: input.tipo,
+    repConfig: input.repConfig,
+    funcionarioCpf: input.funcionarioCpf,
+    jornada: input.jornada,
+    marcacoes: input.marcacoes,
+    periodoInicio: input.periodoInicio,
+    periodoFim: input.periodoFim,
+  })
+  if (!checklist.ok) {
+    throw new Error(checklist.erros.join(' '))
   }
+
+  const config = input.repConfig!
 
   const marcacoes = filterPeriodo(input.marcacoes, input.periodoInicio, input.periodoFim, 'registrado_em')
   const ocorrencias = filterPeriodo(input.ocorrencias, input.periodoInicio, input.periodoFim, 'data')
@@ -78,7 +85,7 @@ export async function exportarRepArquivos(input: ExportRepInput): Promise<void> 
     hashSha256 = result.hashSha256
   }
 
-  const storagePath = `rep/${input.tipo}/${input.periodoInicio}_${input.periodoFim}/${fileName}`
+  const storagePath = `${input.funcionarioId}/rep/${input.tipo}/${input.periodoInicio}_${input.periodoFim}/${fileName}`
   const blob = new Blob([content], { type: 'text/plain;charset=iso-8859-1' })
 
   const { error: upErr } = await supabase.storage
@@ -103,6 +110,7 @@ export async function exportarRepArquivos(input: ExportRepInput): Promise<void> 
     arquivo_path: storagePath,
     assinatura_path: assinaturaPath,
     hash_sha256: hashSha256,
+    funcionario_id: input.funcionarioId,
   })
   if (dbErr) throw new Error(dbErr.message)
 

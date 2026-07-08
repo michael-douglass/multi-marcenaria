@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchControlePontoDiario } from '@/lib/funcionario-ponto'
+import { fetchControlePontoDiario, pontoDataLocal } from '@/lib/funcionario-ponto'
 import type { PontoControleFuncionarioRow } from '@/types'
 import { useAuthReady } from './useAuthReady'
 
@@ -14,7 +14,7 @@ export function useControlePontoDiario(
 ) {
   const enabled = options?.enabled ?? true
   const { isReady } = useAuthReady()
-  const [data, setData] = useState(initialDate ?? new Date().toISOString().slice(0, 10))
+  const [data, setData] = useState(initialDate ?? pontoDataLocal())
   const [rows, setRows] = useState<PontoControleFuncionarioRow[]>([])
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)

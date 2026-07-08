@@ -710,6 +710,8 @@ export interface Funcionario {
   tipo: FuncionarioTipo
   usuario_id?: string | null
   ativo: boolean
+  dispensado_em?: string | null
+  dispensado_por?: string | null
   admissao_token: string
   admissao_status: FuncionarioAdmissaoStatus
   admissao_dados: FuncionarioAdmissaoDados
@@ -850,6 +852,10 @@ export interface RepConfig {
   inpi_registro?: string | null
   versao_software: string
   certificado_valido_ate?: string | null
+  certificado_path?: string | null
+  certificado_configurado?: boolean
+  certificado_senha_configurada?: boolean
+  certificado_nome?: string | null
   nsr_atual: number
   ativo: boolean
 }
@@ -862,7 +868,30 @@ export interface RepArquivo {
   arquivo_path: string
   assinatura_path?: string | null
   hash_sha256?: string | null
+  funcionario_id?: string | null
   criado_em?: string
+}
+
+export interface RepConfigInput {
+  razao_social: string
+  cnpj: string
+  inpi_registro?: string | null
+  versao_software: string
+  certificado_valido_ate?: string | null
+  certificado_path?: string | null
+  certificado_senha?: string | null
+}
+
+export interface PontoMarcacaoComUrls extends PontoMarcacao {
+  fotoUrl?: string
+  assinaturaUrl?: string
+}
+
+export interface PontoControleJornadaResumo {
+  hora_entrada?: string | null
+  hora_saida_intervalo?: string | null
+  hora_retorno_intervalo?: string | null
+  hora_saida?: string | null
 }
 
 export interface PontoControleFuncionarioRow {
@@ -870,11 +899,14 @@ export interface PontoControleFuncionarioRow {
   nome: string
   tipo: FuncionarioTipo
   hora_prevista?: string | null
+  jornada?: PontoControleJornadaResumo | null
   status_dia: PontoStatusDia
   ocorrencia?: string | null
   entrada: PontoMarcacao | null
-  marcacoes: PontoMarcacao[]
+  marcacoes: PontoMarcacaoComUrls[]
+  /** @deprecated Use marcacoes[entrada].fotoUrl */
   fotoUrl?: string
+  /** @deprecated Use marcacoes[entrada].assinaturaUrl */
   assinaturaUrl?: string
 }
 

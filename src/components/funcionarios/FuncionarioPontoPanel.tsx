@@ -1,26 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
+  AlertTriangle,
   CalendarOff,
+  CheckCircle2,
   Clock,
   Download,
-  FileText,
+  ExternalLink,
   Loader2,
   Save,
   Trash2,
+  XCircle,
 } from 'lucide-react'
 import { TimeInput } from '@/components/ui/TimeInput'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
+import { PontoComprovantesPanel } from '@/components/funcionarios/PontoComprovantesPanel'
 import { LoadingState } from '@/components/ui/EmptyState'
-import { AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import {
   DIAS_SEMANA_LABEL,
   PONTO_OCORRENCIA_LABEL,
 } from '@/lib/funcionario-constants'
-import { labelPontoTipo } from '@/lib/funcionario-ponto'
+import { getRepArquivoSignedUrl, pontoDataLocal, PONTO_TIMEZONE } from '@/lib/funcionario-ponto'
 import { exportarRepArquivos } from '@/lib/rep/rep-export'
+import { formatarCnpj, validarExportacaoRep } from '@/lib/rep/rep-validation'
+import { showToast } from '@/lib/toast'
 import { useFuncionarioPonto, filterPontoDocumentos } from '@/hooks/useFuncionarioPonto'
-import type { FuncionarioDocumento, FuncionarioJornada } from '@/types'
-
+import type { FuncionarioDocumento, FuncionarioJornada, RepArquivo } from '@/types'
 interface Props {
   funcionarioId: string
   funcionarioNome: string
@@ -67,22 +72,31 @@ export function FuncionarioPontoPanel({
   const [form, setForm] = useState(DEFAULT_JORNADA)
   const [saving, setSaving] = useState(false)
   const [exportando, setExportando] = useState(false)
-  const [ocData, setOcData] = useState(new Date().toISOString().slice(0, 10))
+  const [baixandoId, setBaixandoId] = useState<string | null>(null)
+  const [ocData, setOcData] = useState(pontoDataLocal())
   const [ocTipo, setOcTipo] = useState<'folga' | 'falta' | 'abono'>('folga')
   const [ocObs, setOcObs] = useState('')
   const [periodoInicio, setPeriodoInicio] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
   })
-  const [periodoFim, setPeriodoFim] = useState(new Date().toISOString().slice(0, 10))
-  const [previewDoc, setPreviewDoc] = useState<FuncionarioDocumento | null>(null)
+  const [periodoFim, setPeriodoFim] = useState(pontoDataLocal())
 
   const pontoDocs = useMemo(() => filterPontoDocumentos(documentos), [documentos])
 
+  const checklistExport = useMemo(() => validarExportacaoRep({
+    tipo: 'afd',
+    repConfig,
+    funcionarioCpf: funcionarioCpf ?? '',
+    jornada,
+    marcacoes,
+    periodoInicio,
+    periodoFim,
+  }), [repConfig, funcionarioCpf, jornada, marcacoes, periodoInicio, periodoFim])
   const marcacoesPorDia = useMemo(() => {
     const map = new Map<string, typeof marcacoes>()
     for (const m of marcacoes) {
-      const dia = new Date(m.registrado_em).toLocaleDateString('pt-BR')
+      const dia = new Date(m.registrado_em).toLocaleDateString('pt-BR', { timeZone: PONTO_TIMEZONE })
       if (!map.has(dia)) map.set(dia, [])
       map.get(dia)!.push(m)
     }
@@ -90,8 +104,7 @@ export function FuncionarioPontoPanel({
   }, [marcacoes])
 
   useEffect(() => {
-    if (jornada) {
-      setForm({
+    if (jornada) {      setForm({
         hora_entrada: jornada.hora_entrada?.slice(0, 5) ?? '08:00',
         hora_saida_intervalo: jornada.hora_saida_intervalo?.slice(0, 5) ?? '12:00',
         hora_retorno_intervalo: jornada.hora_retorno_intervalo?.slice(0, 5) ?? '13:00',
@@ -126,10 +139,21 @@ export function FuncionarioPontoPanel({
   }
 
   const handleExport = async (tipo: 'afd' | 'aej') => {
-    if (!jornada) {
-      alert('Configure a jornada antes de exportar arquivos fiscais.')
+    const check = validarExportacaoRep({
+      tipo,
+      repConfig,
+      funcionarioCpf: funcionarioCpf ?? '',
+      jornada,
+      marcacoes,
+      periodoInicio,
+      periodoFim,
+    })
+    if (!check.ok) {
+      showToast(check.erros[0] ?? 'Verifique os requisitos da exportação fiscal.', 'error')
       return
     }
+    if (!jornada) return
+
     setExportando(true)
     try {
       await exportarRepArquivos({
@@ -145,13 +169,27 @@ export function FuncionarioPontoPanel({
         periodoFim,
       })
       await reload()
+      showToast(tipo === 'afd' ? 'Arquivo AFD gerado e baixado.' : 'Arquivo AEJ gerado e baixado.')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar arquivo fiscal.', 'error')
     } finally {
       setExportando(false)
     }
   }
 
-  const SUB_TABS: { id: SubTab; label: string }[] = [
-    { id: 'jornada', label: 'Jornada' },
+  const handleDownloadArquivo = async (arquivo: RepArquivo) => {
+    setBaixandoId(arquivo.id)
+    try {
+      const url = await getRepArquivoSignedUrl(arquivo.arquivo_path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao baixar arquivo.', 'error')
+    } finally {
+      setBaixandoId(null)
+    }
+  }
+
+  const SUB_TABS: { id: SubTab; label: string }[] = [    { id: 'jornada', label: 'Jornada' },
     { id: 'registros', label: 'Registros' },
     { id: 'ocorrencias', label: 'Ocorrências' },
     { id: 'documentos', label: 'Comprovantes' },
@@ -254,7 +292,7 @@ export function FuncionarioPontoPanel({
           {marcacoesPorDia.map(([dia, items]) => (
             <div key={dia} className="glass-card p-4">
               <h4 className="mb-3 font-display text-[#f2d892]">{dia}</h4>
-              <PontoHistoricoDia marcacoes={items} />
+              <PontoHistoricoDia marcacoes={items} jornada={jornada} variant="detailed" />
             </div>
           ))}
         </div>
@@ -310,78 +348,121 @@ export function FuncionarioPontoPanel({
       )}
 
       {subTab === 'documentos' && (
-        <div className="space-y-2">
-          {pontoDocs.length === 0 && (
-            <p className="text-sm text-[#b8957f]">Nenhum comprovante de ponto.</p>
-          )}
-          {pontoDocs.map(doc => (
-            <button
-              key={doc.id}
-              type="button"
-              className="glass-card flex w-full items-center justify-between gap-3 p-4 text-left transition hover:border-[rgba(212,168,83,0.4)]"
-              onClick={() => setPreviewDoc(doc)}
-            >
-              <div className="flex items-center gap-3">
-                <FileText size={18} className="text-[#f2d892]" />
-                <div>
-                  <p className="text-sm text-[#edd9c4]">{doc.nome_arquivo}</p>
-                  <p className="text-xs text-[#b8957f]">
-                    {doc.criado_em ? new Date(doc.criado_em).toLocaleString('pt-BR') : ''}
-                  </p>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <PontoComprovantesPanel
+          funcionarioNome={funcionarioNome}
+          marcacoes={marcacoes}
+          documentos={pontoDocs}
+          repCnpj={repConfig?.cnpj}
+        />
       )}
 
       {subTab === 'fiscal' && (
-        <div className="glass-card space-y-4 p-5">
-          <h3 className="font-display text-lg text-[#f2d892]">Arquivos REP-P</h3>
+        <div className="space-y-4">
           {repConfig && (
-            <p className="text-sm text-[#b8957f]">
-              NSR atual: {repConfig.nsr_atual} · CNPJ: {repConfig.cnpj || '—'}
-            </p>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Período início">
-              <input type="date" className="glass-input" value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} />
-            </Field>
-            <Field label="Período fim">
-              <input type="date" className="glass-input" value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} />
-            </Field>
-          </div>
-          {!readOnly && (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn btn-gold btn-sm" disabled={exportando} onClick={() => void handleExport('afd')}>
-                {exportando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                Gerar AFD
-              </button>
-              <button type="button" className="btn btn-outline btn-sm" disabled={exportando} onClick={() => void handleExport('aej')}>
-                Gerar AEJ
-              </button>
+            <div className="glass-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+              <div>
+                <p className="text-[#edd9c4]">{repConfig.razao_social}</p>
+                <p className="text-[#b8957f]">
+                  CNPJ {formatarCnpj(repConfig.cnpj)} · NSR {repConfig.nsr_atual}
+                  {repConfig.certificado_configurado && ' · Certificado digital ativo'}
+                </p>
+              </div>
+              <Link to="/configuracoes?tab=ponto" className="btn btn-outline btn-sm inline-flex items-center gap-1.5">
+                <ExternalLink size={14} />
+                Configurar empresa
+              </Link>
             </div>
           )}
-          {repArquivos.length > 0 && (
-            <ul className="space-y-2 text-sm">
-              {repArquivos.map(a => (
-                <li key={a.id} className="text-[#edd9c4]">
-                  {a.tipo.toUpperCase()} — {a.periodo_inicio} a {a.periodo_fim}
-                </li>
+
+          <div className="glass-card space-y-4 p-5">
+            <h3 className="font-display text-lg text-[#f2d892]">Exportar arquivos fiscais</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Período início">
+                <input type="date" className="glass-input" value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} />
+              </Field>
+              <Field label="Período fim">
+                <input type="date" className="glass-input" value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} />
+              </Field>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-[rgba(212,168,83,0.15)] p-4">
+              <p className="section-label">Requisitos para exportação</p>
+              {checklistExport.erros.map(msg => (
+                <p key={msg} className="flex items-start gap-2 text-sm text-red-300">
+                  <XCircle size={16} className="mt-0.5 shrink-0" />
+                  {msg}
+                </p>
               ))}
-            </ul>
+              {checklistExport.erros.length === 0 && (
+                <p className="flex items-center gap-2 text-sm text-emerald-300">
+                  <CheckCircle2 size={16} />
+                  Todos os requisitos obrigatórios estão atendidos.
+                </p>
+              )}
+              {checklistExport.avisos.map(msg => (
+                <p key={msg} className="flex items-start gap-2 text-sm text-amber-300">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                  {msg}
+                </p>
+              ))}
+            </div>
+
+            {!readOnly && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-gold btn-sm"
+                  disabled={exportando || !checklistExport.ok}
+                  onClick={() => void handleExport('afd')}
+                >
+                  {exportando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  Gerar AFD
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  disabled={exportando || !checklistExport.ok}
+                  onClick={() => void handleExport('aej')}
+                >
+                  Gerar AEJ
+                </button>
+              </div>
+            )}
+
+            <p className="text-xs text-[#b8957f]">
+              AFD: arquivo fonte de dados com as marcações de ponto. AEJ: arquivo eletrônico de jornada com horários, batidas e ocorrências.
+            </p>
+          </div>
+
+          {repArquivos.length > 0 && (
+            <div className="glass-card space-y-3 p-5">
+              <h4 className="font-display text-[#f2d892]">Arquivos gerados deste funcionário</h4>
+              <ul className="space-y-2">
+                {repArquivos.map(a => (
+                  <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[rgba(212,168,83,0.12)] p-3 text-sm">
+                    <div>
+                      <p className="text-[#edd9c4]">{a.tipo.toUpperCase()} — {a.periodo_inicio} a {a.periodo_fim}</p>
+                      {a.criado_em && (
+                        <p className="text-xs text-[#b8957f]">
+                          Gerado em {new Date(a.criado_em).toLocaleString('pt-BR')}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={baixandoId === a.id}
+                      onClick={() => void handleDownloadArquivo(a)}
+                    >
+                      {baixandoId === a.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      Baixar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
-      )}
-
-      {previewDoc && (
-        <AnexoLightbox
-          open
-          imageUrl={previewDoc.previewSignedUrl ?? previewDoc.signedUrl ?? ''}
-          title={previewDoc.nome_arquivo}
-          kind={previewDoc.kind}
-          onClose={() => setPreviewDoc(null)}
-        />
       )}
     </div>
   )

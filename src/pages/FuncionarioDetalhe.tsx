@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ArrowLeft, Clock, FileText, FolderOpen, Link2, Receipt } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Clock, FileText, FolderOpen, Link2, Receipt, UserMinus } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useFuncionarioDetalhe } from '@/hooks/useFuncionarioDetalhe'
 import { useFuncionarios } from '@/hooks/useFuncionarios'
 import { useUsuarios } from '@/hooks/useUsuarios'
@@ -33,16 +33,26 @@ interface Props {
 
 export function FuncionarioDetalhe({ readOnly }: Props) {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const abaOrigem = searchParams.get('aba')
   const { roles } = useApp()
-  const podeGerenciarAdmissao = isAdministrador(roles) && !readOnly
   const { funcionario, documentos, recibos, contasPagar, loading, error, reload } = useFuncionarioDetalhe(id)
-  const { update } = useFuncionarios()
+  const { update, dispensar } = useFuncionarios()
   const { data: usuarios } = useUsuarios()
   const [tab, setTab] = useState<Tab>('vinculos')
   const [saving, setSaving] = useState(false)
+  const [dispensando, setDispensando] = useState(false)
+
+  if (loading) return <LoadingState />
+  if (error || !funcionario) return <ErrorState message={error ?? 'Funcionário não encontrado.'} />
+
+  const somenteHistorico = !funcionario.ativo
+  const edicaoBloqueada = readOnly || somenteHistorico
+  const podeGerenciarAdmissao = isAdministrador(roles) && !edicaoBloqueada
 
   const handleUpdate = async (input: Partial<FuncionarioInput>) => {
-    if (!id || readOnly) return
+    if (!id || edicaoBloqueada) return
     setSaving(true)
     try {
       await update(id, input)
@@ -52,8 +62,20 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
     }
   }
 
-  if (loading) return <LoadingState />
-  if (error || !funcionario) return <ErrorState message={error ?? 'Funcionário não encontrado.'} />
+  const handleDispensar = async () => {
+    if (!id || !funcionario.ativo || !isAdministrador(roles)) return
+    const ok = window.confirm(
+      `Dispensar ${funcionario.nome}?\n\nEle sairá do ponto e das listagens ativas, mas documentos, recibos e batidas antigas serão mantidos no histórico.`,
+    )
+    if (!ok) return
+    setDispensando(true)
+    try {
+      await dispensar(id)
+      navigate('/funcionarios?aba=dispensados')
+    } finally {
+      setDispensando(false)
+    }
+  }
 
   const documentosAdmissao = documentos.filter(d => d.categoria === 'admissao')
   const admissaoPayload: MeuFuncionarioPayload = {
@@ -90,12 +112,27 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
 
   return (
     <div className="fade-in">
-      <Link to="/funcionarios" className="mb-4 inline-flex items-center gap-2 text-sm text-[#b8957f] hover:text-[#f2d892]">
+      <Link
+        to={abaOrigem === 'dispensados' ? '/funcionarios?aba=dispensados' : '/funcionarios'}
+        className="mb-4 inline-flex items-center gap-2 text-sm text-[#b8957f] hover:text-[#f2d892]"
+      >
         <ArrowLeft size={16} />
         Voltar às pastas
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start gap-4">
+      {somenteHistorico && (
+        <div className="glass-card mb-5 border border-violet-500/25 bg-violet-500/5 p-4">
+          <p className="font-medium text-violet-200">Funcionário dispensado</p>
+          <p className="mt-1 text-sm text-[#b8957f]">
+            Esta pasta é somente leitura. O histórico de ponto, documentos e recibos foi preservado.
+            {funcionario.dispensado_em && (
+              <> Dispensado em {new Date(funcionario.dispensado_em).toLocaleString('pt-BR')}.</>
+            )}
+          </p>
+        </div>
+      )}
+
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="relative">
           <div className="absolute -left-1 top-0 h-full w-1 rounded-full bg-gradient-to-b from-[#f2d892] to-[#c9a045]" />
           <div className="pl-4">
@@ -103,6 +140,17 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <h1 className="font-display text-[2.4rem] tracking-wide text-[#f2d892]">{funcionario.nome}</h1>
           </div>
         </div>
+        {funcionario.ativo && isAdministrador(roles) && !readOnly && (
+          <button
+            type="button"
+            className="btn btn-outline border-red-500/40 text-red-300 hover:bg-red-500/10"
+            disabled={dispensando}
+            onClick={() => void handleDispensar()}
+          >
+            <UserMinus size={16} />
+            {dispensando ? 'Dispensando…' : 'Dispensar funcionário'}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -139,7 +187,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               funcionario={funcionario}
               usuarios={usuarios}
               contasPagar={contasPagar}
-              readOnly={readOnly}
+              readOnly={edicaoBloqueada}
               onUpdate={handleUpdate}
               saving={saving}
             />
@@ -148,7 +196,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <div className="space-y-8">
               <FuncionarioAdmissaoForm
                 funcionario={funcionario}
-                readOnly={readOnly}
+                readOnly={edicaoBloqueada}
                 onUpdate={handleUpdate}
                 saving={saving}
               />
@@ -170,7 +218,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               funcionarioNome={funcionario.nome}
               funcionarioCpf={funcionario.cpf}
               documentos={documentos}
-              readOnly={readOnly}
+              readOnly={edicaoBloqueada}
               onReload={() => void reload()}
             />
           )}
@@ -178,14 +226,14 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <FuncionarioDocumentosPanel
               funcionarioId={funcionario.id}
               documentos={documentos}
-              readOnly={readOnly}
+              readOnly={edicaoBloqueada}
               onReload={() => void reload()}
             />
           )}
           {tab === 'recibos' && (
             <FuncionarioRecibosPanel
               recibos={recibos}
-              readOnly={readOnly}
+              readOnly={edicaoBloqueada}
               onReload={() => void reload()}
             />
           )}

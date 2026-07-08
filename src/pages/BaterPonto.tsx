@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AssinaturaCanvas } from '@/components/ui/AssinaturaCanvas'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
+import { PontoLocalizacaoLabel } from '@/components/ponto/PontoLocalizacaoLabel'
 import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { PontoWizardStep } from '@/components/ponto/PontoWizardStep'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
@@ -168,7 +169,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                   )}
                   <AssinaturaCanvas
                     onExport={definirAssinatura}
-                    hint="Assine com o dedo para confirmar o registro de ponto"
+                    hint="Assine na área abaixo e toque em Salvar quando terminar"
                   />
                 </div>
               )}
@@ -193,7 +194,11 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                         <div className="flex justify-between gap-4">
                           <dt className="text-[#b8957f]">Local</dt>
                           <dd className="text-right text-xs text-[#edd9c4]">
-                            {geo.latitude.toFixed(5)}, {geo.longitude.toFixed(5)}
+                            <PontoLocalizacaoLabel
+                              latitude={geo.latitude}
+                              longitude={geo.longitude}
+                              precisaoMetros={geo.accuracy}
+                            />
                           </dd>
                         </div>
                       )}

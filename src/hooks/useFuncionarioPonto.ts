@@ -39,7 +39,7 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
         fetchMarcacoes(funcionarioId),
         fetchOcorrencias(funcionarioId),
         fetchRepConfig().catch(() => null),
-        fetchRepArquivos().catch(() => []),
+        fetchRepArquivos(funcionarioId).catch(() => []),
       ])
       setJornada(j)
       setMarcacoes(m)

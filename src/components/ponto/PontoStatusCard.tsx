@@ -1,5 +1,5 @@
 import { Clock, MapPin } from 'lucide-react'
-import { labelPontoTipo, formatJornadaResumo } from '@/lib/funcionario-ponto'
+import { labelPontoTipo, formatAtrasoMinutos, formatJornadaResumo } from '@/lib/funcionario-ponto'
 import { PONTO_STATUS_DIA_LABEL } from '@/lib/funcionario-constants'
 import type { PontoStatusDiaPayload } from '@/types'
 
@@ -52,7 +52,7 @@ export function PontoStatusCard({ status }: Props) {
                     minute: '2-digit',
                   })}
                   {m.status === 'atraso' && (
-                    <span className="ml-2 text-amber-400">+{m.atraso_minutos}min</span>
+                    <span className="ml-2 text-amber-400">+{formatAtrasoMinutos(m.atraso_minutos)}</span>
                   )}
                 </span>
               </li>

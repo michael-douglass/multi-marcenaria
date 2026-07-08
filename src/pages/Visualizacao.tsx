@@ -27,6 +27,7 @@ import {
 } from '@/components/visualizacao/VisualizacaoAcompanhamentoHoje'
 import { useVisualizacaoConfig } from '@/hooks/useVisualizacaoConfig'
 import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
+import { pontoDataLocal } from '@/lib/funcionario-ponto'
 import {
   canConfigurarVisualizacaoPaineis,
   canViewPontoPainelVisualizacao,
@@ -113,7 +114,7 @@ function VisualizacaoContent() {
   const canConfigPaineis = canConfigurarVisualizacaoPaineis(roles)
   const canViewPontoPainel = canViewPontoPainelVisualizacao(roles)
   const filtrarPaineis = shouldFiltrarPaineisVisualizacao(roles)
-  const pontoHook = useControlePontoDiario(hoje, { enabled: canViewPontoPainel })
+  const pontoHook = useControlePontoDiario(pontoDataLocal(), { enabled: canViewPontoPainel })
 
   const painelVisivel = (id: VisualizacaoPainelId) => {
     if (!filtrarPaineis) return true

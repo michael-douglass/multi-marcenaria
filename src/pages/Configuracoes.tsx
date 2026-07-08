@@ -1,7 +1,9 @@
 ﻿import { useState, useEffect } from 'react'
-import { Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Clock, Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Users } from 'lucide-react'
 import { useUsuarios, type UsuarioAdmin } from '../hooks/useUsuarios'
 import { useApp } from '../context/AppContext'
+import { RepConfigPanel } from '@/components/configuracoes/RepConfigPanel'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
@@ -9,6 +11,12 @@ import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyStat
 import { showToast } from '../lib/toast'
 
 type TabCriacao = 'novo' | 'existente'
+type ConfigTab = 'usuarios' | 'ponto'
+
+const CONFIG_TABS: { id: ConfigTab; label: string; icon: typeof Users }[] = [
+  { id: 'usuarios', label: 'Usuários', icon: Users },
+  { id: 'ponto', label: 'Ponto Eletrônico', icon: Clock },
+]
 
 // ── Perfis disponíveis ───────────────────────────────────────
 const PERFIS = [
@@ -328,6 +336,19 @@ function ConfirmDeleteModal({
 export function Configuracoes() {
   const { userProfile } = useApp()
   const hook = useUsuarios()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') === 'ponto' ? 'ponto' : 'usuarios'
+  const [configTab, setConfigTab] = useState<ConfigTab>(initialTab)
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'ponto') setConfigTab('ponto')
+  }, [searchParams])
+
+  const selectTab = (tab: ConfigTab) => {
+    setConfigTab(tab)
+    if (tab === 'ponto') setSearchParams({ tab: 'ponto' })
+    else setSearchParams({})
+  }
 
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [editUser, setEditUser] = useState<UsuarioAdmin | null>(null)
@@ -408,7 +429,33 @@ export function Configuracoes() {
 
   return (
     <div className="fade-in">
-      {/* Cabeçalho */}
+      {/* Abas de configuração */}
+      <div className="mb-6 flex flex-wrap gap-2 border-b border-[rgba(212,168,83,0.15)] pb-3">
+        {CONFIG_TABS.map(t => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => selectTab(t.id)}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[0.72rem] uppercase tracking-wider transition-colors ${
+                configTab === t.id
+                  ? 'bg-[rgba(240,210,140,0.12)] text-[#f2d892]'
+                  : 'text-[#b8957f] hover:text-[#edd9c4]'
+              }`}
+            >
+              <Icon size={14} />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {configTab === 'ponto' && <RepConfigPanel />}
+
+      {configTab === 'usuarios' && (
+        <>
+      {/* Cabeçalho usuários */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
@@ -587,6 +634,8 @@ export function Configuracoes() {
         onConfirm={handleExcluir}
         saving={savingDelete}
       />
+        </>
+      )}
     </div>
   )
 }

@@ -2103,6 +2103,233 @@ body {
   color: #fca5a5;
 }
 
+.viz-ponto__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.viz-ponto__card {
+  list-style: none;
+}
+
+.viz-ponto__details {
+  border-radius: 0.75rem;
+  border: 1px solid var(--viz-border-subtle, rgba(212, 168, 83, 0.1));
+  background: var(--viz-surface-list, rgba(10, 4, 2, 0.35));
+  overflow: hidden;
+}
+
+.viz-ponto__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.viz-ponto__summary::-webkit-details-marker {
+  display: none;
+}
+
+.viz-ponto__chevron {
+  transition: transform 0.2s ease;
+}
+
+.viz-ponto__details[open] .viz-ponto__chevron {
+  transform: rotate(180deg);
+}
+
+.viz-ponto__escala {
+  border-top: 1px solid rgba(212, 168, 83, 0.12);
+  padding: 0.65rem 0.85rem 0.85rem;
+}
+
+.ponto-escala {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ponto-escala__item {
+  position: relative;
+  margin-left: calc(var(--escala-index, 0) * 0.65rem);
+  margin-bottom: 0.55rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(212, 168, 83, 0.18);
+  background: rgba(20, 10, 6, 0.55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.ponto-escala__item--feito {
+  border-color: rgba(212, 168, 83, 0.35);
+  background: linear-gradient(135deg, rgba(36, 16, 8, 0.85), rgba(20, 10, 6, 0.65));
+}
+
+.ponto-escala__item--pendente {
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+.ponto-escala__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ponto-escala__tipo {
+  margin: 0;
+  font-family: var(--font-display, serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: #f2d892;
+}
+
+.ponto-escala__horas {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+}
+
+.ponto-escala__nsr {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b8957f;
+}
+
+.ponto-escala__body {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.ponto-escala__map {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(14, 165, 233, 0.08);
+  font-size: 0.75rem;
+  color: #7dd3fc;
+  text-decoration: none;
+}
+
+.ponto-escala__map:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.ponto-escala__midia {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.ponto-escala__thumb {
+  overflow: hidden;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  background: #1a1208;
+}
+
+.ponto-escala__thumb > p {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.12);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b8957f;
+}
+
+.ponto-escala__thumb > img,
+.ponto-escala__thumb > div {
+  aspect-ratio: 3 / 4;
+}
+
+.ponto-escala__body--compact .ponto-escala__thumb > img,
+.ponto-escala__body--compact .ponto-escala__thumb > div {
+  aspect-ratio: 4 / 3;
+}
+
+.ponto-escala__aguardando {
+  margin: 0.55rem 0 0;
+  font-size: 0.74rem;
+  color: #b8957f;
+}
+
+.ponto-registro__details {
+  overflow: hidden;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(212, 168, 83, 0.18);
+  background: rgba(20, 10, 6, 0.45);
+}
+
+.ponto-registro__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.ponto-registro__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ponto-registro__chevron {
+  transition: transform 0.2s ease;
+}
+
+.ponto-registro__details[open] .ponto-registro__chevron {
+  transform: rotate(180deg);
+}
+
+.ponto-registro__body {
+  border-top: 1px solid rgba(212, 168, 83, 0.12);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ponto-registro__horarios {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin: 0;
+}
+
+.ponto-registro__horarios > div {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(212, 168, 83, 0.12);
+  background: rgba(36, 16, 8, 0.35);
+}
+
+.ponto-registro__horarios dt {
+  margin: 0;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b8957f;
+}
+
+.ponto-registro__horarios dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  color: #edd9c4;
+}
+
 .viz-list-item__title {
   font-size: 0.88rem;
   font-weight: 600;

@@ -23,15 +23,16 @@ const TIPO_COLOR: Record<FuncionarioTipo, string> = {
 
 interface Props {
   funcionario: Funcionario
+  dispensado?: boolean
 }
 
-export function FuncionarioFolderCard({ funcionario }: Props) {
+export function FuncionarioFolderCard({ funcionario, dispensado }: Props) {
   const Icon = TIPO_ICON[funcionario.tipo] ?? User
   const tipoColor = TIPO_COLOR[funcionario.tipo] ?? 'rgba(212,168,83,0.15)'
 
   return (
     <Link
-      to={`/funcionarios/${funcionario.id}`}
+      to={dispensado ? `/funcionarios/${funcionario.id}?aba=dispensados` : `/funcionarios/${funcionario.id}`}
       className="group relative block overflow-hidden rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno transition-all duration-300 hover:-translate-y-1 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
     >
       <div className="absolute left-0 right-0 top-0 h-3 rounded-t-xl bg-gradient-to-r from-[#c9a045] via-[#f2d892] to-[#c9a045]" />
@@ -50,15 +51,20 @@ export function FuncionarioFolderCard({ funcionario }: Props) {
         <p className="section-label mt-1">{FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}</p>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {dispensado && (
+            <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-violet-200">
+              Dispensado
+            </span>
+          )}
           <span className="rounded-full border border-[rgba(212,168,83,0.25)] px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
             {ADMISSAO_STATUS_LABEL[funcionario.admissao_status]}
           </span>
-          {funcionario.ponto_resumo?.jornada_ativa && funcionario.ponto_resumo.hora_entrada && (
+          {!dispensado && funcionario.ponto_resumo?.jornada_ativa && funcionario.ponto_resumo.hora_entrada && (
             <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-sky-200">
               {funcionario.ponto_resumo.hora_entrada.slice(0, 5)}–{(funcionario.ponto_resumo.hora_saida ?? '17:00').slice(0, 5)}
             </span>
           )}
-          {funcionario.ponto_resumo?.status_hoje && (
+          {!dispensado && funcionario.ponto_resumo?.status_hoje && (
             <span className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider ${
               funcionario.ponto_resumo.status_hoje === 'atraso' || funcionario.ponto_resumo.status_hoje === 'falta'
                 ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'

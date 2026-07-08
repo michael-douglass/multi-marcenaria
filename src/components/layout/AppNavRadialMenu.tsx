@@ -8,6 +8,7 @@ import {
   getNavBadge,
   getVisibleNavMainItems,
   sectionFromPath,
+  type NavChildItem,
   type NavMainItem,
 } from '@/lib/app-navigation'
 import { distributeAngles } from '@/lib/utils'
@@ -157,6 +158,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   const { roles } = useApp()
   const [open, setOpen] = useState(false)
   const [submenuParent, setSubmenuParent] = useState<NavMainItem | null>(null)
+  const [submenuChild, setSubmenuChild] = useState<NavChildItem | null>(null)
 
   const activeSection = sectionFromPath(location.pathname)
   const items = getVisibleNavMainItems({ roles, pendingOrders })
@@ -164,6 +166,7 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   const closeAll = useCallback(() => {
     setOpen(false)
     setSubmenuParent(null)
+    setSubmenuChild(null)
   }, [])
 
   const goTo = useCallback(
@@ -186,6 +189,10 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      if (submenuChild) {
+        setSubmenuChild(null)
+        return
+      }
       if (submenuParent) {
         setSubmenuParent(null)
         return
@@ -194,20 +201,47 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, submenuParent, closeAll])
+  }, [open, submenuParent, submenuChild, closeAll])
 
-  const displayItems = submenuParent?.children?.length
-    ? submenuParent.children.map(c => ({
+  type RadialDisplayItem = {
+    id: string
+    title: string
+    url?: string
+    icon: LucideIcon
+    radialColor: string
+    navMain?: NavMainItem
+    navChild?: NavChildItem
+  }
+
+  const displayItems: RadialDisplayItem[] = submenuChild?.children?.length
+    ? submenuChild.children.map(c => ({
         id: c.id,
         title: c.title,
         url: c.url,
         icon: c.icon,
         radialColor: c.radialColor,
+        navChild: c,
       }))
-    : items
+    : submenuParent?.children?.length
+      ? submenuParent.children.map(c => ({
+          id: c.id,
+          title: c.title,
+          url: c.url,
+          icon: c.icon,
+          radialColor: c.radialColor,
+          navChild: c,
+        }))
+      : items.map(item => ({
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          icon: item.icon,
+          radialColor: item.radialColor,
+          navMain: item,
+        }))
 
-  const radius = submenuParent ? SUB_R : MAIN_R
-  const size = submenuParent ? SUB_SZ : MAIN_SZ
+  const radius = submenuChild || submenuParent ? SUB_R : MAIN_R
+  const size = submenuChild || submenuParent ? SUB_SZ : MAIN_SZ
   const angles = distributeAngles(displayItems.length, 90, true)
 
   const overlay = open
@@ -252,14 +286,10 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
 
             <div className="pointer-events-auto relative h-[340px] w-[340px]">
               {displayItems.map((item, i) => {
-                const navItem = submenuParent
-                  ? null
-                  : items.find(n => n.id === item.id)
-                const Icon = item.icon ?? navItem?.icon ?? items[0]?.icon
-                if (!Icon) return null
-                const color = item.radialColor ?? navItem?.radialColor ?? 'rgba(240,210,140,0.92)'
-                const hasChildren =
-                  !submenuParent && !!navItem?.children && navItem.children.length > 0
+                const Icon = item.icon
+                const color = item.radialColor
+                const hasMainChildren = Boolean(item.navMain?.children?.length)
+                const hasChildChildren = Boolean(item.navChild?.children?.length)
 
                 return (
                   <RadialSlot
@@ -273,11 +303,16 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
                     isActive={activeSection === item.id}
                     index={i}
                     onClick={() => {
-                      if (hasChildren && navItem) {
-                        setSubmenuParent(navItem)
+                      if (hasMainChildren && item.navMain) {
+                        setSubmenuParent(item.navMain)
+                        setSubmenuChild(null)
                         return
                       }
-                      goTo(item.url)
+                      if (hasChildChildren && item.navChild) {
+                        setSubmenuChild(item.navChild)
+                        return
+                      }
+                      if (item.url) goTo(item.url)
                     }}
                   />
                 )
@@ -288,12 +323,13 @@ export function AppNavRadialMenu({ pendingOrders }: AppNavRadialMenuProps) {
                 className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-[rgba(240,210,140,0.5)] bg-[rgba(10,4,2,0.95)] transition-transform hover:scale-105"
                 style={{ width: CENTER_SZ, height: CENTER_SZ }}
                 onClick={() => {
-                  if (submenuParent) setSubmenuParent(null)
+                  if (submenuChild) setSubmenuChild(null)
+                  else if (submenuParent) setSubmenuParent(null)
                   else closeAll()
                 }}
-                aria-label={submenuParent ? 'Voltar' : 'Fechar'}
+                aria-label={submenuChild || submenuParent ? 'Voltar' : 'Fechar'}
               >
-                {submenuParent ? (
+                {submenuChild || submenuParent ? (
                   <span className="text-lg text-[#f5e0a8]">←</span>
                 ) : (
                   <X className="h-6 w-6 text-[#f5e0a8]" />
