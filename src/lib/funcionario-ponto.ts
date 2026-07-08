@@ -100,12 +100,16 @@ export async function uploadPontoArquivo(
   return path
 }
 
-export async function fetchPontoStatusDia(funcionarioId?: string): Promise<PontoStatusDiaPayload | null> {
-  const { data, error } = await supabase.rpc('movelaria_ponto_status_dia', {
+export async function fetchPontoStatusDia(
+  funcionarioId?: string,
+  data?: string,
+): Promise<PontoStatusDiaPayload | null> {
+  const { data: row, error } = await supabase.rpc('movelaria_ponto_status_dia', {
     p_funcionario_id: funcionarioId ?? null,
+    p_data: data ?? pontoDataLocal(),
   })
   if (error) throw new Error(error.message)
-  return data as PontoStatusDiaPayload | null
+  return row as PontoStatusDiaPayload | null
 }
 
 export async function baterPonto(input: {

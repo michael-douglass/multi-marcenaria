@@ -66,9 +66,13 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
 
       {loading && <LoadingState message="Carregando seu ponto…" />}
 
-      {!loading && !status && (
+      {!loading && error && (
+        <ErrorState message={error} onRetry={() => void reload()} />
+      )}
+
+      {!loading && !error && !status && (
         <ErrorState
-          message="Seu usuário não está vinculado a um cadastro de funcionário habilitado para ponto."
+          message="Seu usuário não está vinculado a um cadastro de funcionário habilitado para bater ponto."
           onRetry={() => void reload()}
         />
       )}
