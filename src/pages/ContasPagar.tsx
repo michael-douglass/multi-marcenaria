@@ -15,6 +15,7 @@ import { getContasRelacionadas, getModeloRecorrencia, getPrimeiraParcela, getTex
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
+import { ContasPagarImportButton } from '../components/contas-pagar/ContasPagarImportButton'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -240,6 +241,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
+    importarCobrancasUnicas,
   } = useContasPagar()
 
   const [encerrarModal, setEncerrarModal] = useState<{
@@ -895,6 +897,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
             <ContasPagarConfigButton readOnly={readOnly} formasHook={formasHook} />
+            <ContasPagarImportButton
+              fornecedores={fornecedores}
+              contasExistentes={data}
+              readOnly={readOnly}
+              onImport={importarCobrancasUnicas}
+            />
             <button type="button" className="btn btn-gold btn-md" onClick={openManualLaunch}>
               + Lançamento Manual
             </button>

@@ -50,6 +50,15 @@ interface UpdateContaPagarInput {
   primeiro_vencimento_grupo?: string
 }
 
+export interface CobrancaImportItem {
+  fornecedor_id?: string
+  fornecedor_nome: string
+  descricao: string
+  observacao?: string
+  valor: number
+  vencimento: string
+}
+
 interface AtualizarRecorrenciaInput {
   recorrencia_id: string
   conta_referencia_vencimento: string
@@ -602,6 +611,30 @@ export function useContasPagar() {
     await load()
   }
 
+  const importarCobrancasUnicas = async (items: CobrancaImportItem[]): Promise<number> => {
+    if (items.length === 0) return 0
+
+    const payload = items.map(item => ({
+      fornecedor_id: item.fornecedor_id ?? null,
+      fornecedor_nome: item.fornecedor_nome,
+      descricao: item.descricao,
+      observacao: item.observacao?.trim() || null,
+      valor: item.valor,
+      vencimento: item.vencimento,
+    }))
+
+    const { data, error: err } = await supabase.rpc(
+      'movelaria_importar_contas_pagar_lote',
+      { p_itens: payload },
+    )
+
+    if (err) throw new Error(err.message)
+
+    const resultado = data as { inseridas?: number; ignoradas?: number } | null
+    await load()
+    return resultado?.inseridas ?? 0
+  }
+
   return {
     data,
     loading,
@@ -615,6 +648,7 @@ export function useContasPagar() {
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
+    importarCobrancasUnicas,
     reload: load,
   }
 }
