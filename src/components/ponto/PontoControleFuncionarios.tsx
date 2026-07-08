@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { CalendarDays } from 'lucide-react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
+import { DateInput } from '@/components/ui/DateInput'
 import {
   FUNCIONARIO_TIPO_LABEL,
   PONTO_STATUS_DIA_LABEL,
@@ -101,7 +101,12 @@ export function PontoControleFuncionarios() {
 
   const dataFormatada = useMemo(() => {
     const d = new Date(data + 'T12:00:00')
-    return d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+    return d.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
   }, [data])
 
   return (
@@ -111,13 +116,17 @@ export function PontoControleFuncionarios() {
           <p className="section-label capitalize">{dataFormatada}</p>
           <h2 className="font-display text-2xl text-[#f2d892]">Resumo diário da equipe</h2>
         </div>
-        <label className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-[#f2d892]" />
-          <input
-            type="date"
-            className="glass-input"
+        <label className="flex flex-col gap-1.5 sm:items-end">
+          <span className="text-[0.65rem] font-medium uppercase tracking-wider text-[#b8957f]">
+            Data (dia / mês / ano)
+          </span>
+          <DateInput
+            className="min-w-[11rem]"
             value={data}
-            onChange={e => setData(e.target.value)}
+            onChange={iso => {
+              if (iso) setData(iso)
+            }}
+            aria-label="Selecionar data do controle de ponto"
           />
         </label>
       </div>
