@@ -111,7 +111,17 @@ function parseRecords(text) {
 }
 
 function resolveFornecedorId(nome) {
+  const override = process.env.IMPORT_FORNECEDOR_OVERRIDE?.trim()
+  if (override) {
+    const alvo = normalizeText(override)
+    const entry = Object.entries(FORNECEDOR_IDS).find(([key]) => key === alvo)
+    if (entry) return entry[1]
+  }
   return FORNECEDOR_IDS[normalizeText(nome)] ?? null
+}
+
+function resolveFornecedorNome(nome) {
+  return process.env.IMPORT_FORNECEDOR_OVERRIDE?.trim() || nome
 }
 
 async function main() {
@@ -149,7 +159,7 @@ async function main() {
     }
 
     items.push({
-      fornecedor_nome: row.fornecedor,
+      fornecedor_nome: resolveFornecedorNome(row.fornecedor),
       fornecedor_id: resolveFornecedorId(row.fornecedor),
       descricao: row.descricao,
       observacao: row.observacao || null,
@@ -195,6 +205,27 @@ async function main() {
     )
 
     if (existente.rowCount > 0) {
+      await client.query(
+        `
+          UPDATE movelaria_contas_pagar
+          SET
+            fornecedor_id = $1::uuid,
+            fornecedor_nome = $2,
+            atualizado_em = NOW()
+          WHERE movelaria_normalizar_import_texto(COALESCE(fornecedor_nome, '')) = $3
+            AND movelaria_normalizar_import_texto(COALESCE(descricao, '')) = $4
+            AND data_vencimento = $5::date
+            AND valor_parcela = $6::numeric
+        `,
+        [
+          item.fornecedor_id,
+          item.fornecedor_nome,
+          normalizeText(item.fornecedor_nome),
+          normalizeText(item.descricao),
+          item.vencimento,
+          item.valor,
+        ],
+      )
       ignoradas++
       continue
     }
