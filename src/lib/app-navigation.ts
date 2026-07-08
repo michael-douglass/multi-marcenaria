@@ -176,14 +176,6 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
 
 const OBRAS_CHILDREN: NavChildItem[] = [
   {
-    id: 'baterPonto',
-    title: 'Bater Ponto',
-    url: '/bater-ponto',
-    icon: Clock,
-    radialColor: 'rgba(74,222,128,0.92)',
-    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
-  },
-  {
     id: 'agendaObras',
     title: 'Agenda de Obras',
     url: '/agenda-obras',
