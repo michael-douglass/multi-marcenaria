@@ -241,6 +241,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
+    excluirContasPagarPorIds,
+    marcarPagoEmLote,
     importarCobrancasUnicas,
   } = useContasPagar()
 
@@ -315,6 +317,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     formaPagamentoId: '', valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
   })
   const [revertingId, setRevertingId] = useState<string | null>(null)
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [bulkPayModalOpen, setBulkPayModalOpen] = useState(false)
 
   const [ocultarOpen, setOcultarOpen] = useState(false)
   const [ocultarStatuses, setOcultarStatuses] = useState<Set<string>>(new Set())
@@ -583,6 +588,87 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     const base = baseFiltered.filter(p => matchesStatusFilter(p, true))
     return sortContasPagarSemDatas(base)
   }, [baseFiltered, matchesStatusFilter])
+
+  const selectedContas = useMemo(
+    () => filtered.filter(p => selectedRowIds.has(p.id)),
+    [filtered, selectedRowIds],
+  )
+
+  const selectedParaPagar = useMemo(
+    () => selectedContas.filter(p => p.status !== 'pago'),
+    [selectedContas],
+  )
+
+  const totalRestanteSelecionado = useMemo(
+    () => selectedParaPagar.reduce(
+      (sum, p) => sum + Math.max(0, p.valor_parcela - getValorPagoConta(p)),
+      0,
+    ),
+    [selectedParaPagar],
+  )
+
+  const toggleSelectRow = useCallback((id: string, checked: boolean) => {
+    setSelectedRowIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAllVisible = useCallback((checked: boolean) => {
+    setSelectedRowIds(prev => {
+      const next = new Set(prev)
+      if (checked) filtered.forEach(p => next.add(p.id))
+      else filtered.forEach(p => next.delete(p.id))
+      return next
+    })
+  }, [filtered])
+
+  const clearRowSelection = useCallback(() => {
+    setSelectedRowIds(new Set())
+  }, [])
+
+  const confirmarBulkDelete = async () => {
+    if (selectedRowIds.size === 0) return
+    const ok = confirm(
+      `Apagar ${selectedRowIds.size} conta(s) selecionada(s)?\n\n` +
+      'Cada parcela será removida individualmente. Esta ação não pode ser desfeita.',
+    )
+    if (!ok) return
+
+    setBulkProcessing(true)
+    setSaveError(null)
+    try {
+      await excluirContasPagarPorIds([...selectedRowIds])
+      clearRowSelection()
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erro ao apagar contas selecionadas.')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const confirmarBulkPago = async () => {
+    if (selectedParaPagar.length === 0) return
+
+    setBulkProcessing(true)
+    setSaveError(null)
+    try {
+      const itens = selectedParaPagar.map(p => ({
+        id: p.id,
+        valor: parseFloat(Math.max(0, p.valor_parcela - getValorPagoConta(p)).toFixed(2)),
+      })).filter(item => item.valor > 0)
+
+      await marcarPagoEmLote(itens)
+      setBulkPayModalOpen(false)
+      clearRowSelection()
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erro ao marcar contas como pagas.')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
 
   const totaisColunas = {
     valorTotal: filtered.reduce((s, p) => s + p.valor_parcela, 0),
@@ -1589,6 +1675,45 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         />
       </div>
 
+      {!readOnly && selectedRowIds.size > 0 && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[rgba(240,210,140,.25)] bg-[rgba(240,210,140,.06)] px-4 py-3"
+        >
+          <span className="text-sm font-semibold text-[#f2d892]">
+            {selectedRowIds.size} selecionada{selectedRowIds.size !== 1 ? 's' : ''}
+          </span>
+          <span className="text-xs text-[#edd9c4]">
+            · Restante: {fmtCur(totalRestanteSelecionado)}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-success btn-sm"
+              disabled={bulkProcessing || selectedParaPagar.length === 0}
+              onClick={() => setBulkPayModalOpen(true)}
+            >
+              ✓ Marcar Pago ({selectedParaPagar.length})
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              disabled={bulkProcessing}
+              onClick={() => void confirmarBulkDelete()}
+            >
+              {bulkProcessing ? 'Processando…' : 'Apagar'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={bulkProcessing}
+              onClick={clearRowSelection}
+            >
+              Limpar seleção
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState
@@ -1602,16 +1727,45 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
+                {!readOnly && (
+                  <th className="section-label px-3 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todas as contas visíveis"
+                      ref={el => {
+                        if (!el) return
+                        const allChecked = filtered.length > 0 && filtered.every(p => selectedRowIds.has(p.id))
+                        const someChecked = filtered.some(p => selectedRowIds.has(p.id))
+                        el.checked = allChecked
+                        el.indeterminate = someChecked && !allChecked
+                      }}
+                      onChange={e => toggleSelectAllVisible(e.target.checked)}
+                      style={{ accentColor: '#f2d892' }}
+                    />
+                  </th>
+                )}
                 {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
               </tr></thead>
               <tbody>
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
+                  const isSelected = selectedRowIds.has(p.id)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
                   const textoDetalhe = getTextoDetalheContaPagar(p, nomeExibido)
                   const valorTotalLancamento = getValorTotalLancamento(p)
                   return (
-                    <tr key={p.id} className="trow">
+                    <tr key={p.id} className="trow" style={isSelected ? { background: 'rgba(240,210,140,.06)' } : undefined}>
+                      {!readOnly && (
+                        <td className="px-3 py-3 align-top">
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${nomeExibido}`}
+                            checked={isSelected}
+                            onChange={e => toggleSelectRow(p.id, e.target.checked)}
+                            style={{ accentColor: '#f2d892' }}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3" style={{ color: '#fffaf4', maxWidth: 220 }}>
                         <div className="flex items-center gap-1.5">
                           {p.recorrente && (
@@ -1730,7 +1884,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '1px solid rgba(240,210,140,.18)', background: 'rgba(240,210,140,.04)' }}>
-                  <td colSpan={3} className="px-4 py-3 section-label" style={{ fontWeight: 700 }}>Total</td>
+                  <td colSpan={readOnly ? 3 : 4} className="px-4 py-3 section-label" style={{ fontWeight: 700 }}>Total</td>
                   <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 700 }}>{fmtCur(totaisColunas.valorTotal)}</td>
                   <td className="px-4 py-3" style={{ color: totaisColunas.pago > 0 ? '#4ade80' : '#4a5568', fontWeight: 700 }}>{fmtCur(totaisColunas.pago)}</td>
                   <td className="px-4 py-3" style={{ color: totaisColunas.restante > 0 ? '#f87171' : '#4ade80', fontWeight: 700 }}>{fmtCur(totaisColunas.restante)}</td>
@@ -1804,6 +1958,32 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           submitLabel="Confirmar Encerramento"
           submittingLabel="Encerrando..."
           submitting={encerrarModal.saving}
+        />
+      </Modal>
+
+      {/* Modal — Marcar como pago em lote */}
+      <Modal
+        open={bulkPayModalOpen}
+        onClose={() => !bulkProcessing && setBulkPayModalOpen(false)}
+        title="MARCAR SELECIONADAS COMO PAGAS"
+        closeOnBackdrop={false}
+      >
+        <p className="mb-4 text-sm text-[#fffaf4]">
+          Serão quitadas <strong style={{ color: '#f2d892' }}>{selectedParaPagar.length}</strong> conta(s)
+          {' '}pelo valor restante total de{' '}
+          <strong style={{ color: '#4ade80' }}>{fmtCur(totalRestanteSelecionado)}</strong>.
+        </p>
+        <p className="mb-4 text-xs text-[#edd9c4]">
+          Contas já pagas na seleção são ignoradas. O pagamento usa a data de hoje e quita o valor restante de cada parcela.
+        </p>
+        {saveError && <p className="mb-2 text-sm text-red-400">{saveError}</p>}
+        <ModalFormFooter
+          onCancel={() => setBulkPayModalOpen(false)}
+          onSubmit={() => void confirmarBulkPago()}
+          submitLabel="Confirmar pagamento em lote"
+          submittingLabel="Processando..."
+          submitting={bulkProcessing}
+          submitDisabled={selectedParaPagar.length === 0}
         />
       </Modal>
 

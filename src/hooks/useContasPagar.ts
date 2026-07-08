@@ -611,6 +611,26 @@ export function useContasPagar() {
     await load()
   }
 
+  const excluirContasPagarPorIds = async (ids: string[]) => {
+    const unicos = [...new Set(ids.filter(Boolean))]
+    if (unicos.length === 0) return
+
+    const { error: err } = await supabase
+      .from('movelaria_contas_pagar')
+      .delete()
+      .in('id', unicos)
+
+    if (err) throw new Error(err.message)
+    await load()
+  }
+
+  const marcarPagoEmLote = async (itens: { id: string; valor: number }[]) => {
+    for (const item of itens) {
+      if (!item.valor || item.valor <= 0) continue
+      await marcarPago(item.id, item.valor)
+    }
+  }
+
   const importarCobrancasUnicas = async (items: CobrancaImportItem[]): Promise<number> => {
     if (items.length === 0) return 0
 
@@ -648,6 +668,8 @@ export function useContasPagar() {
     vincularGrupoLancamento,
     editarContaPagar,
     excluirContaPagar,
+    excluirContasPagarPorIds,
+    marcarPagoEmLote,
     importarCobrancasUnicas,
     reload: load,
   }
