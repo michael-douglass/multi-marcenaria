@@ -2,7 +2,6 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Upload } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
-import { Badge } from '@/components/ui/Badge'
 import {
   buildContasPagarImportPreview,
   type ContaPagarImportPreview,
@@ -53,7 +52,6 @@ export function ContasPagarImportButton({
   const [loadingFile, setLoadingFile] = useState(false)
   const [importing, setImporting] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [mostrarIgnoradas, setMostrarIgnoradas] = useState(false)
 
   const totalImportar = useMemo(
     () => preview?.prontas.reduce((sum, row) => sum + row.valor, 0) ?? 0,
@@ -70,7 +68,6 @@ export function ContasPagarImportButton({
     setPreview(null)
     setFileName('')
     setErro(null)
-    setMostrarIgnoradas(false)
     setLoadingFile(false)
     setImporting(false)
     clearInput()
@@ -194,9 +191,15 @@ export function ContasPagarImportButton({
         </div>
 
         <p className="mb-4 text-sm text-[#edd9c4]">
-          Confira abaixo <strong style={{ color: '#fffaf4' }}>todas as cobranças</strong> que serão criadas no sistema.
-          Só depois de confirmar os dados são salvos. Cada linha vira uma cobrança única (1/1).
+          Confira abaixo <strong style={{ color: '#fffaf4' }}>todas as linhas lidas da planilha</strong>.
+          As marcadas como &quot;Importar&quot; serão criadas como cobrança única (1/1).
         </p>
+
+        {preview && preview.headers.length > 0 && (
+          <p className="mb-3 text-xs text-[#edd9c4]">
+            Colunas detectadas: {preview.headers.filter(Boolean).join(' · ')}
+          </p>
+        )}
 
         {preview && (
           <div className="mb-4 grid gap-2 sm:grid-cols-3">
@@ -226,23 +229,23 @@ export function ContasPagarImportButton({
           </div>
         )}
 
-        {preview && preview.prontas.length > 0 && (
+        {preview && preview.rows.length > 0 && (
           <div className="mb-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h3 className="section-label" style={{ fontSize: '.78rem', color: '#f2d892' }}>
-                Cobranças que serão adicionadas ({preview.prontas.length})
+                Dados lidos da planilha ({preview.rows.length} linha{preview.rows.length !== 1 ? 's' : ''})
               </h3>
               <span className="text-sm font-semibold text-[#f2d892]">
-                Total: {fmtCur(totalImportar)}
+                Total a importar: {fmtCur(totalImportar)}
               </span>
             </div>
 
             <div className="glass-card overflow-hidden">
-              <div className="overflow-auto" style={{ maxHeight: 'min(52vh, 520px)' }}>
+              <div className="overflow-auto" style={{ maxHeight: 'min(58vh, 560px)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
-                      {['Linha', 'Fornecedor', 'Descrição / Referência', 'Observação', 'Vencimento', 'Parcela', 'Valor', 'Status'].map(header => (
+                      {['Linha', 'Status', 'Fornecedor', 'Descrição / Referência', 'Observação', 'Vencimento', 'Valor'].map(header => (
                         <th key={header} className="section-label whitespace-nowrap px-4 py-3 text-left">
                           {header}
                         </th>
@@ -250,120 +253,57 @@ export function ContasPagarImportButton({
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.prontas.map(row => (
-                      <tr key={`add-${row.linha}`} className="trow">
-                        <td className="px-4 py-3 text-[#edd9c4]" style={{ fontSize: '.82rem' }}>
-                          {row.linha}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: '#fffaf4', maxWidth: 200 }}>
-                          <div>{row.fornecedor}</div>
-                          {row.fornecedorId ? (
-                            <div className="mt-0.5 text-[0.72rem] text-[#4ade80]">Fornecedor cadastrado</div>
-                          ) : (
-                            <div className="mt-0.5 text-[0.72rem] text-[#fbbf24]">Nome livre (sem cadastro)</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-[#edd9c4]" style={{ maxWidth: 220 }}>
-                          {row.descricao}
-                        </td>
-                        <td className="px-4 py-3 text-[#edd9c4]" style={{ maxWidth: 160 }}>
-                          {row.observacao || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-[#edd9c4]" style={{ fontSize: '.85rem' }}>
-                          {fmtDate(row.vencimento)}
-                        </td>
-                        <td className="px-4 py-3 text-[#edd9c4]" style={{ fontSize: '.85rem' }}>
-                          1/1
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-[#f2d892]">
-                          {fmtCur(row.valor)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge status="pendente" />
-                        </td>
-                      </tr>
-                    ))}
+                    {preview.rows.map(row => {
+                      const statusColor =
+                        row.status === 'ok' ? '#4ade80'
+                        : row.status === 'duplicada' ? '#fbbf24'
+                        : '#f87171'
+                      const statusLabel =
+                        row.status === 'ok' ? 'Importar'
+                        : row.status === 'duplicada' ? 'Duplicada'
+                        : 'Erro'
+
+                      return (
+                        <tr key={`row-${row.linha}-${row.status}`} className="trow">
+                          <td className="px-4 py-3 text-[#edd9c4]" style={{ fontSize: '.82rem' }}>
+                            {row.linha}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span style={{ color: statusColor, fontWeight: 700, fontSize: '.75rem' }}>
+                              {statusLabel}
+                            </span>
+                            {row.mensagem && (
+                              <div className="mt-0.5 text-xs text-[#edd9c4]">{row.mensagem}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3" style={{ color: '#fffaf4', maxWidth: 180 }}>
+                            {row.fornecedor || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-[#edd9c4]" style={{ maxWidth: 200 }}>
+                            {row.descricao || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-[#edd9c4]" style={{ maxWidth: 120 }}>
+                            {row.observacao || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-[#edd9c4]" style={{ fontSize: '.85rem' }}>
+                            {row.vencimento ? fmtDate(row.vencimento) : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-[#f2d892]">
+                            {row.valor > 0 ? fmtCur(row.valor) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop: '1px solid rgba(240,210,140,.18)', background: 'rgba(240,210,140,.04)' }}>
-                      <td colSpan={6} className="px-4 py-3 text-right text-sm font-bold text-[#f2d892]">
-                        Total a importar
-                      </td>
-                      <td className="px-4 py-3 font-bold text-[#f2d892]">
-                        {fmtCur(totalImportar)}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             </div>
           </div>
         )}
 
-        {preview && preview.prontas.length === 0 && !erro && (
+        {preview && preview.rows.length === 0 && !erro && (
           <div className="mb-4 rounded-lg border border-[rgba(248,113,113,.25)] bg-[rgba(248,113,113,.08)] px-4 py-3 text-sm text-[#f87171]">
-            Nenhuma cobrança nova para adicionar. Todas as linhas estão duplicadas ou com erro.
-            Use o botão <strong>Escolher outro arquivo</strong> para tentar outra planilha.
-          </div>
-        )}
-
-        {preview && (preview.duplicadas.length > 0 || preview.erros.length > 0) && (
-          <div className="mb-2">
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => setMostrarIgnoradas(prev => !prev)}
-            >
-              {mostrarIgnoradas ? 'Ocultar' : 'Ver'} linhas ignoradas ({preview.duplicadas.length + preview.erros.length})
-            </button>
-          </div>
-        )}
-
-        {preview && mostrarIgnoradas && (preview.duplicadas.length > 0 || preview.erros.length > 0) && (
-          <div
-            className="overflow-auto rounded-lg border border-[rgba(240,210,140,.18)]"
-            style={{ maxHeight: 220 }}
-          >
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: 'rgba(240,210,140,.08)' }}>
-                  <th className="px-3 py-2 text-left text-[#f2d892]">Linha</th>
-                  <th className="px-3 py-2 text-left text-[#f2d892]">Motivo</th>
-                  <th className="px-3 py-2 text-left text-[#f2d892]">Fornecedor</th>
-                  <th className="px-3 py-2 text-left text-[#f2d892]">Descrição</th>
-                  <th className="px-3 py-2 text-left text-[#f2d892]">Vencimento</th>
-                  <th className="px-3 py-2 text-right text-[#f2d892]">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...preview.duplicadas, ...preview.erros].map(row => (
-                  <tr key={`skip-${row.linha}-${row.status}`} className="border-t border-[rgba(240,210,140,.08)]">
-                    <td className="px-3 py-2 text-[#edd9c4]">{row.linha}</td>
-                    <td className="px-3 py-2">
-                      <span style={{
-                        color: row.status === 'duplicada' ? '#fbbf24' : '#f87171',
-                        fontWeight: 700,
-                        fontSize: '.75rem',
-                      }}>
-                        {row.status === 'duplicada' ? 'Duplicada' : 'Erro'}
-                      </span>
-                      {row.mensagem && (
-                        <div className="text-xs text-[#edd9c4]">{row.mensagem}</div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-[#fffaf4]">{row.fornecedor || '—'}</td>
-                    <td className="px-3 py-2 text-[#edd9c4]">{row.descricao || '—'}</td>
-                    <td className="px-3 py-2 text-[#edd9c4]">
-                      {row.vencimento ? fmtDate(row.vencimento) : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-[#fffaf4]">
-                      {row.valor > 0 ? fmtCur(row.valor) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            Nenhuma linha de dados encontrada na planilha.
           </div>
         )}
 

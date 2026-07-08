@@ -92,3 +92,42 @@ export function brDateToIso(br: string): string | null {
 
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
+
+/**
+ * Converte datas com barra em ISO.
+ * Aceita DD/MM/AAAA (brasileiro, com zeros) e M/D/AAAA (Excel em inglês, sem zeros).
+ */
+export function parseFlexibleDateInput(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const slash = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(trimmed)
+  if (slash) {
+    const partA = slash[1]
+    const partB = slash[2]
+    const a = Number(partA)
+    const b = Number(partB)
+    const year = Number(slash[3])
+
+    let day: number
+    let month: number
+
+    if (a > 12 && b <= 12) {
+      day = a
+      month = b
+    } else if (b > 12 && a <= 12) {
+      month = a
+      day = b
+    } else if (partA.length === 1 || partB.length === 1) {
+      month = a
+      day = b
+    } else {
+      day = a
+      month = b
+    }
+
+    return buildIsoDate(year, month - 1, day)
+  }
+
+  return brDateToIso(trimmed)
+}

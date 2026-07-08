@@ -1,6 +1,7 @@
 /** Leitura de CSV/TSV e planilhas Excel (.xls, .xlsx, .xlsm). */
 
 import * as XLSX from 'xlsx'
+import { buildIsoDate } from '@/lib/date-br'
 
 const PARSE_TIMEOUT_MS = 45_000
 
@@ -37,12 +38,12 @@ async function parseSpreadsheetFileInternal(file: File): Promise<string[][]> {
 
   if (kind === 'csv') {
     const text = await file.text()
-    return parseDelimitedText(text)
+    return padMatrix(parseDelimitedText(text))
   }
 
   if (kind === 'excel') {
     const buffer = await file.arrayBuffer()
-    return parseExcelBuffer(buffer)
+    return padMatrix(parseExcelBuffer(buffer))
   }
 
   throw new Error(
@@ -75,7 +76,6 @@ function detectSpreadsheetKind(fileName: string, head: Uint8Array): SpreadsheetK
   return 'unknown'
 }
 
-/** Excel 97-2003 (.xls binário) */
 function isOleSpreadsheet(head: Uint8Array): boolean {
   return (
     head.length >= 8
@@ -86,7 +86,6 @@ function isOleSpreadsheet(head: Uint8Array): boolean {
   )
 }
 
-/** Excel 2007+ (.xlsx) */
 function isZipSpreadsheet(head: Uint8Array): boolean {
   return head.length >= 2 && head[0] === 0x50 && head[1] === 0x4b
 }
@@ -99,13 +98,24 @@ function looksLikeDelimitedText(head: Uint8Array): boolean {
     || sample.includes('\t')
 }
 
+/** Garante que todas as linhas tenham o mesmo número de colunas. */
+export function padMatrix(matrix: string[][]): string[][] {
+  const maxCols = Math.max(0, ...matrix.map(row => row.length))
+  return matrix.map(row => {
+    const padded = Array.from({ length: maxCols }, (_, index) => String(row[index] ?? '').trim())
+    return padded
+  })
+}
+
 function parseExcelBuffer(buffer: ArrayBuffer): string[][] {
   let workbook: XLSX.WorkBook
   try {
     workbook = XLSX.read(buffer, {
       type: 'array',
       cellDates: true,
-      dense: true,
+      cellNF: true,
+      cellText: true,
+      raw: false,
     })
   } catch {
     throw new Error(
@@ -119,17 +129,24 @@ function parseExcelBuffer(buffer: ArrayBuffer): string[][] {
   }
 
   const sheet = workbook.Sheets[sheetName]
-  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    raw: false,
-    defval: '',
-    blankrows: false,
-    dateNF: 'dd/mm/yyyy',
-  })
+  const ref = sheet['!ref']
+  if (!ref) {
+    throw new Error('A planilha não possui dados.')
+  }
 
-  const matrix = rawRows
-    .map(row => normalizeRow(row))
-    .filter(row => row.some(cell => cell.length > 0))
+  const range = XLSX.utils.decode_range(ref)
+  const matrix: string[][] = []
+
+  for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
+    const row: string[] = []
+    for (let colIndex = range.s.c; colIndex <= range.e.c; colIndex++) {
+      const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex })
+      row.push(formatExcelCell(sheet[address]))
+    }
+    if (row.some(cell => cell.length > 0)) {
+      matrix.push(row)
+    }
+  }
 
   if (matrix.length === 0) {
     throw new Error('A planilha não possui linhas com dados.')
@@ -138,20 +155,57 @@ function parseExcelBuffer(buffer: ArrayBuffer): string[][] {
   return matrix
 }
 
-function normalizeRow(row: unknown): string[] {
-  if (!Array.isArray(row)) return []
-  return row.map(cell => stringifyCell(cell))
+function formatExcelCell(cell?: XLSX.CellObject): string {
+  if (!cell) return ''
+
+  const formatted = typeof cell.w === 'string' ? cell.w.trim() : ''
+  if (formatted) return formatted
+
+  if (cell.v instanceof Date) {
+    return formatDateBr(cell.v)
+  }
+
+  if (typeof cell.v === 'number') {
+    if (typeof cell.v === 'number' && looksLikeExcelDateSerial(cell.v)) {
+      const iso = excelSerialToIso(cell.v)
+      if (iso) {
+        const [year, month, day] = iso.split('-')
+        return `${day}/${month}/${year}`
+      }
+    }
+
+    if (Number.isInteger(cell.v) && Math.abs(cell.v) >= 1000) {
+      return String(cell.v)
+    }
+
+    return formatBrNumber(cell.v)
+  }
+
+  return String(cell.v ?? '').trim()
 }
 
-function stringifyCell(cell: unknown): string {
-  if (cell == null) return ''
-  if (cell instanceof Date) {
-    const day = String(cell.getDate()).padStart(2, '0')
-    const month = String(cell.getMonth() + 1).padStart(2, '0')
-    const year = cell.getFullYear()
-    return `${day}/${month}/${year}`
-  }
-  return String(cell).trim()
+function looksLikeExcelDateSerial(value: number): boolean {
+  return value > 20_000 && value < 80_000
+}
+
+function excelSerialToIso(serial: number): string | null {
+  const utcDays = Math.floor(serial - 25569)
+  const date = new Date(utcDays * 86400000)
+  return buildIsoDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+function formatDateBr(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function formatBrNumber(value: number): string {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 export function parseDelimitedText(text: string): string[][] {

@@ -1,4 +1,4 @@
-import { brDateToIso, buildIsoDate, normalizeObraDate } from '@/lib/date-br'
+import { buildIsoDate, normalizeObraDate, parseFlexibleDateInput } from '@/lib/date-br'
 import { parseMoneyBr } from '@/lib/utils'
 import type { ContaPagar, Fornecedor } from '@/types'
 
@@ -49,11 +49,11 @@ function mapHeaders(headers: string[]): Partial<Record<ImportField, number>> {
   const mapping: Partial<Record<ImportField, number>> = {}
 
   const rules: { field: ImportField; test: (header: string) => boolean }[] = [
-    { field: 'fornecedor', test: h => h === 'fornecedor' || h.startsWith('fornecedor') },
+    { field: 'fornecedor', test: h => h.includes('fornecedor') },
     { field: 'descricao', test: h => h.includes('descricao') || h.includes('referencia') },
-    { field: 'observacao', test: h => h.includes('observacao') },
-    { field: 'vencimento', test: h => h.includes('vencimento') },
-    { field: 'valor', test: h => h.includes('valortotal') || h === 'valor' },
+    { field: 'observacao', test: h => h.includes('observacao') || h.includes('obs') },
+    { field: 'vencimento', test: h => h.includes('vencimento') || h.includes('venc') },
+    { field: 'valor', test: h => h.includes('valortotal') || h.includes('valor') },
   ]
 
   for (const rule of rules) {
@@ -61,15 +61,44 @@ function mapHeaders(headers: string[]): Partial<Record<ImportField, number>> {
     if (index >= 0) mapping[rule.field] = index
   }
 
+  if (
+    mapping.fornecedor == null
+    && mapping.descricao == null
+    && headers.length >= 5
+  ) {
+    return {
+      fornecedor: 0,
+      descricao: 1,
+      observacao: 2,
+      vencimento: 3,
+      valor: 4,
+    }
+  }
+
   return mapping
+}
+
+function findHeaderRowIndex(matrix: string[][]): number {
+  const limit = Math.min(matrix.length, 25)
+  for (let index = 0; index < limit; index++) {
+    const mapping = mapHeaders(matrix[index].map(cell => cell.trim()))
+    const faltando = REQUIRED_FIELDS.filter(field => mapping[field] == null)
+    if (faltando.length === 0) return index
+  }
+  return 0
+}
+
+function cellValue(cells: string[], index: number | undefined): string {
+  if (index == null || index < 0) return ''
+  return String(cells[index] ?? '').trim()
 }
 
 function parseVencimento(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
 
-  const br = brDateToIso(trimmed)
-  if (br) return br
+  const flex = parseFlexibleDateInput(trimmed)
+  if (flex) return flex
 
   const iso = normalizeObraDate(trimmed)
   if (iso) return iso
@@ -82,7 +111,7 @@ function parseVencimento(value: string): string | null {
 
   const digits = trimmed.replace(/\D/g, '')
   if (digits.length === 8) {
-    return brDateToIso(`${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`)
+    return parseFlexibleDateInput(`${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`)
   }
 
   return null
@@ -167,7 +196,8 @@ export function buildContasPagarImportPreview(
     throw new Error('A planilha está vazia.')
   }
 
-  const headers = matrix[0].map(cell => cell.trim())
+  const headerRowIndex = findHeaderRowIndex(matrix)
+  const headers = matrix[headerRowIndex].map(cell => cell.trim())
   const mapping = mapHeaders(headers)
   const faltando = missingColumns(mapping)
 
@@ -184,18 +214,16 @@ export function buildContasPagarImportPreview(
   const vistosNoArquivo = new Set<string>()
   const rows: ContaPagarImportPreviewRow[] = []
 
-  for (let index = 1; index < matrix.length; index++) {
+  for (let index = headerRowIndex + 1; index < matrix.length; index++) {
     const cells = matrix[index]
     const linha = index + 1
-    const fornecedor = (cells[mapping.fornecedor!] ?? '').trim()
-    const descricao = (cells[mapping.descricao!] ?? '').trim()
-    const observacao = mapping.observacao != null
-      ? (cells[mapping.observacao] ?? '').trim()
-      : ''
-    const vencimentoRaw = (cells[mapping.vencimento!] ?? '').trim()
-    const valorRaw = (cells[mapping.valor!] ?? '').trim()
+    const fornecedor = cellValue(cells, mapping.fornecedor)
+    const descricao = cellValue(cells, mapping.descricao)
+    const observacao = cellValue(cells, mapping.observacao)
+    const vencimentoRaw = cellValue(cells, mapping.vencimento)
+    const valorRaw = cellValue(cells, mapping.valor)
 
-    if (!fornecedor && !descricao && !vencimentoRaw && !valorRaw) continue
+    if (!fornecedor && !descricao && !vencimentoRaw && !valorRaw && !observacao) continue
 
     const valor = parseMoneyBr(valorRaw)
     const vencimento = parseVencimento(vencimentoRaw)
