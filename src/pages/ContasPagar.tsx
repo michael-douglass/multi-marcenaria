@@ -42,6 +42,7 @@ import {
 import {
   getValorPagoConta,
   getValorTotalLancamento,
+  normalizarValorBusca,
 } from '../lib/contas-pagar-valores'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 import { CaixaPopup } from '@/components/layout/CaixaPopup'
@@ -475,12 +476,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
     const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
     const obs = (p.observacao || '').toLowerCase().replace(/[\s\.\,]/g, '')
-    const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
-    const valorTotalLanc = getValorTotalLancamento(p)
-    const valorTotal = valorTotalLanc != null ? String(valorTotalLanc).replace(/[\s\.\,]/g, '') : ''
+    const valor = normalizarValorBusca(p.valor_parcela)
+    const valorTotalLanc = getValorTotalLancamento(p, data)
+    const valorTotal = valorTotalLanc != null ? normalizarValorBusca(valorTotalLanc) : ''
     const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
     return forn.includes(term) || desc.includes(term) || obs.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
-  }, [search, fornecedores])
+  }, [search, fornecedores, data])
 
   const periodoAtivo = isPeriodoAtivo(periodFilter)
 
@@ -818,21 +819,27 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         })
       } else {
         const isParcelado = lancamentoTemParcelamento(editingConta, data)
+        const relacionadas = isParcelado ? getContasRelacionadas(editingConta, data) : []
         const primeiroVenc =
           normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? vencimentoAtual
 
-        await editarContaPagar(
-          editingConta,
-          {
-            ...metadados,
-            valor_parcela: valorParcela,
-            valor_total: valorParcela,
-            data_vencimento: scope === 'single' ? vencimentoAtual : undefined,
-            primeiro_vencimento_grupo:
-              scope === 'group' && isParcelado ? primeiroVenc : undefined,
-          },
-          scope,
-        )
+        const updatePayload: Parameters<typeof editarContaPagar>[1] = {
+          ...metadados,
+          valor_parcela: valorParcela,
+          data_vencimento: scope === 'single' ? vencimentoAtual : undefined,
+          primeiro_vencimento_grupo:
+            scope === 'group' && isParcelado ? primeiroVenc : undefined,
+        }
+
+        if (!isParcelado) {
+          updatePayload.valor_total = valorParcela
+        } else if (scope === 'group') {
+          updatePayload.valor_total = parseFloat(
+            (valorParcela * relacionadas.length).toFixed(2),
+          )
+        }
+
+        await editarContaPagar(editingConta, updatePayload, scope)
       }
 
       if (editAnexos.length > 0) {
@@ -1754,7 +1761,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   const isSelected = selectedRowIds.has(p.id)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
                   const detalhes = getDetalhesExibicaoContaPagar(p, nomeExibido)
-                  const valorTotalLancamento = getValorTotalLancamento(p)
+                  const valorTotalLancamento = getValorTotalLancamento(p, data)
                   return (
                     <tr key={p.id} className="trow" style={isSelected ? { background: 'rgba(240,210,140,.06)' } : undefined}>
                       {!readOnly && (

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
-import { getContasRelacionadas, getModeloRecorrencia } from '../lib/contas-pagar-grupo'
+import { getContasRelacionadas, getModeloRecorrencia, lancamentoTemParcelamento } from '../lib/contas-pagar-grupo'
 import { expandirTodosFixoMontadores, podeExpandirFixoMontadores } from '../lib/fixo-montador'
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
@@ -592,6 +592,27 @@ export function useContasPagar() {
         .update(singlePayload)
         .eq('id', conta.id)
       if (err) throw new Error(err.message)
+
+      const parcelado = lancamentoTemParcelamento(conta, data)
+      const valorParcelaAtualizada =
+        typeof restPayload.valor_parcela === 'number' ? restPayload.valor_parcela : conta.valor_parcela
+      if (parcelado && restPayload.valor_parcela != null && restPayload.valor_total == null) {
+        const relacionadas = getContasRelacionadas(conta, data)
+        const novoTotal = parseFloat(
+          relacionadas
+            .reduce(
+              (s, c) => s + (c.id === conta.id ? valorParcelaAtualizada : c.valor_parcela),
+              0,
+            )
+            .toFixed(2),
+        )
+        const ids = relacionadas.map(c => c.id)
+        const { error: syncErr } = await supabase
+          .from('movelaria_contas_pagar')
+          .update({ valor_total: novoTotal, atualizado_em: updatedAt })
+          .in('id', ids)
+        if (syncErr) throw new Error(syncErr.message)
+      }
     }
 
     await load()

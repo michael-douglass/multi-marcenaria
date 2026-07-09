@@ -1,4 +1,5 @@
 import { applyPeriodFilter, type PeriodFilter } from '@/components/ui/PeriodFilterBar'
+import { getContasRelacionadas } from '@/lib/contas-pagar-grupo'
 import type { ContaPagar } from '@/types'
 
 /** Valor efetivamente pago (inclui contas antigas marcadas como pago antes do campo valor_pago). */
@@ -36,9 +37,31 @@ export function somarPagamentosNoPeriodo(contas: ContaPagar[], period: PeriodFil
     .reduce((s, c) => s + getValorPagoConta(c), 0)
 }
 
-/** Valor original do lançamento parcelado (ex.: R$ 100 em 10× de R$ 10). */
-export function getValorTotalLancamento(conta: ContaPagar): number | null {
+/** Valor original do lançamento parcelado (soma das parcelas do grupo). */
+export function getValorTotalLancamento(
+  conta: ContaPagar,
+  all?: ContaPagar[],
+): number | null {
+  if (all?.length) {
+    const relacionadas = getContasRelacionadas(conta, all)
+    if (relacionadas.length > 1) {
+      return parseFloat(
+        relacionadas.reduce((s, c) => s + c.valor_parcela, 0).toFixed(2),
+      )
+    }
+  }
+
   if (conta.total_parcelas <= 1) return null
-  if (conta.valor_total != null && conta.valor_total > 0) return conta.valor_total
+
+  if (conta.valor_total != null && conta.valor_total > 0) {
+    // valor_total corrompido (igual à parcela) não representa o lançamento inteiro
+    if (conta.valor_total > conta.valor_parcela + 0.009) return conta.valor_total
+  }
+
   return parseFloat((conta.valor_parcela * conta.total_parcelas).toFixed(2))
+}
+
+/** Normaliza valor numérico para comparação na busca (ex.: 13554 → "1355400"). */
+export function normalizarValorBusca(valor: number): string {
+  return valor.toFixed(2).replace(/[\s.,]/g, '')
 }
