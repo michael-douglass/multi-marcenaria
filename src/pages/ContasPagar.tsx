@@ -11,7 +11,7 @@ import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyStat
 import { ContaPagarAnexosField } from '../components/contas-pagar/ContaPagarAnexosField'
 import { ContaPagarAnexosGrupoField } from '../components/contas-pagar/ContaPagarAnexosGrupoField'
 import { ContaPagarAnexosButton } from '../components/contas-pagar/ContaPagarAnexosModal'
-import { getContasRelacionadas, getModeloRecorrencia, getPrimeiraParcela, getTextoDetalheContaPagar, lancamentoTemParcelamento, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
+import { getContasRelacionadas, getDetalhesExibicaoContaPagar, getModeloRecorrencia, getPrimeiraParcela, lancamentoTemParcelamento, resolveGrupoLancamentoId } from '../lib/contas-pagar-grupo'
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
@@ -474,11 +474,12 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
     const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
     const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
+    const obs = (p.observacao || '').toLowerCase().replace(/[\s\.\,]/g, '')
     const valor = String(p.valor_parcela).replace(/[\s\.\,]/g, '')
     const valorTotalLanc = getValorTotalLancamento(p)
     const valorTotal = valorTotalLanc != null ? String(valorTotalLanc).replace(/[\s\.\,]/g, '') : ''
     const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
-    return forn.includes(term) || desc.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
+    return forn.includes(term) || desc.includes(term) || obs.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
   }, [search, fornecedores])
 
   const periodoAtivo = isPeriodoAtivo(periodFilter)
@@ -514,7 +515,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       items = items.filter(c => {
         const nome = (c.fornecedor_nome ?? fornecedores.find(x => x.id === c.fornecedor_id)?.nome ?? c.descricao ?? '').toLowerCase().replace(/[\s.,]/g, '')
         const desc = (c.descricao ?? '').toLowerCase().replace(/[\s.,]/g, '')
-        return nome.includes(term) || desc.includes(term)
+        const obs = (c.observacao ?? '').toLowerCase().replace(/[\s.,]/g, '')
+        return nome.includes(term) || desc.includes(term) || obs.includes(term)
       })
     }
 
@@ -1751,7 +1753,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   const s = getStatus(p.data_vencimento, p.status)
                   const isSelected = selectedRowIds.has(p.id)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
-                  const textoDetalhe = getTextoDetalheContaPagar(p, nomeExibido)
+                  const detalhes = getDetalhesExibicaoContaPagar(p, nomeExibido)
                   const valorTotalLancamento = getValorTotalLancamento(p)
                   return (
                     <tr key={p.id} className="trow" style={isSelected ? { background: 'rgba(240,210,140,.06)' } : undefined}>
@@ -1787,12 +1789,20 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                             Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
                           </div>
                         )}
-                        {textoDetalhe ? (
+                        {detalhes.descricao ? (
                           <p
-                            className="mt-1 line-clamp-2 text-[0.75rem] italic text-[#edd9c4]"
-                            title={textoDetalhe}
+                            className="mt-1 line-clamp-2 text-[0.75rem] text-[#edd9c4]"
+                            title={detalhes.descricao}
                           >
-                            {textoDetalhe}
+                            {detalhes.descricao}
+                          </p>
+                        ) : null}
+                        {detalhes.observacao ? (
+                          <p
+                            className="mt-0.5 line-clamp-2 text-[0.72rem] italic text-[#d4bc9f]"
+                            title={detalhes.observacao}
+                          >
+                            {detalhes.observacao}
                           </p>
                         ) : null}
                       </td>

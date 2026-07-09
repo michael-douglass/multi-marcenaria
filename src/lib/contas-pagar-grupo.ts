@@ -90,14 +90,22 @@ export function getModeloRecorrencia(serie: ContaPagar[]): ContaPagar {
   return byDate.find(r => r.observacao?.trim() || r.descricao?.trim()) ?? byDate[0]
 }
 
-/** Texto exibido abaixo do fornecedor (observação ou descrição distinta do nome). */
-export function getTextoDetalheContaPagar(
+export interface DetalhesExibicaoContaPagar {
+  descricao: string | null
+  observacao: string | null
+}
+
+/** Descrição e observação exibidas abaixo do fornecedor no card da lista. */
+export function getDetalhesExibicaoContaPagar(
   conta: ContaPagar,
   nomeFornecedor: string,
-): string | null {
-  const obs = conta.observacao?.trim()
-  if (obs) return obs
-  const desc = conta.descricao?.trim()
-  if (desc && desc.toLowerCase() !== nomeFornecedor.trim().toLowerCase()) return desc
-  return null
+): DetalhesExibicaoContaPagar {
+  const nomeNorm = nomeFornecedor.trim().toLowerCase()
+  const descRaw = conta.descricao?.trim()
+  const obsRaw = conta.observacao?.trim()
+  const descricao =
+    descRaw && descRaw.toLowerCase() !== nomeNorm ? descRaw : null
+  const observacao =
+    obsRaw && obsRaw.toLowerCase() !== (descricao ?? '').toLowerCase() ? obsRaw : null
+  return { descricao, observacao }
 }
