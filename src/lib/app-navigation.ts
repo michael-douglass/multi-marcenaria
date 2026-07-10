@@ -23,7 +23,7 @@ import {
 import type { ActiveSection, UserRole } from '@/types'
 
 /** IDs de itens de menu (rotas ou agrupadores) */
-export type NavItemId = ActiveSection | 'financeiro' | 'obras' | 'configuracoes'
+export type NavItemId = ActiveSection | 'financeiro' | 'funcionariosGrupo' | 'obras' | 'configuracoes'
 
 export interface NavChildItem {
   id: string
@@ -98,29 +98,6 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(251,191,36,0.92)',
   },
   {
-    id: 'funcionariosGrupo',
-    title: 'Funcionários',
-    icon: UserCog,
-    radialColor: 'rgba(240,210,140,0.92)',
-    children: [
-      {
-        id: 'funcionarios',
-        title: 'Pastas',
-        url: '/funcionarios',
-        icon: UserCog,
-        radialColor: 'rgba(240,210,140,0.92)',
-      },
-      {
-        id: 'baterPonto',
-        title: 'Ponto',
-        url: '/bater-ponto',
-        icon: Clock,
-        radialColor: 'rgba(74,222,128,0.92)',
-        roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
-      },
-    ],
-  },
-  {
     id: 'contasPagar',
     title: 'Contas a Pagar',
     url: '/contas-pagar',
@@ -143,6 +120,24 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
     icon: Banknote,
     radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador'],
+  },
+]
+
+const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
+  {
+    id: 'funcionarios',
+    title: 'Pastas',
+    url: '/funcionarios',
+    icon: UserCog,
+    radialColor: 'rgba(240,210,140,0.92)',
+  },
+  {
+    id: 'baterPonto',
+    title: 'Ponto',
+    url: '/bater-ponto',
+    icon: Clock,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
   },
 ]
 
@@ -204,6 +199,15 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     radialColor: 'rgba(240,210,140,0.92)',
     roles: ['Administrador', 'Financeiro'],
     children: FINANCEIRO_CHILDREN,
+  },
+  {
+    id: 'funcionariosGrupo',
+    title: 'Funcionários',
+    url: '/funcionarios',
+    icon: UserCog,
+    radialColor: 'rgba(240,210,140,0.92)',
+    roles: ['Administrador', 'Financeiro'],
+    children: FUNCIONARIOS_CHILDREN,
   },
   {
     id: 'obras',
@@ -289,6 +293,14 @@ export function getNavBadge(_item: NavMainItem, _ctx: NavVisibilityContext): num
 export function isFinanceiroSection(section: ActiveSection): boolean {
   let found = false
   walkNavChildren(FINANCEIRO_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
+}
+
+export function isFuncionariosSection(section: ActiveSection): boolean {
+  let found = false
+  walkNavChildren(FUNCIONARIOS_CHILDREN, item => {
     if (!item.children?.length && item.id === section) found = true
   })
   return found

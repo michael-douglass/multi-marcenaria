@@ -20,9 +20,11 @@ import { useApp } from '@/context/AppContext'
 import {
   getVisibleNavMainItems,
   isFinanceiroSection,
+  isFuncionariosSection,
   isObrasSection,
   sectionFromPath,
   type NavChildItem,
+  type NavItemId,
   type NavMainItem,
 } from '@/lib/app-navigation'
 import { cn } from '@/lib/utils'
@@ -138,9 +140,11 @@ export function AppSidebar() {
 
   const items = getVisibleNavMainItems({ roles })
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
-  const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
-
+  const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
   const obrasAbertoPorRota = isObrasSection(activeSection)
+
+  const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
+  const [funcionariosOpen, setFuncionariosOpen] = useState(funcionariosAbertoPorRota)
   const [obrasOpen, setObrasOpen] = useState(obrasAbertoPorRota)
 
   useEffect(() => {
@@ -148,8 +152,24 @@ export function AppSidebar() {
   }, [financeiroAbertoPorRota])
 
   useEffect(() => {
+    if (funcionariosAbertoPorRota) setFuncionariosOpen(true)
+  }, [funcionariosAbertoPorRota])
+
+  useEffect(() => {
     if (obrasAbertoPorRota) setObrasOpen(true)
   }, [obrasAbertoPorRota])
+
+  const grupoOpenState: Partial<Record<NavItemId, boolean>> = {
+    financeiro: financeiroOpen,
+    funcionariosGrupo: funcionariosOpen,
+    obras: obrasOpen,
+  }
+
+  const setGrupoOpenById = (id: NavItemId, open: boolean) => {
+    if (id === 'financeiro') setFinanceiroOpen(open)
+    else if (id === 'funcionariosGrupo') setFuncionariosOpen(open)
+    else if (id === 'obras') setObrasOpen(open)
+  }
 
   const handleNavClick = (url: string) => {
     if (!open) {
@@ -210,9 +230,8 @@ export function AppSidebar() {
 
                 if (item.children?.length) {
                   const childActive = item.children.some(c => isNavChildActive(c, activeSection))
-                  const isObrasGroup = item.id === 'obras'
-                  const grupoAtivo = childActive || (isObrasGroup ? obrasOpen : financeiroOpen)
-                  const setGrupoOpen = isObrasGroup ? setObrasOpen : setFinanceiroOpen
+                  const grupoAtivo = childActive || Boolean(grupoOpenState[item.id])
+                  const setGrupoOpen = (next: boolean) => setGrupoOpenById(item.id, next)
 
                   return (
                     <Collapsible

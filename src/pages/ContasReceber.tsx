@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { FileText } from 'lucide-react'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
@@ -33,7 +33,8 @@ import { supabase } from '../lib/supabase'
 
 interface Props { clientes: Cliente[]; readOnly?: boolean }
 
-type Filter = 'Todos' | 'Pendente' | 'Recebido' | 'Vencido'
+const STATUS_FILTER_OPTIONS = ['Pendente', 'Recebido', 'Vencido'] as const
+type StatusFilterOption = (typeof STATUS_FILTER_OPTIONS)[number]
 
 const PAYMENT_METHODS: FormaPagamento[] = ['pix', 'dinheiro', 'cheque', 'boleto']
 const PM_ICON: Record<FormaPagamento, string> = { pix: '⚡', dinheiro: '💵', cheque: '📝', boleto: '🏦', cartao: '💳' }
@@ -68,10 +69,11 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const templatesHook = useTemplatesCobranca()
   const pixHook = usePixConfig()
   const reciboHook = useReciboConfig()
-  const [filter, setFilter] = useState<Filter>('Todos')
+  const [activeFilters, setActiveFilters] = useState<StatusFilterOption[]>([])
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
   const [isDefaultView, setIsDefaultView] = useState(true)
+  const activeFilterSet = useMemo(() => new Set(activeFilters), [activeFilters])
   const [open, setOpen] = useState(false)
   const [openRecibo, setOpenRecibo] = useState(false)
   const [reciboConta, setReciboConta] = useState<ContaReceber | null>(null)
@@ -280,11 +282,17 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
   const filtered = (() => {
     const base = periodFiltered.filter(r => {
-      // 1. Filtro de Status / Modo Padrão
-      if (isDefaultView) {
-        if (getStatus(r.data_vencimento, r.status) === 'recebido') return false
-      } else if (filter !== 'Todos') {
-        if (getStatus(r.data_vencimento, r.status) !== filter.toLowerCase()) return false
+      // 1. Filtro de Status / Modo Padrão (vários status podem ser combinados)
+      const status = getStatus(r.data_vencimento, r.status)
+      if (activeFilters.length === 0) {
+        // Sem pills: na visão padrão esconde o que já foi recebido
+        if (isDefaultView && status === 'recebido') return false
+      } else {
+        const matches =
+          (activeFilterSet.has('Pendente') && status === 'pendente') ||
+          (activeFilterSet.has('Recebido') && status === 'recebido') ||
+          (activeFilterSet.has('Vencido') && status === 'vencido')
+        if (!matches) return false
       }
 
       // 2. Filtro de Busca (Nome, Telefone, Forma, Valores, Data)
@@ -1070,11 +1078,23 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       </div>
 
       <FilterBar
-        options={['Todos', 'Pendente', 'Recebido', 'Vencido']}
-        value={filter}
+        options={['Todos', ...STATUS_FILTER_OPTIONS]}
+        multi
+        values={activeFilterSet}
+        multiHint="Clique em um ou mais status para combinar os filtros. Toque de novo para remover."
         onChange={v => {
           setIsDefaultView(false)
-          setFilter(v as Filter)
+          if (v === 'Todos') {
+            setActiveFilters([])
+            return
+          }
+          const option = v as StatusFilterOption
+          if (!STATUS_FILTER_OPTIONS.includes(option)) return
+          setActiveFilters(prev =>
+            prev.includes(option)
+              ? prev.filter(item => item !== option)
+              : [...prev, option],
+          )
         }}
       />
 
