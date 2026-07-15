@@ -13,6 +13,7 @@ import { PagarReservaDialog } from '@/components/caixa/PagarReservaDialog'
 import { CaixaComprovantePrintModal } from '@/components/caixa/CaixaComprovantePrintModal'
 import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
+import { CaixaValorEditavel } from '@/components/caixa/CaixaValorEditavel'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
 const normBusca = (s: string) =>
@@ -70,7 +71,14 @@ function CaixaContent({
   ano: number
   onPeriodoChange: (mes: number, ano: number) => void
 }) {
-  const { resumo, loading, reservasConsolidadas, movimentacoes, desfazerReserva } = useCaixaContext()
+  const {
+    resumo,
+    loading,
+    reservasConsolidadas,
+    movimentacoes,
+    desfazerReserva,
+    ajustarTotalConsolidado,
+  } = useCaixaContext()
   const reciboHook = useReciboConfig()
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
   const [busca, setBusca] = useState('')
@@ -320,10 +328,39 @@ function CaixaContent({
                             {fmtCur(item.valor_total_real)}
                           </td>
                           <td className="px-6 py-4 text-right font-semibold text-cream/60">
-                            {fmtCur(item.valor_em_reserva)}
+                            <CaixaValorEditavel
+                              valor={item.valor_em_reserva}
+                              editavel={!virtual}
+                              className="text-cream/60"
+                              title="Clique para ajustar o valor reservado"
+                              onSave={async novoValor => {
+                                await ajustarTotalConsolidado({
+                                  destinatarioId: item.destinatario_id,
+                                  mes: item.mes_referencia,
+                                  ano: item.ano_referencia,
+                                  tipo: 'reserva',
+                                  novoTotal: novoValor,
+                                })
+                              }}
+                            />
                           </td>
                           <td className="px-6 py-4 text-right font-semibold text-red-400">
-                            {item.total_pago > 0 ? fmtCur(item.total_pago) : '—'}
+                            <CaixaValorEditavel
+                              valor={item.total_pago}
+                              editavel={!virtual}
+                              emptyLabel="—"
+                              className="text-red-400"
+                              title="Clique para ajustar o valor já pago"
+                              onSave={async novoValor => {
+                                await ajustarTotalConsolidado({
+                                  destinatarioId: item.destinatario_id,
+                                  mes: item.mes_referencia,
+                                  ano: item.ano_referencia,
+                                  tipo: 'pagamento',
+                                  novoTotal: novoValor,
+                                })
+                              }}
+                            />
                           </td>
                           <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                             {fmtCur(restante)}

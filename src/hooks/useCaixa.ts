@@ -7,14 +7,44 @@ import type {
   CaixaMovimentacao,
   ResumoCaixa,
   ReservaConsolidada,
+  TipoMovimentacaoCaixa,
 } from '../types'
 import { useAuthReady } from './useAuthReady'
+import { todayISO } from '../lib/utils'
 
 const CAIXA_REALTIME_CHANNEL = 'movelaria-caixa-sync'
+const AJUSTE_MANUAL_PREFIX = 'Ajuste manual'
+const EPS = 0.009
 
 /** Linha de reserva sem destinatário cadastrado no caixa (só dívida operacional). */
 export function isCaixaDestinatarioVirtual(destinatarioId: string): boolean {
   return destinatarioId.startsWith('__virtual__:')
+}
+
+export interface AjustarTotalConsolidadoParams {
+  destinatarioId: string
+  mes: number
+  ano: number
+  tipo: TipoMovimentacaoCaixa
+  novoTotal: number
+}
+
+function isMovimentacaoAjusteManual(mov: {
+  conta_pagar_id?: string | null
+  descricao?: string | null
+}): boolean {
+  if (!mov.conta_pagar_id) return true
+  return (mov.descricao ?? '').startsWith(AJUSTE_MANUAL_PREFIX)
+}
+
+function rotuloAjuste(tipo: TipoMovimentacaoCaixa): string {
+  return tipo === 'reserva'
+    ? `${AJUSTE_MANUAL_PREFIX} — reservado`
+    : `${AJUSTE_MANUAL_PREFIX} — pago`
+}
+
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 export function useCaixa(mes: number, ano: number) {
@@ -238,6 +268,115 @@ export function useCaixa(mes: number, ano: number) {
     await load({ silent: true })
   }
 
+  /**
+   * Define o total consolidado (reservado ou já pago) do destinatário no mês,
+   * inserindo/ajustando/removendo movimentações até a soma bater com o valor desejado.
+   */
+  const ajustarTotalConsolidado = async ({
+    destinatarioId,
+    mes: mesRef,
+    ano: anoRef,
+    tipo,
+    novoTotal,
+  }: AjustarTotalConsolidadoParams) => {
+    if (isCaixaDestinatarioVirtual(destinatarioId)) {
+      throw new Error('Cadastre este destinatário em Destinatários antes de editar o valor.')
+    }
+    if (!Number.isFinite(novoTotal) || novoTotal < 0) {
+      throw new Error('Informe um valor válido (zero ou positivo).')
+    }
+
+    const alvo = roundMoney(novoTotal)
+
+    const { data: movs, error: fetchError } = await supabase
+      .from('movelaria_caixa_movimentacoes')
+      .select('id, valor, conta_pagar_id, descricao, criado_em, data_movimentacao')
+      .eq('destinatario_id', destinatarioId)
+      .eq('mes_referencia', mesRef)
+      .eq('ano_referencia', anoRef)
+      .eq('tipo_movimentacao', tipo)
+      .order('criado_em', { ascending: false })
+
+    if (fetchError) throw fetchError
+
+    const atuais = movs ?? []
+    const somaAtual = roundMoney(atuais.reduce((acc, m) => acc + (Number(m.valor) || 0), 0))
+    const diff = roundMoney(alvo - somaAtual)
+
+    if (Math.abs(diff) <= EPS) {
+      return
+    }
+
+    const { data: userData } = await supabase.auth.getUser()
+    const descricaoAjuste = rotuloAjuste(tipo)
+
+    if (diff > 0) {
+      const { error } = await supabase.from('movelaria_caixa_movimentacoes').insert({
+        destinatario_id: destinatarioId,
+        tipo_movimentacao: tipo,
+        valor: diff,
+        data_movimentacao: todayISO(),
+        mes_referencia: mesRef,
+        ano_referencia: anoRef,
+        descricao: descricaoAjuste,
+        criado_por: userData.user?.id,
+      })
+      if (error) throw error
+      await load({ silent: true })
+      return
+    }
+
+    // Reduzir: prioriza ajustes manuais / sem vínculo com conta a pagar
+    let restanteReduzir = roundMoney(-diff)
+    const ordenadas = [...atuais].sort((a, b) => {
+      const aManual = isMovimentacaoAjusteManual(a)
+      const bManual = isMovimentacaoAjusteManual(b)
+      if (aManual !== bManual) return aManual ? -1 : 1
+      const ta = a.criado_em ?? a.data_movimentacao ?? ''
+      const tb = b.criado_em ?? b.data_movimentacao ?? ''
+      return tb.localeCompare(ta)
+    })
+
+    for (const mov of ordenadas) {
+      if (restanteReduzir <= EPS) break
+      const valorMov = Number(mov.valor) || 0
+      if (valorMov <= EPS) continue
+
+      if (valorMov <= restanteReduzir + EPS) {
+        const { error } = await supabase
+          .from('movelaria_caixa_movimentacoes')
+          .delete()
+          .eq('id', mov.id)
+        if (error) throw error
+        restanteReduzir = roundMoney(restanteReduzir - valorMov)
+      } else {
+        const novoValor = roundMoney(valorMov - restanteReduzir)
+        const { error } = await supabase
+          .from('movelaria_caixa_movimentacoes')
+          .update({ valor: novoValor })
+          .eq('id', mov.id)
+        if (error) throw error
+        restanteReduzir = 0
+      }
+    }
+
+    if (restanteReduzir > EPS) {
+      const { error } = await supabase.from('movelaria_caixa_movimentacoes').insert({
+        destinatario_id: destinatarioId,
+        tipo_movimentacao: tipo,
+        valor: roundMoney(-restanteReduzir),
+        data_movimentacao: todayISO(),
+        mes_referencia: mesRef,
+        ano_referencia: anoRef,
+        descricao: descricaoAjuste,
+        criado_por: userData.user?.id,
+      })
+      if (error) throw error
+    }
+
+    await load({ silent: true })
+  }
+
   return {
     destinatarios,
     movimentacoes,
@@ -248,6 +387,7 @@ export function useCaixa(mes: number, ano: number) {
     addDestinatario,
     removeDestinatario,
     desfazerReserva,
+    ajustarTotalConsolidado,
     reload: load
   }
 }
