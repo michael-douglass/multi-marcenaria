@@ -28,8 +28,18 @@ import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
+import { ObraMarkupCustosBlock } from '../components/obras/ObraMarkupCustosBlock'
+import { ObraMarkupCustosToolbar } from '../components/obras/ObraMarkupCustosToolbar'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
+import {
+  getObraMarkupCustos,
+  loadMarkupCustosFiltro,
+  saveMarkupCustosFiltro,
+  sumPedidoAFazerCustos,
+} from '../lib/obra-markup-custos'
+import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
+import { isAdministrador } from '../lib/role-access'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
   readAgendaMesFiltroPrefs,
@@ -47,6 +57,7 @@ import {
 import type {
   ObraFull, ObraInput, StatusKanbanObra, UserRole,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
+  MarkupCustosFiltro, MarkupOrcamentoCustos,
 } from '../types'
 import { fmtDate } from '../lib/utils'
 import {
@@ -169,9 +180,12 @@ interface ObraCardProps {
   onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
   updatingDataEntrega: string | null
   canViewMontadoresConclusao: boolean
+  showMarkupCustos?: boolean
+  markupCustos?: MarkupOrcamentoCustos | null
+  markupCustosFiltro?: MarkupCustosFiltro
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, showMarkupCustos = false, markupCustos = null, markupCustosFiltro }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -255,6 +269,14 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
           onChange={feito => onTogglePedidoMaterial(obra, feito)}
           compact
         />
+
+        {showMarkupCustos && markupCustosFiltro && (
+          <ObraMarkupCustosBlock
+            custos={markupCustos}
+            filtro={markupCustosFiltro}
+            variant="compact"
+          />
+        )}
 
         <ObraDataEntregaInput
           obra={obra}
@@ -511,6 +533,27 @@ function AgendaObrasContent() {
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
+  const canViewMarkupCustos = isAdministrador(roles)
+
+  const { custosByLead, loading: loadingMarkupCustos } = useMarkupCustosPorLeads(
+    obrasHook.data,
+    canViewMarkupCustos,
+  )
+  const [markupCustosFiltro, setMarkupCustosFiltro] = useState<MarkupCustosFiltro>(loadMarkupCustosFiltro)
+
+  const handleMarkupCustosFiltroChange = useCallback((next: MarkupCustosFiltro) => {
+    setMarkupCustosFiltro(next)
+    saveMarkupCustosFiltro(next)
+  }, [])
+
+  const totalPedidoAFazer = useMemo(
+    () => (
+      canViewMarkupCustos
+        ? sumPedidoAFazerCustos(obrasHook.data, custosByLead, markupCustosFiltro)
+        : 0
+    ),
+    [canViewMarkupCustos, obrasHook.data, custosByLead, markupCustosFiltro],
+  )
 
   const draftKey = userProfile?.id ? `movelaria-obra-rascunho-${userProfile.id}` : null
 
@@ -915,6 +958,14 @@ function AgendaObrasContent() {
           actions={
             <div className="obra-page-header__actions-inner">
               <div className="obra-page-header__badges flex flex-col items-start gap-1">
+                {canViewMarkupCustos && (
+                  <ObraMarkupCustosToolbar
+                    totalPedidoAFazer={totalPedidoAFazer}
+                    filtro={markupCustosFiltro}
+                    onFiltroChange={handleMarkupCustosFiltroChange}
+                    loading={loadingMarkupCustos}
+                  />
+                )}
                 <ObraPedidoMaterialAlert
                   count={semPedidoMaterialCount}
                   compact
@@ -1088,6 +1139,9 @@ function AgendaObrasContent() {
                           onUpdateDataEntrega={handleUpdateDataEntrega}
                           updatingDataEntrega={updatingDataEntrega}
                           canViewMontadoresConclusao={canViewMontadoresConclusao}
+                          showMarkupCustos={canViewMarkupCustos}
+                          markupCustos={getObraMarkupCustos(obra, custosByLead)}
+                          markupCustosFiltro={markupCustosFiltro}
                           />
                       </div>
                     ))
@@ -1126,6 +1180,9 @@ function AgendaObrasContent() {
         updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
         canViewBriefing={canViewBriefing}
         canEditBriefing={canEditBriefing}
+        showMarkupCustos={canViewMarkupCustos}
+        markupCustos={detalheObra ? getObraMarkupCustos(detalheObra, custosByLead) : null}
+        markupCustosFiltro={markupCustosFiltro}
       />
 
       {/* Modal obra (edição) */}

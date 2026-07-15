@@ -19,9 +19,10 @@ import {
 } from '@/lib/obra-dias-trabalho'
 import { fmtCur } from '@/lib/utils'
 import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
-import type { ObraFull, StatusKanbanObra } from '@/types'
+import type { MarkupCustosFiltro, MarkupOrcamentoCustos, ObraFull, StatusKanbanObra } from '@/types'
 import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
+import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
 import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
@@ -70,6 +71,9 @@ interface Props {
   updatingNumeroPedidoCortClaud?: boolean
   canViewBriefing?: boolean
   canEditBriefing?: boolean
+  showMarkupCustos?: boolean
+  markupCustos?: MarkupOrcamentoCustos | null
+  markupCustosFiltro?: MarkupCustosFiltro
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -90,6 +94,9 @@ export function ObraDetalheModal({
   onUpdateDataEntrega, updatingDataEntrega = false,
   onUpdateNumeroPedidoCortClaud, updatingNumeroPedidoCortClaud = false,
   canViewBriefing = false, canEditBriefing = false,
+  showMarkupCustos = false,
+  markupCustos = null,
+  markupCustosFiltro,
 }: Props) {
   const { roles } = useApp()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
@@ -301,6 +308,17 @@ export function ObraDetalheModal({
               </p>
             </div>
             <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
+          </div>
+        )}
+
+        {/* ── CUSTOS MARKUP (Administrador) ───────────────────── */}
+        {showMarkupCustos && markupCustos && markupCustosFiltro && (
+          <div className="mb-5">
+            <ObraMarkupCustosBlock
+              custos={markupCustos}
+              filtro={markupCustosFiltro}
+              variant="default"
+            />
           </div>
         )}
 

@@ -5,6 +5,11 @@ import {
   FUNCIONARIO_TIPO_LABEL,
   PONTO_STATUS_DIA_LABEL,
 } from '@/lib/funcionario-constants'
+import {
+  calcularSaldoJornadaDia,
+  formatMinutosSaldo,
+  type PontoSaldoDia,
+} from '@/lib/funcionario-ponto'
 import { PontoDiaEscala } from '@/components/ponto/PontoDiaEscala'
 import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
 import type { PontoControleFuncionarioRow, PontoStatusDia } from '@/types'
@@ -82,18 +87,61 @@ function ResumoChip({
   )
 }
 
+function saldoBadgeClass(saldo: PontoSaldoDia): string {
+  if (saldo.status === 'credito') {
+    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+  }
+  if (saldo.status === 'devendo') {
+    return 'border-red-500/40 bg-red-500/10 text-red-300'
+  }
+  return 'border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] text-[#f2d892]'
+}
+
+function saldoLabel(saldo: PontoSaldoDia): string {
+  const qtd = formatMinutosSaldo(saldo.saldo_minutos)
+  if (saldo.status === 'credito') return `Crédito ${qtd}`
+  if (saldo.status === 'devendo') return `Devendo ${qtd}`
+  return 'Em dia'
+}
+
 function FuncionarioPontoCard({ row }: { row: PontoControleFuncionarioRow }) {
+  const saldo = calcularSaldoJornadaDia(row.marcacoes, row.jornada)
+
   return (
     <article
       className="group relative overflow-hidden rounded-2xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno transition-all duration-300 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
       style={{ animation: 'fadeIn 0.45s ease-out both' }}
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-[#f2d892] to-transparent opacity-60" />
+      <div
+        className="absolute inset-x-0 top-0 h-1 opacity-60"
+        style={{
+          background: 'linear-gradient(to right, transparent, #f2d892, transparent)',
+        }}
+      />
 
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(212,168,83,0.12)] px-5 py-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="font-display text-xl tracking-wide text-[#f2d892]">{row.nome}</h3>
           <p className="section-label mt-0.5">{FUNCIONARIO_TIPO_LABEL[row.tipo]}</p>
+          {saldo && (
+            <p
+              className={`mt-2 inline-flex rounded-full border px-2.5 py-0.5 text-[0.7rem] font-medium tabular-nums tracking-wide ${saldoBadgeClass(saldo)}`}
+              title={
+                'Trabalhou ' +
+                formatMinutosSaldo(saldo.minutos_trabalhados) +
+                ' de ' +
+                formatMinutosSaldo(saldo.minutos_previstos) +
+                ' previstos'
+              }
+            >
+              {saldoLabel(saldo)}
+            </p>
+          )}
+          {!saldo && row.marcacoes.some(m => m.tipo === 'entrada') && (
+            <p className="mt-2 text-xs text-[#b8957f]">
+              Saldo do dia: aguardando saída
+            </p>
+          )}
         </div>
         <span className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider ${statusStyle(row.status_dia)}`}>
           {PONTO_STATUS_DIA_LABEL[row.status_dia] ?? row.status_dia}

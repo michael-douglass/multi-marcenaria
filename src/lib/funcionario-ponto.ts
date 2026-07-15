@@ -10,6 +10,7 @@ import type {
   PontoMarcacaoComUrls,
   PontoMarcacaoTipo,
   PontoOcorrencia,
+  PontoResumoBatida,
   PontoResumoPeriodo,
   PontoResumoPeriodoPayload,
   PontoStatusDiaPayload,
@@ -366,6 +367,7 @@ function normalizeResumoPeriodo(
     funcionarios: funcsRaw.map(item => {
       const f = item as Record<string, unknown>
       const chegadasRaw = Array.isArray(f.chegadas) ? f.chegadas : []
+      const saidasRaw = Array.isArray(f.saidas) ? f.saidas : []
       const faltasDatasRaw = Array.isArray(f.faltas_datas) ? f.faltas_datas : []
       return {
         funcionario_id: String(f.funcionario_id ?? ''),
@@ -374,16 +376,31 @@ function normalizeResumoPeriodo(
         hora_extra_minutos: Number(f.hora_extra_minutos) || 0,
         faltas: Number(f.faltas) || 0,
         faltas_datas: faltasDatasRaw.map(d => String(d)),
-        chegadas: chegadasRaw.map(c => {
-          const chegada = c as Record<string, unknown>
-          return {
-            data: String(chegada.data ?? ''),
-            hora: String(chegada.hora ?? ''),
-            atraso_minutos: Number(chegada.atraso_minutos) || 0,
-          }
-        }),
+        chegadas: chegadasRaw.map(c => normalizeResumoBatida(c, 'entrada')),
+        saidas: saidasRaw.map(s => normalizeResumoBatida(s, 'saida')),
       }
     }),
+  }
+}
+
+function normalizeResumoBatida(
+  raw: unknown,
+  fallbackTipo: PontoMarcacaoTipo,
+): PontoResumoBatida {
+  const batida = (raw ?? {}) as Record<string, unknown>
+  const tipoRaw = String(batida.tipo ?? fallbackTipo)
+  const tipoValido: PontoMarcacaoTipo =
+    tipoRaw === 'entrada' ||
+    tipoRaw === 'saida_intervalo' ||
+    tipoRaw === 'retorno_intervalo' ||
+    tipoRaw === 'saida'
+      ? tipoRaw
+      : fallbackTipo
+  return {
+    data: String(batida.data ?? ''),
+    hora: String(batida.hora ?? ''),
+    atraso_minutos: Number(batida.atraso_minutos) || 0,
+    tipo: tipoValido,
   }
 }
 
@@ -523,4 +540,105 @@ export function horaPrevistaPorTipo(
     default:
       return null
   }
+}
+
+/** Converte "HH:MM", "HH:MM:SS" ou ISO datetime em minutos desde meia-noite (fuso SP). */
+export function horaParaMinutosDoDia(isoOrTime?: string | null): number | null {
+  if (!isoOrTime) return null
+  if (isoOrTime.includes('T')) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: PONTO_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(isoOrTime))
+    const hour = Number(parts.find(p => p.type === 'hour')?.value)
+    const minute = Number(parts.find(p => p.type === 'minute')?.value)
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+    return hour * 60 + minute
+  }
+  const match = /^(\d{1,2}):(\d{2})/.exec(isoOrTime.trim())
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour > 23 || minute > 59) return null
+  return hour * 60 + minute
+}
+
+export type PontoSaldoDiaStatus = 'credito' | 'devendo' | 'em_dia' | 'parcial'
+
+export interface PontoSaldoDia {
+  /** Positivo = crédito; negativo = devendo; 0 = em dia */
+  saldo_minutos: number
+  minutos_previstos: number
+  minutos_trabalhados: number
+  status: PontoSaldoDiaStatus
+  completo: boolean
+}
+
+/**
+ * Compara a jornada prevista com as batidas reais do dia.
+ * Precisa de entrada + saída para fechar o total; sem isso retorna null.
+ */
+export function calcularSaldoJornadaDia(
+  marcacoes: Array<Pick<PontoMarcacao, 'tipo' | 'registrado_em'>>,
+  jornada?: Partial<PontoJornadaHorarios> | null,
+): PontoSaldoDia | null {
+  if (!jornada) return null
+
+  const prevEntrada = horaParaMinutosDoDia(jornada.hora_entrada)
+  const prevSaida = horaParaMinutosDoDia(jornada.hora_saida)
+  const prevSaidaAlmoco = horaParaMinutosDoDia(jornada.hora_saida_intervalo)
+  const prevRetornoAlmoco = horaParaMinutosDoDia(jornada.hora_retorno_intervalo)
+  if (prevEntrada == null || prevSaida == null) return null
+
+  let almocoPrevisto = 0
+  if (prevSaidaAlmoco != null && prevRetornoAlmoco != null && prevRetornoAlmoco > prevSaidaAlmoco) {
+    almocoPrevisto = prevRetornoAlmoco - prevSaidaAlmoco
+  }
+  const minutosPrevistos = Math.max(0, prevSaida - prevEntrada - almocoPrevisto)
+
+  const porTipo = new Map(marcacoes.map(m => [m.tipo, m]))
+  const realEntrada = horaParaMinutosDoDia(porTipo.get('entrada')?.registrado_em)
+  const realSaida = horaParaMinutosDoDia(porTipo.get('saida')?.registrado_em)
+  if (realEntrada == null || realSaida == null) return null
+
+  const realSaidaAlmoco = horaParaMinutosDoDia(porTipo.get('saida_intervalo')?.registrado_em)
+  const realRetornoAlmoco = horaParaMinutosDoDia(porTipo.get('retorno_intervalo')?.registrado_em)
+  let almocoReal = 0
+  if (realSaidaAlmoco != null && realRetornoAlmoco != null && realRetornoAlmoco > realSaidaAlmoco) {
+    almocoReal = realRetornoAlmoco - realSaidaAlmoco
+  }
+
+  const minutosTrabalhados = Math.max(0, realSaida - realEntrada - almocoReal)
+  const saldo = minutosTrabalhados - minutosPrevistos
+  const completo =
+    porTipo.has('entrada') &&
+    porTipo.has('saida_intervalo') &&
+    porTipo.has('retorno_intervalo') &&
+    porTipo.has('saida')
+
+  let status: PontoSaldoDiaStatus = 'em_dia'
+  if (saldo > 0) status = 'credito'
+  else if (saldo < 0) status = 'devendo'
+  else if (!completo) status = 'em_dia'
+
+  return {
+    saldo_minutos: saldo,
+    minutos_previstos: minutosPrevistos,
+    minutos_trabalhados: minutosTrabalhados,
+    status,
+    completo,
+  }
+}
+
+/** Formata saldo absoluto: 75 → "1h 15min". */
+export function formatMinutosSaldo(minutos: number): string {
+  const total = Math.abs(Math.floor(minutos))
+  if (total === 0) return '0min'
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}min`
 }

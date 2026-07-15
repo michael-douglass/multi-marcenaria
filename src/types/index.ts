@@ -493,6 +493,22 @@ export interface ObraMontadorExecucao {
   finalizado_em?: string | null
 }
 
+/** Totais de custo do markup (emp_garbo.markup_orcamentos.modulos.totais). */
+export interface MarkupOrcamentoCustos {
+  lead_id: string
+  custo_materiais: number
+  custo_servicos: number
+  custo_despesas: number
+  preco_final: number
+}
+
+/** Filtro de categorias de gasto exibidas na Agenda (só Administrador). */
+export interface MarkupCustosFiltro {
+  materiais: boolean
+  servicos: boolean
+  despesas: boolean
+}
+
 export interface ObraFull {
   id: string
   origem_orcamento_id?: string | null
@@ -910,11 +926,15 @@ export interface PontoControleFuncionarioRow {
 
 export type PontoResumoPeriodo = 'semana' | 'mes' | 'ano'
 
-export interface PontoResumoChegada {
+export interface PontoResumoBatida {
   data: string
   hora: string
   atraso_minutos: number
+  tipo: PontoMarcacaoTipo
 }
+
+/** @deprecated Use PontoResumoBatida */
+export type PontoResumoChegada = PontoResumoBatida
 
 export interface PontoResumoFuncionarioPeriodo {
   funcionario_id: string
@@ -923,7 +943,10 @@ export interface PontoResumoFuncionarioPeriodo {
   hora_extra_minutos: number
   faltas: number
   faltas_datas: string[]
-  chegadas: PontoResumoChegada[]
+  /** Entrada + retorno do almoço */
+  chegadas: PontoResumoBatida[]
+  /** Saída do almoço + saída do serviço */
+  saidas: PontoResumoBatida[]
 }
 
 export interface PontoResumoEmpresa {
