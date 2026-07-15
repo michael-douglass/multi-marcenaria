@@ -12,6 +12,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
+import { DateInput } from '@/components/ui/DateInput'
 import { TimeInput } from '@/components/ui/TimeInput'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoComprovantesPanel } from '@/components/funcionarios/PontoComprovantesPanel'
@@ -377,11 +378,23 @@ export function FuncionarioPontoPanel({
           <div className="glass-card space-y-4 p-5">
             <h3 className="font-display text-lg text-[#f2d892]">Exportar arquivos fiscais</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Período início">
-                <input type="date" className="glass-input" value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} />
+              <Field label="Período início (dia / mês / ano)">
+                <DateInput
+                  value={periodoInicio}
+                  onChange={iso => {
+                    if (iso) setPeriodoInicio(iso)
+                  }}
+                  aria-label="Período início"
+                />
               </Field>
-              <Field label="Período fim">
-                <input type="date" className="glass-input" value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} />
+              <Field label="Período fim (dia / mês / ano)">
+                <DateInput
+                  value={periodoFim}
+                  onChange={iso => {
+                    if (iso) setPeriodoFim(iso)
+                  }}
+                  aria-label="Período fim"
+                />
               </Field>
             </div>
 
