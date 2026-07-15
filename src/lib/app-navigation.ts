@@ -19,6 +19,7 @@ import {
   Monitor,
   UserCircle,
   Clock,
+  ClipboardList,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
@@ -138,6 +139,13 @@ const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
     icon: Clock,
     radialColor: 'rgba(74,222,128,0.92)',
     roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
+  },
+  {
+    id: 'resumoPonto',
+    title: 'Resumo de ponto',
+    url: '/resumo-ponto',
+    icon: ClipboardList,
+    radialColor: 'rgba(96,165,250,0.92)',
   },
 ]
 
@@ -342,6 +350,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/meu-financeiro': 'meuFinanceiro',
     '/meu-perfil': 'meuPerfil',
     '/bater-ponto': 'baterPonto',
+    '/resumo-ponto': 'resumoPonto',
     '/visualizacao': 'visualizacao',
     '/configuracoes': 'configuracoes',
   }

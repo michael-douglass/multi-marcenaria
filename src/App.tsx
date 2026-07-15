@@ -28,6 +28,7 @@ import { MetricasObras } from '@/pages/MetricasObras'
 import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
 import { MeuPerfil } from '@/pages/MeuPerfil'
 import { PontoPage } from '@/pages/PontoPage'
+import { ResumoPonto } from '@/pages/ResumoPonto'
 import { Configuracoes } from '@/pages/Configuracoes'
 import { Funcionarios } from '@/pages/Funcionarios'
 import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
@@ -215,6 +216,14 @@ function AuthenticatedRoutes() {
               canAccessSection(roles, 'baterPonto')
                 ? <PontoPage />
                 : <Restricted message="Disponível para funcionários de campo e RH." />
+            }
+          />
+          <Route
+            path="/resumo-ponto"
+            element={
+              canAccessSection(roles, 'resumoPonto')
+                ? <ResumoPonto />
+                : <Restricted message="Disponível apenas para RH (Administrador e Financeiro)." />
             }
           />
           <Route

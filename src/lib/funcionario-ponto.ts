@@ -4,11 +4,14 @@ import { createId } from '@/lib/utils'
 import { PONTO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import type {
   FuncionarioJornada,
+  FuncionarioTipo,
   PontoControleFuncionarioRow,
   PontoMarcacao,
   PontoMarcacaoComUrls,
   PontoMarcacaoTipo,
   PontoOcorrencia,
+  PontoResumoPeriodo,
+  PontoResumoPeriodoPayload,
   PontoStatusDiaPayload,
   RepArquivo,
 } from '@/types'
@@ -318,6 +321,81 @@ export async function fetchControlePontoDiario(data?: string): Promise<PontoCont
       }
     }),
   )
+}
+
+export async function fetchResumoPontoPeriodo(
+  periodo: PontoResumoPeriodo = 'semana',
+): Promise<PontoResumoPeriodoPayload> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_resumo_periodo', {
+    p_periodo: periodo,
+  })
+  if (error) throw new Error(error.message)
+  return normalizeResumoPeriodo(data, periodo)
+}
+
+function normalizeResumoPeriodo(
+  raw: unknown,
+  fallbackPeriodo: PontoResumoPeriodo,
+): PontoResumoPeriodoPayload {
+  const empty: PontoResumoPeriodoPayload = {
+    periodo: fallbackPeriodo,
+    inicio: pontoDataLocal(),
+    fim: pontoDataLocal(),
+    empresa: { hora_extra_minutos: 0, faltas_total: 0 },
+    funcionarios: [],
+  }
+  if (!raw || typeof raw !== 'object') return empty
+
+  const obj = raw as Record<string, unknown>
+  const empresaRaw = (obj.empresa ?? {}) as Record<string, unknown>
+  const funcsRaw = Array.isArray(obj.funcionarios) ? obj.funcionarios : []
+
+  const periodo =
+    obj.periodo === 'semana' || obj.periodo === 'mes' || obj.periodo === 'ano'
+      ? obj.periodo
+      : fallbackPeriodo
+
+  return {
+    periodo,
+    inicio: typeof obj.inicio === 'string' ? obj.inicio : empty.inicio,
+    fim: typeof obj.fim === 'string' ? obj.fim : empty.fim,
+    empresa: {
+      hora_extra_minutos: Number(empresaRaw.hora_extra_minutos) || 0,
+      faltas_total: Number(empresaRaw.faltas_total) || 0,
+    },
+    funcionarios: funcsRaw.map(item => {
+      const f = item as Record<string, unknown>
+      const chegadasRaw = Array.isArray(f.chegadas) ? f.chegadas : []
+      const faltasDatasRaw = Array.isArray(f.faltas_datas) ? f.faltas_datas : []
+      return {
+        funcionario_id: String(f.funcionario_id ?? ''),
+        nome: String(f.nome ?? ''),
+        tipo: f.tipo as FuncionarioTipo,
+        hora_extra_minutos: Number(f.hora_extra_minutos) || 0,
+        faltas: Number(f.faltas) || 0,
+        faltas_datas: faltasDatasRaw.map(d => String(d)),
+        chegadas: chegadasRaw.map(c => {
+          const chegada = c as Record<string, unknown>
+          return {
+            data: String(chegada.data ?? ''),
+            hora: String(chegada.hora ?? ''),
+            atraso_minutos: Number(chegada.atraso_minutos) || 0,
+          }
+        }),
+      }
+    }),
+  }
+}
+
+/** Formata minutos em texto legível: 75 → "1h 15min". */
+export function formatMinutosHoraExtra(minutos: number): string {
+  const total = Math.max(0, Math.floor(minutos))
+  if (total === 0) return '0min'
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}min`
 }
 
 function parseMarcacoes(raw: unknown): PontoMarcacao[] {

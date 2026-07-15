@@ -28,6 +28,7 @@ export type ActiveSection =
   | 'meuFinanceiro'
   | 'meuPerfil'
   | 'baterPonto'
+  | 'resumoPonto'
   | 'configuracoes'
   | 'visualizacao'
 
@@ -905,6 +906,37 @@ export interface PontoControleFuncionarioRow {
   fotoUrl?: string
   /** @deprecated Use marcacoes[entrada].assinaturaUrl */
   assinaturaUrl?: string
+}
+
+export type PontoResumoPeriodo = 'semana' | 'mes' | 'ano'
+
+export interface PontoResumoChegada {
+  data: string
+  hora: string
+  atraso_minutos: number
+}
+
+export interface PontoResumoFuncionarioPeriodo {
+  funcionario_id: string
+  nome: string
+  tipo: FuncionarioTipo
+  hora_extra_minutos: number
+  faltas: number
+  faltas_datas: string[]
+  chegadas: PontoResumoChegada[]
+}
+
+export interface PontoResumoEmpresa {
+  hora_extra_minutos: number
+  faltas_total: number
+}
+
+export interface PontoResumoPeriodoPayload {
+  periodo: PontoResumoPeriodo
+  inicio: string
+  fim: string
+  empresa: PontoResumoEmpresa
+  funcionarios: PontoResumoFuncionarioPeriodo[]
 }
 
 export interface MeuFuncionarioPayload {

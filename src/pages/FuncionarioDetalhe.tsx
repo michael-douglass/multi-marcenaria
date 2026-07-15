@@ -36,11 +36,20 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const abaOrigem = searchParams.get('aba')
+  const tabParam = searchParams.get('tab')
+  const tabInicial: Tab =
+    tabParam === 'vinculos'
+    || tabParam === 'admissao'
+    || tabParam === 'documentos'
+    || tabParam === 'recibos'
+    || tabParam === 'ponto'
+      ? tabParam
+      : 'vinculos'
   const { roles } = useApp()
   const { funcionario, documentos, recibos, contasPagar, loading, error, reload } = useFuncionarioDetalhe(id)
   const { update, dispensar } = useFuncionarios()
   const { data: usuarios } = useUsuarios()
-  const [tab, setTab] = useState<Tab>('vinculos')
+  const [tab, setTab] = useState<Tab>(tabInicial)
   const [saving, setSaving] = useState(false)
   const [dispensando, setDispensando] = useState(false)
 

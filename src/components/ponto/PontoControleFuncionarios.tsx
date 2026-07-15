@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { DateInput } from '@/components/ui/DateInput'
 import {
@@ -8,6 +8,25 @@ import {
 import { PontoDiaEscala } from '@/components/ponto/PontoDiaEscala'
 import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
 import type { PontoControleFuncionarioRow, PontoStatusDia } from '@/types'
+
+/** Categorias dos cards de resumo — clique filtra a lista abaixo. */
+type ResumoFiltro = 'equipe' | 'presentes' | 'atrasados' | 'faltas' | 'aguardando'
+
+const FILTRO_LABEL: Record<ResumoFiltro, string> = {
+  equipe: 'toda a equipe',
+  presentes: 'presentes',
+  atrasados: 'atrasados',
+  faltas: 'faltas',
+  aguardando: 'aguardando batida',
+}
+
+function classificarResumo(row: PontoControleFuncionarioRow): ResumoFiltro | 'folga' {
+  if (row.status_dia === 'falta') return 'faltas'
+  if (row.status_dia === 'atraso') return 'atrasados'
+  if (row.marcacoes.some(m => m.tipo === 'entrada')) return 'presentes'
+  if (row.status_dia === 'folga') return 'folga'
+  return 'aguardando'
+}
 
 function statusStyle(status: PontoStatusDia): string {
   switch (status) {
@@ -29,10 +48,14 @@ function ResumoChip({
   label,
   value,
   tone,
+  active,
+  onClick,
 }: {
   label: string
   value: number
   tone: 'gold' | 'green' | 'amber' | 'red' | 'muted'
+  active: boolean
+  onClick: () => void
 }) {
   const tones = {
     gold: 'from-[rgba(201,160,69,0.18)] border-[rgba(212,168,83,0.35)] text-[#f2d892]',
@@ -42,12 +65,20 @@ function ResumoChip({
     muted: 'from-[rgba(36,16,8,0.6)] border-[rgba(212,168,83,0.2)] text-[#edd9c4]',
   }
   return (
-    <div
-      className={`rounded-xl border bg-gradient-to-br to-transparent px-4 py-3 ${tones[tone]}`}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`Filtrar por ${label}: ${value}`}
+      className={`rounded-xl border bg-gradient-to-br to-transparent px-4 py-3 text-left transition-all duration-200 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853]/60 ${tones[tone]} ${
+        active
+          ? 'ring-2 ring-[#d4a853]/70 shadow-mogno scale-[1.02]'
+          : 'opacity-90 hover:opacity-100'
+      }`}
     >
       <p className="text-[0.65rem] uppercase tracking-widest opacity-80">{label}</p>
       <p className="font-display mt-1 text-2xl tabular-nums">{value}</p>
-    </div>
+    </button>
   )
 }
 
@@ -83,6 +114,7 @@ function FuncionarioPontoCard({ row }: { row: PontoControleFuncionarioRow }) {
 
 export function PontoControleFuncionarios() {
   const { data, setData, rows, loading, error, reload } = useControlePontoDiario()
+  const [filtro, setFiltro] = useState<ResumoFiltro>('equipe')
 
   const resumo = useMemo(() => {
     let presentes = 0
@@ -90,14 +122,19 @@ export function PontoControleFuncionarios() {
     let faltas = 0
     let pendentes = 0
     for (const r of rows) {
-      if (r.status_dia === 'falta') faltas++
-      else if (r.status_dia === 'atraso') atrasados++
-      else if (r.marcacoes.some(m => m.tipo === 'entrada')) presentes++
-      else if (r.status_dia === 'folga') { /* folga não conta pendente */ }
-      else pendentes++
+      const cat = classificarResumo(r)
+      if (cat === 'faltas') faltas++
+      else if (cat === 'atrasados') atrasados++
+      else if (cat === 'presentes') presentes++
+      else if (cat === 'aguardando') pendentes++
     }
     return { presentes, atrasados, faltas, pendentes, total: rows.length }
   }, [rows])
+
+  const rowsFiltradas = useMemo(() => {
+    if (filtro === 'equipe') return rows
+    return rows.filter(r => classificarResumo(r) === filtro)
+  }, [rows, filtro])
 
   const dataFormatada = useMemo(() => {
     const d = new Date(data + 'T12:00:00')
@@ -109,12 +146,24 @@ export function PontoControleFuncionarios() {
     })
   }, [data])
 
+  function selecionarFiltro(proximo: ResumoFiltro) {
+    // Clicar de novo no mesmo card (exceto Equipe) volta para toda a equipe
+    if (proximo !== 'equipe' && filtro === proximo) {
+      setFiltro('equipe')
+      return
+    }
+    setFiltro(proximo)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="section-label capitalize">{dataFormatada}</p>
           <h2 className="font-display text-2xl text-[#f2d892]">Resumo diário da equipe</h2>
+          <p className="mt-1 text-sm text-[#b8957f]">
+            Toque em um card para filtrar a lista
+          </p>
         </div>
         <label className="flex flex-col gap-1.5 sm:items-end">
           <span className="text-[0.65rem] font-medium uppercase tracking-wider text-[#b8957f]">
@@ -124,7 +173,10 @@ export function PontoControleFuncionarios() {
             className="min-w-[11rem]"
             value={data}
             onChange={iso => {
-              if (iso) setData(iso)
+              if (iso) {
+                setData(iso)
+                setFiltro('equipe')
+              }
             }}
             aria-label="Selecionar data do controle de ponto"
           />
@@ -132,11 +184,41 @@ export function PontoControleFuncionarios() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <ResumoChip label="Equipe" value={resumo.total} tone="gold" />
-        <ResumoChip label="Presentes" value={resumo.presentes} tone="green" />
-        <ResumoChip label="Atrasados" value={resumo.atrasados} tone="amber" />
-        <ResumoChip label="Faltas" value={resumo.faltas} tone="red" />
-        <ResumoChip label="Aguardando" value={resumo.pendentes} tone="muted" />
+        <ResumoChip
+          label="Equipe"
+          value={resumo.total}
+          tone="gold"
+          active={filtro === 'equipe'}
+          onClick={() => selecionarFiltro('equipe')}
+        />
+        <ResumoChip
+          label="Presentes"
+          value={resumo.presentes}
+          tone="green"
+          active={filtro === 'presentes'}
+          onClick={() => selecionarFiltro('presentes')}
+        />
+        <ResumoChip
+          label="Atrasados"
+          value={resumo.atrasados}
+          tone="amber"
+          active={filtro === 'atrasados'}
+          onClick={() => selecionarFiltro('atrasados')}
+        />
+        <ResumoChip
+          label="Faltas"
+          value={resumo.faltas}
+          tone="red"
+          active={filtro === 'faltas'}
+          onClick={() => selecionarFiltro('faltas')}
+        />
+        <ResumoChip
+          label="Aguardando"
+          value={resumo.pendentes}
+          tone="muted"
+          active={filtro === 'aguardando'}
+          onClick={() => selecionarFiltro('aguardando')}
+        />
       </div>
 
       {loading && <LoadingState message="Carregando batidas do dia…" />}
@@ -148,9 +230,22 @@ export function PontoControleFuncionarios() {
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && (
+      {!loading && !error && rows.length > 0 && rowsFiltradas.length === 0 && (
+        <div className="glass-card p-10 text-center text-[#b8957f]">
+          Ninguém em “{FILTRO_LABEL[filtro]}” nesta data.
+          <button
+            type="button"
+            className="mt-3 block w-full text-sm text-[#f2d892] underline-offset-2 hover:underline"
+            onClick={() => setFiltro('equipe')}
+          >
+            Ver toda a equipe
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && rowsFiltradas.length > 0 && (
         <div className="grid gap-5 xl:grid-cols-2">
-          {rows.map((row, i) => (
+          {rowsFiltradas.map((row, i) => (
             <div key={row.funcionario_id} style={{ animationDelay: `${i * 60}ms` }}>
               <FuncionarioPontoCard row={row} />
             </div>
