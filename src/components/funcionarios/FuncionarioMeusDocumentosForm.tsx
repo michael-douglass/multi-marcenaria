@@ -54,9 +54,15 @@ export function FuncionarioMeusDocumentosForm({
   }
 
   const docsEnviados = new Set(payload.documentos.map(d => d.tipo_documento))
+  const qtdPorTipo = payload.documentos.reduce<Record<string, number>>((acc, d) => {
+    acc[d.tipo_documento] = (acc[d.tipo_documento] ?? 0) + 1
+    return acc
+  }, {})
   const progress = Math.round(
     (ADMISSAO_DOC_TIPOS.filter(d => docsEnviados.has(d.id)).length / ADMISSAO_DOC_TIPOS.length) * 100,
   )
+  /** Prestador pode anexar vários arquivos do mesmo tipo; só o RH substitui/exclui. */
+  const podeAdicionarMais = !isRh
 
   const dadosParaSalvar = (): FuncionarioAdmissaoDados => ({
     ...dados,
@@ -106,35 +112,40 @@ export function FuncionarioMeusDocumentosForm({
     }
   }
 
-  const uploadDoc = async (tipoId: string, file: File) => {
+  const uploadDocs = async (tipoId: string, files: File[]) => {
+    if (!files.length) return
     setUploading(tipoId)
     setError(null)
-    let pending = null
+    const pendingList: Awaited<ReturnType<typeof buildPendingFuncionarioDoc>>[] = []
     try {
       const existente = documentosAdmissao.find(d => d.tipo_documento === tipoId)
         ?? payload.documentos.find(d => d.tipo_documento === tipoId)
 
-      if (existente) {
-        if (permiteSubstituirDocumentos && documentosAdmissao.length > 0) {
-          const docCompleto = documentosAdmissao.find(d => d.tipo_documento === tipoId)
-          if (docCompleto) await deleteFuncionarioDocumento(docCompleto)
-        } else {
-          setError('Este documento já foi enviado. Somente o administrador pode excluí-lo para reenviar.')
-          return
+      // RH com permissão: substitui o arquivo anterior. Prestador: só adiciona (não exclui).
+      if (existente && permiteSubstituirDocumentos && documentosAdmissao.length > 0) {
+        const docsDoTipo = documentosAdmissao.filter(d => d.tipo_documento === tipoId)
+        for (const docCompleto of docsDoTipo) {
+          await deleteFuncionarioDocumento(docCompleto)
         }
+      } else if (existente && !podeAdicionarMais && !permiteSubstituirDocumentos) {
+        setError('Este documento já foi enviado. Somente o administrador pode excluí-lo para reenviar.')
+        return
       }
 
-      pending = await buildPendingFuncionarioDoc(file, tipoId, 'admissao')
-      await uploadFuncionarioDocumento(
-        payload.id,
-        pending,
-        isRh ? 'admin' : 'funcionario_sistema',
-      )
+      for (const file of files) {
+        const pending = await buildPendingFuncionarioDoc(file, tipoId, 'admissao')
+        pendingList.push(pending)
+        await uploadFuncionarioDocumento(
+          payload.id,
+          pending,
+          isRh ? 'admin' : 'funcionario_sistema',
+        )
+      }
       onReload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro no upload.')
     } finally {
-      if (pending) revokePendingFuncionarioDocUrls([pending])
+      revokePendingFuncionarioDocUrls(pendingList)
       setUploading(null)
     }
   }
@@ -286,29 +297,49 @@ export function FuncionarioMeusDocumentosForm({
           <div className="mb-4 h-2 overflow-hidden rounded-full bg-[rgba(0,0,0,0.3)]">
             <div className="h-full bg-gradient-to-r from-[#c9a045] to-[#f2d892] transition-all" style={{ width: `${progress}%` }} />
           </div>
-          <p className="mb-4 text-xs text-[#b8957f]">Envie PDF ou foto (JPG, PNG, WebP).</p>
+          <p className="mb-4 text-xs text-[#b8957f]">
+            Envie PDF ou foto (JPG, PNG, WebP). Pode enviar vários arquivos do mesmo item.
+            {podeAdicionarMais && ' Depois de enviar, não é possível excluir — só o administrador remove.'}
+          </p>
           <div className="space-y-3">
             {ADMISSAO_DOC_TIPOS.map(doc => {
               const enviadoDoc = docsEnviados.has(doc.id)
-              const podeEnviar = !bloqueado && (!enviadoDoc || permiteSubstituirDocumentos)
+              const qtd = qtdPorTipo[doc.id] ?? 0
+              const podeEnviar =
+                !bloqueado && (!enviadoDoc || permiteSubstituirDocumentos || podeAdicionarMais)
+              const rotuloBotao = (() => {
+                if (uploading === doc.id) return 'Enviando…'
+                if (!enviadoDoc) return 'Enviar'
+                if (permiteSubstituirDocumentos) return 'Substituir'
+                if (podeAdicionarMais) return 'Adicionar mais'
+                return 'Enviado'
+              })()
               return (
                 <div
                   key={doc.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[rgba(212,168,83,0.15)] p-3"
                 >
-                  <div className="flex items-center gap-2">
-                    {enviadoDoc && <Check size={16} className="text-emerald-400" />}
-                    <span className="text-sm text-[#f0e0d2]">{doc.label}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {enviadoDoc && <Check size={16} className="shrink-0 text-emerald-400" />}
+                      <span className="text-sm text-[#f0e0d2]">{doc.label}</span>
+                    </div>
+                    {qtd > 0 && (
+                      <p className="mt-1 text-xs text-[#b8957f]">
+                        {qtd} arquivo{qtd > 1 ? 's' : ''} enviado{qtd > 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                   <input
                     ref={el => { fileRefs.current[doc.id] = el }}
                     type="file"
+                    multiple={podeAdicionarMais || permiteSubstituirDocumentos}
                     accept="image/*,application/pdf"
                     className="hidden"
                     disabled={!podeEnviar}
                     onChange={e => {
-                      const f = e.target.files?.[0]
-                      if (f) void uploadDoc(doc.id, f)
+                      const files = e.target.files ? Array.from(e.target.files) : []
+                      if (files.length) void uploadDocs(doc.id, files)
                       e.target.value = ''
                     }}
                   />
@@ -319,11 +350,7 @@ export function FuncionarioMeusDocumentosForm({
                     onClick={() => fileRefs.current[doc.id]?.click()}
                   >
                     <Upload size={14} />
-                    {uploading === doc.id
-                      ? 'Enviando…'
-                      : enviadoDoc
-                        ? (permiteSubstituirDocumentos ? 'Substituir' : 'Enviado')
-                        : 'Enviar'}
+                    {rotuloBotao}
                   </button>
                 </div>
               )
