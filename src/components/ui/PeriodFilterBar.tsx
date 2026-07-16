@@ -242,6 +242,8 @@ export function PeriodFilterBar({ value, onChange, monthYearSpan }: PeriodFilter
     onChange({ ...value, mode: 'all', month: undefined })
   }
 
+  const currentYear = todayISO().slice(0, 4)
+
   const handleYearChange = (year: string) => {
     setPickYear(year)
     const month = year ? pickMonth : ''
@@ -251,7 +253,10 @@ export function PeriodFilterBar({ value, onChange, monthYearSpan }: PeriodFilter
 
   const handleMonthChange = (month: string) => {
     setPickMonth(month)
-    commitYearMonth(pickYear, month)
+    // Se o mês for escolhido sem ano, usa o ano atual para o filtro funcionar de imediato
+    const year = month ? (pickYear || currentYear) : pickYear
+    if (month && !pickYear) setPickYear(year)
+    commitYearMonth(year, month)
   }
 
   const isDayActive = value.mode === 'fixed-day'
@@ -292,8 +297,7 @@ export function PeriodFilterBar({ value, onChange, monthYearSpan }: PeriodFilter
           style={selectCompactStyle(isFixedMonthActive)}
           value={pickMonth}
           onChange={e => handleMonthChange(e.target.value)}
-          disabled={!pickYear}
-          title={pickYear ? 'Selecionar mês' : 'Selecione o ano primeiro'}
+          title="Selecionar mês"
           aria-label="Selecionar mês"
         >
           <option value="">Mês</option>
