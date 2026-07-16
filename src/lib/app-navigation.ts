@@ -156,6 +156,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     url: '/agenda-obras',
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
+    roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin', 'Financeiro'],
   },
   {
     id: 'acompanhamentoObras',
@@ -171,6 +172,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     url: '/calendario-obras',
     icon: CalendarDays,
     radialColor: 'rgba(96,165,250,0.92)',
+    roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin'],
   },
   {
     id: 'calendarioChegadaMateriais',
@@ -223,7 +225,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/agenda-obras',
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
-    roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin'],
+    roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin', 'Financeiro'],
     children: OBRAS_CHILDREN,
   },
   {

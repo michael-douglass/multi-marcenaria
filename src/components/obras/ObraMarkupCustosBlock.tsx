@@ -9,7 +9,7 @@ interface ObraMarkupCustosBlockProps {
   variant?: 'compact' | 'default'
 }
 
-/** Bloco de custos do markup abaixo do pedido de material (só Administrador). */
+/** Bloco de custos do markup abaixo do pedido de material (Administrador e Financeiro). */
 export function ObraMarkupCustosBlock({
   custos,
   filtro,

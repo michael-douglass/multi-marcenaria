@@ -10,7 +10,7 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 
 export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras'],
   Marceneiro: ['dashboard'],
   MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'meuPerfil', 'baterPonto'],
   AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao', 'meuPerfil', 'baterPonto'],
@@ -36,6 +36,11 @@ export function canAccessSection(roles: UserRole[], section: ActiveSection): boo
 
 export function isAdministrador(roles: UserRole[]): boolean {
   return roles.includes('Administrador')
+}
+
+/** Custos do markup na Agenda (Pedido a fazer + bloco nos cards). */
+export function canViewMarkupCustos(roles: UserRole[]): boolean {
+  return isAdministrador(roles) || roles.includes('Financeiro')
 }
 
 const CAMPO_ROLES: UserRole[] = ['Montador', 'MontadorAdmin', 'AdministradorObras']

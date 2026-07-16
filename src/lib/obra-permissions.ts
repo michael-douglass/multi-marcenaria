@@ -1,7 +1,7 @@
 import type { ObraFull, UserRole } from '@/types'
 import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from './obra-montadores'
 
-const OBRAS_MENU_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin', 'Montador']
+const OBRAS_MENU_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin', 'Montador', 'Financeiro']
 const OBRAS_ADMIN_SECTION_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin']
 
 export function hasObrasMenuAccess(roles: UserRole[]): boolean {

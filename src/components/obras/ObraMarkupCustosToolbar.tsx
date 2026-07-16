@@ -15,7 +15,7 @@ const FILTRO_OPTS: Array<{ key: keyof MarkupCustosFiltro; label: string }> = [
   { key: 'despesas', label: 'Despesas' },
 ]
 
-/** Total “pedido a fazer” + filtro de categorias de custo (somente Administrador). */
+/** Total “pedido a fazer” + filtro de categorias de custo (Administrador e Financeiro). */
 export function ObraMarkupCustosToolbar({
   totalPedidoAFazer,
   filtro,

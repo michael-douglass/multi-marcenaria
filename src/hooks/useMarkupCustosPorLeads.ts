@@ -5,7 +5,7 @@ import type { MarkupOrcamentoCustos, ObraFull } from '@/types'
 
 /**
  * Carrega totais do markup (emp_garbo) por lead das obras.
- * Só faz a chamada quando enabled (Administrador).
+ * Só faz a chamada quando enabled (Administrador ou Financeiro).
  */
 export function useMarkupCustosPorLeads(
   obras: Pick<ObraFull, 'origem_lead_id'>[],

@@ -39,7 +39,7 @@ import {
   sumPedidoAFazerCustos,
 } from '../lib/obra-markup-custos'
 import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
-import { isAdministrador } from '../lib/role-access'
+import { canViewMarkupCustos as roleCanViewMarkupCustos } from '../lib/role-access'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
   readAgendaMesFiltroPrefs,
@@ -533,7 +533,7 @@ function AgendaObrasContent() {
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
-  const canViewMarkupCustos = isAdministrador(roles)
+  const canViewMarkupCustos = roleCanViewMarkupCustos(roles)
 
   const { custosByLead, loading: loadingMarkupCustos } = useMarkupCustosPorLeads(
     obrasHook.data,
