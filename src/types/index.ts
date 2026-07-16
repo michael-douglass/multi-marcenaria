@@ -658,9 +658,15 @@ export interface FinanceiroStats {
   clientesAtivos: number
   clientesPendentesContrato: number
   totalAReceber: number
+  /** Contas a pagar pendentes com vencimento neste mês (valor ainda em aberto). */
+  totalAPagarMes: number
+  /** A receber este mês − a pagar este mês. */
+  saldoMes: number
   totalRecebidoMes: number
   totalAtrasado: number
   previsaoProximoMes: number
+  /** Previsão próximo mês − despesas próximo mês. */
+  saldoProximoMes: number
   previsaoAno: number
   despesasProximoMes: number
   ticketMedio: number // novos clientes do mês (valor plano / qtd)

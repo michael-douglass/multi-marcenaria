@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FinanceiroStats, DadoGraficoMensal, DadoGraficoComparativo } from '@/types'
-import { startOfMonth, endOfMonth, format, subMonths, addMonths, isAfter, isBefore, parseISO } from 'date-fns'
+import { startOfMonth, endOfMonth, format, addMonths } from 'date-fns'
 
 export function useFinanceiroStats() {
   return useQuery<FinanceiroStats>({
-    queryKey: ['financeiro-stats'],
+    queryKey: ['financeiro-stats', 'v2-saldo-mes'],
     queryFn: async () => {
       const now = new Date()
       const firstDayMes = format(startOfMonth(now), 'yyyy-MM-dd')
@@ -29,6 +29,22 @@ export function useFinanceiroStats() {
         .lte('data_vencimento', lastDayMes)
       
       const totalAReceber = (aReceberData ?? []).reduce((acc, curr) => acc + Number(curr.valor_parcela), 0)
+
+      // 2b. A Pagar Este Mês (pendentes / parcial com vencimento no mês)
+      const { data: aPagarData } = await supabase
+        .from('movelaria_contas_pagar')
+        .select('valor_parcela, valor_pago, status')
+        .in('status', ['pendente', 'parcialmente_pago'])
+        .gte('data_vencimento', firstDayMes)
+        .lte('data_vencimento', lastDayMes)
+
+      const totalAPagarMes = (aPagarData ?? []).reduce((acc, curr) => {
+        const parcela = Number(curr.valor_parcela)
+        const pago = Number(curr.valor_pago ?? 0)
+        return acc + Math.max(0, parcela - pago)
+      }, 0)
+
+      const saldoMes = totalAReceber - totalAPagarMes
 
       // 3. Recebido Este Mês (status recebido com data_recebimento no mês)
       const { data: recebidoData } = await supabase
@@ -81,15 +97,21 @@ export function useFinanceiroStats() {
         ? todasParcelasMes.reduce((acc, curr) => acc + Number(curr.valor_parcela), 0) / todasParcelasMes.length
         : 0
 
-      // 8. Despesas Próximo Mês
+      // 8. Despesas Próximo Mês (pendentes / parcial com vencimento no próx mês)
       const { data: despesasProxData } = await supabase
         .from('movelaria_contas_pagar')
-        .select('valor_parcela')
-        .eq('status', 'pendente')
+        .select('valor_parcela, valor_pago, status')
+        .in('status', ['pendente', 'parcialmente_pago'])
         .gte('data_vencimento', firstDayProxMes)
         .lte('data_vencimento', lastDayProxMes)
 
-      const despesasProximoMes = (despesasProxData ?? []).reduce((acc, curr) => acc + Number(curr.valor_parcela), 0)
+      const despesasProximoMes = (despesasProxData ?? []).reduce((acc, curr) => {
+        const parcela = Number(curr.valor_parcela)
+        const pago = Number(curr.valor_pago ?? 0)
+        return acc + Math.max(0, parcela - pago)
+      }, 0)
+
+      const saldoProximoMes = previsaoProximoMes - despesasProximoMes
 
       // 9. Previsão Ano (Simplificada: soma pagos no ano / meses passados * 12)
       const startOfYear = format(new Date(now.getFullYear(), 0, 1), 'yyyy-MM-dd')
@@ -119,9 +141,12 @@ export function useFinanceiroStats() {
         clientesAtivos: clientesAtivos ?? 0,
         clientesPendentesContrato: 0, // Placeholder
         totalAReceber,
+        totalAPagarMes,
+        saldoMes,
         totalRecebidoMes,
         totalAtrasado,
         previsaoProximoMes,
+        saldoProximoMes,
         previsaoAno,
         despesasProximoMes,
         ticketMedio,
@@ -135,7 +160,7 @@ export function useFinanceiroStats() {
 
 export function useGraficoReceitasMensal(ano: number = new Date().getFullYear()) {
   return useQuery<DadoGraficoMensal[]>({
-    queryKey: ['grafico-receitas-mensal', ano],
+    queryKey: ['grafico-receitas-mensal', ano, 'v2'],
     queryFn: async () => {
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
       const data: DadoGraficoMensal[] = meses.map(m => ({ mes: m, valor: 0 }))
@@ -151,11 +176,11 @@ export function useGraficoReceitasMensal(ano: number = new Date().getFullYear())
         .lte('data_recebimento', end)
 
       if (receitas) {
-        receitas.forEach(r => {
-          const date = parseISO(r.data_recebimento!)
-          const mesIdx = date.getMonth()
-          data[mesIdx].valor += Number(r.valor_parcela)
-        })
+        for (const r of receitas) {
+          const mesIdx = monthIndexFromIso(r.data_recebimento)
+          if (mesIdx == null) continue
+          data[mesIdx].valor += Number(r.valor_parcela) || 0
+        }
       }
 
       return data
@@ -163,9 +188,13 @@ export function useGraficoReceitasMensal(ano: number = new Date().getFullYear())
   })
 }
 
+/**
+ * Despesas mensais alinhadas ao KPI "Pago (mês)" de Contas a Pagar:
+ * soma o valor efetivamente pago das contas com vencimento naquele mês.
+ */
 export function useGraficoDespesasMensal(ano: number = new Date().getFullYear()) {
   return useQuery<DadoGraficoMensal[]>({
-    queryKey: ['grafico-despesas-mensal', ano],
+    queryKey: ['grafico-despesas-mensal', ano, 'v3-vencimento-pago'],
     queryFn: async () => {
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
       const data: DadoGraficoMensal[] = meses.map(m => ({ mes: m, valor: 0 }))
@@ -175,20 +204,39 @@ export function useGraficoDespesasMensal(ano: number = new Date().getFullYear())
 
       const { data: despesas } = await supabase
         .from('movelaria_contas_pagar')
-        .select('valor_parcela, data_pagamento')
-        .eq('status', 'pago')
-        .gte('data_pagamento', start)
-        .lte('data_pagamento', end)
+        .select('valor_parcela, valor_pago, status, data_vencimento, data_pagamento')
+        .in('status', ['pago', 'parcialmente_pago'])
+        .gte('data_vencimento', start)
+        .lte('data_vencimento', end)
 
       if (despesas) {
-        despesas.forEach(d => {
-          const date = parseISO(d.data_pagamento!)
-          const mesIdx = date.getMonth()
-          data[mesIdx].valor += Number(d.valor_parcela)
-        })
+        for (const d of despesas) {
+          const mesIdx = monthIndexFromIso(d.data_vencimento)
+          if (mesIdx == null) continue
+          data[mesIdx].valor += valorPagoEfetivo(d)
+        }
       }
 
       return data
     }
   })
+}
+
+/** Índice do mês (0–11) a partir de YYYY-MM-DD, sem efeito de fuso. */
+function monthIndexFromIso(iso: string | null | undefined): number | null {
+  if (!iso || iso.length < 7) return null
+  const month = Number(iso.slice(5, 7))
+  if (!Number.isFinite(month) || month < 1 || month > 12) return null
+  return month - 1
+}
+
+function valorPagoEfetivo(conta: {
+  valor_parcela?: number | null
+  valor_pago?: number | null
+  status?: string | null
+}): number {
+  const pago = Number(conta.valor_pago ?? 0)
+  if (pago > 0) return pago
+  if (conta.status === 'pago') return Number(conta.valor_parcela ?? 0) || 0
+  return 0
 }

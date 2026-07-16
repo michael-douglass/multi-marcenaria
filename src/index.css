@@ -1239,6 +1239,21 @@ body::before {
   /* ── Fade-in animation ── */
   .fade-in { animation: fadeUp .28s ease-out forwards; }
 
+  .dash-card-enter {
+    animation: dashCardEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes dashCardEnter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* ── Modal / popup de cadastro ── */
   .modal-overlay {
     position: fixed;
