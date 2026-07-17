@@ -234,6 +234,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
           {tab === 'documentos' && (
             <FuncionarioDocumentosPanel
               funcionarioId={funcionario.id}
+              funcionarioNome={funcionario.nome}
               documentos={documentos}
               readOnly={edicaoBloqueada}
               onReload={() => void reload()}
