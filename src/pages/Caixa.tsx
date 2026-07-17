@@ -14,6 +14,8 @@ import { CaixaComprovantePrintModal } from '@/components/caixa/CaixaComprovanteP
 import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import { CaixaValorEditavel } from '@/components/caixa/CaixaValorEditavel'
+import { AjustarValorRealDialog } from '@/components/caixa/AjustarValorRealDialog'
+import type { ContaPagarResumoCaixa } from '@/hooks/useCaixa'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
 const normBusca = (s: string) =>
@@ -78,6 +80,8 @@ function CaixaContent({
     movimentacoes,
     desfazerReserva,
     ajustarTotalConsolidado,
+    listarContasValorReal,
+    ajustarValorReal,
   } = useCaixaContext()
   const reciboHook = useReciboConfig()
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
@@ -136,9 +140,31 @@ function CaixaContent({
   const [saldoDialogOpen, setSaldoDialogOpen] = useState(false)
   const [pagarReserva, setPagarReserva] = useState<ReservaConsolidada | null>(null)
   const [comprovanteReserva, setComprovanteReserva] = useState<ReservaConsolidada | null>(null)
+  const [valorRealReserva, setValorRealReserva] = useState<ReservaConsolidada | null>(null)
+  const [contasValorReal, setContasValorReal] = useState<ContaPagarResumoCaixa[]>([])
+  const [loadingContasValorReal, setLoadingContasValorReal] = useState(false)
 
   const abrirComprovante = (item: ReservaConsolidada) => {
     setComprovanteReserva(item)
+  }
+
+  const abrirAjusteValorReal = async (item: ReservaConsolidada) => {
+    setValorRealReserva(item)
+    setContasValorReal([])
+    setLoadingContasValorReal(true)
+    try {
+      const contas = await listarContasValorReal(
+        item.destinatario_nome,
+        item.mes_referencia,
+        item.ano_referencia,
+      )
+      setContasValorReal(contas)
+    } catch (err) {
+      setValorRealReserva(null)
+      alert(err instanceof Error ? err.message : 'Não foi possível carregar Contas a Pagar.')
+    } finally {
+      setLoadingContasValorReal(false)
+    }
   }
 
   const handleDesfazerReserva = async (item: ReservaConsolidada) => {
@@ -325,7 +351,14 @@ function CaixaContent({
                             {item.totalLancamentosMes}
                           </td>
                           <td className="px-6 py-4 text-right font-semibold text-cream/90">
-                            {fmtCur(item.valor_total_real)}
+                            <button
+                              type="button"
+                              title="Clique para ajustar o valor real (Contas a Pagar)"
+                              onClick={() => void abrirAjusteValorReal(item)}
+                              className="ml-auto block w-full cursor-pointer rounded px-1 py-0.5 text-right transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                            >
+                              {fmtCur(item.valor_total_real)}
+                            </button>
                           </td>
                           <td className="px-6 py-4 text-right font-semibold text-cream/60">
                             <CaixaValorEditavel
@@ -521,6 +554,26 @@ function CaixaContent({
         open={!!pagarReserva}
         onOpenChange={open => !open && setPagarReserva(null)}
         reserva={pagarReserva}
+      />
+
+      <AjustarValorRealDialog
+        open={!!valorRealReserva}
+        reserva={valorRealReserva}
+        contas={contasValorReal}
+        loadingContas={loadingContasValorReal}
+        onClose={() => {
+          setValorRealReserva(null)
+          setContasValorReal([])
+        }}
+        onConfirm={async novoTotal => {
+          if (!valorRealReserva) return
+          await ajustarValorReal({
+            destinatarioNome: valorRealReserva.destinatario_nome,
+            mes: valorRealReserva.mes_referencia,
+            ano: valorRealReserva.ano_referencia,
+            novoTotal,
+          })
+        }}
       />
 
       <SaldoDisponivelDialog

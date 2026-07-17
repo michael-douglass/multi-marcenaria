@@ -29,6 +29,31 @@ export interface AjustarTotalConsolidadoParams {
   novoTotal: number
 }
 
+export interface ContaPagarResumoCaixa {
+  id: string
+  descricao: string | null
+  valor_parcela: number
+  status: string
+  data_vencimento: string
+}
+
+export interface AjustarValorRealParams {
+  destinatarioNome: string
+  mes: number
+  ano: number
+  novoTotal: number
+}
+
+function periodoMes(mes: number, ano: number) {
+  const startOfMonth = `${ano}-${String(mes).padStart(2, '0')}-01`
+  const endOfMonth = new Date(ano, mes, 0).toISOString().split('T')[0]
+  return { startOfMonth, endOfMonth }
+}
+
+function nomeFornecedorKey(nome: string): string {
+  return nome.toLowerCase().trim()
+}
+
 function isMovimentacaoAjusteManual(mov: {
   conta_pagar_id?: string | null
   descricao?: string | null
@@ -268,6 +293,128 @@ export function useCaixa(mes: number, ano: number) {
     await load({ silent: true })
   }
 
+  /** Contas a pagar do destinatário no mês (base do "Valor real"). */
+  const listarContasValorReal = async (
+    destinatarioNome: string,
+    mesRef: number,
+    anoRef: number,
+  ): Promise<ContaPagarResumoCaixa[]> => {
+    const { startOfMonth, endOfMonth } = periodoMes(mesRef, anoRef)
+    const nomeKey = nomeFornecedorKey(destinatarioNome)
+
+    const { data, error } = await supabase
+      .from('movelaria_contas_pagar')
+      .select('id, fornecedor_nome, descricao, valor_parcela, status, data_vencimento')
+      .in('status', ['pendente', 'parcialmente_pago', 'pago'])
+      .gte('data_vencimento', startOfMonth)
+      .lte('data_vencimento', endOfMonth)
+      .order('data_vencimento', { ascending: true })
+
+    if (error) throw error
+
+    return (data ?? [])
+      .filter(cp => nomeFornecedorKey(cp.fornecedor_nome ?? '') === nomeKey)
+      .map(cp => ({
+        id: cp.id,
+        descricao: cp.descricao ?? null,
+        valor_parcela: Number(cp.valor_parcela) || 0,
+        status: cp.status,
+        data_vencimento: cp.data_vencimento,
+      }))
+  }
+
+  /**
+   * Ajusta o total operacional (Valor real) redistribuindo nas contas a pagar do mês.
+   */
+  const ajustarValorReal = async ({
+    destinatarioNome,
+    mes: mesRef,
+    ano: anoRef,
+    novoTotal,
+  }: AjustarValorRealParams) => {
+    if (!Number.isFinite(novoTotal) || novoTotal < 0) {
+      throw new Error('Informe um valor válido (zero ou positivo).')
+    }
+
+    const alvo = roundMoney(novoTotal)
+    const { startOfMonth, endOfMonth } = periodoMes(mesRef, anoRef)
+    const nomeKey = nomeFornecedorKey(destinatarioNome)
+
+    const { data, error } = await supabase
+      .from('movelaria_contas_pagar')
+      .select('id, fornecedor_nome, valor_parcela, valor_total, valor_pago, status, total_parcelas')
+      .in('status', ['pendente', 'parcialmente_pago', 'pago'])
+      .gte('data_vencimento', startOfMonth)
+      .lte('data_vencimento', endOfMonth)
+
+    if (error) throw error
+
+    const contas = (data ?? []).filter(
+      cp => nomeFornecedorKey(cp.fornecedor_nome ?? '') === nomeKey,
+    )
+
+    if (contas.length === 0) {
+      throw new Error(
+        'Não há lançamentos em Contas a Pagar para este destinatário neste mês.',
+      )
+    }
+
+    const somaAtual = roundMoney(
+      contas.reduce((acc, c) => acc + (Number(c.valor_parcela) || 0), 0),
+    )
+    if (Math.abs(alvo - somaAtual) <= EPS) return
+
+    const updatedAt = new Date().toISOString()
+    let alocado = 0
+
+    for (let i = 0; i < contas.length; i++) {
+      const conta = contas[i]
+      const valorAtual = Number(conta.valor_parcela) || 0
+      const ehUltima = i === contas.length - 1
+
+      let novoParcela: number
+      if (ehUltima) {
+        novoParcela = roundMoney(alvo - alocado)
+      } else if (somaAtual <= EPS) {
+        novoParcela = 0
+      } else {
+        novoParcela = roundMoney((valorAtual / somaAtual) * alvo)
+        alocado = roundMoney(alocado + novoParcela)
+      }
+
+      const totalParcelas = Number(conta.total_parcelas) || 1
+      const valorPagoAtual = Number(conta.valor_pago) || 0
+      const payload: Record<string, unknown> = {
+        valor_parcela: novoParcela,
+        atualizado_em: updatedAt,
+      }
+
+      if (totalParcelas <= 1) {
+        payload.valor_total = novoParcela
+      }
+
+      if (valorPagoAtual > novoParcela + EPS) {
+        payload.valor_pago = novoParcela
+        payload.status = novoParcela <= EPS ? 'pendente' : 'pago'
+      } else if (
+        conta.status === 'parcialmente_pago'
+        && valorPagoAtual > 0
+        && Math.abs(valorPagoAtual - novoParcela) <= EPS
+      ) {
+        payload.status = 'pago'
+      }
+
+      const { error: updError } = await supabase
+        .from('movelaria_contas_pagar')
+        .update(payload)
+        .eq('id', conta.id)
+
+      if (updError) throw updError
+    }
+
+    await load({ silent: true })
+  }
+
   /**
    * Define o total consolidado (reservado ou já pago) do destinatário no mês,
    * inserindo/ajustando/removendo movimentações até a soma bater com o valor desejado.
@@ -388,6 +535,8 @@ export function useCaixa(mes: number, ano: number) {
     removeDestinatario,
     desfazerReserva,
     ajustarTotalConsolidado,
+    listarContasValorReal,
+    ajustarValorReal,
     reload: load
   }
 }
