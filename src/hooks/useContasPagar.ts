@@ -479,12 +479,13 @@ export function useContasPagar() {
     const descricaoReserva =
       `Reserva automática via pagamento: ${conta.descricao?.trim() || 'Sem descrição'}`
 
-    const { error: reservaIdErr } = await supabase
+    // Remove reserva e qualquer pagamento ligado à conta (adiantar ≠ pagamento real)
+    const { error: movErr } = await supabase
       .from('movelaria_caixa_movimentacoes')
       .delete()
       .eq('conta_pagar_id', id)
-      .eq('tipo_movimentacao', 'reserva')
-    if (reservaIdErr) throw new Error(reservaIdErr.message)
+      .in('tipo_movimentacao', ['reserva', 'pagamento'])
+    if (movErr) throw new Error(movErr.message)
 
     if (conta.fornecedor_nome && mesRef && anoRef) {
       const { data: dests } = await supabase

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Upload } from 'lucide-react'
 import { Field } from '@/components/ui/Field'
+import { ValeTransporteFields } from '@/components/funcionarios/ValeTransporteFields'
 import { salvarMeuFuncionario } from '@/lib/meu-perfil-api'
 import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
 import { ADMISSAO_DOC_TIPOS, ADMISSAO_STATUS_LABEL } from '@/lib/funcionario-constants'
@@ -51,6 +52,10 @@ export function FuncionarioMeusDocumentosForm({
 
   const setDado = (key: keyof FuncionarioAdmissaoDados, value: string | boolean) => {
     setDados(prev => ({ ...prev, [key]: value }))
+  }
+
+  const patchDados = (patch: Partial<FuncionarioAdmissaoDados>) => {
+    setDados(prev => ({ ...prev, ...patch }))
   }
 
   const docsEnviados = new Set(payload.documentos.map(d => d.tipo_documento))
@@ -285,6 +290,15 @@ export function FuncionarioMeusDocumentosForm({
               />
             </Field>
           )}
+          <div className="border-t border-[rgba(212,168,83,0.2)] pt-4">
+            <h4 className="mb-3 text-sm font-medium text-[#f2d892]">Vale-transporte</h4>
+            <ValeTransporteFields
+              dados={dados}
+              disabled={bloqueado}
+              onChange={(key, value) => setDado(key, value)}
+              onPatch={patchDados}
+            />
+          </div>
         </div>
       )}
 

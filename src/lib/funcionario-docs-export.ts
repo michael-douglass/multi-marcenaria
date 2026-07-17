@@ -1,6 +1,11 @@
 import { garboBrandLogo } from '@/lib/garbo-brand'
 import { getFuncionarioDocSignedUrl } from '@/lib/funcionario-documentos'
-import type { FuncionarioDocumento } from '@/types'
+import {
+  DIAS_SEMANA_ADMISSAO,
+  resolveDiasAtivos,
+} from '@/lib/funcionario-horarios'
+import { fmtCur, fmtDate } from '@/lib/utils'
+import type { FuncionarioAdmissaoDados, FuncionarioDocumento } from '@/types'
 
 const NOME_EMPRESA = 'GARBO MOVELARIA'
 
@@ -10,6 +15,22 @@ export interface DocExportPage {
   imageUrl: string
   pagina?: number
   totalPaginas?: number
+}
+
+/** Dados de admissão exibidos no cabeçalho do PDF timbrado. */
+export interface DocExportAdmissaoMeta {
+  nome: string
+  cpf?: string | null
+  telefone?: string | null
+  email?: string | null
+  admissaoDados?: FuncionarioAdmissaoDados | null
+  /** Fallback quando `admissao_dados.salario` ainda estiver vazio. */
+  salarioFixoMensal?: number | null
+}
+
+interface MetaField {
+  label: string
+  value: string
 }
 
 function escapeHtml(value: string): string {
@@ -41,6 +62,177 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function escolaridadeLabel(value: string | undefined): string {
+  if (value === '1o_grau') return '1º Grau'
+  if (value === '2o_grau') return '2º Grau'
+  if (value === 'superior') return 'Superior'
+  return value?.trim() || ''
+}
+
+function resolveSalario(
+  dados: FuncionarioAdmissaoDados | null | undefined,
+  salarioFixoMensal?: number | null,
+): string {
+  const salvo = dados?.salario?.trim()
+  if (salvo) return salvo
+  if (salarioFixoMensal != null && salarioFixoMensal > 0) return fmtCur(salarioFixoMensal)
+  return ''
+}
+
+function strField(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+/** Campos gerais da admissão (sem horários — horários vão em tabela própria). */
+export function buildAdmissaoMetaFields(
+  meta: DocExportAdmissaoMeta,
+  arquivoTitulo: string,
+): MetaField[] {
+  const d = meta.admissaoDados ?? {}
+  const fields: MetaField[] = [
+    { label: 'Colaborador', value: meta.nome },
+    { label: 'Arquivo', value: arquivoTitulo },
+  ]
+
+  const cpf = strField(meta.cpf) || strField(d.cpf)
+  if (cpf) fields.push({ label: 'CPF', value: cpf })
+
+  const pis = strField(d.pis)
+  if (pis) fields.push({ label: 'PIS', value: pis })
+
+  if (d.data_admissao) {
+    fields.push({ label: 'Data de admissão', value: fmtDate(d.data_admissao) })
+  }
+
+  const salario = resolveSalario(d, meta.salarioFixoMensal)
+  if (salario) fields.push({ label: 'Salário', value: salario })
+
+  const funcao = strField(d.funcao)
+  if (funcao) fields.push({ label: 'Função', value: funcao })
+
+  const telefoneEmpresa = strField(d.telefone_empresa)
+  const telefonePessoal = strField(d.telefone) || strField(meta.telefone)
+  if (telefoneEmpresa) fields.push({ label: 'Telefone (empresa)', value: telefoneEmpresa })
+  if (telefonePessoal && telefonePessoal !== telefoneEmpresa) {
+    fields.push({ label: 'Telefone', value: telefonePessoal })
+  } else if (!telefoneEmpresa && telefonePessoal) {
+    fields.push({ label: 'Telefone', value: telefonePessoal })
+  }
+
+  const email =
+    strField(d.email_pessoal) || strField(d.email) || strField(meta.email)
+  if (email) fields.push({ label: 'E-mail', value: email })
+
+  const endereco = strField(d.endereco)
+  if (endereco) fields.push({ label: 'Endereço', value: endereco })
+
+  const esc = escolaridadeLabel(d.escolaridade)
+  if (esc) fields.push({ label: 'Escolaridade', value: esc })
+
+  if (d.tem_filhos) {
+    fields.push({ label: 'Filhos menores', value: 'Sim' })
+    const filhosInfo = strField(d.filhos_info)
+    if (filhosInfo) fields.push({ label: 'Info. filhos', value: filhosInfo })
+  } else if (d.tem_filhos === false) {
+    fields.push({ label: 'Filhos menores', value: 'Não' })
+  }
+
+  if (d.usa_vale_transporte) {
+    fields.push({ label: 'Usa vale-transporte', value: 'Sim' })
+    if (strField(d.vt_quantidade_dia)) {
+      fields.push({ label: 'VT — qtd. por dia', value: strField(d.vt_quantidade_dia) })
+    }
+    if (strField(d.vt_valor_unitario)) {
+      fields.push({ label: 'VT — valor unitário', value: `R$ ${strField(d.vt_valor_unitario)}` })
+    }
+    if (strField(d.vt_valor_diario)) {
+      fields.push({ label: 'VT — total do dia', value: `R$ ${strField(d.vt_valor_diario)}` })
+    }
+  } else if (d.usa_vale_transporte === false) {
+    fields.push({ label: 'Usa vale-transporte', value: 'Não' })
+  }
+
+  // Compatibilidade com dados antigos (texto único de horário)
+  if (!d.horarios_semana) {
+    if (strField(d.horario_seg_sex)) {
+      fields.push({ label: 'Horário Seg–Sex', value: strField(d.horario_seg_sex) })
+    }
+    if (strField(d.horario_seg_sab)) {
+      fields.push({ label: 'Horário Seg–Sáb', value: strField(d.horario_seg_sab) })
+    }
+  }
+
+  return fields
+}
+
+function buildHorariosTableHtml(dados: FuncionarioAdmissaoDados | null | undefined): string {
+  const d = dados ?? {}
+  const horarios = d.horarios_semana
+  if (!horarios) return ''
+
+  const ativos = resolveDiasAtivos(d.horarios_dias_ativos, horarios)
+  const linhas = DIAS_SEMANA_ADMISSAO.filter(({ id }) => ativos.includes(id))
+    .map(({ id, label }) => {
+      const dia = horarios[id]
+      if (!dia && !ativos.includes(id)) return ''
+      const temAlgo = !!(
+        dia?.chegada
+        || dia?.saida_almoco
+        || dia?.retorno_almoco
+        || dia?.saida_servico
+      )
+      if (!temAlgo) return ''
+      return `
+        <tr>
+          <td class="doc-h-dia">${escapeHtml(label)}</td>
+          <td>${escapeHtml(dia?.chegada || '—')}</td>
+          <td>${escapeHtml(dia?.saida_almoco || '—')}</td>
+          <td>${escapeHtml(dia?.retorno_almoco || '—')}</td>
+          <td>${escapeHtml(dia?.saida_servico || '—')}</td>
+        </tr>`
+    })
+    .filter(Boolean)
+
+  if (!linhas.length) return ''
+
+  return `
+    <div class="doc-horarios">
+      <p class="doc-horarios__titulo">Horários de trabalho</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Dia</th>
+            <th>Chegada</th>
+            <th>Saída almoço</th>
+            <th>Retorno almoço</th>
+            <th>Saída serviço</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhas.join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function buildMetaHtml(fields: MetaField[]): string {
+  if (!fields.length) return ''
+  return `
+    <div class="doc-meta">
+      ${fields
+        .map(
+          f => `
+        <div>
+          <span>${escapeHtml(f.label)}</span>
+          <strong>${escapeHtml(f.value)}</strong>
+        </div>`,
+        )
+        .join('')}
+    </div>
+  `
 }
 
 /** Resolve URLs de imagem (preview) de cada documento selecionado. */
@@ -93,12 +285,13 @@ export async function resolverPaginasExportacao(
 function buildPaginaTimbrada(
   page: DocExportPage,
   logoUrl: string,
-  funcionarioNome: string,
+  meta: DocExportAdmissaoMeta,
   cnpj: string,
 ): string {
   const titulo = escapeHtml(page.titulo)
-  const nome = escapeHtml(funcionarioNome)
   const cnpjSafe = escapeHtml(cnpj || '—')
+  const metaFields = buildAdmissaoMetaFields(meta, page.titulo)
+  const horariosHtml = buildHorariosTableHtml(meta.admissaoDados)
   const paginaLabel =
     page.pagina != null && page.totalPaginas != null
       ? `<p class="doc-pagina">Página ${page.pagina} de ${page.totalPaginas}</p>`
@@ -118,16 +311,8 @@ function buildPaginaTimbrada(
         </div>
       </div>
 
-      <div class="doc-meta">
-        <div>
-          <span>Colaborador</span>
-          <strong>${nome}</strong>
-        </div>
-        <div>
-          <span>Arquivo</span>
-          <strong>${titulo}</strong>
-        </div>
-      </div>
+      ${buildMetaHtml(metaFields)}
+      ${horariosHtml}
       ${paginaLabel}
 
       <div class="doc-midia">
@@ -143,20 +328,20 @@ function buildPaginaTimbrada(
 
 export function buildDocsTimbradoHtml(
   pages: DocExportPage[],
-  funcionarioNome: string,
+  meta: DocExportAdmissaoMeta,
   cnpj?: string | null,
 ): string {
   const logoUrl = new URL(garboBrandLogo, window.location.origin).href
   const cnpjSafe = cnpj?.trim() || '—'
   const body = pages
-    .map(p => buildPaginaTimbrada(p, logoUrl, funcionarioNome, cnpjSafe))
+    .map(p => buildPaginaTimbrada(p, logoUrl, meta, cnpjSafe))
     .join('')
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Documentos — ${escapeHtml(funcionarioNome)}</title>
+  <title>Documentos — ${escapeHtml(meta.nome)}</title>
   <style>
     @page { size: A4 portrait; margin: 10mm; }
     * { box-sizing: border-box; }
@@ -193,25 +378,57 @@ export function buildDocsTimbradoHtml(
     .doc-meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 3mm;
-      margin-bottom: 4mm;
+      gap: 2mm;
+      margin-bottom: 3mm;
     }
     .doc-meta div {
       border: 1px solid #e0d5c8;
-      padding: 3mm;
-      font-size: 9pt;
+      padding: 2mm 2.5mm;
+      font-size: 8pt;
     }
     .doc-meta span {
       display: block;
       color: #777;
-      font-size: 7.5pt;
+      font-size: 6.5pt;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: 1mm;
+      margin-bottom: 0.8mm;
     }
-    .doc-meta strong { font-size: 10pt; word-break: break-word; }
+    .doc-meta strong { font-size: 9pt; word-break: break-word; }
+    .doc-horarios {
+      margin-bottom: 3mm;
+      border: 1px solid #e0d5c8;
+      padding: 2mm;
+    }
+    .doc-horarios__titulo {
+      margin: 0 0 2mm;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #777;
+    }
+    .doc-horarios table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+    }
+    .doc-horarios th,
+    .doc-horarios td {
+      border: 1px solid #e8dfd2;
+      padding: 1.5mm 2mm;
+      text-align: left;
+    }
+    .doc-horarios th {
+      background: #f7f1e8;
+      font-size: 6.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #666;
+      font-weight: 600;
+    }
+    .doc-h-dia { font-weight: 600; white-space: nowrap; }
     .doc-pagina {
-      margin: 0 0 3mm;
+      margin: 0 0 2mm;
       font-size: 8pt;
       color: #666;
       text-align: right;
@@ -219,7 +436,7 @@ export function buildDocsTimbradoHtml(
     .doc-midia {
       border: 1px solid #ddd;
       background: #faf8f5;
-      min-height: 120mm;
+      min-height: 80mm;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -227,12 +444,12 @@ export function buildDocsTimbradoHtml(
     }
     .doc-midia img {
       max-width: 100%;
-      max-height: 180mm;
+      max-height: 140mm;
       object-fit: contain;
       display: block;
     }
     .doc-footer {
-      margin-top: 4mm;
+      margin-top: 3mm;
       padding-top: 2mm;
       border-top: 1px solid #ddd;
       font-size: 8pt;
@@ -248,11 +465,11 @@ export function buildDocsTimbradoHtml(
 /** Abre impressão / “Salvar como PDF” com páginas timbradas. */
 export function imprimirDocsTimbrados(
   pages: DocExportPage[],
-  funcionarioNome: string,
+  meta: DocExportAdmissaoMeta,
   cnpj?: string | null,
 ): void {
   if (!pages.length) return
-  const html = buildDocsTimbradoHtml(pages, funcionarioNome, cnpj)
+  const html = buildDocsTimbradoHtml(pages, meta, cnpj)
   const win = window.open('', '_blank')
   if (!win) {
     throw new Error('Permita pop-ups para gerar o PDF.')

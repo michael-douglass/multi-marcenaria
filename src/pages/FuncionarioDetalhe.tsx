@@ -46,7 +46,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
       ? tabParam
       : 'vinculos'
   const { roles } = useApp()
-  const { funcionario, documentos, recibos, contasPagar, loading, error, reload } = useFuncionarioDetalhe(id)
+  const { funcionario, documentos, recibos, contasPagar, valorFixoMensal, loading, error, reload, applyLocalPatch } = useFuncionarioDetalhe(id)
   const { update, dispensar } = useFuncionarios()
   const { data: usuarios } = useUsuarios()
   const [tab, setTab] = useState<Tab>(tabInicial)
@@ -62,10 +62,14 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
 
   const handleUpdate = async (input: Partial<FuncionarioInput>) => {
     if (!id || edicaoBloqueada) return
+    // Atualiza a tela na hora (sem “piscar”) e grava no banco em segundo plano.
+    applyLocalPatch(input)
     setSaving(true)
     try {
       await update(id, input)
-      await reload()
+      if (input.usuario_id !== undefined) {
+        await reload({ silent: true })
+      }
     } finally {
       setSaving(false)
     }
@@ -205,6 +209,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <div className="space-y-8">
               <FuncionarioAdmissaoForm
                 funcionario={funcionario}
+                salarioFixoMensal={valorFixoMensal}
                 readOnly={edicaoBloqueada}
                 onUpdate={handleUpdate}
                 saving={saving}
@@ -235,6 +240,11 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <FuncionarioDocumentosPanel
               funcionarioId={funcionario.id}
               funcionarioNome={funcionario.nome}
+              funcionarioCpf={funcionario.cpf}
+              funcionarioTelefone={funcionario.telefone}
+              funcionarioEmail={funcionario.email}
+              admissaoDados={funcionario.admissao_dados}
+              salarioFixoMensal={valorFixoMensal}
               documentos={documentos}
               readOnly={edicaoBloqueada}
               onReload={() => void reload()}

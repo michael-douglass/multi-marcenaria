@@ -28,11 +28,16 @@ import {
 } from '@/lib/funcionario-docs-export'
 import { isAdministrador } from '@/lib/role-access'
 import { cn } from '@/lib/utils'
-import type { FuncionarioDocumento, PendingFuncionarioDocumento } from '@/types'
+import type { FuncionarioAdmissaoDados, FuncionarioDocumento, PendingFuncionarioDocumento } from '@/types'
 
 interface Props {
   funcionarioId: string
   funcionarioNome: string
+  funcionarioCpf?: string | null
+  funcionarioTelefone?: string | null
+  funcionarioEmail?: string | null
+  admissaoDados?: FuncionarioAdmissaoDados | null
+  salarioFixoMensal?: number | null
   documentos: FuncionarioDocumento[]
   readOnly?: boolean
   onReload: () => void
@@ -45,6 +50,11 @@ const PASTA_PONTO_LABEL = 'Documentos de ponto'
 export function FuncionarioDocumentosPanel({
   funcionarioId,
   funcionarioNome,
+  funcionarioCpf,
+  funcionarioTelefone,
+  funcionarioEmail,
+  admissaoDados,
+  salarioFixoMensal,
   documentos,
   readOnly,
   onReload,
@@ -148,7 +158,18 @@ export function FuncionarioDocumentosPanel({
     try {
       const pages = await resolverPaginasExportacao(docsSelecionados)
       if (modo === 'pdf') {
-        imprimirDocsTimbrados(pages, funcionarioNome, reciboConfig?.cnpj)
+        imprimirDocsTimbrados(
+          pages,
+          {
+            nome: funcionarioNome,
+            cpf: funcionarioCpf,
+            telefone: funcionarioTelefone,
+            email: funcionarioEmail,
+            admissaoDados,
+            salarioFixoMensal,
+          },
+          reciboConfig?.cnpj,
+        )
       } else {
         await baixarDocsComoImagens(pages)
       }

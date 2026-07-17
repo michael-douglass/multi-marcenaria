@@ -725,6 +725,25 @@ export type FuncionarioAdmissaoStatus = 'pendente' | 'preenchido_funcionario' | 
 
 export type FuncionarioReciboStatus = 'gerado' | 'aguardando_assinatura' | 'assinado'
 
+export type DiaSemanaAdmissao =
+  | 'segunda'
+  | 'terca'
+  | 'quarta'
+  | 'quinta'
+  | 'sexta'
+  | 'sabado'
+  | 'domingo'
+
+/** Marcações do dia: chegada, ida/volta do almoço e saída. */
+export interface HorarioDiaAdmissao {
+  chegada?: string
+  saida_almoco?: string
+  retorno_almoco?: string
+  saida_servico?: string
+}
+
+export type HorariosSemanaAdmissao = Partial<Record<DiaSemanaAdmissao, HorarioDiaAdmissao>>
+
 export interface FuncionarioAdmissaoDados {
   pis?: string
   endereco?: string
@@ -736,14 +755,27 @@ export interface FuncionarioAdmissaoDados {
   salario?: string
   funcao?: string
   telefone_empresa?: string
+  /** Dias da semana selecionados para preencher horário. */
+  horarios_dias_ativos?: DiaSemanaAdmissao[]
+  /** Grade por dia com 4 horários. */
+  horarios_semana?: HorariosSemanaAdmissao
+  /** @deprecated Substituído por horarios_semana */
   horario_seg_sex?: string
+  /** @deprecated Substituído por horarios_semana */
   horario_seg_sab?: string
   trabalha_seg_sex?: boolean
   trabalha_seg_sab?: boolean
   usa_vale_transporte?: boolean
+  vt_quantidade_dia?: string
+  vt_valor_unitario?: string
+  vt_valor_diario?: string
+  /** @deprecated Mantido só para dados antigos já salvos */
   onibus_1?: string
+  /** @deprecated Mantido só para dados antigos já salvos */
   valor_onibus_1?: string
+  /** @deprecated Mantido só para dados antigos já salvos */
   onibus_2?: string
+  /** @deprecated Mantido só para dados antigos já salvos */
   valor_onibus_2?: string
   documentos_enviados?: Record<string, boolean>
   [key: string]: unknown
