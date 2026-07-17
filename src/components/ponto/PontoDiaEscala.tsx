@@ -7,6 +7,7 @@ import {
   googleMapsUrl,
   horaPrevistaPorTipo,
   labelPontoTipo,
+  marcacaoHoraEfetiva,
   PONTO_TIPOS_ORDEM,
 } from '@/lib/funcionario-ponto'
 import type { PontoControleJornadaResumo, PontoMarcacaoComUrls } from '@/types'
@@ -25,7 +26,7 @@ export function PontoDiaEscala({ marcacoes, jornada, compact = false }: Props) {
       {PONTO_TIPOS_ORDEM.map((tipo, index) => {
         const marcacao = porTipo.get(tipo)
         const previsto = horaPrevistaPorTipo(tipo, jornada)
-        const realizado = formatHoraPonto(marcacao?.registrado_em)
+        const realizado = formatHoraPonto(marcacao ? marcacaoHoraEfetiva(marcacao) : null)
         const hasGeo = marcacao?.latitude != null && marcacao?.longitude != null
 
         return (

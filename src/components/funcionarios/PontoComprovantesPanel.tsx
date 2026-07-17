@@ -10,6 +10,7 @@ import {
   filterMarcacoesNoPeriodo,
   formatHoraPonto,
   labelPontoTipo,
+  marcacaoHoraEfetiva,
   periodoMesCorrente,
   periodoSemanaCorrente,
   pontoDataLocal,
@@ -174,7 +175,7 @@ export function PontoComprovantesPanel({
                   <span className="ml-2 text-[#b8957f]">NSR {m.nsr}</span>
                 </p>
                 <p className="text-xs text-[#b8957f]">
-                  {dia} · {formatHoraPonto(m.registrado_em)}
+                  {dia} · {formatHoraPonto(marcacaoHoraEfetiva(m))}
                   {m.latitude != null && m.longitude != null && ' · com localização'}
                 </p>
                 {doc && (

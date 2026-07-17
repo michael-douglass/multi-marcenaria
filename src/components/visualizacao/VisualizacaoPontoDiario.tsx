@@ -6,7 +6,7 @@ import {
   FUNCIONARIO_TIPO_LABEL,
   PONTO_STATUS_DIA_LABEL,
 } from '@/lib/funcionario-constants'
-import { formatAtrasoMinutos, formatHoraPonto } from '@/lib/funcionario-ponto'
+import { formatAtrasoMinutos, formatHoraPonto, marcacaoHoraEfetiva } from '@/lib/funcionario-ponto'
 import type { PontoControleFuncionarioRow, PontoStatusDia } from '@/types'
 
 function statusListClass(status: PontoStatusDia): string {
@@ -92,7 +92,7 @@ export function VisualizacaoPontoDiario({
       <ul className="viz-ponto__lista space-y-2">
         {rows.map(row => {
           const entrada = row.marcacoes.find(m => m.tipo === 'entrada') ?? row.entrada
-          const chegada = formatHoraPonto(entrada?.registrado_em)
+          const chegada = formatHoraPonto(entrada ? marcacaoHoraEfetiva(entrada) : null)
           const previsto = formatHoraPonto(row.jornada?.hora_entrada ?? row.hora_prevista)
           const statusLabel = PONTO_STATUS_DIA_LABEL[row.status_dia] ?? row.status_dia
           const batidasFeitas = row.marcacoes.length

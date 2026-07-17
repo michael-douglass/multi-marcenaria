@@ -145,6 +145,7 @@ const PONTO_CHILDREN: NavChildItem[] = [
     url: '/historico-ponto',
     icon: History,
     radialColor: 'rgba(167,139,250,0.92)',
+    roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
   },
 ]
 
