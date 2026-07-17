@@ -142,10 +142,12 @@ export function AppSidebar() {
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
   const obrasAbertoPorRota = isObrasSection(activeSection)
+  const pontoAbertoPorRota = activeSection === 'baterPonto' || activeSection === 'historicoPonto'
 
   const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
   const [funcionariosOpen, setFuncionariosOpen] = useState(funcionariosAbertoPorRota)
   const [obrasOpen, setObrasOpen] = useState(obrasAbertoPorRota)
+  const [pontoOpen, setPontoOpen] = useState(pontoAbertoPorRota)
 
   useEffect(() => {
     if (financeiroAbertoPorRota) setFinanceiroOpen(true)
@@ -159,16 +161,22 @@ export function AppSidebar() {
     if (obrasAbertoPorRota) setObrasOpen(true)
   }, [obrasAbertoPorRota])
 
+  useEffect(() => {
+    if (pontoAbertoPorRota) setPontoOpen(true)
+  }, [pontoAbertoPorRota])
+
   const grupoOpenState: Partial<Record<NavItemId, boolean>> = {
     financeiro: financeiroOpen,
     funcionariosGrupo: funcionariosOpen,
     obras: obrasOpen,
+    pontoGrupo: pontoOpen,
   }
 
   const setGrupoOpenById = (id: NavItemId, open: boolean) => {
     if (id === 'financeiro') setFinanceiroOpen(open)
     else if (id === 'funcionariosGrupo') setFuncionariosOpen(open)
     else if (id === 'obras') setObrasOpen(open)
+    else if (id === 'pontoGrupo') setPontoOpen(open)
   }
 
   const handleNavClick = (url: string) => {

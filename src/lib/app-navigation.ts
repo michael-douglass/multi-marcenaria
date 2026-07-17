@@ -20,11 +20,18 @@ import {
   UserCircle,
   Clock,
   ClipboardList,
+  History,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
 /** IDs de itens de menu (rotas ou agrupadores) */
-export type NavItemId = ActiveSection | 'financeiro' | 'funcionariosGrupo' | 'obras' | 'configuracoes'
+export type NavItemId =
+  | ActiveSection
+  | 'financeiro'
+  | 'funcionariosGrupo'
+  | 'obras'
+  | 'configuracoes'
+  | 'pontoGrupo'
 
 export interface NavChildItem {
   id: string
@@ -124,6 +131,23 @@ const FINANCEIRO_CHILDREN: NavChildItem[] = [
   },
 ]
 
+const PONTO_CHILDREN: NavChildItem[] = [
+  {
+    id: 'baterPonto',
+    title: 'Bater Ponto',
+    url: '/bater-ponto',
+    icon: Clock,
+    radialColor: 'rgba(74,222,128,0.92)',
+  },
+  {
+    id: 'historicoPonto',
+    title: 'Histórico de ponto',
+    url: '/historico-ponto',
+    icon: History,
+    radialColor: 'rgba(167,139,250,0.92)',
+  },
+]
+
 const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
   {
     id: 'funcionarios',
@@ -133,12 +157,12 @@ const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(240,210,140,0.92)',
   },
   {
-    id: 'baterPonto',
+    id: 'ponto',
     title: 'Ponto',
-    url: '/bater-ponto',
     icon: Clock,
     radialColor: 'rgba(74,222,128,0.92)',
     roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
+    children: PONTO_CHILDREN,
   },
   {
     id: 'resumoPonto',
@@ -229,12 +253,13 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     children: OBRAS_CHILDREN,
   },
   {
-    id: 'baterPonto',
+    id: 'pontoGrupo',
     title: 'Bater Ponto',
     url: '/bater-ponto',
     icon: Clock,
     radialColor: 'rgba(74,222,128,0.92)',
     roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
+    children: PONTO_CHILDREN,
   },
   {
     id: 'meuFinanceiro',
@@ -352,6 +377,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/meu-financeiro': 'meuFinanceiro',
     '/meu-perfil': 'meuPerfil',
     '/bater-ponto': 'baterPonto',
+    '/historico-ponto': 'historicoPonto',
     '/resumo-ponto': 'resumoPonto',
     '/visualizacao': 'visualizacao',
     '/configuracoes': 'configuracoes',

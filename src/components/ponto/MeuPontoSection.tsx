@@ -23,9 +23,14 @@ export function MeuPontoSection({ funcionarioTipo }: Props) {
           <Clock size={20} />
           Meu Ponto
         </h2>
-        <Link to="/bater-ponto" className="btn btn-gold btn-sm">
-          Bater ponto
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/bater-ponto" className="btn btn-gold btn-sm">
+            Bater ponto
+          </Link>
+          <Link to="/historico-ponto" className="btn btn-outline btn-sm">
+            Ver histórico
+          </Link>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-[#b8957f]">Carregando…</p>}

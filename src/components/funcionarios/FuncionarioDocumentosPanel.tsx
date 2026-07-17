@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Trash2, Upload } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Clock, FolderOpen, Trash2, Upload } from 'lucide-react'
 import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
 import { useApp } from '@/context/AppContext'
 import {
@@ -18,6 +18,10 @@ interface Props {
   onReload: () => void
 }
 
+type PastaView = 'raiz' | 'ponto'
+
+const PASTA_PONTO_LABEL = 'Documentos de ponto'
+
 export function FuncionarioDocumentosPanel({ funcionarioId, documentos, readOnly, onReload }: Props) {
   const { roles } = useApp()
   const canDeleteDocuments = isAdministrador(roles)
@@ -25,9 +29,22 @@ export function FuncionarioDocumentosPanel({ funcionarioId, documentos, readOnly
   const [uploading, setUploading] = useState(false)
   const [lightbox, setLightbox] = useState<FuncionarioDocumento | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pasta, setPasta] = useState<PastaView>('raiz')
+
+  const { docsRh, docsPonto } = useMemo(() => {
+    const rh: FuncionarioDocumento[] = []
+    const ponto: FuncionarioDocumento[] = []
+    for (const doc of documentos) {
+      if (doc.categoria === 'ponto') ponto.push(doc)
+      else rh.push(doc)
+    }
+    return { docsRh: rh, docsPonto: ponto }
+  }, [documentos])
+
+  const docsVisiveis = pasta === 'ponto' ? docsPonto : docsRh
 
   const handleFiles = async (files: FileList | null) => {
-    if (!files?.length || readOnly) return
+    if (!files?.length || readOnly || pasta !== 'raiz') return
     setUploading(true)
     setError(null)
     const pending: PendingFuncionarioDocumento[] = []
@@ -62,7 +79,7 @@ export function FuncionarioDocumentosPanel({ funcionarioId, documentos, readOnly
 
   return (
     <div className="space-y-4">
-      {!readOnly && (
+      {pasta === 'raiz' && !readOnly && (
         <div className="glass-card flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p className="font-medium text-[#f2d892]">Documentos RH</p>
@@ -90,20 +107,85 @@ export function FuncionarioDocumentosPanel({ funcionarioId, documentos, readOnly
         </div>
       )}
 
+      {pasta === 'ponto' && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setPasta('raiz')}
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.45)] px-3 py-2 text-sm text-[#b8957f] transition hover:border-[rgba(212,168,83,0.4)] hover:text-[#f2d892]"
+          >
+            <ArrowLeft size={16} />
+            Voltar aos documentos
+          </button>
+          <div className="text-right">
+            <p className="section-label">Pasta</p>
+            <h2 className="font-display text-xl tracking-wide text-[#f2d892]">{PASTA_PONTO_LABEL}</h2>
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {documentos.length === 0 ? (
-        <div className="glass-card p-8 text-center text-[#b8957f]">Nenhum documento na pasta.</div>
+      {pasta === 'raiz' && (
+        <button
+          type="button"
+          onClick={() => setPasta('ponto')}
+          className="group relative block w-full overflow-hidden rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] text-left shadow-mogno transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
+          aria-label={`Abrir pasta ${PASTA_PONTO_LABEL}`}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-40"
+            style={{
+              background:
+                'radial-gradient(ellipse at 12% 0%, rgba(242,216,146,0.18), transparent 55%), linear-gradient(135deg, rgba(68,46,34,0.5), transparent 60%)',
+            }}
+          />
+          <div className="absolute left-0 right-0 top-0 h-2.5 rounded-t-xl bg-gradient-to-r from-[#c9a045] via-[#f2d892] to-[#c9a045]" />
+          <div className="relative flex items-center gap-4 p-5 pt-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(212,168,83,0.3)] bg-[rgba(96,165,250,0.18)]">
+              <Clock size={22} className="text-sky-200" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <FolderOpen
+                  size={16}
+                  className="shrink-0 text-[#b8957f] transition group-hover:text-[#f2d892]"
+                />
+                <h3 className="font-display text-lg tracking-wide text-[#f2d892] sm:text-xl">
+                  {PASTA_PONTO_LABEL}
+                </h3>
+              </div>
+              <p className="mt-1 text-sm text-[#b8957f]">
+                Fotos e comprovantes gerados ao bater o ponto
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[0.65rem] uppercase tracking-wider text-sky-200">
+              {docsPonto.length} {docsPonto.length === 1 ? 'arquivo' : 'arquivos'}
+            </span>
+          </div>
+        </button>
+      )}
+
+      {docsVisiveis.length === 0 ? (
+        <div className="glass-card p-8 text-center text-[#b8957f]">
+          {pasta === 'ponto'
+            ? 'Nenhum comprovante de ponto nesta pasta ainda.'
+            : 'Nenhum documento RH na pasta.'}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {documentos.map(doc => (
-            <div key={doc.id} className="group relative">
+          {docsVisiveis.map((doc, index) => (
+            <div
+              key={doc.id}
+              className="group relative animate-in fade-in slide-in-from-bottom-2"
+              style={{ animationDelay: `${Math.min(index, 8) * 40}ms`, animationFillMode: 'both' }}
+            >
               <button
                 type="button"
-                className="w-full overflow-hidden rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(36,16,8,0.5)]"
+                className="w-full overflow-hidden rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(36,16,8,0.5)] transition hover:border-[rgba(212,168,83,0.4)]"
                 onClick={() => setLightbox(doc)}
               >
-              <AnexoThumb
+                <AnexoThumb
                   kind={doc.kind}
                   previewUrl={doc.previewSignedUrl ?? ''}
                   nome={doc.nome_arquivo}

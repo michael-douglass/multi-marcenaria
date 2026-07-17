@@ -29,6 +29,7 @@ import { MeuFinanceiro } from '@/pages/MeuFinanceiro'
 import { MeuPerfil } from '@/pages/MeuPerfil'
 import { PontoPage } from '@/pages/PontoPage'
 import { ResumoPonto } from '@/pages/ResumoPonto'
+import { HistoricoPonto } from '@/pages/HistoricoPonto'
 import { Configuracoes } from '@/pages/Configuracoes'
 import { Funcionarios } from '@/pages/Funcionarios'
 import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
@@ -224,6 +225,14 @@ function AuthenticatedRoutes() {
               canAccessSection(roles, 'resumoPonto')
                 ? <ResumoPonto />
                 : <Restricted message="Disponível apenas para RH (Administrador e Financeiro)." />
+            }
+          />
+          <Route
+            path="/historico-ponto"
+            element={
+              canAccessSection(roles, 'historicoPonto')
+                ? <HistoricoPonto />
+                : <Restricted message="Disponível para funcionários de campo e RH." />
             }
           />
           <Route

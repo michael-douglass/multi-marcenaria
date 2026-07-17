@@ -9,12 +9,12 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 ]
 
 export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
-  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras'],
+  Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto', 'historicoPonto'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'historicoPonto', 'agendaObras'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'meuPerfil', 'baterPonto'],
-  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao', 'meuPerfil', 'baterPonto'],
-  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro', 'meuPerfil', 'baterPonto'],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
+  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao', 'meuPerfil', 'baterPonto', 'historicoPonto'],
+  Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Visualizador: ['visualizacao'],
 }
 

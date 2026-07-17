@@ -221,11 +221,30 @@ export async function fetchMarcacoes(
     .select('*')
     .eq('funcionario_id', funcionarioId)
     .order('registrado_em', { ascending: false })
-  if (de) q = q.gte('registrado_em', de)
-  if (ate) q = q.lte('registrado_em', ate)
+  if (de) q = q.gte('registrado_em', `${de}T00:00:00-03:00`)
+  if (ate) q = q.lte('registrado_em', `${ate}T23:59:59.999-03:00`)
   const { data, error } = await q
   if (error) throw new Error(error.message)
   return (data ?? []) as PontoMarcacao[]
+}
+
+/** Horário usado na tela: ajustado pelo RH, ou o original. */
+export function marcacaoHoraEfetiva(m: Pick<PontoMarcacao, 'registrado_em' | 'registrado_em_ajustado'>): string {
+  return m.registrado_em_ajustado || m.registrado_em
+}
+
+export async function ajustarMarcacao(
+  marcacaoId: string,
+  hora: string,
+  motivo: string,
+): Promise<PontoMarcacao> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_ajustar_marcacao', {
+    p_marcacao_id: marcacaoId,
+    p_hora: hora.length === 5 ? `${hora}:00` : hora,
+    p_motivo: motivo,
+  })
+  if (error) throw new Error(error.message)
+  return data as PontoMarcacao
 }
 
 export async function fetchOcorrencias(funcionarioId: string): Promise<PontoOcorrencia[]> {
@@ -581,7 +600,7 @@ export interface PontoSaldoDia {
  * Precisa de entrada + saída para fechar o total; sem isso retorna null.
  */
 export function calcularSaldoJornadaDia(
-  marcacoes: Array<Pick<PontoMarcacao, 'tipo' | 'registrado_em'>>,
+  marcacoes: Array<Pick<PontoMarcacao, 'tipo' | 'registrado_em' | 'registrado_em_ajustado'>>,
   jornada?: Partial<PontoJornadaHorarios> | null,
 ): PontoSaldoDia | null {
   if (!jornada) return null
@@ -599,12 +618,12 @@ export function calcularSaldoJornadaDia(
   const minutosPrevistos = Math.max(0, prevSaida - prevEntrada - almocoPrevisto)
 
   const porTipo = new Map(marcacoes.map(m => [m.tipo, m]))
-  const realEntrada = horaParaMinutosDoDia(porTipo.get('entrada')?.registrado_em)
-  const realSaida = horaParaMinutosDoDia(porTipo.get('saida')?.registrado_em)
+  const realEntrada = horaParaMinutosDoDia(porTipo.get('entrada') ? marcacaoHoraEfetiva(porTipo.get('entrada')!) : null)
+  const realSaida = horaParaMinutosDoDia(porTipo.get('saida') ? marcacaoHoraEfetiva(porTipo.get('saida')!) : null)
   if (realEntrada == null || realSaida == null) return null
 
-  const realSaidaAlmoco = horaParaMinutosDoDia(porTipo.get('saida_intervalo')?.registrado_em)
-  const realRetornoAlmoco = horaParaMinutosDoDia(porTipo.get('retorno_intervalo')?.registrado_em)
+  const realSaidaAlmoco = horaParaMinutosDoDia(porTipo.get('saida_intervalo') ? marcacaoHoraEfetiva(porTipo.get('saida_intervalo')!) : null)
+  const realRetornoAlmoco = horaParaMinutosDoDia(porTipo.get('retorno_intervalo') ? marcacaoHoraEfetiva(porTipo.get('retorno_intervalo')!) : null)
   let almocoReal = 0
   if (realSaidaAlmoco != null && realRetornoAlmoco != null && realRetornoAlmoco > realSaidaAlmoco) {
     almocoReal = realRetornoAlmoco - realSaidaAlmoco

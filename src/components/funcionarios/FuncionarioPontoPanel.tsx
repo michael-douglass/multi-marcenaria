@@ -66,6 +66,7 @@ export function FuncionarioPontoPanel({
     saveJornada,
     addOcorrencia,
     deleteOcorrencia,
+    adjustMarcacao,
     reload,
   } = useFuncionarioPonto(funcionarioId)
 
@@ -293,7 +294,25 @@ export function FuncionarioPontoPanel({
           {marcacoesPorDia.map(([dia, items]) => (
             <div key={dia} className="glass-card p-4">
               <h4 className="mb-3 font-display text-[#f2d892]">{dia}</h4>
-              <PontoHistoricoDia marcacoes={items} jornada={jornada} variant="detailed" />
+              <PontoHistoricoDia
+                marcacoes={items}
+                jornada={jornada}
+                variant="detailed"
+                editable={!readOnly}
+                onAjustarHorario={
+                  readOnly
+                    ? undefined
+                    : async (marcacaoId, hora, motivo) => {
+                        try {
+                          await adjustMarcacao(marcacaoId, hora, motivo)
+                          showToast('Horário ajustado com sucesso.')
+                        } catch (e) {
+                          showToast(e instanceof Error ? e.message : 'Erro ao ajustar horário.', 'error')
+                          throw e
+                        }
+                      }
+                }
+              />
             </div>
           ))}
         </div>

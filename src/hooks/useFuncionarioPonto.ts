@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  ajustarMarcacao,
   fetchJornada,
   fetchMarcacoes,
   fetchOcorrencias,
@@ -72,6 +73,12 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
     setOcorrencias(prev => prev.filter(o => o.id !== id))
   }
 
+  const adjustMarcacao = async (marcacaoId: string, hora: string, motivo: string) => {
+    const row = await ajustarMarcacao(marcacaoId, hora, motivo)
+    setMarcacoes(prev => prev.map(m => (m.id === marcacaoId ? { ...m, ...row } : m)))
+    return row
+  }
+
   return {
     jornada,
     marcacoes,
@@ -84,6 +91,7 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
     saveJornada,
     addOcorrencia,
     deleteOcorrencia,
+    adjustMarcacao,
   }
 }
 

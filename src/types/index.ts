@@ -29,6 +29,7 @@ export type ActiveSection =
   | 'meuPerfil'
   | 'baterPonto'
   | 'resumoPonto'
+  | 'historicoPonto'
   | 'configuracoes'
   | 'visualizacao'
 
@@ -821,7 +822,13 @@ export interface PontoMarcacao {
   funcionario_id: string
   usuario_id: string
   tipo: PontoMarcacaoTipo
+  /** Horário original da batida (imutável — AFD/REP). */
   registrado_em: string
+  /** Horário corrigido pelo RH; se preenchido, a tela usa este. */
+  registrado_em_ajustado?: string | null
+  ajuste_motivo?: string | null
+  ajustado_por?: string | null
+  ajustado_em?: string | null
   latitude?: number | null
   longitude?: number | null
   precisao_metros?: number | null
