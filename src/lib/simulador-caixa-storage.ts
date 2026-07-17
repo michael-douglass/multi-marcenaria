@@ -28,7 +28,8 @@ export interface SimulacaoCaixa {
   salvoEm: string
 }
 
-const STORAGE_PREFIX = 'movelaria_simulador_caixa_'
+/** v3: base = só a receber / a pagar em aberto (por vencimento). */
+const STORAGE_PREFIX = 'movelaria_simulador_caixa_v3_'
 
 function storageKey(ano: number): string {
   return `${STORAGE_PREFIX}${ano}`
@@ -141,7 +142,7 @@ export function somarAjustes(ajustes: SimuladorAjuste[]): number {
 }
 
 export function rotuloCampoAjuste(campo: SimuladorAjusteCampo | null): string {
-  if (campo === 'receitas') return 'Recebidos'
-  if (campo === 'despesas') return 'Gastos'
+  if (campo === 'receitas') return 'A receber'
+  if (campo === 'despesas') return 'A pagar'
   return 'Caixa'
 }

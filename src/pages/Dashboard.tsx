@@ -10,7 +10,8 @@ import {
 import {
   useFinanceiroStats,
   useGraficoReceitasMensal,
-  useGraficoDespesasMensal
+  useGraficoDespesasMensal,
+  useSimuladorCaixaMensal,
 } from '@/hooks/useFinanceiroDashboard'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -52,8 +53,7 @@ export function Dashboard() {
   const { data: despesasMensais } = useGraficoDespesasMensal(anoDespesas)
   const { data: receitasComparativo } = useGraficoReceitasMensal(anoComparativo)
   const { data: despesasComparativo } = useGraficoDespesasMensal(anoComparativo)
-  const { data: receitasSimulador } = useGraficoReceitasMensal(anoSimulador)
-  const { data: despesasSimulador } = useGraficoDespesasMensal(anoSimulador)
+  const { data: simuladorMensal } = useSimuladorCaixaMensal(anoSimulador)
 
   const comparativoData = useMemo(() => {
     if (!receitasComparativo || !despesasComparativo) return []
@@ -65,13 +65,22 @@ export function Dashboard() {
   }, [receitasComparativo, despesasComparativo])
 
   const simuladorDataOriginal = useMemo(() => {
-    if (!receitasSimulador || !despesasSimulador) return []
-    return receitasSimulador.map((r, i) => ({
-      mes: r.mes,
-      receitas: r.valor,
-      despesas: despesasSimulador[i]?.valor ?? 0,
+    return (simuladorMensal ?? []).map(m => ({
+      mes: m.mes,
+      receitas: m.receitas,
+      despesas: m.despesas,
+      temPrevisao: m.temPrevisao,
     }))
-  }, [receitasSimulador, despesasSimulador])
+  }, [simuladorMensal])
+
+  /** Valores do próximo mês civil dentro do ano do simulador (já com contas em aberto). */
+  const previsaoProximoNoSimulador = useMemo(() => {
+    const agora = new Date()
+    const prox = new Date(agora.getFullYear(), agora.getMonth() + 1, 1)
+    if (prox.getFullYear() !== anoSimulador) return null
+    const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    return simuladorDataOriginal.find(m => m.mes === labels[prox.getMonth()]) ?? null
+  }, [anoSimulador, simuladorDataOriginal])
 
   const anosDisponiveis = useMemo(() => {
     const atual = new Date().getFullYear()
@@ -345,8 +354,12 @@ export function Dashboard() {
           onAnoChange={setAnoSimulador}
           anos={anosDisponiveis}
           dataOriginal={simuladorDataOriginal}
-          previsaoRecebimentoOriginal={stats?.previsaoProximoMes ?? 0}
-          previsaoDespesasOriginal={stats?.despesasProximoMes ?? 0}
+          previsaoRecebimentoOriginal={
+            previsaoProximoNoSimulador?.receitas ?? stats?.previsaoProximoMes ?? 0
+          }
+          previsaoDespesasOriginal={
+            previsaoProximoNoSimulador?.despesas ?? stats?.despesasProximoMes ?? 0
+          }
         />
       </DashboardSection>
     </div>

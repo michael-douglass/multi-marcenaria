@@ -222,6 +222,81 @@ export function useGraficoDespesasMensal(ano: number = new Date().getFullYear())
   })
 }
 
+export interface MesSimuladorCaixa {
+  mes: string
+  /** Contas a receber ainda pendentes com vencimento no mês. */
+  receitas: number
+  /** Valor em aberto de contas a pagar (pendente/parcial) com vencimento no mês. */
+  despesas: number
+  /** Há contas ainda em aberto (receber ou pagar) neste mês. */
+  temPrevisao: boolean
+}
+
+/**
+ * Base do Simulador de Caixa: mês a mês só o que ainda tem
+ * a receber e a pagar (contas em aberto por data de vencimento).
+ */
+export function useSimuladorCaixaMensal(ano: number = new Date().getFullYear()) {
+  return useQuery<MesSimuladorCaixa[]>({
+    queryKey: ['simulador-caixa-mensal', ano, 'v2-so-em-aberto'],
+    queryFn: async () => {
+      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+      const data: MesSimuladorCaixa[] = meses.map(m => ({
+        mes: m,
+        receitas: 0,
+        despesas: 0,
+        temPrevisao: false,
+      }))
+
+      const start = `${ano}-01-01`
+      const end = `${ano}-12-31`
+
+      const [{ data: aReceberPendentes }, { data: aPagarAbertos }] = await Promise.all([
+        supabase
+          .from('movelaria_contas_receber')
+          .select('valor_parcela, data_vencimento')
+          .eq('status', 'pendente')
+          .gte('data_vencimento', start)
+          .lte('data_vencimento', end),
+        supabase
+          .from('movelaria_contas_pagar')
+          .select('valor_parcela, valor_pago, status, data_vencimento')
+          .in('status', ['pendente', 'parcialmente_pago'])
+          .gte('data_vencimento', start)
+          .lte('data_vencimento', end),
+      ])
+
+      for (const r of aReceberPendentes ?? []) {
+        const mesIdx = monthIndexFromIso(r.data_vencimento)
+        if (mesIdx == null) continue
+        data[mesIdx].receitas += Number(r.valor_parcela) || 0
+        data[mesIdx].temPrevisao = true
+      }
+
+      for (const d of aPagarAbertos ?? []) {
+        const mesIdx = monthIndexFromIso(d.data_vencimento)
+        if (mesIdx == null) continue
+        const parcela = Number(d.valor_parcela) || 0
+        const emAberto = Math.max(0, parcela - Number(d.valor_pago ?? 0))
+        if (emAberto <= 0) continue
+        data[mesIdx].despesas += emAberto
+        data[mesIdx].temPrevisao = true
+      }
+
+      return data.map(m => ({
+        ...m,
+        receitas: roundMoney(m.receitas),
+        despesas: roundMoney(m.despesas),
+      }))
+    },
+  })
+}
+
+function roundMoney(n: number): number {
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.round(n * 100) / 100
+}
+
 /** Índice do mês (0–11) a partir de YYYY-MM-DD, sem efeito de fuso. */
 function monthIndexFromIso(iso: string | null | undefined): number | null {
   if (!iso || iso.length < 7) return null

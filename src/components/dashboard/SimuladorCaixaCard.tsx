@@ -30,6 +30,8 @@ export interface MesComparativoSimulador {
   mes: string
   receitas: number
   despesas: number
+  /** Contas ainda em aberto neste mês (receber ou pagar). */
+  temPrevisao?: boolean
 }
 
 interface SimuladorCaixaCardProps {
@@ -54,26 +56,6 @@ function infoProximoMes(): { nome: string; label: string; ano: number } {
   }
 }
 
-/** Lança a previsão do próximo mês no card correspondente (ex.: Ago). */
-function comPrevisaoLancada(
-  meses: SimuladorMes[],
-  anoSim: number,
-  recebimento: number,
-  despesas: number,
-): SimuladorMes[] {
-  const prox = infoProximoMes()
-  if (prox.ano !== anoSim) return meses
-  return meses.map(m =>
-    m.mes === prox.label
-      ? {
-          ...m,
-          receitas: roundMoney(recebimento),
-          despesas: roundMoney(despesas),
-        }
-      : m,
-  )
-}
-
 function buildMesesBase(data: MesComparativoSimulador[]): SimuladorMes[] {
   return MESES_CURTOS.map(label => {
     const found = data.find(m => m.mes === label)
@@ -83,6 +65,10 @@ function buildMesesBase(data: MesComparativoSimulador[]): SimuladorMes[] {
       despesas: roundMoney(found?.despesas ?? 0),
     }
   })
+}
+
+function mesesComPrevisaoSet(data: MesComparativoSimulador[]): Set<string> {
+  return new Set(data.filter(m => m.temPrevisao).map(m => m.mes))
 }
 
 function roundMoney(n: number): number {
@@ -141,13 +127,14 @@ export function SimuladorCaixaCard({
 
   const proximo = useMemo(() => infoProximoMes(), [])
   const previsaoNoAnoAtual = proximo.ano === ano
+  const mesesPrevisaoOriginais = useMemo(() => mesesComPrevisaoSet(dataOriginal), [dataOriginal])
 
   const markDirty = () => {
     setIsDirty(true)
     setSaveFlash(false)
   }
 
-  // Ao trocar o ano: carrega simulação salva ou dados reais (+ previsão lançada)
+  // Ao trocar o ano: carrega simulação salva ou dados reais (já com previsão mês a mês)
   useEffect(() => {
     const saved = loadSimulacao(ano)
     if (saved) {
@@ -156,21 +143,12 @@ export function SimuladorCaixaCard({
         const found = saved.meses.find(m => m.mes === b.mes)
         return found ?? b
       })
-      setMeses(
-        comPrevisaoLancada(carregados, ano, saved.previsaoRecebimento, saved.previsaoDespesas),
-      )
+      setMeses(carregados)
       setPrevisaoRecebimento(saved.previsaoRecebimento)
       setPrevisaoDespesas(saved.previsaoDespesas)
       setAjustes(saved.ajustes ?? [])
     } else {
-      setMeses(
-        comPrevisaoLancada(
-          buildMesesBase(dataOriginal),
-          ano,
-          previsaoRecebimentoOriginal,
-          previsaoDespesasOriginal,
-        ),
-      )
+      setMeses(buildMesesBase(dataOriginal))
       setPrevisaoRecebimento(previsaoRecebimentoOriginal)
       setPrevisaoDespesas(previsaoDespesasOriginal)
       setAjustes([])
@@ -189,14 +167,7 @@ export function SimuladorCaixaCard({
   useEffect(() => {
     if (isDirty) return
     if (loadSimulacao(ano)) return
-    setMeses(
-      comPrevisaoLancada(
-        buildMesesBase(dataOriginal),
-        ano,
-        previsaoRecebimentoOriginal,
-        previsaoDespesasOriginal,
-      ),
-    )
+    setMeses(buildMesesBase(dataOriginal))
     setPrevisaoRecebimento(previsaoRecebimentoOriginal)
     setPrevisaoDespesas(previsaoDespesasOriginal)
     setAjustes([])
@@ -236,6 +207,17 @@ export function SimuladorCaixaCard({
     })
   }, [meses])
 
+  /** Só meses com movimento, previsão (contas em aberto) ou ajustes — evita cards zerados. */
+  const linhasVisiveis = useMemo(() => {
+    return linhas.filter(m => {
+      if (m.receitas > 0 || m.despesas > 0) return true
+      if (mesesPrevisaoOriginais.has(m.mes)) return true
+      if (previsaoNoAnoAtual && m.mes === proximo.label) return true
+      if (ajustes.some(a => a.mes === m.mes)) return true
+      return false
+    })
+  }, [linhas, mesesPrevisaoOriginais, previsaoNoAnoAtual, proximo.label, ajustes])
+
   const saldoMeses = linhas.reduce((s, m) => s + m.saldo, 0)
   const impactoAjustes = somarAjustes(ajustes)
   const saldoPrevisao = previsaoRecebimento - previsaoDespesas
@@ -247,12 +229,14 @@ export function SimuladorCaixaCard({
   const caixaPositivo = caixaFinal > 0
   const caixaNegativo = caixaFinal < 0
 
-  const ehMesPrevisao = (mes: string) => previsaoNoAnoAtual && mes === proximo.label
+  const ehMesProximo = (mes: string) => previsaoNoAnoAtual && mes === proximo.label
+  const ehMesPrevisao = (mes: string) =>
+    mesesPrevisaoOriginais.has(mes) || ehMesProximo(mes)
 
   const updateMes = (mes: string, field: 'receitas' | 'despesas', valor: number) => {
     const v = roundMoney(valor)
     setMeses(prev => prev.map(m => (m.mes === mes ? { ...m, [field]: v } : m)))
-    if (ehMesPrevisao(mes)) {
+    if (ehMesProximo(mes)) {
       if (field === 'receitas') setPrevisaoRecebimento(v)
       else setPrevisaoDespesas(v)
     }
@@ -300,7 +284,7 @@ export function SimuladorCaixaCard({
       }),
     )
 
-    if (ehMesPrevisao(mes) && atual) {
+    if (ehMesProximo(mes) && atual) {
       if (campo === 'receitas') setPrevisaoRecebimento(novoValorCampo)
       else setPrevisaoDespesas(novoValorCampo)
     }
@@ -353,14 +337,7 @@ export function SimuladorCaixaCard({
 
   const handleReset = () => {
     clearSimulacao(ano)
-    setMeses(
-      comPrevisaoLancada(
-        buildMesesBase(dataOriginal),
-        ano,
-        previsaoRecebimentoOriginal,
-        previsaoDespesasOriginal,
-      ),
-    )
+    setMeses(buildMesesBase(dataOriginal))
     setPrevisaoRecebimento(previsaoRecebimentoOriginal)
     setPrevisaoDespesas(previsaoDespesasOriginal)
     setAjustes([])
@@ -380,7 +357,7 @@ export function SimuladorCaixaCard({
             Simulador de Caixa
           </CardTitle>
           <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
-            Edite faturamento e gastos · salva sozinho neste navegador
+            A receber e a pagar em aberto · salva sozinho neste navegador
           </CardDescription>
           {isDirty && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
@@ -456,21 +433,21 @@ export function SimuladorCaixaCard({
                 </p>
                 <p className="mt-1 text-xs text-[#edd9c4]/70">
                   {previsaoNoAnoAtual
-                    ? `Já lançada no card ${proximo.label} e no total do caixa.`
-                    : 'Entra no total do caixa (mês fora deste ano).'}
+                    ? `Já lançada no card ${proximo.label}. Os demais meses com contas em aberto também entram na previsão.`
+                    : 'Entra no total do caixa (mês fora deste ano). Meses deste ano com contas em aberto já estão nos cards.'}
                 </p>
               </div>
             </div>
 
             <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-xl">
               <MoneyField
-                label="Recebimento"
+                label="A receber"
                 value={previsaoRecebimento}
                 onChange={v => updatePrevisao('receitas', v)}
                 tone="in"
               />
               <MoneyField
-                label="Despesas"
+                label="A pagar"
                 value={previsaoDespesas}
                 onChange={v => updatePrevisao('despesas', v)}
                 tone="out"
@@ -485,12 +462,20 @@ export function SimuladorCaixaCard({
             MESES · {ano}
           </p>
           <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-[#edd9c4]/60">
-            Edite ou use +/− · saldo ao vivo · salva sozinho
+            Só meses com a receber ou a pagar · edite ou use +/− · salva sozinho
           </p>
         </div>
 
+        {linhasVisiveis.length === 0 ? (
+          <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.22)] px-4 py-5 text-center">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[#edd9c4]/65">
+              Sem a receber ou a pagar em aberto em {ano}
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-          {linhas.map((m, i) => {
+          {linhasVisiveis.map((m, i) => {
             const isPos = m.saldo > 0
             const isNeg = m.saldo < 0
             const sinal = isPos ? 'Positivo' : isNeg ? 'Negativo' : 'Zerado'
@@ -546,14 +531,14 @@ export function SimuladorCaixaCard({
 
                 <div className="space-y-2 pl-1">
                   <MoneyField
-                    label="Recebidos"
+                    label="A receber"
                     value={m.receitas}
                     onChange={v => updateMes(m.mes, 'receitas', v)}
                     tone="in"
                     compact
                   />
                   <MoneyField
-                    label="Gastos"
+                    label="A pagar"
                     value={m.despesas}
                     onChange={v => updateMes(m.mes, 'despesas', v)}
                     tone="out"
@@ -576,7 +561,7 @@ export function SimuladorCaixaCard({
                       )}
                     >
                       <Plus className="h-3 w-3" aria-hidden />
-                      Recebido
+                      A receber
                     </button>
                     <button
                       type="button"
@@ -592,7 +577,7 @@ export function SimuladorCaixaCard({
                       )}
                     >
                       <Minus className="h-3 w-3" aria-hidden />
-                      Recebido
+                      A receber
                     </button>
                     <button
                       type="button"
@@ -608,7 +593,7 @@ export function SimuladorCaixaCard({
                       )}
                     >
                       <Plus className="h-3 w-3" aria-hidden />
-                      Gasto
+                      A pagar
                     </button>
                     <button
                       type="button"
@@ -624,7 +609,7 @@ export function SimuladorCaixaCard({
                       )}
                     >
                       <Minus className="h-3 w-3" aria-hidden />
-                      Gasto
+                      A pagar
                     </button>
                   </div>
 
@@ -853,10 +838,13 @@ export function SimuladorCaixaCard({
                   Como está o caixa · {ano}
                 </p>
                 <p className="mt-1 max-w-md text-xs leading-relaxed text-[#edd9c4]/80">
-                  Meses simulados
-                  {previsaoNoAnoAtual
-                    ? ` (inclui previsão de ${proximo.label})`
-                    : ` + previsão ${proximo.nome} (${fmtCur(saldoPrevisao)})`}
+                  Meses com a receber ou a pagar
+                  {mesesPrevisaoOriginais.size > 0
+                    ? ` (previsão em ${mesesPrevisaoOriginais.size} mês${mesesPrevisaoOriginais.size === 1 ? '' : 'es'})`
+                    : ''}
+                  {!previsaoNoAnoAtual
+                    ? ` + previsão ${proximo.nome} (${fmtCur(saldoPrevisao)})`
+                    : ''}
                   {impactoAjustes !== 0
                     ? ` + ajustes gerais (${impactoAjustes > 0 ? '+' : ''}${fmtCur(impactoAjustes)})`
                     : ''}
