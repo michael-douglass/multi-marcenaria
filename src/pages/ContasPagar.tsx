@@ -16,6 +16,7 @@ import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/Conta
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
 import { ContasPagarImportButton } from '../components/contas-pagar/ContasPagarImportButton'
+import { ContasPagarSelecaoPopup } from '../components/contas-pagar/ContasPagarSelecaoPopup'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -592,10 +593,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     return sortContasPagarSemDatas(base)
   }, [baseFiltered, matchesStatusFilter])
 
-  const selectedContas = useMemo(
-    () => filtered.filter(p => selectedRowIds.has(p.id)),
-    [filtered, selectedRowIds],
-  )
+  const selectedContas = useMemo(() => {
+    if (selectedRowIds.size === 0) return [] as ContaPagar[]
+    const byId = new Map(data.map(p => [p.id, p]))
+    const ordered: ContaPagar[] = []
+    for (const id of selectedRowIds) {
+      const conta = byId.get(id)
+      if (conta) ordered.push(conta)
+    }
+    return ordered
+  }, [data, selectedRowIds])
 
   const selectedParaPagar = useMemo(
     () => selectedContas.filter(p => p.status !== 'pago'),
@@ -1684,43 +1691,23 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         />
       </div>
 
-      {!readOnly && selectedRowIds.size > 0 && (
-        <div
-          className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[rgba(240,210,140,.25)] bg-[rgba(240,210,140,.06)] px-4 py-3"
-        >
-          <span className="text-sm font-semibold text-[#f2d892]">
-            {selectedRowIds.size} selecionada{selectedRowIds.size !== 1 ? 's' : ''}
-          </span>
-          <span className="text-xs text-[#edd9c4]">
-            · Restante: {fmtCur(totalRestanteSelecionado)}
-          </span>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-success btn-sm"
-              disabled={bulkProcessing || selectedParaPagar.length === 0}
-              onClick={() => setBulkPayModalOpen(true)}
-            >
-              ✓ Marcar Pago ({selectedParaPagar.length})
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger btn-sm"
-              disabled={bulkProcessing}
-              onClick={() => void confirmarBulkDelete()}
-            >
-              {bulkProcessing ? 'Processando…' : 'Apagar'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              disabled={bulkProcessing}
-              onClick={clearRowSelection}
-            >
-              Limpar seleção
-            </button>
-          </div>
-        </div>
+      {!readOnly && (
+        <ContasPagarSelecaoPopup
+          contas={selectedContas}
+          totalRestante={totalRestanteSelecionado}
+          processing={bulkProcessing}
+          pagarCount={selectedParaPagar.length}
+          onMarcarPago={() => setBulkPayModalOpen(true)}
+          onApagar={() => void confirmarBulkDelete()}
+          onLimpar={clearRowSelection}
+          onRemover={id => toggleSelectRow(id, false)}
+          resolveNome={conta =>
+            conta.fornecedor_nome
+            ?? fornecedores.find(x => x.id === conta.fornecedor_id)?.nome
+            ?? conta.descricao
+            ?? '—'
+          }
+        />
       )}
 
       <div className="glass-card overflow-hidden">
