@@ -34,9 +34,11 @@ import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import {
   getObraMarkupCustos,
-  loadMarkupCustosFiltro,
-  saveMarkupCustosFiltro,
+  getFiltroMarkupDaObra,
+  loadMarkupCustosFiltrosPorObra,
+  saveMarkupCustosFiltrosPorObra,
   sumPedidoAFazerCustos,
+  type MarkupCustosFiltrosPorObra,
 } from '../lib/obra-markup-custos'
 import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
 import { canViewMarkupCustos as roleCanViewMarkupCustos } from '../lib/role-access'
@@ -183,9 +185,10 @@ interface ObraCardProps {
   showMarkupCustos?: boolean
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
+  onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, showMarkupCustos = false, markupCustos = null, markupCustosFiltro }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -270,10 +273,11 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
           compact
         />
 
-        {showMarkupCustos && markupCustosFiltro && (
+        {showMarkupCustos && (
           <ObraMarkupCustosBlock
             custos={markupCustos}
             filtro={markupCustosFiltro}
+            onFiltroChange={onMarkupCustosFiltroChange}
             variant="compact"
           />
         )}
@@ -539,20 +543,25 @@ function AgendaObrasContent() {
     obrasHook.data,
     canViewMarkupCustos,
   )
-  const [markupCustosFiltro, setMarkupCustosFiltro] = useState<MarkupCustosFiltro>(loadMarkupCustosFiltro)
+  const [markupCustosFiltrosPorObra, setMarkupCustosFiltrosPorObra] = useState<MarkupCustosFiltrosPorObra>(
+    loadMarkupCustosFiltrosPorObra,
+  )
 
-  const handleMarkupCustosFiltroChange = useCallback((next: MarkupCustosFiltro) => {
-    setMarkupCustosFiltro(next)
-    saveMarkupCustosFiltro(next)
+  const handleMarkupCustosFiltroObra = useCallback((obraId: string, next: MarkupCustosFiltro) => {
+    setMarkupCustosFiltrosPorObra(prev => {
+      const updated = { ...prev, [obraId]: next }
+      saveMarkupCustosFiltrosPorObra(updated)
+      return updated
+    })
   }, [])
 
   const totalPedidoAFazer = useMemo(
     () => (
       canViewMarkupCustos
-        ? sumPedidoAFazerCustos(obrasHook.data, custosByLead, markupCustosFiltro)
+        ? sumPedidoAFazerCustos(obrasHook.data, custosByLead, markupCustosFiltrosPorObra)
         : 0
     ),
-    [canViewMarkupCustos, obrasHook.data, custosByLead, markupCustosFiltro],
+    [canViewMarkupCustos, obrasHook.data, custosByLead, markupCustosFiltrosPorObra],
   )
 
   const draftKey = userProfile?.id ? `movelaria-obra-rascunho-${userProfile.id}` : null
@@ -961,9 +970,9 @@ function AgendaObrasContent() {
                 {canViewMarkupCustos && (
                   <ObraMarkupCustosToolbar
                     totalPedidoAFazer={totalPedidoAFazer}
-                    filtro={markupCustosFiltro}
-                    onFiltroChange={handleMarkupCustosFiltroChange}
                     loading={loadingMarkupCustos}
+                    filtroPedidosAtivo={somenteSemPedido}
+                    onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
                   />
                 )}
                 <ObraPedidoMaterialAlert
@@ -1141,7 +1150,8 @@ function AgendaObrasContent() {
                           canViewMontadoresConclusao={canViewMontadoresConclusao}
                           showMarkupCustos={canViewMarkupCustos}
                           markupCustos={getObraMarkupCustos(obra, custosByLead)}
-                          markupCustosFiltro={markupCustosFiltro}
+                          markupCustosFiltro={getFiltroMarkupDaObra(markupCustosFiltrosPorObra, obra.id)}
+                          onMarkupCustosFiltroChange={filtro => handleMarkupCustosFiltroObra(obra.id, filtro)}
                           />
                       </div>
                     ))
@@ -1182,7 +1192,16 @@ function AgendaObrasContent() {
         canEditBriefing={canEditBriefing}
         showMarkupCustos={canViewMarkupCustos}
         markupCustos={detalheObra ? getObraMarkupCustos(detalheObra, custosByLead) : null}
-        markupCustosFiltro={markupCustosFiltro}
+        markupCustosFiltro={
+          detalheObra
+            ? getFiltroMarkupDaObra(markupCustosFiltrosPorObra, detalheObra.id)
+            : undefined
+        }
+        onMarkupCustosFiltroChange={
+          detalheObra
+            ? filtro => handleMarkupCustosFiltroObra(detalheObra.id, filtro)
+            : undefined
+        }
       />
 
       {/* Modal obra (edição) */}

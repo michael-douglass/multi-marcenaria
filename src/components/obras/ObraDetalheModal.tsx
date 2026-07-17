@@ -74,6 +74,7 @@ interface Props {
   showMarkupCustos?: boolean
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
+  onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -97,6 +98,7 @@ export function ObraDetalheModal({
   showMarkupCustos = false,
   markupCustos = null,
   markupCustosFiltro,
+  onMarkupCustosFiltroChange,
 }: Props) {
   const { roles } = useApp()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
@@ -312,11 +314,12 @@ export function ObraDetalheModal({
         )}
 
         {/* ── CUSTOS MARKUP (Administrador) ───────────────────── */}
-        {showMarkupCustos && markupCustos && markupCustosFiltro && (
+        {showMarkupCustos && markupCustos && (
           <div className="mb-5">
             <ObraMarkupCustosBlock
               custos={markupCustos}
               filtro={markupCustosFiltro}
+              onFiltroChange={onMarkupCustosFiltroChange}
               variant="default"
             />
           </div>

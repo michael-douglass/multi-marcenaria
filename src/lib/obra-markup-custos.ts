@@ -7,7 +7,12 @@ export const MARKUP_CUSTOS_FILTRO_DEFAULT: MarkupCustosFiltro = {
   despesas: true,
 }
 
+/** @deprecated prefer MARKUP_CUSTOS_FILTROS_POR_OBRA_STORAGE_KEY */
 export const MARKUP_CUSTOS_FILTRO_STORAGE_KEY = 'agenda-obras-markup-custos-filtro'
+
+export const MARKUP_CUSTOS_FILTROS_POR_OBRA_STORAGE_KEY = 'agenda-obras-markup-custos-filtro-por-obra'
+
+export type MarkupCustosFiltrosPorObra = Record<string, MarkupCustosFiltro>
 
 export function collectObraLeadIds(obras: Pick<ObraFull, 'origem_lead_id'>[]): string[] {
   const ids = new Set<string>()
@@ -27,20 +32,40 @@ export function getObraMarkupCustos(
   return custosByLead.get(leadId) ?? null
 }
 
-/** Soma custos das obras ativas sem pedido — respeita o filtro de categorias. */
+export function getFiltroMarkupDaObra(
+  filtrosPorObra: MarkupCustosFiltrosPorObra,
+  obraId: string,
+): MarkupCustosFiltro {
+  return filtrosPorObra[obraId] ?? { ...MARKUP_CUSTOS_FILTRO_DEFAULT }
+}
+
+/** Soma o valor de um card conforme as categorias ligadas nele. */
+export function sumCustosComFiltro(
+  custos: MarkupOrcamentoCustos,
+  filtro: MarkupCustosFiltro,
+): number {
+  let total = 0
+  if (filtro.materiais) total += Number(custos.custo_materiais) || 0
+  if (filtro.servicos) total += Number(custos.custo_servicos) || 0
+  if (filtro.despesas) total += Number(custos.custo_despesas) || 0
+  return total
+}
+
+/**
+ * Soma “pedido a fazer”: cada obra usa o próprio filtro de categorias.
+ * Ex.: Maria só materiais + João só serviços.
+ */
 export function sumPedidoAFazerCustos(
   obras: ObraFull[],
   custosByLead: ReadonlyMap<string, MarkupOrcamentoCustos>,
-  filtro: MarkupCustosFiltro,
+  filtrosPorObra: MarkupCustosFiltrosPorObra,
 ): number {
   let total = 0
   for (const obra of obras) {
     if (!obraPrecisaPedidoMaterial(obra)) continue
     const custos = getObraMarkupCustos(obra, custosByLead)
     if (!custos) continue
-    if (filtro.materiais) total += Number(custos.custo_materiais) || 0
-    if (filtro.servicos) total += Number(custos.custo_servicos) || 0
-    if (filtro.despesas) total += Number(custos.custo_despesas) || 0
+    total += sumCustosComFiltro(custos, getFiltroMarkupDaObra(filtrosPorObra, obra.id))
   }
   return total
 }
@@ -81,6 +106,35 @@ export function buildMarkupCustoLinhas(
   return linhas
 }
 
+/** Todas as categorias com valor, para o card poder ligar/desligar cada uma. */
+export function buildMarkupCustoOpcoes(custos: MarkupOrcamentoCustos): Array<{
+  key: keyof MarkupCustosFiltro
+  label: string
+  labelCurto: string
+  valor: number
+}> {
+  return [
+    {
+      key: 'materiais',
+      label: 'Materiais',
+      labelCurto: 'Mat.',
+      valor: Number(custos.custo_materiais) || 0,
+    },
+    {
+      key: 'servicos',
+      label: 'Serviços',
+      labelCurto: 'Serv.',
+      valor: Number(custos.custo_servicos) || 0,
+    },
+    {
+      key: 'despesas',
+      label: 'Despesas',
+      labelCurto: 'Desp.',
+      valor: Number(custos.custo_despesas) || 0,
+    },
+  ]
+}
+
 export function parseMarkupCustosFiltro(raw: unknown): MarkupCustosFiltro {
   if (!raw || typeof raw !== 'object') return { ...MARKUP_CUSTOS_FILTRO_DEFAULT }
   const obj = raw as Record<string, unknown>
@@ -104,6 +158,34 @@ export function loadMarkupCustosFiltro(): MarkupCustosFiltro {
 export function saveMarkupCustosFiltro(filtro: MarkupCustosFiltro): void {
   try {
     localStorage.setItem(MARKUP_CUSTOS_FILTRO_STORAGE_KEY, JSON.stringify(filtro))
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+export function parseMarkupCustosFiltrosPorObra(raw: unknown): MarkupCustosFiltrosPorObra {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: MarkupCustosFiltrosPorObra = {}
+  for (const [obraId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!obraId.trim()) continue
+    out[obraId] = parseMarkupCustosFiltro(value)
+  }
+  return out
+}
+
+export function loadMarkupCustosFiltrosPorObra(): MarkupCustosFiltrosPorObra {
+  try {
+    const raw = localStorage.getItem(MARKUP_CUSTOS_FILTROS_POR_OBRA_STORAGE_KEY)
+    if (!raw) return {}
+    return parseMarkupCustosFiltrosPorObra(JSON.parse(raw))
+  } catch {
+    return {}
+  }
+}
+
+export function saveMarkupCustosFiltrosPorObra(filtros: MarkupCustosFiltrosPorObra): void {
+  try {
+    localStorage.setItem(MARKUP_CUSTOS_FILTROS_POR_OBRA_STORAGE_KEY, JSON.stringify(filtros))
   } catch {
     // ignore quota / private mode
   }
