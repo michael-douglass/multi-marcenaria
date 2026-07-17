@@ -266,12 +266,39 @@ export interface ContaReceber {
   forma_pagamento: FormaPagamento
   status: ContaReceberStatus
   data_recebimento?: string
+  observacao?: string | null
   origem_tipo?: 'manual' | 'orcamento_fechado'
   origem_lead_id?: string | null
   grupo_id?: string | null
   criado_em?: string
   atualizado_em?: string
 }
+
+export interface ContaReceberAnexo {
+  id: string
+  conta_receber_id?: string | null
+  grupo_id?: string | null
+  nome_arquivo: string
+  tipo_mime: string
+  storage_path: string
+  preview_path?: string | null
+  preview_paths?: string[] | null
+  criado_em?: string
+}
+
+/** Anexo ainda não salvo (formulário de cobrança) */
+export interface PendingContaReceberAnexo {
+  localId: string
+  file: File
+  nome: string
+  tipoMime: string
+  kind: 'image' | 'pdf' | 'document'
+  previewUrl: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
+}
+
+export type ContaReceberAnexoScope = 'single' | 'all'
 
 // ── Caixa de Pagamentos Adiados (ProForco Model) ────────────
 export type TipoDestinatarioCaixa = 'marceneiro' | 'fornecedor' | 'funcionario' | 'outros'

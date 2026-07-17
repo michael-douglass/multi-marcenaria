@@ -185,6 +185,7 @@ export function useOrcamentosFechados() {
           status: 'pendente',
           origem_tipo: 'orcamento_fechado',
           origem_lead_id: input.lead.id,
+          grupo_id: input.lead.id,
         })
       if (entradaErr) throw new Error(entradaErr.message)
     }
@@ -205,6 +206,7 @@ export function useOrcamentosFechados() {
           status: 'pendente',
           origem_tipo: 'orcamento_fechado',
           origem_lead_id: input.lead.id,
+          grupo_id: input.lead.id,
         })
       if (vistaErr) throw new Error(vistaErr.message)
     } else if (input.tipo_recebimento === 'cartao_parcelado') {
@@ -223,6 +225,7 @@ export function useOrcamentosFechados() {
           data_recebimento: todayISO(),
           origem_tipo: 'orcamento_fechado',
           origem_lead_id: input.lead.id,
+          grupo_id: input.lead.id,
         })
       if (cartaoErr) throw new Error(cartaoErr.message)
     } else {
@@ -240,6 +243,7 @@ export function useOrcamentosFechados() {
           status: 'pendente' as const,
           origem_tipo: 'orcamento_fechado' as const,
           origem_lead_id: input.lead.id,
+          grupo_id: input.lead.id,
         }))
       } else {
         const valorUnit = parseFloat((valorBase / n).toFixed(2))
@@ -258,6 +262,7 @@ export function useOrcamentosFechados() {
           status: 'pendente' as const,
           origem_tipo: 'orcamento_fechado' as const,
           origem_lead_id: input.lead.id,
+          grupo_id: input.lead.id,
         }))
       }
 

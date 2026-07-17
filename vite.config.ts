@@ -88,9 +88,18 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      // Força o unzip do navegador (o do Node ignora arrayBuffer e quebra no Vite).
+      {
+        find: path.resolve(__dirname, 'node_modules/mammoth/lib/unzip.js'),
+        replacement: path.resolve(__dirname, 'node_modules/mammoth/browser/unzip.js'),
+      },
+      {
+        find: path.resolve(__dirname, 'node_modules/mammoth/lib/docx/files.js'),
+        replacement: path.resolve(__dirname, 'node_modules/mammoth/browser/docx/files.js'),
+      },
+    ],
   },
   server: {
     port: 3001,

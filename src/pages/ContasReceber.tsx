@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, useMemo } from 'react'
-import { FileText } from 'lucide-react'
+﻿import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { FileDown, FileText, Loader2 } from 'lucide-react'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
 import { useTemplatesCobranca } from '../hooks/useTemplatesCobranca'
@@ -7,11 +7,15 @@ import { usePixConfig } from '../hooks/usePixConfig'
 import { useReciboConfig } from '../hooks/useReciboConfig'
 import { OrcamentosFechados } from '../components/cobrancas/OrcamentosFechados'
 import { CobrancaCopyButton } from '../components/cobrancas/CobrancaCopyButton'
+import { ContaReceberAnexosField } from '../components/cobrancas/ContaReceberAnexosField'
+import { ContaReceberAnexosButton } from '../components/cobrancas/ContaReceberAnexosModal'
+import { ClienteSearchSelect } from '../components/cobrancas/ClienteSearchSelect'
 import { TemplatesConfigButton } from '../components/cobrancas/TemplatesConfigModal'
 import { ReciboPrintModal } from '../components/cobrancas/ReciboPrintModal'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
+import { DateInput } from '../components/ui/DateInput'
 import { Badge } from '../components/ui/Badge'
 import { FilterBar } from '../components/ui/FilterBar'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
@@ -21,7 +25,35 @@ import {
   type PeriodFilter,
 } from '../components/ui/PeriodFilterBar'
 import { fmtCur, fmtDate, isOverdue, todayISO, addMonths } from '../lib/utils'
-import type { Cliente, ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
+import {
+  resolveGrupoReceberId,
+  revokePendingCrAnexoUrls,
+  uploadContaReceberAnexos,
+  getCrAnexoPreviewSignedUrls,
+  listAnexosDaContaReceber,
+} from '../lib/contas-receber-anexos'
+import {
+  clearCobrancaReceberDraft,
+  emptyCobrancaReceberDraftForm,
+  hasCobrancaReceberDraft,
+  loadCobrancaReceberDraft,
+  saveCobrancaReceberDraft,
+} from '../lib/cobranca-receber-draft'
+import {
+  imprimirResumoCobrancaPdf,
+  statusParcelaConta,
+  type CobrancaResumoAnexo,
+  type CobrancaResumoParcela,
+} from '../lib/cobranca-resumo-pdf'
+import type {
+  Cliente,
+  ClienteInput,
+  ContaReceber,
+  ContaReceberAnexoScope,
+  FormaPagamento,
+  PendingContaReceberAnexo,
+  TipoRecebimento,
+} from '../types'
 import {
   cobrancaTemParcelamento,
   parcelasRelacionadas,
@@ -31,7 +63,11 @@ import {
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 
-interface Props { clientes: Cliente[]; readOnly?: boolean }
+interface Props {
+  clientes: Cliente[]
+  onCreateCliente?: (input: ClienteInput) => Promise<Cliente>
+  readOnly?: boolean
+}
 
 const STATUS_FILTER_OPTIONS = ['Pendente', 'Recebido', 'Vencido'] as const
 type StatusFilterOption = (typeof STATUS_FILTER_OPTIONS)[number]
@@ -60,7 +96,7 @@ const getStatus = (vencimento: string, status: string): string => {
   return 'pendente'
 }
 
-export function ContasReceber({ clientes, readOnly }: Props) {
+export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const { role, roles } = useApp()
   const isAdmin = role === 'Administrador'
   const isFinanceiroOnly = roles.includes('Financeiro') && !roles.includes('Administrador')
@@ -81,22 +117,20 @@ export function ContasReceber({ clientes, readOnly }: Props) {
   const [openBulkEdit, setOpenBulkEdit] = useState(false)
   const [selectedConta, setSelectedConta] = useState<ContaReceber | null>(null)
   const [bulkParcelas, setBulkParcelas] = useState<ContaReceber[]>([])
-  const [form, setForm] = useState({
-    clienteId: '',
-    total: '',
-    inst: '1',
-    fdd: todayISO(),
-    pm: 'pix' as FormaPagamento,
-    tipo: 'a_vista' as TipoRecebimento,
-    descontoCartao: '0',
-    entradaAtiva: false,
-    entradaValor: '',
-    entradaData: todayISO(),
-    entradaForma: 'pix' as FormaPagamento,
-  })
+  const [form, setForm] = useState(emptyCobrancaReceberDraftForm)
+  const [createAnexos, setCreateAnexos] = useState<PendingContaReceberAnexo[]>([])
   const [billingParcelas, setBillingParcelas] = useState<ParcelaInput[]>([])
+  const [draftHint, setDraftHint] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const skipParcelasRegenRef = useRef(false)
+  const createAnexosRef = useRef(createAnexos)
+  createAnexosRef.current = createAnexos
 
   useEffect(() => {
+    if (skipParcelasRegenRef.current) {
+      skipParcelasRegenRef.current = false
+      return
+    }
     if (form.tipo === 'nosso_parcelamento') {
       const tot = parseFloat(form.total) || 0
       const ent = form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0
@@ -118,6 +152,185 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       setBillingParcelas([])
     }
   }, [form.total, form.inst, form.fdd, form.tipo, form.entradaAtiva, form.entradaValor])
+
+  const persistDraft = useCallback(() => {
+    saveCobrancaReceberDraft(form, billingParcelas)
+    setDraftHint(true)
+  }, [form, billingParcelas])
+
+  // Salvamento automático enquanto o card está aberto
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setTimeout(() => persistDraft(), 450)
+    return () => window.clearTimeout(timer)
+  }, [form, billingParcelas, open, persistDraft])
+
+  const openNovaCobranca = useCallback(() => {
+    const draft = loadCobrancaReceberDraft()
+    if (draft?.form) {
+      skipParcelasRegenRef.current = true
+      setForm({ ...emptyCobrancaReceberDraftForm(), ...draft.form })
+      setBillingParcelas(
+        draft.form.tipo === 'nosso_parcelamento' ? (draft.billingParcelas ?? []) : [],
+      )
+      setDraftHint(true)
+    } else {
+      setForm(emptyCobrancaReceberDraftForm())
+      setBillingParcelas([])
+      setDraftHint(false)
+    }
+    revokePendingCrAnexoUrls(createAnexosRef.current)
+    setCreateAnexos([])
+    setOpen(true)
+  }, [])
+
+  const closeModalUi = useCallback(() => {
+    revokePendingCrAnexoUrls(createAnexosRef.current)
+    setCreateAnexos([])
+    setOpen(false)
+  }, [])
+
+  /** Fecha o card mas mantém rascunho no navegador */
+  const closeModalKeepDraft = useCallback(() => {
+    persistDraft()
+    closeModalUi()
+  }, [persistDraft, closeModalUi])
+
+  /** Descarta rascunho e fecha */
+  const discardAndClose = useCallback(() => {
+    clearCobrancaReceberDraft()
+    setForm(emptyCobrancaReceberDraftForm())
+    setBillingParcelas([])
+    setDraftHint(false)
+    closeModalUi()
+  }, [closeModalUi])
+
+  const exportarRascunhoPdf = useCallback(() => {
+    const cl = clientes.find(c => c.id === form.clienteId)
+    const tot = parseFloat(form.total) || 0
+    const n = form.tipo === 'a_vista' ? 1 : parseInt(form.inst) || 1
+    const pmLabel = PM_LABEL[form.pm] ?? form.pm
+
+    let parcelas: CobrancaResumoParcela[] = []
+    if (form.tipo === 'nosso_parcelamento' && billingParcelas.length > 0) {
+      parcelas = billingParcelas.map(p => ({
+        numero: p.numero,
+        totalParcelas: billingParcelas.length,
+        valor: p.valor,
+        vencimento: p.vencimento,
+        status: 'previsto',
+        formaPagamento: pmLabel,
+      }))
+    } else if (form.tipo === 'a_vista') {
+      parcelas = [{
+        numero: 1,
+        totalParcelas: 1,
+        valor: tot - (form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0),
+        vencimento: form.fdd || todayISO(),
+        status: 'previsto',
+        formaPagamento: pmLabel,
+      }]
+    } else {
+      const ent = form.entradaAtiva ? parseFloat(form.entradaValor) || 0 : 0
+      const resto = Math.max(0, tot - ent)
+      const unit = n > 0 ? resto / n : resto
+      parcelas = Array.from({ length: Math.max(1, n) }, (_, i) => ({
+        numero: i + 1,
+        totalParcelas: n,
+        valor:
+          i === n - 1
+            ? parseFloat((resto - unit * (n - 1)).toFixed(2))
+            : parseFloat(unit.toFixed(2)),
+        vencimento: addMonths(form.fdd || todayISO(), i),
+        status: 'previsto' as const,
+        formaPagamento: pmLabel,
+      }))
+    }
+
+    const anexos: CobrancaResumoAnexo[] = createAnexos.map(a => ({
+      nome: a.nome,
+      escopo: 'todas as parcelas',
+      previewUrls: a.previewUrls?.length
+        ? a.previewUrls
+        : a.previewUrl
+          ? [a.previewUrl]
+          : [],
+    }))
+
+    try {
+      imprimirResumoCobrancaPdf({
+        clienteNome: cl?.nome ?? '(Cliente não selecionado)',
+        valorTotal: tot,
+        tipoRecebimento: form.tipo,
+        formaPagamento: form.pm,
+        observacao: form.observacao,
+        entrada: form.entradaAtiva
+          ? {
+              valor: parseFloat(form.entradaValor) || 0,
+              data: form.entradaData || todayISO(),
+              formaPagamento: PM_LABEL[form.entradaForma] ?? form.entradaForma,
+            }
+          : null,
+        parcelas,
+        anexos,
+        subtitulo: 'Rascunho — Nova Cobrança',
+      })
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.')
+    }
+  }, [clientes, form, billingParcelas, createAnexos])
+
+  const exportarCobrancaSalvaPdf = useCallback(async (conta: ContaReceber) => {
+    setExportingPdf(true)
+    try {
+      const relacionadas = parcelasRelacionadas(conta, data)
+        .slice()
+        .sort((a, b) => a.numero_parcela - b.numero_parcela)
+      const serie = relacionadas.length ? relacionadas : [conta]
+      const totalParcelas = Math.max(
+        conta.total_parcelas,
+        serie.length,
+        ...serie.map(p => p.total_parcelas),
+      )
+
+      const parcelas: CobrancaResumoParcela[] = serie.map(p => ({
+        numero: p.numero_parcela,
+        totalParcelas,
+        valor: p.valor_parcela,
+        vencimento: p.data_vencimento,
+        status: statusParcelaConta(p.status, p.data_vencimento),
+        formaPagamento: PM_LABEL[p.forma_pagamento] ?? p.forma_pagamento,
+      }))
+
+      const rows = await listAnexosDaContaReceber(conta)
+      const anexos: CobrancaResumoAnexo[] = await Promise.all(
+        rows.map(async row => {
+          const previewUrls = await getCrAnexoPreviewSignedUrls(row)
+          return {
+            nome: row.nome_arquivo,
+            escopo: row.grupo_id ? 'todas as parcelas' : 'desta parcela',
+            previewUrls,
+          }
+        }),
+      )
+
+      imprimirResumoCobrancaPdf({
+        clienteNome: conta.cliente_nome,
+        valorTotal: conta.valor_total,
+        tipoRecebimento: conta.tipo_recebimento,
+        formaPagamento: conta.forma_pagamento,
+        observacao: conta.observacao,
+        entrada: null,
+        parcelas,
+        anexos,
+        subtitulo: 'Cobrança salva',
+      })
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }, [data])
 
   const updateBillingParcela = (index: number, field: keyof ParcelaInput, value: string | number) => {
     const newParcelas = [...billingParcelas]
@@ -170,7 +383,13 @@ export function ContasReceber({ clientes, readOnly }: Props) {
     forma_pagamento: 'pix' as FormaPagamento,
     status: 'pendente' as 'pendente' | 'recebido',
     data_recebimento: todayISO(),
+    observacao: '',
+    observacaoScope: 'single' as ContaReceberExclusaoScope,
   })
+  const [editAnexos, setEditAnexos] = useState<PendingContaReceberAnexo[]>([])
+  const [editAnexoScope, setEditAnexoScope] = useState<ContaReceberAnexoScope>('single')
+  const [bulkObservacao, setBulkObservacao] = useState('')
+  const [bulkAnexos, setBulkAnexos] = useState<PendingContaReceberAnexo[]>([])
   const [saving, setSaving] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [savingBulk, setSavingBulk] = useState(false)
@@ -191,6 +410,9 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       .sort((a, b) => a.numero_parcela - b.numero_parcela)
 
     setBulkParcelas(related)
+    setBulkObservacao(conta.observacao ?? '')
+    revokePendingCrAnexoUrls(bulkAnexos)
+    setBulkAnexos([])
     setOpenBulkEdit(true)
   }
 
@@ -254,7 +476,19 @@ export function ContasReceber({ clientes, readOnly }: Props) {
           data_vencimento: p.data_vencimento,
         })),
         totalVenda,
+        bulkObservacao,
       )
+      if (bulkAnexos.length > 0) {
+        const base = bulkParcelas[0]
+        await uploadContaReceberAnexos({
+          scope: 'all',
+          contaReceberId: base.id,
+          grupoId: resolveGrupoReceberId(base),
+          anexos: bulkAnexos,
+        })
+        revokePendingCrAnexoUrls(bulkAnexos)
+        setBulkAnexos([])
+      }
       setOpenBulkEdit(false)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erro ao salvar alterações.')
@@ -428,7 +662,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
 
     setSaving(true)
     try {
-      await gerarCobranca({
+      const rows = await gerarCobranca({
         cliente_id: cl.id,
         cliente_nome: cl.nome,
         valor_total: tot,
@@ -443,20 +677,22 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         } : undefined,
         parcelas_detalhadas: form.tipo === 'nosso_parcelamento' ? billingParcelas : undefined,
         desconto_cartao_percentual: form.tipo === 'cartao_parcelado' ? parseFloat(form.descontoCartao) || 0 : undefined,
+        observacao: form.observacao,
       })
-      setForm({
-        clienteId: '',
-        total: '',
-        inst: '1',
-        fdd: todayISO(),
-        pm: 'pix',
-        tipo: 'a_vista',
-        descontoCartao: '0',
-        entradaAtiva: false,
-        entradaValor: '',
-        entradaData: todayISO(),
-        entradaForma: 'pix',
-      })
+      if (createAnexos.length > 0 && rows[0]) {
+        await uploadContaReceberAnexos({
+          scope: 'all',
+          contaReceberId: rows[0].id,
+          grupoId: resolveGrupoReceberId(rows[0]),
+          anexos: createAnexos,
+        })
+        revokePendingCrAnexoUrls(createAnexos)
+        setCreateAnexos([])
+      }
+      clearCobrancaReceberDraft()
+      setForm(emptyCobrancaReceberDraftForm())
+      setBillingParcelas([])
+      setDraftHint(false)
       setOpen(false)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erro ao emitir cobrança.')
@@ -471,7 +707,12 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       forma_pagamento: conta.forma_pagamento,
       status: conta.status,
       data_recebimento: conta.data_recebimento ?? todayISO(),
+      observacao: conta.observacao ?? '',
+      observacaoScope: 'single',
     })
+    revokePendingCrAnexoUrls(editAnexos)
+    setEditAnexos([])
+    setEditAnexoScope(cobrancaTemParcelamento(conta, data) ? 'all' : 'single')
     setOpenEdit(true)
   }
 
@@ -487,7 +728,19 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         forma_pagamento: editForm.forma_pagamento,
         status: editForm.status,
         data_recebimento: editForm.status === 'recebido' ? editForm.data_recebimento : null,
+        observacao: editForm.observacao,
+        observacaoScope: editForm.observacaoScope,
       })
+      if (editAnexos.length > 0) {
+        await uploadContaReceberAnexos({
+          scope: editAnexoScope,
+          contaReceberId: selectedConta.id,
+          grupoId: resolveGrupoReceberId(selectedConta),
+          anexos: editAnexos,
+        })
+        revokePendingCrAnexoUrls(editAnexos)
+        setEditAnexos([])
+      }
       setOpenEdit(false)
       setSelectedConta(null)
     } finally {
@@ -565,6 +818,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
           <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Cobranças & Contas a Receber</h1>
           <p className="section-label mt-1">
             {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
+            {hasCobrancaReceberDraft() && !open ? ' · rascunho salvo' : ''}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -572,7 +826,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
             <TemplatesConfigButton templatesHook={templatesHook} pixHook={pixHook} />
           )}
           {!readOnly && (
-            <button type="button" className="btn btn-gold btn-md" onClick={() => setOpen(true)}>
+            <button type="button" className="btn btn-gold btn-md" onClick={openNovaCobranca}>
               + Nova Cobrança
             </button>
           )}
@@ -592,12 +846,39 @@ export function ContasReceber({ clientes, readOnly }: Props) {
       />
 
       {/* New Billing Modal */}
-      <Modal open={open} onClose={() => setOpen(false)} title="NOVA COBRANÇA" wide>
+      <Modal
+        open={open}
+        onClose={closeModalKeepDraft}
+        title="NOVA COBRANÇA"
+        wide
+        closeOnBackdrop={false}
+        headerActions={
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={exportarRascunhoPdf}
+            title="Exportar resumo em PDF"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Exportar PDF
+          </button>
+        }
+      >
+        {(draftHint || hasCobrancaReceberDraft()) && (
+          <p className="mb-3 rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.08)] px-3 py-2 text-xs text-[#f2d892]">
+            Seus dados são salvos automaticamente neste navegador. Se o sistema cair ou você fechar o card,
+            ao reabrir continue de onde parou.
+            {hasCobrancaReceberDraft() ? ' (Anexos precisam ser adicionados de novo.)' : ''}
+          </p>
+        )}
         <Field label="Cliente *">
-          <select className="glass-input" value={form.clienteId} onChange={f('clienteId')}>
-            <option value="">Selecionar cliente...</option>
-            {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
+          <ClienteSearchSelect
+            clientes={clientes}
+            value={form.clienteId}
+            onChange={id => setForm(p => ({ ...p, clienteId: id }))}
+            onCreateCliente={onCreateCliente}
+            placeholder="Digite para buscar ou criar cliente…"
+          />
         </Field>
         
         <Field label="Valor Total da Venda (R$) *">
@@ -677,11 +958,10 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                 </select>
               </Field>
               <Field label="Data" half>
-                <input
+                <DateInput
                   className="glass-input"
-                  type="date"
                   value={form.entradaData}
-                  onChange={e => setForm(p => ({ ...p, entradaData: e.target.value }))}
+                  onChange={v => setForm(p => ({ ...p, entradaData: v ?? '' }))}
                 />
               </Field>
             </FieldRow>
@@ -698,7 +978,11 @@ export function ContasReceber({ clientes, readOnly }: Props) {
               </select>
             </Field>
             <Field label="Vencimento" half>
-              <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+              <DateInput
+                className="glass-input"
+                value={form.fdd}
+                onChange={v => setForm(p => ({ ...p, fdd: v ?? '' }))}
+              />
             </Field>
           </FieldRow>
         ) : form.tipo === 'cartao_parcelado' ? (
@@ -741,7 +1025,11 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                 <input className="glass-input" type="number" value={form.inst} onChange={f('inst')} min="2" max="60" />
               </Field>
               <Field label="1ª Parcela" half>
-                <input className="glass-input" type="date" value={form.fdd} onChange={f('fdd')} />
+                <DateInput
+                  className="glass-input"
+                  value={form.fdd}
+                  onChange={v => setForm(p => ({ ...p, fdd: v ?? '' }))}
+                />
               </Field>
             </FieldRow>
 
@@ -786,12 +1074,11 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                         onChange={e => updateBillingParcela(i, 'valor', e.target.value)}
                         step="0.01"
                       />
-                      <input
+                      <DateInput
                         className="glass-input"
                         style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
-                        type="date"
                         value={p.vencimento}
-                        onChange={e => updateBillingParcela(i, 'vencimento', e.target.value)}
+                        onChange={v => updateBillingParcela(i, 'vencimento', v ?? '')}
                       />
                     </div>
                   ))}
@@ -811,17 +1098,60 @@ export function ContasReceber({ clientes, readOnly }: Props) {
           </>
         )}
 
-        <ModalFormFooter
-          onCancel={() => setOpen(false)}
-          onSubmit={save}
-          submitLabel="Emitir Cobrança"
-          submittingLabel="Emitindo..."
-          submitting={saving}
-          submitDisabled={!form.clienteId || !form.total}
-        />
+        <Field label="Observação">
+          <textarea
+            className="glass-input min-h-[72px] w-full resize-y"
+            value={form.observacao}
+            onChange={e => setForm(p => ({ ...p, observacao: e.target.value }))}
+            placeholder="Anotações internas desta cobrança…"
+          />
+        </Field>
+
+        <ContaReceberAnexosField anexos={createAnexos} onChange={setCreateAnexos} />
+        {createAnexos.length > 0 && (
+          <p className="mb-3 text-xs text-[#f2d892]">
+            Os anexos serão vinculados a todas as parcelas desta cobrança.
+          </p>
+        )}
+
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm w-full sm:w-auto"
+            onClick={discardAndClose}
+          >
+            Limpar rascunho
+          </button>
+          <ModalFormFooter
+            onCancel={closeModalKeepDraft}
+            onSubmit={save}
+            submitLabel="Emitir Cobrança"
+            submittingLabel="Emitindo..."
+            submitting={saving}
+            submitDisabled={!form.clienteId || !form.total}
+          />
+        </div>
       </Modal>
 
-      <Modal open={openEdit} onClose={() => setOpenEdit(false)} title="EDITAR TRANSAÇÃO">
+      <Modal
+        open={openEdit}
+        onClose={() => setOpenEdit(false)}
+        title="EDITAR TRANSAÇÃO"
+        headerActions={
+          selectedConta ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={exportingPdf}
+              onClick={() => void exportarCobrancaSalvaPdf(selectedConta)}
+              title="Exportar resumo em PDF"
+            >
+              {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              Exportar PDF
+            </button>
+          ) : null
+        }
+      >
         <Field label="Valor da Parcela (R$) *">
           <input
             className="glass-input"
@@ -875,8 +1205,53 @@ export function ContasReceber({ clientes, readOnly }: Props) {
             />
           </Field>
         </FieldRow>
+
+        <Field label="Observação">
+          <textarea
+            className="glass-input min-h-[72px] w-full resize-y"
+            value={editForm.observacao}
+            onChange={e => setEditForm(p => ({ ...p, observacao: e.target.value }))}
+            placeholder="Anotações internas desta cobrança…"
+          />
+        </Field>
+        {selectedConta && cobrancaTemParcelamento(selectedConta, data) && (
+          <div className="mb-3 flex flex-wrap gap-3 text-xs text-[#edd9c4]">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cr-obs-scope"
+                checked={editForm.observacaoScope === 'single'}
+                onChange={() => setEditForm(p => ({ ...p, observacaoScope: 'single' }))}
+              />
+              Observação só nesta parcela
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cr-obs-scope"
+                checked={editForm.observacaoScope === 'all'}
+                onChange={() => setEditForm(p => ({ ...p, observacaoScope: 'all' }))}
+              />
+              Observação em todas as parcelas
+            </label>
+          </div>
+        )}
+
+        <ContaReceberAnexosField
+          anexos={editAnexos}
+          onChange={setEditAnexos}
+          showScope
+          temParcelamento={!!selectedConta && cobrancaTemParcelamento(selectedConta, data)}
+          scope={editAnexoScope}
+          onScopeChange={setEditAnexoScope}
+        />
+
         <ModalFormFooter
-          onCancel={() => setOpenEdit(false)}
+          onCancel={() => {
+            revokePendingCrAnexoUrls(editAnexos)
+            setEditAnexos([])
+            setOpenEdit(false)
+          }}
           onSubmit={saveEdit}
           submitLabel="Salvar Alterações"
           submitting={savingEdit}
@@ -884,7 +1259,26 @@ export function ContasReceber({ clientes, readOnly }: Props) {
         />
       </Modal>
 
-      <Modal open={openBulkEdit} onClose={() => setOpenBulkEdit(false)} title="EDITAR PARCELAMENTO">
+      <Modal
+        open={openBulkEdit}
+        onClose={() => setOpenBulkEdit(false)}
+        title="EDITAR PARCELAMENTO"
+        wide
+        headerActions={
+          bulkParcelas[0] ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={exportingPdf}
+              onClick={() => void exportarCobrancaSalvaPdf(bulkParcelas[0])}
+              title="Exportar resumo em PDF"
+            >
+              {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              Exportar PDF
+            </button>
+          ) : null
+        }
+      >
         <div className="mb-4">
           <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
             {bulkParcelas[0]?.cliente_nome} — Total: {fmtCur(bulkParcelas[0]?.valor_total)}
@@ -952,8 +1346,29 @@ export function ContasReceber({ clientes, readOnly }: Props) {
             )}
           </div>
         </div>
+
+        <Field label="Observação (todas as parcelas)">
+          <textarea
+            className="glass-input min-h-[72px] w-full resize-y"
+            value={bulkObservacao}
+            onChange={e => setBulkObservacao(e.target.value)}
+            placeholder="Anotação aplicada a todas as parcelas deste parcelamento…"
+          />
+        </Field>
+
+        <ContaReceberAnexosField anexos={bulkAnexos} onChange={setBulkAnexos} />
+        {bulkAnexos.length > 0 && (
+          <p className="mb-3 text-xs text-[#f2d892]">
+            Novos anexos serão vinculados a todas as parcelas deste parcelamento.
+          </p>
+        )}
+
         <ModalFormFooter
-          onCancel={() => setOpenBulkEdit(false)}
+          onCancel={() => {
+            revokePendingCrAnexoUrls(bulkAnexos)
+            setBulkAnexos([])
+            setOpenBulkEdit(false)
+          }}
           onSubmit={saveBulkEdit}
           submitLabel="Salvar Parcelamento"
           submitting={savingBulk}
@@ -1116,7 +1531,7 @@ export function ContasReceber({ clientes, readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
-                {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Pagamento', 'Status', 'Recibo', ''].map((h, i) => (
+                {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
                   <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                 ))}
               </tr></thead>
@@ -1126,7 +1541,14 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                   const pm = r.forma_pagamento as FormaPagamento
                   return (
                     <tr key={r.id} className="trow">
-                      <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>{r.cliente_nome}</td>
+                      <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>
+                        {r.cliente_nome}
+                        {r.observacao?.trim() ? (
+                          <div className="mt-1 text-xs font-normal text-[#b8957f] line-clamp-2" title={r.observacao}>
+                            {r.observacao}
+                          </div>
+                        ) : null}
+                      </td>
                       <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{r.numero_parcela}/{r.total_parcelas}</td>
                       <td className="px-4 py-3" style={{ color: '#4ade80', fontWeight: 600 }}>{fmtCur(r.valor_parcela)}</td>
                       <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(r.data_vencimento)}</td>
@@ -1141,6 +1563,13 @@ export function ContasReceber({ clientes, readOnly }: Props) {
                         >
                           <FileText className="h-4 w-4 text-[#f2d892]" />
                         </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <ContaReceberAnexosButton
+                          conta={r}
+                          todasContas={data}
+                          readOnly={readOnly}
+                        />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">

@@ -1,9 +1,9 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trash2, X, ZoomIn, ZoomOut, RotateCcw, Play, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 
-type Kind = 'image' | 'pdf' | 'video'
+type Kind = 'image' | 'pdf' | 'video' | 'document'
 
 interface AnexoLightboxProps {
   open: boolean
@@ -297,7 +297,7 @@ export function AnexoLightbox({
   if (!open) return null
 
   const isVideo = kind === 'video'
-  const isMultiPagePdf = kind === 'pdf' && pageUrls.length > 1
+  const isMultiPagePdf = (kind === 'pdf' || kind === 'document') && pageUrls.length > 1
 
   return createPortal(
     <div
@@ -342,7 +342,7 @@ export function AnexoLightbox({
             <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
               {isVideo
                 ? 'Vídeo · Esc para fechar'
-                : kind === 'pdf'
+                : kind === 'pdf' || kind === 'document'
                   ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
                   : 'Tela cheia · Esc para fechar'}
             </p>
@@ -387,6 +387,25 @@ export function AnexoLightbox({
             className="max-h-full max-w-full rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
           />
         </div>
+      ) : kind === 'document' && pageUrls.length > 0 ? (
+        <PdfPagesViewer pages={pageUrls} title={title} compact={compact} />
+      ) : kind === 'document' ? (
+        <div className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-4 ${compact ? 'p-4 pt-16' : 'p-8'}`}>
+          <FileText className="h-16 w-16 text-[#f2d892]" />
+          <p className="max-w-md text-center text-sm text-[#edd9c4]">{title}</p>
+          <p className="text-xs text-[#b8957f]">Arquivo Word — pré-visualização indisponível.</p>
+          {imageUrl ? (
+            <a
+              href={imageUrl}
+              download={title}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-gold btn-sm"
+            >
+              Baixar arquivo
+            </a>
+          ) : null}
+        </div>
       ) : kind === 'pdf' ? (
         <PdfPagesViewer pages={pageUrls} title={title} compact={compact} />
       ) : (
@@ -417,7 +436,14 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
         aria-label={`Ver ${nome} em tela cheia`}
       >
         <div className="relative aspect-[4/3] w-full min-w-[120px] max-w-[160px]">
-          {hasPreview ? (
+          {kind === 'document' && !hasPreview ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-[rgba(0,0,0,0.35)] px-2">
+              <FileText className="h-8 w-8 text-[#f2d892] opacity-80" />
+              <span className="truncate text-[0.55rem] uppercase tracking-wider text-[#b8957f]">
+                Word
+              </span>
+            </div>
+          ) : hasPreview ? (
             <img src={previewUrl} alt={nome} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[rgba(0,0,0,0.4)]">
@@ -434,6 +460,11 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
           {kind === 'pdf' && (
             <span className="absolute left-1 top-1 rounded bg-[rgba(240,210,140,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-[#2a1812]">
               PDF
+            </span>
+          )}
+          {kind === 'document' && (
+            <span className="absolute left-1 top-1 rounded bg-[rgba(37,99,235,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-white">
+              {nome.toLowerCase().endsWith('.docx') ? 'DOCX' : 'DOTX'}
             </span>
           )}
           {kind === 'video' && (

@@ -13,6 +13,8 @@ interface ModalProps {
   headerTop?: ReactNode
   /** Conteúdo extra no cabeçalho (ex.: resumo financeiro do fornecedor) */
   headerExtra?: ReactNode
+  /** Ações à esquerda do botão Fechar (ex.: Exportar PDF) */
+  headerActions?: ReactNode
   /** Se false, clique no fundo escuro não fecha (útil em formulários longos) */
   closeOnBackdrop?: boolean
 }
@@ -25,6 +27,7 @@ export function Modal({
   wide,
   headerTop,
   headerExtra,
+  headerActions,
   closeOnBackdrop = true,
 }: ModalProps) {
   const onCloseRef = useRef(onClose)
@@ -92,14 +95,17 @@ export function Modal({
             >
               {title}
             </span>
-            <button
-              type="button"
-              onClick={() => onCloseRef.current()}
-              className="btn btn-outline btn-sm shrink-0 !px-2 !py-1"
-              aria-label="Fechar"
-            >
-              <X size={15} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {headerActions}
+              <button
+                type="button"
+                onClick={() => onCloseRef.current()}
+                className="btn btn-outline btn-sm !px-2 !py-1"
+                aria-label="Fechar"
+              >
+                <X size={15} />
+              </button>
+            </div>
           </div>
           {headerExtra ? <div className="mt-3">{headerExtra}</div> : null}
         </div>

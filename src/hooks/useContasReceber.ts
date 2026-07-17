@@ -26,6 +26,7 @@ interface GerarCobrancaInput {
   }
   parcelas_detalhadas?: ParcelaInput[]
   desconto_cartao_percentual?: number
+  observacao?: string | null
 }
 
 export interface AtualizarTransacaoInput {
@@ -34,6 +35,9 @@ export interface AtualizarTransacaoInput {
   forma_pagamento: FormaPagamento
   status: 'pendente' | 'recebido'
   data_recebimento?: string | null
+  observacao?: string | null
+  /** Se true e houver parcelamento, aplica a observação a todas as parcelas. */
+  observacaoScope?: ContaReceberExclusaoScope
 }
 
 export type ContaReceberExclusaoScope = 'single' | 'all'
@@ -122,6 +126,7 @@ export function useContasReceber() {
     const totalParcelasGlobal = (input.entrada ? 1 : 0) + n
     const parcelaOffset = input.entrada ? 1 : 0
     const grupoId = createId()
+    const observacao = input.observacao?.trim() || null
 
     const parcelasToInsert: any[] = []
 
@@ -139,6 +144,7 @@ export function useContasReceber() {
         status: 'pendente',
         origem_tipo: 'manual',
         grupo_id: grupoId,
+        observacao,
       })
     }
 
@@ -156,6 +162,7 @@ export function useContasReceber() {
         status: 'pendente',
         origem_tipo: 'manual',
         grupo_id: grupoId,
+        observacao,
       })
     } else if (input.tipo_recebimento === 'cartao_parcelado') {
       parcelasToInsert.push({
@@ -170,6 +177,7 @@ export function useContasReceber() {
         status: 'pendente',
         origem_tipo: 'manual',
         grupo_id: grupoId,
+        observacao,
       })
     } else {
       if (input.parcelas_detalhadas && input.parcelas_detalhadas.length > 0) {
@@ -186,6 +194,7 @@ export function useContasReceber() {
             status: 'pendente',
             origem_tipo: 'manual',
             grupo_id: grupoId,
+            observacao,
           })
         })
       } else {
@@ -206,6 +215,7 @@ export function useContasReceber() {
             status: 'pendente',
             origem_tipo: 'manual',
             grupo_id: grupoId,
+            observacao,
           })
         }
       }
@@ -232,7 +242,13 @@ export function useContasReceber() {
   }
 
   const atualizarTransacao = async (id: string, input: AtualizarTransacaoInput) => {
-    const payload = {
+    const conta = data.find(x => x.id === id)
+    const observacao =
+      input.observacao !== undefined
+        ? (input.observacao?.trim() || null)
+        : undefined
+
+    const payload: Record<string, unknown> = {
       valor_parcela: input.valor_parcela,
       data_vencimento: input.data_vencimento,
       forma_pagamento: input.forma_pagamento,
@@ -240,6 +256,10 @@ export function useContasReceber() {
       data_recebimento: input.status === 'recebido' ? (input.data_recebimento ?? todayISO()) : null,
       atualizado_em: new Date().toISOString(),
     }
+    if (observacao !== undefined) {
+      payload.observacao = observacao
+    }
+
     const { data: row, error: err } = await supabase
       .from('movelaria_contas_receber')
       .update(payload)
@@ -247,25 +267,59 @@ export function useContasReceber() {
       .select()
       .single()
     if (err) throw new Error(err.message)
-    setData(prev => prev.map(x => (x.id === id ? row : x)))
+
+    if (
+      observacao !== undefined
+      && input.observacaoScope === 'all'
+      && conta
+      && cobrancaTemParcelamento(conta, data)
+    ) {
+      const relacionadas = parcelasRelacionadas(conta, data).filter(x => x.id !== id)
+      if (relacionadas.length > 0) {
+        const ids = relacionadas.map(x => x.id)
+        const { error: groupErr } = await supabase
+          .from('movelaria_contas_receber')
+          .update({ observacao, atualizado_em: new Date().toISOString() })
+          .in('id', ids)
+        if (groupErr) throw new Error(groupErr.message)
+        setData(prev =>
+          prev.map(x => {
+            if (x.id === id) return { ...row, cliente_telefone: x.cliente_telefone }
+            if (ids.includes(x.id)) return { ...x, observacao }
+            return x
+          }),
+        )
+        return row
+      }
+    }
+
+    setData(prev =>
+      prev.map(x => (x.id === id ? { ...row, cliente_telefone: x.cliente_telefone } : x)),
+    )
     return row
   }
 
   const atualizarParcelasEmLote = async (
     parcelas: Array<{ id: string; valor_parcela: number; data_vencimento: string }>,
     valorTotal: number,
+    observacao?: string | null,
   ) => {
-    // Atualiza cada parcela. Em produção idealmente seria um RPC ou Promise.all
+    const obs =
+      observacao !== undefined ? (observacao?.trim() || null) : undefined
+
     const results = await Promise.all(
       parcelas.map(async p => {
+        const payload: Record<string, unknown> = {
+          valor_parcela: p.valor_parcela,
+          data_vencimento: p.data_vencimento,
+          valor_total: valorTotal,
+          atualizado_em: new Date().toISOString(),
+        }
+        if (obs !== undefined) payload.observacao = obs
+
         const { data: row, error: err } = await supabase
           .from('movelaria_contas_receber')
-          .update({
-            valor_parcela: p.valor_parcela,
-            data_vencimento: p.data_vencimento,
-            valor_total: valorTotal,
-            atualizado_em: new Date().toISOString(),
-          })
+          .update(payload)
           .eq('id', p.id)
           .select()
           .single()
@@ -278,7 +332,9 @@ export function useContasReceber() {
       const newData = [...prev]
       results.forEach(row => {
         const idx = newData.findIndex(x => x.id === row.id)
-        if (idx !== -1) newData[idx] = row
+        if (idx !== -1) {
+          newData[idx] = { ...row, cliente_telefone: newData[idx].cliente_telefone }
+        }
       })
       return newData
     })

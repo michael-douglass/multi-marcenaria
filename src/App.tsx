@@ -100,7 +100,7 @@ function AuthenticatedRoutes() {
             }
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
-          <Route path="/cobrancas" element={guardReadOnly(<ContasReceber clientes={clientesHook.data} readOnly={readOnly} />)} />
+          <Route path="/cobrancas" element={guardReadOnly(<ContasReceber clientes={clientesHook.data} onCreateCliente={clientesHook.create} readOnly={readOnly} />)} />
           <Route
             path="/fornecedores"
             element={guardReadOnly(

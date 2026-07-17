@@ -1,13 +1,18 @@
-/** Caminhos de preview de PDF no storage (página 1 mantém nomes legados). */
-export function pdfPreviewPathAt(basePrefix: string, pageOneBased: number, naming: 'folder' | 'suffix'): string {
+/** Caminhos de preview (PDF→PNG ou Word→JPG) no storage (página 1 mantém nomes legados). */
+export function pdfPreviewPathAt(
+  basePrefix: string,
+  pageOneBased: number,
+  naming: 'folder' | 'suffix',
+  ext: 'png' | 'jpg' = 'png',
+): string {
   if (naming === 'folder') {
     return pageOneBased === 1
-      ? `${basePrefix}/preview.png`
-      : `${basePrefix}/preview-${pageOneBased}.png`
+      ? `${basePrefix}/preview.${ext}`
+      : `${basePrefix}/preview-${pageOneBased}.${ext}`
   }
   return pageOneBased === 1
-    ? `${basePrefix}_preview.png`
-    : `${basePrefix}_preview-${pageOneBased}.png`
+    ? `${basePrefix}_preview.${ext}`
+    : `${basePrefix}_preview-${pageOneBased}.${ext}`
 }
 
 export function resolveStoredPreviewPaths(record: {
