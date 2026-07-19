@@ -63,7 +63,7 @@ export function ObraMarkupCustosToolbar({
         </div>
       )}
       <p className="m-0 text-[0.58rem] leading-snug text-[#c4a882]/80">
-        Em cada card, marque Mat. / Serv. / Desp. para montar o total
+        Em cada card, marque Mat. / Serv. / Desp. — fica salvo no sistema para todos
       </p>
     </div>
   )

@@ -13,11 +13,9 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MONTHS_PT } from '@/lib/date-br'
+import { useSimuladorCaixaShared } from '@/hooks/useSimuladorCaixaShared'
 import {
-  clearSimulacao,
-  loadSimulacao,
   rotuloCampoAjuste,
-  saveSimulacao,
   somarAjustes,
   type SimuladorAjuste,
   type SimuladorAjusteCampo,
@@ -106,6 +104,15 @@ export function SimuladorCaixaCard({
   previsaoRecebimentoOriginal,
   previsaoDespesasOriginal,
 }: SimuladorCaixaCardProps) {
+  const {
+    simulacao: simulacaoSalva,
+    loading: loadingSimulacao,
+    saving,
+    error: saveError,
+    save,
+    clear,
+  } = useSimuladorCaixaShared(ano)
+
   const [meses, setMeses] = useState<SimuladorMes[]>(() => buildMesesBase(dataOriginal))
   const [previsaoRecebimento, setPrevisaoRecebimento] = useState(previsaoRecebimentoOriginal)
   const [previsaoDespesas, setPrevisaoDespesas] = useState(previsaoDespesasOriginal)
@@ -124,6 +131,8 @@ export function SimuladorCaixaCard({
   const [isDirty, setIsDirty] = useState(false)
   const [saveFlash, setSaveFlash] = useState(false)
   const saveFlashTimer = useRef<number | null>(null)
+  /** Ano já aplicado na UI — evita misturar dados reais com simulação antiga. */
+  const anoAplicadoRef = useRef<number | null>(null)
 
   const proximo = useMemo(() => infoProximoMes(), [])
   const previsaoNoAnoAtual = proximo.ano === ano
@@ -134,65 +143,100 @@ export function SimuladorCaixaCard({
     setSaveFlash(false)
   }
 
-  // Ao trocar o ano: carrega simulação salva ou dados reais (já com previsão mês a mês)
+  const aplicarBaseOriginal = () => {
+    setMeses(buildMesesBase(dataOriginal))
+    setPrevisaoRecebimento(previsaoRecebimentoOriginal)
+    setPrevisaoDespesas(previsaoDespesasOriginal)
+    setAjustes([])
+  }
+
+  const aplicarSimulacao = (saved: NonNullable<typeof simulacaoSalva>) => {
+    const base = buildMesesBase([])
+    const carregados = base.map(b => {
+      const found = saved.meses.find(m => m.mes === b.mes)
+      return found ?? b
+    })
+    setMeses(carregados)
+    setPrevisaoRecebimento(saved.previsaoRecebimento)
+    setPrevisaoDespesas(saved.previsaoDespesas)
+    setAjustes(saved.ajustes ?? [])
+  }
+
+  // Troca de ano: limpa painéis e espera o carregamento do banco
   useEffect(() => {
-    const saved = loadSimulacao(ano)
-    if (saved) {
-      const base = buildMesesBase([])
-      const carregados = base.map(b => {
-        const found = saved.meses.find(m => m.mes === b.mes)
-        return found ?? b
-      })
-      setMeses(carregados)
-      setPrevisaoRecebimento(saved.previsaoRecebimento)
-      setPrevisaoDespesas(saved.previsaoDespesas)
-      setAjustes(saved.ajustes ?? [])
-    } else {
-      setMeses(buildMesesBase(dataOriginal))
-      setPrevisaoRecebimento(previsaoRecebimentoOriginal)
-      setPrevisaoDespesas(previsaoDespesasOriginal)
-      setAjustes([])
-    }
+    anoAplicadoRef.current = null
     setAjusteTitulo('')
     setAjusteValorDraft('')
     setPainelMes(null)
     setHistoricosAbertos({})
     setIsDirty(false)
     setSaveFlash(false)
-    // Intencional: só reage à troca de ano; originais sincronizam no efeito abaixo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ano])
 
-  // Quando os dados reais do ano chegam (fetch) e não há edição/salvamento, sincroniza
+  // Quando a simulação do banco (ou a ausência dela) chega: aplica na tela
   useEffect(() => {
+    if (loadingSimulacao) return
     if (isDirty) return
-    if (loadSimulacao(ano)) return
-    setMeses(buildMesesBase(dataOriginal))
-    setPrevisaoRecebimento(previsaoRecebimentoOriginal)
-    setPrevisaoDespesas(previsaoDespesasOriginal)
-    setAjustes([])
-  }, [ano, dataOriginal, previsaoRecebimentoOriginal, previsaoDespesasOriginal, isDirty])
 
-  // Salva automaticamente no navegador após cada alteração (com pequeno atraso ao digitar)
+    if (simulacaoSalva) {
+      aplicarSimulacao(simulacaoSalva)
+    } else {
+      aplicarBaseOriginal()
+    }
+    anoAplicadoRef.current = ano
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ano, loadingSimulacao, simulacaoSalva])
+
+  // Dados reais do ano chegaram e ainda não há simulação salva → sincroniza
   useEffect(() => {
-    if (!isDirty) return
+    if (loadingSimulacao || isDirty || simulacaoSalva) return
+    if (anoAplicadoRef.current !== ano) return
+    aplicarBaseOriginal()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    ano,
+    dataOriginal,
+    previsaoRecebimentoOriginal,
+    previsaoDespesasOriginal,
+    loadingSimulacao,
+    simulacaoSalva,
+    isDirty,
+  ])
+
+  // Salva automaticamente no banco após cada alteração (com pequeno atraso ao digitar)
+  useEffect(() => {
+    if (!isDirty || loadingSimulacao) return
 
     const timer = window.setTimeout(() => {
-      saveSimulacao({
-        ano,
-        meses,
-        previsaoRecebimento,
-        previsaoDespesas,
-        ajustes,
-      })
-      setIsDirty(false)
-      setSaveFlash(true)
-      if (saveFlashTimer.current != null) window.clearTimeout(saveFlashTimer.current)
-      saveFlashTimer.current = window.setTimeout(() => setSaveFlash(false), 1800)
-    }, 450)
+      void (async () => {
+        try {
+          await save({
+            meses,
+            previsaoRecebimento,
+            previsaoDespesas,
+            ajustes,
+          })
+          setIsDirty(false)
+          setSaveFlash(true)
+          if (saveFlashTimer.current != null) window.clearTimeout(saveFlashTimer.current)
+          saveFlashTimer.current = window.setTimeout(() => setSaveFlash(false), 1800)
+        } catch {
+          // erro já fica em saveError; mantém isDirty para tentar de novo
+        }
+      })()
+    }, 550)
 
     return () => window.clearTimeout(timer)
-  }, [isDirty, ano, meses, previsaoRecebimento, previsaoDespesas, ajustes])
+  }, [
+    isDirty,
+    loadingSimulacao,
+    ano,
+    meses,
+    previsaoRecebimento,
+    previsaoDespesas,
+    ajustes,
+    save,
+  ])
 
   useEffect(() => {
     return () => {
@@ -336,17 +380,20 @@ export function SimuladorCaixaCard({
   }
 
   const handleReset = () => {
-    clearSimulacao(ano)
-    setMeses(buildMesesBase(dataOriginal))
-    setPrevisaoRecebimento(previsaoRecebimentoOriginal)
-    setPrevisaoDespesas(previsaoDespesasOriginal)
-    setAjustes([])
-    setAjusteTitulo('')
-    setAjusteValorDraft('')
-    setPainelMes(null)
-    setHistoricosAbertos({})
-    setIsDirty(false)
-    setSaveFlash(false)
+    void (async () => {
+      try {
+        await clear()
+        aplicarBaseOriginal()
+        setAjusteTitulo('')
+        setAjusteValorDraft('')
+        setPainelMes(null)
+        setHistoricosAbertos({})
+        setIsDirty(false)
+        setSaveFlash(false)
+      } catch {
+        // erro já fica em saveError
+      }
+    })()
   }
 
   return (
@@ -357,16 +404,26 @@ export function SimuladorCaixaCard({
             Simulador de Caixa
           </CardTitle>
           <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
-            A receber e a pagar em aberto · salva sozinho neste navegador
+            A receber e a pagar em aberto · salva para todos os usuários
           </CardDescription>
-          {isDirty && (
+          {loadingSimulacao && (
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#edd9c4]/55">
+              Carregando simulação…
+            </p>
+          )}
+          {(isDirty || saving) && !loadingSimulacao && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
               Salvando…
             </p>
           )}
-          {saveFlash && !isDirty && (
+          {saveFlash && !isDirty && !saving && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-300">
-              Salvo automaticamente
+              Salvo para todos
+            </p>
+          )}
+          {saveError && (
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-red-300">
+              Não foi possível salvar. Tente de novo.
             </p>
           )}
         </div>
@@ -462,7 +519,7 @@ export function SimuladorCaixaCard({
             MESES · {ano}
           </p>
           <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-[#edd9c4]/60">
-            Só meses com a receber ou a pagar · edite ou use +/− · salva sozinho
+            Só meses com a receber ou a pagar · edite ou use +/− · salva para todos
           </p>
         </div>
 

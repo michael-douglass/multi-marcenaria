@@ -35,12 +35,10 @@ import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMa
 import {
   getObraMarkupCustos,
   getFiltroMarkupDaObra,
-  loadMarkupCustosFiltrosPorObra,
-  saveMarkupCustosFiltrosPorObra,
   sumPedidoAFazerCustos,
-  type MarkupCustosFiltrosPorObra,
 } from '../lib/obra-markup-custos'
 import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
+import { useMarkupCustosFiltrosPorObra } from '../hooks/useMarkupCustosFiltrosPorObra'
 import { canViewMarkupCustos as roleCanViewMarkupCustos } from '../lib/role-access'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
@@ -543,17 +541,20 @@ function AgendaObrasContent() {
     obrasHook.data,
     canViewMarkupCustos,
   )
-  const [markupCustosFiltrosPorObra, setMarkupCustosFiltrosPorObra] = useState<MarkupCustosFiltrosPorObra>(
-    loadMarkupCustosFiltrosPorObra,
-  )
+  const {
+    filtrosPorObra: markupCustosFiltrosPorObra,
+    loading: loadingMarkupFiltros,
+    salvarFiltroObra,
+  } = useMarkupCustosFiltrosPorObra(canViewMarkupCustos)
 
-  const handleMarkupCustosFiltroObra = useCallback((obraId: string, next: MarkupCustosFiltro) => {
-    setMarkupCustosFiltrosPorObra(prev => {
-      const updated = { ...prev, [obraId]: next }
-      saveMarkupCustosFiltrosPorObra(updated)
-      return updated
-    })
-  }, [])
+  const handleMarkupCustosFiltroObra = useCallback(
+    (obraId: string, next: MarkupCustosFiltro) => {
+      void salvarFiltroObra(obraId, next).catch(err => {
+        alert(err instanceof Error ? err.message : 'Não foi possível salvar o filtro desta obra.')
+      })
+    },
+    [salvarFiltroObra],
+  )
 
   const totalPedidoAFazer = useMemo(
     () => (
@@ -970,7 +971,7 @@ function AgendaObrasContent() {
                 {canViewMarkupCustos && (
                   <ObraMarkupCustosToolbar
                     totalPedidoAFazer={totalPedidoAFazer}
-                    loading={loadingMarkupCustos}
+                    loading={loadingMarkupCustos || loadingMarkupFiltros}
                     filtroPedidosAtivo={somenteSemPedido}
                     onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
                   />
