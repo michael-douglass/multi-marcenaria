@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { ResumoPontoEmpresaHero } from '@/components/ponto/ResumoPontoEmpresaHero'
 import { ResumoPontoFuncionarioCard } from '@/components/ponto/ResumoPontoFuncionarioCard'
 import { useResumoPonto } from '@/hooks/useResumoPonto'
+import { fetchRepConfig } from '@/lib/rep-config'
 import type { PontoResumoPeriodo } from '@/types'
 
 const PERIODOS: { id: PontoResumoPeriodo; label: string }[] = [
@@ -28,12 +29,32 @@ function formatIntervalo(inicio?: string, fim?: string): string {
 export function ResumoPonto() {
   const { periodo, setPeriodo, resumo, loading, error, reload } = useResumoPonto('mes')
   const [filtroFaltas, setFiltroFaltas] = useState(false)
+  const [repCnpj, setRepCnpj] = useState<string | null>(null)
 
   const funcionarios = useMemo(() => {
     const lista = resumo?.funcionarios ?? []
     if (!filtroFaltas) return lista
     return lista.filter(f => f.faltas > 0)
   }, [resumo?.funcionarios, filtroFaltas])
+
+  const intervaloLabel = useMemo(
+    () => formatIntervalo(resumo?.inicio, resumo?.fim),
+    [resumo?.inicio, resumo?.fim],
+  )
+
+  useEffect(() => {
+    let ativo = true
+    void fetchRepConfig()
+      .then((cfg) => {
+        if (ativo) setRepCnpj(cfg?.cnpj ?? null)
+      })
+      .catch(() => {
+        if (ativo) setRepCnpj(null)
+      })
+    return () => {
+      ativo = false
+    }
+  }, [])
 
   function trocarPeriodo(proximo: PontoResumoPeriodo) {
     setPeriodo(proximo)
@@ -86,7 +107,7 @@ export function ResumoPonto() {
           <ResumoPontoEmpresaHero
             empresa={resumo.empresa}
             periodoLabel={PERIODO_TITULO[resumo.periodo]}
-            intervaloLabel={formatIntervalo(resumo.inicio, resumo.fim)}
+            intervaloLabel={intervaloLabel}
             filtroFaltasAtivo={filtroFaltas}
             onToggleFiltroFaltas={() => setFiltroFaltas(v => !v)}
           />
@@ -123,7 +144,14 @@ export function ResumoPonto() {
               )}
               <div className="grid gap-5 xl:grid-cols-2">
                 {funcionarios.map((row, i) => (
-                  <ResumoPontoFuncionarioCard key={row.funcionario_id} row={row} index={i} />
+                  <ResumoPontoFuncionarioCard
+                    key={row.funcionario_id}
+                    row={row}
+                    index={i}
+                    periodoLabel={PERIODO_TITULO[resumo.periodo]}
+                    intervaloLabel={intervaloLabel}
+                    repCnpj={repCnpj}
+                  />
                 ))}
               </div>
             </>
@@ -135,7 +163,7 @@ export function ResumoPonto() {
         .resumo-ponto-hero {
           animation: resumoPontoEnter 0.45s cubic-bezier(0, 0, 0.2, 1) both;
         }
-        .resumo-ponto-card {
+        .resumo-ponto-card-wrap {
           animation: resumoPontoEnter 0.4s cubic-bezier(0, 0, 0.2, 1) both;
         }
         @keyframes resumoPontoEnter {
@@ -150,13 +178,15 @@ export function ResumoPonto() {
         }
         @media (prefers-reduced-motion: reduce) {
           .resumo-ponto-hero,
-          .resumo-ponto-card {
+          .resumo-ponto-card-wrap {
             animation: none !important;
           }
-          .resumo-ponto-periodo-chip {
+          .resumo-ponto-periodo-chip,
+          .resumo-ponto-export-btn {
             transition: none !important;
           }
-          .resumo-ponto-periodo-chip:active {
+          .resumo-ponto-periodo-chip:active,
+          .resumo-ponto-export-btn:active {
             transform: none !important;
           }
         }
