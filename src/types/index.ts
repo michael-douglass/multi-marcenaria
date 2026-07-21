@@ -820,6 +820,8 @@ export interface FuncionarioDocumento {
   criado_em?: string
   signedUrl?: string
   previewSignedUrl?: string
+  /** URLs assinadas de todas as páginas (PDF multipágina). */
+  previewSignedUrls?: string[]
 }
 
 export interface PendingFuncionarioDocumento {
@@ -1051,6 +1053,7 @@ export interface MeuFuncionarioPayload {
     kind: 'image' | 'pdf'
     storage_path: string
     preview_path?: string | null
+    preview_paths?: string[] | null
     criado_em?: string
   }>
 }

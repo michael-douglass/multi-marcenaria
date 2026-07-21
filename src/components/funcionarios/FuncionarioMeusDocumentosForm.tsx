@@ -40,15 +40,21 @@ export function FuncionarioMeusDocumentosForm({
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const bloqueado = isRh ? readOnly : payload.admissao_status === 'completo'
-  const [enviado, setEnviado] = useState(
-    !isRh && (payload.admissao_status === 'preenchido_funcionario' || payload.admissao_status === 'completo'),
-  )
+  /** Prestador sempre pode editar dados e anexar docs; só o modo RH respeita readOnly. */
+  const bloqueado = isRh ? readOnly : false
+  const jaEnviadoRh =
+    !isRh
+    && (payload.admissao_status === 'preenchido_funcionario' || payload.admissao_status === 'completo')
+  const [enviado, setEnviado] = useState(jaEnviadoRh)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     setDados(payload.admissao_dados ?? {})
   }, [payload.id, payload.admissao_dados])
+
+  useEffect(() => {
+    setEnviado(jaEnviadoRh)
+  }, [jaEnviadoRh])
 
   const setDado = (key: keyof FuncionarioAdmissaoDados, value: string | boolean) => {
     setDados(prev => ({ ...prev, [key]: value }))
@@ -61,6 +67,14 @@ export function FuncionarioMeusDocumentosForm({
   const docsEnviados = new Set(payload.documentos.map(d => d.tipo_documento))
   const qtdPorTipo = payload.documentos.reduce<Record<string, number>>((acc, d) => {
     acc[d.tipo_documento] = (acc[d.tipo_documento] ?? 0) + 1
+    return acc
+  }, {})
+  const paginasPorTipo = payload.documentos.reduce<Record<string, number>>((acc, d) => {
+    const paginas =
+      Array.isArray(d.preview_paths) && d.preview_paths.length > 0
+        ? d.preview_paths.length
+        : 1
+    acc[d.tipo_documento] = (acc[d.tipo_documento] ?? 0) + paginas
     return acc
   }, {})
   const progress = Math.round(
@@ -106,7 +120,9 @@ export function FuncionarioMeusDocumentosForm({
         onReload()
         return
       }
-      await salvarMeuFuncionario(payloadDados, true)
+      // Se o RH já concluiu, só atualiza os dados (não tenta “finalizar” de novo).
+      const finalizar = payload.admissao_status !== 'completo'
+      await salvarMeuFuncionario(payloadDados, finalizar)
       setEnviado(true)
       onReload()
       setStep(3)
@@ -153,21 +169,6 @@ export function FuncionarioMeusDocumentosForm({
       revokePendingFuncionarioDocUrls(pendingList)
       setUploading(null)
     }
-  }
-
-  if (!isRh && enviado && step === 3) {
-    return (
-      <div className="mx-auto max-w-lg text-center fade-in">
-        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#d4a853] bg-[rgba(212,168,83,0.12)]">
-          <Check size={32} className="text-[#f2d892]" />
-        </div>
-        <h2 className="font-display text-3xl tracking-wide text-[#f2d892]">Documentos enviados!</h2>
-        <p className="mt-4 text-[#edd9c4]">
-          Obrigado, {payload.nome}. Seus dados foram recebidos pelo RH.
-          {bloqueado ? ' Sua admissão já está completa.' : ' Aguarde a validação da equipe.'}
-        </p>
-      </div>
-    )
   }
 
   return (
@@ -319,6 +320,7 @@ export function FuncionarioMeusDocumentosForm({
             {ADMISSAO_DOC_TIPOS.map(doc => {
               const enviadoDoc = docsEnviados.has(doc.id)
               const qtd = qtdPorTipo[doc.id] ?? 0
+              const paginas = paginasPorTipo[doc.id] ?? 0
               const podeEnviar =
                 !bloqueado && (!enviadoDoc || permiteSubstituirDocumentos || podeAdicionarMais)
               const rotuloBotao = (() => {
@@ -341,6 +343,7 @@ export function FuncionarioMeusDocumentosForm({
                     {qtd > 0 && (
                       <p className="mt-1 text-xs text-[#b8957f]">
                         {qtd} arquivo{qtd > 1 ? 's' : ''} enviado{qtd > 1 ? 's' : ''}
+                        {paginas > qtd ? ` · ${paginas} páginas` : ''}
                       </p>
                     )}
                   </div>
@@ -373,28 +376,53 @@ export function FuncionarioMeusDocumentosForm({
         </div>
       )}
 
-      {step === 3 && (!enviado || isRh) && (
+      {step === 3 && (
         <div className="glass-card p-6 text-center">
-          <h3 className="font-semibold text-[#f2d892]">
-            {isRh ? 'Salvar admissão' : 'Revisão e envio'}
-          </h3>
-          <p className="mt-3 text-sm text-[#b8957f]">
-            {isRh
-              ? 'Salve o rascunho ou marque o formulário como preenchido pelo RH.'
-              : 'Confirme o envio do formulário e dos documentos para o RH.'}
-          </p>
-          <button
-            type="button"
-            className="btn btn-gold btn-lg mt-6"
-            disabled={saving || bloqueado}
-            onClick={() => void enviarFinal()}
-          >
-            {saving
-              ? 'Salvando…'
-              : isRh
-                ? 'Salvar como preenchido'
-                : 'Confirmar envio'}
-          </button>
+          {!isRh && enviado ? (
+            <>
+              <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#d4a853] bg-[rgba(212,168,83,0.12)]">
+                <Check size={28} className="text-[#f2d892]" />
+              </div>
+              <h3 className="font-semibold text-[#f2d892]">Documentos enviados</h3>
+              <p className="mt-3 text-sm text-[#b8957f]">
+                Obrigado, {payload.nome}. Você pode voltar para alterar dados ou anexar mais documentos.
+                {payload.admissao_status === 'completo'
+                  ? ' Sua admissão já foi concluída pelo RH.'
+                  : ' Aguarde a validação da equipe.'}
+              </p>
+              <button
+                type="button"
+                className="btn btn-gold btn-lg mt-6"
+                disabled={saving || bloqueado}
+                onClick={() => void enviarFinal()}
+              >
+                {saving ? 'Salvando…' : 'Salvar alterações'}
+              </button>
+            </>
+          ) : (
+            <>
+              <h3 className="font-semibold text-[#f2d892]">
+                {isRh ? 'Salvar admissão' : 'Revisão e envio'}
+              </h3>
+              <p className="mt-3 text-sm text-[#b8957f]">
+                {isRh
+                  ? 'Salve o rascunho ou marque o formulário como preenchido pelo RH.'
+                  : 'Confirme o envio do formulário e dos documentos para o RH.'}
+              </p>
+              <button
+                type="button"
+                className="btn btn-gold btn-lg mt-6"
+                disabled={saving || bloqueado}
+                onClick={() => void enviarFinal()}
+              >
+                {saving
+                  ? 'Salvando…'
+                  : isRh
+                    ? 'Salvar como preenchido'
+                    : 'Confirmar envio'}
+              </button>
+            </>
+          )}
         </div>
       )}
 

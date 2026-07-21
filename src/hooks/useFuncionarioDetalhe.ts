@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { listFuncionarioDocumentos, getFuncionarioDocSignedUrl } from '@/lib/funcionario-documentos'
+import { listFuncionarioDocumentos, withFuncionarioDocPreviewUrls } from '@/lib/funcionario-documentos'
 import { mapRecibosComContaPagar, RECIBO_SELECT_COM_CONTA_PAGAR } from '@/lib/funcionario-recibos'
 import { fetchFixoMontadores } from '@/lib/fixo-montador'
 import type { ContaPagar, Funcionario, FuncionarioDocumento, FuncionarioInput, FuncionarioRecibo } from '@/types'
@@ -39,17 +39,7 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
       setFuncionario(func)
 
       const docs = await listFuncionarioDocumentos(funcionarioId)
-      const docsWithUrls = await Promise.all(
-        docs.map(async d => {
-          try {
-            const previewPath = d.preview_path ?? d.storage_path
-            const previewSignedUrl = await getFuncionarioDocSignedUrl(previewPath)
-            return { ...d, previewSignedUrl }
-          } catch {
-            return d
-          }
-        }),
-      )
+      const docsWithUrls = await Promise.all(docs.map(d => withFuncionarioDocPreviewUrls(d)))
       setDocumentos(docsWithUrls)
 
       const { data: recibosRows, error: recErr } = await supabase

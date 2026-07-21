@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { pdfAllPagesToPngBlobs } from '@/lib/pdf-to-image'
-import { pdfPreviewPathAt } from '@/lib/pdf-preview-storage'
+import { pdfPreviewPathAt, resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { createId } from '@/lib/utils'
 import { atualizarFotoPerfilPath } from '@/lib/meu-perfil-api'
 import type { FuncionarioDocumento, PendingFuncionarioDocumento } from '@/types'
@@ -148,6 +148,37 @@ export async function getFuncionarioDocSignedUrl(path: string, expiresIn = 3600)
     .createSignedUrl(path, expiresIn)
   if (error || !data?.signedUrl) throw new Error(error?.message ?? 'URL indisponível')
   return data.signedUrl
+}
+
+/** Anexa URLs assinadas de todas as páginas de preview (PDF multipágina). */
+export async function withFuncionarioDocPreviewUrls(
+  doc: FuncionarioDocumento,
+): Promise<FuncionarioDocumento> {
+  const previewPaths = resolveStoredPreviewPaths(doc)
+  const pathsToSign =
+    previewPaths.length > 0
+      ? previewPaths
+      : doc.storage_path
+        ? [doc.storage_path]
+        : []
+
+  if (pathsToSign.length === 0) return doc
+
+  const signed = await Promise.all(
+    pathsToSign.map(async path => {
+      try {
+        return await getFuncionarioDocSignedUrl(path)
+      } catch {
+        return null
+      }
+    }),
+  )
+  const previewSignedUrls = signed.filter((u): u is string => !!u)
+  return {
+    ...doc,
+    previewSignedUrl: previewSignedUrls[0],
+    previewSignedUrls,
+  }
 }
 
 export async function deleteFuncionarioDocumento(doc: FuncionarioDocumento): Promise<void> {

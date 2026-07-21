@@ -366,6 +366,7 @@ export function FuncionarioDocumentosPanel({
                     kind={doc.kind}
                     previewUrl={doc.previewSignedUrl ?? ''}
                     nome={doc.nome_arquivo}
+                    pageCount={doc.previewSignedUrls?.length ?? (doc.preview_paths?.length || undefined)}
                     onOpenFullscreen={() => setLightbox(doc)}
                   />
                 </button>
@@ -379,6 +380,11 @@ export function FuncionarioDocumentosPanel({
                   </button>
                 )}
                 <p className="mt-1 truncate text-xs text-[#b8957f]">{doc.nome_arquivo}</p>
+                {(doc.previewSignedUrls?.length ?? 0) > 1 && (
+                  <p className="text-[10px] text-[#edd9c4]/80">
+                    {doc.previewSignedUrls!.length} páginas
+                  </p>
+                )}
               </div>
             )
           })}
@@ -389,6 +395,11 @@ export function FuncionarioDocumentosPanel({
         <AnexoLightbox
           open
           imageUrl={lightbox.previewSignedUrl ?? ''}
+          pages={
+            lightbox.previewSignedUrls?.length
+              ? lightbox.previewSignedUrls
+              : undefined
+          }
           title={lightbox.nome_arquivo}
           kind={lightbox.kind}
           onClose={() => setLightbox(null)}

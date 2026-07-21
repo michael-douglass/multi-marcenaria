@@ -1,9 +1,11 @@
 import { garboBrandLogo } from '@/lib/garbo-brand'
+import { ADMISSAO_DOC_TIPOS } from '@/lib/funcionario-constants'
 import { getFuncionarioDocSignedUrl } from '@/lib/funcionario-documentos'
 import {
   DIAS_SEMANA_ADMISSAO,
   resolveDiasAtivos,
 } from '@/lib/funcionario-horarios'
+import { resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { FuncionarioAdmissaoDados, FuncionarioDocumento } from '@/types'
 
@@ -15,6 +17,8 @@ export interface DocExportPage {
   imageUrl: string
   pagina?: number
   totalPaginas?: number
+  /** true = páginas 2+ do mesmo PDF (cabeçalho compacto, sem ficha completa). */
+  isContinuacao?: boolean
 }
 
 /** Dados de admissão exibidos no cabeçalho do PDF timbrado. */
@@ -235,21 +239,37 @@ function buildMetaHtml(fields: MetaField[]): string {
   `
 }
 
-/** Resolve URLs de imagem (preview) de cada documento selecionado. */
+/** Ordena documentos na ordem do formulário de admissão (CTPS, PIS, foto…). */
+const TIPO_DOC_ORDEM = new Map(
+  ADMISSAO_DOC_TIPOS.map((t, i) => [t.id, i]),
+)
+
+function sortDocsParaExportacao(docs: FuncionarioDocumento[]): FuncionarioDocumento[] {
+  return [...docs].sort((a, b) => {
+    const oa = TIPO_DOC_ORDEM.get(a.tipo_documento as never) ?? 999
+    const ob = TIPO_DOC_ORDEM.get(b.tipo_documento as never) ?? 999
+    if (oa !== ob) return oa - ob
+    const porNome = a.nome_arquivo.localeCompare(b.nome_arquivo, 'pt-BR')
+    if (porNome !== 0) return porNome
+    return (a.criado_em ?? '').localeCompare(b.criado_em ?? '')
+  })
+}
+
+/** Resolve URLs de imagem (preview) de cada documento selecionado — todas as páginas, em ordem. */
 export async function resolverPaginasExportacao(
   docs: FuncionarioDocumento[],
 ): Promise<DocExportPage[]> {
   const pages: DocExportPage[] = []
+  const ordenados = sortDocsParaExportacao(docs)
 
-  for (const doc of docs) {
+  for (const doc of ordenados) {
+    const rawPaths = resolveStoredPreviewPaths(doc)
     const previewPaths =
-      Array.isArray(doc.preview_paths) && doc.preview_paths.length > 0
-        ? doc.preview_paths
-        : doc.preview_path
-          ? [doc.preview_path]
-          : doc.kind === 'image'
-            ? [doc.storage_path]
-            : []
+      rawPaths.length > 0
+        ? rawPaths
+        : doc.kind === 'image'
+          ? [doc.storage_path]
+          : []
 
     if (previewPaths.length === 0) {
       throw new Error(`Não foi possível gerar preview de "${doc.nome_arquivo}".`)
@@ -257,16 +277,18 @@ export async function resolverPaginasExportacao(
 
     for (let i = 0; i < previewPaths.length; i++) {
       const path = previewPaths[i]
-      let imageUrl: string | undefined
+      let imageUrl = doc.previewSignedUrls?.[i]
 
-      if (
-        i === 0
-        && doc.previewSignedUrl
-        && (doc.preview_path === path || doc.storage_path === path)
-      ) {
-        imageUrl = doc.previewSignedUrl
-      } else {
-        imageUrl = await getFuncionarioDocSignedUrl(path)
+      if (!imageUrl) {
+        if (
+          i === 0
+          && doc.previewSignedUrl
+          && (doc.preview_path === path || doc.storage_path === path)
+        ) {
+          imageUrl = doc.previewSignedUrl
+        } else {
+          imageUrl = await getFuncionarioDocSignedUrl(path)
+        }
       }
 
       pages.push({
@@ -275,6 +297,7 @@ export async function resolverPaginasExportacao(
         imageUrl,
         pagina: previewPaths.length > 1 ? i + 1 : undefined,
         totalPaginas: previewPaths.length > 1 ? previewPaths.length : undefined,
+        isContinuacao: i > 0,
       })
     }
   }
@@ -290,12 +313,38 @@ function buildPaginaTimbrada(
 ): string {
   const titulo = escapeHtml(page.titulo)
   const cnpjSafe = escapeHtml(cnpj || '—')
-  const metaFields = buildAdmissaoMetaFields(meta, page.titulo)
-  const horariosHtml = buildHorariosTableHtml(meta.admissaoDados)
   const paginaLabel =
     page.pagina != null && page.totalPaginas != null
       ? `<p class="doc-pagina">Página ${page.pagina} de ${page.totalPaginas}</p>`
       : ''
+
+  // Páginas 2+ do mesmo PDF: timbre enxuto + imagem grande (organizado, sem repetir ficha).
+  if (page.isContinuacao) {
+    return `
+    <section class="doc-page doc-page--continuacao">
+      <div class="doc-timbre doc-timbre--compacto">
+        <div class="doc-timbre__faixa"></div>
+        <div class="doc-header doc-header--compacto">
+          <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+          <div class="doc-empresa">
+            <h1>${NOME_EMPRESA}</h1>
+            <p>${titulo}</p>
+          </div>
+        </div>
+      </div>
+      ${paginaLabel}
+      <div class="doc-midia doc-midia--ampla">
+        <img src="${escapeHtml(page.imageUrl)}" alt="${titulo}" />
+      </div>
+      <footer class="doc-footer">
+        Documento exportado pelo sistema financeiro GARBO Movelaria.
+      </footer>
+    </section>
+  `
+  }
+
+  const metaFields = buildAdmissaoMetaFields(meta, page.titulo)
+  const horariosHtml = buildHorariosTableHtml(meta.admissaoDados)
 
   return `
     <section class="doc-page">
@@ -357,15 +406,18 @@ export function buildDocsTimbradoHtml(
       padding: 8mm 10mm;
       border: 2px solid #8b6914;
       page-break-after: always;
+      page-break-inside: avoid;
     }
     .doc-page:last-child { page-break-after: auto; }
     .doc-timbre { margin-bottom: 5mm; }
+    .doc-timbre--compacto { margin-bottom: 3mm; }
     .doc-timbre__faixa {
       height: 4px;
       background: linear-gradient(90deg, #8b6914, #d4a853, #8b6914);
       margin-bottom: 4mm;
     }
     .doc-header { display: flex; align-items: center; gap: 14px; }
+    .doc-header--compacto img { max-height: 36px; }
     .doc-header img { max-height: 52px; width: auto; }
     .doc-empresa h1 {
       margin: 0;
@@ -373,6 +425,7 @@ export function buildDocsTimbradoHtml(
       letter-spacing: 0.12em;
       color: #8b6914;
     }
+    .doc-header--compacto .doc-empresa h1 { font-size: 11pt; }
     .doc-empresa p { margin: 2px 0 0; font-size: 9pt; color: #555; }
     .doc-sub { font-style: italic; }
     .doc-meta {
@@ -448,6 +501,12 @@ export function buildDocsTimbradoHtml(
       object-fit: contain;
       display: block;
     }
+    .doc-midia--ampla {
+      min-height: 160mm;
+    }
+    .doc-midia--ampla img {
+      max-height: 220mm;
+    }
     .doc-footer {
       margin-top: 3mm;
       padding-top: 2mm;
@@ -455,6 +514,9 @@ export function buildDocsTimbradoHtml(
       font-size: 8pt;
       color: #666;
       text-align: center;
+    }
+    @media print {
+      .doc-page { border-color: #8b6914; margin: 0; max-width: none; }
     }
   </style>
 </head>
@@ -476,9 +538,31 @@ export function imprimirDocsTimbrados(
   }
   win.document.write(html)
   win.document.close()
-  win.onload = () => {
+
+  const dispararImpressao = () => {
     win.focus()
     win.print()
+  }
+
+  // Espera as imagens carregarem para o PDF sair completo e na ordem.
+  const imgs = Array.from(win.document.images)
+  if (imgs.length === 0) {
+    win.onload = dispararImpressao
+    return
+  }
+
+  let restantes = imgs.length
+  const done = () => {
+    restantes -= 1
+    if (restantes <= 0) dispararImpressao()
+  }
+  for (const img of imgs) {
+    if (img.complete) {
+      done()
+    } else {
+      img.addEventListener('load', done, { once: true })
+      img.addEventListener('error', done, { once: true })
+    }
   }
 }
 

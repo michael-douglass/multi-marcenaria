@@ -49,7 +49,6 @@ export function MeuPerfil() {
             funcionarioId={data.id}
             fotoPath={data.foto_perfil_path}
             nome={data.nome}
-            readOnly={data.admissao_status === 'completo'}
             onUpdated={() => void reload()}
           />
           <FuncionarioMeusDocumentosForm payload={data} onReload={() => void reload()} />

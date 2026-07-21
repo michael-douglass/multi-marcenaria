@@ -108,6 +108,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
       kind: d.kind,
       storage_path: d.storage_path,
       preview_path: d.preview_path,
+      preview_paths: d.preview_paths,
       criado_em: d.criado_em,
     })),
   }

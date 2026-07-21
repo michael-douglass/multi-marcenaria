@@ -197,16 +197,24 @@ function PdfPagesViewer({ pages, title, compact = false }: { pages: string[]; ti
   const [pageIndex, setPageIndex] = useState(0)
   const total = pages.length
   const currentUrl = pages[Math.min(pageIndex, total - 1)] ?? ''
+  // Chave estável do conteúdo — evita resetar a página a cada re-render.
+  const pagesKey = pages.join('\0')
 
   useEffect(() => {
     setPageIndex(0)
-  }, [pages])
+  }, [pagesKey])
 
   useEffect(() => {
     if (total <= 1) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setPageIndex(i => Math.max(0, i - 1))
-      if (e.key === 'ArrowRight') setPageIndex(i => Math.min(total - 1, i + 1))
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setPageIndex(i => Math.max(0, i - 1))
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setPageIndex(i => Math.min(total - 1, i + 1))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -420,12 +428,14 @@ interface AnexoThumbProps {
   previewUrl: string
   nome: string
   kind: Kind
+  pageCount?: number
   onOpenFullscreen: () => void
   onDelete?: () => void
 }
 
-export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete }: AnexoThumbProps) {
+export function AnexoThumb({ previewUrl, nome, kind, pageCount, onOpenFullscreen, onDelete }: AnexoThumbProps) {
   const hasPreview = !!previewUrl
+  const multiPage = (pageCount ?? 0) > 1
 
   return (
     <div className="group relative overflow-hidden rounded-lg border border-[rgba(240,210,140,0.28)] bg-[rgba(68,46,34,0.65)]">
@@ -433,7 +443,7 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
         type="button"
         className="block w-full"
         onClick={onOpenFullscreen}
-        aria-label={`Ver ${nome} em tela cheia`}
+        aria-label={`Ver ${nome} em tela cheia${multiPage ? ` (${pageCount} páginas)` : ''}`}
       >
         <div className="relative aspect-[4/3] w-full min-w-[120px] max-w-[160px]">
           {kind === 'document' && !hasPreview ? (
@@ -459,7 +469,7 @@ export function AnexoThumb({ previewUrl, nome, kind, onOpenFullscreen, onDelete 
           </div>
           {kind === 'pdf' && (
             <span className="absolute left-1 top-1 rounded bg-[rgba(240,210,140,0.9)] px-1 py-0.5 text-[0.55rem] font-bold uppercase text-[#2a1812]">
-              PDF
+              {multiPage ? `PDF · ${pageCount}p` : 'PDF'}
             </span>
           )}
           {kind === 'document' && (
