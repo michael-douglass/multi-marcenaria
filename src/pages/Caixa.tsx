@@ -15,6 +15,7 @@ import { SaldoDisponivelDialog } from '@/components/caixa/SaldoDisponivelDialog'
 import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import { CaixaValorEditavel } from '@/components/caixa/CaixaValorEditavel'
 import { AjustarValorRealDialog } from '@/components/caixa/AjustarValorRealDialog'
+import { QrCodeToolkit } from '@/components/qr/QrCodeToolkit'
 import type { ContaPagarResumoCaixa } from '@/hooks/useCaixa'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
@@ -202,7 +203,10 @@ function CaixaContent({
           </div>
         )}
 
-        <CaixaMesFilterBar mes={mes} ano={ano} onChange={onPeriodoChange} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CaixaMesFilterBar mes={mes} ano={ano} onChange={onPeriodoChange} />
+          <QrCodeToolkit />
+        </div>
       </div>
 
       <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>
