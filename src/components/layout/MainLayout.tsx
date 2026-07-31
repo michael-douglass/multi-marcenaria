@@ -3,7 +3,6 @@ import { CalendarDays } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/AppSidebar'
-import { AppNavRadialMenu } from '@/components/layout/AppNavRadialMenu'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { useApp } from '@/context/AppContext'
@@ -25,11 +24,10 @@ export function MainLayout() {
           </div>
         </div>
       </SidebarInset>
-      <AppNavRadialMenu />
 
       {!hideAgenda && (
         <>
-          <div className="fixed bottom-6 z-[201] flex flex-col items-center gap-1" style={{ right: '6rem' }}>
+          <div className="fixed bottom-6 right-6 z-[201] flex flex-col items-center gap-1">
             <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[rgba(240,210,140,0.65)]">
               Agenda
             </span>

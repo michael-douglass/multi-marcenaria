@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useContasPagar } from '../hooks/useContasPagar'
 import { Modal } from '../components/ui/Modal'
@@ -473,14 +474,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
   const matchesSearch = useCallback((p: ContaPagar) => {
     if (!search.trim()) return true
-    const term = search.toLowerCase().replace(/[\s\.\,]/g, '')
-    const forn = (p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '').toLowerCase().replace(/[\s\.\,]/g, '')
-    const desc = (p.descricao || '').toLowerCase().replace(/[\s\.\,]/g, '')
-    const obs = (p.observacao || '').toLowerCase().replace(/[\s\.\,]/g, '')
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[\s.,]/g, '')
+    const term = norm(search)
+    if (!term) return true
+    const forn = norm(p.fornecedor_nome || fornecedores.find(x => x.id === p.fornecedor_id)?.nome || '')
+    const desc = norm(p.descricao || '')
+    const obs = norm(p.observacao || '')
     const valor = normalizarValorBusca(p.valor_parcela)
     const valorTotalLanc = getValorTotalLancamento(p, data)
     const valorTotal = valorTotalLanc != null ? normalizarValorBusca(valorTotalLanc) : ''
-    const dataVenc = fmtDate(p.data_vencimento).replace(/[\s\.\,\/]/g, '')
+    const dataVenc = fmtDate(p.data_vencimento).replace(/[\s.,/]/g, '')
     return forn.includes(term) || desc.includes(term) || obs.includes(term) || valor.includes(term) || valorTotal.includes(term) || dataVenc.includes(term)
   }, [search, fornecedores, data])
 
@@ -2155,15 +2163,18 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         })()}
       </Modal>
 
-      <button
-        type="button"
-        onClick={() => setCaixaOpen(true)}
-        className="fixed top-5 right-5 z-[95] rounded-full border border-[rgba(240,210,140,0.45)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#f2d892] shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:scale-105 hover:border-[#f5e0a8] hover:text-[#f5e0a8]"
-        aria-label="Abrir caixa de pagamentos"
-        title="Abrir Caixa de Pagamentos"
-      >
-        Caixa
-      </button>
+      {createPortal(
+        <button
+          type="button"
+          onClick={() => setCaixaOpen(true)}
+          className="fixed top-20 right-5 z-[200] rounded-full border border-[rgba(240,210,140,0.45)] bg-gradient-to-br from-[rgba(20,8,4,0.98)] to-[rgba(8,3,1,0.98)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#f2d892] shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-all hover:scale-105 hover:border-[#f5e0a8] hover:text-[#f5e0a8]"
+          aria-label="Abrir caixa de pagamentos"
+          title="Abrir Caixa de Pagamentos"
+        >
+          Caixa
+        </button>,
+        document.body,
+      )}
 
       <CaixaPopup open={caixaOpen} onClose={() => setCaixaOpen(false)} />
     </div>

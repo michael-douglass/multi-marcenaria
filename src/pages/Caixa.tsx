@@ -20,12 +20,18 @@ import { QrCodeToolkit } from '@/components/qr/QrCodeToolkit'
 import type { ContaPagarResumoCaixa } from '@/hooks/useCaixa'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
+/** Normaliza busca: ignora maiúsculas/minúsculas, acentos e espaços. */
 const normBusca = (s: string) =>
-  s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, '')
 
 function matchBusca(q: string, ...parts: (string | number | null | undefined)[]): boolean {
   if (!q) return true
   const nq = normBusca(q)
+  if (!nq) return true
   return parts.some(p => p != null && normBusca(String(p)).includes(nq))
 }
 
