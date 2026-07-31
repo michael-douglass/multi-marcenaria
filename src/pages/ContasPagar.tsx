@@ -793,10 +793,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         return
       }
 
+      // Comissão de montador: não sobrescrever o título "Comissão: Nome" com a descrição da obra
+      const fornecedorNomeEdit =
+        fornecedores.find(x => x.id === editForm.supplierId)?.nome
+        ?? (editingConta.prestador_id
+          ? (editingConta.fornecedor_nome ?? null)
+          : (editForm.desc?.trim() || null))
+
       const metadados = {
         fornecedor_id: editForm.supplierId || null,
-        fornecedor_nome:
-          fornecedores.find(x => x.id === editForm.supplierId)?.nome || editForm.desc || null,
+        fornecedor_nome: fornecedorNomeEdit,
         descricao: editForm.desc?.trim() || null,
         observacao: editForm.observacao?.trim() || null,
         forma_pagamento_id: editForm.formaPagamentoId || null,

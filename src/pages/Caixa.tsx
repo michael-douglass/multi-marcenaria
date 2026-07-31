@@ -342,7 +342,11 @@ function CaixaContent({
                           <td className="px-6 py-4">
                             <div className="font-semibold text-cream">{item.destinatario_nome}</div>
                             <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">
-                              {item.tipo_destinatario}
+                              {item.destinatario_nome?.toLowerCase().startsWith('comissão:')
+                                ? 'Comissão'
+                                : item.tipo_destinatario === 'marceneiro'
+                                  ? 'Prestador'
+                                  : item.tipo_destinatario}
                               {virtual && (
                                 <span className="ml-1 normal-case text-amber-400/90">· cadastre em Destinatários</span>
                               )}
