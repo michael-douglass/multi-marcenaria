@@ -4,6 +4,7 @@ import { CaixaProvider, useCaixaContext } from '@/context/CaixaContext'
 import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { useReciboConfig } from '@/hooks/useReciboConfig'
 import { fmtCur, cn } from '@/lib/utils'
+import { ordenarReservasCaixa } from '@/lib/caixa-ordenar-reservas'
 import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -91,18 +92,21 @@ function CaixaContent({
 
   const reservasFiltradas = useMemo(() => {
     const q = busca.trim()
-    if (!q) return reservasConsolidadas
-    return reservasConsolidadas.filter(item =>
-      matchBusca(
-        q,
-        item.destinatario_nome,
-        item.tipo_destinatario,
-        item.data_vencimento,
-        item.valor_total_real,
-        item.valor_em_reserva,
-        item.total_pago,
-      ),
-    )
+    const filtradas = !q
+      ? reservasConsolidadas
+      : reservasConsolidadas.filter(item =>
+          matchBusca(
+            q,
+            item.destinatario_nome,
+            item.tipo_destinatario,
+            item.data_vencimento,
+            item.valor_total_real,
+            item.valor_em_reserva,
+            item.total_pago,
+          ),
+        )
+    // 1 parcial · 2 aberto sem reserva · 3 totalmente reservado · 4 pago
+    return ordenarReservasCaixa(filtradas)
   }, [reservasConsolidadas, busca])
 
   const totaisReservas = useMemo(() => {

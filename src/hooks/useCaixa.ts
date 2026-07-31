@@ -11,6 +11,7 @@ import type {
 } from '../types'
 import { useAuthReady } from './useAuthReady'
 import { todayISO } from '../lib/utils'
+import { ordenarReservasCaixa } from '../lib/caixa-ordenar-reservas'
 
 const CAIXA_REALTIME_CHANNEL = 'movelaria-caixa-sync'
 const AJUSTE_MANUAL_PREFIX = 'Ajuste manual'
@@ -198,11 +199,13 @@ export function useCaixa(mes: number, ano: number) {
         saldo_meses_anteriores: saldoAnterior
       })
       setReservasConsolidadas(
-        consolidado.filter(
-          item =>
-            item.valor_total_real > 0
-            || item.valor_em_reserva > 0
-            || item.total_pago > 0,
+        ordenarReservasCaixa(
+          consolidado.filter(
+            item =>
+              item.valor_total_real > 0
+              || item.valor_em_reserva > 0
+              || item.total_pago > 0,
+          ),
         ),
       )
     } catch (err) {
