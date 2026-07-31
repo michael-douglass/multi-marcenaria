@@ -128,8 +128,10 @@ export function useCaixa(mes: number, ano: number) {
       const endOfMonthStr = new Date(ano, mes, 0).toISOString().split('T')[0]
 
       // Dívida operacional do mês (Contas a Pagar).
-      // Contas já pagas só entram no "valor real" se houver movimento no Caixa
-      // (evita fantasmas como "Bruno" 11.500 só com parcelas históricas pagas).
+      // "Valor real" = soma de TODAS as parcelas do mês (abertas + já pagas),
+      // para não cair quando uma parcela é paga/reservada (ex.: JR 21.937 →
+      // pagar 8.805 deve manter valor real e só aumentar o reservado).
+      // Fantasmas só-pagos sem movimento no Caixa continuam ocultos.
       const { data: contasPagar } = await supabase
         .from('movelaria_contas_pagar')
         .select('fornecedor_nome, valor_parcela, data_vencimento, status, prestador_id')
@@ -168,10 +170,12 @@ export function useCaixa(mes: number, ano: number) {
         }
       })
 
+      // Linha aparece se há dívida aberta OU movimento no Caixa.
+      // Valor real sempre usa o total do mês (all), não só o que ainda está aberto.
       const resolveOper = (nomeKey: string, temCaixa: boolean): OperEntry | undefined => {
         const aberto = operationalOpen.get(nomeKey)
-        if (aberto) return aberto
-        if (temCaixa) return operationalAll.get(nomeKey)
+        const todos = operationalAll.get(nomeKey)
+        if (aberto || temCaixa) return todos ?? aberto
         return undefined
       }
 
