@@ -37,11 +37,16 @@ export function somarPagamentosNoPeriodo(contas: ContaPagar[], period: PeriodFil
     .reduce((s, c) => s + getValorPagoConta(c), 0)
 }
 
-/** Valor original do lançamento parcelado (soma das parcelas do grupo). */
+/** Valor original do lançamento parcelado (soma das parcelas do grupo).
+ *  Recorrência mensal aberta NÃO entra: somar todos os meses futuros
+ *  (ex.: Contabilidade) infla o total e parece uma conta indevida. */
 export function getValorTotalLancamento(
   conta: ContaPagar,
   all?: ContaPagar[],
 ): number | null {
+  // Cobrança recorrente mensal: cada mês é um lançamento independente
+  if (conta.recorrente && conta.recorrencia_id) return null
+
   if (all?.length) {
     const relacionadas = getContasRelacionadas(conta, all)
     if (relacionadas.length > 1) {
