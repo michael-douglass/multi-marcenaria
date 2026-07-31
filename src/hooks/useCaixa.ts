@@ -127,7 +127,9 @@ export function useCaixa(mes: number, ano: number) {
       const startOfMonth = `${ano}-${String(mes).padStart(2, '0')}-01`
       const endOfMonthStr = new Date(ano, mes, 0).toISOString().split('T')[0]
 
-      // Dívida operacional do mês: pendentes (comissão gerada) + pagas
+      // Dívida operacional do mês (Contas a Pagar).
+      // Contas já pagas só entram no "valor real" se houver movimento no Caixa
+      // (evita fantasmas como "Bruno" 11.500 só com parcelas históricas pagas).
       const { data: contasPagar } = await supabase
         .from('movelaria_contas_pagar')
         .select('fornecedor_nome, valor_parcela, data_vencimento, status, prestador_id')
@@ -135,12 +137,18 @@ export function useCaixa(mes: number, ano: number) {
         .gte('data_vencimento', startOfMonth)
         .lte('data_vencimento', endOfMonthStr)
 
-      // Consolidação
-      const operationalMap = new Map<string, { total: number, count: number, vencimento?: string, nomeExibicao: string }>()
-      contasPagar?.forEach(cp => {
+      type OperEntry = { total: number, count: number, vencimento?: string, nomeExibicao: string }
+      const operationalOpen = new Map<string, OperEntry>()
+      const operationalAll = new Map<string, OperEntry>()
+
+      const bumpOper = (map: Map<string, OperEntry>, cp: {
+        fornecedor_nome: string | null
+        valor_parcela: number
+        data_vencimento: string
+      }) => {
         const nome = cp.fornecedor_nome?.toLowerCase().trim() || ''
         if (!nome) return
-        const entry = operationalMap.get(nome) || {
+        const entry = map.get(nome) || {
           total: 0,
           count: 0,
           nomeExibicao: cp.fornecedor_nome?.trim() || nome,
@@ -150,12 +158,29 @@ export function useCaixa(mes: number, ano: number) {
         if (!entry.vencimento || cp.data_vencimento < entry.vencimento) {
           entry.vencimento = cp.data_vencimento
         }
-        operationalMap.set(nome, entry)
+        map.set(nome, entry)
+      }
+
+      contasPagar?.forEach(cp => {
+        bumpOper(operationalAll, cp)
+        if (cp.status === 'pendente' || cp.status === 'parcialmente_pago') {
+          bumpOper(operationalOpen, cp)
+        }
       })
+
+      const resolveOper = (nomeKey: string, temCaixa: boolean): OperEntry | undefined => {
+        const aberto = operationalOpen.get(nomeKey)
+        if (aberto) return aberto
+        if (temCaixa) return operationalAll.get(nomeKey)
+        return undefined
+      }
 
       const consolidado: ReservaConsolidada[] = (dests ?? []).map(d => {
         const saldo = saldos?.find(s => s.destinatario_id === d.id)
-        const oper = operationalMap.get(d.nome.toLowerCase().trim())
+        const temCaixa =
+          (saldo?.total_reservado ?? 0) > 0
+          || (saldo?.total_pago ?? 0) > 0
+        const oper = resolveOper(d.nome.toLowerCase().trim(), temCaixa)
 
         return {
           destinatario_id: d.id,
@@ -172,8 +197,8 @@ export function useCaixa(mes: number, ano: number) {
         }
       })
 
-      // Linhas virtuais: dívida operacional sem destinatário cadastrado ainda
-      for (const [nomeKey, oper] of operationalMap) {
+      // Linhas virtuais: dívida em aberto sem destinatário cadastrado ainda
+      for (const [nomeKey, oper] of operationalOpen) {
         if (consolidado.some(c => c.destinatario_nome.toLowerCase().trim() === nomeKey)) continue
         consolidado.push({
           destinatario_id: `__virtual__:${nomeKey}`,

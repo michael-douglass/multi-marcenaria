@@ -29,8 +29,8 @@ function matchBusca(q: string, ...parts: (string | number | null | undefined)[])
   return parts.some(p => p != null && normBusca(String(p)).includes(nq))
 }
 
-function calcValorRestante(valorReal: number, totalPago: number) {
-  return Math.max(0, valorReal - totalPago)
+function calcValorRestante(valorReal: number, valorReservado: number) {
+  return Math.max(0, valorReal - valorReservado)
 }
 
 function getStatusReserva(valorReal: number, totalPago: number): 'pago' | 'parcialmente_pago' | 'aberto' | null {
@@ -112,7 +112,7 @@ function CaixaContent({
   const totaisReservas = useMemo(() => {
     return reservasFiltradas.reduce(
       (acc, item) => {
-        const restante = calcValorRestante(item.valor_total_real, item.total_pago)
+        const restante = calcValorRestante(item.valor_total_real, item.valor_em_reserva)
         return {
           valorReal: acc.valorReal + item.valor_total_real,
           reservado: acc.reservado + item.valor_em_reserva,
@@ -337,7 +337,7 @@ function CaixaContent({
                     </tr>
                   ) : (
                     reservasFiltradas.map(item => {
-                      const restante = calcValorRestante(item.valor_total_real, item.total_pago)
+                      const restante = calcValorRestante(item.valor_total_real, item.valor_em_reserva)
                       const status = getStatusReserva(item.valor_total_real, item.total_pago)
                       const virtual = isCaixaDestinatarioVirtual(item.destinatario_id)
 
