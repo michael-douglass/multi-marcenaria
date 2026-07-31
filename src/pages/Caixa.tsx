@@ -123,14 +123,16 @@ function CaixaContent({
     return reservasFiltradas.reduce(
       (acc, item) => {
         const restante = calcValorRestante(item.valor_total_real, item.valor_em_reserva)
+        const aPagar = calcValorAPagarDaReserva(item.valor_em_reserva, item.total_pago)
         return {
           valorReal: acc.valorReal + item.valor_total_real,
           reservado: acc.reservado + item.valor_em_reserva,
           pago: acc.pago + item.total_pago,
           restante: acc.restante + restante,
+          aPagar: acc.aPagar + aPagar,
         }
       },
-      { valorReal: 0, reservado: 0, pago: 0, restante: 0 },
+      { valorReal: 0, reservado: 0, pago: 0, restante: 0, aPagar: 0 },
     )
   }, [reservasFiltradas])
 
@@ -542,7 +544,18 @@ function CaixaContent({
                       <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
                         {fmtCur(totaisReservas.restante)}
                       </td>
-                      <td className="px-6 py-4" colSpan={2} />
+                      <td className="px-6 py-4" />
+                      <td className="px-6 py-4 text-right">
+                        <div
+                          className="ml-auto inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[#f2d892]/35 bg-[#f2d892]/10 px-2.5 text-xs font-semibold text-[#f2d892]"
+                          title="Soma de todos os saldos a pagar (reservado − já pago)"
+                        >
+                          <span className="shrink-0 tracking-wide">A pagar</span>
+                          <span className="inline-flex min-w-0 items-center rounded-full bg-[#2a1812]/55 px-2 py-0.5 font-mono text-[0.7rem] font-bold tabular-nums text-[#f2d892] ring-1 ring-[#f2d892]/25">
+                            {fmtCur(totaisReservas.aPagar)}
+                          </span>
+                        </div>
+                      </td>
                     </tr>
                   </tfoot>
                 )}
