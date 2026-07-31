@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 
 interface FieldProps {
-  label: string
+  label: ReactNode
   children: ReactNode
   half?: boolean
 }

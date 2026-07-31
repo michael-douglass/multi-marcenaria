@@ -5,6 +5,7 @@ import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { useReciboConfig } from '@/hooks/useReciboConfig'
 import { fmtCur, cn } from '@/lib/utils'
 import { ordenarReservasCaixa } from '@/lib/caixa-ordenar-reservas'
+import { calcValorAPagarDaReserva } from '@/lib/caixa-valor-a-pagar'
 import { LoadingState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -114,7 +115,7 @@ function CaixaContent({
             item.total_pago,
           ),
         )
-    // 1 parcial · 2 aberto sem reserva · 3 totalmente reservado · 4 pago
+    // 1 aberto sem reserva · 1.5 parcial · 2 aberto com reserva · 3 pago
     return ordenarReservasCaixa(filtradas)
   }, [reservasConsolidadas, busca])
 
@@ -269,7 +270,7 @@ function CaixaContent({
       </div>
 
       {/* Cards de Resumo */}
-      <div className={cn('grid gap-3 sm:gap-4', embedded ? 'grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-4')}>
+      <div className={cn('grid gap-3 sm:gap-4', embedded ? 'grid-cols-1 sm:grid-cols-3' : 'md:grid-cols-3')}>
         <div className="glass-card p-4 space-y-2">
           <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Total Reservado</p>
           <p className="text-xl font-bold text-cream">{fmtCur(resumo.total_reservado)}</p>
@@ -288,12 +289,6 @@ function CaixaContent({
           <p className="text-xl font-bold text-emerald-400">{fmtCur(resumo.saldo_disponivel)}</p>
           <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
         </button>
-        <div className="glass-card p-4 space-y-2 bg-white/5">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Anteriores</p>
-          <p className={cn("text-xl font-bold", resumo.saldo_meses_anteriores >= 0 ? "text-cream" : "text-red-400")}>
-            {fmtCur(resumo.saldo_meses_anteriores)}
-          </p>
-        </div>
       </div>
 
       {/* Tabs & Ações */}
@@ -383,6 +378,7 @@ function CaixaContent({
                   ) : (
                     reservasFiltradas.map(item => {
                       const restante = calcValorRestante(item.valor_total_real, item.valor_em_reserva)
+                      const aPagar = calcValorAPagarDaReserva(item.valor_em_reserva, item.total_pago)
                       const status = getStatusReserva(item.valor_total_real, item.total_pago)
                       const virtual = isCaixaDestinatarioVirtual(item.destinatario_id)
 
@@ -459,7 +455,7 @@ function CaixaContent({
                             {status ? <Badge status={status} /> : null}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               {item.valor_em_reserva > 0 && !virtual ? (
                                 <Button
                                   size="sm"
@@ -474,14 +470,29 @@ function CaixaContent({
                                 </Button>
                               ) : null}
                               {status !== 'pago' && !virtual ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-xs text-[#f2d892] hover:text-[#f2d892] hover:bg-[#f2d892]/10"
+                                <button
+                                  type="button"
+                                  title={
+                                    aPagar > 0
+                                      ? `Pagar ${fmtCur(aPagar)} (reservado − já pago)`
+                                      : 'Registrar pagamento'
+                                  }
                                   onClick={() => setPagarReserva(item)}
+                                  className={cn(
+                                    'inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-all',
+                                    'border-[#f2d892]/35 bg-[#f2d892]/10 text-[#f2d892]',
+                                    'hover:border-[#f2d892]/55 hover:bg-[#f2d892]/18 hover:text-[#f8e6b0]',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d892]/40',
+                                    'active:scale-[0.98]',
+                                  )}
                                 >
-                                  Pagar
-                                </Button>
+                                  <span className="shrink-0 tracking-wide">Pagar</span>
+                                  {aPagar > 0 ? (
+                                    <span className="inline-flex min-w-0 items-center rounded-full bg-[#2a1812]/55 px-2 py-0.5 font-mono text-[0.7rem] font-bold tabular-nums text-[#f2d892] ring-1 ring-[#f2d892]/25">
+                                      {fmtCur(aPagar)}
+                                    </span>
+                                  ) : null}
+                                </button>
                               ) : null}
                               {!virtual ? (
                                 <Button
