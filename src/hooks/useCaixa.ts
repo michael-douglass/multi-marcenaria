@@ -321,6 +321,29 @@ export function useCaixa(mes: number, ano: number) {
     await load({ silent: true })
   }
 
+  /**
+   * Remove a linha do Caixa no mês: apaga movimentações e Contas a Pagar
+   * do mesmo destinatário/fornecedor naquele período (RPC no banco).
+   */
+  const excluirLinhaCaixa = async (item: ReservaConsolidada) => {
+    const { error } = await supabase.rpc('movelaria_excluir_linha_caixa', {
+      p_destinatario_id: item.destinatario_id,
+      p_destinatario_nome: item.destinatario_nome,
+      p_mes: item.mes_referencia,
+      p_ano: item.ano_referencia,
+    })
+    if (error) throw error
+    await load({ silent: true })
+  }
+
+  const excluirMovimentacao = async (movimentacaoId: string) => {
+    const { error } = await supabase.rpc('movelaria_excluir_movimentacao_caixa', {
+      p_movimentacao_id: movimentacaoId,
+    })
+    if (error) throw error
+    await load({ silent: true })
+  }
+
   /** Contas a pagar do destinatário no mês (base do "Valor real"). */
   const listarContasValorReal = async (
     destinatarioNome: string,
@@ -562,6 +585,8 @@ export function useCaixa(mes: number, ano: number) {
     addDestinatario,
     removeDestinatario,
     desfazerReserva,
+    excluirLinhaCaixa,
+    excluirMovimentacao,
     ajustarTotalConsolidado,
     listarContasValorReal,
     ajustarValorReal,

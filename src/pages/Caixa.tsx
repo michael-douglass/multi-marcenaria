@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react'
-import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search, Undo2, FileText } from 'lucide-react'
+import { Plus, Users, History, Receipt, ArrowUpRight, ArrowDownLeft, Search, Undo2, FileText, Trash2 } from 'lucide-react'
 import { CaixaProvider, useCaixaContext } from '@/context/CaixaContext'
 import { isCaixaDestinatarioVirtual } from '@/hooks/useCaixa'
 import { useReciboConfig } from '@/hooks/useReciboConfig'
@@ -87,6 +87,8 @@ function CaixaContent({
     reservasConsolidadas,
     movimentacoes,
     desfazerReserva,
+    excluirLinhaCaixa,
+    excluirMovimentacao,
     ajustarTotalConsolidado,
     listarContasValorReal,
     ajustarValorReal,
@@ -95,6 +97,7 @@ function CaixaContent({
   const [tab, setTab] = useState<'reservas' | 'movimentacoes' | 'historico'>('reservas')
   const [busca, setBusca] = useState('')
   const [desfazendoId, setDesfazendoId] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
 
   const reservasFiltradas = useMemo(() => {
     const q = busca.trim()
@@ -192,6 +195,42 @@ function CaixaContent({
       alert(err instanceof Error ? err.message : 'Não foi possível desfazer a reserva.')
     } finally {
       setDesfazendoId(null)
+    }
+  }
+
+  const handleExcluirLinha = async (item: ReservaConsolidada) => {
+    const ok = confirm(
+      `Excluir a conta de ${item.destinatario_nome} neste mês?\n\n` +
+        'Isso apaga as movimentações do Caixa e as Contas a Pagar deste destinatário no mês selecionado.\n' +
+        'Essa ação não pode ser desfeita.',
+    )
+    if (!ok) return
+
+    setExcluindoId(item.destinatario_id)
+    try {
+      await excluirLinhaCaixa(item)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível excluir a conta.')
+    } finally {
+      setExcluindoId(null)
+    }
+  }
+
+  const handleExcluirMovimentacao = async (mov: CaixaMovimentacao) => {
+    const nome = mov.movelaria_caixa_destinatarios?.nome || 'esta movimentação'
+    const ok = confirm(
+      `Excluir ${mov.tipo_movimentacao === 'pagamento' ? 'pagamento' : 'reserva'} de ${fmtCur(mov.valor)} (${nome})?\n\n` +
+        'Essa ação não pode ser desfeita.',
+    )
+    if (!ok) return
+
+    setExcluindoId(mov.id)
+    try {
+      await excluirMovimentacao(mov.id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível excluir a movimentação.')
+    } finally {
+      setExcluindoId(null)
     }
   }
 
@@ -456,6 +495,17 @@ function CaixaContent({
                                   Comprovante
                                 </Button>
                               ) : null}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-red-400/80 hover:text-red-400 hover:bg-red-400/10"
+                                disabled={excluindoId === item.destinatario_id}
+                                title="Excluir esta conta do Caixa e de Contas a Pagar neste mês"
+                                onClick={() => void handleExcluirLinha(item)}
+                              >
+                                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                {excluindoId === item.destinatario_id ? 'Excluindo…' : 'Excluir'}
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -497,12 +547,13 @@ function CaixaContent({
                     <th className="px-6 py-4">Descrição</th>
                     <th className="px-6 py-4 text-right">Valor</th>
                     <th className="px-6 py-4 text-center">Tipo</th>
+                    <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {movimentacoesFiltradas.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
+                      <td colSpan={6} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
                         {busca.trim()
                           ? 'Nenhum resultado para essa busca neste mês.'
                           : 'Nenhuma movimentação registrada neste período.'}
@@ -538,6 +589,19 @@ function CaixaContent({
                               PAGAMENTO
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs text-red-400/80 hover:text-red-400 hover:bg-red-400/10"
+                            disabled={excluindoId === mov.id}
+                            title="Excluir esta movimentação"
+                            onClick={() => void handleExcluirMovimentacao(mov)}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            {excluindoId === mov.id ? 'Excluindo…' : 'Excluir'}
+                          </Button>
                         </td>
                       </tr>
                     ))
