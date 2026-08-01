@@ -172,7 +172,10 @@ export function useContasPagar() {
       const valorBase = modelo.recorrencia_valor_base ?? modelo.valor_parcela
       const limiteGerado = encerramento && encerramento < horizonte ? encerramento : horizonte
 
-      const ultimo = proximoVencimento(serie)
+      // Âncora = última data da série (paga ou pendente). Só pendente
+      // quebrava a expansão quando o mês atual já estava pago.
+      const datasSerie = serie.map(c => c.data_vencimento).filter(Boolean).sort()
+      const ultimo = datasSerie.at(-1) ?? proximoVencimento(serie)
       if (!ultimo) continue
 
       // Datas já existentes na série
@@ -201,16 +204,28 @@ export function useContasPagar() {
             recorrencia_valor_base: valorBase,
             recorrencia_encerramento: encerramento ?? null,
           })
+          datasExistentes.add(proxData)
         }
         proxData = addMonths(proxData, 1)
       }
 
       if (inserir.length > 0) {
-        const { data: inserted } = await supabase
-          .from('movelaria_contas_pagar')
-          .insert(inserir)
-          .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
-        if (inserted) novas.push(...(inserted as ContaPagar[]))
+        // Insere mês a mês: o índice único evita clone se 2 abas expandirem juntas.
+        for (const row of inserir) {
+          const { data: inserted, error: insertErr } = await supabase
+            .from('movelaria_contas_pagar')
+            .insert(row)
+            .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
+            .maybeSingle()
+          if (insertErr) {
+            // 23505 = unique_violation (já existe nessa recorrência/vencimento)
+            if (insertErr.code !== '23505') {
+              console.warn('[contas a pagar] Expansão de recorrência:', insertErr.message)
+            }
+            continue
+          }
+          if (inserted) novas.push(inserted as ContaPagar)
+        }
       }
     }
 
