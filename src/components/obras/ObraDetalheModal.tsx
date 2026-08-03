@@ -1,5 +1,5 @@
 ﻿import { useRef, useState, useMemo } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText } from 'lucide-react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText, PenLine } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
@@ -9,6 +9,7 @@ import { groupEvolucaoPorDia, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { EvolucaoObservacao } from '@/components/obras/EvolucaoObservacao'
 import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
+import { ObraLousa } from '@/components/obras/lousa/ObraLousa'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
 import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '@/lib/obra-montadores'
 import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
@@ -297,21 +298,38 @@ export function ObraDetalheModal({
           </div>
         )}
 
-        {/* ── LOUSA ──────────────────────────────────────────── */}
-        {obra.lousa && (
-          <div
-            className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
-          >
-            <div className="flex items-center gap-1.5 mb-2">
-              <FileText size={13} className="text-[#f2d892]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
-                Lousa (CRM)
-              </p>
-            </div>
-            <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
+        {/* ── LOUSA (fotos + anotações) ───────────────────────── */}
+        <div
+          className="mb-5 rounded-lg p-4"
+          style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
+        >
+          <div className="flex items-center gap-1.5 mb-3">
+            <PenLine size={14} className="text-[#f2d892]" />
+            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+              Lousa
+            </p>
           </div>
-        )}
+
+          {obra.lousa?.trim() && (
+            <div className="mb-4 rounded-md p-3" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FileText size={12} className="text-[#edd9c4]" />
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
+                  Observação do CRM
+                </p>
+              </div>
+              <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
+            </div>
+          )}
+
+          <ObraLousa
+            obraId={obra.id}
+            open={open}
+            canEdit={canUpload || isMontador}
+            embedded
+            onExported={() => { void arqHook.reload() }}
+          />
+        </div>
 
         {/* ── CUSTOS MARKUP (Administrador) ───────────────────── */}
         {showMarkupCustos && markupCustos && (
