@@ -1,5 +1,8 @@
 import {
   parsePathData,
+  lousaInkScale,
+  lousaWorldStroke,
+  lousaTextVisualScale,
   type MeasureAnnotation,
   type Point,
   type WhiteboardAnnotation,
@@ -12,6 +15,7 @@ function drawAnnotation(
   annotation: WhiteboardAnnotation,
   color: string,
   strokeWidth: number,
+  ink: number,
 ): void {
   ctx.save()
   ctx.strokeStyle = color
@@ -53,16 +57,25 @@ function drawAnnotation(
       break
     }
     case 'text': {
-      ctx.translate(annotation.x + annotation.w / 2, annotation.y + annotation.h / 2)
+      const ts = lousaTextVisualScale(annotation.fontSize, ink)
+      const w = Math.max(annotation.w, 120) * ts
+      const h = Math.max(annotation.h, 40) * ts
+      const fontSize = (annotation.fontSize || 18) * ts
+      ctx.translate(annotation.x + w / 2, annotation.y + h / 2)
       ctx.rotate((annotation.rotation * Math.PI) / 180)
-      ctx.font = `${annotation.fontSize}px Inter, system-ui, sans-serif`
+      ctx.fillStyle = 'rgba(12, 10, 8, 0.88)'
+      ctx.fillRect(-w / 2, -h / 2, w, h)
+      ctx.strokeStyle = color
+      ctx.lineWidth = Math.max(2, 2 * ts)
+      ctx.strokeRect(-w / 2, -h / 2, w, h)
+      ctx.fillStyle = color
+      ctx.font = `800 ${fontSize}px Georgia, "Times New Roman", serif`
       ctx.textBaseline = 'top'
-      ctx.fillText(annotation.text || 'Texto', -annotation.w / 2 + 4, -annotation.h / 2 + 4, annotation.w - 8)
-      ctx.strokeRect(-annotation.w / 2, -annotation.h / 2, annotation.w, annotation.h)
+      ctx.fillText(annotation.text || 'Texto', -w / 2 + 12 * ts, -h / 2 + 10 * ts, w - 24 * ts)
       break
     }
     case 'measure': {
-      drawMeasure(ctx, annotation, color, strokeWidth)
+      drawMeasure(ctx, annotation, color, strokeWidth, ink)
       break
     }
     case 'furniture_module': {
@@ -91,8 +104,10 @@ function drawMeasure(
   m: MeasureAnnotation,
   color: string,
   strokeWidth: number,
+  ink: number,
 ): void {
   const c = m.colorHex ?? color
+  const s = Math.max(1, ink)
   ctx.strokeStyle = c
   ctx.fillStyle = c
   ctx.lineWidth = strokeWidth
@@ -106,23 +121,25 @@ function drawMeasure(
   }
   ctx.stroke()
 
-  // setas simples
-  drawArrowHead(ctx, m.b, m.via ?? m.a, 10)
-  drawArrowHead(ctx, m.a, m.via ?? m.b, 10)
+  drawArrowHead(ctx, m.b, m.via ?? m.a, 12 * s)
+  drawArrowHead(ctx, m.a, m.via ?? m.b, 12 * s)
 
   const labelPoint: Point = m.via
     ? m.via
-    : { x: (m.a.x + m.b.x) / 2, y: (m.a.y + m.b.y) / 2 - 14 }
+    : { x: (m.a.x + m.b.x) / 2, y: (m.a.y + m.b.y) / 2 - 16 * s }
 
-  ctx.font = 'bold 16px Inter, system-ui, sans-serif'
+  ctx.font = `800 ${Math.round(18 * s)}px Georgia, "Times New Roman", serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const pad = 6
+  const pad = 8 * s
   const metrics = ctx.measureText(m.label)
   const tw = metrics.width + pad * 2
-  const th = 22
-  ctx.fillStyle = 'rgba(0,0,0,0.55)'
+  const th = 28 * s
+  ctx.fillStyle = 'rgba(12,10,8,0.88)'
   ctx.fillRect(labelPoint.x - tw / 2, labelPoint.y - th / 2, tw, th)
+  ctx.strokeStyle = c
+  ctx.lineWidth = Math.max(2, strokeWidth * 0.45)
+  ctx.strokeRect(labelPoint.x - tw / 2, labelPoint.y - th / 2, tw, th)
   ctx.fillStyle = c
   ctx.fillText(m.label, labelPoint.x, labelPoint.y)
 }
@@ -169,6 +186,8 @@ export async function exportObraLousaJpeg(input: {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas indisponível.')
 
+  const ink = lousaInkScale(canvas.width, canvas.height)
+
   ctx.fillStyle = '#111'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
@@ -176,16 +195,17 @@ export async function exportObraLousaJpeg(input: {
   for (const drawing of drawings) {
     const parsed = parsePathData(drawing.path_data)
     if (!parsed) continue
+    const sw = lousaWorldStroke(Number(drawing.stroke_width) || 3, ink)
     if (parsed.type === 'stroke') {
       ctx.save()
       ctx.strokeStyle = drawing.cor
-      ctx.lineWidth = Number(drawing.stroke_width) || 3
+      ctx.lineWidth = sw
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
       ctx.stroke(new Path2D(parsed.path))
       ctx.restore()
     } else {
-      drawAnnotation(ctx, parsed.annotation, drawing.cor, Number(drawing.stroke_width) || 3)
+      drawAnnotation(ctx, parsed.annotation, drawing.cor, sw, ink)
     }
   }
 

@@ -3,6 +3,7 @@ import {
   formatMeasureLabel,
   midPoint,
   parsePathData,
+  lousaTextVisualScale,
   type FurnitureModuleType,
   type Point,
   type WhiteboardAnnotation,
@@ -16,14 +17,23 @@ interface Props {
   draftAnnotation: WhiteboardAnnotation | null
   draftStroke: string | null
   draftColor: string
+  /** Grossura já em pixels do mundo (com inkScale aplicado). */
   draftStrokeWidth: number
+  inkScale?: number
   readOnly?: boolean
+  /** Posição ao vivo enquanto arrasta (antes de gravar). */
+  liveOverride?: { id: string; annotation: WhiteboardAnnotation } | null
   onSelect: (id: string | null) => void
-  onUpdateSelected?: (id: string, annotation: WhiteboardAnnotation) => void
+  onAnnotationPointerDown?: (
+    id: string,
+    annotation: WhiteboardAnnotation,
+    e: React.PointerEvent,
+  ) => void
+  onAnnotationDoubleClick?: (id: string, annotation: WhiteboardAnnotation) => void
 }
 
 function MeasureGfx({
-  a, b, via, label, color, strokeWidth,
+  a, b, via, label, color, strokeWidth, ink,
 }: {
   a: Point
   b: Point
@@ -31,25 +41,33 @@ function MeasureGfx({
   label: string
   color: string
   strokeWidth: number
+  ink: number
 }) {
-  const labelPt = via ?? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 16 }
+  const s = Math.max(1, ink)
+  const labelPt = via ?? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 16 * s }
   const d = via
     ? `M ${a.x} ${a.y} Q ${via.x} ${via.y} ${b.x} ${b.y}`
     : `M ${a.x} ${a.y} L ${b.x} ${b.y}`
+  const fontSize = Math.round(18 * s)
+  const padX = Math.max(22, label.length * 6) * s
+  const boxH = 28 * s
+  const r = 5 * s
 
   return (
     <g>
-      <path d={d} fill="none" stroke={color} strokeWidth={strokeWidth} />
-      <circle cx={a.x} cy={a.y} r={4} fill={color} />
-      <circle cx={b.x} cy={b.y} r={4} fill={color} />
-      {via && <circle cx={via.x} cy={via.y} r={3} fill={color} opacity={0.7} />}
+      <path d={d} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <circle cx={a.x} cy={a.y} r={r} fill={color} />
+      <circle cx={b.x} cy={b.y} r={r} fill={color} />
+      {via && <circle cx={via.x} cy={via.y} r={4 * s} fill={color} opacity={0.7} />}
       <rect
-        x={labelPt.x - Math.max(18, label.length * 5)}
-        y={labelPt.y - 11}
-        width={Math.max(36, label.length * 10)}
-        height={22}
-        rx={4}
-        fill="rgba(0,0,0,0.55)"
+        x={labelPt.x - padX}
+        y={labelPt.y - boxH / 2}
+        width={padX * 2}
+        height={boxH}
+        rx={6 * s}
+        fill="rgba(12, 10, 8, 0.88)"
+        stroke={color}
+        strokeWidth={Math.max(2, strokeWidth * 0.45)}
       />
       <text
         x={labelPt.x}
@@ -57,9 +75,9 @@ function MeasureGfx({
         textAnchor="middle"
         dominantBaseline="middle"
         fill={color}
-        fontSize={14}
-        fontWeight={700}
-        fontFamily="Inter, system-ui, sans-serif"
+        fontSize={fontSize}
+        fontWeight={800}
+        fontFamily="Georgia, 'Times New Roman', serif"
       >
         {label}
       </text>
@@ -81,7 +99,7 @@ function FurnitureGfx({
   return (
     <g>
       {paths.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke={color} strokeWidth={strokeWidth} />
+        <path key={i} d={d} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
       ))}
     </g>
   )
@@ -92,13 +110,15 @@ function AnnotationGfx({
   color,
   strokeWidth,
   selected,
+  ink,
 }: {
   annotation: WhiteboardAnnotation
   color: string
   strokeWidth: number
   selected: boolean
+  ink: number
 }) {
-  const sel = selected ? { strokeDasharray: '6 4', opacity: 1 } : {}
+  const sel = selected ? { strokeDasharray: `${8 * ink} ${5 * ink}`, opacity: 1 } : {}
 
   switch (annotation.kind) {
     case 'line':
@@ -106,14 +126,15 @@ function AnnotationGfx({
         <line
           x1={annotation.a.x} y1={annotation.a.y}
           x2={annotation.b.x} y2={annotation.b.y}
-          stroke={color} strokeWidth={strokeWidth} {...sel}
+          stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" {...sel}
         />
       )
     case 'polyline':
       return (
         <polyline
           points={annotation.points.map(p => `${p.x},${p.y}`).join(' ')}
-          fill="none" stroke={color} strokeWidth={strokeWidth} {...sel}
+          fill="none" stroke={color} strokeWidth={strokeWidth}
+          strokeLinecap="round" strokeLinejoin="round" {...sel}
         />
       )
     case 'rect':
@@ -136,33 +157,38 @@ function AnnotationGfx({
           {...sel}
         />
       )
-    case 'text':
+    case 'text': {
+      const ts = lousaTextVisualScale(annotation.fontSize, ink)
+      const w = Math.max(annotation.w, 120) * ts
+      const h = Math.max(annotation.h, 40) * ts
+      const fontSize = (annotation.fontSize || 18) * ts
+      const pad = 12 * Math.max(1, ts)
       return (
-        <g transform={`rotate(${annotation.rotation} ${annotation.x + annotation.w / 2} ${annotation.y + annotation.h / 2})`}>
+        <g transform={`rotate(${annotation.rotation} ${annotation.x + w / 2} ${annotation.y + h / 2})`}>
           <rect
-            x={annotation.x} y={annotation.y}
-            width={annotation.w} height={annotation.h}
-            fill="rgba(0,0,0,0.25)" stroke={color} strokeWidth={1.5}
+            x={annotation.x}
+            y={annotation.y}
+            width={w}
+            height={h}
+            fill="rgba(12, 10, 8, 0.88)"
+            stroke={color}
+            strokeWidth={selected ? Math.max(3, 2.5 * ts) : Math.max(2, 2 * ts)}
+            rx={8 * Math.max(1, ts * 0.6)}
             {...sel}
           />
-          <foreignObject x={annotation.x} y={annotation.y} width={annotation.w} height={annotation.h}>
-            <div
-              style={{
-                color,
-                fontSize: annotation.fontSize,
-                padding: 4,
-                overflow: 'hidden',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                lineHeight: 1.2,
-              }}
-            >
-              {annotation.text || 'Texto'}
-            </div>
-          </foreignObject>
+          <text
+            x={annotation.x + pad}
+            y={annotation.y + fontSize + pad * 0.55}
+            fill={color}
+            fontSize={fontSize}
+            fontWeight={800}
+            fontFamily="Georgia, 'Times New Roman', serif"
+          >
+            {(annotation.text || 'Digite o texto…').slice(0, 80)}
+          </text>
         </g>
       )
+    }
     case 'measure':
       return (
         <MeasureGfx
@@ -172,6 +198,7 @@ function AnnotationGfx({
           label={annotation.label}
           color={annotation.colorHex ?? color}
           strokeWidth={strokeWidth}
+          ink={ink}
         />
       )
     case 'furniture_module':
@@ -190,6 +217,12 @@ function AnnotationGfx({
   }
 }
 
+function worldStrokeOf(logical: number | string | null | undefined, ink: number): number {
+  const n = Number(logical)
+  const base = Number.isFinite(n) && n > 0 ? n : 3
+  return Math.max(2, base * ink)
+}
+
 export function ObraLousaAnnotationsLayer({
   drawings,
   selectedId,
@@ -197,15 +230,22 @@ export function ObraLousaAnnotationsLayer({
   draftStroke,
   draftColor,
   draftStrokeWidth,
+  inkScale = 1,
   readOnly,
+  liveOverride,
   onSelect,
+  onAnnotationPointerDown,
+  onAnnotationDoubleClick,
 }: Props) {
+  const ink = Math.max(1, inkScale)
+
   return (
     <g>
       {drawings.map(d => {
         const parsed = parsePathData(d.path_data)
         if (!parsed) return null
         const selected = selectedId === d.id
+        const sw = worldStrokeOf(d.stroke_width, ink)
         if (parsed.type === 'stroke') {
           return (
             <g key={d.id}>
@@ -214,11 +254,11 @@ export function ObraLousaAnnotationsLayer({
                 d={parsed.path}
                 fill="none"
                 stroke="transparent"
-                strokeWidth={Math.max(18, (Number(d.stroke_width) || 3) + 14)}
+                strokeWidth={Math.max(28 * ink, sw + 18 * ink)}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                onClick={e => {
+                onPointerDown={e => {
                   e.stopPropagation()
                   if (!readOnly) onSelect(d.id)
                 }}
@@ -227,29 +267,41 @@ export function ObraLousaAnnotationsLayer({
                 d={parsed.path}
                 fill="none"
                 stroke={d.cor}
-                strokeWidth={Number(d.stroke_width) || 3}
+                strokeWidth={sw}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 pointerEvents="none"
-                opacity={selected ? 0.85 : 1}
+                opacity={selected ? 0.9 : 1}
               />
             </g>
           )
         }
+        const annotation =
+          liveOverride?.id === d.id ? liveOverride.annotation : parsed.annotation
         return (
           <g
             key={d.id}
-            style={{ cursor: readOnly ? 'default' : 'pointer' }}
-            onClick={e => {
+            style={{ cursor: readOnly ? 'default' : selected ? 'grab' : 'pointer' }}
+            onPointerDown={e => {
               e.stopPropagation()
-              if (!readOnly) onSelect(d.id)
+              if (readOnly) return
+              if (onAnnotationPointerDown) {
+                onAnnotationPointerDown(d.id, parsed.annotation, e)
+              } else {
+                onSelect(d.id)
+              }
+            }}
+            onDoubleClick={e => {
+              e.stopPropagation()
+              if (!readOnly) onAnnotationDoubleClick?.(d.id, annotation)
             }}
           >
             <AnnotationGfx
-              annotation={parsed.annotation}
+              annotation={annotation}
               color={d.cor}
-              strokeWidth={Number(d.stroke_width) || 3}
+              strokeWidth={sw}
               selected={selected}
+              ink={ink}
             />
           </g>
         )
@@ -263,7 +315,7 @@ export function ObraLousaAnnotationsLayer({
           strokeWidth={draftStrokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity={0.9}
+          opacity={0.95}
         />
       )}
 
@@ -273,6 +325,7 @@ export function ObraLousaAnnotationsLayer({
           color={draftColor}
           strokeWidth={draftStrokeWidth}
           selected={false}
+          ink={ink}
         />
       )}
     </g>
@@ -315,16 +368,17 @@ export function buildMeasure(a: Point, b: Point, via?: Point): WhiteboardAnnotat
   }
 }
 
-export function buildText(at: Point, fontSize = 18): WhiteboardAnnotation {
+export function buildText(at: Point, fontSize = 26, inkScale = 1): WhiteboardAnnotation {
+  const ink = Math.max(1, inkScale)
   return {
     kind: 'text',
     x: at.x,
     y: at.y,
-    w: 160,
-    h: 48,
+    w: Math.round(340 * ink),
+    h: Math.round(96 * ink),
     rotation: 0,
     text: '',
-    fontSize,
+    fontSize: Math.round(fontSize * ink),
   }
 }
 

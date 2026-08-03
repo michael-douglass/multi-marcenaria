@@ -30,13 +30,14 @@ export function useObraLousaViewport({
 
   const fit = useCallback(() => {
     if (!worldWidth || !worldHeight || !containerWidth || !containerHeight) return
-    const pad = 24
+    const pad = 12
     const sx = (containerWidth - pad * 2) / worldWidth
     const sy = (containerHeight - pad * 2) / worldHeight
-    const scale = Math.min(sx, sy, 1.5)
+    // Encaixa a foto o máximo possível na área (sem limitar a 1.5 — fotos grandes precisam caber)
+    const scale = Math.min(sx, sy)
     const offsetX = (containerWidth - worldWidth * scale) / 2
     const offsetY = (containerHeight - worldHeight * scale) / 2
-    setViewport({ scale: Math.max(0.1, scale), offsetX, offsetY })
+    setViewport({ scale: Math.max(0.08, scale), offsetX, offsetY })
   }, [worldWidth, worldHeight, containerWidth, containerHeight])
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export function useObraLousaViewport({
 
   const zoomBy = useCallback((factor: number, centerX?: number, centerY?: number) => {
     setViewport(prev => {
-      const nextScale = Math.min(5, Math.max(0.15, prev.scale * factor))
+      const nextScale = Math.min(8, Math.max(0.08, prev.scale * factor))
       const cx = centerX ?? containerWidth / 2
       const cy = centerY ?? containerHeight / 2
       const wx = (cx - prev.offsetX) / prev.scale
@@ -111,7 +112,7 @@ export function useObraLousaViewport({
         e.touches[0].clientY - e.touches[1].clientY,
       )
       const factor = d / pinchRef.current.dist
-      const nextScale = Math.min(5, Math.max(0.15, pinchRef.current.scale * factor))
+      const nextScale = Math.min(8, Math.max(0.08, pinchRef.current.scale * factor))
       setViewport(prev => ({ ...prev, scale: nextScale }))
     }
   }, [])

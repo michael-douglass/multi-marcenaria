@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Camera,
   Circle,
@@ -23,8 +24,8 @@ import {
   X,
   MessageSquareText,
   Expand,
+  Shrink,
 } from 'lucide-react'
-import { Modal } from '@/components/ui/Modal'
 import { useObraLousa } from '@/hooks/useObraLousa'
 import { useObraLousaViewport } from '@/hooks/useObraLousaViewport'
 import { useObraLousaHistory } from '@/hooks/useObraLousaHistory'
@@ -32,6 +33,9 @@ import { OBRA_LOUSA_MAX_BYTES, isAcceptedLousaImage } from '@/lib/obra-lousa'
 import {
   parsePathData,
   distance,
+  offsetAnnotation,
+  lousaInkScale,
+  lousaWorldStroke,
   type FurnitureModuleType,
   type Point,
   type WhiteboardAnnotation,
@@ -78,7 +82,7 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
-  const [boardSize, setBoardSize] = useState({ w: 640, h: 420 })
+  const [boardSize, setBoardSize] = useState({ w: 640, h: 560 })
   const [tool, setTool] = useState<LousaTool>('pencil')
   const toolRef = useRef<LousaTool>('pencil')
   const setToolSafe = useCallback((next: LousaTool) => {
@@ -88,8 +92,8 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
   const [color, setColor] = useState(COLORS[0])
   const colorRef = useRef(COLORS[0])
   const setColorSafe = (c: string) => { colorRef.current = c; setColor(c) }
-  const [strokeWidth, setStrokeWidth] = useState(3)
-  const strokeWidthRef = useRef(3)
+  const [strokeWidth, setStrokeWidth] = useState(6)
+  const strokeWidthRef = useRef(6)
   const setStrokeWidthSafe = (n: number) => { strokeWidthRef.current = n; setStrokeWidth(n) }
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -116,9 +120,23 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
   const dragStartRef = useRef<Point | null>(null)
   const spacePanRef = useRef(false)
   const panningActiveRef = useRef(false)
+  /** Arraste de anotação (caixa de texto, formas, etc.) */
+  const moveRef = useRef<{
+    id: string
+    start: Point
+    origin: WhiteboardAnnotation
+    moved: boolean
+    live: WhiteboardAnnotation
+  } | null>(null)
+  const [liveMove, setLiveMove] = useState<{ id: string; annotation: WhiteboardAnnotation } | null>(null)
 
   const worldW = Number(lousa.activeImage?.width) || 1280
   const worldH = Number(lousa.activeImage?.height) || 720
+  const inkScale = useMemo(() => lousaInkScale(worldW, worldH), [worldW, worldH])
+  const worldStroke = useMemo(
+    () => lousaWorldStroke(strokeWidth, inkScale),
+    [strokeWidth, inkScale],
+  )
 
   const viewport = useObraLousaViewport({
     worldWidth: worldW,
@@ -148,6 +166,12 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     measureStepRef.current = {}
     furnitureStepRef.current = null
   }, [lousa.activeImageId])
+
+  useEffect(() => {
+    if (!fullscreen) return
+    const t = window.setTimeout(() => viewport.fit(), 100)
+    return () => window.clearTimeout(t)
+  }, [fullscreen, boardSize.w, boardSize.h, worldW, worldH])
 
   useEffect(() => {
     const el = boardRef.current
@@ -213,10 +237,11 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
       history.pushCreated(row.id)
       if (annotation.kind === 'text') {
         setTextEditingId(row.id)
-        setTextDraft('')
+        setTextDraft(annotation.text || '')
         setSelectedId(row.id)
       }
     }
+    return row
   }
 
   const onPointerDown = async (e: React.PointerEvent) => {
@@ -236,7 +261,12 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     }
 
     if (currentTool === 'select') {
-      setSelectedId(null)
+      // Clique no fundo: desmarca (clique na anotação para no SVG e inicia arraste)
+      if (!moveRef.current) {
+        setSelectedId(null)
+        setTextEditingId(null)
+        setLiveMove(null)
+      }
       return
     }
 
@@ -258,8 +288,7 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     }
 
     if (currentTool === 'text') {
-      await persistAnnotation(buildText(pt))
-      setToolSafe('select')
+      // Texto é tratado no onClick (mais confiável que pointerdown sozinho)
       return
     }
 
@@ -335,6 +364,17 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     if (!pt || !canEdit) return
     const currentTool = toolRef.current
 
+    if (moveRef.current) {
+      const { id, start, origin } = moveRef.current
+      const dx = pt.x - start.x
+      const dy = pt.y - start.y
+      if (Math.hypot(dx, dy) > 3) moveRef.current.moved = true
+      const live = offsetAnnotation(origin, dx, dy)
+      moveRef.current.live = live
+      setLiveMove({ id, annotation: live })
+      return
+    }
+
     if (currentTool === 'pencil' && drawingRef.current) {
       const next = draftStrokeRef.current
         ? `${draftStrokeRef.current} L ${pt.x} ${pt.y}`
@@ -385,6 +425,23 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     viewport.endPan()
     if (!canEdit) return
     const currentTool = toolRef.current
+
+    if (moveRef.current) {
+      const move = moveRef.current
+      moveRef.current = null
+      setLiveMove(null)
+      if (move.moved && lousa.activeImageId) {
+        try {
+          await lousa.updateAnnotation(move.id, move.live, lousa.activeImageId)
+        } catch (err) {
+          lousa.setError(err instanceof Error ? err.message : 'Falha ao mover a anotação.')
+        }
+      } else if (!move.moved && move.origin.kind === 'text') {
+        // Clique simples na caixa: seleciona (já feito) — não abre editor
+        setSelectedId(move.id)
+      }
+      return
+    }
 
     if (currentTool === 'pencil' && drawingRef.current) {
       drawingRef.current = false
@@ -441,30 +498,69 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
       return
     }
     setSelectedId(id)
-    if (id) {
-      const d = lousa.activeDrawings.find(x => x.id === id)
-      const parsed = d ? parsePathData(d.path_data) : null
-      if (parsed?.type === 'annotation' && parsed.annotation.kind === 'text') {
-        setTextEditingId(id)
-        setTextDraft(parsed.annotation.text)
-      } else {
-        setTextEditingId(null)
-      }
+  }
+
+  /** Inicia arraste da anotação (ferramenta Selecionar). */
+  const handleAnnotationPointerDown = (
+    id: string,
+    annotation: WhiteboardAnnotation,
+    e: React.PointerEvent,
+  ) => {
+    if (!canEdit) return
+    if (toolRef.current === 'eraser') {
+      void handleSelectDrawing(id)
+      return
     }
+    // Com Selecionar (ou após criar texto): permite arrastar
+    if (toolRef.current !== 'select') {
+      // Outras ferramentas: só seleciona se for borracha (acima) — senão ignore
+      return
+    }
+    e.preventDefault()
+    setSelectedId(id)
+    setTextEditingId(null)
+    const pt = getLocalPoint(e)
+    if (!pt) return
+    moveRef.current = {
+      id,
+      start: pt,
+      origin: annotation,
+      moved: false,
+      live: annotation,
+    }
+    setLiveMove({ id, annotation })
+    boardRef.current?.setPointerCapture?.(e.pointerId)
+  }
+
+  /** Duplo clique na caixa de texto abre o editor. */
+  const handleAnnotationDoubleClick = (id: string, annotation: WhiteboardAnnotation) => {
+    if (!canEdit || annotation.kind !== 'text') return
+    setSelectedId(id)
+    setTextEditingId(id)
+    setTextDraft(annotation.text || '')
+    setToolSafe('select')
   }
 
   const saveTextEdit = async () => {
     if (!textEditingId || !lousa.activeImageId) return
+    const value = textDraft.trim() || 'Texto'
     const d = lousa.activeDrawings.find(x => x.id === textEditingId)
-    if (!d) return
+    if (!d) {
+      // ainda sincronizando: tenta de novo com o draft local
+      setTextEditingId(null)
+      return
+    }
     const parsed = parsePathData(d.path_data)
     if (parsed?.type !== 'annotation' || parsed.annotation.kind !== 'text') return
     await lousa.updateAnnotation(
       textEditingId,
-      { ...parsed.annotation, text: textDraft },
+      { ...parsed.annotation, text: value },
       lousa.activeImageId,
     )
+    setSelectedId(textEditingId)
     setTextEditingId(null)
+    setToolSafe('select')
+    setSuccessMsg('Texto salvo na Lousa.')
   }
 
   const handleUploadFiles = async (files: FileList | File[] | null) => {
@@ -533,25 +629,25 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
   }
 
   const tools: { id: LousaTool; icon: ReactNode; label: string }[] = useMemo(() => [
-    { id: 'select', icon: <MousePointer2 size={15} />, label: 'Selecionar' },
-    { id: 'pencil', icon: <Pencil size={15} />, label: 'Desenhar' },
-    { id: 'eraser', icon: <Eraser size={15} />, label: 'Apagar' },
-    { id: 'line', icon: <Slash size={15} />, label: 'Linha' },
-    { id: 'rect', icon: <RectangleHorizontal size={15} />, label: 'Retângulo' },
-    { id: 'ellipse', icon: <Circle size={15} />, label: 'Elipse' },
-    { id: 'text', icon: <Type size={15} />, label: 'Texto' },
-    { id: 'points', icon: <Plus size={15} />, label: 'Pontos' },
-    { id: 'measure', icon: <Ruler size={15} />, label: 'Medir' },
-    { id: 'furniture', icon: <Armchair size={15} />, label: 'Móveis' },
+    { id: 'select', icon: <MousePointer2 size={18} />, label: 'Selecionar' },
+    { id: 'pencil', icon: <Pencil size={18} />, label: 'Desenhar' },
+    { id: 'eraser', icon: <Eraser size={18} />, label: 'Apagar' },
+    { id: 'line', icon: <Slash size={18} />, label: 'Linha' },
+    { id: 'rect', icon: <RectangleHorizontal size={18} />, label: 'Retângulo' },
+    { id: 'ellipse', icon: <Circle size={18} />, label: 'Elipse' },
+    { id: 'text', icon: <Type size={18} />, label: 'Texto' },
+    { id: 'points', icon: <Plus size={18} />, label: 'Pontos' },
+    { id: 'measure', icon: <Ruler size={18} />, label: 'Medir' },
+    { id: 'furniture', icon: <Armchair size={18} />, label: 'Móveis' },
   ], [])
 
   if (!open) return null
 
   const board = (
-    <div className="flex flex-col gap-3">
+    <div className={cn('flex flex-col gap-3', fullscreen && 'flex-1 min-h-0 h-full')}>
       {/* Anexar foto — sempre no topo */}
       {canEdit && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={cn('flex flex-wrap items-center gap-2 shrink-0', fullscreen && 'hidden')}>
           <button
             type="button"
             disabled={lousa.uploading}
@@ -580,6 +676,12 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
               Salvar no card
             </button>
           )}
+        </div>
+      )}
+
+      {/* inputs sempre montados (também usados na tela cheia) */}
+      {canEdit && (
+        <>
           <input
             ref={fileRef}
             type="file"
@@ -596,10 +698,32 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
             className="hidden"
             onChange={e => { void handleUploadFiles(e.target.files); e.target.value = '' }}
           />
+        </>
+      )}
+
+      {/* Em tela cheia: ações essenciais no topo */}
+      {canEdit && fullscreen && (
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            disabled={lousa.uploading}
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[#f2d892]/20 text-[#f2d892]"
+          >
+            <Upload size={12} /> Anexar foto
+          </button>
+          <button
+            type="button"
+            disabled={lousa.saving || !lousa.activeImage}
+            onClick={() => void handleExport()}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold bg-emerald-600/25 text-emerald-300 ml-auto"
+          >
+            <Save size={12} /> Salvar no card
+          </button>
         </div>
       )}
 
-      <p className="text-[0.65rem] text-[#d4bc9f] -mt-1">
+      <p className={cn('text-[0.65rem] text-[#d4bc9f] -mt-1', fullscreen && 'hidden')}>
         Anexe uma foto (até 100 MB), risque em cima e clique em <strong className="text-[#f2d892]">Salvar no card</strong> —
         a imagem riscada vai para Fotos e Documentos e sai da Lousa.
       </p>
@@ -607,19 +731,23 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
       {/* Toolbar */}
       {!toolbarCollapsed && lousa.activeImage && (
         <div
-          className="flex flex-wrap items-center gap-1.5 rounded-lg p-2"
-          style={{ backgroundColor: 'rgba(0,0,0,0.35)', border: '1px solid rgba(240,210,140,0.18)' }}
+          className="flex flex-wrap items-center gap-1.5 sm:gap-2 rounded-xl p-2 sm:p-2.5 shadow-[inset_0_1px_0_rgba(242,216,146,0.12)]"
+          style={{
+            background:
+              'linear-gradient(165deg, rgba(28,22,16,0.95) 0%, rgba(12,10,8,0.92) 100%)',
+            border: '1px solid rgba(240,210,140,0.28)',
+          }}
         >
           {canEdit && tools.map(t => (
             <button
               key={t.id}
               type="button"
               title={t.label}
+              aria-label={t.label}
               onClick={() => {
                 setToolSafe(t.id)
                 if (t.id === 'furniture') setShowFurnitureMenu(v => !v)
                 else setShowFurnitureMenu(false)
-                // limpa gestos em andamento ao trocar ferramenta
                 pointsRef.current = []
                 measureStepRef.current = {}
                 furnitureStepRef.current = null
@@ -627,8 +755,8 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
                 setDraftAnnotation(null)
               }}
               className={cn(
-                'rounded-md p-2 text-[#edd9c4] hover:bg-white/10 transition-colors',
-                tool === t.id && 'bg-[#f2d892]/20 text-[#f2d892]',
+                'inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10 transition-colors active:scale-95',
+                tool === t.id && 'bg-[#f2d892]/25 text-[#f2d892] ring-1 ring-[#f2d892]/50 shadow-[0_0_18px_rgba(242,216,146,0.18)]',
               )}
             >
               {t.icon}
@@ -637,62 +765,76 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
 
           {canEdit && (
             <>
-              <span className="mx-1 h-5 w-px bg-[rgba(240,210,140,0.2)]" />
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  title={c}
-                  onClick={() => setColorSafe(c)}
-                  className={cn(
-                    'h-5 w-5 rounded-full border-2',
-                    color === c ? 'border-white scale-110' : 'border-transparent',
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-              <label className="ml-1 flex items-center gap-1 text-[0.65rem] text-[#edd9c4]">
-                Grossura
-                <input
-                  type="range"
-                  min={1}
-                  max={12}
-                  value={strokeWidth}
-                  onChange={e => setStrokeWidthSafe(Number(e.target.value))}
-                  className="w-16"
-                />
-              </label>
+              <span className="mx-0.5 hidden sm:block h-6 w-px bg-[rgba(240,210,140,0.22)]" />
+              <div className="flex items-center gap-1.5 w-full sm:w-auto mt-1 sm:mt-0">
+                {COLORS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    title={c}
+                    aria-label={`Cor ${c}`}
+                    onClick={() => setColorSafe(c)}
+                    className={cn(
+                      'h-8 w-8 sm:h-6 sm:w-6 rounded-full border-2 transition-transform',
+                      color === c ? 'border-white scale-110 ring-2 ring-[#f2d892]/40' : 'border-black/40',
+                    )}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <label className="ml-1 flex items-center gap-1.5 text-[0.7rem] text-[#edd9c4]">
+                  Traço
+                  <input
+                    type="range"
+                    min={2}
+                    max={16}
+                    value={strokeWidth}
+                    onChange={e => setStrokeWidthSafe(Number(e.target.value))}
+                    className="w-20 sm:w-24 accent-[#f2d892]"
+                  />
+                  <span className="tabular-nums text-[#f2d892] w-4">{strokeWidth}</span>
+                </label>
+              </div>
             </>
           )}
 
-          <span className="mx-1 h-5 w-px bg-[rgba(240,210,140,0.2)]" />
-          <button type="button" title="Desfazer" onClick={() => void handleUndo()} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-            <Undo2 size={15} />
-          </button>
-          <button type="button" title="Refazer" disabled className="rounded-md p-2 text-[#edd9c4]/40">
-            <Redo2 size={15} />
-          </button>
-          <button type="button" title="Zoom −" onClick={() => viewport.zoomBy(0.85)} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-            <Minus size={15} />
-          </button>
-          <button type="button" title="Zoom +" onClick={() => viewport.zoomBy(1.15)} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-            <Plus size={15} />
-          </button>
-          <button type="button" title="Ajustar foto" onClick={() => viewport.fit()} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-            <Maximize2 size={15} />
-          </button>
-          <button type="button" title="Ajuda" onClick={() => setShowHelp(v => !v)} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-            <HelpCircle size={15} />
-          </button>
-          {!fullscreen && (
-            <button type="button" title="Tela cheia" onClick={() => setFullscreen(true)} className="rounded-md p-2 text-[#edd9c4] hover:bg-white/10">
-              <Expand size={15} />
+          <span className="mx-0.5 hidden sm:block h-6 w-px bg-[rgba(240,210,140,0.22)]" />
+          <div className="flex items-center gap-1 ml-auto">
+            <button type="button" title="Desfazer" onClick={() => void handleUndo()} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+              <Undo2 size={18} />
             </button>
-          )}
+            <button type="button" title="Refazer" disabled className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4]/35">
+              <Redo2 size={18} />
+            </button>
+            <button type="button" title="Zoom −" onClick={() => viewport.zoomBy(0.85)} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+              <Minus size={18} />
+            </button>
+            <button type="button" title="Zoom +" onClick={() => viewport.zoomBy(1.15)} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+              <Plus size={18} />
+            </button>
+            <span className="hidden sm:inline text-[0.65rem] tabular-nums text-[#f2d892]/90 min-w-[2.5rem] text-center">
+              {Math.round(viewport.viewport.scale * 100)}%
+            </span>
+            <button type="button" title="Ajustar foto" onClick={() => viewport.fit()} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+              <Maximize2 size={18} />
+            </button>
+            <button type="button" title="Ajuda" onClick={() => setShowHelp(v => !v)} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+              <HelpCircle size={18} />
+            </button>
+            {!fullscreen && (
+              <button type="button" title="Tela cheia" onClick={() => setFullscreen(true)} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#edd9c4] hover:bg-white/10">
+                <Expand size={18} />
+              </button>
+            )}
+            {fullscreen && (
+              <button type="button" title="Sair da tela cheia" onClick={() => setFullscreen(false)} className="inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-lg text-[#f2d892] hover:bg-white/10">
+                <Shrink size={18} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {lousa.activeImage && (
+      {lousa.activeImage && !fullscreen && (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -712,6 +854,14 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
           )}
           {tool === 'eraser' && (
             <span className="text-[0.65rem] text-amber-300">Borracha: clique no risco para apagar</span>
+          )}
+          {tool === 'select' && (
+            <span className="text-[0.65rem] text-amber-300">
+              Selecionar: arraste a caixa · duplo clique edita o texto
+            </span>
+          )}
+          {tool === 'text' && (
+            <span className="text-[0.65rem] text-amber-300">Texto: clique na foto para criar a caixa</span>
           )}
           {lousa.saving && (
             <span className="flex items-center gap-1 text-[0.65rem] text-[#f2d892]">
@@ -745,8 +895,9 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
         <div className="rounded-lg p-3 text-xs text-[#edd9c4] space-y-1" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
           <p>1. Anexe uma foto (botão, câmera ou arraste para a área escura).</p>
           <p>2. Risque com lápis, formas, texto, medição ou móveis.</p>
-          <p>3. Cada foto guarda sua observação e seus riscos automaticamente.</p>
-          <p>4. “Salvar no card” gera a imagem final, coloca em Fotos e Documentos e tira da Lousa.</p>
+          <p>3. Com Selecionar, arraste a caixa de texto; duplo clique edita.</p>
+          <p>4. Cada foto guarda sua observação e seus riscos automaticamente.</p>
+          <p>5. “Salvar no card” gera a imagem final, coloca em Fotos e Documentos e tira da Lousa.</p>
         </div>
       )}
 
@@ -754,18 +905,22 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
       <div
         ref={boardRef}
         className={cn(
-          'relative overflow-hidden rounded-lg touch-none',
+          'relative overflow-hidden rounded-xl touch-none shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
+          fullscreen && 'flex-1 min-h-0',
           dragOver && 'ring-2 ring-[#f2d892] ring-offset-2 ring-offset-transparent',
         )}
         style={{
-          height: fullscreen ? 'min(70vh, 640px)' : 420,
-          backgroundColor: '#0c0a08',
+          ...(fullscreen
+            ? { flex: '1 1 auto', minHeight: 0, height: 'calc(100dvh - 96px)' }
+            : { height: 'clamp(420px, 65dvh, 760px)' }),
+          background:
+            'radial-gradient(ellipse at 50% 30%, #1a1510 0%, #0c0a08 55%, #070605 100%)',
           border: dragOver
             ? '1px dashed rgba(242,216,146,0.8)'
-            : '1px solid rgba(240,210,140,0.2)',
+            : '1px solid rgba(240,210,140,0.28)',
           cursor: !lousa.activeImage
             ? 'pointer'
-            : tool === 'pencil' || tool === 'line' || tool === 'rect' || tool === 'ellipse'
+            : tool === 'pencil' || tool === 'line' || tool === 'rect' || tool === 'ellipse' || tool === 'text'
               ? 'crosshair'
               : tool === 'eraser'
                 ? 'cell'
@@ -774,9 +929,31 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
         onPointerDown={e => void onPointerDown(e)}
         onPointerMove={onPointerMove}
         onPointerUp={e => void onPointerUp(e)}
+        onClick={e => {
+          // fallback para a ferramenta Texto (alguns ambientes engolem o pointerdown)
+          if (toolRef.current !== 'text' || !canEdit || !lousa.activeImage) return
+          if (textEditingId) return
+          const pt = getLocalPoint(e)
+          if (!pt) return
+          e.stopPropagation()
+          void (async () => {
+            try {
+              const created = await persistAnnotation(buildText(pt, 26, inkScale))
+              if (!created) {
+                lousa.setError('Não foi possível criar a caixa de texto. Tente de novo.')
+                return
+              }
+              setToolSafe('select')
+            } catch (err) {
+              lousa.setError(err instanceof Error ? err.message : 'Falha ao criar texto.')
+            }
+          })()
+        }}
         onPointerCancel={() => {
           drawingRef.current = false
           panningActiveRef.current = false
+          moveRef.current = null
+          setLiveMove(null)
           viewport.endPan()
         }}
         onDoubleClick={() => void onDoubleClick()}
@@ -840,16 +1017,88 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
                 draftAnnotation={draftAnnotation}
                 draftStroke={draftStroke}
                 draftColor={color}
-                draftStrokeWidth={strokeWidth}
+                draftStrokeWidth={worldStroke}
+                inkScale={inkScale}
                 readOnly={!canEdit}
+                liveOverride={liveMove}
                 onSelect={id => void handleSelectDrawing(id)}
+                onAnnotationPointerDown={handleAnnotationPointerDown}
+                onAnnotationDoubleClick={handleAnnotationDoubleClick}
               />
             </svg>
+          </div>
+        )}
+
+        {/* Faixa visível com a observação da foto */}
+        {lousa.activeImage?.observacao?.trim() && (
+          <div
+            className="absolute left-2 right-2 bottom-2 z-10 rounded-lg px-3 py-2 pointer-events-none"
+            style={{
+              backgroundColor: 'rgba(242, 216, 146, 0.95)',
+              border: '1px solid rgba(242,216,146,1)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.45)',
+            }}
+          >
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#3d2b1f] mb-0.5">
+              Observação desta foto
+            </p>
+            <p className="text-sm font-semibold text-[#1a120b] whitespace-pre-wrap leading-snug">
+              {lousa.activeImage.observacao.trim()}
+            </p>
+          </div>
+        )}
+
+        {/* Editor de texto flutuante — bem visível sobre o quadro */}
+        {textEditingId && canEdit && (
+          <div
+            className="absolute inset-x-3 top-3 z-20 rounded-xl p-3 shadow-2xl"
+            style={{
+              backgroundColor: 'rgba(20, 16, 12, 0.96)',
+              border: '2px solid #f2d892',
+            }}
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-[0.7rem] font-semibold uppercase tracking-wider text-[#f2d892] mb-2">
+              Digite o texto da anotação
+            </p>
+            <textarea
+              value={textDraft}
+              onChange={e => setTextDraft(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="Ex.: porta de correr · 2,40 m · lado esquerdo"
+              className="w-full rounded-md bg-black/50 border border-[rgba(240,210,140,0.35)] px-3 py-2 text-base text-cream placeholder:text-[#d4bc9f]/70 resize-y"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void saveTextEdit()
+                }
+                if (e.key === 'Escape') setTextEditingId(null)
+              }}
+            />
+            <div className="mt-2 flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setTextEditingId(null)}
+                className="rounded-lg px-3 py-1.5 text-xs text-[#edd9c4] hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveTextEdit()}
+                className="rounded-lg px-4 py-1.5 text-xs font-bold bg-[#f2d892] text-[#1a120b] hover:bg-[#ffe6a8]"
+              >
+                Confirmar texto
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Miniaturas */}
+      {!fullscreen && (
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {lousa.images.map(img => (
           <button
@@ -857,29 +1106,42 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
             type="button"
             onClick={() => lousa.setActiveImageId(img.id)}
             className={cn(
-              'relative h-14 w-14 shrink-0 overflow-hidden rounded-md border-2',
+              'relative h-16 w-16 shrink-0 overflow-hidden rounded-md border-2',
               lousa.activeImageId === img.id ? 'border-[#f2d892]' : 'border-transparent opacity-70',
             )}
-            title={img.file_name}
+            title={img.observacao?.trim() || img.file_name}
           >
             {img.signedUrl ? (
               <img src={img.signedUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full bg-black/40" />
             )}
+            {img.observacao?.trim() && (
+              <span
+                className="absolute bottom-0 inset-x-0 px-0.5 py-0.5 text-[0.55rem] font-bold leading-tight truncate"
+                style={{ backgroundColor: 'rgba(242,216,146,0.95)', color: '#1a120b' }}
+              >
+                {img.observacao.trim()}
+              </span>
+            )}
           </button>
         ))}
       </div>
+      )}
 
-      {/* Observação da foto ativa */}
-      {lousa.activeImage && (
+      {/* Observação da foto ativa — bem destacada */}
+      {lousa.activeImage && !fullscreen && (
         <div
-          className="rounded-lg p-3 space-y-2"
-          style={{ backgroundColor: 'rgba(240,210,140,0.06)', border: '1px solid rgba(240,210,140,0.15)' }}
+          className="rounded-xl p-4 space-y-3"
+          style={{
+            backgroundColor: 'rgba(242, 216, 146, 0.14)',
+            border: '2px solid rgba(242, 216, 146, 0.55)',
+            boxShadow: '0 0 0 1px rgba(242,216,146,0.12)',
+          }}
         >
-          <div className="flex items-center gap-1.5 text-[#f2d892]">
-            <MessageSquareText size={13} />
-            <p className="text-[0.65rem] uppercase tracking-wider font-semibold">
+          <div className="flex items-center gap-2 text-[#f2d892]">
+            <MessageSquareText size={16} />
+            <p className="text-xs uppercase tracking-wider font-bold">
               Observação desta foto
             </p>
           </div>
@@ -888,54 +1150,31 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
               <textarea
                 value={obsDraft}
                 onChange={e => setObsDraft(e.target.value)}
-                rows={2}
-                placeholder="Ex.: parede da cozinha, lado do fogão — medidas a confirmar..."
-                className="w-full rounded-md bg-black/30 border border-[rgba(240,210,140,0.2)] px-3 py-2 text-sm text-cream placeholder:text-[#d4bc9f]/60 resize-y"
+                rows={4}
+                placeholder="Escreva aqui a observação desta foto — fica bem visível no quadro e na miniatura."
+                className="w-full rounded-lg bg-[#0c0a08] border-2 border-[rgba(240,210,140,0.45)] px-3 py-3 text-base text-[#f8f0e0] placeholder:text-[#d4bc9f]/70 resize-y font-medium leading-relaxed"
               />
               <button
                 type="button"
                 disabled={obsSaving}
                 onClick={() => void handleSaveObservacao()}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(240,210,140,0.12)] text-[#f2d892] hover:bg-[rgba(240,210,140,0.22)] disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold bg-[#f2d892] text-[#1a120b] hover:bg-[#ffe6a8] disabled:opacity-50"
               >
-                {obsSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                {obsSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 Salvar observação
               </button>
             </>
           ) : (
-            <p className="text-sm text-cream whitespace-pre-wrap">
+            <p className="text-base text-[#f8f0e0] whitespace-pre-wrap font-medium leading-relaxed">
               {lousa.activeImage.observacao?.trim() || 'Sem observação.'}
             </p>
           )}
         </div>
       )}
 
-      {textEditingId && canEdit && (
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
-            <p className="text-[0.65rem] text-[#edd9c4] mb-1">Editar texto</p>
-            <input
-              value={textDraft}
-              onChange={e => setTextDraft(e.target.value)}
-              className="w-full rounded-md bg-black/30 border border-[rgba(240,210,140,0.2)] px-3 py-2 text-sm text-cream"
-              autoFocus
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => void saveTextEdit()}
-            className="rounded-lg px-3 py-2 text-xs font-semibold bg-[#f2d892]/20 text-[#f2d892]"
-          >
-            OK
-          </button>
-          <button type="button" onClick={() => setTextEditingId(null)} className="rounded-lg p-2 text-[#edd9c4]">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       {/* Ações secundárias */}
-      <div className="flex flex-wrap gap-2">
+      {!fullscreen && (
+      <div className={cn('flex flex-wrap gap-2 shrink-0')}>
         {canEdit && lousa.activeImage && (
           <>
             <button
@@ -970,6 +1209,7 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
           </>
         )}
       </div>
+      )}
 
       {(lousa.error || busyMsg || successMsg) && (
         <p className={cn(
@@ -986,19 +1226,38 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
     return (
       <>
         {embedded && (
-          <div className="mb-2">
-            <p className="text-xs text-[#edd9c4]">Lousa aberta em tela cheia…</p>
+          <div className="mb-2 rounded-lg px-3 py-2 text-xs text-[#edd9c4]" style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}>
+            Lousa aberta em tela cheia — use o botão de reduzir para voltar.
           </div>
         )}
-        <Modal
-          open={fullscreen}
-          onClose={() => setFullscreen(false)}
-          title="Lousa da Obra"
-          wide
-          closeOnBackdrop={false}
-        >
-          {board}
-        </Modal>
+        {createPortal(
+          <div
+            className="fixed inset-0 z-[500] flex flex-col"
+            style={{ backgroundColor: '#0c0a08' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Lousa em tela cheia"
+          >
+            <div
+              className="flex items-center justify-between gap-3 shrink-0 px-4 py-3 border-b"
+              style={{ borderColor: 'rgba(240,210,140,0.25)' }}
+            >
+              <p className="font-display text-lg tracking-widest text-[#f2d892]">Lousa da Obra · Tela cheia</p>
+              <button
+                type="button"
+                onClick={() => setFullscreen(false)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold bg-[#f2d892]/15 text-[#f2d892] hover:bg-[#f2d892]/25"
+              >
+                <Shrink size={16} />
+                Sair da tela cheia
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 flex flex-col p-3 sm:p-4 overflow-hidden">
+              {board}
+            </div>
+          </div>,
+          document.body,
+        )}
       </>
     )
   }

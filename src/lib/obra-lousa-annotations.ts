@@ -108,8 +108,38 @@ const WB_JSON_PREFIX = 'WB_JSON:'
 
 const TEXT_MIN_W = 80
 const TEXT_MIN_H = 32
-const TEXT_MAX_W = 720
-const TEXT_MAX_H = 480
+const TEXT_MAX_W = 2400
+const TEXT_MAX_H = 1600
+
+/** Lado de referência: grossura “6” deve ler bem com a foto encaixada no quadro. */
+const INK_REF_PX = 400
+
+/**
+ * Escala de tinta da Lousa.
+ * Fotos de celular (3000–4000 px) encolhem no quadro; sem esta escala o risco some.
+ * Retorna ≥ 1 para fotos grandes.
+ */
+export function lousaInkScale(worldWidth: number, worldHeight: number): number {
+  const major = Math.max(Number(worldWidth) || INK_REF_PX, Number(worldHeight) || INK_REF_PX)
+  return Math.max(1, Math.min(14, major / INK_REF_PX))
+}
+
+/** Converte grossura da barra (1–16) para pixels no “mundo” da foto. */
+export function lousaWorldStroke(logicalWidth: number, inkScale: number): number {
+  const logical = Number.isFinite(logicalWidth) ? Math.max(1, logicalWidth) : 3
+  return Math.max(2, logical * inkScale)
+}
+
+/**
+ * Textos antigos (fontSize ~18) ficam miúdos em foto grande.
+ * Se já parecerem dimensionados, não multiplica de novo.
+ */
+export function lousaTextVisualScale(fontSize: number, inkScale: number): number {
+  if (inkScale <= 1.05) return 1
+  const fs = Number(fontSize) || 18
+  if (fs >= 16 * inkScale * 0.8) return 1
+  return inkScale
+}
 
 export function clampTextBox(w: number, h: number): { w: number; h: number } {
   return {
@@ -290,4 +320,37 @@ export function distance(a: Point, b: Point): number {
 
 export function midPoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+}
+
+/** Move qualquer anotação em dx/dy (coordenadas da foto). */
+export function offsetAnnotation(
+  annotation: WhiteboardAnnotation,
+  dx: number,
+  dy: number,
+): WhiteboardAnnotation {
+  if (dx === 0 && dy === 0) return annotation
+  const shift = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy })
+
+  switch (annotation.kind) {
+    case 'text':
+    case 'rect':
+      return { ...annotation, x: annotation.x + dx, y: annotation.y + dy }
+    case 'ellipse':
+      return { ...annotation, cx: annotation.cx + dx, cy: annotation.cy + dy }
+    case 'line':
+      return { ...annotation, a: shift(annotation.a), b: shift(annotation.b) }
+    case 'polyline':
+      return { ...annotation, points: annotation.points.map(shift) }
+    case 'measure':
+      return {
+        ...annotation,
+        a: shift(annotation.a),
+        b: shift(annotation.b),
+        via: annotation.via ? shift(annotation.via) : undefined,
+      }
+    case 'furniture_module':
+      return { ...annotation, a: shift(annotation.a), b: shift(annotation.b) }
+    default:
+      return annotation
+  }
 }
