@@ -61,15 +61,20 @@ function fmtDateTime(s?: string | null): string {
   })
 }
 
-export function MetricasObras() {
+interface MetricasObrasProps {
+  /** Quando true, renderiza dentro do popup flutuante (sem título de página). */
+  embedded?: boolean
+}
+
+export function MetricasObras({ embedded = false }: MetricasObrasProps) {
   return (
     <PageZoomProvider pageKey="metricas_obras">
-      <MetricasObrasContent />
+      <MetricasObrasContent embedded={embedded} />
     </PageZoomProvider>
   )
 }
 
-function MetricasObrasContent() {
+function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
   const { roles } = useApp()
   const obrasHook = useObras()
   const hoje = new Date()
@@ -174,18 +179,26 @@ function MetricasObrasContent() {
   )
 
   return (
-    <div className="obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
+    <div
+      className={
+        embedded
+          ? 'fade-in flex flex-col'
+          : 'obra-page-shell fade-in flex flex-none flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden'
+      }
+    >
       <KanbanPageToolbar>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
-              Métricas de Obras
-            </h1>
-            <p className="section-label mt-1">
-              Tempo de execução, histórico por obra e comissões
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className={`flex items-start justify-between gap-4 flex-wrap ${embedded ? 'mb-1' : ''}`}>
+          {!embedded && (
+            <div>
+              <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>
+                Métricas de Obras
+              </h1>
+              <p className="section-label mt-1">
+                Tempo de execução, histórico por obra e comissões
+              </p>
+            </div>
+          )}
+          <div className={`flex items-center gap-2 flex-wrap ${embedded ? 'w-full justify-between sm:justify-end' : ''}`}>
             <div className="flex items-center gap-1 rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(10,4,2,0.5)] px-1 py-1">
               <button
                 type="button"
