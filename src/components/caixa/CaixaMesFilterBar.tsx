@@ -60,9 +60,11 @@ interface CaixaMesFilterBarProps {
   mes: number
   ano: number
   onChange: (mes: number, ano: number) => void
+  /** No popup: uma linha só, com rolagem horizontal se precisar. */
+  compact?: boolean
 }
 
-export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps) {
+export function CaixaMesFilterBar({ mes, ano, onChange, compact = false }: CaixaMesFilterBarProps) {
   const monthOptions = buildMonthOptions(2, 12)
   const selectedKey = mesAnoKey(mes, ano)
 
@@ -72,7 +74,14 @@ export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps
   })
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      className={
+        compact
+          ? 'flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          : 'flex flex-wrap items-center gap-2'
+      }
+      data-caixa-mes-filter={compact ? 'compact' : 'default'}
+    >
       {QUICK_OFFSETS.map(q => {
         const ref = mesAnoFromOffset(q.offset)
         const active = mes === ref.mes && ano === ref.ano
@@ -80,18 +89,27 @@ export function CaixaMesFilterBar({ mes, ano, onChange }: CaixaMesFilterBarProps
           <button
             key={q.offset}
             type="button"
-            style={pillStyle(active)}
+            style={
+              compact
+                ? { ...pillStyle(active), padding: '.25rem .7rem', fontSize: '.7rem' }
+                : pillStyle(active)
+            }
             onClick={() => onChange(ref.mes, ref.ano)}
+            className={compact ? 'shrink-0' : undefined}
           >
             {q.label}
           </button>
         )
       })}
 
-      <span className="text-[#edd9c4] text-xs hidden sm:inline">|</span>
+      <span className="text-[#edd9c4] text-xs hidden sm:inline shrink-0">|</span>
 
       <select
-        className="glass-input !h-9 !text-xs min-w-[11rem]"
+        className={
+          compact
+            ? 'glass-input !h-8 !text-xs min-w-[10rem] shrink-0'
+            : 'glass-input !h-9 !text-xs min-w-[11rem]'
+        }
         value={selectedKey}
         onChange={e => {
           const [y, m] = e.target.value.split('-').map(Number)

@@ -238,12 +238,18 @@ function CaixaContent({
   }
 
   return (
-    <div className={cn('animate-in fade-in duration-500', embedded ? 'space-y-4' : 'space-y-6')}>
-      {/* Header & Resumo */}
+    <div
+      className={cn(
+        'animate-in fade-in duration-500',
+        embedded ? 'flex min-h-0 flex-col gap-2.5 sm:gap-3' : 'space-y-6',
+      )}
+      data-caixa-root={embedded ? 'embedded' : 'page'}
+    >
+      {/* Header & filtros */}
       <div
         className={cn(
-          'flex flex-col gap-4 md:flex-row md:items-end md:justify-between',
-          embedded ? 'gap-3' : 'gap-6',
+          'flex flex-col md:flex-row md:items-end md:justify-between',
+          embedded ? 'gap-2' : 'gap-6',
         )}
       >
         {!embedded && (
@@ -255,16 +261,28 @@ function CaixaContent({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <CaixaMesFilterBar mes={mes} ano={ano} onChange={onPeriodoChange} />
-          <QrCodeToolkit />
+        <div
+          className={cn(
+            'flex min-w-0 items-center',
+            embedded ? 'w-full flex-nowrap gap-1.5 overflow-x-auto' : 'flex-wrap gap-2',
+          )}
+        >
+          <CaixaMesFilterBar
+            mes={mes}
+            ano={ano}
+            onChange={onPeriodoChange}
+            compact={embedded}
+          />
+          <div className="shrink-0">
+            <QrCodeToolkit />
+          </div>
         </div>
       </div>
 
       <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" />
         <input
-          className="glass-input w-full pl-9"
+          className={cn('glass-input w-full pl-9', embedded && '!h-9 text-sm')}
           placeholder="Buscar destinatário, descrição ou valor..."
           value={busca}
           onChange={e => setBusca(e.target.value)}
@@ -272,83 +290,129 @@ function CaixaContent({
       </div>
 
       {/* Cards de Resumo */}
-      <div className={cn('grid gap-3 sm:gap-4', embedded ? 'grid-cols-1 sm:grid-cols-3' : 'md:grid-cols-3')}>
-        <div className="glass-card p-4 space-y-2">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Total Reservado</p>
-          <p className="text-xl font-bold text-cream">{fmtCur(resumo.total_reservado)}</p>
+      <div
+        className={cn(
+          'grid',
+          embedded ? 'grid-cols-3 gap-2 sm:gap-3' : 'gap-3 sm:gap-4 md:grid-cols-3',
+        )}
+      >
+        <div className={cn('glass-card space-y-1', embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2')}>
+          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            Total Reservado
+          </p>
+          <p className={cn('font-bold text-cream', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+            {fmtCur(resumo.total_reservado)}
+          </p>
         </div>
-        <div className="glass-card p-4 space-y-2 border-l-2 border-l-red-500/30">
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Total Pago</p>
-          <p className="text-xl font-bold text-red-400">{fmtCur(resumo.total_pago)}</p>
+        <div
+          className={cn(
+            'glass-card border-l-2 border-l-red-500/30 space-y-1',
+            embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2',
+          )}
+        >
+          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            Total Pago
+          </p>
+          <p className={cn('font-bold text-red-400', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+            {fmtCur(resumo.total_pago)}
+          </p>
         </div>
         <button
           type="button"
           onClick={() => setSaldoDialogOpen(true)}
-          className="glass-card p-4 space-y-2 border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40"
+          className={cn(
+            'glass-card border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40 space-y-1',
+            embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2',
+          )}
           title="Clique para ver onde o saldo está guardado"
         >
-          <p className="text-[0.7rem] uppercase tracking-wider text-[#edd9c4] font-bold">Saldo Disponível</p>
-          <p className="text-xl font-bold text-emerald-400">{fmtCur(resumo.saldo_disponivel)}</p>
-          <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
+          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            Saldo Disponível
+          </p>
+          <p className={cn('font-bold text-emerald-400', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+            {fmtCur(resumo.saldo_disponivel)}
+          </p>
+          {!embedded && (
+            <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
+          )}
         </button>
       </div>
 
       {/* Tabs & Ações */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex p-1 gap-1 rounded-lg bg-black/20 w-fit border border-white/5">
+      <div
+        className={cn(
+          'flex flex-col md:flex-row md:items-center md:justify-between',
+          embedded ? 'gap-2' : 'gap-4',
+        )}
+      >
+        <div className="flex w-fit gap-1 rounded-lg border border-white/5 bg-black/20 p-1">
           <button
             onClick={() => setTab('reservas')}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'reservas' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
+              'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
+              embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
+              tab === 'reservas'
+                ? 'bg-[#f2d892] text-[#2a1812]'
+                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
             )}
           >
-            <Receipt className="w-3.5 h-3.5" />
+            <Receipt className="h-3.5 w-3.5" />
             Reservas
           </button>
           <button
             onClick={() => setTab('movimentacoes')}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'movimentacoes' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
+              'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
+              embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
+              tab === 'movimentacoes'
+                ? 'bg-[#f2d892] text-[#2a1812]'
+                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
             )}
           >
-            <History className="w-3.5 h-3.5" />
+            <History className="h-3.5 w-3.5" />
             Pagamentos
           </button>
           <button
             onClick={() => setTab('historico')}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md transition-all",
-              tab === 'historico' ? "bg-[#f2d892] text-[#2a1812]" : "text-[#edd9c4] hover:text-cream hover:bg-white/5"
+              'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
+              embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
+              tab === 'historico'
+                ? 'bg-[#f2d892] text-[#2a1812]'
+                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
             )}
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="h-3.5 w-3.5" />
             Histórico
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="text-xs h-9 border-white/10 hover:bg-white/5"
+        <div className={cn('flex items-center', embedded ? 'gap-2' : 'gap-3')}>
+          <Button
+            variant="outline"
+            className={cn('border-white/10 text-xs hover:bg-white/5', embedded ? 'h-8' : 'h-9')}
             onClick={() => setDestinatariosOpen(true)}
           >
-            <Users className="w-3.5 h-3.5 mr-2 text-[#f2d892]" />
+            <Users className="mr-2 h-3.5 w-3.5 text-[#f2d892]" />
             Destinatários
           </Button>
-          <Button 
-            className="text-xs h-9 bg-[#f2d892] text-[#2a1812] hover:bg-[#b88f44]"
+          <Button
+            className={cn('bg-[#f2d892] text-xs text-[#2a1812] hover:bg-[#b88f44]', embedded ? 'h-8' : 'h-9')}
             onClick={() => setNovaMovOpen(true)}
           >
-            <Plus className="w-3.5 h-3.5 mr-2" />
+            <Plus className="mr-2 h-3.5 w-3.5" />
             Nova Movimentação
           </Button>
         </div>
       </div>
 
       {/* Content */}
-      <div className={cn('glass-card', embedded ? 'min-h-[280px]' : 'min-h-[400px]')}>
+      <div
+        className={cn(
+          'glass-card',
+          embedded ? 'min-h-[320px] flex-1' : 'min-h-[400px]',
+        )}
+      >
         {loading ? (
           <LoadingState message="Carregando dados..." />
         ) : (
