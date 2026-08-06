@@ -231,6 +231,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             <FuncionarioPontoPanel
               funcionarioId={funcionario.id}
               funcionarioNome={funcionario.nome}
+              funcionarioTipo={funcionario.tipo}
               funcionarioCpf={funcionario.cpf}
               documentos={documentos}
               readOnly={edicaoBloqueada}

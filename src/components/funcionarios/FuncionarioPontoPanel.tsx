@@ -16,6 +16,7 @@ import { DateInput } from '@/components/ui/DateInput'
 import { TimeInput } from '@/components/ui/TimeInput'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoComprovantesPanel } from '@/components/funcionarios/PontoComprovantesPanel'
+import { AdvertenciaDisciplinarPanel } from '@/components/funcionarios/AdvertenciaDisciplinarPanel'
 import { LoadingState } from '@/components/ui/EmptyState'
 import {
   DIAS_SEMANA_LABEL,
@@ -26,10 +27,11 @@ import { exportarRepArquivos } from '@/lib/rep/rep-export'
 import { formatarCnpj, validarExportacaoRep } from '@/lib/rep/rep-validation'
 import { showToast } from '@/lib/toast'
 import { useFuncionarioPonto, filterPontoDocumentos } from '@/hooks/useFuncionarioPonto'
-import type { FuncionarioDocumento, FuncionarioJornada, RepArquivo } from '@/types'
+import type { FuncionarioDocumento, FuncionarioJornada, FuncionarioTipo, RepArquivo } from '@/types'
 interface Props {
   funcionarioId: string
   funcionarioNome: string
+  funcionarioTipo: FuncionarioTipo
   funcionarioCpf?: string | null
   documentos: FuncionarioDocumento[]
   readOnly?: boolean
@@ -51,6 +53,7 @@ type SubTab = 'jornada' | 'registros' | 'ocorrencias' | 'documentos' | 'fiscal'
 export function FuncionarioPontoPanel({
   funcionarioId,
   funcionarioNome,
+  funcionarioTipo,
   funcionarioCpf,
   documentos,
   readOnly,
@@ -320,6 +323,16 @@ export function FuncionarioPontoPanel({
 
       {subTab === 'ocorrencias' && (
         <div className="space-y-4">
+          <AdvertenciaDisciplinarPanel
+            funcionarioNome={funcionarioNome}
+            funcionarioTipo={funcionarioTipo}
+            funcionarioCpf={funcionarioCpf}
+            ocorrencias={ocorrencias}
+            empresaNome={repConfig?.razao_social}
+            empresaCnpj={repConfig?.cnpj}
+            readOnly={readOnly}
+          />
+
           {!readOnly && (
             <div className="glass-card space-y-3 p-5">
               <h3 className="flex items-center gap-2 font-display text-lg text-[#f2d892]">
