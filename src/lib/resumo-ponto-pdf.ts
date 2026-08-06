@@ -18,6 +18,10 @@ export interface ResumoPontoDiaBatidas {
   saida: string | null
   /** Atraso da entrada (minutos). 0 = no horário. */
   atraso_minutos: number
+  /** Hora extra após a saída prevista (minutos). */
+  excedente_minutos: number
+  /** excedente − atraso do dia. */
+  saldo_minutos: number
 }
 
 /** Horas positivas (HE) vs negativas (atrasos) no período. */
@@ -85,6 +89,8 @@ export function agruparBatidasPorDia(
         saidaAlmoco: null,
         saida: null,
         atraso_minutos: 0,
+        excedente_minutos: 0,
+        saldo_minutos: 0,
       }
       map.set(data, dia)
     }
@@ -103,7 +109,41 @@ export function agruparBatidasPorDia(
   for (const b of saidas) {
     const dia = ensure(b.data)
     if (b.tipo === 'saida_intervalo') dia.inicioAlmoco = b.hora
-    if (b.tipo === 'saida') dia.saida = b.hora
+    if (b.tipo === 'saida') {
+      dia.saida = b.hora
+      dia.excedente_minutos = Math.max(0, Math.floor(Number(b.hora_extra_minutos) || 0))
+    }
+  }
+
+  for (const dia of map.values()) {
+    dia.saldo_minutos = dia.excedente_minutos - dia.atraso_minutos
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data))
+}
+
+/** Une batidas do período com dias de falta (sem ponto). */
+export function montarDiasResumoPonto(
+  row: Pick<PontoResumoFuncionarioPeriodo, 'chegadas' | 'saidas' | 'faltas_datas'>,
+): Array<ResumoPontoDiaBatidas & { ehFalta: boolean }> {
+  const dias = agruparBatidasPorDia(row.chegadas, row.saidas ?? [])
+  const map = new Map(dias.map((d) => [d.data, { ...d, ehFalta: false }]))
+
+  for (const data of row.faltas_datas ?? []) {
+    if (!data) continue
+    if (!map.has(data)) {
+      map.set(data, {
+        data,
+        inicio: null,
+        inicioAlmoco: null,
+        saidaAlmoco: null,
+        saida: null,
+        atraso_minutos: 0,
+        excedente_minutos: 0,
+        saldo_minutos: 0,
+        ehFalta: true,
+      })
+    }
   }
 
   return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data))
@@ -113,25 +153,40 @@ function cellHora(valor: string | null): string {
   return valor ? escapeHtml(valor) : '—'
 }
 
-function buildTabelaBatidas(dias: ResumoPontoDiaBatidas[]): string {
+function cellSaldoDia(dia: ResumoPontoDiaBatidas & { ehFalta?: boolean }): string {
+  if (dia.ehFalta) return '<span class="neg">Falta</span>'
+  const partes: string[] = []
+  if (dia.excedente_minutos > 0) {
+    partes.push(`<span class="pos">+${escapeHtml(formatMinutosSaldo(dia.excedente_minutos))}</span>`)
+  }
+  if (dia.atraso_minutos > 0) {
+    partes.push(`<span class="neg">−${escapeHtml(formatMinutosSaldo(dia.atraso_minutos))}</span>`)
+  }
+  if (partes.length === 0) return '<span class="neutro">—</span>'
+  if (dia.excedente_minutos > 0 && dia.atraso_minutos > 0) {
+    partes.push(
+      `<span class="${dia.saldo_minutos >= 0 ? 'pos' : 'neg'}">(= ${escapeHtml(formatMinutosComSinal(dia.saldo_minutos))})</span>`,
+    )
+  }
+  return partes.join(' ')
+}
+
+function buildTabelaBatidas(dias: Array<ResumoPontoDiaBatidas & { ehFalta?: boolean }>): string {
   if (dias.length === 0) {
-    return '<p class="vazio">Nenhuma batida registrada no período.</p>'
+    return '<p class="vazio">Nenhuma batida nem falta no período.</p>'
   }
 
   const rows = dias
     .map((dia) => {
-      const atraso =
-        dia.atraso_minutos > 0
-          ? `<span class="neg">−${escapeHtml(formatMinutosSaldo(dia.atraso_minutos))}</span>`
-          : '<span class="neutro">—</span>'
+      const dataCls = dia.ehFalta ? ' class="falta-row"' : ''
       return `
-      <tr>
-        <td>${escapeHtml(formatDataCurtaPonto(dia.data))}</td>
+      <tr${dataCls}>
+        <td>${escapeHtml(formatDataCurtaPonto(dia.data))}${dia.ehFalta ? ' <em>(falta)</em>' : ''}</td>
         <td class="hora">${cellHora(dia.inicio)}</td>
         <td class="hora">${cellHora(dia.inicioAlmoco)}</td>
         <td class="hora">${cellHora(dia.saidaAlmoco)}</td>
         <td class="hora">${cellHora(dia.saida)}</td>
-        <td class="hora">${atraso}</td>
+        <td class="hora">${cellSaldoDia(dia)}</td>
       </tr>`
     })
     .join('')
@@ -145,7 +200,7 @@ function buildTabelaBatidas(dias: ResumoPontoDiaBatidas[]): string {
           <th>Início almoço</th>
           <th>Saída almoço</th>
           <th>Saída</th>
-          <th>Atraso</th>
+          <th>Saldo do dia</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -170,7 +225,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
   const nome = escapeHtml(row.nome)
   const tipo = escapeHtml(FUNCIONARIO_TIPO_LABEL[row.tipo] ?? row.tipo)
   const he = escapeHtml(formatMinutosHoraExtra(row.hora_extra_minutos))
-  const dias = agruparBatidasPorDia(row.chegadas, row.saidas ?? [])
+  const dias = montarDiasResumoPonto(row)
   const balanco = calcularBalancoResumoPonto(row)
   const positivasTxt = escapeHtml(formatMinutosHoraExtra(balanco.horas_positivas_minutos))
   const negativasTxt = escapeHtml(
@@ -326,6 +381,8 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       font-weight: 600;
     }
     table.batidas td.hora { text-align: center; font-variant-numeric: tabular-nums; }
+    tr.falta-row td { background: #fdf2f2; color: #7f1d1d; }
+    tr.falta-row em { font-size: 7.5pt; font-style: normal; color: #9f1239; }
     .faltas {
       list-style: none;
       margin: 0;
@@ -414,7 +471,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     </div>
 
     <section class="secao">
-      <h3>Batidas no período</h3>
+      <h3>Batidas e faltas no período</h3>
       ${buildTabelaBatidas(dias)}
     </section>
 

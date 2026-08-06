@@ -8,10 +8,10 @@ import {
   formatMinutosSaldo,
 } from '@/lib/funcionario-ponto'
 import {
-  agruparBatidasPorDia,
-  calcularBalancoResumoPonto,
   formatDataCurtaPonto,
   imprimirResumoPontoPdf,
+  montarDiasResumoPonto,
+  calcularBalancoResumoPonto,
 } from '@/lib/resumo-ponto-pdf'
 import type { PontoResumoFuncionarioPeriodo } from '@/types'
 
@@ -90,7 +90,7 @@ export function ResumoPontoFuncionarioCard({
 }: ResumoPontoFuncionarioCardProps) {
   const [exportando, setExportando] = useState(false)
   const temFaltas = row.faltas_datas.length > 0
-  const dias = agruparBatidasPorDia(row.chegadas, row.saidas ?? [])
+  const dias = montarDiasResumoPonto(row)
   const balanco = calcularBalancoResumoPonto(row)
   const pastaUrl = '/funcionarios/' + row.funcionario_id + '?tab=ponto'
 
@@ -186,14 +186,14 @@ export function ResumoPontoFuncionarioCard({
         <div className="space-y-5 p-5">
           <section>
             <h4 className="text-[0.65rem] font-medium uppercase tracking-widest text-[#b8957f]">
-              Batidas no periodo
+              Batidas e faltas no periodo
             </h4>
             {dias.length === 0 && (
               <p className="mt-2 text-sm text-[#b8957f]">Nenhuma batida registrada.</p>
             )}
             {dias.length > 0 && (
-              <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-[rgba(212,168,83,0.18)]">
-                <table className="w-full min-w-[380px] border-collapse text-sm">
+              <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[rgba(212,168,83,0.18)]">
+                <table className="w-full min-w-[420px] border-collapse text-sm">
                   <thead className="sticky top-0 bg-[rgba(20,10,4,0.95)]">
                     <tr>
                       <th className="px-2 py-2 text-left font-medium text-[0.6rem] uppercase tracking-wider text-[#b8957f]">
@@ -203,7 +203,7 @@ export function ResumoPontoFuncionarioCard({
                       <th className={TH}>Início almoço</th>
                       <th className={TH}>Saída almoço</th>
                       <th className={TH}>Saída</th>
-                      <th className={TH}>Atraso</th>
+                      <th className={TH}>Saldo do dia</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -212,25 +212,55 @@ export function ResumoPontoFuncionarioCard({
                         key={dia.data}
                         className={
                           'border-t border-[rgba(212,168,83,0.12)] ' +
-                          (dia.atraso_minutos > 0
-                            ? 'bg-[rgba(136,19,55,0.18)]'
-                            : 'bg-[rgba(20,10,4,0.35)]')
+                          (dia.ehFalta
+                            ? 'bg-[rgba(136,19,55,0.28)]'
+                            : dia.atraso_minutos > 0 && dia.excedente_minutos === 0
+                              ? 'bg-[rgba(136,19,55,0.18)]'
+                              : dia.excedente_minutos > 0
+                                ? 'bg-[rgba(16,85,55,0.18)]'
+                                : 'bg-[rgba(20,10,4,0.35)]')
                         }
                       >
                         <td className="px-2 py-1.5 text-left tabular-nums text-[#edd9c4]">
                           {formatDataCurta(dia.data)}
+                          {dia.ehFalta && (
+                            <span className="ml-1 text-[0.6rem] uppercase tracking-wider text-rose-300">
+                              falta
+                            </span>
+                          )}
                         </td>
                         <CellHora valor={dia.inicio} />
                         <CellHora valor={dia.inicioAlmoco} />
                         <CellHora valor={dia.saidaAlmoco} />
                         <CellHora valor={dia.saida} />
                         <td className="px-2 py-1.5 text-center tabular-nums">
-                          {dia.atraso_minutos > 0 ? (
-                            <span className="font-medium text-rose-300">
-                              −{formatMinutosSaldo(dia.atraso_minutos)}
-                            </span>
-                          ) : (
+                          {dia.ehFalta ? (
+                            <span className="font-medium text-rose-300">Falta</span>
+                          ) : dia.excedente_minutos === 0 && dia.atraso_minutos === 0 ? (
                             <span className="text-[#b8957f]">—</span>
+                          ) : (
+                            <span className="inline-flex flex-col items-center gap-0.5 leading-tight">
+                              {dia.excedente_minutos > 0 && (
+                                <span className="font-medium text-emerald-300">
+                                  +{formatMinutosSaldo(dia.excedente_minutos)}
+                                </span>
+                              )}
+                              {dia.atraso_minutos > 0 && (
+                                <span className="font-medium text-rose-300">
+                                  −{formatMinutosSaldo(dia.atraso_minutos)}
+                                </span>
+                              )}
+                              {dia.excedente_minutos > 0 && dia.atraso_minutos > 0 && (
+                                <span
+                                  className={
+                                    'text-[0.65rem] ' +
+                                    (dia.saldo_minutos >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90')
+                                  }
+                                >
+                                  (= {formatMinutosComSinal(dia.saldo_minutos)})
+                                </span>
+                              )}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -251,7 +281,7 @@ export function ResumoPontoFuncionarioCard({
             <div className="mt-3 grid grid-cols-3 gap-2">
               <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2 py-2 text-center">
                 <p className="text-[0.55rem] uppercase tracking-wider text-emerald-400/80">
-                  Positivas
+                  Excedentes
                 </p>
                 <p className="mt-1 font-display text-sm tabular-nums text-emerald-300">
                   {formatMinutosHoraExtra(balanco.horas_positivas_minutos)}
@@ -259,7 +289,7 @@ export function ResumoPontoFuncionarioCard({
               </div>
               <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2 py-2 text-center">
                 <p className="text-[0.55rem] uppercase tracking-wider text-rose-400/80">
-                  Negativas
+                  Atrasos
                 </p>
                 <p className="mt-1 font-display text-sm tabular-nums text-rose-300">
                   {balanco.horas_negativas_minutos > 0
@@ -279,8 +309,9 @@ export function ResumoPontoFuncionarioCard({
               </div>
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#b8957f]">
-              Positivas = hora extra após a saída · Negativas = atrasos na entrada ·
-              Saldo = positivas − negativas
+              No dia: verde = excedente (saiu depois) · vermelho = atraso (entrou depois).
+              No período: Positivas = soma dos excedentes · Negativas = soma dos atrasos ·
+              Saldo = positivas − negativas.
             </p>
           </section>
 

@@ -1004,6 +1004,8 @@ export interface PontoResumoBatida {
   data: string
   hora: string
   atraso_minutos: number
+  /** Minutos de hora extra (só na saída do dia). */
+  hora_extra_minutos?: number
   tipo: PontoMarcacaoTipo
 }
 

@@ -423,6 +423,7 @@ function normalizeResumoBatida(
     data: String(batida.data ?? ''),
     hora: String(batida.hora ?? ''),
     atraso_minutos: Number(batida.atraso_minutos) || 0,
+    hora_extra_minutos: Number(batida.hora_extra_minutos) || 0,
     tipo: tipoValido,
   }
 }
