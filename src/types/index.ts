@@ -1032,6 +1032,8 @@ export interface PontoResumoPeriodoPayload {
   periodo: PontoResumoPeriodo
   inicio: string
   fim: string
+  /** YYYY-MM quando periodo = mes */
+  referencia?: string | null
   empresa: PontoResumoEmpresa
   funcionarios: PontoResumoFuncionarioPeriodo[]
 }

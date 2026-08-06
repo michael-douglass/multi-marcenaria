@@ -1,6 +1,10 @@
 import { garboBrandLogo } from '@/lib/garbo-brand'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
-import { formatMinutosHoraExtra } from '@/lib/funcionario-ponto'
+import {
+  formatMinutosComSinal,
+  formatMinutosHoraExtra,
+  formatMinutosSaldo,
+} from '@/lib/funcionario-ponto'
 import { formatarCnpj } from '@/lib/rep/rep-validation'
 import type { PontoResumoBatida, PontoResumoFuncionarioPeriodo } from '@/types'
 
@@ -12,6 +16,36 @@ export interface ResumoPontoDiaBatidas {
   inicioAlmoco: string | null
   saidaAlmoco: string | null
   saida: string | null
+  /** Atraso da entrada (minutos). 0 = no horário. */
+  atraso_minutos: number
+}
+
+/** Horas positivas (HE) vs negativas (atrasos) no período. */
+export interface ResumoPontoBalanco {
+  horas_positivas_minutos: number
+  horas_negativas_minutos: number
+  /** positivas − negativas (pode ser negativo). */
+  saldo_minutos: number
+  status: 'positivo' | 'negativo' | 'zerado'
+}
+
+export function calcularBalancoResumoPonto(
+  row: Pick<PontoResumoFuncionarioPeriodo, 'hora_extra_minutos' | 'chegadas'>,
+): ResumoPontoBalanco {
+  const positivas = Math.max(0, Math.floor(Number(row.hora_extra_minutos) || 0))
+  const negativas = (row.chegadas ?? [])
+    .filter((b) => b.tipo === 'entrada')
+    .reduce((acc, b) => acc + Math.max(0, Math.floor(Number(b.atraso_minutos) || 0)), 0)
+  const saldo = positivas - negativas
+  let status: ResumoPontoBalanco['status'] = 'zerado'
+  if (saldo > 0) status = 'positivo'
+  else if (saldo < 0) status = 'negativo'
+  return {
+    horas_positivas_minutos: positivas,
+    horas_negativas_minutos: negativas,
+    saldo_minutos: saldo,
+    status,
+  }
 }
 
 export interface ResumoPontoPdfInput {
@@ -50,6 +84,7 @@ export function agruparBatidasPorDia(
         inicioAlmoco: null,
         saidaAlmoco: null,
         saida: null,
+        atraso_minutos: 0,
       }
       map.set(data, dia)
     }
@@ -58,7 +93,10 @@ export function agruparBatidasPorDia(
 
   for (const b of chegadas) {
     const dia = ensure(b.data)
-    if (b.tipo === 'entrada') dia.inicio = b.hora
+    if (b.tipo === 'entrada') {
+      dia.inicio = b.hora
+      dia.atraso_minutos = Math.max(0, Math.floor(Number(b.atraso_minutos) || 0))
+    }
     if (b.tipo === 'retorno_intervalo') dia.saidaAlmoco = b.hora
   }
 
@@ -81,16 +119,21 @@ function buildTabelaBatidas(dias: ResumoPontoDiaBatidas[]): string {
   }
 
   const rows = dias
-    .map(
-      (dia) => `
+    .map((dia) => {
+      const atraso =
+        dia.atraso_minutos > 0
+          ? `<span class="neg">−${escapeHtml(formatMinutosSaldo(dia.atraso_minutos))}</span>`
+          : '<span class="neutro">—</span>'
+      return `
       <tr>
         <td>${escapeHtml(formatDataCurtaPonto(dia.data))}</td>
         <td class="hora">${cellHora(dia.inicio)}</td>
         <td class="hora">${cellHora(dia.inicioAlmoco)}</td>
         <td class="hora">${cellHora(dia.saidaAlmoco)}</td>
         <td class="hora">${cellHora(dia.saida)}</td>
-      </tr>`,
-    )
+        <td class="hora">${atraso}</td>
+      </tr>`
+    })
     .join('')
 
   return `
@@ -102,6 +145,7 @@ function buildTabelaBatidas(dias: ResumoPontoDiaBatidas[]): string {
           <th>Início almoço</th>
           <th>Saída almoço</th>
           <th>Saída</th>
+          <th>Atraso</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -127,6 +171,22 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
   const tipo = escapeHtml(FUNCIONARIO_TIPO_LABEL[row.tipo] ?? row.tipo)
   const he = escapeHtml(formatMinutosHoraExtra(row.hora_extra_minutos))
   const dias = agruparBatidasPorDia(row.chegadas, row.saidas ?? [])
+  const balanco = calcularBalancoResumoPonto(row)
+  const positivasTxt = escapeHtml(formatMinutosHoraExtra(balanco.horas_positivas_minutos))
+  const negativasTxt = escapeHtml(
+    balanco.horas_negativas_minutos > 0
+      ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}`
+      : '0min',
+  )
+  const saldoTxt = escapeHtml(formatMinutosComSinal(balanco.saldo_minutos))
+  const saldoClass =
+    balanco.status === 'positivo' ? 'pos' : balanco.status === 'negativo' ? 'neg' : 'neutro'
+  const saldoLabel =
+    balanco.status === 'positivo'
+      ? 'Saldo positivo'
+      : balanco.status === 'negativo'
+        ? 'Saldo negativo'
+        : 'Saldo zerado'
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',
     month: 'long',
@@ -215,6 +275,28 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       letter-spacing: 0.06em;
     }
     .meta-grid strong { font-size: 11pt; color: #1a1208; }
+    .balanco {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-bottom: 6mm;
+      padding: 3.5mm;
+      border: 1.5px solid #d4a853;
+      background: #faf6ef;
+    }
+    .balanco div { text-align: center; }
+    .balanco span {
+      display: block;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b5344;
+      margin-bottom: 1.5mm;
+    }
+    .balanco strong { font-size: 12pt; font-variant-numeric: tabular-nums; }
+    .pos { color: #166534; }
+    .neg { color: #9f1239; }
+    .neutro { color: #6b5344; }
     .secao { margin-bottom: 5mm; }
     .secao h3 {
       margin: 0 0 2.5mm;
@@ -316,6 +398,21 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       </div>
     </div>
 
+    <div class="balanco" aria-label="Balanço de horas">
+      <div>
+        <span>Horas positivas (HE)</span>
+        <strong class="pos">${positivasTxt}</strong>
+      </div>
+      <div>
+        <span>Horas negativas (atrasos)</span>
+        <strong class="neg">${negativasTxt}</strong>
+      </div>
+      <div>
+        <span>${saldoLabel}</span>
+        <strong class="${saldoClass}">${saldoTxt}</strong>
+      </div>
+    </div>
+
     <section class="secao">
       <h3>Batidas no período</h3>
       ${buildTabelaBatidas(dias)}
@@ -329,6 +426,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     <footer class="doc-footer">
       <p>Documento gerado em ${escapeHtml(geradoEm)} · Garbo Movelaria</p>
       <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
+      <p>Saldo = horas positivas (hora extra após a saída) − horas negativas (atrasos na entrada).</p>
     </footer>
   </section>
 </body>

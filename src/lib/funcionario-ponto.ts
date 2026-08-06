@@ -345,9 +345,11 @@ export async function fetchControlePontoDiario(data?: string): Promise<PontoCont
 
 export async function fetchResumoPontoPeriodo(
   periodo: PontoResumoPeriodo = 'semana',
+  referencia?: string | null,
 ): Promise<PontoResumoPeriodoPayload> {
   const { data, error } = await supabase.rpc('movelaria_ponto_resumo_periodo', {
     p_periodo: periodo,
+    p_referencia: periodo === 'mes' && referencia ? referencia : null,
   })
   if (error) throw new Error(error.message)
   return normalizeResumoPeriodo(data, periodo)
@@ -361,6 +363,7 @@ function normalizeResumoPeriodo(
     periodo: fallbackPeriodo,
     inicio: pontoDataLocal(),
     fim: pontoDataLocal(),
+    referencia: null,
     empresa: { hora_extra_minutos: 0, faltas_total: 0 },
     funcionarios: [],
   }
@@ -379,6 +382,7 @@ function normalizeResumoPeriodo(
     periodo,
     inicio: typeof obj.inicio === 'string' ? obj.inicio : empty.inicio,
     fim: typeof obj.fim === 'string' ? obj.fim : empty.fim,
+    referencia: typeof obj.referencia === 'string' ? obj.referencia : null,
     empresa: {
       hora_extra_minutos: Number(empresaRaw.hora_extra_minutos) || 0,
       faltas_total: Number(empresaRaw.faltas_total) || 0,
@@ -660,4 +664,12 @@ export function formatMinutosSaldo(minutos: number): string {
   if (h === 0) return `${m}min`
   if (m === 0) return `${h}h`
   return `${h}h ${m}min`
+}
+
+/** Formata com sinal: +1h 15min / −42min / 0min. */
+export function formatMinutosComSinal(minutos: number): string {
+  const total = Math.floor(minutos)
+  if (total === 0) return '0min'
+  const sinal = total > 0 ? '+' : '−'
+  return `${sinal}${formatMinutosSaldo(total)}`
 }

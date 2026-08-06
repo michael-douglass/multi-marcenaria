@@ -2,9 +2,14 @@ import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { FileDown, Loader2 } from 'lucide-react'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
-import { formatMinutosHoraExtra } from '@/lib/funcionario-ponto'
+import {
+  formatMinutosComSinal,
+  formatMinutosHoraExtra,
+  formatMinutosSaldo,
+} from '@/lib/funcionario-ponto'
 import {
   agruparBatidasPorDia,
+  calcularBalancoResumoPonto,
   formatDataCurtaPonto,
   imprimirResumoPontoPdf,
 } from '@/lib/resumo-ponto-pdf'
@@ -28,6 +33,10 @@ const CARD_CLASS =
 const BADGE_HE =
   'rounded-full border border-amber-500/35 bg-amber-500/10 px-2.5 py-0.5 ' +
   'text-[0.65rem] uppercase tracking-wider text-amber-300'
+
+const BADGE_ATRASO =
+  'rounded-full border border-rose-500/40 bg-rose-500/10 px-2.5 py-0.5 ' +
+  'text-[0.65rem] uppercase tracking-wider text-rose-300'
 
 const BADGE_FALTA_ON =
   'rounded-full border border-red-500/35 bg-red-500/10 px-2.5 py-0.5 ' +
@@ -56,6 +65,22 @@ function CellHora({ valor }: { valor: string | null }) {
   )
 }
 
+function saldoTone(status: 'positivo' | 'negativo' | 'zerado'): string {
+  if (status === 'positivo') {
+    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+  }
+  if (status === 'negativo') {
+    return 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+  }
+  return 'border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] text-[#f2d892]'
+}
+
+function saldoTitulo(status: 'positivo' | 'negativo' | 'zerado'): string {
+  if (status === 'positivo') return 'Saldo positivo'
+  if (status === 'negativo') return 'Saldo negativo'
+  return 'Saldo zerado'
+}
+
 export function ResumoPontoFuncionarioCard({
   row,
   index,
@@ -66,6 +91,7 @@ export function ResumoPontoFuncionarioCard({
   const [exportando, setExportando] = useState(false)
   const temFaltas = row.faltas_datas.length > 0
   const dias = agruparBatidasPorDia(row.chegadas, row.saidas ?? [])
+  const balanco = calcularBalancoResumoPonto(row)
   const pastaUrl = '/funcionarios/' + row.funcionario_id + '?tab=ponto'
 
   async function exportarPdf(e: MouseEvent) {
@@ -146,6 +172,11 @@ export function ResumoPontoFuncionarioCard({
             <span className={BADGE_HE}>
               HE {formatMinutosHoraExtra(row.hora_extra_minutos)}
             </span>
+            {balanco.horas_negativas_minutos > 0 && (
+              <span className={BADGE_ATRASO}>
+                Atrasos −{formatMinutosSaldo(balanco.horas_negativas_minutos)}
+              </span>
+            )}
             <span className={row.faltas > 0 ? BADGE_FALTA_ON : BADGE_FALTA_OFF}>
               {row.faltas} falta{row.faltas === 1 ? '' : 's'}
             </span>
@@ -162,7 +193,7 @@ export function ResumoPontoFuncionarioCard({
             )}
             {dias.length > 0 && (
               <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-[rgba(212,168,83,0.18)]">
-                <table className="w-full min-w-[320px] border-collapse text-sm">
+                <table className="w-full min-w-[380px] border-collapse text-sm">
                   <thead className="sticky top-0 bg-[rgba(20,10,4,0.95)]">
                     <tr>
                       <th className="px-2 py-2 text-left font-medium text-[0.6rem] uppercase tracking-wider text-[#b8957f]">
@@ -172,13 +203,19 @@ export function ResumoPontoFuncionarioCard({
                       <th className={TH}>Início almoço</th>
                       <th className={TH}>Saída almoço</th>
                       <th className={TH}>Saída</th>
+                      <th className={TH}>Atraso</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dias.map((dia) => (
                       <tr
                         key={dia.data}
-                        className="border-t border-[rgba(212,168,83,0.12)] bg-[rgba(20,10,4,0.35)]"
+                        className={
+                          'border-t border-[rgba(212,168,83,0.12)] ' +
+                          (dia.atraso_minutos > 0
+                            ? 'bg-[rgba(136,19,55,0.18)]'
+                            : 'bg-[rgba(20,10,4,0.35)]')
+                        }
                       >
                         <td className="px-2 py-1.5 text-left tabular-nums text-[#edd9c4]">
                           {formatDataCurta(dia.data)}
@@ -187,12 +224,64 @@ export function ResumoPontoFuncionarioCard({
                         <CellHora valor={dia.inicioAlmoco} />
                         <CellHora valor={dia.saidaAlmoco} />
                         <CellHora valor={dia.saida} />
+                        <td className="px-2 py-1.5 text-center tabular-nums">
+                          {dia.atraso_minutos > 0 ? (
+                            <span className="font-medium text-rose-300">
+                              −{formatMinutosSaldo(dia.atraso_minutos)}
+                            </span>
+                          ) : (
+                            <span className="text-[#b8957f]">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
+          </section>
+
+          <section
+            className="rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(20,10,4,0.45)] p-3.5"
+            aria-label="Balanço de horas do período"
+          >
+            <h4 className="text-[0.65rem] font-medium uppercase tracking-widest text-[#b8957f]">
+              Balanço do período
+            </h4>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2 py-2 text-center">
+                <p className="text-[0.55rem] uppercase tracking-wider text-emerald-400/80">
+                  Positivas
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums text-emerald-300">
+                  {formatMinutosHoraExtra(balanco.horas_positivas_minutos)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2 py-2 text-center">
+                <p className="text-[0.55rem] uppercase tracking-wider text-rose-400/80">
+                  Negativas
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums text-rose-300">
+                  {balanco.horas_negativas_minutos > 0
+                    ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}`
+                    : '0min'}
+                </p>
+              </div>
+              <div
+                className={`rounded-lg border px-2 py-2 text-center ${saldoTone(balanco.status)}`}
+              >
+                <p className="text-[0.55rem] uppercase tracking-wider opacity-80">
+                  {saldoTitulo(balanco.status)}
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums">
+                  {formatMinutosComSinal(balanco.saldo_minutos)}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-[0.65rem] leading-relaxed text-[#b8957f]">
+              Positivas = hora extra após a saída · Negativas = atrasos na entrada ·
+              Saldo = positivas − negativas
+            </p>
           </section>
 
           <section>
