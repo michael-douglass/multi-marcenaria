@@ -4,6 +4,7 @@ import {
   fetchFixoMontadores,
   fetchMontadoresAtivos,
   mergeMontadoresComFixo,
+  resetExpandirFixoMontadoresSessao,
 } from '@/lib/fixo-montador'
 import type { MontadorFixoMensal } from '@/types'
 import { useAuthReady } from './useAuthReady'
@@ -21,14 +22,21 @@ export function useFixoMontador(mes: number, ano: number) {
     setLoading(true)
     setError(null)
     try {
-      const montadores = await fetchMontadoresAtivos()
-      let fixos: MontadorFixoMensal[] = []
+      // Fonte principal: RPC de fixo (já traz todos os montadores + valores).
       try {
-        fixos = await fetchFixoMontadores(mes, ano)
-      } catch {
-        fixos = []
+        const fixos = await fetchFixoMontadores(mes, ano)
+        setData(fixos)
+        return
+      } catch (fixoErr) {
+        // Fallback: lista montadores e mescla (valores podem vir zerados).
+        const montadores = await fetchMontadoresAtivos()
+        setData(mergeMontadoresComFixo(montadores, []))
+        setError(
+          fixoErr instanceof Error
+            ? `Não foi possível carregar os fixos: ${fixoErr.message}`
+            : 'Não foi possível carregar os fixos dos montadores.',
+        )
       }
-      setData(mergeMontadoresComFixo(montadores, fixos))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar montadores.')
       setData([])
@@ -54,10 +62,16 @@ export function useFixoMontador(mes: number, ano: number) {
     setSuccessMsg(null)
     try {
       await atualizarFixoMontador(montadorId, valor, primeiroVencimento)
+      // Libera Contas a Pagar para reexpandir/recarregar as novas cobranças.
+      resetExpandirFixoMontadoresSessao()
       await load()
       setSuccessMsg(
         valor > 0
-          ? 'Fixo salvo. Cobranças mensais geradas/atualizadas em Contas a Pagar (12 meses à frente).'
+          ? (
+              primeiroVencimento
+                ? `Fixo salvo. Cobranças geradas em Contas a Pagar a partir de ${primeiroVencimento.slice(8, 10)}/${primeiroVencimento.slice(5, 7)}/${primeiroVencimento.slice(0, 4)} (até 12 meses à frente).`
+                : 'Fixo salvo. Cobranças mensais geradas/atualizadas em Contas a Pagar (12 meses à frente).'
+            )
           : 'Fixo removido. Cobranças pendentes foram encerradas.',
       )
     } catch (err) {

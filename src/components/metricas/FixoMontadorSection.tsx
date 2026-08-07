@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Save } from 'lucide-react'
+import { Plus, Save, Trash2 } from 'lucide-react'
 import { DateInput } from '@/components/ui/DateInput'
 import type { useFixoMontador } from '@/hooks/useFixoMontador'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -50,20 +50,30 @@ export function FixoMontadorSection({
 
   useEffect(() => {
     const valores: Record<string, string> = {}
-    const datas: Record<string, string> = {}
-    const idsComFixo = new Set<string>()
+    // Sempre expõe todos os montadores ativos — quem tem fixo e quem ainda não.
+    const todosIds = new Set<string>()
 
     for (const row of data) {
+      todosIds.add(row.montador_id)
       if (row.valor_fixo_mensal > 0) {
-        idsComFixo.add(row.montador_id)
         valores[row.montador_id] = String(row.valor_fixo_mensal)
-        datas[row.montador_id] = row.primeiro_vencimento ?? defaultVencimento()
       }
     }
 
-    setVisiveis(prev => new Set([...prev, ...idsComFixo]))
+    setVisiveis(todosIds)
     setDraftsValor(prev => ({ ...prev, ...valores }))
-    setDraftsData(prev => ({ ...prev, ...datas }))
+    setDraftsData(prev => {
+      const next = { ...prev }
+      for (const row of data) {
+        if (row.valor_fixo_mensal > 0) {
+          next[row.montador_id] = row.primeiro_vencimento ?? defaultVencimento()
+        } else if (!next[row.montador_id]) {
+          // Data padrão para quem ainda não tem fixo (evita salvar sem vencimento).
+          next[row.montador_id] = defaultVencimento()
+        }
+      }
+      return next
+    })
   }, [data])
 
   const montadoresOcultos = useMemo(
@@ -72,6 +82,7 @@ export function FixoMontadorSection({
   )
 
   const linhasVisiveis = useMemo(() => {
+    // Lista completa: valores fixos expostos para todos os montadores ativos.
     if (!canEdit) {
       return data.filter(row => row.valor_fixo_mensal > 0)
     }
@@ -119,16 +130,34 @@ export function FixoMontadorSection({
   const handleSave = async (row: MontadorFixoMensal) => {
     const raw = draftsValor[row.montador_id] ?? ''
     const valor = raw === '' ? 0 : Math.max(0, Number(raw.replace(',', '.')) || 0)
-    const dataPagamento = draftsData[row.montador_id] || null
+    // Usa a data do campo (ou a padrão exibida) — nunca manda null se há valor.
+    const dataPagamento =
+      draftsData[row.montador_id]
+      || row.primeiro_vencimento
+      || defaultVencimento()
     await salvarFixo(row.montador_id, valor, valor > 0 ? dataPagamento : null)
 
     if (valor <= 0) {
-      setVisiveis(prev => {
-        const next = new Set(prev)
-        next.delete(row.montador_id)
-        return next
-      })
+      setDraftsValor(prev => ({ ...prev, [row.montador_id]: '' }))
+      setDraftsData(prev => ({ ...prev, [row.montador_id]: defaultVencimento() }))
     }
+  }
+
+  const handleExcluir = async (row: MontadorFixoMensal) => {
+    if (row.valor_fixo_mensal <= 0 && !(draftsValor[row.montador_id] ?? '').trim()) {
+      return
+    }
+    const nome = row.montador_nome?.trim() || 'este montador'
+    const ok = confirm(
+      `Excluir o fixo de ${nome}?\n\n`
+      + 'O valor fixo será zerado e as cobranças pendentes em Contas a Pagar serão encerradas.\n'
+      + 'Cobranças já pagas permanecem no histórico.',
+    )
+    if (!ok) return
+
+    await salvarFixo(row.montador_id, 0, null)
+    setDraftsValor(prev => ({ ...prev, [row.montador_id]: '' }))
+    setDraftsData(prev => ({ ...prev, [row.montador_id]: defaultVencimento() }))
   }
 
   return (
@@ -138,7 +167,8 @@ export function FixoMontadorSection({
           Fixo Montador
         </h2>
         <p className="mt-1 text-xs text-[#edd9c4]">
-          Ao salvar, o sistema gera cobranças fixas mensais em Contas a Pagar (do mês da data até 12 meses à frente), no valor definido
+          Ao salvar, o sistema gera cobranças fixas mensais em Contas a Pagar (do mês da data até 12 meses à frente).
+          Use Excluir para zerar o fixo e encerrar as cobranças pendentes.
         </p>
       </div>
 
@@ -154,7 +184,7 @@ export function FixoMontadorSection({
         </div>
       )}
 
-      {canEdit && !loading && data.length > 0 && (
+      {canEdit && !loading && montadoresOcultos.length > 0 && (
         <div className="flex flex-wrap items-end gap-2 border-b border-[rgba(240,210,140,0.08)] px-4 py-3">
           <div className="min-w-[12rem] flex-1">
             <label className="mb-1 block text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
@@ -197,7 +227,7 @@ export function FixoMontadorSection({
 
       {!loading && data.length > 0 && linhasVisiveis.length === 0 && (
         <div className="p-8">
-          <EmptyState message="Selecione um montador acima para definir o valor fixo mensal." />
+          <EmptyState message="Nenhum valor fixo para exibir neste período." />
         </div>
       )}
 
@@ -301,18 +331,43 @@ export function FixoMontadorSection({
                       >
                         {STATUS_LABEL[row.status_mes]}
                       </span>
+                      {valorAtual > 0 && row.primeiro_vencimento && row.status_mes === 'sem_fixo' && (
+                        <p className="mt-1 max-w-[11rem] text-[0.62rem] leading-snug text-[#d4bc9f]">
+                          Cobranças em Contas a Pagar a partir de {fmtDate(row.primeiro_vencimento)}
+                          {' '}(este mês ainda não entra).
+                        </p>
+                      )}
+                      {valorAtual > 0 && row.status_mes !== 'sem_fixo' && row.primeiro_vencimento && (
+                        <p className="mt-1 max-w-[11rem] text-[0.62rem] leading-snug text-[#d4bc9f]">
+                          Série desde {fmtDate(row.primeiro_vencimento)}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {canEdit && (
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm flex items-center gap-1"
-                          disabled={isSaving}
-                          onClick={() => void handleSave(row)}
-                        >
-                          <Save size={12} />
-                          {isSaving ? 'Salvando...' : 'Salvar'}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm flex items-center gap-1"
+                            disabled={isSaving}
+                            onClick={() => void handleSave(row)}
+                          >
+                            <Save size={12} />
+                            {isSaving ? 'Salvando...' : 'Salvar'}
+                          </button>
+                          {(valorAtual > 0 || !!draftValor.trim()) && (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm flex items-center gap-1 border-red-500/40 text-red-300 hover:border-red-400 hover:text-red-200"
+                              disabled={isSaving}
+                              onClick={() => void handleExcluir(row)}
+                              title="Excluir fixo e encerrar cobranças pendentes"
+                            >
+                              <Trash2 size={12} />
+                              Excluir
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
