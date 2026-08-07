@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { UserProfile, UserRole } from '../types'
@@ -238,7 +238,12 @@ export function useAuth(): AuthState {
   }, [])
 
   const role = userProfile ? perfilToRole(userProfile.perfil) : null
-  const roles = userProfile ? computeRoles(userProfile) : []
+  // useMemo: sem isso, `roles` vira array novo a cada render e hooks que
+  // dependem dele (ex.: useContasPagar) disparam load/expansão em loop.
+  const roles = useMemo(
+    () => (userProfile ? computeRoles(userProfile) : []),
+    [userProfile],
+  )
 
   return {
     session,

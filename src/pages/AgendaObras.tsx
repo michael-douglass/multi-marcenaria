@@ -23,6 +23,7 @@ import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorIniciouObra
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
+import { ObraMontadoresAjudantesField } from '../components/obras/ObraMontadoresAjudantesField'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
 import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
@@ -180,13 +181,18 @@ interface ObraCardProps {
   onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
   updatingDataEntrega: string | null
   canViewMontadoresConclusao: boolean
+  montadores: { id: string; nome?: string | null; email: string; perfil: string }[]
+  canEditMontador: boolean
+  onUpdateMontadores: (obra: ObraFull, montadorIds: string[]) => void
+  onUpdateMontadorAdmin: (obra: ObraFull, montadorAdminId: string | null) => void
+  updatingMontadores: string | null
   showMarkupCustos?: boolean
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
   onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -259,6 +265,16 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         <ObraMontadorBadge obra={obra} />
         <ObraPedidoMaterialBadge obra={obra} />
       </div>
+
+      <ObraMontadoresAjudantesField
+        obra={obra}
+        montadores={montadores}
+        canEdit={canEditMontador}
+        loading={updatingMontadores === obra.id}
+        onChange={ids => onUpdateMontadores(obra, ids)}
+        onChangeAdmin={adminId => onUpdateMontadorAdmin(obra, adminId)}
+        compact
+      />
 
       <ObraMontadoresConclusao obra={obra} compact visible={canViewMontadoresConclusao} />
 
@@ -600,6 +616,7 @@ function AgendaObrasContent() {
   const [togglingPedidoMaterial, setTogglingPedidoMaterial] = useState<string | null>(null)
   const [updatingDataEntrega, setUpdatingDataEntrega] = useState<string | null>(null)
   const [updatingNumeroPedidoCortClaud, setUpdatingNumeroPedidoCortClaud] = useState<string | null>(null)
+  const [updatingMontadores, setUpdatingMontadores] = useState<string | null>(null)
 
   const handleUpdateDataEntrega = async (obra: ObraFull, data: string | null) => {
     if (!canEdit) return
@@ -921,6 +938,57 @@ function AgendaObrasContent() {
     }
   }
 
+  const handleUpdateMontadores = async (obra: ObraFull, montadorIds: string[]) => {
+    if (!canEditMontador) return
+    setUpdatingMontadores(obra.id)
+    try {
+      await obrasHook.update(obra.id, { montador_ids: montadorIds })
+      setDetalheObra(prev => {
+        if (!prev || prev.id !== obra.id) return prev
+        const nomes = montadorIds.map(id => {
+          const m = gruposHook.montadores.find(x => x.id === id)
+          return m?.nome?.trim() || m?.email?.split('@')[0] || 'Montador'
+        })
+        return {
+          ...prev,
+          montador_ids: montadorIds,
+          montador_nomes: nomes,
+          montador_id: montadorIds[0] ?? null,
+          montador_nome: nomes[0] ?? null,
+        }
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar os montadores da obra.')
+    } finally {
+      setUpdatingMontadores(null)
+    }
+  }
+
+  const handleUpdateMontadorAdmin = async (obra: ObraFull, montadorAdminId: string | null) => {
+    if (!canEditMontador) return
+    setUpdatingMontadores(obra.id)
+    try {
+      await obrasHook.update(obra.id, { montador_admin_id: montadorAdminId })
+      setDetalheObra(prev => {
+        if (!prev || prev.id !== obra.id) return prev
+        const admin = montadorAdminId
+          ? gruposHook.montadores.find(x => x.id === montadorAdminId)
+          : null
+        return {
+          ...prev,
+          montador_admin_id: montadorAdminId,
+          montador_admin_nome: admin
+            ? (admin.nome?.trim() || admin.email.split('@')[0] || 'Admin')
+            : null,
+        }
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível atualizar o montador administrador.')
+    } finally {
+      setUpdatingMontadores(null)
+    }
+  }
+
   const handleAplicarComissao = async (obraId: string) => {
     setApplyingComissao(true)
     try {
@@ -1149,6 +1217,11 @@ function AgendaObrasContent() {
                           onUpdateDataEntrega={handleUpdateDataEntrega}
                           updatingDataEntrega={updatingDataEntrega}
                           canViewMontadoresConclusao={canViewMontadoresConclusao}
+                          montadores={gruposHook.montadores}
+                          canEditMontador={canEditMontador}
+                          onUpdateMontadores={handleUpdateMontadores}
+                          onUpdateMontadorAdmin={handleUpdateMontadorAdmin}
+                          updatingMontadores={updatingMontadores}
                           showMarkupCustos={canViewMarkupCustos}
                           markupCustos={getObraMarkupCustos(obra, custosByLead)}
                           markupCustosFiltro={getFiltroMarkupDaObra(markupCustosFiltrosPorObra, obra.id)}
@@ -1203,6 +1276,11 @@ function AgendaObrasContent() {
             ? filtro => handleMarkupCustosFiltroObra(detalheObra.id, filtro)
             : undefined
         }
+        montadores={gruposHook.montadores}
+        canEditMontador={canEditMontador}
+        onUpdateMontadores={handleUpdateMontadores}
+        onUpdateMontadorAdmin={handleUpdateMontadorAdmin}
+        updatingMontadores={updatingMontadores === detalheObra?.id}
       />
 
       {/* Modal obra (edição) */}

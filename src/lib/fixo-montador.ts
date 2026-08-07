@@ -76,8 +76,47 @@ export async function atualizarFixoMontador(
   if (error) throw error
 }
 
+/**
+ * Freio global (módulo): várias instâncias de useContasPagar (App + página)
+ * e o realtime não podem disparar a mesma RPC em paralelo / em cascata.
+ * Sem isso, falha 503 (PGRST002) + INSERT → realtime → nova tentativa = tempestade.
+ */
+let expandirEmAndamento: Promise<void> | null = null
+let expandirJaTentouNestaSessao = false
+let expandirBloqueadoAte = 0
+
+const EXPANDIR_COOLDOWN_ERRO_MS = 60_000
+
 /** Garante que todo fixo cadastrado tenha cobranças em Contas a Pagar. */
 export async function expandirTodosFixoMontadores(): Promise<void> {
-  const { error } = await supabase.rpc('movelaria_expandir_todos_fixo_montadores')
-  if (error) throw error
+  if (expandirJaTentouNestaSessao) return
+  if (Date.now() < expandirBloqueadoAte) return
+  if (expandirEmAndamento) return expandirEmAndamento
+
+  expandirJaTentouNestaSessao = true
+  expandirEmAndamento = (async () => {
+    try {
+      const { error } = await supabase.rpc('movelaria_expandir_todos_fixo_montadores')
+      if (error) throw error
+    } catch (err) {
+      // Banco indisponível / schema cache: não martelar de novo por 1 min
+      const code = err && typeof err === 'object' && 'code' in err
+        ? String((err as { code?: string }).code)
+        : ''
+      if (code === 'PGRST002' || code === '57014') {
+        expandirBloqueadoAte = Date.now() + EXPANDIR_COOLDOWN_ERRO_MS
+      }
+      throw err
+    } finally {
+      expandirEmAndamento = null
+    }
+  })()
+
+  return expandirEmAndamento
+}
+
+/** Libera nova tentativa (ex.: botão Recarregar). */
+export function resetExpandirFixoMontadoresSessao(): void {
+  expandirJaTentouNestaSessao = false
+  expandirBloqueadoAte = 0
 }

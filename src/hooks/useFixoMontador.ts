@@ -14,6 +14,7 @@ export function useFixoMontador(mes: number, ano: number) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!isReady) return
@@ -50,9 +51,15 @@ export function useFixoMontador(mes: number, ano: number) {
     }
     setSavingId(montadorId)
     setError(null)
+    setSuccessMsg(null)
     try {
       await atualizarFixoMontador(montadorId, valor, primeiroVencimento)
       await load()
+      setSuccessMsg(
+        valor > 0
+          ? 'Fixo salvo. Cobranças mensais geradas/atualizadas em Contas a Pagar (12 meses à frente).'
+          : 'Fixo removido. Cobranças pendentes foram encerradas.',
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar valor fixo.'
       setError(msg)
@@ -62,5 +69,5 @@ export function useFixoMontador(mes: number, ano: number) {
     }
   }, [load])
 
-  return { data, loading, error, savingId, reload: load, salvarFixo }
+  return { data, loading, error, successMsg, savingId, reload: load, salvarFixo }
 }

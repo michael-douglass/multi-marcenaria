@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useId } from 'react'
+import { useState, useEffect, useCallback, useId, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
@@ -8,6 +8,9 @@ import { expandirTodosFixoMontadores, podeExpandirFixoMontadores } from '../lib/
 import { useAutoRefresh } from './useAutoRefresh'
 import { useAuthReady } from './useAuthReady'
 import { useApp } from '@/context/AppContext'
+
+/** Junta vários avisos do realtime num único reload (evita tempestade de GETs). */
+const SILENT_RELOAD_DEBOUNCE_MS = 800
 
 interface GerarParcelasInput {
   pedido_id?: string
@@ -95,14 +98,32 @@ export function useContasPagar() {
   const [data, setData] = useState<ContaPagar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** Evita vários GETs silenciosos ao mesmo tempo (realtime + auto-refresh). */
+  const loadInFlightRef = useRef(false)
+  /** Expansão de fixo/recorrência só uma vez por abertura da tela — não no loop de sync. */
+  const expandiuNestaSessaoRef = useRef(false)
+  const silentReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** roles via ref: não entra nas deps do load (array novo quebrava o freio). */
+  const rolesRef = useRef(roles)
+  rolesRef.current = roles
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
+    // Já tem load em andamento → ignora (silencioso ou não). Evita fila infinita.
+    if (loadInFlightRef.current) return
+
+    loadInFlightRef.current = true
     if (!opts?.silent) setLoading(true)
     setError(null)
 
-    if (podeExpandirFixoMontadores(roles)) {
+    // Só na carga "de verdade" (abertura / reload manual) — nunca no sync em segundo plano.
+    // Expandir gera INSERT → realtime → silentReload; se expandisse de novo = tempestade.
+    const deveExpandir = !opts?.silent && !expandiuNestaSessaoRef.current
+    if (deveExpandir && podeExpandirFixoMontadores(rolesRef.current)) {
+      // Marca ANTES do await: se falhar (timeout), não tenta de novo nesta sessão
+      // (recarregar a página libera). Retry automático = deadlock em cascata.
+      expandiuNestaSessaoRef.current = true
       try {
         await expandirTodosFixoMontadores()
       } catch (err) {
@@ -113,42 +134,48 @@ export function useContasPagar() {
       }
     }
 
-    const withForma = await supabase
-      .from('movelaria_contas_pagar')
-      .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
-      .order('data_vencimento', { ascending: true })
-
-    let rows = withForma.data
-    let err = withForma.error
-
-    if (err) {
-      const fallback = await supabase
+    try {
+      const withForma = await supabase
         .from('movelaria_contas_pagar')
-        .select('*')
+        .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
         .order('data_vencimento', { ascending: true })
-      rows = fallback.data
-      err = fallback.error
-      if (!err && withForma.error) {
-        console.warn(
-          '[contas a pagar] Consulta com forma de pagamento indisponível. Execute: pnpm migrate',
-          withForma.error.message,
-        )
+
+      let rows = withForma.data
+      let err = withForma.error
+
+      if (err) {
+        const fallback = await supabase
+          .from('movelaria_contas_pagar')
+          .select('*')
+          .order('data_vencimento', { ascending: true })
+        rows = fallback.data
+        err = fallback.error
+        if (!err && withForma.error) {
+          console.warn(
+            '[contas a pagar] Consulta com forma de pagamento indisponível. Execute: pnpm migrate',
+            withForma.error.message,
+          )
+        }
       }
-    }
 
-    if (err) {
-      if (!opts?.silent) setError(err.message)
+      if (err) {
+        if (!opts?.silent) setError(err.message)
+        if (!opts?.silent) setLoading(false)
+        return
+      }
+
+      const allRows: ContaPagar[] = rows ?? []
+      setData(allRows)
       if (!opts?.silent) setLoading(false)
-      return
+
+      // Recorrências também só na carga completa — INSERT dispara realtime e reabria o loop.
+      if (deveExpandir) {
+        await expandirRecorrencias(allRows)
+      }
+    } finally {
+      loadInFlightRef.current = false
     }
-
-    const allRows: ContaPagar[] = rows ?? []
-    setData(allRows)
-    if (!opts?.silent) setLoading(false)
-
-    // Auto-expansão de recorrências: mantém sempre MESES_HORIZONTE meses à frente
-    await expandirRecorrencias(allRows)
-  }, [isReady, roles])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Agrupa por recorrencia_id e gera meses que faltam
   const expandirRecorrencias = async (rows: ContaPagar[]) => {
@@ -236,8 +263,13 @@ export function useContasPagar() {
     }
   }
 
+  // Vários eventos do realtime chegam juntos; espera um pouco e faz um único GET.
   const silentReload = useCallback(() => {
-    void load({ silent: true })
+    if (silentReloadTimerRef.current) clearTimeout(silentReloadTimerRef.current)
+    silentReloadTimerRef.current = setTimeout(() => {
+      silentReloadTimerRef.current = null
+      void load({ silent: true })
+    }, SILENT_RELOAD_DEBOUNCE_MS)
   }, [load])
 
   useEffect(() => { void load() }, [load])
@@ -256,6 +288,10 @@ export function useContasPagar() {
       .subscribe()
 
     return () => {
+      if (silentReloadTimerRef.current) {
+        clearTimeout(silentReloadTimerRef.current)
+        silentReloadTimerRef.current = null
+      }
       void supabase.removeChannel(channel)
     }
   }, [isReady, silentReload, realtimeChannelId])

@@ -58,7 +58,7 @@ export function ObraMontadoresField({ montadores, selectedIds, onChange }: ObraM
         )
       })}
       <p className="text-[0.65rem] leading-relaxed text-[#edd9c4]">
-        Todos os montadores marcados verão esta obra no calendário e na agenda.
+        Marque quem será ajudante nesta obra. Todos os marcados verão a obra no calendário e na agenda.
       </p>
     </div>
   )

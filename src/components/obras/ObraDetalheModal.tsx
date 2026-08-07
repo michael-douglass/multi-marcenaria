@@ -9,6 +9,7 @@ import { groupEvolucaoPorDia, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
 import { EvolucaoObservacao } from '@/components/obras/EvolucaoObservacao'
 import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
+import { ObraMontadoresAjudantesField } from '@/components/obras/ObraMontadoresAjudantesField'
 import { ObraLousa } from '@/components/obras/lousa/ObraLousa'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
 import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '@/lib/obra-montadores'
@@ -76,6 +77,11 @@ interface Props {
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
   onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
+  montadores?: { id: string; nome?: string | null; email: string; perfil: string }[]
+  canEditMontador?: boolean
+  onUpdateMontadores?: (obra: ObraFull, montadorIds: string[]) => void
+  onUpdateMontadorAdmin?: (obra: ObraFull, montadorAdminId: string | null) => void
+  updatingMontadores?: boolean
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -100,6 +106,11 @@ export function ObraDetalheModal({
   markupCustos = null,
   markupCustosFiltro,
   onMarkupCustosFiltroChange,
+  montadores = [],
+  canEditMontador = false,
+  onUpdateMontadores,
+  onUpdateMontadorAdmin,
+  updatingMontadores = false,
 }: Props) {
   const { roles } = useApp()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
@@ -366,8 +377,27 @@ export function ObraDetalheModal({
           <Campo label="Tipo de Obra"    value={obra.tipo_obra_nome} />
           <Campo label="Grupo de Obra"   value={obra.grupo_obra_nome} />
           <Campo label="Endereço"        value={obra.endereco_obra} />
-          <Campo label="Montadores"      value={getMontadorResponsavelDisplay(obra)} />
-          <Campo label="Montador Admin"  value={obra.montador_admin_nome} />
+          {montadores.length > 0 ? (
+            <div className="col-span-2">
+              <ObraMontadoresAjudantesField
+                obra={obra}
+                montadores={montadores}
+                canEdit={canEditMontador && !!onUpdateMontadores}
+                loading={updatingMontadores}
+                onChange={ids => onUpdateMontadores?.(obra, ids)}
+                onChangeAdmin={
+                  onUpdateMontadorAdmin
+                    ? adminId => onUpdateMontadorAdmin(obra, adminId)
+                    : undefined
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <Campo label="Montadores" value={getMontadorResponsavelDisplay(obra)} />
+              <Campo label="Montador Admin" value={obra.montador_admin_nome} />
+            </>
+          )}
           {obra.tempo_maximo_horas != null && (
             <Campo label="Prazo Máximo"  value={`${Number(obra.tempo_maximo_horas)}h`} />
           )}

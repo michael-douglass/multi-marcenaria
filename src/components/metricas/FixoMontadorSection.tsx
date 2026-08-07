@@ -42,7 +42,7 @@ export function FixoMontadorSection({
   comissaoConcluidaPorMontador = {},
   fixo,
 }: FixoMontadorSectionProps) {
-  const { data, loading, error, savingId, salvarFixo } = fixo
+  const { data, loading, error, successMsg, savingId, salvarFixo } = fixo
   const [draftsValor, setDraftsValor] = useState<Record<string, string>>({})
   const [draftsData, setDraftsData] = useState<Record<string, string>>({})
   const [visiveis, setVisiveis] = useState<Set<string>>(new Set())
@@ -138,13 +138,19 @@ export function FixoMontadorSection({
           Fixo Montador
         </h2>
         <p className="mt-1 text-xs text-[#edd9c4]">
-          Selecione o montador, defina valor e data de pagamento — a cobrança recorrente é criada em Contas a Pagar
+          Ao salvar, o sistema gera cobranças fixas mensais em Contas a Pagar (do mês da data até 12 meses à frente), no valor definido
         </p>
       </div>
 
       {error && (
         <div className="border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-300">
           {error}
+        </div>
+      )}
+
+      {successMsg && !error && (
+        <div className="border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-300">
+          {successMsg}
         </div>
       )}
 
