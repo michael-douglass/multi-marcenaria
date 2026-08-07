@@ -10,6 +10,7 @@ import {
   type CaixaResizeCorner,
   CAIXA_POPUP_STORAGE_KEY,
   CAIXA_POPUP_LEGACY_STORAGE_KEY,
+  CAIXA_POPUP_LEGACY_LAYOUT_KEY,
   CAIXA_POPUP_MOBILE_BREAKPOINT,
   clampCaixaPopupLayout,
   defaultCaixaPopupLayout,
@@ -51,6 +52,8 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
       const clamped = clampCaixaPopupLayout(next)
       localStorage.setItem(CAIXA_POPUP_STORAGE_KEY, JSON.stringify(clamped))
       localStorage.removeItem(CAIXA_POPUP_LEGACY_STORAGE_KEY)
+      localStorage.removeItem(CAIXA_POPUP_LEGACY_LAYOUT_KEY)
+      localStorage.removeItem('caixa-contas-pagar-popup-layout')
 
       if (!userProfile?.id) return
 
@@ -94,27 +97,37 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
           return
         }
 
-        const { data: legacy } = await supabase
+        // Layout antigo (quase tela cheia): mantém só a posição e aplica tamanho novo (~metade).
+        const base = defaultCaixaPopupLayout()
+        const { data: legacyLayout } = await supabase
+          .from('movelaria_ui_settings')
+          .select('value')
+          .eq('usuario_id', userProfile.id)
+          .eq('key', CAIXA_POPUP_LEGACY_LAYOUT_KEY)
+          .maybeSingle()
+
+        const { data: legacyPosRow } = await supabase
           .from('movelaria_ui_settings')
           .select('value')
           .eq('usuario_id', userProfile.id)
           .eq('key', CAIXA_POPUP_LEGACY_STORAGE_KEY)
           .maybeSingle()
 
-        if (legacy?.value) {
-          const base = defaultCaixaPopupLayout()
-          const legacyPos = legacy.value as { x?: number; y?: number }
+        const legacyVal = (legacyLayout?.value ?? legacyPosRow?.value) as
+          | { x?: number; y?: number }
+          | undefined
+
+        if (legacyVal) {
           const next = clampCaixaPopupLayout({
-            x: typeof legacyPos.x === 'number' ? legacyPos.x : base.x,
-            y: typeof legacyPos.y === 'number' ? legacyPos.y : base.y,
+            x: typeof legacyVal.x === 'number' ? legacyVal.x : base.x,
+            y: typeof legacyVal.y === 'number' ? legacyVal.y : base.y,
             w: base.w,
             h: base.h,
           })
           setLayout(next)
           persistLayout(next)
         } else {
-          // Sem preferência salva: abre grande o bastante para filtros + tabela.
-          const next = clampCaixaPopupLayout(defaultCaixaPopupLayout())
+          const next = clampCaixaPopupLayout(base)
           setLayout(next)
           persistLayout(next)
         }
@@ -277,7 +290,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
               </h3>
               {!isMinimized && (
                 <p className="truncate text-[0.6rem] text-[#edd9c4] sm:text-[0.65rem]">
-                  Arraste · redimensione pelas bordas · filtros e tabela cabem na janela
+                  Arraste · redimensione pelas bordas se precisar
                 </p>
               )}
             </div>
@@ -307,7 +320,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
 
         {!isMinimized && (
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[rgba(52,34,26,0.4)]">
-            <div className="absolute inset-0 overflow-auto p-2.5 sm:p-3">
+            <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden p-2.5 sm:p-3">
               <Caixa embedded />
             </div>
           </div>

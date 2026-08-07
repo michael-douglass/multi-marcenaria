@@ -1,10 +1,12 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { FileDown, FileText, Loader2 } from 'lucide-react'
 import { useContasReceber } from '../hooks/useContasReceber'
+import { useObras } from '../hooks/useObras'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
 import { useTemplatesCobranca } from '../hooks/useTemplatesCobranca'
 import { usePixConfig } from '../hooks/usePixConfig'
 import { useReciboConfig } from '../hooks/useReciboConfig'
+import { buildInicioEntregaPorConta } from '../lib/cobranca-obra-datas'
 import { OrcamentosFechados } from '../components/cobrancas/OrcamentosFechados'
 import { CobrancaCopyButton } from '../components/cobrancas/CobrancaCopyButton'
 import { ContaReceberAnexosField } from '../components/cobrancas/ContaReceberAnexosField'
@@ -101,10 +103,15 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const isAdmin = role === 'Administrador'
   const isFinanceiroOnly = roles.includes('Financeiro') && !roles.includes('Administrador')
   const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
+  const obrasHook = useObras()
   const orcamentos = useOrcamentosFechados()
   const templatesHook = useTemplatesCobranca()
   const pixHook = usePixConfig()
   const reciboHook = useReciboConfig()
+  const inicioEntregaPorConta = useMemo(
+    () => buildInicioEntregaPorConta(data, obrasHook.data),
+    [data, obrasHook.data],
+  )
   const [activeFilters, setActiveFilters] = useState<StatusFilterOption[]>([])
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
@@ -1531,7 +1538,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
           <div className="overflow-x-auto">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
-                {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
+                {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Inicio e entrega de obra', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
                   <th key={i} className="section-label text-left px-4 py-3">{h}</th>
                 ))}
               </tr></thead>
@@ -1539,6 +1546,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                 {filtered.map(r => {
                   const s = getStatus(r.data_vencimento, r.status)
                   const pm = r.forma_pagamento as FormaPagamento
+                  const inicioEntrega = inicioEntregaPorConta.get(r.id) ?? '—'
                   return (
                     <tr key={r.id} className="trow">
                       <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>
@@ -1552,6 +1560,13 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                       <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{r.numero_parcela}/{r.total_parcelas}</td>
                       <td className="px-4 py-3" style={{ color: '#4ade80', fontWeight: 600 }}>{fmtCur(r.valor_parcela)}</td>
                       <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(r.data_vencimento)}</td>
+                      <td
+                        className="px-4 py-3 whitespace-nowrap"
+                        style={{ color: inicioEntrega === '—' ? '#b8957f' : '#edd9c4', fontSize: '.85rem' }}
+                        title={inicioEntrega === '—' ? 'Sem datas na Agenda de Obras' : inicioEntrega}
+                      >
+                        {inicioEntrega}
+                      </td>
                       <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{PM_ICON[pm]} {PM_LABEL[pm]}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3">

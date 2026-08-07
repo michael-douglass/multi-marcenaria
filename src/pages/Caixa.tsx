@@ -241,7 +241,7 @@ function CaixaContent({
     <div
       className={cn(
         'animate-in fade-in duration-500',
-        embedded ? 'flex min-h-0 flex-col gap-2.5 sm:gap-3' : 'space-y-6',
+        embedded ? 'flex h-full min-h-0 flex-col gap-1.5 sm:gap-2' : 'space-y-6',
       )}
       data-caixa-root={embedded ? 'embedded' : 'page'}
     >
@@ -249,7 +249,7 @@ function CaixaContent({
       <div
         className={cn(
           'flex flex-col md:flex-row md:items-end md:justify-between',
-          embedded ? 'gap-2' : 'gap-6',
+          embedded ? 'shrink-0 gap-1.5' : 'gap-6',
         )}
       >
         {!embedded && (
@@ -279,7 +279,7 @@ function CaixaContent({
         </div>
       </div>
 
-      <div className={cn('relative', embedded ? 'max-w-full' : 'max-w-md')}>
+      <div className={cn('relative', embedded ? 'max-w-full shrink-0' : 'max-w-md')}>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" />
         <input
           className={cn('glass-input w-full pl-9', embedded && '!h-9 text-sm')}
@@ -293,27 +293,27 @@ function CaixaContent({
       <div
         className={cn(
           'grid',
-          embedded ? 'grid-cols-3 gap-2 sm:gap-3' : 'gap-3 sm:gap-4 md:grid-cols-3',
+          embedded ? 'shrink-0 grid-cols-3 gap-1.5 sm:gap-2' : 'gap-3 sm:gap-4 md:grid-cols-3',
         )}
       >
-        <div className={cn('glass-card space-y-1', embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2')}>
+        <div className={cn('glass-card space-y-1', embedded ? 'p-2' : 'p-4 space-y-2')}>
           <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
             Total Reservado
           </p>
-          <p className={cn('font-bold text-cream', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+          <p className={cn('font-bold text-cream', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_reservado)}
           </p>
         </div>
         <div
           className={cn(
             'glass-card border-l-2 border-l-red-500/30 space-y-1',
-            embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2',
+            embedded ? 'p-2' : 'p-4 space-y-2',
           )}
         >
           <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
             Total Pago
           </p>
-          <p className={cn('font-bold text-red-400', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+          <p className={cn('font-bold text-red-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_pago)}
           </p>
         </div>
@@ -322,14 +322,14 @@ function CaixaContent({
           onClick={() => setSaldoDialogOpen(true)}
           className={cn(
             'glass-card border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40 space-y-1',
-            embedded ? 'p-2.5 sm:p-3' : 'p-4 space-y-2',
+            embedded ? 'p-2' : 'p-4 space-y-2',
           )}
           title="Clique para ver onde o saldo está guardado"
         >
           <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
             Saldo Disponível
           </p>
-          <p className={cn('font-bold text-emerald-400', embedded ? 'text-base sm:text-lg' : 'text-xl')}>
+          <p className={cn('font-bold text-emerald-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.saldo_disponivel)}
           </p>
           {!embedded && (
@@ -342,7 +342,7 @@ function CaixaContent({
       <div
         className={cn(
           'flex flex-col md:flex-row md:items-center md:justify-between',
-          embedded ? 'gap-2' : 'gap-4',
+          embedded ? 'shrink-0 gap-1.5' : 'gap-4',
         )}
       >
         <div className="flex w-fit gap-1 rounded-lg border border-white/5 bg-black/20 p-1">
@@ -406,20 +406,29 @@ function CaixaContent({
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — no popup: ocupa o restante e rola por dentro */}
       <div
         className={cn(
           'glass-card',
-          embedded ? 'min-h-[320px] flex-1' : 'min-h-[400px]',
+          embedded
+            ? 'min-h-0 flex-1 overflow-auto [&_th]:px-3 [&_th]:py-2.5 [&_td]:px-3 [&_td]:py-2.5'
+            : 'min-h-[400px]',
         )}
+        data-caixa-table-panel={embedded ? 'scroll' : 'page'}
       >
         {loading ? (
           <LoadingState message="Carregando dados..." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className={cn(embedded ? 'min-h-0 overflow-x-auto' : 'overflow-x-auto')}>
             {tab === 'reservas' && (
               <table className="w-full text-left border-collapse min-w-[1000px]">
-                <thead>
+                <thead
+                  className={
+                    embedded
+                      ? 'sticky top-0 z-10 bg-[rgba(28,16,10,0.96)] backdrop-blur-sm'
+                      : undefined
+                  }
+                >
                   <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
                     <th className="px-6 py-4">Destinatário</th>
                     <th className="px-6 py-4">Vencimento</th>
@@ -628,7 +637,13 @@ function CaixaContent({
 
             {tab === 'movimentacoes' && (
               <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
+                <thead
+                  className={
+                    embedded
+                      ? 'sticky top-0 z-10 bg-[rgba(28,16,10,0.96)] backdrop-blur-sm'
+                      : undefined
+                  }
+                >
                   <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
                     <th className="px-6 py-4">Data</th>
                     <th className="px-6 py-4">Destinatário</th>
