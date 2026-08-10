@@ -4,6 +4,7 @@ import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
+import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
 import { isFuncionarioCampo, isVisualizadorOnly } from '@/lib/role-access'
@@ -84,6 +85,8 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
+        {roles.includes('Administrador') && <ContasPagarNotifBell />}
+
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
 
         <AppRefreshButton showLabel />

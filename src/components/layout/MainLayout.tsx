@@ -6,6 +6,7 @@ import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
+import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly } from '@/lib/role-access'
 import { hasObrasAdminSectionsAccess } from '@/lib/obra-permissions'
@@ -89,6 +90,7 @@ export function MainLayout() {
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
 
   return (
+    <ContasPagarNotifProvider>
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
@@ -133,5 +135,6 @@ export function MainLayout() {
         </>
       )}
     </SidebarProvider>
+    </ContasPagarNotifProvider>
   )
 }
