@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Users } from 'lucide-react'
 import type { ObraFull } from '@/types'
 import {
   getObraMontadoresConclusao,
@@ -19,7 +19,9 @@ interface ObraMontadoresConclusaoProps {
   >
   montadores?: ObraMontadorConclusaoStatus[]
   fechadaPeloAdmin?: boolean
+  /** compact = pills; micro = só contagem (visão semana) */
   compact?: boolean
+  micro?: boolean
   visible?: boolean
 }
 
@@ -29,6 +31,7 @@ export function ObraMontadoresConclusao({
   montadores: montadoresProp,
   fechadaPeloAdmin: fechadaPeloAdminProp,
   compact,
+  micro,
   visible = true,
 }: ObraMontadoresConclusaoProps) {
   if (!visible) return null
@@ -39,6 +42,44 @@ export function ObraMontadoresConclusao({
 
   const fechadaPeloAdmin = fechadaPeloAdminProp ?? (obra ? obraFechadaPeloAdministrador(obra) : false)
   const concluidos = montadores.filter(m => m.concluiu).length
+  const todosOk = concluidos === montadores.length
+  const tooltipLinhas = montadores.map(m =>
+    `${m.concluiu ? '✓' : '○'} ${m.nome}`,
+  )
+  if (fechadaPeloAdmin) tooltipLinhas.push('Obra concluída pelo administrador')
+  const tooltip = `Conclusão montadores (${concluidos}/${montadores.length})\n${tooltipLinhas.join('\n')}`
+
+  if (micro) {
+    return (
+      <span
+        className={[
+          'inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border font-medium shrink-0',
+          'px-1.5 py-0.5 text-[0.5rem] tabular-nums',
+          todosOk
+            ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300'
+            : 'border-amber-500/35 bg-amber-500/10 text-amber-300',
+        ].join(' ')}
+        title={tooltip}
+      >
+        <Users size={8} className="shrink-0 opacity-80" aria-hidden />
+        <span className="shrink-0">{concluidos}/{montadores.length}</span>
+        <span className="inline-flex items-center gap-px" aria-hidden>
+          {montadores.slice(0, 5).map(m => (
+            <span
+              key={m.montador_id}
+              className={[
+                'block h-1 w-1 rounded-full',
+                m.concluiu ? 'bg-emerald-400' : 'bg-amber-400/70',
+              ].join(' ')}
+            />
+          ))}
+          {montadores.length > 5 && (
+            <span className="ml-0.5 text-[0.45rem] opacity-70">+{montadores.length - 5}</span>
+          )}
+        </span>
+      </span>
+    )
+  }
 
   return (
     <div

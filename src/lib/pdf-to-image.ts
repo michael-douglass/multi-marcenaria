@@ -37,9 +37,8 @@ async function renderPdfPageToPngBlob(
   })
 }
 
-/** Converte todas as páginas do PDF em PNGs para pré-visualização. */
-export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
-  const data = await file.arrayBuffer()
+/** Converte todas as páginas do PDF (ArrayBuffer) em PNGs. */
+export async function pdfDataAllPagesToPngBlobs(data: ArrayBuffer): Promise<Blob[]> {
   const pdf = await pdfjs.getDocument({ data }).promise
 
   if (pdf.numPages > MAX_PDF_PAGES) {
@@ -53,10 +52,28 @@ export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
   return blobs
 }
 
+/** Converte todas as páginas do PDF em PNGs para pré-visualização. */
+export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
+  return pdfDataAllPagesToPngBlobs(await file.arrayBuffer())
+}
+
 /** Converte a 1ª página do PDF em PNG para pré-visualização. */
 export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
   const data = await file.arrayBuffer()
   const pdf = await pdfjs.getDocument({ data }).promise
   if (pdf.numPages < 1) throw new Error('PDF vazio.')
   return renderPdfPageToPngBlob(pdf, 1)
+}
+
+/**
+ * Baixa um PDF pela URL e gera object URLs (blob:) de cada página.
+ * Cada página vira uma “foto” navegável no lightbox.
+ */
+export async function pdfUrlAllPagesToObjectUrls(url: string): Promise<string[]> {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`Não foi possível baixar o PDF (${res.status}).`)
+  }
+  const blobs = await pdfDataAllPagesToPngBlobs(await res.arrayBuffer())
+  return blobs.map(blob => URL.createObjectURL(blob))
 }

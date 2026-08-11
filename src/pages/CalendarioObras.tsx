@@ -847,12 +847,21 @@ function CalendarioObrasContent() {
               </div>
 
               <div
-                className="obra-page-filters glass-card p-4"
+                className={[
+                  'obra-page-filters glass-card',
+                  view === 'week' ? 'p-2.5' : 'p-4',
+                ].join(' ')}
                 style={{ borderColor: filtrosAtivos ? 'rgba(240,210,140,0.35)' : undefined }}
               >
-                <div className="flex items-center gap-2 text-[#edd9c4] shrink-0 pb-2 lg:pb-0">
-                  <Filter size={14} className="text-[#f2d892] shrink-0" />
-                  <span className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Filtros</span>
+                <div className={[
+                  'flex items-center gap-2 text-[#edd9c4] shrink-0 lg:pb-0',
+                  view === 'week' ? 'pb-0' : 'pb-2',
+                ].join(' ')}>
+                  <Filter size={view === 'week' ? 12 : 14} className="text-[#f2d892] shrink-0" />
+                  <span className={[
+                    'font-semibold uppercase tracking-wider whitespace-nowrap',
+                    view === 'week' ? 'text-[0.65rem]' : 'text-xs',
+                  ].join(' ')}>Filtros</span>
                 </div>
 
                 <div className="relative min-w-0">
@@ -1092,7 +1101,7 @@ function CalendarioObrasContent() {
                       key={iso}
                       onClick={() => isDiaUtil && hasObras && setSelectedDay(day)}
                       className={[
-                        'cal-week-day glass-card p-2 flex flex-col min-h-[200px] transition-all',
+                        'cal-week-day glass-card p-1.5 flex flex-col min-h-[140px] transition-all',
                         !isDiaUtil   ? 'opacity-40' : '',
                         isToday      ? 'ring-1 ring-[#f2d892]/40' : '',
                         isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
@@ -1102,23 +1111,23 @@ function CalendarioObrasContent() {
                       <div className="cal-week-day__header">
                         <div className={`cal-week-day__title-row ${isToday ? 'text-[#f2d892]' : 'text-[#edd9c4]'}`}>
                           <span className="cal-week-day__label" title={fmtDayHeader(day)}>
-                            {WEEKDAYS[day.getDay()]}
+                            <span className="cal-week-day__weekday">{WEEKDAYS[day.getDay()]}</span>
+                            <span className="cal-week-day__date">
+                              {day.getDate()}/{MONTHS[day.getMonth()]}
+                            </span>
                             {isToday && (
-                              <span className="ml-1 text-[0.55rem] bg-[#f2d892]/20 text-[#f2d892] rounded px-1 align-middle">
-                                hoje
-                              </span>
+                              <span className="cal-week-day__hoje">hoje</span>
                             )}
                           </span>
                           {hasObras && (
-                            <span className="shrink-0 rounded-full w-4 h-4 flex items-center justify-center text-[0.55rem] font-bold bg-[rgba(240,210,140,0.2)] text-[#f2d892]">
+                            <span className="cal-week-day__count">
                               {dayObras.length}
                             </span>
                           )}
                         </div>
-                        <span className="cal-week-day__date">{day.getDate()}/{MONTHS[day.getMonth()]}</span>
                         {isDiaUtil && horarioSem && (horarioSem.inicio || horarioSem.fim) && (
-                          <span className="text-[0.55rem] text-[#edd9c4]/60 truncate">
-                            {horarioSem.inicio}{horarioSem.inicio && horarioSem.fim ? ' – ' : ''}{horarioSem.fim}
+                          <span className="cal-week-day__horario">
+                            {horarioSem.inicio}{horarioSem.inicio && horarioSem.fim ? '–' : ''}{horarioSem.fim}
                           </span>
                         )}
                       </div>
@@ -1129,7 +1138,7 @@ function CalendarioObrasContent() {
                         ].filter(Boolean).join(' ')}
                       >
                         {dayObras.length === 0 ? (
-                          <p className="text-[0.62rem] text-[#c4a88a] mt-2 text-center">—</p>
+                          <p className="text-[0.58rem] text-[#c4a88a] mt-1 text-center opacity-60">—</p>
                         ) : (
                           dayObras.map(o => (
                             <div
@@ -1146,11 +1155,17 @@ function CalendarioObrasContent() {
                                 showAll={!isMontador}
                                 variant="compact"
                               />
-                              <p className="font-semibold text-cream leading-tight truncate">{o.cliente_nome}</p>
-                              <ObraMontadorBadge obra={o} compact />
-                              <ObraPedidoMaterialBadge obra={o} compact />
-                              <ObraMontadoresConclusao obra={o} compact visible={canViewMontadoresConclusao} />
-                              <ObraTempoBar obra={o} compact />
+                              <p className="cal-week-card__title">{o.cliente_nome}</p>
+                              <div className="cal-week-card__meta">
+                                <ObraMontadorBadge obra={o} compact />
+                                <ObraPedidoMaterialBadge obra={o} compact />
+                                <ObraMontadoresConclusao
+                                  obra={o}
+                                  micro
+                                  visible={canViewMontadoresConclusao}
+                                />
+                              </div>
+                              <ObraTempoBar obra={o} micro />
                             </div>
                           ))
                         )}

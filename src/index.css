@@ -862,7 +862,7 @@ body::before {
   width: max(100%, 728px);
   min-width: 728px;
   grid-template-columns: repeat(7, minmax(96px, 1fr));
-  gap: 0.375rem;
+  gap: 0.3rem;
 }
 
 .cal-week-day {
@@ -876,12 +876,12 @@ body::before {
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.28rem;
 }
 
 /* Altura fixa ≈ 5 cards; acima disso rola dentro do dia */
 .cal-week-day__cards--scroll {
-  max-height: 30rem;
+  max-height: 22rem;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -913,10 +913,10 @@ body::before {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.05rem;
   border-bottom: 1px solid var(--color-gold-border-subtle);
-  padding-bottom: 0.375rem;
-  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 
 .cal-week-day__title-row {
@@ -924,35 +924,190 @@ body::before {
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.25rem;
-  font-size: 0.68rem;
+  gap: 0.2rem;
+  font-size: 0.62rem;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .cal-week-day__label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.28rem;
+  overflow: hidden;
+}
+
+.cal-week-day__weekday {
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cal-week-day__date {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.cal-week-day__date {
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   font-weight: 600;
   color: var(--color-text-faint);
+  letter-spacing: 0.01em;
+}
+
+.cal-week-day__hoje {
+  flex-shrink: 0;
+  border-radius: 0.2rem;
+  background: rgba(242, 216, 146, 0.18);
+  color: #f2d892;
+  padding: 0.05rem 0.28rem;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cal-week-day__count {
+  display: flex;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(240, 210, 140, 0.2);
+  color: #f2d892;
+  font-size: 0.5rem;
+  font-weight: 700;
+}
+
+.cal-week-day__horario {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.48rem;
+  color: rgba(237, 217, 196, 0.55);
   letter-spacing: 0.02em;
 }
 
 .cal-week-card {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
   overflow: hidden;
-  border-radius: 0.375rem;
-  padding: 0.375rem;
-  font-size: 0.62rem;
+  border-radius: 0.3rem;
+  padding: 0.28rem 0.32rem;
+  font-size: 0.58rem;
+}
+
+.cal-week-card__title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f5efe6;
+  font-size: 0.6rem;
+  letter-spacing: 0.01em;
+}
+
+.cal-week-card__meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.cal-week-card__meta > * {
+  max-width: 100%;
 }
 
 .cal-week-card .obra-comissao-compact {
+  font-size: 0.5rem;
+  margin-bottom: 0 !important;
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+}
+
+/* Calendário semana: cabeçalho compacto — mais tela para os 7 dias */
+.obra-page-shell--cal-week .kanban-page-toolbar {
+  padding-bottom: 0.45rem;
+}
+
+.obra-page-shell--cal-week .obra-page-header {
+  gap: 0.4rem;
+}
+
+.obra-page-shell--cal-week .obra-page-title {
+  font-size: clamp(1rem, 3.2vw, 1.35rem);
+  letter-spacing: 0.05em;
+  line-height: 1.05;
+}
+
+.obra-page-shell--cal-week .obra-page-header__subtitle {
+  margin-top: 0.1rem !important;
   font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
+}
+
+.obra-page-shell--cal-week .obra-page-header__below {
+  gap: 0.4rem;
+}
+
+.obra-page-shell--cal-week .obra-page-filters {
+  padding: 0.45rem 0.65rem !important;
+  gap: 0.4rem !important;
+}
+
+.obra-page-shell--cal-week .obra-page-filters label {
+  margin-bottom: 0.15rem;
+  font-size: 0.55rem;
+}
+
+.obra-page-shell--cal-week .obra-page-view-tab {
+  padding: 0.28rem 0.55rem;
+}
+
+.obra-page-shell--cal-week .obra-page-nav-label {
+  font-size: clamp(0.68rem, 2.4vw, 0.8rem);
+}
+
+@media (min-width: 900px) {
+  .obra-page-shell--cal-week .obra-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+  }
+
+  .obra-page-shell--cal-week .obra-page-header__title-block {
+    width: auto;
+  }
+
+  .obra-page-shell--cal-week .obra-page-header__actions {
+    justify-self: end;
+  }
+
+  .obra-page-shell--cal-week .obra-page-header__below {
+    grid-column: 1 / -1;
+  }
+
+  .obra-page-shell--cal-week .obra-page-header__actions-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  .obra-page-shell--cal-week .obra-page-header__action-buttons {
+    width: auto;
+  }
 }
 
 .cal-month-wrap {
