@@ -4,12 +4,15 @@ import { cn, fmtCur } from '@/lib/utils'
 
 export interface MesComparativo {
   mes: string
+  /** Contas a receber ainda em aberto (vencimento no mês). */
   receitas: number
+  /** Contas a pagar ainda em aberto (vencimento no mês). */
   despesas: number
 }
 
 interface FaturadoGastosAnotacoesProps {
   ano: number
+  /** Meses com a receber / a pagar em aberto (mesma conta do sistema). */
   data: MesComparativo[]
   /** Previsão do próximo mês (contas a receber pendentes). */
   previsaoRecebimento?: number
@@ -17,16 +20,24 @@ interface FaturadoGastosAnotacoesProps {
   previsaoDespesas?: number
 }
 
-function nomeProximoMes(): { nome: string; ano: number } {
+const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+function infoProximoMes(): { nome: string; label: string; ano: number } {
   const agora = new Date()
   const proximo = new Date(agora.getFullYear(), agora.getMonth() + 1, 1)
   return {
     nome: MONTHS_PT[proximo.getMonth()],
+    label: MESES_CURTOS[proximo.getMonth()],
     ano: proximo.getFullYear(),
   }
 }
 
-/** Anotações mês a mês + previsão do próximo mês + caixa acumulado. */
+function roundMoneySigned(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.round(n * 100) / 100
+}
+
+/** Anotações mês a mês (a receber − a pagar) + previsão + caixa. */
 export function FaturadoGastosAnotacoes({
   ano,
   data,
@@ -34,33 +45,35 @@ export function FaturadoGastosAnotacoes({
   previsaoDespesas = 0,
 }: FaturadoGastosAnotacoesProps) {
   const mesesComMovimento = data.filter(m => m.receitas > 0 || m.despesas > 0)
-  const proximo = nomeProximoMes()
-  const saldoPrevisao = previsaoRecebimento - previsaoDespesas
+  const proximo = infoProximoMes()
+  const previsaoNoAno = proximo.ano === ano
 
-  let caixaAcumulado = 0
+  // Se o próximo mês já está nos cards do ano, usa esses valores (evita divergência).
+  const mesProximoNoAno = previsaoNoAno
+    ? data.find(m => m.mes === proximo.label)
+    : null
+  const recebimentoPrevisto = mesProximoNoAno?.receitas ?? previsaoRecebimento
+  const despesasPrevistas = mesProximoNoAno?.despesas ?? previsaoDespesas
+  const saldoPrevisao = recebimentoPrevisto - despesasPrevistas
+
   const linhas = data.map(m => {
     const saldo = m.receitas - m.despesas
-    caixaAcumulado += saldo
-    return {
-      ...m,
-      saldo,
-      caixaAposMes: caixaAcumulado,
-    }
+    return { ...m, saldo }
   })
 
-  // Previsão do próximo mês (ex.: Agosto) já entra no caixa final
-  const caixaFinal = caixaAcumulado + saldoPrevisao
+  const saldoMeses = linhas.reduce((s, m) => s + m.saldo, 0)
+  // Próximo mês no ano → já entrou na soma. Fora do ano → soma a previsão à parte.
+  const caixaFinal = roundMoneySigned(saldoMeses + (previsaoNoAno ? 0 : saldoPrevisao))
   const caixaPositivo = caixaFinal > 0
   const caixaNegativo = caixaFinal < 0
 
   return (
     <div className="mt-5 space-y-5">
-      {/* Previsão do próximo mês */}
       <PrevisaoProximoMesBloco
         nomeMes={proximo.nome}
         anoMes={proximo.ano}
-        recebimento={previsaoRecebimento}
-        despesas={previsaoDespesas}
+        recebimento={recebimentoPrevisto}
+        despesas={despesasPrevistas}
         saldo={saldoPrevisao}
       />
 
@@ -70,7 +83,7 @@ export function FaturadoGastosAnotacoes({
             ANOTAÇÕES {ano}
           </p>
           <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-[#edd9c4]/60">
-            Por mês · recebidos − gastos
+            Por mês · a receber − a pagar (parcelas em aberto)
           </p>
         </div>
       </div>
@@ -78,7 +91,7 @@ export function FaturadoGastosAnotacoes({
       {mesesComMovimento.length === 0 ? (
         <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.22)] px-4 py-5 text-center">
           <p className="text-[11px] uppercase tracking-[0.16em] text-[#edd9c4]/65">
-            Sem movimentos registrados em {ano}
+            Sem a receber ou a pagar em aberto em {ano}
           </p>
         </div>
       ) : (
@@ -90,13 +103,16 @@ export function FaturadoGastosAnotacoes({
               const isNeg = m.saldo < 0
               const sinal = isPos ? 'Positivo' : isNeg ? 'Negativo' : 'Zerado'
               const SaldoIcon = isNeg ? ArrowDownRight : ArrowUpRight
+              const isPrevisao = previsaoNoAno && m.mes === proximo.label
 
               return (
                 <article
                   key={m.mes}
                   className={cn(
                     'dash-card-enter relative overflow-hidden rounded-lg border px-3.5 py-3',
-                    'border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.28)]',
+                    isPrevisao
+                      ? 'border-[rgba(242,216,146,0.35)] bg-[rgba(242,216,146,0.08)]'
+                      : 'border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.28)]',
                     'transition-[border-color,transform] duration-300 hover:border-[rgba(240,210,140,0.28)]',
                   )}
                   style={{ animationDelay: `${i * 35}ms` }}
@@ -112,9 +128,16 @@ export function FaturadoGastosAnotacoes({
                   />
 
                   <header className="mb-2.5 flex items-center justify-between gap-2 pl-1">
-                    <h4 className="font-display text-lg tracking-[0.08em] text-[#f2d892]">
-                      {m.mes}
-                    </h4>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h4 className="font-display text-lg tracking-[0.08em] text-[#f2d892]">
+                        {m.mes}
+                      </h4>
+                      {isPrevisao && (
+                        <span className="rounded border border-[rgba(242,216,146,0.35)] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-[#f2d892]">
+                          Previsão
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={cn(
                         'inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em]',
@@ -132,11 +155,11 @@ export function FaturadoGastosAnotacoes({
 
                   <dl className="space-y-1.5 pl-1 text-[10px] uppercase tracking-[0.12em]">
                     <div className="flex items-center justify-between gap-2">
-                      <dt className="text-[#edd9c4]/70">Recebidos</dt>
+                      <dt className="text-[#edd9c4]/70">A receber</dt>
                       <dd className="font-semibold tabular-nums text-[#c8f0d8]">{fmtCur(m.receitas)}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <dt className="text-[#edd9c4]/70">Gastos</dt>
+                      <dt className="text-[#edd9c4]/70">A pagar</dt>
                       <dd className="font-semibold tabular-nums text-[#f0c4b0]">− {fmtCur(m.despesas)}</dd>
                     </div>
                     <div
@@ -164,7 +187,6 @@ export function FaturadoGastosAnotacoes({
         </div>
       )}
 
-      {/* Situação do caixa (acumulado do ano) */}
       {mesesComMovimento.length > 0 && (
         <div
           className={cn(
@@ -198,7 +220,8 @@ export function FaturadoGastosAnotacoes({
                   Como está o caixa · {ano}
                 </p>
                 <p className="mt-1 max-w-md text-xs leading-relaxed text-[#edd9c4]/80">
-                  Meses + previsão de {proximo.nome}
+                  Soma do a receber e a pagar em aberto
+                  {!previsaoNoAno ? ` + previsão de ${proximo.nome}` : ''}
                   {caixaPositivo && ' · caixa no azul.'}
                   {caixaNegativo && ' · caixa no vermelho.'}
                   {!caixaPositivo && !caixaNegativo && ' · caixa zerado.'}
@@ -290,20 +313,20 @@ function PrevisaoProximoMesBloco({
               {nomeMes.toUpperCase()} {anoMes}
             </p>
             <p className="mt-1 text-xs text-[#edd9c4]/70">
-              Contas a receber e a pagar com vencimento em {nomeMes}.
+              Mesma conta do card “A Receber Este Mês”: parcelas vencendo em {nomeMes}.
             </p>
           </div>
         </div>
 
         <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-xl">
           <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.25)] px-3 py-2.5">
-            <p className="text-[9px] uppercase tracking-[0.14em] text-[#edd9c4]/65">Recebimento</p>
+            <p className="text-[9px] uppercase tracking-[0.14em] text-[#edd9c4]/65">A receber</p>
             <p className="mt-1 font-display text-lg tabular-nums tracking-wide text-[#c8f0d8]">
               {fmtCur(recebimento)}
             </p>
           </div>
           <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.25)] px-3 py-2.5">
-            <p className="text-[9px] uppercase tracking-[0.14em] text-[#edd9c4]/65">Despesas</p>
+            <p className="text-[9px] uppercase tracking-[0.14em] text-[#edd9c4]/65">A pagar</p>
             <p className="mt-1 font-display text-lg tabular-nums tracking-wide text-[#f0c4b0]">
               − {fmtCur(despesas)}
             </p>

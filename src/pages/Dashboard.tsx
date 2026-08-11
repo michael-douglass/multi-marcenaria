@@ -51,18 +51,25 @@ export function Dashboard() {
 
   const { data: receitasMensais } = useGraficoReceitasMensal(anoReceitas)
   const { data: despesasMensais } = useGraficoDespesasMensal(anoDespesas)
-  const { data: receitasComparativo } = useGraficoReceitasMensal(anoComparativo)
-  const { data: despesasComparativo } = useGraficoDespesasMensal(anoComparativo)
+  /** Mesma base do sistema (a receber / a pagar em aberto) para comparativo + simulador. */
+  const { data: comparativoEmAberto } = useSimuladorCaixaMensal(anoComparativo)
   const { data: simuladorMensal } = useSimuladorCaixaMensal(anoSimulador)
 
   const comparativoData = useMemo(() => {
-    if (!receitasComparativo || !despesasComparativo) return []
-    return receitasComparativo.map((r, i) => ({
-      mes: r.mes,
-      receitas: r.valor,
-      despesas: despesasComparativo[i]?.valor ?? 0,
+    return (comparativoEmAberto ?? []).map(m => ({
+      mes: m.mes,
+      receitas: m.receitas,
+      despesas: m.despesas,
     }))
-  }, [receitasComparativo, despesasComparativo])
+  }, [comparativoEmAberto])
+
+  const previsaoProximoNoComparativo = useMemo(() => {
+    const agora = new Date()
+    const prox = new Date(agora.getFullYear(), agora.getMonth() + 1, 1)
+    if (prox.getFullYear() !== anoComparativo) return null
+    const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    return comparativoData.find(m => m.mes === labels[prox.getMonth()]) ?? null
+  }, [anoComparativo, comparativoData])
 
   const simuladorDataOriginal = useMemo(() => {
     return (simuladorMensal ?? []).map(m => ({
@@ -294,10 +301,10 @@ export function Dashboard() {
       </DashboardSection>
 
       {/* Comparativo */}
-      <DashboardSection title="Comparativo" hint="Faturado × gastos do ano">
+      <DashboardSection title="Comparativo" hint="A receber × a pagar em aberto">
         <DashboardChartCard
-          title="Faturado x Gastos"
-          description="Recebido no mês × pago das contas com vencimento no mês"
+          title="A receber x A pagar"
+          description="Parcelas em aberto por vencimento (mesma conta do sistema)"
           ano={anoComparativo}
           onAnoChange={setAnoComparativo}
           anos={anosDisponiveis}
@@ -320,7 +327,10 @@ export function Dashboard() {
                   contentStyle={CHART_TOOLTIP_STYLE}
                   labelStyle={{ color: '#f2d892', fontSize: '11px', fontWeight: 700, marginBottom: '6px' }}
                   itemStyle={{ color: '#fffaf4', fontSize: '12px', fontWeight: 600 }}
-                  formatter={(v: number, name: string) => [fmtCur(v), name === 'receitas' ? 'Faturado' : 'Gastos']}
+                  formatter={(v: number, name: string) => [
+                    fmtCur(v),
+                    name === 'receitas' ? 'A receber' : 'A pagar',
+                  ]}
                   labelFormatter={(label) => `Mês: ${label}`}
                 />
                 <Legend
@@ -334,16 +344,20 @@ export function Dashboard() {
                     color: '#edd9c4',
                   }}
                 />
-                <Bar dataKey="receitas" name="Faturado" fill="#34d399" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="despesas" name="Gastos" fill="#f87171" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="receitas" name="A receber" fill="#34d399" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="despesas" name="A pagar" fill="#f87171" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <FaturadoGastosAnotacoes
             ano={anoComparativo}
             data={comparativoData}
-            previsaoRecebimento={stats?.previsaoProximoMes ?? 0}
-            previsaoDespesas={stats?.despesasProximoMes ?? 0}
+            previsaoRecebimento={
+              previsaoProximoNoComparativo?.receitas ?? stats?.previsaoProximoMes ?? 0
+            }
+            previsaoDespesas={
+              previsaoProximoNoComparativo?.despesas ?? stats?.despesasProximoMes ?? 0
+            }
           />
         </DashboardChartCard>
       </DashboardSection>

@@ -163,15 +163,15 @@ export function PrevisaoProximoMesCard({
   return (
     <SaldoComparativoCard
       title="Previsão Próx. Mês"
-      subtitle="Recebimento − despesas do próximo mês"
+      subtitle="Parcelas vencendo no próximo mês"
       valorPrincipal={previsaoRecebimento}
-      labelEntrada="Recebimento"
+      labelEntrada="A receber"
       valorEntrada={previsaoRecebimento}
-      labelSaida="Despesas"
+      labelSaida="A pagar"
       valorSaida={previsaoDespesas}
       saldo={saldo}
       icon={CalendarClock}
-      ariaSaldoLabel="Saldo previsto: recebimento menos despesas"
+      ariaSaldoLabel="Saldo previsto: a receber menos a pagar"
       className={className}
       style={style}
     />

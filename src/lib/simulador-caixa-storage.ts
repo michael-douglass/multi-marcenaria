@@ -132,6 +132,36 @@ export function rotuloCampoAjuste(campo: SimuladorAjusteCampo | null): string {
   return 'Caixa'
 }
 
+/**
+ * Parte da base real do sistema (contas em aberto) e reaplica só o histórico (+/−).
+ * Assim os valores acompanham o sistema; o histórico permanece.
+ */
+export function aplicarAjustesNosMeses(
+  base: SimuladorMes[],
+  ajustes: SimuladorAjuste[],
+): SimuladorMes[] {
+  const result = base.map(m => ({
+    mes: m.mes,
+    receitas: toNumberMoney(m.receitas),
+    despesas: toNumberMoney(m.despesas),
+  }))
+
+  // Histórico guarda o mais novo na frente; reaplica do mais antigo ao mais novo.
+  for (const a of [...ajustes].reverse()) {
+    if (!a.mes || !a.campo) continue
+    const idx = result.findIndex(m => m.mes === a.mes)
+    if (idx < 0) continue
+    const sinal = a.tipo === 'adicionar' ? 1 : -1
+    const atual = result[idx][a.campo]
+    result[idx] = {
+      ...result[idx],
+      [a.campo]: toNumberMoney(Math.max(0, atual + sinal * toNumberMoney(a.valor))),
+    }
+  }
+
+  return result
+}
+
 export function normalizeSimulacaoPayload(
   payload: Omit<SimulacaoCaixa, 'salvoEm'> & { salvoEm?: string },
 ): SimulacaoCaixa {

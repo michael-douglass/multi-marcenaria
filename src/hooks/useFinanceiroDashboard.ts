@@ -6,6 +6,8 @@ import { startOfMonth, endOfMonth, format, addMonths } from 'date-fns'
 export function useFinanceiroStats() {
   return useQuery<FinanceiroStats>({
     queryKey: ['financeiro-stats', 'v2-saldo-mes'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const now = new Date()
       const firstDayMes = format(startOfMonth(now), 'yyyy-MM-dd')
@@ -161,6 +163,8 @@ export function useFinanceiroStats() {
 export function useGraficoReceitasMensal(ano: number = new Date().getFullYear()) {
   return useQuery<DadoGraficoMensal[]>({
     queryKey: ['grafico-receitas-mensal', ano, 'v2'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
       const data: DadoGraficoMensal[] = meses.map(m => ({ mes: m, valor: 0 }))
@@ -195,6 +199,8 @@ export function useGraficoReceitasMensal(ano: number = new Date().getFullYear())
 export function useGraficoDespesasMensal(ano: number = new Date().getFullYear()) {
   return useQuery<DadoGraficoMensal[]>({
     queryKey: ['grafico-despesas-mensal', ano, 'v3-vencimento-pago'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
       const data: DadoGraficoMensal[] = meses.map(m => ({ mes: m, valor: 0 }))
@@ -239,6 +245,9 @@ export interface MesSimuladorCaixa {
 export function useSimuladorCaixaMensal(ano: number = new Date().getFullYear()) {
   return useQuery<MesSimuladorCaixa[]>({
     queryKey: ['simulador-caixa-mensal', ano, 'v2-so-em-aberto'],
+    // Mantém a previsão alinhada ao que o sistema tem a receber / a pagar.
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
       const data: MesSimuladorCaixa[] = meses.map(m => ({

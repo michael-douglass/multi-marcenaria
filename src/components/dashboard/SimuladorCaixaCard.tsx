@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MONTHS_PT } from '@/lib/date-br'
 import { useSimuladorCaixaShared } from '@/hooks/useSimuladorCaixaShared'
 import {
+  aplicarAjustesNosMeses,
   rotuloCampoAjuste,
   somarAjustes,
   type SimuladorAjuste,
@@ -74,6 +75,12 @@ function roundMoney(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+/** Arredonda centavos sem forçar valor negativo a zero (ex.: saldo do caixa). */
+function roundMoneySigned(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.round(n * 100) / 100
+}
+
 function parseMoneyInput(raw: string): number {
   const cleaned = raw.trim().replace(/\s/g, '').replace(/[^\d.,]/g, '')
   if (!cleaned) return 0
@@ -113,9 +120,10 @@ export function SimuladorCaixaCard({
     clear,
   } = useSimuladorCaixaShared(ano)
 
-  const [meses, setMeses] = useState<SimuladorMes[]>(() => buildMesesBase(dataOriginal))
-  const [previsaoRecebimento, setPrevisaoRecebimento] = useState(previsaoRecebimentoOriginal)
-  const [previsaoDespesas, setPrevisaoDespesas] = useState(previsaoDespesasOriginal)
+  /**
+   * Só o histórico (+/−) fica salvo e não é sobrescrito pelos dados reais.
+   * Os valores “a receber / a pagar” sempre vêm do sistema + esse histórico.
+   */
   const [ajustes, setAjustes] = useState<SimuladorAjuste[]>([])
   /** Quais cards de mês estão com o histórico expandido. */
   const [historicosAbertos, setHistoricosAbertos] = useState<Record<string, boolean>>({})
@@ -127,44 +135,46 @@ export function SimuladorCaixaCard({
   } | null>(null)
   const [ajusteTitulo, setAjusteTitulo] = useState('')
   const [ajusteValorDraft, setAjusteValorDraft] = useState('')
-  /** true enquanto o usuário editou e ainda não gravamos (debounce). */
+  /** true enquanto o histórico mudou e ainda não gravamos (debounce). */
   const [isDirty, setIsDirty] = useState(false)
   const [saveFlash, setSaveFlash] = useState(false)
   const saveFlashTimer = useRef<number | null>(null)
-  /** Ano já aplicado na UI — evita misturar dados reais com simulação antiga. */
-  const anoAplicadoRef = useRef<number | null>(null)
+  /** Evita eco do próprio save sobrescrever o histórico local ainda dirty. */
+  const historicoAnoRef = useRef<number | null>(null)
 
   const proximo = useMemo(() => infoProximoMes(), [])
   const previsaoNoAnoAtual = proximo.ano === ano
   const mesesPrevisaoOriginais = useMemo(() => mesesComPrevisaoSet(dataOriginal), [dataOriginal])
+
+  const baseMeses = useMemo(() => buildMesesBase(dataOriginal), [dataOriginal])
+  const meses = useMemo(
+    () => aplicarAjustesNosMeses(baseMeses, ajustes),
+    [baseMeses, ajustes],
+  )
+
+  const previsaoRecebimento = useMemo(() => {
+    if (previsaoNoAnoAtual) {
+      return meses.find(m => m.mes === proximo.label)?.receitas ?? roundMoney(previsaoRecebimentoOriginal)
+    }
+    return roundMoney(previsaoRecebimentoOriginal)
+  }, [previsaoNoAnoAtual, meses, proximo.label, previsaoRecebimentoOriginal])
+
+  const previsaoDespesas = useMemo(() => {
+    if (previsaoNoAnoAtual) {
+      return meses.find(m => m.mes === proximo.label)?.despesas ?? roundMoney(previsaoDespesasOriginal)
+    }
+    return roundMoney(previsaoDespesasOriginal)
+  }, [previsaoNoAnoAtual, meses, proximo.label, previsaoDespesasOriginal])
 
   const markDirty = () => {
     setIsDirty(true)
     setSaveFlash(false)
   }
 
-  const aplicarBaseOriginal = () => {
-    setMeses(buildMesesBase(dataOriginal))
-    setPrevisaoRecebimento(previsaoRecebimentoOriginal)
-    setPrevisaoDespesas(previsaoDespesasOriginal)
-    setAjustes([])
-  }
-
-  const aplicarSimulacao = (saved: NonNullable<typeof simulacaoSalva>) => {
-    const base = buildMesesBase([])
-    const carregados = base.map(b => {
-      const found = saved.meses.find(m => m.mes === b.mes)
-      return found ?? b
-    })
-    setMeses(carregados)
-    setPrevisaoRecebimento(saved.previsaoRecebimento)
-    setPrevisaoDespesas(saved.previsaoDespesas)
-    setAjustes(saved.ajustes ?? [])
-  }
-
-  // Troca de ano: limpa painéis e espera o carregamento do banco
+  // Troca de ano: limpa painéis e espera o histórico daquele ano
   useEffect(() => {
-    anoAplicadoRef.current = null
+    historicoAnoRef.current = null
+    setAjustes([])
     setAjusteTitulo('')
     setAjusteValorDraft('')
     setPainelMes(null)
@@ -173,39 +183,19 @@ export function SimuladorCaixaCard({
     setSaveFlash(false)
   }, [ano])
 
-  // Quando a simulação do banco (ou a ausência dela) chega: aplica na tela
+  // Carrega só o histórico salvo — números vêm sempre da base real do sistema
   useEffect(() => {
     if (loadingSimulacao) return
     if (isDirty) return
 
-    if (simulacaoSalva) {
-      aplicarSimulacao(simulacaoSalva)
-    } else {
-      aplicarBaseOriginal()
-    }
-    anoAplicadoRef.current = ano
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ano, loadingSimulacao, simulacaoSalva])
+    setAjustes(simulacaoSalva?.ajustes ?? [])
+    historicoAnoRef.current = ano
+  }, [ano, loadingSimulacao, simulacaoSalva, isDirty])
 
-  // Dados reais do ano chegaram e ainda não há simulação salva → sincroniza
-  useEffect(() => {
-    if (loadingSimulacao || isDirty || simulacaoSalva) return
-    if (anoAplicadoRef.current !== ano) return
-    aplicarBaseOriginal()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    ano,
-    dataOriginal,
-    previsaoRecebimentoOriginal,
-    previsaoDespesasOriginal,
-    loadingSimulacao,
-    simulacaoSalva,
-    isDirty,
-  ])
-
-  // Salva automaticamente no banco após cada alteração (com pequeno atraso ao digitar)
+  // Salva automaticamente o histórico (e um espelho dos meses derivados, só para compatibilidade)
   useEffect(() => {
     if (!isDirty || loadingSimulacao) return
+    if (historicoAnoRef.current !== ano) return
 
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -267,7 +257,7 @@ export function SimuladorCaixaCard({
   const saldoPrevisao = previsaoRecebimento - previsaoDespesas
   // Se o próximo mês (ex.: Ago) já está no ano, a previsão já entrou no card do mês.
   // Se for ano seguinte (ex.: Jan), soma a previsão à parte no caixa.
-  const caixaFinal = roundMoney(
+  const caixaFinal = roundMoneySigned(
     saldoMeses + impactoAjustes + (previsaoNoAnoAtual ? 0 : saldoPrevisao),
   )
   const caixaPositivo = caixaFinal > 0
@@ -277,61 +267,41 @@ export function SimuladorCaixaCard({
   const ehMesPrevisao = (mes: string) =>
     mesesPrevisaoOriginais.has(mes) || ehMesProximo(mes)
 
-  const updateMes = (mes: string, field: 'receitas' | 'despesas', valor: number) => {
+  /** Digitar o valor vira um item de histórico (diferença em relação ao que está na tela). */
+  const commitValorCampo = (
+    mes: string,
+    campo: SimuladorAjusteCampo,
+    valor: number,
+    titulo = 'Ajuste manual',
+  ) => {
     const v = roundMoney(valor)
-    setMeses(prev => prev.map(m => (m.mes === mes ? { ...m, [field]: v } : m)))
-    if (ehMesProximo(mes)) {
-      if (field === 'receitas') setPrevisaoRecebimento(v)
-      else setPrevisaoDespesas(v)
+    const atual = meses.find(m => m.mes === mes)?.[campo] ?? 0
+    const delta = roundMoney(v - atual)
+    if (delta === 0) return
+
+    const novo: SimuladorAjuste = {
+      id: createId(),
+      titulo,
+      tipo: delta > 0 ? 'adicionar' : 'remover',
+      valor: Math.abs(delta),
+      criadoEm: new Date().toISOString(),
+      mes,
+      campo,
     }
+    setAjustes(prev => [novo, ...prev])
     markDirty()
+  }
+
+  const updateMes = (mes: string, field: 'receitas' | 'despesas', valor: number) => {
+    commitValorCampo(mes, field, valor)
   }
 
   const updatePrevisao = (field: 'receitas' | 'despesas', valor: number) => {
-    const v = roundMoney(valor)
-    if (field === 'receitas') setPrevisaoRecebimento(v)
-    else setPrevisaoDespesas(v)
     if (previsaoNoAnoAtual) {
-      setMeses(prev =>
-        prev.map(m =>
-          m.mes === proximo.label
-            ? {
-                ...m,
-                receitas: field === 'receitas' ? v : m.receitas,
-                despesas: field === 'despesas' ? v : m.despesas,
-              }
-            : m,
-        ),
-      )
+      commitValorCampo(proximo.label, field, valor)
+      return
     }
-    markDirty()
-  }
-
-  const aplicarDeltaNoMes = (
-    mes: string,
-    campo: SimuladorAjusteCampo,
-    tipo: SimuladorAjusteTipo,
-    valor: number,
-    reverter = false,
-  ) => {
-    const sinalBase = tipo === 'adicionar' ? 1 : -1
-    const sinal = reverter ? -sinalBase : sinalBase
-    const atual = meses.find(m => m.mes === mes)
-    const novoValorCampo = atual
-      ? roundMoney(Math.max(0, atual[campo] + sinal * valor))
-      : 0
-
-    setMeses(prev =>
-      prev.map(m => {
-        if (m.mes !== mes) return m
-        return { ...m, [campo]: novoValorCampo }
-      }),
-    )
-
-    if (ehMesProximo(mes) && atual) {
-      if (campo === 'receitas') setPrevisaoRecebimento(novoValorCampo)
-      else setPrevisaoDespesas(novoValorCampo)
-    }
+    // Próximo mês fora do ano selecionado: só acompanha o sistema (sem histórico local).
   }
 
   const abrirPainelMes = (mes: string, campo: SimuladorAjusteCampo, tipo: SimuladorAjusteTipo) => {
@@ -353,8 +323,6 @@ export function SimuladorCaixaCard({
     if (!titulo || valor <= 0) return
 
     const { mes, campo, tipo } = painelMes
-    aplicarDeltaNoMes(mes, campo, tipo, valor)
-
     const novo: SimuladorAjuste = {
       id: createId(),
       titulo,
@@ -370,11 +338,6 @@ export function SimuladorCaixaCard({
   }
 
   const apagarAjuste = (id: string) => {
-    const alvo = ajustes.find(a => a.id === id)
-    if (!alvo) return
-    if (alvo.mes && alvo.campo) {
-      aplicarDeltaNoMes(alvo.mes, alvo.campo, alvo.tipo, alvo.valor, true)
-    }
     setAjustes(prev => prev.filter(a => a.id !== id))
     markDirty()
   }
@@ -383,13 +346,14 @@ export function SimuladorCaixaCard({
     void (async () => {
       try {
         await clear()
-        aplicarBaseOriginal()
+        setAjustes([])
         setAjusteTitulo('')
         setAjusteValorDraft('')
         setPainelMes(null)
         setHistoricosAbertos({})
         setIsDirty(false)
         setSaveFlash(false)
+        historicoAnoRef.current = ano
       } catch {
         // erro já fica em saveError
       }
@@ -404,7 +368,7 @@ export function SimuladorCaixaCard({
             Simulador de Caixa
           </CardTitle>
           <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
-            A receber e a pagar em aberto · salva para todos os usuários
+            Igual ao sistema: parcelas em aberto por vencimento · histórico manual permanece
           </CardDescription>
           {loadingSimulacao && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#edd9c4]/55">
@@ -490,7 +454,7 @@ export function SimuladorCaixaCard({
                 </p>
                 <p className="mt-1 text-xs text-[#edd9c4]/70">
                   {previsaoNoAnoAtual
-                    ? `Já lançada no card ${proximo.label}. Os demais meses com contas em aberto também entram na previsão.`
+                    ? `Mesma conta do card “A Receber Este Mês”: parcelas vencendo em ${proximo.nome}. Já no card ${proximo.label}.`
                     : 'Entra no total do caixa (mês fora deste ano). Meses deste ano com contas em aberto já estão nos cards.'}
                 </p>
               </div>
@@ -502,12 +466,16 @@ export function SimuladorCaixaCard({
                 value={previsaoRecebimento}
                 onChange={v => updatePrevisao('receitas', v)}
                 tone="in"
+                commitOnBlurOnly
+                readOnly={!previsaoNoAnoAtual}
               />
               <MoneyField
                 label="A pagar"
                 value={previsaoDespesas}
                 onChange={v => updatePrevisao('despesas', v)}
                 tone="out"
+                commitOnBlurOnly
+                readOnly={!previsaoNoAnoAtual}
               />
               <SaldoBadge label="Saldo previsto" saldo={saldoPrevisao} />
             </div>
@@ -593,6 +561,7 @@ export function SimuladorCaixaCard({
                     onChange={v => updateMes(m.mes, 'receitas', v)}
                     tone="in"
                     compact
+                    commitOnBlurOnly
                   />
                   <MoneyField
                     label="A pagar"
@@ -600,6 +569,7 @@ export function SimuladorCaixaCard({
                     onChange={v => updateMes(m.mes, 'despesas', v)}
                     tone="out"
                     compact
+                    commitOnBlurOnly
                   />
 
                   {/* Ações rápidas: adicionar / remover no mês */}
@@ -953,12 +923,17 @@ function MoneyField({
   onChange,
   tone,
   compact,
+  readOnly,
+  commitOnBlurOnly,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
   tone: 'in' | 'out'
   compact?: boolean
+  readOnly?: boolean
+  /** Só grava no blur — evita criar vários itens de histórico a cada tecla. */
+  commitOnBlurOnly?: boolean
 }) {
   const [focused, setFocused] = useState(false)
   const [draft, setDraft] = useState(moneyInputValue(value))
@@ -987,16 +962,20 @@ function MoneyField({
         <input
           type="text"
           inputMode="decimal"
+          readOnly={readOnly}
           value={focused ? draft : moneyInputValue(value)}
           onFocus={() => {
+            if (readOnly) return
             setFocused(true)
             setDraft(moneyInputValue(value))
           }}
           onChange={e => {
+            if (readOnly) return
             setDraft(e.target.value)
-            onChange(parseMoneyInput(e.target.value))
+            if (!commitOnBlurOnly) onChange(parseMoneyInput(e.target.value))
           }}
           onBlur={() => {
+            if (readOnly) return
             const rounded = roundMoney(parseMoneyInput(draft))
             onChange(rounded)
             setDraft(moneyInputValue(rounded))
@@ -1008,6 +987,7 @@ function MoneyField({
             'px-2 py-1 text-sm font-semibold tabular-nums text-[#fffaf4] outline-none',
             'focus:border-[rgba(242,216,146,0.55)]',
             tone === 'in' ? 'caret-[#c8f0d8]' : 'caret-[#f0c4b0]',
+            readOnly && 'cursor-default opacity-90',
           )}
         />
       </div>
