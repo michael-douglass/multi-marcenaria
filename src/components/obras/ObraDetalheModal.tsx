@@ -1,9 +1,11 @@
 ﻿import { useRef, useState, useMemo } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText, PenLine } from 'lucide-react'
+import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
 import { useObraEvolucao } from '@/hooks/useObraEvolucao'
+import { useLeadMidiasPorObras } from '@/hooks/useLeadMidiasPorObras'
+import { getObraLeadMidias } from '@/lib/obra-lead-midias'
 import { isAcceptedObraFile, obraArquivoLightboxPages } from '@/lib/obra-arquivos'
 import { groupEvolucaoPorDia, evolucaoLightboxPages } from '@/lib/obra-evolucao'
 import { ObraEvolucaoRegistrarModal } from '@/components/obras/ObraEvolucaoRegistrarModal'
@@ -21,10 +23,11 @@ import {
 } from '@/lib/obra-dias-trabalho'
 import { fmtCur } from '@/lib/utils'
 import type { EvolucaoItemComUrl } from '@/lib/obra-evolucao'
-import type { MarkupCustosFiltro, MarkupOrcamentoCustos, ObraFull, StatusKanbanObra } from '@/types'
+import type { LeadMidia, MarkupCustosFiltro, MarkupOrcamentoCustos, ObraFull, StatusKanbanObra } from '@/types'
 import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
 import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
+import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
 import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
@@ -82,6 +85,8 @@ interface Props {
   onUpdateMontadores?: (obra: ObraFull, montadorIds: string[]) => void
   onUpdateMontadorAdmin?: (obra: ObraFull, montadorAdminId: string | null) => void
   updatingMontadores?: boolean
+  leadMidias?: LeadMidia[]
+  loadingLeadMidias?: boolean
 }
 
 function Campo({ label, value }: { label: string; value?: string | null }) {
@@ -111,11 +116,20 @@ export function ObraDetalheModal({
   onUpdateMontadores,
   onUpdateMontadorAdmin,
   updatingMontadores = false,
+  leadMidias: leadMidiasProp,
+  loadingLeadMidias: loadingLeadMidiasProp,
 }: Props) {
   const { roles } = useApp()
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const arqHook = useObraArquivos(open && obra ? obra.id : null)
   const evolHook = useObraEvolucao(open && obra ? obra.id : null)
+  const precisaBuscarMidias = leadMidiasProp === undefined
+  const { midiasByLead, loading: loadingMidiasFetch } = useLeadMidiasPorObras(
+    open && obra ? [obra] : [],
+    precisaBuscarMidias && open && !!obra,
+  )
+  const leadMidias = leadMidiasProp ?? (obra ? getObraLeadMidias(obra, midiasByLead) : [])
+  const loadingLeadMidias = loadingLeadMidiasProp ?? (precisaBuscarMidias && loadingMidiasFetch)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [lightbox, setLightbox]         = useState<{ url: string; pages?: string[]; nome: string; kind: 'image' | 'pdf' | 'video'; arquivoId?: string } | null>(null)
@@ -227,7 +241,8 @@ export function ObraDetalheModal({
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {canEdit && (
             <button
-              onClick={() => { onClose(); setTimeout(() => onEdit(obra), 80) }}
+              type="button"
+              onClick={() => onEdit(obra)}
               className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0"
             >
               <Pencil size={12} /> Editar
@@ -309,20 +324,24 @@ export function ObraDetalheModal({
           </div>
         )}
 
-        {/* ── LOUSA (fotos + anotações) ───────────────────────── */}
-        <div
-          className="mb-5 rounded-lg p-4"
-          style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
-        >
-          <div className="flex items-center gap-1.5 mb-3">
-            <PenLine size={14} className="text-[#f2d892]" />
-            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
-              Lousa
-            </p>
+        {/* ── FOTOS / DOCS DO LEAD (CRM) ─────────────────────── */}
+        {(loadingLeadMidias || leadMidias.length > 0) && (
+          <div className="mb-5">
+            <ObraLeadMidiasStrip
+              midias={leadMidias}
+              loading={loadingLeadMidias}
+              variant="detail"
+            />
           </div>
+        )}
 
+        {/* ── LOUSA (fotos + anotações) — começa minimizada ── */}
+        <div className="mb-5">
           {obra.lousa?.trim() && (
-            <div className="mb-4 rounded-md p-3" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <div
+              className="mb-3 rounded-md p-3"
+              style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
+            >
               <div className="flex items-center gap-1.5 mb-1.5">
                 <FileText size={12} className="text-[#edd9c4]" />
                 <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">

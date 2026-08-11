@@ -40,6 +40,9 @@ import {
 } from '../lib/obra-markup-custos'
 import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
 import { useMarkupCustosFiltrosPorObra } from '../hooks/useMarkupCustosFiltrosPorObra'
+import { useLeadMidiasPorObras } from '../hooks/useLeadMidiasPorObras'
+import { getObraLeadMidias } from '../lib/obra-lead-midias'
+import { ObraLeadMidiasStrip } from '../components/obras/ObraLeadMidiasStrip'
 import { canViewMarkupCustos as roleCanViewMarkupCustos } from '../lib/role-access'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
@@ -58,7 +61,7 @@ import {
 import type {
   ObraFull, ObraInput, StatusKanbanObra, UserRole,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
-  MarkupCustosFiltro, MarkupOrcamentoCustos,
+  MarkupCustosFiltro, MarkupOrcamentoCustos, LeadMidia,
 } from '../types'
 import { fmtDate } from '../lib/utils'
 import {
@@ -190,9 +193,11 @@ interface ObraCardProps {
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
   onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
+  leadMidias?: LeadMidia[]
+  loadingLeadMidias?: boolean
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange, leadMidias = [], loadingLeadMidias = false }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -277,6 +282,12 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
       />
 
       <ObraMontadoresConclusao obra={obra} compact visible={canViewMontadoresConclusao} />
+
+      <ObraLeadMidiasStrip
+        midias={leadMidias}
+        loading={loadingLeadMidias}
+        variant="compact"
+      />
 
       <div className="flex flex-col gap-1.5">
         <ObraPedidoMaterialToggle
@@ -557,6 +568,7 @@ function AgendaObrasContent() {
     obrasHook.data,
     canViewMarkupCustos,
   )
+  const { midiasByLead, loading: loadingLeadMidias } = useLeadMidiasPorObras(obrasHook.data, true)
   const {
     filtrosPorObra: markupCustosFiltrosPorObra,
     loading: loadingMarkupFiltros,
@@ -1226,6 +1238,8 @@ function AgendaObrasContent() {
                           markupCustos={getObraMarkupCustos(obra, custosByLead)}
                           markupCustosFiltro={getFiltroMarkupDaObra(markupCustosFiltrosPorObra, obra.id)}
                           onMarkupCustosFiltroChange={filtro => handleMarkupCustosFiltroObra(obra.id, filtro)}
+                          leadMidias={getObraLeadMidias(obra, midiasByLead)}
+                          loadingLeadMidias={loadingLeadMidias}
                           />
                       </div>
                     ))
@@ -1281,6 +1295,8 @@ function AgendaObrasContent() {
         onUpdateMontadores={handleUpdateMontadores}
         onUpdateMontadorAdmin={handleUpdateMontadorAdmin}
         updatingMontadores={updatingMontadores === detalheObra?.id}
+        leadMidias={detalheObra ? getObraLeadMidias(detalheObra, midiasByLead) : []}
+        loadingLeadMidias={loadingLeadMidias}
       />
 
       {/* Modal obra (edição) */}
@@ -1312,6 +1328,7 @@ function AgendaObrasContent() {
             />
           ) : null
         }
+        canEditLousa={canEdit}
       />
 
       {/* Modal configurações */}

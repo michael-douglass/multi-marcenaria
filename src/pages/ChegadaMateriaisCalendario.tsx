@@ -254,6 +254,7 @@ function ChegadaMateriaisCalendarioContent() {
             />
           ) : null
         }
+        canEditLousa={canEdit}
       />
     </div>
   )

@@ -25,6 +25,9 @@ import {
   MessageSquareText,
   Expand,
   Shrink,
+  ChevronDown,
+  ChevronUp,
+  PenLine,
 } from 'lucide-react'
 import { useObraLousa } from '@/hooks/useObraLousa'
 import { useObraLousaViewport } from '@/hooks/useObraLousaViewport'
@@ -73,11 +76,21 @@ interface Props {
   canEdit: boolean
   /** Quando true, embute no modal de detalhe (sem Dialog próprio). */
   embedded?: boolean
+  /** Começa fechada; só abre ao clicar (padrão em modo embutido). */
+  startCollapsed?: boolean
   onExported?: () => void
 }
 
-export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }: Props) {
-  const lousa = useObraLousa(obraId, open)
+export function ObraLousa({
+  obraId,
+  open,
+  canEdit,
+  embedded = true,
+  startCollapsed = embedded,
+  onExported,
+}: Props) {
+  const [expanded, setExpanded] = useState(!startCollapsed)
+  const lousa = useObraLousa(obraId, open && expanded)
   const history = useObraLousaHistory()
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -98,6 +111,13 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setExpanded(!startCollapsed)
+      setFullscreen(false)
+    }
+  }, [open, startCollapsed])
   const [furnitureType, setFurnitureType] = useState<FurnitureModuleType>('armario_2_portas')
   const [showFurnitureMenu, setShowFurnitureMenu] = useState(false)
   const [obsDraft, setObsDraft] = useState('')
@@ -643,8 +663,66 @@ export function ObraLousa({ obraId, open, canEdit, embedded = true, onExported }
 
   if (!open) return null
 
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-[rgba(240,210,140,0.12)]"
+        style={{
+          backgroundColor: 'rgba(240,210,140,0.07)',
+          border: '1px solid rgba(240,210,140,0.22)',
+        }}
+        aria-expanded={false}
+        aria-label="Abrir Lousa"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <PenLine size={16} className="text-[#f2d892] shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-[0.72rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+              Lousa
+            </span>
+            <span className="block text-[0.68rem] text-[#d4bc9f] mt-0.5">
+              Clique para abrir e anexar fotos / riscar
+            </span>
+          </span>
+        </span>
+        <ChevronDown size={18} className="text-[#f2d892] shrink-0" />
+      </button>
+    )
+  }
+
   const board = (
     <div className={cn('flex flex-col gap-3', fullscreen && 'flex-1 min-h-0 h-full')}>
+      {/* Cabeçalho: minimizar (quando embutida) */}
+      {embedded && !fullscreen && (
+        <button
+          type="button"
+          onClick={() => {
+            setFullscreen(false)
+            setExpanded(false)
+          }}
+          className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[rgba(240,210,140,0.1)]"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.18)',
+            border: '1px solid rgba(240,210,140,0.16)',
+          }}
+          aria-expanded={true}
+          aria-label="Minimizar Lousa"
+        >
+          <span className="flex items-center gap-2">
+            <PenLine size={14} className="text-[#f2d892]" />
+            <span className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+              Lousa
+            </span>
+          </span>
+          <span className="flex items-center gap-1 text-[0.68rem] text-[#d4bc9f]">
+            Minimizar
+            <ChevronUp size={16} className="text-[#f2d892]" />
+          </span>
+        </button>
+      )}
+
       {/* Anexar foto — sempre no topo */}
       {canEdit && (
         <div className={cn('flex flex-wrap items-center gap-2 shrink-0', fullscreen && 'hidden')}>

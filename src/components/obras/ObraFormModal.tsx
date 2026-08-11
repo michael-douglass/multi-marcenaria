@@ -7,6 +7,7 @@ import { DateInput } from '@/components/ui/DateInput'
 import { TimeInput } from '@/components/ui/TimeInput'
 import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
 import { ObraComissaoField } from '@/components/obras/ObraComissaoField'
+import { ObraLousa } from '@/components/obras/lousa/ObraLousa'
 import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
 import { isAcceptedObraFile, type PendingObraArquivo } from '@/lib/obra-arquivos'
 import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '@/types'
@@ -47,6 +48,8 @@ interface ObraFormModalProps {
   isDraftRestored?: boolean
   onClearDraft?: () => void
   obraBriefingSection?: ReactNode
+  /** Permite anexar/riscar na Lousa ao editar uma obra existente */
+  canEditLousa?: boolean
 }
 
 export function ObraFormModal({
@@ -55,6 +58,7 @@ export function ObraFormModal({
   pendingFiles, onAddFiles, onRemoveFile,
   isDraftRestored, onClearDraft,
   obraBriefingSection,
+  canEditLousa = true,
 }: ObraFormModalProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [previewFile, setPreviewFile] = useState<PendingObraArquivo | null>(null)
@@ -75,7 +79,7 @@ export function ObraFormModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={obra ? 'EDITAR OBRA' : 'NOVA OBRA'}>
+    <Modal open={open} onClose={onClose} title={obra ? 'EDITAR OBRA' : 'NOVA OBRA'} wide={!!obra}>
       {isDraftRestored && (
         <div className="mb-3 flex items-center justify-between rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(240,210,140,0.07)] px-3 py-2">
           <span className="text-[0.72rem] text-[#f2d892]">Rascunho restaurado — continue de onde parou</span>
@@ -107,6 +111,18 @@ export function ObraFormModal({
       </Field>
 
       {obraBriefingSection}
+
+      {/* Lousa — só ao editar obra já criada (precisa do id); começa minimizada */}
+      {obra && (
+        <div className="mb-4">
+          <ObraLousa
+            obraId={obra.id}
+            open={open}
+            canEdit={canEditLousa}
+            embedded
+          />
+        </div>
+      )}
 
       {isAdmin && (
         <>

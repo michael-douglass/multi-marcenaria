@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom'
 import { useObras } from '../hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
+import { useLeadMidiasPorObras } from '../hooks/useLeadMidiasPorObras'
+import { getObraLeadMidias } from '../lib/obra-lead-midias'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
@@ -19,6 +21,7 @@ import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterial
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import { ObraTempoBar } from '../components/obras/ObraTempoBar'
+import { ObraLeadMidiasStrip } from '../components/obras/ObraLeadMidiasStrip'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { TimeInput } from '../components/ui/TimeInput'
 import { addDaysISO } from '../lib/obra-chegada-material'
@@ -428,6 +431,7 @@ function CalendarioObrasContent() {
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const canViewBriefing = canViewObraBriefing(roles)
   const canEditBriefing = canEditObraBriefing(roles)
+  const { midiasByLead, loading: loadingLeadMidias } = useLeadMidiasPorObras(obrasHook.data, true)
 
   const hojeISO = toISO(new Date())
 
@@ -1027,6 +1031,11 @@ function CalendarioObrasContent() {
                       </div>
                     </button>
                     <div className="px-4 pb-4 flex flex-col gap-1.5">
+                      <ObraLeadMidiasStrip
+                        midias={getObraLeadMidias(o, midiasByLead)}
+                        loading={loadingLeadMidias}
+                        variant="compact"
+                      />
                       <ObraPedidoMaterialToggle
                         obra={o}
                         canEdit={canEdit}
@@ -1332,6 +1341,7 @@ function CalendarioObrasContent() {
               />
             ) : null
           }
+          canEditLousa={canEdit}
         />
       )}
 

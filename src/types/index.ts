@@ -530,6 +530,20 @@ export interface MarkupOrcamentoCustos {
   preco_final: number
 }
 
+/** Mídia anexada ao lead no CRM (emp_garbo.marketing_medias). */
+export type LeadMidiaTipo = 'imagem' | 'pdf' | 'video' | 'audio'
+
+export interface LeadMidia {
+  id: string
+  lead_id: string
+  tipo: LeadMidiaTipo
+  titulo: string
+  file_name: string
+  file_url: string
+  folder_nome?: string | null
+  criado_em?: string | null
+}
+
 /** Filtro de categorias de gasto exibidas na Agenda (só Administrador). */
 export interface MarkupCustosFiltro {
   materiais: boolean
