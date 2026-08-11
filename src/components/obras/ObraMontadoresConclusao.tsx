@@ -19,9 +19,10 @@ interface ObraMontadoresConclusaoProps {
   >
   montadores?: ObraMontadorConclusaoStatus[]
   fechadaPeloAdmin?: boolean
-  /** compact = pills; micro = só contagem (visão semana) */
+  /** compact = pills; micro = só contagem; dense = nomes curtos sempre visíveis */
   compact?: boolean
   micro?: boolean
+  dense?: boolean
   visible?: boolean
 }
 
@@ -32,6 +33,7 @@ export function ObraMontadoresConclusao({
   fechadaPeloAdmin: fechadaPeloAdminProp,
   compact,
   micro,
+  dense,
   visible = true,
 }: ObraMontadoresConclusaoProps) {
   if (!visible) return null
@@ -48,6 +50,50 @@ export function ObraMontadoresConclusao({
   )
   if (fechadaPeloAdmin) tooltipLinhas.push('Obra concluída pelo administrador')
   const tooltip = `Conclusão montadores (${concluidos}/${montadores.length})\n${tooltipLinhas.join('\n')}`
+
+  if (dense) {
+    return (
+      <div className="cal-week-conclusao" title={tooltip}>
+        <div className="cal-week-conclusao__head">
+          <span className="cal-week-conclusao__label">Conclusão</span>
+          <span
+            className={[
+              'cal-week-conclusao__count',
+              todosOk ? 'text-emerald-300' : 'text-[#f2d892]',
+            ].join(' ')}
+          >
+            {concluidos}/{montadores.length}
+          </span>
+        </div>
+        <div className="cal-week-conclusao__names">
+          {montadores.map(m => (
+            <span
+              key={m.montador_id}
+              className={[
+                'cal-week-conclusao__chip',
+                m.concluiu
+                  ? 'cal-week-conclusao__chip--ok'
+                  : 'cal-week-conclusao__chip--pending',
+              ].join(' ')}
+              title={
+                m.concluiu
+                  ? `${m.nome} marcou como concluída`
+                  : `${m.nome} ainda não marcou conclusão`
+              }
+            >
+              {m.concluiu
+                ? <CheckCircle2 size={8} className="shrink-0" aria-hidden />
+                : <CircleDashed size={8} className="shrink-0" aria-hidden />}
+              <span className="cal-week-conclusao__chip-name">{m.nome}</span>
+            </span>
+          ))}
+        </div>
+        {fechadaPeloAdmin && (
+          <p className="cal-week-conclusao__admin-note">Concluída pelo admin</p>
+        )}
+      </div>
+    )
+  }
 
   if (micro) {
     return (
@@ -128,7 +174,7 @@ export function ObraMontadoresConclusao({
             {m.concluiu
               ? <CheckCircle2 size={compact ? 9 : 10} className="shrink-0" />
               : <CircleDashed size={compact ? 9 : 10} className="shrink-0" />}
-            <span className="truncate min-w-0">{m.nome}</span>
+            <span className="min-w-0 break-words whitespace-normal">{m.nome}</span>
           </span>
         ))}
       </div>

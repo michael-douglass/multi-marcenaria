@@ -12,6 +12,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const PDF_RENDER_SCALE = 1.5
 const MAX_PDF_PAGES = 50
+/** Limite maior para PDFs do lead (projetos/orçamentos) virarem fotos no card. */
+const MAX_LEAD_PDF_PAGES = 100
 
 async function renderPdfPageToPngBlob(
   pdf: pdfjs.PDFDocumentProxy,
@@ -38,11 +40,15 @@ async function renderPdfPageToPngBlob(
 }
 
 /** Converte todas as páginas do PDF (ArrayBuffer) em PNGs. */
-export async function pdfDataAllPagesToPngBlobs(data: ArrayBuffer): Promise<Blob[]> {
+export async function pdfDataAllPagesToPngBlobs(
+  data: ArrayBuffer,
+  options?: { maxPages?: number },
+): Promise<Blob[]> {
+  const maxPages = options?.maxPages ?? MAX_PDF_PAGES
   const pdf = await pdfjs.getDocument({ data }).promise
 
-  if (pdf.numPages > MAX_PDF_PAGES) {
-    throw new Error(`PDF com ${pdf.numPages} páginas. O limite é ${MAX_PDF_PAGES} páginas por arquivo.`)
+  if (pdf.numPages > maxPages) {
+    throw new Error(`PDF com ${pdf.numPages} páginas. O limite é ${maxPages} páginas por arquivo.`)
   }
 
   const blobs: Blob[] = []
@@ -74,6 +80,8 @@ export async function pdfUrlAllPagesToObjectUrls(url: string): Promise<string[]>
   if (!res.ok) {
     throw new Error(`Não foi possível baixar o PDF (${res.status}).`)
   }
-  const blobs = await pdfDataAllPagesToPngBlobs(await res.arrayBuffer())
+  const blobs = await pdfDataAllPagesToPngBlobs(await res.arrayBuffer(), {
+    maxPages: MAX_LEAD_PDF_PAGES,
+  })
   return blobs.map(blob => URL.createObjectURL(blob))
 }

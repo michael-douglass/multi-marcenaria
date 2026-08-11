@@ -10,6 +10,8 @@ interface AnexoLightboxProps {
   imageUrl: string
   /** Todas as páginas (PDF multipágina). Se omitido, usa só imageUrl. */
   pages?: string[]
+  /** Página inicial ao abrir (0-based). Útil quando o usuário clica na página 5 de 10. */
+  initialPageIndex?: number
   title: string
   /** Descrição / observação do anexo (ex.: evolução da obra). */
   description?: string | null
@@ -193,16 +195,34 @@ function ZoomableImage({ src, alt, compact = false }: { src: string; alt: string
   )
 }
 
-function PdfPagesViewer({ pages, title, compact = false }: { pages: string[]; title: string; compact?: boolean }) {
-  const [pageIndex, setPageIndex] = useState(0)
+function PdfPagesViewer({
+  pages,
+  title,
+  compact = false,
+  initialPageIndex = 0,
+  counterLabel = 'Página',
+  prevAriaLabel = 'Página anterior',
+  nextAriaLabel = 'Próxima página',
+}: {
+  pages: string[]
+  title: string
+  compact?: boolean
+  initialPageIndex?: number
+  /** Texto do contador: "Página" (PDF) ou "Foto" (galeria do lead). */
+  counterLabel?: string
+  prevAriaLabel?: string
+  nextAriaLabel?: string
+}) {
   const total = pages.length
-  const currentUrl = pages[Math.min(pageIndex, total - 1)] ?? ''
+  const clampIndex = (i: number) => Math.min(Math.max(0, i), Math.max(0, total - 1))
+  const [pageIndex, setPageIndex] = useState(() => clampIndex(initialPageIndex))
+  const currentUrl = pages[clampIndex(pageIndex)] ?? ''
   // Chave estável do conteúdo — evita resetar a página a cada re-render.
   const pagesKey = pages.join('\0')
 
   useEffect(() => {
-    setPageIndex(0)
-  }, [pagesKey])
+    setPageIndex(clampIndex(initialPageIndex))
+  }, [pagesKey, initialPageIndex, total])
 
   useEffect(() => {
     if (total <= 1) return
@@ -232,25 +252,25 @@ function PdfPagesViewer({ pages, title, compact = false }: { pages: string[]; ti
             className="btn btn-outline btn-sm !px-2"
             disabled={pageIndex <= 0}
             onClick={() => setPageIndex(i => Math.max(0, i - 1))}
-            aria-label="Página anterior"
+            aria-label={prevAriaLabel}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="min-w-[5.5rem] text-center text-xs text-[#f2d892]">
-            Página {pageIndex + 1} / {total}
+            {counterLabel} {pageIndex + 1} / {total}
           </span>
           <button
             type="button"
             className="btn btn-outline btn-sm !px-2"
             disabled={pageIndex >= total - 1}
             onClick={() => setPageIndex(i => Math.min(total - 1, i + 1))}
-            aria-label="Próxima página"
+            aria-label={nextAriaLabel}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
-      <ZoomableImage src={currentUrl} alt={`${title} — página ${pageIndex + 1}`} compact={compact} />
+      <ZoomableImage src={currentUrl} alt={`${title} — ${counterLabel.toLowerCase()} ${pageIndex + 1}`} compact={compact} />
     </div>
   )
 }
@@ -278,6 +298,7 @@ export function AnexoLightbox({
   open,
   imageUrl,
   pages,
+  initialPageIndex = 0,
   title,
   description,
   kind = 'image',
@@ -305,7 +326,12 @@ export function AnexoLightbox({
   if (!open) return null
 
   const isVideo = kind === 'video'
+  const isImageGallery = kind === 'image' && pageUrls.length > 1
   const isMultiPagePdf = (kind === 'pdf' || kind === 'document') && pageUrls.length > 1
+  const useGalleryNav = isImageGallery || isMultiPagePdf || kind === 'pdf' || (kind === 'document' && pageUrls.length > 0)
+  const galleryCounterLabel = kind === 'image' ? 'Foto' : 'Página'
+  const galleryPrevLabel = kind === 'image' ? 'Foto anterior' : 'Página anterior'
+  const galleryNextLabel = kind === 'image' ? 'Próxima foto' : 'Próxima página'
 
   return createPortal(
     <div
@@ -350,9 +376,11 @@ export function AnexoLightbox({
             <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
               {isVideo
                 ? 'Vídeo · Esc para fechar'
-                : kind === 'pdf' || kind === 'document'
-                  ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
-                  : 'Tela cheia · Esc para fechar'}
+                : isImageGallery
+                  ? `${pageUrls.length} fotos · Esc para fechar · ← → para navegar`
+                  : kind === 'pdf' || kind === 'document'
+                    ? `${pageUrls.length} página${pageUrls.length !== 1 ? 's' : ''} · Esc para fechar${isMultiPagePdf ? ' · ← → para navegar' : ''}`
+                    : 'Tela cheia · Esc para fechar'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -395,9 +423,7 @@ export function AnexoLightbox({
             className="max-h-full max-w-full rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
           />
         </div>
-      ) : kind === 'document' && pageUrls.length > 0 ? (
-        <PdfPagesViewer pages={pageUrls} title={title} compact={compact} />
-      ) : kind === 'document' ? (
+      ) : kind === 'document' && pageUrls.length === 0 ? (
         <div className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-4 ${compact ? 'p-4 pt-16' : 'p-8'}`}>
           <FileText className="h-16 w-16 text-[#f2d892]" />
           <p className="max-w-md text-center text-sm text-[#edd9c4]">{title}</p>
@@ -414,8 +440,16 @@ export function AnexoLightbox({
             </a>
           ) : null}
         </div>
-      ) : kind === 'pdf' ? (
-        <PdfPagesViewer pages={pageUrls} title={title} compact={compact} />
+      ) : useGalleryNav ? (
+        <PdfPagesViewer
+          pages={pageUrls}
+          title={title}
+          compact={compact}
+          initialPageIndex={initialPageIndex}
+          counterLabel={galleryCounterLabel}
+          prevAriaLabel={galleryPrevLabel}
+          nextAriaLabel={galleryNextLabel}
+        />
       ) : (
         <ZoomableImage src={pageUrls[0] ?? imageUrl} alt={title} compact={compact} />
       )}

@@ -16,6 +16,7 @@ import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
+import { ObraWeekCardRoster } from '../components/obras/ObraWeekCardRoster'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
 import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
@@ -124,9 +125,6 @@ function getMonthGrid(d: Date): Date[] {
   return days
 }
 const MOBILE_VIEW_MQ = '(max-width: 768px)'
-
-/** Na visão semana: até este número de obras expande o dia; acima disso a lista rola. */
-const CAL_WEEK_MAX_OBRAS_SEM_SCROLL = 5
 
 function isMobileCalendario(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEW_MQ).matches
@@ -1101,7 +1099,7 @@ function CalendarioObrasContent() {
                       key={iso}
                       onClick={() => isDiaUtil && hasObras && setSelectedDay(day)}
                       className={[
-                        'cal-week-day glass-card p-1.5 flex flex-col min-h-[140px] transition-all',
+                        'cal-week-day glass-card p-2 flex flex-col min-h-[140px] transition-all',
                         !isDiaUtil   ? 'opacity-40' : '',
                         isToday      ? 'ring-1 ring-[#f2d892]/40' : '',
                         isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
@@ -1131,22 +1129,20 @@ function CalendarioObrasContent() {
                           </span>
                         )}
                       </div>
-                      <div
-                        className={[
-                          'cal-week-day__cards',
-                          dayObras.length > CAL_WEEK_MAX_OBRAS_SEM_SCROLL && 'cal-week-day__cards--scroll',
-                        ].filter(Boolean).join(' ')}
-                      >
+                      <div className="cal-week-day__cards">
                         {dayObras.length === 0 ? (
-                          <p className="text-[0.58rem] text-[#c4a88a] mt-1 text-center opacity-60">—</p>
+                          <p className="text-[0.62rem] text-[#c4a88a] mt-1 text-center opacity-60">—</p>
                         ) : (
-                          dayObras.map(o => (
+                          dayObras.map(o => {
+                            const statusEfetivo = getStatusEfetivo(o)
+                            const statusCor = STATUS_COLORS[statusEfetivo]
+                            return (
                             <div
                               key={o.id}
                               className="cal-week-card"
                               style={{
-                                backgroundColor: `${STATUS_COLORS[getStatusEfetivo(o)]}18`,
-                                borderLeft: `2px solid ${STATUS_COLORS[getStatusEfetivo(o)]}`,
+                                backgroundColor: `${statusCor}18`,
+                                borderLeft: `2px solid ${statusCor}`,
                               }}
                             >
                               <ObraComissaoStrip
@@ -1155,19 +1151,19 @@ function CalendarioObrasContent() {
                                 showAll={!isMontador}
                                 variant="compact"
                               />
-                              <p className="cal-week-card__title">{o.cliente_nome}</p>
-                              <div className="cal-week-card__meta">
-                                <ObraMontadorBadge obra={o} compact />
-                                <ObraPedidoMaterialBadge obra={o} compact />
-                                <ObraMontadoresConclusao
-                                  obra={o}
-                                  micro
-                                  visible={canViewMontadoresConclusao}
-                                />
-                              </div>
+                              <p className="cal-week-card__title" title={o.cliente_nome}>
+                                {o.cliente_nome}
+                              </p>
+                              <ObraWeekCardRoster
+                                obra={o}
+                                status={statusEfetivo}
+                                statusColor={statusCor}
+                                canViewMontadoresConclusao={canViewMontadoresConclusao}
+                              />
                               <ObraTempoBar obra={o} micro />
                             </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     </div>
