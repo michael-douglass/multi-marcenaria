@@ -1,5 +1,12 @@
 import { Clock, MapPin } from 'lucide-react'
-import { labelPontoTipo, formatAtrasoMinutos, formatJornadaResumo, marcacaoHoraEfetiva, PONTO_TIMEZONE } from '@/lib/funcionario-ponto'
+import {
+  labelPontoTipo,
+  formatAtrasoMinutos,
+  formatJornadaMarcas,
+  formatJornadaResumo,
+  marcacaoHoraEfetiva,
+  PONTO_TIMEZONE,
+} from '@/lib/funcionario-ponto'
 import { PONTO_STATUS_DIA_LABEL } from '@/lib/funcionario-constants'
 import type { PontoStatusDiaPayload } from '@/types'
 
@@ -11,6 +18,7 @@ export function PontoStatusCard({ status }: Props) {
   if (!status) return null
 
   const jornadaTxt = formatJornadaResumo(status.jornada)
+  const marcas = formatJornadaMarcas(status.jornada)
   const statusLabel = PONTO_STATUS_DIA_LABEL[status.status_dia] ?? status.status_dia
 
   return (
@@ -30,6 +38,19 @@ export function PontoStatusCard({ status }: Props) {
         )}
       </div>
       <div className="space-y-3 p-5">
+        {marcas.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {marcas.map(m => (
+              <div
+                key={m.label}
+                className="rounded-lg border border-[rgba(212,168,83,0.15)] bg-[rgba(36,16,8,0.35)] px-3 py-2 text-center"
+              >
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#b8957f]">{m.label}</p>
+                <p className="mt-0.5 text-sm font-medium text-[#f2d892]">{m.hora}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {status.proximo_tipo ? (
           <p className="text-[#edd9c4]">
             Próxima batida:{' '}

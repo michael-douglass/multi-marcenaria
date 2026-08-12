@@ -45,9 +45,25 @@ export function labelPontoTipo(tipo: PontoMarcacaoTipo | string | null | undefin
 export function formatJornadaResumo(jornada?: FuncionarioJornada | null): string | null {
   if (!jornada) return null
   const ini = jornada.hora_entrada?.slice(0, 5)
+  const almoco = jornada.hora_saida_intervalo?.slice(0, 5)
+  const retorno = jornada.hora_retorno_intervalo?.slice(0, 5)
   const fim = jornada.hora_saida?.slice(0, 5)
   if (!ini || !fim) return null
+  if (almoco && retorno) return `${ini}–${fim} · almoço ${almoco}–${retorno}`
   return `${ini}–${fim}`
+}
+
+/** Lista legível das 4 marcas da jornada (para a tela de bater ponto). */
+export function formatJornadaMarcas(
+  jornada?: FuncionarioJornada | null,
+): { label: string; hora: string }[] {
+  if (!jornada) return []
+  return [
+    { label: 'Entrada', hora: jornada.hora_entrada?.slice(0, 5) ?? '' },
+    { label: 'Saída almoço', hora: jornada.hora_saida_intervalo?.slice(0, 5) ?? '' },
+    { label: 'Retorno almoço', hora: jornada.hora_retorno_intervalo?.slice(0, 5) ?? '' },
+    { label: 'Saída', hora: jornada.hora_saida?.slice(0, 5) ?? '' },
+  ].filter(m => m.hora)
 }
 
 export async function sha256Hex(payload: string): Promise<string> {
@@ -264,6 +280,25 @@ export async function ajustarMarcacao(
     p_marcacao_id: marcacaoId,
     p_hora: hora.length === 5 ? `${hora}:00` : hora,
     p_motivo: motivo,
+  })
+  if (error) throw new Error(error.message)
+  return data as PontoMarcacao
+}
+
+/** RH lança batida oficial (NSR) quando o funcionário esqueceu de bater. */
+export async function registrarPontoManual(input: {
+  funcionarioId: string
+  data: string
+  tipo: PontoMarcacaoTipo
+  hora: string
+  motivo: string
+}): Promise<PontoMarcacao> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_registrar_manual', {
+    p_funcionario_id: input.funcionarioId,
+    p_data: input.data,
+    p_tipo: input.tipo,
+    p_hora: input.hora.length === 5 ? `${input.hora}:00` : input.hora,
+    p_motivo: input.motivo,
   })
   if (error) throw new Error(error.message)
   return data as PontoMarcacao

@@ -234,8 +234,17 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               funcionarioTipo={funcionario.tipo}
               funcionarioCpf={funcionario.cpf}
               documentos={documentos}
+              admissaoDados={funcionario.admissao_dados}
               readOnly={edicaoBloqueada}
               onReload={() => void reload()}
+              onSyncAdmissaoHorarios={async patch => {
+                await handleUpdate({
+                  admissao_dados: {
+                    ...(funcionario.admissao_dados ?? {}),
+                    ...patch,
+                  },
+                })
+              }}
             />
           )}
           {tab === 'documentos' && (

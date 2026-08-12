@@ -6,6 +6,7 @@ import {
   fetchOcorrencias,
   fetchRepArquivos,
   fetchRepConfig,
+  registrarPontoManual,
   removerOcorrencia,
   salvarJornada,
   salvarOcorrencia,
@@ -14,6 +15,7 @@ import type {
   FuncionarioDocumento,
   FuncionarioJornada,
   PontoMarcacao,
+  PontoMarcacaoTipo,
   PontoOcorrencia,
   RepArquivo,
   RepConfig,
@@ -56,11 +58,13 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
 
   useEffect(() => { void load() }, [load])
 
-  const saveJornada = async (input: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>) => {
+  const saveJornada = useCallback(async (
+    input: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+  ) => {
     if (!funcionarioId) return
     const saved = await salvarJornada(funcionarioId, input)
     setJornada(saved)
-  }
+  }, [funcionarioId])
 
   const addOcorrencia = async (data: string, tipo: PontoOcorrencia['tipo'], observacao?: string) => {
     if (!funcionarioId) return
@@ -79,6 +83,26 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
     return row
   }
 
+  const addMarcacaoManual = async (
+    data: string,
+    tipo: PontoMarcacaoTipo,
+    hora: string,
+    motivo: string,
+  ) => {
+    if (!funcionarioId) return
+    const row = await registrarPontoManual({
+      funcionarioId,
+      data,
+      tipo,
+      hora,
+      motivo,
+    })
+    setMarcacoes(prev => [row, ...prev.filter(m => m.id !== row.id)])
+    // Falta automática do dia some no banco; sincroniza a lista local
+    setOcorrencias(prev => prev.filter(o => !(o.data === data && o.tipo === 'falta' && o.automatica)))
+    return row
+  }
+
   return {
     jornada,
     marcacoes,
@@ -92,6 +116,7 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
     addOcorrencia,
     deleteOcorrencia,
     adjustMarcacao,
+    addMarcacaoManual,
   }
 }
 

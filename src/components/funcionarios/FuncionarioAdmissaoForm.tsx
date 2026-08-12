@@ -4,6 +4,13 @@ import { DateInput } from '@/components/ui/DateInput'
 import { HorariosSemanaFields } from '@/components/funcionarios/HorariosSemanaFields'
 import { ValeTransporteFields } from '@/components/funcionarios/ValeTransporteFields'
 import { ADMISSAO_STATUS_LABEL } from '@/lib/funcionario-constants'
+import {
+  admissaoTemHorariosPreenchidos,
+  horariosAdmissaoFromJornada,
+  jornadaFromHorariosAdmissao,
+} from '@/lib/funcionario-horarios'
+import { fetchJornada, salvarJornada } from '@/lib/funcionario-ponto'
+import { showToast } from '@/lib/toast'
 import { fmtCur } from '@/lib/utils'
 import type { Funcionario, FuncionarioAdmissaoDados, FuncionarioInput } from '@/types'
 
@@ -32,6 +39,8 @@ export function FuncionarioAdmissaoForm({
   draftRef.current = draft
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seededSalarioRef = useRef(false)
+  const seededHorariosRef = useRef(false)
+  const syncingJornadaRef = useRef(false)
 
   const salarioFixoFormatado =
     salarioFixoMensal != null && salarioFixoMensal > 0 ? fmtCur(salarioFixoMensal) : ''
@@ -41,7 +50,28 @@ export function FuncionarioAdmissaoForm({
   useEffect(() => {
     setDraft(funcionario.admissao_dados ?? {})
     seededSalarioRef.current = false
+    seededHorariosRef.current = false
   }, [funcionario.id])
+
+  const syncJornadaFromAdmissao = async (dados: FuncionarioAdmissaoDados) => {
+    if (readOnly || syncingJornadaRef.current) return
+    const jornada = jornadaFromHorariosAdmissao(
+      dados.horarios_semana,
+      dados.horarios_dias_ativos,
+    )
+    if (!jornada) return
+    syncingJornadaRef.current = true
+    try {
+      await salvarJornada(funcionario.id, jornada)
+    } catch (e) {
+      showToast(
+        e instanceof Error ? e.message : 'Não foi possível sincronizar a jornada do ponto.',
+        'error',
+      )
+    } finally {
+      syncingJornadaRef.current = false
+    }
+  }
 
   const flushSave = (dados: FuncionarioAdmissaoDados) => {
     if (saveTimerRef.current) {
@@ -49,23 +79,61 @@ export function FuncionarioAdmissaoForm({
       saveTimerRef.current = null
     }
     void onUpdate({ admissao_dados: dados })
+    void syncJornadaFromAdmissao(dados)
   }
 
-  const scheduleSave = (dados: FuncionarioAdmissaoDados) => {
+  const scheduleSave = (dados: FuncionarioAdmissaoDados, syncJornada = false) => {
     if (readOnly) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null
       void onUpdate({ admissao_dados: dados })
+      if (syncJornada) void syncJornadaFromAdmissao(dados)
     }, SAVE_DEBOUNCE_MS)
   }
+
+  // Se a admissão ainda não tem horários, copia da jornada do ponto (quando existir).
+  useEffect(() => {
+    if (readOnly || seededHorariosRef.current) return
+    if (admissaoTemHorariosPreenchidos(draftRef.current)) {
+      seededHorariosRef.current = true
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const jornada = await fetchJornada(funcionario.id)
+        if (cancelled || !jornada) {
+          seededHorariosRef.current = true
+          return
+        }
+        const patch = horariosAdmissaoFromJornada(jornada)
+        seededHorariosRef.current = true
+        setDraft(prev => {
+          if (admissaoTemHorariosPreenchidos(prev)) return prev
+          const next = { ...prev, ...patch }
+          draftRef.current = next
+          void onUpdate({ admissao_dados: next })
+          return next
+        })
+      } catch {
+        seededHorariosRef.current = true
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir o funcionário
+  }, [funcionario.id, readOnly])
 
   // Salva o que ficou pendente se sair da tela.
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current)
-        void onUpdate({ admissao_dados: draftRef.current })
+        const pending = draftRef.current
+        void onUpdate({ admissao_dados: pending })
+        void syncJornadaFromAdmissao(pending)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só no unmount
@@ -93,10 +161,10 @@ export function FuncionarioAdmissaoForm({
     })
   }
 
-  const patchDados = (patch: Partial<FuncionarioAdmissaoDados>) => {
+  const patchDados = (patch: Partial<FuncionarioAdmissaoDados>, syncJornada = false) => {
     setDraft(prev => {
       const next = { ...prev, ...patch }
-      scheduleSave(next)
+      scheduleSave(next, syncJornada)
       return next
     })
   }
@@ -203,9 +271,13 @@ export function FuncionarioAdmissaoForm({
             diasAtivos={draft.horarios_dias_ativos}
             disabled={readOnly}
             onChange={({ horarios_semana, horarios_dias_ativos }) =>
-              patchDados({ horarios_semana, horarios_dias_ativos })
+              patchDados({ horarios_semana, horarios_dias_ativos }, true)
             }
           />
+          <p className="mt-2 text-xs text-[#b8957f]">
+            Estes horários são os mesmos da aba Ponto. Ao salvar aqui, a jornada usada na batida
+            de ponto também é atualizada.
+          </p>
         </div>
 
         <div className="mt-4">

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useFuncionarios, type FuncionarioListagem } from '@/hooks/useFuncionarios'
 import { FuncionarioFolderCard } from '@/components/funcionarios/FuncionarioFolderCard'
+import { ExportarDocumentosChecklistButton } from '@/components/funcionarios/ExportarDocumentosChecklistButton'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
@@ -68,11 +69,14 @@ export function Funcionarios({ readOnly }: Props) {
               : `${filtered.length} dispensado${filtered.length !== 1 ? 's' : ''} (somente histórico)`}
           </p>
         </div>
-        {!readOnly && aba === 'ativos' && (
-          <button type="button" className="btn btn-gold btn-md" onClick={() => { setForm(BLANK); setOpen(true) }}>
-            + Novo Funcionário
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportarDocumentosChecklistButton />
+          {!readOnly && aba === 'ativos' && (
+            <button type="button" className="btn btn-gold btn-md" onClick={() => { setForm(BLANK); setOpen(true) }}>
+              + Novo Funcionário
+            </button>
+          )}
+        </div>
       </div>
 
       <nav

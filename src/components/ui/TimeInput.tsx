@@ -40,7 +40,7 @@ export function TimeInput({ value, onChange, className, disabled, onBlur, ...res
       value={display}
       onChange={e => setDisplay(maskTime24Input(e.target.value))}
       onBlur={e => {
-        commit(display)
+        commit(e.currentTarget.value)
         onBlur?.(e)
       }}
     />

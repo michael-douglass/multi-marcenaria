@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -8,6 +8,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  PlusCircle,
   Save,
   Trash2,
   XCircle,
@@ -21,21 +22,45 @@ import { LoadingState } from '@/components/ui/EmptyState'
 import {
   DIAS_SEMANA_LABEL,
   PONTO_OCORRENCIA_LABEL,
+  PONTO_TIPO_LABEL,
 } from '@/lib/funcionario-constants'
-import { getRepArquivoSignedUrl, pontoDataLocal, PONTO_TIMEZONE } from '@/lib/funcionario-ponto'
+import {
+  admissaoTemHorariosPreenchidos,
+  horariosAdmissaoFromJornada,
+  jornadaFromHorariosAdmissao,
+} from '@/lib/funcionario-horarios'
+import {
+  getRepArquivoSignedUrl,
+  horaPrevistaPorTipo,
+  PONTO_TIPOS_ORDEM,
+  pontoDataLocal,
+  PONTO_TIMEZONE,
+} from '@/lib/funcionario-ponto'
 import { exportarRepArquivos } from '@/lib/rep/rep-export'
 import { formatarCnpj, validarExportacaoRep } from '@/lib/rep/rep-validation'
 import { showToast } from '@/lib/toast'
 import { useFuncionarioPonto, filterPontoDocumentos } from '@/hooks/useFuncionarioPonto'
-import type { FuncionarioDocumento, FuncionarioJornada, FuncionarioTipo, RepArquivo } from '@/types'
+import type {
+  FuncionarioAdmissaoDados,
+  FuncionarioDocumento,
+  FuncionarioJornada,
+  FuncionarioTipo,
+  PontoMarcacaoTipo,
+  RepArquivo,
+} from '@/types'
 interface Props {
   funcionarioId: string
   funcionarioNome: string
   funcionarioTipo: FuncionarioTipo
   funcionarioCpf?: string | null
   documentos: FuncionarioDocumento[]
+  admissaoDados?: FuncionarioAdmissaoDados | null
   readOnly?: boolean
   onReload?: () => void
+  onSyncAdmissaoHorarios?: (patch: {
+    horarios_semana: NonNullable<FuncionarioAdmissaoDados['horarios_semana']>
+    horarios_dias_ativos: NonNullable<FuncionarioAdmissaoDados['horarios_dias_ativos']>
+  }) => Promise<void>
 }
 
 const DEFAULT_JORNADA: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'> = {
@@ -56,8 +81,10 @@ export function FuncionarioPontoPanel({
   funcionarioTipo,
   funcionarioCpf,
   documentos,
+  admissaoDados,
   readOnly,
   onReload,
+  onSyncAdmissaoHorarios,
 }: Props) {
   const {
     jornada,
@@ -70,6 +97,7 @@ export function FuncionarioPontoPanel({
     addOcorrencia,
     deleteOcorrencia,
     adjustMarcacao,
+    addMarcacaoManual,
     reload,
   } = useFuncionarioPonto(funcionarioId)
 
@@ -81,11 +109,16 @@ export function FuncionarioPontoPanel({
   const [ocData, setOcData] = useState(pontoDataLocal())
   const [ocTipo, setOcTipo] = useState<'folga' | 'falta' | 'abono'>('folga')
   const [ocObs, setOcObs] = useState('')
+  const [manualData, setManualData] = useState(pontoDataLocal())
+  const [manualTipo, setManualTipo] = useState<PontoMarcacaoTipo>('entrada')
+  const [manualHora, setManualHora] = useState('08:00')
+  const [manualMotivo, setManualMotivo] = useState('')
   const [periodoInicio, setPeriodoInicio] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
   })
   const [periodoFim, setPeriodoFim] = useState(pontoDataLocal())
+  const seededFromAdmissaoRef = useRef(false)
 
   const pontoDocs = useMemo(() => filterPontoDocumentos(documentos), [documentos])
 
@@ -108,8 +141,39 @@ export function FuncionarioPontoPanel({
     return [...map.entries()]
   }, [marcacoes])
 
+  const tiposJaBatidosNoDia = useMemo(() => {
+    const set = new Set<PontoMarcacaoTipo>()
+    for (const m of marcacoes) {
+      const diaIso = new Date(m.registrado_em).toLocaleDateString('en-CA', { timeZone: PONTO_TIMEZONE })
+      if (diaIso === manualData) set.add(m.tipo)
+    }
+    return set
+  }, [marcacoes, manualData])
+
+  const tiposDisponiveisManual = useMemo(
+    () => PONTO_TIPOS_ORDEM.filter(t => !tiposJaBatidosNoDia.has(t)),
+    [tiposJaBatidosNoDia],
+  )
+
   useEffect(() => {
-    if (jornada) {      setForm({
+    seededFromAdmissaoRef.current = false
+  }, [funcionarioId])
+
+  useEffect(() => {
+    if (tiposDisponiveisManual.length === 0) return
+    if (!tiposDisponiveisManual.includes(manualTipo)) {
+      setManualTipo(tiposDisponiveisManual[0])
+    }
+  }, [tiposDisponiveisManual, manualTipo])
+
+  useEffect(() => {
+    const previsto = horaPrevistaPorTipo(manualTipo, jornada)?.slice(0, 5)
+    if (previsto) setManualHora(previsto)
+  }, [manualTipo, jornada])
+
+  useEffect(() => {
+    if (jornada) {
+      setForm({
         hora_entrada: jornada.hora_entrada?.slice(0, 5) ?? '08:00',
         hora_saida_intervalo: jornada.hora_saida_intervalo?.slice(0, 5) ?? '12:00',
         hora_retorno_intervalo: jornada.hora_retorno_intervalo?.slice(0, 5) ?? '13:00',
@@ -118,8 +182,40 @@ export function FuncionarioPontoPanel({
         dias_uteis: jornada.dias_uteis ?? [1, 2, 3, 4, 5],
         ativo: jornada.ativo ?? true,
       })
+      return
     }
-  }, [jornada])
+
+    const fromAdmissao = jornadaFromHorariosAdmissao(
+      admissaoDados?.horarios_semana,
+      admissaoDados?.horarios_dias_ativos,
+    )
+    if (fromAdmissao) setForm(fromAdmissao)
+  }, [jornada, admissaoDados])
+
+  // Se ainda não existe jornada no ponto, mas a admissão já tem horários, cria a jornada.
+  useEffect(() => {
+    if (loading || readOnly || jornada || seededFromAdmissaoRef.current) return
+    if (!admissaoTemHorariosPreenchidos(admissaoDados)) return
+    const fromAdmissao = jornadaFromHorariosAdmissao(
+      admissaoDados?.horarios_semana,
+      admissaoDados?.horarios_dias_ativos,
+    )
+    if (!fromAdmissao) return
+    seededFromAdmissaoRef.current = true
+    void (async () => {
+      try {
+        await saveJornada(fromAdmissao)
+        showToast('Jornada do ponto criada a partir dos horários da admissão.')
+        onReload?.()
+      } catch (e) {
+        seededFromAdmissaoRef.current = false
+        showToast(
+          e instanceof Error ? e.message : 'Não foi possível criar a jornada a partir da admissão.',
+          'error',
+        )
+      }
+    })()
+  }, [loading, readOnly, jornada, admissaoDados, saveJornada, onReload])
 
   if (loading) return <LoadingState message="Carregando ponto…" />
 
@@ -127,7 +223,13 @@ export function FuncionarioPontoPanel({
     setSaving(true)
     try {
       await saveJornada(form)
+      if (onSyncAdmissaoHorarios) {
+        await onSyncAdmissaoHorarios(horariosAdmissaoFromJornada(form))
+      }
+      showToast('Jornada salva e sincronizada com a admissão.')
       onReload?.()
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar jornada.', 'error')
     } finally {
       setSaving(false)
     }
@@ -138,6 +240,35 @@ export function FuncionarioPontoPanel({
     try {
       await addOcorrencia(ocData, ocTipo, ocObs || undefined)
       setOcObs('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRegistroManual = async () => {
+    if (tiposDisponiveisManual.length === 0) {
+      showToast('Todas as batidas deste dia já estão registradas.', 'error')
+      return
+    }
+    if (!manualHora || manualHora.length < 4) {
+      showToast('Informe o horário da batida.', 'error')
+      return
+    }
+    if (manualMotivo.trim().length < 3) {
+      showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      const row = await addMarcacaoManual(manualData, manualTipo, manualHora, manualMotivo.trim())
+      setManualMotivo('')
+      showToast(
+        row?.nsr
+          ? `Ponto oficial registrado (NSR ${row.nsr}). A falta automática do dia, se houver, foi removida.`
+          : 'Ponto oficial registrado.',
+      )
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao registrar ponto.', 'error')
     } finally {
       setSaving(false)
     }
@@ -226,6 +357,10 @@ export function FuncionarioPontoPanel({
             <Clock size={18} />
             Horários de trabalho
           </h3>
+          <p className="text-xs text-[#b8957f]">
+            Mesmos horários da aba Admissão. Ao salvar, a grade de admissão também é atualizada e
+            o funcionário vê esses horários ao bater ponto.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Entrada">
               <TimeInput value={form.hora_entrada} onChange={v => setForm(p => ({ ...p, hora_entrada: v ?? '08:00' }))} disabled={readOnly} />
@@ -291,6 +426,69 @@ export function FuncionarioPontoPanel({
 
       {subTab === 'registros' && (
         <div className="space-y-4">
+          {!readOnly && (
+            <div className="glass-card space-y-3 p-5">
+              <h3 className="flex items-center gap-2 font-display text-lg text-[#f2d892]">
+                <PlusCircle size={18} />
+                Registrar ponto esquecido
+              </h3>
+              <p className="text-xs text-[#b8957f]">
+                Use quando a pessoa esqueceu de bater. Gera batida oficial com NSR, aparece no histórico
+                dela e remove falta automática do dia (se existir).
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Data">
+                  <DateInput
+                    value={manualData}
+                    onChange={iso => {
+                      if (iso) setManualData(iso)
+                    }}
+                    aria-label="Data do ponto esquecido"
+                  />
+                </Field>
+                <Field label="Tipo de batida">
+                  <select
+                    className="glass-input"
+                    value={manualTipo}
+                    disabled={tiposDisponiveisManual.length === 0}
+                    onChange={e => setManualTipo(e.target.value as PontoMarcacaoTipo)}
+                  >
+                    {tiposDisponiveisManual.length === 0 ? (
+                      <option value={manualTipo}>Dia completo</option>
+                    ) : (
+                      tiposDisponiveisManual.map(t => (
+                        <option key={t} value={t}>{PONTO_TIPO_LABEL[t]}</option>
+                      ))
+                    )}
+                  </select>
+                </Field>
+                <Field label="Horário">
+                  <TimeInput
+                    value={manualHora}
+                    onChange={v => setManualHora(v ?? '')}
+                  />
+                </Field>
+                <Field label="Motivo">
+                  <input
+                    className="glass-input"
+                    value={manualMotivo}
+                    onChange={e => setManualMotivo(e.target.value)}
+                    placeholder="Ex.: esqueceu de bater a entrada"
+                  />
+                </Field>
+              </div>
+              <button
+                type="button"
+                className="btn btn-gold btn-sm"
+                disabled={saving || tiposDisponiveisManual.length === 0}
+                onClick={() => void handleRegistroManual()}
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <PlusCircle size={14} />}
+                Registrar batida oficial
+              </button>
+            </div>
+          )}
+
           {marcacoesPorDia.length === 0 && (
             <p className="text-sm text-[#b8957f]">Nenhum registro de ponto ainda.</p>
           )}

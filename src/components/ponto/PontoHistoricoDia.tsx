@@ -110,6 +110,9 @@ export function PontoHistoricoDia({
               {m.nsr && (
                 <span className="ml-2 text-[0.65rem] text-[#b8957f]">NSR {m.nsr}</span>
               )}
+              {m.origem === 'rh_manual' && (
+                <span className="ml-2 text-[0.6rem] uppercase tracking-wider text-amber-300">RH</span>
+              )}
             </div>
             <div className="text-right text-[#edd9c4]">
               <div>
@@ -153,6 +156,11 @@ export function PontoHistoricoDia({
                   <span className="text-[#f2d892]">{labelPontoTipo(m.tipo)}</span>
                   {m.nsr != null && (
                     <span className="ml-2 text-[0.65rem] text-[#b8957f]">NSR {m.nsr}</span>
+                  )}
+                  {m.origem === 'rh_manual' && (
+                    <span className="ml-2 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wider text-amber-300">
+                      RH
+                    </span>
                   )}
                   <p className="mt-0.5 text-xs text-[#b8957f]">
                     Batido às <span className="text-[#edd9c4]">{realizado}</span>
@@ -213,6 +221,11 @@ export function PontoHistoricoDia({
                 {temAjuste && m.ajuste_motivo && (
                   <p className="mt-2 text-xs text-[#b8957f]">
                     Motivo do ajuste: <span className="text-[#edd9c4]">{m.ajuste_motivo}</span>
+                  </p>
+                )}
+                {m.origem === 'rh_manual' && m.registro_motivo && (
+                  <p className="mt-2 text-xs text-[#b8957f]">
+                    Lançado pelo RH: <span className="text-[#edd9c4]">{m.registro_motivo}</span>
                   </p>
                 )}
 

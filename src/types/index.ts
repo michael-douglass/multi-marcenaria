@@ -891,6 +891,8 @@ export interface FuncionarioJornada {
   atualizado_em?: string
 }
 
+export type PontoMarcacaoOrigem = 'app' | 'rh_manual'
+
 export interface PontoMarcacao {
   id: string
   nsr: number
@@ -904,6 +906,10 @@ export interface PontoMarcacao {
   ajuste_motivo?: string | null
   ajustado_por?: string | null
   ajustado_em?: string | null
+  /** app = funcionário; rh_manual = lançamento oficial pelo RH. */
+  origem?: PontoMarcacaoOrigem | null
+  /** Motivo do lançamento quando origem = rh_manual. */
+  registro_motivo?: string | null
   latitude?: number | null
   longitude?: number | null
   precisao_metros?: number | null
