@@ -37,16 +37,17 @@ export function ObraLeadMidiasStrip({
   useEffect(() => {
     let cancelled = false
 
-    if (midias.length === 0) {
+    if (!midiasKey) {
       setItems([])
       setExpanding(false)
       return
     }
 
-    const hasPdf = midias.some(m => m.tipo === 'pdf')
+    const list = midias
+    const hasPdf = list.some(m => m.tipo === 'pdf')
     setExpanding(hasPdf)
 
-    void expandLeadMidiasToDisplayItems(midias, next => {
+    void expandLeadMidiasToDisplayItems(list, next => {
       if (!cancelled) setItems(next)
     })
       .then(next => {
@@ -59,7 +60,9 @@ export function ObraLeadMidiasStrip({
     return () => {
       cancelled = true
     }
-  }, [midiasKey, midias])
+    // midiasKey é a assinatura estável; evita reprocessar PDF a cada re-render do Kanban.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- midias acompanha midiasKey
+  }, [midiasKey])
 
   /** Todas as fotos do lead (imagens + páginas de PDF) para navegar ← → na tela cheia. */
   const galleryPages = useMemo(

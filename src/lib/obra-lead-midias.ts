@@ -52,11 +52,13 @@ export function groupLeadMidiasByLead(midias: LeadMidia[]): Map<string, LeadMidi
   return map
 }
 
+const EMPTY_LEAD_MIDIAS: LeadMidia[] = []
+
 export function getObraLeadMidias(
   obra: Pick<ObraFull, 'origem_lead_id'>,
   midiasByLead: ReadonlyMap<string, LeadMidia[]>,
 ): LeadMidia[] {
   const leadId = obra.origem_lead_id?.trim()
-  if (!leadId) return []
-  return midiasByLead.get(leadId) ?? []
+  if (!leadId) return EMPTY_LEAD_MIDIAS
+  return midiasByLead.get(leadId) ?? EMPTY_LEAD_MIDIAS
 }

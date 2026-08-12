@@ -10,23 +10,30 @@ export function useFornecedores() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     const { data: rows, error: err } = await supabase
       .from('movelaria_fornecedores')
       .select('*')
       .order('criado_em', { ascending: false })
-    if (err) setError(err.message)
-    else setData(rows ?? [])
-    setLoading(false)
+    if (err) {
+      if (!opts?.silent) setError(err.message)
+    } else {
+      setData(rows ?? [])
+    }
+    if (!opts?.silent) setLoading(false)
   }, [isReady])
 
-  useEffect(() => {
-    load()
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
   }, [load])
-  useAutoRefresh(load)
+
+  useEffect(() => {
+    void load()
+  }, [load])
+  useAutoRefresh(silentReload)
 
   const create = async (input: FornecedorInput): Promise<Fornecedor> => {
     const { data: row, error: err } = await supabase

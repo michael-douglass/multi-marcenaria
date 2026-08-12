@@ -4,11 +4,7 @@ import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
-import { useCaixaFornecedor } from '@/hooks/useCaixaFornecedor'
-import { useFornecedores } from '@/hooks/useFornecedores'
-import { useClientes } from '@/hooks/useClientes'
-import { useContasPagar } from '@/hooks/useContasPagar'
-import { useContasReceber } from '@/hooks/useContasReceber'
+import { OptionalFinanceDataProvider, useFinanceDataOptional } from '@/context/FinanceDataContext'
 import { sectionFromPath, defaultPathForRoles } from '@/lib/app-navigation'
 import { canAccessSection } from '@/lib/role-access'
 import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
@@ -111,13 +107,7 @@ function RoleRedirect() {
 function AuthenticatedRoutes() {
   const { roles } = useApp()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
-
-  const fornecedoresHook = useFornecedores()
-  const clientesHook = useClientes()
-  const contasPagarHook = useContasPagar()
-  const contasReceberHook = useContasReceber()
-  const caixaFornecedorHook = useCaixaFornecedor()
-
+  const finance = useFinanceDataOptional()
 
   const guardReadOnly = (page: React.ReactNode) =>
     readOnly ? (
@@ -126,8 +116,29 @@ function AuthenticatedRoutes() {
       page
     )
 
+  const emptyFinance = {
+    data: [] as never[],
+    getSaldoFornecedor: () => 0,
+    debitarSaldo: async () => {},
+    estornarDebitosContaPagar: async () => {},
+    create: async () => {
+      throw new Error('Operação indisponível para este perfil.')
+    },
+  }
+
+  const clientesHook = finance?.clientes ?? {
+    data: emptyFinance.data,
+    create: emptyFinance.create as never,
+  }
+  const contasPagarHook = finance?.contasPagar ?? { data: emptyFinance.data }
+  const caixaFornecedorHook = finance?.caixaFornecedor ?? {
+    getSaldoFornecedor: emptyFinance.getSaldoFornecedor,
+    debitarSaldo: emptyFinance.debitarSaldo as never,
+    estornarDebitosContaPagar: emptyFinance.estornarDebitosContaPagar as never,
+  }
+
   return (
-    <ObrasProvider>
+    <>
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout />}>
@@ -157,12 +168,12 @@ function AuthenticatedRoutes() {
           <Route
             path="/contas-pagar"
             element={
-              roles.includes('Administrador') ? (
+              roles.includes('Administrador') && finance ? (
                 <ContasPagar
-                  fornecedores={fornecedoresHook.data}
-                  getSaldoFornecedor={caixaFornecedorHook.getSaldoFornecedor}
-                  debitarSaldo={caixaFornecedorHook.debitarSaldo}
-                  estornarDebitosContaPagar={caixaFornecedorHook.estornarDebitosContaPagar}
+                  fornecedores={finance.fornecedores.data}
+                  getSaldoFornecedor={finance.caixaFornecedor.getSaldoFornecedor}
+                  debitarSaldo={finance.caixaFornecedor.debitarSaldo}
+                  estornarDebitosContaPagar={finance.caixaFornecedor.estornarDebitosContaPagar}
                   readOnly={readOnly}
                 />
               ) : (
@@ -173,8 +184,8 @@ function AuthenticatedRoutes() {
           <Route
             path="/caixa-fornecedor"
             element={
-              roles.includes('Administrador') ? (
-                <CaixaFornecedor fornecedores={fornecedoresHook.data} roles={roles} readOnly={readOnly} />
+              roles.includes('Administrador') && finance ? (
+                <CaixaFornecedor fornecedores={finance.fornecedores.data} roles={roles} readOnly={readOnly} />
               ) : (
                 <Restricted message="Acesso restrito a Administradores." />
               )
@@ -308,6 +319,16 @@ function AuthenticatedRoutes() {
           <Route path="*" element={<Navigate to={defaultPathForRoles(roles)} replace />} />
         </Route>
       </Routes>
+    </>
+  )
+}
+
+function AuthenticatedApp() {
+  return (
+    <ObrasProvider>
+      <OptionalFinanceDataProvider>
+        <AuthenticatedRoutes />
+      </OptionalFinanceDataProvider>
     </ObrasProvider>
   )
 }
@@ -368,7 +389,7 @@ function AppRoutes() {
     )
   }
 
-  return <AuthenticatedRoutes />
+  return <AuthenticatedApp />
 }
 
 export default function App() {

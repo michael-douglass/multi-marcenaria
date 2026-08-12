@@ -10,22 +10,29 @@ export function useCaixaFornecedor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
     const { data, error: err } = await supabase
       .from('movelaria_caixa_fornecedor')
       .select('*, movelaria_fornecedores(id, nome)')
       .order('criado_em', { ascending: false })
-    if (err) setError(err.message)
-    else setCaixas(data ?? [])
-    setLoading(false)
+    if (err) {
+      if (!opts?.silent) setError(err.message)
+    } else {
+      setCaixas(data ?? [])
+    }
+    if (!opts?.silent) setLoading(false)
   }, [isReady])
 
-  useEffect(() => { load() }, [load])
-  useAutoRefresh(load)
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
+  useEffect(() => { void load() }, [load])
+  useAutoRefresh(silentReload)
 
   const getSaldoFornecedor = useCallback(
     (fornecedorId: string): number =>

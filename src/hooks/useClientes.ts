@@ -10,10 +10,10 @@ export function useClientes() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
 
-    setLoading(true)
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const { data: rows, error: err } = await supabase
@@ -24,14 +24,20 @@ export function useClientes() {
       if (err) throw err
       setData(rows ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar clientes.')
+      if (!opts?.silent) {
+        setError(err instanceof Error ? err.message : 'Erro ao carregar clientes.')
+      }
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [isReady])
 
+  const silentReload = useCallback(() => {
+    void load({ silent: true })
+  }, [load])
+
   useEffect(() => { void load() }, [load])
-  useAutoRefresh(load)
+  useAutoRefresh(silentReload)
 
   const create = async (input: ClienteInput): Promise<Cliente> => {
     const { data: row, error: err } = await supabase

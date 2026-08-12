@@ -1,15 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import type { MontadorFixoMensal, UserRole, UsuarioMontador } from '@/types'
 
-/** Perfis que podem gerar cobranças de fixo mensal dos montadores. */
+/**
+ * Só o Administrador (tela Contas a Pagar) deve gerar cobranças de fixo.
+ * Montador admin / obras abriam o app e disparavam expansão + realtime
+ * em loop — a Agenda ficava instável sem o usuário abrir Contas a Pagar.
+ */
 export function podeExpandirFixoMontadores(roles: UserRole[]): boolean {
-  return roles.some(
-    r =>
-      r === 'Administrador'
-      || r === 'Financeiro'
-      || r === 'MontadorAdmin'
-      || r === 'AdministradorObras',
-  )
+  return roles.includes('Administrador')
 }
 
 function mapFixoRow(row: Record<string, unknown>): MontadorFixoMensal {

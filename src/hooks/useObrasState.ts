@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useId, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { splitObraInputForSave } from '../lib/obra-montadores'
 import { splitComissaoForSave } from '../lib/obra-comissao'
@@ -8,6 +8,35 @@ import { useAuthReady } from './useAuthReady'
 import { useAutoRefresh } from './useAutoRefresh'
 
 const OBRAS_REALTIME_CHANNEL = 'movelaria-obras-sync'
+/** Junta vários eventos do realtime num único GET (evita tempestade na Agenda). */
+const SILENT_RELOAD_DEBOUNCE_MS = 800
+
+/** Assinatura leve: se nada mudou, não redesenha o Kanban. */
+function obrasFingerprint(rows: ObraFull[]): string {
+  return rows
+    .map(o =>
+      [
+        o.id,
+        o.status_kanban,
+        o.atualizado_em ?? '',
+        o.cliente_nome ?? '',
+        o.lousa ?? '',
+        o.iniciado_em ?? '',
+        o.finalizado_em ?? '',
+        o.data_prevista_inicio ?? '',
+        o.data_prevista_fim ?? '',
+        o.pedido_material_feito ? '1' : '0',
+        o.data_entrega_pedido ?? '',
+        o.numero_pedido_cort_claud ?? '',
+        o.montador_id ?? '',
+        (o.montador_ids ?? []).join(','),
+        o.comissao_habilitada ? '1' : '0',
+        o.comissao_total ?? 0,
+        (o.comissao_valores ?? []).join(','),
+      ].join(':'),
+    )
+    .join('|')
+}
 
 async function syncObraMontadores(obraId: string, montadorIds: string[]) {
   const { error } = await supabase.rpc('movelaria_sincronizar_obra_montadores', {
@@ -59,39 +88,60 @@ export interface ObrasStore {
 /** Estado compartilhado de obras — usado pelo ObrasProvider (uma única fonte para todo o app). */
 export function useObrasState(): ObrasStore {
   const { isReady } = useAuthReady()
+  const realtimeChannelId = useId().replace(/:/g, '')
   const [data, setData] = useState<ObraFull[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const loadInFlightRef = useRef(false)
+  const silentReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fingerprintRef = useRef('')
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!isReady) return
+    if (loadInFlightRef.current) return
+
+    loadInFlightRef.current = true
     if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const { data: rows, error: err } = await supabase.rpc('movelaria_listar_obras')
       if (err) throw err
-      setData((rows ?? []) as ObraFull[])
+      const next = (rows ?? []) as ObraFull[]
+      const nextFp = obrasFingerprint(next)
+      if (nextFp !== fingerprintRef.current) {
+        fingerprintRef.current = nextFp
+        setData(next)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar obras.')
-      if (!opts?.silent) setData([])
+      if (!opts?.silent) {
+        fingerprintRef.current = ''
+        setData([])
+      }
     } finally {
+      loadInFlightRef.current = false
       if (!opts?.silent) setLoading(false)
     }
   }, [isReady])
 
   const silentReload = useCallback(() => {
-    void load({ silent: true })
+    if (silentReloadTimerRef.current) clearTimeout(silentReloadTimerRef.current)
+    silentReloadTimerRef.current = setTimeout(() => {
+      silentReloadTimerRef.current = null
+      void load({ silent: true })
+    }, SILENT_RELOAD_DEBOUNCE_MS)
   }, [load])
 
   useEffect(() => { void load() }, [load])
 
+  // Realtime já cobre mudanças ao vivo; poll só como rede de segurança.
   useAutoRefresh(silentReload)
 
   useEffect(() => {
     if (!isReady) return
 
     const channel = supabase
-      .channel(OBRAS_REALTIME_CHANNEL)
+      .channel(`${OBRAS_REALTIME_CHANNEL}-${realtimeChannelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_obras' },
@@ -102,21 +152,16 @@ export function useObrasState(): ObrasStore {
         { event: '*', schema: 'public', table: 'movelaria_obra_responsaveis' },
         silentReload,
       )
-      .on('broadcast', { event: 'obras:changed' }, silentReload)
       .subscribe()
 
     return () => {
+      if (silentReloadTimerRef.current) {
+        clearTimeout(silentReloadTimerRef.current)
+        silentReloadTimerRef.current = null
+      }
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload])
-
-  const notifyObrasChanged = useCallback(() => {
-    void supabase.channel(OBRAS_REALTIME_CHANNEL).send({
-      type: 'broadcast',
-      event: 'obras:changed',
-      payload: {},
-    })
-  }, [])
+  }, [isReady, silentReload, realtimeChannelId])
 
   const create = async (input: ObraInput): Promise<string> => {
     let payload = stripComissaoFromObraPayload(input)
@@ -144,7 +189,6 @@ export function useObrasState(): ObrasStore {
       await syncObraComissao(obraId, input)
     }
     await load({ silent: true })
-    notifyObrasChanged()
     return obraId
   }
 
@@ -180,28 +224,28 @@ export function useObrasState(): ObrasStore {
     }
 
     await load({ silent: true })
-    notifyObrasChanged()
   }
 
   const remove = async (id: string) => {
     const { error: err } = await supabase.from('movelaria_obras').delete().eq('id', id)
     if (err) throw new Error(err.message)
-    setData(prev => prev.filter(o => o.id !== id))
-    notifyObrasChanged()
+    setData(prev => {
+      const next = prev.filter(o => o.id !== id)
+      fingerprintRef.current = obrasFingerprint(next)
+      return next
+    })
   }
 
   const iniciarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_iniciar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
     await load({ silent: true })
-    notifyObrasChanged()
   }
 
   const finalizarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_finalizar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
     await load({ silent: true })
-    notifyObrasChanged()
   }
 
   const concluirObra = async (id: string) => {
@@ -211,14 +255,12 @@ export function useObrasState(): ObrasStore {
     const { error: err } = await supabase.rpc('movelaria_concluir_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
     await load({ silent: true })
-    notifyObrasChanged()
   }
 
   const aplicarComissao = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_aplicar_comissao_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
     await load({ silent: true })
-    notifyObrasChanged()
   }
 
   return {
