@@ -61,12 +61,11 @@ export interface GeoPosition {
   accuracy: number
 }
 
-export function requestGeolocation(timeoutMs = 15000): Promise<GeoPosition> {
+function readPositionOnce(
+  options: PositionOptions,
+  timeoutMs: number,
+): Promise<GeoPosition> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Seu dispositivo não suporta geolocalização.'))
-      return
-    }
     const timer = window.setTimeout(() => {
       reject(new Error('Tempo esgotado ao obter localização. Verifique se o GPS está ativo.'))
     }, timeoutMs)
@@ -83,9 +82,32 @@ export function requestGeolocation(timeoutMs = 15000): Promise<GeoPosition> {
         clearTimeout(timer)
         reject(new Error(err.message || 'Permissão de localização negada.'))
       },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
+      options,
     )
   })
+}
+
+/**
+ * Pede a localização com tentativa rápida (GPS) e fallback mais leve.
+ * Assim o fluxo de ponto não trava minutos em aparelhos lentos.
+ */
+export async function requestGeolocation(timeoutMs = 12000): Promise<GeoPosition> {
+  if (!navigator.geolocation) {
+    throw new Error('Seu dispositivo não suporta geolocalização.')
+  }
+
+  const quickTimeout = Math.min(8000, timeoutMs)
+  try {
+    return await readPositionOnce(
+      { enableHighAccuracy: true, timeout: quickTimeout, maximumAge: 30_000 },
+      quickTimeout + 500,
+    )
+  } catch {
+    return readPositionOnce(
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60_000 },
+      timeoutMs + 500,
+    )
+  }
 }
 
 export async function uploadPontoArquivo(

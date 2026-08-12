@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { BarChart3, CalendarDays } from 'lucide-react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
@@ -86,8 +86,11 @@ export function MainLayout() {
   const [isAgendaOpen, setIsAgendaOpen] = useState(false)
   const [isMetricasOpen, setIsMetricasOpen] = useState(false)
   const { roles } = useApp()
+  const location = useLocation()
   const hideAgenda = isVisualizadorOnly(roles)
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
+  // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
+  const hideFabsOnPonto = location.pathname.startsWith('/bater-ponto')
 
   return (
     <ContasPagarNotifProvider>
@@ -95,14 +98,17 @@ export function MainLayout() {
       <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
         <NavigationHeader onOpenAgenda={() => setIsAgendaOpen(true)} />
-        <div className="obra-layout-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-7 md:px-8 touch-pan-y">
+        <div className={cn(
+          'obra-layout-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6 sm:py-7 md:px-8 touch-pan-y',
+          hideFabsOnPonto ? 'pb-8 sm:pb-7' : 'pb-24 sm:pb-7',
+        )}>
           <div className="obra-layout-outlet flex min-h-0 min-w-0 flex-none flex-col md:flex-1">
             <Outlet />
           </div>
         </div>
       </SidebarInset>
 
-      {(!hideAgenda || showMetricasFab) && (
+      {!hideFabsOnPonto && (!hideAgenda || showMetricasFab) && (
         <>
           <div className="fixed bottom-6 right-6 z-[201] flex flex-row-reverse items-end gap-3">
             {!hideAgenda && (

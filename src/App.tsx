@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
@@ -11,6 +11,8 @@ import { useContasPagar } from '@/hooks/useContasPagar'
 import { useContasReceber } from '@/hooks/useContasReceber'
 import { sectionFromPath, defaultPathForRoles } from '@/lib/app-navigation'
 import { canAccessSection } from '@/lib/role-access'
+import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
+import { consumePontoResumeFlag, peekPontoResumeFlag } from '@/hooks/useBaterPonto'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
@@ -49,12 +51,51 @@ function Restricted({ message }: { message: string }) {
   )
 }
 
+function HomeRedirect() {
+  const { roles } = useApp()
+  const location = useLocation()
+  const defaultPath = defaultPathForRoles(roles)
+  const fromPwa = new URLSearchParams(location.search).get('src') === 'pwa'
+  const last = readLastRoute()
+  const resumePonto = peekPontoResumeFlag()
+
+  if (resumePonto && canAccessSection(roles, 'baterPonto')) {
+    return <Navigate to="/bater-ponto" replace />
+  }
+
+  if (fromPwa && last) {
+    const lastPath = last.split('?')[0] || '/'
+    const section = sectionFromPath(lastPath)
+    if (canAccessSection(roles, section)) {
+      return <Navigate to={last} replace />
+    }
+  }
+
+  return <Navigate to={defaultPath} replace />
+}
+
 function RoleRedirect() {
   const { roles } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
+  const restoredRef = useRef(false)
 
   const defaultPath = defaultPathForRoles(roles)
+
+  // Guarda a página atual para retomar se o PWA reabrir na home.
+  useEffect(() => {
+    rememberLastRoute(`${location.pathname}${location.search}${location.hash}`)
+  }, [location.pathname, location.search, location.hash])
+
+  useEffect(() => {
+    if (!roles.length || restoredRef.current) return
+    restoredRef.current = true
+
+    const shouldResumePonto = consumePontoResumeFlag()
+    if (shouldResumePonto && canAccessSection(roles, 'baterPonto') && location.pathname !== '/bater-ponto') {
+      navigate('/bater-ponto', { replace: true })
+    }
+  }, [roles, location.pathname, navigate])
 
   useEffect(() => {
     if (!roles.length) return
@@ -90,7 +131,7 @@ function AuthenticatedRoutes() {
       <RoleRedirect />
       <Routes>
         <Route element={<MainLayout />}>
-          <Route index element={<Navigate to={defaultPathForRoles(roles)} replace />} />
+          <Route index element={<HomeRedirect />} />
           <Route
             path="/dashboard"
             element={

@@ -1,7 +1,5 @@
-import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Camera,
   CheckCircle2,
   Clock,
   Loader2,
@@ -12,6 +10,7 @@ import {
 import { AssinaturaCanvas } from '@/components/ui/AssinaturaCanvas'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoLocalizacaoLabel } from '@/components/ponto/PontoLocalizacaoLabel'
+import { PontoSelfieCapture } from '@/components/ponto/PontoSelfieCapture'
 import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { PontoWizardStep } from '@/components/ponto/PontoWizardStep'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
@@ -28,7 +27,6 @@ const STEP_INDEX: Record<string, number> = {
 }
 
 export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
-  const fileRef = useRef<HTMLInputElement>(null)
   const {
     step,
     status,
@@ -139,32 +137,14 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                       Localização obtida (±{Math.round(geo.accuracy)}m)
                     </p>
                   )}
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(212,168,83,0.35)] bg-[rgba(201,160,69,0.1)]">
-                    <Camera size={28} className="text-[#f2d892]" />
-                  </div>
                   <p className="text-center text-sm text-[#edd9c4]">
-                    Tire uma selfie para confirmar sua identidade.
+                    Tire uma selfie para confirmar sua identidade. A foto fica nesta tela —
+                    você não precisa sair do aplicativo.
                   </p>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0]
-                      if (f) void definirSelfie(f)
-                    }}
+                  <PontoSelfieCapture
+                    submitting={submitting}
+                    onCapture={file => void definirSelfie(file)}
                   />
-                  <button
-                    type="button"
-                    className="btn btn-gold w-full"
-                    disabled={submitting}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    {submitting ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
-                    Abrir câmera
-                  </button>
                 </div>
               )}
 

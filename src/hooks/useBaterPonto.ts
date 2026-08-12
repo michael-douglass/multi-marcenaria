@@ -14,18 +14,141 @@ import { useAuthReady } from './useAuthReady'
 
 export type BaterPontoStep = 'permissoes' | 'selfie' | 'assinatura' | 'confirmar' | 'sucesso'
 
+const DRAFT_KEY = 'movelaria-ponto-draft'
+const RESUME_KEY = 'movelaria-ponto-resume'
+
+interface PontoDraft {
+  step: BaterPontoStep
+  geo: GeoPosition | null
+  fotoDataUrl: string | null
+  assinaturaDataUrl: string | null
+  savedAt: number
+}
+
+function readDraft(): PontoDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const draft = JSON.parse(raw) as PontoDraft
+    if (!draft?.step || Date.now() - (draft.savedAt ?? 0) > 1000 * 60 * 60) return null
+    if (draft.step === 'sucesso' || draft.step === 'permissoes') return null
+    return draft
+  } catch {
+    return null
+  }
+}
+
+function writeDraft(draft: Omit<PontoDraft, 'savedAt'>) {
+  try {
+    if (draft.step === 'permissoes' || draft.step === 'sucesso') {
+      sessionStorage.removeItem(DRAFT_KEY)
+      sessionStorage.removeItem(RESUME_KEY)
+      return
+    }
+    sessionStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ ...draft, savedAt: Date.now() } satisfies PontoDraft),
+    )
+    sessionStorage.setItem(RESUME_KEY, '1')
+  } catch {
+    // Storage cheio ou bloqueado: o fluxo continua sem rascunho.
+  }
+}
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY)
+    sessionStorage.removeItem(RESUME_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Falha ao ler a foto.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+export function peekPontoResumeFlag(): boolean {
+  try {
+    return sessionStorage.getItem(RESUME_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function consumePontoResumeFlag(): boolean {
+  try {
+    const should = sessionStorage.getItem(RESUME_KEY) === '1'
+    if (should) sessionStorage.removeItem(RESUME_KEY)
+    return should
+  } catch {
+    return false
+  }
+}
+
 export function useBaterPonto() {
   const { isReady } = useAuthReady()
-  const [step, setStep] = useState<BaterPontoStep>('permissoes')
+  const initialDraft = typeof window !== 'undefined' ? readDraft() : null
+  const [step, setStep] = useState<BaterPontoStep>(initialDraft?.step ?? 'permissoes')
   const [status, setStatus] = useState<PontoStatusDiaPayload | null>(null)
-  const [geo, setGeo] = useState<GeoPosition | null>(null)
+  const [geo, setGeo] = useState<GeoPosition | null>(initialDraft?.geo ?? null)
   const [fotoBlob, setFotoBlob] = useState<Blob | null>(null)
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
-  const [assinaturaDataUrl, setAssinaturaDataUrl] = useState<string | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(initialDraft?.fotoDataUrl ?? null)
+  const [assinaturaDataUrl, setAssinaturaDataUrl] = useState<string | null>(
+    initialDraft?.assinaturaDataUrl ?? null,
+  )
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultado, setResultado] = useState<PontoMarcacao | null>(null)
+
+  // Restaura o blob da foto a partir do rascunho (necessário para registrar depois).
+  useEffect(() => {
+    if (!initialDraft?.fotoDataUrl || fotoBlob) return
+    try {
+      setFotoBlob(dataUrlToBlob(initialDraft.fotoDataUrl))
+    } catch {
+      // Foto do rascunho inválida: usuário refaz a selfie.
+      setStep(s => (s === 'assinatura' || s === 'confirmar' ? 'selfie' : s))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na montagem
+  }, [])
+
+  useEffect(() => {
+    writeDraft({
+      step,
+      geo,
+      fotoDataUrl: fotoPreview,
+      assinaturaDataUrl,
+    })
+  }, [step, geo, fotoPreview, assinaturaDataUrl])
+
+  // Se o app for para segundo plano no meio do fluxo, marca retomada.
+  useEffect(() => {
+    const markResume = () => {
+      if (step !== 'permissoes' && step !== 'sucesso') {
+        try {
+          sessionStorage.setItem(RESUME_KEY, '1')
+        } catch {
+          // ignore
+        }
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') markResume()
+    }
+    window.addEventListener('pagehide', markResume)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', markResume)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [step])
 
   const reload = useCallback(async () => {
     if (!isReady) return
@@ -41,7 +164,9 @@ export function useBaterPonto() {
     }
   }, [isReady])
 
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    void reload()
+  }, [reload])
 
   const solicitarLocalizacao = async () => {
     setError(null)
@@ -57,14 +182,15 @@ export function useBaterPonto() {
     }
   }
 
-  const definirSelfie = async (file: File) => {
+  const definirSelfie = async (file: File | Blob) => {
     setError(null)
     setSubmitting(true)
     try {
       const blob = await compressImageToJpeg(file)
       setFotoBlob(blob)
-      if (fotoPreview) URL.revokeObjectURL(fotoPreview)
-      setFotoPreview(URL.createObjectURL(blob))
+      if (fotoPreview?.startsWith('blob:')) URL.revokeObjectURL(fotoPreview)
+      const preview = await blobToDataUrl(blob)
+      setFotoPreview(preview)
       setStep('assinatura')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao processar foto.')
@@ -111,6 +237,7 @@ export function useBaterPonto() {
         geo,
         hashSha256: hash,
       })
+      clearDraft()
       setResultado(res.marcacao)
       setStep('sucesso')
       await reload()
@@ -122,10 +249,11 @@ export function useBaterPonto() {
   }
 
   const reiniciar = () => {
+    clearDraft()
     setStep('permissoes')
     setGeo(null)
     setFotoBlob(null)
-    if (fotoPreview) URL.revokeObjectURL(fotoPreview)
+    if (fotoPreview?.startsWith('blob:')) URL.revokeObjectURL(fotoPreview)
     setFotoPreview(null)
     setAssinaturaDataUrl(null)
     setResultado(null)

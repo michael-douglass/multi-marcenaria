@@ -23,7 +23,9 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'any',
         scope: '/',
-        start_url: '/',
+        // Marca abertura pelo ícone do PWA para podermos retomar a última tela
+        // (ex.: bater ponto), em vez de cair sempre na home.
+        start_url: '/?src=pwa',
         lang: 'pt-BR',
         categories: ['business', 'finance'],
         icons: [
