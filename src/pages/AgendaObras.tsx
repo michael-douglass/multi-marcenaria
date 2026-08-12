@@ -717,7 +717,13 @@ function AgendaObrasContent() {
     const obra = obrasHook.data.find(o => o.id === id)
     if (!obra || computeKanbanKey(obra) === col) return
     try {
-      await obrasHook.update(id, { status_kanban: col })
+      // Ao tirar da coluna Concluída, zera finalização para a comissão
+      // voltar a aparecer em "Previsão" no Meu Financeiro do montador.
+      const payload: Partial<ObraInput> = { status_kanban: col }
+      if (col !== 'concluida' && obra.finalizado_em) {
+        payload.finalizado_em = null
+      }
+      await obrasHook.update(id, payload)
     } catch {
       // erro já visível via toast se necessário
     }

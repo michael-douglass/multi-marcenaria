@@ -610,6 +610,8 @@ export interface ObraInput {
   data_prevista_fim?: string | null
   tempo_maximo_horas?: number | null
   status_kanban?: StatusKanbanObra
+  /** Zerar ao reabrir obra (sair de concluída) para a comissão voltar à previsão. */
+  finalizado_em?: string | null
   pedido_material_feito?: boolean
   data_entrega_pedido?: string | null
   numero_pedido_cort_claud?: string | null
