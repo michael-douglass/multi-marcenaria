@@ -3,6 +3,13 @@ import { supabase } from '../lib/supabase'
 import { splitObraInputForSave } from '../lib/obra-montadores'
 import { splitComissaoForSave } from '../lib/obra-comissao'
 import { createId } from '../lib/utils'
+import {
+  invalidateCache,
+  isCacheKeyFresh,
+  OBRAS_CACHE_KEY,
+  readCache,
+  writeCache,
+} from '../lib/data-cache'
 import type { ObraFull, ObraInput } from '../types'
 import { useAuthReady } from './useAuthReady'
 import { useAutoRefresh } from './useAutoRefresh'
@@ -10,6 +17,10 @@ import { useAutoRefresh } from './useAutoRefresh'
 const OBRAS_REALTIME_CHANNEL = 'movelaria-obras-sync'
 /** Junta vários eventos do realtime num único GET (evita tempestade na Agenda). */
 const SILENT_RELOAD_DEBOUNCE_MS = 800
+
+function readCachedObras(): ObraFull[] {
+  return readCache<ObraFull[]>(OBRAS_CACHE_KEY)?.value ?? []
+}
 
 /** Assinatura leve: se nada mudou, não redesenha o Kanban. */
 function obrasFingerprint(rows: ObraFull[]): string {
@@ -89,24 +100,44 @@ export interface ObrasStore {
 export function useObrasState(): ObrasStore {
   const { isReady } = useAuthReady()
   const realtimeChannelId = useId().replace(/:/g, '')
-  const [data, setData] = useState<ObraFull[]>([])
-  const [loading, setLoading] = useState(true)
+  const fingerprintRef = useRef('')
+  const [data, setData] = useState<ObraFull[]>(() => {
+    const cached = readCachedObras()
+    if (cached.length > 0) fingerprintRef.current = obrasFingerprint(cached)
+    return cached
+  })
+  const [loading, setLoading] = useState(() => readCache(OBRAS_CACHE_KEY) == null)
   const [error, setError] = useState<string | null>(null)
   const loadInFlightRef = useRef(false)
+  const pendingReloadRef = useRef<{ silent: boolean; force: boolean } | null>(null)
   const silentReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fingerprintRef = useRef('')
+  const hadRealtimeRef = useRef(false)
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     if (!isReady) return
-    if (loadInFlightRef.current) return
+
+    const silent = Boolean(opts?.silent)
+    const force = Boolean(opts?.force)
+
+    if (loadInFlightRef.current) {
+      const pending = pendingReloadRef.current
+      pendingReloadRef.current = {
+        silent: pending ? pending.silent && silent : silent,
+        force: pending ? pending.force || force : force,
+      }
+      return
+    }
+
+    if (!force && isCacheKeyFresh(OBRAS_CACHE_KEY)) return
 
     loadInFlightRef.current = true
-    if (!opts?.silent) setLoading(true)
+    if (!silent && fingerprintRef.current === '') setLoading(true)
     setError(null)
     try {
       const { data: rows, error: err } = await supabase.rpc('movelaria_listar_obras')
       if (err) throw err
       const next = (rows ?? []) as ObraFull[]
+      writeCache(OBRAS_CACHE_KEY, next)
       const nextFp = obrasFingerprint(next)
       if (nextFp !== fingerprintRef.current) {
         fingerprintRef.current = nextFp
@@ -114,28 +145,43 @@ export function useObrasState(): ObrasStore {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar obras.')
-      if (!opts?.silent) {
+      if (!silent && fingerprintRef.current === '') {
         fingerprintRef.current = ''
         setData([])
+        invalidateCache(OBRAS_CACHE_KEY)
       }
     } finally {
       loadInFlightRef.current = false
-      if (!opts?.silent) setLoading(false)
+      if (!silent) setLoading(false)
+      const pending = pendingReloadRef.current
+      pendingReloadRef.current = null
+      if (pending) void load(pending)
     }
   }, [isReady])
 
-  const silentReload = useCallback(() => {
+  const silentReload = useCallback((force = false) => {
     if (silentReloadTimerRef.current) clearTimeout(silentReloadTimerRef.current)
     silentReloadTimerRef.current = setTimeout(() => {
       silentReloadTimerRef.current = null
-      void load({ silent: true })
+      void load({ silent: true, force })
     }, SILENT_RELOAD_DEBOUNCE_MS)
   }, [load])
 
-  useEffect(() => { void load() }, [load])
+  const silentReloadCached = useCallback(() => {
+    silentReload(false)
+  }, [silentReload])
+
+  const silentReloadLive = useCallback(() => {
+    invalidateCache(OBRAS_CACHE_KEY)
+    silentReload(true)
+  }, [silentReload])
+
+  useEffect(() => {
+    void load({ silent: fingerprintRef.current !== '' })
+  }, [load])
 
   // Realtime já cobre mudanças ao vivo; poll só como rede de segurança.
-  useAutoRefresh(silentReload)
+  useAutoRefresh(silentReloadCached)
 
   useEffect(() => {
     if (!isReady) return
@@ -145,14 +191,22 @@ export function useObrasState(): ObrasStore {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_obras' },
-        silentReload,
+        silentReloadLive,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_obra_responsaveis' },
-        silentReload,
+        silentReloadLive,
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return
+        if (hadRealtimeRef.current) {
+          // Reconexão (iPhone volta do segundo plano): só busca se o cache já envelheceu.
+          silentReload(false)
+          return
+        }
+        hadRealtimeRef.current = true
+      })
 
     return () => {
       if (silentReloadTimerRef.current) {
@@ -161,7 +215,7 @@ export function useObrasState(): ObrasStore {
       }
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload, realtimeChannelId])
+  }, [isReady, silentReload, silentReloadLive, realtimeChannelId])
 
   const create = async (input: ObraInput): Promise<string> => {
     let payload = stripComissaoFromObraPayload(input)
@@ -188,7 +242,7 @@ export function useObrasState(): ObrasStore {
     if (input.comissao_habilitada || (input.comissao_itens?.length ?? 0) > 0) {
       await syncObraComissao(obraId, input)
     }
-    await load({ silent: true })
+    await load({ silent: true, force: true })
     return obraId
   }
 
@@ -223,7 +277,7 @@ export function useObrasState(): ObrasStore {
       })
     }
 
-    await load({ silent: true })
+    await load({ silent: true, force: true })
   }
 
   const remove = async (id: string) => {
@@ -232,6 +286,7 @@ export function useObrasState(): ObrasStore {
     setData(prev => {
       const next = prev.filter(o => o.id !== id)
       fingerprintRef.current = obrasFingerprint(next)
+      writeCache(OBRAS_CACHE_KEY, next)
       return next
     })
   }
@@ -239,13 +294,13 @@ export function useObrasState(): ObrasStore {
   const iniciarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_iniciar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load({ silent: true })
+    await load({ silent: true, force: true })
   }
 
   const finalizarObra = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_finalizar_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load({ silent: true })
+    await load({ silent: true, force: true })
   }
 
   const concluirObra = async (id: string) => {
@@ -254,17 +309,22 @@ export function useObrasState(): ObrasStore {
 
     const { error: err } = await supabase.rpc('movelaria_concluir_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load({ silent: true })
+    await load({ silent: true, force: true })
   }
 
   const aplicarComissao = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_aplicar_comissao_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
-    await load({ silent: true })
+    await load({ silent: true, force: true })
   }
+
+  const reload = useCallback(
+    (opts?: { silent?: boolean }) => load({ silent: opts?.silent, force: true }),
+    [load],
+  )
 
   return {
     data, loading, error, create, update, remove,
-    iniciarObra, finalizarObra, concluirObra, aplicarComissao, reload: load,
+    iniciarObra, finalizarObra, concluirObra, aplicarComissao, reload,
   }
 }

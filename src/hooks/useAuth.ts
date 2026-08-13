@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
+import { invalidateCache, OBRAS_CACHE_KEY } from '../lib/data-cache'
 import { supabase } from '../lib/supabase'
 import type { UserProfile, UserRole } from '../types'
 
@@ -140,6 +141,7 @@ export function useAuth(): AuthState {
       }
 
       if (event === 'SIGNED_OUT') {
+        invalidateCache(OBRAS_CACHE_KEY)
         setSession(null)
         setUser(null)
         setUserProfile(null)

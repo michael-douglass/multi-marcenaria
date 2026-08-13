@@ -316,7 +316,8 @@ function ConfirmDeleteModal({
       </p>
       <p className="mt-1 font-semibold text-cream">{user?.email}</p>
       <p className="mt-2 text-xs text-[#edd9c4]">
-        Esta ação é irreversível e remove o acesso imediatamente.
+        Esta ação é irreversível: o login some na hora, e o usuário também sai de
+        Métricas de Obras e das contas a pagar em aberto (fixo e comissão).
       </p>
       <div className="flex justify-end gap-2 mt-4">
         <button onClick={onClose} className="btn btn-outline btn-md">Cancelar</button>
