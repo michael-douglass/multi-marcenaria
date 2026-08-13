@@ -23,6 +23,7 @@ export function AppRefreshButton({
     if (refreshing) return
     setRefreshing(true)
     refreshAppPreservingRoute()
+    window.setTimeout(() => setRefreshing(false), 900)
   }
 
   const isCompactHeader = variant === 'header' && !showLabel

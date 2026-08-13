@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { BarChart3, CalendarDays } from 'lucide-react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
@@ -87,6 +87,18 @@ export function MainLayout() {
   const [isMetricasOpen, setIsMetricasOpen] = useState(false)
   const { roles } = useApp()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const openAgendaSafely = () => {
+    // No iPhone, abrir o popup em cima da própria Agenda duplica Kanban + fotos e derruba o Safari.
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      const onObrasPage = location.pathname === '/agenda-obras'
+        || location.pathname === '/calendario-obras'
+      if (!onObrasPage) navigate('/agenda-obras')
+      return
+    }
+    setIsAgendaOpen(p => !p)
+  }
   const hideAgenda = isVisualizadorOnly(roles)
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
@@ -97,7 +109,7 @@ export function MainLayout() {
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
-        <NavigationHeader onOpenAgenda={() => setIsAgendaOpen(true)} />
+        <NavigationHeader onOpenAgenda={openAgendaSafely} />
         <div className={cn(
           'obra-layout-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6 sm:py-7 md:px-8 touch-pan-y',
           hideFabsOnPonto ? 'pb-8 sm:pb-7' : 'pb-24 sm:pb-7',
@@ -116,7 +128,7 @@ export function MainLayout() {
                 label="Agenda"
                 ariaLabel="Abrir agenda"
                 open={isAgendaOpen}
-                onClick={() => setIsAgendaOpen(p => !p)}
+                onClick={openAgendaSafely}
                 icon={CalendarDays}
                 accent="gold"
               />

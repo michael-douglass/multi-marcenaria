@@ -1,4 +1,3 @@
-import { pdfUrlAllPagesToObjectUrls } from '@/lib/pdf-to-image'
 import { supabase } from '@/lib/supabase'
 import type { LeadMidia } from '@/types'
 
@@ -46,12 +45,12 @@ export function getCachedPdfPageUrls(fileUrl: string): Promise<string[]> {
   let pending = pdfPagesCache.get(fileUrl)
   if (!pending) {
     pending = (async () => {
+      const { pdfUrlAllPagesToObjectUrls, pdfDataAllPagesToPngBlobs } = await import('@/lib/pdf-to-image')
       try {
         return await pdfUrlAllPagesToObjectUrls(fileUrl)
       } catch {
-        const { pdfDataAllPagesToPngBlobs } = await import('@/lib/pdf-to-image')
         const bytes = await downloadPdfBytes(fileUrl)
-        const blobs = await pdfDataAllPagesToPngBlobs(bytes, { maxPages: 100 })
+        const blobs = await pdfDataAllPagesToPngBlobs(bytes, { maxPages: 8 })
         return blobs.map(blob => URL.createObjectURL(blob))
       }
     })().catch(err => {
@@ -100,12 +99,14 @@ function pdfFallbackItem(midia: LeadMidia): LeadMidiaDisplayItem {
 }
 
 /**
- * Expande mídias do lead: imagens 1:1; cada PDF vira N fotos (1 por página).
- * Chama `onProgress` a cada PDF convertido para a UI ir atualizando.
+ * Expande mídias do lead: imagens 1:1; PDF vira ícone no card
+ * (rasterizar todas as páginas no Kanban derrubava o iPhone).
+ * Só converte PDF → foto quando `rasterizePdfs` é true (modal).
  */
 export async function expandLeadMidiasToDisplayItems(
   midias: LeadMidia[],
   onProgress?: (items: LeadMidiaDisplayItem[]) => void,
+  options?: { rasterizePdfs?: boolean },
 ): Promise<LeadMidiaDisplayItem[]> {
   const images = midias.filter(m => m.tipo !== 'pdf')
   const pdfs = midias.filter(m => m.tipo === 'pdf')
@@ -113,7 +114,14 @@ export async function expandLeadMidiasToDisplayItems(
   let items: LeadMidiaDisplayItem[] = images.map(imageItem)
   onProgress?.(items)
 
+  const rasterizePdfs = options?.rasterizePdfs === true
+
   for (const midia of pdfs) {
+    if (!rasterizePdfs) {
+      items = [...items, pdfFallbackItem(midia)]
+      onProgress?.(items)
+      continue
+    }
     try {
       const pages = await getCachedPdfPageUrls(midia.file_url)
       if (pages.length === 0) continue

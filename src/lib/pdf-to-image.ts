@@ -12,8 +12,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const PDF_RENDER_SCALE = 1.5
 const MAX_PDF_PAGES = 50
-/** Limite maior para PDFs do lead (projetos/orçamentos) virarem fotos no card. */
-const MAX_LEAD_PDF_PAGES = 100
+/** No card/lightbox: poucas páginas. 100 PNGs derrubavam o Safari no iPhone. */
+const MAX_LEAD_PDF_PAGES = 8
 
 async function renderPdfPageToPngBlob(
   pdf: pdfjs.PDFDocumentProxy,
@@ -46,13 +46,10 @@ export async function pdfDataAllPagesToPngBlobs(
 ): Promise<Blob[]> {
   const maxPages = options?.maxPages ?? MAX_PDF_PAGES
   const pdf = await pdfjs.getDocument({ data }).promise
-
-  if (pdf.numPages > maxPages) {
-    throw new Error(`PDF com ${pdf.numPages} páginas. O limite é ${maxPages} páginas por arquivo.`)
-  }
+  const pageCount = Math.min(pdf.numPages, maxPages)
 
   const blobs: Blob[] = []
-  for (let page = 1; page <= pdf.numPages; page++) {
+  for (let page = 1; page <= pageCount; page++) {
     blobs.push(await renderPdfPageToPngBlob(pdf, page))
   }
   return blobs

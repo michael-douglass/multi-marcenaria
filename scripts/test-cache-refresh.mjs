@@ -49,6 +49,35 @@ describe('constantes alinhadas com o código', () => {
     const src = readSrc('src/pages/CalendarioObras.tsx')
     assert.match(src, /obrasHook\.loading && obrasHook\.data\.length === 0/)
   })
+
+  it('agenda também mantém o Kanban se já tem dados', () => {
+    const src = readSrc('src/pages/AgendaObras.tsx')
+    assert.match(src, /obrasHook\.loading && obrasHook\.data\.length === 0/)
+  })
+})
+
+describe('iPhone: crash por atualizar várias vezes', () => {
+  it('no celular não usa location.reload', () => {
+    const src = readSrc('src/lib/app-refresh.ts')
+    assert.match(src, /isMobileUi\(\)/)
+    assert.match(src, /requestSoftRefresh/)
+    assert.match(src, /SOFT_REFRESH_EVENT/)
+  })
+
+  it('card da agenda não transforma PDF em dezenas de fotos', () => {
+    const strip = readSrc('src/components/obras/ObraLeadMidiasStrip.tsx')
+    assert.match(strip, /rasterizePdfs = variant === 'detail'/)
+    const pdf = readSrc('src/lib/pdf-to-image.ts')
+    assert.match(pdf, /MAX_LEAD_PDF_PAGES = 8/)
+    assert.doesNotMatch(pdf, /MAX_LEAD_PDF_PAGES = 100/)
+  })
+
+  it('detecta loop de abertura da página', () => {
+    const src = readSrc('src/lib/boot-guard.ts')
+    assert.match(src, /BOOT_BURST_LIMIT = 3/)
+    const main = readSrc('src/main.tsx')
+    assert.match(main, /markBootAndDetectLoop/)
+  })
 })
 
 describe('política de cache', () => {

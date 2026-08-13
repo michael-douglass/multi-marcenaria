@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App'
 import { AppProvider } from './context/AppContext'
+import { markBootAndDetectLoop } from './lib/boot-guard'
+
+if (markBootAndDetectLoop()) {
+  document.documentElement.dataset.garboSafeMode = '1'
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

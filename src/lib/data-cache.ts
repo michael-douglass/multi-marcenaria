@@ -1,3 +1,4 @@
+import { isIosDevice } from './device'
 import { CACHE_FRESH_MS, isCacheFresh } from './refresh-policy'
 
 interface CacheEntry<T> {
@@ -16,7 +17,11 @@ function storageKey(key: string): string {
 }
 
 function canUseStorage(): boolean {
-  return typeof sessionStorage !== 'undefined'
+  // No iPhone, gravar/ler JSON grande no sessionStorage na volta de um crash
+  // piora o loop “Um problema ocorreu repetidamente”.
+  if (typeof sessionStorage === 'undefined') return false
+  if (isIosDevice()) return false
+  return true
 }
 
 export function readCache<T>(key: string): CacheEntry<T> | null {

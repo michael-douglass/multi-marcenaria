@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { splitObraInputForSave } from '../lib/obra-montadores'
 import { splitComissaoForSave } from '../lib/obra-comissao'
 import { createId } from '../lib/utils'
+import { subscribeSoftRefresh } from '../lib/app-refresh'
 import {
   invalidateCache,
   isCacheKeyFresh,
@@ -179,6 +180,10 @@ export function useObrasState(): ObrasStore {
   useEffect(() => {
     void load({ silent: fingerprintRef.current !== '' })
   }, [load])
+
+  useEffect(() => subscribeSoftRefresh(() => {
+    void load({ silent: true, force: true })
+  }), [load])
 
   // Realtime já cobre mudanças ao vivo; poll só como rede de segurança.
   useAutoRefresh(silentReloadCached)

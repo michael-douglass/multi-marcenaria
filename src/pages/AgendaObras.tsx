@@ -1146,11 +1146,13 @@ function AgendaObrasContent() {
       </KanbanPageToolbar>
 
       {/* Estados de carregamento/erro */}
-      {obrasHook.loading && <LoadingState />}
-      {!obrasHook.loading && obrasHook.error && <ErrorState message={obrasHook.error} />}
+      {obrasHook.loading && obrasHook.data.length === 0 && <LoadingState />}
+      {!obrasHook.loading && obrasHook.error && obrasHook.data.length === 0 && (
+        <ErrorState message={obrasHook.error} />
+      )}
 
       {/* Kanban */}
-      {!obrasHook.loading && !obrasHook.error && (
+      {(obrasHook.data.length > 0 || (!obrasHook.loading && !obrasHook.error)) && (
         <KanbanPageZoomShell
           showScrollArrows
           horizontalScrollbar
