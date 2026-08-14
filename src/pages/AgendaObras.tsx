@@ -1,6 +1,6 @@
 ﻿import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search, Camera, Trash2 } from 'lucide-react'
-import { useObras } from '../hooks/useObras'
+import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
 import { useApp } from '../context/AppContext'

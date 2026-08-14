@@ -34,7 +34,6 @@ import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
-import { ObrasProvider } from '@/context/ObrasContext'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
@@ -325,11 +324,9 @@ function AuthenticatedRoutes() {
 
 function AuthenticatedApp() {
   return (
-    <ObrasProvider>
-      <OptionalFinanceDataProvider>
-        <AuthenticatedRoutes />
-      </OptionalFinanceDataProvider>
-    </ObrasProvider>
+    <OptionalFinanceDataProvider>
+      <AuthenticatedRoutes />
+    </OptionalFinanceDataProvider>
   )
 }
 

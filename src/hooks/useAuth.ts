@@ -111,7 +111,7 @@ export function useAuth(): AuthState {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileRetryKey, setProfileRetryKey] = useState(0)
 
@@ -178,12 +178,11 @@ export function useAuth(): AuthState {
     }
 
     let active = true
+    setProfileLoading(true)
+    setProfileError(null)
 
     const run = () => {
       void (async () => {
-        setProfileLoading(true)
-        setProfileError(null)
-
         try {
           const profile = await fetchProfileWithRetry(userId)
           if (!active) return

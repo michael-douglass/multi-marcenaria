@@ -84,12 +84,15 @@ export default defineConfig({
           },
         ],
       },
+      // Em desenvolvimento o service worker mistura arquivos antigos com novos
+      // e quebra telas que dependem de "provedor" (ex.: calendário de obras).
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ],
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },
       // Força o unzip do navegador (o do Node ignora arrayBuffer e quebra no Vite).

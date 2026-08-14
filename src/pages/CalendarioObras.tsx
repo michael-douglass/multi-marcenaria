@@ -1,7 +1,7 @@
 ﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings, Monitor, Sun } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { useObras } from '../hooks/useObras'
+import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
 import { useLeadMidiasPorObras } from '../hooks/useLeadMidiasPorObras'

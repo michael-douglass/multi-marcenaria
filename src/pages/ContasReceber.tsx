@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { FileDown, FileText, Loader2 } from 'lucide-react'
 import { useContasReceber } from '../hooks/useContasReceber'
-import { useObras } from '../hooks/useObras'
+import { useObras } from '@/hooks/useObras'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
 import { useTemplatesCobranca } from '../hooks/useTemplatesCobranca'
 import { usePixConfig } from '../hooks/usePixConfig'
