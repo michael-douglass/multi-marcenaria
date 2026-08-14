@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useApp } from '@/context/AppContext'
 import {
   clampPageZoom,
   PAGE_ZOOM_DEFAULT,
@@ -43,6 +44,7 @@ interface PageZoomProviderProps {
 }
 
 export function PageZoomProvider({ pageKey, children }: PageZoomProviderProps) {
+  const { userProfile } = useApp()
   const [zoom, setZoomState] = useState(PAGE_ZOOM_DEFAULT)
   const [loading, setLoading] = useState(true)
   const saveTimerRef = useRef<number | null>(null)
@@ -50,19 +52,21 @@ export function PageZoomProvider({ pageKey, children }: PageZoomProviderProps) {
 
   useEffect(() => {
     let active = true
+    const userId = userProfile?.id ?? null
+    userIdRef.current = userId
+
+    if (!userId) {
+      setLoading(false)
+      return
+    }
 
     void (async () => {
       setLoading(true)
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!active || !user) return
-
-        userIdRef.current = user.id
-
         const { data, error } = await supabase
           .from('movelaria_page_zoom')
           .select('zoom_percent')
-          .eq('usuario_id', user.id)
+          .eq('usuario_id', userId)
           .eq('page_key', pageKey)
           .maybeSingle()
 
@@ -85,7 +89,7 @@ export function PageZoomProvider({ pageKey, children }: PageZoomProviderProps) {
         window.clearTimeout(saveTimerRef.current)
       }
     }
-  }, [pageKey])
+  }, [pageKey, userProfile?.id])
 
   const persistZoom = useCallback((value: number) => {
     const userId = userIdRef.current

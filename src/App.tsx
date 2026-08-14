@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
@@ -34,8 +34,42 @@ import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
 import { Login } from '@/pages/Login'
 import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
+import { ObrasProvider } from '@/hooks/useObras'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+
+function BootLoading({ message }: { message: string }) {
+  const { signOut } = useApp()
+  const [stuck, setStuck] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setStuck(true), 8_000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return (
+    <div className="relative min-h-screen">
+      <GarboLoadingBrand variant="fullscreen" message={message} />
+      {stuck ? (
+        <div className="fixed inset-x-0 bottom-8 z-[80] flex flex-col items-center gap-3 px-6">
+          <p className="text-center text-xs text-[#edd9c4]">
+            Está demorando no celular. Atualize ou saia e entre de novo.
+          </p>
+          <div className="flex items-center gap-4">
+            <AppRefreshButton variant="toolbar" showLabel />
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="text-xs font-semibold text-[#f2d892] underline opacity-80 hover:opacity-100"
+            >
+              Sair
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 function Restricted({ message }: { message: string }) {
   return (
@@ -324,9 +358,11 @@ function AuthenticatedRoutes() {
 
 function AuthenticatedApp() {
   return (
-    <OptionalFinanceDataProvider>
-      <AuthenticatedRoutes />
-    </OptionalFinanceDataProvider>
+    <ObrasProvider>
+      <OptionalFinanceDataProvider>
+        <AuthenticatedRoutes />
+      </OptionalFinanceDataProvider>
+    </ObrasProvider>
   )
 }
 
@@ -335,7 +371,7 @@ function AppRoutes() {
 
   // Só bloqueia a tela inteira enquanto a sessão (login) não foi resolvida
   if (authLoading) {
-    return <GarboLoadingBrand variant="fullscreen" message="Carregando..." />
+    return <BootLoading message="Carregando..." />
   }
 
   if (!session) {
@@ -343,7 +379,7 @@ function AppRoutes() {
   }
 
   if (profileLoading && !userProfile) {
-    return <GarboLoadingBrand variant="fullscreen" message="Carregando perfil..." />
+    return <BootLoading message="Carregando perfil..." />
   }
 
   if (!userProfile) {

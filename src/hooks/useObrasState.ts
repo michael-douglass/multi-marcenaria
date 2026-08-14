@@ -134,8 +134,12 @@ export function useObrasState(): ObrasStore {
     loadInFlightRef.current = true
     if (!silent && fingerprintRef.current === '') setLoading(true)
     setError(null)
+    const controller = new AbortController()
+    const abortTimer = window.setTimeout(() => controller.abort(), 10_000)
     try {
-      const { data: rows, error: err } = await supabase.rpc('movelaria_listar_obras')
+      const { data: rows, error: err } = await supabase
+        .rpc('movelaria_listar_obras')
+        .abortSignal(controller.signal)
       if (err) throw err
       const next = (rows ?? []) as ObraFull[]
       writeCache(OBRAS_CACHE_KEY, next)
@@ -152,6 +156,7 @@ export function useObrasState(): ObrasStore {
         invalidateCache(OBRAS_CACHE_KEY)
       }
     } finally {
+      window.clearTimeout(abortTimer)
       loadInFlightRef.current = false
       if (!silent) setLoading(false)
       const pending = pendingReloadRef.current

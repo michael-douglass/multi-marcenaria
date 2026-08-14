@@ -4,6 +4,9 @@ import { invalidateCache, OBRAS_CACHE_KEY } from '../lib/data-cache'
 import { supabase } from '../lib/supabase'
 import type { UserProfile, UserRole } from '../types'
 
+const PROFILE_RPC_TIMEOUT_MS = 8_000
+const AUTH_BOOT_TIMEOUT_MS = 4_000
+
 export interface AuthState {
   session: Session | null
   user: User | null
@@ -56,14 +59,9 @@ function mapRpcProfile(row: Record<string, unknown>): UserProfile {
   }
 }
 
-async function fetchProfile(userId: string): Promise<UserProfile | null> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token || session.user.id !== userId) {
-    return null
-  }
-
+async function fetchProfile(): Promise<UserProfile | null> {
   const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), 15_000)
+  const timer = window.setTimeout(() => controller.abort(), PROFILE_RPC_TIMEOUT_MS)
 
   try {
     const { data, error } = await supabase
@@ -72,10 +70,11 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
 
     if (error) throw new Error(error.message)
 
-    const row = (data ?? [])[0] as Record<string, unknown> | undefined
+    const rows = Array.isArray(data) ? data : data ? [data] : []
+    const row = rows[0] as Record<string, unknown> | undefined
     return row ? mapRpcProfile(row) : null
   } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
+    if (err instanceof Error && (err.name === 'AbortError' || /abort/i.test(err.message))) {
       throw new Error(
         'Não foi possível conectar ao banco de dados. Verifique se o projeto Supabase está ativo.',
       )
@@ -86,19 +85,19 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
   }
 }
 
-async function fetchProfileWithRetry(userId: string, attempts = 4): Promise<UserProfile | null> {
+async function fetchProfileWithRetry(attempts = 2): Promise<UserProfile | null> {
   let lastError: unknown = null
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const profile = await fetchProfile(userId)
+      const profile = await fetchProfile()
       if (profile) return profile
     } catch (err) {
       lastError = err
     }
 
     if (attempt < attempts - 1) {
-      await new Promise(resolve => window.setTimeout(resolve, 150 * (attempt + 1)))
+      await new Promise(resolve => window.setTimeout(resolve, 250 * (attempt + 1)))
     }
   }
 
@@ -117,6 +116,7 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     let active = true
+    let initialResolved = false
 
     const handleRateLimited = () => {
       if (!active) return
@@ -134,6 +134,7 @@ export function useAuth(): AuthState {
       if (!active) return
 
       if (event === 'INITIAL_SESSION') {
+        initialResolved = true
         setSession(nextSession)
         setUser(nextSession?.user ?? null)
         setLoading(false)
@@ -161,8 +162,16 @@ export function useAuth(): AuthState {
       setLoading(false)
     })
 
+    // No iPhone o evento inicial às vezes não chega e a logo gira para sempre.
+    const bootTimer = window.setTimeout(() => {
+      if (!active || initialResolved) return
+      initialResolved = true
+      setLoading(false)
+    }, AUTH_BOOT_TIMEOUT_MS)
+
     return () => {
       active = false
+      window.clearTimeout(bootTimer)
       window.removeEventListener('supabase:auth-rate-limited', handleRateLimited)
       subscription.unsubscribe()
     }
@@ -184,7 +193,7 @@ export function useAuth(): AuthState {
     const run = () => {
       void (async () => {
         try {
-          const profile = await fetchProfileWithRetry(userId)
+          const profile = await fetchProfileWithRetry()
           if (!active) return
 
           if (!profile) {
@@ -215,7 +224,7 @@ export function useAuth(): AuthState {
     }
 
     // Evita deadlock conhecido do Supabase ao consultar DB logo após auth
-    const deferId = window.setTimeout(run, 200)
+    const deferId = window.setTimeout(run, 250)
 
     return () => {
       active = false
@@ -225,9 +234,11 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     const token = session?.access_token
-    if (token) {
+    if (!token) return
+    const timer = window.setTimeout(() => {
       supabase.realtime.setAuth(token)
-    }
+    }, 300)
+    return () => window.clearTimeout(timer)
   }, [session?.access_token])
 
   const signOut = async () => {
