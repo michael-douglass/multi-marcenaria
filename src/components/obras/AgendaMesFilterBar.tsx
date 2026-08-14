@@ -144,7 +144,7 @@ export function AgendaMesFilterBar({
           <p className="agenda-mes-filter__hint">
             {isAll
               ? 'Exibindo todas as obras, sem filtro de mês.'
-              : 'O mês considera a data final da obra (último prazo de entrega).'}
+              : 'O mês considera a data final da obra. Obras em aberto, sem prazo, continuam visíveis.'}
           </p>
         </>
       ) : null}

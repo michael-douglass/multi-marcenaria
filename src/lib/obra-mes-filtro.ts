@@ -27,7 +27,12 @@ export function filterObrasPorMesEntrega(obras: ObraFull[], mes: number, ano: nu
 
 export function applyAgendaMesFiltro(obras: ObraFull[], filtro: AgendaMesFiltro): ObraFull[] {
   if (filtro.mode === 'all') return obras
-  return filterObrasPorMesEntrega(obras, filtro.mes, filtro.ano)
+  return obras.filter(obra => {
+    if (!obra.data_prevista_fim) {
+      return obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada'
+    }
+    return obraPertenceAoMesPorEntrega(obra, filtro.mes, filtro.ano)
+  })
 }
 
 export function formatObraMesAnoLabel(mes: number, ano: number): string {
