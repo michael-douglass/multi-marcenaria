@@ -826,32 +826,6 @@ body::before {
   padding-top: 0.25rem;
 }
 
-.kanban-col-scroll-hint {
-  padding-top: 0.2rem;
-  padding-bottom: 0.15rem;
-}
-
-.kanban-col-list {
-  scrollbar-gutter: stable;
-  scrollbar-width: auto;
-  scrollbar-color: rgba(240, 210, 140, 0.75) rgba(10, 4, 2, 0.55);
-}
-
-.kanban-col-list::-webkit-scrollbar {
-  width: 10px;
-}
-
-.kanban-col-list::-webkit-scrollbar-track {
-  border-radius: 999px;
-  background: rgba(10, 4, 2, 0.55);
-}
-
-.kanban-col-list::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(240, 210, 140, 0.7);
-  border: 2px solid rgba(10, 4, 2, 0.4);
-}
-
 @media (min-width: 768px) {
   .obra-page-shell--agenda .agenda-kanban-toolbar {
     padding-bottom: 1rem;
@@ -860,23 +834,6 @@ body::before {
   .obra-page-shell--agenda .agenda-kanban-board {
     margin-top: 0.65rem;
     padding-top: 0.35rem;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  /* Colunas do kanban cabem na tela e cada uma rola por dentro. */
-  .obra-page-shell--agenda .kanban-scroll-host {
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .obra-page-shell--agenda .kanban-scroll-host [data-zoom-content][data-content-layout='kanban'] {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
   }
 }
 

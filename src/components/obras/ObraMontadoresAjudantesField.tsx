@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2, Shield, User } from 'lucide-react'
+import { Loader2, Shield, User } from 'lucide-react'
 import { getObraMontadorIds, getObraMontadorNomes } from '@/lib/obra-montadores'
 import type { ObraFull } from '@/types'
 
@@ -59,8 +58,6 @@ export function ObraMontadoresAjudantesField({
     || (adminId ? displayMontadorName(adminOptions.find(m => m.id === adminId) ?? { nome: null, email: 'Admin' }) : null)
 
   const canEditAdmin = canEdit && !!onChangeAdmin
-  const [listaAberta, setListaAberta] = useState(false)
-  const mostrarLista = !compact || listaAberta
 
   const toggle = (id: string) => {
     if (!canEdit || loading) return
@@ -148,8 +145,8 @@ export function ObraMontadoresAjudantesField({
         )}
       </div>
 
-      {/* Montador Admin — no card compacto só aparece ao abrir a lista */}
-      {canEditAdmin && (!compact || listaAberta) && (
+      {/* Montador Admin — escolha separada dos ajudantes */}
+      {canEditAdmin && (
         <div className={compact ? 'mb-1.5' : 'mb-2.5'}>
           <label className={`mb-1 flex items-center gap-1 text-[#d4bc9f] ${compact ? 'text-[0.52rem]' : 'text-[0.62rem]'}`}>
             <Shield size={compact ? 9 : 11} className="shrink-0 text-[#f2d892]" aria-hidden />
@@ -184,30 +181,10 @@ export function ObraMontadoresAjudantesField({
 
       {options.length > 0 && (
         <>
-          {compact ? (
-            <div className="mb-1 flex min-w-0 flex-col gap-1">
-              {!listaAberta && selectedNomes.length === 0 ? (
-                <p className="text-[0.52rem] leading-snug text-[#d4bc9f]">Nenhum montador definido.</p>
-              ) : null}
-              <button
-                type="button"
-                className="inline-flex w-fit items-center gap-1 text-[0.52rem] font-semibold text-[#f2d892] hover:underline"
-                onClick={e => {
-                  e.stopPropagation()
-                  setListaAberta(v => !v)
-                }}
-              >
-                {listaAberta ? <ChevronUp size={10} aria-hidden /> : <ChevronDown size={10} aria-hidden />}
-                {listaAberta ? 'Fechar lista' : 'Definir montadores'}
-              </button>
-            </div>
-          ) : (
-            <p className="mb-1.5 text-[0.62rem] leading-snug text-[#d4bc9f]">
-              Marque quem será ajudante nesta obra.
-            </p>
-          )}
+          <p className={`mb-1.5 leading-snug text-[#d4bc9f] ${compact ? 'text-[0.52rem]' : 'text-[0.62rem]'}`}>
+            Marque quem será ajudante nesta obra.
+          </p>
 
-          {mostrarLista && (
           <div
             className={[
               'flex flex-col',
@@ -257,7 +234,6 @@ export function ObraMontadoresAjudantesField({
               )
             })}
           </div>
-          )}
         </>
       )}
     </div>

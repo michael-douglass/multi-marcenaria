@@ -54,7 +54,6 @@ import { groupObrasAgendaKanban } from '../lib/obra-progresso'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
   KANBAN_COL_CLASS,
-  KANBAN_COL_LIST_CLASS,
   KANBAN_COL_SHORT,
   kanbanColHeaderClass,
   kanbanColHeaderStyle,
@@ -229,9 +228,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-[#f2d892] leading-tight break-words">{obra.cliente_nome}</p>
           {obra.lousa && (
-            <p className="mt-0.5 line-clamp-3 whitespace-pre-line break-words text-[0.7rem] leading-snug text-[#edd9c4]">
-              {obra.lousa}
-            </p>
+            <p className="text-[0.7rem] text-[#edd9c4] leading-snug break-words mt-0.5">{obra.lousa}</p>
           )}
         </div>
         {(canEdit || canDelete) && (
@@ -270,7 +267,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         >
           {STATUS_SHORT[computedCol]}
         </span>
-        <ObraMontadorBadge obra={obra} compact />
+        <ObraMontadorBadge obra={obra} />
         <ObraPedidoMaterialBadge obra={obra} />
       </div>
 
@@ -284,7 +281,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         compact
       />
 
-      <ObraMontadoresConclusao obra={obra} micro visible={canViewMontadoresConclusao} />
+      <ObraMontadoresConclusao obra={obra} compact visible={canViewMontadoresConclusao} />
 
       <ObraLeadMidiasStrip
         midias={leadMidias}
@@ -1163,7 +1160,7 @@ function AgendaObrasContent() {
           contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${somenteSemPedido}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
-          <div className="agenda-kanban-board obra-scroll-x-mobile flex h-auto min-h-0 w-max min-w-full gap-4 pb-1 md:h-full md:overflow-hidden">
+          <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">
           {COLUNAS.map(col => {
             const obras = obrasByCol[col.key]
             const isOver = dragOverCol === col.key && draggingId !== null
@@ -1196,10 +1193,10 @@ function AgendaObrasContent() {
 
                 {/* Cards */}
                 <div
-                  className={KANBAN_COL_LIST_CLASS}
+                  className="flex flex-col gap-2 overflow-y-auto rounded-lg transition-all"
                   style={{
                     flex: 1,
-                    minHeight: 0,
+                    minHeight: 80,
                     border: isOver ? `2px dashed ${col.cor}66` : '2px solid transparent',
                     backgroundColor: isOver ? `${col.cor}08` : undefined,
                     padding: isOver ? '4px' : undefined,
@@ -1256,11 +1253,6 @@ function AgendaObrasContent() {
                     ))
                   )}
                 </div>
-                {obras.length > 1 ? (
-                  <p className="kanban-col-scroll-hint m-0 shrink-0 px-1 text-center text-[0.62rem] leading-tight text-[#d4bc9f]">
-                    Role a coluna para ver as outras {obras.length - 1}
-                  </p>
-                ) : null}
               </div>
             )
           })}

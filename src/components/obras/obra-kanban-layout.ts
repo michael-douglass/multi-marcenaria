@@ -3,11 +3,7 @@ import type { StatusKanbanObra } from '@/types'
 
 /** Largura fixa das colunas do kanban — texto quebra dentro do card, não estoura a coluna. */
 export const KANBAN_COL_CLASS =
-  'kanban-col flex w-[280px] min-w-[280px] max-w-[300px] shrink-0 flex-col gap-2 md:h-full md:min-h-0'
-
-/** Lista de cards: no desktop a coluna tem altura da tela e rola por dentro. */
-export const KANBAN_COL_LIST_CLASS =
-  'kanban-col-list flex min-h-0 flex-1 flex-col gap-2 overflow-y-scroll overscroll-contain rounded-lg'
+  'kanban-col flex w-[280px] min-w-[280px] max-w-[300px] shrink-0 flex-col gap-2'
 
 /** Rótulos curtos no topo da coluna (cabeçalho estreito). */
 export const KANBAN_COL_SHORT: Record<StatusKanbanObra, string> = {

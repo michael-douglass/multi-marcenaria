@@ -87,7 +87,7 @@ export function KanbanPageZoomShell({
           className={
             contentLayout === 'fluid'
               ? 'zoom-content-fluid block w-full max-w-full min-w-0 origin-top-left'
-              : 'inline-block h-auto w-max min-w-full origin-top-left md:h-full md:min-h-0'
+              : 'inline-block w-max min-w-full origin-top-left'
           }
           style={effectiveZoom === 100 ? undefined : { zoom: effectiveZoom / 100 }}
         >
