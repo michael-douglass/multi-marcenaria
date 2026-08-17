@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { isIosDevice, isMobileUi } from './device'
+import { isNetworkFailure } from './network-error'
 import {
   clearAuthRateLimitFlag,
   isAuthRateLimited,
@@ -17,6 +19,74 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+const REST_TIMEOUT_MS = 20_000
+const STORAGE_TIMEOUT_MS = 120_000
+
+function createMemoryStorage(): Storage {
+  const map = new Map<string, string>()
+  return {
+    get length() {
+      return map.size
+    },
+    clear() {
+      map.clear()
+    },
+    getItem(key) {
+      return map.has(key) ? map.get(key)! : null
+    },
+    key(index) {
+      return [...map.keys()][index] ?? null
+    },
+    removeItem(key) {
+      map.delete(key)
+    },
+    setItem(key, value) {
+      map.set(key, String(value))
+    },
+  }
+}
+
+/** Safari privado / PWA às vezes bloqueia localStorage e o login parece “Failed to fetch”. */
+function getAuthStorage(): Storage {
+  try {
+    const probe = '__garbo_auth_probe'
+    window.localStorage.setItem(probe, '1')
+    window.localStorage.removeItem(probe)
+    return window.localStorage
+  } catch {
+    return createMemoryStorage()
+  }
+}
+
+/**
+ * No iPhone o cadeado interno do login (Web Locks) pode nunca abrir.
+ * Sem isso a logo gira para sempre.
+ */
+async function skipAuthLock<R>(_name: string, _timeout: number, fn: () => Promise<R>): Promise<R> {
+  return fn()
+}
+
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.href
+  return input.url
+}
+
+function isStorageRequest(url: string): boolean {
+  return url.includes('/storage/v1/')
+}
+
+function mergeAbortSignals(parent: AbortSignal | undefined, local: AbortController): () => void {
+  if (!parent) return () => {}
+  if (parent.aborted) {
+    local.abort()
+    return () => {}
+  }
+  const onAbort = () => local.abort()
+  parent.addEventListener('abort', onAbort)
+  return () => parent.removeEventListener('abort', onAbort)
+}
+
 // Se o login foi bloqueado (429), remove sessão antiga antes do cliente tentar renovar.
 if (isAuthRateLimited()) {
   removeSupabaseAuthStorage(supabaseUrl)
@@ -25,12 +95,7 @@ if (isAuthRateLimited()) {
 let authRefreshBlocked = isAuthRateLimited()
 
 const supabaseFetch: typeof fetch = async (input, init) => {
-  const url =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.href
-        : input.url
+  const url = requestUrl(input)
 
   if (authRefreshBlocked && isRefreshTokenRequest(url)) {
     removeSupabaseAuthStorage(supabaseUrl)
@@ -43,24 +108,49 @@ const supabaseFetch: typeof fetch = async (input, init) => {
     )
   }
 
-  const response = await fetch(input, init)
+  const timeoutMs = isStorageRequest(url) ? STORAGE_TIMEOUT_MS : REST_TIMEOUT_MS
+  const maxAttempts = isStorageRequest(url) ? 1 : 2
+  let lastError: unknown
 
-  if (response.status === 429 && isRefreshTokenRequest(url)) {
-    authRefreshBlocked = true
-    markAuthRateLimited()
-    removeSupabaseAuthStorage(supabaseUrl)
-    window.dispatchEvent(new CustomEvent('supabase:auth-rate-limited'))
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const controller = new AbortController()
+    const stopParent = mergeAbortSignals(init?.signal ?? undefined, controller)
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(input, { ...init, signal: controller.signal })
+
+      if (response.status === 429 && isRefreshTokenRequest(url)) {
+        authRefreshBlocked = true
+        markAuthRateLimited()
+        removeSupabaseAuthStorage(supabaseUrl)
+        window.dispatchEvent(new CustomEvent('supabase:auth-rate-limited'))
+      }
+
+      return response
+    } catch (err) {
+      lastError = err
+      const parentAborted = Boolean(init?.signal?.aborted)
+      const canRetry = attempt < maxAttempts - 1 && !parentAborted && isNetworkFailure(err)
+      if (!canRetry) throw err
+      await new Promise(resolve => window.setTimeout(resolve, 400 * (attempt + 1)))
+    } finally {
+      window.clearTimeout(timer)
+      stopParent()
+    }
   }
 
-  return response
+  throw lastError instanceof Error ? lastError : new Error('Failed to fetch')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: supabaseFetch },
   auth: {
-    storage: localStorage,
+    storage: getAuthStorage(),
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    ...(isMobileUi() || isIosDevice() ? { lock: skipAuthLock } : {}),
   },
 })
 

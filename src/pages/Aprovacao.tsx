@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { usePedidos } from '../hooks/usePedidos'
-import { useContasPagar } from '../hooks/useContasPagar'
+import { useFinanceData } from '@/context/FinanceDataContext'
 import { Modal } from '../components/ui/Modal'
 import { Field, FieldRow } from '../components/ui/Field'
 import { Badge } from '../components/ui/Badge'
@@ -15,7 +15,7 @@ interface Props {
 
 export function Aprovacao({ fornecedores, produtos }: Props) {
   const { data: pedidos, loading, error, updateStatus } = usePedidos()
-  const { gerarParcelas } = useContasPagar()
+  const { gerarParcelas } = useFinanceData().contasPagar
 
   const [appOrder, setAppOrder] = useState<Pedido | null>(null)
   const [inst, setInst] = useState('3')

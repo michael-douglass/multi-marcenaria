@@ -21,6 +21,7 @@ export function PwaManager() {
       },
       onRegistered(registration) {
         if (!registration) return
+        void registration.update()
 
         intervalId = window.setInterval(() => {
           void registration.update()

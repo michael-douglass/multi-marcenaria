@@ -17,3 +17,14 @@ export function isGarboSafeMode(): boolean {
   return typeof document !== 'undefined'
     && document.documentElement.dataset.garboSafeMode === '1'
 }
+
+/**
+ * No celular a conexão “ao vivo” do banco compete com o login
+ * e faz a tela girar até aparecer “Failed to fetch”.
+ * No telefone atualizamos a cada minuto; no computador continua ao vivo.
+ */
+export function canUseRealtime(): boolean {
+  if (typeof window === 'undefined') return false
+  if (isGarboSafeMode()) return false
+  return !isMobileUi()
+}

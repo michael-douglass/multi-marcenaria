@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: [
         'garbo-logo.png',
         'apple-touch-icon.png',
@@ -50,6 +50,9 @@ export default defineConfig({
       workbox: {
         // Bundle principal (~2.1 MB) + pdf.worker; limite padrão do Workbox é 2 MiB.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
@@ -78,10 +81,8 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkOnly',
-          },
+          // Não interceptar supabase.co: no celular o cache do app
+          // (service worker) quebra o login com “Failed to fetch”.
         ],
       },
       // Em desenvolvimento o service worker mistura arquivos antigos com novos

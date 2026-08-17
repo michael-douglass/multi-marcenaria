@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useId, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { canUseRealtime } from '../lib/device'
 import type { ContaPagar } from '../types'
 import { addMonths, createId, todayISO } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
@@ -94,7 +95,6 @@ function proximoVencimento(serie: ContaPagar[]): string | null {
 export function useContasPagar() {
   const { isReady } = useAuthReady()
   const { roles } = useApp()
-  const realtimeChannelId = useId().replace(/:/g, '')
   const [data, setData] = useState<ContaPagar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -276,10 +276,14 @@ export function useContasPagar() {
   useAutoRefresh(silentReload)
 
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady || !canUseRealtime()) return
 
+    // Nome único por montagem: o supabase-js reaproveita canal com o mesmo
+    // nome já subscrito e rejeita .on() depois de subscribe() (Strict Mode /
+    // 2ª instância do hook = tela branca em Contas a Pagar).
+    const channelName = `${CONTAS_PAGAR_REALTIME_CHANNEL}:${crypto.randomUUID()}`
     const channel = supabase
-      .channel(`${CONTAS_PAGAR_REALTIME_CHANNEL}-${realtimeChannelId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_contas_pagar' },
@@ -294,7 +298,7 @@ export function useContasPagar() {
       }
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload, realtimeChannelId])
+  }, [isReady, silentReload])
 
   const gerarParcelas = async (
     input: GerarParcelasInput,

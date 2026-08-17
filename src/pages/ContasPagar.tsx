@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Pencil, Trash2, RefreshCw } from 'lucide-react'
-import { useContasPagar } from '../hooks/useContasPagar'
+import { useFinanceData } from '@/context/FinanceDataContext'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
@@ -231,6 +231,8 @@ function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
 }
 
 export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, estornarDebitosContaPagar, readOnly }: Props) {
+  // Usa o mesmo store do FinanceDataProvider — evita 2º useContasPagar()
+  // (dois canais realtime com o mesmo nome quebram a página).
   const {
     data,
     loading,
@@ -247,7 +249,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     excluirContasPagarPorIds,
     marcarPagoEmLote,
     importarCobrancasUnicas,
-  } = useContasPagar()
+  } = useFinanceData().contasPagar
 
   const [encerrarModal, setEncerrarModal] = useState<{
     open: boolean

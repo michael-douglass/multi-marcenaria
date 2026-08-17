@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useId, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { splitObraInputForSave } from '../lib/obra-montadores'
 import { splitComissaoForSave } from '../lib/obra-comissao'
 import { createId } from '../lib/utils'
 import { subscribeSoftRefresh } from '../lib/app-refresh'
+import { canUseRealtime } from '../lib/device'
 import {
   invalidateCache,
   isCacheKeyFresh,
@@ -100,7 +101,6 @@ export interface ObrasStore {
 /** Estado compartilhado de obras — usado pelo ObrasProvider (uma única fonte para todo o app). */
 export function useObrasState(): ObrasStore {
   const { isReady } = useAuthReady()
-  const realtimeChannelId = useId().replace(/:/g, '')
   const fingerprintRef = useRef('')
   const [data, setData] = useState<ObraFull[]>(() => {
     const cached = readCachedObras()
@@ -135,7 +135,7 @@ export function useObrasState(): ObrasStore {
     if (!silent && fingerprintRef.current === '') setLoading(true)
     setError(null)
     const controller = new AbortController()
-    const abortTimer = window.setTimeout(() => controller.abort(), 10_000)
+    const abortTimer = window.setTimeout(() => controller.abort(), 20_000)
     try {
       const { data: rows, error: err } = await supabase
         .rpc('movelaria_listar_obras')
@@ -194,10 +194,10 @@ export function useObrasState(): ObrasStore {
   useAutoRefresh(silentReloadCached)
 
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady || !canUseRealtime()) return
 
     const channel = supabase
-      .channel(`${OBRAS_REALTIME_CHANNEL}-${realtimeChannelId}`)
+      .channel(OBRAS_REALTIME_CHANNEL)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_obras' },
@@ -225,7 +225,7 @@ export function useObrasState(): ObrasStore {
       }
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload, silentReloadLive, realtimeChannelId])
+  }, [isReady, silentReload, silentReloadLive])
 
   const create = async (input: ObraInput): Promise<string> => {
     let payload = stripComissaoFromObraPayload(input)

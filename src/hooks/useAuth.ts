@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { invalidateCache, OBRAS_CACHE_KEY } from '../lib/data-cache'
+import { canUseRealtime } from '../lib/device'
+import { toUserNetworkError } from '../lib/network-error'
 import { supabase } from '../lib/supabase'
 import type { UserProfile, UserRole } from '../types'
 
-const PROFILE_RPC_TIMEOUT_MS = 8_000
+const PROFILE_RPC_TIMEOUT_MS = 12_000
 const AUTH_BOOT_TIMEOUT_MS = 4_000
 
 export interface AuthState {
@@ -213,7 +215,7 @@ export function useAuth(): AuthState {
           setUserProfile(profile)
         } catch (err) {
           if (!active) return
-          const message = err instanceof Error ? err.message : 'Erro ao carregar perfil.'
+          const message = toUserNetworkError(err, 'Erro ao carregar perfil.')
           console.error('[useAuth] Erro ao buscar perfil:', err)
           setUserProfile(null)
           setProfileError(message)
@@ -234,7 +236,7 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     const token = session?.access_token
-    if (!token) return
+    if (!token || !canUseRealtime()) return
     const timer = window.setTimeout(() => {
       supabase.realtime.setAuth(token)
     }, 300)

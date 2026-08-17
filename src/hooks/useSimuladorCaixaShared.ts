@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { canUseRealtime } from '@/lib/device'
 import { useAuthReady } from '@/hooks/useAuthReady'
 import {
   normalizeSimulacaoPayload,
@@ -72,7 +73,7 @@ export function useSimuladorCaixaShared(ano: number) {
 
   // Outro usuário salvou → atualiza na tela
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady || !canUseRealtime()) return
 
     const channel = supabase
       .channel(`movelaria-simulador-caixa-${ano}`)

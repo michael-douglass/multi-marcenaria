@@ -5,6 +5,7 @@ import {
   supabase,
 } from '@/lib/supabase'
 import { isAuthRateLimited } from '@/lib/supabase-auth-storage'
+import { isNetworkFailure, NETWORK_FAILURE_USER_MESSAGE } from '@/lib/network-error'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
 
@@ -39,12 +40,21 @@ export function Login() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
-      setError(authErrorMessage(error.message, error.status))
+      if (authError) {
+        if (isNetworkFailure(authError)) {
+          setError(NETWORK_FAILURE_USER_MESSAGE)
+        } else {
+          setError(authErrorMessage(authError.message, authError.status))
+        }
+      }
+    } catch (err) {
+      setError(isNetworkFailure(err) ? NETWORK_FAILURE_USER_MESSAGE : 'Não foi possível entrar. Tente de novo.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleClearSession() {

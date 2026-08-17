@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useId } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { desfazerReservaDestinatarioMes } from '../lib/caixa-desfazer-reserva'
 import { useAutoRefresh } from './useAutoRefresh'
+import { canUseRealtime } from '../lib/device'
 import type {
   CaixaDestinatario,
   CaixaMovimentacao,
@@ -75,7 +76,6 @@ function roundMoney(n: number): number {
 
 export function useCaixa(mes: number, ano: number) {
   const { isReady } = useAuthReady()
-  const realtimeChannelId = useId().replace(/:/g, '')
   const [destinatarios, setDestinatarios] = useState<CaixaDestinatario[]>([])
   const [movimentacoes, setMovimentacoes] = useState<CaixaMovimentacao[]>([])
   const [resumo, setResumo] = useState<ResumoCaixa>({
@@ -252,10 +252,10 @@ export function useCaixa(mes: number, ano: number) {
   useAutoRefresh(silentReload)
 
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady || !canUseRealtime()) return
 
     const channel = supabase
-      .channel(`${CAIXA_REALTIME_CHANNEL}-${realtimeChannelId}`)
+      .channel(CAIXA_REALTIME_CHANNEL)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_caixa_movimentacoes' },
@@ -281,7 +281,7 @@ export function useCaixa(mes: number, ano: number) {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload, realtimeChannelId])
+  }, [isReady, silentReload])
 
   const registrarMovimentacao = async (mov: Omit<CaixaMovimentacao, 'id' | 'criado_em' | 'criado_por'>) => {
     const { data: userData } = await supabase.auth.getUser()

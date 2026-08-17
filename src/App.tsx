@@ -383,7 +383,11 @@ function AppRoutes() {
   }
 
   if (!userProfile) {
-    const isConnectionError = profileError?.includes('banco') || profileError?.includes('conectar')
+    const isConnectionError =
+      profileError?.includes('banco')
+      || profileError?.includes('conectar')
+      || profileError?.includes('internet')
+      || /failed to fetch/i.test(profileError ?? '')
     const isPendingApproval = profileError?.includes('pendente de aprovação')
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#2a1812] font-raleway text-center text-[#f2d892] px-6">

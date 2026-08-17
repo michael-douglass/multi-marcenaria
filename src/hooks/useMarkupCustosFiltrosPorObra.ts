@@ -3,6 +3,7 @@ import {
   MARKUP_CUSTOS_FILTRO_DEFAULT,
   type MarkupCustosFiltrosPorObra,
 } from '@/lib/obra-markup-custos'
+import { canUseRealtime } from '@/lib/device'
 import { supabase } from '@/lib/supabase'
 import type { MarkupCustosFiltro } from '@/types'
 
@@ -71,7 +72,7 @@ export function useMarkupCustosFiltrosPorObra(enabled: boolean) {
 
   // Outro usuário mudou → atualiza na tela
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !canUseRealtime()) return
 
     const channel = supabase
       .channel('movelaria-obra-markup-custos-filtro')
