@@ -1,11 +1,14 @@
 import { supabase } from '@/lib/supabase'
-import { pdfAllPagesToPngBlobs } from '@/lib/pdf-to-image'
+import { pdfAllPagesToJpegBlobs } from '@/lib/pdf-to-image'
 import { pdfPreviewPathAt, resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { createId } from '@/lib/utils'
 import { atualizarFotoPerfilPath } from '@/lib/meu-perfil-api'
 import type { FuncionarioDocumento, PendingFuncionarioDocumento } from '@/types'
 
 export const FUNCIONARIO_DOCS_BUCKET = 'movelaria-funcionario-documentos'
+/** Teto do bucket (100 MB) com folga para o envio. */
+export const FUNCIONARIO_DOC_MAX_BYTES = 80 * 1024 * 1024
+export const FUNCIONARIO_PDF_MAX_PAGES = 80
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
 
@@ -15,34 +18,19 @@ export function isAcceptedFuncionarioFile(file: File): boolean {
   return lower.endsWith('.pdf') || /\.(jpe?g|png|webp|gif)$/.test(lower)
 }
 
-export async function buildPendingFuncionarioDoc(
+/** Nome de cada página quando o PDF vira foto (contrato.pdf → contrato-p01.jpg). */
+export function funcionarioDocPageFileName(originalName: string, page: number, total: number): string {
+  const base = originalName.replace(/\.[^.]+$/, '').trim() || 'documento'
+  if (total <= 1) return `${base}.jpg`
+  return `${base}-p${String(page).padStart(2, '0')}.jpg`
+}
+
+function pendingFromImageFile(
   file: File,
   tipoDocumento: string,
-  categoria: FuncionarioDocumento['categoria'] = 'rh',
-): Promise<PendingFuncionarioDocumento> {
-  if (!isAcceptedFuncionarioFile(file)) {
-    throw new Error('Envie apenas imagem (JPG, PNG, WebP, GIF) ou PDF.')
-  }
-
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-
-  if (isPdf) {
-    const previewBlobs = await pdfAllPagesToPngBlobs(file)
-    const previewUrls = previewBlobs.map(blob => URL.createObjectURL(blob))
-    return {
-      localId: createId(),
-      file,
-      nome: file.name,
-      tipoMime: file.type || 'application/pdf',
-      kind: 'pdf',
-      tipoDocumento,
-      categoria,
-      previewUrl: previewUrls[0] ?? '',
-      previewUrls,
-      previewBlobs,
-    }
-  }
-
+  categoria: FuncionarioDocumento['categoria'],
+  previewUrl?: string,
+): PendingFuncionarioDocumento {
   return {
     localId: createId(),
     file,
@@ -51,8 +39,39 @@ export async function buildPendingFuncionarioDoc(
     kind: 'image',
     tipoDocumento,
     categoria,
-    previewUrl: URL.createObjectURL(file),
+    previewUrl: previewUrl ?? URL.createObjectURL(file),
   }
+}
+
+/**
+ * Prepara o arquivo para envio.
+ * PDF com 2+ páginas: cada página vira uma imagem JPEG e todas são salvas.
+ */
+export async function buildPendingFuncionarioDocs(
+  file: File,
+  tipoDocumento: string,
+  categoria: FuncionarioDocumento['categoria'] = 'rh',
+): Promise<PendingFuncionarioDocumento[]> {
+  if (!isAcceptedFuncionarioFile(file)) {
+    throw new Error('Envie apenas imagem (JPG, PNG, WebP, GIF) ou PDF.')
+  }
+  if (file.size > FUNCIONARIO_DOC_MAX_BYTES) {
+    throw new Error('Arquivo muito grande. O limite é 80 MB por arquivo.')
+  }
+
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  if (!isPdf) {
+    return [pendingFromImageFile(file, tipoDocumento, categoria)]
+  }
+
+  const pageBlobs = await pdfAllPagesToJpegBlobs(file, { maxPages: FUNCIONARIO_PDF_MAX_PAGES })
+  if (pageBlobs.length === 0) throw new Error('PDF vazio.')
+
+  return pageBlobs.map((blob, index) => {
+    const nome = funcionarioDocPageFileName(file.name, index + 1, pageBlobs.length)
+    const pageFile = new File([blob], nome, { type: 'image/jpeg' })
+    return pendingFromImageFile(pageFile, tipoDocumento, categoria, URL.createObjectURL(blob))
+  })
 }
 
 export function revokePendingFuncionarioDocUrls(anexos: PendingFuncionarioDocumento[]) {

@@ -18,6 +18,7 @@ import { TimeInput } from '@/components/ui/TimeInput'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoComprovantesPanel } from '@/components/funcionarios/PontoComprovantesPanel'
 import { AdvertenciaDisciplinarPanel } from '@/components/funcionarios/AdvertenciaDisciplinarPanel'
+import { PontoRegistrosExportStudio } from '@/components/funcionarios/PontoRegistrosExportStudio'
 import { LoadingState } from '@/components/ui/EmptyState'
 import {
   DIAS_SEMANA_LABEL,
@@ -426,6 +427,24 @@ export function FuncionarioPontoPanel({
 
       {subTab === 'registros' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-lg text-[#f2d892]">Registros de ponto</h3>
+              <p className="mt-1 max-w-xl text-xs text-[#b8957f]">
+                Batidas do dia a dia. Exporte o espelho completo (horas extras, faltas, foto e assinatura)
+                para PDF ou imagem.
+              </p>
+            </div>
+            <PontoRegistrosExportStudio
+              funcionarioId={funcionarioId}
+              funcionarioNome={funcionarioNome}
+              funcionarioTipo={funcionarioTipo}
+              jornada={jornada}
+              marcacoes={marcacoes}
+              ocorrencias={ocorrencias}
+              repCnpj={repConfig?.cnpj}
+            />
+          </div>
           {!readOnly && (
             <div className="glass-card space-y-3 p-5">
               <h3 className="flex items-center gap-2 font-display text-lg text-[#f2d892]">

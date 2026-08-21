@@ -16,7 +16,7 @@ import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightb
 import { useApp } from '@/context/AppContext'
 import { useReciboConfig } from '@/hooks/useReciboConfig'
 import {
-  buildPendingFuncionarioDoc,
+  buildPendingFuncionarioDocs,
   deleteFuncionarioDocumento,
   revokePendingFuncionarioDocUrls,
   uploadFuncionarioDocumento,
@@ -64,6 +64,7 @@ export function FuncionarioDocumentosPanel({
   const canDeleteDocuments = isAdministrador(roles)
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadLabel, setUploadLabel] = useState('Enviar arquivo')
   const [lightbox, setLightbox] = useState<FuncionarioDocumento | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pasta, setPasta] = useState<PastaView>('raiz')
@@ -115,14 +116,18 @@ export function FuncionarioDocumentosPanel({
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length || readOnly || pasta !== 'raiz') return
     setUploading(true)
+    setUploadLabel('Preparando…')
     setError(null)
     const pending: PendingFuncionarioDocumento[] = []
     try {
       for (const file of Array.from(files)) {
-        pending.push(await buildPendingFuncionarioDoc(file, 'outros', 'rh'))
+        pending.push(...(await buildPendingFuncionarioDocs(file, 'outros', 'rh')))
       }
-      for (const p of pending) {
-        await uploadFuncionarioDocumento(funcionarioId, p, 'admin')
+      for (let i = 0; i < pending.length; i++) {
+        setUploadLabel(
+          pending.length > 1 ? `Enviando ${i + 1}/${pending.length}…` : 'Enviando…',
+        )
+        await uploadFuncionarioDocumento(funcionarioId, pending[i], 'admin')
       }
       onReload()
     } catch (err) {
@@ -130,6 +135,7 @@ export function FuncionarioDocumentosPanel({
     } finally {
       revokePendingFuncionarioDocUrls(pending)
       setUploading(false)
+      setUploadLabel('Enviar arquivo')
       if (inputRef.current) inputRef.current.value = ''
     }
   }
@@ -186,7 +192,9 @@ export function FuncionarioDocumentosPanel({
         <div className="glass-card flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p className="font-medium text-[#f2d892]">Documentos RH</p>
-            <p className="text-sm text-[#b8957f]">Imagens ou PDFs — CTPS, contratos, etc.</p>
+            <p className="text-sm text-[#b8957f]">
+              Imagens ou PDFs (até 80 MB). PDF com várias páginas vira uma foto por página.
+            </p>
           </div>
           <div>
             <input
@@ -204,7 +212,7 @@ export function FuncionarioDocumentosPanel({
               onClick={() => inputRef.current?.click()}
             >
               <Upload size={14} />
-              {uploading ? 'Enviando…' : 'Enviar arquivo'}
+              {uploading ? uploadLabel : 'Enviar arquivo'}
             </button>
           </div>
         </div>

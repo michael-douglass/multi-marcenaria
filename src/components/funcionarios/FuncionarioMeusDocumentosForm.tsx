@@ -6,12 +6,12 @@ import { salvarMeuFuncionario } from '@/lib/meu-perfil-api'
 import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
 import { ADMISSAO_DOC_TIPOS, ADMISSAO_STATUS_LABEL } from '@/lib/funcionario-constants'
 import {
-  buildPendingFuncionarioDoc,
+  buildPendingFuncionarioDocs,
   deleteFuncionarioDocumento,
   revokePendingFuncionarioDocUrls,
   uploadFuncionarioDocumento,
 } from '@/lib/funcionario-documentos'
-import type { FuncionarioAdmissaoDados, FuncionarioDocumento, MeuFuncionarioPayload } from '@/types'
+import type { FuncionarioAdmissaoDados, FuncionarioDocumento, MeuFuncionarioPayload, PendingFuncionarioDocumento } from '@/types'
 
 interface Props {
   payload: MeuFuncionarioPayload
@@ -137,7 +137,7 @@ export function FuncionarioMeusDocumentosForm({
     if (!files.length) return
     setUploading(tipoId)
     setError(null)
-    const pendingList: Awaited<ReturnType<typeof buildPendingFuncionarioDoc>>[] = []
+    const pendingList: PendingFuncionarioDocumento[] = []
     try {
       const existente = documentosAdmissao.find(d => d.tipo_documento === tipoId)
         ?? payload.documentos.find(d => d.tipo_documento === tipoId)
@@ -154,13 +154,15 @@ export function FuncionarioMeusDocumentosForm({
       }
 
       for (const file of files) {
-        const pending = await buildPendingFuncionarioDoc(file, tipoId, 'admissao')
-        pendingList.push(pending)
-        await uploadFuncionarioDocumento(
-          payload.id,
-          pending,
-          isRh ? 'admin' : 'funcionario_sistema',
-        )
+        const pages = await buildPendingFuncionarioDocs(file, tipoId, 'admissao')
+        pendingList.push(...pages)
+        for (const pending of pages) {
+          await uploadFuncionarioDocumento(
+            payload.id,
+            pending,
+            isRh ? 'admin' : 'funcionario_sistema',
+          )
+        }
       }
       onReload()
     } catch (err) {
@@ -313,7 +315,7 @@ export function FuncionarioMeusDocumentosForm({
             <div className="h-full bg-gradient-to-r from-[#c9a045] to-[#f2d892] transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="mb-4 text-xs text-[#b8957f]">
-            Envie PDF ou foto (JPG, PNG, WebP). Pode enviar vários arquivos do mesmo item.
+            Envie PDF ou foto (JPG, PNG, WebP), até 80 MB. PDF com várias páginas vira uma foto por página. Pode enviar vários arquivos do mesmo item.
             {podeAdicionarMais && ' Depois de enviar, não é possível excluir — só o administrador remove.'}
           </p>
           <div className="space-y-3">

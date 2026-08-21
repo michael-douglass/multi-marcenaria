@@ -12,15 +12,33 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const PDF_RENDER_SCALE = 1.5
 const MAX_PDF_PAGES = 50
+/** JPEG de documentos (menor que PNG; fundo branco evita página preta). */
+const PDF_JPEG_QUALITY = 0.85
+const PDF_JPEG_MAX_EDGE = 2000
 /** No card/lightbox: poucas páginas. 100 PNGs derrubavam o Safari no iPhone. */
 const MAX_LEAD_PDF_PAGES = 8
 
-async function renderPdfPageToPngBlob(
+interface RenderPdfPageOptions {
+  mime?: 'image/png' | 'image/jpeg'
+  quality?: number
+  maxEdge?: number
+  fillWhite?: boolean
+}
+
+async function renderPdfPageToBlob(
   pdf: pdfjs.PDFDocumentProxy,
   pageNumber: number,
+  options: RenderPdfPageOptions = {},
 ): Promise<Blob> {
+  const mime = options.mime ?? 'image/png'
+  const quality = options.quality ?? (mime === 'image/jpeg' ? PDF_JPEG_QUALITY : 0.92)
   const page = await pdf.getPage(pageNumber)
-  const viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
+  let viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
+  const maxEdge = options.maxEdge
+  if (maxEdge && Math.max(viewport.width, viewport.height) > maxEdge) {
+    const scale = PDF_RENDER_SCALE * (maxEdge / Math.max(viewport.width, viewport.height))
+    viewport = page.getViewport({ scale })
+  }
 
   const canvas = document.createElement('canvas')
   canvas.width = viewport.width
@@ -28,15 +46,27 @@ async function renderPdfPageToPngBlob(
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Não foi possível renderizar o PDF.')
 
+  if (options.fillWhite || mime === 'image/jpeg') {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
   await page.render({ canvas, canvasContext: ctx, viewport }).promise
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       blob => (blob ? resolve(blob) : reject(new Error('Falha ao gerar imagem do PDF.'))),
-      'image/png',
-      0.92,
+      mime,
+      quality,
     )
   })
+}
+
+async function renderPdfPageToPngBlob(
+  pdf: pdfjs.PDFDocumentProxy,
+  pageNumber: number,
+): Promise<Blob> {
+  return renderPdfPageToBlob(pdf, pageNumber, { mime: 'image/png' })
 }
 
 /** Converte todas as páginas do PDF (ArrayBuffer) em PNGs. */
@@ -51,6 +81,42 @@ export async function pdfDataAllPagesToPngBlobs(
   const blobs: Blob[] = []
   for (let page = 1; page <= pageCount; page++) {
     blobs.push(await renderPdfPageToPngBlob(pdf, page))
+  }
+  return blobs
+}
+
+/**
+ * Converte cada página do PDF em JPEG (uma imagem por página).
+ * Se o PDF tiver mais páginas que o teto, avisa em vez de cortar em silêncio.
+ */
+export async function pdfAllPagesToJpegBlobs(
+  file: File,
+  options?: { maxPages?: number },
+): Promise<Blob[]> {
+  const maxPages = options?.maxPages ?? MAX_PDF_PAGES
+  let pdf: pdfjs.PDFDocumentProxy
+  try {
+    pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  } catch {
+    throw new Error('Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.')
+  }
+  if (pdf.numPages < 1) throw new Error('PDF vazio.')
+  if (pdf.numPages > maxPages) {
+    throw new Error(
+      `Este PDF tem ${pdf.numPages} páginas. Envie um arquivo com até ${maxPages} páginas.`,
+    )
+  }
+
+  const blobs: Blob[] = []
+  for (let page = 1; page <= pdf.numPages; page++) {
+    blobs.push(
+      await renderPdfPageToBlob(pdf, page, {
+        mime: 'image/jpeg',
+        quality: PDF_JPEG_QUALITY,
+        maxEdge: PDF_JPEG_MAX_EDGE,
+        fillWhite: true,
+      }),
+    )
   }
   return blobs
 }
