@@ -51,6 +51,15 @@ export function montadorConcluiuObra(
   return !!getObraMontadorExecucao(obra, montadorId)?.finalizado_em
 }
 
+/** Ainda falta alguém da equipe marcar o início. */
+export function algumMontadorPendenteInicio(
+  obra: Pick<ObraFull, 'montador_id' | 'montador_ids' | 'montadores_execucao' | 'iniciado_em'>,
+): boolean {
+  const ids = getObraMontadorIds(obra)
+  if (ids.length === 0) return !obra.iniciado_em
+  return ids.some(id => !montadorIniciouObra(obra, id))
+}
+
 export interface ObraMontadorConclusaoStatus {
   montador_id: string
   nome: string

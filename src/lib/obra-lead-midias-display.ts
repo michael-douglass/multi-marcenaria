@@ -11,6 +11,8 @@ export interface LeadMidiaDisplayItem {
   galleryIndex: number
   kind: 'image' | 'pdf'
   sourceMidiaId: string
+  /** Pasta do CRM (`folder_nome`). Vazio = sem pasta. */
+  folderNome: string | null
 }
 
 const pdfPagesCache = new Map<string, Promise<string[]>>()
@@ -62,6 +64,11 @@ export function getCachedPdfPageUrls(fileUrl: string): Promise<string[]> {
   return pending
 }
 
+function folderNomeOf(midia: LeadMidia): string | null {
+  const t = midia.folder_nome?.trim()
+  return t ? t : null
+}
+
 function imageItem(midia: LeadMidia): LeadMidiaDisplayItem {
   return {
     key: midia.id,
@@ -71,6 +78,7 @@ function imageItem(midia: LeadMidia): LeadMidiaDisplayItem {
     galleryIndex: 0,
     kind: 'image',
     sourceMidiaId: midia.id,
+    folderNome: folderNomeOf(midia),
   }
 }
 
@@ -83,6 +91,7 @@ function pdfPageItems(midia: LeadMidia, pages: string[]): LeadMidiaDisplayItem[]
     galleryIndex: i,
     kind: 'pdf' as const,
     sourceMidiaId: midia.id,
+    folderNome: folderNomeOf(midia),
   }))
 }
 
@@ -95,6 +104,7 @@ function pdfFallbackItem(midia: LeadMidia): LeadMidiaDisplayItem {
     galleryIndex: 0,
     kind: 'pdf',
     sourceMidiaId: midia.id,
+    folderNome: folderNomeOf(midia),
   }
 }
 
@@ -133,4 +143,24 @@ export async function expandLeadMidiasToDisplayItems(
   }
 
   return items
+}
+
+/** Agrupa fotos já expandidas pela pasta do CRM. `null` se nenhuma mídia tem pasta. */
+export function groupDisplayItemsByFolder(
+  items: LeadMidiaDisplayItem[],
+): Array<{ pasta: string; items: LeadMidiaDisplayItem[] }> | null {
+  const hasFolders = items.some(item => Boolean(item.folderNome))
+  if (!hasFolders) return null
+
+  const order: string[] = []
+  const map = new Map<string, LeadMidiaDisplayItem[]>()
+  for (const item of items) {
+    const pasta = item.folderNome?.trim() || 'Sem pasta'
+    if (!map.has(pasta)) {
+      map.set(pasta, [])
+      order.push(pasta)
+    }
+    map.get(pasta)!.push(item)
+  }
+  return order.map(pasta => ({ pasta, items: map.get(pasta)! }))
 }

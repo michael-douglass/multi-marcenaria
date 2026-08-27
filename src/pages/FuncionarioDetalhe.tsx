@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Clock, FileText, FolderOpen, Link2, Receipt, UserMinus } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useFuncionarioDetalhe } from '@/hooks/useFuncionarioDetalhe'
@@ -13,7 +13,7 @@ import { FuncionarioRecibosPanel } from '@/components/funcionarios/FuncionarioRe
 import { FuncionarioVinculosPanel } from '@/components/funcionarios/FuncionarioVinculosPanel'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
-import { isAdministrador } from '@/lib/role-access'
+import { isAdministrador, isPastaPontoRegistrosRestrita, podeEditarPontoRegistrosTerceiro } from '@/lib/role-access'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import type { FuncionarioAdmissaoDados, FuncionarioInput, MeuFuncionarioPayload } from '@/types'
 
@@ -45,13 +45,18 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
     || tabParam === 'ponto'
       ? tabParam
       : 'vinculos'
-  const { roles } = useApp()
+  const { roles, user } = useApp()
+  const pastaPontoRestrita = isPastaPontoRegistrosRestrita(roles)
   const { funcionario, documentos, recibos, contasPagar, valorFixoMensal, loading, error, reload, applyLocalPatch } = useFuncionarioDetalhe(id)
   const { update, dispensar } = useFuncionarios()
   const { data: usuarios } = useUsuarios()
-  const [tab, setTab] = useState<Tab>(tabInicial)
+  const [tab, setTab] = useState<Tab>(pastaPontoRestrita ? 'ponto' : tabInicial)
   const [saving, setSaving] = useState(false)
   const [dispensando, setDispensando] = useState(false)
+
+  useEffect(() => {
+    if (pastaPontoRestrita && tab !== 'ponto') setTab('ponto')
+  }, [pastaPontoRestrita, tab])
 
   if (loading) return <LoadingState />
   if (error || !funcionario) return <ErrorState message={error ?? 'Funcionário não encontrado.'} />
@@ -127,11 +132,17 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   return (
     <div className="fade-in">
       <Link
-        to={abaOrigem === 'dispensados' ? '/funcionarios?aba=dispensados' : '/funcionarios'}
+        to={
+          pastaPontoRestrita
+            ? '/resumo-ponto'
+            : abaOrigem === 'dispensados'
+              ? '/funcionarios?aba=dispensados'
+              : '/funcionarios'
+        }
         className="mb-4 inline-flex items-center gap-2 text-sm text-[#b8957f] hover:text-[#f2d892]"
       >
         <ArrowLeft size={16} />
-        Voltar às pastas
+        {pastaPontoRestrita ? 'Voltar ao resumo de ponto' : 'Voltar às pastas'}
       </Link>
 
       {somenteHistorico && (
@@ -169,7 +180,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <nav className="flex shrink-0 flex-row gap-1 overflow-x-auto lg:w-48 lg:flex-col">
-          {TABS.map(t => {
+          {(pastaPontoRestrita ? TABS.filter(t => t.id === 'ponto') : TABS).map(t => {
             const Icon = t.icon
             const active = tab === t.id
             return (
@@ -196,7 +207,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
         </nav>
 
         <div className="min-w-0 flex-1">
-          {tab === 'vinculos' && (
+          {!pastaPontoRestrita && tab === 'vinculos' && (
             <FuncionarioVinculosPanel
               funcionario={funcionario}
               usuarios={usuarios}
@@ -206,7 +217,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               saving={saving}
             />
           )}
-          {tab === 'admissao' && (
+          {!pastaPontoRestrita && tab === 'admissao' && (
             <div className="space-y-8">
               <FuncionarioAdmissaoForm
                 funcionario={funcionario}
@@ -236,18 +247,27 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               documentos={documentos}
               admissaoDados={funcionario.admissao_dados}
               readOnly={edicaoBloqueada}
+              somenteRegistros={pastaPontoRestrita}
+              podeEditarRegistros={
+                !edicaoBloqueada
+                && podeEditarPontoRegistrosTerceiro(roles, funcionario.usuario_id, user?.id)
+              }
               onReload={() => void reload()}
-              onSyncAdmissaoHorarios={async patch => {
-                await handleUpdate({
-                  admissao_dados: {
-                    ...(funcionario.admissao_dados ?? {}),
-                    ...patch,
-                  },
-                })
-              }}
+              onSyncAdmissaoHorarios={
+                pastaPontoRestrita
+                  ? undefined
+                  : async patch => {
+                      await handleUpdate({
+                        admissao_dados: {
+                          ...(funcionario.admissao_dados ?? {}),
+                          ...patch,
+                        },
+                      })
+                    }
+              }
             />
           )}
-          {tab === 'documentos' && (
+          {!pastaPontoRestrita && tab === 'documentos' && (
             <FuncionarioDocumentosPanel
               funcionarioId={funcionario.id}
               funcionarioNome={funcionario.nome}
@@ -261,7 +281,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
               onReload={() => void reload()}
             />
           )}
-          {tab === 'recibos' && (
+          {!pastaPontoRestrita && tab === 'recibos' && (
             <FuncionarioRecibosPanel
               recibos={recibos}
               readOnly={edicaoBloqueada}

@@ -21,6 +21,7 @@ import {
   Clock,
   ClipboardList,
   History,
+  ShoppingCart,
 } from 'lucide-react'
 import type { ActiveSection, UserRole } from '@/types'
 
@@ -147,6 +148,14 @@ const PONTO_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(167,139,250,0.92)',
     roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
   },
+  {
+    id: 'resumoPonto',
+    title: 'Resumo de ponto',
+    url: '/resumo-ponto',
+    icon: ClipboardList,
+    radialColor: 'rgba(96,165,250,0.92)',
+    roles: ['MontadorAdmin'],
+  },
 ]
 
 const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
@@ -171,6 +180,7 @@ const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
     url: '/resumo-ponto',
     icon: ClipboardList,
     radialColor: 'rgba(96,165,250,0.92)',
+    roles: ['Administrador', 'Financeiro'],
   },
 ]
 
@@ -182,6 +192,14 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin', 'Financeiro'],
+  },
+  {
+    id: 'pedidosObras',
+    title: 'Pedidos',
+    url: '/pedidos-obras',
+    icon: ShoppingCart,
+    radialColor: 'rgba(74,222,128,0.92)',
+    roles: ['AdministradorObras', 'Financeiro'],
   },
   {
     id: 'acompanhamentoObras',
@@ -292,7 +310,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/visualizacao',
     icon: Monitor,
     radialColor: 'rgba(167,139,250,0.92)',
-    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'Visualizador'],
+    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Visualizador'],
   },
   {
     id: 'configuracoes',
@@ -369,6 +387,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/biblioteca': 'biblioteca',
     '/caixa': 'caixa',
     '/agenda-obras': 'agendaObras',
+    '/pedidos-obras': 'pedidosObras',
     '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',
     '/chegada-materiais': 'calendarioChegadaMateriais',

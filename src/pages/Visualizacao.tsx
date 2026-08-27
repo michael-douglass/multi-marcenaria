@@ -30,7 +30,9 @@ import { useControlePontoDiario } from '@/hooks/useControlePontoDiario'
 import { pontoDataLocal } from '@/lib/funcionario-ponto'
 import {
   canConfigurarVisualizacaoPaineis,
+  canViewPainelVisualizacao,
   canViewPontoPainelVisualizacao,
+  paineisPermitidosPorRoles,
   shouldFiltrarPaineisVisualizacao,
   VISUALIZACAO_PAINEL_GRID_IDS,
   painelApareceNoGrid,
@@ -99,7 +101,6 @@ export function Visualizacao() {
 function VisualizacaoContent() {
   const { roles } = useApp()
   const obrasHook = useObras()
-  const contasHook = useContasReceber()
   const evolucaoHook = useEvolucaoPainel('hoje')
   const configHook = useVisualizacaoConfig()
   const relogio = useRelogio()
@@ -113,20 +114,24 @@ function VisualizacaoContent() {
   const canViewMontadoresConclusao = canViewMontadoresConclusaoObra(roles)
   const canConfigPaineis = canConfigurarVisualizacaoPaineis(roles)
   const canViewPontoPainel = canViewPontoPainelVisualizacao(roles)
+  const canViewCobrancasPainel = canViewPainelVisualizacao(roles, 'cobrancas_atrasadas')
+  const recorteEquipe = paineisPermitidosPorRoles(roles) != null
   const filtrarPaineis = shouldFiltrarPaineisVisualizacao(roles)
+  const contasHook = useContasReceber({ enabled: canViewCobrancasPainel })
   const pontoHook = useControlePontoDiario(pontoDataLocal(), { enabled: canViewPontoPainel })
 
   const painelVisivel = (id: VisualizacaoPainelId) => {
+    if (!canViewPainelVisualizacao(roles, id)) return false
     if (!filtrarPaineis) return true
     if (configHook.loading) return false
     return configHook.paineisVisiveis.has(id)
   }
 
 
-  const error = obrasHook.error ?? contasHook.error
+  const error = obrasHook.error ?? (canViewCobrancasPainel ? contasHook.error : null)
   const isInitialLoading =
     (obrasHook.loading && obrasHook.data.length === 0)
-    || (contasHook.loading && contasHook.data.length === 0)
+    || (canViewCobrancasPainel && contasHook.loading && contasHook.data.length === 0)
     || (filtrarPaineis && configHook.loading && configHook.salvos === null)
   const contentReady = !isInitialLoading && !error
 
@@ -498,7 +503,11 @@ function VisualizacaoContent() {
               {painelVisivel('obras_atrasadas') && painelApareceNoGrid('obras_atrasadas') && (
               <VisualizacaoPanel
                 title="Obras Atrasadas"
-                subtitle="Todas as obras com prazo vencido"
+                subtitle={
+                  recorteEquipe
+                    ? 'Obras da sua equipe com prazo vencido'
+                    : 'Todas as obras com prazo vencido'
+                }
                 accent="#ef4444"
                 badge={obrasAtrasadas.length}
                 className="viz-panel--span-2 viz-stagger-5"

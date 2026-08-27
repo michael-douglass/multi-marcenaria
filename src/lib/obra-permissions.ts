@@ -1,5 +1,10 @@
 import type { ObraFull, UserRole } from '@/types'
-import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from './obra-montadores'
+import {
+  algumMontadorPendenteInicio,
+  getObraMontadorIds,
+  montadorConcluiuObra,
+  montadorIniciouObra,
+} from './obra-montadores'
 
 const OBRAS_MENU_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin', 'Montador', 'Financeiro']
 const OBRAS_ADMIN_SECTION_ROLES: UserRole[] = ['Administrador', 'AdministradorObras', 'MontadorAdmin']
@@ -14,6 +19,16 @@ export function hasObrasAdminSectionsAccess(roles: UserRole[]): boolean {
 
 export function hasChegadaMateriaisAccess(roles: UserRole[]): boolean {
   return hasObrasAdminSectionsAccess(roles)
+}
+
+/** Página Pedidos: somente Financeiro e Administrador de Obras. */
+export function hasPedidosObrasAccess(roles: UserRole[]): boolean {
+  return roles.includes('Financeiro') || roles.includes('AdministradorObras')
+}
+
+/** Aprovar compra e gerar parcelas em Contas a Pagar. */
+export function canAprovarPedidoCompra(roles: UserRole[]): boolean {
+  return roles.includes('Administrador')
 }
 
 export function canManageAllObras(roles: UserRole[]): boolean {
@@ -84,6 +99,11 @@ export function podeAdminForcarConclusaoObra(roles: UserRole[]): boolean {
   return canManageAllObras(roles)
 }
 
+/** Montador admin (e admins da empresa): início/conclusão vale para toda a equipe. */
+export function podeComandarEquipeObra(roles: UserRole[]): boolean {
+  return canManageAllObras(roles) || roles.includes('MontadorAdmin')
+}
+
 export interface ObraConclusaoUiOpts {
   obra: ObraFull
   roles: UserRole[]
@@ -92,12 +112,32 @@ export interface ObraConclusaoUiOpts {
   montadorUserId?: string | null
 }
 
+/** Exibe o botão "Iniciar" no card, sem precisar abrir o detalhe. */
+export function podeExibirBotaoIniciarObra(opts: ObraConclusaoUiOpts): boolean {
+  const { obra, roles, canEdit, isMontador, montadorUserId } = opts
+  if (!obraPendenteConclusao(obra)) return false
+
+  if (podeComandarEquipeObra(roles)) {
+    return algumMontadorPendenteInicio(obra)
+  }
+
+  const euSouMontadorNaObra =
+    !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
+  const marcacaoIndividual = isMontador || euSouMontadorNaObra
+
+  if (marcacaoIndividual) {
+    return !montadorIniciouObra(obra, montadorUserId)
+  }
+
+  return canEdit && !obra.iniciado_em
+}
+
 /** Exibe o botão "Concluir" conforme perfil e estágio da obra. */
 export function podeExibirBotaoConcluirObra(opts: ObraConclusaoUiOpts): boolean {
   const { obra, roles, canEdit, isMontador, montadorUserId } = opts
   if (!obraPendenteConclusao(obra)) return false
 
-  if (podeAdminForcarConclusaoObra(roles)) return true
+  if (podeComandarEquipeObra(roles)) return true
 
   const euSouMontadorNaObra =
     !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)

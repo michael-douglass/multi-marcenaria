@@ -1,6 +1,6 @@
 import { garboBrandLogo } from '@/lib/garbo-brand'
 import {
-  enrichMarcacaoUrls,
+  enrichMarcacoesUrls,
   formatAtrasoMinutos,
   formatHoraPonto,
   googleMapsUrl,
@@ -251,7 +251,7 @@ export async function prepararComprovantesPonto(
   marcacoes: PontoMarcacao[],
   repCnpj?: string | null,
 ): Promise<PontoComprovanteInput[]> {
-  const enriched = await Promise.all(marcacoes.map(m => enrichMarcacaoUrls(m)))
+  const enriched = await enrichMarcacoesUrls(marcacoes)
   return enriched
     .sort((a, b) => a.registrado_em.localeCompare(b.registrado_em))
     .map(m => ({

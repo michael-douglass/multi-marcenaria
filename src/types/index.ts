@@ -21,6 +21,7 @@ export type ActiveSection =
   | 'biblioteca'
   | 'caixa'
   | 'agendaObras'
+  | 'pedidosObras'
   | 'acompanhamentoObras'
   | 'calendarioObras'
   | 'calendarioChegadaMateriais'
@@ -72,26 +73,90 @@ export type PedidoStatus = 'aguardando_aprovacao' | 'aprovado' | 'recusado'
 export interface PedidoItem {
   id: string
   pedido_id: string
-  produto_id?: string
+  produto_id?: string | null
+  markup_produto_id?: string | null
+  descricao?: string | null
   quantidade: number
   valor_unitario: number
   valor_total: number
+  valor_unitario_markup?: number | null
+  valor_unitario_feito?: number | null
   criado_em?: string
   // join
   movelaria_produtos?: Pick<Produto, 'id' | 'descricao' | 'unidade_medida'>
 }
 
+export interface PedidoAnexo {
+  id: string
+  pedido_id: string
+  nome_arquivo: string
+  tipo_mime: string
+  storage_path: string
+  preview_path?: string | null
+  criado_em?: string
+}
+
 export interface Pedido {
   id: string
-  fornecedor_id?: string
+  fornecedor_id?: string | null
+  obra_id?: string | null
+  markup_orcamento_id?: string | null
   status: PedidoStatus
   total: number
   data_pedido: string
+  num_parcelas?: number | null
+  primeiro_vencimento?: string | null
+  observacao?: string | null
   criado_em?: string
   atualizado_em?: string
   // joins
   movelaria_fornecedores?: Pick<Fornecedor, 'id' | 'nome'>
   movelaria_pedidos_itens?: PedidoItem[]
+  movelaria_pedidos_anexos?: PedidoAnexo[]
+}
+
+/** Linha de material vinda de emp_garbo.markup_orcamentos.modulos.materiais.linhas */
+export interface MarkupLinhaProduto {
+  produto_id?: string | null
+  descricao: string
+  variacao?: string | null
+  unidade?: string | null
+  categoria?: string | null
+  quantidade: number
+  valor_unitario: number
+  valor_total: number
+  ativo: boolean
+}
+
+export interface MarkupOrcamentoItens {
+  lead_id: string
+  orcamento_id: string
+  titulo?: string | null
+  custo_materiais: number
+  custo_servicos: number
+  custo_despesas: number
+  preco_final: number
+  linhas: MarkupLinhaProduto[]
+}
+
+export interface MarkupCatalogoCategoria {
+  id: string
+  nome: string
+  ordem: number
+  ativo: boolean
+}
+
+export interface MarkupCatalogoProduto {
+  id: string
+  categoria_id?: string | null
+  categoria_nome?: string | null
+  nome: string
+  variacao?: string | null
+  preco_unitario: number
+  unidade: string
+  quantidade_padrao?: number | null
+  ativo: boolean
+  ordem: number
 }
 
 // ── Conta a Pagar ───────────────────────────────────────────

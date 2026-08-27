@@ -169,6 +169,29 @@ export async function getFuncionarioDocSignedUrl(path: string, expiresIn = 3600)
   return data.signedUrl
 }
 
+/** Várias URLs de uma vez (selfie + assinatura do ponto). */
+export async function getFuncionarioDocsSignedUrls(
+  paths: string[],
+  expiresIn = 3600,
+): Promise<Map<string, string>> {
+  const unique = [...new Set(paths.map(p => p.trim()).filter(Boolean))]
+  const map = new Map<string, string>()
+  if (unique.length === 0) return map
+
+  const chunkSize = 40
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const slice = unique.slice(i, i + chunkSize)
+    const { data, error } = await supabase.storage
+      .from(FUNCIONARIO_DOCS_BUCKET)
+      .createSignedUrls(slice, expiresIn)
+    if (error) throw new Error(error.message)
+    for (const item of data ?? []) {
+      if (item.path && item.signedUrl) map.set(item.path, item.signedUrl)
+    }
+  }
+  return map
+}
+
 /** Anexa URLs assinadas de todas as páginas de preview (PDF multipágina). */
 export async function withFuncionarioDocPreviewUrls(
   doc: FuncionarioDocumento,

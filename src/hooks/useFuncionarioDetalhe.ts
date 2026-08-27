@@ -3,11 +3,18 @@ import { supabase } from '@/lib/supabase'
 import { listFuncionarioDocumentos, withFuncionarioDocPreviewUrls } from '@/lib/funcionario-documentos'
 import { mapRecibosComContaPagar, RECIBO_SELECT_COM_CONTA_PAGAR } from '@/lib/funcionario-recibos'
 import { fetchFixoMontadores } from '@/lib/fixo-montador'
+import { isPastaPontoRegistrosRestrita } from '@/lib/role-access'
 import type { ContaPagar, Funcionario, FuncionarioDocumento, FuncionarioInput, FuncionarioRecibo } from '@/types'
+import { useApp } from '@/context/AppContext'
 import { useAuthReady } from './useAuthReady'
+
+const FUNCIONARIO_PONTO_PASTA_SELECT =
+  'id, nome, tipo, usuario_id, ativo, cpf, email, telefone, admissao_status, dispensado_em'
 
 export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
   const { isReady } = useAuthReady()
+  const { roles } = useApp()
+  const pastaLeve = isPastaPontoRegistrosRestrita(roles)
   const [funcionario, setFuncionario] = useState<Funcionario | null>(null)
   const [documentos, setDocumentos] = useState<FuncionarioDocumento[]>([])
   const [recibos, setRecibos] = useState<FuncionarioRecibo[]>([])
@@ -27,7 +34,7 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
     try {
       const { data: funcRow, error: funcErr } = await supabase
         .from('movelaria_funcionarios')
-        .select('*')
+        .select(pastaLeve ? FUNCIONARIO_PONTO_PASTA_SELECT : '*')
         .eq('id', funcionarioId)
         .single()
       if (funcErr) throw funcErr
@@ -37,6 +44,14 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
         admissao_dados: ((funcRow as Funcionario).admissao_dados ?? {}) as Funcionario['admissao_dados'],
       }
       setFuncionario(func)
+
+      if (pastaLeve) {
+        setDocumentos([])
+        setRecibos([])
+        setContasPagar([])
+        setValorFixoMensal(null)
+        return
+      }
 
       const docs = await listFuncionarioDocumentos(funcionarioId)
       const docsWithUrls = await Promise.all(docs.map(d => withFuncionarioDocPreviewUrls(d)))
@@ -80,7 +95,7 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [isReady, funcionarioId])
+  }, [isReady, funcionarioId, pastaLeve])
 
   useEffect(() => { void load() }, [load])
 

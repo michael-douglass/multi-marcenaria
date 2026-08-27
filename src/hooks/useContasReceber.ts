@@ -57,14 +57,15 @@ export function cobrancaTemParcelamento(conta: ContaReceber, todas: ContaReceber
 
 const CONTAS_RECEBER_REALTIME_CHANNEL = 'movelaria-contas-receber-sync'
 
-export function useContasReceber() {
+export function useContasReceber(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   const { isReady } = useAuthReady()
   const [data, setData] = useState<ContaReceber[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!isReady) return
+    if (!isReady || !enabled) return
 
     if (!opts?.silent) setLoading(true)
     setError(null)
@@ -82,17 +83,25 @@ export function useContasReceber() {
       setData(flattened)
     }
     if (!opts?.silent) setLoading(false)
-  }, [isReady])
+  }, [isReady, enabled])
 
   const silentReload = useCallback(() => {
     void load({ silent: true })
   }, [load])
 
-  useEffect(() => { void load() }, [load])
-  useAutoRefresh(silentReload)
+  useEffect(() => {
+    if (!enabled) {
+      setLoading(false)
+      setData([])
+      setError(null)
+      return
+    }
+    void load()
+  }, [enabled, load])
+  useAutoRefresh(silentReload, enabled ? undefined : 0)
 
   useEffect(() => {
-    if (!isReady || !canUseRealtime()) return
+    if (!enabled || !isReady || !canUseRealtime()) return
 
     const channel = supabase
       .channel(CONTAS_RECEBER_REALTIME_CHANNEL)
@@ -106,7 +115,7 @@ export function useContasReceber() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [isReady, silentReload])
+  }, [enabled, isReady, silentReload])
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada

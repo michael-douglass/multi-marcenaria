@@ -6,10 +6,10 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { OptionalFinanceDataProvider, useFinanceDataOptional } from '@/context/FinanceDataContext'
 import { sectionFromPath, defaultPathForRoles } from '@/lib/app-navigation'
-import { canAccessSection } from '@/lib/role-access'
+import { canAccessSection, canAccessFuncionarioPasta } from '@/lib/role-access'
 import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
 import { consumePontoResumeFlag, peekPontoResumeFlag } from '@/hooks/useBaterPonto'
-import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess } from '@/lib/obra-permissions'
+import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess, hasPedidosObrasAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
 import { ContasPagar } from '@/pages/ContasPagar'
@@ -19,6 +19,7 @@ import { Biblioteca } from '@/pages/Biblioteca'
 import { CaixaFornecedor } from '@/pages/CaixaFornecedor'
 import { Caixa } from '@/pages/Caixa'
 import { AgendaObras } from '@/pages/AgendaObras'
+import { PedidosObras } from '@/pages/PedidosObras'
 import { AcompanhamentoObras } from '@/pages/AcompanhamentoObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { ChegadaMateriaisCalendario } from '@/pages/ChegadaMateriaisCalendario'
@@ -129,6 +130,12 @@ function RoleRedirect() {
   useEffect(() => {
     if (!roles.length) return
     const section = sectionFromPath(location.pathname)
+    if (section === 'funcionarios') {
+      if (!canAccessFuncionarioPasta(roles, location.pathname)) {
+        navigate(defaultPath, { replace: true })
+      }
+      return
+    }
     if (!canAccessSection(roles, section)) {
       navigate(defaultPath, { replace: true })
     }
@@ -139,6 +146,7 @@ function RoleRedirect() {
 
 function AuthenticatedRoutes() {
   const { roles } = useApp()
+  const location = useLocation()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
   const finance = useFinanceDataOptional()
 
@@ -196,8 +204,22 @@ function AuthenticatedRoutes() {
               />,
             )}
           />
-          <Route path="/funcionarios" element={guardReadOnly(<Funcionarios readOnly={readOnly} />)} />
-          <Route path="/funcionarios/:id" element={guardReadOnly(<FuncionarioDetalhe readOnly={readOnly} />)} />
+          <Route
+            path="/funcionarios"
+            element={
+              canAccessSection(roles, 'funcionarios')
+                ? guardReadOnly(<Funcionarios readOnly={readOnly} />)
+                : <Restricted message="Pastas de funcionários disponíveis para RH." />
+            }
+          />
+          <Route
+            path="/funcionarios/:id"
+            element={
+              canAccessFuncionarioPasta(roles, location.pathname)
+                ? guardReadOnly(<FuncionarioDetalhe readOnly={readOnly} />)
+                : <Restricted message="Pasta disponível para RH e Montador Admin (somente registros de ponto)." />
+            }
+          />
           <Route
             path="/contas-pagar"
             element={
@@ -246,6 +268,14 @@ function AuthenticatedRoutes() {
               hasObrasMenuAccess(roles)
                 ? <AgendaObras />
                 : <Restricted message="Acesso restrito ao módulo de Obras." />
+            }
+          />
+          <Route
+            path="/pedidos-obras"
+            element={
+              hasPedidosObrasAccess(roles)
+                ? <PedidosObras />
+                : <Restricted message="Pedidos disponível apenas para Financeiro e Administrador de Obras." />
             }
           />
           <Route
@@ -309,7 +339,7 @@ function AuthenticatedRoutes() {
             element={
               canAccessSection(roles, 'resumoPonto')
                 ? <ResumoPonto />
-                : <Restricted message="Disponível apenas para RH (Administrador e Financeiro)." />
+                : <Restricted message="Disponível para RH e Montador Admin." />
             }
           />
           <Route

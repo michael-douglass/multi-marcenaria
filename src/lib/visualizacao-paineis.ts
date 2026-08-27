@@ -91,6 +91,23 @@ export function checkboxStateToPaineisVisiveis(
   return VISUALIZACAO_PAINEL_IDS.filter(id => state[id])
 }
 
+/** Painéis operacionais de obras — o que o Montador Admin pode acompanhar. */
+export const VISUALIZACAO_PAINEIS_MONTADOR_ADMIN: VisualizacaoPainelId[] = [
+  'chegada_materiais',
+  'calendario_obras',
+  'acompanhamento_obras',
+  'obras_do_dia',
+  'obras_atrasadas',
+]
+
+function isGestaoVisualizacao(roles: UserRole[]): boolean {
+  return (
+    roles.includes('Administrador')
+    || roles.includes('AdministradorObras')
+    || roles.includes('Financeiro')
+  )
+}
+
 /** Administrador define o que o Visualizador enxerga. */
 export function canConfigurarVisualizacaoPaineis(roles: UserRole[]): boolean {
   return roles.includes('Administrador') || roles.includes('AdministradorObras')
@@ -100,6 +117,19 @@ export function canConfigurarVisualizacaoPaineis(roles: UserRole[]): boolean {
 export function shouldFiltrarPaineisVisualizacao(roles: UserRole[]): boolean {
   if (canConfigurarVisualizacaoPaineis(roles)) return false
   return roles.includes('Visualizador')
+}
+
+/** Lista de painéis permitidos ao perfil, ou null quando não há recorte por cargo. */
+export function paineisPermitidosPorRoles(roles: UserRole[]): VisualizacaoPainelId[] | null {
+  if (isGestaoVisualizacao(roles)) return null
+  if (roles.includes('MontadorAdmin')) return [...VISUALIZACAO_PAINEIS_MONTADOR_ADMIN]
+  return null
+}
+
+export function canViewPainelVisualizacao(roles: UserRole[], id: VisualizacaoPainelId): boolean {
+  const permitidos = paineisPermitidosPorRoles(roles)
+  if (!permitidos) return true
+  return permitidos.includes(id)
 }
 
 /** Painel de ponto diário — exclusivo para Administrador na página Visualização. */

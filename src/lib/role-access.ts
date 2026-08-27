@@ -10,10 +10,10 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 
 export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto'],
-  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras'],
+  Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras', 'pedidosObras'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
-  AdministradorObras: [...OBRAS_SECTIONS, 'visualizacao', 'meuPerfil', 'baterPonto', 'historicoPonto'],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'visualizacao', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto', 'resumoPonto'],
+  AdministradorObras: [...OBRAS_SECTIONS, 'pedidosObras', 'visualizacao', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Visualizador: ['visualizacao'],
 }
@@ -38,9 +38,45 @@ export function isAdministrador(roles: UserRole[]): boolean {
   return roles.includes('Administrador')
 }
 
+/**
+ * Pasta do funcionário: RH vê a lista e o detalhe;
+ * Montador Admin só entra em /funcionarios/:id (não na listagem).
+ */
+export function canAccessFuncionarioPasta(roles: UserRole[], pathname: string): boolean {
+  if (canAccessSection(roles, 'funcionarios')) return true
+  if (!roles.includes('MontadorAdmin')) return false
+  const path = pathname.split('?')[0] ?? pathname
+  return /^\/funcionarios\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+}
+
+/** Pasta restrita a Ponto → Registros, sem as outras abas de RH. */
+export function isPastaPontoRegistrosRestrita(roles: UserRole[]): boolean {
+  return roles.includes('MontadorAdmin') && !canAccessSection(roles, 'funcionarios')
+}
+
+/**
+ * RH edita qualquer ponto. Montador Admin lança/ajusta o de outras pessoas,
+ * mas o ponto da própria titularidade fica bloqueado.
+ */
+export function podeEditarPontoRegistrosTerceiro(
+  roles: UserRole[],
+  funcionarioUsuarioId: string | null | undefined,
+  currentUserId: string | undefined,
+): boolean {
+  if (roles.includes('Administrador') || roles.includes('Financeiro')) return true
+  if (!isPastaPontoRegistrosRestrita(roles)) return true
+  if (!currentUserId) return false
+  return funcionarioUsuarioId !== currentUserId
+}
+
 /** Custos do markup na Agenda (Pedido a fazer + bloco nos cards). */
 export function canViewMarkupCustos(roles: UserRole[]): boolean {
   return isAdministrador(roles) || roles.includes('Financeiro')
+}
+
+/** Cadastrar produtos e alterar itens do markup na página Pedidos. */
+export function canEditMarkupItens(roles: UserRole[]): boolean {
+  return canViewMarkupCustos(roles)
 }
 
 const CAMPO_ROLES: UserRole[] = ['Montador', 'MontadorAdmin', 'AdministradorObras']

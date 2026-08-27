@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, X, Search, Filter, CheckCircle, Loader2, CalendarDays, Settings, Monitor, Sun } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Search, Filter, CalendarDays, Settings, Monitor, Sun } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
@@ -16,6 +16,7 @@ import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
+import { ObraEquipeActionBar } from '@/components/obras/ObraEquipeActionBar'
 import { ObraWeekCardRoster } from '../components/obras/ObraWeekCardRoster'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
 import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
@@ -38,7 +39,6 @@ import {
   canEditComissao,
   canAplicarComissao,
   canViewMontadoresConclusaoObra,
-  podeExibirBotaoConcluirObra,
   canViewObraBriefing,
   canEditObraBriefing,
 } from '../lib/obra-permissions'
@@ -245,7 +245,7 @@ function ConfigDiasPanel({
 
 // ── Popup do dia ─────────────────────────────────────────────
 function DayPopup({
-  date, obras, onClose, onObraClick, onConcluir, actioning,
+  date, obras, onClose, onObraClick, onIniciar, onConcluir, actioning,
   canEdit, isMontador, montadorUserId, roles,
   onTogglePedidoMaterial, togglingPedidoMaterial,
   onUpdateDataEntrega, updatingDataEntrega,
@@ -255,6 +255,7 @@ function DayPopup({
   obras: ObraFull[]
   onClose: () => void
   onObraClick: (o: ObraFull) => void
+  onIniciar: (id: string) => void
   onConcluir: (id: string) => void
   actioning: string | null
   canEdit: boolean
@@ -300,13 +301,6 @@ function DayPopup({
             obras.map(o => {
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
               const loading = actioning === o.id
-              const mostrarConcluir = podeExibirBotaoConcluirObra({
-                obra: o,
-                roles,
-                canEdit,
-                isMontador,
-                montadorUserId,
-              })
               return (
                 <div key={o.id} className="flex flex-col gap-1.5">
                   <ObraComissaoStrip
@@ -359,7 +353,7 @@ function DayPopup({
                     </div>
                   </button>
 
-                  <div className="px-3 pb-2 flex flex-col gap-1.5">
+                  <div className="px-3 pb-3 flex flex-col gap-1.5">
                     <ObraPedidoMaterialToggle
                       obra={o}
                       canEdit={canEdit}
@@ -375,24 +369,19 @@ function DayPopup({
                       onChange={data => onUpdateDataEntrega(o, data)}
                       compact
                     />
-                  </div>
 
-                  {mostrarConcluir && (
-                    <div className="px-3 pb-3 pt-0">
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={() => onConcluir(o.id)}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/35 transition-colors disabled:opacity-50"
-                      >
-                        {loading
-                          ? <Loader2 size={12} className="animate-spin" />
-                          : <CheckCircle size={12} />
-                        }
-                        Marcar como Concluída
-                      </button>
-                    </div>
-                  )}
+                    <ObraEquipeActionBar
+                      obra={o}
+                      roles={roles}
+                      canEdit={canEdit}
+                      isMontador={isMontador}
+                      montadorUserId={montadorUserId}
+                      loading={loading}
+                      onIniciar={onIniciar}
+                      onConcluir={onConcluir}
+                      compact
+                    />
+                  </div>
                 </div>
                 </div>
               )
@@ -978,13 +967,6 @@ function CalendarioObrasContent() {
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
                 const loading = actioning === o.id
-                const mostrarConcluir = podeExibirBotaoConcluirObra({
-                  obra: o,
-                  roles,
-                  canEdit,
-                  isMontador,
-                  montadorUserId: userProfile?.id,
-                })
                 return (
                   <div key={o.id} className="flex w-full max-w-full min-w-0 flex-col gap-1.5">
                   <ObraComissaoStrip
@@ -1061,20 +1043,17 @@ function CalendarioObrasContent() {
                         compact
                       />
 
-                      {mostrarConcluir && (
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => handleConcluir(o.id)}
-                          className="w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/35 transition-colors disabled:opacity-50"
-                        >
-                          {loading
-                            ? <Loader2 size={12} className="animate-spin" />
-                            : <CheckCircle size={12} />
-                          }
-                          Marcar como Concluída
-                        </button>
-                      )}
+                      <ObraEquipeActionBar
+                        obra={o}
+                        roles={roles}
+                        canEdit={canEdit}
+                        isMontador={isMontador}
+                        montadorUserId={userProfile?.id}
+                        loading={loading}
+                        onIniciar={handleIniciar}
+                        onConcluir={handleConcluir}
+                        compact
+                      />
                     </div>
                   </div>
                   </div>
@@ -1163,6 +1142,17 @@ function CalendarioObrasContent() {
                                 canViewMontadoresConclusao={canViewMontadoresConclusao}
                               />
                               <ObraTempoBar obra={o} micro />
+                              <ObraEquipeActionBar
+                                obra={o}
+                                roles={roles}
+                                canEdit={canEdit}
+                                isMontador={isMontador}
+                                montadorUserId={userProfile?.id}
+                                loading={actioning === o.id}
+                                onIniciar={handleIniciar}
+                                onConcluir={handleConcluir}
+                                dense
+                              />
                             </div>
                             )
                           })
@@ -1282,6 +1272,7 @@ function CalendarioObrasContent() {
           obras={obrasForDayUtil(obrasFiltradas, toISO(selectedDay), configDias)}
           onClose={() => setSelectedDay(null)}
           onObraClick={o => { setSelectedDay(null); setDetalheObra(o) }}
+          onIniciar={handleIniciar}
           onConcluir={handleConcluir}
           actioning={actioning}
           canEdit={canEdit}

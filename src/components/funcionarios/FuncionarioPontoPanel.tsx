@@ -57,6 +57,10 @@ interface Props {
   documentos: FuncionarioDocumento[]
   admissaoDados?: FuncionarioAdmissaoDados | null
   readOnly?: boolean
+  /** Só a aba Registros (Montador Admin). */
+  somenteRegistros?: boolean
+  /** Lançar/editar batidas. Falso para o próprio ponto. */
+  podeEditarRegistros?: boolean
   onReload?: () => void
   onSyncAdmissaoHorarios?: (patch: {
     horarios_semana: NonNullable<FuncionarioAdmissaoDados['horarios_semana']>
@@ -84,6 +88,8 @@ export function FuncionarioPontoPanel({
   documentos,
   admissaoDados,
   readOnly,
+  somenteRegistros = false,
+  podeEditarRegistros,
   onReload,
   onSyncAdmissaoHorarios,
 }: Props) {
@@ -101,8 +107,9 @@ export function FuncionarioPontoPanel({
     addMarcacaoManual,
     reload,
   } = useFuncionarioPonto(funcionarioId)
+  const editarRegistros = podeEditarRegistros ?? !readOnly
 
-  const [subTab, setSubTab] = useState<SubTab>('jornada')
+  const [subTab, setSubTab] = useState<SubTab>(somenteRegistros ? 'registros' : 'jornada')
   const [form, setForm] = useState(DEFAULT_JORNADA)
   const [saving, setSaving] = useState(false)
   const [exportando, setExportando] = useState(false)
@@ -195,6 +202,7 @@ export function FuncionarioPontoPanel({
 
   // Se ainda não existe jornada no ponto, mas a admissão já tem horários, cria a jornada.
   useEffect(() => {
+    if (somenteRegistros) return
     if (loading || readOnly || jornada || seededFromAdmissaoRef.current) return
     if (!admissaoTemHorariosPreenchidos(admissaoDados)) return
     const fromAdmissao = jornadaFromHorariosAdmissao(
@@ -216,7 +224,11 @@ export function FuncionarioPontoPanel({
         )
       }
     })()
-  }, [loading, readOnly, jornada, admissaoDados, saveJornada, onReload])
+  }, [loading, readOnly, somenteRegistros, jornada, admissaoDados, saveJornada, onReload])
+
+  useEffect(() => {
+    if (somenteRegistros && subTab !== 'registros') setSubTab('registros')
+  }, [somenteRegistros, subTab])
 
   if (loading) return <LoadingState message="Carregando ponto…" />
 
@@ -326,12 +338,15 @@ export function FuncionarioPontoPanel({
     }
   }
 
-  const SUB_TABS: { id: SubTab; label: string }[] = [    { id: 'jornada', label: 'Jornada' },
-    { id: 'registros', label: 'Registros' },
-    { id: 'ocorrencias', label: 'Ocorrências' },
-    { id: 'documentos', label: 'Comprovantes' },
-    { id: 'fiscal', label: 'Exportação Fiscal' },
-  ]
+  const SUB_TABS: { id: SubTab; label: string }[] = somenteRegistros
+    ? [{ id: 'registros', label: 'Registros' }]
+    : [
+        { id: 'jornada', label: 'Jornada' },
+        { id: 'registros', label: 'Registros' },
+        { id: 'ocorrencias', label: 'Ocorrências' },
+        { id: 'documentos', label: 'Comprovantes' },
+        { id: 'fiscal', label: 'Exportação Fiscal' },
+      ]
 
   return (
     <div className="space-y-5">
@@ -431,8 +446,11 @@ export function FuncionarioPontoPanel({
             <div>
               <h3 className="font-display text-lg text-[#f2d892]">Registros de ponto</h3>
               <p className="mt-1 max-w-xl text-xs text-[#b8957f]">
-                Batidas do dia a dia. Exporte o espelho completo (horas extras, faltas, foto e assinatura)
-                para PDF ou imagem.
+                {somenteRegistros
+                  ? (editarRegistros
+                    ? 'Abra cada batida para ver a selfie e a assinatura. Você pode lançar e ajustar o ponto de outras pessoas.'
+                    : 'Você pode ver os registros, a selfie e a assinatura. O ponto da sua titularidade não pode ser lançado nem ajustado aqui.')
+                  : 'Batidas do dia a dia. Exporte o espelho completo (horas extras, faltas, foto e assinatura) para PDF ou imagem.'}
               </p>
             </div>
             <PontoRegistrosExportStudio
@@ -445,7 +463,12 @@ export function FuncionarioPontoPanel({
               repCnpj={repConfig?.cnpj}
             />
           </div>
-          {!readOnly && (
+          {somenteRegistros && !editarRegistros && (
+            <div className="glass-card border border-amber-500/25 bg-amber-500/5 p-4 text-sm text-amber-100">
+              Ponto de sua titularidade não poderá ser alterado.
+            </div>
+          )}
+          {editarRegistros && (
             <div className="glass-card space-y-3 p-5">
               <h3 className="flex items-center gap-2 font-display text-lg text-[#f2d892]">
                 <PlusCircle size={18} />
@@ -518,11 +541,10 @@ export function FuncionarioPontoPanel({
                 marcacoes={items}
                 jornada={jornada}
                 variant="detailed"
-                editable={!readOnly}
+                editable={editarRegistros}
                 onAjustarHorario={
-                  readOnly
-                    ? undefined
-                    : async (marcacaoId, hora, motivo) => {
+                  editarRegistros
+                    ? async (marcacaoId, hora, motivo) => {
                         try {
                           await adjustMarcacao(marcacaoId, hora, motivo)
                           showToast('Horário ajustado com sucesso.')
@@ -531,6 +553,7 @@ export function FuncionarioPontoPanel({
                           throw e
                         }
                       }
+                    : undefined
                 }
               />
             </div>

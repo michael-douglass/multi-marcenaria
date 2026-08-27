@@ -15,6 +15,7 @@ const SILENT_RELOAD_DEBOUNCE_MS = 800
 
 interface GerarParcelasInput {
   pedido_id?: string
+  obra_id?: string
   fornecedor_id?: string
   fornecedor_nome?: string
   descricao?: string
@@ -310,6 +311,7 @@ export function useContasPagar() {
 
     const parcelas = Array.from({ length: n }, (_, i) => ({
       pedido_id: input.pedido_id ?? null,
+      obra_id: input.obra_id ?? null,
       fornecedor_id: input.fornecedor_id ?? null,
       fornecedor_nome: input.fornecedor_nome ?? null,
       descricao: input.descricao ?? null,

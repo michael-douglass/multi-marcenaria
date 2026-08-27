@@ -142,7 +142,10 @@ export function AppSidebar() {
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
   const obrasAbertoPorRota = isObrasSection(activeSection)
-  const pontoAbertoPorRota = activeSection === 'baterPonto' || activeSection === 'historicoPonto'
+  const pontoAbertoPorRota =
+    activeSection === 'baterPonto'
+    || activeSection === 'historicoPonto'
+    || activeSection === 'resumoPonto'
 
   const [financeiroOpen, setFinanceiroOpen] = useState(financeiroAbertoPorRota)
   const [funcionariosOpen, setFuncionariosOpen] = useState(funcionariosAbertoPorRota)

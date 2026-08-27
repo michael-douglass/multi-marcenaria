@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Settings, Plus, X, Pencil, Play, CheckCircle, Loader2, Search, Camera, Trash2 } from 'lucide-react'
+import { Settings, Plus, X, Pencil, Loader2, Search, Camera, Trash2 } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
@@ -19,12 +19,13 @@ import {
   uploadObraArquivo,
   type PendingObraArquivo,
 } from '../lib/obra-arquivos'
-import { applyMontadorAdminObraDefaults, getObraMontadorIds, montadorIniciouObra } from '../lib/obra-montadores'
+import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
 import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
 import { ObraMontadoresAjudantesField } from '../components/obras/ObraMontadoresAjudantesField'
 import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
+import { ObraEquipeActionBar } from '../components/obras/ObraEquipeActionBar'
 import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
@@ -76,7 +77,6 @@ import {
   canManageAllObras,
   canEditComissao,
   canAplicarComissao,
-  podeExibirBotaoConcluirObra,
   canViewMontadoresConclusaoObra,
 } from '../lib/obra-permissions'
 import {
@@ -86,6 +86,13 @@ import {
   PageZoomProvider,
 } from '../components/page-zoom'
 import { AgendaMesFilterBar } from '../components/obras/AgendaMesFilterBar'
+import { AgendaEntregaKpiStrip } from '../components/obras/AgendaEntregaKpiStrip'
+import {
+  describeAgendaEntregaDestaque,
+  filterObrasPorEntregaDestaque,
+  summarizeAgendaEntrega,
+  type AgendaEntregaDestaque,
+} from '../lib/agenda-entrega-resumo'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -201,13 +208,6 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
-  const mostrarConcluir = podeExibirBotaoConcluirObra({
-    obra,
-    roles,
-    canEdit,
-    isMontador,
-    montadorUserId,
-  })
   const computedCol = computeKanbanKey(obra)
   const colDef = COLUNAS.find(c => c.key === computedCol)
 
@@ -346,42 +346,30 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         )}
       </div>
 
-      {/* Ações do montador */}
-      {(marcacaoIndividual || canEdit) && (
-        <div className="mt-0.5 flex flex-wrap gap-1.5 min-w-0">
-          {marcacaoIndividual && !montadorIniciouObra(obra, montadorUserId) && !obra.finalizado_em && (
-            <button
-              disabled={loading}
-              onClick={e => { e.stopPropagation(); onIniciar(obra.id) }}
-              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <Play size={10} className="shrink-0" />}
-              <span className="truncate">Iniciar</span>
-            </button>
-          )}
-          {mostrarConcluir && (
-            <button
-              disabled={loading}
-              onClick={e => { e.stopPropagation(); onConcluir(obra.id) }}
-              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={10} className="animate-spin shrink-0" /> : <CheckCircle size={10} className="shrink-0" />}
-              <span className="truncate">Concluir</span>
-            </button>
-          )}
-          
-          {/* Sempre permitir registrar progresso se a obra não estiver cancelada e se for montador ou admin */}
-          {obra.status_kanban !== 'cancelada' && (
-            <button
-              onClick={e => { e.stopPropagation(); onDetalhe(obra) }}
-              className="flex flex-1 min-w-[calc(50%-0.375rem)] items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#f2d892]/20 text-[#f2d892] hover:bg-[#f2d892]/30 transition-colors"
-            >
-              <Camera size={10} className="shrink-0" />
-              <span className="truncate">Progresso</span>
-            </button>
-          )}
-        </div>
-      )}
+      {/* Ações do montador / admin no card, sem abrir o detalhe */}
+      <div className="mt-0.5 flex flex-col gap-1.5 min-w-0">
+        <ObraEquipeActionBar
+          obra={obra}
+          roles={roles}
+          canEdit={canEdit}
+          isMontador={isMontador}
+          montadorUserId={montadorUserId}
+          loading={loading}
+          onIniciar={onIniciar}
+          onConcluir={onConcluir}
+          compact
+        />
+        {(marcacaoIndividual || canEdit) && obra.status_kanban !== 'cancelada' && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onDetalhe(obra) }}
+            className="flex w-full min-w-0 items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#f2d892]/20 text-[#f2d892] hover:bg-[#f2d892]/30 transition-colors"
+          >
+            <Camera size={10} className="shrink-0" />
+            <span className="truncate">Progresso</span>
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -656,6 +644,7 @@ function AgendaObrasContent() {
 
   const [busca, setBusca] = useState('')
   const [somenteSemPedido, setSomenteSemPedido] = useState(false)
+  const [entregaDestaque, setEntregaDestaque] = useState<AgendaEntregaDestaque | null>(null)
   const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(
     () => readAgendaMesFiltroPrefs().filtro,
   )
@@ -729,9 +718,27 @@ function AgendaObrasContent() {
     }
   }
 
+  const handleEntregaDestaque = useCallback((key: AgendaEntregaDestaque) => {
+    setEntregaDestaque(prev => (prev === key ? null : key))
+  }, [])
+
+  const handleMesFiltroChange = useCallback((value: AgendaMesFiltro) => {
+    setEntregaDestaque(null)
+    setMesFiltro(value)
+  }, [])
+
+  const entregaResumo = useMemo(
+    () => summarizeAgendaEntrega(obrasHook.data),
+    [obrasHook.data],
+  )
+
   const obrasDoMes = useMemo(
-    () => applyAgendaMesFiltro(obrasHook.data, mesFiltro),
-    [obrasHook.data, mesFiltro],
+    () => (
+      entregaDestaque
+        ? filterObrasPorEntregaDestaque(obrasHook.data, entregaDestaque)
+        : applyAgendaMesFiltro(obrasHook.data, mesFiltro)
+    ),
+    [obrasHook.data, mesFiltro, entregaDestaque],
   )
 
   const obrasFiltradas = useMemo(() => {
@@ -756,8 +763,17 @@ function AgendaObrasContent() {
     })
   }, [obrasDoMes, busca, somenteSemPedido])
 
-  const filtroLabel = useMemo(() => describeAgendaMesFiltro(mesFiltro), [mesFiltro])
-  const totalBase = mesFiltro.mode === 'all' ? obrasHook.data.length : obrasDoMes.length
+  const filtroLabel = useMemo(
+    () => (
+      entregaDestaque
+        ? describeAgendaEntregaDestaque(entregaDestaque)
+        : describeAgendaMesFiltro(mesFiltro)
+    ),
+    [entregaDestaque, mesFiltro],
+  )
+  const totalBase = entregaDestaque || mesFiltro.mode === 'all'
+    ? obrasHook.data.length
+    : obrasDoMes.length
 
   const obrasByCol = useMemo(
     () => groupObrasAgendaKanban(obrasFiltradas),
@@ -1038,13 +1054,18 @@ function AgendaObrasContent() {
   return (
     <div className="obra-page-shell obra-page-shell--agenda fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
       <KanbanPageToolbar className="agenda-kanban-toolbar">
+        <AgendaEntregaKpiStrip
+          resumo={entregaResumo}
+          active={entregaDestaque}
+          onSelect={handleEntregaDestaque}
+        />
         <ObraPageHeader
           title="Agenda de Obras"
           subtitle={
             <>
               {obrasFiltradas.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
               {' · '}
-              <span className="text-[#f2d892] capitalize">{filtroLabel}</span>
+              <span className={entregaDestaque ? 'text-[#f2d892]' : 'text-[#f2d892] capitalize'}>{filtroLabel}</span>
               {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
               {somenteSemPedido && (
                 <span className="ml-1 text-[#fbbf24]">· só sem pedido</span>
@@ -1079,7 +1100,7 @@ function AgendaObrasContent() {
               >
                 <AgendaMesFilterBar
                   value={mesFiltro}
-                  onChange={setMesFiltro}
+                  onChange={handleMesFiltroChange}
                   minimized={filtroMinimized}
                   onMinimizedChange={setFiltroMinimized}
                 />
@@ -1157,7 +1178,7 @@ function AgendaObrasContent() {
           showScrollArrows
           horizontalScrollbar
           verticalScrollbar
-          contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${somenteSemPedido}-${obrasFiltradas.length}`}
+          contentSignal={`${obrasHook.data.length}-${mesFiltro.mode}-${mesFiltro.mode === 'month' ? `${mesFiltro.mes}-${mesFiltro.ano}` : 'all'}-${busca}-${somenteSemPedido}-${entregaDestaque ?? 'none'}-${obrasFiltradas.length}`}
           className="min-h-0 flex-1"
         >
           <div className="agenda-kanban-board obra-scroll-x-mobile flex w-max min-w-full gap-4 pb-1">

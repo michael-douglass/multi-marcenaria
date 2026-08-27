@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { FUNCIONARIO_DOCS_BUCKET, getFuncionarioDocSignedUrl } from '@/lib/funcionario-documentos'
+import { FUNCIONARIO_DOCS_BUCKET, getFuncionarioDocSignedUrl, getFuncionarioDocsSignedUrls } from '@/lib/funcionario-documentos'
 import { createId } from '@/lib/utils'
 import { PONTO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import type {
@@ -356,23 +356,38 @@ export async function getRepArquivoSignedUrl(path: string): Promise<string> {
 export async function enrichMarcacaoUrls(
   marcacao: PontoMarcacao,
 ): Promise<PontoMarcacaoComUrls> {
-  let fotoUrl: string | undefined
-  let assinaturaUrl: string | undefined
-  if (marcacao.foto_path) {
-    try {
-      fotoUrl = await getFuncionarioDocSignedUrl(marcacao.foto_path)
-    } catch {
-      /* signed URL indisponível */
-    }
+  const [row] = await enrichMarcacoesUrls([marcacao])
+  return row ?? { ...marcacao }
+}
+
+/** Carrega selfie e assinatura em lote, para não perder foto em listas grandes. */
+export async function enrichMarcacoesUrls(
+  marcacoes: PontoMarcacao[],
+): Promise<PontoMarcacaoComUrls[]> {
+  const paths = marcacoes.flatMap(m =>
+    [m.foto_path, m.assinatura_path].filter((p): p is string => Boolean(p)),
+  )
+  let urls = new Map<string, string>()
+  try {
+    urls = await getFuncionarioDocsSignedUrls(paths)
+  } catch {
+    /* signed URL em lote indisponível — tenta uma a uma abaixo */
   }
-  if (marcacao.assinatura_path) {
+
+  const missing = paths.filter(p => !urls.has(p))
+  await Promise.all(missing.map(async path => {
     try {
-      assinaturaUrl = await getFuncionarioDocSignedUrl(marcacao.assinatura_path)
+      urls.set(path, await getFuncionarioDocSignedUrl(path))
     } catch {
-      /* signed URL indisponível */
+      /* arquivo sem permissão ou ausente */
     }
-  }
-  return { ...marcacao, fotoUrl, assinaturaUrl }
+  }))
+
+  return marcacoes.map(m => ({
+    ...m,
+    fotoUrl: m.foto_path ? urls.get(m.foto_path) : undefined,
+    assinaturaUrl: m.assinatura_path ? urls.get(m.assinatura_path) : undefined,
+  }))
 }
 
 export async function fetchControlePontoDiario(data?: string): Promise<PontoControleFuncionarioRow[]> {
@@ -385,9 +400,7 @@ export async function fetchControlePontoDiario(data?: string): Promise<PontoCont
 
   return Promise.all(
     list.map(async row => {
-      const marcacoes = await Promise.all(
-        (row.marcacoes ?? []).map(m => enrichMarcacaoUrls(m)),
-      )
+      const marcacoes = await enrichMarcacoesUrls(row.marcacoes ?? [])
       const entrada = marcacoes.find(m => m.tipo === 'entrada') ?? row.entrada
       return {
         ...row,

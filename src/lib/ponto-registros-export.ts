@@ -1,7 +1,7 @@
 import { garboBrandLogo } from '@/lib/garbo-brand'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import {
-  enrichMarcacaoUrls,
+  enrichMarcacoesUrls,
   formatAtrasoMinutos,
   formatHoraPonto,
   formatJornadaResumo,
@@ -524,7 +524,7 @@ export async function prepararEspelhoPontoExport(
   options: PontoRegistrosExportOptions,
 ): Promise<PontoMarcacaoComUrls[]> {
   if (!options.incluirFoto && !options.incluirAssinatura) return []
-  const enriched = await Promise.all(espelho.marcacoes.map((m) => enrichMarcacaoUrls(m)))
+  const enriched = await enrichMarcacoesUrls(espelho.marcacoes)
   return enriched
 }
 

@@ -62,3 +62,30 @@ export function getObraLeadMidias(
   if (!leadId) return EMPTY_LEAD_MIDIAS
   return midiasByLead.get(leadId) ?? EMPTY_LEAD_MIDIAS
 }
+
+export const LEAD_MIDIA_PASTA_SEM_NOME = 'Sem pasta'
+
+export function pastaLeadMidia(nome: string | null | undefined): string {
+  const t = nome?.trim()
+  return t ? t : LEAD_MIDIA_PASTA_SEM_NOME
+}
+
+export function leadMidiasTemPastas(midias: Pick<LeadMidia, 'folder_nome'>[]): boolean {
+  return midias.some(m => Boolean(m.folder_nome?.trim()))
+}
+
+export function groupLeadMidiasByFolder(
+  midias: LeadMidia[],
+): Array<{ pasta: string; midias: LeadMidia[] }> {
+  const order: string[] = []
+  const map = new Map<string, LeadMidia[]>()
+  for (const midia of midias) {
+    const pasta = pastaLeadMidia(midia.folder_nome)
+    if (!map.has(pasta)) {
+      map.set(pasta, [])
+      order.push(pasta)
+    }
+    map.get(pasta)!.push(midia)
+  }
+  return order.map(pasta => ({ pasta, midias: map.get(pasta)! }))
+}

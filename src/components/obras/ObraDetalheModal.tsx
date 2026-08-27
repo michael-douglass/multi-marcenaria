@@ -1,5 +1,5 @@
 ﻿import { useRef, useState, useMemo } from 'react'
-import { Upload, Loader2, Pencil, Play, CheckCircle, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText } from 'lucide-react'
+import { Upload, Loader2, Pencil, FileText, Camera, Trash2, Calendar, Banknote, Clock, MessageSquareText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { AnexoThumb, AnexoLightbox } from '@/components/contas-pagar/AnexoLightbox'
 import { useObraArquivos, type ObraArquivo } from '@/hooks/useObraArquivos'
@@ -14,7 +14,6 @@ import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclu
 import { ObraMontadoresAjudantesField } from '@/components/obras/ObraMontadoresAjudantesField'
 import { ObraLousa } from '@/components/obras/lousa/ObraLousa'
 import { getMontadorResponsavelDisplay } from '@/lib/obra-montador'
-import { getObraMontadorIds, montadorConcluiuObra, montadorIniciouObra } from '@/lib/obra-montadores'
 import { getObraComissaoItensVisiveis, sumObraComissao } from '@/lib/obra-comissao'
 import {
   formatObraHorarioRange,
@@ -27,11 +26,12 @@ import type { LeadMidia, MarkupCustosFiltro, MarkupOrcamentoCustos, ObraFull, St
 import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPedidoCortClaudInput'
 import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
+import { ObraEquipeActionBar } from '@/components/obras/ObraEquipeActionBar'
 import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
 import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
-import { canViewMontadoresConclusaoObra, obraPendenteConclusao, podeAdminForcarConclusaoObra } from '@/lib/obra-permissions'
+import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
 
 const STATUS_COR: Record<StatusKanbanObra, string> = {
   datas_em_aberto: '#6b7280',
@@ -188,19 +188,6 @@ export function ObraDetalheModal({
 
   const cor = STATUS_COR[obra.status_kanban]
   const isActioning = actioning === obra.id
-  const podeConcluir = obraPendenteConclusao(obra)
-
-  const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
-  const marcacaoIndividual = isMontador || euSouMontadorNaObra
-  const adminForcaConclusao = podeAdminForcarConclusaoObra(roles)
-
-  const euIniciei = marcacaoIndividual ? montadorIniciouObra(obra, montadorUserId) : !!obra.iniciado_em
-  const euConclui = marcacaoIndividual ? montadorConcluiuObra(obra, montadorUserId) : !!obra.finalizado_em
-  const mostrarIniciar = podeConcluir && !euIniciei && (marcacaoIndividual || canEdit) && !adminForcaConclusao
-  const mostrarConcluir = podeConcluir && (
-    adminForcaConclusao ||
-    (!euConclui && (marcacaoIndividual ? euIniciei : true))
-  )
 
   const comissaoItens = getObraComissaoItensVisiveis(obra, {
     prestadorId,
@@ -495,31 +482,17 @@ export function ObraDetalheModal({
           </div>
         )}
 
-        {/* ── AÇÕES INICIAR/CONCLUIR ─────────────────────────── */}
-        {(marcacaoIndividual || canEdit) && (mostrarIniciar || mostrarConcluir) && (
-          <div className="flex flex-wrap gap-2 mb-5">
-            {mostrarIniciar && (
-              <button
-                disabled={isActioning}
-                onClick={() => onIniciar(obra.id)}
-                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
-              >
-                {isActioning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                Iniciar Obra
-              </button>
-            )}
-            {mostrarConcluir && (
-              <button
-                disabled={isActioning}
-                onClick={() => onConcluir(obra.id)}
-                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors disabled:opacity-50"
-              >
-                {isActioning ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                Marcar como Concluída
-              </button>
-            )}
-          </div>
-        )}
+        <ObraEquipeActionBar
+            obra={obra}
+            roles={roles}
+            canEdit={canEdit}
+            isMontador={isMontador}
+            montadorUserId={montadorUserId}
+            loading={isActioning}
+            onIniciar={onIniciar}
+            onConcluir={onConcluir}
+            className="mb-5"
+          />
 
         {/* ── EVOLUÇÃO DA OBRA (DIÁRIO) ───────────────────────── */}
         <div className="border-t border-[rgba(240,210,140,0.12)] pt-4 mb-5">
