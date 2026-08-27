@@ -63,6 +63,7 @@ interface Props {
   onEdit: (obra: ObraFull) => void
   onIniciar: (id: string) => void
   onConcluir: (id: string) => void
+  onReabrir?: (id: string) => void
   canDelete?: boolean
   onExcluir?: (obra: ObraFull) => void
   canAplicarComissao?: boolean
@@ -101,7 +102,7 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
 
 export function ObraDetalheModal({
   open, obra, canEdit, canUpload, isMontador, montadorUserId, actioning,
-  onClose, onEdit, onIniciar, onConcluir, canDelete = false, onExcluir,
+  onClose, onEdit, onIniciar, onConcluir, onReabrir, canDelete = false, onExcluir,
   canAplicarComissao = false, applyingComissao = false, onAplicarComissao,
   prestadorId, showAllComissao = false,
   onUpdateDataEntrega, updatingDataEntrega = false,
@@ -491,6 +492,7 @@ export function ObraDetalheModal({
             loading={isActioning}
             onIniciar={onIniciar}
             onConcluir={onConcluir}
+            onReabrir={onReabrir}
             className="mb-5"
           />
 

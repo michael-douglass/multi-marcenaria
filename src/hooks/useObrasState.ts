@@ -12,7 +12,7 @@ import {
   readCache,
   writeCache,
 } from '../lib/data-cache'
-import type { ObraFull, ObraInput } from '../types'
+import type { ObraFull, ObraInput, StatusKanbanObra } from '../types'
 import { useAuthReady } from './useAuthReady'
 import { useAutoRefresh } from './useAutoRefresh'
 
@@ -44,6 +44,7 @@ function obrasFingerprint(rows: ObraFull[]): string {
         o.montador_id ?? '',
         (o.montador_ids ?? []).join(','),
         o.comissao_habilitada ? '1' : '0',
+        o.comissao_gerada ? '1' : '0',
         o.comissao_total ?? 0,
         (o.comissao_valores ?? []).join(','),
       ].join(':'),
@@ -94,6 +95,7 @@ export interface ObrasStore {
   iniciarObra: (id: string) => Promise<void>
   finalizarObra: (id: string) => Promise<void>
   concluirObra: (id: string) => Promise<void>
+  reabrirObra: (id: string, statusDestino?: StatusKanbanObra) => Promise<void>
   aplicarComissao: (id: string) => Promise<void>
   reload: (opts?: { silent?: boolean }) => Promise<void>
 }
@@ -322,6 +324,21 @@ export function useObrasState(): ObrasStore {
     await load({ silent: true, force: true })
   }
 
+  const reabrirObra = async (id: string, statusDestino?: StatusKanbanObra) => {
+    const destino =
+      statusDestino
+      && statusDestino !== 'concluida'
+      && statusDestino !== 'cancelada'
+        ? statusDestino
+        : null
+    const { error: err } = await supabase.rpc('movelaria_reabrir_obra', {
+      p_obra_id: id,
+      p_status_destino: destino,
+    })
+    if (err) throw new Error(err.message)
+    await load({ silent: true, force: true })
+  }
+
   const aplicarComissao = async (id: string) => {
     const { error: err } = await supabase.rpc('movelaria_aplicar_comissao_obra', { p_obra_id: id })
     if (err) throw new Error(err.message)
@@ -335,6 +352,6 @@ export function useObrasState(): ObrasStore {
 
   return {
     data, loading, error, create, update, remove,
-    iniciarObra, finalizarObra, concluirObra, aplicarComissao, reload,
+    iniciarObra, finalizarObra, concluirObra, reabrirObra, aplicarComissao, reload,
   }
 }

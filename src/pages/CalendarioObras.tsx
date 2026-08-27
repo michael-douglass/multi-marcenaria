@@ -245,7 +245,7 @@ function ConfigDiasPanel({
 
 // ── Popup do dia ─────────────────────────────────────────────
 function DayPopup({
-  date, obras, onClose, onObraClick, onIniciar, onConcluir, actioning,
+  date, obras, onClose, onObraClick, onIniciar, onConcluir, onReabrir, actioning,
   canEdit, isMontador, montadorUserId, roles,
   onTogglePedidoMaterial, togglingPedidoMaterial,
   onUpdateDataEntrega, updatingDataEntrega,
@@ -257,6 +257,7 @@ function DayPopup({
   onObraClick: (o: ObraFull) => void
   onIniciar: (id: string) => void
   onConcluir: (id: string) => void
+  onReabrir?: (id: string) => void
   actioning: string | null
   canEdit: boolean
   isMontador: boolean
@@ -379,6 +380,7 @@ function DayPopup({
                       loading={loading}
                       onIniciar={onIniciar}
                       onConcluir={onConcluir}
+                      onReabrir={onReabrir}
                       compact
                     />
                   </div>
@@ -703,6 +705,16 @@ function CalendarioObrasContent() {
       setDetalheObra(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível concluir a obra.')
+    } finally { setActioning(null) }
+  }
+
+  const handleReabrir = async (id: string) => {
+    setActioning(id)
+    try {
+      await obrasHook.reabrirObra(id)
+      setDetalheObra(null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível reabrir a obra.')
     } finally { setActioning(null) }
   }
 
@@ -1052,6 +1064,7 @@ function CalendarioObrasContent() {
                         loading={loading}
                         onIniciar={handleIniciar}
                         onConcluir={handleConcluir}
+                        onReabrir={handleReabrir}
                         compact
                       />
                     </div>
@@ -1151,6 +1164,7 @@ function CalendarioObrasContent() {
                                 loading={actioning === o.id}
                                 onIniciar={handleIniciar}
                                 onConcluir={handleConcluir}
+                                onReabrir={handleReabrir}
                                 dense
                               />
                             </div>
@@ -1274,6 +1288,7 @@ function CalendarioObrasContent() {
           onObraClick={o => { setSelectedDay(null); setDetalheObra(o) }}
           onIniciar={handleIniciar}
           onConcluir={handleConcluir}
+          onReabrir={handleReabrir}
           actioning={actioning}
           canEdit={canEdit}
           isMontador={isMontador}
@@ -1302,6 +1317,7 @@ function CalendarioObrasContent() {
         onEdit={openEdit}
         onIniciar={handleIniciar}
         onConcluir={handleConcluir}
+        onReabrir={handleReabrir}
         canDelete={canDelete}
         onExcluir={handleExcluir}
         canAplicarComissao={canAplicarComissao(roles)}

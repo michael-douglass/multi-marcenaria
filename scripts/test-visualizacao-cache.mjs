@@ -98,3 +98,18 @@ describe('política de cache da Visualização', () => {
     assert.equal(VISUALIZACAO_POLL_MS, 300_000)
   })
 })
+
+describe('ponto na Visualização para montador admin', () => {
+  it('libera o painel de ponto para MontadorAdmin', () => {
+    const src = readSrc('src/lib/visualizacao-paineis.ts')
+    assert.match(src, /export function canViewPontoPainelVisualizacao/)
+    assert.match(src, /roles\.includes\('MontadorAdmin'\)/)
+  })
+
+  it('página carrega o painel quando o cargo tem permissão', () => {
+    const page = readSrc('src/pages/Visualizacao.tsx')
+    assert.match(page, /canViewPontoPainelVisualizacao\(roles\)/)
+    assert.match(page, /canViewPontoPainel &&/)
+    assert.match(page, /VisualizacaoPontoDiario/)
+  })
+})

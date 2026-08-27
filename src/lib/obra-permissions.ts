@@ -132,6 +132,13 @@ export function podeExibirBotaoIniciarObra(opts: ObraConclusaoUiOpts): boolean {
   return canEdit && !obra.iniciado_em
 }
 
+/** Montador admin (e admins): reabre obra concluída e devolve a comissão à previsão. */
+export function podeExibirBotaoReabrirObra(opts: Pick<ObraConclusaoUiOpts, 'obra' | 'roles'>): boolean {
+  if (opts.obra.status_kanban !== 'concluida' && !opts.obra.finalizado_em) return false
+  if (opts.obra.status_kanban === 'cancelada') return false
+  return podeComandarEquipeObra(opts.roles)
+}
+
 /** Exibe o botão "Concluir" conforme perfil e estágio da obra. */
 export function podeExibirBotaoConcluirObra(opts: ObraConclusaoUiOpts): boolean {
   const { obra, roles, canEdit, isMontador, montadorUserId } = opts

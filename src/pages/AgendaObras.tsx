@@ -183,6 +183,7 @@ interface ObraCardProps {
   onDetalhe: (obra: ObraFull) => void
   onIniciar: (id: string) => void
   onConcluir: (id: string) => void
+  onReabrir: (id: string) => void
   onExcluir: (obra: ObraFull) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragEnd: () => void
@@ -204,7 +205,7 @@ interface ObraCardProps {
   loadingLeadMidias?: boolean
 }
 
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange, leadMidias = [], loadingLeadMidias = false }: ObraCardProps) {
+function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onReabrir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange, leadMidias = [], loadingLeadMidias = false }: ObraCardProps) {
   const loading = actioning === obra.id
   const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
   const marcacaoIndividual = isMontador || euSouMontadorNaObra
@@ -357,6 +358,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
           loading={loading}
           onIniciar={onIniciar}
           onConcluir={onConcluir}
+          onReabrir={onReabrir}
           compact
         />
         {(marcacaoIndividual || canEdit) && obra.status_kanban !== 'cancelada' && (
@@ -706,6 +708,10 @@ function AgendaObrasContent() {
     const obra = obrasHook.data.find(o => o.id === id)
     if (!obra || computeKanbanKey(obra) === col) return
     try {
+      if (obra.status_kanban === 'concluida' && col !== 'concluida' && col !== 'cancelada') {
+        await obrasHook.reabrirObra(id, col)
+        return
+      }
       // Ao tirar da coluna Concluída, zera finalização para a comissão
       // voltar a aparecer em "Previsão" no Meu Financeiro do montador.
       const payload: Partial<ObraInput> = { status_kanban: col }
@@ -713,8 +719,8 @@ function AgendaObrasContent() {
         payload.finalizado_em = null
       }
       await obrasHook.update(id, payload)
-    } catch {
-      // erro já visível via toast se necessário
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível mover a obra.')
     }
   }
 
@@ -957,6 +963,16 @@ function AgendaObrasContent() {
       await obrasHook.concluirObra(id)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível concluir a obra.')
+    } finally { setActioning(null) }
+  }
+
+  const handleReabrir = async (id: string) => {
+    setActioning(id)
+    try {
+      await obrasHook.reabrirObra(id)
+      setDetalheObra(prev => prev?.id === id ? null : prev)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível reabrir a obra.')
     } finally { setActioning(null) }
   }
 
@@ -1250,6 +1266,7 @@ function AgendaObrasContent() {
                           onEdit={openEdit}
                           onIniciar={handleIniciar}
                           onConcluir={handleConcluir}
+                          onReabrir={handleReabrir}
                           onExcluir={handleExcluir}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
@@ -1294,6 +1311,7 @@ function AgendaObrasContent() {
         onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}
         onIniciar={handleIniciar}
         onConcluir={handleConcluir}
+        onReabrir={handleReabrir}
         canDelete={canDelete}
         onExcluir={handleExcluir}
         canAplicarComissao={canAplicarComissao(roles)}

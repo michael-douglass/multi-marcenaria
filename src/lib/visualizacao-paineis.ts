@@ -132,7 +132,7 @@ export function canViewPainelVisualizacao(roles: UserRole[], id: VisualizacaoPai
   return permitidos.includes(id)
 }
 
-/** Painel de ponto diário — exclusivo para Administrador na página Visualização. */
+/** Painel de ponto diário na Visualização: quem bateu, atrasou e faltou. */
 export function canViewPontoPainelVisualizacao(roles: UserRole[]): boolean {
-  return roles.includes('Administrador')
+  return roles.includes('Administrador') || roles.includes('MontadorAdmin')
 }
