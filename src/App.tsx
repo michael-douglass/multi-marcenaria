@@ -209,7 +209,7 @@ function AuthenticatedRoutes() {
             element={
               canAccessSection(roles, 'funcionarios')
                 ? guardReadOnly(<Funcionarios readOnly={readOnly} />)
-                : <Restricted message="Pastas de funcionários disponíveis para RH." />
+                : <Restricted message="Pastas de funcionários disponíveis para RH e Montador Admin." />
             }
           />
           <Route

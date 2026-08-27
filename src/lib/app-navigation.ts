@@ -156,6 +156,14 @@ const PONTO_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(96,165,250,0.92)',
     roles: ['MontadorAdmin'],
   },
+  {
+    id: 'funcionarios',
+    title: 'Pastas da equipe',
+    url: '/funcionarios',
+    icon: UserCog,
+    radialColor: 'rgba(240,210,140,0.92)',
+    roles: ['MontadorAdmin'],
+  },
 ]
 
 const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
@@ -171,7 +179,7 @@ const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
     title: 'Ponto',
     icon: Clock,
     radialColor: 'rgba(74,222,128,0.92)',
-    roles: ['Administrador', 'Financeiro', 'Montador', 'MontadorAdmin', 'AdministradorObras'],
+    roles: ['Administrador', 'Financeiro'],
     children: PONTO_CHILDREN,
   },
   {
@@ -259,7 +267,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/funcionarios',
     icon: UserCog,
     radialColor: 'rgba(240,210,140,0.92)',
-    roles: ['Administrador', 'Financeiro'],
+    roles: ['Administrador', 'Financeiro', 'MontadorAdmin'],
     children: FUNCIONARIOS_CHILDREN,
   },
   {

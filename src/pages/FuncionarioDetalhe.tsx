@@ -132,17 +132,11 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   return (
     <div className="fade-in">
       <Link
-        to={
-          pastaPontoRestrita
-            ? '/resumo-ponto'
-            : abaOrigem === 'dispensados'
-              ? '/funcionarios?aba=dispensados'
-              : '/funcionarios'
-        }
+        to={abaOrigem === 'dispensados' ? '/funcionarios?aba=dispensados' : '/funcionarios'}
         className="mb-4 inline-flex items-center gap-2 text-sm text-[#b8957f] hover:text-[#f2d892]"
       >
         <ArrowLeft size={16} />
-        {pastaPontoRestrita ? 'Voltar ao resumo de ponto' : 'Voltar às pastas'}
+        Voltar às pastas
       </Link>
 
       {somenteHistorico && (

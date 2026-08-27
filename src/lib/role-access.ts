@@ -12,7 +12,7 @@ export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras', 'pedidosObras'],
   Marceneiro: ['dashboard'],
-  MontadorAdmin: [...OBRAS_SECTIONS, 'visualizacao', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto', 'resumoPonto'],
+  MontadorAdmin: [...OBRAS_SECTIONS, 'visualizacao', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto', 'resumoPonto', 'funcionarios'],
   AdministradorObras: [...OBRAS_SECTIONS, 'pedidosObras', 'visualizacao', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Montador: ['agendaObras', 'calendarioObras', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Visualizador: ['visualizacao'],
@@ -39,19 +39,22 @@ export function isAdministrador(roles: UserRole[]): boolean {
 }
 
 /**
- * Pasta do funcionário: RH vê a lista e o detalhe;
- * Montador Admin só entra em /funcionarios/:id (não na listagem).
+ * Lista e pasta do funcionário: RH vê tudo;
+ * Montador Admin entra em /funcionarios e em /funcionarios/:id.
  */
 export function canAccessFuncionarioPasta(roles: UserRole[], pathname: string): boolean {
   if (canAccessSection(roles, 'funcionarios')) return true
   if (!roles.includes('MontadorAdmin')) return false
   const path = pathname.split('?')[0] ?? pathname
-  return /^\/funcionarios\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+  return path === '/funcionarios' || /^\/funcionarios\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
 }
 
-/** Pasta restrita a Ponto → Registros, sem as outras abas de RH. */
+/**
+ * Pasta só com Ponto → Registros (sem cadastro, documentos e recibos).
+ * Independente da listagem de pastas: Montador Admin vê as pastas, mas não o RH.
+ */
 export function isPastaPontoRegistrosRestrita(roles: UserRole[]): boolean {
-  return roles.includes('MontadorAdmin') && !canAccessSection(roles, 'funcionarios')
+  return roles.includes('MontadorAdmin') && !roles.includes('Administrador') && !roles.includes('Financeiro')
 }
 
 /**
