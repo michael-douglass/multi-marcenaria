@@ -2,6 +2,18 @@
 export const CACHE_FRESH_MS = 20_000
 
 /**
+ * Página Visualização (TV / painel): cache bem maior.
+ * Evita martelar o banco a cada minuto enquanto a tela fica aberta.
+ */
+export const VISUALIZACAO_CACHE_FRESH_MS = 5 * 60 * 1000
+
+/** Configuração de painéis muda raramente. */
+export const VISUALIZACAO_CONFIG_CACHE_FRESH_MS = 30 * 60 * 1000
+
+/** Atualização em segundo plano da Visualização. */
+export const VISUALIZACAO_POLL_MS = 5 * 60 * 1000
+
+/**
  * No iPhone, voltar da notificação / Central de Controle dispara
  * `visibilitychange` várias vezes. Só recarrega se já passou deste tempo.
  */

@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import {
+  evolucaoPainelCacheKey,
+  isCacheKeyFresh,
+  readCache,
+  writeCache,
+} from '../lib/data-cache'
+import { VISUALIZACAO_CACHE_FRESH_MS, VISUALIZACAO_POLL_MS } from '../lib/refresh-policy'
+import {
   listObraEvolucao, uploadObraEvolucao, uploadObraEvolucaoObservacao, deleteObraEvolucao, addEvolucaoUrls,
   type ObraEvolucaoItem, type EvolucaoPainelItem, type EvolucaoPainelItemComUrl,
 } from '../lib/obra-evolucao'
@@ -102,13 +109,23 @@ export interface EvolucaoGrupoObra {
 export function useEvolucaoPainel(filtro: FiltroPeriodo) {
   const { authLoading, session } = useApp()
   const sessionReady = !authLoading && !!session
-  const [raw, setRaw] = useState<EvolucaoPainelItemComUrl[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = evolucaoPainelCacheKey(filtro)
+  const [raw, setRaw] = useState<EvolucaoPainelItemComUrl[]>(() =>
+    readCache<EvolucaoPainelItemComUrl[]>(cacheKey)?.value ?? [],
+  )
+  const [loading, setLoading] = useState(() => readCache(cacheKey) == null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     if (!sessionReady) return
-    if (!opts?.silent) setLoading(true)
+    if (!opts?.force && isCacheKeyFresh(cacheKey, Date.now(), VISUALIZACAO_CACHE_FRESH_MS)) {
+      const cached = readCache<EvolucaoPainelItemComUrl[]>(cacheKey)?.value
+      if (cached) setRaw(cached)
+      setLoading(false)
+      return
+    }
+    const hasCache = readCache(cacheKey) != null
+    if (!opts?.silent && !hasCache) setLoading(true)
     setError(null)
     try {
       const { inicio, fim } = getPeriodo(filtro)
@@ -119,23 +136,26 @@ export function useEvolucaoPainel(filtro: FiltroPeriodo) {
       if (err) throw err
       const items = (rows ?? []) as EvolucaoPainelItem[]
       const comUrls = await addEvolucaoUrls(items) as EvolucaoPainelItemComUrl[]
+      writeCache(cacheKey, comUrls)
       setRaw(comUrls)
     } catch (e) {
       if (!opts?.silent) {
         setError(e instanceof Error ? e.message : 'Erro ao carregar evolução.')
-        setRaw([])
+        if (!hasCache) setRaw([])
       }
     } finally {
       if (!opts?.silent) setLoading(false)
     }
-  }, [sessionReady, filtro])
+  }, [sessionReady, filtro, cacheKey])
 
   const silentReload = useCallback(() => {
     void load({ silent: true })
   }, [load])
 
-  useEffect(() => { void load() }, [load])
-  useAutoRefresh(silentReload)
+  useEffect(() => {
+    void load({ silent: readCache(cacheKey) != null })
+  }, [load, cacheKey])
+  useAutoRefresh(silentReload, VISUALIZACAO_POLL_MS)
 
   // Agrupa por obra e depois por dia
   const grupos: EvolucaoGrupoObra[] = []

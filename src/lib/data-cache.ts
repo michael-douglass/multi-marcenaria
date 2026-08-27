@@ -11,6 +11,16 @@ const STORAGE_PREFIX = 'garbo-data-cache:'
 const MAX_PERSIST_BYTES = 1_500_000
 
 export const OBRAS_CACHE_KEY = 'movelaria-obras'
+export const CONTAS_RECEBER_CACHE_KEY = 'movelaria-contas-receber'
+export const VISUALIZACAO_CONFIG_CACHE_KEY = 'movelaria-visualizacao-config'
+
+export function evolucaoPainelCacheKey(filtro: string): string {
+  return `movelaria-evolucao-painel:${filtro}`
+}
+
+export function pontoDiarioCacheKey(date: string): string {
+  return `movelaria-ponto-diario:${date}`
+}
 
 function storageKey(key: string): string {
   return `${STORAGE_PREFIX}${key}`

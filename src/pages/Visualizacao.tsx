@@ -118,7 +118,10 @@ function VisualizacaoContent() {
   const recorteEquipe = paineisPermitidosPorRoles(roles) != null
   const filtrarPaineis = shouldFiltrarPaineisVisualizacao(roles)
   const contasHook = useContasReceber({ enabled: canViewCobrancasPainel })
-  const pontoHook = useControlePontoDiario(pontoDataLocal(), { enabled: canViewPontoPainel })
+  const pontoHook = useControlePontoDiario(pontoDataLocal(), {
+    enabled: canViewPontoPainel,
+    longCache: true,
+  })
 
   const painelVisivel = (id: VisualizacaoPainelId) => {
     if (!canViewPainelVisualizacao(roles, id)) return false
@@ -147,18 +150,6 @@ function VisualizacaoContent() {
     scrollHostRef,
     obrasDoDiaAutoEnabled ? obrasDoDiaAuto.trigger : undefined,
   )
-
-  // Atualização periódica em segundo plano — sem piscar a tela (reload silencioso).
-  useEffect(() => {
-    if (!contentReady) return
-    const id = setInterval(() => {
-      void obrasHook.reload({ silent: true })
-      void contasHook.reload({ silent: true })
-      void evolucaoHook.reload({ silent: true })
-      if (canViewPontoPainel) void pontoHook.reload()
-    }, 60_000)
-    return () => clearInterval(id)
-  }, [contentReady, obrasHook.reload, contasHook.reload, evolucaoHook.reload, canViewPontoPainel, pontoHook.reload])
 
   const obrasCalendario = useMemo(
     () => obrasHook.data.filter(o => {

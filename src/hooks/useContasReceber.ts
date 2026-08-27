@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { canUseRealtime } from '../lib/device'
+import {
+  CONTAS_RECEBER_CACHE_KEY,
+  isCacheKeyFresh,
+  readCache,
+  writeCache,
+} from '../lib/data-cache'
 import type { ContaReceber, FormaPagamento, TipoRecebimento } from '../types'
 import { createId, addDays, addMonths, todayISO } from '../lib/utils'
 import { useAutoRefresh } from './useAutoRefresh'
@@ -57,17 +63,34 @@ export function cobrancaTemParcelamento(conta: ContaReceber, todas: ContaReceber
 
 const CONTAS_RECEBER_REALTIME_CHANNEL = 'movelaria-contas-receber-sync'
 
+function flattenContasReceber(rows: unknown[] | null): ContaReceber[] {
+  return (rows ?? []).map(row => {
+    const r = row as ContaReceber & { movelaria_clientes?: { telefone?: string | null } }
+    return {
+      ...r,
+      cliente_telefone: r.movelaria_clientes?.telefone || r.cliente_telefone || undefined,
+    }
+  })
+}
+
 export function useContasReceber(options?: { enabled?: boolean }) {
   const enabled = options?.enabled ?? true
   const { isReady } = useAuthReady()
-  const [data, setData] = useState<ContaReceber[]>([])
-  const [loading, setLoading] = useState(enabled)
+  const [data, setData] = useState<ContaReceber[]>(() =>
+    enabled ? (readCache<ContaReceber[]>(CONTAS_RECEBER_CACHE_KEY)?.value ?? []) : [],
+  )
+  const [loading, setLoading] = useState(() => enabled && readCache(CONTAS_RECEBER_CACHE_KEY) == null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     if (!isReady || !enabled) return
+    if (!opts?.force && isCacheKeyFresh(CONTAS_RECEBER_CACHE_KEY)) {
+      setLoading(false)
+      return
+    }
 
-    if (!opts?.silent) setLoading(true)
+    const hasCache = readCache(CONTAS_RECEBER_CACHE_KEY) != null
+    if (!opts?.silent && !hasCache) setLoading(true)
     setError(null)
     const { data: rows, error: err } = await supabase
       .from('movelaria_contas_receber')
@@ -76,10 +99,8 @@ export function useContasReceber(options?: { enabled?: boolean }) {
     if (err) {
       if (!opts?.silent) setError(err.message)
     } else {
-      const flattened = (rows ?? []).map((r: any) => ({
-        ...r,
-        cliente_telefone: r.movelaria_clientes?.telefone || null,
-      }))
+      const flattened = flattenContasReceber(rows as unknown[] | null)
+      writeCache(CONTAS_RECEBER_CACHE_KEY, flattened)
       setData(flattened)
     }
     if (!opts?.silent) setLoading(false)
@@ -89,6 +110,10 @@ export function useContasReceber(options?: { enabled?: boolean }) {
     void load({ silent: true })
   }, [load])
 
+  const silentReloadLive = useCallback(() => {
+    void load({ silent: true, force: true })
+  }, [load])
+
   useEffect(() => {
     if (!enabled) {
       setLoading(false)
@@ -96,7 +121,7 @@ export function useContasReceber(options?: { enabled?: boolean }) {
       setError(null)
       return
     }
-    void load()
+    void load({ silent: readCache(CONTAS_RECEBER_CACHE_KEY) != null })
   }, [enabled, load])
   useAutoRefresh(silentReload, enabled ? undefined : 0)
 
@@ -108,14 +133,14 @@ export function useContasReceber(options?: { enabled?: boolean }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movelaria_contas_receber' },
-        silentReload,
+        silentReloadLive,
       )
       .subscribe()
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [enabled, isReady, silentReload])
+  }, [enabled, isReady, silentReloadLive])
 
   const gerarCobranca = async (input: GerarCobrancaInput): Promise<ContaReceber[]> => {
     const valorBase = input.entrada
