@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Bell, ChevronRight, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Badge } from '@/components/ui/Badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useApp } from '@/context/AppContext'
 import {
