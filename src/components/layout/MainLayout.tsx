@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { BarChart3, CalendarDays } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -6,11 +6,14 @@ import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
-import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly } from '@/lib/role-access'
 import { hasObrasAdminSectionsAccess } from '@/lib/obra-permissions'
 import { cn } from '@/lib/utils'
+import { isCrmAppPath } from '@/lib/crm-identity'
+import { AppErrorBoundary } from '@/components/AppErrorBoundary'
+import { CrmSelletosDock } from '@/components/crm/CrmSelletosDock'
+import { useKanbanRealtimeSync } from '@/hooks/useKanbanRealtimeSync'
 
 function FloatingNavButton({
   label,
@@ -83,6 +86,7 @@ function FloatingNavButton({
 }
 
 export function MainLayout() {
+  useKanbanRealtimeSync()
   const [isAgendaOpen, setIsAgendaOpen] = useState(false)
   const [isMetricasOpen, setIsMetricasOpen] = useState(false)
   const { roles } = useApp()
@@ -103,24 +107,47 @@ export function MainLayout() {
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
   const hideFabsOnPonto = location.pathname.startsWith('/bater-ponto')
+  const isCrmArea = isCrmAppPath(location.pathname)
+  const hideFactoryFabs = hideFabsOnPonto || isCrmArea
+  const isProjetosAtelie = location.pathname.startsWith('/projetos')
 
   return (
-    <ContasPagarNotifProvider>
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
         <NavigationHeader onOpenAgenda={openAgendaSafely} />
         <div className={cn(
-          'obra-layout-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6 sm:py-7 md:px-8 touch-pan-y',
-          hideFabsOnPonto ? 'pb-8 sm:pb-7' : 'pb-24 sm:pb-7',
+          'flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
+          isProjetosAtelie
+            ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
+            : 'overflow-x-hidden overflow-y-auto touch-pan-y',
+          !isProjetosAtelie && isCrmArea
+            ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
+            : !isProjetosAtelie && hideFabsOnPonto
+              ? 'obra-layout-scroll px-4 py-4 pb-8 sm:px-6 sm:py-7 sm:pb-7 md:px-8'
+              : !isProjetosAtelie
+                ? 'obra-layout-scroll px-4 py-4 pb-24 sm:px-6 sm:py-7 md:px-8'
+                : null,
         )}>
-          <div className="obra-layout-outlet flex min-h-0 min-w-0 flex-none flex-col md:flex-1">
-            <Outlet />
+          <div className={cn(
+            'flex min-h-0 min-w-0 flex-col',
+            isProjetosAtelie ? 'flex-1 overflow-hidden' : 'flex-none md:flex-1',
+            !isCrmArea && 'obra-layout-outlet',
+          )}>
+            <AppErrorBoundary>
+              <Outlet />
+            </AppErrorBoundary>
           </div>
         </div>
       </SidebarInset>
 
-      {!hideFabsOnPonto && (!hideAgenda || showMetricasFab) && (
+      {isCrmArea && (
+        <AppErrorBoundary>
+          <CrmSelletosDock />
+        </AppErrorBoundary>
+      )}
+
+      {!hideFactoryFabs && (!hideAgenda || showMetricasFab) && (
         <>
           <div className="fixed bottom-6 right-6 z-[201] flex flex-row-reverse items-end gap-3">
             {!hideAgenda && (
@@ -153,6 +180,5 @@ export function MainLayout() {
         </>
       )}
     </SidebarProvider>
-    </ContasPagarNotifProvider>
   )
 }

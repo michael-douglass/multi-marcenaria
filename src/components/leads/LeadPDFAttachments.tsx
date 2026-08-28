@@ -1,0 +1,1401 @@
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  type DragEvent,
+  type ReactNode,
+  type TouchEvent,
+} from 'react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  useLeadPDFs,
+  getLeadAttachmentViewKind,
+  type LeadPDF,
+  type PendingLeadPDF,
+} from '@/hooks/useLeadPDFs';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { PdfPageImage } from '@/lib/pdf-render';
+import {
+  getCachedPdfPages,
+  getCachedPdfThumbnail,
+  pdfCacheKeyForMedia,
+  pdfCacheKeyForPending,
+  prewarmPdfImages,
+  prewarmPdfThumbnail,
+  PDF_PREVIEW_WIDTH_PX,
+} from '@/lib/pdf-image-cache';
+import { downloadFileFromUrl } from '@/lib/download-file';
+import { runWithFilePickerGuard } from '@/lib/dialog-outside-guard';
+import { toast } from 'sonner';
+import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
+import { filtrarAnexosParaPrestador } from '@/lib/prestador-visibilidade';
+import { useLeadAIRenders, useDeleteLeadAIRender } from '@/hooks/useLeadAIRenders';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  buildLeadFotosPdfFile,
+  openLeadFotosPdfPrint,
+} from '@/lib/lead-fotos-pdf-export';
+import {
+  LeadFotosExportDialog,
+  type LeadFotosExportAction,
+} from '@/components/leads/LeadFotosExportDialog';
+import { LeadAttachmentDownloadMenu } from '@/components/leads/LeadAttachmentDownloadMenu';
+import {
+  aiRenderToLeadPDF,
+  isAiRenderAttachmentId,
+  listUnsyncedAiRenders,
+  resolveAiRenderIdFromAttachment,
+} from '@/lib/lead-ai-render-attachments';
+import { useLeadFormUploadAttachments } from '@/hooks/useLeadFormUploadAttachments';
+import {
+  isFormUploadAttachmentId,
+  mergeLeadAttachmentsDedupeByUrl,
+} from '@/lib/lead-form-upload-attachments';
+
+// ─── Miniatura de imagem ─────────────────────────────────────────────────────
+
+interface ImageThumbnailProps {
+  fileUrl: string;
+  fileName: string;
+}
+
+function ImageThumbnail({ fileUrl, fileName }: ImageThumbnailProps) {
+  return (
+    <div className="relative w-full group/thumb pointer-events-none">
+      <img
+        src={fileUrl}
+        alt={`Prévia de ${fileName}`}
+        className="w-full h-auto max-h-48 rounded object-contain bg-white"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/thumb:bg-black/20 transition-colors rounded">
+        <span className="opacity-0 group-hover/thumb:opacity-100 flex items-center gap-1.5 bg-background/90 text-foreground text-xs font-medium px-2.5 py-1.5 rounded-full shadow">
+          <Maximize2 className="h-3.5 w-3.5" />
+          Ampliar
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── PDF Thumbnail (1ª página como imagem) ───────────────────────────────────
+
+interface PDFThumbnailProps {
+  cacheKey: string;
+  fileUrl: string;
+  fileName: string;
+  file?: File;
+}
+
+function PDFThumbnail({ cacheKey, fileUrl, fileName, file }: PDFThumbnailProps) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+
+    const cached = getCachedPdfThumbnail(cacheKey);
+    if (cached) {
+      setImageSrc(cached);
+      setLoading(false);
+      return;
+    }
+
+    const source = file ? { file } : { url: fileUrl };
+    prewarmPdfThumbnail(cacheKey, source)
+      .then((src) => {
+        if (!cancelled) {
+          setImageSrc(src);
+          setLoading(false);
+          if (!src) setError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, fileUrl, file]);
+
+  if (loading) {
+    return <Skeleton className="w-full aspect-[3/4]" />;
+  }
+
+  if (error || !imageSrc) {
+    return (
+      <div className="w-full aspect-[3/4] flex flex-col items-center justify-center bg-muted rounded gap-2">
+        <FileText className="h-10 w-10 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground px-2 text-center">
+          Clique para abrir em tela cheia
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full group/thumb pointer-events-none">
+      <img
+        src={imageSrc}
+        alt={`Prévia de ${fileName}`}
+        className="w-full h-auto rounded object-contain bg-white"
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/thumb:bg-black/20 transition-colors rounded">
+        <span className="opacity-0 group-hover/thumb:opacity-100 flex items-center gap-1.5 bg-background/90 text-foreground text-xs font-medium px-2.5 py-1.5 rounded-full shadow">
+          <Maximize2 className="h-3.5 w-3.5" />
+          Tela cheia
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Miniatura de vídeo ───────────────────────────────────────────────────────
+
+interface VideoThumbnailProps {
+  fileUrl: string;
+  fileName: string;
+}
+
+function VideoThumbnail({ fileUrl, fileName }: VideoThumbnailProps) {
+  return (
+    <div className="relative w-full aspect-video bg-black rounded overflow-hidden pointer-events-none">
+      <video
+        src={fileUrl}
+        className="w-full h-full object-contain"
+        muted
+        playsInline
+        preload="metadata"
+        aria-label={`Prévia de ${fileName}`}
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/90 shadow">
+          <Play className="h-5 w-5 text-foreground ml-0.5" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+interface AttachmentThumbnailProps {
+  cacheKey: string;
+  fileUrl: string;
+  fileName: string;
+  file?: File;
+  tipo: 'pdf' | 'imagem' | 'video';
+}
+
+function AttachmentThumbnail({ cacheKey, fileUrl, fileName, file, tipo }: AttachmentThumbnailProps) {
+  if (tipo === 'imagem') {
+    return <ImageThumbnail fileUrl={fileUrl} fileName={fileName} />;
+  }
+  if (tipo === 'video') {
+    return <VideoThumbnail fileUrl={fileUrl} fileName={fileName} />;
+  }
+  return (
+    <PDFThumbnail cacheKey={cacheKey} fileUrl={fileUrl} fileName={fileName} file={file} />
+  );
+}
+
+/** Camada acima de modais do prestador (z-60) e do menu (z-50) */
+const FULLSCREEN_OVERLAY_Z = 'z-[100]';
+const FULLSCREEN_CONTENT_Z = 'z-[101]';
+
+interface FullscreenAttachmentShellProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  titleIcon: typeof FileText;
+  canDownload: boolean;
+  isDownloading: boolean;
+  onDownload: () => void;
+  downloadLabel?: string;
+  downloadSlot?: ReactNode;
+  meta?: ReactNode;
+  children: ReactNode;
+}
+
+function FullscreenAttachmentShell({
+  open,
+  onClose,
+  title,
+  titleIcon: TitleIcon,
+  canDownload,
+  isDownloading,
+  onDownload,
+  downloadLabel = 'Baixar',
+  downloadSlot,
+  meta,
+  children,
+}: FullscreenAttachmentShellProps) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogPortal>
+        <DialogOverlay
+          className={cn(
+            FULLSCREEN_OVERLAY_Z,
+            'bg-black/95 backdrop-blur-sm',
+          )}
+        />
+        <DialogPrimitive.Content
+          className={cn(
+            FULLSCREEN_CONTENT_Z,
+            'fixed inset-0 flex flex-col gap-0 border-0 p-0 shadow-2xl',
+            'bg-neutral-950 text-white outline-none',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          )}
+          onEscapeKeyDown={onClose}
+        >
+          <header className="flex shrink-0 flex-row items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+            <DialogPrimitive.Title className="flex min-w-0 items-center gap-2 text-base font-medium truncate pr-2">
+              <TitleIcon className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="truncate">{title}</span>
+            </DialogPrimitive.Title>
+            <div className="flex shrink-0 items-center gap-2">
+              {meta}
+              {canDownload && downloadSlot}
+              {canDownload && !downloadSlot && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  disabled={isDownloading}
+                  onClick={() => void onDownload()}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  {downloadLabel}
+                </Button>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                <X className="h-4 w-4 mr-1" />
+                Fechar
+              </Button>
+            </div>
+          </header>
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
+  );
+}
+
+// ─── Visualizador em tela cheia (todas as páginas como imagens) ───────────────
+
+interface PDFFullscreenViewerProps {
+  cacheKey: string;
+  fileUrl: string;
+  fileName: string;
+  file?: File;
+  open: boolean;
+  onClose: () => void;
+  canDownload: boolean;
+}
+
+function PDFFullscreenViewer({
+  cacheKey,
+  fileUrl,
+  fileName,
+  file,
+  open,
+  onClose,
+  canDownload,
+}: PDFFullscreenViewerProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pages, setPages] = useState<PdfPageImage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadFileFromUrl(fileUrl, fileName);
+      toast.success('Download iniciado');
+    } catch (err) {
+      toast.error('Não foi possível baixar o PDF', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setPages([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setError(null);
+
+    const cached = getCachedPdfPages(cacheKey);
+    if (cached?.length) {
+      setPages(cached);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setPages([]);
+
+    const source = file ? { file } : { url: fileUrl };
+    prewarmPdfImages(cacheKey, source, PDF_PREVIEW_WIDTH_PX)
+      .then((images) => {
+        if (!cancelled) {
+          setPages(images);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Erro ao converter PDF');
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, cacheKey, fileUrl, file]);
+
+  return (
+    <FullscreenAttachmentShell
+      open={open}
+      onClose={onClose}
+      title={fileName}
+      titleIcon={FileText}
+      canDownload={canDownload}
+      isDownloading={isDownloading}
+      onDownload={handleDownload}
+      downloadLabel="Baixar PDF"
+      meta={
+        pages.length > 0 ? (
+          <span className="text-xs text-white/50">
+            {pages.length} página{pages.length !== 1 ? 's' : ''}
+          </span>
+        ) : undefined
+      }
+    >
+      <ScrollArea className="flex-1 min-h-0 bg-neutral-950">
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-white/60">
+            <Loader2 className="h-8 w-8 animate-spin text-amber-400/90" />
+            <p className="text-sm">Abrindo visualização...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 px-4 text-center">
+            <FileText className="h-12 w-12 text-white/30" />
+            <p className="text-sm text-red-400">{error}</p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {canDownload && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  disabled={isDownloading}
+                  onClick={() => void handleDownload()}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  Baixar PDF original
+                </Button>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && pages.length > 0 && (
+          <div className="flex flex-col items-center gap-4 p-4 pb-8">
+            {pages.map((page) => (
+              <figure key={page.pageNumber} className="w-full max-w-5xl">
+                <figcaption className="text-xs text-white/45 mb-1.5 text-center">
+                  Página {page.pageNumber} de {pages.length}
+                </figcaption>
+                <img
+                  src={page.src}
+                  alt={`${fileName} — página ${page.pageNumber}`}
+                  className="w-full h-auto rounded-md border border-white/10 bg-white shadow-lg"
+                  width={page.width}
+                  height={page.height}
+                  loading="eager"
+                />
+              </figure>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </FullscreenAttachmentShell>
+  );
+}
+
+interface GalleryImageItem {
+  key: string;
+  fileUrl: string;
+  fileName: string;
+  imageLabel?: string;
+}
+
+interface ImageFullscreenViewerProps {
+  images: GalleryImageItem[];
+  initialIndex: number;
+  leadName?: string | null;
+  leadId?: number | null;
+  open: boolean;
+  onClose: () => void;
+  canDownload: boolean;
+}
+
+const SWIPE_THRESHOLD_PX = 48;
+
+function ImageFullscreenViewer({
+  images,
+  initialIndex,
+  leadName,
+  leadId,
+  open,
+  onClose,
+  canDownload,
+}: ImageFullscreenViewerProps) {
+  const [index, setIndex] = useState(initialIndex);
+  const touchStartXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setIndex(Math.min(Math.max(0, initialIndex), Math.max(0, images.length - 1)));
+    }
+  }, [open, initialIndex, images.length]);
+
+  const total = images.length;
+  const hasGallery = total > 1;
+  const current = images[index] ?? images[0];
+
+  const goPrev = useCallback(() => {
+    if (total <= 1) return;
+    setIndex((prev) => (prev <= 0 ? total - 1 : prev - 1));
+  }, [total]);
+
+  const goNext = useCallback(() => {
+    if (total <= 1) return;
+    setIndex((prev) => (prev >= total - 1 ? 0 : prev + 1));
+  }, [total]);
+
+  useEffect(() => {
+    if (!open || !hasGallery) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, hasGallery, goPrev, goNext]);
+
+  const handleTouchStart = (e: TouchEvent) => {
+    if (!hasGallery) return;
+    touchStartXRef.current = e.changedTouches[0]?.clientX ?? null;
+  };
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    if (!hasGallery || touchStartXRef.current == null) return;
+    const endX = e.changedTouches[0]?.clientX;
+    if (endX == null) {
+      touchStartXRef.current = null;
+      return;
+    }
+    const delta = endX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (Math.abs(delta) < SWIPE_THRESHOLD_PX) return;
+    if (delta > 0) goPrev();
+    else goNext();
+  };
+
+  if (!current) return null;
+
+  return (
+    <FullscreenAttachmentShell
+      open={open}
+      onClose={onClose}
+      title={current.fileName}
+      titleIcon={Image}
+      canDownload={canDownload}
+      isDownloading={false}
+      onDownload={() => {}}
+      meta={
+        hasGallery ? (
+          <span className="text-xs text-white/50 tabular-nums">
+            {index + 1} / {total}
+          </span>
+        ) : undefined
+      }
+      downloadSlot={
+        canDownload ? (
+          <LeadAttachmentDownloadMenu
+            imageUrl={current.fileUrl}
+            fileName={current.fileName}
+            imageLabel={current.imageLabel}
+            leadName={leadName}
+            leadId={leadId}
+            triggerLabel="Baixar"
+            menuModal
+            triggerClassName="h-8 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+          />
+        ) : undefined
+      }
+    >
+      <div
+        className="relative flex flex-1 min-h-0 items-center justify-center bg-neutral-950 select-none"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {hasGallery && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="absolute left-2 z-10 h-11 w-11 rounded-full border-white/20 bg-black/50 text-white hover:bg-black/70 hover:text-white sm:left-4"
+            onClick={goPrev}
+            aria-label="Foto anterior"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+        )}
+
+        <ScrollArea className="h-full w-full">
+          <div className="flex min-h-[50vh] items-center justify-center p-4 sm:px-16">
+            <img
+              key={current.key}
+              src={current.fileUrl}
+              alt={current.fileName}
+              className="max-h-[85vh] max-w-full rounded-md border border-white/10 bg-white object-contain shadow-lg"
+              loading="eager"
+              draggable={false}
+            />
+          </div>
+        </ScrollArea>
+
+        {hasGallery && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="absolute right-2 z-10 h-11 w-11 rounded-full border-white/20 bg-black/50 text-white hover:bg-black/70 hover:text-white sm:right-4"
+            onClick={goNext}
+            aria-label="Próxima foto"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+        )}
+
+        {hasGallery && (
+          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] text-white/70">
+            Deslize ou use ← → para ver as outras fotos
+          </p>
+        )}
+      </div>
+    </FullscreenAttachmentShell>
+  );
+}
+
+interface VideoFullscreenViewerProps {
+  fileUrl: string;
+  fileName: string;
+  open: boolean;
+  onClose: () => void;
+  canDownload: boolean;
+}
+
+function VideoFullscreenViewer({
+  fileUrl,
+  fileName,
+  open,
+  onClose,
+  canDownload,
+}: VideoFullscreenViewerProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadFileFromUrl(fileUrl, fileName);
+      toast.success('Download iniciado');
+    } catch (err) {
+      toast.error('Não foi possível baixar o vídeo', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <FullscreenAttachmentShell
+      open={open}
+      onClose={onClose}
+      title={fileName}
+      titleIcon={Video}
+      canDownload={canDownload}
+      isDownloading={isDownloading}
+      onDownload={handleDownload}
+    >
+      <div className="flex flex-1 items-center justify-center p-4 bg-black">
+        <video
+          src={fileUrl}
+          controls
+          autoPlay
+          playsInline
+          className="max-h-[calc(100vh-5rem)] max-w-full rounded-md shadow-2xl"
+        >
+          Seu navegador não suporta reprodução de vídeo.
+        </video>
+      </div>
+    </FullscreenAttachmentShell>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+interface LeadPDFAttachmentsProps {
+  leadId: number | null | undefined;
+  /** Nome do lead para subtítulo do PDF exportado */
+  leadName?: string | null;
+  /** Prestador: só visualiza PDFs/imagens já anexados ao lead */
+  readOnly?: boolean;
+  /** Filtra anexos conforme permissões granulares do prestador */
+  prestadorPerm?: LeadPrestadorPermissao | null;
+  /** Evita fechar o modal do lead ao abrir o seletor de arquivos do sistema */
+  onFilePickerActiveChange?: (active: boolean) => void;
+}
+
+export interface LeadPDFAttachmentsHandle {
+  flushPendingPdfs: (leadId: number) => Promise<void>;
+  hasPendingPdfs: boolean;
+  clearPendingPdfs: () => void;
+}
+
+export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAttachmentsProps>(
+  function LeadPDFAttachments({ leadId, leadName, readOnly = false, prestadorPerm = null, onFilePickerActiveChange }, ref) {
+  const { userRole, isSuperAdmin: isSuperAdminAuth } = useAuth();
+  const { empresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
+  const { hasPermission } = usePermissions();
+  const {
+    pdfs,
+    pendingPdfs,
+    isLoading,
+    uploadPDF,
+    deletePDF,
+    removePendingPDF,
+    flushPendingPDFs,
+    clearPendingPdfs,
+    hasPendingPdfs,
+  } = useLeadPDFs(leadId);
+  const { formUploadAttachments, isLoading: formUploadsLoading } = useLeadFormUploadAttachments(leadId);
+  const { data: aiRenders = [], isLoading: aiRendersLoading } = useLeadAIRenders(leadId);
+  const deleteRenderMutation = useDeleteLeadAIRender(leadId);
+
+  const anexosComRenders = useMemo(() => {
+    const unsynced = listUnsyncedAiRenders(aiRenders, pdfs).map(aiRenderToLeadPDF);
+    const withForm = mergeLeadAttachmentsDedupeByUrl(pdfs, formUploadAttachments);
+    const merged = [...withForm, ...unsynced];
+    return merged.sort(
+      (a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime(),
+    );
+  }, [aiRenders, pdfs, formUploadAttachments]);
+
+  const pdfsVisiveis = prestadorPerm
+    ? filtrarAnexosParaPrestador(anexosComRenders, prestadorPerm)
+    : anexosComRenders;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushPendingPdfs: flushPendingPDFs,
+      hasPendingPdfs,
+      clearPendingPdfs,
+    }),
+    [flushPendingPDFs, hasPendingPdfs, clearPendingPdfs],
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
+  const [fullscreenView, setFullscreenView] = useState<{
+    kind: 'pdf' | 'image' | 'video';
+    cacheKey: string;
+    fileUrl: string;
+    fileName: string;
+    imageLabel?: string;
+    imageKey?: string;
+    file?: File;
+  } | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExportProcessing, setIsExportProcessing] = useState(false);
+
+  const galleryImages = useMemo((): GalleryImageItem[] => {
+    const pendingImages = pendingPdfs
+      .filter((pending) => getLeadAttachmentViewKind(pending) === 'image')
+      .map((pending) => ({
+        key: `pending:${pending.tempId}`,
+        fileUrl: pending.previewUrl,
+        fileName: pending.file.name,
+        imageLabel: pending.file.name,
+      }));
+    const savedImages = pdfsVisiveis
+      .filter((pdf) => getLeadAttachmentViewKind(pdf) === 'image')
+      .map((pdf) => ({
+        key: pdf.id,
+        fileUrl: pdf.file_url,
+        fileName: pdf.file_name,
+        imageLabel: pdf.titulo || pdf.file_name,
+      }));
+    return [...pendingImages, ...savedImages];
+  }, [pendingPdfs, pdfsVisiveis]);
+
+  const selectableImages = useMemo(
+    () => pdfsVisiveis.filter((pdf) => getLeadAttachmentViewKind(pdf) === 'image'),
+    [pdfsVisiveis],
+  );
+
+  const canUseSelectionMode = selectableImages.length >= 2;
+
+  const toggleImageSelection = useCallback((id: string) => {
+    setSelectedImageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
+    setSelectedImageIds(new Set());
+  }, []);
+
+  const handleExportConfirm = useCallback(
+    async (action: LeadFotosExportAction) => {
+      const selectedPdfs = selectableImages.filter((pdf) => selectedImageIds.has(pdf.id));
+      if (selectedPdfs.length < 2) {
+        toast.error('Selecione pelo menos 2 fotos para exportar.');
+        return;
+      }
+
+      setIsExportProcessing(true);
+      try {
+        const exportInput = {
+          imageUrls: selectedPdfs.map((pdf) => pdf.file_url),
+          imageLabels: selectedPdfs.map((pdf) => pdf.titulo || pdf.file_name),
+          logoUrl: empresa?.logo_url,
+          nomeEmpresa: empresa?.nome,
+          cnpj: empresa?.cnpj,
+          leadName,
+          leadId,
+        };
+
+        if (action === 'export' || action === 'both') {
+          openLeadFotosPdfPrint(exportInput);
+        }
+
+        if (action === 'attach' || action === 'both') {
+          const file = await buildLeadFotosPdfFile(exportInput);
+          await uploadPDF(file);
+        }
+
+        if (action === 'export') {
+          toast.success('PDF pronto para salvar ou imprimir');
+        } else if (action === 'attach') {
+          toast.success('PDF anexado ao lead');
+        } else {
+          toast.success('PDF exportado e anexado ao lead');
+        }
+
+        setExportDialogOpen(false);
+        exitSelectionMode();
+      } catch (error) {
+        toast.error('Não foi possível exportar as fotos', {
+          description: error instanceof Error ? error.message : 'Tente novamente.',
+        });
+      } finally {
+        setIsExportProcessing(false);
+      }
+    },
+    [
+      selectableImages,
+      selectedImageIds,
+      empresa?.logo_url,
+      empresa?.nome,
+      empresa?.cnpj,
+      leadName,
+      leadId,
+      uploadPDF,
+      exitSelectionMode,
+    ],
+  );
+
+  const isMasterUser = isSuperAdminAuth || isSuperAdminEmpresa || userRole === 'admin';
+  const canUploadPdf =
+    !readOnly &&
+    (isMasterUser ||
+      userRole === 'admin' ||
+      userRole === 'vendedor' ||
+      hasPermission('leads', 'edit'));
+  const canDownloadPdf =
+    readOnly || isMasterUser || userRole === 'admin' || userRole === 'vendedor';
+  const canDeletePdf = !readOnly && (isMasterUser || userRole === 'admin');
+
+  const handleDownloadPdf = useCallback(async (pdf: LeadPDF) => {
+    setDownloadingId(pdf.id);
+    try {
+      await downloadFileFromUrl(pdf.file_url, pdf.file_name);
+      toast.success('Download iniciado');
+    } catch (err) {
+      toast.error('Não foi possível baixar o PDF', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  }, []);
+
+  const openFullscreen = useCallback(
+    async (
+      kind: 'pdf' | 'image' | 'video',
+      cacheKey: string,
+      fileUrl: string,
+      fileName: string,
+      file?: File,
+      prepareKey?: string,
+      imageLabel?: string,
+      imageKey?: string,
+    ) => {
+      const source = file ? { file } : { url: fileUrl };
+
+      if (kind === 'pdf' && !getCachedPdfPages(cacheKey)?.length) {
+        if (prepareKey) setPreparingId(prepareKey);
+        try {
+          await Promise.all([
+            prewarmPdfImages(cacheKey, source, PDF_PREVIEW_WIDTH_PX),
+            prewarmPdfThumbnail(cacheKey, source),
+          ]);
+        } catch {
+          toast.error('Não foi possível preparar a visualização do PDF');
+          return;
+        } finally {
+          if (prepareKey) setPreparingId(null);
+        }
+      }
+
+      setFullscreenView({ kind, cacheKey, fileUrl, fileName, file, imageLabel, imageKey });
+    },
+    [],
+  );
+
+  const openPendingFullscreen = useCallback(
+    (pending: PendingLeadPDF) => {
+      const kind = getLeadAttachmentViewKind(pending);
+      void openFullscreen(
+        kind,
+        pdfCacheKeyForPending(pending.tempId),
+        pending.previewUrl,
+        pending.file.name,
+        pending.file,
+        pending.tempId,
+        pending.file.name,
+        kind === 'image' ? `pending:${pending.tempId}` : undefined,
+      );
+    },
+    [openFullscreen],
+  );
+
+  const openFilePicker = useCallback(() => {
+    if (!fileInputRef.current) return;
+    runWithFilePickerGuard(
+      (active) => onFilePickerActiveChange?.(active),
+      () => fileInputRef.current?.click(),
+    );
+  }, [onFilePickerActiveChange]);
+
+  const handleFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setUploading(true);
+      try {
+        for (const file of Array.from(files)) {
+          await uploadPDF(file);
+        }
+      } finally {
+        setUploading(false);
+        onFilePickerActiveChange?.(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    },
+    [uploadPDF, onFilePickerActiveChange],
+  );
+
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      handleFiles(e.dataTransfer.files);
+    },
+    [handleFiles]
+  );
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    const renderId = resolveAiRenderIdFromAttachment({
+      id: deleteTarget.id,
+      fileUrl: deleteTarget.fileUrl,
+      fileName: deleteTarget.fileName,
+    });
+    const linkedRender = renderId ? aiRenders.find((entry) => entry.id === renderId) : null;
+
+    if (linkedRender) {
+      await deleteRenderMutation.mutateAsync(linkedRender);
+    } else {
+      await deletePDF(deleteTarget.id, deleteTarget.fileUrl);
+    }
+    setDeleteTarget(null);
+  };
+
+  return (
+    <div className="space-y-3 w-full" data-dialog-file-picker-zone>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label>{readOnly ? 'PDFs, fotos e vídeos do projeto' : 'Anexar PDFs, fotos e vídeos'}</Label>
+        {canUseSelectionMode && (
+          <Button
+            type="button"
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (isSelectionMode) exitSelectionMode();
+              else setIsSelectionMode(true);
+            }}
+          >
+            {isSelectionMode ? (
+              <>
+                <X className="h-4 w-4 mr-2" />
+                Cancelar seleção
+              </>
+            ) : (
+              <>
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Selecionar fotos
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {isSelectionMode && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            {selectedImageIds.size} foto{selectedImageIds.size !== 1 ? 's' : ''} selecionada
+            {selectedImageIds.size !== 1 ? 's' : ''}
+            {selectedImageIds.size < 2 ? ' · selecione pelo menos 2' : ''}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            disabled={selectedImageIds.size < 2 || isExportProcessing}
+            onClick={() => setExportDialogOpen(true)}
+          >
+            {isExportProcessing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4 mr-2" />
+            )}
+            Exportar em PDF
+          </Button>
+        </div>
+      )}
+
+      {canUploadPdf && (
+      <div
+        className={`border-2 border-dashed rounded-md p-4 text-center transition-colors ${
+          isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-muted-foreground/50'
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (canUploadPdf) setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={canUploadPdf ? handleDrop : undefined}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf,image/*,video/mp4,video/webm,video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading || !canUploadPdf}
+          onClick={openFilePicker}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Enviando...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4 mr-2" />
+              Selecionar arquivos
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground mt-1">
+          {!canUploadPdf
+            ? 'Você não tem permissão para anexar arquivos'
+            : leadId
+              ? 'PDF, foto ou vídeo · arraste aqui · máx. 200MB · clique para ampliar'
+              : 'PDF, foto ou vídeo · serão enviados ao salvar o lead · máx. 200MB'}
+        </p>
+      </div>
+      )}
+
+      {!leadId && pendingPdfs.length > 0 && (
+        <p className="text-xs text-primary font-medium">
+          {pendingPdfs.length} arquivo{pendingPdfs.length !== 1 ? 's' : ''} aguardando — salve o lead para concluir o envio
+        </p>
+      )}
+
+      {isLoading || formUploadsLoading || aiRendersLoading ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="aspect-[3/4] rounded" />
+          <Skeleton className="aspect-[3/4] rounded" />
+        </div>
+      ) : readOnly && pdfsVisiveis.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-6 text-center">
+          Nenhum PDF, foto ou vídeo liberado para visualização neste lead.
+        </p>
+      ) : pdfsVisiveis.length > 0 || pendingPdfs.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {pendingPdfs.map((pending) => (
+            <div
+              key={pending.tempId}
+              className="relative group border border-dashed border-primary/40 rounded-md overflow-hidden bg-primary/5 cursor-pointer"
+              onClick={() => void openPendingFullscreen(pending)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  void openPendingFullscreen(pending);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              title="Prévia — será enviado ao salvar"
+            >
+              <AttachmentThumbnail
+                cacheKey={pdfCacheKeyForPending(pending.tempId)}
+                fileUrl={pending.previewUrl}
+                fileName={pending.file.name}
+                file={pending.file}
+                tipo={pending.tipo}
+              />
+              <div className="px-2 py-1.5 border-t bg-background flex items-center justify-between gap-1">
+                <p className="text-xs truncate text-muted-foreground flex-1" title={pending.file.name}>
+                  {pending.file.name}
+                </p>
+                <span className="text-[10px] text-primary shrink-0">Pendente</span>
+              </div>
+              {canUploadPdf && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-1.5 right-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removePendingPDF(pending.tempId);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {pdfsVisiveis.map((pdf: LeadPDF) => {
+            const viewKind = getLeadAttachmentViewKind(pdf);
+            const thumbTipo =
+              viewKind === 'video' ? 'video' : viewKind === 'pdf' ? 'pdf' : 'imagem';
+            const isVirtualAiRender = isAiRenderAttachmentId(pdf.id);
+            const isFormUpload = isFormUploadAttachmentId(pdf.id);
+            const isSelectableImage = viewKind === 'image';
+            const isSelected = selectedImageIds.has(pdf.id);
+
+            const handleCardActivate = () => {
+              if (isSelectionMode && isSelectableImage) {
+                toggleImageSelection(pdf.id);
+                return;
+              }
+              void openFullscreen(
+                viewKind,
+                pdfCacheKeyForMedia(pdf.id),
+                pdf.file_url,
+                pdf.file_name,
+                undefined,
+                pdf.id,
+                pdf.titulo || pdf.file_name,
+                viewKind === 'image' ? pdf.id : undefined,
+              );
+            };
+
+            return (
+            <div
+              key={pdf.id}
+              className={cn(
+                'relative group border rounded-md overflow-hidden bg-muted/20 cursor-pointer',
+                isSelectionMode && isSelectableImage && isSelected && 'ring-2 ring-primary border-primary',
+                isSelectionMode && !isSelectableImage && 'opacity-60',
+              )}
+              onClick={handleCardActivate}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleCardActivate();
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              title={
+                isSelectionMode && isSelectableImage
+                  ? isSelected
+                    ? 'Clique para desmarcar'
+                    : 'Clique para selecionar'
+                  : 'Clique para ver em tela cheia'
+              }
+            >
+              {isSelectionMode && isSelectableImage && (
+                <div
+                  className="absolute left-2 top-2 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleImageSelection(pdf.id)}
+                    aria-label={`Selecionar ${pdf.titulo || pdf.file_name}`}
+                    className="h-5 w-5 border-white/80 bg-black/50 data-[state=checked]:bg-primary"
+                  />
+                </div>
+              )}
+              {preparingId === pdf.id && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
+                  <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+                </div>
+              )}
+              <AttachmentThumbnail
+                cacheKey={pdfCacheKeyForMedia(pdf.id)}
+                fileUrl={pdf.file_url}
+                fileName={pdf.file_name}
+                tipo={thumbTipo}
+              />
+              <div className="px-2 py-1.5 border-t bg-background flex items-center justify-between gap-1">
+                <p className="text-xs truncate text-muted-foreground flex-1" title={pdf.titulo || pdf.file_name}>
+                  {pdf.titulo || pdf.file_name}
+                </p>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {isVirtualAiRender && (
+                    <span className="text-[10px] text-primary shrink-0">Render IA</span>
+                  )}
+                  {isFormUpload && (
+                    <span className="text-[10px] text-sky-700 shrink-0">Formulário</span>
+                  )}
+                  {canDownloadPdf && viewKind === 'image' && (
+                    <LeadAttachmentDownloadMenu
+                      imageUrl={pdf.file_url}
+                      fileName={pdf.file_name}
+                      imageLabel={pdf.titulo || pdf.file_name}
+                      leadName={leadName}
+                      leadId={leadId}
+                      iconOnly
+                      menuModal
+                    />
+                  )}
+                  {canDownloadPdf && viewKind !== 'image' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="Baixar arquivo"
+                      disabled={downloadingId === pdf.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDownloadPdf(pdf);
+                      }}
+                    >
+                      {downloadingId === pdf.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
+                  <Maximize2 className="h-3 w-3 text-muted-foreground opacity-60" />
+                </div>
+              </div>
+              {canDeletePdf && !isSelectionMode && !isFormUpload && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-1.5 right-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget({ id: pdf.id, fileUrl: pdf.file_url, fileName: pdf.file_name });
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          );
+          })}
+        </div>
+      ) : null}
+      {fullscreenView?.kind === 'pdf' && (
+        <PDFFullscreenViewer
+          cacheKey={fullscreenView.cacheKey}
+          fileUrl={fullscreenView.fileUrl}
+          fileName={fullscreenView.fileName}
+          file={fullscreenView.file}
+          open
+          onClose={() => setFullscreenView(null)}
+          canDownload={canDownloadPdf}
+        />
+      )}
+      {fullscreenView?.kind === 'image' && (
+        <ImageFullscreenViewer
+          images={
+            galleryImages.length > 0
+              ? galleryImages
+              : [
+                  {
+                    key: fullscreenView.imageKey || fullscreenView.fileUrl,
+                    fileUrl: fullscreenView.fileUrl,
+                    fileName: fullscreenView.fileName,
+                    imageLabel: fullscreenView.imageLabel,
+                  },
+                ]
+          }
+          initialIndex={Math.max(
+            0,
+            galleryImages.findIndex((img) => img.key === fullscreenView.imageKey),
+          )}
+          leadName={leadName}
+          leadId={leadId}
+          open
+          onClose={() => setFullscreenView(null)}
+          canDownload={canDownloadPdf}
+        />
+      )}
+      {fullscreenView?.kind === 'video' && (
+        <VideoFullscreenViewer
+          fileUrl={fullscreenView.fileUrl}
+          fileName={fullscreenView.fileName}
+          open
+          onClose={() => setFullscreenView(null)}
+          canDownload={canDownloadPdf}
+        />
+      )}
+
+      <LeadFotosExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        selectedCount={selectedImageIds.size}
+        canAttach={canUploadPdf}
+        isProcessing={isExportProcessing}
+        onConfirm={(action) => void handleExportConfirm(action)}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover arquivo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget &&
+              resolveAiRenderIdFromAttachment({
+                id: deleteTarget.id,
+                fileUrl: deleteTarget.fileUrl,
+                fileName: deleteTarget.fileName,
+              })
+                ? 'A renderização será removida permanentemente do histórico, dos anexos e do armazenamento. Essa ação não pode ser desfeita.'
+                : 'O arquivo será removido permanentemente e não poderá ser recuperado.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+});
+
+LeadPDFAttachments.displayName = 'LeadPDFAttachments';

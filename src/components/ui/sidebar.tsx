@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-const SIDEBAR_WIDTH = '16rem'
+const SIDEBAR_WIDTH = '18.5rem'
 const SIDEBAR_WIDTH_ICON = '3.5rem'
 const SIDEBAR_COOKIE_NAME = 'sidebar:state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7

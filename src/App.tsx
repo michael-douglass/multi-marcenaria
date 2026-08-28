@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AppToast } from '@/components/ui/AppToast'
 import { PwaManager } from '@/pwa'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { OptionalFinanceDataProvider, useFinanceDataOptional } from '@/context/FinanceDataContext'
-import { sectionFromPath, defaultPathForRoles } from '@/lib/app-navigation'
+import { sectionFromPath } from '@/lib/app-navigation'
 import { canAccessSection, canAccessFuncionarioPasta } from '@/lib/role-access'
+import {
+  canAccessCrmPath,
+  defaultPathForIdentity,
+  evaluateIdentityGate,
+  hasCrmColaboradorAccess,
+  isCrmAppPath,
+  isPortalOnly,
+} from '@/lib/crm-identity'
+import { ForaDoHorario } from '@/pages/ForaDoHorario'
+import { ChatCrmPage } from '@/pages/crm/ChatCrmPage'
 import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
 import { consumePontoResumeFlag, peekPontoResumeFlag } from '@/hooks/useBaterPonto'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess, hasPedidosObrasAccess } from '@/lib/obra-permissions'
@@ -33,11 +43,59 @@ import { Configuracoes } from '@/pages/Configuracoes'
 import { Funcionarios } from '@/pages/Funcionarios'
 import { FuncionarioDetalhe } from '@/pages/FuncionarioDetalhe'
 import { Login } from '@/pages/Login'
-import { OrcamentoPublico } from '@/pages/OrcamentoPublico'
 import { Visualizacao } from '@/pages/Visualizacao'
 import { ObrasProvider } from '@/hooks/useObras'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+import { CrmSelletosProviders } from '@/components/crm/CrmSelletosProviders'
+import { RouteLoadingFallback } from '@/components/RouteLoadingFallback'
+import { OAuthErrorRedirect } from '@/components/OAuthErrorRedirect'
+import CadastroPublico from '@/pages/cadastro/CadastroPublico'
+
+const Pipeline = lazy(() => import('@/pages/Pipeline'))
+const PipelineKanbanPage = lazy(() => import('@/pages/PipelineKanbanPage'))
+const PipelineSettings = lazy(() => import('@/pages/PipelineSettings'))
+const Leads = lazy(() => import('@/pages/Leads'))
+const AgendaComercial = lazy(() => import('@/pages/Agenda'))
+const ContratosListPage = lazy(() => import('@/pages/contratos/ContratosPage'))
+const NovoContratoPage = lazy(() => import('@/pages/contratos/NovoContratoPage'))
+const ContratosConfigSelletosPage = lazy(() => import('@/pages/contratos/ContratosConfigPage'))
+const MarkupListSelletosPage = lazy(() => import('@/pages/markup/MarkupListPage'))
+const MarkupConfigSelletosPage = lazy(() => import('@/pages/markup/MarkupConfigPage'))
+const OrcamentoSlidesListPage = lazy(() => import('@/pages/orcamento-slides/OrcamentoSlidesPage'))
+const NovoOrcamentoSlidePage = lazy(() => import('@/pages/orcamento-slides/NovoOrcamentoSlidePage'))
+const ApresentarOrcamentoSlidePage = lazy(() => import('@/pages/orcamento-slides/ApresentarOrcamentoSlidePage'))
+const OrcamentoSlidesConfigPage = lazy(() => import('@/pages/orcamento-slides/OrcamentoSlidesConfigPage'))
+const OrcamentoPublicoPage = lazy(() => import('@/pages/orcamento-slides/OrcamentoPublicoPage'))
+const IniciarOrcamentoPublicoPage = lazy(() => import('@/pages/orcamento-slides/IniciarOrcamentoPublicoPage'))
+const MarketingConteudo = lazy(() => import('@/pages/MarketingConteudo'))
+const MarketingDisparos = lazy(() => import('@/pages/Marketing'))
+const AutomacoesSelletos = lazy(() => import('@/pages/Automacoes'))
+const ControleGastosSelletos = lazy(() => import('@/pages/ControleGastos'))
+const FinanceiroPontua = lazy(() => import('@/pages/Financeiro'))
+const AdminUsuarios = lazy(() => import('@/pages/Admin'))
+const WebhooksConfig = lazy(() => import('@/pages/WebhooksConfig'))
+const ConfiguracaoMarca = lazy(() => import('@/pages/admin/ConfiguracaoMarca'))
+const CrmBiblioteca = lazy(() => import('@/pages/CrmBiblioteca'))
+const PrestadorSelletos = lazy(() => import('@/pages/Prestador'))
+const ProfilePage = lazy(() => import('@/pages/Profile'))
+const ApresentacaoEmpresaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPage'))
+const PontuaGarboApresentacaoPage = lazy(() => import('@/pages/marketing/PontuaGarboApresentacaoPage'))
+const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPublicaPage'))
+const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
+const CadastroDeAlunos = lazy(() => import('@/pages/CadastroDeAlunos'))
+const ProjetosPage = lazy(() => import('@/pages/Projetos'))
+const ControleEventosPage = lazy(() => import('@/pages/ControleEventos'))
+const ControleEventoBoardPage = lazy(() => import('@/pages/ControleEventoBoard'))
+
+function PreserveSearchRedirect({ to }: { to: string }) {
+  const location = useLocation()
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />
+}
+
+function CrmLazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
+}
 
 function BootLoading({ message }: { message: string }) {
   const { signOut } = useApp()
@@ -82,9 +140,9 @@ function Restricted({ message }: { message: string }) {
 }
 
 function HomeRedirect() {
-  const { roles } = useApp()
+  const { roles, userProfile, crmProfile } = useApp()
   const location = useLocation()
-  const defaultPath = defaultPathForRoles(roles)
+  const defaultPath = defaultPathForIdentity(roles, userProfile, crmProfile)
   const fromPwa = new URLSearchParams(location.search).get('src') === 'pwa'
   const last = readLastRoute()
   const resumePonto = peekPontoResumeFlag()
@@ -95,9 +153,15 @@ function HomeRedirect() {
 
   if (fromPwa && last) {
     const lastPath = last.split('?')[0] || '/'
-    const section = sectionFromPath(lastPath)
-    if (canAccessSection(roles, section)) {
-      return <Navigate to={last} replace />
+    if (isCrmAppPath(lastPath)) {
+      if (canAccessCrmPath(lastPath, crmProfile, userProfile)) {
+        return <Navigate to={last} replace />
+      }
+    } else {
+      const section = sectionFromPath(lastPath)
+      if (canAccessSection(roles, section)) {
+        return <Navigate to={last} replace />
+      }
     }
   }
 
@@ -105,12 +169,12 @@ function HomeRedirect() {
 }
 
 function RoleRedirect() {
-  const { roles } = useApp()
+  const { roles, userProfile, crmProfile } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
   const restoredRef = useRef(false)
 
-  const defaultPath = defaultPathForRoles(roles)
+  const defaultPath = defaultPathForIdentity(roles, userProfile, crmProfile)
 
   // Guarda a página atual para retomar se o PWA reabrir na home.
   useEffect(() => {
@@ -128,10 +192,22 @@ function RoleRedirect() {
   }, [roles, location.pathname, navigate])
 
   useEffect(() => {
-    if (!roles.length) return
-    const section = sectionFromPath(location.pathname)
+    const path = location.pathname
+    if (isCrmAppPath(path)) {
+      if (!canAccessCrmPath(path, crmProfile, userProfile)) {
+        navigate(defaultPath, { replace: true })
+      }
+      return
+    }
+    if (!roles.length) {
+      if (hasCrmColaboradorAccess(crmProfile)) {
+        navigate(defaultPath, { replace: true })
+      }
+      return
+    }
+    const section = sectionFromPath(path)
     if (section === 'funcionarios') {
-      if (!canAccessFuncionarioPasta(roles, location.pathname)) {
+      if (!canAccessFuncionarioPasta(roles, path)) {
         navigate(defaultPath, { replace: true })
       }
       return
@@ -139,18 +215,47 @@ function RoleRedirect() {
     if (!canAccessSection(roles, section)) {
       navigate(defaultPath, { replace: true })
     }
-  }, [roles, location.pathname, navigate, defaultPath])
+  }, [roles, crmProfile, userProfile, location.pathname, navigate, defaultPath])
 
   return null
 }
 
 function AuthenticatedRoutes() {
-  const { roles } = useApp()
+  const { roles, userProfile, crmProfile } = useApp()
   const location = useLocation()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
   const finance = useFinanceDataOptional()
+  const homePath = defaultPathForIdentity(roles, userProfile, crmProfile)
 
-  const guardReadOnly = (page: React.ReactNode) =>
+  const apresentarMatch = location.pathname.match(/^\/orcamento-slides\/([^/]+)\/apresentar\/?$/)
+  if (apresentarMatch) {
+    return (
+      <CrmLazy>
+        <ApresentarOrcamentoSlidePage orcamentoId={apresentarMatch[1]} />
+      </CrmLazy>
+    )
+  }
+  if (location.pathname.startsWith('/marketing/apresentacao-interna')) {
+    return (
+      <CrmLazy>
+        <ApresentacaoEmpresaPage />
+      </CrmLazy>
+    )
+  }
+  if (location.pathname.startsWith('/marketing/pontua-garbo')) {
+    return (
+      <CrmLazy>
+        <PontuaGarboApresentacaoPage />
+      </CrmLazy>
+    )
+  }
+
+  const crmPage = (path: string, page: ReactNode) =>
+    canAccessCrmPath(path, crmProfile, userProfile)
+      ? <CrmLazy>{page}</CrmLazy>
+      : <Navigate to={homePath} replace />
+
+  const guardReadOnly = (page: ReactNode) =>
     readOnly ? (
       <Restricted message="Esta seção requer perfil Financeiro ou Administrador." />
     ) : (
@@ -189,7 +294,7 @@ function AuthenticatedRoutes() {
             element={
               canAccessSection(roles, 'dashboard')
                 ? <Dashboard />
-                : <Navigate to={defaultPathForRoles(roles)} replace />
+                : <Navigate to={homePath} replace />
             }
           />
           <Route path="/clientes" element={guardReadOnly(<Clientes readOnly={readOnly} />)} />
@@ -379,7 +484,47 @@ function AuthenticatedRoutes() {
             }
           />
 
-          <Route path="*" element={<Navigate to={defaultPathForRoles(roles)} replace />} />
+          {/* CRM Selletos — páginas 1:1 com o GitHub */}
+          <Route path="/pipeline/configuracoes" element={crmPage('/pipeline', <PipelineSettings />)} />
+          <Route path="/pipeline/:kanbanSlug" element={crmPage('/pipeline', <PipelineKanbanPage />)} />
+          <Route path="/pipeline" element={crmPage('/pipeline', <Pipeline />)} />
+          <Route path="/leads/lousa" element={crmPage('/leads', <Leads />)} />
+          <Route path="/leads/:id/lousa" element={crmPage('/leads', <Leads />)} />
+          <Route path="/leads" element={crmPage('/leads', <Leads />)} />
+          <Route path="/projetos" element={crmPage('/projetos', <ProjetosPage />)} />
+          <Route path="/agenda" element={<PreserveSearchRedirect to="/agenda-comercial" />} />
+          <Route path="/agenda-comercial" element={crmPage('/agenda-comercial', <AgendaComercial />)} />
+          <Route path="/contratos/configuracoes" element={crmPage('/contratos', <ContratosConfigSelletosPage />)} />
+          <Route path="/contratos/novo" element={crmPage('/contratos', <NovoContratoPage />)} />
+          <Route path="/contratos/:id" element={crmPage('/contratos', <NovoContratoPage />)} />
+          <Route path="/contratos" element={crmPage('/contratos', <ContratosListPage />)} />
+          <Route path="/orcamento-slides/configuracoes" element={crmPage('/orcamento-slides', <OrcamentoSlidesConfigPage />)} />
+          <Route path="/orcamento-slides/novo" element={crmPage('/orcamento-slides', <NovoOrcamentoSlidePage />)} />
+          <Route path="/orcamento-slides/:id/editar" element={crmPage('/orcamento-slides', <NovoOrcamentoSlidePage />)} />
+          <Route path="/orcamento-slides" element={crmPage('/orcamento-slides', <OrcamentoSlidesListPage />)} />
+          <Route path="/markup/configuracoes" element={crmPage('/markup', <MarkupConfigSelletosPage />)} />
+          <Route path="/markup" element={crmPage('/markup', <MarkupListSelletosPage />)} />
+          <Route path="/automacoes/marketing" element={crmPage('/automacoes/marketing', <MarketingDisparos />)} />
+          <Route path="/automacoes" element={crmPage('/automacoes', <AutomacoesSelletos />)} />
+          <Route path="/marketing-conteudo" element={crmPage('/marketing-conteudo', <MarketingConteudo />)} />
+          <Route path="/biblioteca-crm" element={crmPage('/biblioteca-crm', <CrmBiblioteca />)} />
+          <Route path="/admin/marca" element={crmPage('/admin/marca', <ConfiguracaoMarca />)} />
+          <Route path="/admin/empresas" element={<Navigate to="/admin/marca" replace />} />
+          <Route path="/admin/webhooks" element={crmPage('/admin/marca', <WebhooksConfig />)} />
+          <Route path="/admin" element={crmPage('/admin/marca', <AdminUsuarios />)} />
+          <Route path="/controle-gastos" element={crmPage('/controle-gastos', <ControleGastosSelletos />)} />
+          <Route path="/controle-eventos/:eventoId" element={crmPage('/controle-eventos', <ControleEventoBoardPage />)} />
+          <Route path="/controle-eventos" element={crmPage('/controle-eventos', <ControleEventosPage />)} />
+          <Route path="/financeiro-pontua" element={crmPage('/financeiro-pontua', <FinanceiroPontua />)} />
+          <Route path="/eventos-crm" element={<Navigate to="/controle-eventos" replace />} />
+          <Route path="/chat-crm" element={crmPage('/chat-crm', <ChatCrmPage />)} />
+          <Route path="/profile" element={<CrmLazy><ProfilePage /></CrmLazy>} />
+          <Route
+            path="/portal-parceiro"
+            element={crmPage('/portal-parceiro', <PrestadorSelletos />)}
+          />
+
+          <Route path="*" element={<Navigate to={homePath} replace />} />
         </Route>
       </Routes>
     </>
@@ -388,18 +533,28 @@ function AuthenticatedRoutes() {
 
 function AuthenticatedApp() {
   return (
-    <ObrasProvider>
-      <OptionalFinanceDataProvider>
-        <AuthenticatedRoutes />
-      </OptionalFinanceDataProvider>
-    </ObrasProvider>
+    <CrmSelletosProviders>
+      <ObrasProvider>
+        <OptionalFinanceDataProvider>
+          <AuthenticatedRoutes />
+        </OptionalFinanceDataProvider>
+      </ObrasProvider>
+    </CrmSelletosProviders>
   )
 }
 
 function AppRoutes() {
-  const { authLoading, profileLoading, profileError, session, userProfile, signOut, retryProfile } = useApp()
+  const {
+    authLoading,
+    profileLoading,
+    profileError,
+    session,
+    userProfile,
+    crmProfile,
+    signOut,
+    retryProfile,
+  } = useApp()
 
-  // Só bloqueia a tela inteira enquanto a sessão (login) não foi resolvida
   if (authLoading) {
     return <BootLoading message="Carregando..." />
   }
@@ -408,11 +563,26 @@ function AppRoutes() {
     return <Login />
   }
 
-  if (profileLoading && !userProfile) {
+  if (profileLoading && !userProfile && !crmProfile) {
     return <BootLoading message="Carregando perfil..." />
   }
 
-  if (!userProfile) {
+  const gate = evaluateIdentityGate(userProfile, crmProfile)
+  if (gate.ok === false && gate.reason === 'hours') {
+    return <ForaDoHorario />
+  }
+
+  if (isPortalOnly(userProfile, crmProfile) && gate.ok) {
+    return (
+      <CrmSelletosProviders>
+        <CrmLazy>
+          <PrestadorSelletos />
+        </CrmLazy>
+      </CrmSelletosProviders>
+    )
+  }
+
+  if (!gate.ok) {
     const isConnectionError =
       profileError?.includes('banco')
       || profileError?.includes('conectar')
@@ -462,10 +632,19 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Routes>
-        <Route path="/orcamento/:schema/:id" element={<OrcamentoPublico />} />
-        <Route path="*" element={<AppRoutes />} />
-      </Routes>
+      <OAuthErrorRedirect>
+        <Routes>
+          <Route path="/orcamento/:schema/:id" element={<CrmLazy><OrcamentoPublicoPage /></CrmLazy>} />
+          <Route path="/iniciar-orcamento/:schema/:token" element={<CrmLazy><IniciarOrcamentoPublicoPage /></CrmLazy>} />
+          <Route path="/agendar/:empresaSlug/:slug" element={<CrmLazy><AgendamentoPublico /></CrmLazy>} />
+          <Route path="/agendar/:slug" element={<CrmLazy><AgendamentoPublico /></CrmLazy>} />
+          <Route path="/cadastro-de-alunos" element={<CrmLazy><CadastroDeAlunos /></CrmLazy>} />
+          <Route path="/cadastro/:tipo" element={<CadastroPublico />} />
+          <Route path="/apresentacao/garbo" element={<CrmLazy><ApresentacaoEmpresaPublicaPage /></CrmLazy>} />
+          <Route path="/marketing/apresentacao-empresa" element={<Navigate to="/apresentacao/garbo" replace />} />
+          <Route path="*" element={<AppRoutes />} />
+        </Routes>
+      </OAuthErrorRedirect>
       <PwaManager />
       <AppToast />
     </BrowserRouter>

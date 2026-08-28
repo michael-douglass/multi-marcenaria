@@ -1,13 +1,14 @@
 import { createContext, useContext, ReactNode } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { useAuth } from '../hooks/useAuth'
+import type { CrmProfile } from '../lib/crm-identity'
 import type { UserRole, UserProfile } from '../types'
 
 interface AppContextType {
-  // Auth
   session: Session | null
   user: User | null
   userProfile: UserProfile | null
+  crmProfile: CrmProfile | null
   role: UserRole | null
   roles: UserRole[]
   authLoading: boolean
@@ -27,6 +28,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         session: auth.session,
         user: auth.user,
         userProfile: auth.userProfile,
+        crmProfile: auth.crmProfile,
         role: auth.role,
         roles: auth.roles,
         authLoading: auth.loading,

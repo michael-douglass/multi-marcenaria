@@ -1,5 +1,9 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { ptBR } from 'date-fns/locale'
+
+const TIMEZONE = 'America/Sao_Paulo'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -83,6 +87,96 @@ export function createId(): string {
   }
 
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+/** Remove traços, espaços e qualquer caractere que não seja dígito. */
+export function formatInternationalPhone(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
+export function displayPhone(phone: string): string {
+  if (!phone) return ''
+  const numbers = phone.replace(/\D/g, '')
+  if (numbers.length >= 11) {
+    const ddi = numbers.slice(0, 2)
+    const ddd = numbers.slice(2, 4)
+    const parte1 = numbers.slice(4, 9)
+    const parte2 = numbers.slice(9)
+    return `+${ddi} (${ddd}) ${parte1}-${parte2}`
+  }
+  return phone
+}
+
+export function formatPhoneNumber(numero: string): string {
+  const clean = numero.replace(/\D/g, '')
+  if (clean.length === 13) {
+    return `${clean.slice(0, 2)} ${clean.slice(2, 4)} ${clean.slice(4, 9)}-${clean.slice(9)}`
+  }
+  if (clean.length === 12) {
+    return `${clean.slice(0, 2)} ${clean.slice(2, 4)} ${clean.slice(4, 8)}-${clean.slice(8)}`
+  }
+  return numero
+}
+
+export function formatYMDToBR(dateYMD: string): string {
+  const [y, m, d] = (dateYMD || '').split('-')
+  if (!y || !m || !d) return dateYMD || ''
+  return `${d}/${m}/${y}`
+}
+
+export function formatYMDToBRShort(dateYMD: string): string {
+  const [y, m, d] = (dateYMD || '').split('-')
+  if (!y || !m || !d) return dateYMD || ''
+  return `${d}/${m}/${String(y).slice(2)}`
+}
+
+export function formatDataBrMask(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+export function parseBRToYMD(br: string): string {
+  const m = br.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return ''
+  const [, d, mon, y] = m
+  const day = Number(d)
+  const month = Number(mon)
+  const year = Number(y)
+  const dt = new Date(year, month - 1, day)
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) {
+    return ''
+  }
+  return `${y}-${mon}-${d}`
+}
+
+export function valorDataParaExibicaoBR(value: string): string {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatYMDToBR(value)
+  return formatDataBrMask(value)
+}
+
+export function getTodaySaoPaulo(): string {
+  return formatInTimeZone(new Date(), TIMEZONE, 'yyyy-MM-dd')
+}
+
+export function toSaoPauloTime(date: Date | string): Date {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return toZonedTime(dateObj, TIMEZONE)
+}
+
+export function formatDateSaoPaulo(date: Date | string, formatStr: string): string {
+  return formatInTimeZone(date, TIMEZONE, formatStr, { locale: ptBR })
+}
+
+export function getDefaultMonthRange(): { from: Date; to: Date } {
+  const today = toSaoPauloTime(new Date())
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  return {
+    from: toSaoPauloTime(firstDayOfMonth),
+    to: today,
+  }
 }
 
 /** Distribui ângulos em círculo para o menu radial */

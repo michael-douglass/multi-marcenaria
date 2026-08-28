@@ -1,0 +1,48 @@
+.projeto-card-claimed {
+  animation: projeto-claimed-glow 1.8s ease-in-out infinite;
+}
+
+.projeto-card-claimed-rim {
+  animation: projeto-claimed-rim 1.8s ease-in-out infinite;
+}
+
+@keyframes projeto-claimed-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(125, 211, 252, 0.35),
+      0 8px 24px rgba(0, 0, 0, 0.35);
+    filter: brightness(1.02);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(242, 216, 146, 0.7),
+      0 0 22px rgba(242, 216, 146, 0.28),
+      0 8px 24px rgba(0, 0, 0, 0.35);
+    filter: brightness(1.14);
+  }
+}
+
+@keyframes projeto-claimed-rim {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .projeto-card-claimed {
+    animation: none;
+    box-shadow:
+      0 0 0 1px rgba(242, 216, 146, 0.7),
+      0 0 16px rgba(125, 211, 252, 0.35);
+    filter: none;
+  }
+  .projeto-card-claimed-rim {
+    animation: none;
+    opacity: 1;
+  }
+}

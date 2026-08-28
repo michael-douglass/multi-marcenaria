@@ -1,12 +1,12 @@
 ﻿import { Clock, Home, LogOut, User, CalendarDays } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
-import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
+import { canAccessCrmPath, isCrmAppPath } from '@/lib/crm-identity'
 import { isFuncionarioCampo, isVisualizadorOnly } from '@/lib/role-access'
 
 const PERFIL_LABEL: Record<string, string> = {
@@ -25,8 +25,12 @@ interface NavigationHeaderProps {
 
 export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   const navigate = useNavigate()
-  const { roles, userProfile, signOut } = useApp()
+  const location = useLocation()
+  const { roles, userProfile, crmProfile, signOut } = useApp()
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
+  const isCrmArea = isCrmAppPath(location.pathname)
+  const canCrmAgenda = canAccessCrmPath('/agenda-comercial', crmProfile, userProfile)
+  const showAgendaBtn = isCrmArea ? canCrmAgenda : !isVisualizadorOnly(roles)
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.28)] bg-[rgba(52,34,26,0.94)] px-4 backdrop-blur-md safe-area-top-offset">
@@ -53,15 +57,18 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
           <Home className="h-4 w-4" />
         </Button>
 
-        {!isVisualizadorOnly(roles) && (
+        {showAgendaBtn && (
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
-          onClick={onOpenAgenda}
-          title="Agenda e Calendário"
-          aria-label="Agenda e Calendário"
+          onClick={() => {
+            if (isCrmArea) navigate('/agenda-comercial')
+            else onOpenAgenda?.()
+          }}
+          title={isCrmArea ? 'Agenda comercial' : 'Agenda e Calendário'}
+          aria-label={isCrmArea ? 'Agenda comercial' : 'Agenda e Calendário'}
         >
           <CalendarDays className="h-4 w-4" />
         </Button>
@@ -85,10 +92,6 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {roles.includes('Administrador') && <ContasPagarNotifBell />}
-
-        <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
-
         <AppRefreshButton showLabel />
 
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />

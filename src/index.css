@@ -1,65 +1,116 @@
-@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&family=Bebas+Neue&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── BOURBON DAYLIGHT — DNA 1:1 com CRM Selletos (mogno + ouro) ───────────── */
+
 @layer base {
   :root {
-    /* Shadcn / Tailwind (HSL) — tema Bourbon Daylight */
-    --background: 22 32% 14%;
-    --foreground: 32 55% 97%;
-    --card: 22 28% 20%;
-    --card-foreground: 32 55% 97%;
-    --primary: 43 72% 68%;
-    --primary-foreground: 22 32% 12%;
-    --secondary: 22 25% 22%;
-    --secondary-foreground: 32 45% 92%;
-    --muted: 25 22% 38%;
-    --muted-foreground: 30 38% 78%;
-    --accent: 43 40% 28%;
-    --accent-foreground: 43 72% 72%;
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 38 45% 42%;
-    --input: 22 28% 26%;
-    --ring: 43 72% 68%;
-    --radius: 0.625rem;
-    --sidebar-background: 22 35% 12%;
-    --sidebar-foreground: 32 50% 94%;
-    --sidebar-primary: 43 72% 68%;
-    --sidebar-primary-foreground: 22 32% 12%;
-    --sidebar-accent: 43 35% 22%;
-    --sidebar-accent-foreground: 43 72% 72%;
-    --sidebar-border: 38 42% 38%;
-    --sidebar-ring: 43 72% 68%;
+    /* Tokens semânticos Bourbon Daylight */
+    --color-bg-base:          #2a1812;
+    --color-bg-deep:          #1f120d;
+    --color-bg-elevated:      rgba(52, 34, 26, 0.97);
+    --color-surface-card:     rgba(78, 52, 40, 0.97);
+    --color-surface:          rgba(78, 52, 40, 0.97);
+    --color-surface-soft:     rgba(88, 60, 46, 0.94);
+    --color-surface-muted:    rgba(72, 48, 36, 0.78);
+    --color-surface-input:    rgba(68, 46, 34, 0.88);
+    --color-surface-panel:    rgba(62, 42, 32, 0.98);
+    --color-surface-float:    rgba(66, 44, 34, 0.95);
+    --color-surface-kpi:      rgba(72, 48, 36, 0.92);
 
-    /* Bourbon Daylight — paleta semântica global */
-    --color-bg-base: #2a1812;
-    --color-bg-deep: #1f120d;
-    --color-bg-elevated: rgba(52, 34, 26, 0.97);
-    --color-surface: rgba(78, 52, 40, 0.97);
-    --color-surface-soft: rgba(88, 60, 46, 0.94);
-    --color-surface-muted: rgba(72, 48, 36, 0.78);
-    --color-surface-input: rgba(68, 46, 34, 0.88);
-    --color-surface-panel: rgba(62, 42, 32, 0.98);
-    --color-surface-float: rgba(66, 44, 34, 0.95);
-    --color-surface-kpi: rgba(72, 48, 36, 0.92);
-    --color-text-primary: #ffffff;
-    --color-text-body: #fffaf4;
-    --color-text-secondary: #faf2ea;
-    --color-text-muted: #edd9c4;
-    --color-text-faint: #d4bc9f;
-    --color-text-sidebar: #d4bc9f;
-    --color-gold: #f2d892;
-    --color-gold-hover: #f5e0a8;
-    --color-gold-muted: #e8c878;
-    --color-gold-dim: rgba(240, 210, 140, 0.35);
-    --color-gold-border: rgba(240, 210, 140, 0.42);
+    --color-text-primary:     #ffffff;
+    --color-text-body:        #fffaf4;
+    --color-text-secondary:   #faf2ea;
+    --color-text-muted:       #edd9c4;
+    --color-text-faint:       #d4bc9f;
+    --color-text-sidebar:     #d4bc9f;
+
+    --color-gold:             #f2d892;
+    --color-gold-hover:       #f5e0a8;
+    --color-gold-soft:        #e8c878;
+    --color-gold-muted:       #e8c878;
+    --color-gold-border:      rgba(240, 210, 140, 0.42);
     --color-gold-border-subtle: rgba(240, 210, 140, 0.28);
-    --color-on-gold: #2a1812;
-    --color-highlight-inset: rgba(255, 252, 248, 0.12);
-    --color-shadow: rgba(0, 0, 0, 0.22);
+    --color-gold-glow:        rgba(240, 210, 140, 0.35);
+    --color-gold-dim:         rgba(240, 210, 140, 0.35);
+    --color-gold-on:          #2a1812;
+    --color-on-gold:          #2a1812;
+    --color-highlight-inset:  rgba(255, 252, 248, 0.12);
+    --color-shadow:           rgba(0, 0, 0, 0.22);
+
+    /* Shadcn HSL — valores 1:1 do CRM Selletos */
+    --background:       15 40% 12%;
+    --foreground:       30 100% 98%;
+    --card:             20 32% 23%;
+    --card-foreground:  30 100% 98%;
+    --popover:          20 33% 18%;
+    --popover-foreground: 30 100% 98%;
+    --primary:          43 78% 76%;
+    --primary-foreground: 15 40% 12%;
+    --secondary:        20 30% 28%;
+    --secondary-foreground: 33 67% 96%;
+    --accent:           20 33% 22%;
+    --accent-foreground: 30 100% 98%;
+    --muted:            20 33% 21%;
+    --muted-foreground: 33 55% 85%;
+    --success:          142 69% 58%;
+    --success-foreground: 0 0% 100%;
+    --warning:          43 96% 56%;
+    --warning-foreground: 15 40% 12%;
+    --destructive:      0 91% 71%;
+    --destructive-foreground: 0 0% 100%;
+    --border:           30 35% 38%;
+    --input:            20 33% 20%;
+    --ring:             43 78% 76%;
+    --radius: 0.625rem;
+    --sidebar-background:         15 40% 12%;
+    --sidebar-foreground:         33 40% 73%;
+    --sidebar-primary:            43 78% 76%;
+    --sidebar-primary-foreground: 15 40% 12%;
+    --sidebar-accent:             20 33% 22%;
+    --sidebar-accent-foreground:  43 78% 81%;
+    --sidebar-border:             30 35% 30%;
+    --sidebar-ring:               43 78% 76%;
+    --chart-1: 43 78% 76%;
+    --chart-2: 43 68% 69%;
+    --chart-3: 142 69% 58%;
+    --chart-4: 213 97% 78%;
+    --chart-5: 0 91% 71%;
+  }
+
+  .dark {
+    --background:       15 40% 12%;
+    --foreground:       30 100% 98%;
+    --card:             20 32% 23%;
+    --card-foreground:  30 100% 98%;
+    --popover:          20 33% 18%;
+    --popover-foreground: 30 100% 98%;
+    --primary:          43 78% 76%;
+    --primary-foreground: 15 40% 12%;
+    --secondary:        20 30% 28%;
+    --secondary-foreground: 33 67% 96%;
+    --accent:           20 33% 22%;
+    --accent-foreground: 30 100% 98%;
+    --muted:            20 33% 21%;
+    --muted-foreground: 33 55% 85%;
+    --success:          142 69% 58%;
+    --success-foreground: 0 0% 100%;
+    --warning:          43 96% 56%;
+    --warning-foreground: 15 40% 12%;
+    --destructive:      0 91% 71%;
+    --destructive-foreground: 0 0% 100%;
+    --border:           30 35% 38%;
+    --input:            20 33% 20%;
+    --ring:             43 78% 76%;
+    --sidebar-background:         15 40% 12%;
+    --sidebar-foreground:         33 40% 73%;
+    --sidebar-primary:            43 78% 76%;
+    --sidebar-primary-foreground: 15 40% 12%;
+    --sidebar-accent:             20 33% 22%;
+    --sidebar-accent-foreground:  43 78% 81%;
+    --sidebar-border:             30 35% 30%;
+    --sidebar-ring:               43 78% 76%;
   }
 }
 
@@ -72,8 +123,13 @@ html {
 }
 
 body {
-  background: var(--color-bg-base);
-  font-family: 'Raleway', sans-serif;
+  background-color: var(--color-bg-base);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(240, 210, 140, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 15% 20%, rgba(88, 60, 46, 0.48) 0%, transparent 62%),
+    radial-gradient(ellipse 50% 55% at 88% 85%, rgba(72, 48, 36, 0.38) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(78, 52, 40, 0.22) 0%, transparent 52%);
+  font-family: 'Raleway', system-ui, sans-serif;
   color: var(--color-text-body);
   min-height: 100vh;
   overflow-x: hidden;
@@ -85,9 +141,9 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse at 15% 15%, rgba(120, 72, 40, 0.35) 0, transparent 55%),
-    radial-gradient(ellipse at 85% 85%, rgba(90, 50, 28, 0.28) 0, transparent 55%),
-    radial-gradient(ellipse at 50% 0%, rgba(242, 216, 146, 0.08) 0, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(240, 210, 140, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 15%, rgba(120, 72, 40, 0.28) 0, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(90, 50, 28, 0.22) 0, transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
@@ -1781,23 +1837,88 @@ body::before {
   min-width: 0;
 }
 
-/* ── Glass surfaces ── */
+/* ── Glass surfaces (Bourbon Daylight — CRM Selletos) ── */
 @layer components {
   .glass-card {
-    background: var(--color-surface);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: var(--color-surface-card);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid var(--color-gold-border);
     border-radius: 10px;
-    box-shadow: 0 1px 0 var(--color-highlight-inset) inset;
+    box-shadow:
+      0 1px 0 rgba(240, 210, 140, 0.24) inset,
+      0 0 0 1px rgba(255, 220, 160, 0.08) inset,
+      0 14px 48px rgba(0, 0, 0, 0.55),
+      0 4px 12px rgba(0, 0, 0, 0.38);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  }
+  .glass-card:hover {
+    background: rgba(88, 60, 46, 0.97);
+    border-color: rgba(240, 210, 140, 0.55);
+    box-shadow:
+      0 1px 0 rgba(240, 210, 140, 0.32) inset,
+      0 0 0 1px rgba(255, 220, 160, 0.10) inset,
+      0 20px 60px rgba(0, 0, 0, 0.62),
+      0 6px 18px rgba(0, 0, 0, 0.42),
+      0 0 60px var(--color-gold-glow);
   }
 
   .glass-panel {
-    background: var(--color-surface-panel);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--color-gold-border);
+    background: var(--color-surface-soft);
+    backdrop-filter: blur(24px) saturate(155%);
+    -webkit-backdrop-filter: blur(24px) saturate(155%);
+    border: 1px solid var(--color-gold-border-subtle);
     border-radius: 14px;
+    box-shadow:
+      0 1px 0 rgba(240, 210, 140, 0.22) inset,
+      0 0 0 1px rgba(255, 220, 160, 0.07) inset,
+      0 12px 44px rgba(0, 0, 0, 0.50),
+      0 3px 10px rgba(0, 0, 0, 0.36);
+  }
+
+  .glass-dialog {
+    background: var(--color-surface-panel) !important;
+    backdrop-filter: blur(38px) saturate(165%) !important;
+    -webkit-backdrop-filter: blur(38px) saturate(165%) !important;
+    border: 1px solid var(--color-gold-border) !important;
+    box-shadow:
+      0 1px 0 rgba(240, 210, 140, 0.28) inset,
+      0 0 0 1px rgba(255, 220, 160, 0.09) inset,
+      0 36px 90px rgba(0, 0, 0, 0.72),
+      0 8px 28px rgba(0, 0, 0, 0.48) !important;
+  }
+
+  .glass-overlay-mogno {
+    background: rgba(42, 24, 18, 0.78) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+  }
+
+  .title-display {
+    font-family: 'Bebas Neue', sans-serif;
+    @apply text-5xl font-bold tracking-wider;
+    color: var(--color-gold);
+  }
+  .title-page {
+    font-family: 'Bebas Neue', sans-serif;
+    @apply text-3xl font-bold tracking-wide;
+    color: var(--color-gold);
+  }
+
+  .grain-overlay { position: relative; }
+  .grain-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 200px;
+    border-radius: inherit;
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 28px var(--color-gold-glow), 0 0 8px rgba(240, 210, 140, 0.22);
   }
 
   /* ── Inputs ── */
@@ -1853,7 +1974,15 @@ body::before {
     text-transform: uppercase;
     font-size: .8rem;
   }
-  .btn-gold:hover:not(:disabled) {
+  .btn-proforco {
+    background: linear-gradient(135deg, var(--color-gold), var(--color-gold-muted));
+    color: var(--color-on-gold);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-size: .8rem;
+  }
+  .btn-proforco:hover:not(:disabled) {
     background: linear-gradient(135deg, var(--color-gold-hover), var(--color-gold));
     box-shadow: 0 4px 20px var(--color-gold-dim);
     transform: translateY(-1px);
@@ -1926,11 +2055,94 @@ body::before {
     color: var(--color-text-body);
   }
 
-  .glass-float {
-    background: var(--color-surface-float);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--color-gold-border);
+  .sidebar-scroll [data-radix-scroll-area-thumb] {
+    background: rgba(242, 216, 146, 0.48);
+  }
+
+  .sidebar-sector {
+    padding-top: 0.35rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .sidebar-sector-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0 0.15rem 0.55rem;
+    padding: 0.7rem 0.75rem 0.6rem;
     border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: filter 0.18s ease, transform 0.18s ease;
+  }
+
+  .sidebar-sector-head:hover {
+    filter: brightness(1.08);
+  }
+
+  .sidebar-sector-head--comercial {
+    background: linear-gradient(135deg, rgba(18, 52, 34, 0.72), rgba(10, 4, 2, 0.35));
+    border-color: rgba(110, 231, 168, 0.28);
+    box-shadow:
+      inset 3px 0 0 #5ee9a0,
+      0 0 22px rgba(94, 233, 160, 0.08);
+    color: #b8f5d0;
+  }
+
+  .sidebar-sector-head--casa {
+    background: linear-gradient(135deg, rgba(72, 32, 12, 0.78), rgba(10, 4, 2, 0.38));
+    border-color: rgba(242, 216, 146, 0.32);
+    box-shadow:
+      inset 3px 0 0 #f2d892,
+      0 0 22px rgba(242, 216, 146, 0.08);
+    color: #f2d892;
+  }
+
+  .sidebar-sector-kicker {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-sector-sub {
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    color: #edd9c4;
+    opacity: 0.9;
+  }
+
+  .sidebar-folder--financeiro > li > button {
+    box-shadow: inset 2px 0 0 rgba(242, 216, 146, 0.7);
+  }
+
+  .sidebar-nav-badge {
+    display: inline-flex;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 0.3rem;
+    background: rgba(242, 216, 146, 0.18);
+    border: 1px solid rgba(242, 216, 146, 0.42);
+    color: #f2d892;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .glass-float {
+    background: var(--color-surface-panel) !important;
+    backdrop-filter: blur(28px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+    border: 1px solid var(--color-gold-border) !important;
+    border-radius: 12px;
+    box-shadow:
+      0 1px 0 rgba(240, 210, 140, 0.24) inset,
+      0 0 0 1px rgba(255, 220, 160, 0.08) inset,
+      0 20px 60px rgba(0, 0, 0, 0.62),
+      0 6px 18px rgba(0, 0, 0, 0.42) !important;
   }
 
   /* legado */
@@ -4218,5 +4430,61 @@ body {
     animation: none !important;
   }
 }
+
+.evento-caderno-folha {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #000000;
+  position: relative;
+  min-height: 340px;
+  max-width: 420px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 27px,
+    rgba(80, 50, 24, 0.12) 27px 28px
+  );
+}
+.evento-caderno-folha::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.25rem;
+  width: 1px;
+  background: #b23b32;
+  opacity: 0.55;
+}
+.evento-caderno-folha input,
+.evento-caderno-folha textarea {
+  color: #000000 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.evento-caderno-folha input::placeholder,
+.evento-caderno-folha textarea::placeholder {
+  color: #3d2a1c !important;
+}
+
+.evento-pdf-folio {
+  background: linear-gradient(165deg, rgba(92, 64, 48, 0.95), #2a1812);
+  border: 1px solid rgba(240, 210, 140, 0.28);
+  border-radius: 0.85rem;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+.evento-pdf-folio:hover {
+  border-color: var(--color-gold);
+  transform: translateY(-1px);
+}
+.evento-pdf-folio.is-on {
+  border-color: var(--color-gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .evento-pdf-folio {
+    transition: none;
+  }
+}
+
 
 

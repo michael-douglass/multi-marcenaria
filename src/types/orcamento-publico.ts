@@ -1,5 +1,5 @@
 export interface OrcamentoSlideDados {
-  _meta?: { etapa?: number }
+  _meta?: { etapa?: number; link_publico_oculto?: boolean }
   respostas?: Record<string, string | string[]>
   precificacao?: OrcamentoPrecificacao
   prazo_entrega?: string

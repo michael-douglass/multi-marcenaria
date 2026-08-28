@@ -1,0 +1,227 @@
+/**
+ * Cubo Mágico — onda cinematográfica de cubos 3D (ouro/bronze).
+ * Sem Three.js. Desligado em print e prefers-reduced-motion.
+ */
+
+.cubo-magico-layer {
+  --cm-gold: #f2d892;
+  --cm-gold-soft: rgba(242, 216, 146, 0.38);
+  --cm-gold-edge: rgba(242, 216, 146, 0.72);
+  --cm-side: rgba(28, 18, 10, 0.55);
+  --cm-period: 6.8s;
+  --cm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  perspective: 1400px;
+  perspective-origin: 50% 45%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cubo-magico-layer[data-variant='warm'] {
+  --cm-gold-soft: rgba(242, 216, 146, 0.28);
+  --cm-gold-edge: rgba(180, 130, 70, 0.55);
+  --cm-side: rgba(90, 50, 20, 0.35);
+}
+
+.cubo-magico-scene {
+  position: absolute;
+  inset: -4%;
+  transform-style: preserve-3d;
+  display: grid;
+  gap: clamp(6px, 1.4cqi, 14px);
+  padding: clamp(8px, 2cqi, 20px);
+  grid-template-columns: repeat(var(--cm-cols, 6), 1fr);
+  grid-template-rows: repeat(var(--cm-rows, 4), 1fr);
+}
+
+.cubo-magico-cell {
+  position: relative;
+  transform-style: preserve-3d;
+  opacity: 0;
+  transform: translateY(22%) translateZ(-48px) scale(0.7);
+  will-change: transform, opacity;
+  animation-name: cubo-magico-rise;
+  animation-duration: var(--cm-period);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.cubo-magico-face {
+  position: absolute;
+  inset: 8%;
+  border-radius: 2px;
+  background:
+    linear-gradient(145deg, rgba(242, 216, 146, 0.42) 0%, rgba(242, 216, 146, 0.12) 48%, rgba(20, 12, 6, 0.2) 100%);
+  border: 1px solid var(--cm-gold-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 210, 0.35),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.cubo-magico-face::before,
+.cubo-magico-face::after {
+  content: '';
+  position: absolute;
+  background: var(--cm-side);
+  border: 1px solid rgba(242, 216, 146, 0.18);
+}
+
+/* Lateral direita em perspectiva */
+.cubo-magico-face::before {
+  top: 0;
+  right: -7px;
+  width: 7px;
+  height: 100%;
+  transform: skewY(-28deg);
+  transform-origin: left center;
+}
+
+/* Base inferior em perspectiva */
+.cubo-magico-face::after {
+  left: 0;
+  bottom: -7px;
+  width: 100%;
+  height: 7px;
+  transform: skewX(-38deg);
+  transform-origin: top center;
+}
+
+/* Colunas centrais: brilho de vidro / lente */
+.cubo-magico-cell[data-lens='true'] .cubo-magico-face {
+  border-color: rgba(255, 240, 200, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 230, 0.55),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.22),
+    0 0 18px rgba(242, 216, 146, 0.35),
+    0 10px 22px rgba(0, 0, 0, 0.25);
+  filter: blur(0.15px) saturate(1.08);
+}
+
+/* Zoom de lente no conteúdo central (logo / marca) */
+.cubo-magico-lens-target {
+  transform-origin: center center;
+  animation-name: cubo-magico-lens;
+  animation-duration: var(--cm-period, 6.8s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+.cubo-magico-lens-bg {
+  transform-origin: center center;
+  animation-name: cubo-magico-lens-bg;
+  animation-duration: var(--cm-period, 6.8s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+/*
+  Período inclui: onda + 1.6s de cubo + 2.8s de pausa.
+  A “janela ativa” do cubo ocupa ~23.5% do ciclo (~1.6s em 6.8s).
+*/
+@keyframes cubo-magico-rise {
+  0%,
+  0.5% {
+    opacity: 0;
+    transform: translateY(22%) translateZ(-48px) scale(0.7);
+  }
+  8% {
+    opacity: 0.58;
+    transform: translateY(-8%) translateZ(36px) scale(0.96);
+  }
+  14% {
+    opacity: 0.72;
+    transform: translateY(-14%) translateZ(52px) scale(1);
+  }
+  18% {
+    opacity: 0.62;
+    transform: translateY(-12%) translateZ(46px) scale(1);
+  }
+  23.5% {
+    opacity: 0;
+    transform: translateY(10%) translateZ(-24px) scale(0.82);
+  }
+  23.6%,
+  100% {
+    opacity: 0;
+    transform: translateY(22%) translateZ(-48px) scale(0.7);
+  }
+}
+
+/* Zoom da logo: sincronizado com colunas centrais (~1.8s) */
+@keyframes cubo-magico-lens {
+  0%,
+  18% {
+    transform: scale(1);
+  }
+  28% {
+    transform: scale(1.08);
+  }
+  42% {
+    transform: scale(1);
+  }
+  42.1%,
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cubo-magico-lens-bg {
+  0%,
+  18% {
+    transform: scale(1);
+  }
+  28% {
+    transform: scale(1.04);
+  }
+  42% {
+    transform: scale(1);
+  }
+  42.1%,
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cubo-magico-layer {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .cubo-magico-lens-target,
+  .cubo-magico-lens-bg {
+    animation: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+}
+
+@media print {
+  .cubo-magico-layer {
+    display: none !important;
+  }
+
+  .cubo-magico-lens-target,
+  .cubo-magico-lens-bg {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Exportação PDF/JPEG: pai marca data-preview-static */
+[data-preview-static='true'] .cubo-magico-layer {
+  display: none !important;
+}
+
+[data-preview-static='true'] .cubo-magico-lens-target,
+[data-preview-static='true'] .cubo-magico-lens-bg {
+  animation: none !important;
+  transform: none !important;
+}

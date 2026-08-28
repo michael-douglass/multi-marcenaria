@@ -1,0 +1,107 @@
+import type { OrcamentoDados, OrcamentoSlide, OrcamentoSlideMidia } from '@/lib/orcamento-slide-types';
+
+/** Dados de exemplo para prévia na configuração — espelha o orçamento Luana Vista do Lago. */
+export const PREVIEW_ORCAMENTO: OrcamentoSlide = {
+  id: 'preview-orcamento',
+  identificador: 'ORC-PREVIEW',
+  lead_id: null,
+  cliente_nome: 'Luana – Vista do Lago',
+  status: 'pronto',
+  dados: {
+    respostas: {},
+    precificacao: {
+      valor_integral: 85000,
+      parcelas: 12,
+      valor_parcela: 6541.67,
+      desconto_percent: 7,
+      valor_final: 79050,
+      fracionar_precos: true,
+      itens_fracionados: [
+        { label: 'Cozinha', valor: 7807 },
+        { label: 'Quarto — roupeiro, escrivaninha e painel', valor: 11900 },
+        { label: 'Banheiro (sem espelho)', valor: 500 },
+        { label: 'Lavanderia', valor: 4230 },
+        { label: 'Cristaleira', valor: 4000 },
+      ],
+      adicionar_markup: true,
+      markup_composicao: {
+        materiais: 42000,
+        servicos: 28000,
+        despesas: 6500,
+      },
+    },
+    prazo_entrega: '45 dias',
+    inicio_execucao: '2026-07-15',
+    garantia_meses: '24',
+    textos_blocos: {},
+  } satisfies OrcamentoDados,
+  criado_por: null,
+  criado_em: new Date().toISOString(),
+  atualizado_em: new Date().toISOString(),
+};
+
+const BASE =
+  'https://zzqgtclvuetemzhqzhbq.supabase.co/storage/v1/object/public/orcamento-slides/midias/c55cd256-377e-4180-be71-5e34bf49ae33';
+
+export const PREVIEW_MIDIAS: OrcamentoSlideMidia[] = [
+  {
+    id: 'preview-capa',
+    orcamento_id: 'preview-orcamento',
+    tipo: 'capa',
+    file_url: `${BASE}/ambiente-sala-escura.jpg`,
+    file_name: 'ambiente-sala-escura.jpg',
+    hotspots: [],
+    origem: 'upload',
+    source_id: null,
+    ordem: 0,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: 'preview-projeto-1',
+    orcamento_id: 'preview-orcamento',
+    tipo: 'projeto',
+    file_url: `${BASE}/ambiente-sala-clara.jpg`,
+    file_name: 'ambiente-sala-clara.jpg',
+    hotspots: [],
+    origem: 'upload',
+    source_id: null,
+    ordem: 1,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: 'preview-projeto-2',
+    orcamento_id: 'preview-orcamento',
+    tipo: 'projeto',
+    file_url: `${BASE}/galeria-projetos-1.jpg`,
+    file_name: 'galeria-projetos-1.jpg',
+    hotspots: [],
+    origem: 'upload',
+    source_id: null,
+    ordem: 2,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: 'preview-projeto-3',
+    orcamento_id: 'preview-orcamento',
+    tipo: 'projeto',
+    file_url: `${BASE}/galeria-projetos-2.jpg`,
+    file_name: 'galeria-projetos-2.jpg',
+    hotspots: [],
+    origem: 'upload',
+    source_id: null,
+    ordem: 3,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: 'preview-ferragens',
+    orcamento_id: 'preview-orcamento',
+    tipo: 'ambiente_cliente',
+    file_url: `${BASE}/ferragens-comparativo.jpg`,
+    file_name: 'ferragens-comparativo.jpg',
+    hotspots: [],
+    origem: 'upload',
+    source_id: null,
+    ordem: 4,
+    criado_em: new Date().toISOString(),
+  },
+];

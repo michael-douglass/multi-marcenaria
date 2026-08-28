@@ -1,13 +1,13 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { Fragment, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronRight, User } from 'lucide-react'
+import { Briefcase, ChevronRight, Landmark, User } from 'lucide-react'
 import { Logo } from '@/components/Logo'
+import { SidebarAmberRibbon } from '@/components/layout/SidebarAmberRibbon'
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -17,22 +17,32 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp } from '@/context/AppContext'
+import { useKanbanConfig } from '@/hooks/useKanbanConfig'
+import { useManutencaoAttentionCount } from '@/hooks/useManutencaoAttentionCount'
 import {
+  attachPipelineKanbanPages,
   getVisibleNavMainItems,
+  isComercialSection,
   isFinanceiroSection,
   isFuncionariosSection,
+  isLeafPathActive,
+  isMarketingCrmSection,
   isObrasSection,
+  navVisibilityFromProfiles,
   sectionFromPath,
   type NavChildItem,
   type NavItemId,
   type NavMainItem,
 } from '@/lib/app-navigation'
+import { colaboradorCrmRoles } from '@/lib/crm-identity'
+import { canAccessSection } from '@/lib/role-access'
 import { cn } from '@/lib/utils'
 import type { ActiveSection } from '@/types'
 
 interface NavChildTreeProps {
   child: NavChildItem
   activeSection: ActiveSection
+  pathname: string
   depth: number
   sidebarOpen: boolean
   renderLeaf: (
@@ -42,12 +52,22 @@ interface NavChildTreeProps {
     isActive: boolean,
     nested?: boolean,
     depth?: number,
+    badge?: number,
   ) => React.ReactNode
+}
+
+function isNavChildActive(item: NavChildItem, pathname: string, section: ActiveSection): boolean {
+  if (item.children?.length) {
+    return item.children.some(child => isNavChildActive(child, pathname, section))
+  }
+  if (item.url && isLeafPathActive(pathname, item.url)) return true
+  return item.id === section
 }
 
 function NavChildTree({
   child,
   activeSection,
+  pathname,
   depth,
   sidebarOpen,
   renderLeaf,
@@ -55,8 +75,8 @@ function NavChildTree({
   const ChildIcon = child.icon
   const hasNested = Boolean(child.children?.length)
   const isActive = hasNested
-    ? child.children!.some(c => isNavChildActive(c, activeSection))
-    : activeSection === child.id
+    ? child.children!.some(c => isNavChildActive(c, pathname, activeSection))
+    : isNavChildActive(child, pathname, activeSection)
   const [open, setOpen] = useState(isActive)
 
   useEffect(() => {
@@ -70,9 +90,10 @@ function NavChildTree({
           child.url!,
           child.title,
           ChildIcon,
-          activeSection === child.id,
+          isActive,
           true,
           depth,
+          child.badge,
         )}
       </li>
     )
@@ -88,7 +109,7 @@ function NavChildTree({
               e.stopPropagation()
               if (!sidebarOpen) setOpen(true)
             }}
-            className={cn(!isActive && 'text-[#d4bc9f]', 'cursor-pointer w-full', depth > 0 && 'pl-7')}
+            className={cn(!isActive && 'text-[#d4bc9f]', 'cursor-pointer w-full', depth > 0 && 'pl-6')}
           >
             <ChildIcon className="h-4 w-4 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">{child.title}</span>
@@ -103,8 +124,9 @@ function NavChildTree({
         <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
           <ul
             className={cn(
-              'mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(240,210,140,0.15)]',
-              depth === 0 ? 'ml-2 pl-2' : 'ml-4 pl-2',
+              'mt-0.5 flex flex-col gap-0.5 border-l pl-2',
+              depth === 0 ? 'ml-2' : 'ml-3',
+              'border-[rgba(240,210,140,0.18)]',
             )}
           >
             {child.children!.map(sub => (
@@ -112,6 +134,7 @@ function NavChildTree({
                 key={sub.id}
                 child={sub}
                 activeSection={activeSection}
+                pathname={pathname}
                 depth={depth + 1}
                 sidebarOpen={sidebarOpen}
                 renderLeaf={renderLeaf}
@@ -124,24 +147,63 @@ function NavChildTree({
   )
 }
 
-function isNavChildActive(item: NavChildItem, section: ActiveSection): boolean {
-  if (item.children?.length) {
-    return item.children.some(child => isNavChildActive(child, section))
-  }
-  return item.id === section
+function SectorPlaque({
+  tone,
+  title,
+  subtitle,
+  icon: Icon,
+  open,
+}: {
+  tone: 'comercial' | 'casa'
+  title: string
+  subtitle: string
+  icon: NavMainItem['icon']
+  open?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'sidebar-sector-head group-data-[collapsible=icon]:hidden',
+        tone === 'comercial' ? 'sidebar-sector-head--comercial' : 'sidebar-sector-head--casa',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="sidebar-sector-kicker">{title}</span>
+        <ChevronRight
+          className={cn(
+            'ml-auto h-3.5 w-3.5 shrink-0 opacity-80 transition-transform',
+            open && 'rotate-90',
+          )}
+        />
+      </div>
+      <p className="sidebar-sector-sub">{subtitle}</p>
+    </div>
+  )
 }
 
 export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { roles, userProfile } = useApp()
+  const { roles, userProfile, crmProfile } = useApp()
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
   const activeSection = sectionFromPath(location.pathname)
+  const { pages } = useKanbanConfig()
+  const { count: manutencaoCount } = useManutencaoAttentionCount()
 
-  const items = getVisibleNavMainItems({ roles })
+  const items = attachPipelineKanbanPages(
+    getVisibleNavMainItems(navVisibilityFromProfiles(roles, crmProfile, userProfile)),
+    pages,
+    manutencaoCount,
+  )
+  const comercialItems = items.filter(item => item.sector === 'comercial')
+  const casaItems = items.filter(item => item.sector === 'casa')
+
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
   const obrasAbertoPorRota = isObrasSection(activeSection)
+  const comercialAbertoPorRota = isComercialSection(activeSection)
+  const marketingAbertoPorRota = isMarketingCrmSection(activeSection)
   const pontoAbertoPorRota =
     activeSection === 'baterPonto'
     || activeSection === 'historicoPonto'
@@ -151,35 +213,97 @@ export function AppSidebar() {
   const [funcionariosOpen, setFuncionariosOpen] = useState(funcionariosAbertoPorRota)
   const [obrasOpen, setObrasOpen] = useState(obrasAbertoPorRota)
   const [pontoOpen, setPontoOpen] = useState(pontoAbertoPorRota)
+  const [comercialOpen, setComercialOpen] = useState(comercialAbertoPorRota)
+  const [marketingOpen, setMarketingOpen] = useState(marketingAbertoPorRota)
+  const [comercialSectorOpen, setComercialSectorOpen] = useState(
+    comercialAbertoPorRota || marketingAbertoPorRota || activeSection === 'portalParceiro',
+  )
+  const [casaSectorOpen, setCasaSectorOpen] = useState(
+    !comercialAbertoPorRota && !marketingAbertoPorRota,
+  )
 
   useEffect(() => {
-    if (financeiroAbertoPorRota) setFinanceiroOpen(true)
+    if (comercialAbertoPorRota) {
+      setComercialOpen(true)
+      setFinanceiroOpen(false)
+      setComercialSectorOpen(true)
+      setCasaSectorOpen(false)
+    }
+  }, [comercialAbertoPorRota])
+
+  useEffect(() => {
+    if (marketingAbertoPorRota) {
+      setMarketingOpen(true)
+      setFinanceiroOpen(false)
+      setComercialSectorOpen(true)
+      setCasaSectorOpen(false)
+    }
+  }, [marketingAbertoPorRota])
+
+  useEffect(() => {
+    if (financeiroAbertoPorRota) {
+      setFinanceiroOpen(true)
+      setComercialOpen(false)
+      setMarketingOpen(false)
+      setCasaSectorOpen(true)
+      setComercialSectorOpen(false)
+    }
   }, [financeiroAbertoPorRota])
 
   useEffect(() => {
-    if (funcionariosAbertoPorRota) setFuncionariosOpen(true)
+    if (funcionariosAbertoPorRota) {
+      setFuncionariosOpen(true)
+      setCasaSectorOpen(true)
+      setComercialSectorOpen(false)
+    }
   }, [funcionariosAbertoPorRota])
 
   useEffect(() => {
-    if (obrasAbertoPorRota) setObrasOpen(true)
+    if (obrasAbertoPorRota) {
+      setObrasOpen(true)
+      setCasaSectorOpen(true)
+      setComercialSectorOpen(false)
+    }
   }, [obrasAbertoPorRota])
 
   useEffect(() => {
-    if (pontoAbertoPorRota) setPontoOpen(true)
+    if (pontoAbertoPorRota) {
+      setPontoOpen(true)
+      setCasaSectorOpen(true)
+      setComercialSectorOpen(false)
+    }
   }, [pontoAbertoPorRota])
+
+  useEffect(() => {
+    const casaLeaf =
+      activeSection === 'dashboard'
+      || activeSection === 'biblioteca'
+      || activeSection === 'visualizacao'
+      || activeSection === 'configuracoes'
+      || activeSection === 'meuFinanceiro'
+      || activeSection === 'meuPerfil'
+    if (casaLeaf) {
+      setCasaSectorOpen(true)
+      setComercialSectorOpen(false)
+    }
+  }, [activeSection])
 
   const grupoOpenState: Partial<Record<NavItemId, boolean>> = {
     financeiro: financeiroOpen,
     funcionariosGrupo: funcionariosOpen,
     obras: obrasOpen,
     pontoGrupo: pontoOpen,
+    comercial: comercialOpen,
+    marketingCrm: marketingOpen,
   }
 
-  const setGrupoOpenById = (id: NavItemId, open: boolean) => {
-    if (id === 'financeiro') setFinanceiroOpen(open)
-    else if (id === 'funcionariosGrupo') setFuncionariosOpen(open)
-    else if (id === 'obras') setObrasOpen(open)
-    else if (id === 'pontoGrupo') setPontoOpen(open)
+  const setGrupoOpenById = (id: NavItemId, next: boolean) => {
+    if (id === 'financeiro') setFinanceiroOpen(next)
+    else if (id === 'funcionariosGrupo') setFuncionariosOpen(next)
+    else if (id === 'obras') setObrasOpen(next)
+    else if (id === 'pontoGrupo') setPontoOpen(next)
+    else if (id === 'comercial') setComercialOpen(next)
+    else if (id === 'marketingCrm') setMarketingOpen(next)
   }
 
   const handleNavClick = (url: string) => {
@@ -192,6 +316,12 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false)
   }
 
+  const profileHref = colaboradorCrmRoles(crmProfile).length > 0
+    ? '/profile'
+    : canAccessSection(roles, 'meuPerfil')
+      ? '/meu-perfil'
+      : null
+
   const renderLeaf = (
     url: string,
     title: string,
@@ -199,6 +329,7 @@ export function AppSidebar() {
     isActive: boolean,
     nested = false,
     depth = 0,
+    badge?: number,
   ) => (
     <SidebarMenuButton
       isActive={isActive}
@@ -209,19 +340,117 @@ export function AppSidebar() {
       className={cn(
         !isActive && 'text-[#d4bc9f]',
         'cursor-pointer',
-        nested && (depth === 0 ? 'pl-7' : depth === 1 ? 'pl-10' : 'pl-12'),
+        nested && (depth === 0 ? 'pl-6' : 'pl-8'),
         nested && 'group-data-[collapsible=icon]:!pl-2',
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="group-data-[collapsible=icon]:hidden">{title}</span>
+      <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">{title}</span>
+      {typeof badge === 'number' && badge > 0 ? (
+        <span className="sidebar-nav-badge group-data-[collapsible=icon]:hidden">{badge}</span>
+      ) : null}
     </SidebarMenuButton>
   )
 
+  const renderNavItems = (list: NavMainItem[], tone: 'comercial' | 'casa') =>
+    list.map(item => {
+      const Icon = item.icon
+
+      if (item.id === 'comercial' && item.children?.length) {
+        return (
+          <Fragment key={item.id}>
+            {item.children.map(child => (
+              <NavChildTree
+                key={child.id}
+                child={child}
+                activeSection={activeSection}
+                pathname={location.pathname}
+                depth={0}
+                sidebarOpen={open}
+                renderLeaf={renderLeaf}
+              />
+            ))}
+          </Fragment>
+        )
+      }
+
+      if (item.children?.length) {
+        const childActive = item.children.some(c => isNavChildActive(c, location.pathname, activeSection))
+        const grupoAtivo = childActive || Boolean(grupoOpenState[item.id])
+        const setGrupoOpen = (next: boolean) => setGrupoOpenById(item.id, next)
+
+        return (
+          <Collapsible
+            key={item.id}
+            open={grupoAtivo}
+            onOpenChange={setGrupoOpen}
+            className={cn(
+              'group/collapsible sidebar-folder',
+              tone === 'comercial' ? 'sidebar-folder--comercial' : 'sidebar-folder--casa',
+              item.id === 'financeiro' && 'sidebar-folder--financeiro',
+            )}
+          >
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                  isActive={childActive}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (!open) {
+                      setOpen(true)
+                      setGrupoOpen(true)
+                    }
+                  }}
+                  className={cn(
+                    !childActive && 'text-[#d4bc9f]',
+                    'cursor-pointer w-full',
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    {item.title}
+                  </span>
+                  <ChevronRight
+                    className={cn(
+                      'ml-auto h-4 w-4 shrink-0 text-[#edd9c4] transition-transform group-data-[collapsible=icon]:hidden',
+                      grupoAtivo && 'rotate-90',
+                    )}
+                  />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
+                <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(240,210,140,0.18)] pl-2">
+                  {item.children.map(child => (
+                    <NavChildTree
+                      key={child.id}
+                      child={child}
+                      activeSection={activeSection}
+                      pathname={location.pathname}
+                      depth={0}
+                      sidebarOpen={open}
+                      renderLeaf={renderLeaf}
+                    />
+                  ))}
+                </ul>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+        )
+      }
+
+      const isActive = isLeafPathActive(location.pathname, item.url) || activeSection === item.id
+      return (
+        <SidebarMenuItem key={item.id}>
+          {renderLeaf(item.url, item.title, Icon, isActive)}
+        </SidebarMenuItem>
+      )
+    })
+
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-[rgba(240,210,140,0.12)] pb-3">
-        <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
+      <SidebarHeader className="relative overflow-hidden border-b border-[rgba(240,210,140,0.12)] pb-3">
+        <SidebarAmberRibbon active={open && !isMobile} />
+        <div className="relative z-[1] flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
           <div className="hidden shrink-0 group-data-[collapsible=icon]:block">
             <Logo full={false} />
           </div>
@@ -231,100 +460,81 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <ScrollArea className="h-full">
-          <SidebarGroup>
-            <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
-            <SidebarMenu>
-              {items.map(item => {
-                const Icon = item.icon
+      <SidebarContent className="overflow-hidden">
+        <ScrollArea className="h-full sidebar-scroll">
+          {comercialItems.length > 0 ? (
+            <Collapsible open={!open || comercialSectorOpen} onOpenChange={setComercialSectorOpen}>
+              <SidebarGroup className="sidebar-sector sidebar-sector--comercial pt-1">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <SectorPlaque
+                      tone="comercial"
+                      title="Comercial"
+                      subtitle="Vendas, leads e CRM"
+                      icon={Briefcase}
+                      open={comercialSectorOpen}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenu>{renderNavItems(comercialItems, 'comercial')}</SidebarMenu>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          ) : null}
 
-                if (item.children?.length) {
-                  const childActive = item.children.some(c => isNavChildActive(c, activeSection))
-                  const grupoAtivo = childActive || Boolean(grupoOpenState[item.id])
-                  const setGrupoOpen = (next: boolean) => setGrupoOpenById(item.id, next)
-
-                  return (
-                    <Collapsible
-                      key={item.id}
-                      open={grupoAtivo}
-                      onOpenChange={setGrupoOpen}
-                      className="group/collapsible"
-                    >
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton
-                            isActive={childActive}
-                            onClick={e => {
-                              e.stopPropagation()
-                              if (!open) {
-                                setOpen(true)
-                                setGrupoOpen(true)
-                                return
-                              }
-                            }}
-                            className={cn(
-                              !childActive && 'text-[#d4bc9f]',
-                              'cursor-pointer w-full',
-                            )}
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            <span className="group-data-[collapsible=icon]:hidden">
-                              {item.title}
-                            </span>
-                            <ChevronRight
-                              className={cn(
-                                'ml-auto h-4 w-4 shrink-0 text-[#edd9c4] transition-transform group-data-[collapsible=icon]:hidden',
-                                grupoAtivo && 'rotate-90',
-                              )}
-                            />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
-                          <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-[rgba(240,210,140,0.15)] pl-2">
-                            {item.children.map(child => (
-                              <NavChildTree
-                                key={child.id}
-                                child={child}
-                                activeSection={activeSection}
-                                depth={0}
-                                sidebarOpen={open}
-                                renderLeaf={renderLeaf}
-                              />
-                            ))}
-                          </ul>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  )
-                }
-
-                const isActive = activeSection === item.id
-                return (
-                  <SidebarMenuItem key={item.id}>
-                    {renderLeaf(item.url, item.title, Icon, isActive)}
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
+          {casaItems.length > 0 ? (
+            <Collapsible open={!open || casaSectorOpen} onOpenChange={setCasaSectorOpen}>
+              <SidebarGroup className="sidebar-sector sidebar-sector--casa">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <SectorPlaque
+                      tone="casa"
+                      title="Casa"
+                      subtitle="Caixa, obras e equipe"
+                      icon={Landmark}
+                      open={casaSectorOpen}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenu>{renderNavItems(casaItems, 'casa')}</SidebarMenu>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          ) : null}
         </ScrollArea>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-[rgba(240,210,140,0.12)]">
-        <div className="flex items-center gap-2 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center">
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation()
+            if (profileHref) handleNavClick(profileHref)
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[rgba(240,210,140,0.08)] group-data-[collapsible=icon]:justify-center"
+        >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(240,210,140,0.35)] bg-[rgba(240,210,140,0.12)]">
             <User className="h-4 w-4 text-[#f2d892]" />
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-xs font-semibold text-cream">
-              {userProfile?.email ?? 'Usuário'}
+              {userProfile?.nome || crmProfile?.nome || userProfile?.email || crmProfile?.email || 'Perfil'}
             </p>
             <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
-              GARBO · v1.0
+              Abrir perfil · GARBO
             </p>
           </div>
-        </div>
+        </button>
       </SidebarFooter>
     </Sidebar>
   )

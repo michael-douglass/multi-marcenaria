@@ -4,6 +4,7 @@ import { invalidateCache, OBRAS_CACHE_KEY } from '../lib/data-cache'
 import { canUseRealtime } from '../lib/device'
 import { toUserNetworkError } from '../lib/network-error'
 import { supabase } from '../lib/supabase'
+import { mapCrmProfile, type CrmProfile } from '../lib/crm-identity'
 import type { UserProfile, UserRole } from '../types'
 
 const PROFILE_RPC_TIMEOUT_MS = 12_000
@@ -13,6 +14,7 @@ export interface AuthState {
   session: Session | null
   user: User | null
   userProfile: UserProfile | null
+  crmProfile: CrmProfile | null
   role: UserRole | null
   roles: UserRole[]
   loading: boolean
@@ -61,20 +63,28 @@ function mapRpcProfile(row: Record<string, unknown>): UserProfile {
   }
 }
 
-async function fetchProfile(): Promise<UserProfile | null> {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+async function fetchIdentity(): Promise<{ movelaria: UserProfile | null; crm: CrmProfile | null }> {
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), PROFILE_RPC_TIMEOUT_MS)
 
   try {
     const { data, error } = await supabase
-      .rpc('movelaria_obter_meu_usuario')
+      .rpc('movelaria_obter_minha_identidade')
       .abortSignal(controller.signal)
 
     if (error) throw new Error(error.message)
 
-    const rows = Array.isArray(data) ? data : data ? [data] : []
-    const row = rows[0] as Record<string, unknown> | undefined
-    return row ? mapRpcProfile(row) : null
+    const payload = asRecord(data)
+    const movelariaRow = asRecord(payload?.movelaria)
+    return {
+      movelaria: movelariaRow ? mapRpcProfile(movelariaRow) : null,
+      crm: mapCrmProfile(asRecord(payload?.crm)),
+    }
   } catch (err) {
     if (err instanceof Error && (err.name === 'AbortError' || /abort/i.test(err.message))) {
       throw new Error(
@@ -87,13 +97,12 @@ async function fetchProfile(): Promise<UserProfile | null> {
   }
 }
 
-async function fetchProfileWithRetry(attempts = 2): Promise<UserProfile | null> {
+async function fetchIdentityWithRetry(attempts = 2): Promise<{ movelaria: UserProfile | null; crm: CrmProfile | null }> {
   let lastError: unknown = null
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const profile = await fetchProfile()
-      if (profile) return profile
+      return await fetchIdentity()
     } catch (err) {
       lastError = err
     }
@@ -104,13 +113,14 @@ async function fetchProfileWithRetry(attempts = 2): Promise<UserProfile | null> 
   }
 
   if (lastError) throw lastError
-  return null
+  return { movelaria: null, crm: null }
 }
 
 export function useAuth(): AuthState {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [crmProfile, setCrmProfile] = useState<CrmProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -125,6 +135,7 @@ export function useAuth(): AuthState {
       setSession(null)
       setUser(null)
       setUserProfile(null)
+      setCrmProfile(null)
       setProfileError(null)
       setProfileLoading(false)
       setLoading(false)
@@ -148,6 +159,7 @@ export function useAuth(): AuthState {
         setSession(null)
         setUser(null)
         setUserProfile(null)
+        setCrmProfile(null)
         setProfileError(null)
         setProfileLoading(false)
         setLoading(false)
@@ -164,7 +176,6 @@ export function useAuth(): AuthState {
       setLoading(false)
     })
 
-    // No iPhone o evento inicial às vezes não chega e a logo gira para sempre.
     const bootTimer = window.setTimeout(() => {
       if (!active || initialResolved) return
       initialResolved = true
@@ -183,6 +194,7 @@ export function useAuth(): AuthState {
     const userId = session?.user?.id
     if (!userId) {
       setUserProfile(null)
+      setCrmProfile(null)
       setProfileError(null)
       setProfileLoading(false)
       return
@@ -195,29 +207,42 @@ export function useAuth(): AuthState {
     const run = () => {
       void (async () => {
         try {
-          const profile = await fetchProfileWithRetry()
+          const identity = await fetchIdentityWithRetry()
           if (!active) return
 
-          if (!profile) {
+          const movelaria = identity.movelaria
+          const crm = identity.crm
+          const movelariaOk = movelaria?.ativo === true
+          const crmOk = crm?.statusConvite === 'ATIVO'
+
+          if (!movelaria && !crm) {
             setUserProfile(null)
+            setCrmProfile(null)
             setProfileError('Perfil não encontrado no sistema. Contate o administrador.')
             return
           }
 
-          if (profile.ativo === false) {
+          if (!movelariaOk && !crmOk) {
             setUserProfile(null)
-            setProfileError(
-              'Conta pendente de aprovação. Aguarde o administrador ativar seu acesso em Configurações.',
-            )
+            setCrmProfile(crm)
+            if (movelaria && movelaria.ativo === false) {
+              setProfileError(
+                'Conta pendente de aprovação. Aguarde o administrador ativar seu acesso em Configurações.',
+              )
+            } else {
+              setProfileError('Perfil não encontrado no sistema. Contate o administrador.')
+            }
             return
           }
 
-          setUserProfile(profile)
+          setUserProfile(movelariaOk ? movelaria : null)
+          setCrmProfile(crmOk ? crm : crm)
         } catch (err) {
           if (!active) return
           const message = toUserNetworkError(err, 'Erro ao carregar perfil.')
           console.error('[useAuth] Erro ao buscar perfil:', err)
           setUserProfile(null)
+          setCrmProfile(null)
           setProfileError(message)
         } finally {
           if (active) setProfileLoading(false)
@@ -225,7 +250,6 @@ export function useAuth(): AuthState {
       })()
     }
 
-    // Evita deadlock conhecido do Supabase ao consultar DB logo após auth
     const deferId = window.setTimeout(run, 250)
 
     return () => {
@@ -252,8 +276,6 @@ export function useAuth(): AuthState {
   }, [])
 
   const role = userProfile ? perfilToRole(userProfile.perfil) : null
-  // useMemo: sem isso, `roles` vira array novo a cada render e hooks que
-  // dependem dele (ex.: useContasPagar) disparam load/expansão em loop.
   const roles = useMemo(
     () => (userProfile ? computeRoles(userProfile) : []),
     [userProfile],
@@ -263,6 +285,7 @@ export function useAuth(): AuthState {
     session,
     user,
     userProfile,
+    crmProfile,
     role,
     roles,
     loading,

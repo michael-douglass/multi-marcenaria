@@ -1,4 +1,4 @@
-﻿import type { LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
@@ -22,8 +22,38 @@ import {
   ClipboardList,
   History,
   ShoppingCart,
+  Kanban,
+  FileText,
+  Calculator,
+  Presentation,
+  Megaphone,
+  Trophy,
+  Handshake,
+  Ban,
+  Zap,
+  MessageCircle,
+  Palette,
+  Briefcase,
+  Shield,
+  Webhook,
+  LayoutGrid,
+  Settings2,
+  Ruler,
+  FolderOpen,
 } from 'lucide-react'
-import type { ActiveSection, UserRole } from '@/types'
+import type { CrmProfile, CrmRole } from '@/lib/crm-identity'
+import {
+  colaboradorCrmRoles,
+  isCrmAdmin,
+  isMarketingOnlyCrm,
+  isPrestadorServico,
+  isProjetistaOnlyCrm,
+  isVendedorRestrictedCrm,
+} from '@/lib/crm-identity'
+import { isManutencaoKanbanPage } from '@/lib/manutencao-attention'
+import type { ActiveSection, UserProfile, UserRole } from '@/types'
+
+export type NavSector = 'comercial' | 'casa'
 
 /** IDs de itens de menu (rotas ou agrupadores) */
 export type NavItemId =
@@ -33,6 +63,14 @@ export type NavItemId =
   | 'obras'
   | 'configuracoes'
   | 'pontoGrupo'
+  | 'comercial'
+  | 'marketingCrm'
+  | 'parceiros'
+  | 'pipelineGrupo'
+  | 'orcamentosGrupo'
+  | 'automacoesGrupo'
+  | 'adminCrmGrupo'
+  | 'projetos'
 
 export interface NavChildItem {
   id: string
@@ -42,19 +80,13 @@ export interface NavChildItem {
   radialColor: string
   /** Se omitido, herda visibilidade do menu pai */
   roles?: UserRole[]
+  crmRoles?: CrmRole[]
+  crmAdminOnly?: boolean
+  hideIfMarketingOnly?: boolean
+  hideIfProjetistaOnly?: boolean
+  hideIfVendedorRestricted?: boolean
   children?: NavChildItem[]
-}
-
-function filterNavChildren(items: NavChildItem[], roles: UserRole[]): NavChildItem[] {
-  return items
-    .filter(c => !c.roles || c.roles.some(r => roles.includes(r)))
-    .map(c => {
-      if (!c.children?.length) return c
-      const children = filterNavChildren(c.children, roles)
-      if (children.length === 0) return null
-      return { ...c, children }
-    })
-    .filter((c): c is NavChildItem => c != null)
+  badge?: number
 }
 
 function walkNavChildren(items: NavChildItem[], visit: (item: NavChildItem) => void) {
@@ -80,8 +112,88 @@ export interface NavMainItem {
   url: string
   icon: LucideIcon
   radialColor: string
+  sector: NavSector
   roles: UserRole[]
+  crmRoles?: CrmRole[]
+  crmAdminOnly?: boolean
+  hideIfMarketingOnly?: boolean
+  hideIfProjetistaOnly?: boolean
+  hideIfVendedorRestricted?: boolean
+  parceiroOnly?: boolean
   children?: NavChildItem[]
+}
+
+export interface NavVisibilityContext {
+  roles: UserRole[]
+  crmRoles?: CrmRole[]
+  marketingOnly?: boolean
+  projetistaOnly?: boolean
+  vendedorRestricted?: boolean
+  crmAdmin?: boolean
+  showParceiros?: boolean
+}
+
+function isNavEntryVisible(
+  entry: {
+    roles?: UserRole[]
+    crmRoles?: CrmRole[]
+    crmAdminOnly?: boolean
+    hideIfMarketingOnly?: boolean
+    hideIfProjetistaOnly?: boolean
+    hideIfVendedorRestricted?: boolean
+    parceiroOnly?: boolean
+  },
+  ctx: NavVisibilityContext,
+): boolean {
+  if (entry.parceiroOnly) return Boolean(ctx.showParceiros)
+  if (entry.hideIfMarketingOnly && ctx.marketingOnly) return false
+  if (entry.hideIfProjetistaOnly && ctx.projetistaOnly) return false
+  if (entry.hideIfVendedorRestricted && ctx.vendedorRestricted) return false
+  if (entry.crmAdminOnly) return Boolean(ctx.crmAdmin)
+  const factoryOk = Boolean(entry.roles?.some(r => ctx.roles.includes(r)))
+  const crmOk = Boolean(entry.crmRoles?.some(r => (ctx.crmRoles ?? []).includes(r)))
+  if (entry.roles?.length && entry.crmRoles?.length) return factoryOk || crmOk
+  if (entry.crmRoles?.length && !entry.roles?.length) return crmOk
+  if (entry.roles?.length) return factoryOk
+  return factoryOk || crmOk
+}
+
+export function navVisibilityFromProfiles(
+  roles: UserRole[],
+  crm: CrmProfile | null | undefined,
+  movelaria: UserProfile | null | undefined,
+): NavVisibilityContext {
+  return {
+    roles,
+    crmRoles: colaboradorCrmRoles(crm),
+    marketingOnly: isMarketingOnlyCrm(crm),
+    projetistaOnly: isProjetistaOnlyCrm(crm),
+    vendedorRestricted: isVendedorRestrictedCrm(crm),
+    crmAdmin: isCrmAdmin(crm),
+    showParceiros: isPrestadorServico(crm) && movelaria?.ativo === true,
+  }
+}
+
+function filterNavChildren(items: NavChildItem[], ctx: NavVisibilityContext): NavChildItem[] {
+  return items
+    .filter(c => {
+      if (!c.roles && !c.crmRoles && !c.crmAdminOnly && !c.hideIfMarketingOnly && !c.hideIfProjetistaOnly && !c.hideIfVendedorRestricted) return true
+      return isNavEntryVisible({
+        roles: c.roles,
+        crmRoles: c.crmRoles,
+        crmAdminOnly: c.crmAdminOnly,
+        hideIfMarketingOnly: c.hideIfMarketingOnly,
+        hideIfProjetistaOnly: c.hideIfProjetistaOnly,
+        hideIfVendedorRestricted: c.hideIfVendedorRestricted,
+      }, ctx)
+    })
+    .map(c => {
+      if (!c.children?.length) return c
+      const children = filterNavChildren(c.children, ctx)
+      if (children.length === 0) return null
+      return { ...c, children }
+    })
+    .filter((c): c is NavChildItem => c != null)
 }
 
 const FINANCEIRO_CHILDREN: NavChildItem[] = [
@@ -243,13 +355,277 @@ const OBRAS_CHILDREN: NavChildItem[] = [
   },
 ]
 
+const CRM_COMERCIAL_ROLES: CrmRole[] = ['admin', 'vendedor', 'projetista', 'projetista_admin']
+const CRM_VENDA_ROLES: CrmRole[] = ['admin', 'vendedor']
+const CRM_MARKETING_ROLES: CrmRole[] = ['admin', 'marketing']
+const CRM_MKT_VISIVEL_ROLES: CrmRole[] = ['admin', 'vendedor', 'marketing']
+
+const COMERCIAL_CHILDREN: NavChildItem[] = [
+  {
+    id: 'pipelineGrupo',
+    title: 'Pipeline',
+    icon: Kanban,
+    radialColor: 'rgba(96,240,160,0.92)',
+    crmRoles: CRM_COMERCIAL_ROLES,
+    hideIfMarketingOnly: true,
+    hideIfProjetistaOnly: true,
+    children: [
+      {
+        id: 'pipeline',
+        title: 'Kanban',
+        url: '/pipeline',
+        icon: LayoutGrid,
+        radialColor: 'rgba(96,240,160,0.92)',
+        crmRoles: CRM_COMERCIAL_ROLES,
+        hideIfMarketingOnly: true,
+        hideIfProjetistaOnly: true,
+      },
+      {
+        id: 'pipelineConfig',
+        title: 'Configurações',
+        url: '/pipeline/configuracoes',
+        icon: Settings2,
+        radialColor: 'rgba(212,184,150,0.92)',
+        crmAdminOnly: true,
+      },
+    ],
+  },
+  {
+    id: 'leads',
+    title: 'Leads',
+    url: '/leads',
+    icon: Users,
+    radialColor: 'rgba(130,210,255,0.92)',
+    crmRoles: CRM_COMERCIAL_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'projetos',
+    title: 'Projetos',
+    url: '/projetos',
+    icon: Ruler,
+    radialColor: 'rgba(196,181,253,0.92)',
+    crmRoles: CRM_COMERCIAL_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'agendaComercial',
+    title: 'Agenda comercial',
+    url: '/agenda-comercial',
+    icon: CalendarDays,
+    radialColor: 'rgba(196,181,253,0.92)',
+    crmRoles: CRM_VENDA_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'chatCrm',
+    title: 'Chat interno',
+    url: '/chat-crm',
+    icon: MessageCircle,
+    radialColor: 'rgba(74,222,128,0.92)',
+    crmRoles: CRM_VENDA_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'contratosCrm',
+    title: 'Contratos',
+    url: '/contratos',
+    icon: FileText,
+    radialColor: 'rgba(214,180,140,0.92)',
+    crmRoles: CRM_VENDA_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'orcamentosGrupo',
+    title: 'Orçamentos',
+    icon: Presentation,
+    radialColor: 'rgba(212,184,150,0.92)',
+    crmRoles: ['admin', 'vendedor', 'projetista', 'projetista_admin'],
+    hideIfMarketingOnly: true,
+    children: [
+      {
+        id: 'orcamentoSlides',
+        title: 'Slides de orçamento',
+        url: '/orcamento-slides',
+        icon: Presentation,
+        radialColor: 'rgba(212,184,150,0.92)',
+        crmRoles: CRM_VENDA_ROLES,
+        hideIfMarketingOnly: true,
+      },
+      {
+        id: 'markupCrm',
+        title: 'Markup (custo)',
+        url: '/markup',
+        icon: Calculator,
+        radialColor: 'rgba(240,210,140,0.92)',
+        crmRoles: ['admin', 'projetista', 'projetista_admin'],
+        hideIfMarketingOnly: true,
+      },
+    ],
+  },
+  {
+    id: 'automacoesGrupo',
+    title: 'Automações',
+    icon: Zap,
+    radialColor: 'rgba(252,196,90,0.92)',
+    crmRoles: ['admin', 'vendedor', 'marketing'],
+    children: [
+      {
+        id: 'automacoes',
+        title: 'Negativação',
+        url: '/automacoes',
+        icon: Ban,
+        radialColor: 'rgba(252,196,90,0.92)',
+        crmRoles: CRM_VENDA_ROLES,
+        hideIfMarketingOnly: true,
+      },
+      {
+        id: 'automacoesMarketing',
+        title: 'Marketing',
+        url: '/automacoes/marketing',
+        icon: Megaphone,
+        radialColor: 'rgba(252,165,165,0.92)',
+        crmRoles: CRM_MKT_VISIVEL_ROLES,
+      },
+    ],
+  },
+]
+
+const MARKETING_CRM_CHILDREN: NavChildItem[] = [
+  {
+    id: 'marketingConteudo',
+    title: 'Marketing de conteúdo',
+    url: '/marketing-conteudo',
+    icon: Megaphone,
+    radialColor: 'rgba(252,165,165,0.92)',
+    crmRoles: CRM_MARKETING_ROLES,
+  },
+  {
+    id: 'bibliotecaCrm',
+    title: 'Biblioteca CRM',
+    url: '/biblioteca-crm',
+    icon: Images,
+    radialColor: 'rgba(244,114,182,0.92)',
+    crmRoles: CRM_MARKETING_ROLES,
+  },
+  {
+    id: 'controleEventos',
+    title: 'Controle de Eventos',
+    url: '/controle-eventos',
+    icon: FolderOpen,
+    radialColor: 'rgba(240,210,140,0.92)',
+    crmRoles: CRM_MARKETING_ROLES,
+    hideIfVendedorRestricted: true,
+  },
+  {
+    id: 'marketingApresentacao',
+    title: 'Apresentação para arquitetos',
+    url: '/marketing/apresentacao-interna',
+    icon: Presentation,
+    radialColor: 'rgba(196,181,253,0.92)',
+    crmRoles: CRM_MKT_VISIVEL_ROLES,
+  },
+  {
+    id: 'pontuaGarbo',
+    title: 'Pontua Garbo',
+    url: '/marketing/pontua-garbo',
+    icon: Trophy,
+    radialColor: 'rgba(251,191,36,0.92)',
+    crmRoles: CRM_MKT_VISIVEL_ROLES,
+  },
+  {
+    id: 'financeiroPontua',
+    title: 'Financeiro Pontua',
+    url: '/financeiro-pontua',
+    icon: Trophy,
+    radialColor: 'rgba(240,210,140,0.92)',
+    crmRoles: CRM_VENDA_ROLES,
+    hideIfMarketingOnly: true,
+  },
+  {
+    id: 'controleGastos',
+    title: 'Controle de gastos',
+    url: '/controle-gastos',
+    icon: Wallet,
+    radialColor: 'rgba(74,222,128,0.92)',
+    crmAdminOnly: true,
+  },
+  {
+    id: 'adminCrmGrupo',
+    title: 'Administração CRM',
+    icon: Shield,
+    radialColor: 'rgba(212,184,150,0.92)',
+    crmAdminOnly: true,
+    children: [
+      {
+        id: 'marcaCrm',
+        title: 'Marca',
+        url: '/admin/marca',
+        icon: Palette,
+        radialColor: 'rgba(212,184,150,0.92)',
+        crmAdminOnly: true,
+      },
+      {
+        id: 'adminUsuarios',
+        title: 'Usuários CRM',
+        url: '/admin',
+        icon: Shield,
+        radialColor: 'rgba(240,210,140,0.92)',
+        crmAdminOnly: true,
+      },
+      {
+        id: 'adminWebhooks',
+        title: 'Webhooks',
+        url: '/admin/webhooks',
+        icon: Webhook,
+        radialColor: 'rgba(125,211,252,0.92)',
+        crmAdminOnly: true,
+      },
+    ],
+  },
+]
+
 export const NAV_MAIN_ITEMS: NavMainItem[] = [
+  {
+    id: 'comercial',
+    title: 'Comercial',
+    url: '/pipeline',
+    icon: Briefcase,
+    radialColor: 'rgba(96,240,160,0.92)',
+    sector: 'comercial',
+    roles: [],
+    crmRoles: CRM_COMERCIAL_ROLES,
+    hideIfMarketingOnly: true,
+    children: COMERCIAL_CHILDREN,
+  },
+  {
+    id: 'marketingCrm',
+    title: 'Marketing',
+    url: '/marketing-conteudo',
+    icon: Megaphone,
+    radialColor: 'rgba(252,165,165,0.92)',
+    sector: 'comercial',
+    roles: [],
+    crmRoles: CRM_MKT_VISIVEL_ROLES,
+    children: MARKETING_CRM_CHILDREN,
+  },
+  {
+    id: 'parceiros',
+    title: 'Parceiros',
+    url: '/portal-parceiro',
+    icon: Handshake,
+    radialColor: 'rgba(214,180,140,0.92)',
+    sector: 'comercial',
+    roles: [],
+    parceiroOnly: true,
+  },
   {
     id: 'dashboard',
     title: 'Dashboard',
     url: '/dashboard',
     icon: LayoutDashboard,
     radialColor: 'rgba(240,210,140,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'Financeiro', 'Marceneiro'],
   },
   {
@@ -258,6 +634,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/clientes',
     icon: Landmark,
     radialColor: 'rgba(240,210,140,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'Financeiro'],
     children: FINANCEIRO_CHILDREN,
   },
@@ -267,6 +644,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/funcionarios',
     icon: UserCog,
     radialColor: 'rgba(240,210,140,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'Financeiro', 'MontadorAdmin'],
     children: FUNCIONARIOS_CHILDREN,
   },
@@ -276,6 +654,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/agenda-obras',
     icon: HardHat,
     radialColor: 'rgba(251,146,60,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin', 'Financeiro'],
     children: OBRAS_CHILDREN,
   },
@@ -285,6 +664,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/bater-ponto',
     icon: Clock,
     radialColor: 'rgba(74,222,128,0.92)',
+    sector: 'casa',
     roles: ['Montador', 'MontadorAdmin', 'AdministradorObras'],
     children: PONTO_CHILDREN,
   },
@@ -294,6 +674,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/meu-financeiro',
     icon: Wallet,
     radialColor: 'rgba(240,210,140,0.92)',
+    sector: 'casa',
     roles: ['Montador', 'MontadorAdmin'],
   },
   {
@@ -302,6 +683,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/meu-perfil',
     icon: UserCircle,
     radialColor: 'rgba(240,210,140,0.92)',
+    sector: 'casa',
     roles: ['Montador', 'MontadorAdmin', 'AdministradorObras', 'Financeiro'],
   },
   {
@@ -310,6 +692,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/biblioteca',
     icon: Images,
     radialColor: 'rgba(244,114,182,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'Financeiro'],
   },
   {
@@ -318,6 +701,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/visualizacao',
     icon: Monitor,
     radialColor: 'rgba(167,139,250,0.92)',
+    sector: 'casa',
     roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Visualizador'],
   },
   {
@@ -326,26 +710,60 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     url: '/configuracoes',
     icon: Settings,
     radialColor: 'rgba(156,163,175,0.92)',
+    sector: 'casa',
     roles: ['Administrador'],
   },
 ]
 
-export interface NavVisibilityContext {
-  roles: UserRole[]
-}
-
 export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[] {
-  if (!ctx.roles.length) return []
+  if (!ctx.roles.length && !(ctx.crmRoles?.length) && !ctx.showParceiros) return []
   return NAV_MAIN_ITEMS
-    .filter(item => item.roles.some(r => ctx.roles.includes(r)))
+    .filter(item => isNavEntryVisible(item, ctx))
     .map(item => {
       if (!item.children) return item
-      return {
-        ...item,
-        children: filterNavChildren(item.children, ctx.roles),
+      const children = filterNavChildren(item.children, ctx)
+      if (item.id === 'comercial' && ctx.projetistaOnly) {
+        return { ...item, url: '/projetos', children }
       }
+      return { ...item, children }
     })
     .filter(item => !item.children || item.children.length > 0)
+}
+
+export function attachPipelineKanbanPages(
+  items: NavMainItem[],
+  pages: Array<{ slug: string; nome: string; ativo: boolean; ordem: number }>,
+  manutencaoCount = 0,
+): NavMainItem[] {
+  const extras: NavChildItem[] = pages
+    .filter(page => page.ativo && page.slug && page.slug !== 'pipeline')
+    .sort((a, b) => a.ordem - b.ordem)
+    .map(page => ({
+      id: `pipelineKanban:${page.slug}`,
+      title: page.nome,
+      url: `/pipeline/${page.slug}`,
+      icon: Kanban,
+      radialColor: 'rgba(96,240,160,0.92)',
+      crmRoles: CRM_COMERCIAL_ROLES,
+      hideIfMarketingOnly: true,
+      hideIfProjetistaOnly: true,
+      badge: isManutencaoKanbanPage(page) && manutencaoCount > 0 ? manutencaoCount : undefined,
+    }))
+
+  if (extras.length === 0) return items
+
+  const inject = (children: NavChildItem[]): NavChildItem[] =>
+    children.map(child => {
+      if (child.id === 'pipelineGrupo' && child.children?.length) {
+        const config = child.children.filter(entry => entry.id === 'pipelineConfig')
+        const rest = child.children.filter(entry => entry.id !== 'pipelineConfig')
+        return { ...child, children: [...rest, ...extras, ...config] }
+      }
+      if (child.children?.length) return { ...child, children: inject(child.children) }
+      return child
+    })
+
+  return items.map(item => (item.children ? { ...item, children: inject(item.children) } : item))
 }
 
 export function getNavBadge(_item: NavMainItem, _ctx: NavVisibilityContext): number | undefined {
@@ -376,12 +794,62 @@ export function isObrasSection(section: ActiveSection): boolean {
   return found
 }
 
+export function isComercialSection(section: ActiveSection): boolean {
+  let found = false
+  walkNavChildren(COMERCIAL_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
+}
+
+export function isMarketingCrmSection(section: ActiveSection): boolean {
+  let found = false
+  walkNavChildren(MARKETING_CRM_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
+}
+
+export function isCrmSection(section: ActiveSection): boolean {
+  return isComercialSection(section) || isMarketingCrmSection(section)
+}
+
+export function isCasaSection(section: ActiveSection): boolean {
+  return !isCrmSection(section) && section !== 'portalParceiro'
+}
+
 export function isChegadaMateriaisSection(section: ActiveSection): boolean {
   return section === 'calendarioChegadaMateriais'
 }
 
+export function isLeafPathActive(pathname: string, url: string | undefined): boolean {
+  if (!url) return false
+  if (url === '/pipeline') return pathname === '/pipeline'
+  if (url === '/admin') return pathname === '/admin'
+  if (pathname === url) return true
+  if (url !== '/' && pathname.startsWith(`${url}/`)) return true
+  return false
+}
+
 export function sectionFromPath(pathname: string): ActiveSection {
   if (pathname.startsWith('/funcionarios')) return 'funcionarios'
+  if (pathname.startsWith('/pipeline/configuracoes')) return 'pipelineConfig'
+  if (pathname.startsWith('/pipeline')) return 'pipeline'
+  if (pathname.startsWith('/automacoes/marketing')) return 'automacoesMarketing'
+  if (pathname.startsWith('/automacoes')) return 'automacoes'
+  if (pathname.startsWith('/marketing/apresentacao-interna')) return 'marketingApresentacao'
+  if (pathname.startsWith('/marketing/pontua-garbo')) return 'pontuaGarbo'
+  if (pathname.startsWith('/biblioteca-crm')) return 'bibliotecaCrm'
+  if (pathname.startsWith('/admin/webhooks')) return 'adminWebhooks'
+  if (pathname.startsWith('/admin/marca')) return 'marcaCrm'
+  if (pathname === '/admin' || pathname.startsWith('/admin')) return 'adminUsuarios'
+  if (pathname.startsWith('/projetos')) return 'projetos'
+  if (pathname.startsWith('/contratos')) return 'contratosCrm'
+  if (pathname.startsWith('/orcamento-slides')) return 'orcamentoSlides'
+  if (pathname.startsWith('/markup')) return 'markupCrm'
+  if (pathname.startsWith('/marketing-conteudo')) return 'marketingConteudo'
+  if (pathname.startsWith('/controle-eventos') || pathname.startsWith('/eventos-crm')) return 'controleEventos'
+  if (pathname.startsWith('/portal-parceiro')) return 'portalParceiro'
 
   const map: Record<string, ActiveSection> = {
     '/': 'dashboard',
@@ -409,6 +877,24 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/resumo-ponto': 'resumoPonto',
     '/visualizacao': 'visualizacao',
     '/configuracoes': 'configuracoes',
+    '/leads': 'leads',
+    '/projetos': 'projetos',
+    '/agenda-comercial': 'agendaComercial',
+    '/contratos': 'contratosCrm',
+    '/markup': 'markupCrm',
+    '/orcamento-slides': 'orcamentoSlides',
+    '/marketing-conteudo': 'marketingConteudo',
+    '/biblioteca-crm': 'bibliotecaCrm',
+    '/admin/marca': 'marcaCrm',
+    '/admin': 'adminUsuarios',
+    '/admin/webhooks': 'adminWebhooks',
+    '/controle-gastos': 'controleGastos',
+    '/controle-eventos': 'controleEventos',
+    '/financeiro-pontua': 'financeiroPontua',
+    '/portal-parceiro': 'portalParceiro',
+    '/eventos-crm': 'controleEventos',
+    '/chat-crm': 'chatCrm',
+    '/pipeline/configuracoes': 'pipelineConfig',
   }
   return map[pathname] ?? 'dashboard'
 }

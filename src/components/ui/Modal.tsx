@@ -9,6 +9,9 @@ interface ModalProps {
   title: string
   children: ReactNode
   wide?: boolean
+  extraWide?: boolean
+  /** Modal alto no estilo da ficha do lead no CRM. */
+  tall?: boolean
   /** Conteúdo no topo do cabeçalho, acima do título */
   headerTop?: ReactNode
   /** Conteúdo extra no cabeçalho (ex.: resumo financeiro do fornecedor) */
@@ -25,6 +28,8 @@ export function Modal({
   title,
   children,
   wide,
+  extraWide,
+  tall,
   headerTop,
   headerExtra,
   headerActions,
@@ -79,9 +84,12 @@ export function Modal({
         aria-labelledby="modal-title"
         className={cn(
           'glass-panel modal-panel flex w-full min-w-0 flex-col',
-          wide
-            ? 'max-w-[min(780px,calc(100vw-1.5rem))]'
-            : 'max-w-[min(520px,calc(100vw-1.5rem))]',
+          extraWide
+            ? 'max-w-[min(1080px,calc(100vw-1.5rem))]'
+            : wide
+              ? 'max-w-[min(780px,calc(100vw-1.5rem))]'
+              : 'max-w-[min(520px,calc(100vw-1.5rem))]',
+          tall && 'h-[100dvh] max-h-[100dvh] sm:h-[90vh] sm:max-h-[90vh] sm:rounded-xl',
         )}
         onPointerDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
@@ -91,7 +99,10 @@ export function Modal({
           <div className="flex items-center justify-between gap-3">
             <span
               id="modal-title"
-              className="min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[#f2d892] sm:text-xl"
+              className={cn(
+                'min-w-0 flex-1 truncate font-display text-lg tracking-widest text-primary sm:text-xl',
+                tall && 'uppercase',
+              )}
             >
               {title}
             </span>

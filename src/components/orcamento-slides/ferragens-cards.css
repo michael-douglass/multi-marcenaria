@@ -1,0 +1,236 @@
+/**
+ * Cards Ferragens Premium — luxo editorial (marcenaria).
+ * Hover só no desktop; respeita prefers-reduced-motion.
+ */
+
+.ferragem-card {
+  --fc-gold: #f2d892;
+  --fc-ink: #2a1812;
+  position: relative;
+  isolation: isolate;
+  transition:
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ferragem-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 248, 230, 0.55) 48%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  transition: opacity 200ms ease;
+  z-index: 2;
+}
+
+.ferragem-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(242, 216, 146, 0.22);
+  z-index: 3;
+}
+
+.ferragem-card__media {
+  position: relative;
+  overflow: hidden;
+}
+
+.ferragem-card__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.35), transparent 55%);
+  opacity: 0.55;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+
+.ferragem-card__index {
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ferragem-card:hover {
+    transform: translateY(-6px) scale(1.012);
+    box-shadow:
+      0 18px 40px rgba(20, 10, 4, 0.28),
+      0 0 0 1px rgba(242, 216, 146, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  }
+
+  .ferragem-card:hover::before {
+    opacity: 1;
+    animation: ferragem-card-shine 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .ferragem-card:hover .ferragem-card__index {
+    transform: scale(1.08);
+    opacity: 0.38;
+  }
+}
+
+@keyframes ferragem-card-shine {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes ferragem-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ferragem-card[data-animate='true'] {
+  animation: ferragem-card-enter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--fc-i, 0) * 90ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ferragem-card,
+  .ferragem-card__index {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .ferragem-card:hover {
+    transform: none !important;
+  }
+
+  .ferragem-card:hover::before {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+@media print {
+  .ferragem-card,
+  .ferragem-card__index {
+    animation: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .ferragem-card::before {
+    display: none !important;
+  }
+}
+
+[data-preview-static='true'] .ferragem-card,
+[data-preview-static='true'] .ferragem-card__index {
+  animation: none !important;
+  transform: none !important;
+}
+
+/**
+ * Só PDF/imagem no formato celular (1080×1920).
+ * Ícones bem legíveis para o lead — não afeta a tela ao vivo.
+ */
+[data-orcamento-pdf-mobile='true'] .ferragem-card {
+  animation: none !important;
+  transform: none !important;
+  min-height: 200px;
+  align-items: stretch !important;
+  box-shadow: inset 0 0 0 1px rgba(242, 216, 146, 0.35) !important;
+  max-width: min(920px, 88%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[data-orcamento-pdf-mobile='true'] .ferragem-card::before {
+  display: none !important;
+}
+
+/* Remove o véu soft-light que apaga ícones no html2canvas/PDF */
+[data-orcamento-pdf-mobile='true'] .ferragem-card__media::after {
+  display: none !important;
+  opacity: 0 !important;
+  mix-blend-mode: normal !important;
+}
+
+[data-orcamento-pdf-mobile='true'] .ferragem-card__media {
+  width: 48% !important;
+  min-width: 200px !important;
+  min-height: 188px !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  background: radial-gradient(ellipse at 40% 30%, #FFFDF8 0%, #F4E6D2 55%, #E6D2B8 100%) !important;
+}
+
+[data-orcamento-pdf-mobile='true'] .ferragem-card__media img,
+[data-orcamento-pdf-mobile='true'] [data-orcamento-icone-ferragem] {
+  width: auto !important;
+  height: auto !important;
+  max-width: calc(100% - 16px) !important;
+  max-height: 168px !important;
+  min-width: 96px !important;
+  min-height: 96px !important;
+  padding: 8px !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+[data-orcamento-pdf-mobile='true'] .ferragem-card__index {
+  animation: none !important;
+  transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 88px !important;
+  min-height: 88px !important;
+  padding: 12px 16px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(165deg, #FFF9F1 0%, #F0DCC0 100%) !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(201, 160, 123, 0.55),
+    0 2px 0 rgba(255, 255, 255, 0.65) !important;
+  font-size: 56px !important;
+  line-height: 1 !important;
+  opacity: 0.92 !important;
+  letter-spacing: -0.03em;
+  font-weight: 900 !important;
+}
+
+[data-orcamento-pdf-mobile='true'] .ferragem-card > div:last-child {
+  padding: 18px 20px !important;
+  gap: 10px !important;
+  justify-content: center !important;
+}
+
+/* SVGs/Lucide no PDF celular — traço mais grosso e tamanho mínimo */
+[data-orcamento-pdf-mobile='true'] svg {
+  flex-shrink: 0 !important;
+}
+
+[data-orcamento-pdf-mobile='true'] svg[class*='h-'],
+[data-orcamento-pdf-mobile='true'] svg[class*='w-'] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  stroke-width: 2.25 !important;
+}

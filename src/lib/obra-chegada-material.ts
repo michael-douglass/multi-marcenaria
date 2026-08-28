@@ -1,4 +1,4 @@
-ï»¿import type { ObraFull } from '@/types'
+import type { ObraFull } from '@/types'
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -32,9 +32,9 @@ export function formatWeekRangeLabel(weekDays: string[]): string {
   const end = new Date(`${weekDays[6]}T12:00:00`)
   const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
   if (start.getMonth() === end.getMonth()) {
-    return `${start.getDate()} â€“ ${end.getDate()} de ${months[start.getMonth()]} ${start.getFullYear()}`
+    return `${start.getDate()} – ${end.getDate()} de ${months[start.getMonth()]} ${start.getFullYear()}`
   }
-  return `${start.getDate()}/${months[start.getMonth()]} â€“ ${end.getDate()}/${months[end.getMonth()]} ${end.getFullYear()}`
+  return `${start.getDate()}/${months[start.getMonth()]} – ${end.getDate()}/${months[end.getMonth()]} ${end.getFullYear()}`
 }
 
 export function obrasParaDiaChegada(
@@ -90,7 +90,7 @@ export function getMonthGrid(anchor: Date): Date[] {
 }
 
 const MONTHS_FULL = [
-  'Janeiro', 'Fevereiro', 'MarÃ§o', 'Abril', 'Maio', 'Junho',
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 

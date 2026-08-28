@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Clock, Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Users } from 'lucide-react'
-import { useUsuarios, type UsuarioAdmin } from '../hooks/useUsuarios'
+import { useUsuarios, type UsuarioAdmin, type FichaCrmInput } from '../hooks/useUsuarios'
 import { useApp } from '../context/AppContext'
 import { RepConfigPanel } from '@/components/configuracoes/RepConfigPanel'
 import { Modal } from '../components/ui/Modal'
@@ -9,6 +9,13 @@ import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState, EmptyState } from '../components/ui/EmptyState'
 import { showToast } from '../lib/toast'
+import {
+  CRM_ROLE_LABEL,
+  CRM_ROLES_OPERACIONAIS,
+  CRM_TIPO_LABEL,
+  type CrmRole,
+  type CrmTipoUsuario,
+} from '@/lib/crm-identity'
 
 type TabCriacao = 'novo' | 'existente'
 type ConfigTab = 'usuarios' | 'ponto'
@@ -43,12 +50,48 @@ function PerfilBadge({ perfil }: { perfil: string }) {
 }
 
 function PerfisBadges({ perfil, perfis_extras }: { perfil: string; perfis_extras: string[] }) {
-  const all = [perfil, ...(perfis_extras ?? [])]
+  const all = [perfil, ...(perfis_extras ?? [])].filter(Boolean)
+  if (all.length === 0) return <span className="text-[0.68rem] text-[#edd9c4]">Sem ficha Movelaria</span>
   return (
     <div className="flex flex-wrap gap-1">
       {all.map(p => <PerfilBadge key={p} perfil={p} />)}
     </div>
   )
+}
+
+function CrmBadges({ tipo, roles }: { tipo: CrmTipoUsuario | null; roles: CrmRole[] }) {
+  if (!tipo) return <span className="text-[0.68rem] text-[#edd9c4]">Sem CRM</span>
+  return (
+    <div className="flex flex-wrap gap-1">
+      <span className="rounded-full px-2.5 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide text-[#7dd3fc] border border-[#7dd3fc]/40 bg-[#7dd3fc]/10">
+        {tipo === 'prestador_servico' ? 'Arquiteto' : tipo === 'colaborador' ? 'Interno' : tipo}
+      </span>
+      {roles.map(r => (
+        <span key={r} className="rounded-full px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-[#c4b5fd] border border-[#c4b5fd]/30 bg-[#c4b5fd]/10">
+          {CRM_ROLE_LABEL[r]}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function fichaFromUser(user: UsuarioAdmin | null): Pick<UserFormState, 'crm_tipo' | 'crm_roles' | 'crm_horario_inicio' | 'crm_horario_fim'> {
+  return {
+    crm_tipo: user?.crm_tipo_usuario ?? 'nenhum',
+    crm_roles: user?.crm_roles ?? [],
+    crm_horario_inicio: user?.crm_horario_inicio ?? '',
+    crm_horario_fim: user?.crm_horario_fim ?? '',
+  }
+}
+
+function toFichaCrm(form: UserFormState): FichaCrmInput {
+  return {
+    tipo_usuario: form.crm_tipo,
+    roles: form.crm_roles,
+    horario_inicio: form.crm_horario_inicio,
+    horario_fim: form.crm_horario_fim,
+    status_convite: 'ATIVO',
+  }
 }
 
 // ── Modal criar/editar usuário ───────────────────────────────
@@ -59,10 +102,23 @@ interface UserFormState {
   perfis_extras: string[]
   senha: string
   confirmSenha: string
+  crm_tipo: 'nenhum' | CrmTipoUsuario
+  crm_roles: CrmRole[]
+  crm_horario_inicio: string
+  crm_horario_fim: string
 }
 
 const BLANK_FORM: UserFormState = {
-  email: '', nome: '', perfil: 'marceneiro', perfis_extras: [], senha: '', confirmSenha: '',
+  email: '',
+  nome: '',
+  perfil: 'marceneiro',
+  perfis_extras: [],
+  senha: '',
+  confirmSenha: '',
+  crm_tipo: 'nenhum',
+  crm_roles: [],
+  crm_horario_inicio: '',
+  crm_horario_fim: '',
 }
 
 function UserModal({
@@ -83,7 +139,15 @@ function UserModal({
     setTab('novo')
     setErr(null)
     if (editUser) {
-      setForm({ email: editUser.email, nome: editUser.nome ?? '', perfil: editUser.perfil, perfis_extras: editUser.perfis_extras ?? [], senha: '', confirmSenha: '' })
+      setForm({
+        email: editUser.email,
+        nome: editUser.nome ?? '',
+        perfil: editUser.perfil || 'marceneiro',
+        perfis_extras: editUser.perfis_extras ?? [],
+        senha: '',
+        confirmSenha: '',
+        ...fichaFromUser(editUser),
+      })
     } else {
       setForm(BLANK_FORM)
     }
@@ -156,13 +220,13 @@ function UserModal({
         <input className="glass-input" value={form.nome} onChange={f('nome')} placeholder="Nome completo" autoComplete="off" />
       </Field>
 
-      <Field label="Perfil principal *">
+      <Field label="Função Casa *">
         <select className="glass-input" value={form.perfil} onChange={f('perfil')}>
           {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </Field>
 
-      <Field label="Perfis adicionais">
+      <Field label="Funções Casa extras">
         <div className="flex flex-col gap-1.5 mt-0.5">
           {PERFIS.filter(p => p.value !== form.perfil).map(p => {
             const checked = form.perfis_extras.includes(p.value)
@@ -190,6 +254,67 @@ function UserModal({
           })}
         </div>
       </Field>
+
+      <div className="mt-4 mb-2 rounded-lg p-3" style={{ backgroundColor: 'rgba(125,211,252,0.08)', border: '1px solid rgba(125,211,252,0.18)' }}>
+        <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-wider text-[#7dd3fc]">Função CRM</p>
+        <Field label="Tipo no CRM">
+          <select
+            className="glass-input"
+            value={form.crm_tipo}
+            onChange={e => setForm(p => ({ ...p, crm_tipo: e.target.value as UserFormState['crm_tipo'] }))}
+          >
+            <option value="nenhum">{CRM_TIPO_LABEL.nenhum}</option>
+            <option value="colaborador">{CRM_TIPO_LABEL.colaborador}</option>
+            <option value="prestador_servico">{CRM_TIPO_LABEL.prestador_servico}</option>
+          </select>
+        </Field>
+        {form.crm_tipo !== 'nenhum' && form.crm_tipo !== 'lead' && (
+          <>
+            <Field label="Função CRM (papéis)">
+              <div className="flex flex-col gap-1.5 mt-0.5">
+                {CRM_ROLES_OPERACIONAIS.map(role => {
+                  const checked = form.crm_roles.includes(role)
+                  return (
+                    <label key={role} className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setForm(prev => ({
+                          ...prev,
+                          crm_roles: checked
+                            ? prev.crm_roles.filter(x => x !== role)
+                            : [...prev.crm_roles, role],
+                        }))}
+                        className="accent-[#7dd3fc] w-3.5 h-3.5 shrink-0"
+                      />
+                      <span className="text-[0.75rem] text-[#edd9c4]">{CRM_ROLE_LABEL[role]}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Horário início">
+                <input
+                  type="time"
+                  className="glass-input"
+                  value={form.crm_horario_inicio}
+                  onChange={e => setForm(p => ({ ...p, crm_horario_inicio: e.target.value }))}
+                />
+              </Field>
+              <Field label="Horário fim">
+                <input
+                  type="time"
+                  className="glass-input"
+                  value={form.crm_horario_fim}
+                  onChange={e => setForm(p => ({ ...p, crm_horario_fim: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <p className="text-[0.7rem] text-[#b8957f]">Em branco = sem restrição de horário. Admin da fábrica não fica preso a esse horário.</p>
+          </>
+        )}
+      </div>
 
       {/* Campos exclusivos: criar novo */}
       {!editUser && tab === 'novo' && (
@@ -370,13 +495,20 @@ export function Configuracoes() {
     setSavingUser(true)
     try {
       if (editUser) {
-        await hook.atualizar(editUser.id, form.perfil, form.nome || null, editUser.ativo, form.perfis_extras)
+        await hook.atualizar(
+          editUser.id,
+          form.perfil,
+          form.nome || null,
+          editUser.ativo,
+          form.perfis_extras,
+          toFichaCrm(form),
+        )
         showToast('Usuário atualizado.', 'success')
       } else if (tab === 'existente') {
-        await hook.registrarExistente(form.email, form.nome, form.perfil, form.senha || undefined)
+        await hook.registrarExistente(form.email, form.nome, form.perfil, form.senha || undefined, toFichaCrm(form))
         showToast('Usuário registrado com sucesso.', 'success')
       } else {
-        await hook.criar(form.email, form.senha, form.nome, form.perfil)
+        await hook.criar(form.email, form.senha, form.nome, form.perfil, toFichaCrm(form))
         showToast('Usuário criado com sucesso.', 'success')
       }
       setUserModalOpen(false)
@@ -488,7 +620,7 @@ export function Configuracoes() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[rgba(240,210,140,0.12)]">
-                {['Usuário', 'Perfil', 'Status', 'Criado em', 'Ações'].map(h => (
+                {['Usuário', 'Função Casa', 'Função CRM', 'Status', 'Ações'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[0.7rem] uppercase tracking-wider text-[#edd9c4]">
                     {h}
                   </th>
@@ -528,17 +660,15 @@ export function Configuracoes() {
                     <td className="px-4 py-3">
                       <PerfisBadges perfil={u.perfil} perfis_extras={u.perfis_extras} />
                     </td>
+                    <td className="px-4 py-3">
+                      <CrmBadges tipo={u.crm_tipo_usuario} roles={u.crm_roles} />
+                    </td>
 
                     {/* Status */}
                     <td className="px-4 py-3">
                       <span className={`text-[0.72rem] font-semibold ${u.ativo ? 'text-emerald-400' : 'text-[#edd9c4]'}`}>
                         {u.ativo ? '● Ativo' : '○ Inativo'}
                       </span>
-                    </td>
-
-                    {/* Criado em */}
-                    <td className="px-4 py-3 text-[0.75rem] text-[#edd9c4]">
-                      {new Date(u.criado_em).toLocaleDateString('pt-BR')}
                     </td>
 
                     {/* Ações */}
@@ -624,7 +754,7 @@ export function Configuracoes() {
         open={senhaModalOpen}
         user={senhaUser}
         onClose={() => setSenhaModalOpen(false)}
-        onSave={(senha, perfil) => handleRedefinirSenha(senha, perfil)}
+        onSave={senha => handleRedefinirSenha(senha)}
         saving={savingSenha}
       />
 
