@@ -1,0 +1,523 @@
+﻿src/components/agenda/AgendaGeralContent.tsx(149,11): error TS2322: Type 'DatabaseUser[] | undefined' is not assignable to type 'User[]'.
+  Type 'undefined' is not assignable to type 'User[]'.
+src/components/cobrancas/ContaReceberAnexosModal.tsx(128,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/cobrancas/ContaReceberAnexosModal.tsx(129,9): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/components/cobrancas/ContaReceberAnexosModal.tsx(130,32): error TS2551: Property 'tipo_recebimento' does not exist on type 'ContaReceber'. Did you mean 'data_recebimento'?
+src/components/contas-pagar/ContasPagarImportButton.tsx(94,5): error TS2304: Cannot find name 'setMostrarIgnoradas'.
+src/components/crm/MarkupCalculatorSheet.tsx(106,9): error TS2322: Type 'MarkupCategoria | null' is not assignable to type 'string | null | undefined'.
+  Type 'MarkupCategoria' is not assignable to type 'string'.
+src/components/crm/portal/PortalBrand.tsx(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/components/crm/portal/PortalRadialMenu.tsx(37,34): error TS2345: Argument of type '{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; } | { readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to parameter of type 'SetStateAction<{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }>'.
+  Type '{ readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to type 'SetStateAction<{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }>'.
+    Type '{ readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to type '{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }'.
+      Types of property 'button' are incompatible.
+        Type '96' is not assignable to type '80'.
+src/components/funcionarios/PrestadorRecibosTab.tsx(52,49): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/components/layout/AppNavRadialMenu.tsx(13,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'getVisibleNavMarketingChildren'.
+src/components/layout/AppNavRadialMenu.tsx(14,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'getVisibleNavOrcamentosChildren'.
+src/components/layout/AppNavRadialMenu.tsx(15,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'navRadialLabel'.
+src/components/layout/AppNavRadialMenu.tsx(16,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_HOME'.
+src/components/layout/AppNavRadialMenu.tsx(17,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_PIPELINE'.
+src/components/layout/AppNavRadialMenu.tsx(18,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_AUTOMACOES'.
+src/components/layout/AppNavRadialMenu.tsx(19,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_MARKETING'.
+src/components/layout/AppNavRadialMenu.tsx(20,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_ORCAMENTOS'.
+src/components/layout/AppNavRadialMenu.tsx(21,3): error TS2305: Module '"@/lib/app-navigation"' has no exported member 'NAV_ADMIN_CHILDREN'.
+src/components/layout/AppNavRadialMenu.tsx(22,3): error TS2459: Module '"@/lib/app-navigation"' declares 'Clock' locally, but it is not exported.
+src/components/layout/AppNavRadialMenu.tsx(23,3): error TS2459: Module '"@/lib/app-navigation"' declares 'Ban' locally, but it is not exported.
+src/components/layout/AppNavRadialMenu.tsx(24,3): error TS2459: Module '"@/lib/app-navigation"' declares 'Megaphone' locally, but it is not exported.
+src/components/layout/AppNavRadialMenu.tsx(25,3): error TS2459: Module '"@/lib/app-navigation"' declares 'Presentation' locally, but it is not exported.
+src/components/layout/AppNavRadialMenu.tsx(122,47): error TS2345: Argument of type '{ userRole: any; userRoles: AppUserRole[]; hasPermission: (resource: PermissionResource, action: PermissionAction) => boolean; }' is not assignable to parameter of type 'NavVisibilityContext'.
+  Property 'roles' is missing in type '{ userRole: any; userRoles: AppUserRole[]; hasPermission: (resource: PermissionResource, action: PermissionAction) => boolean; }' but required in type 'NavVisibilityContext'.
+src/components/layout/AppNavRadialMenu.tsx(145,5): error TS2322: Type 'MainDef | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: ForwardRefExoticComponent<Omit<...> & RefAttributes<...>>; color: any; show: boolean; children: { ...; }[]; } | { ...;...' is not assignable to type 'MainDef'.
+  Type '{ id: any; label: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: any; show: boolean; children: { ...; }[]; }' is not assignable to type 'MainDef'.
+    Types of property 'icon' are incompatible.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+        Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+          Types of property 'propTypes' are incompatible.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+              Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+                Types of property 'size' are incompatible.
+                  Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                    Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                      Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                        Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(146,5): error TS2322: Type 'MainDef | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: ForwardRefExoticComponent<Omit<...> & RefAttributes<...>>; color: any; show: boolean; children: { ...; }[]; } | { ...;...' is not assignable to type 'MainDef'.
+  Type '{ id: any; label: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: any; show: boolean; children: { ...; }[]; }' is not assignable to type 'MainDef'.
+    Types of property 'icon' are incompatible.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+        Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+          Types of property 'propTypes' are incompatible.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+              Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+                Types of property 'size' are incompatible.
+                  Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                    Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                      Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                        Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(152,40): error TS7006: Parameter 'child' implicitly has an 'any' type.
+src/components/layout/AppNavRadialMenu.tsx(160,5): error TS2322: Type 'MainDef | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: any; color: any; show: boolean; children: any; } | { id: any; label: any; icon: ForwardRefExoticComponent<Omit<...> & RefAttributes<...>>; color: any; show: boolean; children: { ...; }[]; } | { ...;...' is not assignable to type 'MainDef'.
+  Type '{ id: any; label: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: any; show: boolean; children: { ...; }[]; }' is not assignable to type 'MainDef'.
+    Types of property 'icon' are incompatible.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+        Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+          Types of property 'propTypes' are incompatible.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+              Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+                Types of property 'size' are incompatible.
+                  Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                    Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                      Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                        Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(166,41): error TS7006: Parameter 'child' implicitly has an 'any' type.
+src/components/layout/AppNavRadialMenu.tsx(174,5): error TS2322: Type '{ id: any; label: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: any; show: boolean; children: { ...; }[]; }' is not assignable to type 'MainDef'.
+  Types of property 'icon' are incompatible.
+    Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+        Types of property 'propTypes' are incompatible.
+          Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+              Types of property 'size' are incompatible.
+                Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                  Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                    Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                      Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(192,5): error TS2322: Type '{ id: any; label: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: any; show: boolean; children: any; }' is not assignable to type 'MainDef'.
+  Types of property 'icon' are incompatible.
+    Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+        Types of property 'propTypes' are incompatible.
+          Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+              Types of property 'size' are incompatible.
+                Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                  Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                    Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                      Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(198,46): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/layout/AppNavRadialMenu.tsx(206,5): error TS2322: Type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; path: string; color: string; show: boolean; }' is not assignable to type 'MainDef'.
+  Types of property 'icon' are incompatible.
+    Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+        Types of property 'propTypes' are incompatible.
+          Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+              Types of property 'size' are incompatible.
+                Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                  Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                    Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                      Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(214,5): error TS2322: Type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; show: boolean; children: any; }' is not assignable to type 'MainDef'.
+  Types of property 'icon' are incompatible.
+    Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'IconComp'.
+      Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FunctionComponent<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+        Types of property 'propTypes' are incompatible.
+          Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> | undefined' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }> | undefined'.
+            Type 'WeakValidationMap<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'WeakValidationMap<{ size?: number | undefined; strokeWidth?: number | undefined; }>'.
+              Types of property 'size' are incompatible.
+                Type 'Validator<string | number | null | undefined> | undefined' is not assignable to type 'Validator<number | null | undefined> | undefined'.
+                  Type 'Validator<string | number | null | undefined>' is not assignable to type 'Validator<number | null | undefined>'.
+                    Type 'string | number | null | undefined' is not assignable to type 'number | null | undefined'.
+                      Type 'string' is not assignable to type 'number'.
+src/components/layout/AppNavRadialMenu.tsx(220,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/layout/FloatingCalendarPopup.tsx(186,20): error TS2304: Cannot find name 'cn'.
+src/components/leads/LeadModal.tsx(10,45): error TS2300: Duplicate identifier 'User'.
+src/components/leads/LeadModal.tsx(30,70): error TS2300: Duplicate identifier 'User'.
+src/components/leads/LeadModal.tsx(434,9): error TS2322: Type 'string' is not assignable to type 'LeadStatus | undefined'.
+src/components/leads/LeadModal.tsx(732,36): error TS2339: Property 'errors' does not exist on type 'ZodError<{ name: string; phone: string; email?: string | undefined; company?: string | undefined; lossReason?: string | undefined; observations?: string | undefined; }>'.
+src/components/leads/LeadModal.tsx(911,35): error TS2339: Property 'errors' does not exist on type 'ZodError<{ name: string; phone: string; email?: string | undefined; company?: string | undefined; lossReason?: string | undefined; observations?: string | undefined; }>'.
+src/components/leads/LeadModal.tsx(1302,53): error TS2693: 'User' only refers to a type, but is being used as a value here.
+src/components/leads/LeadWhiteboard.tsx(523,21): error TS2345: Argument of type '"#FF6B2C" | "#E91E8C" | "#FF3D5A"' is not assignable to parameter of type 'SetStateAction<"#FF6B2C">'.
+  Type '"#E91E8C"' is not assignable to type 'SetStateAction<"#FF6B2C">'.
+src/components/leads/LeadWhiteboard.tsx(1934,35): error TS2339: Property 'b' does not exist on type 'PendingMeasure'.
+  Property 'b' does not exist on type '{ phase: "pick_b"; a: WhiteboardPoint; }'.
+src/components/leads/LeadWhiteboard.tsx(2029,13): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/components/leads/LeadWhiteboard.tsx(2672,52): error TS2345: Argument of type '"#FF6B2C" | "#E91E8C" | "#FF3D5A"' is not assignable to parameter of type 'SetStateAction<"#FF6B2C">'.
+  Type '"#E91E8C"' is not assignable to type 'SetStateAction<"#FF6B2C">'.
+src/components/leads/SaleValueDialog.tsx(173,35): error TS18047: 'pontuaGarbo' is possibly 'null'.
+src/components/leads/SaleValueDialog.tsx(176,30): error TS18047: 'pontuaGarbo' is possibly 'null'.
+src/components/leads/SaleValueDialog.tsx(177,67): error TS18047: 'pontuaGarbo' is possibly 'null'.
+src/components/Logo.tsx(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/components/marketing-conteudo/MarketingCardEditModal.tsx(225,19): error TS2322: Type '{ id: string; titulo: string; conteudo: string | null; classificacao: string | null; position_x: number; position_y: number; enviado_producao: boolean; }[]' is not assignable to type 'BoardNode[]'.
+  Type '{ id: string; titulo: string; conteudo: string | null; classificacao: string | null; position_x: number; position_y: number; enviado_producao: boolean; }' is not assignable to type 'BoardNode'.
+    Types of property 'conteudo' are incompatible.
+      Type 'string | null' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/components/marketing-conteudo/MarketingCardEditModal.tsx(226,19): error TS2322: Type '{ id: string; tipo: string; texto: string | null; position_x: number; position_y: number; width: number; height: number; cor: string; enviado_producao: boolean; }[]' is not assignable to type 'BoardShape[]'.
+  Type '{ id: string; tipo: string; texto: string | null; position_x: number; position_y: number; width: number; height: number; cor: string; enviado_producao: boolean; }' is not assignable to type 'BoardShape'.
+    Types of property 'texto' are incompatible.
+      Type 'string | null' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/components/marketing-conteudo/MarketingCardEditModal.tsx(227,19): error TS2322: Type '{ id: string; source_id: string; source_type: string; target_id: string; target_type: string; label: string | null; estilo: string; }[]' is not assignable to type 'BoardEdge[]'.
+  Type '{ id: string; source_id: string; source_type: string; target_id: string; target_type: string; label: string | null; estilo: string; }' is not assignable to type 'BoardEdge'.
+    Types of property 'label' are incompatible.
+      Type 'string | null' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/components/marketing-conteudo/MarketingPlanningBoard.tsx(682,11): error TS2322: Type '(_: React.MouseEvent, node: Node) => void' is not assignable to type 'OnNodeDrag<Node>'.
+  Types of parameters '_' and 'event' are incompatible.
+    Type 'MouseEvent | TouchEvent' is not assignable to type 'MouseEvent<Element, MouseEvent>'.
+      Type 'MouseEvent' is missing the following properties from type 'MouseEvent<Element, MouseEvent>': nativeEvent, isDefaultPrevented, isPropagationStopped, persist
+src/components/markup/MarkupIAComposeOverlay.tsx(147,47): error TS2353: Object literal may only specify known properties, and 'resultados' does not exist in type '{ id: string; nome: string; estado: CategoriaEstado; }'.
+src/components/markup/MarkupIAProjetistaPanel.tsx(106,23): error TS2339: Property 'observacoes' does not exist on type 'MarkupIAProjetistaComodo | { id: string; nome: string; pontuacao: number; confianca: "media"; moveis_identificados: number; }'.
+  Property 'observacoes' does not exist on type '{ id: string; nome: string; pontuacao: number; confianca: "media"; moveis_identificados: number; }'.
+src/components/markup/MarkupIAProjetistaPanel.tsx(107,88): error TS2339: Property 'observacoes' does not exist on type 'MarkupIAProjetistaComodo | { id: string; nome: string; pontuacao: number; confianca: "media"; moveis_identificados: number; }'.
+  Property 'observacoes' does not exist on type '{ id: string; nome: string; pontuacao: number; confianca: "media"; moveis_identificados: number; }'.
+src/components/meu-financeiro/PrestadorComparativoChart.tsx(107,15): error TS2322: Type '(v: number, _n: NameType | undefined, props: Payload<ValueType, NameType> | TooltipPayloadEntry) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(v: number, _n: NameType | undefined, props: Payload<ValueType, NameType> | TooltipPayloadEntry) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/obras/briefing/BriefingFullscreenModal.tsx(105,23): error TS2783: 'pergunta_id' is specified more than once, so this usage will be overwritten.
+src/components/obras/briefing/BriefingFullscreenModal.tsx(176,60): error TS2783: 'pergunta_id' is specified more than once, so this usage will be overwritten.
+src/components/obras/briefing/BriefingModeloEditor.tsx(365,52): error TS2345: Argument of type '(p: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { descricao: string | null; nome: string; ordem: number; ativo: boolean; }' is not assignable to parameter of type 'SetStateAction<{ nome: string; descricao: string; ordem: number; ativo: boolean; }>'.
+  Type '(p: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { descricao: string | null; nome: string; ordem: number; ativo: boolean; }' is not assignable to type '(prevState: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { nome: string; descricao: string; ordem: number; ativo: boolean; }'.
+    Call signature return types '{ descricao: string | null; nome: string; ordem: number; ativo: boolean; }' and '{ nome: string; descricao: string; ordem: number; ativo: boolean; }' are incompatible.
+      The types of 'descricao' are incompatible between these types.
+        Type 'string | null' is not assignable to type 'string'.
+          Type 'null' is not assignable to type 'string'.
+src/components/obras/briefing/BriefingModeloEditor.tsx(487,44): error TS2345: Argument of type '(p: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { descricao: string | null; nome: string; ordem: number; ativo: boolean; }' is not assignable to parameter of type 'SetStateAction<{ nome: string; descricao: string; ordem: number; ativo: boolean; }>'.
+  Type '(p: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { descricao: string | null; nome: string; ordem: number; ativo: boolean; }' is not assignable to type '(prevState: { nome: string; descricao: string; ordem: number; ativo: boolean; }) => { nome: string; descricao: string; ordem: number; ativo: boolean; }'.
+    Call signature return types '{ descricao: string | null; nome: string; ordem: number; ativo: boolean; }' and '{ nome: string; descricao: string; ordem: number; ativo: boolean; }' are incompatible.
+      The types of 'descricao' are incompatible between these types.
+        Type 'string | null' is not assignable to type 'string'.
+          Type 'null' is not assignable to type 'string'.
+src/components/obras/briefing/BriefingQuestionRenderer.tsx(99,17): error TS2322: Type '{ key: string; url: string; kind: "video" | "image" | "pdf"; label: string; onClick: () => void; }' is not assignable to type 'IntrinsicAttributes & AnexoThumbProps'.
+  Property 'url' does not exist on type 'IntrinsicAttributes & AnexoThumbProps'.
+src/components/obras/briefing/BriefingQuestionRenderer.tsx(113,19): error TS2322: Type '{ url: string; kind: "video" | "image" | "pdf"; label: string; onClick: () => void; }' is not assignable to type 'IntrinsicAttributes & AnexoThumbProps'.
+  Property 'url' does not exist on type 'IntrinsicAttributes & AnexoThumbProps'.
+src/components/obras/EvolucaoPainelGrupos.tsx(197,11): error TS2322: Type '"text" | "video" | "image" | "pdf"' is not assignable to type 'Kind | undefined'.
+  Type '"text"' is not assignable to type 'Kind | undefined'.
+src/components/obras/ObraDetalheModal.tsx(599,90): error TS2322: Type '"text" | "video" | "image" | "pdf"' is not assignable to type '"video" | "image" | "pdf"'.
+  Type '"text"' is not assignable to type '"video" | "image" | "pdf"'.
+src/components/obras/ObraFormModal.tsx(204,51): error TS2345: Argument of type 'number[] | null' is not assignable to parameter of type 'string | number | boolean | string[] | ObraComissaoItem[] | null'.
+  Type 'number[]' is not assignable to type 'string | number | boolean | string[] | ObraComissaoItem[] | null'.
+    Type 'number[]' is not assignable to type 'string[]'.
+      Type 'number' is not assignable to type 'string'.
+src/components/orcamento-slides/OrcamentoSlideApresentacao.tsx(2509,22): error TS2540: Cannot assign to 'current' because it is a read-only property.
+src/components/orcamento-slides/OrcamentoSlideExportPreviewDialog.tsx(157,19): error TS2322: Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
+  Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'RefObject<HTMLDivElement>'.
+    Type 'HTMLDivElement | null' is not assignable to type 'HTMLDivElement'.
+      Type 'null' is not assignable to type 'HTMLDivElement'.
+src/components/pedidos-obras/PedidoObraDetalheModal.tsx(155,42): error TS2774: This condition will always return true since this function is always defined. Did you mean to call it instead?
+src/components/pedidos-obras/PedidoObraDetalheModal.tsx(331,62): error TS2339: Property 'valor_unitario' does not exist on type 'PedidoItem | PedidoItemDraft'.
+  Property 'valor_unitario' does not exist on type 'PedidoItemDraft'.
+src/components/pipeline/DateRangePicker.tsx(9,14): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/ExportReportDialog.tsx(16,14): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/OriginChart.tsx(117,19): error TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'value' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/pipeline/PipelineMetrics.tsx(23,28): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/SalesByOriginCard.tsx(10,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/SalesByOriginCard.tsx(176,25): error TS2322: Type '(value: number, name: string, props: any) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(value: number, name: string, props: any) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'value' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/pipeline/SalesStatsCard.tsx(28,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/TrendChart.tsx(91,13): error TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'value' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/components/pipeline/VendorRankingCard.tsx(10,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/components/pipeline/WhiteboardTextSettingsCard.tsx(26,33): error TS2345: Argument of type '{ fontFamily: string; fontSizePx: number; }' is not assignable to parameter of type '{ fontFamily: string; fontSizePx: number; textColorHex: string; }'.
+  Property 'textColorHex' is missing in type '{ fontFamily: string; fontSizePx: number; }' but required in type '{ fontFamily: string; fontSizePx: number; textColorHex: string; }'.
+src/components/ponto/PontoControleFuncionarios.tsx(108,56): error TS2345: Argument of type 'PontoControleJornadaResumo | null | undefined' is not assignable to parameter of type 'Partial<PontoJornadaHorarios> | null | undefined'.
+  Type 'PontoControleJornadaResumo' is not assignable to type 'Partial<PontoJornadaHorarios>'.
+    Types of property 'hora_entrada' are incompatible.
+      Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/components/ponto/PontoControleFuncionarios.tsx(273,57): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/components/ponto/PontoDiaEscala.tsx(28,52): error TS2345: Argument of type 'PontoControleJornadaResumo | null | undefined' is not assignable to parameter of type 'PontoJornadaHorarios | null | undefined'.
+  Type 'PontoControleJornadaResumo' is not assignable to type 'PontoJornadaHorarios'.
+    Types of property 'hora_entrada' are incompatible.
+      Type 'string | null | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/components/ponto/PontoHistoricoDia.tsx(223,48): error TS2345: Argument of type 'FuncionarioJornada | PontoControleJornadaResumo | null | undefined' is not assignable to parameter of type 'PontoJornadaHorarios | null | undefined'.
+  Type 'PontoControleJornadaResumo' is not assignable to type 'PontoJornadaHorarios'.
+    Types of property 'hora_entrada' are incompatible.
+      Type 'string | null | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/components/prestador/PrestadorRadialMenu.tsx(37,34): error TS2345: Argument of type '{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; } | { readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to parameter of type 'SetStateAction<{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }>'.
+  Type '{ readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to type 'SetStateAction<{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }>'.
+    Type '{ readonly button: 96; readonly icon: 42; readonly ring: 112; readonly label: 13; }' is not assignable to type '{ readonly button: 80; readonly icon: 34; readonly ring: 96; readonly label: 12; }'.
+      Types of property 'button' are incompatible.
+        Type '96' is not assignable to type '80'.
+src/components/ui/AssinaturaCanvas.tsx(99,15): error TS2540: Cannot assign to 'current' because it is a read-only property.
+src/components/ui/chart.tsx(106,7): error TS2339: Property 'payload' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 24 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+src/components/ui/chart.tsx(111,7): error TS2339: Property 'label' does not exist on type 'Omit<Omit<Props<ValueType, NameType>, PropertiesReadFromContext> & { active?: boolean | undefined; allowEscapeViewBox?: AllowInDimension | undefined; ... 24 more ...; wrapperStyle?: CSSProperties | undefined; } & ClassAttributes<...> & HTMLAttributes<...> & { ...; }, "ref">'.
+src/components/ui/chart.tsx(163,25): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/ui/chart.tsx(163,31): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/components/ui/chart.tsx(233,41): error TS2344: Type '"payload" | "verticalAlign"' does not satisfy the constraint '"string" | "display" | "pointerEvents" | "fill" | "stroke" | "children" | "style" | "fontSize" | "fontWeight" | "fontFamily" | "letterSpacing" | "local" | "y" | "d" | "filter" | ... 423 more ... | "portal"'.
+  Type '"payload"' is not assignable to type '"string" | "display" | "pointerEvents" | "fill" | "stroke" | "children" | "style" | "fontSize" | "fontWeight" | "fontFamily" | "letterSpacing" | "local" | "y" | "d" | "filter" | ... 423 more ... | "portal"'.
+src/components/ui/chart.tsx(240,17): error TS2339: Property 'length' does not exist on type '{}'.
+src/components/ui/chart.tsx(249,16): error TS2339: Property 'map' does not exist on type '{}'.
+src/components/ui/chart.tsx(249,21): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/ui/GarboLoadingBrand.tsx(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/components/ui/resizable.tsx(6,102): error TS2339: Property 'PanelGroup' does not exist on type 'typeof import("F:/Movelaria-Garbo/Movelaria/node_modules/.pnpm/react-resizable-panels@4.12_e50b9f27979bd3d24b9bc7ea9effd577/node_modules/react-resizable-panels/dist/react-resizable-panels")'.
+src/components/ui/resizable.tsx(7,23): error TS2339: Property 'PanelGroup' does not exist on type 'typeof import("F:/Movelaria-Garbo/Movelaria/node_modules/.pnpm/react-resizable-panels@4.12_e50b9f27979bd3d24b9bc7ea9effd577/node_modules/react-resizable-panels/dist/react-resizable-panels")'.
+src/components/ui/resizable.tsx(19,51): error TS2339: Property 'PanelResizeHandle' does not exist on type 'typeof import("F:/Movelaria-Garbo/Movelaria/node_modules/.pnpm/react-resizable-panels@4.12_e50b9f27979bd3d24b9bc7ea9effd577/node_modules/react-resizable-panels/dist/react-resizable-panels")'.
+src/components/ui/resizable.tsx(22,23): error TS2339: Property 'PanelResizeHandle' does not exist on type 'typeof import("F:/Movelaria-Garbo/Movelaria/node_modules/.pnpm/react-resizable-panels@4.12_e50b9f27979bd3d24b9bc7ea9effd577/node_modules/react-resizable-panels/dist/react-resizable-panels")'.
+src/components/ui/resizable.tsx(34,24): error TS2339: Property 'PanelResizeHandle' does not exist on type 'typeof import("F:/Movelaria-Garbo/Movelaria/node_modules/.pnpm/react-resizable-panels@4.12_e50b9f27979bd3d24b9bc7ea9effd577/node_modules/react-resizable-panels/dist/react-resizable-panels")'.
+src/components/ui/user-avatar.tsx(2,10): error TS2305: Module '"@/types"' has no exported member 'User'.
+src/components/visualizacao/VisualizacaoAcompanhamentoHoje.tsx(4,15): error TS2305: Module '"@/types"' has no exported member 'Obra'.
+src/components/visualizacao/VisualizacaoPontoDiario.tsx(61,40): error TS2322: Type '{ message: string; onRetry: () => void; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/contexts/AuthContext.tsx(6,27): error TS2459: Module '"@/lib/app-roles"' declares 'AppUserRole' locally, but it is not exported.
+src/hooks/useAgendaItemAnexosDraft.ts(100,64): error TS2345: Argument of type '(this: undefined, grupo: PendingAgendaGrupo) => { key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }[] | { key: string; previewUrl: string; name: string; converting: true; origin: "pending"; }[] | { ...; }[]' is not assignable to parameter of type '(this: undefined, value: PendingAgendaGrupo, index: number, array: PendingAgendaGrupo[]) => { key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; } | readonly { ...; }[]'.
+  Type '{ key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }[] | { key: string; previewUrl: string; name: string; converting: true; origin: "pending"; }[] | { key: string; previewUrl: string; name: string; error: string; origin: "pending"; }[]' is not assignable to type '{ key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; } | readonly { key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }[]'.
+    Type '{ key: string; previewUrl: string; name: string; converting: true; origin: "pending"; }[]' is not assignable to type '{ key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; } | readonly { key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }[]'.
+      Type '{ key: string; previewUrl: string; name: string; converting: true; origin: "pending"; }[]' is not assignable to type 'readonly { key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }[]'.
+        Property 'badge' is missing in type '{ key: string; previewUrl: string; name: string; converting: true; origin: "pending"; }' but required in type '{ key: string; previewUrl: string; name: string; badge: string | undefined; origin: "pending"; }'.
+src/hooks/useContasPagar.ts(93,20): error TS2550: Property 'at' does not exist on type 'string[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later.
+src/hooks/useContasPagar.ts(206,33): error TS2550: Property 'at' does not exist on type 'string[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later.
+src/hooks/useContratos.ts(123,30): error TS2352: Conversion of type 'ParserError<"Unexpected input: " | "Unexpected input: , lead:leads!lead_id(id, nome)">' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ error: true; } & "Unexpected input: , lead:leads!lead_id(id, nome)"' is not comparable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type '{ error: true; } & String'.
+src/hooks/useContratos.ts(378,30): error TS2352: Conversion of type 'ParserError<"Unexpected input: " | "Unexpected input: , lead:leads!lead_id(id, nome)">' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ error: true; } & "Unexpected input: , lead:leads!lead_id(id, nome)"' is not comparable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type '{ error: true; } & String'.
+src/hooks/useConversionStats.ts(5,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/hooks/useConversionStats.ts(5,26): error TS2305: Module '"@/lib/utils"' has no exported member 'formatDateSaoPaulo'.
+src/hooks/useEmpresaSupabase.ts(19,14): error TS2352: Conversion of type 'PostgrestClient<any, any, string, any>' to type 'SupabaseClient<any, "public", "public", any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/hooks/useFuncionarioDetalhe.ts(43,13): error TS2352: Conversion of type 'ParserError<"Unexpected input: " | "Unexpected input: , nome, tipo, usuario_id, ativo, cpf, email, telefone, admissao_status, dispensado_em">' to type 'Funcionario' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ error: true; } & String' is missing the following properties from type 'Funcionario': id, nome, tipo, ativo, and 3 more.
+src/hooks/useFuncionarioDetalhe.ts(44,27): error TS2352: Conversion of type 'ParserError<"Unexpected input: " | "Unexpected input: , nome, tipo, usuario_id, ativo, cpf, email, telefone, admissao_status, dispensado_em">' to type 'Funcionario' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ error: true; } & String' is missing the following properties from type 'Funcionario': id, nome, tipo, ativo, and 3 more.
+src/hooks/useFuncionarios.ts(71,9): error TS2345: Argument of type '{ admissao_dados: FuncionarioAdmissaoDados; recibos_pendentes: number; ponto_resumo: { hora_entrada?: string | null | undefined; hora_saida?: string | null | undefined; jornada_ativa?: boolean | ... 1 more ... | undefined; status_hoje?: string | ... 1 more ... | undefined; batidas_mes?: number | ... 1 more ... | und...' is not assignable to parameter of type 'SetStateAction<Funcionario[]>'.
+  Type '{ admissao_dados: FuncionarioAdmissaoDados; recibos_pendentes: number; ponto_resumo: { hora_entrada?: string | null | undefined; hora_saida?: string | null | undefined; jornada_ativa?: boolean | ... 1 more ... | undefined; status_hoje?: string | ... 1 more ... | undefined; batidas_mes?: number | ... 1 more ... | und...' is not assignable to type 'Funcionario[]'.
+    Type '{ admissao_dados: Funcionario["admissao_dados"]; recibos_pendentes: number; ponto_resumo: { hora_entrada?: string | null; hora_saida?: string | null; jornada_ativa?: boolean | null; status_hoje?: string | null; batidas_mes?: number | null; } | undefined; ... 14 more ...; atualizado_em?: string; }' is not assignable to type 'Funcionario'.
+      Types of property 'ponto_resumo' are incompatible.
+        Type '{ hora_entrada?: string | null | undefined; hora_saida?: string | null | undefined; jornada_ativa?: boolean | null | undefined; status_hoje?: string | null | undefined; batidas_mes?: number | ... 1 more ... | undefined; } | undefined' is not assignable to type 'PontoResumoFuncionario | undefined'.
+          Type '{ hora_entrada?: string | null | undefined; hora_saida?: string | null | undefined; jornada_ativa?: boolean | null | undefined; status_hoje?: string | null | undefined; batidas_mes?: number | ... 1 more ... | undefined; }' is not assignable to type 'PontoResumoFuncionario'.
+            Types of property 'status_hoje' are incompatible.
+              Type 'string | null | undefined' is not assignable to type 'PontoStatusDia | null | undefined'.
+                Type 'string' is not assignable to type 'PontoStatusDia | null | undefined'.
+src/hooks/useFuncionarios.ts(72,24): error TS2367: This comparison appears to be unintentional because the types 'FuncionarioTipo' and '"marceneiro"' have no overlap.
+src/hooks/useJourneyTimeStats.ts(5,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/hooks/useLeadAIRenders.ts(181,9): error TS2345: Argument of type 'SupabaseClient<any, "public", "public", any, any> | PostgrestClient<any, any, string, any>' is not assignable to parameter of type 'SupabaseClient<any, "public", "public", any, any>'.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/hooks/useLeadFormUploadAttachments.ts(36,5): error TS2353: Object literal may only specify known properties, and 'isFieldsLoading' does not exist in type '{ formUploadAttachments: LeadPDF[]; isLoading: boolean; }'.
+src/hooks/useLeadMidiasParaOrcamento.ts(23,3): error TS2739: Type '{ id: string; leadId: number; inputSnapshot: { source: "anexo"; id: string; label: string; }; analiseTexto: string; outputStoragePath: string; outputPublicUrl: string; visionModel: string; imageModel: string; criadoPor: null; criadoEm: string; }' is missing the following properties from type 'LeadAIRender': renderPromptSnapshot, parentRenderId, editNotas, editPontos
+src/hooks/useLeadMidiasParaOrcamento.ts(126,63): error TS2345: Argument of type '{ file_name: string; }[]' is not assignable to parameter of type 'LeadPDF[]'.
+  Type '{ file_name: string; }' is missing the following properties from type 'LeadPDF': id, titulo, file_url, file_size, and 5 more.
+src/hooks/useLeadMidiasParaOrcamento.ts(133,39): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '{ code?: string | undefined; message?: string | undefined; status?: number | undefined; } | null'.
+src/hooks/useMeetingsStats.ts(13,10): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/hooks/useMeetingsStats.ts(13,44): error TS2305: Module '"@/lib/utils"' has no exported member 'formatDateSaoPaulo'.
+src/hooks/useMeetingsStats.ts(77,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/hooks/useMeetingsStats.ts(82,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/hooks/useObraBriefing.ts(48,20): error TS2339: Property 'userId' does not exist on type '{ isReady: boolean; session: Session | null; userProfile: UserProfile | null; authLoading: boolean; profileLoading: boolean; }'.
+src/hooks/useObraBriefing.ts(133,17): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ObraBriefing' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'ObraBriefing': id, obra_id, modelo_id, status
+src/hooks/useObrasState.ts(64,79): error TS2345: Argument of type '{ comissao_habilitada: boolean; comissao_itens: ObraComissaoItem[]; }' is not assignable to parameter of type 'ObraInput'.
+  Property 'cliente_nome' is missing in type '{ comissao_habilitada: boolean; comissao_itens: ObraComissaoItem[]; }' but required in type 'ObraInput'.
+src/hooks/useOrcamentoSlideRealtime.ts(27,52): error TS2345: Argument of type '<DynamicSchema extends string>(schema: DynamicSchema) => PostgrestClient<any, any, DynamicSchema, any>' is not assignable to parameter of type 'string'.
+src/hooks/useOrcamentoSlideRealtime.ts(35,9): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"postgres_changes"' is not assignable to parameter of type '"system"'.
+src/hooks/useOrcamentoSlideRealtime.ts(57,9): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"postgres_changes"' is not assignable to parameter of type '"system"'.
+src/hooks/usePipelineLeadAIConfig.ts(88,21): error TS2339: Property 'openai_api_key' does not exist on type 'DBPipelineLeadAIConfigPublic | DBPipelineLeadAIConfigAdmin'.
+  Property 'openai_api_key' does not exist on type 'DBPipelineLeadAIConfigPublic'.
+src/hooks/usePipelineLeadAIConfig.ts(176,26): error TS2352: Conversion of type 'GenericStringError' to type 'DBPipelineLeadAIConfigAdmin' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ error: true; } & String' is missing the following properties from type 'DBPipelineLeadAIConfigAdmin': id, singleton_key, model, system_prompt, and 2 more.
+src/hooks/usePontuaGarboComissaoLiberacao.ts(203,32): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/hooks/usePontuaGarboComissaoLiberacao.ts(239,32): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/hooks/usePontuaGarboComissaoLiberacao.ts(296,58): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/hooks/usePontuaGarboFinanceiro.ts(151,34): error TS2345: Argument of type '{ id: string; nome: string; titulo: string | null; email: string | null; telefone: string | null; avatarUrl: string | null; criadoEm: string | null; leads: never[]; totalComissao: number; }' is not assignable to parameter of type 'Omit<PrestadorFinanceiro, "lancamentos" | "saldoParaSacar" | "totalAjustes" | "totalRetirado">'.
+  Property 'totalAguardandoLiberacao' is missing in type '{ id: string; nome: string; titulo: string | null; email: string | null; telefone: string | null; avatarUrl: string | null; criadoEm: string | null; leads: never[]; totalComissao: number; }' but required in type 'Omit<PrestadorFinanceiro, "lancamentos" | "saldoParaSacar" | "totalAjustes" | "totalRetirado">'.
+src/hooks/usePontuaGarboFinanceiro.ts(202,37): error TS2345: Argument of type '(l: LeadRow) => Map<number, LeadRow>' is not assignable to parameter of type '(value: { id: any; nome: any; status: any; valor_orcamento: any; valor_negocio: any; venda_realizada_em: any; }, index: number, array: { id: any; nome: any; status: any; valor_orcamento: any; valor_negocio: any; venda_realizada_em: any; }[]) => void'.
+  Types of parameters 'l' and 'value' are incompatible.
+    Type '{ id: any; nome: any; status: any; valor_orcamento: any; valor_negocio: any; venda_realizada_em: any; }' is missing the following properties from type 'LeadRow': data_chegada, criado_em, email, telefone, and 3 more.
+src/hooks/usePontuaGarboFinanceiro.ts(265,22): error TS18048: 'def' is possibly 'undefined'.
+src/hooks/usePontuaGarboFinanceiro.ts(266,20): error TS18048: 'def' is possibly 'undefined'.
+src/hooks/usePontuaGarboFinanceiro.ts(497,22): error TS18048: 'def' is possibly 'undefined'.
+src/hooks/usePontuaGarboFinanceiro.ts(498,20): error TS18048: 'def' is possibly 'undefined'.
+src/hooks/usePresenceTracking.ts(321,13): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ 'Content-Type': string; apikey: string | undefined; Authorization: string; Prefer: string; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ 'Content-Type': string; apikey: string | undefined; Authorization: string; Prefer: string; }' is not assignable to type 'Record<string, string>'.
+        Property ''apikey'' is incompatible with index signature.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ 'Content-Type': string; apikey: string | undefined; Authorization: string; Prefer: string; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ 'Content-Type': string; apikey: string | undefined; Authorization: string; Prefer: string; }' is not assignable to type 'Record<string, string>'.
+        Property ''apikey'' is incompatible with index signature.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+src/hooks/useSystemDataFetcher.ts(197,40): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/hooks/useUsuarios.ts(65,32): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/lib/advertencia-disciplinar-pdf.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/agenda-public-scope.ts(33,12): error TS2352: Conversion of type 'PostgrestClient<any, any, string, any>' to type 'SupabaseClient<any, "public", "public", any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/lib/agenda-public-scope.ts(88,20): error TS2352: Conversion of type 'PostgrestClient<any, any, string, any>' to type 'SupabaseClient<any, "public", "public", any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/lib/app-navigation.ts(724,5): error TS2820: Type '"cobran´┐¢as"' is not assignable to type 'ActiveSection'. Did you mean '"cobran├ºas"'?
+src/lib/app-roles.ts(30,68): error TS2345: Argument of type 'AppUserRole' is not assignable to parameter of type '"admin" | "vendedor" | "marketing"'.
+  Type '"nenhum"' is not assignable to type '"admin" | "vendedor" | "marketing"'.
+src/lib/caixa-comprovante-print.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/cobranca-resumo-pdf.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/crm-comunicacao.ts(138,3): error TS2322: Type '{ id: string; telefone: string; remetente: string; tipoMensagem: string; conteudo: string; urlMidia: string | null; origem: string; criadoEm: string | null; }[]' is not assignable to type 'CrmWhatsAppMsg[]'.
+  Type '{ id: string; telefone: string; remetente: string; tipoMensagem: string; conteudo: string; urlMidia: string | null; origem: string; criadoEm: string | null; }' is not assignable to type 'CrmWhatsAppMsg'.
+    Types of property 'remetente' are incompatible.
+      Type 'string' is not assignable to type '"lead" | "atendente" | "ia" | "human" | "ai"'.
+src/lib/crm-markup.ts(56,3): error TS2740: Type '{ id: string; valor_hora_marcenaria: number; fator_sobras: number; margem_lucro: number; percentual_imposto: number; taxas_financeiras: number; custo_frete_padrao: number; horas_projeto_padrao: number; horas_producao_padrao: number; horas_instalacao_padrao: number; rodape_observacoes_padrao: string; timbrado_url: st...' is missing the following properties from type 'MarkupConfig': markup_ia_prompt, markup_ia_model, markup_ia_auditor_model, markup_ia_ativo, and 2 more.
+src/lib/crm-markup.ts(96,5): error TS2353: Object literal may only specify known properties, and 'lead_nome' does not exist in type 'MarkupOrcamento'.
+src/lib/crm-markup.ts(207,31): error TS2345: Argument of type 'string | MarkupCategoria' is not assignable to parameter of type 'string'.
+  Type 'MarkupCategoria' is not assignable to type 'string'.
+src/lib/crm-markup.ts(209,16): error TS2345: Argument of type 'string | MarkupCategoria' is not assignable to parameter of type 'string'.
+  Type 'MarkupCategoria' is not assignable to type 'string'.
+src/lib/empresa-tables.ts(166,7): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/lib/empresa-tables.ts(189,7): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/lib/funcionario-checklist-docs-export.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/funcionario-docs-export.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/funcionario-ponto-comprovante.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/funcionario-ponto.ts(409,27): error TS2339: Property 'fotoUrl' does not exist on type 'PontoMarcacao'.
+src/lib/funcionario-ponto.ts(410,33): error TS2339: Property 'assinaturaUrl' does not exist on type 'PontoMarcacao'.
+src/lib/iris-sky-agent.ts(32,5): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/lib/lead-ai-media-sources.ts(128,31): error TS2339: Property 'blocos' does not exist on type 'OrcamentoDados'.
+src/lib/lead-ai-render-caracteristicas.ts(26,53): error TS2307: Cannot find module '../../supabase/functions/_shared/render-prompts.ts' or its corresponding type declarations.
+src/lib/map-polyfills.ts(6,19): error TS2339: Property 'sumPrecise' does not exist on type 'Math'.
+src/lib/map-polyfills.ts(8,8): error TS2339: Property 'sumPrecise' does not exist on type 'Math'.
+src/lib/map-polyfills.ts(19,28): error TS2339: Property 'getOrInsertComputed' does not exist on type 'Map<any, any>'.
+src/lib/map-polyfills.ts(21,17): error TS2339: Property 'getOrInsertComputed' does not exist on type 'Map<any, any>'.
+src/lib/markup-calculo.ts(5,3): error TS2724: '"./markup-types"' has no exported member named 'MarkupModulosDespesa'. Did you mean 'MarkupModulosMeta'?
+src/lib/markup-ia-verificacao.ts(300,18): error TS2345: Argument of type '(this: undefined, item: MarkupIAVerificacaoItem) => { item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }[] | { ...; }[]' is not assignable to parameter of type '(this: undefined, value: MarkupIAVerificacaoItem, index: number, array: MarkupIAVerificacaoItem[]) => { item_id: string; ... 4 more ...; motivo: string | undefined; } | readonly { ...; }[]'.
+  Type '{ item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }[] | { ...; }[]' is not assignable to type '{ item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; } | readonly { ...; }[]'.
+    Type '{ item_id: string; nome: string; variacao: null; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }[]' is not assignable to type '{ item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; } | readonly { ...; }[]'.
+      Type '{ item_id: string; nome: string; variacao: null; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }[]' is not assignable to type 'readonly { item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }[]'.
+        Type '{ item_id: string; nome: string; variacao: null; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }' is not assignable to type '{ item_id: string; nome: string; variacao: string; status: MarkupIAVerificacaoItemStatus; quantidade: number | undefined; motivo: string | undefined; }'.
+          Types of property 'variacao' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+src/lib/markup-servicos.ts(169,5): error TS2345: Argument of type 'MarkupServicoTemplateEfetivo[]' is not assignable to parameter of type 'MarkupServicoTemplate[]'.
+  Property 'ativo' is missing in type 'MarkupServicoTemplateEfetivo' but required in type 'MarkupServicoTemplate'.
+src/lib/orcamento-slide-print.ts(336,16): error TS2551: Property 'webkitBackdropFilter' does not exist on type 'CSSStyleDeclaration'. Did you mean 'backdropFilter'?
+src/lib/orcamento-slide-print.ts(378,16): error TS2551: Property 'webkitBackdropFilter' does not exist on type 'CSSStyleDeclaration'. Did you mean 'backdropFilter'?
+src/lib/orcamento-slide-print.ts(520,17): error TS2551: Property 'webkitBackdropFilter' does not exist on type 'CSSStyleDeclaration'. Did you mean 'backdropFilter'?
+src/lib/orcamento-slide-print.ts(1031,90): error TS2345: Argument of type '(value: void | PromiseLike<void>) => void' is not assignable to parameter of type 'FrameRequestCallback'.
+  Types of parameters 'value' and 'time' are incompatible.
+    Type 'number' is not assignable to type 'void | PromiseLike<void>'.
+src/lib/orcamento-slide-video-trim.ts(105,20): error TS2339: Property 'captureStream' does not exist on type 'HTMLVideoElement'.
+src/lib/orcamento-slide-video-trim.ts(106,17): error TS2339: Property 'captureStream' does not exist on type 'HTMLVideoElement'.
+src/lib/orcamento-slide-video-trim.ts(184,34): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/lib/pipeline-lead-ai-render-prompts.ts(5,8): error TS2307: Cannot find module '../../supabase/functions/_shared/render-prompts.ts' or its corresponding type declarations.
+src/lib/ponto-registros-export.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/pontua-garbo.ts(250,41): error TS2345: Argument of type 'Pick<LeadCustomFieldDefinition, "tipo" | "config_pontua_garbo">' is not assignable to parameter of type 'PontuaGarboFieldLike'.
+  Type 'Pick<LeadCustomFieldDefinition, "tipo" | "config_pontua_garbo">' is missing the following properties from type 'PontuaGarboFieldLike': nome, ativo
+src/lib/resolve-auth-role.ts(172,42): error TS2345: Argument of type 'PostgrestClient<any, any, string, any>' is not assignable to parameter of type 'SupabaseClient<any, "public", "public", any, any>'.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/lib/resolve-auth-role.ts(173,49): error TS2345: Argument of type 'PostgrestClient<any, any, string, any>' is not assignable to parameter of type 'SupabaseClient<any, "public", "public", any, any>'.
+  Type 'PostgrestClient<any, any, string, any>' is missing the following properties from type 'SupabaseClient<any, "public", "public", any, any>': supabaseUrl, supabaseKey, auth, realtime, and 17 more.
+src/lib/resumo-ponto-pdf.ts(1,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/lib/supabase.ts(164,29): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/lib/whiteboard-annotations.ts(401,38): error TS2339: Property 'annotationId' does not exist on type 'never'.
+src/lib/whiteboard-annotations.ts(401,69): error TS2339: Property 'pointIndex' does not exist on type 'never'.
+src/pages/Admin.tsx(327,30): error TS2339: Property 'errors' does not exist on type 'ZodError<unknown>'.
+src/pages/Admin.tsx(422,30): error TS2339: Property 'errors' does not exist on type 'ZodError<unknown>'.
+src/pages/admin/ConfiguracaoMarca.tsx(20,37): error TS2352: Conversion of type 'Empresa | null' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Empresa' is not comparable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Empresa'.
+src/pages/admin/GerenciamentoEmpresas.tsx(113,25): error TS2345: Argument of type 'Empresa' is not assignable to parameter of type 'import("F:/Movelaria-Garbo/Movelaria/src/contexts/EmpresaContext").Empresa'.
+  Type 'Empresa' is missing the following properties from type 'Empresa': banner_desktop_url, banner_mobile_url, banner_slides_desktop, banner_slides_mobile
+src/pages/admin/GerenciamentoEmpresas.tsx(417,13): error TS2322: Type 'Empresa | null' is not assignable to type 'Empresa | null | undefined'.
+  Type 'Empresa' is missing the following properties from type 'Empresa': banner_desktop_url, banner_mobile_url, banner_slides_desktop, banner_slides_mobile
+src/pages/Agenda.tsx(159,17): error TS2322: Type 'AgendaConfig | null | undefined' is not assignable to type 'AgendaConfig | null'.
+  Type 'undefined' is not assignable to type 'AgendaConfig | null'.
+src/pages/AgendamentoPublico.tsx(124,46): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | null | undefined'.
+src/pages/AgendaObras.tsx(1354,9): error TS2322: Type '(k: keyof ObraInput, v: string | null | number | string[] | boolean) => void' is not assignable to type '(k: keyof ObraInput, v: string | number | boolean | string[] | ObraComissaoItem[] | null) => void'.
+  Types of parameters 'v' and 'v' are incompatible.
+    Type 'string | number | boolean | string[] | ObraComissaoItem[] | null' is not assignable to type 'string | number | boolean | string[] | null'.
+      Type 'ObraComissaoItem[]' is not assignable to type 'string | number | boolean | string[] | null'.
+        Type 'ObraComissaoItem[]' is not assignable to type 'string[]'.
+          Type 'ObraComissaoItem' is not assignable to type 'string'.
+src/pages/Aprovacao.tsx(36,9): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/Auth.tsx(54,36): error TS2339: Property 'errors' does not exist on type 'ZodError<{ email: string; password: string; }>'.
+src/pages/Auth.tsx(77,24): error TS2304: Cannot find name 'signUpSchema'.
+src/pages/BaterPonto.tsx(68,37): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/BaterPonto.tsx(74,11): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/ChegadaMateriaisCalendario.tsx(131,28): error TS2339: Property 'comissao_itens' does not exist on type 'ObraFull'.
+src/pages/ChegadaMateriaisCalendario.tsx(235,9): error TS2322: Type '(k: keyof ObraInput, v: string | null | number | string[] | boolean) => void' is not assignable to type '(k: keyof ObraInput, v: string | number | boolean | string[] | ObraComissaoItem[] | null) => void'.
+  Types of parameters 'v' and 'v' are incompatible.
+    Type 'string | number | boolean | string[] | ObraComissaoItem[] | null' is not assignable to type 'string | number | boolean | string[] | null'.
+      Type 'ObraComissaoItem[]' is not assignable to type 'string | number | boolean | string[] | null'.
+        Type 'ObraComissaoItem[]' is not assignable to type 'string[]'.
+          Type 'ObraComissaoItem' is not assignable to type 'string'.
+src/pages/ContasPagar.tsx(1787,31): error TS2322: Type '{ className: string; style: { width: number; height: number; }; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/pages/ContasReceber.tsx(325,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/ContasReceber.tsx(326,9): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/pages/ContasReceber.tsx(327,32): error TS2551: Property 'tipo_recebimento' does not exist on type 'ContaReceber'. Did you mean 'data_recebimento'?
+src/pages/ContasReceber.tsx(438,24): error TS18048: 'totalVenda' is possibly 'undefined'.
+src/pages/ContasReceber.tsx(472,24): error TS18048: 'totalVenda' is possibly 'undefined'.
+src/pages/ContasReceber.tsx(485,9): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/pages/crm/ConfiguracaoMarcaPage.tsx(6,10): error TS2305: Module '"@/lib/garbo-brand"' has no exported member 'garboBrandLogo'.
+src/pages/crm/MarketingConteudoPage.tsx(290,37): error TS2345: Argument of type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }[]' is not assignable to parameter of type 'MktTarefa[]'.
+  Type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }' is missing the following properties from type 'MktTarefa': descricao, horaAgendada, contentCardId
+src/pages/crm/MarketingConteudoPage.tsx(293,30): error TS2345: Argument of type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }[]' is not assignable to parameter of type 'MktTarefa[]'.
+  Type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }' is missing the following properties from type 'MktTarefa': descricao, horaAgendada, contentCardId
+src/pages/crm/MarketingConteudoPage.tsx(311,40): error TS2345: Argument of type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }[]' is not assignable to parameter of type 'MktTarefa[]'.
+  Type '{ id: string; titulo: string; status: string; dataAgendada: string | null; }' is missing the following properties from type 'MktTarefa': descricao, horaAgendada, contentCardId
+src/pages/crm/PipelinePage.tsx(120,6): error TS2741: Property 'pageKey' is missing in type '{ children: Element[]; }' but required in type 'PageZoomProviderProps'.
+src/pages/Dashboard.tsx(258,21): error TS2322: Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/pages/Dashboard.tsx(292,21): error TS2322: Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/pages/Dashboard.tsx(330,19): error TS2322: Type '(v: number, name: string) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(v: number, name: string) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/pages/Funcionarios.tsx(173,11): error TS2322: Type '{ title: string; description: string; }' is not assignable to type 'IntrinsicAttributes & EmptyStateProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & EmptyStateProps'.
+src/pages/Funcionarios.tsx(216,58): error TS2322: Type '{ onCancel: () => void; onSave: () => undefined; saving: boolean; saveLabel: string; }' is not assignable to type 'IntrinsicAttributes & ModalFormFooterProps'.
+  Property 'onSave' does not exist on type 'IntrinsicAttributes & ModalFormFooterProps'.
+src/pages/HistoricoPonto.tsx(77,41): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/HistoricoPonto.tsx(83,11): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/HistoricoPonto.tsx(126,41): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/MeuPerfil.tsx(30,37): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/PedidosObras.tsx(38,23): error TS2322: Type '"pedidos_obras"' is not assignable to type 'PageZoomKey'.
+src/pages/Pipeline.tsx(32,14): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/pages/Pipeline.tsx(596,5): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/PipelineKanbanPage.tsx(39,14): error TS2305: Module '"@/lib/utils"' has no exported member 'toSaoPauloTime'.
+src/pages/Prestador.tsx(106,14): error TS2741: Property 'totalAguardandoLiberacao' is missing in type '{ totalAGanar: number; totalComissaoCarteira: number; totalComissaoGanha: number; ganhoMesAtual: number; mediaMensalGanhos: number; ganhosPorMes: { key: string; label: string; valor: number; }[]; saldoParaSacar: number; totalRetirado: number; totalAjustes: any; }' but required in type 'PrestadorPortalResumoProps'.
+src/pages/Prestador.tsx(118,35): error TS2339: Property 'totalAjustes' does not exist on type 'GarboPortalData'.
+src/pages/Profile.tsx(136,35): error TS2304: Cannot find name 'adaptUserForAvatar'.
+src/pages/ResumoPonto.tsx(198,57): error TS2322: Type '{ message: string; onRetry: () => undefined; }' is not assignable to type 'IntrinsicAttributes & { message: string; }'.
+  Property 'onRetry' does not exist on type 'IntrinsicAttributes & { message: string; }'.
+src/pages/Visualizacao.tsx(224,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/Visualizacao.tsx(226,15): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
