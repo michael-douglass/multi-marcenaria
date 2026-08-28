@@ -48,8 +48,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Bundle principal (~2.1 MB) + pdf.worker; limite padrão do Workbox é 2 MiB.
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // O CRM deixou o JS principal acima de 5 MB; o padrão do Workbox é 2 MiB e derruba o build.
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
@@ -116,5 +116,29 @@ export default defineConfig({
     port: 3001,
     strictPort: true,
     host: true,
+  },
+  build: {
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const file = id.replace(/\\/g, '/')
+          if (!file.includes('/node_modules/')) return
+          // 3D e PDF saem do pacote principal; o resto das libs fica junto
+          // para não criar ciclo React ↔ vendor (isso quebra o app no navegador).
+          if (file.includes('/node_modules/three/') || file.includes('/node_modules/@react-three/')) {
+            return 'vendor-three'
+          }
+          if (
+            file.includes('/node_modules/jspdf') ||
+            file.includes('/node_modules/pdfjs') ||
+            file.includes('/node_modules/html2canvas')
+          ) {
+            return 'vendor-pdf'
+          }
+          return 'vendor'
+        },
+      },
+    },
   },
 })
