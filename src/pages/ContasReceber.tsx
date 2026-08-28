@@ -18,7 +18,7 @@ import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
 import { DateInput } from '../components/ui/DateInput'
-import { Badge } from '../components/ui/Badge'
+import { Badge } from '../components/ui/badge'
 import { FilterBar } from '../components/ui/FilterBar'
 import { EmptyState, LoadingState, ErrorState } from '../components/ui/EmptyState'
 import {
