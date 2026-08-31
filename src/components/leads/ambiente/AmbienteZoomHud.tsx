@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';

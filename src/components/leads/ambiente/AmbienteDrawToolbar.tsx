@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 import {
   Circle,
   MousePointer2,

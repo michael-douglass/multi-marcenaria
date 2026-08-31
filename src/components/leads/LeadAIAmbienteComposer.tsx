@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -82,7 +82,9 @@ import {
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import {
   ambienteFurnitureDefaultSize,
+  clampOrbitPitch,
   furnitureViewIsFlat,
+  wrapOrbitYaw,
   type FurnitureViewMode,
 } from '@/lib/furniture-catalog-banks';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
@@ -125,6 +127,7 @@ type DragKind =
   | 'resize-overlay'
   | 'resize-object'
   | 'rotate-object'
+  | 'orbit-object'
   | 'pan-background'
   | 'shape'
   | 'resize-shape';
@@ -139,6 +142,10 @@ interface DragState {
   origWidth?: number;
   origHeight?: number;
   origRotation?: number;
+  origYaw?: number;
+  origPitch?: number;
+  startClientX?: number;
+  startClientY?: number;
 }
 
 interface SceneHistoryEntry {
@@ -557,6 +564,45 @@ export function LeadAIAmbienteComposer({
     );
   }, [pushHistory]);
 
+  const orbitSelectedYaw = useCallback((deltaDeg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !objectsRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setObjects((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, yaw: wrapOrbitYaw((item.yaw ?? 0) + deltaDeg) } : item,
+      ),
+    );
+  }, [pushHistory]);
+
+  const orbitSelectedPitch = useCallback((deltaDeg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !objectsRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setObjects((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, pitch: clampOrbitPitch((item.pitch ?? 0) + deltaDeg) } : item,
+      ),
+    );
+  }, [pushHistory]);
+
+  const setSelectedOrbit = useCallback((yaw: number, pitch?: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !objectsRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setObjects((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              yaw: wrapOrbitYaw(yaw),
+              pitch: clampOrbitPitch(pitch ?? item.pitch ?? 0),
+            }
+          : item,
+      ),
+    );
+  }, [pushHistory]);
+
   const changeSelectedObjectType = useCallback((moduleType: FurnitureModuleType) => {
     const id = selectedIdRef.current;
     if (!id) return;
@@ -595,6 +641,8 @@ export function LeadAIAmbienteComposer({
         width: size.width,
         height: size.height,
         rotation: 0,
+        yaw: 0,
+        pitch: 0,
         colorHex: '#f2d892',
         viewMode,
       },
@@ -755,7 +803,7 @@ export function LeadAIAmbienteComposer({
       x: number,
       y: number,
       event: ReactPointerEvent,
-      size?: { width?: number; height?: number; rotation?: number },
+      size?: { width?: number; height?: number; rotation?: number; yaw?: number; pitch?: number },
     ) => {
       if (locked) return;
       event.stopPropagation();
@@ -776,6 +824,10 @@ export function LeadAIAmbienteComposer({
         origWidth: size?.width,
         origHeight: size?.height,
         origRotation: size?.rotation,
+        origYaw: size?.yaw,
+        origPitch: size?.pitch,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
       });
     },
     [locked, pointerToNorm, readScene],
@@ -867,6 +919,16 @@ export function LeadAIAmbienteComposer({
         const rotation = (drag.origRotation ?? 0) + (angleNow - angleStart);
         setObjects((prev) =>
           prev.map((item) => (item.id === drag.id ? { ...item, rotation } : item)),
+        );
+        return;
+      }
+      if (drag.kind === 'orbit-object') {
+        const px = event.clientX - (drag.startClientX ?? event.clientX);
+        const py = event.clientY - (drag.startClientY ?? event.clientY);
+        const yaw = wrapOrbitYaw((drag.origYaw ?? 0) + px * 0.5);
+        const pitch = clampOrbitPitch((drag.origPitch ?? 0) - py * 0.38);
+        setObjects((prev) =>
+          prev.map((item) => (item.id === drag.id ? { ...item, yaw, pitch } : item)),
         );
         return;
       }

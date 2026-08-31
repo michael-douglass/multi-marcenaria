@@ -44,7 +44,7 @@ export function RealisticFurniturePreview({ moduleType, className }: RealisticFu
           className="text-[10px] uppercase tracking-[0.18em] text-[#f2d892]"
           style={{ fontFamily: "'Bebas Neue', sans-serif" }}
         >
-          {meta.label} · tamanho na foto
+          {meta.label} · gire na lousa
         </p>
       </div>
     </div>

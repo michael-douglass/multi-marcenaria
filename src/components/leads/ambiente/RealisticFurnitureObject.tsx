@@ -7,6 +7,8 @@ interface RealisticFurnitureObjectProps {
   moduleType: FurnitureModuleType;
   selected?: boolean;
   className?: string;
+  yaw?: number;
+  pitch?: number;
 }
 
 /**
@@ -16,18 +18,20 @@ export function RealisticFurnitureObject({
   moduleType,
   selected = false,
   className,
+  yaw = 0,
+  pitch = 0,
 }: RealisticFurnitureObjectProps) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void getRealisticFurnitureDataUrl(moduleType).then((url) => {
+    void getRealisticFurnitureDataUrl(moduleType, 320, { yaw, pitch }).then((url) => {
       if (!cancelled) setSrc(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [moduleType]);
+  }, [moduleType, yaw, pitch]);
 
   if (!src) {
     return (

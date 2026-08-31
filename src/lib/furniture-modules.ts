@@ -789,19 +789,28 @@ export function getFamilyForModuleType(type: FurnitureModuleType): FurnitureFami
   return getFurnitureModuleMeta(type).family;
 }
 
-export type FurnitureCatalogGroupId = 'todos' | 'cozinha' | 'quarto' | 'espelho' | 'marcenaria' | 'sala';
+export type FurnitureCatalogGroupId =
+  | 'todos'
+  | 'cozinha'
+  | 'quarto'
+  | 'espelho'
+  | 'eletro'
+  | 'marcenaria'
+  | 'sala';
 
 export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; label: string }> = [
   { id: 'todos', label: 'Todos' },
-  { id: 'cozinha', label: 'Cozinha' },
+  { id: 'sala', label: 'Sala' },
   { id: 'quarto', label: 'Quarto' },
+  { id: 'cozinha', label: 'Cozinha' },
+  { id: 'eletro', label: 'Eletros' },
   { id: 'espelho', label: 'Espelhos' },
   { id: 'marcenaria', label: 'Marcenaria' },
-  { id: 'sala', label: 'Sala' },
 ];
 
 export function furnitureCatalogGroup(familyId: FurnitureFamilyId): Exclude<FurnitureCatalogGroupId, 'todos'> {
-  if (familyId === 'eletro' || familyId === 'cozinha') return 'cozinha';
+  if (familyId === 'eletro') return 'eletro';
+  if (familyId === 'cozinha') return 'cozinha';
   if (familyId === 'espelho') return 'espelho';
   if (familyId === 'sala') return 'sala';
   if (familyId === 'quarto' || familyId === 'mesa_cabeceira' || familyId === 'guarda_roupa') {

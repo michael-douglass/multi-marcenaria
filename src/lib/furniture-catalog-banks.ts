@@ -1,6 +1,9 @@
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import {
+  FURNITURE_FAMILIES,
+  FURNITURE_MODULES,
   getFurnitureModuleMeta,
+  getFurnitureVariants,
   searchFurnitureModules,
   type FurnitureCatalogGroupId,
   type FurnitureModuleMeta,
@@ -28,19 +31,19 @@ export const FURNITURE_CATALOG_BANKS: FurnitureCatalogBank[] = [
     id: 'reto',
     label: 'Retos',
     kicker: 'Frontal',
-    hint: 'Desenho de frente — planta reta, sem profundidade. O mesmo móvel do banco 3D.',
+    hint: 'Todos os móveis de frente — planta reta, sem profundidade.',
   },
   {
     id: '3d',
     label: '3D',
     kicker: 'Volume',
-    hint: 'Desenho em volume — o mesmo móvel do banco retos, com profundidade.',
+    hint: 'Os mesmos móveis em volume, com profundidade.',
   },
   {
     id: 'realista',
     label: 'Realistas',
     kicker: 'Casa',
-    hint: 'Peças para montar o projeto na casa do cliente — tamanho ajustável na cena.',
+    hint: 'Os mesmos móveis em madeira 3D — gire para os lados, frente e costas.',
   },
 ];
 
@@ -50,36 +53,17 @@ export interface RealisticProjectGroup {
   types: FurnitureModuleType[];
 }
 
-/** Banco da casa do cliente: cadeiras, sofás, guarda-roupas e módulos. */
-export const REALISTIC_PROJECT_GROUPS: RealisticProjectGroup[] = [
-  {
-    id: 'cadeiras',
-    label: 'Cadeiras',
-    types: ['cadeira', 'cadeira_poltrona', 'puff'],
-  },
-  {
-    id: 'sofas',
-    label: 'Sofás',
-    types: ['sofa', 'sofa_2lugares', 'sofa_canto'],
-  },
-  {
-    id: 'guarda_roupas',
-    label: 'Guarda-roupas',
-    types: ['guarda_roupa', 'guarda_roupa_casal', 'guarda_roupa_correr', 'guarda_roupa_gavetas'],
-  },
-  {
-    id: 'modulos',
-    label: 'Módulos',
-    types: ['modulo_cubo', 'nicho', 'nicho_vazio', 'armario_2_portas', 'armario_vazio', 'rack'],
-  },
-];
+/** Famílias do catálogo completo — Realistas e Retos usam a mesma lista. */
+export const REALISTIC_PROJECT_GROUPS: RealisticProjectGroup[] = FURNITURE_FAMILIES.map((family) => ({
+  id: family.id,
+  label: family.label,
+  types: getFurnitureVariants(family.id).map((mod) => mod.type),
+}));
 
-const REALISTIC_TYPES = new Set(
-  REALISTIC_PROJECT_GROUPS.flatMap((group) => group.types),
-);
+const ALL_MODULE_TYPES = new Set(FURNITURE_MODULES.map((mod) => mod.type));
 
 export function isRealisticProjectType(type: FurnitureModuleType): boolean {
-  return REALISTIC_TYPES.has(type);
+  return ALL_MODULE_TYPES.has(type);
 }
 
 export function searchCatalogBank(
@@ -87,25 +71,24 @@ export function searchCatalogBank(
   query: string,
   group: FurnitureCatalogGroupId | string,
 ): FurnitureModuleMeta[] {
-  if (bank !== 'realista') {
-    return searchFurnitureModules(query, group as FurnitureCatalogGroupId);
-  }
-
-  const allowedTypes =
-    group === 'todos'
-      ? REALISTIC_PROJECT_GROUPS.flatMap((item) => item.types)
-      : (REALISTIC_PROJECT_GROUPS.find((item) => item.id === group)?.types ??
-        REALISTIC_PROJECT_GROUPS.flatMap((item) => item.types));
-
-  const hits = searchFurnitureModules(query, 'todos');
-  const byType = new Map(hits.map((mod) => [mod.type, mod]));
-  return allowedTypes
-    .map((type) => byType.get(type))
-    .filter((mod): mod is FurnitureModuleMeta => Boolean(mod));
+  void bank;
+  return searchFurnitureModules(query, group as FurnitureCatalogGroupId);
 }
 
 export function furnitureViewIsFlat(mode: FurnitureViewMode | undefined): boolean {
   return mode === 'reto';
+}
+
+export function wrapOrbitYaw(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
+export function clampOrbitPitch(deg: number): number {
+  return Math.min(48, Math.max(-36, deg));
+}
+
+export function quantizeOrbitDeg(deg: number, step = 5): number {
+  return Math.round(deg / step) * step;
 }
 
 /** Tamanho inicial na foto — sofá mais largo, cadeira mais compacta. */

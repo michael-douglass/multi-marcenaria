@@ -21,8 +21,12 @@ export interface AmbienteFurnitureObject {
   y: number;
   width: number;
   height: number;
-  /** Graus no sentido horário. */
+  /** Giro no plano da foto (graus, sentido horário). */
   rotation: number;
+  /** Virar a peça no eixo vertical — 0 frente, 90 lado, 180 costas. */
+  yaw?: number;
+  /** Inclinar para ver de cima ou de baixo. */
+  pitch?: number;
   colorHex?: string;
   /** reto = frontal; 3d = volume; realista = madeira na casa do cliente. */
   viewMode?: FurnitureViewMode;
