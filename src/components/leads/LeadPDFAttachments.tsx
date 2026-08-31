@@ -70,6 +70,7 @@ import {
 } from '@/lib/lead-attachments-access';
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { LeadAttachmentFolderCard } from '@/components/leads/LeadAttachmentFolderCard';
+import { requestLeadWhiteboardImport } from '@/lib/lead-whiteboard-import';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   buildLeadFotosPdfFile,
@@ -766,6 +767,36 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const { data: aiRenders = [] } = useLeadAIRenders(leadId);
   const deleteRenderMutation = useDeleteLeadAIRender(leadId);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [uploadFolderName, setUploadFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderDraft, setNewFolderDraft] = useState('');
+  const [pickOpen, setPickOpen] = useState(false);
+  const [queuedFiles, setQueuedFiles] = useState<File[] | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string; nome: string } | null>(null);
+  const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
+  const [fullscreenView, setFullscreenView] = useState<{
+    kind: 'pdf' | 'image' | 'video';
+    cacheKey: string;
+    fileUrl: string;
+    fileName: string;
+    imageLabel?: string;
+    imageKey?: string;
+    file?: File;
+  } | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExportProcessing, setIsExportProcessing] = useState(false);
+  const [insideRename, setInsideRename] = useState(false);
+  const [insideRenameDraft, setInsideRenameDraft] = useState('');
+
   const anexosComRenders = useMemo(() => {
     const unsynced = listUnsyncedAiRenders(aiRenders, pdfs).map(aiRenderToLeadPDF);
     const withForm = mergeLeadAttachmentsDedupeByUrl(pdfs, formUploadAttachments);
@@ -832,33 +863,21 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     }),
     [flushPendingPDFs, hasPendingPdfs, clearPendingPdfs],
   );
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [uploadFolderName, setUploadFolderName] = useState('');
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [newFolderDraft, setNewFolderDraft] = useState('');
-  const [pickOpen, setPickOpen] = useState(false);
-  const [queuedFiles, setQueuedFiles] = useState<File[] | null>(null);
-  const [folderToDelete, setFolderToDelete] = useState<{ id: string; nome: string } | null>(null);
-  const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
-  const [fullscreenView, setFullscreenView] = useState<{
-    kind: 'pdf' | 'image' | 'video';
-    cacheKey: string;
-    fileUrl: string;
-    fileName: string;
-    imageLabel?: string;
-    imageKey?: string;
-    file?: File;
-  } | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [preparingId, setPreparingId] = useState<string | null>(null);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [isExportProcessing, setIsExportProcessing] = useState(false);
+
+  useEffect(() => {
+    setInsideRename(false);
+    setInsideRenameDraft('');
+    setIsSelectionMode(false);
+    setSelectedImageIds(new Set());
+  }, [currentFolderId]);
+
+  useEffect(() => {
+    if (!currentFolderId || isLeadUnfiledFolderId(currentFolderId)) return;
+    if (foldersLoading) return;
+    if (!folders.some((folder) => folder.id === currentFolderId)) {
+      setCurrentFolderId(null);
+    }
+  }, [currentFolderId, folders, foldersLoading]);
 
   const galleryImages = useMemo((): GalleryImageItem[] => {
     const sourcePending = viewingRoot ? pendingPdfs : pendingInView;
@@ -963,6 +982,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       leadId,
       uploadPDF,
       exitSelectionMode,
+      viewingUnfiled,
+      currentFolderId,
+      viewingRoot,
+      uploadFolderName,
+      currentFolder?.nome,
     ],
   );
 
@@ -1117,7 +1141,12 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       if (!files || files.length === 0) return;
       const list = Array.from(files);
 
-      if (!viewingRoot && !viewingUnfiled && currentFolderId) {
+      if (!viewingRoot && viewingUnfiled) {
+        await sendFilesToFolder(list, { folderId: null });
+        return;
+      }
+
+      if (!viewingRoot && currentFolderId) {
         await sendFilesToFolder(list, { folderId: currentFolderId, folderName: currentFolder?.nome });
         return;
       }
@@ -1244,7 +1273,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const folderLabel = viewingUnfiled ? 'Sem pasta' : currentFolder?.nome ?? 'Pasta';
   const uploadHint = !canUploadPdf
     ? 'Você não tem permissão para anexar arquivos'
-    : !viewingRoot && !viewingUnfiled
+    : !viewingRoot
       ? `Enviar para “${folderLabel}” · máx. 200MB`
       : leadId
         ? 'PDF, foto ou vídeo · arraste aqui · máx. 200MB'
@@ -1329,7 +1358,38 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
           </Button>
           <span className="text-muted-foreground">/</span>
           <FolderOpen className="h-4 w-4 text-amber-700" />
-          <span className="font-medium text-[#1a100c]">{folderLabel}</span>
+          {insideRename ? (
+            <Input
+              value={insideRenameDraft}
+              autoFocus
+              placeholder={viewingUnfiled ? 'Ex.: Sala' : undefined}
+              className="h-8 max-w-[10rem] text-sm"
+              onChange={(e) => setInsideRenameDraft(e.target.value)}
+              onBlur={() => {
+                const next = insideRenameDraft.trim();
+                setInsideRename(false);
+                if (!next) {
+                  setInsideRenameDraft(viewingUnfiled ? '' : folderLabel);
+                  return;
+                }
+                if (viewingUnfiled) void handleBaptizeUnfiled(next);
+                else if (currentFolder) void updateFolder({ id: currentFolder.id, nome: next });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLInputElement).blur();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setInsideRename(false);
+                  setInsideRenameDraft(viewingUnfiled ? '' : folderLabel);
+                }
+              }}
+            />
+          ) : (
+            <span className="font-medium text-[#1a100c]">{folderLabel}</span>
+          )}
           {canUploadPdf && (
             <Button
               type="button"
@@ -1338,13 +1398,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               className="h-7 w-7"
               title={viewingUnfiled ? 'Dar um nome à pasta' : 'Renomear'}
               onClick={() => {
-                const next = window.prompt(
-                  viewingUnfiled ? 'Nome da pasta' : 'Novo nome',
-                  viewingUnfiled ? '' : folderLabel,
-                );
-                if (!next?.trim()) return;
-                if (viewingUnfiled) void handleBaptizeUnfiled(next);
-                else if (currentFolder) void updateFolder({ id: currentFolder.id, nome: next });
+                setInsideRenameDraft(viewingUnfiled ? '' : folderLabel);
+                setInsideRename(true);
               }}
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -1473,7 +1528,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         </p>
       )}
 
-      {isLoading && foldersLoading && pdfsVisiveis.length === 0 && folders.length === 0 ? (
+      {(isLoading || foldersLoading) && folders.length === 0 && pdfsVisiveis.length === 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Skeleton className="aspect-[3/4] rounded" />
           <Skeleton className="aspect-[3/4] rounded" />
@@ -1678,6 +1733,31 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   <Maximize2 className="h-3 w-3 text-muted-foreground opacity-60" />
                 </div>
               </div>
+              {canUploadPdf && !isSelectionMode && viewKind === 'image' && typeof leadId === 'number' && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-1.5 left-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                  title="Editar na lousa"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    requestLeadWhiteboardImport({
+                      leadId,
+                      fileUrl: pdf.file_url,
+                      fileName: pdf.file_name,
+                      folderId: viewingUnfiled ? null : currentFolderId,
+                      folderName: viewingUnfiled ? null : currentFolder?.nome,
+                    });
+                    document.getElementById('lead-whiteboard')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'center',
+                    });
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {canDeletePdf && !isSelectionMode && !isFormUpload && (
                 <Button
                   type="button"

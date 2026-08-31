@@ -44,6 +44,7 @@ interface LeadFolderPickDialogProps {
   folderNameLabel?: string;
   notesToggle?: boolean;
   notesCount?: number;
+  defaultFolderId?: string | null;
   onConfirm: (
     folderId: string | null,
     options?: { fileName: string; includeNotes: boolean; folderName?: string },
@@ -69,6 +70,7 @@ export function LeadFolderPickDialog({
   folderNameLabel = 'Nome da pasta',
   notesToggle = false,
   notesCount = 0,
+  defaultFolderId = null,
   onConfirm,
 }: LeadFolderPickDialogProps) {
   const { folders, createFolder, isCreating } = useLeadMediaFolders(leadId);
@@ -83,14 +85,14 @@ export function LeadFolderPickDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedId(null);
+    setSelectedId(defaultFolderId);
     setIsCreatingNew(false);
     setNewNome('');
     setFileName(defaultFileName);
     setFolderNome(defaultFolderName);
     setChoseUnfiled(false);
     setIncludeNotes(notesCount > 0);
-  }, [open, defaultFileName, defaultFolderName, notesCount]);
+  }, [open, defaultFileName, defaultFolderName, defaultFolderId, notesCount]);
 
   const canConfirm =
     (selectedId !== null ||

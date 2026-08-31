@@ -73,9 +73,15 @@ import { useWhiteboardTextConfig } from '@/hooks/useWhiteboardTextConfig';
 import { usePermissions } from '@/hooks/usePermissions';
 import { buildWhiteboardAttachmentFile } from '@/lib/lead-whiteboard-save';
 import { WhiteboardProjectImagePicker } from '@/components/leads/whiteboard/WhiteboardProjectImagePicker';
+import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { WhiteboardCameraCapture, type WhiteboardCameraCaptureHandle } from '@/components/leads/whiteboard/WhiteboardCameraCapture';
 import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
 import type { LeadMidiaDisponivel } from '@/lib/orcamento-slide-types';
+import { sanitizeVisitFileBaseName } from '@/lib/lead-photo-checklist-catalog';
+import {
+  LEAD_WHITEBOARD_IMPORT_EVENT,
+  type LeadWhiteboardImportDetail,
+} from '@/lib/lead-whiteboard-import';
 import {
   WHITEBOARD_FONT_SIZE_MIN,
   WHITEBOARD_FONT_SIZE_MAX,
@@ -234,7 +240,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     isSaving,
   } = useLeadWhiteboard(leadId);
 
-  const { uploadPDF } = useLeadPDFs(leadId);
+  const { uploadPDF, pdfs } = useLeadPDFs(leadId);
+  const suggestedFolderIdRef = useRef<string | null>(null);
+  const suggestedFolderNameRef = useRef<string>('');
+  const pendingSaveFileRef = useRef<File | null>(null);
+  const savePreviewUrlRef = useRef<string | null>(null);
+  const [savePickerOpen, setSavePickerOpen] = useState(false);
+  const [savePreviewUrl, setSavePreviewUrl] = useState<string | null>(null);
+  const [saveDefaultFileName, setSaveDefaultFileName] = useState('');
   const { isSuperAdmin } = useAuth();
   const { userRole, hasPermission } = usePermissions();
   const canUploadAttachment =
@@ -1021,25 +1034,21 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         legacyFallbackImageId: activeImage.id,
       });
 
-      await uploadPDF(file);
-      await clearWhiteboard();
-
-      setActiveImageId(null);
-      setOptimisticAnnotations([]);
-      setSelectedAnnotationId(null);
-      setAutoFocusTextId(null);
-      setRemapTextPayloadIds(null);
-      textLivePayloadsRef.current = {};
-      pendingTextCommitRef.current = {};
-      resetHistory();
-
-      toast.success('Foto com desenhos salva nos anexos. A lousa foi limpa para um novo trabalho.');
+      pendingSaveFileRef.current = file;
+      if (savePreviewUrlRef.current) URL.revokeObjectURL(savePreviewUrlRef.current);
+      const preview = URL.createObjectURL(file);
+      savePreviewUrlRef.current = preview;
+      setSavePreviewUrl(preview);
+      setSaveDefaultFileName(
+        sanitizeVisitFileBaseName(activeImage.file_name.replace(/\.[^.]+$/, '') || 'foto-lousa'),
+      );
+      setSavePickerOpen(true);
     } catch (error) {
       toast.error('Não foi possível salvar a lousa', {
         description: error instanceof Error ? error.message : undefined,
       });
     } finally {
-      setIsSavingAttachment(false);
+      if (!pendingSaveFileRef.current) setIsSavingAttachment(false);
     }
   }, [
     leadId,
@@ -1049,9 +1058,6 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     drawings,
     optimisticAnnotations,
     legacyFallbackImageId,
-    uploadPDF,
-    clearWhiteboard,
-    resetHistory,
   ]);
 
   useImperativeHandle(ref, () => ({ saveToAttachments }), [saveToAttachments]);
@@ -1068,6 +1074,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           boardWidth,
         });
         if (created) {
+          suggestedFolderIdRef.current = midia.folder_id ?? null;
+          suggestedFolderNameRef.current = '';
           setActiveImageId(created.id);
           setProjectPickerOpen(false);
         }
@@ -1077,6 +1085,71 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     },
     [leadId, disabled, importImageFromUrl],
   );
+
+  const confirmSaveToFolder = useCallback(
+    async (
+      folderId: string | null,
+      options?: { fileName: string; includeNotes: boolean; folderName?: string },
+    ) => {
+      const file = pendingSaveFileRef.current;
+      if (!file || !leadId) return;
+      const base = options?.fileName?.trim();
+      const named = base
+        ? new File([file], `${sanitizeVisitFileBaseName(base)}.jpg`, {
+            type: file.type || 'image/jpeg',
+          })
+        : file;
+      try {
+        await uploadPDF(named, {
+          folderId,
+          folderName: options?.folderName,
+        });
+        await clearWhiteboard();
+        setActiveImageId(null);
+        setOptimisticAnnotations([]);
+        setSelectedAnnotationId(null);
+        setAutoFocusTextId(null);
+        setRemapTextPayloadIds(null);
+        textLivePayloadsRef.current = {};
+        pendingTextCommitRef.current = {};
+        resetHistory();
+        pendingSaveFileRef.current = null;
+        if (savePreviewUrlRef.current) {
+          URL.revokeObjectURL(savePreviewUrlRef.current);
+          savePreviewUrlRef.current = null;
+        }
+        setSavePreviewUrl(null);
+        toast.success('Foto com desenhos salva nos anexos. A lousa foi limpa para um novo trabalho.');
+      } catch (error) {
+        toast.error('Não foi possível salvar a lousa', {
+          description: error instanceof Error ? error.message : undefined,
+        });
+        throw error;
+      } finally {
+        setIsSavingAttachment(false);
+      }
+    },
+    [leadId, uploadPDF, clearWhiteboard, resetHistory],
+  );
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<LeadWhiteboardImportDetail>).detail;
+      if (!detail || detail.leadId !== leadId || disabled) return;
+      suggestedFolderIdRef.current = detail.folderId ?? null;
+      suggestedFolderNameRef.current = detail.folderName ?? '';
+      const boardWidth = boardAreaRef.current?.clientWidth ?? 800;
+      void importImageFromUrl({
+        fileUrl: detail.fileUrl,
+        fileName: detail.fileName,
+        boardWidth,
+      }).then((created) => {
+        if (created) setActiveImageId(created.id);
+      });
+    };
+    window.addEventListener(LEAD_WHITEBOARD_IMPORT_EVENT, handler);
+    return () => window.removeEventListener(LEAD_WHITEBOARD_IMPORT_EVENT, handler);
+  }, [leadId, disabled, importImageFromUrl]);
 
   const undoEphemeralStep = useCallback((): boolean => {
     if (toolRef.current === 'points' && pendingPolyline && pendingPolyline.length > 0) {
@@ -2842,6 +2915,35 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         />
       )}
 
+      <LeadFolderPickDialog
+        open={savePickerOpen}
+        onOpenChange={(open) => {
+          setSavePickerOpen(open);
+          if (!open && pendingSaveFileRef.current) {
+            pendingSaveFileRef.current = null;
+            if (savePreviewUrlRef.current) {
+              URL.revokeObjectURL(savePreviewUrlRef.current);
+              savePreviewUrlRef.current = null;
+            }
+            setSavePreviewUrl(null);
+            setIsSavingAttachment(false);
+          }
+        }}
+        leadId={typeof leadId === 'number' ? leadId : null}
+        title="Onde guardar esta foto?"
+        description="A foto da lousa entra na gaveta escolhida. A lousa é limpa depois de salvar."
+        confirmLabel="Salvar nesta pasta"
+        previewUrl={savePreviewUrl}
+        allowUnfiled={false}
+        elevated={variant === 'fullscreen'}
+        coverItems={pdfs}
+        askFileName
+        defaultFileName={saveDefaultFileName}
+        defaultFolderId={suggestedFolderIdRef.current}
+        defaultFolderName={suggestedFolderNameRef.current}
+        onConfirm={(folderId, options) => confirmSaveToFolder(folderId, options)}
+      />
+
       <WhiteboardCameraCapture
         ref={cameraCaptureRef}
         open={cameraCaptureOpen}
@@ -2921,6 +3023,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
 
   return (
     <div
+      id="lead-whiteboard"
       className="space-y-2 w-full overflow-hidden rounded-xl border border-border/80 bg-gradient-to-b from-card/80 to-card/30 p-3 sm:border-0 sm:bg-transparent sm:p-0 sm:rounded-none"
       onPointerDown={(e) => e.stopPropagation()}
     >

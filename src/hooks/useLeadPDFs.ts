@@ -338,7 +338,16 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     }
 
     try {
-      await uploadPDFToLead(leadId, file, undefined, folder?.folderId ?? null);
+      let resolvedFolderId = folder?.folderId ?? null;
+      if (folder?.folderName && !folder.folderId) {
+        resolvedFolderId = await ensureLeadFolderId(
+          mediasConfig.schema,
+          mediasConfig.foldersTable,
+          leadId,
+          folder.folderName,
+        );
+      }
+      await uploadPDFToLead(leadId, file, undefined, resolvedFolderId);
       invalidateAttachmentQueries(leadId);
       toast.success('Arquivo anexado com sucesso');
     } catch (error) {

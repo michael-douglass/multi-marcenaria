@@ -58,7 +58,7 @@ export function LeadAttachmentFolderCard({
         'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-both',
         isUnfiled
           ? 'border-dashed border-[rgba(26,16,12,0.28)] bg-[rgba(26,16,12,0.03)]'
-          : 'border-amber-500/25 bg-gradient-to-br from-[rgba(42,24,18,0.08)] to-[rgba(26,16,12,0.04)] shadow-[inset_0_1px_0_rgba(242,216,146,0.22),0_10px_24px_rgba(0,0,0,0.18)] hover:-translate-y-0.5 hover:border-amber-400/50',
+          : 'border-amber-500/25 bg-gradient-to-br from-[rgba(78,52,40,0.80)] to-[rgba(52,34,26,0.40)] shadow-[inset_0_1px_0_rgba(242,216,146,0.22),0_10px_24px_rgba(0,0,0,0.18)] hover:-translate-y-0.5 hover:border-amber-400/50',
       )}
       style={{ animationDelay: `${Math.min(index * 40, 280)}ms` }}
     >
@@ -191,11 +191,17 @@ export function LeadAttachmentFolderCard({
             }}
           />
         ) : (
-          <h3 className="w-full truncate text-sm font-semibold text-[#1a100c]" title={nome}>
+          <h3
+            className={cn(
+              'w-full truncate text-sm font-semibold',
+              isUnfiled ? 'text-[#1a100c]' : 'text-amber-50',
+            )}
+            title={nome}
+          >
             {nome}
           </h3>
         )}
-        <p className="mt-0.5 text-[11px] text-[#6b5244]">
+        <p className={cn('mt-0.5 text-[11px]', isUnfiled ? 'text-[#6b5244]' : 'text-amber-100/70')}>
           {fileCount} {fileCount === 1 ? 'arquivo' : 'arquivos'}
         </p>
       </button>

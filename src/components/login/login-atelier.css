@@ -1,0 +1,301 @@
+/* Porta do ateliê — login GARBO (mogno, ouro, placa viva) */
+
+.login-atelier {
+  --login-gold: #f2d892;
+  --login-cream: #fff6ea;
+  --login-mahogany: #2a1812;
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4.5rem 1.25rem 2.5rem;
+  background:
+    radial-gradient(ellipse 80% 50% at 12% 8%, rgba(242, 216, 146, 0.14), transparent 58%),
+    radial-gradient(ellipse 55% 45% at 92% 88%, rgba(80, 25, 8, 0.55), transparent 62%),
+    #1a100c;
+}
+
+.login-atelier__grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+.login-atelier__stage {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 58rem);
+  display: grid;
+  gap: 2.25rem;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .login-atelier__stage {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 3.25rem;
+  }
+}
+
+.login-atelier__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.85rem;
+}
+
+@media (min-width: 900px) {
+  .login-atelier__brand {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.login-atelier__kicker {
+  margin: 0;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.28em;
+  font-size: 0.78rem;
+  color: rgba(242, 216, 146, 0.72);
+  text-transform: uppercase;
+}
+
+.login-atelier__title {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4vw, 3.15rem);
+  line-height: 0.95;
+  color: var(--login-cream);
+}
+
+.login-atelier__lede {
+  margin: 0;
+  max-width: 22rem;
+  font-family: Raleway, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(212, 188, 159, 0.88);
+}
+
+.login-atelier__card {
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+  padding: 1.85rem 1.65rem 1.5rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(242, 216, 146, 0.22);
+  background:
+    linear-gradient(180deg, rgba(62, 38, 28, 0.55), transparent 42%),
+    rgba(20, 10, 7, 0.78);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(242, 216, 146, 0.12);
+  backdrop-filter: blur(22px);
+}
+
+@media (min-width: 900px) {
+  .login-atelier__card {
+    margin-inline: 0 0 auto;
+  }
+}
+
+.login-atelier__label {
+  color: var(--login-gold);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: Raleway, sans-serif;
+}
+
+.login-atelier__input {
+  height: 2.65rem;
+  border-color: rgba(242, 216, 146, 0.28) !important;
+  background: rgba(10, 6, 4, 0.45) !important;
+  color: var(--login-cream) !important;
+  font-family: Raleway, sans-serif;
+}
+
+.login-atelier__input::placeholder {
+  color: rgba(212, 188, 159, 0.45);
+}
+
+.login-atelier__input:focus-visible {
+  box-shadow: 0 0 0 2px rgba(242, 216, 146, 0.35);
+}
+
+.login-atelier__enter {
+  margin-top: 0.15rem;
+  height: 2.75rem;
+  width: 100%;
+  border: none;
+  border-radius: 0.55rem;
+  background: linear-gradient(135deg, #f2d892 0%, #a87830 100%);
+  color: #2a1812;
+  font-family: Raleway, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  box-shadow: 0 10px 24px rgba(168, 120, 48, 0.28);
+}
+
+.login-atelier__enter:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 14px 28px rgba(168, 120, 48, 0.38);
+}
+
+.login-atelier__enter:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-atelier__ghost {
+  width: 100%;
+  margin-top: 0.15rem;
+  padding: 0.4rem;
+  border: none;
+  background: transparent;
+  color: rgba(242, 216, 146, 0.55);
+  font-family: Raleway, sans-serif;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.login-atelier__ghost:hover:not(:disabled) {
+  color: var(--login-gold);
+}
+
+.login-logo-mark {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.15rem 1.45rem;
+  border: none;
+  border-radius: 1.15rem;
+  cursor: pointer;
+  background: linear-gradient(165deg, #fffaf1 0%, #f3e6d0 55%, #ead7b4 100%);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(242, 216, 146, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: perspective(820px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform 160ms ease, box-shadow 200ms ease;
+}
+
+.login-logo-mark:hover,
+.login-logo-mark:focus-visible {
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(242, 216, 146, 0.7),
+    0 0 28px rgba(242, 216, 146, 0.22);
+}
+
+.login-logo-mark:focus-visible {
+  outline: 2px solid #f2d892;
+  outline-offset: 4px;
+}
+
+.login-logo-mark--pressed {
+  transform: perspective(820px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(0.985);
+}
+
+.login-logo-mark__wood {
+  position: absolute;
+  inset: 8px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  opacity: 0.28;
+}
+
+.login-logo-mark__frame {
+  pointer-events: none;
+  position: absolute;
+  inset: 7px;
+  z-index: 1;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(168, 120, 48, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.login-logo-mark__sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.login-logo-mark__sheen::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -60%;
+  width: 45%;
+  height: 180%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: rotate(18deg);
+  animation: login-sheen 4.8s ease-in-out infinite;
+}
+
+.login-logo-mark__img {
+  position: relative;
+  z-index: 3;
+  height: 108px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 8px rgba(42, 24, 18, 0.12));
+}
+
+@media (min-width: 900px) {
+  .login-logo-mark__img {
+    height: 132px;
+  }
+}
+
+@keyframes login-sheen {
+  0%,
+  55% {
+    transform: translateX(0) rotate(18deg);
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(420%) rotate(18deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-logo-mark,
+  .login-atelier__enter {
+    transition: none;
+    transform: none;
+  }
+  .login-logo-mark__sheen::after {
+    animation: none;
+    opacity: 0;
+  }
+}

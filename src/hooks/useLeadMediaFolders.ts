@@ -90,6 +90,12 @@ export function useLeadMediaFolders(leadId: number | null | undefined) {
     }) => {
       const nextNome = normalizeFolderName(nome);
       if (!nextNome) throw new Error('Dê um nome para a pasta');
+      const duplicated = (query.data ?? []).some(
+        (item) => item.id !== id && item.nome.trim().toLowerCase() === nextNome.toLowerCase(),
+      );
+      if (duplicated) {
+        throw new Error('Já existe uma pasta com esse nome neste lead');
+      }
       const { error } = await db
         .from(mediasConfig.foldersTable as 'marketing_media_folders')
         .update({ nome: nextNome, descricao: descricao?.trim() || null })

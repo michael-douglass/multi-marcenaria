@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, FormEvent } from 'react'
+﻿import { useState, useEffect, useRef, FormEvent } from 'react'
 import {
   clearLocalAuthSession,
   getAuthRateLimitMessage,
@@ -8,6 +8,10 @@ import { isAuthRateLimited } from '@/lib/supabase-auth-storage'
 import { isNetworkFailure, NETWORK_FAILURE_USER_MESSAGE } from '@/lib/network-error'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+import { Input } from '@/components/ui/input'
+import { LoginAtmosphereFoil } from '@/components/login/LoginAtmosphereFoil'
+import { LoginLogoMark } from '@/components/login/LoginLogoMark'
+import '@/components/login/login-atelier.css'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -15,6 +19,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [clearingSession, setClearingSession] = useState(false)
+  const emailRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isAuthRateLimited()) return
@@ -69,199 +74,84 @@ export function Login() {
     }
   }
 
+  const busy = loading || clearingSession
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#2a1812',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem 1.5rem',
-        backgroundImage: [
-          'radial-gradient(ellipse 90% 55% at 50% -5%, rgba(240,210,140,.09) 0%, transparent 65%)',
-          'radial-gradient(ellipse 55% 45% at 85% 90%, rgba(80,25,8,.5) 0%, transparent 65%)',
-        ].join(', '),
-        position: 'relative',
-      }}
-    >
+    <div className="login-atelier">
       {loading ? <GarboLoadingBrand variant="overlay" message="Entrando..." /> : null}
+      <LoginAtmosphereFoil />
+      <div className="login-atelier__grain" aria-hidden />
       <AppRefreshButton variant="floating" />
-      {/* Logo block — displayed prominently above the card */}
-      <div
-        style={{
-          marginBottom: '2rem',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '.75rem',
-        }}
-      >
-        <div
-          style={{
-            background: '#fff',
-            borderRadius: '16px',
-            padding: '18px 24px',
-            boxShadow: '0 8px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(240,210,140,.18)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <img
-            src="/garbo-logo.png"
-            alt="GARBO Movelaria"
-            style={{ height: 120, width: 'auto', display: 'block' }}
-            draggable={false}
-          />
+
+      <div className="login-atelier__stage">
+        <div className="login-atelier__brand">
+          <LoginLogoMark onActivate={() => emailRef.current?.focus()} />
+          <p className="login-atelier__kicker">Sistema financeiro</p>
+          <h1 className="login-atelier__title">A porta do ateliê</h1>
+          <p className="login-atelier__lede">
+            A placa reage ao movimento do mouse. Clique nela para começar pelo e-mail.
+          </p>
         </div>
 
-        <p
-          style={{
-            color: 'rgba(240,210,140,.55)',
-            fontSize: '.72rem',
-            letterSpacing: '.18em',
-            textTransform: 'uppercase',
-            fontFamily: 'Raleway, sans-serif',
-            fontWeight: 600,
-          }}
-        >
-          Sistema Financeiro
-        </p>
-      </div>
+        <div className="login-atelier__card">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="login-email" className="login-atelier__label">
+                E-mail
+              </label>
+              <Input
+                ref={emailRef}
+                id="login-email"
+                type="email"
+                className="login-atelier__input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                autoFocus
+                autoComplete="email"
+              />
+            </div>
 
-      {/* Login card */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 380,
-          background: 'rgba(28,12,5,0.88)',
-          backdropFilter: 'blur(28px)',
-          border: '1px solid rgba(240,210,140,.2)',
-          borderRadius: '14px',
-          padding: '2.25rem 2rem',
-        }}
-      >
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="login-password" className="login-atelier__label">
+                Senha
+              </label>
+              <Input
+                id="login-password"
+                type="password"
+                className="login-atelier__input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
+            </div>
 
-          {/* Email field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-            <label
-              htmlFor="login-email"
-              style={{
-                color: '#e8c878',
-                fontSize: '.72rem',
-                fontWeight: 700,
-                letterSpacing: '.1em',
-                textTransform: 'uppercase',
-                fontFamily: 'Raleway, sans-serif',
-              }}
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-md border border-red-500/25 bg-red-500/[0.07] px-3 py-2 text-center font-[Raleway,sans-serif] text-[0.8rem] text-red-400"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            <button type="submit" className="login-atelier__enter" disabled={busy}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+
+            <button
+              type="button"
+              className="login-atelier__ghost"
+              onClick={() => void handleClearSession()}
+              disabled={busy}
             >
-              E-mail
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              required
-              autoFocus
-              autoComplete="email"
-            />
-          </div>
-
-          {/* Password field */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-            <label
-              htmlFor="login-password"
-              style={{
-                color: '#e8c878',
-                fontSize: '.72rem',
-                fontWeight: 700,
-                letterSpacing: '.1em',
-                textTransform: 'uppercase',
-                fontFamily: 'Raleway, sans-serif',
-              }}
-            >
-              Senha
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-
-          {/* Error message */}
-          {error && (
-            <p
-              style={{
-                color: '#f87171',
-                fontSize: '.8rem',
-                textAlign: 'center',
-                background: 'rgba(239,68,68,.07)',
-                border: '1px solid rgba(239,68,68,.2)',
-                borderRadius: '.6rem',
-                padding: '.55rem .75rem',
-                fontFamily: 'Raleway, sans-serif',
-              }}
-            >
-              {error}
-            </p>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading || clearingSession}
-            style={{
-              marginTop: '.1rem',
-              width: '100%',
-              padding: '.75rem 1rem',
-              background: loading ? 'rgba(240,210,140,.35)' : 'linear-gradient(135deg, #f2d892 0%, #a87830 100%)',
-              color: '#2a1812',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '.88rem',
-              fontWeight: 700,
-              fontFamily: 'Raleway, sans-serif',
-              letterSpacing: '.06em',
-              cursor: loading || clearingSession ? 'not-allowed' : 'pointer',
-              transition: 'opacity .15s',
-            }}
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void handleClearSession()}
-            disabled={loading || clearingSession}
-            style={{
-              marginTop: '.25rem',
-              width: '100%',
-              padding: '.45rem .75rem',
-              background: 'transparent',
-              color: 'rgba(240,210,140,.55)',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '.72rem',
-              fontFamily: 'Raleway, sans-serif',
-              cursor: loading || clearingSession ? 'not-allowed' : 'pointer',
-              textDecoration: 'underline',
-            }}
-          >
-            {clearingSession ? 'Limpando sessão...' : 'Problemas para entrar? Limpar sessão antiga'}
-          </button>
-        </form>
+              {clearingSession ? 'Limpando sessão...' : 'Problemas para entrar? Limpar sessão antiga'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )
