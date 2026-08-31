@@ -42,7 +42,14 @@ export function sintetizarItensExtraidos(
   if (resultado.itens_extraidos && resultado.itens_extraidos.length > 0) {
     return resultado.itens_extraidos.map((item) => ({
       ...item,
-      status_revisao: item.status_revisao ?? (deveAutoAceitarMatch(item.confianca) ? 'aceito' : 'pendente'),
+      status_revisao:
+        item.status_revisao ??
+        (deveAutoAceitarMatch(
+          item.confianca,
+          produtos.find((p) => p.id === item.produto_id) ?? null,
+        )
+          ? 'aceito'
+          : 'pendente'),
     }));
   }
 
@@ -51,6 +58,7 @@ export function sintetizarItensExtraidos(
     nome: p.nome,
     variacao: p.variacao,
     unidade: p.unidade,
+    preco_unitario: p.preco_unitario,
   }));
   const produtoMap = new Map(produtos.map((p) => [p.id, p]));
   const seen = new Set<string>();

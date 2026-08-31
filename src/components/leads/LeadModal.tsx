@@ -138,6 +138,17 @@ interface LeadModalProps {
 
 const FALLBACK_STATUSES = DEFAULT_PIPELINE_STAGES.map((s) => s.nome);
 
+const COPIA_SUFFIX = ' (cópia)';
+
+/** Nome da cópia — o vendedor vê na hora que não é o card original. */
+function nomeDaCopia(nome: string): string {
+  const trimmed = nome.trim();
+  if (!trimmed) return `Lead${COPIA_SUFFIX}`;
+  if (trimmed.toLowerCase().endsWith('(cópia)')) return trimmed.slice(0, 100);
+  if (trimmed.length + COPIA_SUFFIX.length <= 100) return `${trimmed}${COPIA_SUFFIX}`;
+  return `${trimmed.slice(0, 100 - COPIA_SUFFIX.length)}${COPIA_SUFFIX}`;
+}
+
 const LEAD_MODAL_FORM_ID = 'lead-modal-form';
 
 export function LeadModal({
@@ -418,6 +429,8 @@ export function LeadModal({
       setSelectedWebhookId('');
       setAutoSaveState('idle');
       setLeadModalTab('detalhes');
+      setShowDuplicateAlert(false);
+      setIsDuplicating(false);
       lastSavedSnapshotRef.current = null;
       budgetManualOverrideRef.current = false;
       skipPersistOnCloseRef.current = false;
@@ -955,9 +968,13 @@ export function LeadModal({
       const vendorDbUser = formData.vendor
         ? dbUsers?.find((u) => u.nome === formData.vendor)
         : null;
+      const mustAssignSelfOnCreate =
+        !isMasterUser &&
+        !hasRole('admin') &&
+        (hasRole('projetista') || hasRole('projetista_admin'));
 
       const newLead = await createLead.mutateAsync({
-        nome: formData.name!,
+        nome: nomeDaCopia(formData.name ?? ''),
         email: formData.email || null,
         telefone: formatInternationalPhone(formData.phone || '') || null,
         empresa: formData.company || null,
@@ -966,14 +983,16 @@ export function LeadModal({
         valor_negocio: formData.dealValue || 0,
         valor_orcamento: formData.budgetValue || 0,
         data_chegada: getTodaySaoPaulo(),
-        vendedor_responsavel_id:
-          vendorDbUser?.id || dbLead?.vendedor_responsavel_id || authUser?.id || null,
+        vendedor_responsavel_id: mustAssignSelfOnCreate
+          ? authUser?.id || null
+          : vendorDbUser?.id || dbLead?.vendedor_responsavel_id || authUser?.id || null,
         motivo_perda: null,
         observacoes: formData.observations || null,
         regiao: formData.regiao || null,
         regiao_tabela: formData.regiao
           ? regiaoToTabelaMap[formData.regiao] || null
           : null,
+        silent: true,
       });
 
       if (!newLead?.id) {
@@ -1010,7 +1029,7 @@ export function LeadModal({
 
       setShowDuplicateAlert(false);
       toast.success('Lead duplicado', {
-        description: 'Abrindo a cópia com os mesmos dados de contato e negócio.',
+        description: 'Abrindo a cópia — o nome ganhou “ (cópia)” para não misturar com o original.',
       });
 
       if (onLeadDuplicated) {
@@ -1112,11 +1131,21 @@ export function LeadModal({
     }
   };
 
+  const nestedOverlayOpen =
+    showDuplicateAlert ||
+    showDeleteAlert ||
+    showSaleValueDialog ||
+    showScheduleMeetingDialog ||
+    showLembreteDialog;
+
   return (
+    <>
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
         if (!open && filePickerActive) return;
+        // Clique na confirmação “Duplicar” não pode fechar o card no meio do caminho.
+        if (!open && nestedOverlayOpen) return;
         if (!open) requestClose();
       }}
     >
@@ -1130,12 +1159,15 @@ export function LeadModal({
           body.focus({ preventScroll: true });
         }}
         onPointerDownOutside={(e) => {
+          if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onInteractOutside={(e) => {
+          if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onFocusOutside={(e) => {
+          if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
@@ -2038,6 +2070,7 @@ export function LeadModal({
             </div>
           </form>
       </DialogContent>
+    </Dialog>
 
       <SaleValueDialog
         isOpen={showSaleValueDialog}
@@ -2054,7 +2087,7 @@ export function LeadModal({
           if (!isDuplicating) setShowDuplicateAlert(open);
         }}
       >
-        <AlertDialogContent className="border-gold-border-subtle/30 bg-mahogany-panel">
+        <AlertDialogContent nested className="border-gold-border-subtle/30 bg-mahogany-panel">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display tracking-wide text-gold">
               Duplicar lead
@@ -2091,7 +2124,7 @@ export function LeadModal({
       </AlertDialog>
 
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent>
+        <AlertDialogContent nested>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Lead</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2132,6 +2165,6 @@ export function LeadModal({
           leadName={formData.name || 'Lead'}
         />
       )}
-    </Dialog>
+    </>
   );
 }

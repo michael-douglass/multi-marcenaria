@@ -304,13 +304,16 @@ export async function resolveSelectedForAPIDetailed(
     );
   }
 
-  for (const item of limited) {
-    if (imageBudget <= 0) {
-      paginasOmitidas += 1;
-      continue;
-    }
+  const pdfs = limited.filter((item) => item.kind === 'pdf');
+  const imagens = limited.filter((item) => item.kind === 'image');
+  const ordenados = [...pdfs, ...imagens];
 
+  for (const item of ordenados) {
     if (item.kind === 'image' && item.fileUrl) {
+      if (imageBudget <= 0) {
+        paginasOmitidas += 1;
+        continue;
+      }
       payload.push({
         source: item.source,
         id: item.id,
@@ -334,11 +337,11 @@ export async function resolveSelectedForAPIDetailed(
       }
       if (totalPages <= 0) continue;
 
-      const pagesToSend = Math.min(totalPages, imageBudget);
+      const pagesToSend = Math.min(totalPages, Math.max(0, imageBudget));
       if (pagesToSend < totalPages) {
         paginasOmitidas += totalPages - pagesToSend;
         avisos.push(
-          `"${item.label}" tem ${totalPages} páginas; a IA vai ler as ${pagesToSend} primeiras (teto de ${PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas/imagens).`,
+          `"${item.label}" tem ${totalPages} páginas; a IA vai ler as ${pagesToSend} primeiras (teto de ${PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas/imagens). PDF tem prioridade sobre fotos.`,
         );
       }
 
@@ -359,10 +362,7 @@ export async function resolveSelectedForAPIDetailed(
 
       let extractedText: string | undefined;
       try {
-        const extraido = await extractPdfTextFromUrl(
-          item.fileUrl,
-          PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS,
-        );
+        const extraido = await extractPdfTextFromUrl(item.fileUrl, totalPages);
         if (extraido.hasText) extractedText = extraido.text;
       } catch {
         extractedText = undefined;

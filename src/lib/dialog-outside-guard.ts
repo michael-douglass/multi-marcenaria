@@ -62,6 +62,11 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-floating-ui-root]')) return true;
   if (target?.closest('[data-radix-dropdown-menu-content]')) return true;
   if (target?.closest('[role="menu"]')) return true;
+  // AlertDialog/Dialog aninhado (ex.: confirmar duplicar) vive em outro portal —
+  // sem isso o card do lead fecha no clique e a ação nunca termina.
+  if (target?.closest('[role="alertdialog"]')) return true;
+  if (target?.closest('[data-alert-dialog-overlay]')) return true;
+  if (target?.closest('[data-nested-dialog]')) return true;
 
   return false;
 }

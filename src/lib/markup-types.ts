@@ -399,22 +399,18 @@ REGRAS OBRIGATÓRIAS:
    c) Cabeçalho "SERVIÇO" e "VALOR TOTAL" do documento NÃO são materiais. Não some SERVIÇO (ex.: R$ 1.000,00 de serviço) em materiais.
    d) Estrutura única: cômodo "Orçamento Cortecloud" → móvel "Materiais do documento" com todas as linhas transcritas. Não divida por cômodos quando a planilha já lista os itens.
    e) PROIBIDO estimar/inventar materiais a partir de fotos quando a planilha informar QUANT. Não adicione puxadores, chapas ou ferragens que não estejam na planilha com QUANT > 0.
-   f) Mapeamentos frequentes: DOBRADIÇA RETA/CURVA → DOBRADIÇA variacao RETA/CURVA; CORREDIÇA OCULTA + VARI 45 → CORREDIÇA OCULTA variacao 45; MDF BRANCO + VARI 15 → MDF BRANCO variacao 15 (chapa); FITA MDF BRANCO + VARI 22 → MDF BRANCO variacao 22 (rolo); MADEIRA + VARI 22 na seção FITA DE BORDA → MADEIRA variacao 22 (rolo).
+   f) Copie o nome comercial da coluna MATERIAL (Branco eucatex, Beige Matt Arauco). Cruze com o catálogo. Não use apelido MDF BRANCO/ULTRA se o PDF tiver marca.
    g) Ao final, calcule o subtotal de materiais (soma quantidade × preco_unitario do catálogo) e informe no resumo_texto: "Subtotal de materiais calculado: R$ X" e "Subtotal no documento: R$ Y", destacando divergências.
    h) Exemplo de método correto (não copie valores se o documento for outro): MDF BRANCO/15/QTY 2 + MADEIRA/15/QTY 2 + CORREDIÇA OCULTA/45/QTY 4 + DOBRADIÇA RETA/QTY 20 + DOBRADIÇA CURVA/QTY 10 + FITA MDF BRANCO/22/QTY 1 + FITA MADEIRA/22/QTY 3 = subtotal materiais R$ 2.175,00 (sem incluir linha SERVIÇO).
 3. Se NÃO houver planilha Cortecloud, organize materiais por CÔMODOS e, dentro de cada cômodo, por MÓVEIS identificados nas fotos únicas.
 4. Materiais: use SOMENTE produto_id do catálogo {{catalogo}}. Não invente produtos.
-5. Serviços (mão de obra) — OBRIGATÓRIO preencher o array "servicos":
+   5. Serviços (mão de obra):
    - Use SOMENTE template_id do catálogo {{servicos_catalogo}}.
-   - Inclua UM item para CADA template do catálogo de serviços.
-   - Em cada item informe "horas" (número ≥ 0): sua estimativa de horas de mão de obra para aquele tipo neste projeto.
-   - O sistema calcula custo = horas × valor_hora_padrao do catálogo (NÃO informe valores em R$ em servicos).
-   - Critérios para estimar horas (ajuste pela complexidade visível no lead):
-     • Projeto/design: medição, layout, detalhamento (~6h por ambiente + ~1,5h por móvel).
-     • Produção: corte, colagem, montagem em oficina (~0,75h por linha de material + ~5h por móvel).
-     • Instalação: montagem no local (~3h por ambiente + ~2,5h por móvel).
-   - Projetos com entrega/instalação não devem ter instalação com 0h sem explicar no resumo_texto.
-   - No resumo_texto inclua seção "### Mão de obra" com horas por tipo e total de horas estimadas.
+   - Preencha horas > 0 SOMENTE em "Horas produção" (oficina) e "Horas instalação" (casa do cliente).
+   - Demais templates (projeto, JR, Pontua, comissão, outros): horas 0.
+   - O sistema calcula custo = horas × valor_hora_padrao (NÃO informe R$ em servicos).
+   - Produção: corte, colagem, montagem em oficina (~0,75h por linha + ~5h por móvel).
+   - Instalação: montagem no local (~3h por ambiente + ~2,5h por móvel).
 6. Despesas: use SOMENTE template_id do catálogo {{despesas_catalogo}}.
    - Para cada despesa do catálogo, defina ativo (true/false) e valor em reais.
    - Ative despesas plausíveis para o projeto (ex.: gasolina e pedágio se houver instalação externa).

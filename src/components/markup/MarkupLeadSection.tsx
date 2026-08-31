@@ -298,6 +298,7 @@ export function MarkupLeadSection({
           <MarkupCalculatorSheet
             key={`${leadId}-${orcamentoId ?? 'sem-id'}-${forceNovo ? 'novo' : 'edit'}`}
             open={sheetOpen}
+            modal={false}
             onOpenChange={(open) => {
               setSheetOpen(open);
               if (!open) {

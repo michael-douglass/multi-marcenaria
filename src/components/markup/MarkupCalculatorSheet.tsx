@@ -103,6 +103,11 @@ interface MarkupCalculatorSheetProps {
   forceNovo?: boolean;
   /** Atualiza o campo Orçamentos do lead na tela (sem marcar formulário sujo). */
   onPrecoFinalChange?: (valor: number) => void;
+  /**
+   * false = o card do lead continua clicável (Duplicar, fechar, etc.).
+   * Usado quando a calculadora abre de dentro do LeadModal.
+   */
+  modal?: boolean;
 }
 
 function linhasServicoIguais(
@@ -271,6 +276,7 @@ export function MarkupCalculatorSheet({
   orcamentoId: orcamentoIdProp,
   forceNovo = false,
   onPrecoFinalChange,
+  modal = true,
 }: MarkupCalculatorSheetProps) {
   const { empresa, schemaEmpresa, queriesReady } = useEmpresa();
   const { config, isLoading: loadingConfig } = useMarkupConfig();
@@ -1670,9 +1676,10 @@ export function MarkupCalculatorSheet({
 
   return (
     <>
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange} modal={modal}>
       <SheetContent
         side="right"
+        overlayClassName={modal ? undefined : 'pointer-events-none bg-black/40'}
         className="w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden"
       >
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
@@ -1845,7 +1852,7 @@ export function MarkupCalculatorSheet({
             </div>
           )}
           {config.markup_ia_ativo && (
-            <div className="pt-3">
+            <div className="pt-2">
               <MarkupIAAnexosPicker
                 items={leadMediaItems}
                 selectedKeys={selectedMediaKeys}

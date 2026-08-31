@@ -160,7 +160,7 @@ export function resolverProdutoNoCatalogo(
   const match = casarProdutoNoCatalogo(nome, variacao, catalog, {
     categoriaInventarioId,
   });
-  if (!deveAutoAceitarMatch(match.confianca) || !match.produto) return undefined;
+  if (!deveAutoAceitarMatch(match.confianca, match.produto) || !match.produto) return undefined;
   return catalog.find((p) => p.id === match.produto?.id);
 }
 
@@ -320,9 +320,9 @@ export function getCortecloudInventarioHint(categoriaId: string): string {
   switch (categoriaId) {
     case 'chapas_mdf':
       return `Seção CHAPAS / MDF: VARI 15/18/6 = espessura mm.
-Inclua TODAS as cores com QUANT > 0: MDF BRANCO, MADEIRA, NEUTRO, ULTRA.
-Cor de madeira no projeto (Noce/Amêndoa/Itapuã) → nome MADEIRA no catálogo.
-Formato: {"nome":"MDF BRANCO","variacao":"15","status":"encontrado","quantidade":N} com N = QUANT EXATO (some se houver várias linhas iguais).
+Transcreva o NOME COMERCIAL da coluna MATERIAL (ex.: Branco eucatex, Beige Matt Arauco, Freijo puro Duratex).
+NÃO substitua por apelidos MDF BRANCO / ULTRA / MADEIRA se o PDF tiver marca.
+Formato: {"nome":"Branco eucatex","variacao":"15mm","status":"encontrado","quantidade":N} com N = QUANT EXATO (some linhas iguais).
 PROIBIDO inventar chapas sem QUANT > 0. NÃO invente 18 se o documento só tem 15 e/ou 6.`;
     case 'ferragens_corr_dobr':
       return `Seção FERRAGENS — PRIORIDADE MÁXIMA.
@@ -333,8 +333,13 @@ Se QUANT > 0 → status "encontrado". Nunca marque ausente_documento com quantid
 PROIBIDO pular dobradiças/corrediças. NÃO copie quantidades de exemplos.`;
     case 'fita_borda':
       return `Seção FITAS DE BORDA: VARI 22/35/64 = largura do rolo (NÃO é chapa).
-Inclua SOMENTE linhas com QUANT > 0. Se só houver fita 22 com QUANT, NÃO invente 35 nem 64.
-Formato: {"nome":"MDF BRANCO","variacao":"22","status":"encontrado","quantidade":N}`;
+Inclua SOMENTE linhas com QUANT > 0. Copie o nome comercial da fita (BRANCA, MADEIRA, NEUTRO, ESPECIAL).
+Formato: {"nome":"MADEIRA","variacao":"22","status":"encontrado","quantidade":N}`;
+    case 'outras_ferragens':
+      return `Seção outras ferragens: puxadores, trilhos, dispositivos, TAB, RO82.
+Transcreva o nome do documento com QUANT > 0. Não invente se não houver QUANT.`;
+    case 'iluminacao':
+      return `Seção iluminação: perfis de LED (RM-331, RM-330, RM-329) com QUANT > 0.`;
   }
   return '';
 }

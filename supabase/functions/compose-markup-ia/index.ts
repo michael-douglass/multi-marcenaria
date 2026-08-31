@@ -166,16 +166,25 @@ function coletarTextoNativo(itens: AnalysisItem[]): string {
     .join('\n\n---\n\n');
 }
 
-function blocoTextoNativo(texto: string): string {
+const TEXTO_NATIVO_PROJETISTA_MAX = 20000;
+
+function blocoTextoNativo(texto: string, maxChars?: number): string {
   if (!texto.trim()) return '';
-  return `\n\nTEXTO EXTRAÍDO DOS PDFs (camada nativa — priorize quantidades daqui quando o documento for digital):\n${texto.slice(0, 12000)}`;
+  const corpo =
+    maxChars != null && texto.length > maxChars
+      ? `${texto.slice(0, maxChars)}\n\n[texto nativo truncado neste agente — o inventariante recebe o PDF completo]`
+      : texto;
+  return `\n\nTEXTO EXTRAÍDO DOS PDFs (todas as páginas, camada nativa — priorize QUANT/nome comercial daqui):\n${corpo}`;
 }
 
 async function buildImageParts(itens: AnalysisItem[]): Promise<OpenAIContentPart[]> {
   const parts: OpenAIContentPart[] = [];
   let imageCount = 0;
+  const pdfs = itens.filter((item) => (item.pagesBase64?.length ?? 0) > 0);
+  const imagens = itens.filter((item) => !item.pagesBase64?.length && item.imageUrl);
+  const ordenados = [...pdfs, ...imagens];
 
-  for (const item of itens) {
+  for (const item of ordenados) {
     if (imageCount >= MAX_IMAGES_TOTAL) break;
 
     if (item.pagesBase64?.length) {
@@ -402,7 +411,7 @@ async function loadCatalog(
   );
 
   return (produtos ?? [])
-    .filter((p: { preco_unitario: number | null }) => p.preco_unitario != null)
+    .filter((p: { preco_unitario: number | null }) => Number(p.preco_unitario) > 0)
     .map((p: {
       id: string;
       nome: string;
@@ -482,9 +491,11 @@ async function runInventarioFase(
 
     try {
       const hintCortecloud = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
+      const regraNomeComercial =
+        'Leia TODAS as páginas do texto nativo. Transcreva o nome comercial do documento (ex.: Branco eucatex, Freijo puro Duratex). NÃO troque por apelidos MDF BRANCO/ULTRA/MADEIRA se o PDF tiver marca. QUANT > 0 entra; sem QUANT = referencia_apenas.';
       const userIntro = modoCortecloud
-        ? `Inventarie a categoria "${cat.nome}". Use QUANT da planilha Cortecloud quando existir; cruze com o levantamento do projetista.`
-        : `Inventarie a categoria "${cat.nome}". Extraia nome, quantidade e especificação dos anexos (PDF/foto). Estime só o que estiver visível.`;
+        ? `Inventarie a categoria "${cat.nome}". Use QUANT da planilha quando existir. ${regraNomeComercial}`
+        : `Inventarie a categoria "${cat.nome}". Extraia nome, quantidade e especificação dos anexos. ${regraNomeComercial}`;
       const raw = await callOpenAIChat(openAiKey, model, [
         { role: 'system', content: catPrompt },
         {
@@ -872,7 +883,7 @@ async function runProjetistaFase(
       {
         role: 'user',
         content: [
-          { type: 'text', text: `${userContent}${blocoTextoNativo(textoNativo)}` },
+          { type: 'text', text: `${userContent}${blocoTextoNativo(textoNativo, TEXTO_NATIVO_PROJETISTA_MAX)}` },
           ...imageParts,
         ],
       },
@@ -977,7 +988,7 @@ async function runPrecificacaoFase(
     {
       role: 'user',
       content:
-        'Materiais já estão na composição. Estime horas de serviços, despesas e gere o resumo_texto. Não altere comodos.',
+        'Materiais já estão na composição. Estime horas SÓ de "Horas produção" (oficina/marcenaria) e "Horas instalação" (casa do cliente). Demais templates de serviço: horas 0. Não altere comodos.',
     },
   ]);
 

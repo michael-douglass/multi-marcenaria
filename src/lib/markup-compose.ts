@@ -10,6 +10,7 @@ import { sincronizarServicosComTemplates } from '@/lib/markup-servicos';
 import {
   estimarHorasServicosPorComposicao,
   mesclarHorasServicosIA,
+  servicoDeveReceberHorasIa,
 } from '@/lib/markup-servicos-estimativa';
 import {
   criarModulosVazios,
@@ -233,13 +234,14 @@ function aplicarServicosIA(
     (iaServicos ?? []).map((s) => [s.template_id, Math.max(0, s.horas)] as const),
   );
   const estimativaHoras = estimarHorasServicosPorComposicao(comodos, templates);
-  const horasFinais = mesclarHorasServicosIA(horasIaMap, estimativaHoras);
+  const horasFinais = mesclarHorasServicosIA(horasIaMap, estimativaHoras, templates);
 
   const linhas = templates.map((t) => {
     const existente = base.linhas.find(
       (l) => l.template_id === t.id || l.descricao.trim() === t.nome.trim(),
     );
-    const horas = horasFinais.get(t.id) ?? 0;
+    const permitido = servicoDeveReceberHorasIa(t.nome);
+    const horas = permitido ? (horasFinais.get(t.id) ?? 0) : (existente?.horas ?? 0);
 
     return {
       template_id: t.id,

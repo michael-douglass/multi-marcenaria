@@ -505,15 +505,16 @@ REGRAS OBRIGATÓRIAS:
 4. SERVIÇO nunca é material.
 5. NÃO copie números de exemplos deste prompt — leia o QUANT real do documento anexado.
 6. NÃO invente variações (ex.: chapa 18 ou fita 35/64) se o documento só tem QUANT em outras (ex.: 15 e 6; fita 22).
-7. Chapas: percorra TODAS as cores do documento — MDF BRANCO, MADEIRA, NEUTRO, ULTRA — e espessuras 15, 18 e 6. Cor "Noce/Amêndoa/Itapuã" no projeto = MADEIRA no catálogo.
+7. Chapas: copie o nome comercial do documento (Branco eucatex, Beige Matt Arauco, Freijo…). Apelidos MDF BRANCO/ULTRA só se o PDF não tiver marca.
 8. Dobradiças e corrediças são PRIORIDADE ALTA — releia a seção FERRAGENS até achar QUANT.
 9. Nome e variação SEPARADOS:
    - "DOBRADIÇA RETA" → nome "DOBRADIÇA", variacao "RETA"
    - "CORREDIÇA OCULTA 45" → nome "CORREDIÇA OCULTA", variacao "45"
-   - Chapa "MDF BRANCO 15" → nome "MDF BRANCO", variacao "15"
+   - Chapa "Branco eucatex 15mm" → nome "Branco eucatex", variacao "15mm"
    - Fita "MADEIRA 22" → nome "MADEIRA", variacao "22" (categoria fita_borda)
-10. Se QUANT > 0: status DEVE ser "encontrado".
-11. Se o item não aparece com QUANT > 0: omita do array OU use ausente_documento sem quantidade.
+10. Percorra também puxadores, trilhos e LED se esta categoria for a deles.
+11. Se QUANT > 0: status DEVE ser "encontrado".
+12. Se o item não aparece com QUANT > 0: omita do array OU use ausente_documento sem quantidade.
 
 Retorne APENAS JSON:
 {

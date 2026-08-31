@@ -4,7 +4,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { FloatingOverlayProvider } from "@/contexts/FloatingOverlayContext";
-import { floatingAgendaDialogClass } from "@/lib/overlay-z-index";
+import { floatingAgendaDialogClass, nestedModalClass } from "@/lib/overlay-z-index";
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -17,6 +17,7 @@ const AlertDialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
+    data-alert-dialog-overlay=""
     className={cn(
       "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
@@ -32,16 +33,28 @@ const AlertDialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & {
     /** Acima do painel flutuante da agenda — confirmações internas. */
     floatingLayer?: boolean;
+    /** Classe extra no overlay (ex.: z alto dentro de outro dialog). */
+    overlayClassName?: string;
+    /** Acima de um Dialog aberto (z-50) — confirmações do card do lead. */
+    nested?: boolean;
   }
->(({ className, floatingLayer, children, ...props }, ref) => (
+>(({ className, floatingLayer, overlayClassName, nested, children, ...props }, ref) => (
   <AlertDialogPortal>
-    <AlertDialogOverlay className={cn(floatingLayer && floatingAgendaDialogClass)} />
+    <AlertDialogOverlay
+      className={cn(
+        floatingLayer && floatingAgendaDialogClass,
+        nested && nestedModalClass,
+        overlayClassName,
+      )}
+    />
     <AlertDialogPrimitive.Content
       ref={ref}
       data-floating-agenda-root={floatingLayer ? '' : undefined}
+      data-nested-dialog={nested ? '' : undefined}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "pointer-events-auto fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         floatingLayer && floatingAgendaDialogClass,
+        nested && nestedModalClass,
         className,
       )}
       {...props}

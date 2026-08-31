@@ -10,6 +10,7 @@ export interface MarkupMatchCatalogItem {
   nome: string;
   variacao: string | null;
   unidade?: string | null;
+  preco_unitario?: number | null;
 }
 
 export interface MarkupMatchAlternativa {
@@ -147,6 +148,17 @@ function classificarConfianca(score: number, empatado: boolean): MarkupMatchConf
   return 'nenhuma';
 }
 
+export function produtoTemPrecoVenda(produto: MarkupMatchCatalogItem | null | undefined): boolean {
+  if (!produto) return false;
+  if (produto.preco_unitario == null) return true;
+  return Number(produto.preco_unitario) > 0;
+}
+
+function preferirSkuComPreco<T extends MarkupMatchCatalogItem>(lista: T[]): T | undefined {
+  const pagos = lista.filter((item) => produtoTemPrecoVenda(item));
+  return (pagos.length > 0 ? pagos[0] : lista[0]) as T | undefined;
+}
+
 export function casarProdutoNoCatalogo(
   nome: string,
   variacao: string | null,
@@ -163,19 +175,17 @@ export function casarProdutoNoCatalogo(
 
   const chave = chaveCatalogo(nome, variacao);
   const exatos = catalog.filter((p) => chaveCatalogo(p.nome, p.variacao) === chave);
-  if (exatos.length === 1) {
-    return { produto: exatos[0], confianca: 'alta', score: 1, alternativas: [] };
-  }
-  if (exatos.length > 1) {
+  if (exatos.length >= 1) {
     const unidade = options?.categoriaInventarioId
       ? UNIDADE_POR_CATEGORIA[options.categoriaInventarioId]
       : undefined;
-    const porUnidade = unidade ? exatos.find((p) => p.unidade === unidade) : undefined;
-    const escolhido = porUnidade ?? exatos[0];
+    const porUnidade = unidade ? exatos.filter((p) => p.unidade === unidade) : exatos;
+    const escolhido = preferirSkuComPreco(porUnidade.length ? porUnidade : exatos);
+    if (!escolhido) return vazio;
     return {
       produto: escolhido,
-      confianca: 'alta',
-      score: 1,
+      confianca: produtoTemPrecoVenda(escolhido) ? 'alta' : 'media',
+      score: produtoTemPrecoVenda(escolhido) ? 1 : 0.8,
       alternativas: exatos
         .filter((p) => p.id !== escolhido.id)
         .map((p) => ({
@@ -192,18 +202,34 @@ export function casarProdutoNoCatalogo(
       (p) => normalizarTextoCatalogo(p.nome) === normalizarTextoCatalogo(nome),
     );
     if (soNome.length === 1) {
-      return { produto: soNome[0], confianca: 'alta', score: 0.97, alternativas: [] };
+      const escolhido = soNome[0];
+      return {
+        produto: escolhido,
+        confianca: produtoTemPrecoVenda(escolhido) ? 'alta' : 'media',
+        score: 0.97,
+        alternativas: [],
+      };
     }
   }
 
   const ranqueados = catalog
     .map((p) => ({ produto: p, score: scoreCatalogo(nome, variacao, p) }))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return Number(produtoTemPrecoVenda(b.produto)) - Number(produtoTemPrecoVenda(a.produto));
+    });
 
-  const melhor = ranqueados[0];
+  let melhor = ranqueados[0];
   if (!melhor || melhor.score < SCORE_BAIXA) return vazio;
 
-  const segundo = ranqueados[1];
+  if (!produtoTemPrecoVenda(melhor.produto)) {
+    const pago = ranqueados.find(
+      (r) => r.score >= SCORE_MEDIA && produtoTemPrecoVenda(r.produto),
+    );
+    if (pago) melhor = pago;
+  }
+
+  const segundo = ranqueados.find((r) => r.produto.id !== melhor.produto.id);
   const empatado = Boolean(segundo && melhor.score - segundo.score < EMPATE_DELTA);
 
   const alternativas = ranqueados
@@ -230,8 +256,13 @@ export function confiancaEhSugerivel(confianca: MarkupMatchConfianca): boolean {
   return confianca === 'alta' || confianca === 'media' || confianca === 'baixa';
 }
 
-export function deveAutoAceitarMatch(confianca: MarkupMatchConfianca): boolean {
-  return confianca === 'alta';
+export function deveAutoAceitarMatch(
+  confianca: MarkupMatchConfianca,
+  produto?: MarkupMatchCatalogItem | null,
+): boolean {
+  if (confianca !== 'alta') return false;
+  if (produto && !produtoTemPrecoVenda(produto)) return false;
+  return true;
 }
 
 export function criarItemExtraido(input: {
@@ -243,7 +274,9 @@ export function criarItemExtraido(input: {
   origem: MarkupItemOrigemExtraida;
   match: MarkupMatchResultado;
 }): MarkupItemExtraido {
-  const auto = deveAutoAceitarMatch(input.match.confianca) && Boolean(input.match.produto);
+  const auto =
+    deveAutoAceitarMatch(input.match.confianca, input.match.produto) &&
+    Boolean(input.match.produto);
   return {
     id: input.id,
     nome: input.nome,
@@ -259,38 +292,44 @@ export function criarItemExtraido(input: {
   };
 }
 
+/** Transforma o inventário da IA em linhas para conferência (casadas e sem catálogo). */
 export function mapearInventarioParaItensExtraidos(
   inventario: Array<{
-    categoria_id: string;
+    categoria_id?: string;
     itens: Array<{
+      item_id?: string;
       nome: string;
       variacao: string | null;
-      status: string;
+      status?: string;
       quantidade?: number;
     }>;
   }>,
   catalog: MarkupMatchCatalogItem[],
-  origem: MarkupItemOrigemExtraida,
+  origem: MarkupItemOrigemExtraida = 'pdf',
 ): MarkupItemExtraido[] {
   const itens: MarkupItemExtraido[] = [];
+  let seq = 0;
+
   for (const cat of inventario) {
-    for (const [idx, item] of cat.itens.entries()) {
-      const qtd = item.quantidade ?? 0;
+    for (const item of cat.itens ?? []) {
+      const quantidade = item.quantidade ?? 0;
       if (
-        qtd <= 0 ||
+        quantidade <= 0 ||
         item.status === 'referencia_apenas' ||
         item.status === 'nao_aplicavel'
       ) {
         continue;
       }
+
+      seq += 1;
       const match = casarProdutoNoCatalogo(item.nome, item.variacao, catalog, {
         categoriaInventarioId: cat.categoria_id,
       });
       itens.push(
         criarItemExtraido({
-          id: `inv:${cat.categoria_id}:${idx}`,
+          id: item.item_id || `extraido-${seq}`,
           nome: item.nome,
-          quantidade: qtd,
+          quantidade,
           especificacao: item.variacao,
           origem,
           match,
@@ -298,5 +337,6 @@ export function mapearInventarioParaItensExtraidos(
       );
     }
   }
+
   return itens;
 }

@@ -322,6 +322,8 @@ export default function Projetos() {
         contextoProjeto
         modoProjeto={projetistaOnly}
         statusChangeOnSelect={false}
+        onLeadDuplicated={openLead}
+        onLeadCreated={openLead}
       />
 
       <CriarLeadProjetoDialog

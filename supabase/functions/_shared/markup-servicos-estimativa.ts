@@ -12,6 +12,17 @@ function nomeIndicaTipo(nome: string, termos: string[]): boolean {
   return termos.some((t) => texto.includes(t));
 }
 
+/** Horas que a IA pode preencher: oficina (produção) e casa do cliente (instalação). */
+export function servicoDeveReceberHorasIa(nome: string): boolean {
+  if (nomeIndicaTipo(nome, ['produção', 'producao', 'oficina', 'fabricação', 'fabricacao'])) {
+    return true;
+  }
+  if (nomeIndicaTipo(nome, ['instalação', 'instalacao'])) {
+    return !nomeIndicaTipo(nome, ['montador', 'comição', 'comissao', 'comissão']);
+  }
+  return false;
+}
+
 function contarEscopoComposicao(
   comodos: Array<{ moveis?: Array<{ linhas?: unknown[] }> }>,
 ) {
@@ -46,23 +57,16 @@ export function estimarHorasServicosPorComposicao(
 
   for (const template of templates) {
     const nome = template.nome;
-
-    if (nomeIndicaTipo(nome, ['projeto', 'design', 'medição', 'medicao', 'levantamento'])) {
-      map.set(template.id, arredondarMeiaHora(totalComodos * 6 + totalMoveis * 1.5));
-      continue;
-    }
+    if (!servicoDeveReceberHorasIa(nome)) continue;
 
     if (nomeIndicaTipo(nome, ['produção', 'producao', 'oficina', 'fabricação', 'fabricacao'])) {
       map.set(template.id, arredondarMeiaHora(totalLinhas * 0.75 + totalMoveis * 5));
       continue;
     }
 
-    if (nomeIndicaTipo(nome, ['instalação', 'instalacao', 'montagem', 'entrega'])) {
+    if (nomeIndicaTipo(nome, ['instalação', 'instalacao'])) {
       map.set(template.id, arredondarMeiaHora(totalComodos * 3 + totalMoveis * 2.5));
-      continue;
     }
-
-    map.set(template.id, arredondarMeiaHora(totalMoveis * 3));
   }
 
   return map;
@@ -71,15 +75,21 @@ export function estimarHorasServicosPorComposicao(
 export function mesclarHorasServicosIA(
   horasIa: Map<string, number>,
   estimativa: Map<string, number>,
+  templates: ServicoTemplateEstimativa[] = [],
 ): Map<string, number> {
   const resultado = new Map<string, number>();
+  const permitidos = new Set(
+    templates.filter((t) => servicoDeveReceberHorasIa(t.nome)).map((t) => t.id),
+  );
 
   for (const [templateId, horasEstimadas] of estimativa) {
+    if (permitidos.size > 0 && !permitidos.has(templateId)) continue;
     const horasDaIa = horasIa.get(templateId) ?? 0;
     resultado.set(templateId, horasDaIa > 0 ? horasDaIa : horasEstimadas);
   }
 
   for (const [templateId, horas] of horasIa) {
+    if (permitidos.size > 0 && !permitidos.has(templateId)) continue;
     if (!resultado.has(templateId) && horas > 0) {
       resultado.set(templateId, horas);
     }

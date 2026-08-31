@@ -1078,7 +1078,7 @@ function mapearInventarioParaLinhasComplemento(
     for (const item of cat.itens) {
       if (item.status !== 'encontrado' || (item.quantidade ?? 0) <= 0) continue;
       const match = casarProdutoNoCatalogo(item.nome, item.variacao, catalog);
-      if (!deveAutoAceitarMatch(match.confianca) || !match.produto) continue;
+      if (!deveAutoAceitarMatch(match.confianca, match.produto) || !match.produto) continue;
       if (seen.has(match.produto.id)) continue;
       seen.add(match.produto.id);
       linhas.push({

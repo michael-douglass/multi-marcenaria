@@ -5,6 +5,12 @@
  */
 
 /**
+ * Confirmações abertas por cima de um Dialog (ex.: Duplicar/Excluir no card do lead).
+ * Acima do Dialog padrão (z-50) e abaixo de toasts (z-100) / IA flutuante (z-70).
+ */
+export const Z_NESTED_MODAL = 60;
+
+/**
  * Card “IA em segundo plano” (render/análise).
  * Acima do LeadModal (z-50) e abaixo de toasts (z-100) / Agenda (z-200),
  * para minimizar e acompanhar tarefas com o card do lead aberto.
@@ -24,6 +30,7 @@ export const Z_FLOATING_AGENDA_DIALOG = 220;
 export const Z_FLOATING_AGENDA_NESTED = 230;
 
 /** Classes Tailwind correspondentes (evita números mágicos espalhados). */
+export const nestedModalClass = '!z-[60]';
 export const floatingAiBackgroundClass = 'z-[70]';
 export const floatingAgendaPanelClass = 'z-[200]';
 export const floatingAgendaIconClass = 'z-[210]';

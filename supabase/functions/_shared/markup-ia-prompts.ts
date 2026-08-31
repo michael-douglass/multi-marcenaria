@@ -1,4 +1,4 @@
-import { estimarHorasServicosPorComposicao, mesclarHorasServicosIA } from './markup-servicos-estimativa.ts';
+import { estimarHorasServicosPorComposicao, mesclarHorasServicosIA, servicoDeveReceberHorasIa } from './markup-servicos-estimativa.ts';
 import type { MarkupIAVerificacaoCategoriaResultado } from './markup-ia-verificacao.ts';
 import { MARKUP_IA_INVENTARIO_CATEGORIA_PROMPT } from './markup-ia-verificacao.ts';
 
@@ -36,7 +36,7 @@ REGRAS OBRIGATÓRIAS:
 
    e) PROIBIDO estimar/inventar materiais a partir de fotos quando a planilha informar QUANT. Não adicione puxadores, chapas ou ferragens que não estejam na planilha com QUANT > 0.
 
-   f) Mapeamentos frequentes: DOBRADIÇA RETA/CURVA → DOBRADIÇA variacao RETA/CURVA; CORREDIÇA OCULTA + VARI 45 → CORREDIÇA OCULTA variacao 45; MDF BRANCO + VARI 15 → MDF BRANCO variacao 15 (chapa); FITA MDF BRANCO + VARI 22 → MDF BRANCO variacao 22 (rolo); MADEIRA + VARI 22 na seção FITA DE BORDA → MADEIRA variacao 22 (rolo).
+   f) Copie o nome comercial da coluna MATERIAL (Branco eucatex, Beige Matt Arauco). Cruze com o catálogo. Não use apelido MDF BRANCO/ULTRA se o PDF tiver marca.
 
    g) Ao final, calcule o subtotal de materiais (soma quantidade × preco_unitario do catálogo) e informe no resumo_texto: "Subtotal de materiais calculado: R$ X" e "Subtotal no documento: R$ Y", destacando divergências.
 
@@ -46,27 +46,19 @@ REGRAS OBRIGATÓRIAS:
 
 4. Materiais: use SOMENTE produto_id do catálogo {{catalogo}}. Não invente produtos.
 
-5. Serviços (mão de obra) — OBRIGATÓRIO preencher o array "servicos":
+5. Serviços (mão de obra):
 
    - Use SOMENTE template_id do catálogo {{servicos_catalogo}}.
 
-   - Inclua UM item para CADA template do catálogo de serviços.
+   - Preencha horas > 0 SOMENTE em "Horas produção" (oficina) e "Horas instalação" (casa do cliente).
 
-   - Em cada item informe "horas" (número ≥ 0): sua estimativa de horas de mão de obra para aquele tipo neste projeto.
+   - Demais templates (projeto, JR, Pontua, comissão, outros): horas 0.
 
    - O sistema calcula custo = horas × valor_hora_padrao do catálogo (NÃO informe valores em R$ em servicos).
 
-   - Critérios para estimar horas (ajuste pela complexidade visível no lead):
+   - Produção: corte, colagem, montagem em oficina (~0,75h por linha + ~5h por móvel).
 
-     • Projeto/design: medição, layout, detalhamento (~6h por ambiente + ~1,5h por móvel).
-
-     • Produção: corte, colagem, montagem em oficina (~0,75h por linha de material + ~5h por móvel).
-
-     • Instalação: montagem no local (~3h por ambiente + ~2,5h por móvel).
-
-   - Projetos com entrega/instalação não devem ter instalação com 0h sem explicar no resumo_texto.
-
-   - No resumo_texto inclua seção "### Mão de obra" com horas por tipo e total de horas estimadas.
+   - Instalação: montagem no local (~3h por ambiente + ~2,5h por móvel).
 
 6. Despesas: use SOMENTE template_id do catálogo {{despesas_catalogo}}.
 
@@ -258,10 +250,11 @@ Sua missão: estimar HORAS de serviços, ativar DESPESAS e gerar o RESUMO final 
 
 REGRAS:
 1. NÃO altere comodos nem linhas de material — elas já estão corretas.
-2. Preencha "servicos" com UM item por template_id do catálogo {{servicos_catalogo}}, com horas ≥ 0.
-3. Estime horas com base no levantamento do projetista: ~6h design/ambiente + ~1,5h/móvel; produção ~0,75h/linha + ~5h/móvel; instalação ~3h/ambiente + ~2,5h/móvel.
-4. Preencha "despesas" com template_id do catálogo {{despesas_catalogo}}.
-5. Gere resumo_texto em markdown: visão geral, cômodos/móveis (do projetista), materiais (do inventário), mão de obra, despesas.
+2. Preencha "servicos" com UM item por template_id do catálogo {{servicos_catalogo}}.
+3. Horas > 0 SOMENTE em "Horas produção" (montar na oficina) e "Horas instalação" (montar na casa do cliente). Os outros templates (projeto, JR, Pontua, comissão, outros) devem ter horas 0.
+4. Estimativa: produção ~0,75h/linha de material + ~5h/móvel; instalação ~3h/ambiente + ~2,5h/móvel.
+5. Preencha "despesas" com template_id do catálogo {{despesas_catalogo}}.
+6. Gere resumo_texto em markdown: visão geral, cômodos/móveis, materiais, mão de obra (produção + instalação).
 
 Retorne APENAS JSON:
 {
@@ -928,11 +921,13 @@ export function validateComposeAgainstCatalog(
     servicosParsed.map((s) => [s.template_id, Math.max(0, s.horas)] as const),
   );
   const estimativaHoras = estimarHorasServicosPorComposicao(comodos, servicoTemplates);
-  const horasFinais = mesclarHorasServicosIA(horasIaMap, estimativaHoras);
+  const horasFinais = mesclarHorasServicosIA(horasIaMap, estimativaHoras, servicoTemplates);
 
   const servicos: ComposeMarkupServicoLinha[] = servicoTemplates.map((template) => ({
     template_id: template.id,
-    horas: horasFinais.get(template.id) ?? 0,
+    horas: servicoDeveReceberHorasIa(template.nome)
+      ? (horasFinais.get(template.id) ?? 0)
+      : 0,
   }));
 
 
