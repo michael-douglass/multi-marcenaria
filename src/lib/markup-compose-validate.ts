@@ -90,6 +90,15 @@ export function validarComposicaoContraSistema(
     }
   }
 
+  const pendentesConferencia = (resultado.itens_extraidos ?? []).filter(
+    (item) => item.confianca !== 'alta' && item.status_revisao !== 'ignorado',
+  );
+  if (pendentesConferencia.length > 0) {
+    avisos.push(
+      `${pendentesConferencia.length} item(ns) com casamento aproximado — conferir antes de fechar o preço.`,
+    );
+  }
+
   const textoCompleto = [
     resultado.resumo_texto ?? '',
     ...resultado.comodos.map((c) => c.nome ?? ''),

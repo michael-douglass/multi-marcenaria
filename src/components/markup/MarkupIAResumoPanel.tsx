@@ -498,6 +498,18 @@ export function MarkupIAResumoPanel({
       </Accordion>
 
       <div className="space-y-2 border-t border-violet-500/10 p-3">
+        {resumo.limites_anexos?.avisos && resumo.limites_anexos.avisos.length > 0 && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
+              Limites da leitura
+            </p>
+            <ul className="space-y-0.5 pl-5 text-[11px] [list-style-type:disc]">
+              {resumo.limites_anexos.avisos.map((aviso) => (
+                <li key={aviso}>{aviso}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {resumo.itens_nao_catalogados && resumo.itens_nao_catalogados.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">

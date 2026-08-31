@@ -136,7 +136,11 @@ export interface MarkupServicoTemplate {
   criado_em?: string;
 }
 
-export type MarkupLinhaOrigemIA = 'cortecloud' | 'projetista' | 'projetista_complemento';
+export type MarkupLinhaOrigemIA =
+  | 'cortecloud'
+  | 'projetista'
+  | 'projetista_complemento'
+  | 'documento';
 
 export interface MarkupLinhaProduto {
   produto_id: string | null;
@@ -229,6 +233,15 @@ export interface MarkupIAResumoComodo {
   subtotal: number;
 }
 
+export interface MarkupIALimitesAnexos {
+  arquivosSelecionados: number;
+  arquivosEnviados: number;
+  arquivosOmitidos: number;
+  paginasEnviadas: number;
+  paginasOmitidas: number;
+  avisos: string[];
+}
+
 /** Estado salvo antes da última composição com IA, para permitir desfazer. */
 export interface MarkupComposicaoAnterior {
   modulos: MarkupModulos;
@@ -251,6 +264,8 @@ export interface MarkupModulosMeta {
     preco_final: number;
     texto_resumo: string;
     itens_nao_catalogados?: string[];
+    itens_extraidos?: import('./markup-match').MarkupItemExtraido[];
+    limites_anexos?: MarkupIALimitesAnexos;
     servicos?: {
       linhas: MarkupLinhaServico[];
       custo_total: number;
@@ -348,6 +363,8 @@ export interface MarkupComposeIAResult {
   despesas?: MarkupComposeIADespesa[];
   resumo_texto: string;
   itens_nao_catalogados?: string[];
+  itens_extraidos?: import('./markup-match').MarkupItemExtraido[];
+  limites_anexos?: MarkupIALimitesAnexos;
   verificacao_categorias?: MarkupIAVerificacaoCategoriaResultado[];
   levantamento_projetista?: MarkupIAProjetistaResult;
   produtos_origem_projetista?: string[];

@@ -40,6 +40,9 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
     host.appendChild(renderer.domElement);
 
     const group = new THREE.Group();

@@ -49,6 +49,9 @@ function mapComposeResult(data: Record<string, unknown>): MarkupComposeIAResult 
     itens_nao_catalogados: Array.isArray(data.itens_nao_catalogados)
       ? data.itens_nao_catalogados
       : [],
+    itens_extraidos: Array.isArray(data.itens_extraidos)
+      ? (data.itens_extraidos as MarkupComposeIAResult['itens_extraidos'])
+      : undefined,
     verificacao_categorias: Array.isArray(data.verificacao_categorias)
       ? (data.verificacao_categorias as MarkupIAVerificacaoCategoriaResultado[])
       : undefined,

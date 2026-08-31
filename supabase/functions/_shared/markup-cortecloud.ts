@@ -1,9 +1,10 @@
 import type { MarkupCatalogProduct } from './markup-ia-prompts.ts';
+import { casarProdutoNoCatalogo, deveAutoAceitarMatch } from './markup-match.ts';
 
 export interface LinhaMaterialComposicao {
   produto_id: string;
   quantidade: number;
-  origem_ia?: 'cortecloud' | 'projetista' | 'projetista_complemento';
+  origem_ia?: 'cortecloud' | 'projetista' | 'projetista_complemento' | 'documento';
 }
 
 export function normalizarTextoCatalogo(valor: string): string {
@@ -150,32 +151,17 @@ export const CORTECLOUD_LINHAS_REFERENCIA = [
   { nome: 'MADEIRA', variacao: '22', quantidade: 3, secao: 'fita' },
 ] as const;
 
-const UNIDADE_POR_CATEGORIA_CHECKLIST: Record<string, string> = {
-  chapas_mdf: 'chapa',
-  fita_borda: 'rolo',
-};
-
 export function resolverProdutoNoCatalogo(
   nome: string,
   variacao: string | null,
   categoriaInventarioId: string,
   catalog: MarkupCatalogProduct[],
 ): MarkupCatalogProduct | undefined {
-  const chave = chaveCatalogo(nome, variacao);
-  const matches = catalog.filter((p) => chaveCatalogo(p.nome, p.variacao) === chave);
-  if (matches.length === 1) return matches[0];
-  if (matches.length > 1) {
-    const unidade = UNIDADE_POR_CATEGORIA_CHECKLIST[categoriaInventarioId];
-    if (unidade) {
-      const porUnidade = matches.find((p) => p.unidade === unidade);
-      if (porUnidade) return porUnidade;
-    }
-    return matches[0];
-  }
-  if (!variacao) {
-    return catalog.find((p) => normalizarTextoCatalogo(p.nome) === normalizarTextoCatalogo(nome));
-  }
-  return undefined;
+  const match = casarProdutoNoCatalogo(nome, variacao, catalog, {
+    categoriaInventarioId,
+  });
+  if (!deveAutoAceitarMatch(match.confianca) || !match.produto) return undefined;
+  return catalog.find((p) => p.id === match.produto?.id);
 }
 
 export function mapearInventarioParaLinhas(
@@ -189,6 +175,7 @@ export function mapearInventarioParaLinhas(
     }>;
   }>,
   catalog: MarkupCatalogProduct[],
+  origemIa: LinhaMaterialComposicao['origem_ia'] = 'cortecloud',
 ): LinhaMaterialComposicao[] {
   const qtdPorProduto = new Map<string, number>();
 
@@ -218,7 +205,7 @@ export function mapearInventarioParaLinhas(
   return Array.from(qtdPorProduto.entries()).map(([produto_id, quantidade]) => ({
     produto_id,
     quantidade,
-    origem_ia: 'cortecloud' as const,
+    origem_ia: origemIa,
   }));
 }
 
@@ -278,7 +265,7 @@ export function garantirInventarioNaComposicao(
       if (existente.quantidade < linha.quantidade) {
         existente.quantidade = linha.quantidade;
       }
-      if (!existente.origem_ia) existente.origem_ia = 'cortecloud';
+      if (!existente.origem_ia) existente.origem_ia = linha.origem_ia ?? 'cortecloud';
       linhaPorProduto.set(linha.produto_id, existente);
     } else {
       linhaPorProduto.set(linha.produto_id, { ...linha });

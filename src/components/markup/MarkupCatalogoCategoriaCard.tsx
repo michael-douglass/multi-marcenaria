@@ -31,7 +31,7 @@ import {
   aplicarReordenacaoCatalogo,
   rotuloCategoriaProdutoMarkup,
 } from '@/lib/markup-ui';
-import type { MarkupProduto } from '@/lib/markup-types';
+import type { MarkupLinhaOrigemIA, MarkupProduto } from '@/lib/markup-types';
 import { cn } from '@/lib/utils';
 
 interface MarkupCatalogoCategoriaCardProps {
@@ -39,10 +39,7 @@ interface MarkupCatalogoCategoriaCardProps {
   /** Lista completa do card (já na ordem atual). */
   produtos: MarkupProduto[];
   qtdPorProduto: ReadonlyMap<string, number>;
-  origemPorProduto: ReadonlyMap<
-    string,
-    'projetista' | 'projetista_complemento' | 'cortecloud'
-  >;
+  origemPorProduto: ReadonlyMap<string, MarkupLinhaOrigemIA>;
   /** Texto de busca; com busca ativa o arraste fica desligado. */
   termoBusca?: string;
   textoBuscaProduto: (produto: MarkupProduto) => string;
@@ -53,7 +50,7 @@ interface MarkupCatalogoCategoriaCardProps {
 interface SortableProdutoRowProps {
   produto: MarkupProduto;
   qtd: number;
-  origem?: 'projetista' | 'projetista_complemento' | 'cortecloud';
+  origem?: MarkupLinhaOrigemIA;
   reordenacaoHabilitada: boolean;
   podeSubir: boolean;
   podeDescer: boolean;
@@ -153,6 +150,14 @@ function SortableProdutoRow({
               className="w-fit border-violet-500/40 bg-violet-500/10 text-violet-600 text-[9px]"
             >
               Projetista
+            </Badge>
+          )}
+          {(origem === 'documento' || origem === 'cortecloud') && (
+            <Badge
+              variant="outline"
+              className="w-fit border-emerald-500/40 bg-emerald-500/10 text-emerald-700 text-[9px]"
+            >
+              Documento
             </Badge>
           )}
         </div>

@@ -47,9 +47,11 @@ import { useLeadAIMediaItems } from '@/hooks/useLeadAIMediaItems';
 import { useLeadAIAnalyses } from '@/hooks/useLeadAIAnalyses';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import { useEmpresa } from '@/contexts/EmpresaContext';
-import { resolveSelectedForAPI } from '@/lib/lead-ai-media-sources';
+import { resolveSelectedForAPIDetailed } from '@/lib/lead-ai-media-sources';
 import { invokeComposeMarkupIAStream, type MarkupIAComposeEvent } from '@/lib/markup-compose-api';
 import { MarkupIAComposeOverlay } from '@/components/markup/MarkupIAComposeOverlay';
+import { MarkupIAAnexosPicker } from '@/components/markup/MarkupIAAnexosPicker';
+import { MarkupIAConferenciaDialog } from '@/components/markup/MarkupIAConferenciaDialog';
 import { MarkupCatalogoCategoriaCard } from '@/components/markup/MarkupCatalogoCategoriaCard';
 import { normalizarChecklistVerificacao } from '@/lib/markup-ia-verificacao';
 import {
@@ -61,7 +63,9 @@ import {
   resolverComposicaoAnterior,
   sincronizarResumoIADosModulos,
 } from '@/lib/markup-compose';
-import type { MarkupComposicaoAnterior } from '@/lib/markup-types';
+import type { MarkupComposicaoAnterior, MarkupComposeIAResult, MarkupLinhaOrigemIA } from '@/lib/markup-types';
+import { aplicarRevisaoNaComposicao, sintetizarItensExtraidos } from '@/lib/markup-extracao';
+import type { MarkupItemExtraido } from '@/lib/markup-match';
 import { MarkupIAResumoPanel } from '@/components/markup/MarkupIAResumoPanel';
 import { recalcularModulos, formatarMoedaMarkup, aplicarConfiguracaoFixaNosModulos, garantirEstruturaModulos, arredondar, calcularDescontoPercentFromPrecoAlvo } from '@/lib/markup-calculo';
 import {
@@ -275,7 +279,7 @@ export function MarkupCalculatorSheet({
   const { data: produtos = [], isLoading: loadingProdutos } = useMarkupProdutos();
   const { data: despesaTemplates = [], isLoading: loadingDespesas } = useMarkupDespesaTemplates();
   const { data: servicoTemplates = [], isLoading: loadingServicos } = useMarkupServicoTemplates();
-  const { items: leadMediaItems } = useLeadAIMediaItems(leadId);
+  const { items: leadMediaItems, isLoading: leadMediaLoading } = useLeadAIMediaItems(leadId);
   const { data: analises = [] } = useLeadAIAnalyses(leadId);
   const { orcamentos, salvarOrcamento, duplicarOrcamento, removerOrcamento, isLoading: loadingOrcamentos } =
     useMarkupOrcamentos(leadId);
@@ -291,6 +295,12 @@ export function MarkupCalculatorSheet({
   const [composeEvents, setComposeEvents] = useState<MarkupIAComposeEvent[]>([]);
   const [composeError, setComposeError] = useState<string | null>(null);
   const composeAbortRef = useRef<AbortController | null>(null);
+  const [selectedMediaKeys, setSelectedMediaKeys] = useState<Set<string>>(new Set());
+  const mediaSelectionInitRef = useRef(false);
+  const [conferenciaAberta, setConferenciaAberta] = useState(false);
+  const [itensConferencia, setItensConferencia] = useState<MarkupItemExtraido[]>([]);
+  const [limitesConferencia, setLimitesConferencia] = useState<MarkupComposeIAResult['limites_anexos']>(null);
+  const pendingComposeRef = useRef<MarkupComposeIAResult | null>(null);
   const [desfazendoComposicao, setDesfazendoComposicao] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('materiais');
   const [composicaoExpandida, setComposicaoExpandida] = useState(false);
@@ -327,6 +337,14 @@ export function MarkupCalculatorSheet({
     sheetAbertoRef.current = open;
     return () => setMarkupCalculatorOpenFlag(false);
   }, [open]);
+
+  useEffect(() => {
+    if (mediaSelectionInitRef.current || leadMediaItems.length === 0) return;
+    mediaSelectionInitRef.current = true;
+    const anexos = leadMediaItems.filter((item) => item.source === 'anexo');
+    const padrao = anexos.length > 0 ? anexos : leadMediaItems;
+    setSelectedMediaKeys(new Set(padrao.map((item) => item.key)));
+  }, [leadMediaItems]);
 
   const servicoTemplatesEfetivos = useMemo(
     () => resolverServicoTemplatesEfetivos(servicoTemplates, config),
@@ -696,13 +714,16 @@ export function MarkupCalculatorSheet({
   }, [modulosSeguros.materiais.linhas]);
 
   const origemPorProduto = useMemo(() => {
-    const map = new Map<string, 'projetista' | 'projetista_complemento' | 'cortecloud'>();
-    const prioridade = (
-      atual?: 'projetista' | 'projetista_complemento' | 'cortecloud',
-      novo?: 'projetista' | 'projetista_complemento' | 'cortecloud',
-    ) => {
+    const map = new Map<string, MarkupLinhaOrigemIA>();
+    const prioridade = (atual?: MarkupLinhaOrigemIA, novo?: MarkupLinhaOrigemIA) => {
       const rank = (o?: string) =>
-        o === 'projetista_complemento' ? 3 : o === 'projetista' ? 2 : o === 'cortecloud' ? 1 : 0;
+        o === 'projetista_complemento'
+          ? 3
+          : o === 'projetista'
+            ? 2
+            : o === 'cortecloud' || o === 'documento'
+              ? 1
+              : 0;
       return rank(atual) >= rank(novo) ? atual : novo;
     };
     for (const l of modulosSeguros.materiais.linhas) {
@@ -1226,6 +1247,114 @@ export function MarkupCalculatorSheet({
     }
   };
 
+  const aplicarResultadoComposicao = async (resultado: MarkupComposeIAResult) => {
+    const modulosAtuais = garantirEstruturaModulos(modulos, config);
+    const tinhaComposicao = orcamentoTemComposicao(modulosAtuais);
+    const composicaoAnterior = tinhaComposicao
+      ? criarSnapshotComposicaoAnterior(modulosAtuais, titulo, obsRodape)
+      : null;
+    composicaoAnteriorRef.current = composicaoAnterior;
+
+    const templatesServico =
+      servicoTemplates.length > 0 ? servicoTemplates : servicoTemplatesEfetivos;
+    const modulosBase = criarModulosBaseParaComposicaoIA(
+      config,
+      despesaTemplates,
+      templatesServico,
+    );
+
+    const { modulos: modulosComposicao, validacao } = aplicarComposicaoIA(
+      modulosBase,
+      resultado,
+      produtos,
+      despesaTemplates,
+      templatesServico,
+      config,
+    );
+
+    if (validacao.bloquearSave) {
+      composicaoAnteriorRef.current = modulos.meta?.composicao_anterior ?? null;
+      toast.error('Composição com IDs inválidos', {
+        description: validacao.erros.slice(0, 3).join(' · '),
+      });
+      return;
+    }
+
+    const modulosAtualizados = recalcularModulos(
+      aplicarConfiguracaoFixaNosModulos(config, modulosComposicao),
+    );
+    const modulosComResumo = sincronizarResumoIADosModulos(modulosAtualizados);
+    const modulosComMeta: MarkupModulos = garantirEstruturaModulos(
+      {
+        ...modulosComResumo,
+        meta: {
+          ...modulosComResumo.meta,
+          ...(composicaoAnterior ? { composicao_anterior: composicaoAnterior } : {}),
+        },
+      },
+      config,
+    );
+    setModulos(modulosComMeta);
+    setFormDirty(true);
+    setAbaAtiva('resumo');
+
+    const preco = modulosComMeta.totais.preco_final;
+    const itensDespesa = resultado.despesas?.filter((d) => d.ativo).length ?? 0;
+    const avisosTexto = [
+      validacao.subtotalMateriais > 0
+        ? `Materiais: ${formatarMoedaMarkup(validacao.subtotalMateriais)}`
+        : null,
+      ...validacao.avisos.slice(0, 2),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    if (resultado.bloqueado || (resultado.faltantes_criticos?.length ?? 0) > 0) {
+      toast.warning('Composição incompleta', {
+        description:
+          resultado.faltantes_criticos?.slice(0, 3).join(' · ') ||
+          'Faltam dobradiças, corrediças ou fitas — revise antes de enviar ao cliente.',
+      });
+    } else {
+      toast.success(
+        tinhaComposicao ? 'Nova composição com IA aplicada!' : 'Composição com IA concluída!',
+        {
+          description:
+            avisosTexto ||
+            (tinhaComposicao
+              ? 'A precificação anterior foi substituída pela nova análise.'
+              : `${resultado.itens_processados ?? 0} materiais · mão de obra · ${itensDespesa} despesas`),
+        },
+      );
+    }
+    const saved = await salvarOrcamento.mutateAsync({
+      id: orcamentoId ?? undefined,
+      lead_id: leadId,
+      titulo: resolverTituloMarkup(leadNome, titulo),
+      modulos: modulosComMeta,
+      preco_final: preco,
+      observacoes_rodape: obsRodape,
+      status: 'rascunho',
+      silent: true,
+    });
+    setOrcamentoId(saved.id);
+    const tituloSalvo = resolverTituloMarkup(leadNome, titulo);
+    if (tituloSalvo !== titulo) {
+      setTitulo(tituloSalvo);
+    }
+    lastSnapshotRef.current = snapshotMarkupForm({
+      leadId,
+      orcamentoId: saved.id,
+      titulo: tituloSalvo,
+      obsRodape,
+      modulos: modulosComMeta,
+    });
+    if (preco > 0) {
+      onPrecoFinalChangeRef.current?.(preco);
+      await syncValorLead(leadId, preco);
+    }
+  };
+
   const handleComporComIA = async () => {
     if (!config.markup_ia_ativo) {
       toast.error('Composição com IA desativada', {
@@ -1248,12 +1377,20 @@ export function MarkupCalculatorSheet({
       return;
     }
 
-    const temMidia = leadMediaItems.length > 0;
+    const selecionados = leadMediaItems.filter((item) => selectedMediaKeys.has(item.key));
+    const temMidia = selecionados.length > 0;
     const temAnalise = analises.length > 0;
 
     if (!temMidia && !temAnalise) {
       toast.error('Nenhum material para analisar', {
-        description: 'Anexe imagens/PDFs ao lead ou execute a análise visual da Íris.',
+        description: 'Marque PDFs ou fotos do lead acima, ou execute a análise visual da Íris.',
+      });
+      return;
+    }
+
+    if (leadMediaItems.length > 0 && selecionados.length === 0) {
+      toast.error('Selecione os anexos', {
+        description: 'Marque pelo menos um PDF ou foto já anexado no lead.',
       });
       return;
     }
@@ -1265,13 +1402,20 @@ export function MarkupCalculatorSheet({
     const abortController = new AbortController();
     composeAbortRef.current = abortController;
     try {
-      const itens = temMidia ? await resolveSelectedForAPI(leadMediaItems) : [];
+      const detalhe = temMidia
+        ? await resolveSelectedForAPIDetailed(selecionados)
+        : { payload: [], limites: { arquivosSelecionados: 0, arquivosEnviados: 0, arquivosOmitidos: 0, paginasEnviadas: 0, paginasOmitidas: 0, avisos: [] } };
+
+      for (const aviso of detalhe.limites.avisos) {
+        toast.warning('Limite de leitura da IA', { description: aviso });
+      }
+
       const resultado = await invokeComposeMarkupIAStream(
         {
           leadId,
           leadName: leadNome,
           empresaSchema: schemaEmpresa,
-          itens,
+          itens: detalhe.payload,
           stream: true,
           signal: abortController.signal,
         },
@@ -1280,111 +1424,15 @@ export function MarkupCalculatorSheet({
         },
       );
 
-      const modulosAtuais = garantirEstruturaModulos(modulos, config);
-      const tinhaComposicao = orcamentoTemComposicao(modulosAtuais);
-      const composicaoAnterior = tinhaComposicao
-        ? criarSnapshotComposicaoAnterior(modulosAtuais, titulo, obsRodape)
-        : null;
-      composicaoAnteriorRef.current = composicaoAnterior;
-
-      const templatesServico =
-        servicoTemplates.length > 0 ? servicoTemplates : servicoTemplatesEfetivos;
-      const modulosBase = criarModulosBaseParaComposicaoIA(
-        config,
-        despesaTemplates,
-        templatesServico,
-      );
-
-      const { modulos: modulosComposicao, validacao } = aplicarComposicaoIA(
-        modulosBase,
-        resultado,
-        produtos,
-        despesaTemplates,
-        templatesServico,
-        config,
-      );
-
-      if (validacao.bloquearSave) {
-        composicaoAnteriorRef.current = modulos.meta?.composicao_anterior ?? null;
-        toast.error('Composição com IDs inválidos', {
-          description: validacao.erros.slice(0, 3).join(' · '),
-        });
-        return;
-      }
-
-      const modulosAtualizados = recalcularModulos(
-        aplicarConfiguracaoFixaNosModulos(config, modulosComposicao),
-      );
-      const modulosComResumo = sincronizarResumoIADosModulos(modulosAtualizados);
-      const modulosComMeta: MarkupModulos = garantirEstruturaModulos(
-        {
-          ...modulosComResumo,
-          meta: {
-            ...modulosComResumo.meta,
-            ...(composicaoAnterior ? { composicao_anterior: composicaoAnterior } : {}),
-          },
-        },
-        config,
-      );
-      setModulos(modulosComMeta);
-      setFormDirty(true);
-      setAbaAtiva('resumo');
-
-      const preco = modulosComMeta.totais.preco_final;
-      const itensDespesa = resultado.despesas?.filter((d) => d.ativo).length ?? 0;
-      const avisosTexto = [
-        validacao.subtotalMateriais > 0
-          ? `Materiais: ${formatarMoedaMarkup(validacao.subtotalMateriais)}`
-          : null,
-        ...validacao.avisos.slice(0, 2),
-      ]
-        .filter(Boolean)
-        .join(' · ');
-
-      if (resultado.bloqueado || (resultado.faltantes_criticos?.length ?? 0) > 0) {
-        toast.warning('Composição incompleta', {
-          description:
-            resultado.faltantes_criticos?.slice(0, 3).join(' · ') ||
-            'Faltam dobradiças, corrediças ou fitas — revise antes de enviar ao cliente.',
-        });
-      } else {
-        toast.success(
-          tinhaComposicao ? 'Nova composição com IA aplicada!' : 'Composição com IA concluída!',
-          {
-            description:
-              avisosTexto ||
-              (tinhaComposicao
-                ? 'A precificação anterior foi substituída pela nova análise.'
-                : `${resultado.itens_processados ?? 0} materiais · mão de obra · ${itensDespesa} despesas`),
-          },
-        );
-      }
-      const saved = await salvarOrcamento.mutateAsync({
-        id: orcamentoId ?? undefined,
-        lead_id: leadId,
-        titulo: resolverTituloMarkup(leadNome, titulo),
-        modulos: modulosComMeta,
-        preco_final: preco,
-        observacoes_rodape: obsRodape,
-        status: 'rascunho',
-        silent: true,
-      });
-      setOrcamentoId(saved.id);
-      const tituloSalvo = resolverTituloMarkup(leadNome, titulo);
-      if (tituloSalvo !== titulo) {
-        setTitulo(tituloSalvo);
-      }
-      lastSnapshotRef.current = snapshotMarkupForm({
-        leadId,
-        orcamentoId: saved.id,
-        titulo: tituloSalvo,
-        obsRodape,
-        modulos: modulosComMeta,
-      });
-      if (preco > 0) {
-        onPrecoFinalChangeRef.current?.(preco);
-        await syncValorLead(leadId, preco);
-      }
+      const resultadoComLimites: MarkupComposeIAResult = {
+        ...resultado,
+        limites_anexos: detalhe.limites,
+      };
+      const extraidos = sintetizarItensExtraidos(resultadoComLimites, produtos);
+      pendingComposeRef.current = resultadoComLimites;
+      setItensConferencia(extraidos);
+      setLimitesConferencia(detalhe.limites);
+      setConferenciaAberta(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setComposeError('Composição cancelada pelo usuário.');
@@ -1403,6 +1451,23 @@ export function MarkupCalculatorSheet({
     } finally {
       composeAbortRef.current = null;
       setCompondoIA(false);
+    }
+  };
+
+  const handleConfirmarConferencia = async () => {
+    const pendente = pendingComposeRef.current;
+    if (!pendente) {
+      setConferenciaAberta(false);
+      return;
+    }
+    const revisado = aplicarRevisaoNaComposicao(pendente, itensConferencia);
+    setConferenciaAberta(false);
+    pendingComposeRef.current = null;
+    try {
+      await aplicarResultadoComposicao(revisado);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao aplicar conferência';
+      toast.error('Falha ao aplicar conferência', { description: message });
     }
   };
 
@@ -1543,6 +1608,18 @@ export function MarkupCalculatorSheet({
           categoriaNomes={categoriaNomes}
           error={composeError}
           onCancel={() => composeAbortRef.current?.abort()}
+        />
+        <MarkupIAConferenciaDialog
+          open={conferenciaAberta}
+          itens={itensConferencia}
+          produtos={produtos}
+          limites={limitesConferencia}
+          onChange={setItensConferencia}
+          onConfirm={() => void handleConfirmarConferencia()}
+          onCancel={() => {
+            setConferenciaAberta(false);
+            pendingComposeRef.current = null;
+          }}
         />
         <SheetHeader className="shrink-0 min-w-0 space-y-3 border-b px-6 pb-4 pt-6 pr-12">
           <SheetTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
@@ -1688,6 +1765,16 @@ export function MarkupCalculatorSheet({
                   {o.titulo}
                 </Button>
               ))}
+            </div>
+          )}
+          {config.markup_ia_ativo && (
+            <div className="pt-3">
+              <MarkupIAAnexosPicker
+                items={leadMediaItems}
+                selectedKeys={selectedMediaKeys}
+                onChange={setSelectedMediaKeys}
+                isLoading={leadMediaLoading}
+              />
             </div>
           )}
         </SheetHeader>

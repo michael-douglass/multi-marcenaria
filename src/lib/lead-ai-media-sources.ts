@@ -8,6 +8,7 @@ import {
   buildMidiasFromBlocos,
   mergeMidiasOrcamentoETemplate,
 } from '@/lib/orcamento-slide-bloco-imagens';
+import { extractPdfTextFromUrl } from '@/lib/pdf-render';
 import {
   getCachedPdfPages,
   pdfCacheKeyForMedia,
@@ -16,6 +17,7 @@ import {
   PDF_PREVIEW_WIDTH_PX,
 } from '@/lib/pdf-image-cache';
 import { PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS, PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS } from '@/lib/pipeline-lead-ai-config';
+import type { MarkupIALimitesAnexos } from '@/lib/markup-types';
 
 export type LeadAIMediaSource = 'anexo' | 'whiteboard' | 'orcamento_slide' | 'render_edit';
 
@@ -37,6 +39,7 @@ export interface LeadAIAnalysisItemPayload {
   label: string;
   imageUrl?: string;
   pagesBase64?: string[];
+  extractedText?: string;
   kind?: 'image' | 'pdf';
   caracteristicasExtras?: string;
   parentRenderId?: string;
@@ -277,16 +280,35 @@ export async function resolveMediaItemImageUrlForEdit(
   return null;
 }
 
-export async function resolveSelectedForAPI(
+export interface ResolveSelectedForAPIResult {
+  payload: LeadAIAnalysisItemPayload[];
+  limites: MarkupIALimitesAnexos;
+}
+
+export async function resolveSelectedForAPIDetailed(
   selected: LeadAIMediaItem[],
-): Promise<LeadAIAnalysisItemPayload[]> {
+): Promise<ResolveSelectedForAPIResult> {
   const deduped = dedupeMediaItems(selected);
+  const arquivosSelecionados = deduped.length;
   const limited = deduped.slice(0, PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS);
+  const arquivosOmitidos = Math.max(0, arquivosSelecionados - limited.length);
   const payload: LeadAIAnalysisItemPayload[] = [];
   let imageBudget = PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS;
+  let paginasEnviadas = 0;
+  let paginasOmitidas = 0;
+  const avisos: string[] = [];
+
+  if (arquivosOmitidos > 0) {
+    avisos.push(
+      `Só os primeiros ${PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS} arquivos entram na IA (${arquivosOmitidos} ficaram de fora).`,
+    );
+  }
 
   for (const item of limited) {
-    if (imageBudget <= 0) break;
+    if (imageBudget <= 0) {
+      paginasOmitidas += 1;
+      continue;
+    }
 
     if (item.kind === 'image' && item.fileUrl) {
       payload.push({
@@ -297,6 +319,7 @@ export async function resolveSelectedForAPI(
         kind: 'image',
       });
       imageBudget -= 1;
+      paginasEnviadas += 1;
       continue;
     }
 
@@ -312,12 +335,18 @@ export async function resolveSelectedForAPI(
       if (totalPages <= 0) continue;
 
       const pagesToSend = Math.min(totalPages, imageBudget);
+      if (pagesToSend < totalPages) {
+        paginasOmitidas += totalPages - pagesToSend;
+        avisos.push(
+          `"${item.label}" tem ${totalPages} páginas; a IA vai ler as ${pagesToSend} primeiras (teto de ${PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas/imagens).`,
+        );
+      }
+
       const pagesBase64: string[] = [];
 
       for (let pageNumber = 1; pageNumber <= pagesToSend; pageNumber++) {
         const pageBase64 = await ensurePdfPageBase64(item, pageNumber);
         if (!pageBase64) {
-          // Página falhou: interrompe para não enviar sequência incompleta/errada.
           break;
         }
         pagesBase64.push(pageBase64);
@@ -325,6 +354,19 @@ export async function resolveSelectedForAPI(
       }
 
       if (pagesBase64.length === 0) continue;
+
+      paginasEnviadas += pagesBase64.length;
+
+      let extractedText: string | undefined;
+      try {
+        const extraido = await extractPdfTextFromUrl(
+          item.fileUrl,
+          PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS,
+        );
+        if (extraido.hasText) extractedText = extraido.text;
+      } catch {
+        extractedText = undefined;
+      }
 
       const label =
         totalPages > 1
@@ -336,11 +378,35 @@ export async function resolveSelectedForAPI(
         id: item.id,
         label,
         pagesBase64,
+        extractedText,
         kind: 'pdf',
       });
     }
   }
 
+  if (paginasOmitidas > 0 && !avisos.some((a) => a.includes('páginas'))) {
+    avisos.push(
+      `${paginasOmitidas} página(s) não foram enviadas por causa do teto de ${PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS}.`,
+    );
+  }
+
+  return {
+    payload,
+    limites: {
+      arquivosSelecionados,
+      arquivosEnviados: payload.length,
+      arquivosOmitidos,
+      paginasEnviadas,
+      paginasOmitidas,
+      avisos,
+    },
+  };
+}
+
+export async function resolveSelectedForAPI(
+  selected: LeadAIMediaItem[],
+): Promise<LeadAIAnalysisItemPayload[]> {
+  const { payload } = await resolveSelectedForAPIDetailed(selected);
   return payload;
 }
 

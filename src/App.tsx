@@ -250,6 +250,17 @@ function AuthenticatedRoutes() {
     )
   }
 
+  if (location.pathname.startsWith('/portal-parceiro')) {
+    if (!canAccessCrmPath('/portal-parceiro', crmProfile, userProfile)) {
+      return <Navigate to={homePath} replace />
+    }
+    return (
+      <CrmLazy>
+        <PrestadorSelletos />
+      </CrmLazy>
+    )
+  }
+
   const crmPage = (path: string, page: ReactNode) =>
     canAccessCrmPath(path, crmProfile, userProfile)
       ? <CrmLazy>{page}</CrmLazy>
@@ -519,10 +530,6 @@ function AuthenticatedRoutes() {
           <Route path="/eventos-crm" element={<Navigate to="/controle-eventos" replace />} />
           <Route path="/chat-crm" element={crmPage('/chat-crm', <ChatCrmPage />)} />
           <Route path="/profile" element={<CrmLazy><ProfilePage /></CrmLazy>} />
-          <Route
-            path="/portal-parceiro"
-            element={crmPage('/portal-parceiro', <PrestadorSelletos />)}
-          />
 
           <Route path="*" element={<Navigate to={homePath} replace />} />
         </Route>

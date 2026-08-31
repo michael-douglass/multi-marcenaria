@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { ChevronDown, LogOut } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { LogOut } from 'lucide-react'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
 import { useCrmPortal } from '@/hooks/useCrmPortal'
@@ -18,8 +18,17 @@ import { PortalPerfilSection } from '@/components/crm/portal/PortalPerfilSection
 import { PortalSaldoSection } from '@/components/crm/portal/PortalSaldoSection'
 import { PortalClientesSection } from '@/components/crm/portal/PortalClientesSection'
 import { PortalLeadDialog } from '@/components/crm/portal/PortalLeadDialog'
+import { PrestadorBannerSlideshow } from '@/components/prestador/PrestadorBannerSlideshow'
+import { PrestadorPortalAtmosphere } from '@/components/prestador/PrestadorPortalAtmosphere'
+import { PrestadorPortalHero } from '@/components/prestador/PrestadorPortalHero'
+import { resolvePrestadorBannerSlides } from '@/lib/empresa-banner-slides'
+import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme'
 
 const css = `
+  @keyframes prestador-banner {
+    from { opacity: 0; transform: scale(1.04); }
+    to   { opacity: 1; transform: scale(1); }
+  }
   @keyframes prestador-slide-down {
     from { opacity: 0; transform: translateY(-16px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -48,6 +57,7 @@ const css = `
       0 0 36px rgba(255, 255, 255, 0.35),
       0 1px 3px rgba(255, 255, 255, 0.5);
   }
+  .anim-banner  { animation: prestador-banner    1s cubic-bezier(.22,1,.36,1) both; }
   .anim-down    { animation: prestador-slide-down .7s cubic-bezier(.22,1,.36,1) both; }
   .anim-up      { animation: prestador-slide-up   .7s cubic-bezier(.22,1,.36,1) both; }
   .anim-fade    { animation: prestador-fade       .6s ease both; }
@@ -110,6 +120,16 @@ export function PortalParceiro({ embedded = false }: PortalParceiroProps) {
     }, 150)
   }
 
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   const hasContent =
     data.resumo.leads.length > 0
     || data.resumo.totalAGanar > 0
@@ -117,35 +137,34 @@ export function PortalParceiro({ embedded = false }: PortalParceiroProps) {
     || data.resumo.totalComissaoGanha > 0
   const isPortal = section === 'portal'
   const chavePix = data.perfil.chavePix ?? ''
+  const bannerSlides = resolvePrestadorBannerSlides(null, isMobile)
 
   const body = (
     <>
       <style>{css}</style>
       <div
         className="relative flex w-full flex-col overflow-x-hidden"
-        style={{ backgroundColor: '#2a1812', minHeight: embedded ? '100%' : '100dvh' }}
+        style={{ backgroundColor: GARBO_APRESENTACAO_THEME.bgBase, minHeight: embedded ? '100%' : '100dvh' }}
       >
         {isPortal && (
-          <>
+          <div
+            className="pointer-events-none absolute left-0 right-0 top-0 overflow-hidden anim-banner"
+            style={{ height: hasContent ? 'min(100dvh, 700px)' : '100dvh' }}
+          >
+            {bannerSlides.length > 0 && <PrestadorBannerSlideshow slides={bannerSlides} />}
             <div
-              className="pointer-events-none absolute inset-0 opacity-[0.03]"
+              className="absolute inset-0 z-[2]"
               style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-                backgroundSize: '200px',
+                background: `
+                  radial-gradient(ellipse 70% 50% at 72% 42%, rgba(242,216,146,0.12), transparent 62%),
+                  linear-gradient(180deg, rgba(8,6,4,0.42) 0%, rgba(8,6,4,0.14) 38%, rgba(10,9,8,0.92) 100%),
+                  linear-gradient(90deg, rgba(8,6,4,0.62) 0%, rgba(8,6,4,0.18) 48%, rgba(8,6,4,0.08) 100%)
+                `,
               }}
             />
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                top: '30%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '60vw',
-                height: '40vh',
-                background: 'radial-gradient(ellipse, rgba(240,210,140,0.07) 0%, transparent 70%)',
-              }}
-            />
-          </>
+            <PrestadorPortalAtmosphere active={isPortal} />
+            <div className="absolute inset-0 z-[4] grain-overlay opacity-30" />
+          </div>
         )}
 
         <header className="pointer-events-none relative z-20 flex shrink-0 items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8 md:px-12 md:pt-10">
@@ -287,48 +306,7 @@ function PortalHome({
 
   return (
     <>
-      <div
-        className="relative z-10 px-8 pb-10 md:px-14 md:pb-12"
-        style={{ marginTop: 'auto', paddingTop: hasContent ? '4rem' : undefined }}
-      >
-        <div className="anim-rule mb-7 h-px bg-amber-400/70" style={{ animationDelay: '500ms', width: 0 }} />
-        <h1
-          className="font-display leading-none text-white anim-up"
-          style={{
-            fontSize: 'clamp(3rem, 9vw, 7rem)',
-            letterSpacing: '0.02em',
-            textShadow: '0 2px 40px rgba(0,0,0,0.6)',
-            animationDelay: '600ms',
-          }}
-        >
-          {nome}
-        </h1>
-        <div className="mt-5 inline-flex anim-fade" style={{ animationDelay: '900ms' }}>
-          <span
-            className="inline-flex items-center rounded-full px-4 py-1.5 text-xs font-medium uppercase tracking-widest"
-            style={{
-              border: '1px solid rgba(240,210,140,0.4)',
-              background: 'rgba(240,210,140,0.08)',
-              color: '#f2d892',
-              letterSpacing: '0.18em',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {titulo}
-          </span>
-        </div>
-        <p
-          className="prestador-welcome-glow mt-4 text-sm anim-fade"
-          style={{ animationDelay: '1100ms', letterSpacing: '0.08em', fontFamily: 'Raleway, sans-serif' }}
-        >
-          Bem-vindo ao seu portal
-        </p>
-        {hasContent && (
-          <div className="mt-8 anim-scroll">
-            <ChevronDown className="h-5 w-5 text-white/30" />
-          </div>
-        )}
-      </div>
+      <PrestadorPortalHero nome={nome} titulo={titulo} hasContent={hasContent} />
 
       {(hasLeads || hasResumo) && (
         <div className="relative z-10 px-6 pb-8 md:px-14 anim-fade" style={{ animationDelay: '1300ms' }}>

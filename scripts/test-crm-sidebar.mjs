@@ -60,7 +60,7 @@ function isCrmAppPath(pathname) {
 
 function canAccessCrmPath(pathname, crm, movelaria) {
   if (pathname === '/portal-parceiro' || pathname.startsWith('/portal-parceiro/')) {
-    return isPrestadorServico(crm)
+    return isPrestadorServico(crm) || isCrmAdmin(crm)
   }
   if (isPortalOnly(movelaria, crm)) return false
   const roles = colaboradorCrmRoles(crm)

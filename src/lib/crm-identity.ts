@@ -289,7 +289,7 @@ export function canAccessCrmPath(
   movelaria: UserProfile | null | undefined,
 ): boolean {
   if (pathname === '/portal-parceiro' || pathname.startsWith('/portal-parceiro/')) {
-    return isPrestadorServico(crm)
+    return isPrestadorServico(crm) || isCrmAdmin(crm)
   }
 
   if (isPortalOnly(movelaria, crm)) return false

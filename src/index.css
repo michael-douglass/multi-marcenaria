@@ -2643,7 +2643,8 @@ body::before {
 }
 
 /* Paleta fixa do card do lead — mogno, creme e ouro. Vale para todas as caixas. */
-.lead-modal-shell {
+.lead-modal-shell,
+.lead-atelier-dialog {
   --lead-wood: #1a120e;
   --lead-panel: #241810;
   --lead-inset: #120c09;
@@ -2678,6 +2679,30 @@ body::before {
     max-height: min(90dvh, calc(100dvh - 1.5rem)) !important;
     border-radius: 0.75rem !important;
   }
+}
+
+.glass-dialog.lead-atelier-dialog {
+  background: var(--lead-wood) !important;
+  color: var(--lead-soft) !important;
+  border-color: var(--lead-line-strong) !important;
+  box-shadow: 0 24px 56px rgba(8, 3, 1, 0.55) !important;
+}
+.lead-atelier-dialog .text-muted-foreground,
+.paper-workspace .lead-atelier-dialog .text-muted-foreground {
+  color: var(--lead-muted) !important;
+}
+.lead-atelier-dialog .text-gold,
+.paper-workspace .lead-atelier-dialog .text-gold {
+  color: var(--lead-gold) !important;
+}
+.lead-atelier-dialog textarea,
+.lead-atelier-dialog .glass-input {
+  background: var(--lead-inset) !important;
+  color: var(--lead-cream) !important;
+  border-color: var(--lead-line) !important;
+}
+.lead-atelier-dialog textarea::placeholder {
+  color: var(--lead-faint) !important;
 }
 
 .lead-modal-header {

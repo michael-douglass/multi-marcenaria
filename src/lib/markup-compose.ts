@@ -130,7 +130,7 @@ export function agregarLinhasPorProduto(
 
   const prioridadeOrigem = (a?: MarkupLinhaOrigemIA, b?: MarkupLinhaOrigemIA) => {
     const rank = (o?: MarkupLinhaOrigemIA) =>
-      o === 'projetista_complemento' ? 3 : o === 'projetista' ? 2 : o === 'cortecloud' ? 1 : 0;
+      o === 'projetista_complemento' ? 3 : o === 'projetista' ? 2 : o === 'cortecloud' || o === 'documento' ? 1 : 0;
     return rank(a) >= rank(b) ? a : b;
   };
 
@@ -207,7 +207,9 @@ export function agregarLinhasPorProduto(
           ? 'Complemento projetista'
           : origem_ia === 'projetista'
             ? 'Estimado pelo projetista'
-            : undefined,
+            : origem_ia === 'documento'
+              ? 'Extraído do documento'
+              : undefined,
     });
   }
 
@@ -367,6 +369,8 @@ export function montarResumoIA(
       preco_final: modulos.totais?.preco_final ?? 0,
       texto_resumo: resultadoNormalizado.resumo_texto,
       itens_nao_catalogados: resultadoNormalizado.itens_nao_catalogados,
+      itens_extraidos: resultadoNormalizado.itens_extraidos,
+      limites_anexos: resultadoNormalizado.limites_anexos,
       verificacao_categorias: resultadoNormalizado.verificacao_categorias,
       levantamento_projetista: resultadoNormalizado.levantamento_projetista,
       produtos_origem_projetista: resultadoNormalizado.produtos_origem_projetista,

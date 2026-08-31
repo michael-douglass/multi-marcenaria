@@ -187,6 +187,36 @@ export async function renderPdfFirstPageToDataUrl(
   return page.src;
 }
 
+export async function extractPdfTextFromUrl(
+  fileUrl: string,
+  maxPages = 40,
+): Promise<{ text: string; pageCount: number; pagesRead: number; hasText: boolean }> {
+  const pdf = await loadPdfDocument(fileUrl);
+  const pageCount = pdf.numPages;
+  const pagesRead = Math.min(pageCount, maxPages);
+  const partes: string[] = [];
+
+  for (let pageNumber = 1; pageNumber <= pagesRead; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const linha = content.items
+      .map((item) => ('str' in item ? String(item.str) : ''))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (linha) partes.push(`--- Página ${pageNumber} ---\n${linha}`);
+  }
+
+  const text = partes.join('\n\n');
+  const compacto = text.replace(/\s+/g, '');
+  return {
+    text,
+    pageCount,
+    pagesRead,
+    hasText: compacto.length >= 80,
+  };
+}
+
 /** Conta páginas sem renderizar todas — leve para montar o visualizador. */
 export async function getPdfPageCountFromUrl(fileUrl: string): Promise<number> {
   const pdf = await loadPdfDocument(fileUrl);

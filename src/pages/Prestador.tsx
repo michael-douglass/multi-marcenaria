@@ -5,7 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useMinhaPontuaGarbo, type ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
-import { LogOut, ChevronDown } from 'lucide-react';
+import { LogOut, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '@/context/AppContext';
+import { defaultPathForIdentity, isPortalOnly } from '@/lib/crm-identity';
 import { PrestadorRadialMenu, type PrestadorSection } from '@/components/prestador/PrestadorRadialMenu';
 import { PrestadorGarboBrand } from '@/components/prestador/PrestadorGarboBrand';
 import { PrestadorPerfil } from '@/components/prestador/PrestadorPerfil';
@@ -15,7 +18,10 @@ import { PrestadorPortalLeadsPanel } from '@/components/prestador/PrestadorPorta
 import { PrestadorLeadDetailDialog } from '@/components/prestador/PrestadorLeadDetailDialog';
 import { PrestadorPortalResumo } from '@/components/prestador/PrestadorPortalResumo';
 import { PrestadorBannerSlideshow } from '@/components/prestador/PrestadorBannerSlideshow';
+import { PrestadorPortalAtmosphere } from '@/components/prestador/PrestadorPortalAtmosphere';
+import { PrestadorPortalHero } from '@/components/prestador/PrestadorPortalHero';
 import { resolvePrestadorBannerSlides } from '@/lib/empresa-banner-slides';
+import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme';
 import { useMinhasPermissoes, normalizePermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { podeVerAlgumAnexo } from '@/lib/prestador-visibilidade';
 import { toast } from 'sonner';
@@ -71,6 +77,7 @@ type GarboPortalData = {
   ganhosPorMes: { key: string; label: string; valor: number }[];
   saldoParaSacar: number;
   totalRetirado: number;
+  totalAjustes?: number;
   totalComissao?: number;
 };
 
@@ -155,56 +162,7 @@ function PortalSection({
 }) {
   return (
     <>
-      {/* Identity block */}
-      <div
-        className="relative z-10 px-8 pb-10 md:px-14 md:pb-12"
-        style={{ marginTop: 'auto', paddingTop: hasContent ? '4rem' : undefined }}
-      >
-        <div
-          className="anim-rule h-px bg-amber-400/70 mb-7"
-          style={{ animationDelay: '500ms', width: 0 }}
-        />
-
-        <h1
-          className="font-display text-white leading-none anim-up"
-          style={{
-            fontSize: 'clamp(3rem, 9vw, 7rem)',
-            letterSpacing: '0.02em',
-            textShadow: '0 2px 40px rgba(0,0,0,0.6)',
-            animationDelay: '600ms',
-          }}
-        >
-          {nome}
-        </h1>
-
-        <div className="mt-5 anim-fade inline-flex" style={{ animationDelay: '900ms' }}>
-          <span
-            className="inline-flex items-center px-4 py-1.5 rounded-full text-xs tracking-widest uppercase font-medium"
-            style={{
-              border: '1px solid rgba(240,210,140,0.4)',
-              background: 'rgba(240,210,140,0.08)',
-              color: '#f2d892',
-              letterSpacing: '0.18em',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {titulo}
-          </span>
-        </div>
-
-        <p
-          className="mt-4 text-sm anim-fade prestador-welcome-glow"
-          style={{ animationDelay: '1100ms', letterSpacing: '0.08em', fontFamily: 'Raleway, sans-serif' }}
-        >
-          Bem-vindo ao seu portal
-        </p>
-
-        {hasContent && (
-          <div className="mt-8 anim-scroll">
-            <ChevronDown className="h-5 w-5 text-white/30" />
-          </div>
-        )}
-      </div>
+      <PrestadorPortalHero nome={nome} titulo={titulo} hasContent={hasContent} />
 
       {garbo && (
         <PortalLeadsAndResumo
@@ -229,6 +187,10 @@ function PortalSection({
 
 export default function Prestador() {
   const { signOut } = useAuth();
+  const { roles, userProfile, crmProfile } = useApp();
+  const navigate = useNavigate();
+  const showBackToCrm = !isPortalOnly(userProfile, crmProfile);
+  const backPath = defaultPathForIdentity(roles, userProfile, crmProfile);
   const { empresa, schemaEmpresa, queriesReady, recarregarEmpresa } = useEmpresa();
   const queryClient = useQueryClient();
   const { data: profile } = useCurrentUserProfile();
@@ -337,79 +299,64 @@ export default function Prestador() {
 
       <div
         className="relative w-full overflow-x-hidden flex flex-col"
-        style={{ backgroundColor: '#2a1812', minHeight: '100dvh' }}
+        style={{ backgroundColor: GARBO_APRESENTACAO_THEME.bgBase, minHeight: '100dvh' }}
       >
-        {/* Banner slideshow — portal only */}
-        {isPortal && bannerSlides.length > 0 && (
+        {isPortal && (
           <div
-            className="absolute top-0 left-0 right-0 anim-banner pointer-events-none overflow-hidden"
+            className="absolute top-0 left-0 right-0 overflow-hidden pointer-events-none anim-banner"
             style={{ height: hasContent ? 'min(100dvh, 700px)' : '100dvh' }}
           >
-            <PrestadorBannerSlideshow slides={bannerSlides} />
+            {bannerSlides.length > 0 && <PrestadorBannerSlideshow slides={bannerSlides} />}
+
+            <div
+              className="absolute inset-0 z-[2]"
+              style={{
+                background: `
+                  radial-gradient(ellipse 70% 50% at 72% 42%, rgba(242,216,146,0.12), transparent 62%),
+                  linear-gradient(180deg, rgba(8,6,4,0.42) 0%, rgba(8,6,4,0.14) 38%, rgba(10,9,8,0.92) 100%),
+                  linear-gradient(90deg, rgba(8,6,4,0.62) 0%, rgba(8,6,4,0.18) 48%, rgba(8,6,4,0.08) 100%)
+                `,
+              }}
+            />
+
+            <PrestadorPortalAtmosphere active={isPortal} />
+            <div className="absolute inset-0 z-[4] grain-overlay opacity-30" />
           </div>
-        )}
-
-        {/* Gradient overlays — portal only */}
-        {isPortal && (
-          <>
-            <div
-              className="absolute top-0 left-0 right-0 pointer-events-none"
-              style={{
-                height: hasContent ? 'min(100dvh, 700px)' : '100dvh',
-                background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 40%, rgba(8,8,8,0.95) 100%)',
-                zIndex: 2,
-              }}
-            />
-            <div
-              className="absolute top-0 left-0 right-0 h-full pointer-events-none"
-              style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.35), transparent 60%)', zIndex: 2 }}
-            />
-
-          </>
-        )}
-
-        {/* Noise + ambient glow — portal, no banner */}
-        {isPortal && bannerSlides.length === 0 && (
-          <>
-            <div
-              className="absolute inset-0 pointer-events-none opacity-[0.03]"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-                backgroundSize: '200px',
-              }}
-            />
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                top: '30%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '60vw',
-                height: '40vh',
-                background: 'radial-gradient(ellipse, rgba(240,210,140,0.07) 0%, transparent 70%)',
-              }}
-            />
-          </>
         )}
 
         {/* ── Header — always visible ── */}
         <header className="relative z-20 flex items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8 md:px-12 md:pt-10 shrink-0 pointer-events-none">
           <div className="anim-down pointer-events-auto" style={{ animationDelay: '200ms' }}>
             <PrestadorGarboBrand
-              overBanner={isPortal && bannerSlides.length > 0}
+              overBanner={isPortal}
               animate={false}
               onGoHome={() => handleSectionChange('portal')}
             />
           </div>
 
-          <button
-            onClick={() => void signOut()}
-            className="anim-fade pointer-events-auto flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-sm group shrink-0"
-            style={{ animationDelay: '400ms' }}
-          >
-            <span className="hidden sm:inline" style={{ fontFamily: 'Raleway, sans-serif' }}>Sair</span>
-            <LogOut className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+          <div className="pointer-events-auto flex items-center gap-3 shrink-0">
+            {showBackToCrm && (
+              <button
+                type="button"
+                onClick={() => navigate(backPath)}
+                className="anim-fade pointer-events-auto flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-sm"
+                style={{ animationDelay: '350ms' }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline" style={{ fontFamily: 'Raleway, sans-serif' }}>
+                  Voltar
+                </span>
+              </button>
+            )}
+            <button
+              onClick={() => void signOut()}
+              className="anim-fade pointer-events-auto flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-sm group shrink-0"
+              style={{ animationDelay: '400ms' }}
+            >
+              <span className="hidden sm:inline" style={{ fontFamily: 'Raleway, sans-serif' }}>Sair</span>
+              <LogOut className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
         </header>
 
         {/* ── Section content ── */}

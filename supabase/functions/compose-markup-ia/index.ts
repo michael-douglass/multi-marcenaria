@@ -46,6 +46,10 @@ import {
   type StreamEvent,
 } from '../_shared/markup-ia-verificacao.ts';
 import {
+  mapearInventarioParaItensExtraidos,
+  type MarkupItemExtraido,
+} from '../_shared/markup-match.ts';
+import {
   formatRetrievedContext,
   resolveDb,
   searchLeadKnowledge,
@@ -74,6 +78,7 @@ interface AnalysisItem {
   label: string;
   imageUrl?: string;
   pagesBase64?: string[];
+  extractedText?: string;
 }
 
 interface ComposeMarkupRequest {
@@ -94,6 +99,7 @@ interface ComposeSuccessPayload {
   despesas: ComposeMarkupParsed['despesas'];
   resumo_texto: string;
   itens_nao_catalogados: string[];
+  itens_extraidos?: MarkupItemExtraido[];
   verificacao_categorias: MarkupIAVerificacaoCategoriaResultado[];
   levantamento_projetista?: MarkupIAProjetistaResult;
   produtos_origem_projetista?: string[];
@@ -151,6 +157,18 @@ async function urlToBase64(url: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function coletarTextoNativo(itens: AnalysisItem[]): string {
+  return itens
+    .map((item) => item.extractedText?.trim())
+    .filter((texto): texto is string => Boolean(texto && texto.length > 0))
+    .join('\n\n---\n\n');
+}
+
+function blocoTextoNativo(texto: string): string {
+  if (!texto.trim()) return '';
+  return `\n\nTEXTO EXTRAÍDO DOS PDFs (camada nativa — priorize quantidades daqui quando o documento for digital):\n${texto.slice(0, 12000)}`;
 }
 
 async function buildImageParts(itens: AnalysisItem[]): Promise<OpenAIContentPart[]> {
@@ -427,6 +445,7 @@ async function runInventarioFase(
   levantamentoProjetista: MarkupIAProjetistaResult | null,
   modoCortecloud: boolean,
   emit?: EmitFn,
+  textoNativo = '',
 ): Promise<MarkupIAVerificacaoCategoriaResultado[]> {
   const categoriasAtivas = checklist.filter((c) => c.ativo);
   const parciais: MarkupIAVerificacaoCategoriaResultado[] = [];
@@ -465,7 +484,7 @@ async function runInventarioFase(
       const hintCortecloud = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
       const userIntro = modoCortecloud
         ? `Inventarie a categoria "${cat.nome}". Use QUANT da planilha Cortecloud quando existir; cruze com o levantamento do projetista.`
-        : `Inventarie a categoria "${cat.nome}". Estime quantidades com base no levantamento do projetista e nos anexos.`;
+        : `Inventarie a categoria "${cat.nome}". Extraia nome, quantidade e especificação dos anexos (PDF/foto). Estime só o que estiver visível.`;
       const raw = await callOpenAIChat(openAiKey, model, [
         { role: 'system', content: catPrompt },
         {
@@ -473,7 +492,7 @@ async function runInventarioFase(
           content: [
             {
               type: 'text',
-              text: hintCortecloud ? `${userIntro}\n\n${hintCortecloud}` : userIntro,
+              text: `${hintCortecloud ? `${userIntro}\n\n${hintCortecloud}` : userIntro}${blocoTextoNativo(textoNativo)}`,
             },
             ...imageParts,
           ],
@@ -721,9 +740,10 @@ function montarComposicaoMateriais(
   inventario: MarkupIAVerificacaoCategoriaResultado[],
   levantamentoProjetista: MarkupIAProjetistaResult | null,
   catalog: MarkupCatalogProduct[],
-  _modoCortecloud: boolean,
+  modoCortecloud: boolean,
 ): ComposeMarkupParsed['comodos'] {
-  const linhas = mapearInventarioParaLinhas(inventario, catalog);
+  const origem = modoCortecloud ? 'cortecloud' as const : 'documento' as const;
+  const linhas = mapearInventarioParaLinhas(inventario, catalog, origem);
   if (linhas.length > 0) {
     return construirComodosDeInventario(linhas);
   }
@@ -762,7 +782,7 @@ function montarComposicaoMateriais(
     categoria_id,
     itens,
   }));
-  const linhasTotais = mapearInventarioParaLinhas(agrupado, catalog);
+  const linhasTotais = mapearInventarioParaLinhas(agrupado, catalog, origem);
   if (linhasTotais.length === 0) return [];
   return construirComodosDeInventario(
     linhasTotais,
@@ -800,6 +820,7 @@ async function runProjetistaFase(
     modoReconcile?: boolean;
     lacunas?: LacunaCriticaId[];
     inventarioBase?: MarkupIAVerificacaoCategoriaResultado[];
+    textoNativo?: string;
   },
 ): Promise<MarkupIAProjetistaResult> {
   const modoReconcile = options?.modoReconcile === true;
@@ -837,6 +858,7 @@ async function runProjetistaFase(
   const userText = modoReconcile
     ? `Complemente SOMENTE as lacunas (${lacunas.join(', ')}) nas ${imageParts.length} imagem(ns). Não altere quantidades do inventário base.`
     : `Analise as ${imageParts.length} imagem(ns) de projeto e retorne o levantamento completo por móvel.`;
+  const textoNativo = options?.textoNativo ?? '';
 
   let result: MarkupIAProjetistaResult | null = null;
   const ambientesEsperados = extrairAmbientesEsperados(analise, conhecimento);
@@ -850,7 +872,7 @@ async function runProjetistaFase(
       {
         role: 'user',
         content: [
-          { type: 'text', text: userContent },
+          { type: 'text', text: `${userContent}${blocoTextoNativo(textoNativo)}` },
           ...imageParts,
         ],
       },
@@ -1112,18 +1134,22 @@ async function processComposition(
 
   emit?.({ type: 'log', message: 'Preparando anexos e imagens únicas…' });
   const imageParts = await buildImageParts(itens);
+  const textoNativo = coletarTextoNativo(itens);
   emit?.({
     type: 'media_ready',
-    message: `${imageParts.length} imagem(ns) única(s) de ${itens.length} anexo(s)`,
-    data: { images: imageParts.length, items: itens.length },
+    message: textoNativo
+      ? `${imageParts.length} imagem(ns) única(s) de ${itens.length} anexo(s) · texto do PDF disponível`
+      : `${imageParts.length} imagem(ns) única(s) de ${itens.length} anexo(s)`,
+    data: { images: imageParts.length, items: itens.length, temTextoNativo: Boolean(textoNativo) },
   });
 
   const catalogLookup = formatCatalogLookupTable(catalog);
   const labelsAnexos = itens.map((i) => i.label ?? '');
-  const modoCortecloud = detectCortecloudContext(...labelsAnexos, analise, conhecimento);
+  const modoCortecloud = detectCortecloudContext(...labelsAnexos, analise, conhecimento, textoNativo);
+  const origemLinhas = modoCortecloud ? 'cortecloud' as const : 'documento' as const;
   emit?.({
     type: 'cortecloud_mode',
-    message: modoCortecloud ? 'Planilha Cortecloud detectada' : 'Pipeline sequencial (projetista → inventariante → auditor)',
+    message: modoCortecloud ? 'Planilha Cortecloud detectada' : 'Documento genérico de marcenaria (extração + casamento)',
     data: { active: modoCortecloud },
   });
 
@@ -1141,6 +1167,7 @@ async function processComposition(
       leadName,
       agentPrompts.projetista,
       emit,
+      { textoNativo },
     );
   } else {
     levantamentoProjetista = projetistaFallbackMinimo(1);
@@ -1157,6 +1184,7 @@ async function processComposition(
     projetistaParaInventario,
     modoCortecloud,
     emit,
+    textoNativo,
   );
 
   // Fase 2 — Auditor inventário (antes da precificação)
@@ -1226,7 +1254,7 @@ async function processComposition(
 
   // Fase 2b — Auditor projetista (coerência)
   if (levantamentoProjetista) {
-    const linhasInv = mapearInventarioParaLinhas(inventario, catalog);
+    const linhasInv = mapearInventarioParaLinhas(inventario, catalog, origemLinhas);
     const auditoriaDet = auditarItensProjetista(
       levantamentoProjetista,
       inventario,
@@ -1252,11 +1280,26 @@ async function processComposition(
     };
   }
 
-  const linhasMapeadas = mapearInventarioParaLinhas(inventario, catalog);
+  const linhasMapeadas = mapearInventarioParaLinhas(inventario, catalog, origemLinhas);
+  const itensExtraidos = mapearInventarioParaItensExtraidos(
+    inventario,
+    catalog,
+    modoCortecloud ? 'cortecloud' : 'pdf',
+  );
+  const naoCatalogadosExtraidos = itensExtraidos
+    .filter((item) => !item.produto_id)
+    .map((item) => {
+      const spec = item.especificacao ? ` ${item.especificacao}` : '';
+      return `${item.quantidade}x ${item.nome}${spec}`.trim();
+    });
   emit?.({
     type: 'catalogo',
-    message: `${linhasMapeadas.length} item(ns) mapeado(s) do inventário para o catálogo`,
-    data: { mapeados: linhasMapeadas.length },
+    message: `${linhasMapeadas.length} casados com alta confiança · ${naoCatalogadosExtraidos.length} para conferência`,
+    data: {
+      mapeados: linhasMapeadas.length,
+      extraidos: itensExtraidos.length,
+      pendentes: naoCatalogadosExtraidos.length,
+    },
   });
 
   // Fase 3 — Materiais determinísticos
@@ -1278,11 +1321,14 @@ async function processComposition(
   parsed = { ...parsed, comodos: injetadoInv.comodos };
 
   if (contarLinhasComposicao(parsed.comodos) === 0 && linhasMapeadas.length > 0) {
-    parsed = { ...parsed, comodos: construirComodosDeInventario(linhasMapeadas) };
+    parsed = { ...parsed, comodos: construirComodosDeInventario(
+      linhasMapeadas,
+      modoCortecloud ? 'Orçamento Cortecloud' : 'Materiais do documento',
+    ) };
   }
   if (contarLinhasComposicao(parsed.comodos) === 0 && levantamentoProjetista) {
     inventario = projetistaToInventario(levantamentoProjetista, checklist);
-    const linhasFallback = mapearInventarioParaLinhas(inventario, catalog);
+    const linhasFallback = mapearInventarioParaLinhas(inventario, catalog, origemLinhas);
     if (linhasFallback.length > 0) {
       parsed = { ...parsed, comodos: construirComodosDeInventario(linhasFallback) };
     }
@@ -1374,12 +1420,27 @@ async function processComposition(
     !criticos.ok ||
     (levantamentoProjetista?.auditoria_projetista?.ok === false);
 
+  const itensExtraidosFinal = mapearInventarioParaItensExtraidos(
+    inventario,
+    catalog,
+    modoCortecloud ? 'cortecloud' : 'pdf',
+  );
+  const naoCatalogadosFinal = itensExtraidosFinal
+    .filter((item) => !item.produto_id)
+    .map((item) => {
+      const spec = item.especificacao ? ` ${item.especificacao}` : '';
+      return `${item.quantidade}x ${item.nome}${spec}`.trim();
+    });
+
   return {
     comodos: validated.comodos,
     servicos: validated.servicos,
     despesas: validated.despesas,
     resumo_texto: validated.resumo_texto,
-    itens_nao_catalogados: validated.itens_nao_catalogados,
+    itens_nao_catalogados: [
+      ...new Set([...(validated.itens_nao_catalogados ?? []), ...naoCatalogadosFinal]),
+    ],
+    itens_extraidos: itensExtraidosFinal,
     verificacao_categorias: verificacao,
     levantamento_projetista: levantamentoProjetista ?? undefined,
     produtos_origem_projetista: produtosOrigemProjetista,

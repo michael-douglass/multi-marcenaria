@@ -21,7 +21,7 @@ const ETAPAS = [
   {
     id: 'anexos',
     titulo: 'Anexos',
-    descricao: 'A Íris lê PDFs, planilhas Cortecloud, fotos e renders do lead.',
+    descricao: 'A Íris lê os PDFs e fotos que você marcou no lead (texto nativo + visão).',
     icon: FileSearch,
   },
   {
@@ -57,7 +57,7 @@ const ETAPAS = [
   {
     id: 'validacao',
     titulo: 'Validação',
-    descricao: 'Confere subtotal de materiais e marca itens na tabela do orçamento.',
+    descricao: 'Confere subtotal e abre a conferência verde/amarelo/vermelho antes de fechar o preço.',
     icon: ShieldCheck,
   },
 ] as const;

@@ -1,3 +1,8 @@
+import {
+  PRESTADOR_PORTAL_BANNER_DESKTOP,
+  PRESTADOR_PORTAL_BANNER_MOBILE,
+} from '@/lib/prestador-portal-media';
+
 /** Garante array de URLs a partir do JSONB do Supabase ou cache local */
 export function normalizeBannerSlides(raw: unknown): string[] {
   if (raw == null) return [];
@@ -34,7 +39,11 @@ export function resolvePrestadorBannerSlides(
   } | null | undefined,
   isMobile: boolean,
 ): string[] {
-  if (!empresa) return [];
+  const fallback = isMobile
+    ? PRESTADOR_PORTAL_BANNER_MOBILE
+    : PRESTADOR_PORTAL_BANNER_DESKTOP;
+
+  if (!empresa) return [...fallback];
 
   const desktop = normalizeBannerSlides(empresa.banner_slides_desktop);
   const mobile = normalizeBannerSlides(empresa.banner_slides_mobile);
@@ -53,5 +62,5 @@ export function resolvePrestadorBannerSlides(
     ? empresa.banner_mobile_url || empresa.banner_desktop_url
     : empresa.banner_desktop_url || empresa.banner_mobile_url;
 
-  return legacy ? [legacy] : [];
+  return legacy ? [legacy] : [...fallback];
 }

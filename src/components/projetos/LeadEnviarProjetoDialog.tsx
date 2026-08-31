@@ -76,61 +76,85 @@ export function LeadEnviarProjetoDialog({
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          className="border-gold/20 bg-[#120c09]"
+          className="lead-atelier-dialog gap-0 overflow-hidden p-0 sm:max-w-md [&>button.absolute]:text-[#f2d892] [&>button.absolute]:hover:text-[#fff6ea] [&>button.absolute]:hover:bg-gold/10"
           onClick={stopCardEvent}
           onPointerDown={stopCardEvent}
         >
-          <DialogHeader>
-            <DialogTitle className="font-display text-gold">Enviar ao setor de projetos</DialogTitle>
-            <DialogDescription>
+          <DialogHeader className="space-y-2 border-b border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-5 py-4 pr-12 text-left">
+            <DialogTitle className="font-serif text-xl font-semibold tracking-tight text-[#fff6ea]">
+              Enviar ao setor de projetos
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-[#d4bc9f]">
               Recado com no mínimo {MIN_CARACTERES_ENVIO_SETOR} caracteres ou pelo menos uma foto (até{' '}
               {MAX_IMAGENS_ENVIO_SETOR}). Esse recado abre o canal com o ateliê.
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            value={recado}
-            maxLength={2000}
-            onChange={(e) => setRecado(e.target.value)}
-            placeholder="O que o ateliê precisa desenhar?"
-            className="min-h-[100px] border-gold/25 bg-[#1a120e]/70"
-          />
-          <div className="flex flex-wrap gap-2">
-            {files.map((file, index) => (
-              <span key={`${file.name}-${index}`} className="relative h-16 w-16 overflow-hidden rounded-md border border-gold/20">
-                <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  className="absolute right-0.5 top-0.5 rounded-full bg-[#120c09]/80 p-0.5"
-                  onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            {files.length < MAX_IMAGENS_ENVIO_SETOR ? (
-              <label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded-md border border-dashed border-gold/30 text-gold">
-                <ImagePlus className="h-4 w-4" />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  className="sr-only"
-                  onChange={(event) => {
-                    const next = [...(event.target.files ?? [])].filter(isImagemPermitidaNoAtelie)
-                    setFiles((prev) => [...prev, ...next].slice(0, MAX_IMAGENS_ENVIO_SETOR))
-                    event.target.value = ''
-                  }}
-                />
-              </label>
-            ) : null}
+          <div className="space-y-4 px-5 py-4">
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d4bc9f]">
+                Recado para o ateliê
+              </p>
+              <Textarea
+                value={recado}
+                maxLength={2000}
+                onChange={(e) => setRecado(e.target.value)}
+                placeholder="O que o ateliê precisa desenhar?"
+                className="min-h-[120px] border-[rgba(196,150,58,0.4)] bg-[#120c09] text-[#fff6ea] placeholder:text-[#b89a78]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d4bc9f]">
+                Fotos (opcional)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {files.map((file, index) => (
+                  <span
+                    key={`${file.name}-${index}`}
+                    className="relative h-16 w-16 overflow-hidden rounded-md border border-[rgba(196,150,58,0.4)]"
+                  >
+                    <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      className="absolute right-0.5 top-0.5 rounded-full bg-[#1a120e] p-0.5 text-[#fff6ea]"
+                      onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
+                      aria-label="Remover foto"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {files.length < MAX_IMAGENS_ENVIO_SETOR ? (
+                  <label className="flex h-16 min-w-16 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-[rgba(242,216,146,0.45)] bg-[#120c09] px-2 text-[#f2d892] hover:bg-[#241810]">
+                    <ImagePlus className="h-4 w-4 shrink-0" />
+                    <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">Foto</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      className="sr-only"
+                      onChange={(event) => {
+                        const next = [...(event.target.files ?? [])].filter(isImagemPermitidaNoAtelie)
+                        setFiles((prev) => [...prev, ...next].slice(0, MAX_IMAGENS_ENVIO_SETOR))
+                        event.target.value = ''
+                      }}
+                    />
+                  </label>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+          <DialogFooter className="gap-2 border-t border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-5 py-3 sm:space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-[rgba(196,150,58,0.45)] bg-transparent text-[#fff6ea] hover:bg-gold/10 hover:text-[#fff6ea]"
+              onClick={() => setOpen(false)}
+            >
               Cancelar
             </Button>
             <Button
               type="button"
-              className="bg-gold text-[#1a120e]"
+              className="bg-[#f2d892] font-semibold text-[#1a120e] hover:bg-[#f5e0a8]"
               disabled={!canSend || enviarAoSetor.isPending}
               onClick={async () => {
                 await enviarAoSetor.mutateAsync({ leadId, recado, files })
