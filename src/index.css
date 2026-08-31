@@ -2657,10 +2657,24 @@ body::before {
   color: var(--lead-soft);
 }
 .glass-dialog.lead-modal-shell {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
   background: var(--lead-wood) !important;
   color: var(--lead-soft) !important;
   border-color: var(--lead-line) !important;
   box-shadow: 0 28px 64px rgba(8, 3, 1, 0.55) !important;
+}
+@media (max-width: 640px) {
+  .glass-dialog.lead-modal-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
 }
 
 .lead-modal-header {
