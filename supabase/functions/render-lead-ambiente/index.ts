@@ -202,7 +202,7 @@ async function saveRenderAsLeadAttachment(
   outputBytes: Uint8Array,
 ): Promise<void> {
   const prefix = storagePrefix(empresaSchema);
-  const fileName = `render-ambiente-${renderId}.png`;
+  const fileName = `render-ia-${renderId}.png`;
   const storagePath = `${prefix}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
@@ -349,7 +349,15 @@ Deno.serve(async (req) => {
 
     let analiseTexto = sugestoesAnteriores;
 
-    const shouldRunVision = action === 'analyze' || action === 'render';
+    const hasClientScene =
+      Boolean(cenaInventario) || Boolean(sugestoesAnteriores);
+    // No "gerar", o inventário da lousa já veio do browser — pular a visão
+    // economiza 10–30s e evita estouro de tempo (que disparava um 2º pedido).
+    const shouldRunVision = action === 'analyze' || (action === 'render' && !hasClientScene);
+    if (action === 'render' && !shouldRunVision) {
+      analiseTexto =
+        [cenaInventario, sugestoesAnteriores].filter(Boolean).join('\n\n') || analiseTexto;
+    }
     if (shouldRunVision) {
       try {
         const inventoryPromptSnapshot = applyAmbientePromptPlaceholders(

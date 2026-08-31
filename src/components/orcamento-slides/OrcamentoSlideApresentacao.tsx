@@ -76,6 +76,8 @@ import {
 import { SlideImagem } from '@/components/orcamento-slides/SlideImagem';
 import { SlideMidia } from '@/components/orcamento-slides/SlideMidia';
 import { CuboMagicoFundo, CuboMagicoLens, cuboMagicoPeriodStyle } from '@/components/orcamento-slides/CuboMagicoFundo';
+import { CapaAtmosphereFoil } from '@/components/orcamento-slides/CapaAtmosphereFoil';
+import { CapaEditorialTextos, CapaMolduraOuro } from '@/components/orcamento-slides/CapaEditorial';
 import { isOrcamentoMidiaVideo } from '@/lib/orcamento-slide-midia-video';
 import { urlImagemApresentacao } from '@/lib/orcamento-slide-imagem-url';
 import './ferragens-cards.css';
@@ -272,7 +274,6 @@ function BlocoCapa({
   const capaAspect = aspectRatioSlide(capaOrientacao);
   const titulo    = (bloco.config.titulo as string) || 'Proposta Comercial';
   const subtitulo = (bloco.config.subtitulo as string) || orcamento.cliente_nome || '';
-  const typo = slideTypography(mobile);
   const minH = useSectionMinH();
   const px = slidePaddingX(layout, mobile);
   // Celular: texto centralizado com margem — aspecto natural de proposta no telefone.
@@ -287,69 +288,29 @@ function BlocoCapa({
   const cuboAtivo = !previewMode;
   const mobileTextoColClass = 'mx-auto w-full max-w-[min(36rem,88%)]';
   const textoCapa = (
-    <CuboMagicoLens
-      enabled={cuboAtivo}
-      kind="content"
-      className={cn('flex w-full flex-col', mobile ? 'gap-3.5' : 'gap-5', textAlign.items)}
-    >
-      {p.logoUrl && (
-        <img
-          src={urlImagemApresentacao(p.logoUrl, mobile, 'small')}
-          alt="Logo"
-          className={cn(
-            'object-contain mb-1',
-            mobile ? 'h-16 max-w-[min(100%,280px)]' : 'h-20 max-w-[min(100%,200px)]',
-          )}
-          style={{ ...reveal(0, previewMode) }}
-          data-reveal={!previewMode ? true : undefined}
-          loading="eager"
-          decoding="async"
-        />
-      )}
-      <h1
-        className="font-serif font-black w-full max-w-full"
-        style={{
-          fontFamily: `'${p.tituloFont}', serif`,
-          color: p.secundaria,
-          ...typo.capaTitulo,
-          ...sombraTexto,
-          ...reveal(120, previewMode),
-        }}
-        data-reveal={!previewMode ? true : undefined}
-      >
-        {titulo}
-      </h1>
-      {subtitulo && (
-        <p
-          className="w-full max-w-full"
-          style={{
-            color: 'rgba(255,255,255,0.85)',
-            fontFamily: `'${p.corpoFont}', sans-serif`,
-            ...typo.capaSubtitulo,
-            ...sombraTexto,
-            ...reveal(240, previewMode),
-          }}
-          data-reveal={!previewMode ? true : undefined}
-        >
-          {subtitulo}
-        </p>
-      )}
-      <div
-        className={cn('h-0.5 mt-1', mobile ? 'w-12 max-w-[36%]' : 'w-16 max-w-[40%]')}
-        style={{ background: p.secundaria, ...sombraTexto, ...reveal(360, previewMode) }}
-        data-reveal={!previewMode ? true : undefined}
-      />
-    </CuboMagicoLens>
+    <CapaEditorialTextos
+      paleta={p}
+      titulo={titulo}
+      subtitulo={subtitulo}
+      mobile={mobile}
+      previewMode={!!previewMode}
+      cuboAtivo={cuboAtivo}
+      overlay={overlaySobreImagem}
+      alignItems={textAlign.items}
+      alignText={textAlign.text}
+      sombraTexto={sombraTexto}
+      reveal={reveal}
+    />
   );
 
-  // Título centralizado sobre a imagem (com sombra para legibilidade) + Cubo Mágico
+  // Capa sobre a foto: catálogo de marcenaria (moldura, hierarquia e véu dourado)
   if (overlaySobreImagem) {
     return (
       <section
         className={cn('relative w-full max-w-full flex flex-col overflow-hidden', minH)}
         style={{ scrollSnapAlign: 'start', ...SLIDE_CONTAINER_STYLE, ...cuboMagicoPeriodStyle(mobile) }}
       >
-        <div className="relative flex flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex flex-1 min-h-0 overflow-hidden bg-[#0a0706]">
           <CuboMagicoLens enabled={cuboAtivo} kind="bg" className="absolute inset-0">
             <SlideImagem
               src={capaMidia!.file_url}
@@ -359,24 +320,32 @@ function BlocoCapa({
               className="absolute inset-0 h-full w-full object-cover"
             />
           </CuboMagicoLens>
-          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/55 via-black/40 to-black/60" />
+          <div className="absolute inset-0 z-[2] bg-gradient-to-b from-[#0a0706]/75 via-[#0a0706]/25 to-[#0a0706]/82" />
+          <div className="pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(ellipse_at_50%_78%,transparent_18%,rgba(10,7,6,0.55)_100%)]" />
+          <CapaAtmosphereFoil enabled={cuboAtivo} intensity={0.95} className="z-[4]" />
           <CuboMagicoFundo enabled={cuboAtivo} mobile={mobile} variant="dark" />
+          <CapaMolduraOuro
+            color={p.secundaria}
+            className={cn(
+              'inset-[1.1rem] sm:inset-8',
+              mobile && 'inset-[max(0.85rem,env(safe-area-inset-left))]',
+            )}
+          />
           <div
             className={cn(
-              'relative z-10 flex w-full flex-1 items-center justify-center',
+              'relative z-10 flex w-full flex-1',
               mobile
-                ? 'px-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] py-[max(2rem,env(safe-area-inset-top))]'
-                : 'px-8 py-12',
+                ? 'items-center justify-center px-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] py-[max(2.25rem,env(safe-area-inset-top))]'
+                : 'items-end justify-center px-14 pb-16 pt-20',
             )}
           >
             <div
               className={cn(
                 'flex w-full flex-col',
-                mobile ? mobileTextoColClass : 'max-w-2xl px-10 py-10',
+                mobile ? mobileTextoColClass : 'max-w-3xl pb-2',
                 textAlign.items,
                 textAlign.text,
               )}
-              style={mobile ? undefined : ESTILO_PAINEL_TEXTO_SOBRE_IMAGEM}
             >
               {textoCapa}
             </div>
@@ -413,6 +382,7 @@ function BlocoCapa({
           />
         </CuboMagicoLens>
         <div className="absolute inset-0 z-[2] bg-gradient-to-b from-black/15 via-transparent to-black/45" />
+        <CapaAtmosphereFoil enabled={cuboAtivo} intensity={0.55} className="z-[4]" />
         <CuboMagicoFundo enabled={cuboAtivo} mobile variant="dark" />
       </div>
     );
@@ -538,7 +508,12 @@ function BlocoCapa({
               )}
             </CuboMagicoLens>
             <div className="absolute inset-0 z-[2] bg-black/50" />
+            <CapaAtmosphereFoil enabled={cuboAtivo} intensity={0.7} className="z-[4]" />
             <CuboMagicoFundo enabled={cuboAtivo} mobile={mobile} variant="dark" />
+            <CapaMolduraOuro
+              color={p.secundaria}
+              className="inset-[1.1rem] sm:inset-8"
+            />
           </>
         )}
         <div
@@ -2514,7 +2489,7 @@ export const OrcamentoSlideApresentacao = forwardRef<HTMLDivElement, Props>(func
       data-viewport={effectiveViewport}
       data-preview-static={previewMode ? 'true' : undefined}
       className={cn(
-        'w-full max-w-full overflow-x-hidden overflow-y-auto scroll-smooth',
+        'w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y scroll-smooth',
         embeddedInLayout && 'h-full min-h-0',
         effectiveViewport === 'mobile' && (!previewMode || faithfulPreview) && 'snap-y snap-mandatory',
         className,

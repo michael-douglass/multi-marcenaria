@@ -18,6 +18,11 @@ export function setOrcamentoVisualizarOpenFlag(open: boolean) {
   }
 }
 
+export function isOrcamentoVisualizarOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR);
+}
+
 export function setEnviarProjetoDialogOpenFlag(open: boolean) {
   if (typeof document === 'undefined') return;
   if (open) {

@@ -110,7 +110,9 @@ function buildPrintCss(
   /* Vídeos só na apresentação web — nunca no PDF/impressão */
   video,
   [data-orcamento-video],
-  [data-orcamento-video-slide] {
+  [data-orcamento-video-slide],
+  [data-capa-atmosphere],
+  [data-cubo-magico] {
     display: none !important;
   }
 

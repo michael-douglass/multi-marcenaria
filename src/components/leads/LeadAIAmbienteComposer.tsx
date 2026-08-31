@@ -240,6 +240,7 @@ export function LeadAIAmbienteComposer({
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [isSavingCopy, setIsSavingCopy] = useState(false);
   const [sourceFolderId, setSourceFolderId] = useState<string | null>(null);
+  const renderStartedRef = useRef(false);
 
   const { uploadAttachment, pdfs } = useLeadPDFs(leadId);
 
@@ -653,6 +654,8 @@ export function LeadAIAmbienteComposer({
       toast.error('Descreva o ambiente, insira uma foto ou posicione um objeto');
       return;
     }
+    if (locked || isBusy || renderStartedRef.current) return;
+    renderStartedRef.current = true;
     setIsFlattening(true);
     try {
       let compositionDataUrl: string | undefined;
@@ -682,9 +685,8 @@ export function LeadAIAmbienteComposer({
         markers,
         shapes,
       });
-      setIsFlattening(false);
       setIsFullscreen(false);
-      void onRender({
+      await onRender({
         descricao: descricao.trim(),
         analiseTexto: analiseTexto ?? undefined,
         cenaInventario,
@@ -693,6 +695,7 @@ export function LeadAIAmbienteComposer({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível renderizar o ambiente');
     } finally {
+      renderStartedRef.current = false;
       setIsFlattening(false);
     }
   }, [
@@ -701,6 +704,8 @@ export function LeadAIAmbienteComposer({
     canRender,
     descricao,
     hasComposition,
+    isBusy,
+    locked,
     markers,
     objects,
     onRender,

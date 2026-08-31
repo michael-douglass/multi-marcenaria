@@ -21,6 +21,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const REST_TIMEOUT_MS = 20_000
 const STORAGE_TIMEOUT_MS = 120_000
+/** Render/IA no servidor pode passar de 1 minuto. Cortar cedo aborta o cliente e dispara um 2º pedido. */
+const FUNCTIONS_TIMEOUT_MS = 180_000
 
 function createMemoryStorage(): Storage {
   const map = new Map<string, string>()
@@ -76,6 +78,10 @@ function isStorageRequest(url: string): boolean {
   return url.includes('/storage/v1/')
 }
 
+function isFunctionRequest(url: string): boolean {
+  return url.includes('/functions/v1/')
+}
+
 function mergeAbortSignals(parent: AbortSignal | undefined, local: AbortController): () => void {
   if (!parent) return () => {}
   if (parent.aborted) {
@@ -108,8 +114,14 @@ const supabaseFetch: typeof fetch = async (input, init) => {
     )
   }
 
-  const timeoutMs = isStorageRequest(url) ? STORAGE_TIMEOUT_MS : REST_TIMEOUT_MS
-  const maxAttempts = isStorageRequest(url) ? 1 : 2
+  const timeoutMs = isStorageRequest(url)
+    ? STORAGE_TIMEOUT_MS
+    : isFunctionRequest(url)
+      ? FUNCTIONS_TIMEOUT_MS
+      : REST_TIMEOUT_MS
+  // Edge Functions com efeito colateral (gerar imagem) NÃO podem ser retried —
+  // o servidor continua mesmo após o abort e a 2ª chamada cria outra imagem.
+  const maxAttempts = isStorageRequest(url) || isFunctionRequest(url) ? 1 : 2
   let lastError: unknown
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {

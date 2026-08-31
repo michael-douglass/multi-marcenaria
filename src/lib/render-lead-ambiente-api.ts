@@ -40,6 +40,14 @@ export interface RenderLeadAmbienteResult {
 
 function invokeFunctionErrorMessage(error: { message?: string; name?: string }): string | null {
   const msg = error.message ?? '';
+  const isAbort =
+    error.name === 'AbortError' ||
+    error.name === 'TimeoutError' ||
+    /abort/i.test(msg) ||
+    /timeout/i.test(msg);
+  if (isAbort) {
+    return 'A geração do ambiente ainda está em andamento no servidor. Não clique de novo — a imagem aparece no histórico quando terminar.';
+  }
   const isUnreachable =
     msg.includes('Failed to send') ||
     msg.includes('Failed to fetch') ||

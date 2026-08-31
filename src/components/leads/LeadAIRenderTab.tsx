@@ -163,7 +163,19 @@ function PdfSelectThumbnail({
 }
 
 function canDeleteSketchMediaItem(item: LeadAIMediaItem): boolean {
+  if (resolveAiRenderIdFromAttachment({ id: item.id, fileUrl: item.fileUrl, fileName: item.label })) {
+    return false;
+  }
   return item.source === 'anexo' || item.source === 'whiteboard';
+}
+
+function isSketchSourceItem(item: LeadAIMediaItem): boolean {
+  if (item.label?.startsWith('Render IA')) return false;
+  return !resolveAiRenderIdFromAttachment({
+    id: item.id,
+    fileUrl: item.fileUrl,
+    fileName: item.label,
+  });
 }
 
 function MediaSelectCard({
@@ -449,9 +461,11 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   } | null>(null);
   const pendingAmbienteAfterPdfRef = useRef(false);
 
+  const sketchItems = useMemo(() => items.filter(isSketchSourceItem), [items]);
+
   const selectedItem = useMemo(
-    () => items.find((item) => item.key === selectedKey) ?? null,
-    [items, selectedKey],
+    () => sketchItems.find((item) => item.key === selectedKey) ?? items.find((item) => item.key === selectedKey) ?? null,
+    [items, selectedKey, sketchItems],
   );
 
   const buildRenderOptions = useCallback(
@@ -924,7 +938,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         toast.error('Chave da API não configurada');
         return;
       }
-      void startBackgroundAmbienteRender({
+      await startBackgroundAmbienteRender({
         leadId,
         leadName,
         leadOrigin,
@@ -1072,7 +1086,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-mahogany-muted/50" />
               ))}
             </SketchMediaGrid>
-          ) : items.length === 0 ? (
+          ) : sketchItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gold-border-subtle/30 bg-mahogany-muted/30 px-4 py-10 text-center">
               <ImageIcon className="mx-auto mb-3 h-8 w-8 text-cream-faint opacity-60" />
               <p className="text-sm text-cream-muted">
@@ -1080,8 +1094,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
               </p>
             </div>
           ) : (
-            <SketchMediaGrid itemCount={items.length}>
-              {items.map((item, index) => (
+            <SketchMediaGrid itemCount={sketchItems.length}>
+              {sketchItems.map((item, index) => (
                 <MediaSelectCard
                   key={item.key}
                   item={item}

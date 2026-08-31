@@ -27,6 +27,7 @@ import { valorInvestimentoParaLead } from '@/lib/orcamento-slide-lead-sync';
 import { BRL } from '@/lib/orcamento-slide-precificacao';
 import { isLinkPublicoAtivo, linkPublicoOrcamento } from '@/lib/orcamento-slide-public-link';
 import { setOrcamentoVisualizarOpenFlag } from '@/lib/dialog-outside-guard';
+import { bindOrcamentoVisualizarScrollPassthrough, scrollOrcamentoVisualizarBy } from '@/lib/overlay-scroll-passthrough';
 import type { OrcamentoSlide } from '@/lib/orcamento-slide-types';
 import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { isOrcamentoVisivelParaPrestador } from '@/lib/prestador-visibilidade';
@@ -75,7 +76,12 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
 
   useEffect(() => {
     setOrcamentoVisualizarOpenFlag(Boolean(visualizarId));
-    return () => setOrcamentoVisualizarOpenFlag(false);
+    if (!visualizarId) return () => setOrcamentoVisualizarOpenFlag(false);
+    const unbindScroll = bindOrcamentoVisualizarScrollPassthrough();
+    return () => {
+      unbindScroll();
+      setOrcamentoVisualizarOpenFlag(false);
+    };
   }, [visualizarId]);
 
   useEffect(() => {
@@ -376,7 +382,11 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
               aria-label="Visualizar apresentação do orçamento"
               data-nested-dialog=""
               data-orcamento-visualizar=""
-              className="fixed inset-0 z-[240] pointer-events-auto bg-[#0a0706]"
+              data-scroll-passthrough="true"
+              className="fixed inset-0 z-[240] flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-y-contain pointer-events-auto bg-[#0a0706]"
+              onWheel={(event) => {
+                scrollOrcamentoVisualizarBy(event.deltaY, event.target);
+              }}
             >
               <Suspense fallback={<GarboBrandLoader variant="fullscreen" message="Preparando apresentação…" />}>
                 <ApresentarOrcamentoSlidePage

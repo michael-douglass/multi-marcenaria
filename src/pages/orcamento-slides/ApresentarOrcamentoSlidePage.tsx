@@ -163,7 +163,7 @@ function ApresentarOrcamentoSlideConteudo({
   const analiseVisivelNaApresentacao = !presentationOrcamento.dados?._meta?.ocultar_analise_ia;
 
   return (
-    <div className="paper-dark-surface flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0a0706]">
+    <div className="paper-dark-surface flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#0a0706]">
       <div
         className="flex items-center justify-between px-4 py-2 shrink-0 z-10"
         style={{ background: '#2a1812', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
@@ -201,8 +201,8 @@ function ApresentarOrcamentoSlideConteudo({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
           <OrcamentoSlideApresentacao
             orcamento={presentationOrcamento}
             template={template}

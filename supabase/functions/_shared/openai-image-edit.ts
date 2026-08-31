@@ -40,6 +40,7 @@ export async function callOpenAIImageEdit(
     }
 
     const isGptImage = model === 'gpt-image-1' || model === 'gpt-image-1.5';
+    form.append('n', '1');
     if (isGptImage) {
       // /images/edits não aceita size=auto — usar dimensão explícita
       form.append('size', '1024x1024');

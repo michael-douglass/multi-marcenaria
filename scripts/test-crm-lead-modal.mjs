@@ -37,6 +37,23 @@ describe('Épico 11 — ficha do lead', () => {
     assert.doesNotMatch(modal, /Módulos do card/)
   })
 
+  it('visualização de orçamento em slides rola por cima do card', () => {
+    const secao = readSrc('src/components/leads/LeadOrcamentoSlidesSection.tsx')
+    const apresentacao = readSrc('src/components/orcamento-slides/OrcamentoSlideApresentacao.tsx')
+    const passthrough = readSrc('src/lib/overlay-scroll-passthrough.ts')
+    const guard = readSrc('src/lib/dialog-outside-guard.ts')
+    assert.match(secao, /data-orcamento-visualizar/)
+    assert.match(secao, /overflow-hidden overscroll-y-contain/)
+    assert.match(secao, /bindOrcamentoVisualizarScrollPassthrough/)
+    assert.match(apresentacao, /overscroll-y-contain touch-pan-y/)
+    assert.match(passthrough, /window\.addEventListener\('wheel'/)
+    assert.match(passthrough, /document\.addEventListener\('wheel'/)
+    assert.match(passthrough, /event\.stopPropagation\(\)/)
+    assert.match(passthrough, /scrollOrcamentoVisualizarBy\(event\.deltaY/)
+    assert.match(secao, /onWheel/)
+    assert.match(guard, /export function isOrcamentoVisualizarOpen/)
+  })
+
   it('clique no fundo fecha o card; atualizar a página reabre pelo ?id=', () => {
     const ficha = readSrc('src/components/leads/LeadModal.tsx')
     const dialog = readSrc('src/components/ui/dialog.tsx')

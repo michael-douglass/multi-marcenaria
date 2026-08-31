@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -130,6 +131,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
   const [jobs, setJobs] = useState<LeadAIRenderBackgroundJob[]>([]);
   const [editJobs, setEditJobs] = useState<LeadAIEditBackgroundJob[]>([]);
   const [ambienteJobs, setAmbienteJobs] = useState<LeadAIAmbienteBackgroundJob[]>([]);
+  const ambienteInFlightRef = useRef(new Set<number>());
   const { schemaEmpresa } = useEmpresa();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -358,6 +360,14 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
         furnitureReferences,
       } = input;
 
+      if (ambienteInFlightRef.current.has(leadId)) {
+        toast.info('Renderização de ambiente já em andamento', {
+          description: 'Aguarde a conclusão. Clicar de novo gera imagens extras.',
+        });
+        return false;
+      }
+      ambienteInFlightRef.current.add(leadId);
+
       const jobId = crypto.randomUUID();
       const baseJob: LeadAIAmbienteBackgroundJob = {
         id: jobId,
@@ -380,6 +390,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
       });
 
       if (!shouldProceed) {
+        ambienteInFlightRef.current.delete(leadId);
         toast.info('Renderização de ambiente já em andamento', {
           description: 'Aguarde a conclusão ou continue usando o sistema enquanto a IA trabalha.',
         });
@@ -425,6 +436,8 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
           description: message,
         });
         return false;
+      } finally {
+        ambienteInFlightRef.current.delete(leadId);
       }
     },
     [invalidateRenderQueries, openLeadRenderTab, schemaEmpresa, updateAmbienteJob],

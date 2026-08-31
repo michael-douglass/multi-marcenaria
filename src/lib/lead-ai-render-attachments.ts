@@ -26,7 +26,7 @@ export function parseRenderIdFromAiAttachmentId(id: string): string | null {
 }
 
 export function parseRenderIdFromAttachmentFileName(fileName: string): string | null {
-  const match = /^render-ia-([0-9a-f-]{36})\.png$/i.exec(fileName.trim());
+  const match = /^(?:render-ia|render-ambiente)-([0-9a-f-]{36})\.png$/i.exec(fileName.trim());
   return match?.[1] ?? null;
 }
 
