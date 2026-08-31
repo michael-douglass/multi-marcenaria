@@ -1,8 +1,9 @@
-﻿import { Fragment, useEffect, useState } from 'react'
+﻿import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronRight, Landmark, User } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { SidebarAmberRibbon } from '@/components/layout/SidebarAmberRibbon'
+import { SidebarSearchEmpty, SidebarSearchField } from '@/components/layout/SidebarSearchField'
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +37,7 @@ import {
 } from '@/lib/app-navigation'
 import { colaboradorCrmRoles } from '@/lib/crm-identity'
 import { canAccessSection } from '@/lib/role-access'
+import { flattenSidebarPages, matchSidebarPages } from '@/lib/sidebar-search'
 import { cn } from '@/lib/utils'
 import type { ActiveSection } from '@/types'
 
@@ -199,6 +201,12 @@ export function AppSidebar() {
   )
   const comercialItems = items.filter(item => item.sector === 'comercial')
   const casaItems = items.filter(item => item.sector === 'casa')
+  const [searchQuery, setSearchQuery] = useState('')
+  const allPages = useMemo(() => flattenSidebarPages(items), [items])
+  const searchHits = useMemo(() => matchSidebarPages(allPages, searchQuery), [allPages, searchQuery])
+  const isSearching = searchQuery.trim().length > 0
+  const crmHits = searchHits.filter(hit => hit.sector === 'comercial')
+  const casaHits = searchHits.filter(hit => hit.sector === 'casa')
 
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
@@ -282,6 +290,7 @@ export function AppSidebar() {
   }
 
   const handleNavClick = (url: string) => {
+    setSearchQuery('')
     if (!open) {
       setOpen(true)
       navigate(url)
@@ -305,6 +314,7 @@ export function AppSidebar() {
     nested = false,
     depth = 0,
     badge?: number,
+    trail?: string,
   ) => (
     <SidebarMenuButton
       isActive={isActive}
@@ -317,10 +327,14 @@ export function AppSidebar() {
         'cursor-pointer',
         nested && (depth === 0 ? 'pl-6' : 'pl-8'),
         nested && 'group-data-[collapsible=icon]:!pl-2',
+        trail && 'h-auto min-h-8 items-start py-1.5',
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">{title}</span>
+      <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+        <span className="block truncate">{title}</span>
+        {trail ? <span className="sidebar-search-trail">{trail}</span> : null}
+      </span>
       {typeof badge === 'number' && badge > 0 ? (
         <span className="sidebar-nav-badge group-data-[collapsible=icon]:hidden">{badge}</span>
       ) : null}
@@ -433,10 +447,56 @@ export function AppSidebar() {
             <Logo full halo={false} />
           </div>
         </div>
+        <div className="relative z-[2]">
+          <SidebarSearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            collapsed={!open}
+            onExpand={() => setOpen(true)}
+          />
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="overflow-hidden">
         <ScrollArea className="h-full sidebar-scroll">
+          {isSearching ? (
+            <div className="px-1 pb-3">
+              {searchHits.length === 0 ? <SidebarSearchEmpty query={searchQuery} /> : null}
+              {crmHits.length > 0 ? (
+                <>
+                  <p className="sidebar-search-kicker sidebar-search-kicker--crm">CRM</p>
+                  <SidebarMenu>
+                    {crmHits.map(hit => {
+                      const Icon = hit.icon
+                      const isActive = isLeafPathActive(location.pathname, hit.url)
+                      return (
+                        <SidebarMenuItem key={hit.id}>
+                          {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </>
+              ) : null}
+              {casaHits.length > 0 ? (
+                <>
+                  <p className="sidebar-search-kicker sidebar-search-kicker--casa">Movelaria</p>
+                  <SidebarMenu>
+                    {casaHits.map(hit => {
+                      const Icon = hit.icon
+                      const isActive = isLeafPathActive(location.pathname, hit.url)
+                      return (
+                        <SidebarMenuItem key={hit.id}>
+                          {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <>
           {comercialItems.length > 0 ? (
             <Collapsible open={comercialSectorOpen}>
               <SidebarGroup
@@ -500,6 +560,8 @@ export function AppSidebar() {
               </SidebarGroup>
             </Collapsible>
           ) : null}
+            </>
+          )}
         </ScrollArea>
       </SidebarContent>
 

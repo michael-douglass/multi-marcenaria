@@ -86,7 +86,8 @@ export function PipelineBoardAura({ className }: { className?: string }) {
       fragmentShader: FRAGMENT,
     })
 
-    const loader = new THREE.TextureLoader()
+    const manager = new THREE.LoadingManager()
+    const loader = new THREE.TextureLoader(manager)
     loader.load(
       '/imagens/identidade-visual-garbo.png',
       (texture) => {
@@ -96,6 +97,7 @@ export function PipelineBoardAura({ className }: { className?: string }) {
         texture.minFilter = THREE.LinearFilter
         texture.magFilter = THREE.LinearFilter
         texture.anisotropy = 1
+        texture.needsUpdate = true
         material.uniforms.uBrand.value = texture
         material.uniforms.uHasBrand.value = 1
       },

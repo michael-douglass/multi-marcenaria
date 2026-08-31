@@ -61,7 +61,7 @@ export function KanbanColumn({
           {count} {count === 1 ? countNoun : `${countNoun}s`}
         </p>
       </div>
-      <div className="flex-1 min-h-0 w-full min-w-0 p-2 sm:p-2.5 overflow-y-auto overflow-x-hidden touch-pan-y">
+      <div className="w-full min-w-0 flex-1 p-2 sm:p-2.5">
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2 sm:gap-2.5 w-full min-w-0">{children}</div>
         </SortableContext>

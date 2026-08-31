@@ -2059,6 +2059,113 @@ body::before {
     background: rgba(242, 216, 146, 0.48);
   }
 
+  .sidebar-search {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.15rem 0.15rem 0;
+    padding: 0 0.55rem;
+    border-radius: 12px;
+    border: 1px solid rgba(240, 210, 140, 0.34);
+    background: linear-gradient(180deg, rgba(28, 12, 6, 0.94), rgba(10, 4, 2, 0.9));
+    box-shadow:
+      inset 0 1px 0 rgba(240, 210, 140, 0.2),
+      0 8px 18px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+
+  .sidebar-search-glyph {
+    position: relative;
+    z-index: 1;
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    color: #f2d892;
+    opacity: 0.88;
+  }
+
+  .sidebar-search input {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-width: 0;
+    height: 2.2rem;
+    border: 0;
+    background: transparent;
+    color: #f5e6c8;
+    font-family: Raleway, sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    outline: none;
+  }
+
+  .sidebar-search input::placeholder {
+    color: rgba(237, 217, 196, 0.55);
+  }
+
+  .sidebar-search input::-webkit-search-decoration,
+  .sidebar-search input::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  .sidebar-search-clear {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    color: #edd9c4;
+    opacity: 0.75;
+  }
+
+  .sidebar-search-clear:hover {
+    opacity: 1;
+    color: #f2d892;
+  }
+
+  .sidebar-search-icon-btn {
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    border-radius: 10px;
+    border: 1px solid rgba(240, 210, 140, 0.28);
+    color: #f2d892;
+    background: rgba(28, 12, 6, 0.72);
+  }
+
+  .sidebar-search-empty {
+    margin: 0.75rem 0.85rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #edd9c4;
+  }
+
+  .sidebar-search-kicker {
+    margin: 0.55rem 0.85rem 0.2rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-search-kicker--crm {
+    color: #8ef0bf;
+  }
+
+  .sidebar-search-kicker--casa {
+    color: #f2d892;
+  }
+
+  .sidebar-search-trail {
+    display: block;
+    font-size: 0.62rem;
+    color: #edd9c4;
+    opacity: 0.78;
+  }
+
   .sidebar-sector {
     padding-top: 0.35rem;
     padding-bottom: 0.65rem;

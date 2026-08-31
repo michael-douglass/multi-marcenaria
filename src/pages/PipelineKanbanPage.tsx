@@ -298,7 +298,7 @@ export default function PipelineKanbanPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2 overflow-hidden px-2 pb-2 md:px-3 md:pb-3">
+    <div className="flex h-auto min-w-0 max-w-full flex-none flex-col gap-2 overflow-x-hidden overflow-y-visible px-2 pb-2 md:px-3 md:pb-3">
       {isInitialKanbanLoad || !page ? (
         <div className="flex items-center justify-center min-h-[300px] text-muted-foreground">Carregando Kanban...</div>
       ) : (
@@ -454,7 +454,7 @@ export default function PipelineKanbanPage() {
       <KanbanPageZoomControls variant="fixed" transparent={!!markupSheet} />
       <KanbanPageZoomShell
         onZoomApplied={updateKanbanScrollEdges}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-hidden"
+        className="min-h-[min(72vh,calc(100svh-11rem))] overflow-visible"
       >
       <DndContext
         sensors={sensors}
@@ -462,15 +462,55 @@ export default function PipelineKanbanPage() {
         onDragEnd={handleDragEnd}
         collisionDetection={pointerWithin}
       >
-        <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden pb-1">
-          <PipelineBoardAura />
+        <div className="relative flex h-auto w-full min-w-0 max-w-full flex-col overflow-visible pb-8">
+          <div className="pointer-events-none sticky top-[42vh] z-30 h-0 w-full">
+            <div className="pointer-events-none absolute left-2 -translate-y-1/2 md:left-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Rolar colunas para a esquerda"
+                aria-disabled={!kanbanScrollEdges.canLeft}
+                onClick={() => {
+                  if (kanbanScrollEdges.canLeft) scrollKanbanHorizontal('prev');
+                }}
+                className={cn(
+                  'pointer-events-auto h-11 w-11 shrink-0 rounded-full border-2 border-border bg-background shadow-md hover:bg-accent',
+                  !kanbanScrollEdges.canLeft && 'cursor-default opacity-40',
+                )}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="pointer-events-none absolute right-2 -translate-y-1/2 md:right-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Rolar colunas para a direita"
+                aria-disabled={!kanbanScrollEdges.canRight}
+                onClick={() => {
+                  if (kanbanScrollEdges.canRight) scrollKanbanHorizontal('next');
+                }}
+                className={cn(
+                  'pointer-events-auto h-11 w-11 shrink-0 rounded-full border-2 border-border bg-background shadow-md hover:bg-accent',
+                  !kanbanScrollEdges.canRight && 'cursor-default opacity-40',
+                )}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[min(70vh,36rem)]">
+            <PipelineBoardAura />
+          </div>
           <div
             ref={kanbanScrollRef}
             onScroll={updateKanbanScrollEdges}
-            className="scrollbar-always-visible relative z-[1] flex min-h-0 min-w-0 max-w-full flex-1 gap-3 overflow-x-scroll overflow-y-hidden overscroll-x-contain px-10 md:gap-3.5 md:px-12"
+            className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(72vh,calc(100svh-11rem))] min-w-0 max-w-full items-stretch gap-3 overflow-x-scroll overscroll-x-contain px-10 pb-6 md:gap-3.5 md:px-12"
           >
             {columns.map((column, columnIndex) => (
-              <div key={column.id} className="flex h-full min-h-0 shrink-0">
+              <div key={column.id} className="flex h-auto min-h-[min(72vh,calc(100svh-11rem))] shrink-0 self-stretch">
                 <KanbanColumn
                   title={column.title}
                   count={column.items.length}
@@ -512,43 +552,6 @@ export default function PipelineKanbanPage() {
                 </KanbanColumn>
               </div>
             ))}
-          </div>
-          {/* Setas no meio da altura (sem faixa full-height — evita vazamento visual na sidebar) */}
-          <div className="pointer-events-none absolute left-2 top-1/2 z-30 -translate-y-1/2 md:left-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Rolar colunas para a esquerda"
-              aria-disabled={!kanbanScrollEdges.canLeft}
-              onClick={() => {
-                if (kanbanScrollEdges.canLeft) scrollKanbanHorizontal('prev');
-              }}
-              className={cn(
-                'pointer-events-auto h-11 w-11 shrink-0 rounded-full border-2 border-border bg-background shadow-md hover:bg-accent',
-                !kanbanScrollEdges.canLeft && 'cursor-default opacity-40',
-              )}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-          </div>
-          <div className="pointer-events-none absolute right-2 top-1/2 z-30 -translate-y-1/2 md:right-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Rolar colunas para a direita"
-              aria-disabled={!kanbanScrollEdges.canRight}
-              onClick={() => {
-                if (kanbanScrollEdges.canRight) scrollKanbanHorizontal('next');
-              }}
-              className={cn(
-                'pointer-events-auto h-11 w-11 shrink-0 rounded-full border-2 border-border bg-background shadow-md hover:bg-accent',
-                !kanbanScrollEdges.canRight && 'cursor-default opacity-40',
-              )}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
           </div>
         </div>
         <DragOverlay>

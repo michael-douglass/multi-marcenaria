@@ -257,7 +257,7 @@ export default function Projetos() {
       )}
 
       {!loading && !error && stages.length > 0 && (
-        <KanbanPageZoomShell>
+        <KanbanPageZoomShell fillViewport>
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}

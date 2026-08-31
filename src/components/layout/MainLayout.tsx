@@ -114,7 +114,8 @@ export function MainLayout() {
     location.pathname === '/pipeline' ||
     (location.pathname.startsWith('/pipeline/') &&
       !location.pathname.startsWith('/pipeline/configuracoes'))
-  const fillViewportBoard = isProjetosAtelie || isPipelineBoard
+  const fillViewportBoard = isProjetosAtelie
+  const pipelinePageScroll = isPipelineBoard
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -124,21 +125,25 @@ export function MainLayout() {
         <div className={cn(
           'flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
           fillViewportBoard
-            ? isProjetosAtelie
-              ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
-              : 'overflow-hidden px-2 py-2 pb-16 sm:px-3 sm:py-3 sm:pb-16'
+            ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
+            : pipelinePageScroll
+              ? 'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 pb-10 sm:px-3 sm:py-3 sm:pb-10'
             : 'overflow-x-hidden overflow-y-auto touch-pan-y',
-          !fillViewportBoard && isCrmArea
+          !fillViewportBoard && !pipelinePageScroll && isCrmArea
             ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
-            : !fillViewportBoard && hideFabsOnPonto
+            : !fillViewportBoard && !pipelinePageScroll && hideFabsOnPonto
               ? 'obra-layout-scroll px-4 py-4 pb-8 sm:px-6 sm:py-7 sm:pb-7 md:px-8'
-              : !fillViewportBoard
+              : !fillViewportBoard && !pipelinePageScroll
                 ? 'obra-layout-scroll px-4 py-4 pb-24 sm:px-6 sm:py-7 md:px-8'
                 : null,
         )}>
           <div className={cn(
-            'flex min-h-0 min-w-0 flex-col',
-            fillViewportBoard ? 'flex-1 overflow-hidden' : 'flex-none md:flex-1',
+            'flex min-w-0 flex-col',
+            fillViewportBoard
+              ? 'min-h-0 flex-1 overflow-hidden'
+              : pipelinePageScroll
+                ? 'h-auto min-h-0 flex-none overflow-visible'
+                : 'min-h-0 flex-none md:flex-1',
             !isCrmArea && 'obra-layout-outlet',
           )}>
             <AppErrorBoundary>
