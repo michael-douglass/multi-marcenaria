@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,13 @@ interface LeadEditableFieldProps {
 }
 
 const readShellClass =
-  'rounded-lg border border-gold-border-subtle/20 bg-mahogany-muted/25 shadow-inner shadow-black/5';
+  'rounded-lg border border-[color:var(--lead-line)] bg-[color:var(--lead-inset)] shadow-inner shadow-black/20';
+
+function isEmptyDisplay(value: ReactNode): boolean {
+  if (value == null) return true;
+  if (typeof value === 'string') return value.trim() === '' || value === '—';
+  return false;
+}
 
 export function LeadEditableField({
   fieldId,
@@ -49,8 +55,32 @@ export function LeadEditableField({
   viewMinHeight = 120,
   viewMaxHeight = 320,
 }: LeadEditableFieldProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
   const showEditControl = isNewLead || isEditing;
   const showPencil = !isNewLead && canEdit && canView;
+  const emptyValue = isEmptyDisplay(displayValue);
+
+  useEffect(() => {
+    if (!isEditing || isNewLead) return;
+    const root = editorRef.current;
+    if (!root) return;
+    const focusable = root.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="combobox"]',
+    );
+    focusable?.focus({ preventScroll: true });
+  }, [isEditing, isNewLead]);
+
+  const openEdit = () => {
+    if (!canEdit || isEditing) return;
+    onToggleEdit(fieldId);
+  };
+
+  const onReadKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!canEdit) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openEdit();
+  };
 
   return (
     <div className={cn('group/field space-y-1.5 min-w-0 max-w-full', className)}>
@@ -92,37 +122,45 @@ export function LeadEditableField({
           </div>
         )
       ) : showEditControl ? (
-        children
-      ) : multilineView ? (
-        <div className="flex items-start gap-2 min-w-0 w-full">
-          <div
-            className={cn(
-              'flex-1 min-w-0 px-3 py-2.5 overflow-auto resize-y text-sm text-cream-secondary',
-              readShellClass,
-            )}
-            style={{
-              height: viewHeight,
-              minHeight: viewMinHeight,
-              maxHeight: viewMaxHeight,
-            }}
-          >
-            <div className="w-full min-w-0 whitespace-pre-wrap break-words leading-relaxed">
-              {displayValue}
-            </div>
-          </div>
-          {viewActions}
-        </div>
+        <div ref={editorRef}>{children}</div>
       ) : (
         <div className="flex items-start gap-2 min-w-0 w-full">
           <div
+            role={canEdit ? 'button' : undefined}
+            tabIndex={canEdit ? 0 : undefined}
+            onClick={openEdit}
+            onKeyDown={onReadKeyDown}
+            title={canEdit ? 'Clique para editar' : undefined}
+            aria-label={canEdit ? 'Clique para editar este campo' : undefined}
             className={cn(
-              'min-h-10 flex-1 flex items-center px-3 py-2 min-w-0 transition-colors',
+              'flex-1 min-w-0 transition-colors',
               readShellClass,
-              'group-hover/field:border-gold-border-subtle/35',
+              canEdit &&
+                'cursor-text hover:border-gold/45 hover:bg-gold/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40',
+              multilineView
+                ? 'px-3 py-2.5 overflow-auto resize-y text-sm text-cream-secondary'
+                : 'min-h-10 flex items-center px-3 py-2',
             )}
+            style={
+              multilineView
+                ? {
+                    height: viewHeight,
+                    minHeight: viewMinHeight,
+                    maxHeight: viewMaxHeight,
+                  }
+                : undefined
+            }
           >
-            <div className="text-sm w-full min-w-0 break-words [overflow-wrap:anywhere] text-foreground/95">
-              {displayValue}
+            <div
+              className={cn(
+                'w-full min-w-0 break-words',
+                multilineView
+                  ? 'whitespace-pre-wrap leading-relaxed'
+                  : '[overflow-wrap:anywhere] text-sm text-cream-secondary',
+                emptyValue && canEdit && 'text-cream-faint italic',
+              )}
+            >
+              {emptyValue && canEdit ? 'Clique para preencher' : displayValue}
             </div>
           </div>
           {viewActions}

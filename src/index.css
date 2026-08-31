@@ -2642,34 +2642,150 @@ body::before {
   color: #fff8ee;
 }
 
-/* Cabeçalho do card do lead: mogno escuro, texto creme (não herda tinta do papel). */
+/* Paleta fixa do card do lead — mogno, creme e ouro. Vale para todas as caixas. */
+.lead-modal-shell {
+  --lead-wood: #1a120e;
+  --lead-panel: #241810;
+  --lead-inset: #120c09;
+  --lead-cream: #fff6ea;
+  --lead-soft: #f6ead8;
+  --lead-muted: #d4bc9f;
+  --lead-faint: #b89a78;
+  --lead-gold: #f2d892;
+  --lead-line: rgba(196, 150, 58, 0.32);
+  --lead-line-strong: rgba(242, 216, 146, 0.42);
+  color: var(--lead-soft);
+}
+.glass-dialog.lead-modal-shell {
+  background: var(--lead-wood) !important;
+  color: var(--lead-soft) !important;
+  border-color: var(--lead-line) !important;
+  box-shadow: 0 28px 64px rgba(8, 3, 1, 0.55) !important;
+}
+
 .lead-modal-header {
-  color: #f6ead8;
-  background:
-    linear-gradient(180deg, #2a1c16 0%, #1a110d 100%);
+  color: var(--lead-soft);
+  background: linear-gradient(180deg, rgba(42, 28, 22, 0.72) 0%, rgba(18, 12, 9, 0.55) 100%);
 }
 .lead-modal-header .lead-modal-title {
-  color: #fff6ea;
+  color: var(--lead-cream);
   text-shadow: 0 1px 2px rgba(8, 3, 1, 0.55);
 }
-.paper-workspace .lead-modal-header .lead-modal-title {
-  color: #fff6ea !important;
-}
-.paper-workspace .lead-modal-header .text-gold,
-.paper-workspace .lead-modal-header [class*="text-[#f2d892]"] {
-  color: #f2d892 !important;
-}
-.paper-workspace .lead-modal-header .text-cream-secondary,
-.paper-workspace .lead-modal-header .text-cream-muted,
-.paper-workspace .lead-modal-header .text-cream-faint,
-.paper-workspace .lead-modal-header [class*="text-[#d4bc9f]"],
-.paper-workspace .lead-modal-header [class*="text-[#fff6ea]"] {
-  color: #f6ead8 !important;
-}
 .lead-modal-header .lead-modal-stage {
-  border-color: rgba(242, 216, 146, 0.28);
-  background: rgba(12, 7, 5, 0.45);
-  color: #f2d892;
+  border-color: var(--lead-line);
+  background: var(--lead-inset);
+  color: var(--lead-gold);
+}
+
+/*
+ * A agenda flutuante fica em z-200, acima do card (z-50).
+ * Sem isto, o painel “come” os cliques mesmo com o lead aberto.
+ */
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root],
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
+  pointer-events: none !important;
+}
+
+.lead-modal-panel {
+  background: var(--lead-panel, #241810) !important;
+  border-color: var(--lead-line, rgba(196, 150, 58, 0.32)) !important;
+  color: var(--lead-soft, #f6ead8);
+  box-shadow: inset 0 1px 0 rgba(242, 216, 146, 0.06);
+}
+.lead-modal-chrome {
+  background: var(--lead-wood, #1a120e) !important;
+  border-color: var(--lead-line, rgba(196, 150, 58, 0.32)) !important;
+  color: var(--lead-soft, #f6ead8);
+}
+.lead-modal-body {
+  background: var(--lead-wood, #1a120e);
+  color: var(--lead-soft, #f6ead8);
+}
+.lead-modal-kicker {
+  color: var(--lead-muted, #d4bc9f) !important;
+}
+.lead-modal-bubble {
+  background: var(--lead-inset, #120c09);
+  border-color: var(--lead-line, rgba(196, 150, 58, 0.32));
+  color: var(--lead-soft, #f6ead8);
+}
+
+.lead-modal-shell .text-cream,
+.lead-modal-shell .text-cream-secondary,
+.lead-modal-shell .text-cream-muted,
+.lead-modal-shell .text-cream-faint,
+.lead-modal-shell .text-muted-foreground,
+.lead-modal-shell .text-foreground,
+.lead-modal-shell .text-foreground\/95,
+.lead-modal-shell .text-foreground\/80 {
+  color: var(--lead-soft);
+}
+.lead-modal-shell .text-cream-muted,
+.lead-modal-shell .text-cream-faint,
+.lead-modal-shell .text-muted-foreground {
+  color: var(--lead-muted);
+}
+.lead-modal-shell .text-gold,
+.lead-modal-shell [class*="text-[#f2d892]"] {
+  color: var(--lead-gold);
+}
+.lead-modal-shell .bg-muted,
+.lead-modal-shell .bg-muted\/20,
+.lead-modal-shell .bg-muted\/80,
+.lead-modal-shell [class*="bg-[#fffcf8]"] {
+  background: var(--lead-inset) !important;
+  color: var(--lead-soft) !important;
+  border-color: var(--lead-line) !important;
+}
+.lead-modal-shell [class*="text-[#2a1812]"],
+.lead-modal-shell [class*="text-[#6b5244]"],
+.lead-modal-shell [class*="text-[#3d261c]"] {
+  color: var(--lead-muted) !important;
+}
+.lead-modal-shell .bg-background,
+.lead-modal-shell .bg-background\/95 {
+  background: var(--lead-wood) !important;
+  color: var(--lead-soft);
+  border-color: var(--lead-line);
+}
+.lead-modal-shell .glass-input,
+.lead-modal-shell input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+.lead-modal-shell textarea,
+.lead-modal-shell select {
+  background: var(--lead-inset) !important;
+  color: var(--lead-cream) !important;
+  border-color: var(--lead-line) !important;
+}
+.lead-modal-shell .glass-input::placeholder,
+.lead-modal-shell input::placeholder,
+.lead-modal-shell textarea::placeholder {
+  color: var(--lead-faint) !important;
+}
+.lead-modal-shell .glass-input option,
+.lead-modal-shell .glass-input optgroup {
+  background: var(--lead-inset);
+  color: var(--lead-cream);
+}
+
+.paper-workspace .lead-modal-shell .lead-modal-title,
+.paper-workspace .lead-modal-shell .text-cream,
+.paper-workspace .lead-modal-shell .text-cream-secondary,
+.paper-workspace .lead-modal-shell [class*="text-[#fff6ea]"],
+.paper-workspace .lead-modal-shell [class*="text-[#faf2ea]"],
+.paper-workspace .lead-modal-shell [class*="text-[#fffaf4]"] {
+  color: var(--lead-cream) !important;
+}
+.paper-workspace .lead-modal-shell .text-cream-muted,
+.paper-workspace .lead-modal-shell .text-cream-faint,
+.paper-workspace .lead-modal-shell .text-muted-foreground,
+.paper-workspace .lead-modal-shell .lead-modal-kicker,
+.paper-workspace .lead-modal-shell [class*="text-[#d4bc9f]"],
+.paper-workspace .lead-modal-shell [class*="text-[#edd9c4]"] {
+  color: var(--lead-muted) !important;
+}
+.paper-workspace .lead-modal-shell .text-gold,
+.paper-workspace .lead-modal-shell [class*="text-[#f2d892]"] {
+  color: var(--lead-gold) !important;
 }
 
 /* Markup no card claro: ilha verde-escura para o valor não “estourar”. */

@@ -40,7 +40,7 @@ void main() {
 }
 `
 
-/** Véu dourado só no topo do card — textura da marca, sem atrapalhar o texto. */
+/** Véu dourado no card inteiro — textura da marca, sem atrapalhar o texto. */
 export function LeadModalHeaderAura({ className }: { className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null)
 

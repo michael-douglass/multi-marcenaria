@@ -1121,7 +1121,8 @@ export function LeadModal({
       }}
     >
       <DialogContent
-        className="max-w-2xl h-[100dvh] max-h-[100dvh] sm:h-[90vh] sm:max-h-[90vh] w-full sm:w-[95vw] md:w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 bg-mahogany-panel shadow-2xl shadow-black/40 [&>button.absolute]:hidden"
+        data-lead-card=""
+        className="lead-modal-shell relative max-w-2xl h-[100dvh] max-h-[100dvh] sm:h-[90vh] sm:max-h-[90vh] w-full sm:w-[95vw] md:w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 shadow-2xl shadow-black/40 [&>button.absolute]:hidden"
         onOpenAutoFocus={(e) => {
           const body = document.querySelector<HTMLElement>('[data-lead-modal-scroll="true"]');
           if (!body) return;
@@ -1147,7 +1148,7 @@ export function LeadModal({
           }
         }}
       >
-        <DialogHeader className="lead-modal-header relative shrink-0 overflow-hidden border-b border-gold-border-subtle/30 px-0 pt-0 pb-0 text-left">
+        <DialogHeader className="lead-modal-header relative z-[1] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left">
           <LeadModalHeaderAura />
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-gold/55 to-transparent" />
           <div className="relative z-[2]">
@@ -1226,7 +1227,7 @@ export function LeadModal({
                 )}
                 {autoSaveEnabled && autoSaveState === 'idle' && isEditMode && editingFields.size > 0 && (
                   <p className="text-[11px] text-[#d4bc9f] mt-1.5">
-                    Clique no lápis do campo e digite — as alterações são salvas automaticamente.
+                    Clique no campo para editar — as alterações são salvas automaticamente.
                   </p>
                 )}
               </div>
@@ -1307,25 +1308,25 @@ export function LeadModal({
             e.preventDefault();
             if (isNewLead) void handleSubmit(e);
           }}
-          className="flex-1 min-h-0 flex flex-col"
+          className="relative z-[1] flex-1 min-h-0 flex flex-col"
         >
           {leadId && (
             <Tabs
               value={leadModalTab}
               onValueChange={setLeadModalTab}
-              className="shrink-0 border-b border-gold-border-subtle/20 bg-mahogany-elevated/40 px-3 sm:px-4 py-2.5"
+              className="lead-modal-chrome relative z-[1] shrink-0 border-b px-3 sm:px-4 py-1.5"
             >
               <TabsList className="grid h-10 w-full max-w-md grid-cols-2 bg-mahogany-muted/50 p-1 border border-gold-border-subtle/20">
                 <TabsTrigger
                   value="detalhes"
-                  className="flex items-center gap-2 data-[state=active]:bg-gold/15 data-[state=active]:text-gold data-[state=active]:shadow-sm"
+              className="flex items-center gap-2 text-cream-muted data-[state=active]:bg-gold/20 data-[state=active]:text-gold data-[state=active]:shadow-sm"
                 >
                   <FileText className="h-4 w-4" />
                   Detalhes
                 </TabsTrigger>
                 <TabsTrigger
                   value="analise-ia"
-                  className="flex items-center gap-2 data-[state=active]:bg-gold/15 data-[state=active]:text-gold data-[state=active]:shadow-sm"
+              className="flex items-center gap-2 text-cream-muted data-[state=active]:bg-gold/20 data-[state=active]:text-gold data-[state=active]:shadow-sm"
                 >
                   <Sparkles className="h-4 w-4" />
                   Análise IA
@@ -1336,30 +1337,6 @@ export function LeadModal({
 
           {(!leadId || leadModalTab === 'detalhes') && (
             <LeadModalScrollBody>
-            {contextoProjeto && leadId ? (
-              <div className="space-y-3">
-                <LeadProjetoConclusaoPanel leadId={leadId} />
-                <LeadProjetoComposicaoSection
-                  leadId={leadId}
-                  leadNome={formData.name || ''}
-                  onOrcamentoSync={handleMarkupOrcamentoSync}
-                />
-                <LeadProjetoNotasSection leadId={leadId} />
-              </div>
-            ) : null}
-
-            {leadId && (
-              <div className="space-y-3">
-                {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
-                <LeadSinalizacoesSection leadId={leadId} />
-                <LeadLembretesSection
-                  leadId={leadId}
-                  leadName={formData.name || 'Lead'}
-                />
-                <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
-              </div>
-            )}
-
             <LeadModalSection title="Contato" icon={UserIcon}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
             <LeadEditableField
@@ -1516,6 +1493,30 @@ export function LeadModal({
               telefone={formData.phone ?? ''}
             />
             </LeadModalSection>
+
+            {contextoProjeto && leadId ? (
+              <div className="space-y-3">
+                <LeadProjetoConclusaoPanel leadId={leadId} />
+                <LeadProjetoComposicaoSection
+                  leadId={leadId}
+                  leadNome={formData.name || ''}
+                  onOrcamentoSync={handleMarkupOrcamentoSync}
+                />
+                <LeadProjetoNotasSection leadId={leadId} />
+              </div>
+            ) : null}
+
+            {leadId && (
+              <div className="space-y-3">
+                {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
+                <LeadSinalizacoesSection leadId={leadId} />
+                <LeadLembretesSection
+                  leadId={leadId}
+                  leadName={formData.name || 'Lead'}
+                />
+                <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
+              </div>
+            )}
 
             <LeadModalSection title="Negócio" icon={Building2}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
@@ -2013,7 +2014,7 @@ export function LeadModal({
             </LeadModalScrollBody>
           )}
 
-            <div className="shrink-0 border-t border-gold-border-subtle/25 bg-mahogany-elevated/50 px-3 sm:px-4 py-3">
+            <div className="lead-modal-chrome relative z-[1] shrink-0 border-t px-3 sm:px-4 py-3">
             <LeadModalFooter
               formId={LEAD_MODAL_FORM_ID}
               leadId={leadId}

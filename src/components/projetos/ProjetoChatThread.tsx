@@ -47,22 +47,20 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
             <article
               key={nota.id}
               className={cn(
-                'max-w-[min(100%,34rem)] rounded-2xl border px-3.5 py-2.5',
+                'lead-modal-bubble max-w-[min(100%,34rem)] rounded-2xl border px-3.5 py-2.5',
                 mine ? 'ml-auto' : 'mr-auto',
-                atelie
-                  ? 'border-sky-400/25 bg-sky-950/30'
-                  : 'border-gold/25 bg-[#1a120e]/80',
+                atelie && 'border-sky-400/30 bg-sky-950/40',
               )}
             >
-              <div className="flex items-center justify-between gap-3 text-xs text-cream-muted">
+              <div className="flex items-center justify-between gap-3 text-xs">
                 <span className={cn('font-semibold', atelie ? 'text-sky-200' : 'text-gold')}>
                   {nota.autor_nome}
                 </span>
-                <span className="shrink-0 tabular-nums">
+                <span className="lead-modal-kicker shrink-0 tabular-nums">
                   {format(new Date(nota.criado_em), 'dd MMM HH:mm', { locale: ptBR })}
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] uppercase tracking-wide text-cream-muted">
+              <p className="lead-modal-kicker mt-0.5 text-[11px] uppercase tracking-wide">
                 {tipoLabel(nota.tipo)}
               </p>
               {nota.imagem_url ? (

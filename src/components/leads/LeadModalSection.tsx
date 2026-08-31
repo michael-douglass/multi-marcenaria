@@ -19,22 +19,22 @@ interface LeadModalSectionProps {
 
 const variantStyles = {
   default: {
-    shell: 'border-gold-border-subtle/25 bg-gradient-to-b from-mahogany-card/50 to-mahogany-elevated/20',
+    shell: 'lead-modal-panel',
     accent: 'via-gold/35',
     title: 'text-cream-secondary',
     icon: 'text-gold',
   },
   accent: {
-    shell: 'border-gold/30 bg-gradient-to-br from-gold/8 via-mahogany-card/40 to-mahogany-elevated/30',
+    shell: 'lead-modal-panel border-[color:var(--lead-line-strong)]',
     accent: 'via-gold/60',
-    title: 'text-foreground',
+    title: 'text-gold',
     icon: 'text-gold',
   },
   alert: {
-    shell: 'border-amber-500/35 bg-gradient-to-br from-amber-500/8 via-mahogany-card/30 to-mahogany-elevated/20',
+    shell: 'lead-modal-panel border-amber-500/40',
     accent: 'via-amber-400/50',
-    title: 'text-foreground',
-    icon: 'text-amber-500',
+    title: 'text-amber-200',
+    icon: 'text-amber-400',
   },
 };
 
@@ -65,7 +65,7 @@ export function LeadModalSection({
         )}
       />
 
-      <header className="flex items-start justify-between gap-3 border-b border-gold-border-subtle/15 px-4 py-3 sm:px-5">
+      <header className="flex items-start justify-between gap-3 border-b border-[color:var(--lead-line)] px-4 py-3 sm:px-5">
         <div className="min-w-0 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
             {Icon && <Icon className={cn('h-4 w-4 shrink-0', styles.icon)} aria-hidden />}
@@ -132,9 +132,7 @@ export function LeadModalScrollBody({
       data-lead-modal-scroll="true"
       aria-label="Conteúdo do card do lead"
       className={cn(
-        'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain outline-none',
-        'bg-[radial-gradient(ellipse_at_top,_rgba(242,216,146,0.04)_0%,_transparent_50%)]',
-        'bg-mahogany-muted/10',
+        'lead-modal-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain outline-none',
         className,
       )}
     >

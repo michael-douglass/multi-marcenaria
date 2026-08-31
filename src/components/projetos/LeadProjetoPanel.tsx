@@ -8,7 +8,7 @@ interface LeadProjetoPanelProps {
 /** Painel da Pipeline: envio ao setor + canal, se já existir. */
 export function LeadProjetoPanel({ leadId }: LeadProjetoPanelProps) {
   return (
-    <div className="space-y-3 rounded-xl border border-gold/20 bg-[#1a120e]/55 p-3">
+    <div className="lead-modal-panel space-y-3 rounded-xl border p-3">
       <div>
         <p className="font-display text-sm tracking-wide text-gold">Setor de projetos</p>
         <p className="text-[11px] text-cream-muted">

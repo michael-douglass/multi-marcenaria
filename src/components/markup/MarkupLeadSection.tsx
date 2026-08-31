@@ -95,7 +95,7 @@ export function MarkupLeadSection({
 
   return (
     <>
-      <Card>
+      <Card className="lead-modal-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2">
             <div>
