@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -15,7 +13,7 @@ interface AmbienteZoomHudProps {
 }
 
 /**
- * Controle de distância na cena — mais longe / mais perto, com véu WebGL no trilho.
+ * Controle de distância na cena — mais longe / mais perto.
  */
 export function AmbienteZoomHud({
   scale,
@@ -24,97 +22,6 @@ export function AmbienteZoomHud({
   onZoomIn,
   onZoomOut,
 }: AmbienteZoomHudProps) {
-  const foilRef = useRef<HTMLDivElement>(null);
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
-
-  useEffect(() => {
-    const host = foilRef.current;
-    if (!host) return;
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      alpha: true,
-      powerPreference: 'low-power',
-    });
-    renderer.setPixelRatio(1);
-    renderer.setClearColor(0x000000, 0);
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
-    renderer.domElement.style.display = 'block';
-    host.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const uniforms = {
-      uTime: { value: 0 },
-      uScale: { value: scaleRef.current },
-      uGold: { value: new THREE.Color('#f2d892') },
-      uMahogany: { value: new THREE.Color('#1a100c') },
-    };
-
-    const material = new THREE.ShaderMaterial({
-      uniforms,
-      transparent: true,
-      depthTest: false,
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = vec4(position.xy, 0.0, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        uniform float uScale;
-        uniform vec3 uGold;
-        uniform vec3 uMahogany;
-        varying vec2 vUv;
-
-        void main() {
-          float t = clamp((uScale - 0.4) / 2.4, 0.0, 1.0);
-          float sweep = 0.5 + 0.5 * sin((vUv.x * 9.0 + uTime * 0.55) * 6.2831);
-          float focus = pow(1.0 - abs(vUv.x - mix(0.16, 0.84, t)), 1.8);
-          float rim = pow(1.0 - abs(vUv.y - 0.5) * 2.0, 2.4);
-          vec3 color = mix(uMahogany, uGold, focus * 0.72 + sweep * 0.08);
-          float alpha = (0.18 + focus * 0.42 + t * 0.12) * rim;
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-    });
-
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    scene.add(mesh);
-
-    const resize = () => {
-      renderer.setSize(Math.max(host.clientWidth, 1), Math.max(host.clientHeight, 1), false);
-    };
-    resize();
-
-    let frame = 0;
-    const clock = new THREE.Clock();
-    const renderFrame = () => {
-      uniforms.uTime.value = prefersReducedMotion ? 0.6 : clock.getElapsedTime();
-      uniforms.uScale.value = scaleRef.current;
-      renderer.render(scene, camera);
-      if (!prefersReducedMotion) frame = requestAnimationFrame(renderFrame);
-    };
-    renderFrame();
-
-    const observer = new ResizeObserver(resize);
-    observer.observe(host);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      material.dispose();
-      mesh.geometry.dispose();
-      renderer.dispose();
-      renderer.domElement.remove();
-    };
-  }, []);
-
   const percent = Math.round(scale * 100);
   const sliderMin = Math.round(AMBIENTE_ZOOM_MIN * 100);
   const sliderMax = Math.round(AMBIENTE_ZOOM_MAX * 100);
@@ -127,7 +34,14 @@ export function AmbienteZoomHud({
           'px-2 py-1.5 sm:px-3',
         )}
       >
-        <div ref={foilRef} className="pointer-events-none absolute inset-0" aria-hidden />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(120% 80% at 50% 50%, rgba(242,216,146,0.16), transparent 70%)',
+          }}
+          aria-hidden
+        />
         <div className="relative flex items-center gap-1.5 sm:gap-2">
           <span className="hidden text-[9px] font-semibold uppercase tracking-[0.18em] text-gold/80 sm:inline">
             Longe

@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
 import {
   Circle,
   MousePointer2,
@@ -42,99 +40,19 @@ export function AmbienteDrawToolbar({
   onFillChange,
   onStrokeChange,
 }: AmbienteDrawToolbarProps) {
-  const foilRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const host = foilRef.current;
-    if (!host) return;
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      alpha: true,
-      powerPreference: 'low-power',
-    });
-    renderer.setPixelRatio(1);
-    renderer.setClearColor(0x000000, 0);
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
-    renderer.domElement.style.display = 'block';
-    renderer.domElement.style.pointerEvents = 'none';
-    host.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const uniforms = {
-      uTime: { value: 0 },
-      uGold: { value: new THREE.Color('#f2d892') },
-      uMahogany: { value: new THREE.Color('#1a100c') },
-      uCream: { value: new THREE.Color('#fff6ea') },
-    };
-
-    const material = new THREE.ShaderMaterial({
-      uniforms,
-      transparent: true,
-      depthTest: false,
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = vec4(position.xy, 0.0, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        uniform vec3 uGold;
-        uniform vec3 uMahogany;
-        uniform vec3 uCream;
-        varying vec2 vUv;
-
-        void main() {
-          float sweep = 0.5 + 0.5 * sin((vUv.x * 3.4 + uTime * 0.35) * 6.2831);
-          float rim = pow(1.0 - abs(vUv.y - 0.5) * 2.0, 2.8);
-          vec3 color = mix(uMahogany, uGold, rim * 0.55 + sweep * 0.12);
-          color = mix(color, uCream, rim * sweep * 0.18);
-          gl_FragColor = vec4(color, 0.22 + rim * 0.18);
-        }
-      `,
-    });
-
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    scene.add(mesh);
-
-    const resize = () => {
-      renderer.setSize(Math.max(host.clientWidth, 1), Math.max(host.clientHeight, 1), false);
-    };
-    resize();
-
-    let frame = 0;
-    const clock = new THREE.Clock();
-    const renderFrame = () => {
-      uniforms.uTime.value = prefersReducedMotion ? 0.8 : clock.getElapsedTime();
-      renderer.render(scene, camera);
-      if (!prefersReducedMotion) frame = requestAnimationFrame(renderFrame);
-    };
-    renderFrame();
-
-    const observer = new ResizeObserver(resize);
-    observer.observe(host);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      material.dispose();
-      mesh.geometry.dispose();
-      renderer.dispose();
-      renderer.domElement.remove();
-    };
-  }, []);
-
   return (
     <div
       data-ambiente-draw-toolbar="true"
       className="relative overflow-hidden rounded-xl border border-gold/30 bg-[#1a100c]/90 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
     >
-      <div ref={foilRef} className="pointer-events-none absolute inset-0" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(90% 120% at 50% 50%, rgba(242,216,146,0.14), transparent 68%)',
+        }}
+        aria-hidden
+      />
       <div className="relative z-10 flex flex-wrap items-center gap-1 p-1.5">
         {TOOLS.map((item) => {
           const Icon = item.icon;

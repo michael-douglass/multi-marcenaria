@@ -77,23 +77,21 @@ export function AmbienteObjectEditHud({
     <div
       className="pointer-events-none absolute z-50"
       style={{
-        left: `${object.x * 100}%`,
+        left: `${(object.x + object.width / 2) * 100}%`,
         top: `${object.y * 100}%`,
-        width: `${object.width * 100}%`,
-        height: `${object.height * 100}%`,
-        transform: 'translate(-50%, -50%)',
+        transform: 'translate(14px, -50%)',
       }}
     >
       <div
         role="toolbar"
         aria-label="Ajustes do móvel"
         className={cn(
-          'pointer-events-auto absolute left-1/2 top-0 z-10 flex -translate-x-1/2 -translate-y-[calc(100%+10px)]',
-          'max-w-[min(92vw,32rem)] items-center gap-1 overflow-x-auto rounded-xl border border-amber-900/40',
-          'bg-zinc-950/92 p-1.5 shadow-lg backdrop-blur-md',
+          'pointer-events-auto z-10 flex max-h-[min(70vh,28rem)] max-w-[15.5rem] flex-col gap-1.5 overflow-y-auto',
+          'rounded-2xl border border-amber-900/40 bg-zinc-950/92 p-1.5 shadow-lg backdrop-blur-md',
         )}
         onPointerDown={(event) => event.stopPropagation()}
       >
+        <div className="flex flex-wrap items-center gap-1">
         <button
           type="button"
           title="Diminuir tamanho"
@@ -183,16 +181,12 @@ export function AmbienteObjectEditHud({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
-      </div>
+        </div>
 
       <div
         role="toolbar"
         aria-label="Rotação do móvel"
-        className={cn(
-          'pointer-events-auto absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-[calc(100%+12px)]',
-          'max-w-[min(94vw,28rem)] flex-col items-center gap-1.5 rounded-2xl border border-amber-500/35',
-          'bg-gradient-to-b from-zinc-900/95 to-zinc-950/95 px-2 py-1.5 shadow-xl backdrop-blur-md',
-        )}
+        className="flex flex-col items-start gap-1.5 rounded-xl border border-amber-500/25 bg-zinc-900/80 px-1.5 py-1.5"
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-1.5">
@@ -320,6 +314,7 @@ export function AmbienteObjectEditHud({
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

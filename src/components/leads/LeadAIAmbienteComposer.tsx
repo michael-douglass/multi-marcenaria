@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
-  Camera,
-  FolderOpen,
   ImageIcon,
-  ImagePlus,
   Loader2,
   Maximize2,
   Minimize2,
@@ -46,6 +43,7 @@ import { AmbienteDraftingGrid } from '@/components/leads/ambiente/AmbienteDrafti
 import { AmbienteDrawLayer } from '@/components/leads/ambiente/AmbienteDrawLayer';
 import { AmbienteDrawToolbar } from '@/components/leads/ambiente/AmbienteDrawToolbar';
 import { AmbienteObjectEditHud } from '@/components/leads/ambiente/AmbienteObjectEditHud';
+import { AmbienteSceneDock } from '@/components/leads/ambiente/AmbienteSceneDock';
 import { AmbienteZoomHud } from '@/components/leads/ambiente/AmbienteZoomHud';
 import { RealisticFurnitureObject } from '@/components/leads/ambiente/RealisticFurnitureObject';
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
@@ -1538,82 +1536,14 @@ export function LeadAIAmbienteComposer({
                   )
                 }
               />
-            ) : (
+            ) : objects.length > 0 || overlays.length > 0 || shapes.length > 0 ? null : (
               <div className="pointer-events-none absolute inset-0 z-[56] flex flex-col items-center justify-center gap-4 p-6 text-muted-foreground">
                 <div className="rounded-2xl bg-primary/10 p-4">
                   <ImageIcon className="h-10 w-10 text-primary/70" />
                 </div>
                 <p className="max-w-xs text-center text-sm font-medium">
-                  Insira a foto do cômodo ou desenhe o ambiente na lousa. Depois você posiciona as peças na cena.
+                  Abra as ferramentas no canto direito para inserir a foto do cômodo, ou desenhe direto na lousa.
                 </p>
-                <div className="pointer-events-auto relative z-[60] flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2"
-                    disabled={locked}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    Inserir foto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled={locked}
-                    onClick={() => cameraCaptureRef.current?.requestCapture()}
-                  >
-                    <Camera className="h-4 w-4" />
-                    Tirar foto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled={locked}
-                    onClick={() => setProjectPickerOpen(true)}
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                    Do projeto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled={locked}
-                    onClick={toggleCatalog}
-                  >
-                    <Sofa className="h-4 w-4" />
-                    Objetos
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled={!canUndo}
-                    onClick={undoLast}
-                  >
-                    <Undo2 className="h-4 w-4" />
-                    Desfazer
-                  </Button>
-                  {!isFullscreen && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => updateFullscreen(true)}
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                      Tela cheia
-                    </Button>
-                  )}
-                </div>
               </div>
             )}
 
@@ -1825,63 +1755,29 @@ export function LeadAIAmbienteComposer({
               </div>
             ))}
 
-            {background && (
-              <div className="pointer-events-auto absolute left-3 top-3 z-[55] flex flex-wrap gap-1.5">
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={locked} onClick={() => fileInputRef.current?.click()}>
-                  <ImagePlus className="h-3.5 w-3.5" />
-                  Imagem
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={locked} onClick={() => cameraCaptureRef.current?.requestCapture()}>
-                  <Camera className="h-3.5 w-3.5" />
-                  Foto
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={locked} onClick={() => setProjectPickerOpen(true)}>
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  Projeto
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={locked} onClick={toggleCatalog}>
-                  <Sofa className="h-3.5 w-3.5" />
-                  Objetos
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={!canUndo} onClick={undoLast}>
-                  <Undo2 className="h-3.5 w-3.5" />
-                  Desfazer
-                </Button>
-                <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={!canSaveCopy} onClick={() => void saveCopyToFolder()}>
-                  {isSavingCopy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  Salvar
-                </Button>
-                {selectedId && selectedId !== 'background' && (
-                  <Button type="button" size="sm" variant="secondary" className="h-8 gap-1.5" disabled={locked} onClick={removeSelected}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Apagar
-                  </Button>
-                )}
-                {!isFullscreen && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="h-8 gap-1.5"
-                    onClick={() => updateFullscreen(true)}
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                    Tela cheia
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 gap-1.5 text-cream-muted"
-                  disabled={locked}
-                  onClick={clearPhoto}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Limpar foto
-                </Button>
-              </div>
-            )}
+            <TooltipProvider delayDuration={180}>
+              <AmbienteSceneDock
+                locked={locked}
+                catalogOpen={catalogOpen}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                canSave={canSaveCopy}
+                isSaving={isSavingCopy}
+                hasBackground={Boolean(background)}
+                hasSelection={Boolean(selectedId && selectedId !== 'background')}
+                onInsertPhoto={() => fileInputRef.current?.click()}
+                onCapture={() => cameraCaptureRef.current?.requestCapture()}
+                onProject={() => setProjectPickerOpen(true)}
+                onToggleCatalog={toggleCatalog}
+                onUndo={undoLast}
+                onRedo={redoLast}
+                onSave={() => void saveCopyToFolder()}
+                onRemoveSelected={
+                  selectedId && selectedId !== 'background' ? removeSelected : undefined
+                }
+                onClearPhoto={background ? clearPhoto : undefined}
+              />
+            </TooltipProvider>
 
             {showZoomHud && (
               <AmbienteZoomHud

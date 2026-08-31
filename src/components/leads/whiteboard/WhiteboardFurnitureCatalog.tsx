@@ -131,6 +131,12 @@ export function WhiteboardFurnitureCatalog({
   }, [selectedType]);
 
   useEffect(() => {
+    if (!FURNITURE_CATALOG_GROUPS.some((item) => item.id === group)) {
+      setGroup('todos');
+    }
+  }, [group]);
+
+  useEffect(() => {
     const id = window.setTimeout(() => searchRef.current?.focus(), 40);
     return () => window.clearTimeout(id);
   }, []);
