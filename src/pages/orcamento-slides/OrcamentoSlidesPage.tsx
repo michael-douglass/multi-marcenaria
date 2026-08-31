@@ -56,9 +56,9 @@ import { withOrcamentoReturnTo } from '@/lib/orcamento-slide-navigation';
 import { isLinkPublicoAtivo, linkPublicoOrcamento } from '@/lib/orcamento-slide-public-link';
 
 const STATUS_CONFIG: Record<OrcamentoSlideStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  rascunho: { label: 'Rascunho', color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', icon: <Cloud className="h-3 w-3" /> },
-  pronto:   { label: 'Pronto',   color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',    icon: <CheckCircle2 className="h-3 w-3" /> },
-  enviado:  { label: 'Enviado',  color: 'bg-amber-500/15 text-amber-400 border-amber-500/30', icon: <Send className="h-3 w-3" /> },
+  rascunho: { label: 'Rascunho', color: 'bg-violet-100 text-violet-800 border-violet-300', icon: <Cloud className="h-3 w-3" /> },
+  pronto:   { label: 'Pronto',   color: 'bg-blue-100 text-blue-800 border-blue-300',    icon: <CheckCircle2 className="h-3 w-3" /> },
+  enviado:  { label: 'Enviado',  color: 'bg-[#f3ebe1] text-[#6b3d12] border-[#8d5e22]/35', icon: <Send className="h-3 w-3" /> },
 };
 
 export default function OrcamentoSlidesPage() {
@@ -276,7 +276,7 @@ function OrcamentoRow({
             size="sm"
             variant="ghost"
             onClick={onCopiarLink}
-            className="gap-1 text-xs text-amber-400 hover:text-amber-300"
+            className="gap-1 text-xs text-[#8d5e22] hover:text-[#6b3d12]"
             title="Copiar link para enviar ao cliente"
           >
             <Link2 className="h-3.5 w-3.5" />

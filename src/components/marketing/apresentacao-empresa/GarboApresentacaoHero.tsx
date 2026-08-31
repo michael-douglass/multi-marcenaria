@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { GARBO_APRESENTACAO_IMAGES } from './garbo-apresentacao-content';
+import { GarboCoverImage } from './GarboCoverImage';
 import { revealStyle } from './GarboApresentacaoSection';
 import { GarboHeroMagicCube } from './GarboHeroMagicCube';
 import { GARBO_APRESENTACAO_THEME } from './garbo-apresentacao-theme';
@@ -20,7 +21,7 @@ export function GarboApresentacaoHero() {
       className="relative isolate flex min-h-[100dvh] w-full snap-start snap-always flex-col justify-center overflow-hidden pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
       style={{ background: GARBO_APRESENTACAO_THEME.bgBase }}
     >
-      <img
+      <GarboCoverImage
         src={GARBO_APRESENTACAO_IMAGES.hero}
         alt=""
         width={1920}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { GARBO_APRESENTACAO_CUBO_DESTAQUES } from './garbo-apresentacao-content';
+import { GarboCoverImage } from './GarboCoverImage';
 
 /** Mesmos tempos do cubo mágico do banner */
 const COL_STAGGER_MS = 420;
@@ -259,7 +260,7 @@ export function GarboProjetosFlipCube({ className, active = true }: GarboProjeto
                           'inset 0 0 0 1px rgba(242,216,146,0.28), 0 0 22px rgba(242,216,146,0.16)',
                       }}
                     >
-                      <img
+                      <GarboCoverImage
                         src={item.src}
                         alt=""
                         className="absolute inset-0 h-full w-full object-cover"

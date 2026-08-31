@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
+import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 import { GARBO_APRESENTACAO_THEME } from './garbo-apresentacao-theme';
 
 interface GarboPontuaPointsSceneProps {
@@ -9,8 +11,8 @@ interface GarboPontuaPointsSceneProps {
 }
 
 /**
- * Campo de pontos dourados orbitando — metáfora visual do programa de pontuação.
- * Procedural (Three.js), sem modelo externo.
+ * Campo de pontos dourados orbitando a marca — metáfora do programa de pontuação.
+ * A logo entra via TextureLoader (Three.js), com cache e fallback se o WebGL falhar.
  */
 export function GarboPontuaPointsScene({ className, active = true }: GarboPontuaPointsSceneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -21,15 +23,21 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    const renderer = tryCreateWebGLRenderer(
+      () =>
+        new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        }),
+    );
+    if (!renderer) return;
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0.35, 6.2);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     host.appendChild(renderer.domElement);
@@ -76,6 +84,37 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     group.add(core);
+
+    THREE.Cache.enabled = true;
+    const manager = new THREE.LoadingManager();
+    const textureLoader = new THREE.TextureLoader(manager);
+    let logoTexture: THREE.Texture | null = null;
+    let logoSprite: THREE.Sprite | null = null;
+
+    textureLoader.load(
+      GARBO_LOGO_SRC,
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.needsUpdate = true;
+        logoTexture = texture;
+        const spriteMat = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          depthWrite: false,
+          opacity: 0.92,
+        });
+        logoSprite = new THREE.Sprite(spriteMat);
+        logoSprite.scale.set(1.35, 1.35, 1);
+        logoSprite.position.set(0, 0.05, 0.15);
+        group.add(logoSprite);
+      },
+      undefined,
+      () => {
+        /* Sem logo o núcleo de arame continua sozinho. */
+      },
+    );
 
     const ambient = new THREE.AmbientLight(0xfff5e6, 0.55);
     const key = new THREE.PointLight(0xf2d892, 2.2, 18);
@@ -165,6 +204,10 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
       meshes.forEach((m) => {
         (m.material as THREE.Material).dispose();
       });
+      if (logoSprite) {
+        (logoSprite.material as THREE.Material).dispose();
+      }
+      logoTexture?.dispose();
       sphereGeo.dispose();
       coreGeo.dispose();
       coreMat.dispose();

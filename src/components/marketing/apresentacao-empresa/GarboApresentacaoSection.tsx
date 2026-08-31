@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { GarboCoverImage } from './GarboCoverImage';
 import { GARBO_APRESENTACAO_THEME } from './garbo-apresentacao-theme';
 
 interface GarboApresentacaoSectionProps {
@@ -58,7 +59,7 @@ export function GarboApresentacaoSection({
       style={{ background: GARBO_APRESENTACAO_THEME.bgBase }}
     >
       {backgroundImage && (
-        <img
+        <GarboCoverImage
           src={backgroundImage}
           alt=""
           aria-hidden

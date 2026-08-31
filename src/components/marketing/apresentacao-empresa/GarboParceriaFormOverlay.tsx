@@ -10,6 +10,7 @@ import {
   GARBO_APRESENTACAO_SCHEMA,
 } from './garbo-apresentacao-content';
 import { GARBO_APRESENTACAO_THEME } from './garbo-apresentacao-theme';
+import { GarboCoverImage } from './GarboCoverImage';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
@@ -116,7 +117,7 @@ export function GarboParceriaFormOverlay({ open, onClose }: GarboParceriaFormOve
     >
       {/* Atmosfera de oficina */}
       <div className="pointer-events-none fixed inset-0" aria-hidden>
-        <img
+        <GarboCoverImage
           src={GARBO_APRESENTACAO_IMAGES.proposta}
           alt=""
           className="h-full w-full object-cover"

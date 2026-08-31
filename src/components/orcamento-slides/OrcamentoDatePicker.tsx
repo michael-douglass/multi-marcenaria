@@ -87,7 +87,7 @@ export function OrcamentoDatePicker({
         </PopoverContent>
       </Popover>
       {selecionada ? (
-        <p className="text-xs text-amber-200/80" aria-live="polite">
+        <p className="text-xs font-medium text-[#8d5e22]" aria-live="polite">
           Selecionado: {formatarDataInicioExecucao(value)}
         </p>
       ) : (

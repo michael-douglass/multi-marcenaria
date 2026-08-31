@@ -168,9 +168,7 @@ export function PrazoEntregaField({
       ) : calculo ? (
         <div
           className={cn(
-            'relative overflow-hidden rounded-xl border border-amber-500/25',
-            'bg-gradient-to-br from-amber-500/12 via-amber-500/5 to-transparent',
-            'px-4 py-3',
+            'paper-accent-card relative overflow-hidden rounded-xl px-4 py-3',
           )}
           aria-live="polite"
         >
@@ -179,14 +177,14 @@ export function PrazoEntregaField({
             aria-hidden="true"
           />
           <div className="relative flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+            <div className="paper-accent-icon mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
               <CalendarClock className="h-4 w-4" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex flex-col gap-0.5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-amber-200/70">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#8d5e22]">
                 Data prevista de entrega
               </p>
-              <p className="text-lg font-semibold tabular-nums tracking-tight text-amber-100">
+              <p className="text-lg font-semibold tabular-nums tracking-tight text-foreground">
                 {formatarDataEntregaLegenda(calculo.dataEntrega, true)}
               </p>
               <p className="text-[11px] text-muted-foreground tabular-nums">

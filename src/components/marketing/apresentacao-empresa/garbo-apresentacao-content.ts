@@ -12,7 +12,7 @@ export const GARBO_APRESENTACAO_CTA_URL =
 export const GARBO_APRESENTACAO_IMAGES = {
   hero: '/imagens/apresentacao-garbo/hero-painel-logo.jpg',
   proposta: '/imagens/apresentacao-garbo/proposta-banco.jpg',
-  fechamento: '/imagens/apresentacao-garbo/fechamento-painel-logo.png',
+  fechamento: '/imagens/apresentacao-garbo/fechamento-painel-logo.jpg',
 } as const;
 
 export type GarboApresentacaoSectionId =
@@ -119,7 +119,7 @@ export const GARBO_APRESENTACAO_PROJETOS = {
       id: 'suite-painel-ripado',
       type: 'image',
       src: '/imagens/apresentacao-garbo/projetos/suite-painel-ripado.png',
-      title: 'Suíte com painel ripado',
+      title: 'Suíte com painel e espelho',
       caption: 'TV embutida, espelho orgânico retroiluminado e console flutuante em madeira.',
     },
     {
@@ -134,70 +134,14 @@ export const GARBO_APRESENTACAO_PROJETOS = {
       type: 'image',
       src: '/imagens/apresentacao-garbo/projetos/sala-cozinha-integrada.png',
       title: 'Sala e cozinha integradas',
-      caption: 'Ambiente aberto com sofá, marcenaria sob medida e adega embutida.',
+      caption: 'Ambiente aberto com sofá, marcenaria sob medida e ilha iluminada.',
     },
     {
-      id: 'oratorio-painel-madeira',
+      id: 'suite-nichos-led',
       type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/oratorio-painel-madeira.png',
-      title: 'Oratório em painel de madeira',
-      caption: 'Console flutuante, ripado e iluminação pontual para um canto de fé.',
-    },
-    {
-      id: 'guarda-roupa-canto',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/guarda-roupa-canto.png',
-      title: 'Guarda-roupa de canto',
-      caption: 'Portas floor-to-ceiling, nicho iluminado e gaveteiro integrado.',
-    },
-    {
-      id: 'fachada-muraro-bellezza',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/fachada-muraro-bellezza.png',
-      title: 'Fachada comercial',
-      caption: 'Identidade visual, letreiro e marcenaria de vitrine em projeto comercial.',
-    },
-    {
-      id: 'feira-ferragem-grass',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/feira-ferragem-grass.png',
-      title: 'Ferragens de precisão',
-      caption: 'Detalhe de execução e ferragem selecionada para desempenho e estética.',
-    },
-    {
-      id: 'painel-porta-embutida',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/painel-porta-embutida.png',
-      title: 'Painel com porta embutida',
-      caption: 'Parede contínua em madeira com porta camuflada e iluminação indireta.',
-    },
-    {
-      id: 'feira-lixeiras-collecta',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/feira-lixeiras-collecta.png',
-      title: 'Soluções técnicas',
-      caption: 'Sistemas e ferragens que sustentam o acabamento no dia a dia da obra.',
-    },
-    {
-      id: 'sala-tv-estante',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/sala-tv-estante.png',
-      title: 'Sala com painel e estante',
-      caption: 'Home theater, ripado e estante floor-to-ceiling em composição limpa.',
-    },
-    {
-      id: 'cozinha-tijolinho',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/cozinha-tijolinho.png',
-      title: 'Cozinha com tijolinho',
-      caption: 'Armários sob medida, LED sob bancada e textura que aquece o ambiente.',
-    },
-    {
-      id: 'closet-aberto-gavetas',
-      type: 'image',
-      src: '/imagens/apresentacao-garbo/projetos/closet-aberto-gavetas.png',
-      title: 'Closet aberto com gavetas',
-      caption: 'Organização sob medida: prateleiras, gaveteiro e continuidade com a porta.',
+      src: '/imagens/apresentacao-garbo/projetos/cubo-suite-trofeus.png',
+      title: 'Suíte com nichos iluminados',
+      caption: 'Ripado, LED em V e prateleiras que valorizam cada detalhe.',
     },
     {
       id: 'painel-madeira-continuidade',

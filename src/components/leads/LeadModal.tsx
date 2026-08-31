@@ -1122,7 +1122,7 @@ export function LeadModal({
     >
       <DialogContent
         data-lead-card=""
-        className="lead-modal-shell max-w-2xl h-[100dvh] max-h-[100dvh] sm:h-[min(86dvh,52rem)] sm:max-h-[86dvh] w-full sm:w-[95vw] md:w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 shadow-2xl shadow-black/40 [&>button.absolute]:hidden"
+        className="lead-modal-shell max-w-2xl w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 shadow-2xl shadow-black/40 [&>button.absolute]:hidden"
         onOpenAutoFocus={(e) => {
           const body = document.querySelector<HTMLElement>('[data-lead-modal-scroll="true"]');
           if (!body) return;

@@ -50,7 +50,7 @@ function CampoMarkupComPercentual({
   onPercentualChange,
 }: CampoMarkupProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border/50 bg-background/40 p-3">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-[rgba(42,24,18,0.14)] bg-white p-3">
       <div className="flex items-center justify-between gap-2 min-w-0">
         <Label
           htmlFor={id}
@@ -228,14 +228,14 @@ export function MarkupComposicaoEditor({
 
       <div
         id="markup-composicao-total"
-        className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/[0.04] to-transparent px-4 py-3"
+        className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-[rgba(42,24,18,0.16)] bg-[#f3ebe1] px-4 py-3"
         aria-live="polite"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <Calculator className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+          <Calculator className="h-4 w-4 shrink-0 text-[#8d5e22]" aria-hidden="true" />
           <span className="text-sm text-muted-foreground">Total</span>
         </div>
-        <span className="shrink-0 text-base font-semibold tabular-nums text-amber-100">
+        <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
           {BRL(temTotalRef ? totalOrcamento : somaAtual)}
         </span>
       </div>

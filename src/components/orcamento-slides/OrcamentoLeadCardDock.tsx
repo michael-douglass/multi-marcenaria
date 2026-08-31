@@ -41,7 +41,7 @@ export function OrcamentoLeadCardDock({
           type="button"
           onClick={() => setExpanded(true)}
           className={cn(
-            'flex max-w-[min(260px,calc(100vw-8rem))] items-center gap-2',
+            'paper-dark-surface flex max-w-[min(260px,calc(100vw-8rem))] items-center gap-2',
             'rounded-xl border border-gold-border-subtle/40 bg-mahogany-panel/95 px-2.5 py-1.5',
             'shadow-md shadow-black/20 backdrop-blur-md',
             'text-left transition-all duration-200',

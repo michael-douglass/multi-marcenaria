@@ -45,7 +45,7 @@ export function PrecificacaoOpcaoCard({
       className={cn(
         'relative overflow-hidden',
         !isForm && 'rounded-2xl border',
-        isForm && 'rounded-xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] to-transparent',
+        isForm && 'paper-accent-card rounded-xl',
         className,
       )}
       style={{
@@ -101,7 +101,7 @@ export function PrecificacaoOpcaoCard({
                 className={cn(
                   'rounded-full font-bold uppercase tracking-wider',
                   isForm
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/35 px-2 py-0.5 text-[10px]'
+                    ? 'bg-[#f3ebe1] text-[#6b3d12] border border-[#8d5e22]/35 px-2 py-0.5 text-[10px]'
                     : 'px-2.5 py-1 text-[11px]',
                 )}
                 style={
@@ -122,7 +122,7 @@ export function PrecificacaoOpcaoCard({
                 className={cn(
                   'rounded-full font-bold uppercase tracking-wider',
                   isForm
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 px-2 py-0.5 text-[10px]'
+                    ? 'bg-[#ecfdf3] text-[#166534] border border-emerald-600/30 px-2 py-0.5 text-[10px]'
                     : 'px-2.5 py-1 text-[11px]',
                 )}
                 style={
@@ -143,7 +143,7 @@ export function PrecificacaoOpcaoCard({
         )}
 
         <p
-          className={cn('font-serif font-black leading-none', isForm ? 'text-amber-100' : 'text-white')}
+          className={cn('font-serif font-black leading-none', isForm ? 'text-foreground' : 'text-white')}
           style={{
             fontFamily: `'${paleta.tituloFont}', serif`,
             fontSize: precoPx,
@@ -170,7 +170,7 @@ export function PrecificacaoOpcaoCard({
             <p
               className={cn(
                 'mt-1 max-w-prose whitespace-pre-line italic',
-                isForm ? 'text-amber-200/75' : 'text-white/58',
+                isForm ? 'text-[#6b3d12]' : 'text-white/58',
               )}
               style={{
                 fontFamily: `'${paleta.corpoFont}', sans-serif`,

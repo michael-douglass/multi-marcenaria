@@ -2658,10 +2658,13 @@ body::before {
 }
 .glass-dialog.lead-modal-shell {
   position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  margin: 0 !important;
+  inset: 0 !important;
+  margin: auto !important;
+  transform: none !important;
+  width: min(42rem, calc(100vw - 2rem)) !important;
+  max-width: min(42rem, calc(100vw - 2rem)) !important;
+  height: min(84dvh, calc(100dvh - 4rem)) !important;
+  max-height: min(84dvh, calc(100dvh - 4rem)) !important;
   background: var(--lead-wood) !important;
   color: var(--lead-soft) !important;
   border-color: var(--lead-line) !important;
@@ -2669,11 +2672,11 @@ body::before {
 }
 @media (max-width: 640px) {
   .glass-dialog.lead-modal-shell {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    height: min(90dvh, calc(100dvh - 1.5rem)) !important;
+    max-height: min(90dvh, calc(100dvh - 1.5rem)) !important;
+    border-radius: 0.75rem !important;
   }
 }
 

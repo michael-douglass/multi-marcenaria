@@ -163,8 +163,8 @@ export default function IniciarOrcamentoPublicoPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-amber-950/30 to-background p-6">
         <Card className="max-w-md w-full border-amber-500/30">
           <CardHeader className="text-center space-y-3">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
-              <CheckCircle2 className="h-7 w-7 text-emerald-400" />
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <CheckCircle2 className="h-7 w-7 text-emerald-700" />
             </div>
             <CardTitle>Dados recebidos!</CardTitle>
             <CardDescription>

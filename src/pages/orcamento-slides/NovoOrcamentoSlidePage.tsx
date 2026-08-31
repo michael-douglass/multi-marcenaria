@@ -1017,11 +1017,11 @@ export default function NovoOrcamentoSlidePage() {
           </div>
           {vinculoLeadId && leadNome && (
             <p className="text-xs text-muted-foreground truncate">
-              Vinculado ao card: <span className="text-amber-300">{leadNome}</span>
+              Vinculado ao card: <span className="font-medium text-[#8d5e22]">{leadNome}</span>
             </p>
           )}
           {restauradoDeRascunho && (
-            <p className="text-xs text-violet-400 flex items-center gap-1 mt-0.5">
+            <p className="text-xs text-violet-700 flex items-center gap-1 mt-0.5">
               <Cloud className="h-3 w-3 shrink-0" />
               Rascunho restaurado — continue de onde parou
             </p>
@@ -1054,9 +1054,9 @@ export default function NovoOrcamentoSlidePage() {
               className={cn(
                 'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 etapa === e.num
-                  ? 'bg-amber-500/15 text-amber-300'
+                  ? 'bg-[#f3ebe1] text-[#6b3d12]'
                   : etapa > e.num
-                  ? 'text-amber-400/70 hover:bg-muted/40 cursor-pointer'
+                  ? 'text-[#8d5e22] hover:bg-[#f3ebe1] cursor-pointer'
                   : 'text-muted-foreground cursor-default',
               )}
             >
@@ -1066,7 +1066,7 @@ export default function NovoOrcamentoSlidePage() {
                   etapa > e.num
                     ? 'bg-amber-500 text-white'
                     : etapa === e.num
-                    ? 'border-2 border-amber-500 text-amber-400'
+                    ? 'border-2 border-[#8d5e22] text-[#8d5e22]'
                     : 'border border-border text-muted-foreground',
                 )}
               >
@@ -1214,9 +1214,9 @@ export default function NovoOrcamentoSlidePage() {
 
                       {/* Seletor de imagens inline quando toggle de imagens está ativo */}
                       {isToggleDeImagens(p) && (respostas[p.id] as string) === 'sim' && (
-                        <div className="ml-1 mt-1 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col gap-4">
-                          <p className="text-sm font-medium text-amber-200 flex items-center gap-2">
-                            <Image className="h-4 w-4" />
+                        <div className="ml-1 mt-1 rounded-xl border border-[rgba(42,24,18,0.14)] bg-[#f8f4ee] p-4 flex flex-col gap-4">
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <Image className="h-4 w-4 text-[#8d5e22]" />
                             Escolha as imagens do projeto
                           </p>
                           <UploadZona

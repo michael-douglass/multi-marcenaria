@@ -181,9 +181,9 @@ function FormaPagamentoCard({
       className={cn(
         'rounded-2xl border transition-all',
         ativa
-          ? 'border-amber-500/45 bg-gradient-to-br from-amber-500/[0.07] to-transparent shadow-sm shadow-amber-950/20'
-          : 'border-border/70 bg-card/20',
-        sortable.isDragging && 'z-10 opacity-90 shadow-lg ring-2 ring-amber-500/30',
+          ? 'paper-accent-card border-[rgba(42,24,18,0.18)]'
+          : 'border-[rgba(42,24,18,0.14)] bg-[#fffcf8]/80',
+        sortable.isDragging && 'z-10 opacity-90 shadow-lg ring-2 ring-[#8d5e22]/35',
       )}
     >
       <div className="flex items-stretch">
@@ -208,7 +208,7 @@ function FormaPagamentoCard({
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold">{forma.nome}</p>
                 {ativa && indiceSelecionada === 0 && (
-                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/35 text-[10px] px-1.5 py-0">
+                  <Badge className="bg-[#f3ebe1] text-[#6b3d12] border-[#8d5e22]/35 text-[10px] px-1.5 py-0">
                     1ª no slide
                   </Badge>
                 )}
@@ -218,7 +218,7 @@ function FormaPagamentoCard({
               )}
             </div>
             {ativa ? (
-              <Check className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
+              <Check className="h-4 w-4 shrink-0 text-[#8d5e22]" aria-hidden />
             ) : (
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Ativar</span>
             )}
@@ -231,7 +231,7 @@ function FormaPagamentoCard({
               e.stopPropagation();
               onDuplicar();
             }}
-            className="shrink-0 self-center mr-3 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 text-amber-200/90 hover:bg-amber-500/10 transition-colors"
+            className="paper-gold-outline shrink-0 self-center mr-3 inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
             aria-label={`Duplicar ${forma.nome}`}
             title="Duplicar esta forma"
           >
@@ -241,7 +241,7 @@ function FormaPagamentoCard({
       </div>
 
       {ativa && (
-        <div className="px-4 pb-4 flex flex-col gap-3 border-t border-amber-500/15 pt-3">
+        <div className="px-4 pb-4 flex flex-col gap-3 border-t border-[rgba(42,24,18,0.12)] pt-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs text-muted-foreground">Desconto (%)</Label>
@@ -301,7 +301,7 @@ function FormaPagamentoCard({
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Valor final</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-200/80 text-sm font-medium pointer-events-none">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8d5e22] text-sm font-semibold pointer-events-none">
                 R$
               </span>
               <Input
@@ -318,7 +318,7 @@ function FormaPagamentoCard({
                   aplicarValorFinalDigitado(masked);
                 }}
                 placeholder="0,00"
-                className="h-10 pl-10 font-serif font-bold text-amber-100 border-amber-500/25 bg-amber-500/8"
+                className="paper-ink-input h-10 pl-10 font-serif font-bold text-foreground"
               />
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -365,7 +365,7 @@ function FormaPagamentoCard({
               rows={2}
               placeholder="Ex.: Condição especial válida até o fim do mês."
               onChange={(e) => onAtualizarObservacao(e.target.value)}
-              className="min-h-[64px] resize-y text-sm border-amber-500/20 bg-background/40"
+              className="paper-ink-input min-h-[64px] resize-y text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
               Texto livre sob o preço desta forma na apresentação, no PDF e na filmagem.
@@ -757,13 +757,13 @@ export function PrecificacaoForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-4 flex flex-col gap-4">
+      <div className="paper-accent-card rounded-2xl p-4 flex flex-col gap-4">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-full bg-amber-500/15 ring-1 ring-amber-400/25 flex items-center justify-center shrink-0">
-            <Wallet className="h-5 w-5 text-amber-400" />
+          <div className="paper-accent-icon h-10 w-10 rounded-full flex items-center justify-center shrink-0">
+            <Wallet className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <Label htmlFor="valor-total-orcamento" className="text-sm font-medium">
+            <Label htmlFor="valor-total-orcamento" className="text-sm font-semibold text-foreground">
               Valor total do orçamento
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5 mb-2">
@@ -771,7 +771,7 @@ export function PrecificacaoForm({
               não muda o que já foi definido aqui.
             </p>
             <div className="relative max-w-sm">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-200/80 text-sm font-medium">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8d5e22] text-sm font-semibold">
                 R$
               </span>
               <Input
@@ -784,23 +784,23 @@ export function PrecificacaoForm({
                   recalcular({ valorIntegral: parseValorOrcamentoDisplay(masked) });
                 }}
                 placeholder="0,00"
-                className="pl-10 h-12 text-2xl font-serif font-bold text-amber-100 border-amber-500/35 bg-amber-500/5"
+                className="paper-ink-input pl-10 h-12 text-2xl font-serif font-bold text-foreground"
               />
             </div>
           </div>
         </div>
 
         {leadSugereValorDiferente && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-background/30 px-3 py-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[rgba(42,24,18,0.14)] bg-[#f3ebe1] px-3 py-2.5">
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Sugestão do card do cliente</p>
-              <p className="text-sm font-medium text-amber-100/90">{BRL(valorOrcamentoLead)}</p>
+              <p className="text-sm font-semibold text-foreground">{BRL(valorOrcamentoLead)}</p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="border-amber-500/40 text-amber-100 hover:bg-amber-500/10 shrink-0"
+              className="paper-gold-outline shrink-0"
               onClick={() => recalcular({ valorIntegral: valorOrcamentoLead })}
             >
               Usar {BRL(valorOrcamentoLead)}
@@ -809,18 +809,18 @@ export function PrecificacaoForm({
         )}
 
         {value.valor_integral > 0 && !leadSugereValorDiferente && valorOrcamentoLead > 0 && (
-          <Badge className="w-fit bg-emerald-600/20 text-emerald-400 border-emerald-500/30 gap-1 py-1.5">
+          <Badge className="paper-ok-badge w-fit gap-1 py-1.5 hover:bg-[#dcfce7]">
             <Check className="h-3.5 w-3.5" />
             Igual ao card do cliente
           </Badge>
         )}
       </div>
 
-      <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] via-card/40 to-transparent p-4 flex flex-col gap-4 motion-safe:transition-[border-color,box-shadow] motion-safe:duration-300">
+      <div className="paper-accent-card rounded-2xl p-4 flex flex-col gap-4 motion-safe:transition-[border-color,box-shadow] motion-safe:duration-300">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-full bg-amber-500/15 ring-1 ring-amber-400/20 flex items-center justify-center shrink-0">
-              <Sparkles className="h-5 w-5 text-amber-400" aria-hidden="true" />
+            <div className="paper-accent-icon h-10 w-10 rounded-full flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <Label htmlFor="adicionar-markup" className="text-sm font-semibold cursor-pointer text-balance">
@@ -881,7 +881,7 @@ export function PrecificacaoForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="border-amber-500/35 text-amber-100 hover:bg-amber-500/10 shrink-0"
+                    className="paper-gold-outline shrink-0"
                     disabled={!markupSeed}
                     onClick={() => aplicarSeedMarkup()}
                   >
@@ -915,11 +915,11 @@ export function PrecificacaoForm({
         )}
       </div>
 
-      <div className="rounded-2xl border border-border/60 bg-card/40 p-4 flex flex-col gap-4">
+      <div className="paper-accent-card rounded-2xl p-4 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-full bg-amber-500/12 flex items-center justify-center shrink-0">
-              <Layers className="h-5 w-5 text-amber-400" aria-hidden="true" />
+            <div className="paper-accent-icon h-10 w-10 rounded-full flex items-center justify-center shrink-0">
+              <Layers className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <Label htmlFor="fracionar-precos" className="text-sm font-semibold cursor-pointer">
@@ -957,7 +957,7 @@ export function PrecificacaoForm({
             {gruposFracionados.map((grupo, grupoIndex) => (
               <div
                 key={grupo.id}
-                className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.06] to-transparent p-3 flex flex-col gap-3"
+                className="rounded-xl border border-[rgba(42,24,18,0.14)] bg-[#f8f4ee] p-3 flex flex-col gap-3"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex flex-col gap-1.5 min-w-0 flex-1">
@@ -1038,7 +1038,7 @@ export function PrecificacaoForm({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs gap-1.5 border-amber-500/30 text-amber-100 hover:bg-amber-500/10"
+                    className="paper-gold-outline h-8 text-xs gap-1.5"
                     onClick={() =>
                       atualizarGruposFracionados([
                         ...gruposFracionados.slice(0, grupoIndex + 1),
@@ -1062,7 +1062,7 @@ export function PrecificacaoForm({
               type="button"
               size="sm"
               variant="outline"
-              className="w-full sm:w-auto gap-1.5 border-dashed border-amber-500/35 text-amber-100 hover:bg-amber-500/10"
+              className="paper-gold-outline w-full sm:w-auto gap-1.5 border-dashed"
               onClick={() =>
                 atualizarGruposFracionados([
                   ...gruposFracionados,
@@ -1077,10 +1077,10 @@ export function PrecificacaoForm({
         )}
       </div>
 
-      <div className="rounded-2xl border border-border/50 bg-muted/15 p-4">
+      <div className="paper-accent-card rounded-2xl p-4">
         <div className="flex flex-col gap-1.5 max-w-sm">
-          <Label className="flex items-center gap-1.5">
-            <Percent className="h-3.5 w-3.5 text-amber-400" />
+          <Label className="flex items-center gap-1.5 text-foreground">
+            <Percent className="h-3.5 w-3.5 text-[#8d5e22]" />
             Desconto padrão (%)
           </Label>
           <p className="text-xs text-muted-foreground -mt-0.5">
@@ -1170,7 +1170,7 @@ export function PrecificacaoForm({
                   key={`catalogo-${forma.id}`}
                   type="button"
                   onClick={() => adicionarDoCatalogo(forma)}
-                  className="rounded-2xl border border-border/70 bg-card/20 px-4 py-3 text-left transition-colors hover:border-amber-500/35 hover:bg-amber-500/[0.04]"
+                  className="rounded-2xl border border-[rgba(42,24,18,0.14)] bg-[#fffcf8] px-4 py-3 text-left transition-colors hover:border-[#8d5e22]/40 hover:bg-[#f3ebe1]"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -1190,8 +1190,8 @@ export function PrecificacaoForm({
         </div>
       )}
 
-      <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/40 to-muted/10 p-4 flex flex-col gap-3">
-        <Label className="text-muted-foreground">Prévia do slide e PDF</Label>
+      <div className="paper-accent-card rounded-2xl p-4 flex flex-col gap-3">
+        <Label className="text-foreground">Prévia do slide e PDF</Label>
         <p className="text-xs text-muted-foreground -mt-1">
           É assim que o cliente verá na apresentação e no PDF exportado.
         </p>

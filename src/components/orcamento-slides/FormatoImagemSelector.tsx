@@ -31,7 +31,7 @@ export function FormatoImagemSelector({ value, onChange, className }: FormatoIma
               className={cn(
                 'flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-colors',
                 ativo
-                  ? 'border-amber-500/60 bg-amber-500/10 text-amber-200'
+                  ? 'border-[#8d5e22]/50 bg-[#f3ebe1] text-[#6b3d12]'
                   : 'border-border/60 bg-muted/20 text-muted-foreground hover:border-amber-500/30',
               )}
             >

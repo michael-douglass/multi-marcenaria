@@ -83,16 +83,16 @@ export function OrcamentoAnaliseIAEditor({
   return (
     <div
       className={cn(
-        'rounded-xl border bg-gradient-to-b to-transparent',
+        'paper-accent-card rounded-xl',
         ocultaNaApresentacao
-          ? 'border-border/50 from-muted/30 opacity-90'
-          : 'border-amber-500/25 from-amber-500/8',
+          ? 'opacity-90'
+          : '',
         compact ? 'p-3 space-y-3' : 'p-4 sm:p-5 space-y-4',
         className,
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2 text-amber-200/90">
+        <div className="flex items-center gap-2 text-[#8d5e22]">
           <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
           <div>
             <div className="flex flex-wrap items-center gap-2">

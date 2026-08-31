@@ -13,6 +13,7 @@ import {
 } from './garbo-apresentacao-content';
 import { revealStyle } from './GarboApresentacaoSection';
 import { GARBO_APRESENTACAO_THEME } from './garbo-apresentacao-theme';
+import { GarboCoverImage } from './GarboCoverImage';
 
 const AUTO_ADVANCE_MS = 4800;
 
@@ -451,7 +452,7 @@ function ProjetoCarouselCard({
             aria-label={item.title}
           />
         ) : (
-          <img
+          <GarboCoverImage
             src={item.src}
             alt={item.title}
             width={1080}

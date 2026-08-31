@@ -11,11 +11,12 @@ interface GarboApresentacaoNarrativeSectionProps {
 
 function backgroundForSection(id: GarboApresentacaoContentSection['id']): string | undefined {
   if (id === 'proposta') return GARBO_APRESENTACAO_IMAGES.proposta;
+  if (id === 'origem') return '/imagens/apresentacao-garbo/projetos/painel-madeira-continuidade.png';
   return undefined;
 }
 
 function variantForSection(id: GarboApresentacaoContentSection['id']) {
-  if (id === 'origem') return 'dark' as const;
+  if (id === 'origem') return 'soft' as const;
   if (id === 'prova-social') return 'gradient' as const;
   /** Proposta: overlay mais leve para a foto aparecer sob os cubos */
   if (id === 'proposta') return 'soft' as const;

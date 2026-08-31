@@ -43,8 +43,8 @@ void main() {
   color = mix(color, brand, 0.045 * uHasBrand);
   color += grain;
 
-  float alpha = 0.22 + wash * 0.10;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.32));
+  float alpha = 0.10 + wash * 0.05;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.16));
 }
 `
 
@@ -195,7 +195,7 @@ export function AppPaperAura({ className }: { className?: string }) {
   return (
     <div
       ref={hostRef}
-      className={cn('pointer-events-none absolute inset-0 opacity-80', className)}
+      className={cn('pointer-events-none absolute inset-0 opacity-50', className)}
       aria-hidden
     />
   )
