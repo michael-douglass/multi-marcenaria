@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Dialog,
@@ -95,6 +95,7 @@ export function LeadLembreteDialog({
   const [titularIds, setTitularIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const anexosDraft = useAgendaItemAnexosDraft({
     accept: 'images',
     scope: 'lembretes',
@@ -130,7 +131,10 @@ export function LeadLembreteDialog({
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setDatePickerOpen(false);
+      return;
+    }
     if (lembrete) {
       setTitulo(lembrete.titulo);
       setDescricao(lembrete.descricao || '');
@@ -215,9 +219,22 @@ export function LeadLembreteDialog({
     navigate(`/pipeline?id=${leadId}`);
   };
 
+  const handleAdiarUmDia = () => {
+    setData((atual) => addDays(atual ?? new Date(), 1));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" floatingLayer={floatingLayer}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        floatingLayer={floatingLayer}
+        onPointerDownOutside={(event) => {
+          if (datePickerOpen) event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (datePickerOpen) event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <Bell className="h-5 w-5 text-primary" />
@@ -311,13 +328,14 @@ export function LeadLembreteDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Data *</Label>
-              <Popover>
+              <Popover modal open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={isConcluido}
                     className={cn(
-                      'w-full justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal pointer-events-auto',
                       !data && 'text-muted-foreground',
                     )}
                   >
@@ -325,16 +343,28 @@ export function LeadLembreteDialog({
                     {data ? format(data, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione dia, mês e ano'}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
                   <Calendar
                     mode="single"
                     selected={data}
-                    onSelect={setData}
+                    onSelect={(day) => {
+                      setData(day);
+                      if (day) setDatePickerOpen(false);
+                    }}
                     locale={ptBR}
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={handleAdiarUmDia}
+                disabled={isConcluido}
+              >
+                Adiar 1 dia
+              </Button>
             </div>
             <div className="space-y-2">
               <Label>Hora *</Label>

@@ -56,6 +56,8 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-lead-name-autocomplete]')) return true;
   if (target?.closest('[data-radix-popover-content]')) return true;
   if (target?.closest('[data-radix-select-content]')) return true;
+  if (target?.closest('[data-radix-popper-content-wrapper]')) return true;
+  if (target?.closest('[data-date-picker-root]')) return true;
   if (target?.closest('[data-floating-agenda-root]')) return true;
   if (target?.closest('[data-floating-ui-root]')) return true;
   if (target?.closest('[data-radix-dropdown-menu-content]')) return true;

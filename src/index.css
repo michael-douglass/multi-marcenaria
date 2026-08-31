@@ -2642,6 +2642,59 @@ body::before {
   color: #fff8ee;
 }
 
+/* Cabeçalho do card do lead: mogno escuro, texto creme (não herda tinta do papel). */
+.lead-modal-header {
+  color: #f6ead8;
+  background:
+    linear-gradient(180deg, #2a1c16 0%, #1a110d 100%);
+}
+.lead-modal-header .lead-modal-title {
+  color: #fff6ea;
+  text-shadow: 0 1px 2px rgba(8, 3, 1, 0.55);
+}
+.paper-workspace .lead-modal-header .lead-modal-title {
+  color: #fff6ea !important;
+}
+.paper-workspace .lead-modal-header .text-gold,
+.paper-workspace .lead-modal-header [class*="text-[#f2d892]"] {
+  color: #f2d892 !important;
+}
+.paper-workspace .lead-modal-header .text-cream-secondary,
+.paper-workspace .lead-modal-header .text-cream-muted,
+.paper-workspace .lead-modal-header .text-cream-faint,
+.paper-workspace .lead-modal-header [class*="text-[#d4bc9f]"],
+.paper-workspace .lead-modal-header [class*="text-[#fff6ea]"] {
+  color: #f6ead8 !important;
+}
+.lead-modal-header .lead-modal-stage {
+  border-color: rgba(242, 216, 146, 0.28);
+  background: rgba(12, 7, 5, 0.45);
+  color: #f2d892;
+}
+
+/* Markup no card claro: ilha verde-escura para o valor não “estourar”. */
+.lead-markup-chip {
+  background: linear-gradient(180deg, #1a3d2c 0%, #102418 100%);
+  border-color: #3d7a58;
+  box-shadow: inset 0 1px 0 rgba(232, 248, 238, 0.08);
+}
+.lead-markup-chip:hover {
+  background: linear-gradient(180deg, #214a36 0%, #14301f 100%);
+}
+.lead-markup-chip__label {
+  color: #cfe9d9;
+}
+.lead-markup-chip__value {
+  color: #f3faf6;
+  font-variant-numeric: tabular-nums;
+}
+.lead-markup-chip__hint {
+  color: #8fc9a8;
+}
+.lead-markup-chip__icon {
+  color: #7dcaa0;
+}
+
 /* ── Keyframes ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }

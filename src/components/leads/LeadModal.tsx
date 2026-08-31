@@ -29,6 +29,7 @@ import { resolveChatContatosQueryConfig } from '@/lib/empresa-tables';
 import { cn, formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils';
 import { Bell, Copy, Share2, Webhook, Ban, FileText, Sparkles, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen, X } from 'lucide-react';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
+import { LeadModalHeaderAura } from '@/components/leads/LeadModalHeaderAura';
 import { LeadLembreteDialog } from '@/components/agenda/LeadLembreteDialog';
 import { LeadLembretesPopover } from '@/components/agenda/LeadLembretesPopover';
 import { LeadLembretesSection } from '@/components/leads/LeadLembretesSection';
@@ -1146,146 +1147,149 @@ export function LeadModal({
           }
         }}
       >
-        <DialogHeader className="relative shrink-0 border-b border-gold-border-subtle/25 bg-gradient-to-r from-mahogany-elevated via-mahogany-card to-mahogany-elevated px-3 sm:px-4 pt-3 sm:pt-4 pb-3">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/45 to-transparent pointer-events-none" />
-          {hasPermission('lead_vendor', 'view') && (
-            <LeadVendorBanner
-              vendor={formData.vendor}
-              variant="header"
-              canEdit={
-                Boolean(leadId) &&
-                isEditable &&
-                (isMasterUser || hasPermission('lead_vendor', 'edit'))
-              }
-              vendors={vendorUsers.map((u) => ({ id: u.id, nome: u.nome }))}
-              isLoadingVendors={isLoadingUsers}
-              isSaving={false}
-              onVendorChange={
-                leadId && isEditable
-                  ? (vendorName) => {
-                      const nextForm = {
-                        ...formDataRef.current,
-                        vendor: vendorName ?? '',
-                      };
-                      formDataRef.current = nextForm;
-                      markFormDirty();
-                      setFormData(nextForm);
-                      void flushAutoSave();
-                    }
-                  : undefined
-              }
-            />
-          )}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="font-display text-lg sm:text-2xl leading-tight truncate pr-1 uppercase tracking-wide text-primary">
-                <span className="inline-flex max-w-full items-center gap-2">
-                  {pontuaGarboPartnerBadge && (
-                    <Star className="h-5 w-5 shrink-0 fill-gold text-gold drop-shadow-[0_0_8px_rgba(242,216,146,0.75)]" aria-hidden />
-                  )}
-                  <span className="truncate">{leadId ? (formData.name || 'Detalhes do Lead') : 'Novo Lead'}</span>
-                </span>
-              </DialogTitle>
-              {pontuaGarboPartnerBadge && (
-                <div className="mt-2">
-                  <LeadPontuaGarboPartnerBadge badge={pontuaGarboPartnerBadge} variant="inline" />
-                </div>
-              )}
-              {leadId && formData.status && (
-                <div className="mt-1.5 inline-flex max-w-full flex-col gap-0.5 rounded-md border border-gold-border-subtle/40 bg-gold/10 px-2 py-1">
-                  {statusDisplayFallback.pageLabel && (
-                    <span className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-gold/80">
-                      {statusDisplayFallback.pageLabel}
-                    </span>
-                  )}
-                  <span className="truncate text-[11px] font-medium text-gold">
-                    {statusDisplayFallback.columnLabel}
-                  </span>
-                </div>
-              )}
-              {autoSaveEnabled && autoSaveState !== 'idle' && (
-                <p
-                  className={cn(
-                    'text-[11px] mt-1',
-                    autoSaveState === 'error' && 'text-destructive',
-                    autoSaveState === 'saved' && 'text-emerald-600 dark:text-emerald-400',
-                    (autoSaveState === 'pending' || autoSaveState === 'saving') &&
-                      'text-muted-foreground',
-                  )}
-                >
-                  {autoSaveState === 'pending' && 'Preparando salvamento...'}
-                  {autoSaveState === 'saving' && 'Salvando automaticamente...'}
-                  {autoSaveState === 'saved' && 'Alterações salvas'}
-                  {autoSaveState === 'error' && 'Não foi possível salvar. Tente de novo.'}
-                </p>
-              )}
-              {autoSaveEnabled && autoSaveState === 'idle' && isEditMode && editingFields.size > 0 && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Clique no lápis do campo e digite — as alterações são salvas automaticamente.
-                </p>
-              )}
-            </div>
-            <DialogDescription className="sr-only">
-              {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
-            </DialogDescription>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {leadId && (
-                <>
-                  <LeadLembretesPopover
-                    leadId={leadId}
-                    leadName={formData.name || 'Lead'}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className={cn(
-                        'h-9 w-9 relative border-amber-500/40 text-amber-700 hover:bg-amber-500/10 bg-mahogany-muted/40',
-                        lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/50',
-                      )}
-                      title={
-                        lembretesAbertosCount > 0
-                          ? `${lembretesAbertosCount} lembrete(s) em aberto`
-                          : 'Ver lembretes deste lead'
+        <DialogHeader className="lead-modal-header relative shrink-0 overflow-hidden border-b border-gold-border-subtle/30 px-0 pt-0 pb-0 text-left">
+          <LeadModalHeaderAura />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-gold/55 to-transparent" />
+          <div className="relative z-[2]">
+            {hasPermission('lead_vendor', 'view') && (
+              <LeadVendorBanner
+                vendor={formData.vendor}
+                variant="header"
+                canEdit={
+                  Boolean(leadId) &&
+                  isEditable &&
+                  (isMasterUser || hasPermission('lead_vendor', 'edit'))
+                }
+                vendors={vendorUsers.map((u) => ({ id: u.id, nome: u.nome }))}
+                isLoadingVendors={isLoadingUsers}
+                isSaving={false}
+                onVendorChange={
+                  leadId && isEditable
+                    ? (vendorName) => {
+                        const nextForm = {
+                          ...formDataRef.current,
+                          vendor: vendorName ?? '',
+                        };
+                        formDataRef.current = nextForm;
+                        markFormDirty();
+                        setFormData(nextForm);
+                        void flushAutoSave();
                       }
+                    : undefined
+                }
+              />
+            )}
+            <div className="flex items-start justify-between gap-3 px-3 sm:px-4 pt-2.5 sm:pt-3 pb-3">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="lead-modal-title font-serif text-[1.35rem] sm:text-[1.7rem] font-semibold leading-snug tracking-tight line-clamp-2 pr-1">
+                  <span className="inline-flex max-w-full items-start gap-2">
+                    {pontuaGarboPartnerBadge && (
+                      <Star className="mt-1 h-4 w-4 sm:h-5 sm:w-5 shrink-0 fill-gold text-gold drop-shadow-[0_0_8px_rgba(242,216,146,0.75)]" aria-hidden />
+                    )}
+                    <span className="min-w-0">
+                      {leadId ? (formData.name || 'Detalhes do Lead') : 'Novo Lead'}
+                    </span>
+                  </span>
+                </DialogTitle>
+                {pontuaGarboPartnerBadge && (
+                  <div className="mt-2">
+                    <LeadPontuaGarboPartnerBadge badge={pontuaGarboPartnerBadge} variant="inline" />
+                  </div>
+                )}
+                {leadId && formData.status && (
+                  <div className="lead-modal-stage mt-2 inline-flex max-w-full flex-col gap-0.5 rounded-md border px-2 py-1">
+                    {statusDisplayFallback.pageLabel && (
+                      <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f2d892]/75">
+                        {statusDisplayFallback.pageLabel}
+                      </span>
+                    )}
+                    <span className="truncate text-[11px] font-medium text-[#f2d892]">
+                      {statusDisplayFallback.columnLabel}
+                    </span>
+                  </div>
+                )}
+                {autoSaveEnabled && autoSaveState !== 'idle' && (
+                  <p
+                    className={cn(
+                      'text-[11px] mt-1.5',
+                      autoSaveState === 'error' && 'text-destructive',
+                      autoSaveState === 'saved' && 'text-[#8fc9a8]',
+                      (autoSaveState === 'pending' || autoSaveState === 'saving') &&
+                        'text-[#d4bc9f]',
+                    )}
+                  >
+                    {autoSaveState === 'pending' && 'Preparando salvamento...'}
+                    {autoSaveState === 'saving' && 'Salvando automaticamente...'}
+                    {autoSaveState === 'saved' && 'Alterações salvas'}
+                    {autoSaveState === 'error' && 'Não foi possível salvar. Tente de novo.'}
+                  </p>
+                )}
+                {autoSaveEnabled && autoSaveState === 'idle' && isEditMode && editingFields.size > 0 && (
+                  <p className="text-[11px] text-[#d4bc9f] mt-1.5">
+                    Clique no lápis do campo e digite — as alterações são salvas automaticamente.
+                  </p>
+                )}
+              </div>
+              <DialogDescription className="sr-only">
+                {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
+              </DialogDescription>
+              <div className="flex items-center gap-1 shrink-0 rounded-lg border border-gold-border-subtle/30 bg-[#120c09]/40 p-1">
+                {leadId && (
+                  <>
+                    <LeadLembretesPopover
+                      leadId={leadId}
+                      leadName={formData.name || 'Lead'}
                     >
-                      <Bell className="h-4 w-4" />
-                      {lembretesAbertosCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center border border-background">
-                          {lembretesAbertosCount > 9 ? '9+' : lembretesAbertosCount}
-                        </span>
-                      )}
-                    </Button>
-                  </LeadLembretesPopover>
-                  {isEditable && (
-                    <LeadDuplicateButton
-                      iconOnly={isMobile}
-                      isLoading={isDuplicating}
-                      disabled={isSubmitting || isDuplicating || !initialized}
-                      onClick={() => setShowDuplicateAlert(true)}
-                    />
-                  )}
-                  {!isMobile && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleShareLead}
-                      className="flex items-center gap-2 border-gold-border-subtle/35 bg-mahogany-muted/30"
-                      title="Compartilhar lead com outro usuário"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Compartilhar</span>
-                    </Button>
-                  )}
-                </>
-              )}
-              <div className="ml-1 flex items-center border-l border-gold-border-subtle/40 pl-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className={cn(
+                          'h-8 w-8 relative border-[#c4a05a]/35 text-[#f2d892] hover:bg-gold/10 bg-transparent',
+                          lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/45',
+                        )}
+                        title={
+                          lembretesAbertosCount > 0
+                            ? `${lembretesAbertosCount} lembrete(s) em aberto`
+                            : 'Ver lembretes deste lead'
+                        }
+                      >
+                        <Bell className="h-4 w-4" />
+                        {lembretesAbertosCount > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center border border-background">
+                            {lembretesAbertosCount > 9 ? '9+' : lembretesAbertosCount}
+                          </span>
+                        )}
+                      </Button>
+                    </LeadLembretesPopover>
+                    {isEditable && (
+                      <LeadDuplicateButton
+                        iconOnly={isMobile}
+                        isLoading={isDuplicating}
+                        disabled={isSubmitting || isDuplicating || !initialized}
+                        onClick={() => setShowDuplicateAlert(true)}
+                      />
+                    )}
+                    {!isMobile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShareLead}
+                        className="flex h-8 items-center gap-2 border-[#c4a05a]/30 bg-transparent px-2.5 text-[#f2d892] hover:bg-gold/10 hover:text-[#fff6ea]"
+                        title="Compartilhar lead com outro usuário"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Compartilhar</span>
+                      </Button>
+                    )}
+                  </>
+                )}
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 shrink-0 border-gold-border-subtle/50 bg-mahogany-elevated text-muted-foreground shadow-sm transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="h-8 w-8 shrink-0 border-[#c4a05a]/30 bg-transparent text-[#d4bc9f] shadow-none transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                   title="Fechar card do lead"
                   aria-label="Fechar card do lead"
                   onClick={() => requestClose()}

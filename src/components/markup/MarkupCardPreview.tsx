@@ -30,8 +30,8 @@ export function MarkupCardPreview({
   return (
     <div
       className={cn(
-        'w-full rounded-md border border-emerald-500/30 bg-emerald-500/10 pointer-events-auto',
-        isInteractive && 'hover:bg-emerald-500/20 transition-colors',
+        'lead-markup-chip w-full rounded-md border pointer-events-auto',
+        isInteractive && 'transition-colors',
         compact ? 'px-2 py-1.5' : 'px-3 py-2',
         className,
       )}
@@ -58,7 +58,7 @@ export function MarkupCardPreview({
             size="icon"
             variant="ghost"
             className={cn(
-              'shrink-0 text-emerald-200/70 hover:text-destructive hover:bg-destructive/10',
+              'lead-markup-chip__icon shrink-0 hover:text-destructive hover:bg-destructive/15',
               compact ? 'h-6 w-6' : 'h-7 w-7',
             )}
             aria-label="Excluir markup"
@@ -88,28 +88,28 @@ function MarkupPreviewBody({
     <>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <Calculator className="h-3 w-3 shrink-0 text-emerald-400" />
+          <Calculator className="lead-markup-chip__icon h-3 w-3 shrink-0" />
           <span
             className={cn(
-              'font-medium text-emerald-100 truncate',
+              'lead-markup-chip__label font-semibold tracking-wide truncate',
               compact ? 'text-[10px]' : 'text-xs',
             )}
           >
             Markup
           </span>
         </div>
-        {showChevron && <ChevronRight className="h-3 w-3 shrink-0 text-emerald-400/70" />}
+        {showChevron && <ChevronRight className="lead-markup-chip__icon h-3 w-3 shrink-0 opacity-80" />}
       </div>
       <div
         className={cn(
-          'font-semibold text-emerald-50 mt-0.5',
+          'lead-markup-chip__value font-semibold mt-0.5',
           compact ? 'text-[11px]' : 'text-sm',
         )}
       >
         {formatarMoedaMarkup(resumo.preco_final)}
       </div>
       {!compact && resumo.titulo && (
-        <div className="text-[10px] text-emerald-200/70 truncate mt-0.5">{resumo.titulo}</div>
+        <div className="lead-markup-chip__hint truncate mt-0.5 text-[10px]">{resumo.titulo}</div>
       )}
     </>
   );

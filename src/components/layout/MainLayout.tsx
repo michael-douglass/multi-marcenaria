@@ -126,8 +126,7 @@ export function MainLayout() {
     location.pathname === '/pipeline' ||
     (location.pathname.startsWith('/pipeline/') &&
       !location.pathname.startsWith('/pipeline/configuracoes'))
-  const fillViewportBoard = isProjetosAtelie
-  const pipelinePageScroll = isPipelineBoard
+  const boardOnPage = isPipelineBoard || isProjetosAtelie
 
   return (
     <ContasPagarNotifProvider>
@@ -138,26 +137,22 @@ export function MainLayout() {
         <NavigationHeader onOpenAgenda={openAgendaSafely} />
         <div className={cn(
           'paper-workspace relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
-          fillViewportBoard
-            ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
-            : pipelinePageScroll
-              ? 'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 pb-10 sm:px-3 sm:py-3 sm:pb-10'
+          boardOnPage
+            ? 'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 pb-10 sm:px-3 sm:py-3 sm:pb-10'
             : 'overflow-x-hidden overflow-y-auto touch-pan-y',
-          !fillViewportBoard && !pipelinePageScroll && isCrmArea
+          !boardOnPage && isCrmArea
             ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
-            : !fillViewportBoard && !pipelinePageScroll && hideFabsOnPonto
+            : !boardOnPage && hideFabsOnPonto
               ? 'obra-layout-scroll px-4 py-4 pb-8 sm:px-6 sm:py-7 sm:pb-7 md:px-8'
-              : !fillViewportBoard && !pipelinePageScroll
+              : !boardOnPage
                 ? 'obra-layout-scroll px-4 py-4 pb-24 sm:px-6 sm:py-7 md:px-8'
                 : null,
         )}>
           <div className={cn(
             'flex min-w-0 flex-col',
-            fillViewportBoard
-              ? 'min-h-0 flex-1 overflow-hidden'
-              : pipelinePageScroll
-                ? 'h-auto min-h-0 flex-none overflow-visible'
-                : 'min-h-0 flex-none md:flex-1',
+            boardOnPage
+              ? 'h-auto min-h-0 flex-none overflow-visible'
+              : 'min-h-0 flex-none md:flex-1',
             !isCrmArea && 'obra-layout-outlet',
           )}>
             <AppErrorBoundary>

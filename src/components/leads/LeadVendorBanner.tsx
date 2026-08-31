@@ -70,10 +70,10 @@ export function LeadVendorBanner({
       ),
     variant === 'header' &&
       cn(
-        '-mx-3 -mt-3 sm:-mx-4 sm:-mt-4 mb-2.5 px-3 sm:px-4 py-2',
+        'px-3 sm:px-4 py-1.5',
         hasVendor
-          ? 'border-gold-border-subtle/40 bg-gradient-to-r from-gold/15 via-gold/10 to-transparent text-gold'
-          : 'border-gold-border-subtle/30 bg-mahogany-muted/50 text-muted-foreground',
+          ? 'border-gold-border-subtle/35 bg-[#120c09]/55 text-[#f2d892]'
+          : 'border-gold-border-subtle/25 bg-[#120c09]/35 text-[#d4bc9f]',
       ),
     editable &&
       'cursor-pointer transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',

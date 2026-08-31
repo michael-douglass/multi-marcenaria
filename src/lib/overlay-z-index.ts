@@ -27,8 +27,8 @@ export const Z_FLOATING_AGENDA_NESTED = 230;
 export const floatingAiBackgroundClass = 'z-[70]';
 export const floatingAgendaPanelClass = 'z-[200]';
 export const floatingAgendaIconClass = 'z-[210]';
-export const floatingAgendaDialogClass = 'z-[220]';
-export const floatingNestedOverlayClass = 'z-[230]';
+export const floatingAgendaDialogClass = '!z-[220]';
+export const floatingNestedOverlayClass = '!z-[230]';
 
 /** Seletor CSS / data-attr para ignorar o “fechar ao clicar fora” do LeadModal. */
 export const FLOATING_AGENDA_ROOT_ATTR = 'data-floating-agenda-root';

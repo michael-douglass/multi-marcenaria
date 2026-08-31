@@ -57,10 +57,10 @@ function DatePickerCalendar({
   const selectedIso = value?.slice(0, 10) ?? null
 
   return createPortal(
-    <>
+    <div data-date-picker-root className="pointer-events-auto">
       <button
         type="button"
-        className="fixed inset-0 z-[340] cursor-default bg-transparent"
+        className="fixed inset-0 z-[340] cursor-default bg-transparent pointer-events-auto"
         aria-label="Fechar calendário"
         onClick={onClose}
       />
@@ -69,7 +69,7 @@ function DatePickerCalendar({
         role="dialog"
         aria-modal="true"
         aria-label="Selecionar data"
-        className="fixed z-[350] w-[min(300px,calc(100vw-1.5rem))] rounded-xl border border-[rgba(240,210,140,0.28)] bg-[rgba(42,28,20,0.98)] p-3 shadow-2xl backdrop-blur-md"
+        className="fixed z-[350] w-[min(300px,calc(100vw-1.5rem))] rounded-xl border border-[rgba(240,210,140,0.28)] bg-[rgba(42,28,20,0.98)] p-3 shadow-2xl backdrop-blur-md pointer-events-auto"
         style={{
           top: position.top,
           left: Math.min(position.left, window.innerWidth - 308),
@@ -137,7 +137,7 @@ function DatePickerCalendar({
           })}
         </div>
       </div>
-    </>,
+    </div>,
     document.body,
   )
 }

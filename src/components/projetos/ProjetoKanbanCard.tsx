@@ -64,11 +64,12 @@ export function ProjetoKanbanCard({
         transform: CSS.Transform.toString(transform),
         transition,
         animationDelay: `${delay}ms`,
-        background: '#1a100c',
-        boxShadow: '0 10px 26px rgba(20, 10, 6, 0.55)',
+        background: '#3a2418',
+        boxShadow: '0 8px 18px rgba(8, 4, 2, 0.55)',
       }}
       className={cn(
-        'w-full cursor-pointer overflow-hidden rounded-lg border border-[#f2d892]/45 text-left text-[#fff8ee]',
+        'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#f2d892]/70 text-left text-[#fff8ee]',
+        'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#f2d892]',
         !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
         isDragging && 'z-50 scale-[1.03] rotate-1 ring-2 ring-sky-400/40',
         emDesenho && 'projeto-card-claimed',
@@ -88,7 +89,7 @@ export function ProjetoKanbanCard({
         </div>
       ) : null}
 
-      <div className="flex items-start gap-1.5 p-2.5">
+      <div className="flex items-start gap-1.5 p-2.5 pl-3.5">
         <button
           type="button"
           className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-[#f6ead8] hover:bg-white/10"

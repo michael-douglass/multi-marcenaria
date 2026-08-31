@@ -22,13 +22,13 @@ interface ProjetoKanbanColumnProps {
 
 const kindShell: Record<ProjetoStageKind, string> = {
   waiting:
-    'border-amber-300/70 bg-[#1c120c] shadow-[0_16px_36px_rgba(42,24,18,0.28)]',
+    'border-amber-300/80 bg-[#0e0a08] shadow-[0_18px_40px_rgba(42,24,18,0.32)]',
   visita:
-    'border-teal-300/70 bg-[#121614] shadow-[0_16px_36px_rgba(42,24,18,0.28)] [background-image:repeating-linear-gradient(135deg,rgba(94,234,212,0.08)_0_1px,transparent_1px_7px)]',
+    'border-teal-300/80 bg-[#0c100e] shadow-[0_18px_40px_rgba(42,24,18,0.32)] [background-image:repeating-linear-gradient(135deg,rgba(94,234,212,0.1)_0_1px,transparent_1px_7px)]',
   feito:
-    'border-emerald-300/70 bg-[#12160f] shadow-[0_16px_36px_rgba(42,24,18,0.28)]',
+    'border-emerald-300/80 bg-[#0c100a] shadow-[0_18px_40px_rgba(42,24,18,0.32)]',
   other:
-    'border-[#f2d892]/55 bg-[#1c120c] shadow-[0_16px_36px_rgba(42,24,18,0.28)]',
+    'border-[#f2d892]/70 bg-[#0e0a08] shadow-[0_18px_40px_rgba(42,24,18,0.32)]',
 }
 
 export function ProjetoKanbanColumn({
@@ -48,7 +48,7 @@ export function ProjetoKanbanColumn({
       ref={setNodeRef}
       aria-label={`${stage.nome}, ${count} ${count === 1 ? 'projeto' : 'projetos'}`}
       className={cn(
-        'kanban-dark-island relative z-10 flex h-full min-h-[12rem] flex-none flex-col snap-start rounded-2xl border',
+        'kanban-dark-island relative z-10 flex h-auto min-h-[min(72vh,calc(100svh-14rem))] flex-none flex-col snap-start rounded-2xl border',
         KANBAN_COLUMN_WIDTH_CLASS,
         kindShell[kind],
         isOver && 'ring-1 ring-sky-400/40',
@@ -78,7 +78,7 @@ export function ProjetoKanbanColumn({
           <p className="mt-0.5 text-[10px] tabular-nums text-[#f2d892]">{count}</p>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-2.5">
+      <div className="p-2 sm:p-2.5">
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2 sm:gap-2.5">
             {count === 0 ? (

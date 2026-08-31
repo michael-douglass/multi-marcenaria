@@ -103,7 +103,6 @@ export default function Projetos() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; run: () => void } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-
   const selectedLeadId = searchParams.get('id') ? Number(searchParams.get('id')) : null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const stageIds = useMemo(() => new Set(stages.map((stage) => stage.id)), [stages])
@@ -188,14 +187,23 @@ export default function Projetos() {
   const error = stagesError ?? projetosError
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="relative z-30 flex shrink-0 flex-col gap-3 px-3 pb-2 pt-3 md:flex-row md:items-start md:justify-between md:px-4">
-        <div className="min-w-0">
-          <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
-          <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
-          <p className="mt-1 max-w-md text-xs text-[#6b5244]">
-            Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
-          </p>
+    <div className="relative">
+      <ProjetosBoardAura />
+
+      <header className="sticky top-0 z-20 -mx-1 mb-1 flex flex-col gap-3 bg-gradient-to-b from-[#f8f4ee] from-75% to-transparent px-1 pb-5 pt-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 max-w-md space-y-3">
+          <div>
+            <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
+            <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
+            <p className="mt-1 max-w-md text-xs text-[#6b5244]">
+              Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
+            </p>
+          </div>
+          <ProjetosLeadSearch
+            projetos={projetos}
+            onOpenLead={openLead}
+            onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
+          />
         </div>
         <ProjetosAbertosCard
           fila={counts.fila}
@@ -220,7 +228,7 @@ export default function Projetos() {
               type="button"
               size="sm"
               variant="outline"
-              className="gap-1.5 border-gold/30 text-gold"
+              className="gap-1.5 border-[#8d5e22]/40 text-[#8d5e22]"
               onClick={() => setColunasOpen(true)}
             >
               <Columns3 className="h-4 w-4" />
@@ -231,92 +239,80 @@ export default function Projetos() {
       </header>
 
       {loading && (
-        <div className="relative z-30">
+        <div className="relative z-20">
           <LoadingState variant="page" message="Abrindo a prancheta..." />
         </div>
       )}
       {!loading && error && (
-        <div className="relative z-30">
+        <div className="relative z-20">
           <ErrorState message={error instanceof Error ? error.message : 'Falha ao carregar projetos'} />
         </div>
       )}
       {!loading && !error && stages.length === 0 && (
-        <div className="relative z-30">
+        <div className="relative z-20">
           <EmptyState message="Ainda não há colunas de projetos neste CRM." />
         </div>
       )}
 
       {!loading && !error && stages.length > 0 && (
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <ProjetosBoardAura />
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pt-2 md:px-4">
-            <div className="pointer-events-auto max-w-md">
-              <ProjetosLeadSearch
-                projetos={projetos}
-                onOpenLead={openLead}
-                onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
-              />
-            </div>
-          </div>
-          <KanbanPageZoomShell fillViewport className="absolute inset-0 z-10">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={pointerWithin}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col overflow-hidden pb-4 pt-[4.75rem]">
-                <div
-                  ref={scrollRef}
-                  className="scrollbar-always-visible flex min-h-0 flex-1 snap-x gap-4 overflow-x-scroll overflow-y-hidden px-3 md:gap-5 md:px-4"
-                >
-                  {columns.map(({ stage, items }) => (
-                    <ProjetoKanbanColumn
-                      key={stage.id}
-                      stage={stage}
-                      stages={stages}
-                      items={items.map((item) => item.id)}
-                      count={items.length}
-                    >
-                      {items.map((projeto, index) => (
-                        <ProjetoKanbanCard
-                          key={projeto.id}
-                          projeto={projeto}
-                          stages={stages}
-                          appearIndex={index}
-                          currentUserId={user?.id}
-                          canPegar={canPegar}
-                          canSoltar={canSoltar}
-                          canReabrir={canSoltar}
-                          canSolicitar={canSolicitar}
-                          chatThread={chatByLead.get(projeto.lead_id) ?? null}
-                          lembretesCount={lembretesCountMap.get(projeto.lead_id) ?? 0}
-                          onOpen={openLead}
-                          onPegar={(id) => pegar.mutate(id)}
-                          onSoltar={(id) => askConfirm('soltar', () => soltar.mutate(id))}
-                          onReabrir={(id) => askConfirm('reabrir', () => reabrir.mutate(id))}
-                          onSolicitar={(item) =>
-                            askConfirm('solicitar', () =>
-                              solicitarNovamente.mutate({ leadId: item.lead_id, projetoId: item.id }),
-                            )
-                          }
-                        />
-                      ))}
-                    </ProjetoKanbanColumn>
-                  ))}
-                </div>
-                <FloatingHorizontalScrollbar targetRef={scrollRef} deps={[columns.length, projetos.length]} />
+        <KanbanPageZoomShell className="relative z-10 min-h-[min(72vh,calc(100svh-14rem))] overflow-visible">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="relative flex h-auto w-full min-w-0 flex-col overflow-visible pb-8">
+              <div
+                ref={scrollRef}
+                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(72vh,calc(100svh-14rem))] min-w-0 items-stretch gap-4 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 md:gap-5"
+              >
+                {columns.map(({ stage, items }) => (
+                  <ProjetoKanbanColumn
+                    key={stage.id}
+                    stage={stage}
+                    stages={stages}
+                    items={items.map((item) => item.id)}
+                    count={items.length}
+                  >
+                    {items.map((projeto, index) => (
+                      <ProjetoKanbanCard
+                        key={projeto.id}
+                        projeto={projeto}
+                        stages={stages}
+                        appearIndex={index}
+                        currentUserId={user?.id}
+                        canPegar={canPegar}
+                        canSoltar={canSoltar}
+                        canReabrir={canSoltar}
+                        canSolicitar={canSolicitar}
+                        chatThread={chatByLead.get(projeto.lead_id) ?? null}
+                        lembretesCount={lembretesCountMap.get(projeto.lead_id) ?? 0}
+                        onOpen={openLead}
+                        onPegar={(id) => pegar.mutate(id)}
+                        onSoltar={(id) => askConfirm('soltar', () => soltar.mutate(id))}
+                        onReabrir={(id) => askConfirm('reabrir', () => reabrir.mutate(id))}
+                        onSolicitar={(item) =>
+                          askConfirm('solicitar', () =>
+                            solicitarNovamente.mutate({ leadId: item.lead_id, projetoId: item.id }),
+                          )
+                        }
+                      />
+                    ))}
+                  </ProjetoKanbanColumn>
+                ))}
               </div>
-              <DragOverlay>
-                {activeProjeto ? (
-                  <div className="w-[200px] rounded-lg border border-[#f2d892]/50 bg-[#1a100c] p-2.5 shadow-lg">
-                    <p className="truncate font-display text-[#f2d892]">{activeProjeto.lead_nome}</p>
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
-          </KanbanPageZoomShell>
-        </div>
+              <FloatingHorizontalScrollbar targetRef={scrollRef} deps={[columns.length, projetos.length]} />
+            </div>
+            <DragOverlay>
+              {activeProjeto ? (
+                <div className="w-[200px] rounded-lg border border-[#f2d892]/50 bg-[#1a100c] p-2.5 shadow-lg">
+                  <p className="truncate font-display text-[#f2d892]">{activeProjeto.lead_nome}</p>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </KanbanPageZoomShell>
       )}
 
       <LeadModal
