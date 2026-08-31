@@ -1904,11 +1904,12 @@ body::before {
   .paper-workspace .kanban-dark-island .text-cream-secondary,
   .paper-workspace .kanban-dark-island .text-cream-muted,
   .paper-workspace .kanban-dark-island .text-cream-faint,
+  .paper-workspace .kanban-dark-island [class*="text-cream"],
   .paper-workspace .kanban-dark-island [class*="text-[#edd9c4]"],
   .paper-workspace .kanban-dark-island [class*="text-[#d4bc9f]"],
   .paper-workspace .kanban-dark-island [class*="text-[#faf2ea]"],
   .paper-workspace .kanban-dark-island [class*="text-[#fffaf4]"] {
-    color: #edd9c4;
+    color: #f6ead8 !important;
   }
   .paper-workspace .kanban-dark-island [class*="text-[#f2d892]"],
   .paper-workspace .kanban-dark-island .text-gold,

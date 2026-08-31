@@ -66,7 +66,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
           type="button"
           className={cn(
             'rounded-full px-2 py-0.5',
-            escopo === 'quadro' ? 'bg-gold/15 text-gold' : 'text-cream-muted',
+            escopo === 'quadro' ? 'bg-[#8d5e22]/15 text-[#8d5e22]' : 'text-[#6b5244]',
           )}
           onClick={() => setEscopo('quadro')}
         >
@@ -76,7 +76,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
           type="button"
           className={cn(
             'rounded-full px-2 py-0.5',
-            escopo === 'todos' ? 'bg-sky-400/15 text-sky-200' : 'text-cream-muted',
+            escopo === 'todos' ? 'bg-sky-700/10 text-sky-800' : 'text-[#6b5244]',
           )}
           onClick={() => setEscopo('todos')}
         >
@@ -84,15 +84,15 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
         </button>
       </div>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-muted" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a7060]" />
         <Input
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={escopo === 'quadro' ? 'Buscar neste quadro' : 'Buscar todos os leads'}
-          className="border-gold/20 bg-[#1a120e]/70 pl-9"
+          className="border-[rgba(42,24,18,0.16)] bg-[#fffcf8] pl-9 text-[#2a1812] shadow-[0_10px_24px_rgba(42,24,18,0.08)] placeholder:text-[#8a7060]"
         />
         {isFetching ? (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-cream-muted">…</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#8a7060]">…</span>
         ) : null}
       </div>
       {typeof document !== 'undefined' && showPanel
