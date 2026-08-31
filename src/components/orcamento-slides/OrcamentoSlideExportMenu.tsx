@@ -1,4 +1,5 @@
-﻿import {
+﻿import { useLayoutEffect, useState } from 'react';
+import {
   ChevronDown,
   Download,
   FileImage,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { orcamentoVisualizarNestedClass } from '@/lib/overlay-z-index';
 import type { OrcamentoExportFormat } from '@/lib/orcamento-slide-export';
 
 export type OrcamentoExportViewport = 'desktop' | 'mobile';
@@ -38,14 +40,14 @@ const VIEWPORT_OPCOES: {
   {
     id: 'desktop',
     titulo: 'Computador',
-    descricaoPdf: '1920×1080 — PDF A4 paisagem, uma página por slide',
+    descricaoPdf: '1920×1080 — um slide por página (paisagem)',
     descricaoImagens: '1920×1080 — uma imagem JPEG por slide (download direto)',
     Icon: Monitor,
   },
   {
     id: 'mobile',
     titulo: 'Celular',
-    descricaoPdf: '1080×1920 — PDF A4 retrato, uma página por slide',
+    descricaoPdf: '1080×1920 — um slide por página (retrato)',
     descricaoImagens: '1080×1920 — uma imagem JPEG por slide (download direto)',
     Icon: Smartphone,
   },
@@ -58,12 +60,21 @@ export function OrcamentoSlideExportMenu({
   label = 'Exportar',
   className,
 }: OrcamentoSlideExportMenuProps) {
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    setPortalContainer(document.querySelector<HTMLElement>('[data-orcamento-visualizar]'));
+  }, []);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu modal>
       <DropdownMenuTrigger asChild>
         <Button
+          type="button"
           size="sm"
           disabled={isExporting}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
           className={cn(
             'bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-lg shadow-amber-950/30',
             'border border-amber-500/30 transition-all duration-200',
@@ -83,9 +94,20 @@ export function OrcamentoSlideExportMenu({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
+        container={portalContainer}
+        data-orcamento-export-menu=""
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onFocusOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest('[data-orcamento-visualizar]')) event.preventDefault();
+        }}
         className={cn(
+          orcamentoVisualizarNestedClass,
           'w-80 p-2 rounded-xl border border-white/10',
-          'bg-[#2a1812]/95 backdrop-blur-xl text-white shadow-2xl shadow-black/50',
+          '!bg-[#2a1812] !text-white pointer-events-auto shadow-2xl shadow-black/50',
         )}
       >
         <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.2em] text-amber-400/90 font-semibold px-2 py-1.5 flex items-center gap-1.5">

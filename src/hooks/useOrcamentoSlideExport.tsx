@@ -64,8 +64,8 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
       const isImagens = format === 'imagens';
       const toastId = toast.loading(isImagens ? 'Gerando imagens…' : 'Gerando PDF…', {
         description: isImagens
-          ? 'Baixando uma imagem por página.'
-          : 'Preparando slides para download.',
+          ? 'Baixando um slide por página.'
+          : 'Preparando um slide por página.',
       });
 
       try {
@@ -84,8 +84,8 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
         toast.success(isImagens ? 'Imagens baixadas' : 'PDF baixado', {
           id: toastId,
           description: isImagens
-            ? `Uma imagem por página · layout ${modo}.`
-            : `Layout ${modo}.`,
+            ? `Um slide por página · ${modo}.`
+            : `Um slide por página · ${modo}.`,
           duration: 5000,
         });
       } catch (error) {
@@ -114,13 +114,13 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
         style={{
           position: 'fixed',
           // Fora da tela: todos os slides ficam “inteiros” (sem cortar nas páginas seguintes).
+          // Sem opacity:0 — o html2canvas ignora camadas invisíveis e o PDF sai em branco.
           left: -pageSize.width - 64,
           top: 0,
           width: pageSize.width,
           height: 'auto',
           minHeight: pageSize.height,
           overflow: 'visible',
-          opacity: 0,
           pointerEvents: 'none',
           zIndex: -1,
         }}

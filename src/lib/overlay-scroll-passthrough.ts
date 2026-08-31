@@ -1,37 +1,36 @@
 import { isOrcamentoVisualizarOpen } from '@/lib/dialog-outside-guard';
 
-function nearestVerticalScroller(target: EventTarget | null, fallback: HTMLElement | null): HTMLElement | null {
-  let node: HTMLElement | null =
+const NESTED_SCROLL_GUARD =
+  '[data-orcamento-visualizar-nested], [data-radix-select-content], [data-radix-dropdown-menu-content], [data-radix-popover-content], [role="listbox"]';
+
+function apresentacaoScroller(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-orcamento-apresentacao]');
+}
+
+function isNestedScrollTarget(target: EventTarget | null): boolean {
+  const el =
     target instanceof HTMLElement
       ? target
       : target instanceof Node
         ? target.parentElement
         : null;
-
-  while (node && node !== document.documentElement) {
-    const overflowY = window.getComputedStyle(node).overflowY;
-    const canScroll = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
-    if (canScroll && node.scrollHeight > node.clientHeight + 1) {
-      return node;
-    }
-    node = node.parentElement;
-  }
-
-  return fallback;
+  return Boolean(el?.closest(NESTED_SCROLL_GUARD));
 }
 
-export function scrollOrcamentoVisualizarBy(deltaY: number, target?: EventTarget | null) {
-  const fallback = document.querySelector<HTMLElement>('[data-orcamento-apresentacao]');
-  const scroller = nearestVerticalScroller(target ?? null, fallback);
-  if (!scroller) return;
+/** Rola a lista de slides na hora — sem animação, senão a roda do mouse “não anda”. */
+export function scrollOrcamentoVisualizarBy(deltaY: number, _target?: EventTarget | null) {
+  const scroller = apresentacaoScroller();
+  if (!scroller || !deltaY) return;
+  const previous = scroller.style.scrollBehavior;
+  scroller.style.scrollBehavior = 'auto';
   scroller.scrollTop += deltaY;
+  scroller.style.scrollBehavior = previous;
 }
 
 /**
- * O card do lead (Dialog modal) bloqueia a roda do mouse no documento.
- * A visualização dos slides vive fora desse card, então o gesto nunca chega
- * até a lista. Este listener no `window`/`document` (fase de captura) pega o
- * gesto antes e aplica a rolagem na apresentação.
+ * O card do lead (Dialog) trava a roda do mouse no restante da página.
+ * A apresentação abre por cima, fora desse card — este listener pega o gesto
+ * e move a lista de slides.
  */
 export function bindOrcamentoVisualizarScrollPassthrough(): () => void {
   if (typeof window === 'undefined') return () => {};
@@ -40,9 +39,11 @@ export function bindOrcamentoVisualizarScrollPassthrough(): () => void {
 
   const onWheel = (event: WheelEvent) => {
     if (!isOrcamentoVisualizarOpen()) return;
-    event.stopPropagation();
+    if (isNestedScrollTarget(event.target)) return;
+    if (!apresentacaoScroller()) return;
     event.preventDefault();
-    scrollOrcamentoVisualizarBy(event.deltaY, event.target);
+    event.stopPropagation();
+    scrollOrcamentoVisualizarBy(event.deltaY);
   };
 
   const onTouchStart = (event: TouchEvent) => {
@@ -52,27 +53,25 @@ export function bindOrcamentoVisualizarScrollPassthrough(): () => void {
 
   const onTouchMove = (event: TouchEvent) => {
     if (!isOrcamentoVisualizarOpen()) return;
+    if (isNestedScrollTarget(event.target)) return;
+    if (!apresentacaoScroller()) return;
     const y = event.touches[0]?.clientY ?? lastTouchY;
     const dy = lastTouchY - y;
     lastTouchY = y;
-    event.stopPropagation();
     event.preventDefault();
-    scrollOrcamentoVisualizarBy(dy, event.target);
+    event.stopPropagation();
+    scrollOrcamentoVisualizarBy(dy);
   };
 
   const captureBlock: AddEventListenerOptions = { capture: true, passive: false };
   const capturePassive: AddEventListenerOptions = { capture: true, passive: true };
   window.addEventListener('wheel', onWheel, captureBlock);
-  document.addEventListener('wheel', onWheel, captureBlock);
   window.addEventListener('touchstart', onTouchStart, capturePassive);
   window.addEventListener('touchmove', onTouchMove, captureBlock);
-  document.addEventListener('touchmove', onTouchMove, captureBlock);
 
   return () => {
     window.removeEventListener('wheel', onWheel, captureBlock);
-    document.removeEventListener('wheel', onWheel, captureBlock);
     window.removeEventListener('touchstart', onTouchStart, capturePassive);
     window.removeEventListener('touchmove', onTouchMove, captureBlock);
-    document.removeEventListener('touchmove', onTouchMove, captureBlock);
   };
 }

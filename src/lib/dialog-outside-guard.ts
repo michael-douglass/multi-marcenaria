@@ -9,6 +9,8 @@ export const AMBIENTE_FULLSCREEN_ATTR = 'data-ambiente-fullscreen';
 /** Visualização do orçamento em slides, aberta por cima do card do lead. */
 export const ORCAMENTO_VISUALIZAR_OPEN_ATTR = 'data-orcamento-visualizar-open';
 
+const orcamentoVisualizarListeners = new Set<() => void>();
+
 export function setOrcamentoVisualizarOpenFlag(open: boolean) {
   if (typeof document === 'undefined') return;
   if (open) {
@@ -16,11 +18,19 @@ export function setOrcamentoVisualizarOpenFlag(open: boolean) {
   } else {
     document.documentElement.removeAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR);
   }
+  orcamentoVisualizarListeners.forEach((listener) => listener());
 }
 
 export function isOrcamentoVisualizarOpen(): boolean {
   if (typeof document === 'undefined') return false;
   return document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR);
+}
+
+export function subscribeOrcamentoVisualizarOpen(onStoreChange: () => void): () => void {
+  orcamentoVisualizarListeners.add(onStoreChange);
+  return () => {
+    orcamentoVisualizarListeners.delete(onStoreChange);
+  };
 }
 
 export function setEnviarProjetoDialogOpenFlag(open: boolean) {
@@ -82,6 +92,8 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-furniture-catalog-overlay]')) return true;
   if (target?.closest('[data-ambiente-composer-fullscreen]')) return true;
   if (target?.closest('[data-orcamento-visualizar]')) return true;
+  if (target?.closest('[data-orcamento-export-menu]')) return true;
+  if (target?.closest('[data-orcamento-visualizar-nested]')) return true;
   if (target?.closest('[data-dialog-file-picker-zone]')) return true;
   if (target?.closest('[data-lead-origem-picker]')) return true;
   if (target?.closest('[data-lead-name-autocomplete]')) return true;

@@ -1656,28 +1656,65 @@ function BlocoPrecificacao({
     ? linhasMarkupComposicaoApresentacao(prec.markup_composicao)
     : [];
   const totalMarkup = mostrarMarkup ? somaMarkupComposicao(prec.markup_composicao) : 0;
+  const cream = '#f7efe4';
+  const espresso = '#100a08';
 
   return (
     <section
-      className={cn('w-full max-w-full flex flex-col justify-safe-center py-10 gap-6', textAlign.items, minH)}
-      style={{ background: leg.fundoSecao, scrollSnapAlign: 'start', paddingLeft: px, paddingRight: px, ...SLIDE_CONTAINER_STYLE }}
+      data-orcamento-slide-investimento=""
+      className={cn('relative w-full max-w-full flex flex-col justify-safe-center overflow-hidden py-10 gap-6', textAlign.items, minH)}
+      style={{ background: espresso, scrollSnapAlign: 'start', paddingLeft: px, paddingRight: px, ...SLIDE_CONTAINER_STYLE }}
     >
-      <p style={{ color: `${p.secundaria}80`, fontFamily: `'${p.corpoFont}', sans-serif`, ...typo.etiqueta, ...leg.sombraTexto, ...reveal(0, previewMode) }} data-reveal={!previewMode || undefined}>
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+        <img
+          src="/imagens/apresentacao-garbo/fechamento-painel-logo.jpg"
+          alt=""
+          className={cn(
+            'absolute inset-0 h-full w-full object-cover',
+            mobile ? 'opacity-[0.28]' : 'opacity-[0.34] object-right',
+          )}
+        />
+        <img
+          src="/imagens/apresentacao-garbo/projetos/painel-madeira-continuidade.png"
+          alt=""
+          className="absolute inset-y-0 right-0 hidden h-full w-[46%] object-cover opacity-[0.22] md:block"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: mobile
+              ? `linear-gradient(180deg, ${espresso}f2 0%, ${espresso}cc 42%, ${espresso}f5 100%)`
+              : `linear-gradient(90deg, ${espresso} 0%, ${espresso}f0 38%, ${espresso}a8 72%, ${espresso}d0 100%)`,
+          }}
+        />
+      </div>
+      <CapaAtmosphereFoil
+        enabled={!previewMode}
+        intensity={0.42}
+        textureUrl="/imagens/apresentacao-garbo/fechamento-painel-logo.jpg"
+        className="z-[1]"
+      />
+
+      <p
+        className="relative z-10"
+        style={{ color: p.secundaria, fontFamily: `'${p.corpoFont}', sans-serif`, ...typo.etiqueta, ...leg.sombraTexto, ...reveal(0, previewMode) }}
+        data-reveal={!previewMode || undefined}
+      >
         Proposta financeira
       </p>
       <h2
-        className={cn('font-serif font-bold text-white max-w-full text-balance', textAlign.text)}
-        style={{ fontFamily: `'${p.tituloFont}', serif`, ...typo.blocoTitulo, ...leg.sombraTexto, ...reveal(80, previewMode) }}
+        className={cn('relative z-10 font-serif font-bold max-w-full text-balance', textAlign.text)}
+        style={{ fontFamily: `'${p.tituloFont}', serif`, color: cream, ...typo.blocoTitulo, ...leg.sombraTexto, ...reveal(80, previewMode) }}
         data-reveal={!previewMode || undefined}
       >
         {titulo}
       </h2>
 
       {mostrarMarkup && (
-        <div className={cn('flex w-full max-w-2xl flex-col gap-3', textAlign.self)}>
+        <div className={cn('relative z-10 flex w-full max-w-2xl flex-col gap-3', textAlign.self)}>
           <p
             style={{
-              color: `${p.secundaria}90`,
+              color: p.secundaria,
               fontFamily: `'${p.corpoFont}', sans-serif`,
               ...typo.etiqueta,
               ...leg.sombraTexto,
@@ -1688,9 +1725,9 @@ function BlocoPrecificacao({
             Composição do investimento
           </p>
           <div
-            className="w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black/25 backdrop-blur-sm"
+            className="w-full overflow-hidden rounded-2xl border bg-[#0d0806]"
             style={{
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 20px 40px rgba(0,0,0,0.3)',
+              borderColor: `${p.secundaria}55`,
               ...reveal(160, previewMode),
             }}
             data-reveal={!previewMode || undefined}
@@ -1700,15 +1737,18 @@ function BlocoPrecificacao({
                 key={linha.chave}
                 className={cn(
                   'flex items-baseline justify-between gap-4 px-5 py-3.5 sm:px-6 sm:py-4',
-                  i < linhasMarkup.length - 1 && 'border-b border-white/[0.07]',
+                  i < linhasMarkup.length - 1 && 'border-b',
                 )}
-                style={reveal(180 + i * 60, previewMode)}
+                style={{
+                  borderColor: `${p.secundaria}22`,
+                  ...reveal(180 + i * 60, previewMode),
+                }}
                 data-reveal={!previewMode || undefined}
               >
                 <span
                   className="min-w-0 flex-1 text-left leading-snug"
                   style={{
-                    color: 'rgba(255,255,255,0.78)',
+                    color: cream,
                     fontFamily: `'${p.corpoFont}', sans-serif`,
                     fontSize: (mobile ? 14 : 16) * fator,
                   }}
@@ -1735,7 +1775,7 @@ function BlocoPrecificacao({
               <span
                 className="font-medium"
                 style={{
-                  color: 'rgba(255,255,255,0.92)',
+                  color: cream,
                   fontFamily: `'${p.corpoFont}', sans-serif`,
                   fontSize: (mobile ? 14 : 15) * fator,
                 }}
@@ -1758,13 +1798,13 @@ function BlocoPrecificacao({
       )}
 
       {temValor ? (
-        <div className={cn('flex min-w-0 flex-col gap-5 w-full max-w-full', textAlign.items)}>
+        <div className={cn('relative z-10 flex min-w-0 flex-col gap-5 w-full max-w-full', textAlign.items)}>
           {opcoesPagamento.length > 0 && (
             <div className={cn('flex w-full max-w-full flex-col gap-4', multiplasFormas || mostrarMarkup ? 'mt-1' : '')}>
               {(multiplasFormas || mostrarMarkup) && (
                 <p
                   style={{
-                    color: `${p.secundaria}90`,
+                    color: p.secundaria,
                     fontFamily: `'${p.corpoFont}', sans-serif`,
                     ...typo.etiqueta,
                     ...leg.sombraTexto,
@@ -1804,13 +1844,15 @@ function BlocoPrecificacao({
           )}
         </div>
       ) : (
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontFamily: `'${p.corpoFont}', sans-serif`, ...typo.corpo }}>
+        <p className="relative z-10" style={{ color: cream, fontFamily: `'${p.corpoFont}', sans-serif`, ...typo.corpo }}>
           Valor a definir em reunião.
         </p>
       )}
 
-      <div className="w-16 h-0.5" style={{ background: `${p.secundaria}60`, ...reveal(450, previewMode) }} data-reveal={!previewMode || undefined} />
-      <ImagensExtrasDoBloco bloco={bloco} mobile={mobile} previewMode={previewMode} px={0} />
+      <div className="relative z-10 h-0.5 w-16" style={{ background: p.secundaria, ...reveal(450, previewMode) }} data-reveal={!previewMode || undefined} />
+      <div className="relative z-10">
+        <ImagensExtrasDoBloco bloco={bloco} mobile={mobile} previewMode={previewMode} px={0} />
+      </div>
     </section>
   );
 }
@@ -2486,21 +2528,22 @@ export const OrcamentoSlideApresentacao = forwardRef<HTMLDivElement, Props>(func
         else if (ref) ref.current = node;
       }}
       data-orcamento-apresentacao
+      data-scroll-lock-ignore=""
       data-viewport={effectiveViewport}
       data-preview-static={previewMode ? 'true' : undefined}
       className={cn(
-        'w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y scroll-smooth',
+        'w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y',
+        previewMode ? 'scroll-smooth' : 'scroll-auto',
         embeddedInLayout && 'h-full min-h-0',
         effectiveViewport === 'mobile' && (!previewMode || faithfulPreview) && 'snap-y snap-mandatory',
         className,
       )}
       style={{
-        // Celular: snap firme (um slide por gesto). Desktop/tablet: proximity
-        // para conseguir rolar slides longos (markup + preços) sem travar.
+        // Celular: um slide por gesto. Desktop: sem ímã — senão a roda do mouse não passa.
         scrollSnapType:
           effectiveViewport === 'mobile' && (faithfulPreview || !previewMode)
             ? 'y mandatory'
-            : 'y proximity',
+            : 'none',
         fontFamily: `'${p.corpoFont}', sans-serif`,
         background: p.primaria,
         ...SLIDE_CONTAINER_STYLE,

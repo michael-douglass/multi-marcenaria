@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,7 +53,7 @@ import { LeadProjetoConclusaoPanel } from '@/components/projetos/LeadProjetoConc
 import { LeadProjetoNotasSection } from '@/components/projetos/LeadProjetoNotasSection';
 import { LeadProjetoComposicaoSection } from '@/components/projetos/LeadProjetoComposicaoSection';
 import { LeadKnowledgeMemoryCard } from './LeadKnowledgeMemoryCard';
-import { AMBIENTE_FULLSCREEN_ATTR, ENVIAR_PROJETO_DIALOG_OPEN_ATTR, ORCAMENTO_VISUALIZAR_OPEN_ATTR, isPrimaryDialogBackdrop, shouldBlockLeadModalBackdropClose, shouldPreventDialogOutsideClose, swallowClickThroughAfterDialogClose } from '@/lib/dialog-outside-guard';
+import { AMBIENTE_FULLSCREEN_ATTR, ENVIAR_PROJETO_DIALOG_OPEN_ATTR, ORCAMENTO_VISUALIZAR_OPEN_ATTR, isOrcamentoVisualizarOpen, isPrimaryDialogBackdrop, shouldBlockLeadModalBackdropClose, shouldPreventDialogOutsideClose, subscribeOrcamentoVisualizarOpen, swallowClickThroughAfterDialogClose } from '@/lib/dialog-outside-guard';
 const LeadWhiteboard = lazy(() =>
   import('./LeadWhiteboard').then((m) => ({ default: m.LeadWhiteboard })),
 );
@@ -1139,14 +1139,22 @@ export function LeadModal({
     showScheduleMeetingDialog ||
     showLembreteDialog;
 
+  const orcamentoVisualizarOpen = useSyncExternalStore(
+    subscribeOrcamentoVisualizarOpen,
+    isOrcamentoVisualizarOpen,
+    () => false,
+  );
+
   return (
     <>
     <Dialog
       open={isOpen}
+      modal={!orcamentoVisualizarOpen}
       onOpenChange={(open) => {
         if (!open && filePickerActive) return;
         // Clique na confirmação “Duplicar” não pode fechar o card no meio do caminho.
         if (!open && nestedOverlayOpen) return;
+        if (!open && isOrcamentoVisualizarOpen()) return;
         if (!open) requestClose();
       }}
     >

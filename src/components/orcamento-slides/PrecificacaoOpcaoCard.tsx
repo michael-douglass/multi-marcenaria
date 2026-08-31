@@ -39,9 +39,12 @@ export function PrecificacaoOpcaoCard({
 
   const precoPx = isHero ? (mobile ? 36 : 52) * fator : isForm ? 22 : (mobile ? 22 : 28) * fator;
   const nomePx = (mobile ? 13 : isForm ? 13 : 16) * fator;
+  const cream = '#f7efe4';
+  const espresso = '#0d0806';
 
   return (
     <div
+      data-orcamento-preco-card=""
       className={cn(
         'relative overflow-hidden',
         !isForm && 'rounded-2xl border',
@@ -49,33 +52,41 @@ export function PrecificacaoOpcaoCard({
         className,
       )}
       style={{
-        borderColor: isForm ? undefined : `${paleta.secundaria}40`,
-        background: isForm
+        borderColor: isForm ? undefined : `${paleta.secundaria}99`,
+        background: isForm ? undefined : espresso,
+        boxShadow: isForm
           ? undefined
-          : `linear-gradient(145deg, ${paleta.secundaria}18 0%, ${paleta.primaria}88 100%)`,
-        boxShadow: isForm ? undefined : `0 8px 32px ${paleta.primaria}60, inset 0 1px 0 ${paleta.secundaria}25`,
+          : `inset 0 1px 0 ${paleta.secundaria}55, 0 0 0 1px ${paleta.secundaria}28`,
         padding: isHero ? (mobile ? 20 : 28) : isForm ? 14 : mobile ? 16 : 20,
         textAlign,
         ...style,
       }}
     >
       {!isForm && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 100% 0%, ${paleta.secundaria} 0%, transparent 55%)`,
-          }}
-        />
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-px"
+            style={{ background: paleta.secundaria, opacity: 0.85 }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.14]"
+            style={{
+              backgroundImage: `radial-gradient(ellipse at 12% 0%, ${paleta.secundaria} 0%, transparent 52%)`,
+            }}
+          />
+        </>
       )}
 
       <div className={cn('relative flex flex-col gap-2', alignCenter && 'items-center', alignRight && 'items-end')}>
         {(variant !== 'slide-hero' || temAjuste) && (
           <p
-            className={cn('font-serif font-bold tracking-tight', isForm ? 'text-foreground' : 'text-white/95')}
+            className={cn('font-serif font-bold tracking-tight', isForm ? 'text-foreground' : undefined)}
             style={{
               fontFamily: `'${paleta.tituloFont}', serif`,
               fontSize: nomePx,
+              color: isForm ? undefined : cream,
             }}
           >
             {opcao.nome}
@@ -87,11 +98,12 @@ export function PrecificacaoOpcaoCard({
             <span
               className={cn(
                 opcao.temDesconto && !opcao.temAcrescimo && 'line-through',
-                isForm ? 'text-muted-foreground' : 'text-white/40',
+                isForm ? 'text-muted-foreground' : undefined,
               )}
               style={{
                 fontFamily: `'${paleta.corpoFont}', sans-serif`,
                 fontSize: (mobile ? 13 : 16) * fator,
+                color: isForm ? undefined : 'rgba(247, 239, 228, 0.45)',
               }}
             >
               {BRL(opcao.valorIntegral)}
@@ -143,10 +155,12 @@ export function PrecificacaoOpcaoCard({
         )}
 
         <p
-          className={cn('font-serif font-black leading-none', isForm ? 'text-foreground' : 'text-white')}
+          className={cn('font-serif font-black leading-none', isForm ? 'text-foreground' : undefined)}
           style={{
             fontFamily: `'${paleta.tituloFont}', serif`,
             fontSize: precoPx,
+            color: isForm ? undefined : paleta.secundaria,
+            textShadow: isForm ? undefined : `0 1px 0 ${espresso}, 0 2px 18px ${paleta.secundaria}40`,
           }}
         >
           {BRL(opcao.valorFinal)}
@@ -156,11 +170,12 @@ export function PrecificacaoOpcaoCard({
           {opcao.linhas.map((linha) => (
             <p
               key={linha}
-              className={cn(isForm ? 'text-muted-foreground' : 'text-white/72')}
+              className={cn(isForm ? 'text-muted-foreground' : undefined)}
               style={{
                 fontFamily: `'${paleta.corpoFont}', sans-serif`,
                 fontSize: isForm ? 12 : (mobile ? 13 : 16) * fator,
                 lineHeight: 1.45,
+                color: isForm ? undefined : cream,
               }}
             >
               {linha}
@@ -170,12 +185,13 @@ export function PrecificacaoOpcaoCard({
             <p
               className={cn(
                 'mt-1 max-w-prose whitespace-pre-line italic',
-                isForm ? 'text-[#6b3d12]' : 'text-white/58',
+                isForm ? 'text-[#6b3d12]' : undefined,
               )}
               style={{
                 fontFamily: `'${paleta.corpoFont}', sans-serif`,
                 fontSize: isForm ? 11 : (mobile ? 12 : 14) * fator,
                 lineHeight: 1.45,
+                color: isForm ? undefined : 'rgba(247, 239, 228, 0.78)',
               }}
             >
               {opcao.observacao.trim()}

@@ -2,13 +2,14 @@
   resolveExportPageSize,
   resolvePrintOrientation,
   resolvePrintPageSize,
+  slideSizeToMm,
   type ExportPrintOrientation,
   type OrcamentoExportViewport,
 } from './orcamento-slide-export-constants';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-/** Impressão/PDF idêntico à apresentação — clona o DOM renderizado pelo React. */
+/** Impressão/PDF: cada página é um palco de slide (1920×1080 ou 1080×1920). */
 
 function esc(s: string): string {
   return s
@@ -25,13 +26,14 @@ function buildPrintCss(
   printHeight: number,
   orientation: ExportPrintOrientation,
 ): string {
-  const pageSizeCss = orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait';
-  const pageWidthMm = orientation === 'landscape' ? '297mm' : '210mm';
-  const pageHeightMm = orientation === 'landscape' ? '210mm' : '297mm';
+  const pageMm = slideSizeToMm({ width: slideWidth, height: slideHeight });
+  const pageWidthMm = `${pageMm.width}mm`;
+  const pageHeightMm = `${pageMm.height}mm`;
 
   return `
+  /* Palco fixo: uma página = um slide, sem reflow em folha A4. */
   @page {
-    size: ${pageSizeCss};
+    size: ${pageWidthMm} ${pageHeightMm};
     margin: 0;
   }
 
@@ -42,7 +44,7 @@ function buildPrintCss(
     max-width: ${printWidth}px !important;
     height: auto !important;
     overflow: visible !important;
-    background: #2a1812;
+    background: #100a08;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -64,15 +66,15 @@ function buildPrintCss(
     page-break-after: always;
     break-after: page;
     break-inside: avoid;
-    overflow: visible !important;
+    overflow: hidden !important;
     scroll-snap-align: unset !important;
     position: relative !important;
     transform: none !important;
     width: ${slideWidth}px !important;
     max-width: ${slideWidth}px !important;
     min-height: ${slideHeight}px !important;
-    height: auto !important;
-    max-height: none !important;
+    height: ${slideHeight}px !important;
+    max-height: ${slideHeight}px !important;
   }
 
   [data-orcamento-apresentacao] > section:last-child,
@@ -89,7 +91,6 @@ function buildPrintCss(
   img {
     max-width: 100%;
     max-height: 100%;
-    object-fit: contain;
   }
 
   [data-orcamento-imagem] {
@@ -135,7 +136,21 @@ function buildPrintCss(
     text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.55) !important;
   }
 
-  /* Cada dobra = exatamente uma página A4 no PDF */
+  [data-orcamento-slide-investimento] {
+    background: #100a08 !important;
+  }
+
+  [data-orcamento-preco-card] {
+    background: #0d0806 !important;
+    border-color: rgba(242, 216, 146, 0.62) !important;
+  }
+
+  [data-orcamento-preco-card] p,
+  [data-orcamento-preco-card] span {
+    text-shadow: none !important;
+  }
+
+  /* Cada dobra = exatamente um slide (palco fixo) */
   .orcamento-print-pagina {
     width: ${printWidth}px !important;
     height: ${printHeight}px !important;
@@ -147,7 +162,7 @@ function buildPrintCss(
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     position: relative !important;
-    background: #2a1812;
+    background: #100a08;
     box-sizing: border-box !important;
   }
 
@@ -160,8 +175,11 @@ function buildPrintCss(
   .orcamento-print-pagina > * {
     page-break-after: auto !important;
     break-after: auto !important;
-    min-height: unset !important;
-    max-height: none !important;
+    width: ${slideWidth}px !important;
+    height: ${slideHeight}px !important;
+    min-height: ${slideHeight}px !important;
+    max-height: ${slideHeight}px !important;
+    overflow: hidden !important;
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
@@ -346,11 +364,11 @@ function coletarSlidesDoRoot(root: HTMLElement): HTMLElement[] {
 }
 
 function escalaCapturaPdf(viewport: OrcamentoExportViewport): number {
-  // Celular 1080×1920 já é pesado — escala 1 reduz risco de travar/OOM.
+  // Celular: um pouco mais nítido nos números, sem estourar a memória.
   if (viewport === 'mobile') {
-    return 1;
+    return 1.2;
   }
-  return Math.min(Math.max(window.devicePixelRatio || 1, 1), 1.5);
+  return Math.min(Math.max(window.devicePixelRatio || 1, 1.25), 1.75);
 }
 
 function prepararClone(
@@ -364,6 +382,7 @@ function prepararClone(
   // Vídeos só no site — remove players e páginas só de vídeo do PDF/impressão.
   clone.querySelectorAll('[data-orcamento-video-slide]').forEach((el) => el.remove());
   clone.querySelectorAll('[data-orcamento-video], video').forEach((el) => el.remove());
+  clone.querySelectorAll('[data-capa-atmosphere], [data-cubo-magico], canvas').forEach((el) => el.remove());
 
   clone.querySelectorAll('[data-reveal]').forEach((el) => {
     const html = el as HTMLElement;
@@ -436,7 +455,8 @@ function aguardarRecursos(janela: Window): Promise<void> {
 }
 
 /**
- * Escala o slide para caber inteiro na página A4 (contain — igual à pré-visualização).
+ * Encaixa o palco na página de impressão (contain).
+ * Quando a página já é o próprio slide, a escala fica 1.
  */
 function aplicarEscalaPagina(
   slide: HTMLElement,
@@ -465,7 +485,7 @@ function aplicarEscalaPagina(
 }
 
 /**
- * Uma dobra = uma página A4. Conteúdo escalado para ocupar a folha.
+ * Uma dobra = um slide. Palco fixo, overflow escondido.
  */
 function encapsularSlidesUmaPagina(
   janela: Window,
@@ -789,7 +809,7 @@ function otimizarIconesPdfMobile(root: HTMLElement, slideHeightHint = 1920): voi
     }
   });
 
-  // Ícones SVG (Lucide etc.) ficam legíveis no A4 retrato.
+  // Ícones SVG (Lucide etc.) ficam legíveis no palco retrato.
   root.querySelectorAll<SVGElement>('svg').forEach((svg) => {
     const box = svg.getBoundingClientRect();
     const attrW = Number.parseFloat(svg.getAttribute('width') || '0');
@@ -852,26 +872,6 @@ function coletarSlidesExportaveis(root: HTMLElement): HTMLElement[] {
   );
 }
 
-/** Encaixa conteúdo na página mantendo proporção (sem cortar). */
-function calcularEncaixeContainMm(
-  contentWidth: number,
-  contentHeight: number,
-  pageWidthMm: number,
-  pageHeightMm: number,
-): { x: number; y: number; w: number; h: number } {
-  const ratio = contentWidth / contentHeight;
-  const pageRatio = pageWidthMm / pageHeightMm;
-
-  if (ratio > pageRatio) {
-    const w = pageWidthMm;
-    const h = pageWidthMm / ratio;
-    return { x: 0, y: (pageHeightMm - h) / 2, w, h };
-  }
-
-  const h = pageHeightMm;
-  const w = pageHeightMm * ratio;
-  return { x: (pageWidthMm - w) / 2, y: 0, w, h };
-}
 
 interface ExportDocumento {
   html: string;
@@ -1057,8 +1057,11 @@ async function capturarSlidesComoCanvas(
         ignoreElements: (el) =>
           el instanceof HTMLElement &&
           (el.tagName === 'VIDEO' ||
+            el.tagName === 'CANVAS' ||
             el.hasAttribute('data-orcamento-video') ||
-            el.hasAttribute('data-orcamento-video-slide')),
+            el.hasAttribute('data-orcamento-video-slide') ||
+            el.hasAttribute('data-capa-atmosphere') ||
+            el.hasAttribute('data-cubo-magico')),
       });
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'erro desconhecido';
@@ -1089,19 +1092,23 @@ export async function baixarOrcamentoApresentacaoPdf(
   const orientation = resolvePrintOrientation(viewport);
   const { canvases, slideWidth, slideHeight } = await capturarSlidesComoCanvas(rootElement, viewport);
 
+  const pageMm = slideSizeToMm({ width: slideWidth, height: slideHeight });
   const pdfOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
-  const pdf = new jsPDF({ orientation: pdfOrientation, unit: 'mm', format: 'a4' });
+  const pdf = new jsPDF({
+    orientation: pdfOrientation,
+    unit: 'mm',
+    format: [pageMm.width, pageMm.height],
+  });
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const PDF_BG = { r: 42, g: 24, b: 18 };
+  const PDF_BG = { r: 16, g: 10, b: 8 };
 
   for (let i = 0; i < canvases.length; i++) {
-    if (i > 0) pdf.addPage();
+    if (i > 0) pdf.addPage([pageMm.width, pageMm.height], pdfOrientation);
 
     pdf.setFillColor(PDF_BG.r, PDF_BG.g, PDF_BG.b);
     pdf.rect(0, 0, pageW, pageH, 'F');
 
-    const encaixe = calcularEncaixeContainMm(slideWidth, slideHeight, pageW, pageH);
     let imgData: string;
     try {
       imgData = canvases[i].toDataURL('image/jpeg', 0.92);
@@ -1110,7 +1117,7 @@ export async function baixarOrcamentoApresentacaoPdf(
         'Não foi possível converter os slides em PDF (imagem bloqueada pelo navegador). Tente novamente.',
       );
     }
-    pdf.addImage(imgData, 'JPEG', encaixe.x, encaixe.y, encaixe.w, encaixe.h);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
     // Libera memória do canvas assim que a página for gravada.
     canvases[i].width = 0;
     canvases[i].height = 0;
@@ -1163,6 +1170,12 @@ export async function imprimirOrcamentoApresentacao(
   janela.document.close();
 
   await aguardarRecursos(janela);
+  const slidesImpressao = coletarSlidesExportacao(janela.document);
+  encaixarConteudoNosSlides(
+    slidesImpressao,
+    documento.slideSize.width,
+    documento.slideSize.height,
+  );
   encapsularSlidesUmaPagina(
     janela,
     documento.slideSize.width,

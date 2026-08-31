@@ -2840,6 +2840,19 @@ body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
   pointer-events: none !important;
 }
 
+/*
+ * Menu Exportar: o Radix coloca o painel num wrapper no body (z-auto).
+ * A apresentação está em z-240 — sem z-index no wrapper o menu some atrás.
+ */
+[data-radix-popper-content-wrapper]:has([data-orcamento-export-menu]) {
+  z-index: 260 !important;
+  pointer-events: auto !important;
+}
+html[data-orcamento-visualizar-open] [data-orcamento-export-menu],
+html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
+  pointer-events: auto !important;
+}
+
 .lead-modal-panel {
   background: var(--lead-panel, #241810) !important;
   border-color: var(--lead-line, rgba(196, 150, 58, 0.32)) !important;

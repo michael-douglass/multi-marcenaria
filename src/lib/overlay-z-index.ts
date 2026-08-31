@@ -29,6 +29,12 @@ export const Z_FLOATING_AGENDA_DIALOG = 220;
 /** Select, popover e dropdown dentro desses diálogos. */
 export const Z_FLOATING_AGENDA_NESTED = 230;
 
+/** Visualização em tela cheia do orçamento em slides (portal sobre o card). */
+export const Z_ORCAMENTO_VISUALIZAR = 240;
+
+/** Menu Exportar / painéis abertos por cima dessa visualização. */
+export const Z_ORCAMENTO_VISUALIZAR_NESTED = 260;
+
 /** Classes Tailwind correspondentes (evita números mágicos espalhados). */
 export const nestedModalClass = '!z-[60]';
 export const floatingAiBackgroundClass = 'z-[70]';
@@ -36,6 +42,8 @@ export const floatingAgendaPanelClass = 'z-[200]';
 export const floatingAgendaIconClass = 'z-[210]';
 export const floatingAgendaDialogClass = '!z-[220]';
 export const floatingNestedOverlayClass = '!z-[230]';
+export const orcamentoVisualizarOverlayClass = 'z-[240]';
+export const orcamentoVisualizarNestedClass = '!z-[260]';
 
 /** Seletor CSS / data-attr para ignorar o “fechar ao clicar fora” do LeadModal. */
 export const FLOATING_AGENDA_ROOT_ATTR = 'data-floating-agenda-root';

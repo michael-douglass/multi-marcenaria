@@ -58,7 +58,6 @@ export function OrcamentoSlideExportPreviewDialog({
 }: OrcamentoSlideExportPreviewDialogProps) {
   const pageSize = resolveExportPageSize(viewport);
   const meta = VIEWPORT_META[viewport];
-  const formatoPagina = viewport === 'desktop' ? 'A4 paisagem' : 'A4 retrato';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.45);
   const [contentHeight, setContentHeight] = useState(pageSize.height);
@@ -168,7 +167,7 @@ export function OrcamentoSlideExportPreviewDialog({
 
         <DialogFooter className="shrink-0 gap-2 border-t border-white/10 px-6 py-4 sm:justify-between">
           <p className="hidden text-xs text-white/45 sm:block">
-            Cada dobra vira uma página {formatoPagina} — o conteúdo ({meta.dimensoes}) aparece inteiro, igual à pré-visualização.
+            Cada página do PDF é um slide {meta.dimensoes} — o mesmo palco da pré-visualização.
           </p>
           <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
             <Button

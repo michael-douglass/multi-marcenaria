@@ -20,16 +20,13 @@ export interface ExportPageSize {
   height: number;
 }
 
-/** A4 retrato @ 96dpi — página física ao salvar PDF no navegador. */
-export const A4_PORTRAIT_PRINT = { width: 794, height: 1123 } as const;
-
-/** A4 paisagem @ 96dpi — computador (1920×1080). */
-export const A4_LANDSCAPE_PRINT = { width: 1123, height: 794 } as const;
+/** 96 CSS px = 1 polegada — conversão para @page / jsPDF. */
+export const PRINT_CSS_PX_PER_INCH = 96;
 
 export type ExportPrintOrientation = 'portrait' | 'landscape';
 
 /**
- * Dimensões do slide na apresentação (1920×1080 ou 1080×1920).
+ * Dimensões do palco (computador 1920×1080, celular 1080×1920).
  */
 export function resolveExportPageSize(viewport: OrcamentoExportViewport): ExportPageSize {
   return {
@@ -38,7 +35,7 @@ export function resolveExportPageSize(viewport: OrcamentoExportViewport): Export
   };
 }
 
-/** Orientação da página de impressão conforme o viewport escolhido. */
+/** Orientação da página de impressão conforme o palco escolhido. */
 export function resolvePrintOrientation(viewport: OrcamentoExportViewport): ExportPrintOrientation {
   switch (viewport) {
     case 'mobile':
@@ -48,16 +45,19 @@ export function resolvePrintOrientation(viewport: OrcamentoExportViewport): Expo
   }
 }
 
-/** Página A4 — paisagem (computador) ou retrato (celular). */
+/**
+ * Página impressa = o próprio slide (não A4).
+ * Computador: 1920×1080. Celular: 1080×1920.
+ */
 export function resolvePrintPageSize(viewport: OrcamentoExportViewport): ExportPageSize {
-  if (viewport === 'mobile') {
-    return {
-      width: A4_PORTRAIT_PRINT.width,
-      height: A4_PORTRAIT_PRINT.height,
-    };
-  }
+  return resolveExportPageSize(viewport);
+}
+
+/** Converte o palco em milímetros para @page e jsPDF. */
+export function slideSizeToMm(size: ExportPageSize): ExportPageSize {
+  const pxToMm = 25.4 / PRINT_CSS_PX_PER_INCH;
   return {
-    width: A4_LANDSCAPE_PRINT.width,
-    height: A4_LANDSCAPE_PRINT.height,
+    width: size.width * pxToMm,
+    height: size.height * pxToMm,
   };
 }

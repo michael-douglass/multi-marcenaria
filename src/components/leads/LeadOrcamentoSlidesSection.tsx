@@ -27,7 +27,7 @@ import { valorInvestimentoParaLead } from '@/lib/orcamento-slide-lead-sync';
 import { BRL } from '@/lib/orcamento-slide-precificacao';
 import { isLinkPublicoAtivo, linkPublicoOrcamento } from '@/lib/orcamento-slide-public-link';
 import { setOrcamentoVisualizarOpenFlag } from '@/lib/dialog-outside-guard';
-import { bindOrcamentoVisualizarScrollPassthrough, scrollOrcamentoVisualizarBy } from '@/lib/overlay-scroll-passthrough';
+import { bindOrcamentoVisualizarScrollPassthrough } from '@/lib/overlay-scroll-passthrough';
 import type { OrcamentoSlide } from '@/lib/orcamento-slide-types';
 import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { isOrcamentoVisivelParaPrestador } from '@/lib/prestador-visibilidade';
@@ -54,6 +54,9 @@ function isOrcamentoEditorPath(pathname: string): boolean {
   return /^\/orcamento-slides\/(novo|[^/]+\/editar)\/?$/.test(pathname);
 }
 
+/** Sobrevive se o card do lead remontar ao soltar o travamento de foco. */
+let lastVisualizarOrcamentoId: string | null = null;
+
 export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestadorPerm = null }: LeadOrcamentoSlidesSectionProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,10 +71,18 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
   const { excluirOrcamento, atualizarLinkPublico, duplicarOrcamento } = useOrcamentoSlides();
   const [excluirId, setExcluirId] = useState<string | null>(null);
   const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
-  const [visualizarId, setVisualizarId] = useState<string | null>(null);
+  const [visualizarId, setVisualizarId] = useState<string | null>(() => lastVisualizarOrcamentoId);
 
   const abrirVisualizacao = (id: string) => {
+    lastVisualizarOrcamentoId = id;
+    setOrcamentoVisualizarOpenFlag(true);
     setVisualizarId(id);
+  };
+
+  const fecharVisualizacao = () => {
+    lastVisualizarOrcamentoId = null;
+    setOrcamentoVisualizarOpenFlag(false);
+    setVisualizarId(null);
   };
 
   useEffect(() => {
@@ -90,7 +101,7 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
-      setVisualizarId(null);
+      fecharVisualizacao();
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
@@ -382,16 +393,13 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
               aria-label="Visualizar apresentação do orçamento"
               data-nested-dialog=""
               data-orcamento-visualizar=""
-              data-scroll-passthrough="true"
-              className="fixed inset-0 z-[240] flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-y-contain pointer-events-auto bg-[#0a0706]"
-              onWheel={(event) => {
-                scrollOrcamentoVisualizarBy(event.deltaY, event.target);
-              }}
+              data-scroll-lock-ignore=""
+              className="fixed inset-0 z-[240] flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-visible overscroll-y-contain pointer-events-auto bg-[#0a0706]"
             >
               <Suspense fallback={<GarboBrandLoader variant="fullscreen" message="Preparando apresentação…" />}>
                 <ApresentarOrcamentoSlidePage
                   orcamentoId={visualizarId}
-                  onVoltar={() => setVisualizarId(null)}
+                  onVoltar={fecharVisualizacao}
                 />
               </Suspense>
             </div>,

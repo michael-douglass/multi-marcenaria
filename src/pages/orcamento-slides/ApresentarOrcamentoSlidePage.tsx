@@ -17,6 +17,8 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { OrcamentoSlideApresentacao } from '@/components/orcamento-slides/OrcamentoSlideApresentacao';
 import { OrcamentoSlideExportMenu } from '@/components/orcamento-slides/OrcamentoSlideExportMenu';
 import { OrcamentoAnaliseIAEditor } from '@/components/orcamento-slides/OrcamentoAnaliseIAEditor';
+import { orcamentoVisualizarNestedClass } from '@/lib/overlay-z-index';
+import { cn } from '@/lib/utils';
 import {
   Sheet,
   SheetContent,
@@ -223,7 +225,15 @@ function ApresentarOrcamentoSlideConteudo({
       {exportPortal}
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto bg-background">
+        <SheetContent
+          side="right"
+          data-orcamento-visualizar-nested=""
+          overlayClassName={orcamentoVisualizarNestedClass}
+          className={cn(
+            'w-full sm:max-w-xl overflow-y-auto bg-background',
+            orcamentoVisualizarNestedClass,
+          )}
+        >
           <SheetHeader>
             <SheetTitle>Editar análise na apresentação</SheetTitle>
             <SheetDescription>

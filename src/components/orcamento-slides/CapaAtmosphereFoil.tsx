@@ -8,6 +8,8 @@ interface CapaAtmosphereFoilProps {
   className?: string;
   intensity?: number;
   enabled?: boolean;
+  /** Textura extra (ex.: painel de fechamento) misturada ao véu. */
+  textureUrl?: string;
 }
 
 /**
@@ -18,6 +20,7 @@ export function CapaAtmosphereFoil({
   className,
   intensity = 0.9,
   enabled = true,
+  textureUrl = WOOD_GRAIN_URL,
 }: CapaAtmosphereFoilProps) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -124,13 +127,14 @@ export function CapaAtmosphereFoil({
     };
 
     textureLoader.load(
-      WOOD_GRAIN_URL,
+      textureUrl,
       (texture) => {
         if (cancelled) {
           texture.dispose();
           return;
         }
-        texture.colorSpace = THREE.LinearSRGBColorSpace;
+        texture.colorSpace =
+          textureUrl === WOOD_GRAIN_URL ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -178,7 +182,7 @@ export function CapaAtmosphereFoil({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [enabled, intensity]);
+  }, [enabled, intensity, textureUrl]);
 
   if (!enabled) return null;
 

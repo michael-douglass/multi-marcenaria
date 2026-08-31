@@ -1,5 +1,5 @@
 import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
-import { normalizePhoneDigits } from '@/lib/lead-search';
+import { normalizePhoneDigits, normalizeSearchText } from '@/lib/lead-search';
 
 function getPrestadorLeadSearchableValues(lead: ComissaoLead): string[] {
   return [
@@ -20,14 +20,14 @@ function getPrestadorLeadSearchableValues(lead: ComissaoLead): string[] {
 }
 
 export function prestadorLeadMatchesSearch(lead: ComissaoLead, query: string): boolean {
-  const term = query.trim().toLowerCase();
+  const term = normalizeSearchText(query);
   if (!term) return true;
 
-  const termDigits = normalizePhoneDigits(term);
+  const termDigits = normalizePhoneDigits(query);
   const values = getPrestadorLeadSearchableValues(lead);
 
   const textHit = values.some((value) => {
-    const v = String(value).toLowerCase().trim();
+    const v = normalizeSearchText(String(value));
     return v.length > 0 && v.includes(term);
   });
   if (textHit) return true;
@@ -46,12 +46,12 @@ export function sortPrestadorLeadsBySearchRelevance(
   leads: ComissaoLead[],
   query: string,
 ): ComissaoLead[] {
-  const term = query.trim().toLowerCase();
+  const term = normalizeSearchText(query);
   if (!term) return leads;
 
   return [...leads].sort((a, b) => {
-    const aName = a.leadNome.toLowerCase();
-    const bName = b.leadNome.toLowerCase();
+    const aName = normalizeSearchText(a.leadNome);
+    const bName = normalizeSearchText(b.leadNome);
     const aStarts = aName.startsWith(term) ? 0 : 1;
     const bStarts = bName.startsWith(term) ? 0 : 1;
     if (aStarts !== bStarts) return aStarts - bStarts;

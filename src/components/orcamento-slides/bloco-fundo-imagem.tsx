@@ -18,6 +18,7 @@ import {
   useSlideLayoutContext,
 } from '@/components/orcamento-slides/orcamento-slide-layout-context';
 import { SlideImagem } from '@/components/orcamento-slides/SlideImagem';
+import { CapaMolduraOuro } from '@/components/orcamento-slides/CapaEditorial';
 
 const BlocoFundoImagemContext = createContext(false);
 
@@ -85,6 +86,7 @@ export function OrcamentoSlideShell({
       <BlocoFundoImagemContext.Provider value={!!url}>
         <div
           data-orcamento-slide
+          data-orcamento-slide-stage=""
           data-bloco-tipo={bloco.tipo}
           data-bloco-pagina={slidePageIndex}
           data-bloco-paginas={slidePageTotal}
@@ -111,11 +113,16 @@ export function OrcamentoSlideShell({
               <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-black/50" />
             </>
           )}
+          {faithfulPreview && bloco.tipo !== 'capa' && (
+            <CapaMolduraOuro
+              color="#e4c78a"
+              className={mobile ? 'inset-5' : 'inset-8'}
+            />
+          )}
           <div
             className={cn(
-              // min-h-full (não min-h-0): permite o slide crescer com markup/preços longos
-              // e a rolagem continuar no container da apresentação.
               'relative z-10 flex min-h-full w-full flex-1 flex-col',
+              faithfulPreview && 'overflow-hidden',
               url && 'orcamento-legivel-sobre-fundo',
             )}
           >
