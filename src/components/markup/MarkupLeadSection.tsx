@@ -120,7 +120,7 @@ export function MarkupLeadSection({
               <CardDescription className="text-xs mt-1">
                 {readOnly
                   ? 'Valores de referência do markup. A calculadora fica disponível só para a gestão.'
-                  : '“Novo markup” copia o cálculo anterior e salva à parte — o original continua na lista.'}
+                  : 'Anexe PDF ou foto na ficha do lead e, na calculadora, marque “Usar estes anexos para precificar”. A IA extrai, você confere, e só então o preço pinta o card.'}
               </CardDescription>
             </div>
             {!readOnly && (

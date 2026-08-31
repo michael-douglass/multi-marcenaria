@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle2,
   CircleSlash,
   ExternalLink,
+  Plus,
   Search,
   Sparkles,
 } from 'lucide-react';
+import { MarkupIACadastroRapidoDialog } from '@/components/markup/MarkupIACadastroRapidoDialog';
+import type { MarkupIACadastroRapidoPayload } from '@/components/markup/MarkupIACadastroRapidoDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +36,7 @@ import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import { contarItensPorConfianca } from '@/lib/markup-extracao';
 import type { MarkupItemExtraido, MarkupMatchConfianca } from '@/lib/markup-match';
-import type { MarkupIALimitesAnexos, MarkupProduto } from '@/lib/markup-types';
+import type { MarkupCategoria, MarkupIALimitesAnexos, MarkupProduto } from '@/lib/markup-types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -41,10 +44,14 @@ interface MarkupIAConferenciaDialogProps {
   open: boolean;
   itens: MarkupItemExtraido[];
   produtos: MarkupProduto[];
+  categorias?: MarkupCategoria[];
   limites?: MarkupIALimitesAnexos | null;
-  onChange: (itens: MarkupItemExtraido[]) => void;
+  onChange: Dispatch<SetStateAction<MarkupItemExtraido[]>>;
   onConfirm: () => void;
   onCancel: () => void;
+  onCadastrarProduto?: (
+    payload: MarkupIACadastroRapidoPayload,
+  ) => Promise<{ id: string; unidade: string } | null>;
   confirmando?: boolean;
 }
 
@@ -129,13 +136,17 @@ export function MarkupIAConferenciaDialog({
   open,
   itens,
   produtos,
+  categorias = [],
   limites,
   onChange,
   onConfirm,
   onCancel,
+  onCadastrarProduto,
   confirmando,
 }: MarkupIAConferenciaDialogProps) {
   const [filtro, setFiltro] = useState('');
+  const [itemCadastro, setItemCadastro] = useState<MarkupItemExtraido | null>(null);
+  const [salvandoCadastro, setSalvandoCadastro] = useState(false);
   const contagem = contarItensPorConfianca(itens);
   const aceitos = itens.filter((item) => item.status_revisao === 'aceito' && item.produto_id).length;
   const amarelosPendentes = itens.filter(
@@ -156,12 +167,12 @@ export function MarkupIAConferenciaDialog({
   );
 
   const atualizar = (id: string, patch: Partial<MarkupItemExtraido>) => {
-    onChange(itens.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    onChange((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
 
   const aceitarVerdes = () => {
-    onChange(
-      itens.map((item) =>
+    onChange((prev) =>
+      prev.map((item) =>
         item.confianca === 'alta' && item.produto_id
           ? { ...item, status_revisao: 'aceito' }
           : item,
@@ -169,8 +180,40 @@ export function MarkupIAConferenciaDialog({
     );
   };
 
+  const vincularProduto = (itemId: string, produtoId: string, unidade?: string | null) => {
+    onChange((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              produto_id: produtoId,
+              unidade: unidade ?? item.unidade,
+              status_revisao: 'aceito',
+              confianca: 'alta',
+              score: 1,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const salvarCadastro = async (payload: MarkupIACadastroRapidoPayload) => {
+    if (!itemCadastro || !onCadastrarProduto) return;
+    setSalvandoCadastro(true);
+    try {
+      const criado = await onCadastrarProduto(payload);
+      if (criado) {
+        vincularProduto(itemCadastro.id, criado.id, criado.unidade);
+        setItemCadastro(null);
+      }
+    } finally {
+      setSalvandoCadastro(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+    <>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !itemCadastro) onCancel(); }}>
       <DialogContent
         overlayClassName="z-[80]"
         className="z-[80] flex max-h-[90vh] max-w-3xl flex-col gap-3 overflow-hidden"
@@ -216,7 +259,7 @@ export function MarkupIAConferenciaDialog({
           </Button>
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>
             <Link to="/markup/configuracoes" target="_blank" rel="noreferrer">
-              Cadastrar no catálogo
+              Abrir catálogo
               <ExternalLink className="ml-1 h-3 w-3" />
             </Link>
           </Button>
@@ -241,9 +284,24 @@ export function MarkupIAConferenciaDialog({
                     />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          aria-label={`Quantidade de ${item.nome}`}
+                          className="h-7 w-[4.5rem] text-xs tabular-nums"
+                          value={item.quantidade}
+                          onChange={(e) => {
+                            const qtd = Number(e.target.value);
+                            atualizar(item.id, {
+                              quantidade: Number.isFinite(qtd) ? Math.max(0, qtd) : 0,
+                            });
+                          }}
+                        />
                         <p className="text-xs font-medium">
-                          {item.quantidade}× {item.nome}
+                          {item.nome}
                           {item.especificacao ? ` · ${item.especificacao}` : ''}
+                          {item.unidade ? ` (${item.unidade})` : ''}
                         </p>
                         <Badge variant="outline" className="text-[9px] font-normal">
                           {rotuloConfianca(item.confianca)}
@@ -260,6 +318,41 @@ export function MarkupIAConferenciaDialog({
                           })
                         }
                       />
+                      {((item.alternativas ?? []).length > 0) && item.confianca !== 'alta' && (
+                        <div className="flex flex-wrap gap-1">
+                          {(item.alternativas ?? []).slice(0, 3).map((alt) => (
+                            <Button
+                              key={alt.produto_id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 max-w-full text-[10px]"
+                              onClick={() =>
+                                vincularProduto(
+                                  item.id,
+                                  alt.produto_id,
+                                  produtos.find((p) => p.id === alt.produto_id)?.unidade,
+                                )
+                              }
+                            >
+                              Usar {alt.nome}
+                              {alt.variacao ? ` · ${alt.variacao}` : ''}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      {!item.produto_id && onCadastrarProduto && item.status_revisao !== 'ignorado' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px]"
+                          onClick={() => setItemCadastro(item)}
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Cadastrar este item
+                        </Button>
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -289,7 +382,9 @@ export function MarkupIAConferenciaDialog({
 
         <DialogFooter className="gap-2 sm:justify-between">
           <p className="text-[11px] text-muted-foreground">
-            {aceitos} item(ns) vão para o preço
+            {aceitos > 0
+              ? `${aceitos} item(ns) vão para o preço`
+              : 'Nenhum material confirmado — entram só serviços e despesas'}
             {amarelosPendentes > 0 ? ` · ${amarelosPendentes} amarelo(s) ainda sem decisão` : ''}
           </p>
           <div className="flex gap-2">
@@ -304,12 +399,25 @@ export function MarkupIAConferenciaDialog({
             >
               Não aplicar
             </Button>
-            <Button type="button" onClick={onConfirm} disabled={confirmando || aceitos === 0}>
+            <Button
+              type="button"
+              onClick={onConfirm}
+              disabled={confirmando || (aceitos === 0 && amarelosPendentes > 0)}
+            >
               Aplicar no markup
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <MarkupIACadastroRapidoDialog
+      open={Boolean(itemCadastro)}
+      item={itemCadastro}
+      categorias={categorias}
+      salvando={salvandoCadastro}
+      onClose={() => setItemCadastro(null)}
+      onSalvar={salvarCadastro}
+    />
+    </>
   );
 }

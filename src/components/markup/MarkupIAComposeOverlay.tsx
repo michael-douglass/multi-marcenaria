@@ -47,9 +47,14 @@ function etapaFromEvent(
   message?: string,
 ): string | undefined {
   switch (type) {
-    case 'log':
-      if (message?.toLowerCase().includes('preparando anexos')) return 'anexos';
+    case 'log': {
+      const msg = message?.toLowerCase() ?? '';
+      if (msg.includes('preparando anexos') || msg.includes('texto nativo') || msg.includes('extraindo')) {
+        return 'anexos';
+      }
+      if (msg.includes('confer')) return 'validacao';
       return undefined;
+    }
     case 'media_ready':
     case 'cortecloud_mode':
       return 'anexos';
@@ -72,6 +77,8 @@ function etapaFromEvent(
       return 'precificador';
     case 'complete':
       return 'validacao';
+    case 'error':
+      return undefined;
     default:
       return undefined;
   }

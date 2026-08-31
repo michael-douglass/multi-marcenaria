@@ -1,6 +1,7 @@
 import type { MarkupIAVerificacaoCategoria } from './markup-ia-verificacao.ts';
 import type { MarkupIAVerificacaoCategoriaResultado } from './markup-ia-verificacao.ts';
 import { chaveCatalogo, normalizarTextoCatalogo } from './markup-cortecloud.ts';
+import { casarProdutoNoCatalogo, deveAutoAceitarMatch } from './markup-match.ts';
 
 export type MarkupLinhaOrigemIA = 'cortecloud' | 'projetista' | 'projetista_complemento';
 
@@ -1111,25 +1112,18 @@ function mapearInventarioParaLinhasComplemento(
   inventario: MarkupIAVerificacaoCategoriaResultado[],
   catalog: Array<{ id: string; nome: string; variacao: string | null }>,
 ): LinhaProjetistaComposicao[] {
-  const lookup = new Map<string, string>();
-  for (const p of catalog) {
-    lookup.set(chaveCatalogo(p.nome, p.variacao), p.id);
-    lookup.set(normalizarTextoCatalogo(p.nome), p.id);
-  }
-
   const linhas: LinhaProjetistaComposicao[] = [];
   const seen = new Set<string>();
 
   for (const cat of inventario) {
     for (const item of cat.itens) {
       if (item.status !== 'encontrado' || (item.quantidade ?? 0) <= 0) continue;
-      const produtoId =
-        lookup.get(chaveCatalogo(item.nome, item.variacao)) ??
-        lookup.get(normalizarTextoCatalogo(item.nome));
-      if (!produtoId || seen.has(produtoId)) continue;
-      seen.add(produtoId);
+      const match = casarProdutoNoCatalogo(item.nome, item.variacao, catalog);
+      if (!deveAutoAceitarMatch(match.confianca) || !match.produto) continue;
+      if (seen.has(match.produto.id)) continue;
+      seen.add(match.produto.id);
       linhas.push({
-        produto_id: produtoId,
+        produto_id: match.produto.id,
         quantidade: item.quantidade!,
         origem_ia: 'projetista_complemento',
       });

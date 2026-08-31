@@ -19,6 +19,7 @@ import type { MarkupModulos, MarkupModulosMeta } from '@/lib/markup-types';
 import { MarkupIAProjetistaPanel } from '@/components/markup/MarkupIAProjetistaPanel';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,6 +42,7 @@ export interface MarkupIAResumoPanelProps {
   onToggleMaterial?: (produtoId: string, ativo: boolean) => void;
   onToggleServico?: (templateId: string, ativo: boolean) => void;
   onToggleDespesa?: (index: number, ativo: boolean) => void;
+  onReabrirConferencia?: () => void;
   className?: string;
 }
 
@@ -106,6 +108,7 @@ export function MarkupIAResumoPanel({
   onToggleMaterial,
   onToggleServico,
   onToggleDespesa,
+  onReabrirConferencia,
   className,
 }: MarkupIAResumoPanelProps) {
   const resumo = meta?.resumo_ia;
@@ -498,6 +501,11 @@ export function MarkupIAResumoPanel({
       </Accordion>
 
       <div className="space-y-2 border-t border-violet-500/10 p-3">
+        {onReabrirConferencia && (resumo.itens_extraidos?.length ?? 0) > 0 && (
+          <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={onReabrirConferencia}>
+            Reconferir extração
+          </Button>
+        )}
         {resumo.limites_anexos?.avisos && resumo.limites_anexos.avisos.length > 0 && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <p className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">

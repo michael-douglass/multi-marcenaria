@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useMarkupProdutos } from '@/hooks/useMarkupProdutos';
+import { useMarkupCategorias, useMarkupProdutos } from '@/hooks/useMarkupProdutos';
 import { useMarkupConfig, useMarkupDespesaTemplates, useMarkupServicoTemplates } from '@/hooks/useMarkupConfig';
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
@@ -276,7 +276,8 @@ export function MarkupCalculatorSheet({
   const { config, isLoading: loadingConfig } = useMarkupConfig();
   const { config: pipelineAiConfig } = usePipelineLeadAIConfig();
   const { syncValorLead } = useSyncLeadMarkupValor();
-  const { data: produtos = [], isLoading: loadingProdutos } = useMarkupProdutos();
+  const { data: produtos = [], isLoading: loadingProdutos, criarProduto } = useMarkupProdutos();
+  const { data: categorias = [] } = useMarkupCategorias();
   const { data: despesaTemplates = [], isLoading: loadingDespesas } = useMarkupDespesaTemplates();
   const { data: servicoTemplates = [], isLoading: loadingServicos } = useMarkupServicoTemplates();
   const { items: leadMediaItems, isLoading: leadMediaLoading } = useLeadAIMediaItems(leadId);
@@ -301,6 +302,7 @@ export function MarkupCalculatorSheet({
   const [itensConferencia, setItensConferencia] = useState<MarkupItemExtraido[]>([]);
   const [limitesConferencia, setLimitesConferencia] = useState<MarkupComposeIAResult['limites_anexos']>(null);
   const pendingComposeRef = useRef<MarkupComposeIAResult | null>(null);
+  const lastComposeResultRef = useRef<MarkupComposeIAResult | null>(null);
   const [desfazendoComposicao, setDesfazendoComposicao] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('materiais');
   const [composicaoExpandida, setComposicaoExpandida] = useState(false);
@@ -1430,9 +1432,15 @@ export function MarkupCalculatorSheet({
       };
       const extraidos = sintetizarItensExtraidos(resultadoComLimites, produtos);
       pendingComposeRef.current = resultadoComLimites;
+      lastComposeResultRef.current = resultadoComLimites;
       setItensConferencia(extraidos);
       setLimitesConferencia(detalhe.limites);
       setConferenciaAberta(true);
+      if (extraidos.length === 0) {
+        toast.warning('Nenhum material extraído dos anexos', {
+          description: 'Você ainda pode aplicar serviços e despesas, ou cancelar a conferência.',
+        });
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setComposeError('Composição cancelada pelo usuário.');
@@ -1454,6 +1462,32 @@ export function MarkupCalculatorSheet({
     }
   };
 
+  const handleCadastrarProdutoConferencia = async (payload: {
+    nome: string;
+    variacao: string | null;
+    unidade: string;
+    preco_unitario: number | null;
+    categoria_id: string;
+  }) => {
+    const maxOrdem = produtos.reduce((acc, p) => Math.max(acc, p.ordem ?? 0), 0);
+    const criado = await criarProduto.mutateAsync({
+      categoria_id: payload.categoria_id,
+      nome: payload.nome,
+      variacao: payload.variacao,
+      preco_unitario: payload.preco_unitario,
+      unidade: payload.unidade,
+      quantidade_padrao: 0,
+      ativo: true,
+      ordem: maxOrdem + 1,
+    });
+    if (!criado || typeof criado !== 'object' || !('id' in criado)) return null;
+    const registro = criado as { id: unknown; unidade?: unknown };
+    return {
+      id: String(registro.id),
+      unidade: typeof registro.unidade === 'string' ? registro.unidade : payload.unidade,
+    };
+  };
+
   const handleConfirmarConferencia = async () => {
     const pendente = pendingComposeRef.current;
     if (!pendente) {
@@ -1462,6 +1496,7 @@ export function MarkupCalculatorSheet({
     }
     const revisado = aplicarRevisaoNaComposicao(pendente, itensConferencia);
     setConferenciaAberta(false);
+    lastComposeResultRef.current = revisado;
     pendingComposeRef.current = null;
     try {
       await aplicarResultadoComposicao(revisado);
@@ -1469,6 +1504,46 @@ export function MarkupCalculatorSheet({
       const message = err instanceof Error ? err.message : 'Erro ao aplicar conferência';
       toast.error('Falha ao aplicar conferência', { description: message });
     }
+  };
+
+  const handleReabrirConferencia = () => {
+    const extraidos = modulos.meta?.resumo_ia?.itens_extraidos;
+    if (!extraidos?.length) {
+      toast.info('Não há extração para reconferir neste markup.');
+      return;
+    }
+    const fallback = lastComposeResultRef.current;
+    pendingComposeRef.current = {
+      comodos: fallback?.comodos ?? [],
+      servicos:
+        fallback?.servicos ??
+        (modulos.servicos?.linhas ?? [])
+          .filter((linha) => Boolean(linha.template_id))
+          .map((linha) => ({ template_id: linha.template_id as string, horas: linha.horas })),
+      despesas:
+        fallback?.despesas ??
+        (modulos.despesas ?? [])
+          .filter((linha) => Boolean(linha.template_id))
+          .map((linha) => ({
+            template_id: linha.template_id as string,
+            ativo: linha.ativo,
+            valor: linha.valor,
+          })),
+      resumo_texto: fallback?.resumo_texto ?? modulos.meta?.resumo_ia?.texto_resumo ?? '',
+      itens_nao_catalogados: fallback?.itens_nao_catalogados ?? modulos.meta?.resumo_ia?.itens_nao_catalogados,
+      itens_extraidos: extraidos,
+      limites_anexos: fallback?.limites_anexos ?? modulos.meta?.resumo_ia?.limites_anexos,
+      verificacao_categorias: fallback?.verificacao_categorias ?? modulos.meta?.resumo_ia?.verificacao_categorias,
+      levantamento_projetista:
+        fallback?.levantamento_projetista ?? modulos.meta?.resumo_ia?.levantamento_projetista,
+      produtos_origem_projetista:
+        fallback?.produtos_origem_projetista ?? modulos.meta?.resumo_ia?.produtos_origem_projetista,
+      bloqueado: fallback?.bloqueado ?? modulos.meta?.resumo_ia?.bloqueado,
+      faltantes_criticos: fallback?.faltantes_criticos ?? modulos.meta?.resumo_ia?.faltantes_criticos,
+    };
+    setItensConferencia(extraidos);
+    setLimitesConferencia(pendingComposeRef.current.limites_anexos ?? null);
+    setConferenciaAberta(true);
   };
 
   const checklistAtivo = useMemo(() => {
@@ -1613,9 +1688,11 @@ export function MarkupCalculatorSheet({
           open={conferenciaAberta}
           itens={itensConferencia}
           produtos={produtos}
+          categorias={categorias}
           limites={limitesConferencia}
           onChange={setItensConferencia}
           onConfirm={() => void handleConfirmarConferencia()}
+          onCadastrarProduto={handleCadastrarProdutoConferencia}
           onCancel={() => {
             setConferenciaAberta(false);
             pendingComposeRef.current = null;
@@ -2126,6 +2203,7 @@ export function MarkupCalculatorSheet({
               onToggleMaterial={onToggleMaterial}
               onToggleServico={onToggleServico}
               onToggleDespesa={onToggleDespesaResumo}
+              onReabrirConferencia={handleReabrirConferencia}
             />
             <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-3">
               <div>

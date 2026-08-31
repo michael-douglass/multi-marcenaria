@@ -52,6 +52,10 @@ function mapComposeResult(data: Record<string, unknown>): MarkupComposeIAResult 
     itens_extraidos: Array.isArray(data.itens_extraidos)
       ? (data.itens_extraidos as MarkupComposeIAResult['itens_extraidos'])
       : undefined,
+    limites_anexos:
+      data.limites_anexos && typeof data.limites_anexos === 'object'
+        ? (data.limites_anexos as MarkupComposeIAResult['limites_anexos'])
+        : undefined,
     verificacao_categorias: Array.isArray(data.verificacao_categorias)
       ? (data.verificacao_categorias as MarkupIAVerificacaoCategoriaResultado[])
       : undefined,
