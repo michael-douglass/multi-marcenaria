@@ -4,10 +4,11 @@ import { Logo } from '@/components/Logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
+import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
-import { canAccessCrmPath, isCrmAppPath } from '@/lib/crm-identity'
-import { isFuncionarioCampo, isVisualizadorOnly } from '@/lib/role-access'
+import { canAccessCrmPath, canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
+import { isFuncionarioCampo } from '@/lib/role-access'
 
 const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
@@ -30,7 +31,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
   const isCrmArea = isCrmAppPath(location.pathname)
   const canCrmAgenda = canAccessCrmPath('/agenda-comercial', crmProfile, userProfile)
-  const showAgendaBtn = isCrmArea ? canCrmAgenda : !isVisualizadorOnly(roles)
+  const showAgendaBtn = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.28)] bg-[rgba(52,34,26,0.94)] px-4 backdrop-blur-md safe-area-top-offset">
@@ -64,11 +65,11 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
           size="icon"
           className="h-8 w-8 text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
           onClick={() => {
-            if (isCrmArea) navigate('/agenda-comercial')
+            if (isCrmArea && canCrmAgenda) navigate('/agenda-comercial')
             else onOpenAgenda?.()
           }}
-          title={isCrmArea ? 'Agenda comercial' : 'Agenda e Calendário'}
-          aria-label={isCrmArea ? 'Agenda comercial' : 'Agenda e Calendário'}
+          title="Agenda"
+          aria-label="Agenda"
         >
           <CalendarDays className="h-4 w-4" />
         </Button>
@@ -92,6 +93,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-3">
+        <ContasPagarNotifBell />
         <AppRefreshButton showLabel />
 
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />

@@ -8,14 +8,14 @@ import {
 } from '@/lib/pipeline-status-options';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
-import { Download, Search, Eye, Plus, Pencil, X, MapPin, ChevronDown, Star } from 'lucide-react';
+import { Download, Search, Plus, Pencil, X, MapPin, Star } from 'lucide-react';
 import { LeadModal } from '@/components/leads/LeadModal';
+import { LeadsPageAura } from '@/components/leads/LeadsPageAura';
 import { useLeads } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { usePontuaGarboPartnerMap } from '@/hooks/usePontuaGarboPartnerLeads';
@@ -25,13 +25,6 @@ import { toast } from 'sonner';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/pipeline/DateRangePicker';
-import { DateRange } from 'react-day-picker';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   HoverCard,
   HoverCardContent,
@@ -39,8 +32,6 @@ import {
 } from '@/components/ui/hover-card';
 import { EditOrigemNomeDialog } from '@/components/leads/EditOrigemNomeDialog';
 import { LeadSinalizarButton } from '@/components/leads/LeadSinalizarButton';
-import { TabelaOrigemInfo } from '@/types/selletos';
-import { REGIOES_DISPONIVEIS } from '@/hooks/useWebhooks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CadastroTabContent } from '@/components/cadastro/CadastroTabContent';
 
@@ -263,14 +254,13 @@ export default function Leads() {
     return { backgroundColor: cor, color: '#fff' };
   };
 
-  // Verificar permissão para acessar a página
   if (!hasPermission('leads', 'view')) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <div className="text-6xl">🔒</div>
-          <h2 className="text-2xl font-bold text-foreground">Acesso Negado</h2>
-          <p className="text-muted-foreground max-w-md">
+      <div className="leads-page-shell relative -mx-2 -mt-2 flex min-h-[min(70vh,calc(100svh-5rem))] items-center justify-center px-6 sm:-mx-3 sm:-mt-3">
+        <LeadsPageAura />
+        <div className="relative z-[1] max-w-md space-y-3 text-center">
+          <p className="font-serif text-3xl text-[#2a1812]">Acesso negado</p>
+          <p className="font-dm text-sm text-[#6b5244]">
             Você não tem permissão para visualizar a página de leads.
             Entre em contato com o administrador para solicitar acesso.
           </p>
@@ -280,126 +270,146 @@ export default function Leads() {
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+    <div className="leads-page-shell relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] overflow-hidden sm:-mx-3 sm:-mt-3">
+      <LeadsPageAura />
+      <div className="relative z-[1] space-y-5 p-4 sm:p-6 md:p-8">
       {isInitialLeadsLoad ? (
         <GarboBrandLoader variant="inline" size="md" message="Carregando leads…" />
       ) : (
       <Tabs defaultValue="leads" className="w-full">
-        <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex mb-4">
-          <TabsTrigger value="leads" className="min-w-0">Leads</TabsTrigger>
-          <TabsTrigger value="cadastro" className="min-w-0">Cadastro</TabsTrigger>
-        </TabsList>
-        <TabsContent value="leads" className="mt-0 space-y-6">
-          <div className="flex justify-end">
-            <Button onClick={() => openLeadModal(null, true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Lead
-            </Button>
-          </div>
-
-      <Card>
-        <CardHeader className="space-y-4">
-          <div className="flex items-center justify-between">
-            <CardTitle>Todos os Leads ({filteredLeads.length})</CardTitle>
-            <Button variant="outline" onClick={handleExportCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar CSV
-            </Button>
-          </div>
-          
-          {/* Filtros */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div>
+              <p className="font-dm text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5e22]">
+                Cadastro comercial
+              </p>
+              <h1 className="font-serif text-[2.15rem] leading-none tracking-tight text-[#2a1812] sm:text-[2.45rem]">
+                Leads
+              </h1>
+              <p className="mt-1.5 font-dm text-sm text-[#6b5244]">
+                {filteredLeads.length} de {leads.length} cadastros
+              </p>
             </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-            
-            {hasActiveFilters && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={resetFilters}
-                className="text-muted-foreground"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Limpar filtros
-              </Button>
-            )}
+            <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+              <TabsTrigger value="leads" className="min-w-0">Lista</TabsTrigger>
+              <TabsTrigger value="cadastro" className="min-w-0">Cadastro</TabsTrigger>
+            </TabsList>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+          <Button onClick={() => openLeadModal(null, true)} className="w-full shrink-0 sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Novo lead
+          </Button>
+        </div>
+
+        <TabsContent value="leads" className="mt-5 space-y-4">
+          <div className="leads-page-sheet overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-[rgba(42,24,18,0.08)] px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
+              <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a8170]" />
+                <Input
+                  placeholder="Buscar nome, e-mail ou telefone"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border-[rgba(42,24,18,0.14)] bg-[#fffaf4] pl-10 text-[#2a1812]"
+                />
+              </div>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full bg-[#fffaf4] text-[#2a1812] sm:w-[200px]">
+                  <SelectValue placeholder="Filtrar por status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetFilters}
+                  className="text-[#6b5244] hover:bg-[rgba(42,24,18,0.06)] hover:text-[#2a1812]"
+                >
+                  <X className="h-4 w-4" />
+                  Limpar
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                className="sm:ml-auto"
+              >
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Região</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-[#6b5244]">Nome</TableHead>
+                  <TableHead className="hidden text-[#6b5244] sm:table-cell">Telefone</TableHead>
+                  <TableHead className="hidden text-[#6b5244] md:table-cell">Email</TableHead>
+                  <TableHead className="hidden text-[#6b5244] lg:table-cell">Região</TableHead>
+                  <TableHead className="hidden text-[#6b5244] xl:table-cell">Origem</TableHead>
+                  <TableHead className="hidden text-[#6b5244] md:table-cell">Vendedor</TableHead>
+                  <TableHead className="text-[#6b5244]">Status</TableHead>
+                  <TableHead className="hidden text-[#6b5244] sm:table-cell">Valor</TableHead>
+                  <TableHead className="text-right text-[#6b5244]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLeads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      Nenhum lead encontrado
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={9} className="py-12 text-center font-dm text-sm text-[#6b5244]">
+                      Nenhum lead encontrado com esse filtro.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredLeads.map(lead => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">
+                    <TableRow
+                      key={lead.id}
+                      className="cursor-pointer"
+                      onClick={() => openLeadModal(lead.id, false)}
+                    >
+                      <TableCell className="py-3 font-medium text-[#2a1812]">
                         <span className="inline-flex items-center gap-1.5">
                           {pontuaGarboPartnerMap?.get(lead.id) && (
                             <Star
-                              className="h-3.5 w-3.5 shrink-0 fill-gold text-gold"
+                              className="h-3.5 w-3.5 shrink-0 fill-[#8d5e22] text-[#8d5e22]"
                               aria-label="Parceiro Pontua Garbo"
                             />
                           )}
                           {hasPermission('lead_name', 'view') ? lead.name : '•••••'}
                         </span>
+                        <div className="mt-0.5 font-dm text-xs text-[#6b5244] sm:hidden">
+                          {hasPermission('lead_phone', 'view') ? (lead.phone || lead.email || '—') : '•••'}
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 text-[#3d261c] sm:table-cell">
                         {hasPermission('lead_phone', 'view') ? lead.phone : '••• •••• ••••'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 text-[#3d261c] md:table-cell">
                         {hasPermission('lead_email', 'view') ? lead.email : '•••@•••.com'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 lg:table-cell">
                         {lead.tabelaOrigemInfo ? (
                           <HoverCard>
                             <HoverCardTrigger asChild>
                               <span className="inline-flex cursor-pointer">
-                                <Badge 
-                                  className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors"
+                                <Badge
+                                  className="border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
                                   variant="outline"
                                 >
-                                  <MapPin className="h-3 w-3 mr-1" />
+                                  <MapPin className="mr-1 h-3 w-3" />
                                   {lead.tabelaOrigemInfo.nomeAmigavel}
                                 </Badge>
                               </span>
@@ -411,8 +421,8 @@ export default function Leads() {
                                   <p className="font-mono text-sm">{lead.tabelaOrigemInfo.nomeTabela}</p>
                                 </div>
                                 {hasPermission('leads', 'edit') && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -423,7 +433,7 @@ export default function Leads() {
                                       });
                                     }}
                                   >
-                                    <Pencil className="h-3 w-3 mr-1" />
+                                    <Pencil className="mr-1 h-3 w-3" />
                                     Editar nome amigável
                                   </Button>
                                 )}
@@ -431,15 +441,15 @@ export default function Leads() {
                             </HoverCardContent>
                           </HoverCard>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span className="text-[#9a8170]">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 text-[#3d261c] xl:table-cell">
                         {hasPermission('lead_origin', 'view') ? lead.origin : '•••'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 md:table-cell">
                         {hasPermission('lead_vendor', 'view') ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 text-[#3d261c]">
                             {(() => {
                               const user = users.find(u => u.name === lead.vendor);
                               return user ? <UserAvatar user={user} size="sm" /> : null;
@@ -450,7 +460,7 @@ export default function Leads() {
                           '•••'
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         {hasPermission('lead_status', 'view') ? (
                           <Badge
                             className={getStatusColor(lead.status)}
@@ -462,17 +472,17 @@ export default function Leads() {
                           <Badge variant="secondary">•••</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden py-3 sm:table-cell">
                         {hasPermission('lead_value', 'view') ? (
-                          <span className="font-medium text-success">
+                          <span className="font-dm font-semibold tabular-nums text-emerald-800">
                             {lead.dealValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </span>
                         ) : (
                           '•••'
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <TableCell className="py-3 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <LeadSinalizarButton
                             leadId={lead.id}
                             leadNome={lead.name}
@@ -481,16 +491,10 @@ export default function Leads() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
-                              openLeadModal(lead.id, false);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
+                            className="text-[#6b5244] hover:bg-[rgba(42,24,18,0.06)] hover:text-[#2a1812]"
+                            aria-label={`Editar ${lead.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
                               openLeadModal(lead.id, true);
                             }}
                           >
@@ -503,12 +507,10 @@ export default function Leads() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
         </TabsContent>
-        <TabsContent value="cadastro" className="mt-0">
+        <TabsContent value="cadastro" className="mt-5">
           <CadastroTabContent />
         </TabsContent>
       </Tabs>
@@ -532,6 +534,7 @@ export default function Leads() {
         nomeTabela={editOrigemDialog.nomeTabela}
         nomeAmigavelAtual={editOrigemDialog.nomeAmigavel}
       />
+      </div>
     </div>
   );
 }

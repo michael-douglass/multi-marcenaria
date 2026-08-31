@@ -168,7 +168,7 @@ function ContasPagarNotifPanel() {
               Contas a pagar
             </h2>
             <p className="mt-1 text-[0.68rem] text-[#edd9c4]/65">
-              {'Hoje e vencidas do mês'}
+              {'Contas a vencer no dia'}
               {count > 0 ? ` · ${count}` : ''}
               <span className="text-[#edd9c4]/40">{` · ${fmtDate(diaReferencia)}`}</span>
             </p>
@@ -236,7 +236,9 @@ function ContasPagarNotifPanel() {
 
 /** Sino no canto superior direito do header (todas as páginas Admin). */
 export function ContasPagarNotifBell() {
+  const { roles } = useApp()
   const { count, panelOpen, togglePanel } = useContasPagarNotif()
+  if (!roles.includes('Administrador')) return null
   const hasItems = count > 0
 
   return (
@@ -252,8 +254,8 @@ export function ContasPagarNotifBell() {
         panelOpen && 'border-[rgba(248,113,113,0.55)] bg-[rgba(220,38,38,0.12)] text-[#fca5a5]',
       )}
       onClick={togglePanel}
-      title="Notifica\u00e7\u00f5es de contas a pagar"
-      aria-label="Notifica\u00e7\u00f5es de contas a pagar"
+      title="Contas a vencer no dia"
+      aria-label="Contas a vencer no dia"
       aria-expanded={panelOpen}
     >
       <Bell className="h-4 w-4" />

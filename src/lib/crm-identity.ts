@@ -100,6 +100,24 @@ export function isPrestadorServico(crm: CrmProfile | null | undefined): boolean 
   return crm?.tipoUsuario === 'prestador_servico' && isCrmAtivo(crm)
 }
 
+/**
+ * Agenda Geral (calendário flutuante) em todas as páginas do sistema.
+ * Montador, projetista, admin, financeiro etc. entram.
+ * Prestador de serviço e lead não.
+ * Cada um só vê tarefas da própria titularidade (filtro no hook da agenda).
+ */
+export function canUseAgendaGeral(
+  movelaria: UserProfile | null | undefined,
+  crm: CrmProfile | null | undefined,
+  pathname?: string,
+): boolean {
+  if (pathname?.startsWith('/portal-parceiro')) return false
+  if (isPrestadorServico(crm)) return false
+  if (crm?.tipoUsuario === 'lead') return false
+  if (movelaria?.ativo === true) return true
+  return hasCrmColaboradorAccess(crm)
+}
+
 /** Arquiteto/parceiro sem ficha Movelaria ativa — só o portal. */
 export function isPortalOnly(
   movelaria: UserProfile | null | undefined,

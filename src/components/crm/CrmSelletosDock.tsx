@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { addDays, isBefore, isFuture, isToday, parseISO } from 'date-fns'
 import { MessageNotificationsPopup } from '@/components/layout/MessageNotificationsPopup'
 import { WhatsAppNotificationIcon } from '@/components/layout/WhatsAppNotificationIcon'
-import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
 import { FloatingMarketingCalendarIcon } from '@/components/layout/FloatingMarketingCalendarIcon'
 import { FloatingMarketingCalendarPopup } from '@/components/layout/FloatingMarketingCalendarPopup'
 import { FloatingApprovalIcon } from '@/components/layout/FloatingApprovalIcon'
@@ -72,7 +71,6 @@ export function CrmSelletosDock() {
     messageNotifications.closePopup()
   }, [isFloatingPopupsHidden, messageNotifications])
 
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [aiBackgroundMinimized, setAiBackgroundMinimized] = useState({
     minimized: false,
     count: 0,
@@ -215,14 +213,6 @@ export function CrmSelletosDock() {
             document.body,
           )
         : null}
-
-      <FloatingAgendaGeralShell
-        isOpen={isCalendarOpen}
-        onToggle={() => setIsCalendarOpen((open) => !open)}
-        onClose={() => setIsCalendarOpen(false)}
-        side={preferences.floatingAgendaSide}
-        onSideChange={(side) => updatePreferences({ floatingAgendaSide: side })}
-      />
 
       {!isVendedor && !isFloatingPopupsHidden && (
         <FloatingMarketingCalendarPopup

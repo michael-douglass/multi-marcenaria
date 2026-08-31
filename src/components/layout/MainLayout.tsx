@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BarChart3, CalendarDays } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -6,14 +6,17 @@ import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
+import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
+import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly } from '@/lib/role-access'
 import { hasObrasAdminSectionsAccess } from '@/lib/obra-permissions'
 import { cn } from '@/lib/utils'
-import { isCrmAppPath } from '@/lib/crm-identity'
+import { canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
 import { AppErrorBoundary } from '@/components/AppErrorBoundary'
 import { CrmSelletosDock } from '@/components/crm/CrmSelletosDock'
 import { useKanbanRealtimeSync } from '@/hooks/useKanbanRealtimeSync'
+import { useUiPreferences } from '@/hooks/useUiPreferences'
 
 function FloatingNavButton({
   label,
@@ -89,9 +92,16 @@ export function MainLayout() {
   useKanbanRealtimeSync()
   const [isAgendaOpen, setIsAgendaOpen] = useState(false)
   const [isMetricasOpen, setIsMetricasOpen] = useState(false)
-  const { roles } = useApp()
+  const [isAgendaGeralOpen, setIsAgendaGeralOpen] = useState(false)
+  const { roles, userProfile, crmProfile } = useApp()
+  const { preferences, updatePreferences } = useUiPreferences()
   const location = useLocation()
   const navigate = useNavigate()
+  const showAgendaGeral = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
+
+  useEffect(() => {
+    if (preferences.hideFloatingPopups) setIsAgendaGeralOpen(false)
+  }, [preferences.hideFloatingPopups])
 
   const openAgendaSafely = () => {
     // No iPhone, abrir o popup em cima da própria Agenda duplica Kanban + fotos e derruba o Safari.
@@ -118,6 +128,7 @@ export function MainLayout() {
   const pipelinePageScroll = isPipelineBoard
 
   return (
+    <ContasPagarNotifProvider>
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
       <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
@@ -152,6 +163,18 @@ export function MainLayout() {
           </div>
         </div>
       </SidebarInset>
+
+      {showAgendaGeral ? (
+        <FloatingAgendaGeralShell
+          isOpen={isAgendaGeralOpen}
+          onToggle={() => setIsAgendaGeralOpen(open => !open)}
+          onClose={() => setIsAgendaGeralOpen(false)}
+          side={preferences.floatingAgendaSide}
+          onSideChange={side => {
+            void updatePreferences({ floatingAgendaSide: side })
+          }}
+        />
+      ) : null}
 
       {isCrmArea && (
         <AppErrorBoundary>
@@ -192,5 +215,6 @@ export function MainLayout() {
         </>
       )}
     </SidebarProvider>
+    </ContasPagarNotifProvider>
   )
 }
