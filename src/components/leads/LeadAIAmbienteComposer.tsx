@@ -59,9 +59,11 @@ import {
 } from '@/lib/lead-ai-ambiente-draw';
 import {
   exportAmbienteCompositionToJpeg,
+  exportAmbienteFurnitureReferences,
   fileToImagePreview,
   urlToImagePreview,
 } from '@/lib/lead-ai-ambiente-export';
+import { buildAmbienteCenaInventario } from '@/lib/lead-ai-ambiente-inventario';
 import { parseAmbienteSugestoes } from '@/lib/lead-ai-ambiente-sugestoes';
 import {
   AMBIENTE_OBJECT_BASE_H,
@@ -93,12 +95,18 @@ interface LeadAIAmbienteComposerProps {
   disabled?: boolean;
   isBusy?: boolean;
   incomingPhoto?: AmbienteIncomingPhoto | null;
-  onAnalyze: (input: { descricao: string; imageDataUrl?: string }) => Promise<string>;
+  onAnalyze: (input: {
+    descricao: string;
+    imageDataUrl?: string;
+    cenaInventario?: string;
+  }) => Promise<string>;
   onRender: (input: {
     descricao: string;
     analiseTexto?: string;
+    cenaInventario?: string;
     compositionDataUrl?: string;
     sourceImageDataUrl?: string;
+    furnitureReferences?: Array<{ label: string; dataUrl: string }>;
   }) => Promise<void> | void;
 }
 
@@ -239,7 +247,7 @@ export function LeadAIAmbienteComposer({
   const locked = disabled || isAnalyzing || isFlattening || isSavingCopy;
   const hasComposition =
     Boolean(background) || objects.length > 0 || overlays.length > 0 || markers.length > 0 || shapes.length > 0;
-  const canAnalyze = descricao.trim().length > 0 || Boolean(background);
+  const canAnalyze = descricao.trim().length > 0 || hasComposition;
   const canRender = canAnalyze || hasComposition;
   const canUndo = historyCount > 0 && !locked;
   const canRedo = redoCount > 0 && !locked;
@@ -592,22 +600,35 @@ export function LeadAIAmbienteComposer({
 
   const handleAnalyze = useCallback(async () => {
     if (!canAnalyze) {
-      toast.error('Descreva o ambiente ou insira uma foto');
+      toast.error('Descreva o ambiente, desenhe na lousa ou insira uma foto');
       return;
     }
     setIsAnalyzing(true);
     try {
       let imageDataUrl: string | undefined;
-      if (background) {
+      if (hasComposition) {
         const exported = await exportAmbienteCompositionToJpeg({
           background,
-          overlays: [],
-          objects: [],
-          markers: [],
+          overlays,
+          objects,
+          markers,
+          shapes,
         });
         imageDataUrl = exported.dataUrl;
       }
-      const yaml = await onAnalyze({ descricao: descricao.trim(), imageDataUrl });
+      const cenaInventario = buildAmbienteCenaInventario({
+        descricao: descricao.trim(),
+        background,
+        overlays,
+        objects,
+        markers,
+        shapes,
+      });
+      const yaml = await onAnalyze({
+        descricao: descricao.trim(),
+        imageDataUrl,
+        cenaInventario,
+      });
       setAnaliseTexto(yaml);
       setSuggestions(parseAmbienteSugestoes(yaml));
       toast.success('Sugestões prontas — clique para posicionar na cena');
@@ -616,7 +637,17 @@ export function LeadAIAmbienteComposer({
     } finally {
       setIsAnalyzing(false);
     }
-  }, [background, canAnalyze, descricao, onAnalyze]);
+  }, [
+    background,
+    canAnalyze,
+    descricao,
+    hasComposition,
+    markers,
+    objects,
+    onAnalyze,
+    overlays,
+    shapes,
+  ]);
 
   const handleRenderAmbiente = useCallback(async () => {
     if (!canRender) {
@@ -647,13 +678,26 @@ export function LeadAIAmbienteComposer({
               markers: [],
             })).dataUrl;
       }
+      const cenaInventario = buildAmbienteCenaInventario({
+        descricao: descricao.trim(),
+        background,
+        overlays,
+        objects,
+        markers,
+        shapes,
+      });
+      const furnitureReferences = overlays.length
+        ? await exportAmbienteFurnitureReferences(overlays)
+        : [];
       setIsFlattening(false);
       setIsFullscreen(false);
       void onRender({
         descricao: descricao.trim(),
         analiseTexto: analiseTexto ?? undefined,
+        cenaInventario,
         compositionDataUrl,
         sourceImageDataUrl,
+        furnitureReferences,
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível renderizar o ambiente');
@@ -1240,12 +1284,12 @@ export function LeadAIAmbienteComposer({
               </span>
             </div>
             <Label className="text-sm font-medium text-foreground">
-              Descreva o cômodo ou insira uma foto
+              Descreva o cômodo, desenhe na lousa e posicione os móveis
             </Label>
             {!isFullscreen && (
               <p className="text-xs text-cream-muted">
-                Desenhe paredes e volumes na lousa, posicione os móveis e aproxime a foto. No final
-                entregamos o ambiente renderizado.
+                A IA lê os desenhos da lousa e cada móvel posicionado, entende o cômodo descrito e
+                gera a foto sem variar o móvel.
               </p>
             )}
           </div>

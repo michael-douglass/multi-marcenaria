@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { FloatingOverlayProvider } from "@/contexts/FloatingOverlayContext";
-import { shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
+import { isPrimaryDialogBackdrop, shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
 import { floatingAgendaDialogClass } from "@/lib/overlay-z-index";
 
 const Dialog = DialogPrimitive.Root;
@@ -37,11 +37,14 @@ const DialogContent = React.forwardRef<
     floatingLayer?: boolean;
     /** Classe extra no overlay (ex.: z alto dentro de outro dialog). */
     overlayClassName?: string;
+    /** Clique no véu escuro (fora do card). */
+    onOverlayClick?: React.PointerEventHandler<HTMLDivElement>;
   }
 >(({
   className,
   floatingLayer,
   overlayClassName,
+  onOverlayClick,
   children,
   onPointerDownOutside,
   onFocusOutside,
@@ -54,11 +57,17 @@ const DialogContent = React.forwardRef<
         floatingLayer ? floatingAgendaDialogClass : "z-50",
         overlayClassName,
       )}
+      onPointerUp={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.button !== 0) return;
+        onOverlayClick?.(event);
+      }}
     />
     <DialogPrimitive.Content
       ref={ref}
       data-floating-agenda-root={floatingLayer ? '' : undefined}
       onPointerDownOutside={(event) => {
+        if (onOverlayClick) event.preventDefault();
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
         onPointerDownOutside?.(event);
       }}
@@ -67,6 +76,7 @@ const DialogContent = React.forwardRef<
         onFocusOutside?.(event);
       }}
       onInteractOutside={(event) => {
+        if (onOverlayClick && isPrimaryDialogBackdrop(event.target)) event.preventDefault();
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
         onInteractOutside?.(event);
       }}

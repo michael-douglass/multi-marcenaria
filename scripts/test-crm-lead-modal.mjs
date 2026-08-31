@@ -37,6 +37,21 @@ describe('Épico 11 — ficha do lead', () => {
     assert.doesNotMatch(modal, /Módulos do card/)
   })
 
+  it('clique no fundo fecha o card; atualizar a página reabre pelo ?id=', () => {
+    const ficha = readSrc('src/components/leads/LeadModal.tsx')
+    const dialog = readSrc('src/components/ui/dialog.tsx')
+    const guard = readSrc('src/lib/dialog-outside-guard.ts')
+    const pipeline = readSrc('src/pages/Pipeline.tsx')
+    assert.match(ficha, /onOverlayClick/)
+    assert.match(ficha, /isPrimaryDialogBackdrop/)
+    assert.match(ficha, /shouldBlockLeadModalBackdropClose/)
+    assert.match(dialog, /onOverlayClick/)
+    assert.match(dialog, /if \(onOverlayClick\) event\.preventDefault/)
+    assert.match(guard, /swallowClickThroughAfterDialogClose/)
+    assert.match(pipeline, /leadIdFromUrl/)
+    assert.match(pipeline, /\[leadIdFromUrl, tabFromUrl, iaSubtabFromUrl\]/)
+  })
+
   it('seção de markup lista, cria e abre existente', () => {
     const src = readSrc('src/components/crm/MarkupLeadSection.tsx')
     assert.match(src, /Novo markup/)

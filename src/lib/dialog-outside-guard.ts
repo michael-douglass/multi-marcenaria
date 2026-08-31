@@ -4,8 +4,19 @@ import { MARKUP_CALCULATOR_OPEN_ATTR, MARKUP_ORCAMENTO_SIMPLES_OPEN_ATTR } from 
 
 export const ENVIAR_PROJETO_DIALOG_OPEN_ATTR = 'data-enviar-projeto-dialog-open';
 
-/** Compositor de ambiente em tela cheia (acima do card do lead). */
 export const AMBIENTE_FULLSCREEN_ATTR = 'data-ambiente-fullscreen';
+
+/** Visualização do orçamento em slides, aberta por cima do card do lead. */
+export const ORCAMENTO_VISUALIZAR_OPEN_ATTR = 'data-orcamento-visualizar-open';
+
+export function setOrcamentoVisualizarOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR);
+  }
+}
 
 export function setEnviarProjetoDialogOpenFlag(open: boolean) {
   if (typeof document === 'undefined') return;
@@ -21,36 +32,51 @@ export interface DialogOutsideEvent {
   detail?: { originalEvent?: Event };
 }
 
+/** Véu escuro do Dialog principal — clique aqui deve fechar o card. */
+export function isPrimaryDialogBackdrop(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el?.classList?.contains('glass-overlay-mogno')) return false
+  if (el.hasAttribute('data-alert-dialog-overlay')) return false
+  if (el.closest('[data-nested-dialog]')) return false
+  return true
+}
+
+/** Calculadora, tela cheia, etc. — o véu do lead não pode fechar o card nesse momento. */
+export function shouldBlockLeadModalBackdropClose(options?: { filePickerActive?: boolean }): boolean {
+  if (options?.filePickerActive) return true
+  if (typeof document === 'undefined') return false
+  const root = document.documentElement
+  return (
+    root.hasAttribute(MARKUP_CALCULATOR_OPEN_ATTR) ||
+    root.hasAttribute(MARKUP_ORCAMENTO_SIMPLES_OPEN_ATTR) ||
+    root.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR) ||
+    root.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
+    root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR)
+  )
+}
+
 export function shouldPreventDialogOutsideClose(
   e: DialogOutsideEvent,
   options?: { filePickerActive?: boolean },
 ): boolean {
   if (options?.filePickerActive) return true;
+  if (shouldBlockLeadModalBackdropClose(options)) return true;
 
   const original = e.detail?.originalEvent;
   if (original?.type === 'focusin') return true;
 
   const target = e.target as HTMLElement | null;
+  // Clique no fundo escuro fecha o card. O restante da guarda vale para popovers e janelas por cima.
+  if (isPrimaryDialogBackdrop(target)) return false;
   if (target?.closest('[data-markup-calculator]')) return true;
   if (target?.closest('[data-markup-orcamento-simples]')) return true;
   if (target?.closest('[data-enviar-projeto-dialog]')) return true;
-  if (typeof document !== 'undefined' && document.documentElement.hasAttribute(MARKUP_CALCULATOR_OPEN_ATTR)) {
-    return true;
-  }
-  if (typeof document !== 'undefined' && document.documentElement.hasAttribute(MARKUP_ORCAMENTO_SIMPLES_OPEN_ATTR)) {
-    return true;
-  }
-  if (typeof document !== 'undefined' && document.documentElement.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR)) {
-    return true;
-  }
   if (target?.closest('[data-pontua-garbo-dialog]')) return true;
   if (target?.closest('[data-whiteboard-viewport]')) return true;
   if (target?.closest('[data-furniture-catalog]')) return true;
   if (target?.closest('[data-furniture-catalog-overlay]')) return true;
   if (target?.closest('[data-ambiente-composer-fullscreen]')) return true;
-  if (typeof document !== 'undefined' && document.documentElement.hasAttribute(AMBIENTE_FULLSCREEN_ATTR)) {
-    return true;
-  }
+  if (target?.closest('[data-orcamento-visualizar]')) return true;
   if (target?.closest('[data-dialog-file-picker-zone]')) return true;
   if (target?.closest('[data-lead-origem-picker]')) return true;
   if (target?.closest('[data-lead-name-autocomplete]')) return true;
@@ -80,4 +106,24 @@ export function runWithFilePickerGuard(onActiveChange: (active: boolean) => void
     window.removeEventListener('focus', release);
   };
   window.addEventListener('focus', release);
+}
+
+/**
+ * Depois que o véu some, o mesmo clique pode cair no quadro (Novo lead).
+ * Engole o clique que ainda está a caminho.
+ */
+export function swallowClickThroughAfterDialogClose() {
+  if (typeof document === 'undefined') return
+  const swallow = (event: Event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+  }
+  const opts: AddEventListenerOptions = { capture: true }
+  document.addEventListener('click', swallow, opts)
+  document.addEventListener('pointerup', swallow, opts)
+  window.setTimeout(() => {
+    document.removeEventListener('click', swallow, opts)
+    document.removeEventListener('pointerup', swallow, opts)
+  }, 400)
 }

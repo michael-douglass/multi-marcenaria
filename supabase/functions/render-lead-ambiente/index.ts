@@ -3,9 +3,11 @@ import { corsHeaders } from './_shared/cors.ts';
 import {
   DEFAULT_AMBIENTE_ANALYSIS_PROMPT,
   DEFAULT_AMBIENTE_IMAGE_PROMPT,
+  DEFAULT_AMBIENTE_SCENE_INVENTORY_PROMPT,
   applyAmbientePromptPlaceholders,
-} from './_shared/ambiente-prompts.ts';
-import { callOpenAIImageEdit, callOpenAIImageGenerate } from './_shared/openai-image-edit.ts';
+  appendAmbienteFurnitureFidelity,
+} from '../_shared/render-prompts.ts';
+import { callOpenAIImageEdit, callOpenAIImageGenerate } from '../_shared/openai-image-edit.ts';
 
 const ALLOWED_VISION_MODELS = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1']);
 const DEFAULT_VISION_MODEL = 'gpt-4o';
@@ -15,6 +17,11 @@ const RENDER_BUCKET = 'lead-ai-renders';
 const MARKETING_BUCKET = 'marketing-medias';
 const ORCAMENTOS_FOLDER_NAME = 'orçamentos';
 
+interface FurnitureReference {
+  label?: string;
+  imageBase64?: string;
+}
+
 interface AmbienteRequest {
   action?: 'analyze' | 'render';
   leadId: number;
@@ -23,8 +30,10 @@ interface AmbienteRequest {
   leadOrigin?: string;
   descricao?: string;
   analiseTexto?: string;
+  cenaInventario?: string;
   compositionImageBase64?: string;
   sourceImageBase64?: string;
+  furnitureReferences?: FurnitureReference[];
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -261,6 +270,7 @@ Deno.serve(async (req) => {
     const action = body.action === 'render' ? 'render' : 'analyze';
     const { leadId, empresaSchema, leadName, leadOrigin } = body;
     const descricao = typeof body.descricao === 'string' ? body.descricao.trim() : '';
+    const cenaInventario = typeof body.cenaInventario === 'string' ? body.cenaInventario.trim() : '';
 
     if (!leadId || typeof leadId !== 'number') {
       return jsonResponse({ error: 'leadId é obrigatório' }, 400);
@@ -268,9 +278,19 @@ Deno.serve(async (req) => {
 
     const composition = parseImagePayload(body.compositionImageBase64);
     const sourceImage = parseImagePayload(body.sourceImageBase64) ?? composition;
+    const visionImage = composition ?? sourceImage;
+    const furnitureRefs = (Array.isArray(body.furnitureReferences) ? body.furnitureReferences : [])
+      .slice(0, 4)
+      .flatMap((ref) => {
+        const parsed = parseImagePayload(typeof ref?.imageBase64 === 'string' ? ref.imageBase64 : undefined);
+        if (!parsed) return [];
+        const label =
+          typeof ref?.label === 'string' && ref.label.trim() ? ref.label.trim() : 'Móvel do projeto';
+        return [{ label, ...parsed }];
+      });
 
-    if (action === 'analyze' && !descricao && !sourceImage) {
-      return jsonResponse({ error: 'Descreva o ambiente ou envie uma foto' }, 400);
+    if (action === 'analyze' && !descricao && !visionImage) {
+      return jsonResponse({ error: 'Descreva o ambiente, desenhe na lousa ou envie uma foto' }, 400);
     }
 
     const db = resolveDb(supabase, empresaSchema);
@@ -318,45 +338,101 @@ Deno.serve(async (req) => {
       nomeLead: leadName,
       origem: leadOrigin,
       descricao,
+      cenaInventario,
     });
+    let analysisPromptUsed = analysisPromptSnapshot;
 
-    let analiseTexto =
+    const sugestoesAnteriores =
       typeof body.analiseTexto === 'string' && body.analiseTexto.trim()
         ? body.analiseTexto.trim()
         : '';
 
-    if (!analiseTexto || action === 'analyze') {
+    let analiseTexto = sugestoesAnteriores;
+
+    const shouldRunVision = action === 'analyze' || action === 'render';
+    if (shouldRunVision) {
       try {
-        const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+        const inventoryPromptSnapshot = applyAmbientePromptPlaceholders(
+          DEFAULT_AMBIENTE_SCENE_INVENTORY_PROMPT,
           {
-            type: 'text',
-            text: descricao
-              ? `Descrição do vendedor:\n${descricao}\n\nRetorne apenas o YAML.`
-              : 'Não houve descrição textual. Analise a foto e retorne apenas o YAML.',
+            nomeLead: leadName,
+            origem: leadOrigin,
+            descricao,
+            cenaInventario,
           },
-        ];
-        if (sourceImage) {
+        );
+        const systemPrompt =
+          action === 'render' ? inventoryPromptSnapshot : analysisPromptSnapshot;
+        analysisPromptUsed = systemPrompt;
+
+        const introParts: string[] = [];
+        if (descricao) introParts.push(`Descrição do vendedor:\n${descricao}`);
+        if (cenaInventario) {
+          introParts.push(`Inventário objetivo da lousa (fonte da verdade das peças):\n${cenaInventario}`);
+        }
+        if (action === 'render' && sugestoesAnteriores) {
+          introParts.push(`Sugestões anteriores (contexto, não substituem a lousa):\n${sugestoesAnteriores}`);
+        }
+        introParts.push(
+          visionImage
+            ? 'A IMAGEM 1 é a montagem da lousa (desenhos + móveis posicionados + foto do cômodo, se houver). Retorne apenas o YAML.'
+            : 'Não houve imagem da lousa. Use a descrição e o inventário. Retorne apenas o YAML.',
+        );
+
+        const userContent: Array<{
+          type: string;
+          text?: string;
+          image_url?: { url: string };
+        }> = [{ type: 'text', text: introParts.join('\n\n') }];
+
+        if (visionImage) {
           userContent.push({
             type: 'image_url',
             image_url: {
-              url: `data:${sourceImage.mime};base64,${bytesToBase64(sourceImage.bytes)}`,
+              url: `data:${visionImage.mime};base64,${bytesToBase64(visionImage.bytes)}`,
             },
           });
         }
 
-        analiseTexto = await callOpenAIChat(
+        furnitureRefs.forEach((ref, index) => {
+          userContent.push({
+            type: 'text',
+            text: `IMAGEM ${index + 2} — referência fiel do móvel (copiar identicamente): ${ref.label}`,
+          });
+          userContent.push({
+            type: 'image_url',
+            image_url: {
+              url: `data:${ref.mime};base64,${bytesToBase64(ref.bytes)}`,
+            },
+          });
+        });
+
+        const visao = await callOpenAIChat(
           openAiKey,
           visionModel,
           [
-            { role: 'system', content: analysisPromptSnapshot },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent },
           ],
-          3072,
+          4096,
         );
+
+        if (action === 'render' && sugestoesAnteriores) {
+          analiseTexto = `${visao}\n\n---\nSugestões anteriores (desmembrar):\n${sugestoesAnteriores}`;
+        } else {
+          analiseTexto = visao;
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro na análise do ambiente';
         console.error('render-lead-ambiente vision error:', message);
-        return jsonResponse({ error: message, step: 'vision' }, 502);
+        if (action === 'analyze') {
+          return jsonResponse({ error: message, step: 'vision' }, 502);
+        }
+        analiseTexto =
+          [cenaInventario, sugestoesAnteriores].filter(Boolean).join('\n\n') || analiseTexto;
+        if (!analiseTexto.trim()) {
+          return jsonResponse({ error: message, step: 'vision' }, 502);
+        }
       }
     }
 
@@ -364,12 +440,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ analiseTexto });
     }
 
-    const renderPromptSnapshot = applyAmbientePromptPlaceholders(renderPromptRaw, {
-      nomeLead: leadName,
-      origem: leadOrigin,
-      analise: analiseTexto,
-      descricao,
-    });
+    const renderPromptSnapshot = appendAmbienteFurnitureFidelity(
+      applyAmbientePromptPlaceholders(renderPromptRaw, {
+        nomeLead: leadName,
+        origem: leadOrigin,
+        analise: analiseTexto,
+        descricao,
+        cenaInventario,
+      }),
+      {
+        cenaInventario,
+        furnitureRefCount: furnitureRefs.length,
+      },
+    );
 
     const editSource = composition ?? sourceImage;
     let outputBytes: Uint8Array;
@@ -381,6 +464,14 @@ Deno.serve(async (req) => {
           editSource.bytes,
           editSource.mime,
           renderPromptSnapshot,
+          undefined,
+          {
+            extraImages: furnitureRefs.map((ref, index) => ({
+              bytes: ref.bytes,
+              mime: ref.mime,
+              filename: `furniture-${index + 1}.jpg`,
+            })),
+          },
         );
       } else {
         outputBytes = await callOpenAIImageGenerate(openAiKey, imageModel, renderPromptSnapshot);
@@ -414,6 +505,8 @@ Deno.serve(async (req) => {
       label: 'Composição de ambiente',
       mode: 'ambiente' as const,
       descricao: descricao || undefined,
+      cenaInventario: cenaInventario || undefined,
+      furnitureRefCount: furnitureRefs.length,
     };
 
     const { data: inserted, error: insertError } = await db
@@ -427,7 +520,7 @@ Deno.serve(async (req) => {
         output_public_url: publicUrlData.publicUrl,
         vision_model: visionModel,
         image_model: imageModel,
-        analysis_prompt_snapshot: analysisPromptSnapshot,
+        analysis_prompt_snapshot: analysisPromptUsed,
         render_prompt_snapshot: renderPromptSnapshot,
         criado_por: user.id,
       })

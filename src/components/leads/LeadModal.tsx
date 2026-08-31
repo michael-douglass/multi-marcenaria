@@ -53,7 +53,7 @@ import { LeadProjetoConclusaoPanel } from '@/components/projetos/LeadProjetoConc
 import { LeadProjetoNotasSection } from '@/components/projetos/LeadProjetoNotasSection';
 import { LeadProjetoComposicaoSection } from '@/components/projetos/LeadProjetoComposicaoSection';
 import { LeadKnowledgeMemoryCard } from './LeadKnowledgeMemoryCard';
-import { AMBIENTE_FULLSCREEN_ATTR, ENVIAR_PROJETO_DIALOG_OPEN_ATTR, shouldPreventDialogOutsideClose } from '@/lib/dialog-outside-guard';
+import { AMBIENTE_FULLSCREEN_ATTR, ENVIAR_PROJETO_DIALOG_OPEN_ATTR, ORCAMENTO_VISUALIZAR_OPEN_ATTR, isPrimaryDialogBackdrop, shouldBlockLeadModalBackdropClose, shouldPreventDialogOutsideClose, swallowClickThroughAfterDialogClose } from '@/lib/dialog-outside-guard';
 const LeadWhiteboard = lazy(() =>
   import('./LeadWhiteboard').then((m) => ({ default: m.LeadWhiteboard })),
 );
@@ -673,6 +673,7 @@ export function LeadModal({
     if (!skipPersistOnCloseRef.current) {
       void flushAutoSave();
     }
+    swallowClickThroughAfterDialogClose();
     onClose();
   }, [flushAutoSave, onClose]);
 
@@ -1158,12 +1159,19 @@ export function LeadModal({
           e.preventDefault();
           body.focus({ preventScroll: true });
         }}
+        onOverlayClick={() => {
+          if (nestedOverlayOpen) return;
+          if (shouldBlockLeadModalBackdropClose({ filePickerActive })) return;
+          requestClose();
+        }}
         onPointerDownOutside={(e) => {
-          if (nestedOverlayOpen) e.preventDefault();
-          if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
+          // Fecha só no clique do véu (onOverlayClick). No pointerdown o card some
+          // cedo e o clique cai no Kanban — abre “Novo lead” sem querer.
+          e.preventDefault();
         }}
         onInteractOutside={(e) => {
           if (nestedOverlayOpen) e.preventDefault();
+          if (isPrimaryDialogBackdrop(e.target)) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onFocusOutside={(e) => {
@@ -1174,7 +1182,8 @@ export function LeadModal({
           if (
             typeof document !== 'undefined' &&
             (document.documentElement.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
-              document.documentElement.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR))
+              document.documentElement.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR) ||
+              document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR))
           ) {
             e.preventDefault();
           }

@@ -14,6 +14,7 @@ import { ContaReceberAnexosButton } from '../components/cobrancas/ContaReceberAn
 import { ClienteSearchSelect } from '../components/cobrancas/ClienteSearchSelect'
 import { TemplatesConfigButton } from '../components/cobrancas/TemplatesConfigModal'
 import { ReciboPrintModal } from '../components/cobrancas/ReciboPrintModal'
+import { CobrancasPageAura } from '../components/cobrancas/CobrancasPageAura'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
@@ -819,10 +820,14 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   }
 
   return (
-    <div className="fade-in">
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4">
+      <CobrancasPageAura />
+      <div className="relative z-[1]">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Cobranças & Contas a Receber</h1>
+          <h1 className="font-display tracking-[0.06em]" style={{ fontSize: '2.05rem', color: '#1a100c' }}>
+            Cobranças & Contas a Receber
+          </h1>
           <p className="section-label mt-1">
             {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
             {hasCobrancaReceberDraft() && !open ? ' · rascunho salvo' : ''}
@@ -1628,6 +1633,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
           setReciboConta(null)
         }}
       />
+      </div>
     </div>
   )
 }

@@ -131,16 +131,15 @@ export default function PipelineKanbanPage() {
     [pages, kanbanSlug],
   );
 
-  // Reabre o card só quando a URL muda (ex.: F5 / atualização do sistema com ?id=).
-  // Não depende de isModalOpen — senão, ao fechar, o ?id= antigo ainda na URL reabria o card.
+  // Reabre o card só quando o ?id= da URL muda (F5 / botão Atualizar).
+  const leadIdFromUrl = searchParams.get('id');
   useEffect(() => {
-    const leadIdFromUrl = searchParams.get('id');
     if (!leadIdFromUrl) return;
     const leadId = parseInt(leadIdFromUrl, 10);
     if (Number.isNaN(leadId)) return;
     setSelectedLeadId(leadId);
     setIsModalOpen(true);
-  }, [searchParams]);
+  }, [leadIdFromUrl]);
 
   const isGlobalSearchActive = searchQuery.trim().length > 0;
 

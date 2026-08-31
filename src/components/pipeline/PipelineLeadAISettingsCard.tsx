@@ -452,10 +452,12 @@ export function PipelineLeadAISettingsCard() {
                   className="font-mono text-sm resize-y min-h-[140px]"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Etapa 1: desmembra o texto e/ou a foto em YAML (cômodo, paleta, objetos sugeridos).
-                  Placeholders: <code className="text-[11px]">{'{{nome_lead}}'}</code>,{' '}
+                  Etapa 1: lê a lousa (desenhos e móveis) e o texto do cômodo. Gera YAML com peças
+                  já posicionadas e sugestões. Placeholders:{' '}
+                  <code className="text-[11px]">{'{{nome_lead}}'}</code>,{' '}
                   <code className="text-[11px]">{'{{origem}}'}</code>,{' '}
-                  <code className="text-[11px]">{'{{descricao}}'}</code>
+                  <code className="text-[11px]">{'{{descricao}}'}</code>,{' '}
+                  <code className="text-[11px]">{'{{cena_inventario}}'}</code>
                 </p>
               </div>
 
@@ -477,11 +479,12 @@ export function PipelineLeadAISettingsCard() {
                   className="font-mono text-sm resize-y min-h-[160px]"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Etapa 2: gera a cena fotorrealista a partir da montagem. Placeholders:{' '}
+                  Etapa 2: gera a foto do ambiente sem variar o móvel da lousa. Placeholders:{' '}
                   <code className="text-[11px]">{'{{nome_lead}}'}</code>,{' '}
                   <code className="text-[11px]">{'{{origem}}'}</code>,{' '}
                   <code className="text-[11px]">{'{{analise}}'}</code>,{' '}
-                  <code className="text-[11px]">{'{{descricao}}'}</code>
+                  <code className="text-[11px]">{'{{descricao}}'}</code>,{' '}
+                  <code className="text-[11px]">{'{{cena_inventario}}'}</code>
                 </p>
               </div>
             </div>

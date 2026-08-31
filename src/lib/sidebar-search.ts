@@ -127,7 +127,7 @@ export function matchSidebarLeads(
     hits.push({
       id: `lead-${lead.id}`,
       title: lead.nome.trim() || 'Lead sem nome',
-      url: `/leads?id=${lead.id}`,
+      url: `/pipeline?id=${lead.id}`,
       icon: UserRound,
       sector: 'comercial',
       sectorLabel: 'Leads',

@@ -8,7 +8,13 @@ export interface RenderLeadAmbienteAnalyzeInput {
   leadOrigin?: string;
   descricao?: string;
   imageDataUrl?: string;
+  cenaInventario?: string;
   empresaSchema: string | null | undefined;
+}
+
+export interface RenderLeadAmbienteFurnitureReference {
+  label: string;
+  dataUrl: string;
 }
 
 export interface RenderLeadAmbienteRenderInput {
@@ -17,8 +23,10 @@ export interface RenderLeadAmbienteRenderInput {
   leadOrigin?: string;
   descricao?: string;
   analiseTexto?: string;
+  cenaInventario?: string;
   compositionDataUrl?: string;
   sourceImageDataUrl?: string;
+  furnitureReferences?: RenderLeadAmbienteFurnitureReference[];
   empresaSchema: string | null | undefined;
 }
 
@@ -91,6 +99,8 @@ export async function invokeAnalyzeLeadAmbiente(
     leadOrigin: input.leadOrigin,
     descricao: input.descricao,
     sourceImageBase64: input.imageDataUrl,
+    compositionImageBase64: input.imageDataUrl,
+    cenaInventario: input.cenaInventario,
   });
 
   const analiseTexto = typeof data.analiseTexto === 'string' ? data.analiseTexto : '';
@@ -111,8 +121,13 @@ export async function invokeRenderLeadAmbiente(
     leadOrigin: input.leadOrigin,
     descricao: input.descricao,
     analiseTexto: input.analiseTexto,
+    cenaInventario: input.cenaInventario,
     compositionImageBase64: input.compositionDataUrl,
     sourceImageBase64: input.sourceImageDataUrl,
+    furnitureReferences: input.furnitureReferences?.map((ref) => ({
+      label: ref.label,
+      imageBase64: ref.dataUrl,
+    })),
   });
 
   return {

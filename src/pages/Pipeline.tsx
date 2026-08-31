@@ -208,47 +208,45 @@ export default function Pipeline() {
     el.scrollBy({ left: direction === 'next' ? step : -step, behavior: 'smooth' });
   }, []);
 
-  // Reabre o card só quando a URL muda (ex.: F5 / atualização do sistema com ?id=).
-  // Não depende de isModalOpen — senão, ao fechar, o ?id= antigo ainda na URL reabria o card.
+  // Reabre o card só quando o ?id= da URL muda (F5 / botão Atualizar).
+  // Não escuta a lista de leads — senão um recarregamento reabria o card depois do clique fora.
   const selectedLeadIdRef = useRef(selectedLeadId);
   selectedLeadIdRef.current = selectedLeadId;
+  const leadIdFromUrl = searchParams.get('id');
+  const tabFromUrl = searchParams.get('tab');
+  const iaSubtabFromUrl = searchParams.get('iaSubtab');
+  const searchFromUrl = searchParams.get('search');
 
   useEffect(() => {
-    const leadIdFromUrl = searchParams.get('id');
-    const tabFromUrl = searchParams.get('tab');
-    const iaSubtabFromUrl = searchParams.get('iaSubtab');
-    const searchFromUrl = searchParams.get('search');
-
-    if (leadIdFromUrl) {
-      const leadId = parseInt(leadIdFromUrl, 10);
-      if (!Number.isNaN(leadId)) {
-        // Lead novo via URL → mostra todos os períodos para o card aparecer no funil.
-        if (selectedLeadIdRef.current !== leadId) {
-          setDateFilter('all');
-        }
-        setSelectedLeadId(leadId);
-        setIsEditMode(true);
-        setIsModalOpen(true);
-
-        if (tabFromUrl === 'analise-ia' || tabFromUrl === 'detalhes') {
-          setLeadModalInitialTab(tabFromUrl);
-        }
-        if (iaSubtabFromUrl === 'render' || iaSubtabFromUrl === 'visual') {
-          setLeadModalIaSubtab(iaSubtabFromUrl);
-        }
-      }
-    }
-
-    if (searchFromUrl && !(isLoading && !leads)) {
-      setSearchQuery(searchFromUrl);
+    if (!leadIdFromUrl) return;
+    const leadId = parseInt(leadIdFromUrl, 10);
+    if (Number.isNaN(leadId)) return;
+    // Lead novo via URL → mostra todos os períodos para o card aparecer no funil.
+    if (selectedLeadIdRef.current !== leadId) {
       setDateFilter('all');
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete('search');
-        return next;
-      }, { replace: true });
     }
-  }, [searchParams, isLoading, leads, setSearchParams]);
+    setSelectedLeadId(leadId);
+    setIsEditMode(true);
+    setIsModalOpen(true);
+
+    if (tabFromUrl === 'analise-ia' || tabFromUrl === 'detalhes') {
+      setLeadModalInitialTab(tabFromUrl);
+    }
+    if (iaSubtabFromUrl === 'render' || iaSubtabFromUrl === 'visual') {
+      setLeadModalIaSubtab(iaSubtabFromUrl);
+    }
+  }, [leadIdFromUrl, tabFromUrl, iaSubtabFromUrl]);
+
+  useEffect(() => {
+    if (!searchFromUrl || (isLoading && !leads)) return;
+    setSearchQuery(searchFromUrl);
+    setDateFilter('all');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('search');
+      return next;
+    }, { replace: true });
+  }, [searchFromUrl, isLoading, leads, setSearchParams]);
 
   // Buscar últimas interações de mensagens para cada lead
   const leadIds = useMemo(() => leads?.map(l => l.id) || [], [leads]);

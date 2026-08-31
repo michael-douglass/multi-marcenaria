@@ -118,7 +118,7 @@ Inventário YAML do esboço:
 
 export const DEFAULT_AMBIENTE_ANALYSIS_PROMPT = `# Análise de ambiente — composição de cena
 
-Desmembre a descrição do vendedor e, se houver foto, o que ela mostra. Monte um inventário YAML para COMPOR o ambiente (não um móvel isolado em estúdio).
+Desmembre a descrição do vendedor e, se houver imagem, o que ela mostra. A imagem pode ser a lousa montada (desenhos + fotos de móveis posicionados + foto do cômodo). Monte um inventário YAML para COMPOR o ambiente (não um móvel isolado em estúdio).
 
 Lead: {{nome_lead}}
 Origem: {{origem}}
@@ -142,6 +142,14 @@ paleta:
   - hex: (código se identificável; senão null)
     name: (nome descritivo)
     elemento: (parede, piso, móvel, tecido, metal)
+moveis_na_cena:
+  - id: (slug curto)
+    fonte: (foto_projeto | icone_catalogo | desenho | marcador)
+    nome: (rótulo da peça visível na lousa)
+    posicao: (onde está na imagem)
+    geometria: (módulos, portas, gavetas, silhueta e proporções — copiar o que está visível)
+    materiais: (madeira, laca, tecido etc. se identificáveis)
+    regra: reproduzir_identico
 objetos_sugeridos:
   - id: (slug curto, ex: sofa-linho)
     nome: (rótulo curto para o vendedor clicar)
@@ -154,35 +162,105 @@ visual_description: (2–3 frases da cena completa, como um diretor de arte)
 
 Regras:
 - Português do Brasil
-- Liste 4 a 10 objetos úteis para o vendedor posicionar na composição
+- Se a imagem mostrar a lousa, preencha moveis_na_cena com TODAS as peças já posicionadas ou desenhadas — sem inventar variação
+- Liste 4 a 10 objetos_sugeridos úteis extras; eles NÃO substituem as peças já na cena
 - Não invente cômodos, janelas ou móveis que a descrição/foto não sustentem
-- Se só houver texto, extraia o máximo da descrição; se houver foto, priorize o que está visível e complete com o texto
+- Se só houver texto, extraia o máximo da descrição; se houver imagem, priorize o que está visível e complete com o texto
 - Use null ou "não identificado" quando não der para inferir
 - Retorne apenas o YAML`;
 
-export const DEFAULT_AMBIENTE_IMAGE_PROMPT = `Você está COMPONDO um ambiente de interiores fotorrealista a partir da montagem fornecida (foto de fundo + objetos/imagens posicionados) e do inventário YAML.
+/** Inventário na hora de gerar: lê a lousa + descrição e trava cada móvel. */
+export const DEFAULT_AMBIENTE_SCENE_INVENTORY_PROMPT = `# Inventário da cena montada — fidelidade do móvel
+
+Você está LENDO a montagem que o vendedor fez na lousa (desenhos + fotos de móveis posicionados + foto do cômodo) e a descrição do ambiente. Não crie um móvel novo.
 
 Lead: {{nome_lead}}
 Origem: {{origem}}
 
-Descrição do vendedor:
+Descrição do vendedor (define o CÔMODO, não o desenho do móvel):
 {{descricao}}
 
-Inventário YAML do ambiente:
+Inventário objetivo da lousa (fonte da verdade das peças):
+{{cena_inventario}}
+
+TAREFA 1 — DESENHOS E MÓVEIS DA LOUSA:
+Liste CADA móvel visível (foto posicionada, ícone de catálogo ou desenho à mão). Copie geometria, módulos, materiais e posição. É proibido “melhorar” ou variar o produto.
+
+TAREFA 2 — AMBIENTE DESCRITO:
+Use a descrição para cômodo, luz, piso, paredes e clima. Isso NÃO autoriza redesenhar os móveis.
+
+Retorne APENAS este YAML:
+
+tipo: inventario_cena_ambiente
+ambiente:
+  comodo: (sala, cozinha, quarto, banheiro, home office, varanda, hall ou outro)
+  estilo: (contemporâneo, minimalista, clássico, industrial, rústico, escandinavo etc.)
+  clima: (acolhedor, sofisticado, claro, íntimo etc.)
+  iluminacao: (natural, pendentes, spots, abajur, mista — origem e temperatura)
+  revestimentos:
+    piso: (material e tom)
+    parede: (cor, textura, painel, revestimento)
+    teto: (simples, sanca, madeira)
+paleta:
+  - hex: (código se identificável; senão null)
+    name: (nome descritivo)
+    elemento: (parede, piso, móvel, tecido, metal)
+moveis_na_cena:
+  - id: (slug curto)
+    fonte: (foto_projeto | icone_catalogo | desenho | marcador)
+    nome: (rótulo)
+    posicao_na_imagem: (esquerda, centro, parede direita…)
+    geometria: (silhueta, módulos, portas, gavetas, proporções — COPIAR o visível)
+    materiais_acabamento: (se visíveis)
+    cores: (se visíveis)
+    regra_fidelidade: reproduzir_identico
+nao_variar: (lista explícita: não mudar layout, não trocar madeira, não adicionar/remover portas ou gavetas)
+nao_adicionar: (o que NÃO está na lousa nem na descrição)
+visual_description: (2–3 frases da cena: cômodo descrito + móveis da lousa sem alteração)
+
+Regras:
+- Português do Brasil
+- Fidelidade do móvel acima de estética
+- Não invente cômodos, janelas ou peças que a lousa/descrição não sustentem
+- Use null ou "não identificado" quando não der para inferir
+- Retorne apenas o YAML`;
+
+export const DEFAULT_AMBIENTE_IMAGE_PROMPT = `Você está EDITANDO a montagem da lousa para virar uma FOTO de ambiente realista — não está criando móveis novos.
+
+Lead: {{nome_lead}}
+Origem: {{origem}}
+
+Descrição do vendedor (cômodo, luz, piso, paredes, clima):
+{{descricao}}
+
+Inventário YAML da cena (móveis + ambiente):
 {{analise}}
 
-REGRAS INVIOLÁVEIS:
-- Transforme a montagem em uma FOTO de ambiente realista (não um móvel isolado em estúdio)
+Inventário da lousa montada pelo vendedor:
+{{cena_inventario}}
+
+A PRIMEIRA imagem é a lousa (layout, posições, desenhos e peças). Se houver imagens seguintes, cada uma é a FOTO FIEL de um móvel que deve aparecer IDENTICAMENTE na posição da montagem.
+
+FIDELIDADE DOS MÓVEIS (prioridade máxima — acima de estética):
+- Cada móvel da montagem é o MESMO produto: mesmos módulos, portas, gavetas, puxadores, proporções, materiais e cores
+- NÃO redesenhe, restilize, modernize, simplifique ou “melhore” o móvel
+- NÃO troque madeira, laca, vidro, tecido ou ferragens
+- NÃO invente variação do projeto
+- Se a peça já está como foto na montagem ou nas imagens de referência, COPIE essa peça — só ajuste perspectiva, escala, luz e sombra para integrar no cômodo
+- Se a peça está como desenho/ícone, transforme o traço em acabamento realista SEM alterar a geometria
+
+AMBIENTE (da descrição + foto de fundo):
+- Cômodo, piso, paredes, iluminação e clima vêm da descrição e da foto de fundo
+- Transforme a montagem em uma FOTO de interiores (não um móvel isolado em estúdio)
 - Preserve o ângulo de câmera e a perspectiva da imagem de entrada
-- Integre os objetos e imagens posicionados na cena com escala, luz e sombra coerentes
-- Use a paleta, o estilo e a iluminação do YAML
-- Materiais de marcenaria com textura realista (madeira, laca, MDF, vidro, tecido)
+
+REGRAS INVIOLÁVEIS:
 - NÃO ignore objetos que o vendedor posicionou na montagem
 - NÃO adicione pessoas, marcas, texto, logotipo ou itens listados em nao_adicionar
 - NÃO esvazie o ambiente nem volte a um fundo de estúdio neutro
-- Alta nitidez, iluminação de interiores, profundidade de campo suave
+- Materiais de marcenaria com textura realista; alta nitidez; profundidade de campo suave
 
-Se houver dúvida entre inventar decoração extra ou ficar fiel à montagem, escolha FIDELIDADE À MONTAGEM.`;
+Se houver dúvida entre ficar bonito ou ficar fiel ao móvel da lousa, escolha FIDELIDADE AO MÓVEL.`;
 
 export function applyAmbientePromptPlaceholders(
   prompt: string,
@@ -191,13 +269,47 @@ export function applyAmbientePromptPlaceholders(
     origem?: string;
     analise?: string;
     descricao?: string;
+    cenaInventario?: string;
   },
 ): string {
   return prompt
     .replace(/\{\{nome_lead\}\}/gi, vars.nomeLead?.trim() || 'Não informado')
     .replace(/\{\{origem\}\}/gi, vars.origem?.trim() || 'Não informada')
     .replace(/\{\{analise\}\}/gi, vars.analise?.trim() || 'Não disponível')
-    .replace(/\{\{descricao\}\}/gi, vars.descricao?.trim() || 'Não informada');
+    .replace(/\{\{descricao\}\}/gi, vars.descricao?.trim() || 'Não informada')
+    .replace(/\{\{cena_inventario\}\}/gi, vars.cenaInventario?.trim() || 'Não informado');
+}
+
+/** Trava o móvel mesmo se o prompt customizado nas configurações for antigo. */
+export function appendAmbienteFurnitureFidelity(
+  renderPrompt: string,
+  vars: { cenaInventario?: string; furnitureRefCount?: number },
+): string {
+  const inventario =
+    vars.cenaInventario?.trim() ||
+    'Não informado — use apenas o que estiver visível na montagem.';
+  const refCount = vars.furnitureRefCount ?? 0;
+  const refHint =
+    refCount > 0
+      ? `A primeira imagem é a montagem da lousa. As ${refCount} imagens seguintes são FOTOS FIÉIS dos móveis — copie cada uma identicamente na posição da montagem.`
+      : 'A imagem de entrada é a montagem da lousa (desenhos + peças). Transforme em foto sem redesenhar os móveis.';
+
+  const alreadyHasInventario = renderPrompt.includes(inventario);
+  const inventarioBlock = alreadyHasInventario
+    ? ''
+    : `\nInventário da cena montada pelo vendedor:\n${inventario}\n`;
+
+  return `${renderPrompt.trim()}
+
+---
+FIDELIDADE DOS MÓVEIS (prioridade máxima — acima de estética):
+${refHint}
+${inventarioBlock}
+- Cada móvel da montagem é o MESMO produto (módulos, portas, gavetas, puxadores, proporções, materiais e cores)
+- É PROIBIDO criar variação, restilizar, modernizar, simplificar ou “melhorar” o móvel
+- Integre no ambiente (luz, sombra, perspectiva) SEM alterar o desenho da peça
+- O cômodo (piso, paredes, iluminação, clima) vem da descrição e da foto de fundo
+---`;
 }
 
 export function appendCaracteristicasToRenderPrompt(

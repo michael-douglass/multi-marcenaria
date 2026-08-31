@@ -38,6 +38,8 @@ import type {
 } from '@/lib/orcamento-slide-types';
 interface ApresentarOrcamentoSlidePageProps {
   orcamentoId?: string;
+  /** Se informado, o Voltar fecha a visualização em vez de sair da página. */
+  onVoltar?: () => void;
 }
 
 interface ConteudoProps {
@@ -161,7 +163,7 @@ function ApresentarOrcamentoSlideConteudo({
   const analiseVisivelNaApresentacao = !presentationOrcamento.dados?._meta?.ocultar_analise_ia;
 
   return (
-    <div className="paper-dark-surface flex flex-col h-screen overflow-hidden bg-[#0a0706]">
+    <div className="paper-dark-surface flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0a0706]">
       <div
         className="flex items-center justify-between px-4 py-2 shrink-0 z-10"
         style={{ background: '#2a1812', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
@@ -255,10 +257,20 @@ function resolveOrcamentoId(paramId: string | undefined, pathname: string, propI
   );
 }
 
-export default function ApresentarOrcamentoSlidePage({ orcamentoId: orcamentoIdProp }: ApresentarOrcamentoSlidePageProps = {}) {
+export default function ApresentarOrcamentoSlidePage({
+  orcamentoId: orcamentoIdProp,
+  onVoltar: onVoltarProp,
+}: ApresentarOrcamentoSlidePageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const voltar = useCallback(() => {
+    if (onVoltarProp) {
+      onVoltarProp();
+      return;
+    }
+    navigate(-1);
+  }, [navigate, onVoltarProp]);
   const queryClient = useQueryClient();
   const { schemaEmpresa } = useEmpresa();
   const orcamentoId = resolveOrcamentoId(paramId, location.pathname, orcamentoIdProp);
@@ -326,7 +338,7 @@ export default function ApresentarOrcamentoSlidePage({ orcamentoId: orcamentoIdP
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#2a1812] text-white gap-4 px-4 text-center">
         <p className="text-xl">Erro ao carregar o orçamento.</p>
         <p className="text-sm text-white/60">{error instanceof Error ? error.message : 'Tente novamente.'}</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={voltar}>
           Voltar
         </Button>
       </div>
@@ -337,7 +349,7 @@ export default function ApresentarOrcamentoSlidePage({ orcamentoId: orcamentoIdP
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#2a1812] text-white gap-4">
         <p className="text-xl">Orçamento não encontrado.</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={voltar}>
           Voltar
         </Button>
       </div>
@@ -358,7 +370,7 @@ export default function ApresentarOrcamentoSlidePage({ orcamentoId: orcamentoIdP
       catalogoItens={catalogoItens}
       valorOrcamentoLead={valorOrcamentoLead}
       formasPagamento={formasPagamento}
-      onVoltar={() => navigate(-1)}
+      onVoltar={voltar}
     />
   );
 }

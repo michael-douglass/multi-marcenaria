@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, type CSSProperties } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type CSSProperties } from 'react';
 import { useLeadsPageFilters } from '@/hooks/useLeadsPageFilters';
 import { usePipelineCustomStages } from '@/hooks/usePipelineCustomStages';
 import {
@@ -135,17 +135,24 @@ export default function Leads() {
     }
   }, [searchParams, isLoading, setSearchParams]);
 
-  // Reabre o card só quando a URL muda (ex.: F5 / atualização do sistema com ?id=).
-  // Não depende de isModalOpen — senão, ao fechar, o ?id= antigo ainda na URL reabria o card.
+  // Reabre o card só quando o ?id= da URL muda (F5 / botão Atualizar).
+  const leadIdFromUrl = searchParams.get('id');
+  const openedUrlLeadIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    const leadIdFromUrl = searchParams.get('id');
-    if (!leadIdFromUrl || isInitialLeadsLoad) return;
+    if (!leadIdFromUrl) {
+      openedUrlLeadIdRef.current = null;
+      return;
+    }
+    if (isInitialLeadsLoad) return;
+    if (openedUrlLeadIdRef.current === leadIdFromUrl) return;
 
     const leadId = parseInt(leadIdFromUrl, 10);
     if (Number.isNaN(leadId)) return;
 
     const leadExists = leads.find((l) => l.id === leadId);
     if (leadExists) {
+      openedUrlLeadIdRef.current = leadIdFromUrl;
       setSelectedLeadId(leadId);
       setIsEditMode(false);
       setIsModalOpen(true);
@@ -157,7 +164,7 @@ export default function Leads() {
       }, { replace: true });
       toast.error('Lead não encontrado');
     }
-  }, [searchParams, leads, isInitialLeadsLoad, setSearchParams]);
+  }, [leadIdFromUrl, leads, isInitialLeadsLoad, setSearchParams]);
 
   const filteredLeads = useMemo(() => {
     const term = searchTerm.toLowerCase();

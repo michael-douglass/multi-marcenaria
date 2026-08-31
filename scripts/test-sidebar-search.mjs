@@ -195,6 +195,7 @@ describe('busca do menu lateral', () => {
     assert.match(lib, /compactarBuscaPagina/)
     assert.match(lib, /compactarBuscaLead/)
     assert.match(lib, /leadCorrespondeBusca/)
+    assert.match(lib, /\/pipeline\?id=/)
     assert.match(lib, /\[-_\/\]\+/)
   })
 })

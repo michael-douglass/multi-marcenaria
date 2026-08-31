@@ -208,6 +208,43 @@ export async function exportAmbienteCompositionToJpeg(
   };
 }
 
+const MAX_FURNITURE_REFS = 4;
+const MAX_FURNITURE_REF_EDGE = 768;
+const FURNITURE_REF_QUALITY = 0.82;
+
+/** Recortes JPEG das fotos de móvel posicionadas na lousa — referência fiel para a IA. */
+export async function exportAmbienteFurnitureReferences(
+  overlays: AmbienteImageOverlay[],
+  maxCount = MAX_FURNITURE_REFS,
+): Promise<Array<{ label: string; dataUrl: string }>> {
+  const result: Array<{ label: string; dataUrl: string }> = [];
+
+  for (const overlay of overlays.slice(0, maxCount)) {
+    try {
+      const img = await loadImageForRender(overlay.url);
+      const nw = img.naturalWidth || img.width || 1;
+      const nh = img.naturalHeight || img.height || 1;
+      const sized = scaleToMaxEdge(nw, nh, MAX_FURNITURE_REF_EDGE);
+      const canvas = document.createElement('canvas');
+      canvas.width = sized.width;
+      canvas.height = sized.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) continue;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, sized.width, sized.height);
+      ctx.drawImage(img, 0, 0, sized.width, sized.height);
+      result.push({
+        label: overlay.label || 'Móvel do projeto',
+        dataUrl: canvas.toDataURL('image/jpeg', FURNITURE_REF_QUALITY),
+      });
+    } catch {
+      // overlay inválido — a composição achatada ainda carrega a peça
+    }
+  }
+
+  return result;
+}
+
 export async function fileToImagePreview(file: File): Promise<AmbienteBackground> {
   const url = URL.createObjectURL(file);
   const img = await loadImageForRender(url);

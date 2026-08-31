@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,15 +19,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
 import { useOrcamentosPorLead, useOrcamentoSlides } from '@/hooks/useOrcamentoSlides';
 import type { OrcamentoSlideStatus } from '@/lib/orcamento-slide-types';
 import { buildLeadCardReturnTo, withOrcamentoReturnTo } from '@/lib/orcamento-slide-navigation';
 import { valorInvestimentoParaLead } from '@/lib/orcamento-slide-lead-sync';
 import { BRL } from '@/lib/orcamento-slide-precificacao';
 import { isLinkPublicoAtivo, linkPublicoOrcamento } from '@/lib/orcamento-slide-public-link';
+import { setOrcamentoVisualizarOpenFlag } from '@/lib/dialog-outside-guard';
 import type { OrcamentoSlide } from '@/lib/orcamento-slide-types';
 import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { isOrcamentoVisivelParaPrestador } from '@/lib/prestador-visibilidade';
+
+const ApresentarOrcamentoSlidePage = lazy(
+  () => import('@/pages/orcamento-slides/ApresentarOrcamentoSlidePage'),
+);
 
 const STATUS_CONFIG: Record<OrcamentoSlideStatus, { label: string; color: string; icon: React.ReactNode }> = {
   rascunho: { label: 'Rascunho', color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', icon: <Cloud className="h-3 w-3" /> },
@@ -60,6 +67,28 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
   const { excluirOrcamento, atualizarLinkPublico, duplicarOrcamento } = useOrcamentoSlides();
   const [excluirId, setExcluirId] = useState<string | null>(null);
   const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
+  const [visualizarId, setVisualizarId] = useState<string | null>(null);
+
+  const abrirVisualizacao = (id: string) => {
+    setVisualizarId(id);
+  };
+
+  useEffect(() => {
+    setOrcamentoVisualizarOpenFlag(Boolean(visualizarId));
+    return () => setOrcamentoVisualizarOpenFlag(false);
+  }, [visualizarId]);
+
+  useEffect(() => {
+    if (!visualizarId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setVisualizarId(null);
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [visualizarId]);
 
   const getLinkPublico = (id: string) => linkPublicoOrcamento(schemaEmpresa ?? 'public', id);
 
@@ -167,7 +196,12 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
               >
                 <div className="flex items-center gap-2">
                   <Presentation className="h-4 w-4 text-amber-400 shrink-0" />
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 rounded-md text-left hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => abrirVisualizacao(o.id)}
+                    aria-label={`Ver apresentação ${o.cliente_nome || o.identificador}`}
+                  >
                     <p className="text-sm font-medium truncate">{o.cliente_nome || o.identificador}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <Badge className={`${cfg.color} gap-1 border text-[10px]`} variant="outline">
@@ -204,14 +238,15 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
                         </p>
                       )}
                     </div>
-                  </div>
+                  </button>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       className="h-8 gap-1 text-xs"
-                      onClick={() => navigate(`/orcamento-slides/${o.id}/apresentar`)}
+                      aria-label={`Ver apresentação ${o.cliente_nome || o.identificador}`}
+                      onClick={() => abrirVisualizacao(o.id)}
                     >
                       <Eye className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Ver</span>
@@ -333,6 +368,26 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {visualizarId
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Visualizar apresentação do orçamento"
+              data-nested-dialog=""
+              data-orcamento-visualizar=""
+              className="fixed inset-0 z-[240] pointer-events-auto bg-[#0a0706]"
+            >
+              <Suspense fallback={<GarboBrandLoader variant="fullscreen" message="Preparando apresentação…" />}>
+                <ApresentarOrcamentoSlidePage
+                  orcamentoId={visualizarId}
+                  onVoltar={() => setVisualizarId(null)}
+                />
+              </Suspense>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

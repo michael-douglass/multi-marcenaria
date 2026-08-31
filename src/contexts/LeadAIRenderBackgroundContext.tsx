@@ -95,6 +95,8 @@ export interface StartLeadAIAmbienteRenderInput {
   analiseTexto?: string;
   compositionDataUrl?: string;
   sourceImageDataUrl?: string;
+  cenaInventario?: string;
+  furnitureReferences?: Array<{ label: string; dataUrl: string }>;
 }
 
 interface LeadAIRenderBackgroundContextValue {
@@ -344,8 +346,17 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
 
   const startBackgroundAmbienteRender = useCallback(
     async (input: StartLeadAIAmbienteRenderInput): Promise<boolean> => {
-      const { leadId, leadName, leadOrigin, descricao, analiseTexto, compositionDataUrl, sourceImageDataUrl } =
-        input;
+      const {
+        leadId,
+        leadName,
+        leadOrigin,
+        descricao,
+        analiseTexto,
+        compositionDataUrl,
+        sourceImageDataUrl,
+        cenaInventario,
+        furnitureReferences,
+      } = input;
 
       const jobId = crypto.randomUUID();
       const baseJob: LeadAIAmbienteBackgroundJob = {
@@ -387,8 +398,10 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
           leadOrigin,
           descricao,
           analiseTexto,
+          cenaInventario,
           compositionDataUrl,
           sourceImageDataUrl,
+          furnitureReferences,
           empresaSchema: schemaEmpresa,
         });
 

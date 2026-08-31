@@ -2071,6 +2071,116 @@ body::before {
     box-shadow: 0 12px 32px rgba(42, 24, 18, 0.06);
   }
 
+  /* ── Cobranças: tinta escura no papel (creme/ouro no fundo claro sumia) ── */
+  .cobrancas-page-shell {
+    --cr-ink: #1a100c;
+    --cr-muted: #4a3428;
+    --cr-faint: #6b5244;
+    --cr-sheet: #fffaf4;
+    --cr-gold: #6b3f12;
+    --cr-ok: #146c38;
+    --cr-late: #9f1239;
+    --cr-line: rgba(26, 16, 12, 0.14);
+    color: var(--cr-ink);
+    color-scheme: light;
+  }
+  .paper-workspace .cobrancas-page-shell h1,
+  .cobrancas-page-shell h1 {
+    color: var(--cr-ink) !important;
+  }
+  .paper-workspace .cobrancas-page-shell [style*="f2d892"]:not(h1) {
+    color: var(--cr-gold) !important;
+  }
+  .cobrancas-page-shell .section-label {
+    color: var(--cr-muted);
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .cobrancas-page-shell .glass-card {
+    background: var(--cr-sheet);
+    color: var(--cr-ink);
+    border-color: var(--cr-line);
+  }
+  .cobrancas-page-shell .glass-input {
+    background: #fff;
+    border-color: rgba(26, 16, 12, 0.2);
+    color: var(--cr-ink);
+  }
+  .cobrancas-page-shell .glass-input:focus {
+    border-color: var(--cr-gold);
+    box-shadow: 0 0 0 3px rgba(107, 63, 18, 0.16);
+  }
+  .cobrancas-page-shell .glass-input::placeholder {
+    color: #6b5244;
+    opacity: 1;
+  }
+  .cobrancas-page-shell input,
+  .cobrancas-page-shell select,
+  .cobrancas-page-shell textarea {
+    color: var(--cr-ink);
+    color-scheme: light;
+  }
+  .cobrancas-page-shell input::placeholder,
+  .cobrancas-page-shell textarea::placeholder {
+    color: #6b5244 !important;
+    opacity: 1;
+  }
+  .cobrancas-page-shell table {
+    color: var(--cr-ink);
+  }
+  .cobrancas-page-shell th {
+    color: var(--cr-muted);
+    background: rgba(26, 16, 12, 0.04);
+  }
+  .cobrancas-page-shell tbody tr:nth-child(even) {
+    background: rgba(26, 16, 12, 0.035);
+  }
+  .cobrancas-page-shell tbody tr:hover {
+    background: rgba(107, 63, 18, 0.08);
+  }
+  .cobrancas-page-shell td {
+    color: var(--cr-ink);
+  }
+  .cobrancas-page-shell [style*="#fffaf4"],
+  .cobrancas-page-shell [style*="255, 250, 244"],
+  .cobrancas-page-shell [style*="#faf2ea"],
+  .cobrancas-page-shell [style*="250, 242, 234"],
+  .cobrancas-page-shell [style*="#e8d8ca"],
+  .cobrancas-page-shell [style*="232, 216, 202"],
+  .cobrancas-page-shell [style*="#edd9c4"],
+  .cobrancas-page-shell [style*="237, 217, 196"],
+  .cobrancas-page-shell [style*="#d4bc9f"],
+  .cobrancas-page-shell [style*="212, 188, 159"] {
+    color: var(--cr-ink) !important;
+  }
+  .cobrancas-page-shell [style*="#b8957f"],
+  .cobrancas-page-shell [style*="184, 149, 127"] {
+    color: var(--cr-muted) !important;
+  }
+  .cobrancas-page-shell [style*="#f2d892"],
+  .cobrancas-page-shell [style*="242, 216, 146"] {
+    color: var(--cr-gold) !important;
+  }
+  .cobrancas-page-shell [style*="#4ade80"],
+  .cobrancas-page-shell [style*="74, 222, 128"] {
+    color: var(--cr-ok) !important;
+  }
+  .cobrancas-page-shell [style*="#f87171"],
+  .cobrancas-page-shell [style*="248, 113, 113"] {
+    color: var(--cr-late) !important;
+  }
+  .cobrancas-page-shell .text-\[\#d4bc9f\],
+  .cobrancas-page-shell .text-\[\#edd9c4\] {
+    color: var(--cr-muted) !important;
+  }
+  .cobrancas-page-shell .text-\[\#f2d892\] {
+    color: var(--cr-gold) !important;
+  }
+  .cobrancas-page-shell .trow {
+    border-bottom: 1px solid var(--cr-line);
+  }
+
   /* ── Inputs ── */
   .glass-input {
     @apply w-full max-w-full min-w-0 px-3 py-2 rounded-lg text-sm outline-none transition-all duration-200;

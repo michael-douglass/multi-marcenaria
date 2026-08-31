@@ -878,7 +878,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   }, [ambienteConfigDisabled, scrollToAmbienteComposer, selectedItem, selectedPdfPage, sendItemToAmbiente]);
 
   const handleAnalyzeAmbiente = useCallback(
-    async (input: { descricao: string; imageDataUrl?: string }) => {
+    async (input: { descricao: string; imageDataUrl?: string; cenaInventario?: string }) => {
       if (!aiConfig.renderAmbienteAtivo) {
         throw new Error('Renderização com ambiente desativada nas configurações');
       }
@@ -891,6 +891,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         leadOrigin,
         descricao: input.descricao,
         imageDataUrl: input.imageDataUrl,
+        cenaInventario: input.cenaInventario,
         empresaSchema: schemaEmpresa,
       });
     },
@@ -908,8 +909,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
     async (input: {
       descricao: string;
       analiseTexto?: string;
+      cenaInventario?: string;
       compositionDataUrl?: string;
       sourceImageDataUrl?: string;
+      furnitureReferences?: Array<{ label: string; dataUrl: string }>;
     }) => {
       if (!aiConfig.renderAmbienteAtivo) {
         toast.error('Renderização com ambiente desativada', {
@@ -927,8 +930,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         leadOrigin,
         descricao: input.descricao,
         analiseTexto: input.analiseTexto,
+        cenaInventario: input.cenaInventario,
         compositionDataUrl: input.compositionDataUrl,
         sourceImageDataUrl: input.sourceImageDataUrl,
+        furnitureReferences: input.furnitureReferences,
       });
     },
     [
