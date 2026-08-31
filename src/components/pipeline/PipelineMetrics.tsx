@@ -1,26 +1,25 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Lead } from '@/types/selletos';
 import { MetricCard } from './MetricCard';
 import { TrendChart } from './TrendChart';
-import { OriginByMonthChart } from './OriginByMonthChart';
 import { OriginChart } from './OriginChart';
 import { MeetingsCard } from './MeetingsCard';
 import { JourneyTimeCard } from './JourneyTimeCard';
 import { ConversionRateCard } from './ConversionRateCard';
 import { useJourneyTimeStats } from '@/hooks/useJourneyTimeStats';
 import { useConversionStats } from '@/hooks/useConversionStats';
-import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, Pencil, RotateCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, Pencil, RotateCcw, LineChart } from 'lucide-react';
 import {
   PipelineDashboardLabelsProvider,
   usePipelineDashboardLabels,
 } from '@/contexts/PipelineDashboardLabelsContext';
 import { EditableCardTitle } from './EditableCardTitle';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getTodaySaoPaulo, toSaoPauloTime } from '@/lib/utils';
+import { cn, getTodaySaoPaulo, toSaoPauloTime } from '@/lib/utils';
 import { PipelineIndicatorsSection } from './PipelineIndicatorsSection';
 import { PipelineIndicatorsPreferencesProvider } from '@/contexts/PipelineIndicatorsPreferencesContext';
 import { usePipelineIndicatorsPreferencesContext } from '@/contexts/PipelineIndicatorsPreferencesContext';
@@ -36,6 +35,37 @@ interface PipelineMetricsProps {
   customDateFilter?: Date;
   selectedOrigins?: string[];
   selectedRegioes?: string[];
+}
+
+function IndicatorsToggle({
+  open,
+  onToggle,
+  closedLabel,
+  openLabel,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  closedLabel: string;
+  openLabel: string;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={cn(
+        'h-8 gap-1.5 rounded-full border px-3 text-[11px] font-medium tracking-wide transition-colors',
+        open
+          ? 'border-[rgba(240,210,140,0.45)] bg-[rgba(240,210,140,0.14)] text-[#f2d892] hover:bg-[rgba(240,210,140,0.2)]'
+          : 'border-border/70 text-muted-foreground hover:border-[rgba(240,210,140,0.35)] hover:text-foreground',
+      )}
+    >
+      {open ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+      <span>{open ? openLabel : closedLabel}</span>
+    </Button>
+  );
 }
 
 function DashboardLabelsToolbar() {
@@ -93,10 +123,11 @@ function PipelineMetricsContent({
   isAdmin,
 }: PipelineMetricsProps & { isAdmin: boolean }) {
   const { getLabel } = usePipelineDashboardLabels();
-  const { indicators, ready, setMetricsOpen, setChartOpen } =
+  const { indicators, ready, setMetricsOpen } =
     usePipelineIndicatorsPreferencesContext();
   const metricsOpen = ready ? indicators.metricsOpen : false;
-  const chartOpen = ready ? indicators.chartOpen : false;
+  /** Sempre começa recolhido nesta visita; a pessoa escolhe expandir. */
+  const [chartOpen, setChartOpen] = useState(false);
 
   // Calcular estatísticas de jornada de compra
   const journeyTimeStats = useJourneyTimeStats(allLeads);
@@ -279,42 +310,30 @@ function PipelineMetricsContent({
   // Vendedor: mostrar apenas cards limitados
   if (isVendedor) {
     return (
-      <Card className="p-3 md:p-4 bg-card border-border">
-        <div className="space-y-3">
+      <Card className="overflow-hidden border-border bg-card p-2.5 md:p-3">
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <EditableCardTitle labelKey="section_title" variant="heading" as="h2" />
+            <div className="min-w-0">
+              <EditableCardTitle labelKey="section_title" variant="heading" as="h2" className="text-sm" />
               <EditableCardTitle
                 labelKey="section_subtitle"
                 variant="metric"
                 className="normal-case tracking-normal text-muted-foreground mt-0.5"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <DashboardLabelsToolbar />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMetricsOpen(!metricsOpen)}
-                className="gap-1.5 h-8"
-              >
-                {metricsOpen ? (
-                  <>
-                    <ChevronUp className="h-4 w-4" />
-                    <span className="text-xs">Ocultar</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    <span className="text-xs">Mostrar</span>
-                  </>
-                )}
-              </Button>
+              <IndicatorsToggle
+                open={metricsOpen}
+                onToggle={() => setMetricsOpen(!metricsOpen)}
+                closedLabel="Mostrar métricas"
+                openLabel="Ocultar métricas"
+              />
             </div>
           </div>
 
           <Collapsible open={metricsOpen} onOpenChange={setMetricsOpen}>
-            <CollapsibleContent>
+            <CollapsibleContent className="data-[state=closed]:hidden">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <MetricCard
                   title={<EditableCardTitle labelKey="leads_today" variant="metric" />}
@@ -353,12 +372,12 @@ function PipelineMetricsContent({
   }
 
   return (
-    <Card className="p-3 md:p-4 bg-card border-border">
-      <div className="space-y-3">
-        {/* Header com título e toggle */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <EditableCardTitle labelKey="section_title" variant="heading" as="h2" />
+    <Card className="overflow-hidden border-border bg-card p-2.5 md:p-3">
+      <div className="space-y-2">
+        {/* Faixa compacta: o gráfico começa recolhido e só ocupa altura se a pessoa expandir */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <EditableCardTitle labelKey="section_title" variant="heading" as="h2" className="text-sm" />
             <EditableCardTitle
               labelKey="section_subtitle"
               variant="metric"
@@ -367,30 +386,24 @@ function PipelineMetricsContent({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <DashboardLabelsToolbar />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMetricsOpen(!metricsOpen)}
-              className="gap-1.5 h-8"
-            >
-              {metricsOpen ? (
-                <>
-                  <ChevronUp className="h-4 w-4" />
-                  <span className="text-xs">Ocultar</span>
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4" />
-                  <span className="text-xs">Mostrar</span>
-                </>
-              )}
-            </Button>
+            <IndicatorsToggle
+              open={metricsOpen}
+              onToggle={() => setMetricsOpen(!metricsOpen)}
+              closedLabel="Mostrar métricas"
+              openLabel="Ocultar métricas"
+            />
+            <IndicatorsToggle
+              open={chartOpen}
+              onToggle={() => setChartOpen(!chartOpen)}
+              closedLabel="Mostrar evolução"
+              openLabel="Ocultar evolução"
+            />
           </div>
         </div>
 
         {/* Grid de métricas - Collapsible */}
         <Collapsible open={metricsOpen} onOpenChange={setMetricsOpen}>
-          <CollapsibleContent>
+          <CollapsibleContent className="data-[state=closed]:hidden">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title={<EditableCardTitle labelKey="leads_today" variant="metric" />}
@@ -469,39 +482,18 @@ function PipelineMetricsContent({
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Gráfico de tendência - Collapsible */}
         <Collapsible open={chartOpen} onOpenChange={setChartOpen}>
-          <div className="pt-3 border-t border-border">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-3">
+          <CollapsibleContent className="data-[state=closed]:hidden">
+            <div className="space-y-2 border-t border-[rgba(240,210,140,0.18)] pt-2">
+              <div className="flex items-center gap-2">
+                <LineChart className="h-3.5 w-3.5 text-[#f2d892]" />
                 <EditableCardTitle
                   labelKey="evolution_chart"
                   variant="section"
                   as="h3"
                   className="text-sm font-medium normal-case tracking-normal"
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setChartOpen(!chartOpen)}
-                  className="gap-1.5 h-8"
-                >
-                  {chartOpen ? (
-                    <>
-                      <ChevronUp className="h-4 w-4" />
-                      <span className="text-xs">Ocultar</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-4 w-4" />
-                      <span className="text-xs">Mostrar</span>
-                    </>
-                  )}
-                </Button>
               </div>
-            </div>
-
-            <CollapsibleContent className="pt-2">
               <TrendChart 
                 data={last15DaysData} 
                 isLoading={isLoading}
@@ -548,8 +540,8 @@ function PipelineMetricsContent({
                   </>
                 )}
               </div>
-            </CollapsibleContent>
-          </div>
+            </div>
+          </CollapsibleContent>
         </Collapsible>
 
         <PipelineIndicatorsSection allLeads={allLeads} isLoading={isLoading} />

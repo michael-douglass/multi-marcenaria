@@ -14,6 +14,7 @@ import { useRegioes } from '@/hooks/useRegioes';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { KanbanCard } from '@/components/kanban/KanbanCard';
+import { PipelineBoardAura } from '@/components/kanban/PipelineBoardAura';
 import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizontalScrollbar';
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell';
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls';
@@ -297,17 +298,17 @@ export default function PipelineKanbanPage() {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-2 pb-2 md:px-3 md:pb-3 md:space-y-3 space-y-2">
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2 overflow-hidden px-2 pb-2 md:px-3 md:pb-3">
       {isInitialKanbanLoad || !page ? (
         <div className="flex items-center justify-center min-h-[300px] text-muted-foreground">Carregando Kanban...</div>
       ) : (
       <>
-      <div>
+      <div className="shrink-0">
         <h1 className="text-xl md:text-2xl font-bold">{page.nome}</h1>
         <p className="text-sm text-muted-foreground">Kanban configurável por regras de origem e ajustes manuais</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 sm:flex-wrap">
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
         <Select
           value={periodSelectValue}
           onValueChange={(v) => {
@@ -453,7 +454,7 @@ export default function PipelineKanbanPage() {
       <KanbanPageZoomControls variant="fixed" transparent={!!markupSheet} />
       <KanbanPageZoomShell
         onZoomApplied={updateKanbanScrollEdges}
-        className="overflow-x-hidden overflow-y-hidden"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-hidden"
       >
       <DndContext
         sensors={sensors}
@@ -461,13 +462,14 @@ export default function PipelineKanbanPage() {
         onDragEnd={handleDragEnd}
         collisionDetection={pointerWithin}
       >
-        <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden pb-4">
+        <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden pb-1">
+          <PipelineBoardAura />
           <div
             ref={kanbanScrollRef}
             onScroll={updateKanbanScrollEdges}
-            className="scrollbar-always-visible flex min-h-0 min-w-0 max-w-full flex-1 gap-2.5 overflow-x-scroll overflow-y-hidden overscroll-x-contain px-10 md:gap-3 md:px-12"
+            className="scrollbar-always-visible relative z-[1] flex min-h-0 min-w-0 max-w-full flex-1 gap-3 overflow-x-scroll overflow-y-hidden overscroll-x-contain px-10 md:gap-3.5 md:px-12"
           >
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <div key={column.id} className="flex h-full min-h-0 shrink-0">
                 <KanbanColumn
                   title={column.title}
@@ -475,6 +477,7 @@ export default function PipelineKanbanPage() {
                   status={column.title}
                   droppableId={column.id}
                   items={column.items.map((lead) => lead.id)}
+                  columnIndex={columnIndex}
                 >
                   {column.items.map((lead, cardIndex) => (
                     <KanbanCard
@@ -489,6 +492,8 @@ export default function PipelineKanbanPage() {
                       markupResumo={markupResumoMap.get(lead.id) ?? null}
                       lembretesCount={lembretesCountMap.get(lead.id) || 0}
                       lastMessage={lastMessagesMap[lead.id] ?? null}
+                      columnIndex={columnIndex}
+                      stageTitle={column.title}
                       onOpenMarkup={(leadId, orcamentoId) =>
                         setMarkupSheet({
                           leadId,
@@ -546,7 +551,18 @@ export default function PipelineKanbanPage() {
             </Button>
           </div>
         </div>
-        <DragOverlay>{activeCard ? <KanbanCard lead={activeCard} /> : null}</DragOverlay>
+        <DragOverlay>
+          {activeCard ? (
+            <KanbanCard
+              lead={activeCard}
+              stageTitle={activeCard.status}
+              columnIndex={Math.max(
+                0,
+                columns.findIndex((column) => column.items.some((item) => item.id === activeCard.id)),
+              )}
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       <FloatingHorizontalScrollbar

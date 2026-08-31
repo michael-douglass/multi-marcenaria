@@ -31,7 +31,6 @@ import {
   Handshake,
   Ban,
   Zap,
-  MessageCircle,
   Palette,
   Briefcase,
   Shield,
@@ -418,15 +417,6 @@ const COMERCIAL_CHILDREN: NavChildItem[] = [
     hideIfMarketingOnly: true,
   },
   {
-    id: 'chatCrm',
-    title: 'Chat interno',
-    url: '/chat-crm',
-    icon: MessageCircle,
-    radialColor: 'rgba(74,222,128,0.92)',
-    crmRoles: CRM_VENDA_ROLES,
-    hideIfMarketingOnly: true,
-  },
-  {
     id: 'contratosCrm',
     title: 'Contratos',
     url: '/contratos',
@@ -588,7 +578,7 @@ const MARKETING_CRM_CHILDREN: NavChildItem[] = [
 export const NAV_MAIN_ITEMS: NavMainItem[] = [
   {
     id: 'comercial',
-    title: 'Comercial',
+    title: 'CRM',
     url: '/pipeline',
     icon: Briefcase,
     radialColor: 'rgba(96,240,160,0.92)',
@@ -893,7 +883,6 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/financeiro-pontua': 'financeiroPontua',
     '/portal-parceiro': 'portalParceiro',
     '/eventos-crm': 'controleEventos',
-    '/chat-crm': 'chatCrm',
     '/pipeline/configuracoes': 'pipelineConfig',
   }
   return map[pathname] ?? 'dashboard'

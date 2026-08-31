@@ -50,10 +50,10 @@ void main() {
   vec3 gold = vec3(0.95, 0.85, 0.57);
   vec3 ember = vec3(0.72, 0.38, 0.14);
 
-  vec3 color = mix(mahogany, ember, ribbon * 0.55);
-  color = mix(color, gold, rim * 0.72);
-  color += gold * grain * 0.12;
-  float alpha = (0.22 + rim * 0.55 + grain * 0.08) * vignette;
+  vec3 color = mix(mahogany, ember, ribbon * 0.45);
+  color = mix(color, gold, rim * 0.88);
+  color += gold * grain * 0.08;
+  float alpha = (0.08 + rim * 0.62 + grain * 0.04) * vignette;
   gl_FragColor = vec4(color, alpha);
 }
 `
@@ -142,7 +142,10 @@ export function SidebarAmberRibbon({ className, active = true }: SidebarAmberRib
   return (
     <div
       ref={hostRef}
-      className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}
+      className={cn(
+        'pointer-events-none absolute inset-x-0 bottom-0 z-0 h-2 overflow-hidden',
+        className,
+      )}
       aria-hidden
     />
   )

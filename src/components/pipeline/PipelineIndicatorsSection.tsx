@@ -34,24 +34,26 @@ export function PipelineIndicatorsSection({
   return (
     <Collapsible open={sectionOpen} onOpenChange={setSectionOpen}>
       <Card className="border-border bg-muted/20">
-        <div className="flex flex-col space-y-1.5 p-6 pb-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-              <div>
-                <h3 className="text-sm font-semibold leading-none tracking-tight">
+        <div className="flex flex-col space-y-1 p-2 pb-1.5 md:px-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <BarChart3 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-xs font-semibold leading-none tracking-tight">
                   Indicadores da pipeline
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leads por região, negócios ganhos, orçamentos, vendas por origem e ranking
-                </p>
+                {sectionOpen ? (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Leads por região, negócios ganhos, orçamentos, vendas por origem e ranking
+                  </p>
+                ) : null}
               </div>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="gap-1.5 h-8 shrink-0"
+              className="gap-1.5 h-7 shrink-0 rounded-full border border-border/70 px-2.5 text-[11px]"
               onClick={() => setSectionOpen(!sectionOpen)}
             >
               {sectionOpen ? (
@@ -69,7 +71,7 @@ export function PipelineIndicatorsSection({
           </div>
         </div>
 
-        <CollapsibleContent>
+        <CollapsibleContent className="data-[state=closed]:hidden">
           <div className="space-y-3 px-3 pb-3 md:px-4 md:pb-4">
             {show('origin_by_month') && (
               <OriginByMonthChart

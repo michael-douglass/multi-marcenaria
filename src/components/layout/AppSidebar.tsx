@@ -162,6 +162,7 @@ function SectorPlaque({
 }) {
   return (
     <div
+      data-open={open ? 'true' : 'false'}
       className={cn(
         'sidebar-sector-head group-data-[collapsible=icon]:hidden',
         tone === 'comercial' ? 'sidebar-sector-head--comercial' : 'sidebar-sector-head--casa',
@@ -177,7 +178,7 @@ function SectorPlaque({
           )}
         />
       </div>
-      <p className="sidebar-sector-sub">{subtitle}</p>
+      <p className={cn('sidebar-sector-sub', !open && 'sr-only')}>{subtitle}</p>
     </div>
   )
 }
@@ -215,19 +216,23 @@ export function AppSidebar() {
   const [pontoOpen, setPontoOpen] = useState(pontoAbertoPorRota)
   const [comercialOpen, setComercialOpen] = useState(comercialAbertoPorRota)
   const [marketingOpen, setMarketingOpen] = useState(marketingAbertoPorRota)
-  const [comercialSectorOpen, setComercialSectorOpen] = useState(
-    comercialAbertoPorRota || marketingAbertoPorRota || activeSection === 'portalParceiro',
-  )
-  const [casaSectorOpen, setCasaSectorOpen] = useState(
-    !comercialAbertoPorRota && !marketingAbertoPorRota,
-  )
+  const routeSector: 'crm' | 'movelaria' =
+    comercialAbertoPorRota || marketingAbertoPorRota || activeSection === 'portalParceiro'
+      ? 'crm'
+      : 'movelaria'
+  const [sectorOverride, setSectorOverride] = useState<'crm' | 'movelaria' | null>(null)
+  const openSector = sectorOverride ?? routeSector
+  const comercialSectorOpen = openSector === 'crm'
+  const casaSectorOpen = openSector === 'movelaria'
+
+  useEffect(() => {
+    setSectorOverride(null)
+  }, [location.pathname])
 
   useEffect(() => {
     if (comercialAbertoPorRota) {
       setComercialOpen(true)
       setFinanceiroOpen(false)
-      setComercialSectorOpen(true)
-      setCasaSectorOpen(false)
     }
   }, [comercialAbertoPorRota])
 
@@ -235,8 +240,6 @@ export function AppSidebar() {
     if (marketingAbertoPorRota) {
       setMarketingOpen(true)
       setFinanceiroOpen(false)
-      setComercialSectorOpen(true)
-      setCasaSectorOpen(false)
     }
   }, [marketingAbertoPorRota])
 
@@ -245,48 +248,20 @@ export function AppSidebar() {
       setFinanceiroOpen(true)
       setComercialOpen(false)
       setMarketingOpen(false)
-      setCasaSectorOpen(true)
-      setComercialSectorOpen(false)
     }
   }, [financeiroAbertoPorRota])
 
   useEffect(() => {
-    if (funcionariosAbertoPorRota) {
-      setFuncionariosOpen(true)
-      setCasaSectorOpen(true)
-      setComercialSectorOpen(false)
-    }
+    if (funcionariosAbertoPorRota) setFuncionariosOpen(true)
   }, [funcionariosAbertoPorRota])
 
   useEffect(() => {
-    if (obrasAbertoPorRota) {
-      setObrasOpen(true)
-      setCasaSectorOpen(true)
-      setComercialSectorOpen(false)
-    }
+    if (obrasAbertoPorRota) setObrasOpen(true)
   }, [obrasAbertoPorRota])
 
   useEffect(() => {
-    if (pontoAbertoPorRota) {
-      setPontoOpen(true)
-      setCasaSectorOpen(true)
-      setComercialSectorOpen(false)
-    }
+    if (pontoAbertoPorRota) setPontoOpen(true)
   }, [pontoAbertoPorRota])
-
-  useEffect(() => {
-    const casaLeaf =
-      activeSection === 'dashboard'
-      || activeSection === 'biblioteca'
-      || activeSection === 'visualizacao'
-      || activeSection === 'configuracoes'
-      || activeSection === 'meuFinanceiro'
-      || activeSection === 'meuPerfil'
-    if (casaLeaf) {
-      setCasaSectorOpen(true)
-      setComercialSectorOpen(false)
-    }
-  }, [activeSection])
 
   const grupoOpenState: Partial<Record<NavItemId, boolean>> = {
     financeiro: financeiroOpen,
@@ -450,12 +425,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="relative overflow-hidden border-b border-[rgba(240,210,140,0.12)] pb-3">
         <SidebarAmberRibbon active={open && !isMobile} />
-        <div className="relative z-[1] flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
+        <div className="relative z-[2] isolate flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
           <div className="hidden shrink-0 group-data-[collapsible=icon]:block">
-            <Logo full={false} />
+            <Logo full={false} halo={false} />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <Logo full />
+            <Logo full halo={false} />
           </div>
         </div>
       </SidebarHeader>
@@ -463,50 +438,64 @@ export function AppSidebar() {
       <SidebarContent className="overflow-hidden">
         <ScrollArea className="h-full sidebar-scroll">
           {comercialItems.length > 0 ? (
-            <Collapsible open={!open || comercialSectorOpen} onOpenChange={setComercialSectorOpen}>
-              <SidebarGroup className="sidebar-sector sidebar-sector--comercial pt-1">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <SectorPlaque
-                      tone="comercial"
-                      title="Comercial"
-                      subtitle="Vendas, leads e CRM"
-                      icon={Briefcase}
-                      open={comercialSectorOpen}
-                    />
-                  </button>
-                </CollapsibleTrigger>
+            <Collapsible open={comercialSectorOpen}>
+              <SidebarGroup
+                className="sidebar-sector sidebar-sector--comercial pt-1"
+                data-open={comercialSectorOpen ? 'true' : 'false'}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  aria-expanded={comercialSectorOpen}
+                  aria-controls="sidebar-setor-crm"
+                  onClick={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setSectorOverride('crm')
+                  }}
+                >
+                  <SectorPlaque
+                    tone="comercial"
+                    title="CRM"
+                    subtitle="Vendas, leads e pipeline"
+                    icon={Briefcase}
+                    open={comercialSectorOpen}
+                  />
+                </button>
                 <CollapsibleContent>
-                  <SidebarMenu>{renderNavItems(comercialItems, 'comercial')}</SidebarMenu>
+                  <SidebarMenu id="sidebar-setor-crm">{renderNavItems(comercialItems, 'comercial')}</SidebarMenu>
                 </CollapsibleContent>
               </SidebarGroup>
             </Collapsible>
           ) : null}
 
           {casaItems.length > 0 ? (
-            <Collapsible open={!open || casaSectorOpen} onOpenChange={setCasaSectorOpen}>
-              <SidebarGroup className="sidebar-sector sidebar-sector--casa">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <SectorPlaque
-                      tone="casa"
-                      title="Casa"
-                      subtitle="Caixa, obras e equipe"
-                      icon={Landmark}
-                      open={casaSectorOpen}
-                    />
-                  </button>
-                </CollapsibleTrigger>
+            <Collapsible open={casaSectorOpen}>
+              <SidebarGroup
+                className="sidebar-sector sidebar-sector--casa"
+                data-open={casaSectorOpen ? 'true' : 'false'}
+              >
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  aria-expanded={casaSectorOpen}
+                  aria-controls="sidebar-setor-movelaria"
+                  onClick={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setSectorOverride('movelaria')
+                  }}
+                >
+                  <SectorPlaque
+                    tone="casa"
+                    title="Movelaria"
+                    subtitle="Caixa, obras e equipe"
+                    icon={Landmark}
+                    open={casaSectorOpen}
+                  />
+                </button>
                 <CollapsibleContent>
-                  <SidebarMenu>{renderNavItems(casaItems, 'casa')}</SidebarMenu>
+                  <SidebarMenu id="sidebar-setor-movelaria">{renderNavItems(casaItems, 'casa')}</SidebarMenu>
                 </CollapsibleContent>
               </SidebarGroup>
             </Collapsible>

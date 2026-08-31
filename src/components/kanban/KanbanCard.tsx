@@ -40,6 +40,7 @@ import { KanbanProjetoSignal } from '@/components/kanban/KanbanProjetoSignal';
 import { LeadProjetoCardActions } from '@/components/projetos/LeadProjetoCardActions';
 import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
 import { kanbanCardProjetoRingClass, projetoSignalTone } from '@/lib/projetos-atelie';
+import { kanbanStageSkin } from '@/lib/kanban-stage-skin';
 
 interface KanbanCardProps {
   lead: Lead;
@@ -64,6 +65,12 @@ interface KanbanCardProps {
   lembretesCount?: number;
   /** Última mensagem do chat (buscada em lote no pai). */
   lastMessage?: LeadLastMessagePreview | null;
+  /** Token de cor da coluna (primary, success...). */
+  colorToken?: string | null;
+  /** Índice da coluna no quadro. */
+  columnIndex?: number;
+  /** Título da coluna atual — pinta o card da mesma família da coluna. */
+  stageTitle?: string;
 }
 
 const originColors: Record<string, string> = {
@@ -90,6 +97,9 @@ export function KanbanCard({
   onOpenMarkup,
   lembretesCount = 0,
   lastMessage: lastMessageData,
+  colorToken,
+  columnIndex = 0,
+  stageTitle,
 }: KanbanCardProps) {
   const { hasPermission } = usePermissions();
   const { userRole, isSuperAdmin } = useAuth();
@@ -164,6 +174,7 @@ export function KanbanCard({
   });
 
   const appearDelayMs = Math.min(appearIndex, 12) * 45;
+  const skin = kanbanStageSkin(stageTitle ?? lead.status, colorToken, columnIndex)
 
   const sortableStyle = {
     transform: CSS.Transform.toString(transform),
@@ -270,10 +281,11 @@ export function KanbanCard({
     <div ref={setNodeRef} style={sortableStyle} className="w-full min-w-0">
       <Card
         className={cn(
-          'w-full min-w-0 overflow-hidden cursor-pointer transition-all hover:shadow-md',
+          'kanban-lead-card w-full min-w-0 overflow-hidden cursor-pointer',
+          skin.card,
           !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
-          isDragging && 'z-50 scale-[1.03] rotate-1 opacity-95 shadow-xl ring-2 ring-primary/30',
-          justDropped && !isDragging && 'animate-in zoom-in-95 duration-300 ring-2 ring-primary/40 shadow-lg',
+          isDragging && 'z-50 scale-[1.03] rotate-1 opacity-95 ring-2 ring-gold/40',
+          justDropped && !isDragging && 'animate-in zoom-in-95 duration-300 ring-2 ring-gold/50',
           kanbanCardProjetoRingClass(projetoTone),
         )}
         onClick={onClick}
@@ -297,7 +309,7 @@ export function KanbanCard({
       )}
       <CardContent
         className={cn(
-          'p-2.5 sm:p-3 space-y-2 overflow-hidden',
+          'space-y-2.5 overflow-x-hidden p-3 sm:p-3.5',
           !isDragging && 'animate-in fade-in duration-300 fill-mode-backwards',
         )}
         style={{ animationDelay: `${appearDelayMs}ms` }}
@@ -403,22 +415,25 @@ export function KanbanCard({
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center">
-                  <Switch
-                    checked={lead.needsAttention || false}
-                    onCheckedChange={(checked) =>
-                      handleAttentionToggle(checked, { stopPropagation: () => {} } as React.MouseEvent)
-                    }
-                    className="h-4 w-7 data-[state=checked]:bg-destructive"
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="text-xs">
-                <p>Dar atenção</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              {bellButton}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center">
+                    <Switch
+                      checked={lead.needsAttention || false}
+                      onCheckedChange={(checked) =>
+                        handleAttentionToggle(checked, { stopPropagation: () => {} } as React.MouseEvent)
+                      }
+                      className="h-4 w-7 data-[state=checked]:bg-destructive"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  <p>Dar atenção</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
             <div className="flex flex-wrap items-center justify-end gap-1 max-w-[88px]">
               {unreadCount && unreadCount > 0 && lastMessageData?.isFromLead && (
@@ -440,7 +455,14 @@ export function KanbanCard({
               {configs && configs.length > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-muted text-muted-foreground shrink-0">
+                    <div
+                      className="flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-muted text-muted-foreground shrink-0"
+                      style={
+                        timeColor?.cor
+                          ? { backgroundColor: timeColor.cor, color: '#1a120e' }
+                          : undefined
+                      }
+                    >
                       <Clock className="h-2.5 w-2.5 shrink-0" />
                       <span className="whitespace-nowrap">{timeDisplay}</span>
                     </div>
@@ -455,17 +477,17 @@ export function KanbanCard({
         </div>
 
         <div className="min-w-0 space-y-1">
-          <h4 className="font-semibold text-foreground text-xs leading-snug truncate inline-flex max-w-full items-center gap-1">
+          <h4 className="inline-flex max-w-full items-start gap-1 text-[13px] font-semibold leading-snug text-foreground">
             {pontuaGarboBadge && (
-              <Star className="h-3 w-3 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]" aria-hidden />
+              <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]" aria-hidden />
             )}
-            <span className="truncate">
+            <span className="line-clamp-2 break-words">
               {hasPermission('lead_name', 'view') ? lead.name : '•••••'}
             </span>
           </h4>
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
-            <Calendar className="h-3 w-3 shrink-0" />
-            <span className="truncate">{formatYMDToBR(lead.dateArrived)}</span>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
+            <span>{formatYMDToBR(lead.dateArrived)}</span>
           </div>
           {lastMessageData?.lastMessage && (
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
@@ -507,7 +529,7 @@ export function KanbanCard({
                 className="text-[9px] px-1.5 py-0 h-5 max-w-full bg-amber-50 text-amber-700 border-amber-200 font-medium inline-flex items-center gap-0.5 cursor-pointer hover:bg-amber-100 transition-colors min-w-0"
               >
                 <MapPin className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate max-w-[72px]">{currentRegiao || 'Sem região'}</span>
+                <span className="truncate max-w-[120px]">{currentRegiao || 'Sem região'}</span>
                 <ChevronDown className="h-2.5 w-2.5 shrink-0" />
               </Badge>
             </DropdownMenuTrigger>
@@ -563,31 +585,31 @@ export function KanbanCard({
           </div>
         )}
 
-        {/* Ações: lembrete + botões empilhados na largura da coluna */}
         <div
-          className="flex items-center gap-1.5 pt-1.5 border-t border-border/50 min-w-0"
+          className="flex min-w-0 flex-col gap-1.5 border-t border-gold/20 pt-2"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {bellButton}
           <LeadProjetoCardActions leadId={lead.id} leadNome={lead.name}>
-            <LeadSinalizarButton
-              leadId={lead.id}
-              leadNome={lead.name}
-              leadStatus={lead.status}
-              className="w-full h-7 text-[10px] px-2 justify-center min-w-0 max-w-full"
-            />
-            {canMarkAsSale && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full h-7 text-[10px] px-2 justify-center min-w-0 max-w-full"
-                onClick={handleMarkSale}
-              >
-                <DollarSign className="h-3 w-3 mr-1 shrink-0" />
-                <span className="truncate">Marcar Venda</span>
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+              <LeadSinalizarButton
+                leadId={lead.id}
+                leadNome={lead.name}
+                leadStatus={lead.status}
+                className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
+              />
+              {canMarkAsSale && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
+                  onClick={handleMarkSale}
+                >
+                  <DollarSign className="mr-1 h-3.5 w-3.5 shrink-0" />
+                  <span>Marcar Venda</span>
+                </Button>
+              )}
+            </div>
           </LeadProjetoCardActions>
         </div>
       </CardContent>

@@ -110,6 +110,11 @@ export function MainLayout() {
   const isCrmArea = isCrmAppPath(location.pathname)
   const hideFactoryFabs = hideFabsOnPonto || isCrmArea
   const isProjetosAtelie = location.pathname.startsWith('/projetos')
+  const isPipelineBoard =
+    location.pathname === '/pipeline' ||
+    (location.pathname.startsWith('/pipeline/') &&
+      !location.pathname.startsWith('/pipeline/configuracoes'))
+  const fillViewportBoard = isProjetosAtelie || isPipelineBoard
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -118,20 +123,22 @@ export function MainLayout() {
         <NavigationHeader onOpenAgenda={openAgendaSafely} />
         <div className={cn(
           'flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
-          isProjetosAtelie
-            ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
+          fillViewportBoard
+            ? isProjetosAtelie
+              ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
+              : 'overflow-hidden px-2 py-2 pb-16 sm:px-3 sm:py-3 sm:pb-16'
             : 'overflow-x-hidden overflow-y-auto touch-pan-y',
-          !isProjetosAtelie && isCrmArea
+          !fillViewportBoard && isCrmArea
             ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
-            : !isProjetosAtelie && hideFabsOnPonto
+            : !fillViewportBoard && hideFabsOnPonto
               ? 'obra-layout-scroll px-4 py-4 pb-8 sm:px-6 sm:py-7 sm:pb-7 md:px-8'
-              : !isProjetosAtelie
+              : !fillViewportBoard
                 ? 'obra-layout-scroll px-4 py-4 pb-24 sm:px-6 sm:py-7 md:px-8'
                 : null,
         )}>
           <div className={cn(
             'flex min-h-0 min-w-0 flex-col',
-            isProjetosAtelie ? 'flex-1 overflow-hidden' : 'flex-none md:flex-1',
+            fillViewportBoard ? 'flex-1 overflow-hidden' : 'flex-none md:flex-1',
             !isCrmArea && 'obra-layout-outlet',
           )}>
             <AppErrorBoundary>

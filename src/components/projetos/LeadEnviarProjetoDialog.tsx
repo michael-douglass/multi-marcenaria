@@ -47,7 +47,7 @@ export function LeadEnviarProjetoDialog({
   const isCard = variant === 'card'
   const canSend = recado.trim().length >= MIN_CARACTERES_ENVIO_SETOR || files.length > 0
   const label = projeto ? 'Solicitar novamente' : 'Enviar ao setor'
-  const cardLabel = projeto ? 'Solicitar de novo' : 'Enviar ao setor'
+  const cardLabel = projeto ? 'Solicitar de novo ao ateliê' : 'Enviar ao setor de projetos'
 
   const stopCardEvent = (event: SyntheticEvent) => {
     event.stopPropagation()
@@ -61,7 +61,7 @@ export function LeadEnviarProjetoDialog({
         variant={isCard ? 'outline' : 'default'}
         className={cn(
           isCard
-            ? 'h-7 w-full justify-center gap-1 px-2 text-[10px] min-w-0 max-w-full border-gold/45 bg-gold/10 text-gold hover:bg-gold/20 hover:text-[#f5e0a8]'
+            ? 'h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal px-2.5 py-2 text-[11px] font-semibold leading-snug border-gold/50 bg-[linear-gradient(180deg,rgba(242,216,146,0.22),rgba(242,216,146,0.08))] text-gold shadow-[inset_0_1px_0_rgba(255,248,220,0.18)] hover:bg-gold/25 hover:text-[#f5e0a8]'
             : 'gap-1.5 bg-gold text-[#1a120e] hover:bg-gold/90',
           className,
         )}
@@ -72,7 +72,7 @@ export function LeadEnviarProjetoDialog({
         onPointerDown={stopCardEvent}
       >
         <Send className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{isCard ? cardLabel : label}</span>
+        <span className={isCard ? 'text-center text-balance' : 'truncate'}>{isCard ? cardLabel : label}</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent

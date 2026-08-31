@@ -34,29 +34,50 @@ export function LeadProjetoCardActions({
 
   return (
     <>
-      {showCanal ? (
-        <button
-          type="button"
-          className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gold hover:bg-gold/10"
-          title={last && last.autor_id !== user?.id ? 'Nova mensagem no canal' : 'Canal do ateliê'}
-          aria-label="Canal do ateliê"
-          onClick={(event) => {
-            stopCardEvent(event)
-            setCanalOpen(true)
-          }}
-          onPointerDown={stopCardEvent}
-        >
-          <ProjetoChatBadge lastAutorId={last?.autor_id ?? user?.id ?? ''} currentUserId={user?.id} />
-        </button>
-      ) : null}
-
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex w-full min-w-0 flex-col gap-1.5">
         {canEnviar ? (
-          <LeadEnviarProjetoDialog
-            leadId={leadId}
-            variant="card"
-            onEnviado={() => setCanalOpen(true)}
-          />
+          <div className="space-y-1">
+            <p className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-gold/80">
+              Setor de projetos
+            </p>
+            <div className="flex w-full min-w-0 items-stretch gap-1.5">
+              <LeadEnviarProjetoDialog
+                leadId={leadId}
+                variant="card"
+                className="min-w-0 flex-1"
+                onEnviado={() => setCanalOpen(true)}
+              />
+              {showCanal ? (
+                <button
+                  type="button"
+                  className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gold/35 text-gold hover:bg-gold/10"
+                  title={last && last.autor_id !== user?.id ? 'Nova mensagem no canal' : 'Canal do ateliê'}
+                  aria-label="Canal do ateliê"
+                  onClick={(event) => {
+                    stopCardEvent(event)
+                    setCanalOpen(true)
+                  }}
+                  onPointerDown={stopCardEvent}
+                >
+                  <ProjetoChatBadge lastAutorId={last?.autor_id ?? user?.id ?? ''} currentUserId={user?.id} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : showCanal ? (
+          <button
+            type="button"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gold/35 text-gold hover:bg-gold/10"
+            title={last && last.autor_id !== user?.id ? 'Nova mensagem no canal' : 'Canal do ateliê'}
+            aria-label="Canal do ateliê"
+            onClick={(event) => {
+              stopCardEvent(event)
+              setCanalOpen(true)
+            }}
+            onPointerDown={stopCardEvent}
+          >
+            <ProjetoChatBadge lastAutorId={last?.autor_id ?? user?.id ?? ''} currentUserId={user?.id} />
+          </button>
         ) : null}
         {children}
       </div>

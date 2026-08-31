@@ -39,6 +39,7 @@ import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizon
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell';
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls';
 import { KanbanCard } from '@/components/kanban/KanbanCard';
+import { PipelineBoardAura } from '@/components/kanban/PipelineBoardAura';
 import { LeadModal } from '@/components/leads/LeadModal';
 import { SaleValueDialog } from '@/components/leads/SaleValueDialog';
 import { useLeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
@@ -816,12 +817,17 @@ export default function Pipeline() {
   const isInitialLeadsLoad = isLoading && !leads;
 
   return (
-    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-2 pb-2 md:px-3 md:pb-3 md:space-y-3 space-y-2">
+    <div
+      className={cn(
+        'flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-2 pb-2 md:px-3 md:pb-3',
+        viewMode === 'kanban' ? 'h-full gap-2 overflow-hidden' : 'space-y-2 overflow-y-auto md:space-y-3',
+      )}
+    >
       {isInitialLeadsLoad ? (
         <GarboBrandLoader variant="inline" size="md" message="Carregando leads…" />
       ) : (
       <>
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         {/* Botão Exportar Relatório - não exibido para vendedores */}
         {currentUserRole !== 'VENDEDOR' && (
           <Button
@@ -853,19 +859,21 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Painel de Métricas */}
-      <PipelineMetrics 
-        leads={filteredLeads}
-        allLeads={allAdaptedLeads}
-        isLoading={isLoading}
-        userRole={currentUserRole}
-        dateFilter={dateFilter}
-        customDateFilter={customDateFilter}
-        selectedOrigins={selectedOrigins}
-        selectedRegioes={selectedRegioes}
-      />
+      {/* Painel de Métricas — recolhido por padrão para o quadro ter mais altura */}
+      <div className="shrink-0">
+        <PipelineMetrics 
+          leads={filteredLeads}
+          allLeads={allAdaptedLeads}
+          isLoading={isLoading}
+          userRole={currentUserRole}
+          dateFilter={dateFilter}
+          customDateFilter={customDateFilter}
+          selectedOrigins={selectedOrigins}
+          selectedRegioes={selectedRegioes}
+        />
+      </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 sm:flex-wrap">
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
           <PipelineLeadSearch
             leads={allAdaptedLeads}
             value={searchQuery}
@@ -1162,7 +1170,7 @@ export default function Pipeline() {
       </div>
 
       {/* Contador de resultados e Legenda de Cores */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-2 px-1">
         <div className="text-xs md:text-sm text-muted-foreground shrink-0">
           {(viewMode === 'kanban' ? pipelineKanbanLeads : filteredLeads).length}{' '}
           {(viewMode === 'kanban' ? pipelineKanbanLeads : filteredLeads).length === 1
@@ -1188,7 +1196,7 @@ export default function Pipeline() {
         <KanbanPageZoomControls variant="fixed" transparent={!!markupSheet} />
         <KanbanPageZoomShell
           onZoomApplied={updatePipelineKanbanScrollEdges}
-          className="overflow-x-hidden overflow-y-hidden"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-hidden"
         >
         <DndContext 
           sensors={sensors} 
@@ -1196,13 +1204,14 @@ export default function Pipeline() {
           onDragEnd={handleDragEnd}
           collisionDetection={pointerWithin}
         >
-          <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden pb-4">
+          <div className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden pb-1">
+            <PipelineBoardAura />
             <div
               ref={pipelineKanbanScrollRef}
               onScroll={updatePipelineKanbanScrollEdges}
-              className="flex min-h-0 min-w-0 max-w-full flex-1 gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-10 md:gap-3 md:px-12 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+              className="relative z-[1] flex min-h-0 min-w-0 max-w-full flex-1 gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-10 md:gap-3.5 md:px-12 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
             >
-            {KANBAN_STAGES.map(stage => {
+            {KANBAN_STAGES.map((stage, columnIndex) => {
               const stageLeads = sortLeadsForColumn(
                 pipelineKanbanLeads.filter((lead) =>
                   leadBelongsInPipelineStage(lead.status, stage, KANBAN_STAGES),
@@ -1216,6 +1225,7 @@ export default function Pipeline() {
                   status={stage}
                   items={stageLeads.map(l => l.id)}
                   colorToken={customStageColorMap[stage] ?? null}
+                  columnIndex={columnIndex}
                 >
                       {stageLeads.map((lead, cardIndex) => (
                         <KanbanCard
@@ -1231,6 +1241,9 @@ export default function Pipeline() {
                           markupResumo={markupResumoMap.get(lead.id) ?? null}
                           lembretesCount={lembretesCountMap.get(lead.id) || 0}
                           lastMessage={lastMessagesMap[lead.id] ?? null}
+                          colorToken={customStageColorMap[stage] ?? null}
+                          columnIndex={columnIndex}
+                          stageTitle={stage}
                           onOpenMarkup={(leadId, orcamentoId) =>
                             setMarkupSheet({
                               leadId,
@@ -1291,7 +1304,14 @@ export default function Pipeline() {
             </div>
           </div>
           <DragOverlay>
-            {activeCard && <KanbanCard lead={activeCard} />}
+            {activeCard && (
+              <KanbanCard
+                lead={activeCard}
+                stageTitle={activeCard.status}
+                colorToken={customStageColorMap[activeCard.status] ?? null}
+                columnIndex={Math.max(0, KANBAN_STAGES.indexOf(activeCard.status))}
+              />
+            )}
           </DragOverlay>
         </DndContext>
         <FloatingHorizontalScrollbar

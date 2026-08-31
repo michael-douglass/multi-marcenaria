@@ -2,9 +2,11 @@ import { garboBrandLogo } from '@/lib/garbo-brand'
 
 interface LogoProps {
   full?: boolean
+  /** Sombra atrás da marca. Desligue no menu para não cobrir o desenho. */
+  halo?: boolean
 }
 
-export function Logo({ full = true }: LogoProps) {
+export function Logo({ full = true, halo = true }: LogoProps) {
   if (full) {
     return (
       <div
@@ -15,13 +17,18 @@ export function Logo({ full = true }: LogoProps) {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 6px 18px rgba(0,0,0,.25)',
+          boxShadow: halo ? '0 6px 18px rgba(0,0,0,.25)' : 'none',
         }}
       >
         <img
           src={garboBrandLogo}
           alt="GARBO Movelaria"
-          style={{ height: 44, width: 'auto', display: 'block' }}
+          style={{
+            height: 44,
+            width: 'auto',
+            display: 'block',
+            filter: halo ? undefined : 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
+          }}
           draggable={false}
         />
       </div>
@@ -41,7 +48,7 @@ export function Logo({ full = true }: LogoProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 4px 14px rgba(0,0,0,.22)',
+        boxShadow: halo ? '0 4px 14px rgba(0,0,0,.22)' : 'none',
       }}
     >
       <img

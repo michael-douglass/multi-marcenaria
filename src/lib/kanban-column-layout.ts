@@ -1,10 +1,10 @@
-/** Largura padrão das colunas do Kanban (Pipeline e páginas configuráveis). */
+/** Largura das colunas do Kanban — suficiente para nome, data e botões do card. */
 export const KANBAN_COLUMN_WIDTH_CLASS =
-  'w-[min(100%,200px)] min-w-[168px] max-w-[200px] sm:w-[216px] sm:min-w-[216px] sm:max-w-[216px]';
+  'w-[min(100%,248px)] min-w-[228px] max-w-[248px] sm:w-[280px] sm:min-w-[280px] sm:max-w-[280px]';
 
 export const KANBAN_COLUMN_SHELL_CLASS = [
-  'flex flex-none flex-col h-full min-h-[12rem]',
+  'relative flex flex-none flex-col h-full min-h-0 overflow-hidden',
   KANBAN_COLUMN_WIDTH_CLASS,
-  'bg-card rounded-xl border border-border/80 shadow-sm',
-  'transition-[border-color,box-shadow,transform] duration-200',
+  'bg-[rgba(12,6,3,0.88)] rounded-2xl border',
+  'transition-[border-color,box-shadow,transform] duration-300',
 ].join(' ');

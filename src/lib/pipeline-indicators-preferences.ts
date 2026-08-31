@@ -11,7 +11,7 @@ export type PipelineIndicatorKey = (typeof PIPELINE_INDICATOR_KEYS)[number];
 export interface PipelineIndicatorsState {
   /** Bloco principal (leads hoje, conversão, etc.) — true = visível/expandido. */
   metricsOpen: boolean;
-  /** Gráfico de evolução 15 dias — true = visível/expandido. */
+  /** Gráfico de evolução 15 dias — true = visível/expandido. Sempre inicia fechado ao abrir a página. */
   chartOpen: boolean;
   /** Container dos 5 indicadores — true = visível/expandido. */
   sectionOpen: boolean;

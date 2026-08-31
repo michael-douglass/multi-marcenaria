@@ -55,7 +55,6 @@ export type ActiveSection =
   | 'financeiroPontua'
   | 'portalParceiro'
   | 'eventosCrm'
-  | 'chatCrm'
 
 // ── Fornecedor ──────────────────────────────────────────────
 export interface Fornecedor {
