@@ -154,6 +154,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
       await queryClient.invalidateQueries({
         queryKey: ['lead-midias-para-orcamento', schemaEmpresa, leadId],
       });
+      await queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
     },
     [queryClient, schemaEmpresa],
   );
@@ -315,7 +316,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
 
         await invalidateRenderQueries(leadId);
 
-        toast.success('Edição concluída — nova versão salva', {
+        toast.success('Edição salva no lead — você já pode baixar ou excluir', {
           description: leadName ? `${leadName} · ${imageLabel}` : imageLabel,
           action: {
             label: 'Ver resultado',
@@ -419,7 +420,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
         updateAmbienteJob(jobId, { status: 'completed', result });
         await invalidateRenderQueries(leadId);
 
-        toast.success('Ambiente renderizado e adicionado aos anexos do lead', {
+        toast.success('Ambiente salvo no lead — você já pode baixar ou excluir', {
           description: leadName ? `Lead: ${leadName}` : undefined,
           action: {
             label: 'Ver resultado',

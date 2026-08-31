@@ -49,7 +49,8 @@ import {
   resolveAnalysisMediaFromSnapshot,
   type LeadAIMediaItem,
 } from '@/lib/lead-ai-media-sources';
-import { PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS, PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS } from '@/lib/pipeline-lead-ai-config';
+import { resolveAiRenderIdFromAttachment } from '@/lib/lead-ai-render-attachments';
+import { useLeadAIRenders, useDeleteLeadAIRender } from '@/hooks/useLeadAIRenders';
 import {
   getCachedPdfThumbnail,
   prewarmPdfThumbnail,
@@ -68,6 +69,10 @@ import { buildLeadCardReturnTo } from '@/lib/orcamento-slide-navigation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import {
+  PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS,
+  PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS,
+} from '@/lib/pipeline-lead-ai-config';
 
 interface LeadAIAnalysisTabProps {
   leadId: number;
@@ -173,12 +178,16 @@ function MediaSelectCard({
   selected,
   onChange,
   onExpand,
+  onDelete,
+  isDeleting = false,
   index,
 }: {
   item: LeadAIMediaItem;
   selected: boolean;
   onChange: (selected: boolean) => void;
   onExpand?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
   index: number;
 }) {
   const inputId = `lead-ai-media-${item.key.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
@@ -263,6 +272,29 @@ function MediaSelectCard({
         )}
       </div>
 
+      {onDelete && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={isDeleting}
+          aria-label={`Excluir ${item.label}`}
+          className={cn(
+            'absolute right-2.5 top-11 z-20 h-7 w-7',
+            'border border-white/10 bg-black/55 text-cream-secondary backdrop-blur-sm',
+            'opacity-100 sm:opacity-0 sm:group-hover:opacity-100',
+            'hover:border-destructive/40 hover:bg-destructive/90 hover:text-white',
+          )}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </Button>
+      )}
+
       <div className="border-t border-gold-border-subtle/20 bg-mahogany-elevated/90 px-3 py-2.5">
         <p className="truncate text-xs font-medium text-cream-secondary" title={item.label}>
           {item.label}
@@ -272,13 +304,26 @@ function MediaSelectCard({
   );
 }
 
+function isAiRenderMediaItem(item: LeadAIMediaItem): boolean {
+  if (item.label?.startsWith('Render IA')) return true;
+  return Boolean(
+    resolveAiRenderIdFromAttachment({
+      id: item.id,
+      fileUrl: item.fileUrl,
+      fileName: item.label,
+    }),
+  );
+}
+
 export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAIAnalysisTabProps) {
   const location = useLocation();
   const returnToLeadCard = buildLeadCardReturnTo(location.pathname, location.search, leadId);
   const { items, isLoading: mediaLoading, isRefreshing: mediaRefreshing } = useLeadAIMediaItems(leadId);
   const { config: aiConfig, isLoading: configLoading } = usePipelineLeadAIConfig();
   const { data: historico = [], isLoading: historicoLoading } = useLeadAIAnalyses(leadId);
+  const { data: renderHistorico = [] } = useLeadAIRenders(leadId);
   const deleteMutation = useDeleteLeadAIAnalysis(leadId);
+  const deleteRenderMutation = useDeleteLeadAIRender(leadId);
   const {
     startBackgroundAnalysis,
     getJobForLead,
@@ -295,6 +340,7 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [galleryFullscreenOpen, setGalleryFullscreenOpen] = useState(false);
   const [previewItem, setPreviewItem] = useState<LeadAIMediaItem | null>(null);
+  const [renderDeleteTarget, setRenderDeleteTarget] = useState<LeadAIMediaItem | null>(null);
   const [incluirApresentacaoOpen, setIncluirApresentacaoOpen] = useState(false);
   const [exportRelatorioOpen, setExportRelatorioOpen] = useState(false);
 
@@ -470,6 +516,36 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
   const galleryGridClassName =
     'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4';
 
+  const handleConfirmDeleteRender = useCallback(async () => {
+    if (!renderDeleteTarget) return;
+    const renderId = resolveAiRenderIdFromAttachment({
+      id: renderDeleteTarget.id,
+      fileUrl: renderDeleteTarget.fileUrl,
+      fileName: renderDeleteTarget.label,
+    });
+    const linkedRender = renderId
+      ? renderHistorico.find((entry) => entry.id === renderId)
+      : null;
+
+    if (!linkedRender) {
+      toast.error('Não foi possível excluir esta renderização');
+      setRenderDeleteTarget(null);
+      return;
+    }
+
+    try {
+      await deleteRenderMutation.mutateAsync(linkedRender);
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(renderDeleteTarget.key);
+        return next;
+      });
+      setRenderDeleteTarget(null);
+    } catch {
+      // toast no hook
+    }
+  }, [deleteRenderMutation, renderDeleteTarget, renderHistorico]);
+
   const renderMediaGalleryGrid = (gridClassName?: string) => (
     <div className={cn(galleryGridClassName, gridClassName)}>
       {items.map((item, index) => (
@@ -480,6 +556,8 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
           selected={selectedKeys.has(item.key)}
           onChange={(checked) => setItemSelected(item.key, checked)}
           onExpand={() => setPreviewItem(item)}
+          onDelete={isAiRenderMediaItem(item) ? () => setRenderDeleteTarget(item) : undefined}
+          isDeleting={deleteRenderMutation.isPending && renderDeleteTarget?.key === item.key}
         />
       ))}
     </div>
@@ -805,6 +883,7 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
         alt={previewItem?.label ?? 'Imagem'}
         title={previewItem?.label ?? 'Visualização'}
         subtitle={previewItem ? sourceMeta(previewItem).label : undefined}
+        outputUrl={previewItem?.fileUrl ?? previewItem?.thumbnailUrl ?? null}
       />
 
       <Dialog
@@ -918,6 +997,35 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
               ) : (
                 'Excluir análise'
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!renderDeleteTarget}
+        onOpenChange={(open) => !open && !deleteRenderMutation.isPending && setRenderDeleteTarget(null)}
+      >
+        <AlertDialogContent className="border-gold-border-subtle/30 bg-mahogany-panel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir renderização?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {renderDeleteTarget?.label
+                ? `“${renderDeleteTarget.label}” será removida dos anexos e do histórico do lead.`
+                : 'Esta renderização será removida dos anexos e do histórico do lead.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteRenderMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteRenderMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDeleteRender();
+              }}
+            >
+              {deleteRenderMutation.isPending ? 'Excluindo…' : 'Excluir imagem'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

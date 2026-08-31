@@ -32,6 +32,8 @@ import {
   finRowBase,
   finTextSecondary,
   finTextTertiary,
+  finValueGold,
+  finValueOk,
 } from '@/components/financeiro/financeiro-styles';
 
 const BRL = (v: number) =>
@@ -68,7 +70,7 @@ export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
     return (
       <Card>
         <CardContent className="py-8 flex justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+          <Loader2 className={`h-6 w-6 animate-spin ${finValueGold}`} />
         </CardContent>
       </Card>
     );
@@ -78,13 +80,13 @@ export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
 
   return (
     <>
-      <Card className={`${finCard} border-green-500/35`}>
+      <Card className={`${finCard} border-[rgba(20,108,56,0.28)]`}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2 text-foreground">
-            <Wallet className="h-4 w-4 text-green-400" />
+          <CardTitle className="text-base flex items-center gap-2 text-[#1a100c]">
+            <Wallet className={`h-4 w-4 ${finValueOk}`} />
             Saques solicitados pelos prestadores
             {pendentes.length > 0 && (
-              <Badge className="bg-amber-500/25 text-amber-100 border-amber-400/50">
+              <Badge className="bg-[#f4e4c4] text-[#6b3f12] border-[rgba(107,63,18,0.28)]">
                 {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
               </Badge>
             )}
@@ -139,7 +141,7 @@ export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs gap-1 border-amber-500/45 text-amber-200 hover:bg-amber-500/15"
+                          className="h-7 text-xs gap-1 border-[rgba(107,63,18,0.35)] text-[#6b3f12] hover:bg-[#f4e4c4]"
                           disabled={reverterAprovacao.isPending}
                           onClick={() => setReverterPedido(p)}
                         >
@@ -151,7 +153,7 @@ export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs gap-1 border-green-500/45 text-green-200 hover:bg-green-500/15"
+                          className="h-7 text-xs gap-1 border-[rgba(20,108,56,0.35)] text-[#146c38] hover:bg-[#e8f6ee]"
                           onClick={() =>
                             abrirReciboSaque({
                               prestadorNome: nomePrestador(p.prestador_id),
@@ -174,8 +176,8 @@ export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
                         variant="outline"
                         className={
                           p.status === 'aprovado'
-                            ? 'text-green-300 border-green-500/40 bg-green-500/10'
-                            : 'text-red-300 border-red-500/40 bg-red-500/10'
+                            ? 'text-[#146c38] border-[rgba(20,108,56,0.35)] bg-[#e8f6ee]'
+                            : 'text-[#9f1239] border-[rgba(159,18,57,0.35)] bg-[#fde8ee]'
                         }
                       >
                         {p.status === 'aprovado' ? 'Pago' : 'Rejeitado'}
@@ -284,10 +286,10 @@ function SaquePedidoRow({
     <div className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 ${finRowBase}`}>
       <div className="flex-1 min-w-0 space-y-1">
         <p className="font-semibold text-sm text-foreground">{prestadorNome}</p>
-        <p className="text-lg font-bold text-green-400">{BRL(valor)}</p>
+        <p className="text-lg font-bold text-[#146c38]">{BRL(valor)}</p>
         <p className={finTextSecondary}>
           Saldo disponível (vendas confirmadas − retiradas):{' '}
-          <span className={saldoParaSacar > 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
+          <span className={saldoParaSacar > 0 ? 'text-[#146c38] font-medium' : 'text-[#9f1239] font-medium'}>
             {BRL(saldoParaSacar)}
           </span>
         </p>

@@ -14,6 +14,7 @@ import {
 } from '@/lib/furniture-modules';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import type { AmbienteFurnitureObject } from '@/lib/lead-ai-ambiente-types';
+import type { FurnitureViewMode } from '@/lib/furniture-catalog-banks';
 
 function normalizeDeg(deg: number): number {
   let value = ((deg % 360) + 360) % 360;
@@ -29,6 +30,7 @@ interface AmbienteObjectEditHudProps {
   onRotate: (deltaDeg: number) => void;
   onRotatePointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onChangeType: (moduleType: FurnitureModuleType) => void;
+  onChangeViewMode: (viewMode: FurnitureViewMode) => void;
   onRemove: () => void;
 }
 
@@ -43,10 +45,12 @@ export function AmbienteObjectEditHud({
   onRotate,
   onRotatePointerDown,
   onChangeType,
+  onChangeViewMode,
   onRemove,
 }: AmbienteObjectEditHudProps) {
   const rotDeg = normalizeDeg(object.rotation ?? 0);
   const variants = getFurnitureVariants(getFamilyForModuleType(object.moduleType));
+  const viewMode: FurnitureViewMode = object.viewMode ?? '3d';
 
   return (
     <div
@@ -112,6 +116,24 @@ export function AmbienteObjectEditHud({
           <ArrowLeftRight className="h-3 w-3 opacity-70" />
           +
         </button>
+        <div className="mx-0.5 h-5 w-px shrink-0 bg-amber-700/40" />
+        {(['reto', '3d', 'realista'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            title={mode === 'reto' ? 'Desenho reto (frontal)' : mode === '3d' ? 'Desenho em volume' : 'Madeira realista'}
+            disabled={disabled}
+            className={cn(
+              'shrink-0 rounded-md px-1.5 py-1.5 text-[9px] font-semibold leading-none transition-colors',
+              viewMode === mode
+                ? 'bg-amber-500 text-zinc-950'
+                : 'bg-zinc-800/80 text-amber-100/80 hover:bg-zinc-700',
+            )}
+            onClick={() => onChangeViewMode(mode)}
+          >
+            {mode === 'reto' ? 'Reto' : mode === '3d' ? '3D' : 'Madeira'}
+          </button>
+        ))}
         <div className="mx-0.5 h-5 w-px shrink-0 bg-amber-700/40" />
         {variants.map((mod) => (
           <button

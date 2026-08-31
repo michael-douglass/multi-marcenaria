@@ -18,7 +18,7 @@ import { LeadAIImageFullscreenDialog } from '@/components/leads/LeadAIImageFulls
 import { LeadAIRenderDownloadMenu } from '@/components/leads/LeadAIRenderDownloadMenu';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Pencil, ImageIcon, Link2, Link2Off, Maximize2, Minus, Plus, RotateCcw, Wand2, X } from 'lucide-react';
+import { Pencil, ImageIcon, Link2, Link2Off, Maximize2, Minus, Plus, RotateCcw, Trash2, Wand2, X } from 'lucide-react';
 
 interface ComparePanelProps {
   src: string | null;
@@ -272,11 +272,13 @@ export function LeadAIRenderFullscreenDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-lead-ai-render-fullscreen=""
+        overlayClassName="z-[60]"
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0',
+          'fixed left-0 top-0 z-[60] flex h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0',
           'sm:left-1/2 sm:top-1/2 sm:h-[min(96dvh,940px)] sm:w-[min(1400px,calc(100vw-1rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border',
           'border-gold-border-subtle/30 bg-mahogany-panel shadow-2xl shadow-black/60',
-          '[&>button.absolute]:hidden',
+          'overflow-visible [&>button.absolute]:hidden',
         )}
       >
         <div className="relative shrink-0 border-b border-gold-border-subtle/30 bg-gradient-to-r from-mahogany-elevated via-mahogany-card to-mahogany-elevated px-4 py-3.5 sm:px-6">
@@ -507,6 +509,7 @@ export function RenderImageFrame({
   onExpand,
   onExpandSingle,
   onEdit,
+  onDelete,
   headerAction,
   toolbarCompact = false,
   className,
@@ -518,13 +521,14 @@ export function RenderImageFrame({
   onExpand?: () => void;
   onExpandSingle?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
   headerAction?: ReactNode;
   /** Ícones compactos na barra de ações (melhor em cards estreitos). */
   toolbarCompact?: boolean;
   className?: string;
 }) {
   const isAfter = variant === 'after';
-  const hasToolbar = Boolean((onExpandSingle && src) || onEdit || headerAction);
+  const hasToolbar = Boolean((onExpandSingle && src) || onEdit || onDelete || headerAction);
 
   return (
     <div
@@ -572,6 +576,14 @@ export function RenderImageFrame({
                 label="Editar por pontos"
                 icon={<Pencil className="h-3.5 w-3.5" />}
                 onClick={onEdit}
+                iconOnly={toolbarCompact}
+              />
+            )}
+            {onDelete && isAfter && (
+              <FrameToolbarButton
+                label="Excluir"
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+                onClick={onDelete}
                 iconOnly={toolbarCompact}
               />
             )}

@@ -11,6 +11,11 @@
 export const Z_NESTED_MODAL = 60;
 
 /**
+ * Menu Baixar (PNG/PDF) por cima da tela cheia de render (z-60) e do card do lead (z-50).
+ */
+export const Z_LEAD_NESTED_MENU = 80;
+
+/**
  * Card “IA em segundo plano” (render/análise).
  * Acima do LeadModal (z-50) e abaixo de toasts (z-100) / Agenda (z-200),
  * para minimizar e acompanhar tarefas com o card do lead aberto.
@@ -37,6 +42,10 @@ export const Z_ORCAMENTO_VISUALIZAR_NESTED = 260;
 
 /** Classes Tailwind correspondentes (evita números mágicos espalhados). */
 export const nestedModalClass = '!z-[60]';
+export const leadNestedMenuClass = '!z-[80]';
+/** Véu da tela cheia da lousa — o Radix força pointer-events:auto no overlay. */
+export const leadFullscreenOverlayClass = 'z-[80] !pointer-events-none';
+export const leadFullscreenContentClass = 'z-[81] pointer-events-auto';
 export const floatingAiBackgroundClass = 'z-[70]';
 export const floatingAgendaPanelClass = 'z-[200]';
 export const floatingAgendaIconClass = 'z-[210]';

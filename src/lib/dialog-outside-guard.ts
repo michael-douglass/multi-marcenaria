@@ -6,6 +6,15 @@ export const ENVIAR_PROJETO_DIALOG_OPEN_ATTR = 'data-enviar-projeto-dialog-open'
 
 export const AMBIENTE_FULLSCREEN_ATTR = 'data-ambiente-fullscreen';
 
+/** Lousa digital em tela cheia, por cima do card do lead. */
+export const WHITEBOARD_FULLSCREEN_ATTR = 'data-whiteboard-fullscreen-open';
+
+/** Seletor de imagens do projeto (lousa / compositor de ambiente). */
+export const PROJECT_IMAGE_PICKER_OPEN_ATTR = 'data-project-image-picker-open';
+
+/** Seletor nativo de arquivos aberto (input type=file). */
+export const FILE_PICKER_OPEN_ATTR = 'data-file-picker-open';
+
 /** Visualização do orçamento em slides, aberta por cima do card do lead. */
 export const ORCAMENTO_VISUALIZAR_OPEN_ATTR = 'data-orcamento-visualizar-open';
 
@@ -42,6 +51,24 @@ export function setEnviarProjetoDialogOpenFlag(open: boolean) {
   }
 }
 
+export function setProjectImagePickerOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR);
+  }
+}
+
+export function setFilePickerOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(FILE_PICKER_OPEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(FILE_PICKER_OPEN_ATTR);
+  }
+}
+
 export interface DialogOutsideEvent {
   target: EventTarget | null;
   detail?: { originalEvent?: Event };
@@ -66,7 +93,10 @@ export function shouldBlockLeadModalBackdropClose(options?: { filePickerActive?:
     root.hasAttribute(MARKUP_ORCAMENTO_SIMPLES_OPEN_ATTR) ||
     root.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR) ||
     root.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
-    root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR)
+    root.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR) ||
+    root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
+    root.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR) ||
+    root.hasAttribute(FILE_PICKER_OPEN_ATTR)
   )
 }
 
@@ -86,13 +116,18 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-markup-calculator]')) return true;
   if (target?.closest('[data-markup-orcamento-simples]')) return true;
   if (target?.closest('[data-enviar-projeto-dialog]')) return true;
+  if (target?.closest('[data-whiteboard-project-picker]')) return true;
   if (target?.closest('[data-pontua-garbo-dialog]')) return true;
   if (target?.closest('[data-whiteboard-viewport]')) return true;
+  if (target?.closest('[data-whiteboard-fullscreen]')) return true;
   if (target?.closest('[data-furniture-catalog]')) return true;
   if (target?.closest('[data-furniture-catalog-overlay]')) return true;
   if (target?.closest('[data-ambiente-composer-fullscreen]')) return true;
   if (target?.closest('[data-orcamento-visualizar]')) return true;
   if (target?.closest('[data-orcamento-export-menu]')) return true;
+  if (target?.closest('[data-lead-ai-render-download-menu]')) return true;
+  if (target?.closest('[data-lead-ai-image-fullscreen]')) return true;
+  if (target?.closest('[data-lead-ai-render-fullscreen]')) return true;
   if (target?.closest('[data-orcamento-visualizar-nested]')) return true;
   if (target?.closest('[data-dialog-file-picker-zone]')) return true;
   if (target?.closest('[data-lead-origem-picker]')) return true;
@@ -116,9 +151,11 @@ export function shouldPreventDialogOutsideClose(
 
 /** Marca janela como “seletor de arquivo aberto” até o foco voltar ao app. */
 export function runWithFilePickerGuard(onActiveChange: (active: boolean) => void, open: () => void) {
+  setFilePickerOpenFlag(true);
   onActiveChange(true);
   open();
   const release = () => {
+    setFilePickerOpenFlag(false);
     onActiveChange(false);
     window.removeEventListener('focus', release);
   };

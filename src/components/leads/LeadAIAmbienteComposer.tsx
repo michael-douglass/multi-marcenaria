@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { AMBIENTE_FULLSCREEN_ATTR } from '@/lib/dialog-outside-guard';
+import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
 import { FurnitureModuleGfx } from '@/components/leads/whiteboard/FurnitureModuleGfx';
 import { WhiteboardCameraCapture, type WhiteboardCameraCaptureHandle } from '@/components/leads/whiteboard/WhiteboardCameraCapture';
@@ -65,8 +66,6 @@ import {
 import { buildAmbienteCenaInventario } from '@/lib/lead-ai-ambiente-inventario';
 import { parseAmbienteSugestoes } from '@/lib/lead-ai-ambiente-sugestoes';
 import {
-  AMBIENTE_OBJECT_BASE_H,
-  AMBIENTE_OBJECT_BASE_W,
   AMBIENTE_ZOOM_STEP,
   clampAmbienteObjectHeight,
   clampAmbienteObjectWidth,
@@ -76,6 +75,12 @@ import {
   zoomFromOverlayWidth,
 } from '@/lib/lead-ai-ambiente-zoom';
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
+import {
+  GARBO_WOOD_TEXTURE_URL,
+  ambienteFurnitureDefaultSize,
+  furnitureViewIsFlat,
+  type FurnitureViewMode,
+} from '@/lib/furniture-catalog-banks';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import type {
   AmbienteBackground,
@@ -556,8 +561,18 @@ export function LeadAIAmbienteComposer({
     setSelectedFurnitureType(moduleType);
   }, [pushHistory]);
 
-  const handlePlaceFurniture = useCallback((moduleType: FurnitureModuleType) => {
+  const changeSelectedViewMode = useCallback((viewMode: FurnitureViewMode) => {
+    const id = selectedIdRef.current;
+    if (!id) return;
+    pushHistory();
+    setObjects((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, viewMode } : item)),
+    );
+  }, [pushHistory]);
+
+  const handlePlaceFurniture = useCallback((moduleType: FurnitureModuleType, viewMode: FurnitureViewMode = '3d') => {
     const meta = getFurnitureModuleMeta(moduleType);
+    const size = ambienteFurnitureDefaultSize(moduleType, viewMode);
     const id = newId('fur');
     pushHistory();
     setObjects((prev) => [
@@ -568,10 +583,11 @@ export function LeadAIAmbienteComposer({
         label: meta.label,
         x: 0.5,
         y: 0.58,
-        width: AMBIENTE_OBJECT_BASE_W,
-        height: AMBIENTE_OBJECT_BASE_H,
+        width: size.width,
+        height: size.height,
         rotation: 0,
         colorHex: '#f2d892',
+        viewMode,
       },
     ]);
     setSelectedFurnitureType(moduleType);
@@ -1608,6 +1624,7 @@ export function LeadAIAmbienteComposer({
             ))}
 
             {objects.map((object) => {
+              const isRealistic = object.viewMode === 'realista';
               const payload = {
                 kind: 'furniture_module' as const,
                 moduleType: object.moduleType,
@@ -1615,6 +1632,7 @@ export function LeadAIAmbienteComposer({
                 b: { x: 50, y: 92 },
                 widthOverride: 72,
                 topDown: true,
+                flatFront: furnitureViewIsFlat(object.viewMode),
                 colorHex: object.colorHex,
                 locked: true,
               };
@@ -1635,7 +1653,15 @@ export function LeadAIAmbienteComposer({
                   onPointerDown={(event) => beginDrag('object', object.id, object.x, object.y, event)}
                 >
                   <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
-                    <FurnitureModuleGfx payload={payload} strokeColor="#f2d892" strokeWidth={1.6} selected={selectedId === object.id} />
+                    <FurnitureModuleGfx
+                      payload={payload}
+                      strokeColor="#f2d892"
+                      strokeWidth={1.6}
+                      selected={selectedId === object.id}
+                      showLabel={false}
+                      fillTextureUrl={isRealistic ? GARBO_WOOD_TEXTURE_URL : undefined}
+                      patternId={`wood-${object.id}`}
+                    />
                   </svg>
                   {selectedId === object.id && (
                     <>
@@ -1674,6 +1700,7 @@ export function LeadAIAmbienteComposer({
                   })
                 }
                 onChangeType={changeSelectedObjectType}
+                onChangeViewMode={changeSelectedViewMode}
                 onRemove={() => removeById(selectedObject.id)}
               />
             )}
@@ -1797,7 +1824,7 @@ export function LeadAIAmbienteComposer({
                 'pointer-events-auto min-h-0',
                 isFullscreen
                   ? 'flex w-[min(100%,22.5rem)] shrink-0 flex-col'
-                  : 'mt-3 h-[min(22rem,46vh)] w-full',
+                  : 'mt-3 h-[min(26rem,50vh)] w-full',
               )}
             >
               <WhiteboardFurnitureCatalog
@@ -1805,7 +1832,7 @@ export function LeadAIAmbienteComposer({
                 onSelect={handlePlaceFurniture}
                 disabled={locked}
                 variant="dock"
-                hint="Digite o nome, escolha o modelo e clique para posicionar na cena."
+                hint="Escolha o banco (Retos, 3D ou Realistas) e clique no modelo para posicionar. Na foto, use +/− para o tamanho."
                 onClose={() => setCatalogOpen(false)}
               />
             </aside>
@@ -2017,37 +2044,20 @@ export function LeadAIAmbienteComposer({
 
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
         <DialogContent
-          overlayClassName="z-[80]"
+          nested
+          overlayClassName={leadFullscreenOverlayClass}
           data-ambiente-composer-fullscreen=""
           className={cn(
-            'z-[80] !fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-mahogany-panel',
+            leadFullscreenContentClass,
+            '!fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-mahogany-panel',
             '[&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation',
           )}
           onOpenAutoFocus={(event) => {
             if (catalogOpen) event.preventDefault();
           }}
-          onFocusOutside={(event) => {
-            const target = event.target as HTMLElement | null;
-            if (folderPickerOpen) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog]')) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog-dock]')) event.preventDefault();
-          }}
-          onPointerDownOutside={(event) => {
-            const target = event.target as HTMLElement | null;
-            if (folderPickerOpen) event.preventDefault();
-            if (target?.closest('[data-whiteboard-viewport]')) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog]')) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog-dock]')) event.preventDefault();
-            if (target?.closest('[data-whiteboard-project-picker]')) event.preventDefault();
-          }}
-          onInteractOutside={(event) => {
-            const target = event.target as HTMLElement | null;
-            if (folderPickerOpen) event.preventDefault();
-            if (target?.closest('[data-whiteboard-viewport]')) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog]')) event.preventDefault();
-            if (target?.closest('[data-furniture-catalog-dock]')) event.preventDefault();
-            if (target?.closest('[data-whiteboard-project-picker]')) event.preventDefault();
-          }}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+          onFocusOutside={(event) => event.preventDefault()}
         >
           <DialogTitle className="sr-only">Compor ambiente em tela cheia</DialogTitle>
           {isFullscreen ? composerBody : null}

@@ -13,8 +13,9 @@ import {
   downloadLeadAIRenderPng,
   exportLeadAIRenderPdf,
 } from '@/lib/lead-ai-render-export';
+import { leadNestedMenuClass } from '@/lib/overlay-z-index';
 import { cn } from '@/lib/utils';
-import { ChevronDown, Download, FileImage, FileText } from 'lucide-react';
+import { ChevronDown, Download, FileImage, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LeadAIRenderDownloadMenuProps {
@@ -29,7 +30,10 @@ interface LeadAIRenderDownloadMenuProps {
   menuTitle?: string;
   className?: string;
   triggerClassName?: string;
-  /** Use false dentro de diálogos modais para o menu abrir corretamente. */
+  /**
+   * Só use true fora de um Dialog. Dentro do card do lead, modal=true cria um
+   * véu do Radix que engole os cliques (nada fecha, nada responde).
+   */
   menuModal?: boolean;
 }
 
@@ -51,10 +55,11 @@ export function LeadAIRenderDownloadMenu({
   const canExport = Boolean(outputUrl || sketchUrl);
 
   const handleDownloadPng = useCallback(async () => {
-    if (!outputUrl) return;
+    const url = outputUrl || sketchUrl;
+    if (!url) return;
     setIsDownloading(true);
     try {
-      await downloadLeadAIRenderPng(outputUrl);
+      await downloadLeadAIRenderPng(url);
       toast.success('Imagem baixada com sucesso');
     } catch (error) {
       toast.error('Erro ao baixar imagem', {
@@ -63,11 +68,12 @@ export function LeadAIRenderDownloadMenu({
     } finally {
       setIsDownloading(false);
     }
-  }, [outputUrl]);
+  }, [outputUrl, sketchUrl]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
+    setIsDownloading(true);
     try {
-      exportLeadAIRenderPdf({
+      await exportLeadAIRenderPdf({
         sketchUrl,
         sketchLabel,
         outputUrl,
@@ -75,10 +81,13 @@ export function LeadAIRenderDownloadMenu({
         nomeEmpresa: empresa?.nome,
         cnpj: empresa?.cnpj,
       });
+      toast.success('PDF baixado com sucesso');
     } catch (error) {
       toast.error('Erro ao exportar PDF', {
         description: error instanceof Error ? error.message : 'Tente novamente.',
       });
+    } finally {
+      setIsDownloading(false);
     }
   }, [empresa?.cnpj, empresa?.logo_url, empresa?.nome, outputUrl, sketchLabel, sketchUrl]);
 
@@ -94,6 +103,8 @@ export function LeadAIRenderDownloadMenu({
           disabled={isDownloading}
           aria-label={iconOnly ? triggerLabel : undefined}
           title={iconOnly ? triggerLabel : undefined}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
           className={cn(
             iconOnly
               ? 'h-8 w-8 shrink-0 text-cream-muted hover:bg-gold/10 hover:text-gold'
@@ -102,7 +113,11 @@ export function LeadAIRenderDownloadMenu({
             className,
           )}
         >
-          <Download className={cn('h-3.5 w-3.5', !iconOnly && 'mr-1.5')} />
+          {isDownloading ? (
+            <Loader2 className={cn('h-3.5 w-3.5 animate-spin', !iconOnly && 'mr-1.5')} />
+          ) : (
+            <Download className={cn('h-3.5 w-3.5', !iconOnly && 'mr-1.5')} />
+          )}
           {!iconOnly && (
             <span className={compactTrigger ? 'hidden sm:inline' : undefined}>
               {isDownloading ? 'Baixando…' : triggerLabel}
@@ -114,16 +129,21 @@ export function LeadAIRenderDownloadMenu({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
+        data-lead-ai-render-download-menu=""
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onFocusOutside={(event) => event.preventDefault()}
         className={cn(
-          'z-[100] w-64 p-2 rounded-xl border border-gold-border-subtle/30',
-          'bg-mahogany-panel/95 backdrop-blur-xl text-foreground shadow-2xl shadow-black/50',
+          leadNestedMenuClass,
+          'w-64 p-2 rounded-xl border border-gold-border-subtle/30',
+          '!bg-[#2a1812] !text-cream-secondary pointer-events-auto shadow-2xl shadow-black/50',
         )}
       >
         <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.18em] text-cream-muted font-semibold px-2 py-1.5">
           {menuTitle}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-gold-border-subtle/20" />
-        {outputUrl && (
+        {(outputUrl || sketchUrl) && (
           <DropdownMenuItem
             disabled={isDownloading}
             onSelect={() => void handleDownloadPng()}
@@ -133,24 +153,25 @@ export function LeadAIRenderDownloadMenu({
               <FileImage className="h-4 w-4" />
             </span>
             <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-medium">Baixar render (PNG)</span>
+              <span className="text-sm font-medium">Baixar PNG</span>
               <span className="text-xs text-cream-muted leading-snug">
-                Salva a imagem fotorrealista no seu computador
+                Salva a imagem no seu computador
               </span>
             </span>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onSelect={handleExportPdf}
+          disabled={isDownloading}
+          onSelect={() => void handleExportPdf()}
           className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer focus:bg-gold/10 focus:text-gold"
         >
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold ring-1 ring-gold/20">
             <FileText className="h-4 w-4" />
           </span>
           <span className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-sm font-medium">Exportar PDF</span>
+            <span className="text-sm font-medium">Baixar PDF</span>
             <span className="text-xs text-cream-muted leading-snug">
-              {sketchUrl && outputUrl
+              {sketchUrl && outputUrl && sketchUrl !== outputUrl
                 ? 'Antes e depois com logo e nome da empresa'
                 : 'Com logo e nome da empresa'}
             </span>

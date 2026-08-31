@@ -15,6 +15,9 @@ interface FurnitureModuleGfxProps {
   showLabel?: boolean;
   editableLines?: boolean;
   onLineClick?: (lineIndex: number) => void;
+  /** Textura de madeira nas faces (banco realista). */
+  fillTextureUrl?: string;
+  patternId?: string;
 }
 
 export function FurnitureModuleGfx({
@@ -24,6 +27,8 @@ export function FurnitureModuleGfx({
   selected = false,
   preview = false,
   showLabel = true,
+  fillTextureUrl,
+  patternId = 'furniture-wood',
 }: FurnitureModuleGfxProps) {
   const color = payload.colorHex ?? strokeColor;
   const frame = furnitureFrame(
@@ -33,6 +38,7 @@ export function FurnitureModuleGfx({
     payload.heightOverride,
     payload.widthOverride,
     payload.topDown === true,
+    payload.flatFront === true,
   );
   const hidden = new Set(payload.hiddenLineIndices ?? []);
   const visibleLines = frame.lines
@@ -56,13 +62,45 @@ export function FurnitureModuleGfx({
       data-whiteboard-furniture={payload.moduleType}
       data-furniture-locked={payload.locked ? 'true' : 'false'}
     >
+      {fillTextureUrl && (
+        <defs>
+          <pattern
+            id={patternId}
+            patternUnits="userSpaceOnUse"
+            width={Math.max(24, frame.width)}
+            height={Math.max(24, frame.height)}
+          >
+            <image
+              href={fillTextureUrl}
+              width={Math.max(24, frame.width)}
+              height={Math.max(24, frame.height)}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </pattern>
+        </defs>
+      )}
+
       {/* Faces 3D (preenchimento suave — nitidez no traço) */}
       {frame.fillFaces.map((face, i) => (
         <path
           key={`face-${i}`}
           d={facePath(face)}
-          fill={color}
-          fillOpacity={preview ? 0.04 : i === 2 ? 0.06 : i === 0 ? 0.12 : 0.09}
+          fill={fillTextureUrl ? `url(#${patternId})` : color}
+          fillOpacity={
+            fillTextureUrl
+              ? i === 2
+                ? 0.92
+                : i === 0
+                  ? 0.78
+                  : 0.7
+              : preview
+                ? 0.04
+                : i === 2
+                  ? 0.06
+                  : i === 0
+                    ? 0.12
+                    : 0.09
+          }
           stroke="none"
           style={{ pointerEvents: 'none' }}
         />
@@ -125,25 +163,28 @@ export function FurnitureModuleGfx({
 export function FurnitureModuleThumb({
   moduleType,
   className,
+  flatFront = false,
 }: {
   moduleType: WhiteboardFurnitureModulePayload['moduleType'];
   className?: string;
+  /** Banco retos: só o frontal. */
+  flatFront?: boolean;
 }) {
   const a = { x: 24, y: 6 };
   const b = { x: 24, y: 52 };
-  const frame = furnitureFrame(a, b, moduleType);
+  const frame = furnitureFrame(a, b, moduleType, undefined, undefined, true, flatFront);
   const pathD = furnitureLinesPath(frame.lines);
   const facePath = (pts: { x: number; y: number }[]) =>
     pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
 
   return (
     <svg viewBox="0 0 48 56" className={cn('h-10 w-9', className)} aria-hidden>
-      {frame.fillFaces.slice(0, 2).map((face, i) => (
+      {frame.fillFaces.slice(0, flatFront ? 1 : 2).map((face, i) => (
         <path
           key={i}
           d={facePath(face)}
           fill="currentColor"
-          fillOpacity={i === 0 ? 0.14 : 0.08}
+          fillOpacity={flatFront ? 0.08 : i === 0 ? 0.14 : 0.08}
         />
       ))}
       <path

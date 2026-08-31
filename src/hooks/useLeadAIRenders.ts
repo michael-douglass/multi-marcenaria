@@ -153,7 +153,7 @@ export function useEditLeadRender(leadId: number | null | undefined) {
       queryClient.invalidateQueries({
         queryKey: ['lead-midias-para-orcamento', schemaEmpresa, leadId],
       });
-      toast.success('Edição aplicada — nova versão salva no histórico');
+      toast.success('Edição salva no lead — você já pode baixar ou excluir');
     },
     onError: (err: Error) => {
       toast.error('Não foi possível aplicar a edição', {

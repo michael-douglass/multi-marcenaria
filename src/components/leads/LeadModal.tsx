@@ -53,7 +53,19 @@ import { LeadProjetoConclusaoPanel } from '@/components/projetos/LeadProjetoConc
 import { LeadProjetoNotasSection } from '@/components/projetos/LeadProjetoNotasSection';
 import { LeadProjetoComposicaoSection } from '@/components/projetos/LeadProjetoComposicaoSection';
 import { LeadKnowledgeMemoryCard } from './LeadKnowledgeMemoryCard';
-import { AMBIENTE_FULLSCREEN_ATTR, ENVIAR_PROJETO_DIALOG_OPEN_ATTR, ORCAMENTO_VISUALIZAR_OPEN_ATTR, isOrcamentoVisualizarOpen, isPrimaryDialogBackdrop, shouldBlockLeadModalBackdropClose, shouldPreventDialogOutsideClose, subscribeOrcamentoVisualizarOpen, swallowClickThroughAfterDialogClose } from '@/lib/dialog-outside-guard';
+import {
+  AMBIENTE_FULLSCREEN_ATTR,
+  ENVIAR_PROJETO_DIALOG_OPEN_ATTR,
+  ORCAMENTO_VISUALIZAR_OPEN_ATTR,
+  PROJECT_IMAGE_PICKER_OPEN_ATTR,
+  WHITEBOARD_FULLSCREEN_ATTR,
+  isOrcamentoVisualizarOpen,
+  isPrimaryDialogBackdrop,
+  shouldBlockLeadModalBackdropClose,
+  shouldPreventDialogOutsideClose,
+  subscribeOrcamentoVisualizarOpen,
+  swallowClickThroughAfterDialogClose,
+} from '@/lib/dialog-outside-guard';
 const LeadWhiteboard = lazy(() =>
   import('./LeadWhiteboard').then((m) => ({ default: m.LeadWhiteboard })),
 );
@@ -1154,7 +1166,7 @@ export function LeadModal({
         if (!open && filePickerActive) return;
         // Clique na confirmação “Duplicar” não pode fechar o card no meio do caminho.
         if (!open && nestedOverlayOpen) return;
-        if (!open && isOrcamentoVisualizarOpen()) return;
+        if (!open && shouldBlockLeadModalBackdropClose({ filePickerActive })) return;
         if (!open) requestClose();
       }}
     >
@@ -1190,8 +1202,10 @@ export function LeadModal({
           if (
             typeof document !== 'undefined' &&
             (document.documentElement.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
+              document.documentElement.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR) ||
               document.documentElement.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR) ||
-              document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR))
+              document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
+              document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR))
           ) {
             e.preventDefault();
           }

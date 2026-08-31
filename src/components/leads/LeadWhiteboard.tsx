@@ -62,6 +62,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { WHITEBOARD_FULLSCREEN_ATTR } from '@/lib/dialog-outside-guard';
+import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeadWhiteboard, type LeadWhiteboardImage, type LeadWhiteboardDrawing } from '@/hooks/useLeadWhiteboard';
@@ -2875,6 +2877,14 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   const openFullscreen = () => setFullscreen(true);
 
   useEffect(() => {
+    if (!fullscreen) return;
+    document.documentElement.setAttribute(WHITEBOARD_FULLSCREEN_ATTR, 'true');
+    return () => {
+      document.documentElement.removeAttribute(WHITEBOARD_FULLSCREEN_ATTR);
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
     if (!fullscreen || !isMobile) return;
 
     const meta = document.querySelector('meta[name="viewport"]');
@@ -2964,15 +2974,16 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
 
       <Dialog open={fullscreen} onOpenChange={setFullscreen}>
         <DialogContent
-          className="!fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-background [&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation"
-          onPointerDownOutside={(e) => {
-            const t = e.target as HTMLElement | null;
-            if (t?.closest('[data-whiteboard-viewport]')) e.preventDefault();
-          }}
-          onInteractOutside={(e) => {
-            const t = e.target as HTMLElement | null;
-            if (t?.closest('[data-whiteboard-viewport]')) e.preventDefault();
-          }}
+          nested
+          overlayClassName={leadFullscreenOverlayClass}
+          data-whiteboard-fullscreen=""
+          className={cn(
+            leadFullscreenContentClass,
+            '!fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-background [&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation',
+          )}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
         >
           <DialogTitle className="sr-only">Fotos do lead</DialogTitle>
           {fullscreen && (

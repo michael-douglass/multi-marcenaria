@@ -10,11 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import {
   finCard,
   finCardMuted,
-  finCardTitle,
   finRowHighlight,
   finTextSecondary,
   finTextTertiary,
   finBadgePendente,
+  finValueGold,
 } from '@/components/financeiro/financeiro-styles';
 
 const BRL = (v: number) =>
@@ -28,7 +28,7 @@ export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean 
     return (
       <Card className={`${finCard} ring-1 ring-amber-500/25`}>
         <CardContent className="py-8 flex justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+          <Loader2 className={`h-6 w-6 animate-spin ${finValueGold}`} />
         </CardContent>
       </Card>
     );
@@ -40,7 +40,7 @@ export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean 
     <Card className={`${finCard} ring-1 ring-amber-500/30`}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2 flex-wrap text-foreground">
-          <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+          <Sparkles className={`h-4 w-4 ${finValueGold} shrink-0`} />
           Comissões aguardando liberação
           <Badge className="bg-amber-500 text-amber-950 border-amber-400 animate-pulse font-semibold">
             {aguardando.length} pendente{aguardando.length !== 1 ? 's' : ''}
@@ -67,7 +67,7 @@ export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean 
               </div>
               <p className={finTextSecondary}>
                 Arquiteto:{' '}
-                <span className="font-medium text-amber-50">{item.prestadorNome}</span>
+                <span className="font-medium text-[#1a100c]">{item.prestadorNome}</span>
                 {' · '}
                 {item.fieldNome} · {item.leadStatus}
               </p>
@@ -76,7 +76,7 @@ export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean 
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0 sm:flex-col sm:items-end">
-              <p className="text-lg font-bold text-amber-400">{BRL(item.valorComissao)}</p>
+              <p className={`text-lg font-bold ${finValueGold}`}>{BRL(item.valorComissao)}</p>
               {!readOnly && (
                 <Button
                   size="sm"

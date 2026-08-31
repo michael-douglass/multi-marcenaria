@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FloatingOverlayProvider } from "@/contexts/FloatingOverlayContext";
 import { isPrimaryDialogBackdrop, shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
-import { floatingAgendaDialogClass } from "@/lib/overlay-z-index";
+import { floatingAgendaDialogClass, nestedModalClass } from "@/lib/overlay-z-index";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -39,12 +39,15 @@ const DialogContent = React.forwardRef<
     overlayClassName?: string;
     /** Clique no véu escuro (fora do card). */
     onOverlayClick?: React.PointerEventHandler<HTMLDivElement>;
+    /** Acima de um Dialog aberto (z-50) — janelas internas do card do lead. */
+    nested?: boolean;
   }
 >(({
   className,
   floatingLayer,
   overlayClassName,
   onOverlayClick,
+  nested,
   children,
   onPointerDownOutside,
   onFocusOutside,
@@ -53,8 +56,10 @@ const DialogContent = React.forwardRef<
 }, ref) => (
   <DialogPortal>
     <DialogOverlay
+      data-nested-dialog={nested ? '' : undefined}
       className={cn(
         floatingLayer ? floatingAgendaDialogClass : "z-50",
+        nested && !overlayClassName && nestedModalClass,
         overlayClassName,
       )}
       onPointerUp={(event) => {
@@ -66,6 +71,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       data-floating-agenda-root={floatingLayer ? '' : undefined}
+      data-nested-dialog={nested ? '' : undefined}
       onPointerDownOutside={(event) => {
         if (onOverlayClick) event.preventDefault();
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
@@ -83,6 +89,7 @@ const DialogContent = React.forwardRef<
       className={cn(
         "fixed left-[50%] top-[50%] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 glass-dialog p-6 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl",
         floatingLayer ? floatingAgendaDialogClass : "z-50",
+        nested && nestedModalClass,
         className,
       )}
       {...props}

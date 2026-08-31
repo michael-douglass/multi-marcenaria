@@ -56,30 +56,24 @@ export function ArquitetosPontuaGarboMural({
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-[#f2d892]/25 bg-gradient-to-br from-[#1a100c] via-[#2a1812] to-[#3d2418] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] sm:p-7"
+      className="relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-5 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:p-7"
       aria-labelledby="mural-arquitetos-titulo"
     >
       <style>{muralCss}</style>
-      <div className="pointer-events-none absolute inset-0 grain-overlay opacity-40" aria-hidden />
-      <div
-        className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full blur-3xl"
-        style={{ background: 'radial-gradient(circle, rgba(242,216,146,0.18) 0%, transparent 70%)' }}
-        aria-hidden
-      />
 
       <div className="relative space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f2d892]/80">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
               Programa Pontua Garbo
             </p>
             <h2
               id="mural-arquitetos-titulo"
-              className="mt-1 font-display text-3xl italic leading-tight text-[#fffaf4] sm:text-4xl"
+              className="mt-1 font-display text-3xl italic leading-tight text-[#1a100c] sm:text-4xl"
             >
               Arquitetos reconhecidos
             </h2>
-            <p className="mt-2 max-w-xl text-sm text-[#edd9c4]">
+            <p className="mt-2 max-w-xl text-sm text-[#4a3428]">
               Todo profissional cadastrado no Pontua Garbo aparece aqui, com nome e título.
               Clique no cartão para ver nome completo e telefone.
             </p>
@@ -90,21 +84,21 @@ export function ArquitetosPontuaGarboMural({
               Buscar arquiteto pelo nome ou e-mail
             </Label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f2d892]/70" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b3f12]" />
               <Input
                 id="busca-arquiteto"
                 value={busca}
                 onChange={(e) => onBuscaChange(e.target.value)}
                 placeholder="Buscar por nome ou e-mail"
-                className="border-[#f2d892]/25 bg-black/25 pl-9 text-[#fffaf4] placeholder:text-[#d4bc9f]/70"
+                className="border-[rgba(26,16,12,0.18)] bg-white pl-9 text-[#1a100c] placeholder:text-[#6b5244]"
               />
             </div>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-[#d4bc9f]">
-            <Loader2 className="h-4 w-4 animate-spin text-[#f2d892]" />
+          <div className="flex items-center gap-2 py-8 text-sm text-[#4a3428]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#6b3f12]" />
             Carregando arquitetos cadastrados…
           </div>
         ) : arquitetos.length === 0 ? (
@@ -133,33 +127,33 @@ export function ArquitetosPontuaGarboMural({
                     className={cn(
                       'group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors motion-safe:transition-transform motion-safe:hover:-translate-y-0.5',
                       isSelected
-                        ? 'border-[#f2d892]/70 bg-[#f2d892]/15 ring-1 ring-[#f2d892]/35'
-                        : 'border-[#f2d892]/18 bg-black/25 hover:border-[#f2d892]/45 hover:bg-black/40',
+                        ? 'border-[rgba(107,63,18,0.45)] bg-[#f8efe0] ring-1 ring-[rgba(107,63,18,0.18)]'
+                        : 'border-[rgba(26,16,12,0.12)] bg-white hover:border-[rgba(107,63,18,0.32)] hover:bg-[#f8efe0]',
                     )}
                   >
-                    <Avatar className="h-12 w-12 shrink-0 ring-2 ring-[#f2d892]/40">
+                    <Avatar className="h-12 w-12 shrink-0 ring-2 ring-[rgba(107,63,18,0.28)]">
                       {arquiteto.avatarUrl && (
                         <AvatarImage src={arquiteto.avatarUrl} alt="" />
                       )}
-                      <AvatarFallback className="bg-[#3d2418] font-display text-sm text-[#f2d892]">
+                      <AvatarFallback className="bg-[#f4e4c4] font-display text-sm text-[#6b3f12]">
                         {iniciaisNomeArquiteto(arquiteto.nome)}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate font-display text-lg leading-tight text-[#fffaf4]">
+                        <p className="truncate font-display text-lg leading-tight text-[#1a100c]">
                           {arquiteto.nome}
                         </p>
-                        <Award className="h-3.5 w-3.5 shrink-0 text-[#f2d892]" aria-hidden />
+                        <Award className="h-3.5 w-3.5 shrink-0 text-[#6b3f12]" aria-hidden />
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span className={finArquitetoSeal}>{titulo}</span>
-                        <span className="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-300">
+                        <span className="rounded-full border border-[rgba(20,108,56,0.35)] bg-[#e8f6ee] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#146c38]">
                           Reconhecido
                         </span>
                       </div>
-                      <p className="mt-1 truncate text-[11px] text-[#d4bc9f]">
+                      <p className="mt-1 truncate text-[11px] text-[#6b5244]">
                         {desde ?? 'Cadastrado no programa'}
                         {arquiteto.saldoParaSacar > 0
                           ? ` · saldo ${formatBRLPontua(arquiteto.saldoParaSacar)}`

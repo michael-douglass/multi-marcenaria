@@ -33,7 +33,8 @@ export type FurnitureFamilyId =
   | 'rack'
   | 'eletro'
   | 'espelho'
-  | 'quarto';
+  | 'quarto'
+  | 'sala';
 
 export interface FurnitureFamilyMeta {
   id: FurnitureFamilyId;
@@ -662,6 +663,60 @@ export const FURNITURE_MODULES: FurnitureModuleMeta[] = [
     depthRatio: 0.28,
     keywords: ['luminária', 'luminaria', 'abajur', 'luz', 'chão', 'chao'],
   },
+  {
+    type: 'cadeira',
+    label: 'Cadeira',
+    description: 'Cadeira de jantar / estar',
+    family: 'sala',
+    aspectWidth: 0.62,
+    depthRatio: 0.55,
+    keywords: ['cadeira', 'assento', 'jantar', 'sala'],
+  },
+  {
+    type: 'cadeira_poltrona',
+    label: 'Poltrona',
+    description: 'Poltrona estofada',
+    family: 'sala',
+    aspectWidth: 0.85,
+    depthRatio: 0.7,
+    keywords: ['poltrona', 'cadeira', 'sala', 'estar'],
+  },
+  {
+    type: 'sofa',
+    label: 'Sofá 3 lugares',
+    description: 'Sofá reto de estar',
+    family: 'sala',
+    aspectWidth: 1.85,
+    depthRatio: 0.55,
+    keywords: ['sofá', 'sofa', 'sala', 'estar'],
+  },
+  {
+    type: 'sofa_2lugares',
+    label: 'Sofá 2 lugares',
+    description: 'Sofá compacto',
+    family: 'sala',
+    aspectWidth: 1.45,
+    depthRatio: 0.55,
+    keywords: ['sofá', 'sofa', 'namoradeira', 'sala'],
+  },
+  {
+    type: 'sofa_canto',
+    label: 'Sofá de canto',
+    description: 'Canto em L',
+    family: 'sala',
+    aspectWidth: 1.7,
+    depthRatio: 0.72,
+    keywords: ['sofá', 'sofa', 'canto', 'L', 'sala'],
+  },
+  {
+    type: 'modulo_cubo',
+    label: 'Módulo cubo',
+    description: 'Cubo de marcenaria ajustável',
+    family: 'nicho',
+    aspectWidth: 1,
+    depthRatio: 0.45,
+    keywords: ['módulo', 'modulo', 'cubo', 'caixa', 'nichos'],
+  },
 ];
 
 export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
@@ -710,6 +765,12 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
     description: 'Cama, penteadeira e luminária',
     defaultType: 'cama',
   },
+  {
+    id: 'sala',
+    label: 'Sala',
+    description: 'Sofás, cadeiras e poltronas',
+    defaultType: 'sofa',
+  },
 ];
 
 export function getFurnitureModuleMeta(type: FurnitureModuleType): FurnitureModuleMeta {
@@ -728,7 +789,7 @@ export function getFamilyForModuleType(type: FurnitureModuleType): FurnitureFami
   return getFurnitureModuleMeta(type).family;
 }
 
-export type FurnitureCatalogGroupId = 'todos' | 'cozinha' | 'quarto' | 'espelho' | 'marcenaria';
+export type FurnitureCatalogGroupId = 'todos' | 'cozinha' | 'quarto' | 'espelho' | 'marcenaria' | 'sala';
 
 export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; label: string }> = [
   { id: 'todos', label: 'Todos' },
@@ -736,11 +797,13 @@ export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; labe
   { id: 'quarto', label: 'Quarto' },
   { id: 'espelho', label: 'Espelhos' },
   { id: 'marcenaria', label: 'Marcenaria' },
+  { id: 'sala', label: 'Sala' },
 ];
 
 export function furnitureCatalogGroup(familyId: FurnitureFamilyId): Exclude<FurnitureCatalogGroupId, 'todos'> {
   if (familyId === 'eletro' || familyId === 'cozinha') return 'cozinha';
   if (familyId === 'espelho') return 'espelho';
+  if (familyId === 'sala') return 'sala';
   if (familyId === 'quarto' || familyId === 'mesa_cabeceira' || familyId === 'guarda_roupa') {
     return 'quarto';
   }
@@ -1009,6 +1072,8 @@ export function furnitureFrame(
   widthOverride?: number,
   /** Força eixo a→b como altura (necessário após rotação). */
   forceTopDown?: boolean,
+  /** Só o frontal — sem profundidade 3D (banco “retos”). */
+  flatFront?: boolean,
 ): FurnitureFrame {
   const meta = getFurnitureModuleMeta(moduleType);
   const legacy = !forceTopDown && isLegacyFurnitureBase(a, b);
@@ -1081,21 +1146,25 @@ export function furnitureFrame(
   seg(lines, br, bl);
   seg(lines, bl, tl);
 
-  seg(lines, tl, tlBack);
-  seg(lines, tr, trBack);
-  seg(lines, tlBack, trBack);
+  if (!flatFront) {
+    seg(lines, tl, tlBack);
+    seg(lines, tr, trBack);
+    seg(lines, tlBack, trBack);
 
-  seg(lines, tr, br);
-  seg(lines, trBack, brBack);
-  seg(lines, br, brBack);
+    seg(lines, tr, br);
+    seg(lines, trBack, brBack);
+    seg(lines, br, brBack);
 
-  seg(lines, brBack, trBack);
+    seg(lines, brBack, trBack);
+  }
 
-  const fillFaces: Array<WhiteboardPoint[]> = [
-    [tl, tr, trBack, tlBack],
-    [tr, br, brBack, trBack],
-    [tl, tr, br, bl],
-  ];
+  const fillFaces: Array<WhiteboardPoint[]> = flatFront
+    ? [[tl, tr, br, bl]]
+    : [
+        [tl, tr, trBack, tlBack],
+        [tr, br, brBack, trBack],
+        [tl, tr, br, bl],
+      ];
 
   const frontOrigin = tl;
   const fu = (u: number, v: number) => along(frontOrigin, ux, uy, dx, dy, u * width, v * height);
@@ -1703,6 +1772,53 @@ export function furnitureFrame(
       seg(lines, fu(0.64, 0.16), fu(0.54, 0.72));
       seg(lines, fu(0.5, 0.72), fu(0.5, 0.92));
       drawInnerBox(0.38, 0.88, 0.62, 0.96);
+      break;
+    }
+    case 'cadeira': {
+      drawInnerBox(0.18, 0.08, 0.82, 0.42);
+      drawInnerBox(0.22, 0.42, 0.78, 0.72);
+      seg(lines, fu(0.26, 0.72), fu(0.22, 0.96));
+      seg(lines, fu(0.74, 0.72), fu(0.78, 0.96));
+      seg(lines, fu(0.22, 0.96), fu(0.34, 0.96));
+      seg(lines, fu(0.66, 0.96), fu(0.78, 0.96));
+      break;
+    }
+    case 'cadeira_poltrona': {
+      drawInnerBox(0.1, 0.08, 0.9, 0.4);
+      drawInnerBox(0.12, 0.4, 0.88, 0.78);
+      seg(lines, fu(0.1, 0.18), fu(0.1, 0.78));
+      seg(lines, fu(0.9, 0.18), fu(0.9, 0.78));
+      seg(lines, fu(0.18, 0.78), fu(0.16, 0.96));
+      seg(lines, fu(0.82, 0.78), fu(0.84, 0.96));
+      break;
+    }
+    case 'sofa': {
+      drawInnerBox(0.04, 0.12, 0.96, 0.42);
+      drawInnerBox(0.08, 0.42, 0.92, 0.82);
+      seg(lines, fu(0.36, 0.42), fu(0.36, 0.82));
+      seg(lines, fu(0.64, 0.42), fu(0.64, 0.82));
+      seg(lines, fu(0.08, 0.82), fu(0.06, 0.96));
+      seg(lines, fu(0.92, 0.82), fu(0.94, 0.96));
+      break;
+    }
+    case 'sofa_2lugares': {
+      drawInnerBox(0.06, 0.12, 0.94, 0.42);
+      drawInnerBox(0.1, 0.42, 0.9, 0.82);
+      seg(lines, fu(0.5, 0.42), fu(0.5, 0.82));
+      seg(lines, fu(0.1, 0.82), fu(0.08, 0.96));
+      seg(lines, fu(0.9, 0.82), fu(0.92, 0.96));
+      break;
+    }
+    case 'sofa_canto': {
+      drawInnerBox(0.04, 0.08, 0.62, 0.92);
+      drawInnerBox(0.62, 0.42, 0.96, 0.92);
+      drawInnerBox(0.08, 0.12, 0.58, 0.38);
+      break;
+    }
+    case 'modulo_cubo': {
+      drawInnerBox(0.1, 0.1, 0.9, 0.9);
+      seg(lines, fu(0.1, 0.5), fu(0.9, 0.5));
+      seg(lines, fu(0.5, 0.1), fu(0.5, 0.9));
       break;
     }
     default:

@@ -2181,6 +2181,74 @@ body::before {
     border-bottom: 1px solid var(--cr-line);
   }
 
+  /* ── Financeiro Pontua: tinta escura no papel (creme/ouro no fundo claro sumia) ── */
+  .financeiro-pontua-shell {
+    --fp-ink: #1a100c;
+    --fp-muted: #4a3428;
+    --fp-faint: #6b5244;
+    --fp-sheet: #fffaf4;
+    --fp-gold: #6b3f12;
+    --fp-ok: #146c38;
+    --fp-late: #9f1239;
+    --fp-sky: #0e4d73;
+    --fp-line: rgba(26, 16, 12, 0.14);
+    color: var(--fp-ink);
+    color-scheme: light;
+  }
+  .paper-workspace .financeiro-pontua-shell h1,
+  .financeiro-pontua-shell h1,
+  .financeiro-pontua-shell h2 {
+    color: var(--fp-ink) !important;
+  }
+  .paper-workspace .financeiro-pontua-shell [style*="f2d892"]:not(h1) {
+    color: var(--fp-gold) !important;
+  }
+  .financeiro-pontua-shell [class*="text-[#fffaf4]"],
+  .financeiro-pontua-shell [class*="text-[#edd9c4]"],
+  .financeiro-pontua-shell [class*="text-[#d4bc9f]"],
+  .financeiro-pontua-shell [class*="text-[#faf2ea]"] {
+    color: var(--fp-ink) !important;
+  }
+  .financeiro-pontua-shell [class*="text-[#f2d892]"] {
+    color: var(--fp-gold) !important;
+  }
+  .financeiro-pontua-shell .text-amber-50,
+  .financeiro-pontua-shell .text-amber-100,
+  .financeiro-pontua-shell .text-amber-200,
+  .financeiro-pontua-shell .text-amber-200\/70,
+  .financeiro-pontua-shell .text-amber-200\/80,
+  .financeiro-pontua-shell .text-amber-200\/85,
+  .financeiro-pontua-shell .text-amber-300,
+  .financeiro-pontua-shell .text-amber-300\/65,
+  .financeiro-pontua-shell .text-amber-300\/70,
+  .financeiro-pontua-shell .text-amber-400 {
+    color: var(--fp-gold) !important;
+  }
+  .financeiro-pontua-shell .text-green-100,
+  .financeiro-pontua-shell .text-green-200,
+  .financeiro-pontua-shell .text-green-300,
+  .financeiro-pontua-shell .text-green-400 {
+    color: var(--fp-ok) !important;
+  }
+  .financeiro-pontua-shell .text-red-300,
+  .financeiro-pontua-shell .text-red-400 {
+    color: var(--fp-late) !important;
+  }
+  .financeiro-pontua-shell .text-sky-300,
+  .financeiro-pontua-shell .text-sky-400 {
+    color: var(--fp-sky) !important;
+  }
+  .financeiro-pontua-shell input,
+  .financeiro-pontua-shell textarea {
+    color: var(--fp-ink);
+    color-scheme: light;
+  }
+  .financeiro-pontua-shell input::placeholder,
+  .financeiro-pontua-shell textarea::placeholder {
+    color: var(--fp-faint) !important;
+    opacity: 1;
+  }
+
   /* ── Inputs ── */
   .glass-input {
     @apply w-full max-w-full min-w-0 px-3 py-2 rounded-lg text-sm outline-none transition-all duration-200;
@@ -2841,11 +2909,34 @@ body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
 }
 
 /*
+ * Tela cheia da lousa / compositor: o véu do Dialog não pode engolir os cliques.
+ */
+[data-radix-dialog-content][data-whiteboard-fullscreen],
+[data-radix-dialog-content][data-ambiente-composer-fullscreen] {
+  pointer-events: auto !important;
+  z-index: 81 !important;
+}
+
+/*
  * Menu Exportar: o Radix coloca o painel num wrapper no body (z-auto).
  * A apresentação está em z-240 — sem z-index no wrapper o menu some atrás.
  */
 [data-radix-popper-content-wrapper]:has([data-orcamento-export-menu]) {
   z-index: 260 !important;
+  pointer-events: auto !important;
+}
+
+/*
+ * Menu Baixar do render: o Radix coloca o painel no body (wrapper sem z-index).
+ * A tela cheia está em z-60 e o card do lead em z-50 — sem isso o menu some
+ * atrás e o clique em PNG/PDF não chega.
+ */
+[data-radix-popper-content-wrapper]:has([data-lead-ai-render-download-menu]) {
+  z-index: 80 !important;
+  pointer-events: auto !important;
+}
+[data-lead-ai-render-download-menu],
+[data-lead-ai-render-download-menu] * {
   pointer-events: auto !important;
 }
 html[data-orcamento-visualizar-open] [data-orcamento-export-menu],

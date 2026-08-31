@@ -55,6 +55,10 @@ import {
   finTextSecondary,
   finTextTertiary,
   finBadgePendente,
+  finValueGold,
+  finValueLate,
+  finValueOk,
+  finValueSky,
 } from '@/components/financeiro/financeiro-styles';
 
 type DialogMode = { type: 'saque' | 'ajuste'; prestador: PrestadorFinanceiro } | null;
@@ -184,7 +188,7 @@ function LeadComissaoRow({
           {lead.comissaoLiberada && (
             <Badge
               variant="outline"
-              className="shrink-0 border-green-500/50 bg-green-500/15 text-[10px] text-green-300"
+              className="shrink-0 border-[rgba(20,108,56,0.35)] bg-[#e8f6ee] text-[10px] text-[#146c38]"
             >
               Comissão liberada
             </Badge>
@@ -193,7 +197,7 @@ function LeadComissaoRow({
         <p className={`${finTextSecondary} truncate`}>
           {lead.fieldNome} · {lead.leadStatus}
           {lead.vendaGanha && !aguardando && !lead.comissaoLiberada && (
-            <span className="font-medium text-green-400"> · Venda ganha</span>
+            <span className={`font-medium ${finValueOk}`}> · Venda ganha</span>
           )}
         </p>
       </div>
@@ -202,7 +206,7 @@ function LeadComissaoRow({
           <p className={finTextTertiary}>
             {formatBRLPontua(lead.valorOrcamento)} × {lead.percentual}%
           </p>
-          <p className="font-semibold text-amber-400">{formatBRLPontua(lead.comissao)}</p>
+          <p className={`font-semibold ${finValueGold}`}>{formatBRLPontua(lead.comissao)}</p>
         </div>
         {!readOnly && aguardando && (
           <Button
@@ -229,7 +233,7 @@ function LeadComissaoRow({
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1 border-amber-500/45 text-xs text-amber-200 hover:bg-amber-500/15"
+            className="h-8 gap-1 border-[rgba(107,63,18,0.35)] text-xs text-[#6b3f12] hover:bg-[#f4e4c4]"
             disabled={isRevertendo}
             onClick={() =>
               onReverterLiberacao({
@@ -319,15 +323,15 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
           className={cn(
             'scroll-mt-24 rounded-xl border bg-card transition-colors hover:bg-background/40',
             highlighted
-              ? 'border-[#f2d892]/70 ring-1 ring-[#f2d892]/30'
-              : 'border-amber-900/50',
+              ? 'border-[rgba(107,63,18,0.45)] ring-1 ring-[rgba(107,63,18,0.16)]'
+              : 'border-[rgba(26,16,12,0.12)]',
           )}
         >
           <CollapsibleTrigger asChild>
             <div className="flex cursor-pointer select-none items-center gap-4 px-5 py-4">
-              <Avatar className="hidden h-10 w-10 shrink-0 ring-1 ring-[#f2d892]/35 sm:flex">
+              <Avatar className="hidden h-10 w-10 shrink-0 ring-1 ring-[rgba(107,63,18,0.28)] sm:flex">
                 {prestador.avatarUrl && <AvatarImage src={prestador.avatarUrl} alt="" />}
-                <AvatarFallback className="bg-[#3d2418] text-xs text-[#f2d892]">
+                <AvatarFallback className="bg-[#f4e4c4] text-xs text-[#6b3f12]">
                   {iniciaisNomeArquiteto(prestador.nome)}
                 </AvatarFallback>
               </Avatar>
@@ -353,23 +357,23 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
               <div className="hidden shrink-0 items-center gap-6 text-right sm:flex">
                 <div>
                   <p className={finTextTertiary}>Comissão</p>
-                  <p className="text-sm font-medium text-amber-400">{formatBRLPontua(prestador.totalComissao)}</p>
+                  <p className={`text-sm font-medium ${finValueGold}`}>{formatBRLPontua(prestador.totalComissao)}</p>
                 </div>
                 {prestador.totalAjustes !== 0 && (
                   <div>
                     <p className={finTextTertiary}>Ajustes</p>
-                    <p className={`text-sm font-medium ${prestador.totalAjustes >= 0 ? 'text-sky-400' : 'text-orange-400'}`}>
+                    <p className={`text-sm font-medium ${prestador.totalAjustes >= 0 ? finValueSky : 'text-[#b45309]'}`}>
                       {prestador.totalAjustes >= 0 ? '+' : ''}{formatBRLPontua(prestador.totalAjustes)}
                     </p>
                   </div>
                 )}
                 <div>
                   <p className={finTextTertiary}>Retirado</p>
-                  <p className="text-sm font-medium text-amber-200/70">{formatBRLPontua(prestador.totalRetirado)}</p>
+                  <p className={`text-sm font-medium ${finValueLate}`}>{formatBRLPontua(prestador.totalRetirado)}</p>
                 </div>
                 <div>
                   <p className={finTextTertiary}>Saldo</p>
-                  <p className={`text-sm font-bold ${temSaldoAReceber ? 'text-green-400' : 'text-amber-200/60'}`}>
+                  <p className={`text-sm font-bold ${temSaldoAReceber ? finValueOk : finTextTertiary}`}>
                     {formatBRLPontua(prestador.saldoParaSacar)}
                   </p>
                 </div>
@@ -380,7 +384,7 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1.5 border-green-500/45 text-xs text-green-300 motion-safe:transition-transform motion-safe:active:scale-[0.96] hover:bg-green-500/15 hover:text-green-100"
+                    className="h-7 gap-1.5 border-[rgba(20,108,56,0.35)] text-xs text-[#146c38] motion-safe:transition-transform motion-safe:active:scale-[0.96] hover:bg-[#e8f6ee] hover:text-[#0f5132]"
                     onClick={handleAbrirPreviaArte}
                     title="Ver prévia e baixar arte do saldo"
                   >
@@ -392,7 +396,7 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1.5 border-amber-500/45 text-xs text-amber-200 hover:bg-amber-500/15 hover:text-amber-50"
+                    className="h-7 gap-1.5 border-[rgba(107,63,18,0.35)] text-xs text-[#6b3f12] hover:bg-[#f4e4c4] hover:text-[#1a100c]"
                     onClick={() => setDialogMode({ type: 'ajuste', prestador })}
                   >
                     <Plus className="h-3 w-3" />
@@ -403,7 +407,7 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 gap-1.5 border-red-500/40 text-xs text-red-300 hover:bg-red-500/15"
+                    className="h-7 gap-1.5 border-[rgba(159,18,57,0.35)] text-xs text-[#9f1239] hover:bg-[#fde8ee]"
                     onClick={() => setDialogMode({ type: 'saque', prestador })}
                     disabled={!temSaldoAReceber}
                   >
@@ -412,27 +416,27 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
                   </Button>
                 )}
                 {open ? (
-                  <ChevronDown className="h-4 w-4 text-amber-300/70" />
+                  <ChevronDown className="h-4 w-4 text-[#6b5244]" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-amber-300/70" />
+                  <ChevronRight className="h-4 w-4 text-[#6b5244]" />
                 )}
               </div>
             </div>
           </CollapsibleTrigger>
 
           <CollapsibleContent>
-            <div className="flex gap-4 border-t border-amber-900/40 px-5 py-2 text-sm sm:hidden">
+            <div className="flex gap-4 border-t border-[rgba(26,16,12,0.10)] px-5 py-2 text-sm sm:hidden">
               <div>
                 <span className={finTextTertiary}>Comissão: </span>
-                <span className="font-medium text-amber-400">{formatBRLPontua(prestador.totalComissao)}</span>
+                <span className={`font-medium ${finValueGold}`}>{formatBRLPontua(prestador.totalComissao)}</span>
               </div>
               <div>
                 <span className={finTextTertiary}>Retirado: </span>
-                <span className="text-amber-100">{formatBRLPontua(prestador.totalRetirado)}</span>
+                <span className={finValueLate}>{formatBRLPontua(prestador.totalRetirado)}</span>
               </div>
               <div>
                 <span className={finTextTertiary}>Saldo: </span>
-                <span className="font-bold text-green-400">{formatBRLPontua(prestador.saldoParaSacar)}</span>
+                <span className={`font-bold ${finValueOk}`}>{formatBRLPontua(prestador.saldoParaSacar)}</span>
               </div>
             </div>
 

@@ -43,6 +43,7 @@ export interface LeadAIAnalysisItemPayload {
   kind?: 'image' | 'pdf';
   caracteristicasExtras?: string;
   parentRenderId?: string;
+  mode?: 'ambiente';
 }
 
 function normalizeUrlForDedup(url: string): string {

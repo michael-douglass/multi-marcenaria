@@ -1,4 +1,5 @@
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
+import type { FurnitureViewMode } from '@/lib/furniture-catalog-banks';
 
 export interface AmbienteImageOverlay {
   id: string;
@@ -23,6 +24,8 @@ export interface AmbienteFurnitureObject {
   /** Graus no sentido horário. */
   rotation: number;
   colorHex?: string;
+  /** reto = frontal; 3d = volume; realista = madeira na casa do cliente. */
+  viewMode?: FurnitureViewMode;
 }
 
 export interface AmbienteLabelMarker {

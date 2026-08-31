@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { LeadAIRenderDownloadMenu } from '@/components/leads/LeadAIRenderDownloadMenu';
 import type { LeadAIRender } from '@/hooks/useLeadAIRenders';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -161,7 +162,14 @@ export function LeadAIRenderHistoryPanel({
                       )}
                     </span>
                   </button>
-                  <div className="flex shrink-0 flex-col justify-center gap-0.5 pr-1.5 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                  <div className="flex shrink-0 flex-col justify-center gap-0.5 pr-1.5">
+                    <LeadAIRenderDownloadMenu
+                      outputUrl={entry.outputPublicUrl}
+                      sketchLabel={entry.inputSnapshot.label}
+                      iconOnly
+                      menuTitle="Baixar render"
+                      triggerClassName="h-7 w-7 text-cream-muted hover:text-gold"
+                    />
                     <Button
                       type="button"
                       variant="ghost"

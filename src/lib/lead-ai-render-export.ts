@@ -1,157 +1,91 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { jsPDF } from 'jspdf';
 import { downloadImageFromUrl } from '@/lib/download-file';
 
-function esc(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+interface LoadedImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+  format: 'JPEG' | 'PNG';
 }
 
-const RENDER_PDF_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+function triggerBlobDownload(blob: Blob, downloadName: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = downloadName;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(objectUrl);
+}
 
-  @page {
-    size: A4 landscape;
-    margin: 12mm;
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Erro ao ler imagem'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function convertDataUrlToJpeg(dataUrl: string, quality = 0.92): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas indisponível'));
+        return;
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => reject(new Error('Erro ao converter imagem'));
+    img.src = dataUrl;
+  });
+}
+
+async function fetchImageForPdf(url: string): Promise<LoadedImage> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Não foi possível carregar a imagem para o PDF.');
+  }
+  const blob = await response.blob();
+  let dataUrl = await blobToDataUrl(blob);
+  let format: LoadedImage['format'] = blob.type.includes('png') ? 'PNG' : 'JPEG';
+
+  const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('Erro ao decodificar imagem'));
+    img.src = dataUrl;
+  });
+
+  if (blob.type.includes('webp')) {
+    dataUrl = await convertDataUrlToJpeg(dataUrl);
+    format = 'JPEG';
   }
 
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 11pt;
-    color: #1a1a1a;
-    background: #fff;
-  }
+  return { dataUrl, ...dimensions, format };
+}
 
-  .pagina {
-    width: 100%;
-    max-width: 277mm;
-    margin: 0 auto;
-    padding: 4mm 0;
-  }
-
-  .cabecalho {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding-bottom: 12px;
-    margin-bottom: 16px;
-    border-bottom: 2px solid #c9a07b;
-  }
-
-  .logo {
-    max-height: 56px;
-    max-width: 120px;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-
-  .empresa-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .empresa-nome {
-    font-size: 16pt;
-    font-weight: 700;
-    color: #2a1812;
-    word-wrap: break-word;
-  }
-
-  .empresa-cnpj {
-    font-size: 10pt;
-    color: #666;
-    margin-top: 2px;
-  }
-
-  .titulo {
-    font-size: 14pt;
-    font-weight: 600;
-    color: #2a1812;
-    margin-bottom: 4px;
-  }
-
-  .subtitulo {
-    font-size: 10pt;
-    color: #666;
-    margin-bottom: 16px;
-  }
-
-  .comparacao {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    align-items: start;
-  }
-
-  .comparacao-coluna {
-    min-width: 0;
-    page-break-inside: avoid;
-  }
-
-  .coluna-badge {
-    display: inline-block;
-    font-size: 9pt;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #8b6914;
-    background: #f5ecd8;
-    border: 1px solid #c9a07b;
-    border-radius: 4px;
-    padding: 4px 10px;
-    margin-bottom: 8px;
-  }
-
-  .coluna-badge.depois {
-    color: #2a1812;
-    background: #ebe4d8;
-  }
-
-  .coluna-label {
-    font-size: 10pt;
-    font-weight: 600;
-    color: #444;
-    margin-bottom: 8px;
-  }
-
-  .coluna-imagem {
-    width: 100%;
-    max-height: 145mm;
-    object-fit: contain;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #fafafa;
-  }
-
-  .coluna-vazia {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 120mm;
-    border: 1px dashed #ccc;
-    border-radius: 4px;
-    color: #999;
-    font-size: 10pt;
-    font-style: italic;
-  }
-
-  .rodape {
-    margin-top: 16px;
-    padding-top: 10px;
-    border-top: 1px solid #e5e5e5;
-    font-size: 9pt;
-    color: #888;
-    text-align: center;
-  }
-
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .pagina { padding: 0; }
-  }
-`;
+function fitImageInBox(
+  imgW: number,
+  imgH: number,
+  boxW: number,
+  boxH: number,
+): { width: number; height: number } {
+  const ratio = Math.min(boxW / imgW, boxH / imgH);
+  return { width: imgW * ratio, height: imgH * ratio };
+}
 
 export interface LeadAIRenderExportOpts {
   sketchUrl: string | null;
@@ -169,7 +103,7 @@ export async function downloadLeadAIRenderPng(
   await downloadImageFromUrl(outputUrl, fileName);
 }
 
-export function exportLeadAIRenderPdf(opts: LeadAIRenderExportOpts): void {
+export async function exportLeadAIRenderPdf(opts: LeadAIRenderExportOpts): Promise<void> {
   const {
     sketchUrl,
     sketchLabel = 'Esboço',
@@ -183,72 +117,104 @@ export function exportLeadAIRenderPdf(opts: LeadAIRenderExportOpts): void {
     throw new Error('Nenhuma imagem disponível para exportar.');
   }
 
+  const [sketch, output, logo] = await Promise.all([
+    sketchUrl ? fetchImageForPdf(sketchUrl) : Promise.resolve(null),
+    outputUrl && outputUrl !== sketchUrl ? fetchImageForPdf(outputUrl) : Promise.resolve(null),
+    logoUrl?.trim()
+      ? fetchImageForPdf(logoUrl.trim()).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  const single = output ?? sketch;
+  if (!single) {
+    throw new Error('Nenhuma imagem disponível para exportar.');
+  }
+
+  const twoCols = Boolean(sketch && output);
+  const doc = new jsPDF({
+    orientation: twoCols ? 'landscape' : 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
   const nomeDisplay = nomeEmpresa?.trim() || '';
   const dataGeracao = format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
 
-  const cabecalhoHtml = `
-    <div class="cabecalho">
-      ${logoUrl ? `<img src="${esc(logoUrl)}" alt="Logo" class="logo" />` : ''}
-      <div class="empresa-info">
-        ${nomeDisplay ? `<div class="empresa-nome">${esc(nomeDisplay)}</div>` : ''}
-        ${cnpj?.trim() ? `<div class="empresa-cnpj">CNPJ: ${esc(cnpj.trim())}</div>` : ''}
-      </div>
-    </div>
-  `;
-
-  const renderColuna = (
-    badge: string,
-    badgeClass: string,
-    label: string,
-    src: string | null,
-    alt: string,
-  ) => `
-    <div class="comparacao-coluna">
-      <span class="coluna-badge ${badgeClass}">${esc(badge)}</span>
-      <p class="coluna-label">${esc(label)}</p>
-      ${
-        src
-          ? `<img src="${esc(src)}" alt="${esc(alt)}" class="coluna-imagem" />`
-          : '<div class="coluna-vazia">Imagem indisponível</div>'
-      }
-    </div>
-  `;
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Renderização IA — ${esc(sketchLabel)}</title>
-  <style>${RENDER_PDF_CSS}</style>
-</head>
-<body>
-  <div class="pagina">
-    ${cabecalhoHtml}
-    <h1 class="titulo">Comparação Visual — Renderização IA</h1>
-    <p class="subtitulo">${esc(sketchLabel)} · Gerado em ${esc(dataGeracao)}</p>
-    <div class="comparacao">
-      ${renderColuna('Antes', '', sketchLabel, sketchUrl, sketchLabel)}
-      ${renderColuna('Depois', 'depois', 'Render fotorrealista', outputUrl, 'Render fotorrealista')}
-    </div>
-    <div class="rodape">
-      ${nomeDisplay ? `${esc(nomeDisplay)} · ` : ''}Documento gerado pelo CRM Selletos
-    </div>
-  </div>
-  <script>
-    window.onload = function() {
-      window.focus();
-      window.print();
-      setTimeout(function() { window.close(); }, 500);
-    };
-  </script>
-</body>
-</html>`;
-
-  const janela = window.open('', '_blank', 'width=1100,height=800');
-  if (!janela) {
-    throw new Error('Permita pop-ups para exportar o PDF.');
+  let cursorY = margin;
+  if (logo) {
+    const logoBox = fitImageInBox(logo.width, logo.height, 32, 14);
+    doc.addImage(logo.dataUrl, logo.format, margin, cursorY, logoBox.width, logoBox.height);
   }
-  janela.document.open();
-  janela.document.write(html);
-  janela.document.close();
+  if (nomeDisplay) {
+    doc.setFontSize(14);
+    doc.setTextColor(42, 24, 18);
+    doc.text(nomeDisplay, logo ? margin + 36 : margin, cursorY + 8);
+  }
+  if (cnpj?.trim()) {
+    doc.setFontSize(9);
+    doc.setTextColor(102, 102, 102);
+    doc.text(`CNPJ: ${cnpj.trim()}`, logo ? margin + 36 : margin, cursorY + 14);
+  }
+
+  cursorY += 18;
+  doc.setDrawColor(201, 160, 123);
+  doc.setLineWidth(0.4);
+  doc.line(margin, cursorY, pageW - margin, cursorY);
+
+  doc.setFontSize(12);
+  doc.setTextColor(42, 24, 18);
+  doc.text(
+    twoCols ? 'Comparação Visual — Renderização IA' : 'Renderização IA',
+    margin,
+    cursorY + 8,
+  );
+  doc.setFontSize(9);
+  doc.setTextColor(102, 102, 102);
+  doc.text(`${sketchLabel} · Gerado em ${dataGeracao}`, margin, cursorY + 14);
+
+  const contentTop = cursorY + 20;
+  const footerTop = pageH - margin - 8;
+  const contentH = footerTop - contentTop - 8;
+  const gap = 8;
+
+  const drawLabeledImage = (
+    image: LoadedImage,
+    x: number,
+    boxW: number,
+    badge: string,
+    label: string,
+  ) => {
+    doc.setFontSize(8);
+    doc.setTextColor(139, 105, 20);
+    doc.text(badge.toUpperCase(), x, contentTop);
+    doc.setFontSize(9);
+    doc.setTextColor(68, 68, 68);
+    doc.text(label, x, contentTop + 6);
+    const fitted = fitImageInBox(image.width, image.height, boxW, contentH - 10);
+    const imgY = contentTop + 10 + (contentH - 10 - fitted.height) / 2;
+    doc.addImage(image.dataUrl, image.format, x, imgY, fitted.width, fitted.height);
+  };
+
+  if (twoCols && sketch && output) {
+    const colW = (pageW - margin * 2 - gap) / 2;
+    drawLabeledImage(sketch, margin, colW, 'Antes', sketchLabel);
+    drawLabeledImage(output, margin + colW + gap, colW, 'Depois', 'Render fotorrealista');
+  } else {
+    const contentW = pageW - margin * 2;
+    const fitted = fitImageInBox(single.width, single.height, contentW, contentH);
+    const imgX = margin + (contentW - fitted.width) / 2;
+    const imgY = contentTop + (contentH - fitted.height) / 2;
+    doc.addImage(single.dataUrl, single.format, imgX, imgY, fitted.width, fitted.height);
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(136, 136, 136);
+  const rodape = `${nomeDisplay ? `${nomeDisplay} · ` : ''}Documento gerado pelo CRM Selletos`;
+  doc.text(rodape, pageW / 2, pageH - margin, { align: 'center' });
+
+  const blob = doc.output('blob');
+  triggerBlobDownload(blob, `render-projeto-${Date.now()}.pdf`);
 }

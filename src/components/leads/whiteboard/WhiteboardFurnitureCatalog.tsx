@@ -1,22 +1,29 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X } from 'lucide-react';
+import { Box, Home, Search, Square, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FurnitureModuleThumb } from '@/components/leads/whiteboard/FurnitureModuleGfx';
 import { ChecklistGoldFoil } from '@/components/leads/whiteboard/ChecklistGoldFoil';
+import { RealisticFurniturePreview } from '@/components/leads/ambiente/RealisticFurniturePreview';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import {
   FURNITURE_CATALOG_GROUPS,
   getFurnitureModuleMeta,
-  searchFurnitureModules,
   type FurnitureCatalogGroupId,
 } from '@/lib/furniture-modules';
+import {
+  FURNITURE_CATALOG_BANKS,
+  REALISTIC_PROJECT_GROUPS,
+  searchCatalogBank,
+  type FurnitureCatalogBankId,
+  type FurnitureViewMode,
+} from '@/lib/furniture-catalog-banks';
 
 interface WhiteboardFurnitureCatalogProps {
   selectedType: FurnitureModuleType;
-  onSelect: (moduleType: FurnitureModuleType) => void;
+  onSelect: (moduleType: FurnitureModuleType, viewMode: FurnitureViewMode) => void;
   disabled?: boolean;
   isFullscreen?: boolean;
   bottomOffsetPx?: number;
@@ -31,8 +38,14 @@ interface WhiteboardFurnitureCatalogProps {
   variant?: 'overlay' | 'dock';
 }
 
-const PANEL_HEIGHT_PX = 460;
+const PANEL_HEIGHT_PX = 520;
 const PANEL_WIDTH_PX = 360;
+
+const BANK_ICONS: Record<FurnitureCatalogBankId, typeof Square> = {
+  reto: Square,
+  '3d': Box,
+  realista: Home,
+};
 
 interface FloatingBox {
   top: number;
@@ -95,7 +108,9 @@ export function WhiteboardFurnitureCatalog({
   variant = 'overlay',
 }: WhiteboardFurnitureCatalogProps) {
   const [query, setQuery] = useState('');
-  const [group, setGroup] = useState<FurnitureCatalogGroupId>('todos');
+  const [bank, setBank] = useState<FurnitureCatalogBankId>('3d');
+  const [group, setGroup] = useState<string>('todos');
+  const [previewType, setPreviewType] = useState<FurnitureModuleType>(selectedType);
   const [box, setBox] = useState<FloatingBox | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -104,11 +119,20 @@ export function WhiteboardFurnitureCatalog({
   const usePortal = !isDock && (floating || Boolean(anchorRef));
   const portalTarget = portalContainer ?? (typeof document !== 'undefined' ? document.body : null);
   const anchoredInDialog = Boolean(portalContainer && portalContainer !== document.body);
+  const activeBank = FURNITURE_CATALOG_BANKS.find((item) => item.id === bank) ?? FURNITURE_CATALOG_BANKS[1];
+  const groupChips =
+    bank === 'realista'
+      ? [{ id: 'todos', label: 'Todos' }, ...REALISTIC_PROJECT_GROUPS.map((item) => ({ id: item.id, label: item.label }))]
+      : FURNITURE_CATALOG_GROUPS;
 
   const results = useMemo(
-    () => searchFurnitureModules(query, group),
-    [query, group],
+    () => searchCatalogBank(bank, query, group as FurnitureCatalogGroupId | string),
+    [bank, query, group],
   );
+
+  useEffect(() => {
+    setPreviewType(selectedType);
+  }, [selectedType]);
 
   useEffect(() => {
     const id = window.setTimeout(() => searchRef.current?.focus(), 40);
@@ -144,13 +168,13 @@ export function WhiteboardFurnitureCatalog({
     return () => window.removeEventListener('keydown', onKey);
   }, [usePortal, onClose]);
 
-  const helpText =
-    hint ?? 'Busque, escolha o modelo e clique duas vezes na foto (topo e base).';
+  const helpText = hint ?? activeBank.hint;
 
   const panel = (
     <div
       ref={panelRef}
       data-furniture-catalog
+      data-furniture-bank={bank}
       className={cn(
         'pointer-events-auto flex flex-col items-start',
         isDock && 'relative h-full w-full min-h-[18rem]',
@@ -192,13 +216,13 @@ export function WhiteboardFurnitureCatalog({
                   className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#f2d892]"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.18em' }}
                 >
-                  Catálogo 3D
+                  {activeBank.kicker}
                 </p>
                 <h3
                   className="truncate text-[1.35rem] font-semibold leading-none text-[#fff6ea]"
                   style={{ fontFamily: "'Cormorant Garamond', serif" }}
                 >
-                  Móveis e utensílios
+                  {bank === 'realista' ? 'Projetos na casa' : 'Móveis e utensílios'}
                 </h3>
                 <p className="mt-1 text-[11px] text-[#d4bc9f]">{helpText}</p>
               </div>
@@ -214,6 +238,54 @@ export function WhiteboardFurnitureCatalog({
               )}
             </div>
 
+            <div
+              role="tablist"
+              aria-label="Bancos de objetos"
+              className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-[rgba(240,210,140,0.22)] bg-black/30 p-1"
+            >
+              {FURNITURE_CATALOG_BANKS.map((item) => {
+                const active = bank === item.id;
+                const Icon = BANK_ICONS[item.id];
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    disabled={disabled}
+                    onClick={() => {
+                      setBank(item.id);
+                      setGroup('todos');
+                      setQuery('');
+                    }}
+                    className={cn(
+                      'flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 transition-colors',
+                      active
+                        ? 'bg-[#f2d892]/18 text-[#fff6ea] shadow-[0_0_12px_rgba(242,216,146,0.2)]'
+                        : 'text-[#d4bc9f] hover:bg-white/5',
+                    )}
+                  >
+                    <span className="flex items-center gap-1">
+                      <Icon className="h-3 w-3" />
+                      <span
+                        className="text-[11px] font-semibold tracking-wide"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                      >
+                        {item.label}
+                      </span>
+                    </span>
+                    <span className="text-[9px] leading-none text-[#d4bc9f]/90">{item.kicker}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {bank === 'realista' && (
+              <div className="mt-3">
+                <RealisticFurniturePreview moduleType={previewType} />
+              </div>
+            )}
+
             <label className="mt-3 block">
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f2d892]">
                 Buscar objeto
@@ -225,7 +297,7 @@ export function WhiteboardFurnitureCatalog({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="Ex.: sofá, nicho, geladeira, cama…"
+                  placeholder={bank === 'realista' ? 'Ex.: cadeira, sofá, guarda-roupa…' : 'Ex.: sofá, nicho, geladeira, cama…'}
                   aria-label="Buscar objeto no catálogo"
                   disabled={disabled}
                   className="h-10 border-[rgba(240,210,140,0.35)] bg-black/35 pl-9 text-sm text-[#fff6ea] placeholder:text-[#d4bc9f]/75"
@@ -234,7 +306,7 @@ export function WhiteboardFurnitureCatalog({
             </label>
 
             <div className="mt-2 flex flex-wrap gap-1">
-              {FURNITURE_CATALOG_GROUPS.map((item) => {
+              {groupChips.map((item) => {
                 const active = group === item.id;
                 return (
                   <button
@@ -264,14 +336,16 @@ export function WhiteboardFurnitureCatalog({
                 const active = selectedType === mod.type;
                 return (
                   <button
-                    key={mod.type}
+                    key={`${bank}-${mod.type}`}
                     type="button"
                     title={mod.description}
                     disabled={disabled}
                     data-furniture-item={mod.type}
-                    aria-label={mod.label}
+                    aria-label={`${mod.label} — ${activeBank.label}`}
                     aria-pressed={active}
-                    onClick={() => onSelect(mod.type)}
+                    onMouseEnter={() => setPreviewType(mod.type)}
+                    onFocus={() => setPreviewType(mod.type)}
+                    onClick={() => onSelect(mod.type, bank)}
                     className={cn(
                       'flex items-center gap-1.5 rounded-xl border px-1.5 py-1.5 text-left transition-colors',
                       active
@@ -281,6 +355,7 @@ export function WhiteboardFurnitureCatalog({
                   >
                     <FurnitureModuleThumb
                       moduleType={mod.type}
+                      flatFront={bank === 'reto'}
                       className="h-11 w-9 shrink-0 text-[#f2d892]"
                     />
                     <span className="min-w-0">
@@ -288,7 +363,7 @@ export function WhiteboardFurnitureCatalog({
                         {mod.label}
                       </span>
                       <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
-                        {mod.description}
+                        {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
                       </span>
                     </span>
                   </button>
@@ -297,7 +372,7 @@ export function WhiteboardFurnitureCatalog({
             </div>
             {results.length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-[#d4bc9f]">
-                Nenhum item para “{query}”. Tente fogão, coifa, espelho ou cama.
+                Nenhum item para “{query}”. Tente sofá, cadeira, guarda-roupa ou nicho.
               </p>
             )}
           </ScrollArea>
@@ -305,13 +380,14 @@ export function WhiteboardFurnitureCatalog({
           <footer className="flex shrink-0 items-center gap-2 border-t border-[rgba(240,210,140,0.16)] px-3 py-2">
             <FurnitureModuleThumb
               moduleType={selected.type}
+              flatFront={bank === 'reto'}
               className="h-8 w-7 text-[#f2d892]"
             />
             <p className="min-w-0 flex-1 text-[10px] leading-tight text-[#d4bc9f]">
               Selecionado:{' '}
               <span className="font-semibold text-[#fff6ea]">{selected.label}</span>
               <span className="mt-0.5 block">
-                {results.length} modelo{results.length === 1 ? '' : 's'}
+                {results.length} modelo{results.length === 1 ? '' : 's'} · {activeBank.label}
               </span>
             </p>
           </footer>

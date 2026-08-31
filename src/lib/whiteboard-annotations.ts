@@ -137,7 +137,14 @@ export type FurnitureModuleType =
   | 'abajur'
   | 'puff'
   | 'comoda'
-  | 'luminaria_chao';
+  | 'luminaria_chao'
+  // Sala — casa do cliente
+  | 'cadeira'
+  | 'cadeira_poltrona'
+  | 'sofa'
+  | 'sofa_2lugares'
+  | 'sofa_canto'
+  | 'modulo_cubo';
 
 export interface WhiteboardPoint {
   x: number;
@@ -214,6 +221,8 @@ export interface WhiteboardFurnitureModulePayload {
    * Ausente = anotações antigas (heurística de orientação).
    */
   topDown?: boolean;
+  /** Só o frontal, sem profundidade (banco retos). */
+  flatFront?: boolean;
   colorHex?: string;
   /**
    * Índices das arestas/traços ocultos (apagados pelo usuário).

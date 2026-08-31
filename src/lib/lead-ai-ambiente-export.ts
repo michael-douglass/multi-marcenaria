@@ -1,5 +1,6 @@
 import { loadImageForRender } from '@/lib/render-image-normalize';
 import { furnitureFrame, getFurnitureModuleMeta } from '@/lib/furniture-modules';
+import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
 import type {
   AmbienteBackground,
@@ -70,18 +71,28 @@ function drawFurniture(
   object: AmbienteFurnitureObject,
   worldW: number,
   worldH: number,
+  woodImg: HTMLImageElement | null,
 ) {
   const cx = object.x * worldW;
   const cy = object.y * worldH;
   const w = Math.max(40, object.width * worldW);
   const h = Math.max(48, object.height * worldH);
   const color = object.colorHex || '#f2d892';
+  const isRealistic = object.viewMode === 'realista';
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(((object.rotation ?? 0) * Math.PI) / 180);
   const a = { x: 0, y: -h / 2 };
   const b = { x: 0, y: h / 2 };
-  const frame = furnitureFrame(a, b, object.moduleType, undefined, w, true);
+  const frame = furnitureFrame(
+    a,
+    b,
+    object.moduleType,
+    undefined,
+    w,
+    true,
+    furnitureViewIsFlat(object.viewMode),
+  );
 
   for (let i = 0; i < frame.fillFaces.length; i++) {
     const face = frame.fillFaces[i];
@@ -90,10 +101,28 @@ function drawFurniture(
     ctx.moveTo(face[0].x, face[0].y);
     for (let j = 1; j < face.length; j++) ctx.lineTo(face[j].x, face[j].y);
     ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.globalAlpha = i === 2 ? 0.08 : i === 0 ? 0.16 : 0.11;
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    if (isRealistic && woodImg) {
+      ctx.save();
+      ctx.clip();
+      let minX = face[0].x;
+      let minY = face[0].y;
+      let maxX = face[0].x;
+      let maxY = face[0].y;
+      for (const pt of face) {
+        minX = Math.min(minX, pt.x);
+        minY = Math.min(minY, pt.y);
+        maxX = Math.max(maxX, pt.x);
+        maxY = Math.max(maxY, pt.y);
+      }
+      ctx.globalAlpha = i === 2 ? 0.95 : 0.78;
+      ctx.drawImage(woodImg, minX, minY, Math.max(4, maxX - minX), Math.max(4, maxY - minY));
+      ctx.restore();
+    } else {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = i === 2 ? 0.08 : i === 0 ? 0.16 : 0.11;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
   ctx.strokeStyle = color;
@@ -194,8 +223,17 @@ export async function exportAmbienteCompositionToJpeg(
     paintGeoShape(ctx, shape, world.width, world.height);
   }
 
+  let woodImg: HTMLImageElement | null = null;
+  if (input.objects.some((item) => item.viewMode === 'realista')) {
+    try {
+      woodImg = await loadImageForRender(GARBO_WOOD_TEXTURE_URL);
+    } catch {
+      woodImg = null;
+    }
+  }
+
   for (const object of input.objects) {
-    drawFurniture(ctx, object, world.width, world.height);
+    drawFurniture(ctx, object, world.width, world.height, woodImg);
   }
   for (const marker of input.markers) {
     drawMarker(ctx, marker, world.width, world.height);

@@ -80,11 +80,13 @@ export function LeadAIImageFullscreenDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-lead-ai-image-fullscreen=""
+        overlayClassName="z-[60]"
         className={cn(
           'fixed left-0 top-0 z-[60] flex h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0',
           'sm:left-1/2 sm:top-1/2 sm:h-[min(96dvh,940px)] sm:w-[min(1200px,calc(100vw-1rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border',
           'border-gold-border-subtle/30 bg-mahogany-panel shadow-2xl shadow-black/60',
-          '[&>button.absolute]:hidden',
+          'overflow-visible [&>button.absolute]:hidden',
         )}
       >
         <div className="relative shrink-0 border-b border-gold-border-subtle/30 bg-gradient-to-r from-mahogany-elevated via-mahogany-card to-mahogany-elevated px-4 py-3.5 sm:px-6">

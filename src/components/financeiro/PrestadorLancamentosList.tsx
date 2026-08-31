@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { finRowBase, finTextSecondary, finTextTertiary } from '@/components/financeiro/financeiro-styles';
+import { finRowBase, finTextSecondary, finTextTertiary, finValueGold } from '@/components/financeiro/financeiro-styles';
 
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -59,13 +59,13 @@ export function PrestadorLancamentosList({
                     variant="outline"
                     className={
                       l.tipo === 'ajuste'
-                        ? 'text-sky-300 border-sky-500/40 bg-sky-500/10 text-[10px]'
-                        : 'text-red-300 border-red-500/40 bg-red-500/10 text-[10px]'
+                        ? 'text-[#0e4d73] border-[rgba(14,77,115,0.35)] bg-[#e8f3fa] text-[10px]'
+                        : 'text-[#9f1239] border-[rgba(159,18,57,0.35)] bg-[#fde8ee] text-[10px]'
                     }
                   >
                     {l.tipo === 'ajuste' ? 'Ajuste' : 'Retirada'}
                   </Badge>
-                  <span className="font-semibold text-amber-400">{BRL(Number(l.valor))}</span>
+                  <span className={`font-semibold ${finValueGold}`}>{BRL(Number(l.valor))}</span>
                 </div>
                 {l.descricao && (
                   <p className={`${finTextSecondary} truncate text-xs mt-0.5`}>{l.descricao}</p>
@@ -78,7 +78,7 @@ export function PrestadorLancamentosList({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 gap-1 border-red-500/40 text-red-300 hover:bg-red-500/15 shrink-0"
+                  className="h-8 gap-1 border-[rgba(159,18,57,0.35)] text-[#9f1239] hover:bg-[#fde8ee] shrink-0"
                   disabled={isExcluindo}
                   onClick={() => setExcluirId(l.id)}
                 >

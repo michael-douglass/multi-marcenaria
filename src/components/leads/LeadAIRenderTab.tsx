@@ -61,7 +61,7 @@ import {
 import { prewarmPdfPageCount } from '@/lib/lead-ai-media-viewer';
 import { useAnalysisMediaImage } from '@/components/leads/lead-ai-analysis-media-utils';
 import { LeadAIRenderCompare } from '@/components/leads/LeadAIRenderCompare';
-import { LeadAIRenderHistoryPanel } from '@/components/leads/LeadAIRenderHistoryPanel';
+import { LeadAIRenderDownloadMenu } from '@/components/leads/LeadAIRenderDownloadMenu';
 import { LeadAIImageFullscreenDialog } from '@/components/leads/LeadAIImageFullscreenDialog';
 import { LeadAIRenderOptionsDialog } from '@/components/leads/LeadAIRenderOptionsDialog';
 import { LeadPdfPagePickerDialog } from '@/components/leads/LeadPdfPagePickerDialog';
@@ -327,6 +327,139 @@ function MediaSelectCard({
           {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         </Button>
       )}
+    </article>
+  );
+}
+
+function renderOriginMeta(render: LeadAIRender) {
+  if (render.parentRenderId) {
+    return { label: 'Edição', tone: 'bg-gold/15 text-gold border-gold/35' };
+  }
+  if (render.inputSnapshot.mode === 'ambiente') {
+    return { label: 'Ambiente', tone: 'bg-gold/15 text-gold border-gold/40' };
+  }
+  return { label: 'Render', tone: 'bg-mahogany-muted/80 text-cream-muted border-gold-border-subtle/40' };
+}
+
+function SavedRenderCard({
+  render,
+  selected,
+  index,
+  sketchUrl,
+  onSelect,
+  onExpand,
+  onDelete,
+  isDeleting,
+}: {
+  render: LeadAIRender;
+  selected: boolean;
+  index: number;
+  sketchUrl?: string | null;
+  onSelect: () => void;
+  onExpand: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
+  const meta = renderOriginMeta(render);
+  const title =
+    render.editNotas?.trim() ||
+    render.inputSnapshot.label ||
+    'Renderização';
+
+  return (
+    <article
+      className={cn(
+        'group/card relative overflow-hidden rounded-xl border transition-all duration-300',
+        'bg-mahogany-card/60 shadow-lg shadow-black/20',
+        'animate-in fade-in slide-in-from-bottom-2 fill-mode-both',
+        selected
+          ? 'border-gold/60 ring-2 ring-gold/40 shadow-gold/10 shadow-xl scale-[1.02]'
+          : 'border-gold-border-subtle/25 hover:border-gold-border/50',
+        isDeleting && 'pointer-events-none opacity-60',
+      )}
+      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+    >
+      <div className="relative aspect-[4/5] overflow-hidden bg-mahogany-base">
+        <button
+          type="button"
+          onClick={onSelect}
+          className="h-full w-full"
+          aria-label={`Exibir ${title}`}
+        >
+          <img
+            src={render.outputPublicUrl}
+            alt={title}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.03]"
+            loading="lazy"
+          />
+        </button>
+
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent opacity-90 group-hover/card:opacity-100" />
+
+        <div className="absolute left-2.5 top-2.5 z-10">
+          <Badge variant="outline" className={cn('border px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm', meta.tone)}>
+            {meta.label}
+          </Badge>
+        </div>
+
+        <div className="absolute right-2.5 top-2.5 z-20">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={isDeleting}
+            aria-label={`Excluir ${title}`}
+            className={cn(
+              'h-7 w-7 border border-white/10 bg-black/55 text-cream-secondary backdrop-blur-sm',
+              'hover:border-destructive/40 hover:bg-destructive/90 hover:text-white',
+            )}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onDelete();
+            }}
+          >
+            {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+
+        <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onExpand();
+            }}
+            className={cn(
+              'flex h-8 w-8 items-center justify-center rounded-full',
+              'border border-gold/40 bg-mahogany-panel/90 text-gold shadow-lg shadow-black/30 backdrop-blur-sm',
+              'transition-all duration-300 hover:scale-105 hover:bg-mahogany-panel',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
+            )}
+            aria-label={`Ampliar ${title}`}
+          >
+            <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <LeadAIRenderDownloadMenu
+            outputUrl={render.outputPublicUrl}
+            sketchUrl={sketchUrl}
+            sketchLabel={render.inputSnapshot.label}
+            iconOnly
+            menuTitle="Baixar render"
+            triggerClassName="h-8 w-8 rounded-full border border-gold/40 bg-mahogany-panel/90 text-gold shadow-lg shadow-black/30 backdrop-blur-sm hover:bg-mahogany-panel hover:text-gold"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-gold-border-subtle/20 bg-mahogany-elevated/90 px-3 py-2.5">
+        <p className="truncate text-xs font-medium text-cream-secondary" title={title}>
+          {title}
+        </p>
+        <p className="mt-0.5 text-[10px] tabular-nums text-cream-faint">
+          {format(new Date(render.criadoEm), "dd/MM/yy · HH:mm", { locale: ptBR })}
+        </p>
+      </div>
     </article>
   );
 }
@@ -1144,6 +1277,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
             onEditSuccess={handleEditSuccess}
             onSelectVersion={handleSelectVersion}
             onDeleteVersion={handleDeleteVersion}
+            onRequestDelete={activeRender ? () => setDeleteTarget(activeRender) : undefined}
           />
         </section>
       )}
@@ -1151,29 +1285,50 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       <section className="space-y-3">
         <Label className="flex items-center gap-2 text-sm font-medium">
           <History className="h-4 w-4 text-gold" />
-          Histórico de renderizações
+          Fotos renderizadas
         </Label>
+        <p className="text-xs text-cream-muted">
+          Cada render fica salvo neste lead. Amplie para baixar ou exclua se não gostar do resultado.
+        </p>
         {historicoLoading ? (
-          <Skeleton className="h-28 w-full rounded-xl" />
+          <SketchMediaGrid itemCount={4}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-mahogany-muted/50" />
+            ))}
+          </SketchMediaGrid>
+        ) : historico.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gold-border-subtle/30 bg-mahogany-base/40 px-4 py-6 text-center">
+            <History className="mx-auto mb-2 h-5 w-5 text-cream-faint" />
+            <p className="text-xs text-cream-muted">
+              Nenhuma renderização ainda. Gere a primeira acima — cada nova foto será salva aqui para baixar ou excluir.
+            </p>
+          </div>
         ) : (
-          <LeadAIRenderHistoryPanel
-            historico={historico}
-            selectedId={activeRenderId ?? ''}
-            onSelect={handleSelectVersion}
-            onFullscreen={setHistoryFullscreenRender}
-            onDelete={setDeleteTarget}
-            deletingId={deleteMutation.isPending ? deleteTarget?.id : null}
-            title="Histórico de renderizações"
-            subtitle={
-              historico.length > 0
-                ? `${historico.length} ${historico.length === 1 ? 'renderização salva' : 'renderizações salvas'} · clique para exibir ou excluir`
-                : undefined
-            }
-            emptyMessage="Nenhuma renderização ainda. Gere a primeira acima — cada nova renderização será salva aqui."
-            maxHeightClassName="max-h-64"
-            showProjectLabel
-            originBadgeLabel="Nova"
-          />
+          <SketchMediaGrid itemCount={historico.length}>
+            {historico.map((entry, index) => {
+              const rootSketch = findRootSketchSnapshot(entry, historico);
+              const sketchFromItems = items.find((item) => item.id === rootSketch.id);
+              const sketchUrl =
+                rootSketch.imageUrl ??
+                sketchFromItems?.fileUrl ??
+                sketchFromItems?.thumbnailUrl ??
+                null;
+
+              return (
+                <SavedRenderCard
+                  key={entry.id}
+                  render={entry}
+                  selected={entry.id === activeRenderId}
+                  index={index}
+                  sketchUrl={sketchUrl}
+                  onSelect={() => handleSelectVersion(entry)}
+                  onExpand={() => setHistoryFullscreenRender(entry)}
+                  onDelete={() => setDeleteTarget(entry)}
+                  isDeleting={deleteMutation.isPending && deleteTarget?.id === entry.id}
+                />
+              );
+            })}
+          </SketchMediaGrid>
         )}
       </section>
 
@@ -1239,6 +1394,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
             locale: ptBR,
           })}
           outputUrl={historyFullscreenRender.outputPublicUrl}
+          sketchLabel={historyFullscreenRender.inputSnapshot.label}
         />
       )}
 
