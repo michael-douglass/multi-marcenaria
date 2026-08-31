@@ -46,7 +46,7 @@ function invokeFunctionErrorMessage(error: { message?: string; name?: string }):
     msg.includes('NetworkError') ||
     error.name === 'FunctionsFetchError';
   if (isUnreachable) {
-    return 'Serviço de renderização de ambiente indisponível. Verifique se a função render-lead-ambiente foi publicada no Supabase.';
+    return 'Não foi possível enviar a montagem ao servidor. A foto da lousa pode estar pesada demais — tente de novo com uma foto menor.';
   }
   return null;
 }
@@ -71,8 +71,33 @@ function formatAmbienteErrorMessage(raw: string, data: unknown): string {
   return raw;
 }
 
+const MAX_AMBIENTE_BODY_CHARS = 3_200_000;
+
+function pruneAmbienteBody(body: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...body };
+  const sizeOf = () => JSON.stringify(next).length;
+
+  if (sizeOf() > MAX_AMBIENTE_BODY_CHARS && Array.isArray(next.furnitureReferences)) {
+    next.furnitureReferences = [];
+  }
+  if (
+    sizeOf() > MAX_AMBIENTE_BODY_CHARS &&
+    next.sourceImageBase64 &&
+    next.compositionImageBase64
+  ) {
+    delete next.sourceImageBase64;
+  }
+  if (sizeOf() > MAX_AMBIENTE_BODY_CHARS) {
+    throw new Error(
+      'A montagem ficou pesada demais para enviar. Use uma foto menor na lousa ou posicione menos imagens.',
+    );
+  }
+  return next;
+}
+
 async function invokeAmbiente(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const { data, error } = await supabase.functions.invoke('render-lead-ambiente', { body });
+  const payload = pruneAmbienteBody(body);
+  const { data, error } = await supabase.functions.invoke('render-lead-ambiente', { body: payload });
 
   if (data?.error) {
     throw new Error(formatAmbienteErrorMessage(String(data.error), data));
@@ -98,7 +123,6 @@ export async function invokeAnalyzeLeadAmbiente(
     leadName: input.leadName,
     leadOrigin: input.leadOrigin,
     descricao: input.descricao,
-    sourceImageBase64: input.imageDataUrl,
     compositionImageBase64: input.imageDataUrl,
     cenaInventario: input.cenaInventario,
   });
@@ -123,7 +147,7 @@ export async function invokeRenderLeadAmbiente(
     analiseTexto: input.analiseTexto,
     cenaInventario: input.cenaInventario,
     compositionImageBase64: input.compositionDataUrl,
-    sourceImageBase64: input.sourceImageDataUrl,
+    sourceImageBase64: input.compositionDataUrl ? undefined : input.sourceImageDataUrl,
     furnitureReferences: input.furnitureReferences?.map((ref) => ({
       label: ref.label,
       imageBase64: ref.dataUrl,

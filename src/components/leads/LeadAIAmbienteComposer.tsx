@@ -59,7 +59,6 @@ import {
 } from '@/lib/lead-ai-ambiente-draw';
 import {
   exportAmbienteCompositionToJpeg,
-  exportAmbienteFurnitureReferences,
   fileToImagePreview,
   urlToImagePreview,
 } from '@/lib/lead-ai-ambiente-export';
@@ -657,7 +656,6 @@ export function LeadAIAmbienteComposer({
     setIsFlattening(true);
     try {
       let compositionDataUrl: string | undefined;
-      let sourceImageDataUrl: string | undefined;
       if (hasComposition) {
         const exported = await exportAmbienteCompositionToJpeg({
           background,
@@ -667,16 +665,14 @@ export function LeadAIAmbienteComposer({
           shapes,
         });
         compositionDataUrl = exported.dataUrl;
-      }
-      if (background) {
-        sourceImageDataUrl = background.url.startsWith('data:')
-          ? background.url
-          : (await exportAmbienteCompositionToJpeg({
-              background,
-              overlays: [],
-              objects: [],
-              markers: [],
-            })).dataUrl;
+      } else if (background) {
+        const exported = await exportAmbienteCompositionToJpeg({
+          background,
+          overlays: [],
+          objects: [],
+          markers: [],
+        });
+        compositionDataUrl = exported.dataUrl;
       }
       const cenaInventario = buildAmbienteCenaInventario({
         descricao: descricao.trim(),
@@ -686,9 +682,6 @@ export function LeadAIAmbienteComposer({
         markers,
         shapes,
       });
-      const furnitureReferences = overlays.length
-        ? await exportAmbienteFurnitureReferences(overlays)
-        : [];
       setIsFlattening(false);
       setIsFullscreen(false);
       void onRender({
@@ -696,8 +689,6 @@ export function LeadAIAmbienteComposer({
         analiseTexto: analiseTexto ?? undefined,
         cenaInventario,
         compositionDataUrl,
-        sourceImageDataUrl,
-        furnitureReferences,
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível renderizar o ambiente');

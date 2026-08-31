@@ -9,8 +9,8 @@ import type {
   AmbienteLabelMarker,
 } from '@/lib/lead-ai-ambiente-types';
 
-const MAX_EDGE_PX = 1536;
-const JPEG_QUALITY = 0.92;
+const MAX_EDGE_PX = 1024;
+const JPEG_QUALITY = 0.84;
 const WORLD_MIN_W = 960;
 const WORLD_MIN_H = 640;
 
