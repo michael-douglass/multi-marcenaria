@@ -10,34 +10,34 @@ const ACCENT: Record<
   { bar: string; glow: string; icon: string; value: string }
 > = {
   gold: {
-    bar: 'linear-gradient(180deg, #f2d892 0%, rgba(242,216,146,0.12) 100%)',
-    glow: 'radial-gradient(circle, rgba(242,216,146,0.26) 0%, transparent 70%)',
-    icon: 'text-[#f2d892]',
-    value: 'text-[#f2d892]',
+    bar: 'linear-gradient(180deg, #c4963a 0%, rgba(196,150,58,0.12) 100%)',
+    glow: 'radial-gradient(circle, rgba(196,150,58,0.22) 0%, transparent 70%)',
+    icon: 'text-[#8d5e22]',
+    value: 'text-[#8d5e22]',
   },
   emerald: {
-    bar: 'linear-gradient(180deg, #34d399 0%, rgba(52,211,153,0.12) 100%)',
-    glow: 'radial-gradient(circle, rgba(52,211,153,0.22) 0%, transparent 70%)',
-    icon: 'text-emerald-400',
-    value: 'text-emerald-400',
+    bar: 'linear-gradient(180deg, #059669 0%, rgba(5,150,105,0.12) 100%)',
+    glow: 'radial-gradient(circle, rgba(5,150,105,0.18) 0%, transparent 70%)',
+    icon: 'text-emerald-700',
+    value: 'text-emerald-700',
   },
   rose: {
-    bar: 'linear-gradient(180deg, #f87171 0%, rgba(248,113,113,0.12) 100%)',
-    glow: 'radial-gradient(circle, rgba(248,113,113,0.28) 0%, transparent 70%)',
-    icon: 'text-red-400',
-    value: 'text-red-400',
+    bar: 'linear-gradient(180deg, #dc2626 0%, rgba(220,38,38,0.12) 100%)',
+    glow: 'radial-gradient(circle, rgba(220,38,38,0.18) 0%, transparent 70%)',
+    icon: 'text-red-700',
+    value: 'text-red-700',
   },
   sky: {
-    bar: 'linear-gradient(180deg, #67e8f9 0%, rgba(103,232,249,0.12) 100%)',
-    glow: 'radial-gradient(circle, rgba(103,232,249,0.2) 0%, transparent 70%)',
-    icon: 'text-cyan-300',
-    value: 'text-cyan-300',
+    bar: 'linear-gradient(180deg, #0e7490 0%, rgba(14,116,144,0.12) 100%)',
+    glow: 'radial-gradient(circle, rgba(14,116,144,0.16) 0%, transparent 70%)',
+    icon: 'text-cyan-800',
+    value: 'text-cyan-800',
   },
   amber: {
-    bar: 'linear-gradient(180deg, #fbbf24 0%, rgba(251,191,36,0.12) 100%)',
-    glow: 'radial-gradient(circle, rgba(251,191,36,0.22) 0%, transparent 70%)',
-    icon: 'text-amber-400',
-    value: 'text-amber-400',
+    bar: 'linear-gradient(180deg, #b45309 0%, rgba(180,83,9,0.12) 100%)',
+    glow: 'radial-gradient(circle, rgba(180,83,9,0.16) 0%, transparent 70%)',
+    icon: 'text-amber-800',
+    value: 'text-amber-800',
   },
 }
 
@@ -49,7 +49,7 @@ interface DashboardCardShellProps {
   style?: CSSProperties
 }
 
-/** Casca visual compartilhada dos cards do dashboard (Movelaria: escuro + ouro). */
+/** Casca visual compartilhada dos cards do dashboard (papel creme + tinta). */
 export function DashboardCardShell({
   children,
   accent = 'gold',
@@ -63,9 +63,9 @@ export function DashboardCardShell({
       onClick={onClick}
       style={style}
       className={cn(
-        'group relative h-full overflow-hidden border-[rgba(240,210,140,0.16)] bg-[rgba(15,8,5,0.72)] backdrop-blur-md',
+        'group relative h-full overflow-hidden border-[rgba(42,24,18,0.10)] bg-[#fffcf8]',
         'transition-[border-color,box-shadow,transform] duration-300 ease-out',
-        'hover:border-[rgba(240,210,140,0.34)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.38)]',
+        'hover:border-[rgba(42,24,18,0.18)] hover:shadow-[0_14px_36px_rgba(42,24,18,0.08)]',
         onClick && 'cursor-pointer',
         className,
       )}
@@ -109,12 +109,12 @@ export function DashboardKpiCard({
     <DashboardCardShell accent={accent} className={className} style={style}>
       <CardHeader className="relative flex flex-row items-start justify-between space-y-0 px-5 pb-2 pt-5">
         <div className="min-w-0 pr-2">
-          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#edd9c4]">
+          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#6b5244]">
             {title}
           </CardTitle>
         </div>
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.2)]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.05)]"
           aria-hidden
         >
           <Icon className={cn('h-3.5 w-3.5', a.icon)} />
@@ -124,7 +124,7 @@ export function DashboardKpiCard({
         <div className={cn('font-display text-[1.7rem] leading-none tracking-[0.04em] tabular-nums', a.value)}>
           {value}
         </div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#edd9c4]/70">
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
           {subtitle}
         </p>
       </CardContent>

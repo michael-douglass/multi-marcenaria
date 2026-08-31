@@ -54,9 +54,9 @@ export function ProjetosAbertosCard({ fila, visitas, desenho, feitos }: Projetos
         'transition-transform duration-700 hover:-translate-y-0.5',
       )}
     >
-      <div className="relative flex items-center gap-3 rounded-[1.55rem] bg-[#120c09]/90 px-4 py-3">
+      <div className="relative flex items-center gap-3 rounded-[1.55rem] bg-[#fffcf8] px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="font-display text-[10px] tracking-[0.28em] text-sky-200/80">ABERTOS</p>
+          <p className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">ABERTOS</p>
           <p
             className="font-display text-[2.75rem] leading-none text-gold"
             style={{ textShadow: '0 0 18px rgba(242,216,146,0.45)' }}
@@ -64,9 +64,9 @@ export function ProjetosAbertosCard({ fila, visitas, desenho, feitos }: Projetos
             {abertos}
           </p>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-            <span className="text-amber-300">Fila {fila}</span>
-            <span className="text-teal-300">Visitas {visitas}</span>
-            <span className="text-sky-300">Desenho {desenho}</span>
+            <span className="text-amber-800">Fila {fila}</span>
+            <span className="text-teal-800">Visitas {visitas}</span>
+            <span className="text-sky-800">Desenho {desenho}</span>
           </div>
         </div>
         <div ref={hostRef} className="h-24 w-24 shrink-0" aria-hidden />

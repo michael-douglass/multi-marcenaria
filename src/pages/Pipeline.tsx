@@ -39,7 +39,6 @@ import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizon
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell';
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls';
 import { KanbanCard } from '@/components/kanban/KanbanCard';
-import { PipelineBoardAura } from '@/components/kanban/PipelineBoardAura';
 import { LeadModal } from '@/components/leads/LeadModal';
 import { SaleValueDialog } from '@/components/leads/SaleValueDialog';
 import { useLeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
@@ -1244,9 +1243,6 @@ export default function Pipeline() {
                   <ChevronRight className="h-5 w-5" />
                 </Button>
               </div>
-            </div>
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[min(70vh,36rem)]">
-              <PipelineBoardAura />
             </div>
             <div
               ref={pipelineKanbanScrollRef}

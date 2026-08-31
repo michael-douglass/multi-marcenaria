@@ -31,13 +31,13 @@ void main() {
   float rim = pow(1.0 - abs(uv.y - 0.08), 4.0) * 0.22;
   vec3 gold = vec3(0.95, 0.85, 0.57);
   vec3 ink = vec3(0.07, 0.03, 0.015);
-  vec3 color = mix(ink, gold, wash * 0.35);
-  color = mix(color, brand, 0.18 * uHasBrand);
-  color += gold * (grain + rim);
+  vec3 color = mix(ink, gold, wash * 0.22);
+  color = mix(color, brand, 0.12 * uHasBrand);
+  color += gold * (grain * 0.7 + rim * 0.7);
   float vignette = smoothstep(0.0, 0.12, uv.x) * smoothstep(1.0, 0.86, uv.x)
     * smoothstep(0.0, 0.1, uv.y) * smoothstep(1.0, 0.82, uv.y);
-  float alpha = (0.2 + wash * 0.16 + grain * 0.08) * vignette;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.42));
+  float alpha = (0.12 + wash * 0.1 + grain * 0.05) * vignette;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.26));
 }
 `
 

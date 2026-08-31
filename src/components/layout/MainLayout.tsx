@@ -13,7 +13,9 @@ import { isVisualizadorOnly } from '@/lib/role-access'
 import { hasObrasAdminSectionsAccess } from '@/lib/obra-permissions'
 import { cn } from '@/lib/utils'
 import { canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
+import { isPontoLightPath } from '@/lib/webgl-support'
 import { AppErrorBoundary } from '@/components/AppErrorBoundary'
+import { AppPaperAura } from '@/components/layout/AppPaperAura'
 import { CrmSelletosDock } from '@/components/crm/CrmSelletosDock'
 import { useKanbanRealtimeSync } from '@/hooks/useKanbanRealtimeSync'
 import { useUiPreferences } from '@/hooks/useUiPreferences'
@@ -116,7 +118,7 @@ export function MainLayout() {
   const hideAgenda = isVisualizadorOnly(roles)
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
-  const hideFabsOnPonto = location.pathname.startsWith('/bater-ponto')
+  const hideFabsOnPonto = isPontoLightPath(location.pathname)
   const isCrmArea = isCrmAppPath(location.pathname)
   const hideFactoryFabs = hideFabsOnPonto || isCrmArea
   const isProjetosAtelie = location.pathname.startsWith('/projetos')
@@ -131,10 +133,11 @@ export function MainLayout() {
     <ContasPagarNotifProvider>
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
-      <SidebarInset className="h-svh max-h-svh min-h-0 overflow-hidden">
+      <SidebarInset className="relative h-svh max-h-svh min-h-0 overflow-hidden bg-transparent">
+        {!hideFabsOnPonto ? <AppPaperAura /> : null}
         <NavigationHeader onOpenAgenda={openAgendaSafely} />
         <div className={cn(
-          'flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
+          'paper-workspace relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
           fillViewportBoard
             ? 'overflow-hidden px-0 py-0 pb-16 sm:pb-16'
             : pipelinePageScroll
@@ -164,7 +167,7 @@ export function MainLayout() {
         </div>
       </SidebarInset>
 
-      {showAgendaGeral ? (
+      {showAgendaGeral && !hideFabsOnPonto ? (
         <FloatingAgendaGeralShell
           isOpen={isAgendaGeralOpen}
           onToggle={() => setIsAgendaGeralOpen(open => !open)}

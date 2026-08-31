@@ -47,37 +47,37 @@ export function SaldoComparativoCard({
     <DashboardCardShell accent={resolvedAccent} className={className} style={style}>
       <CardHeader className="relative flex flex-row items-start justify-between space-y-0 px-5 pb-2 pt-5">
         <div className="min-w-0 space-y-1 pr-2">
-          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#edd9c4]">
+          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#6b5244]">
             {title}
           </CardTitle>
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#edd9c4]/70">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
             {subtitle}
           </p>
         </div>
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.2)]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.05)]"
           aria-hidden
         >
-          <Icon className="h-3.5 w-3.5 text-[#f2d892]" />
+          <Icon className="h-3.5 w-3.5 text-[#8d5e22]" />
         </div>
       </CardHeader>
 
       <CardContent className="relative space-y-3 px-5 pb-5 pt-0">
-        <div className="font-display text-[1.85rem] leading-none tracking-[0.04em] tabular-nums text-emerald-400">
+        <div className="font-display text-[1.85rem] leading-none tracking-[0.04em] tabular-nums text-emerald-700">
           {fmtCur(valorPrincipal)}
         </div>
 
         <div
-          className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.28)] px-3 py-2.5"
+          className="rounded-lg border border-[rgba(42,24,18,0.10)] bg-[rgba(42,24,18,0.04)] px-3 py-2.5"
           role="group"
           aria-label={ariaSaldoLabel}
         >
           <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.12em]">
-            <span className="text-[#edd9c4]/75">{labelEntrada}</span>
-            <span className="font-semibold tabular-nums text-[#c8f0d8]">{fmtCur(valorEntrada)}</span>
+            <span className="text-[#6b5244]">{labelEntrada}</span>
+            <span className="font-semibold tabular-nums text-emerald-800">{fmtCur(valorEntrada)}</span>
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.12em]">
-            <span className="text-[#edd9c4]/75">{labelSaida}</span>
+            <span className="text-[#6b5244]">{labelSaida}</span>
             <span className="font-semibold tabular-nums text-[#f0c4b0]">− {fmtCur(valorSaida)}</span>
           </div>
 
@@ -94,10 +94,10 @@ export function SaldoComparativoCard({
               className={cn(
                 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em]',
                 isNegativo
-                  ? 'border-red-400/30 bg-red-500/10 text-red-300'
+                  ? 'border-red-400/30 bg-red-500/10 text-red-700'
                   : isPositivo
-                    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300'
-                    : 'border-[rgba(240,210,140,0.25)] bg-[rgba(240,210,140,0.06)] text-[#f2d892]',
+                    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800'
+                    : 'border-[rgba(42,24,18,0.16)] bg-[rgba(42,24,18,0.04)] text-[#8d5e22]',
               )}
             >
               <SaldoIcon className="h-3 w-3" aria-hidden />
@@ -106,7 +106,7 @@ export function SaldoComparativoCard({
             <span
               className={cn(
                 'font-display text-lg leading-none tracking-[0.03em] tabular-nums',
-                isNegativo ? 'text-red-400' : 'text-emerald-400',
+                isNegativo ? 'text-red-700' : 'text-emerald-700',
               )}
             >
               {fmtCur(saldo)}

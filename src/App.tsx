@@ -436,7 +436,7 @@ function AuthenticatedRoutes() {
             element={
               canAccessSection(roles, 'baterPonto')
                 ? <PontoPage />
-                : <Restricted message="Disponível para funcionários de campo e RH." />
+                : <Restricted message="Só funcionários cadastrados pela empresa podem bater ponto." />
             }
           />
           <Route

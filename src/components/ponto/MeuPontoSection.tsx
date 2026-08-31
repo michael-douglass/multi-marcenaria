@@ -3,9 +3,8 @@ import { Clock } from 'lucide-react'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { formatJornadaResumo } from '@/lib/funcionario-ponto'
+import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
 import { useBaterPonto } from '@/hooks/useBaterPonto'
-
-const TIPOS_PONTO = new Set(['montador', 'montador_admin', 'administrador_obras'])
 
 interface Props {
   funcionarioTipo: string
@@ -14,7 +13,7 @@ interface Props {
 export function MeuPontoSection({ funcionarioTipo }: Props) {
   const { status, loading, error } = useBaterPonto()
 
-  if (!TIPOS_PONTO.has(funcionarioTipo)) return null
+  if (!podeBaterPontoPorTipo(funcionarioTipo)) return null
 
   return (
     <div className="glass-card p-5">

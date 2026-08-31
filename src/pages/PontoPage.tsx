@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Clock, LayoutGrid, UserCheck } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
-import { canAccessSection, isFuncionarioCampo } from '@/lib/role-access'
+import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
+import { useMeuFuncionario } from '@/hooks/useMeuFuncionario'
 import { BaterPonto } from '@/pages/BaterPonto'
 import { PontoControleFuncionarios } from '@/components/ponto/PontoControleFuncionarios'
+import { LoadingState } from '@/components/ui/EmptyState'
 
 type PontoTab = 'bater' | 'controle'
 
@@ -13,21 +15,36 @@ function isRh(roles: string[]): boolean {
 
 export function PontoPage() {
   const { roles } = useApp()
-  const showBater = canAccessSection(roles, 'baterPonto') && isFuncionarioCampo(roles)
+  const { data: funcionario, loading: cadastroLoading } = useMeuFuncionario()
+  const showBater = podeBaterPontoPorTipo(funcionario?.tipo)
   const showControle = isRh(roles)
-
-  const [tab, setTab] = useState<PontoTab>(
-    showControle && !showBater ? 'controle' : 'bater',
-  )
+  const [tab, setTab] = useState<PontoTab | null>(null)
 
   const onlyBater = showBater && !showControle
   const onlyControle = showControle && !showBater
   const onlyOne = onlyBater || onlyControle
+  const activeTab = tab ?? (showBater ? 'bater' : 'controle')
+
+  if (cadastroLoading) {
+    return <LoadingState message="Verificando seu cadastro de funcionário…" />
+  }
 
   if (!showBater && !showControle) {
     return (
-      <div className="glass-card p-8 text-center">
-        <p className="text-[#edd9c4]">Você não tem acesso ao módulo de ponto.</p>
+      <div className="fade-in obra-page-shell mx-auto flex max-w-lg flex-col gap-4 p-1 pb-10">
+        <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#f2d892]">
+          <Clock size={28} />
+          Bater Ponto
+        </h1>
+        <div className="glass-card p-8 text-center">
+          <p className="text-[#edd9c4]">
+            Só funcionários cadastrados pela empresa podem bater ponto.
+          </p>
+          <p className="mt-2 text-sm text-[#b8957f]">
+            Peça ao RH para criar ou vincular sua pasta em Funcionários.
+            Sem esse cadastro, o ponto não abre.
+          </p>
+        </div>
       </div>
     )
   }
@@ -61,7 +78,7 @@ export function PontoPage() {
               type="button"
               onClick={() => setTab('bater')}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                tab === 'bater'
+                activeTab === 'bater'
                   ? 'bg-[rgba(240,210,140,0.14)] text-[#f2d892] shadow-sm'
                   : 'text-[#b8957f] hover:text-[#edd9c4]'
               }`}
@@ -75,7 +92,7 @@ export function PontoPage() {
               type="button"
               onClick={() => setTab('controle')}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                tab === 'controle'
+                activeTab === 'controle'
                   ? 'bg-[rgba(240,210,140,0.14)] text-[#f2d892] shadow-sm'
                   : 'text-[#b8957f] hover:text-[#edd9c4]'
               }`}
@@ -87,12 +104,12 @@ export function PontoPage() {
         </nav>
       )}
 
-      {tab === 'bater' && showBater && (
+      {activeTab === 'bater' && showBater && (
         <div className="mx-auto w-full max-w-lg">
           <BaterPonto embedded />
         </div>
       )}
-      {tab === 'controle' && showControle && (
+      {activeTab === 'controle' && showControle && (
         <div className="mx-auto w-full max-w-6xl">
           <PontoControleFuncionarios />
         </div>

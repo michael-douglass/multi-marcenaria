@@ -361,7 +361,7 @@ export function SimuladorCaixaCard({
   }
 
   return (
-    <Card className="overflow-hidden border-[rgba(240,210,140,0.16)] bg-[rgba(12,7,5,0.65)] backdrop-blur-md">
+    <Card className="overflow-hidden border-[rgba(42,24,18,0.10)] bg-[#fffcf8]">
       <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-[rgba(240,210,140,0.08)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <CardTitle className="font-display text-lg tracking-[0.12em] text-[#f2d892]">
@@ -399,13 +399,13 @@ export function SimuladorCaixaCard({
               value={ano}
               onChange={e => onAnoChange(Number(e.target.value))}
               className={cn(
-                'rounded-md border border-[rgba(240,210,140,0.28)] bg-[rgba(0,0,0,0.35)]',
-                'px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[#f2d892] outline-none',
-                'transition-colors hover:border-[rgba(240,210,140,0.45)] focus:border-[#f2d892]',
+                'rounded-md border border-[rgba(42,24,18,0.16)] bg-[#fffcf8]',
+                'px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[#2a1812] outline-none',
+                'transition-colors hover:border-[rgba(42,24,18,0.28)] focus:border-[#8d5e22]',
               )}
             >
               {anos.map(a => (
-                <option key={a} value={a} className="bg-[#2a1812]">
+                <option key={a} value={a} className="bg-[#fffcf8]">
                   {a}
                 </option>
               ))}
@@ -417,7 +417,7 @@ export function SimuladorCaixaCard({
             onClick={handleReset}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md border border-[rgba(240,210,140,0.25)]',
-              'bg-[rgba(0,0,0,0.3)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#edd9c4]',
+          'bg-[rgba(42,24,18,0.04)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b5244]',
               'transition-colors hover:border-[rgba(240,210,140,0.45)] hover:text-[#f2d892]',
             )}
           >
@@ -442,7 +442,7 @@ export function SimuladorCaixaCard({
 
           <div className="relative flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(0,0,0,0.28)]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(42,24,18,0.04)]">
                 <CalendarClock className="h-4 w-4 text-[#f2d892]" aria-hidden />
               </div>
               <div>
@@ -492,7 +492,7 @@ export function SimuladorCaixaCard({
         </div>
 
         {linhasVisiveis.length === 0 ? (
-          <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.22)] px-4 py-5 text-center">
+          <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(42,24,18,0.04)] px-4 py-5 text-center">
             <p className="text-[11px] uppercase tracking-[0.16em] text-[#edd9c4]/65">
               Sem a receber ou a pagar em aberto em {ano}
             </p>
@@ -516,7 +516,7 @@ export function SimuladorCaixaCard({
                   'dash-card-enter relative overflow-hidden rounded-lg border px-3.5 py-3',
                   isPrevisao
                     ? 'border-[rgba(242,216,146,0.35)] bg-[rgba(242,216,146,0.08)]'
-                    : 'border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.28)]',
+                    : 'border-[rgba(240,210,140,0.12)] bg-[rgba(42,24,18,0.04)]',
                 )}
                 style={{ animationDelay: `${i * 25}ms` }}
               >
@@ -657,7 +657,7 @@ export function SimuladorCaixaCard({
                           placeholder="Ex.: Extra, Correção…"
                           maxLength={80}
                           className={cn(
-                            'mt-0.5 w-full rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.35)]',
+                            'mt-0.5 w-full rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(42,24,18,0.05)]',
                             'px-2 py-1.5 text-xs text-[#fffaf4] outline-none placeholder:text-[#edd9c4]/35',
                             'focus:border-[rgba(242,216,146,0.55)]',
                           )}
@@ -680,7 +680,7 @@ export function SimuladorCaixaCard({
                             }}
                             placeholder="0,00"
                             className={cn(
-                              'w-full min-w-0 rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.35)]',
+                              'w-full min-w-0 rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(42,24,18,0.05)]',
                               'px-2 py-1.5 text-xs font-semibold tabular-nums text-[#fffaf4] outline-none',
                               'focus:border-[rgba(242,216,146,0.55)]',
                             )}
@@ -737,7 +737,7 @@ export function SimuladorCaixaCard({
                   </div>
 
                   {ajustesDoMes.length > 0 && (
-                    <div className="mt-1 overflow-hidden rounded-md border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.2)]">
+                    <div className="mt-1 overflow-hidden rounded-md border border-[rgba(240,210,140,0.12)] bg-[rgba(42,24,18,0.04)]">
                       <button
                         type="button"
                         onClick={() =>
@@ -857,7 +857,7 @@ export function SimuladorCaixaCard({
         >
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(0,0,0,0.25)]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.2)] bg-[rgba(42,24,18,0.04)]">
                 <Wallet className="h-4 w-4 text-[#f2d892]" aria-hidden />
               </div>
               <div>
@@ -946,7 +946,7 @@ function MoneyField({
     <label
       className={cn(
         'block',
-        !compact && 'rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.25)] px-3 py-2.5',
+        !compact && 'rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(42,24,18,0.04)] px-3 py-2.5',
       )}
     >
       <span className="text-[9px] uppercase tracking-[0.14em] text-[#edd9c4]/65">{label}</span>
@@ -983,7 +983,7 @@ function MoneyField({
           }}
           placeholder="0,00"
           className={cn(
-            'w-full min-w-0 rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.35)]',
+            'w-full min-w-0 rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(42,24,18,0.05)]',
             'px-2 py-1 text-sm font-semibold tabular-nums text-[#fffaf4] outline-none',
             'focus:border-[rgba(242,216,146,0.55)]',
             tone === 'in' ? 'caret-[#c8f0d8]' : 'caret-[#f0c4b0]',

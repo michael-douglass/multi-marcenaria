@@ -5,6 +5,6 @@ export const KANBAN_COLUMN_WIDTH_CLASS =
 export const KANBAN_COLUMN_SHELL_CLASS = [
   'relative flex flex-none flex-col h-auto min-h-[min(72vh,calc(100svh-11rem))] overflow-visible',
   KANBAN_COLUMN_WIDTH_CLASS,
-  'bg-[rgba(12,6,3,0.88)] rounded-2xl border',
+  'kanban-dark-island bg-[rgba(12,6,3,0.88)] rounded-2xl border',
   'transition-[border-color,box-shadow,transform] duration-300',
 ].join(' ');

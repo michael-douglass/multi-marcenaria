@@ -8,7 +8,8 @@ import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotificatio
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
 import { canAccessCrmPath, canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
-import { isFuncionarioCampo } from '@/lib/role-access'
+import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
+import { useMeuFuncionario } from '@/hooks/useMeuFuncionario'
 
 const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
@@ -28,10 +29,12 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { roles, userProfile, crmProfile, signOut } = useApp()
+  const { data: meuFuncionario } = useMeuFuncionario()
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
   const isCrmArea = isCrmAppPath(location.pathname)
   const canCrmAgenda = canAccessCrmPath('/agenda-comercial', crmProfile, userProfile)
   const showAgendaBtn = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
+  const showPontoBtn = podeBaterPontoPorTipo(meuFuncionario?.tipo)
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.28)] bg-[rgba(52,34,26,0.94)] px-4 backdrop-blur-md safe-area-top-offset">
@@ -75,7 +78,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
         </Button>
         )}
 
-        {isFuncionarioCampo(roles) && (
+        {showPontoBtn && (
           <Button
             type="button"
             variant="ghost"

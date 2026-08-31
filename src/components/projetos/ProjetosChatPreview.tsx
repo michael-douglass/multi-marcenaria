@@ -67,7 +67,7 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
         )}
       >
         <div
-          className="relative rounded-[1.55rem] bg-[#120c09]/90 px-3 py-3"
+          className="relative rounded-[1.55rem] bg-[#fffcf8] px-3 py-3"
           style={{
             backgroundImage:
               'repeating-linear-gradient(0deg, rgba(125,211,252,0.05) 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, rgba(242,216,146,0.05) 0 1px, transparent 1px 12px)',
@@ -88,8 +88,8 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
             </button>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <p className="font-display text-[10px] tracking-[0.28em] text-sky-200/80">RÁDIO</p>
-                <span className="rounded-full border border-gold/25 px-1.5 py-0.5 text-[10px] text-gold">
+                <p className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">RÁDIO</p>
+                <span className="rounded-full border border-[rgba(42,24,18,0.14)] px-1.5 py-0.5 text-[10px] text-[#8d5e22]">
                   {threads.length} {threads.length === 1 ? 'conversa' : 'conversas'}
                 </span>
                 {pending > 0 ? (
@@ -105,7 +105,7 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
                     <li key={thread.lead_id}>
                       <button
                         type="button"
-                        className="flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-white/5"
+                        className="flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-[rgba(42,24,18,0.04)]"
                         onClick={() => openSheet(thread)}
                       >
                         {needs ? (

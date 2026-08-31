@@ -7,9 +7,16 @@ interface SidebarSearchFieldProps {
   onChange: (value: string) => void
   collapsed: boolean
   onExpand: () => void
+  disableAura?: boolean
 }
 
-export function SidebarSearchField({ value, onChange, collapsed, onExpand }: SidebarSearchFieldProps) {
+export function SidebarSearchField({
+  value,
+  onChange,
+  collapsed,
+  onExpand,
+  disableAura = false,
+}: SidebarSearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const pendingFocus = useRef(false)
 
@@ -24,7 +31,7 @@ export function SidebarSearchField({ value, onChange, collapsed, onExpand }: Sid
       <button
         type="button"
         className="sidebar-search-icon-btn"
-        aria-label="Buscar páginas"
+        aria-label="Buscar páginas ou leads"
         onClick={e => {
           e.preventDefault()
           e.stopPropagation()
@@ -43,7 +50,7 @@ export function SidebarSearchField({ value, onChange, collapsed, onExpand }: Sid
       onClick={e => e.stopPropagation()}
       onPointerDown={e => e.stopPropagation()}
     >
-      <SidebarSearchAura />
+      {disableAura ? null : <SidebarSearchAura />}
       <Search className="sidebar-search-glyph" aria-hidden />
       <input
         ref={inputRef}
@@ -57,8 +64,8 @@ export function SidebarSearchField({ value, onChange, collapsed, onExpand }: Sid
             inputRef.current?.blur()
           }
         }}
-        placeholder="Buscar páginas…"
-        aria-label="Buscar páginas do menu"
+        placeholder="Buscar páginas ou leads…"
+        aria-label="Buscar páginas do menu, nome ou telefone do lead"
         autoComplete="off"
         spellCheck={false}
       />
@@ -82,6 +89,6 @@ export function SidebarSearchField({ value, onChange, collapsed, onExpand }: Sid
 }
 
 export function SidebarSearchEmpty({ query }: { query: string }) {
-  return <p className="sidebar-search-empty">Nenhuma página para “{query.trim()}”.</p>
+  return <p className="sidebar-search-empty">Nenhuma página ou lead para “{query.trim()}”.</p>
 }
 

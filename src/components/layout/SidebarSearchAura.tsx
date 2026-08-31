@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
 import { GARBO_LOGO_SRC } from '@/lib/garbo-brand'
+import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -41,16 +42,16 @@ export function SidebarSearchAura({ className }: { className?: string }) {
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let renderer: THREE.WebGLRenderer
-    try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: false,
-        powerPreference: 'low-power',
-      })
-    } catch {
-      return
-    }
+    const renderer = tryCreateWebGLRenderer(
+      () =>
+        new THREE.WebGLRenderer({
+          alpha: true,
+          antialias: false,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        }),
+    )
+    if (!renderer) return
 
     renderer.setClearColor(0x000000, 0)
     renderer.domElement.style.display = 'block'

@@ -477,7 +477,7 @@ export function KanbanCard({
         </div>
 
         <div className="min-w-0 space-y-1">
-          <h4 className="inline-flex max-w-full items-start gap-1 text-[13px] font-semibold leading-snug text-foreground">
+          <h4 className="kanban-lead-name inline-flex max-w-full items-start gap-1 text-[15px] font-bold leading-snug tracking-tight">
             {pontuaGarboBadge && (
               <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]" aria-hidden />
             )}

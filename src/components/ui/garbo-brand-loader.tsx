@@ -35,9 +35,9 @@ export function GarboBrandLoader({
       className={cn(
         'relative flex items-center justify-center',
         isOverlay && 'fixed inset-0 z-[9999]',
-        isFullscreen && 'min-h-screen w-full bg-[#050403]',
+        isFullscreen && 'min-h-screen w-full bg-[#f8f4ee]',
         variant === 'inline' && 'min-h-[50vh] w-full py-16',
-        isOverlay && 'bg-[#050403]/95 backdrop-blur-sm',
+        isOverlay && 'bg-[#f8f4ee]/92 backdrop-blur-sm',
         className,
       )}
     >
@@ -48,8 +48,8 @@ export function GarboBrandLoader({
         )}
         aria-hidden
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_42%,rgba(242,216,146,0.14),transparent_68%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(42,24,18,0.55),#050403_78%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_42%,rgba(242,216,146,0.22),transparent_68%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,252,248,0.35),#f8f4ee_78%)]" />
       </div>
 
       <div className="relative z-10 flex flex-col items-center gap-8 px-6 text-center">
@@ -93,7 +93,7 @@ export function GarboBrandLoader({
         </div>
 
         {message && (
-          <p className="max-w-xs text-[11px] font-medium uppercase tracking-[0.28em] text-[#d4bc9f]/90 animate-pulse sm:text-xs">
+          <p className="max-w-xs text-[11px] font-medium uppercase tracking-[0.28em] text-[#6b5244] animate-pulse sm:text-xs">
             {message}
           </p>
         )}

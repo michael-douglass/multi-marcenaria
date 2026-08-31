@@ -6,63 +6,63 @@
 
 @layer base {
   :root {
-    /* Tokens semânticos Bourbon Daylight */
-    --color-bg-base:          #2a1812;
-    --color-bg-deep:          #1f120d;
-    --color-bg-elevated:      rgba(52, 34, 26, 0.97);
-    --color-surface-card:     rgba(78, 52, 40, 0.97);
-    --color-surface:          rgba(78, 52, 40, 0.97);
-    --color-surface-soft:     rgba(88, 60, 46, 0.94);
-    --color-surface-muted:    rgba(72, 48, 36, 0.78);
-    --color-surface-input:    rgba(68, 46, 34, 0.88);
-    --color-surface-panel:    rgba(62, 42, 32, 0.98);
-    --color-surface-float:    rgba(66, 44, 34, 0.95);
-    --color-surface-kpi:      rgba(72, 48, 36, 0.92);
+    /* Tokens — ateliê claro (papel creme + tinta mogno) */
+    --color-bg-base:          #f8f4ee;
+    --color-bg-deep:          #f3ebe1;
+    --color-bg-elevated:      rgba(255, 252, 248, 0.96);
+    --color-surface-card:     rgba(255, 252, 248, 0.94);
+    --color-surface:          rgba(255, 252, 248, 0.94);
+    --color-surface-soft:     rgba(255, 250, 244, 0.92);
+    --color-surface-muted:    rgba(243, 235, 225, 0.88);
+    --color-surface-input:    #fffcf8;
+    --color-surface-panel:    #fffcf8;
+    --color-surface-float:    rgba(255, 252, 248, 0.97);
+    --color-surface-kpi:      rgba(255, 250, 244, 0.92);
 
-    --color-text-primary:     #ffffff;
-    --color-text-body:        #fffaf4;
-    --color-text-secondary:   #faf2ea;
-    --color-text-muted:       #edd9c4;
-    --color-text-faint:       #d4bc9f;
+    --color-text-primary:     #2a1812;
+    --color-text-body:        #2a1812;
+    --color-text-secondary:   #3d261c;
+    --color-text-muted:       #6b5244;
+    --color-text-faint:       #8a7060;
     --color-text-sidebar:     #d4bc9f;
 
-    --color-gold:             #f2d892;
-    --color-gold-hover:       #f5e0a8;
+    --color-gold:             #c4963a;
+    --color-gold-hover:       #d4a84a;
     --color-gold-soft:        #e8c878;
-    --color-gold-muted:       #e8c878;
-    --color-gold-border:      rgba(240, 210, 140, 0.42);
-    --color-gold-border-subtle: rgba(240, 210, 140, 0.28);
-    --color-gold-glow:        rgba(240, 210, 140, 0.35);
-    --color-gold-dim:         rgba(240, 210, 140, 0.35);
+    --color-gold-muted:       #8d5e22;
+    --color-gold-border:      rgba(42, 24, 18, 0.14);
+    --color-gold-border-subtle: rgba(42, 24, 18, 0.10);
+    --color-gold-glow:        rgba(196, 150, 58, 0.22);
+    --color-gold-dim:         rgba(42, 24, 18, 0.12);
     --color-gold-on:          #2a1812;
     --color-on-gold:          #2a1812;
-    --color-highlight-inset:  rgba(255, 252, 248, 0.12);
-    --color-shadow:           rgba(0, 0, 0, 0.22);
+    --color-highlight-inset:  rgba(255, 255, 255, 0.72);
+    --color-shadow:           rgba(42, 24, 18, 0.10);
 
-    /* Shadcn HSL — valores 1:1 do CRM Selletos */
-    --background:       15 40% 12%;
-    --foreground:       30 100% 98%;
-    --card:             20 32% 23%;
-    --card-foreground:  30 100% 98%;
-    --popover:          20 33% 18%;
-    --popover-foreground: 30 100% 98%;
-    --primary:          43 78% 76%;
+    /* Shadcn HSL — papel claro */
+    --background:       32 33% 95%;
+    --foreground:       15 40% 12%;
+    --card:             36 60% 98%;
+    --card-foreground:  15 40% 12%;
+    --popover:          36 55% 98%;
+    --popover-foreground: 15 40% 12%;
+    --primary:          43 70% 52%;
     --primary-foreground: 15 40% 12%;
-    --secondary:        20 30% 28%;
-    --secondary-foreground: 33 67% 96%;
-    --accent:           20 33% 22%;
-    --accent-foreground: 30 100% 98%;
-    --muted:            20 33% 21%;
-    --muted-foreground: 33 55% 85%;
-    --success:          142 69% 58%;
+    --secondary:        32 25% 90%;
+    --secondary-foreground: 15 40% 16%;
+    --accent:           32 28% 90%;
+    --accent-foreground: 15 40% 12%;
+    --muted:            32 22% 91%;
+    --muted-foreground: 18 22% 35%;
+    --success:          142 55% 36%;
     --success-foreground: 0 0% 100%;
-    --warning:          43 96% 56%;
+    --warning:          43 86% 42%;
     --warning-foreground: 15 40% 12%;
-    --destructive:      0 91% 71%;
+    --destructive:      0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border:           30 35% 38%;
-    --input:            20 33% 20%;
-    --ring:             43 78% 76%;
+    --border:           25 22% 80%;
+    --input:            32 30% 94%;
+    --ring:             43 70% 42%;
     --radius: 0.625rem;
     --sidebar-background:         15 40% 12%;
     --sidebar-foreground:         33 40% 73%;
@@ -72,11 +72,11 @@
     --sidebar-accent-foreground:  43 78% 81%;
     --sidebar-border:             30 35% 30%;
     --sidebar-ring:               43 78% 76%;
-    --chart-1: 43 78% 76%;
-    --chart-2: 43 68% 69%;
-    --chart-3: 142 69% 58%;
-    --chart-4: 213 97% 78%;
-    --chart-5: 0 91% 71%;
+    --chart-1: 43 70% 42%;
+    --chart-2: 43 58% 50%;
+    --chart-3: 142 55% 36%;
+    --chart-4: 213 70% 46%;
+    --chart-5: 0 72% 48%;
   }
 
   .dark {
@@ -118,17 +118,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   overscroll-behavior-y: none;
 }
 
 body {
   background-color: var(--color-bg-base);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(240, 210, 140, 0.14) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 15% 20%, rgba(88, 60, 46, 0.48) 0%, transparent 62%),
-    radial-gradient(ellipse 50% 55% at 88% 85%, rgba(72, 48, 36, 0.38) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(78, 52, 40, 0.22) 0%, transparent 52%);
+    radial-gradient(ellipse 70% 42% at 50% -8%, rgba(255, 248, 235, 0.9) 0%, transparent 58%),
+    linear-gradient(180deg, #fbf8f3 0%, var(--color-bg-base) 46%, var(--color-bg-deep) 100%);
   font-family: 'Raleway', system-ui, sans-serif;
   color: var(--color-text-body);
   min-height: 100vh;
@@ -141,9 +139,9 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(240, 210, 140, 0.10) 0%, transparent 55%),
-    radial-gradient(ellipse at 15% 15%, rgba(120, 72, 40, 0.28) 0, transparent 55%),
-    radial-gradient(ellipse at 85% 85%, rgba(90, 50, 28, 0.22) 0, transparent 55%);
+    radial-gradient(ellipse 80% 50% at 50% 0%,  rgba(242, 216, 146, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 15%, rgba(232, 210, 180, 0.28) 0, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(220, 196, 164, 0.18) 0, transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
@@ -1841,55 +1839,109 @@ body::before {
 @layer components {
   .glass-card {
     background: var(--color-surface-card);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--color-gold-border);
     border-radius: 10px;
+    color: var(--color-text-body);
     box-shadow:
-      0 1px 0 rgba(240, 210, 140, 0.24) inset,
-      0 0 0 1px rgba(255, 220, 160, 0.08) inset,
-      0 14px 48px rgba(0, 0, 0, 0.55),
-      0 4px 12px rgba(0, 0, 0, 0.38);
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 14px 36px rgba(42, 24, 18, 0.07);
     transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
   }
   .glass-card:hover {
-    background: rgba(88, 60, 46, 0.97);
-    border-color: rgba(240, 210, 140, 0.55);
+    background: #fffcf8;
+    border-color: rgba(42, 24, 18, 0.18);
     box-shadow:
-      0 1px 0 rgba(240, 210, 140, 0.32) inset,
-      0 0 0 1px rgba(255, 220, 160, 0.10) inset,
-      0 20px 60px rgba(0, 0, 0, 0.62),
-      0 6px 18px rgba(0, 0, 0, 0.42),
-      0 0 60px var(--color-gold-glow);
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 18px 40px rgba(42, 24, 18, 0.09);
+  }
+  .glass-card .text-\[\#edd9c4\],
+  .glass-card .text-\[\#d4bc9f\],
+  .glass-card .text-\[\#faf2ea\] {
+    color: var(--color-text-muted);
+  }
+  .glass-card .text-\[\#f2d892\] {
+    color: var(--color-gold-muted);
+  }
+
+  /* Área principal: textos pensados para fundo escuro viram tinta no papel */
+  .paper-workspace {
+    color: var(--color-text-body);
+  }
+  .paper-workspace .text-cream {
+    color: var(--color-text-primary);
+  }
+  .paper-workspace .text-cream-secondary,
+  .paper-workspace .text-cream-muted,
+  .paper-workspace .text-cream-faint,
+  .paper-workspace [class*="text-[#edd9c4]"],
+  .paper-workspace [class*="text-[#d4bc9f]"],
+  .paper-workspace [class*="text-[#faf2ea]"],
+  .paper-workspace [class*="text-[#fffaf4]"] {
+    color: var(--color-text-muted);
+  }
+  .paper-workspace [class*="text-[#f2d892]"],
+  .paper-workspace .text-gold {
+    color: var(--color-gold-muted);
+  }
+  .paper-workspace [class*="bg-[rgba(12,7,5"],
+  .paper-workspace [class*="bg-[rgba(15,8,5"] {
+    background-color: #fffcf8;
+  }
+  .paper-workspace h1 {
+    color: var(--color-text-primary) !important;
+  }
+  .paper-workspace [style*="f2d892"]:not(h1) {
+    color: var(--color-gold-muted) !important;
+  }
+
+  /* Quadros kanban: devolve o creme sobre mogno */
+  .paper-workspace .kanban-dark-island {
+    color: #edd9c4;
+  }
+  .paper-workspace .kanban-dark-island .text-cream,
+  .paper-workspace .kanban-dark-island .text-cream-secondary,
+  .paper-workspace .kanban-dark-island .text-cream-muted,
+  .paper-workspace .kanban-dark-island .text-cream-faint,
+  .paper-workspace .kanban-dark-island [class*="text-[#edd9c4]"],
+  .paper-workspace .kanban-dark-island [class*="text-[#d4bc9f]"],
+  .paper-workspace .kanban-dark-island [class*="text-[#faf2ea]"],
+  .paper-workspace .kanban-dark-island [class*="text-[#fffaf4]"] {
+    color: #edd9c4;
+  }
+  .paper-workspace .kanban-dark-island [class*="text-[#f2d892]"],
+  .paper-workspace .kanban-dark-island .text-gold,
+  .paper-workspace .kanban-dark-island h1,
+  .paper-workspace .kanban-dark-island [style*="f2d892"] {
+    color: #f2d892 !important;
   }
 
   .glass-panel {
     background: var(--color-surface-soft);
-    backdrop-filter: blur(24px) saturate(155%);
-    -webkit-backdrop-filter: blur(24px) saturate(155%);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--color-gold-border-subtle);
     border-radius: 14px;
+    color: var(--color-text-body);
     box-shadow:
-      0 1px 0 rgba(240, 210, 140, 0.22) inset,
-      0 0 0 1px rgba(255, 220, 160, 0.07) inset,
-      0 12px 44px rgba(0, 0, 0, 0.50),
-      0 3px 10px rgba(0, 0, 0, 0.36);
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 12px 32px rgba(42, 24, 18, 0.06);
   }
 
   .glass-dialog {
     background: var(--color-surface-panel) !important;
-    backdrop-filter: blur(38px) saturate(165%) !important;
-    -webkit-backdrop-filter: blur(38px) saturate(165%) !important;
+    backdrop-filter: blur(24px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
     border: 1px solid var(--color-gold-border) !important;
+    color: var(--color-text-body) !important;
     box-shadow:
-      0 1px 0 rgba(240, 210, 140, 0.28) inset,
-      0 0 0 1px rgba(255, 220, 160, 0.09) inset,
-      0 36px 90px rgba(0, 0, 0, 0.72),
-      0 8px 28px rgba(0, 0, 0, 0.48) !important;
+      0 1px 0 rgba(255, 255, 255, 0.75) inset,
+      0 28px 64px rgba(42, 24, 18, 0.16) !important;
   }
 
   .glass-overlay-mogno {
-    background: rgba(42, 24, 18, 0.78) !important;
+    background: rgba(42, 24, 18, 0.45) !important;
     backdrop-filter: blur(18px) !important;
     -webkit-backdrop-filter: blur(18px) !important;
   }
@@ -1921,18 +1973,15 @@ body::before {
     box-shadow: 0 0 28px var(--color-gold-glow), 0 0 8px rgba(240, 210, 140, 0.22);
   }
 
-  /* ── Leads: ateliê claro (só esta página) ── */
+  /* ── Leads: folha da tabela (fundo já é global) ── */
   .leads-page-shell {
-    --leads-paper: #f8f4ee;
+    --leads-paper: transparent;
     --leads-sheet: #fffcf8;
     --leads-ink: #2a1812;
     --leads-muted: #6b5244;
     --leads-line: rgba(42, 24, 18, 0.10);
     --leads-gold: #8d5e22;
     color: var(--leads-ink);
-    background:
-      radial-gradient(ellipse 70% 42% at 50% -8%, rgba(255, 248, 235, 0.9) 0%, transparent 58%),
-      linear-gradient(180deg, #fbf8f3 0%, var(--leads-paper) 46%, #f3ebe1 100%);
     color-scheme: light;
   }
 
@@ -2036,7 +2085,7 @@ body::before {
   }
   .glass-input::placeholder { color: var(--color-text-faint); }
   .glass-input option,
-  .glass-input optgroup { background: var(--color-bg-base); color: var(--color-text-body); }
+  .glass-input optgroup { background: var(--color-surface-input); color: var(--color-text-body); }
 
   textarea.glass-input { resize: vertical; min-height: 72px; }
 
@@ -2394,6 +2443,30 @@ body::before {
 
   .kanban-lead-card {
     transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+    color: #f7ead8;
+  }
+
+  /* Nome do lead: tinta clara no mogno (o tema papel pinta text-foreground de marrom). */
+  .kanban-lead-card .kanban-lead-name {
+    color: #fff8ee;
+    text-shadow: 0 1px 2px rgba(8, 3, 1, 0.72);
+  }
+
+  .paper-workspace .kanban-dark-island .kanban-lead-card,
+  .paper-workspace .kanban-lead-card {
+    color: #f7ead8;
+  }
+
+  .paper-workspace .kanban-lead-card .kanban-lead-name,
+  .paper-workspace .kanban-dark-island .kanban-lead-card .kanban-lead-name,
+  .paper-workspace .kanban-lead-card .text-foreground,
+  .paper-workspace .kanban-dark-island .kanban-lead-card .text-foreground {
+    color: #fff8ee;
+  }
+
+  .paper-workspace .kanban-lead-card .text-muted-foreground,
+  .paper-workspace .kanban-dark-island .kanban-lead-card .text-muted-foreground {
+    color: #e8d0b4;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -2551,6 +2624,21 @@ body::before {
 
   /* ── Display font ── */
   .font-display { font-family: 'Bebas Neue', cursive; }
+}
+
+/* Nome do lead no Kanban: fora de @layer para vencer text-foreground do tema papel. */
+.kanban-lead-card .kanban-lead-name {
+  color: #fff8ee;
+  text-shadow: 0 1px 2px rgba(8, 3, 1, 0.72);
+}
+
+.paper-workspace .kanban-lead-card .text-muted-foreground {
+  color: #e8d0b4;
+}
+
+.paper-workspace .kanban-lead-card .text-foreground,
+.paper-workspace .kanban-lead-card .text-foreground\/80 {
+  color: #fff8ee;
 }
 
 /* ── Keyframes ── */

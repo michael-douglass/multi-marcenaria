@@ -22,6 +22,31 @@ function compactarBuscaPagina(texto) {
   return compactarBusca(texto).replace(/[-_/]+/g, '')
 }
 
+function compactarBuscaLead(texto) {
+  return compactarBuscaPagina(texto).replace(/[^a-z0-9]/g, '')
+}
+
+function leadCorrespondeBusca(nome, telefone, termo) {
+  const termoLimpo = termo.trim()
+  if (!termoLimpo) return true
+  const alvo = compactarBuscaLead(`${nome ?? ''} ${telefone ?? ''}`)
+  const blob = compactarBuscaLead(termoLimpo)
+  if (blob && alvo.includes(blob)) return true
+  const palavras = termoLimpo
+    .split(/\s+/)
+    .map(palavra => compactarBuscaLead(palavra))
+    .filter(Boolean)
+  return palavras.length > 1 && palavras.every(palavra => alvo.includes(palavra))
+}
+
+function matchSidebarLeads(leads, query) {
+  const termo = query.trim()
+  if (!termo) return []
+  return leads
+    .filter(lead => leadCorrespondeBusca(lead.nome, lead.telefone, termo))
+    .slice(0, 20)
+}
+
 function paginaCorrespondeBusca(texto, termo) {
   const termoLimpo = termo.trim()
   if (!termoLimpo) return true
@@ -132,7 +157,29 @@ describe('busca do menu lateral', () => {
     assert.equal(matchSidebarPages(pages, '   ').length, 0)
   })
 
-  it('AppSidebar usa o campo e a busca flexível', () => {
+  it('acha lead por nome ignorando acento, espaço e maiúscula', () => {
+    const leads = [
+      { id: 1, nome: 'José da Silva', telefone: '(31) 99277-6813' },
+      { id: 2, nome: 'Maria Souza', telefone: '5531988887777' },
+    ]
+    assert.equal(matchSidebarLeads(leads, 'JOSE SILVA').some(l => l.id === 1), true)
+    assert.equal(matchSidebarLeads(leads, 'josé').some(l => l.id === 1), true)
+    assert.equal(matchSidebarLeads(leads, 'maria souza').some(l => l.id === 2), true)
+    assert.equal(matchSidebarLeads(leads, 'Pedro').length, 0)
+  })
+
+  it('acha lead por telefone ignorando espaço, traço e parênteses', () => {
+    const leads = [
+      { id: 1, nome: 'José da Silva', telefone: '(31) 99277-6813' },
+      { id: 2, nome: 'Maria Souza', telefone: '5531988887777' },
+    ]
+    assert.equal(matchSidebarLeads(leads, '31992776813').some(l => l.id === 1), true)
+    assert.equal(matchSidebarLeads(leads, '31 99277 6813').some(l => l.id === 1), true)
+    assert.equal(matchSidebarLeads(leads, '(31)99277-6813').some(l => l.id === 1), true)
+    assert.equal(matchSidebarLeads(leads, '988887777').some(l => l.id === 2), true)
+  })
+
+  it('AppSidebar usa o campo e a busca flexível de páginas e leads', () => {
     const sidebar = readSrc('src/components/layout/AppSidebar.tsx')
     const field = readSrc('src/components/layout/SidebarSearchField.tsx')
     const aura = readSrc('src/components/layout/SidebarSearchAura.tsx')
@@ -140,10 +187,14 @@ describe('busca do menu lateral', () => {
     assert.match(sidebar, /SidebarSearchField/)
     assert.match(sidebar, /flattenSidebarPages/)
     assert.match(sidebar, /matchSidebarPages/)
-    assert.match(field, /Buscar páginas/)
+    assert.match(sidebar, /matchSidebarLeads/)
+    assert.match(sidebar, /useSidebarLeadsIndex/)
+    assert.match(field, /Buscar páginas ou leads/)
     assert.match(aura, /TextureLoader/)
     assert.match(aura, /identidade-visual-garbo|GARBO_LOGO_SRC/)
     assert.match(lib, /compactarBuscaPagina/)
+    assert.match(lib, /compactarBuscaLead/)
+    assert.match(lib, /leadCorrespondeBusca/)
     assert.match(lib, /\[-_\/\]\+/)
   })
 })

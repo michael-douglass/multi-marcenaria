@@ -10,9 +10,8 @@ import {
   periodoMesCorrente,
   PONTO_TIMEZONE,
 } from '@/lib/funcionario-ponto'
+import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
 import type { FuncionarioJornada, PontoMarcacao } from '@/types'
-
-const TIPOS_PONTO = new Set(['montador', 'montador_admin', 'administrador_obras'])
 
 export function HistoricoPonto() {
   const { data: funcionario, loading: loadingFunc, error: errorFunc, reload } = useMeuFuncionario()
@@ -57,7 +56,7 @@ export function HistoricoPonto() {
     return [...map.entries()]
   }, [marcacoes])
 
-  const habilitado = funcionario && TIPOS_PONTO.has(funcionario.tipo)
+  const habilitado = Boolean(funcionario && podeBaterPontoPorTipo(funcionario.tipo))
 
   return (
     <div className="fade-in obra-page-shell mx-auto flex max-w-2xl flex-col gap-6 p-1 pb-10">
@@ -79,7 +78,7 @@ export function HistoricoPonto() {
 
       {!loadingFunc && !errorFunc && !funcionario && (
         <ErrorState
-          message="Seu usuário não está vinculado a um cadastro de funcionário."
+          message="Só funcionários cadastrados pela empresa podem ver o ponto. Peça ao RH para vincular sua pasta."
           onRetry={() => void reload()}
         />
       )}

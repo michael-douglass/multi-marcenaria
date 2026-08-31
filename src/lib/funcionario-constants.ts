@@ -14,6 +14,17 @@ export const FUNCIONARIO_TIPO_PERFIL: Record<FuncionarioTipo, string> = {
   financeiro: 'financeiro',
 }
 
+/** Tipos de pasta que batem ponto (não inclui financeiro). */
+export const TIPOS_FUNCIONARIO_PONTO: readonly FuncionarioTipo[] = [
+  'montador',
+  'montador_admin',
+  'administrador_obras',
+]
+
+export function podeBaterPontoPorTipo(tipo: string | null | undefined): boolean {
+  return Boolean(tipo && (TIPOS_FUNCIONARIO_PONTO as readonly string[]).includes(tipo))
+}
+
 /** Perfis de login que geram pasta automática em Funcionários */
 export const PERFIS_FUNCIONARIO_AUTO = [
   'financeiro',

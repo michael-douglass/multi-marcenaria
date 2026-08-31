@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
 import { Download, Search, Plus, Pencil, X, MapPin, Star } from 'lucide-react';
 import { LeadModal } from '@/components/leads/LeadModal';
-import { LeadsPageAura } from '@/components/leads/LeadsPageAura';
 import { useLeads } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
 import { usePontuaGarboPartnerMap } from '@/hooks/usePontuaGarboPartnerLeads';
@@ -257,7 +256,6 @@ export default function Leads() {
   if (!hasPermission('leads', 'view')) {
     return (
       <div className="leads-page-shell relative -mx-2 -mt-2 flex min-h-[min(70vh,calc(100svh-5rem))] items-center justify-center px-6 sm:-mx-3 sm:-mt-3">
-        <LeadsPageAura />
         <div className="relative z-[1] max-w-md space-y-3 text-center">
           <p className="font-serif text-3xl text-[#2a1812]">Acesso negado</p>
           <p className="font-dm text-sm text-[#6b5244]">
@@ -270,8 +268,7 @@ export default function Leads() {
   }
 
   return (
-    <div className="leads-page-shell relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] overflow-hidden sm:-mx-3 sm:-mt-3">
-      <LeadsPageAura />
+    <div className="leads-page-shell relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] sm:-mx-3 sm:-mt-3">
       <div className="relative z-[1] space-y-5 p-4 sm:p-6 md:p-8">
       {isInitialLeadsLoad ? (
         <GarboBrandLoader variant="inline" size="md" message="Carregando leads…" />

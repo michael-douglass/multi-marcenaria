@@ -35,9 +35,11 @@ import {
   type NavItemId,
   type NavMainItem,
 } from '@/lib/app-navigation'
-import { colaboradorCrmRoles } from '@/lib/crm-identity'
+import { colaboradorCrmRoles, canAccessCrmPath } from '@/lib/crm-identity'
 import { canAccessSection } from '@/lib/role-access'
-import { flattenSidebarPages, matchSidebarPages } from '@/lib/sidebar-search'
+import { flattenSidebarPages, matchSidebarLeads, matchSidebarPages } from '@/lib/sidebar-search'
+import { useSidebarLeadsIndex } from '@/hooks/useSidebarLeadsIndex'
+import { isPontoLightPath } from '@/lib/webgl-support'
 import { cn } from '@/lib/utils'
 import type { ActiveSection } from '@/types'
 
@@ -191,8 +193,10 @@ export function AppSidebar() {
   const { roles, userProfile, crmProfile } = useApp()
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
   const activeSection = sectionFromPath(location.pathname)
+  const skipWebGL = isPontoLightPath(location.pathname)
   const { pages } = useKanbanConfig()
   const { count: manutencaoCount } = useManutencaoAttentionCount()
+  const canSearchLeads = canAccessCrmPath('/leads', crmProfile, userProfile)
 
   const items = attachPipelineKanbanPages(
     getVisibleNavMainItems(navVisibilityFromProfiles(roles, crmProfile, userProfile)),
@@ -204,9 +208,15 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState('')
   const allPages = useMemo(() => flattenSidebarPages(items), [items])
   const searchHits = useMemo(() => matchSidebarPages(allPages, searchQuery), [allPages, searchQuery])
+  const { data: leadIndex = [], isFetching: leadsFetching } = useSidebarLeadsIndex(canSearchLeads)
+  const leadHits = useMemo(
+    () => (canSearchLeads ? matchSidebarLeads(leadIndex, searchQuery) : []),
+    [canSearchLeads, leadIndex, searchQuery],
+  )
   const isSearching = searchQuery.trim().length > 0
   const crmHits = searchHits.filter(hit => hit.sector === 'comercial')
   const casaHits = searchHits.filter(hit => hit.sector === 'casa')
+  const searchEmpty = isSearching && searchHits.length === 0 && leadHits.length === 0 && !leadsFetching
 
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
@@ -438,13 +448,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="relative overflow-hidden border-b border-[rgba(240,210,140,0.12)] pb-3">
-        <SidebarAmberRibbon active={open && !isMobile} />
+        {skipWebGL ? null : <SidebarAmberRibbon active={open && !isMobile} />}
         <div className="relative z-[2] isolate flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center">
           <div className="hidden shrink-0 group-data-[collapsible=icon]:block">
             <Logo full={false} halo={false} />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <Logo full halo={false} />
+            <Logo full halo={false} height={72} />
           </div>
         </div>
         <div className="relative z-[2]">
@@ -453,6 +463,7 @@ export function AppSidebar() {
             onChange={setSearchQuery}
             collapsed={!open}
             onExpand={() => setOpen(true)}
+            disableAura={skipWebGL}
           />
         </div>
       </SidebarHeader>
@@ -461,7 +472,26 @@ export function AppSidebar() {
         <ScrollArea className="h-full sidebar-scroll">
           {isSearching ? (
             <div className="px-1 pb-3">
-              {searchHits.length === 0 ? <SidebarSearchEmpty query={searchQuery} /> : null}
+              {searchEmpty ? <SidebarSearchEmpty query={searchQuery} /> : null}
+              {leadHits.length > 0 ? (
+                <>
+                  <p className="sidebar-search-kicker sidebar-search-kicker--crm">Leads</p>
+                  <SidebarMenu>
+                    {leadHits.map(hit => {
+                      const Icon = hit.icon
+                      const leadId = hit.id.replace(/^lead-/, '')
+                      const isActive =
+                        location.pathname === '/leads' &&
+                        new URLSearchParams(location.search).get('id') === leadId
+                      return (
+                        <SidebarMenuItem key={hit.id}>
+                          {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </>
+              ) : null}
               {crmHits.length > 0 ? (
                 <>
                   <p className="sidebar-search-kicker sidebar-search-kicker--crm">CRM</p>

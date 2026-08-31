@@ -26,7 +26,6 @@ import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizon
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell'
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls'
 import { LeadModal } from '@/components/leads/LeadModal'
-import { ProjetosBoardAura } from '@/components/projetos/ProjetosBoardAura'
 import { ProjetosAbertosCard } from '@/components/projetos/ProjetosAbertosCard'
 import { ProjetosChatPreview } from '@/components/projetos/ProjetosChatPreview'
 import { ProjetosLeadSearch } from '@/components/projetos/ProjetosLeadSearch'
@@ -188,14 +187,12 @@ export default function Projetos() {
   const error = stagesError ?? projetosError
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#120c09]">
-      <ProjetosBoardAura />
-
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="relative z-30 flex flex-col gap-3 px-3 pb-2 pt-3 md:flex-row md:items-start md:justify-between md:px-4">
         <div className="min-w-0">
-          <p className="font-display text-[11px] tracking-[0.28em] text-sky-200/80">SETOR</p>
-          <h1 className="font-display text-2xl text-gold md:text-3xl">Projetos</h1>
-          <p className="mt-1 max-w-md text-xs text-cream-muted">
+          <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
+          <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
+          <p className="mt-1 max-w-md text-xs text-[#6b5244]">
             Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
           </p>
         </div>

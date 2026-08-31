@@ -35,12 +35,14 @@ import {
 } from 'recharts'
 
 const CHART_TOOLTIP_STYLE = {
-  backgroundColor: '#1a100c',
-  border: '1px solid rgba(240,210,140,0.22)',
+  backgroundColor: '#fffcf8',
+  border: '1px solid rgba(42,24,18,0.12)',
   borderRadius: '10px',
   fontFamily: 'Raleway, sans-serif',
-  boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+  boxShadow: '0 12px 32px rgba(42,24,18,0.12)',
 } as const
+
+const CHART_TICK = { fill: '#6b5244', fontSize: 10, fontFamily: 'Raleway' } as const
 
 export function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useFinanceiroStats()
@@ -154,33 +156,33 @@ export function Dashboard() {
   return (
     <div className="fade-in mx-auto max-w-[1600px] space-y-8 p-2 sm:p-4 lg:p-6">
       {/* Hero */}
-      <header className="relative overflow-hidden rounded-2xl border border-[rgba(240,210,140,0.16)] bg-[rgba(12,7,5,0.7)] px-5 py-6 sm:px-8 sm:py-7">
+      <header className="relative overflow-hidden rounded-2xl border border-[rgba(42,24,18,0.10)] bg-[#fffcf8] px-5 py-6 sm:px-8 sm:py-7">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 80% 100% at 0% -20%, rgba(242,216,146,0.16), transparent 55%), radial-gradient(ellipse 60% 80% at 100% 120%, rgba(242,216,146,0.07), transparent 50%), linear-gradient(135deg, rgba(242,216,146,0.04) 0%, transparent 40%)',
+              'radial-gradient(ellipse 80% 100% at 0% -20%, rgba(242,216,146,0.22), transparent 55%), radial-gradient(ellipse 60% 80% at 100% 120%, rgba(232,200,140,0.10), transparent 50%)',
           }}
         />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
           style={{
-            background: 'linear-gradient(90deg, transparent, rgba(242,216,146,0.45), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(42,24,18,0.12), transparent)',
           }}
         />
         <div className="relative flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="section-label mb-1.5">Painel financeiro</p>
-            <h1 className="font-display text-4xl tracking-[0.2em] text-[#f2d892] sm:text-5xl">
+            <h1 className="font-display text-4xl tracking-[0.2em] text-[#2a1812] sm:text-5xl">
               DASHBOARD
             </h1>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#edd9c4]/70">
+            <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#6b5244]">
               Saldos do mês, indicadores e movimento de caixa da marcenaria.
             </p>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#edd9c4]/45">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#8a7060]">
             Movelaria Garbo
           </p>
         </div>
@@ -242,19 +244,19 @@ export function Dashboard() {
             <div className="h-[260px] sm:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={receitasMensais}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(240,210,140,0.06)" vertical={false} />
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#edd9c4', fontSize: 10, fontFamily: 'Raleway' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,24,18,0.08)" vertical={false} />
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={CHART_TICK} />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#edd9c4', fontSize: 10, fontFamily: 'Raleway' }}
+                    tick={CHART_TICK}
                     tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
                     width={40}
                   />
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_STYLE}
-                    itemStyle={{ color: '#f2d892', fontSize: '12px', fontWeight: 600 }}
-                    labelStyle={{ color: '#edd9c4', fontSize: '10px', marginBottom: '4px' }}
+                    itemStyle={{ color: '#8d5e22', fontSize: '12px', fontWeight: 600 }}
+                    labelStyle={{ color: '#6b5244', fontSize: '10px', marginBottom: '4px' }}
                     formatter={(v: number) => [fmtCur(v), 'Recebido']}
                   />
                   <Bar dataKey="valor" fill="#34d399" radius={[4, 4, 0, 0]} barSize={28}>
@@ -278,12 +280,12 @@ export function Dashboard() {
             <div className="h-[260px] sm:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={despesasMensais}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(240,210,140,0.06)" vertical={false} />
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#edd9c4', fontSize: 10, fontFamily: 'Raleway' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,24,18,0.08)" vertical={false} />
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={CHART_TICK} />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#edd9c4', fontSize: 10, fontFamily: 'Raleway' }}
+                    tick={CHART_TICK}
                     tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
                     width={40}
                   />
@@ -312,12 +314,12 @@ export function Dashboard() {
           <div className="h-[280px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={comparativoData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(240,210,140,0.06)" vertical={false} />
-                <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#edd9c4', fontSize: 10, fontFamily: 'Raleway' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,24,18,0.08)" vertical={false} />
+                <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={CHART_TICK} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#edd9c4', fontSize: 11, fontFamily: 'Raleway' }}
+                  tick={{ ...CHART_TICK, fontSize: 11 }}
                   tickFormatter={(v) =>
                     v >= 1000 ? `R$ ${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : fmtCur(v)
                   }
@@ -325,8 +327,8 @@ export function Dashboard() {
                 />
                 <Tooltip
                   contentStyle={CHART_TOOLTIP_STYLE}
-                  labelStyle={{ color: '#f2d892', fontSize: '11px', fontWeight: 700, marginBottom: '6px' }}
-                  itemStyle={{ color: '#fffaf4', fontSize: '12px', fontWeight: 600 }}
+                  labelStyle={{ color: '#8d5e22', fontSize: '11px', fontWeight: 700, marginBottom: '6px' }}
+                  itemStyle={{ color: '#2a1812', fontSize: '12px', fontWeight: 600 }}
                   formatter={(v: number, name: string) => [
                     fmtCur(v),
                     name === 'receitas' ? 'A receber' : 'A pagar',
@@ -341,7 +343,7 @@ export function Dashboard() {
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
                     fontFamily: 'Raleway, sans-serif',
-                    color: '#edd9c4',
+                    color: '#6b5244',
                   }}
                 />
                 <Bar dataKey="receitas" name="A receber" fill="#34d399" radius={[3, 3, 0, 0]} />
@@ -391,12 +393,12 @@ function DashboardSection({
 }) {
   return (
     <section className="space-y-4">
-      <div className="flex items-end justify-between gap-3 border-b border-[rgba(240,210,140,0.1)] pb-2">
-        <h2 className="font-display text-xl tracking-[0.16em] text-[#f2d892]">
+      <div className="flex items-end justify-between gap-3 border-b border-[rgba(42,24,18,0.10)] pb-2">
+        <h2 className="font-display text-xl tracking-[0.16em] text-[#2a1812]">
           {title.toUpperCase()}
         </h2>
         {hint && (
-          <span className="pb-0.5 text-[10px] uppercase tracking-[0.18em] text-[#edd9c4]/50">
+          <span className="pb-0.5 text-[10px] uppercase tracking-[0.18em] text-[#8a7060]">
             {hint}
           </span>
         )}
@@ -422,13 +424,13 @@ function DashboardChartCard({
   children: ReactNode
 }) {
   return (
-    <Card className="overflow-hidden border-[rgba(240,210,140,0.16)] bg-[rgba(12,7,5,0.65)] backdrop-blur-md">
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-[rgba(240,210,140,0.08)] px-5 py-4">
+    <Card className="overflow-hidden border-[rgba(42,24,18,0.10)] bg-[#fffcf8] backdrop-blur-md">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-[rgba(42,24,18,0.08)] px-5 py-4">
         <div className="min-w-0">
-          <CardTitle className="font-display text-lg tracking-[0.12em] text-[#f2d892]">
+          <CardTitle className="font-display text-lg tracking-[0.12em] text-[#2a1812]">
             {title}
           </CardTitle>
-          <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
+          <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#6b5244]">
             {description}
           </CardDescription>
         </div>
@@ -450,18 +452,18 @@ function AnoSelect({
 }) {
   return (
     <label className="flex shrink-0 flex-col items-end gap-1">
-      <span className="text-[9px] uppercase tracking-[0.16em] text-[#edd9c4]/45">Ano</span>
+      <span className="text-[9px] uppercase tracking-[0.16em] text-[#8a7060]">Ano</span>
       <select
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className={cn(
-          'rounded-md border border-[rgba(240,210,140,0.28)] bg-[rgba(0,0,0,0.35)]',
-          'px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[#f2d892] outline-none',
-          'transition-colors hover:border-[rgba(240,210,140,0.45)] focus:border-[#f2d892]',
+          'rounded-md border border-[rgba(42,24,18,0.16)] bg-[#fffcf8]',
+          'px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[#2a1812] outline-none',
+          'transition-colors hover:border-[rgba(42,24,18,0.28)] focus:border-[#8d5e22]',
         )}
       >
         {anos.map(a => (
-          <option key={a} value={a} className="bg-[#2a1812]">
+          <option key={a} value={a} className="bg-[#fffcf8]">
             {a}
           </option>
         ))}
@@ -482,18 +484,18 @@ function NovosClientesCard({ count, ticketMedio }: { count: number; ticketMedio:
         style={{ animationDelay: '340ms' }}
       >
         <CardHeader className="relative flex flex-row items-start justify-between space-y-0 px-5 pb-2 pt-5">
-          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#edd9c4]">
+          <CardTitle className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#6b5244]">
             Novos Clientes Mês
           </CardTitle>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(240,210,140,0.18)] bg-[rgba(0,0,0,0.2)]">
-            <UserPlus className="h-3.5 w-3.5 text-cyan-300" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.05)]">
+            <UserPlus className="h-3.5 w-3.5 text-cyan-800" />
           </div>
         </CardHeader>
         <CardContent className="relative space-y-2 px-5 pb-5 pt-0">
-          <div className="font-display text-[1.7rem] leading-none tracking-[0.04em] text-cyan-300">
+          <div className="font-display text-[1.7rem] leading-none tracking-[0.04em] text-cyan-800">
             {count}
           </div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#edd9c4]/70">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
             Ticket médio: {fmtCur(ticketMedio)}
           </p>
         </CardContent>

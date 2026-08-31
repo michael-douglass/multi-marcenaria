@@ -14,7 +14,6 @@ import { useRegioes } from '@/hooks/useRegioes';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { KanbanCard } from '@/components/kanban/KanbanCard';
-import { PipelineBoardAura } from '@/components/kanban/PipelineBoardAura';
 import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizontalScrollbar';
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell';
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls';
@@ -500,9 +499,6 @@ export default function PipelineKanbanPage() {
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[min(70vh,36rem)]">
-            <PipelineBoardAura />
           </div>
           <div
             ref={kanbanScrollRef}

@@ -70,7 +70,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
 
       {!loading && !error && !status && (
         <ErrorState
-          message="Seu usuário não está vinculado a um cadastro de funcionário habilitado para bater ponto."
+          message="Só funcionários cadastrados pela empresa podem bater ponto. Peça ao RH para vincular sua pasta."
           onRetry={() => void reload()}
         />
       )}

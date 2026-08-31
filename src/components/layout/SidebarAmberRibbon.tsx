@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
+import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 interface SidebarAmberRibbonProps {
   className?: string
@@ -67,16 +68,16 @@ export function SidebarAmberRibbon({ className, active = true }: SidebarAmberRib
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let renderer: THREE.WebGLRenderer
-    try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: false,
-        powerPreference: 'low-power',
-      })
-    } catch {
-      return
-    }
+    const renderer = tryCreateWebGLRenderer(
+      () =>
+        new THREE.WebGLRenderer({
+          alpha: true,
+          antialias: false,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        }),
+    )
+    if (!renderer) return
 
     renderer.setClearColor(0x000000, 0)
     renderer.domElement.style.display = 'block'

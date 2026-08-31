@@ -4,16 +4,18 @@ interface LogoProps {
   full?: boolean
   /** Sombra atrás da marca. Desligue no menu para não cobrir o desenho. */
   halo?: boolean
+  /** Altura da marca aberta, em pixels. */
+  height?: number
 }
 
-export function Logo({ full = true, halo = true }: LogoProps) {
+export function Logo({ full = true, halo = true, height = 44 }: LogoProps) {
   if (full) {
     return (
       <div
         style={{
           background: 'transparent',
           borderRadius: '10px',
-          padding: '4px 12px',
+          padding: '2px 8px',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -24,7 +26,7 @@ export function Logo({ full = true, halo = true }: LogoProps) {
           src={garboBrandLogo}
           alt="GARBO Movelaria"
           style={{
-            height: 44,
+            height,
             width: 'auto',
             display: 'block',
             filter: halo ? undefined : 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
