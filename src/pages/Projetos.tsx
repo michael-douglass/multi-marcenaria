@@ -29,6 +29,7 @@ import { LeadModal } from '@/components/leads/LeadModal'
 import { ProjetosAbertosCard } from '@/components/projetos/ProjetosAbertosCard'
 import { ProjetosChatPreview } from '@/components/projetos/ProjetosChatPreview'
 import { ProjetosLeadSearch } from '@/components/projetos/ProjetosLeadSearch'
+import { ProjetosBoardAura } from '@/components/projetos/ProjetosBoardAura'
 import { ProjetoKanbanColumn } from '@/components/projetos/ProjetoKanbanColumn'
 import { ProjetoKanbanCard } from '@/components/projetos/ProjetoKanbanCard'
 import { CriarLeadProjetoDialog } from '@/components/projetos/CriarLeadProjetoDialog'
@@ -188,7 +189,7 @@ export default function Projetos() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="relative z-30 flex flex-col gap-3 px-3 pb-2 pt-3 md:flex-row md:items-start md:justify-between md:px-4">
+      <header className="relative z-30 flex shrink-0 flex-col gap-3 px-3 pb-2 pt-3 md:flex-row md:items-start md:justify-between md:px-4">
         <div className="min-w-0">
           <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
           <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
@@ -229,14 +230,6 @@ export default function Projetos() {
         </div>
       </header>
 
-      <div className="relative z-30 px-3 pb-2 md:px-4">
-        <ProjetosLeadSearch
-          projetos={projetos}
-          onOpenLead={openLead}
-          onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
-        />
-      </div>
-
       {loading && (
         <div className="relative z-30">
           <LoadingState variant="page" message="Abrindo a prancheta..." />
@@ -254,64 +247,76 @@ export default function Projetos() {
       )}
 
       {!loading && !error && stages.length > 0 && (
-        <KanbanPageZoomShell fillViewport>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="relative z-20 flex min-h-0 w-full flex-1 flex-col overflow-hidden pb-4">
-              <div
-                ref={scrollRef}
-                className="scrollbar-always-visible flex min-h-0 flex-1 snap-x gap-4 overflow-x-scroll overflow-y-hidden px-3 md:gap-5 md:px-4"
-              >
-                {columns.map(({ stage, items }) => (
-                  <ProjetoKanbanColumn
-                    key={stage.id}
-                    stage={stage}
-                    stages={stages}
-                    items={items.map((item) => item.id)}
-                    count={items.length}
-                  >
-                    {items.map((projeto, index) => (
-                      <ProjetoKanbanCard
-                        key={projeto.id}
-                        projeto={projeto}
-                        stages={stages}
-                        appearIndex={index}
-                        currentUserId={user?.id}
-                        canPegar={canPegar}
-                        canSoltar={canSoltar}
-                        canReabrir={canSoltar}
-                        canSolicitar={canSolicitar}
-                        chatThread={chatByLead.get(projeto.lead_id) ?? null}
-                        lembretesCount={lembretesCountMap.get(projeto.lead_id) ?? 0}
-                        onOpen={openLead}
-                        onPegar={(id) => pegar.mutate(id)}
-                        onSoltar={(id) => askConfirm('soltar', () => soltar.mutate(id))}
-                        onReabrir={(id) => askConfirm('reabrir', () => reabrir.mutate(id))}
-                        onSolicitar={(item) =>
-                          askConfirm('solicitar', () =>
-                            solicitarNovamente.mutate({ leadId: item.lead_id, projetoId: item.id }),
-                          )
-                        }
-                      />
-                    ))}
-                  </ProjetoKanbanColumn>
-                ))}
-              </div>
-              <FloatingHorizontalScrollbar targetRef={scrollRef} deps={[columns.length, projetos.length]} />
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <ProjetosBoardAura />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pt-2 md:px-4">
+            <div className="pointer-events-auto max-w-md">
+              <ProjetosLeadSearch
+                projetos={projetos}
+                onOpenLead={openLead}
+                onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
+              />
             </div>
-            <DragOverlay>
-              {activeProjeto ? (
-                <div className="w-[200px] rounded-lg border border-sky-400/40 bg-[#1a120e] p-2.5 shadow-lg">
-                  <p className="truncate font-display text-gold">{activeProjeto.lead_nome}</p>
+          </div>
+          <KanbanPageZoomShell fillViewport className="absolute inset-0 z-10">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={pointerWithin}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col overflow-hidden pb-4 pt-[4.75rem]">
+                <div
+                  ref={scrollRef}
+                  className="scrollbar-always-visible flex min-h-0 flex-1 snap-x gap-4 overflow-x-scroll overflow-y-hidden px-3 md:gap-5 md:px-4"
+                >
+                  {columns.map(({ stage, items }) => (
+                    <ProjetoKanbanColumn
+                      key={stage.id}
+                      stage={stage}
+                      stages={stages}
+                      items={items.map((item) => item.id)}
+                      count={items.length}
+                    >
+                      {items.map((projeto, index) => (
+                        <ProjetoKanbanCard
+                          key={projeto.id}
+                          projeto={projeto}
+                          stages={stages}
+                          appearIndex={index}
+                          currentUserId={user?.id}
+                          canPegar={canPegar}
+                          canSoltar={canSoltar}
+                          canReabrir={canSoltar}
+                          canSolicitar={canSolicitar}
+                          chatThread={chatByLead.get(projeto.lead_id) ?? null}
+                          lembretesCount={lembretesCountMap.get(projeto.lead_id) ?? 0}
+                          onOpen={openLead}
+                          onPegar={(id) => pegar.mutate(id)}
+                          onSoltar={(id) => askConfirm('soltar', () => soltar.mutate(id))}
+                          onReabrir={(id) => askConfirm('reabrir', () => reabrir.mutate(id))}
+                          onSolicitar={(item) =>
+                            askConfirm('solicitar', () =>
+                              solicitarNovamente.mutate({ leadId: item.lead_id, projetoId: item.id }),
+                            )
+                          }
+                        />
+                      ))}
+                    </ProjetoKanbanColumn>
+                  ))}
                 </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </KanbanPageZoomShell>
+                <FloatingHorizontalScrollbar targetRef={scrollRef} deps={[columns.length, projetos.length]} />
+              </div>
+              <DragOverlay>
+                {activeProjeto ? (
+                  <div className="w-[200px] rounded-lg border border-[#f2d892]/50 bg-[#1a100c] p-2.5 shadow-lg">
+                    <p className="truncate font-display text-[#f2d892]">{activeProjeto.lead_nome}</p>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </KanbanPageZoomShell>
+        </div>
       )}
 
       <LeadModal
