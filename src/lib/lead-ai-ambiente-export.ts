@@ -82,6 +82,9 @@ function drawFurniture(
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(((object.rotation ?? 0) * Math.PI) / 180);
+  const yawRad = ((object.yaw ?? 0) * Math.PI) / 180;
+  const pitchRad = ((object.pitch ?? 0) * Math.PI) / 180;
+  ctx.scale(Math.max(0.28, Math.cos(yawRad)), Math.max(0.55, Math.cos(pitchRad)));
   const a = { x: 0, y: -h / 2 };
   const b = { x: 0, y: h / 2 };
   const frame = furnitureFrame(
@@ -235,7 +238,10 @@ export async function exportAmbienteCompositionToJpeg(
   for (const object of input.objects) {
     if (object.viewMode === 'realista') {
       try {
-        const snap = await snapshotRealisticFurniture(object.moduleType, 360);
+        const snap = await snapshotRealisticFurniture(object.moduleType, 360, {
+          yaw: object.yaw ?? 0,
+          pitch: object.pitch ?? 0,
+        });
         const cx = object.x * world.width;
         const cy = object.y * world.height;
         const w = Math.max(40, object.width * world.width);

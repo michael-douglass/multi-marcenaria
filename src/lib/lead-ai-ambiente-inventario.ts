@@ -81,7 +81,7 @@ export function buildAmbienteCenaInventario(input: AmbienteInventarioInput): str
       posicao: describePosicao(object.x, object.y),
       tamanho: `${pct(object.width)}% × ${pct(object.height)}%`,
       rotacao: Math.round(object.rotation || 0),
-      extra: `  tipo_modulo: ${yamlScalar(object.moduleType)}\n  cor: ${yamlScalar(object.colorHex || '#f2d892')}`,
+      extra: `  tipo_modulo: ${yamlScalar(object.moduleType)}\n  cor: ${yamlScalar(object.colorHex || '#f2d892')}\n  vista_yaw: ${Math.round(object.yaw || 0)}\n  vista_pitch: ${Math.round(object.pitch || 0)}`,
     })),
   ];
 

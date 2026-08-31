@@ -1721,6 +1721,7 @@ export function LeadAIAmbienteComposer({
                     width: `${object.width * 100}%`,
                     height: `${object.height * 100}%`,
                     transform: `translate(-50%, -50%) rotate(${object.rotation ?? 0}deg)`,
+                    perspective: isRealistic ? undefined : '32rem',
                   }}
                   onPointerDown={(event) => beginDrag('object', object.id, object.x, object.y, event)}
                 >
@@ -1728,17 +1729,27 @@ export function LeadAIAmbienteComposer({
                     <RealisticFurnitureObject
                       moduleType={object.moduleType}
                       selected={selectedId === object.id}
+                      yaw={object.yaw ?? 0}
+                      pitch={object.pitch ?? 0}
                     />
                   ) : (
-                    <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
-                      <FurnitureModuleGfx
-                        payload={payload}
-                        strokeColor="#f2d892"
-                        strokeWidth={1.6}
-                        selected={selectedId === object.id}
-                        showLabel={false}
-                      />
-                    </svg>
+                    <div
+                      className="h-full w-full"
+                      style={{
+                        transform: `rotateX(${object.pitch ?? 0}deg) rotateY(${object.yaw ?? 0}deg)`,
+                        transformStyle: 'preserve-3d',
+                      }}
+                    >
+                      <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
+                        <FurnitureModuleGfx
+                          payload={payload}
+                          strokeColor="#f2d892"
+                          strokeWidth={1.6}
+                          selected={selectedId === object.id}
+                          showLabel={false}
+                        />
+                      </svg>
+                    </div>
                   )}
                   {selectedId === object.id && (
                     <>
@@ -1774,6 +1785,15 @@ export function LeadAIAmbienteComposer({
                 onRotatePointerDown={(event) =>
                   beginDrag('rotate-object', selectedObject.id, selectedObject.x, selectedObject.y, event, {
                     rotation: selectedObject.rotation ?? 0,
+                  })
+                }
+                onOrbitYaw={orbitSelectedYaw}
+                onOrbitPitch={orbitSelectedPitch}
+                onOrbitPreset={setSelectedOrbit}
+                onOrbitPointerDown={(event) =>
+                  beginDrag('orbit-object', selectedObject.id, selectedObject.x, selectedObject.y, event, {
+                    yaw: selectedObject.yaw ?? 0,
+                    pitch: selectedObject.pitch ?? 0,
                   })
                 }
                 onChangeType={changeSelectedObjectType}
@@ -2130,6 +2150,9 @@ export function LeadAIAmbienteComposer({
           onFocusOutside={preventFullscreenOutsideDismiss}
         >
           <DialogTitle className="sr-only">Compor ambiente em tela cheia</DialogTitle>
+          <DialogDescription className="sr-only">
+            Monte o cômodo na lousa, posicione móveis do catálogo e gire cada peça em todas as direções.
+          </DialogDescription>
           {isFullscreen ? composerBody : null}
         </DialogContent>
       </Dialog>

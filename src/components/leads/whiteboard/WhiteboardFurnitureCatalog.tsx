@@ -15,7 +15,6 @@ import {
 } from '@/lib/furniture-modules';
 import {
   FURNITURE_CATALOG_BANKS,
-  REALISTIC_PROJECT_GROUPS,
   searchCatalogBank,
   type FurnitureCatalogBankId,
   type FurnitureViewMode,
@@ -120,10 +119,7 @@ export function WhiteboardFurnitureCatalog({
   const portalTarget = portalContainer ?? (typeof document !== 'undefined' ? document.body : null);
   const anchoredInDialog = Boolean(portalContainer && portalContainer !== document.body);
   const activeBank = FURNITURE_CATALOG_BANKS.find((item) => item.id === bank) ?? FURNITURE_CATALOG_BANKS[1];
-  const groupChips =
-    bank === 'realista'
-      ? [{ id: 'todos', label: 'Todos' }, ...REALISTIC_PROJECT_GROUPS.map((item) => ({ id: item.id, label: item.label }))]
-      : FURNITURE_CATALOG_GROUPS;
+  const groupChips = FURNITURE_CATALOG_GROUPS;
 
   const results = useMemo(
     () => searchCatalogBank(bank, query, group as FurnitureCatalogGroupId | string),
@@ -297,7 +293,7 @@ export function WhiteboardFurnitureCatalog({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
-                  placeholder={bank === 'realista' ? 'Ex.: cadeira, sofá, guarda-roupa…' : 'Ex.: sofá, nicho, geladeira, cama…'}
+                  placeholder="Ex.: espelho, sofá, geladeira, cama…"
                   aria-label="Buscar objeto no catálogo"
                   disabled={disabled}
                   className="h-10 border-[rgba(240,210,140,0.35)] bg-black/35 pl-9 text-sm text-[#fff6ea] placeholder:text-[#d4bc9f]/75"
@@ -372,7 +368,7 @@ export function WhiteboardFurnitureCatalog({
             </div>
             {results.length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-[#d4bc9f]">
-                Nenhum item para “{query}”. Tente sofá, cadeira, guarda-roupa ou nicho.
+                Nenhum item para “{query}”. Tente espelho, sofá, cadeira, fogão ou nicho.
               </p>
             )}
           </ScrollArea>
