@@ -84,6 +84,9 @@ REGRAS OBRIGATÓRIAS:
 10. Percorra também puxadores, trilhos e LED se esta categoria for a deles.
 11. Se QUANT > 0: status DEVE ser "encontrado".
 12. Se o item não aparece com QUANT > 0: omita do array OU use ausente_documento sem quantidade.
+13. Respeite o inventário de fidelidade {{yaml_fidelidade}}: NÃO adicione o que está em nao_adicionar.
+14. Se chapas_especiais_solicitadas for false, NÃO lance ULTRA, NEUTRO nem fita ESPECIAL.
+15. Parafuso e ferragem miúda: só com QUANT no documento ou hardware listado no YAML. Sem SKU no catálogo, ainda transcreva o nome para conferência.
 
 Retorne APENAS JSON:
 {
@@ -372,6 +375,7 @@ export interface MarkupIAPromptPreviewVars {
   checklistCategoria?: string;
   levantamentoProjetistaJson?: string;
   lacunasCriticas?: string;
+  yamlFidelidade?: string;
 }
 
 export function applyMarkupIAPromptPlaceholders(
@@ -397,7 +401,8 @@ export function applyMarkupIAPromptPlaceholders(
     .replace(/\{\{categoria_nome\}\}/gi, vars.categoriaNome?.trim() || '')
     .replace(/\{\{checklist_categoria\}\}/gi, vars.checklistCategoria?.trim() || '')
     .replace(/\{\{levantamento_projetista_json\}\}/gi, vars.levantamentoProjetistaJson?.trim() || 'null')
-    .replace(/\{\{lacunas_criticas\}\}/gi, vars.lacunasCriticas?.trim() || 'nenhuma');
+    .replace(/\{\{lacunas_criticas\}\}/gi, vars.lacunasCriticas?.trim() || 'nenhuma')
+    .replace(/\{\{yaml_fidelidade\}\}/gi, vars.yamlFidelidade?.trim() || 'null');
 }
 
 export function resolverPromptsAgentes(
@@ -451,6 +456,9 @@ export function agenteAtivoFromComposeEvent(
   switch (type) {
     case 'projetista_scanning':
     case 'projetista_result':
+      return 'projetista';
+    case 'fidelidade_scanning':
+    case 'fidelidade_result':
       return 'projetista';
     case 'category_scanning':
     case 'category_result':

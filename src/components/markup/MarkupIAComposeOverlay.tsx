@@ -15,7 +15,10 @@ import type {
 import { MarkupIAFluxoVerificacao } from '@/components/markup/MarkupIAFluxoVerificacao';
 import { MarkupIAAgentesStrip } from '@/components/markup/MarkupIAAgentesStrip';
 import { MarkupIAProjetistaPanel } from '@/components/markup/MarkupIAProjetistaPanel';
+import { MarkupIAFidelidadePanel } from '@/components/markup/MarkupIAFidelidadePanel';
+import { MarkupIAKitScene } from '@/components/markup/MarkupIAKitScene';
 import { agenteAtivoFromComposeEvents } from '@/lib/markup-ia-prompts';
+import type { MarkupIAFidelidadeInventario } from '@/lib/markup-ia-fidelidade';
 import type { MarkupIAProjetistaResult } from '@/lib/markup-types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +61,9 @@ function etapaFromEvent(
     case 'media_ready':
     case 'cortecloud_mode':
       return 'anexos';
+    case 'fidelidade_scanning':
+    case 'fidelidade_result':
+      return 'fidelidade';
     case 'projetista_scanning':
     case 'projetista_reconcile':
     case 'projetista_result':
@@ -183,6 +189,18 @@ export function MarkupIAComposeOverlay({
     return null;
   }, [events]);
 
+  const yamlFidelidade = useMemo((): MarkupIAFidelidadeInventario | null => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i].type === 'fidelidade_result' && events[i].data) {
+        return events[i].data as MarkupIAFidelidadeInventario;
+      }
+    }
+    return null;
+  }, [events]);
+
+  const fidelidadeScanning =
+    events.some((e) => e.type === 'fidelidade_scanning') && !yamlFidelidade;
+
   const emReconcile = events.some((e) => e.type === 'projetista_reconcile');
 
   const projetistaScanning =
@@ -219,10 +237,10 @@ export function MarkupIAComposeOverlay({
               className="text-lg tracking-wide text-amber-400"
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
             >
-              Íris está compondo
+              Oficina Íris — recriando o projeto
             </p>
             <p className="text-xs text-slate-400 sm:text-sm">
-              Acompanhe em tempo real o que está sendo verificado no orçamento.
+              Cada peça só entra se estiver no documento. Na dúvida, fidelidade.
             </p>
           </div>
           {!isComplete && onCancel && (
@@ -238,7 +256,16 @@ export function MarkupIAComposeOverlay({
           <MarkupIAAgentesStrip agenteAtivo={agenteAtivo} compact />
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2 lg:gap-4">
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_minmax(0,1fr)] lg:gap-4">
+          <div className="flex min-h-0 flex-col gap-3">
+            <MarkupIAKitScene
+              fidelidade={yamlFidelidade}
+              scanning={fidelidadeScanning || (!yamlFidelidade && !isComplete && !isError)}
+              className="h-[200px] shrink-0 lg:h-[240px]"
+            />
+            <MarkupIAFidelidadePanel fidelidade={yamlFidelidade} scanning={fidelidadeScanning} />
+          </div>
+
           <div className="flex min-h-0 flex-col rounded-xl border border-amber-500/20 bg-slate-900/80">
             <div className="border-b border-amber-500/10 px-4 py-2.5 flex items-center gap-2">
               {!isComplete && !isError && (

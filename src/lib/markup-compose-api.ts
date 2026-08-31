@@ -18,6 +18,8 @@ export interface ComposeMarkupIAInput {
 export type MarkupIAComposeEventType =
   | 'media_ready'
   | 'cortecloud_mode'
+  | 'fidelidade_scanning'
+  | 'fidelidade_result'
   | 'projetista_scanning'
   | 'projetista_reconcile'
   | 'projetista_result'
@@ -73,6 +75,10 @@ function mapComposeResult(data: Record<string, unknown>): MarkupComposeIAResult 
     faltantes_criticos: Array.isArray(data.faltantes_criticos)
       ? data.faltantes_criticos.map((i) => String(i))
       : undefined,
+    yaml_fidelidade:
+      data.yaml_fidelidade && typeof data.yaml_fidelidade === 'object'
+        ? (data.yaml_fidelidade as MarkupComposeIAResult['yaml_fidelidade'])
+        : undefined,
   };
 }
 

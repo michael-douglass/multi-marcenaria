@@ -25,6 +25,12 @@ const ETAPAS = [
     icon: FileSearch,
   },
   {
+    id: 'fidelidade',
+    titulo: 'Fidelidade',
+    descricao: 'Lê todas as páginas, cores e o que NÃO deve ser inventado (chapas especiais, peças extras).',
+    icon: ClipboardList,
+  },
+  {
     id: 'projetista',
     titulo: 'Projetista',
     descricao: 'Fase 0: descreve cômodos, móveis, cores e modelos — sem quantificar materiais.',

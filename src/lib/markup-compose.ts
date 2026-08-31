@@ -378,6 +378,7 @@ export function montarResumoIA(
       produtos_origem_projetista: resultadoNormalizado.produtos_origem_projetista,
       bloqueado: resultadoNormalizado.bloqueado,
       faltantes_criticos: resultadoNormalizado.faltantes_criticos,
+      yaml_fidelidade: resultadoNormalizado.yaml_fidelidade,
       servicos: {
         linhas: (modulos.servicos?.linhas ?? []).map((l) => ({
           ...l,

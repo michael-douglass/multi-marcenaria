@@ -459,6 +459,7 @@ export function applyMarkupIAPromptPlaceholders(
     checklistCategoria?: string;
     levantamentoProjetistaJson?: string;
     lacunasCriticas?: string;
+    yamlFidelidade?: string;
   },
 ): string {
   return prompt
@@ -478,7 +479,8 @@ export function applyMarkupIAPromptPlaceholders(
     .replace(/\{\{categoria_nome\}\}/gi, vars.categoriaNome?.trim() || '')
     .replace(/\{\{checklist_categoria\}\}/gi, vars.checklistCategoria?.trim() || '')
     .replace(/\{\{levantamento_projetista_json\}\}/gi, vars.levantamentoProjetistaJson?.trim() || 'null')
-    .replace(/\{\{lacunas_criticas\}\}/gi, vars.lacunasCriticas?.trim() || 'nenhuma');
+    .replace(/\{\{lacunas_criticas\}\}/gi, vars.lacunasCriticas?.trim() || 'nenhuma')
+    .replace(/\{\{yaml_fidelidade\}\}/gi, vars.yamlFidelidade?.trim() || 'null');
 }
 
 export interface MarkupIAAgentPrompts {

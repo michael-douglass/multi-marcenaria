@@ -284,6 +284,7 @@ export interface MarkupModulosMeta {
     produtos_origem_projetista?: string[];
     bloqueado?: boolean;
     faltantes_criticos?: string[];
+    yaml_fidelidade?: import('./markup-ia-fidelidade').MarkupIAFidelidadeInventario;
   };
 }
 
@@ -372,6 +373,7 @@ export interface MarkupComposeIAResult {
   itens_processados?: number;
   bloqueado?: boolean;
   faltantes_criticos?: string[];
+  yaml_fidelidade?: import('./markup-ia-fidelidade').MarkupIAFidelidadeInventario;
 }
 
 export interface MarkupComposeIAServicoLinha {

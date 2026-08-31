@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import { contarItensPorConfianca } from '@/lib/markup-extracao';
@@ -216,20 +215,27 @@ export function MarkupIAConferenciaDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next && !itemCadastro) onCancel(); }}>
       <DialogContent
         overlayClassName="z-[80]"
-        className="z-[80] flex max-h-[90vh] max-w-3xl flex-col gap-3 overflow-hidden"
+        className="z-[80] !flex h-[min(90dvh,40rem)] max-h-[90dvh] max-w-3xl flex-col gap-3 overflow-hidden"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'min(90dvh, 40rem)',
+          maxHeight: '90dvh',
+          overflow: 'hidden',
+        }}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="h-4 w-4 text-violet-600" />
             Conferir extração antes de fechar o preço
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Verde entra no markup. Amarelo precisa da sua escolha. Vermelho fica de fora até você
-            casar no catálogo ou ignorar.
+            Verde entra no markup (SKU do catálogo com preço). Amarelo precisa da sua escolha.
+            Vermelho é o que o documento citou e o cadastro ainda não tem — não inventamos peça.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-1.5 text-[11px]">
+        <div className="flex shrink-0 flex-wrap gap-1.5 text-[11px]">
           <Badge className="bg-emerald-600 hover:bg-emerald-600">{contagem.alta} verde</Badge>
           <Badge variant="outline" className="border-amber-500/50 text-amber-800">
             {contagem.media + contagem.baixa} amarelo
@@ -240,14 +246,14 @@ export function MarkupIAConferenciaDialog({
         </div>
 
         {limites?.avisos && limites.avisos.length > 0 && (
-          <ul className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-900">
+          <ul className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-900">
             {limites.avisos.map((aviso) => (
               <li key={aviso}>{aviso}</li>
             ))}
           </ul>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
@@ -265,7 +271,13 @@ export function MarkupIAConferenciaDialog({
           </Button>
         </div>
 
-        <ScrollArea className="min-h-0 flex-1 rounded-md border">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-md border [scrollbar-gutter:stable]"
+          style={{ minHeight: 0, flex: '1 1 0%' }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+        >
           <ul className="divide-y">
             {visiveis.map((item) => {
               const aceito = item.status_revisao === 'aceito';
@@ -378,9 +390,9 @@ export function MarkupIAConferenciaDialog({
               );
             })}
           </ul>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="shrink-0 gap-2 sm:justify-between">
           <p className="text-[11px] text-muted-foreground">
             {aceitos > 0
               ? `${aceitos} item(ns) vão para o preço`

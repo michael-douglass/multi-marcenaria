@@ -243,6 +243,26 @@ export function MarkupIAResumoPanel({
       )}
 
       <Accordion type="multiple" defaultValue={[]} className="px-1">
+        {resumo.yaml_fidelidade && (
+          <AccordionItem value="fidelidade" className="border-violet-500/10 px-3">
+            <AccordionTrigger className="gap-2 py-3 text-sm hover:no-underline">
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                Fidelidade ao documento
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3 text-xs text-muted-foreground">
+              <p>{resumo.yaml_fidelidade.quantitativo_resumo || 'Projeto lido página a página.'}</p>
+              <p className="mt-1">
+                Chapas especiais:{' '}
+                {resumo.yaml_fidelidade.chapas_especiais_solicitadas ? 'pedidas' : 'não usar'}
+              </p>
+              {(resumo.yaml_fidelidade.nao_adicionar ?? []).length > 0 && (
+                <p className="mt-1">Não adicionar: {resumo.yaml_fidelidade.nao_adicionar.join(', ')}</p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        )}
         {resumo.levantamento_projetista && (
           <AccordionItem value="projetista" className="border-violet-500/10 px-3">
             <AccordionTrigger className="gap-2 py-3 text-sm hover:no-underline">

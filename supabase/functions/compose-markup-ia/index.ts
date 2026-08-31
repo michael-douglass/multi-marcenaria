@@ -50,6 +50,16 @@ import {
   type MarkupItemExtraido,
 } from '../_shared/markup-match.ts';
 import {
+  MARKUP_IA_FIDELIDADE_PROMPT,
+  contarPaginasTextoNativo,
+  documentoSolicitaChapaEspecial,
+  fidelidadeFallback,
+  filtrarChapasEspeciaisDoInventario,
+  mesclarFerragensDeFidelidade,
+  parseFidelidadeJson,
+  type MarkupIAFidelidadeInventario,
+} from '../_shared/markup-ia-fidelidade.ts';
+import {
   formatRetrievedContext,
   resolveDb,
   searchLeadKnowledge,
@@ -107,6 +117,7 @@ interface ComposeSuccessPayload {
   itens_processados: number;
   bloqueado?: boolean;
   faltantes_criticos?: string[];
+  yaml_fidelidade?: MarkupIAFidelidadeInventario;
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -445,6 +456,74 @@ async function loadLatestAnalise(
   return (data?.conteudo as string | undefined)?.trim() ?? '';
 }
 
+async function runFidelidadeFase(
+  openAiKey: string,
+  model: string,
+  imageParts: OpenAIContentPart[],
+  textoNativo: string,
+  paginasImagem: number,
+  leadName: string | undefined,
+  analise: string,
+  emit?: EmitFn,
+): Promise<MarkupIAFidelidadeInventario> {
+  const paginasTexto = contarPaginasTextoNativo(textoNativo);
+  emit?.({
+    type: 'fidelidade_scanning',
+    message: `Lendo o projeto página a página (${paginasTexto || paginasImagem} página(s))…`,
+    data: { paginasImagem, paginasTexto },
+  });
+
+  if (imageParts.length === 0 && !textoNativo.trim()) {
+    const fallback = fidelidadeFallback(paginasImagem, paginasTexto);
+    emit?.({
+      type: 'fidelidade_result',
+      message: 'Sem anexos para o inventário de fidelidade',
+      data: fallback,
+    });
+    return fallback;
+  }
+
+  const systemPrompt = applyMarkupIAPromptPlaceholders(MARKUP_IA_FIDELIDADE_PROMPT, {
+    nomeLead: leadName,
+    analise,
+  });
+
+  try {
+    const raw = await callOpenAIChat(openAiKey, model, [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Destrince TODAS as páginas. Texto nativo tem ${paginasTexto || 0} marca(s) de página.${blocoTextoNativo(textoNativo)}`,
+          },
+          ...imageParts,
+        ],
+      },
+    ]);
+    const parsed = parseFidelidadeJson(raw, paginasImagem, paginasTexto)
+      ?? fidelidadeFallback(paginasImagem, paginasTexto);
+    emit?.({
+      type: 'fidelidade_result',
+      message: parsed.chapas_especiais_solicitadas
+        ? `Fidelidade: ${parsed.moveis.length} móvel(is) · chapas especiais pedidas`
+        : `Fidelidade: ${parsed.moveis.length} móvel(is) · sem chapa especial`,
+      data: parsed,
+    });
+    return parsed;
+  } catch (err) {
+    console.warn('Fidelidade fase falhou:', err);
+    const fallback = fidelidadeFallback(paginasImagem, paginasTexto);
+    emit?.({
+      type: 'fidelidade_result',
+      message: 'Fidelidade: leitura resumida (fallback)',
+      data: fallback,
+    });
+    return fallback;
+  }
+}
+
 async function runInventarioFase(
   openAiKey: string,
   model: string,
@@ -455,6 +534,7 @@ async function runInventarioFase(
   modoCortecloud: boolean,
   emit?: EmitFn,
   textoNativo = '',
+  yamlFidelidade: MarkupIAFidelidadeInventario | null = null,
 ): Promise<MarkupIAVerificacaoCategoriaResultado[]> {
   const categoriasAtivas = checklist.filter((c) => c.ativo);
   const parciais: MarkupIAVerificacaoCategoriaResultado[] = [];
@@ -487,12 +567,13 @@ async function runInventarioFase(
       categoriaNome: cat.nome,
       checklistCategoria: formatChecklistForCategoria(cat),
       levantamentoProjetistaJson: levantamentoJson,
+      yamlFidelidade: yamlFidelidade ? JSON.stringify(yamlFidelidade, null, 2) : 'null',
     });
 
     try {
       const hintCortecloud = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
       const regraNomeComercial =
-        'Leia TODAS as páginas do texto nativo. Transcreva o nome comercial do documento (ex.: Branco eucatex, Freijo puro Duratex). NÃO troque por apelidos MDF BRANCO/ULTRA/MADEIRA se o PDF tiver marca. QUANT > 0 entra; sem QUANT = referencia_apenas.';
+        'Leia TODAS as páginas do texto nativo. Transcreva o nome comercial do documento (ex.: Branco eucatex, Freijo puro Duratex). NÃO troque por apelidos MDF BRANCO/ULTRA/MADEIRA se o PDF tiver marca. QUANT > 0 entra; sem QUANT = referencia_apenas. Se o YAML de fidelidade disser chapas_especiais_solicitadas=false, não lance ULTRA/NEUTRO/ESPECIAL.';
       const userIntro = modoCortecloud
         ? `Inventarie a categoria "${cat.nome}". Use QUANT da planilha quando existir. ${regraNomeComercial}`
         : `Inventarie a categoria "${cat.nome}". Extraia nome, quantidade e especificação dos anexos. ${regraNomeComercial}`;
@@ -632,6 +713,7 @@ async function runInventarioRetryPorLacunas(
   lacunas: LacunaCriticaId[],
   modoCortecloud: boolean,
   emit?: EmitFn,
+  yamlFidelidade: MarkupIAFidelidadeInventario | null = null,
 ): Promise<MarkupIAVerificacaoCategoriaResultado[]> {
   const catIds = categoriasParaRetry(lacunas, faltantes);
   if (catIds.length === 0 || imageParts.length === 0) return inventario;
@@ -657,6 +739,7 @@ async function runInventarioRetryPorLacunas(
       checklistCategoria: formatChecklistForCategoria(cat),
       levantamentoProjetistaJson: levantamentoJson,
       faltantesCriticos: faltantes.join('\n- '),
+      yamlFidelidade: yamlFidelidade ? JSON.stringify(yamlFidelidade, null, 2) : 'null',
     });
     const hint = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
 
@@ -1149,7 +1232,7 @@ async function processComposition(
   emit?.({
     type: 'media_ready',
     message: textoNativo
-      ? `${imageParts.length} imagem(ns) única(s) de ${itens.length} anexo(s) · texto do PDF disponível`
+      ? `${imageParts.length} imagem(ns) · texto nativo com ${contarPaginasTextoNativo(textoNativo) || imageParts.length} página(s)`
       : `${imageParts.length} imagem(ns) única(s) de ${itens.length} anexo(s)`,
     data: { images: imageParts.length, items: itens.length, temTextoNativo: Boolean(textoNativo) },
   });
@@ -1163,6 +1246,19 @@ async function processComposition(
     message: modoCortecloud ? 'Planilha Cortecloud detectada' : 'Documento genérico de marcenaria (extração + casamento)',
     data: { active: modoCortecloud },
   });
+
+  const paginasImagem = imageParts.length;
+  const yamlFidelidade = await runFidelidadeFase(
+    openAiKey,
+    model,
+    imageParts,
+    textoNativo,
+    paginasImagem,
+    leadName,
+    analise,
+    emit,
+  );
+  const permitirEspeciais = documentoSolicitaChapaEspecial(yamlFidelidade, textoNativo);
 
   let levantamentoProjetista: MarkupIAProjetistaResult | null = null;
 
@@ -1196,6 +1292,7 @@ async function processComposition(
     modoCortecloud,
     emit,
     textoNativo,
+    yamlFidelidade,
   );
 
   // Fase 2 — Auditor inventário (antes da precificação)
@@ -1240,6 +1337,7 @@ async function processComposition(
       detInventario.lacunas,
       modoCortecloud,
       emit,
+      yamlFidelidade,
     );
     auditoriaInventario = await runAuditoriaInventarioFase(
       openAiKey,
@@ -1261,6 +1359,20 @@ async function processComposition(
       modoCortecloud,
       levantamentoProjetista,
     );
+  }
+
+  inventario = filtrarChapasEspeciaisDoInventario(inventario, permitirEspeciais);
+  inventario = mesclarFerragensDeFidelidade(
+    inventario,
+    yamlFidelidade,
+    catalog,
+    modoCortecloud,
+  );
+  if (!permitirEspeciais) {
+    emit?.({
+      type: 'log',
+      message: 'Chapas especiais (ULTRA/NEUTRO/ESPECIAL) bloqueadas — o documento não pediu.',
+    });
   }
 
   // Fase 2b — Auditor projetista (coerência)
@@ -1459,6 +1571,7 @@ async function processComposition(
     itens_processados: itensFinais,
     bloqueado,
     faltantes_criticos: faltantesUnicos.length > 0 ? faltantesUnicos : criticos.faltantes,
+    yaml_fidelidade: yamlFidelidade,
   };
 }
 

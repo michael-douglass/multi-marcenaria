@@ -515,6 +515,9 @@ REGRAS OBRIGATÓRIAS:
 10. Percorra também puxadores, trilhos e LED se esta categoria for a deles.
 11. Se QUANT > 0: status DEVE ser "encontrado".
 12. Se o item não aparece com QUANT > 0: omita do array OU use ausente_documento sem quantidade.
+13. Respeite o inventário de fidelidade {{yaml_fidelidade}}: NÃO adicione o que está em nao_adicionar.
+14. Se chapas_especiais_solicitadas for false, NÃO lance ULTRA, NEUTRO nem fita ESPECIAL.
+15. Parafuso e ferragem miúda: só com QUANT no documento ou hardware listado no YAML. Sem SKU no catálogo, ainda transcreva o nome para conferência.
 
 Retorne APENAS JSON:
 {
@@ -627,6 +630,8 @@ export function parseInventarioJson(raw: string): MarkupIAVerificacaoCategoriaRe
 export type StreamEventType =
   | 'media_ready'
   | 'cortecloud_mode'
+  | 'fidelidade_scanning'
+  | 'fidelidade_result'
   | 'projetista_scanning'
   | 'projetista_reconcile'
   | 'projetista_result'
