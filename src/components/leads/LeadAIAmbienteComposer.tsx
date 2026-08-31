@@ -30,7 +30,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { setAmbienteFullscreenOpenFlag } from '@/lib/dialog-outside-guard';
+import {
+  preventFullscreenOutsideDismiss,
+  PROJECT_IMAGE_PICKER_OPEN_ATTR,
+  setAmbienteFullscreenOpenFlag,
+} from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
 import { FurnitureModuleGfx } from '@/components/leads/whiteboard/FurnitureModuleGfx';
@@ -43,6 +47,7 @@ import { AmbienteDrawLayer } from '@/components/leads/ambiente/AmbienteDrawLayer
 import { AmbienteDrawToolbar } from '@/components/leads/ambiente/AmbienteDrawToolbar';
 import { AmbienteObjectEditHud } from '@/components/leads/ambiente/AmbienteObjectEditHud';
 import { AmbienteZoomHud } from '@/components/leads/ambiente/AmbienteZoomHud';
+import { RealisticFurnitureObject } from '@/components/leads/ambiente/RealisticFurnitureObject';
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { useLeadPDFs } from '@/hooks/useLeadPDFs';
 import { dataUrlToFile } from '@/lib/contrato-anexo-upload';
@@ -76,7 +81,6 @@ import {
 } from '@/lib/lead-ai-ambiente-zoom';
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import {
-  GARBO_WOOD_TEXTURE_URL,
   ambienteFurnitureDefaultSize,
   furnitureViewIsFlat,
   type FurnitureViewMode,
@@ -1293,7 +1297,7 @@ export function LeadAIAmbienteComposer({
     >
       <div className="relative shrink-0 border-b border-gold-border-subtle/20 bg-mahogany-elevated/60 px-4 py-3 sm:px-5">
         <AmbienteAtmosphereFoil intensity={0.7} />
-        <div className="relative flex items-start justify-between gap-3">
+        <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2 text-gold">
               <Sofa className="h-4 w-4" aria-hidden />
@@ -1311,7 +1315,7 @@ export function LeadAIAmbienteComposer({
               </p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="relative z-10 flex shrink-0 items-center gap-1.5 pointer-events-auto">
             <Button
               type="button"
               variant="outline"
@@ -1480,7 +1484,7 @@ export function LeadAIAmbienteComposer({
                 <p className="max-w-xs text-center text-sm font-medium">
                   Insira a foto do cômodo ou desenhe o ambiente na lousa. Depois você posiciona as peças na cena.
                 </p>
-                <div className="pointer-events-auto z-[60] flex flex-wrap items-center justify-center gap-2">
+                <div className="pointer-events-auto relative z-[60] flex flex-wrap items-center justify-center gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -1658,17 +1662,22 @@ export function LeadAIAmbienteComposer({
                   }}
                   onPointerDown={(event) => beginDrag('object', object.id, object.x, object.y, event)}
                 >
-                  <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
-                    <FurnitureModuleGfx
-                      payload={payload}
-                      strokeColor="#f2d892"
-                      strokeWidth={1.6}
+                  {isRealistic ? (
+                    <RealisticFurnitureObject
+                      moduleType={object.moduleType}
                       selected={selectedId === object.id}
-                      showLabel={false}
-                      fillTextureUrl={isRealistic ? GARBO_WOOD_TEXTURE_URL : undefined}
-                      patternId={`wood-${object.id}`}
                     />
-                  </svg>
+                  ) : (
+                    <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
+                      <FurnitureModuleGfx
+                        payload={payload}
+                        strokeColor="#f2d892"
+                        strokeWidth={1.6}
+                        selected={selectedId === object.id}
+                        showLabel={false}
+                      />
+                    </svg>
+                  )}
                   {selectedId === object.id && (
                     <>
                       <button
@@ -1791,26 +1800,6 @@ export function LeadAIAmbienteComposer({
                 </Button>
               </div>
             )}
-
-            <WhiteboardProjectImagePicker
-              leadId={leadId}
-              open={projectPickerOpen}
-              onOpenChange={setProjectPickerOpen}
-              existingImageUrls={background ? [background.url, ...overlays.map((o) => o.url)] : []}
-              onSelect={async (midia) => {
-                try {
-                  const preview = await urlToImagePreview(
-                    midia.file_url,
-                    midia.preview_label || midia.file_name || 'Foto do projeto',
-                  );
-                  await setPhotoAsBackgroundOrOverlay(preview);
-                  if (midia.folder_id) setSourceFolderId(midia.folder_id);
-                  setProjectPickerOpen(false);
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');
-                }
-              }}
-            />
 
             {showZoomHud && (
               <AmbienteZoomHud
@@ -2048,7 +2037,20 @@ export function LeadAIAmbienteComposer({
         composerBody
       )}
 
-      <Dialog open={isFullscreen} onOpenChange={updateFullscreen}>
+      <Dialog
+        open={isFullscreen}
+        onOpenChange={(open) => {
+          if (!open && (projectPickerOpen || folderPickerOpen || cameraOpen)) return;
+          if (
+            !open &&
+            typeof document !== 'undefined' &&
+            document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR)
+          ) {
+            return;
+          }
+          updateFullscreen(open);
+        }}
+      >
         <DialogContent
           nested
           overlayClassName={leadFullscreenOverlayClass}
@@ -2061,15 +2063,35 @@ export function LeadAIAmbienteComposer({
           onOpenAutoFocus={(event) => {
             if (catalogOpen) event.preventDefault();
           }}
-          onPointerDownOutside={(event) => event.preventDefault()}
-          onInteractOutside={(event) => event.preventDefault()}
-          onFocusOutside={(event) => event.preventDefault()}
+          onPointerDownOutside={preventFullscreenOutsideDismiss}
+          onInteractOutside={preventFullscreenOutsideDismiss}
+          onFocusOutside={preventFullscreenOutsideDismiss}
         >
           <DialogTitle className="sr-only">Compor ambiente em tela cheia</DialogTitle>
           {isFullscreen ? composerBody : null}
         </DialogContent>
       </Dialog>
 
+      <WhiteboardProjectImagePicker
+        leadId={leadId}
+        open={projectPickerOpen}
+        onOpenChange={setProjectPickerOpen}
+        elevated={isFullscreen}
+        existingImageUrls={background ? [background.url, ...overlays.map((o) => o.url)] : []}
+        onSelect={async (midia) => {
+          try {
+            const preview = await urlToImagePreview(
+              midia.file_url,
+              midia.preview_label || midia.file_name || 'Foto do projeto',
+            );
+            await setPhotoAsBackgroundOrOverlay(preview);
+            if (midia.folder_id) setSourceFolderId(midia.folder_id);
+            setProjectPickerOpen(false);
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');
+          }
+        }}
+      />
       <input
         ref={fileInputRef}
         type="file"

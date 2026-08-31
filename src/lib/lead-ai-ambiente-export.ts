@@ -1,4 +1,4 @@
-import { loadImageForRender } from '@/lib/render-image-normalize';
+import { snapshotRealisticFurniture } from '@/lib/lead-ai-ambiente-realistic-mesh';
 import { furnitureFrame, getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
@@ -233,6 +233,23 @@ export async function exportAmbienteCompositionToJpeg(
   }
 
   for (const object of input.objects) {
+    if (object.viewMode === 'realista') {
+      try {
+        const snap = await snapshotRealisticFurniture(object.moduleType, 360);
+        const cx = object.x * world.width;
+        const cy = object.y * world.height;
+        const w = Math.max(40, object.width * world.width);
+        const h = Math.max(48, object.height * world.height);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(((object.rotation ?? 0) * Math.PI) / 180);
+        ctx.drawImage(snap, -w / 2, -h / 2, w, h);
+        ctx.restore();
+        continue;
+      } catch {
+        // cai no desenho técnico se o WebGL falhar
+      }
+    }
     drawFurniture(ctx, object, world.width, world.height, woodImg);
   }
   for (const marker of input.markers) {

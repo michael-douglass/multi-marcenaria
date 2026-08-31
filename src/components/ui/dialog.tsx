@@ -73,10 +73,8 @@ const DialogContent = React.forwardRef<
       data-floating-agenda-root={floatingLayer ? '' : undefined}
       data-nested-dialog={nested ? '' : undefined}
       onPointerDownOutside={(event) => {
-        // Tela cheia / janela interna: preventDefault aqui cancela o clique original
-        // (botões mortos, textarea sem foco). O card permanece aberto pelas guardas.
+        // Clique numa camada por cima: preventDefault cancela o clique original.
         if (isLeadNestedLayerEvent(event)) {
-          onPointerDownOutside?.(event);
           return;
         }
         if (onOverlayClick) event.preventDefault();
@@ -85,7 +83,6 @@ const DialogContent = React.forwardRef<
       }}
       onFocusOutside={(event) => {
         if (isLeadNestedLayerEvent(event)) {
-          onFocusOutside?.(event);
           return;
         }
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
@@ -93,7 +90,6 @@ const DialogContent = React.forwardRef<
       }}
       onInteractOutside={(event) => {
         if (isLeadNestedLayerEvent(event)) {
-          onInteractOutside?.(event);
           return;
         }
         if (onOverlayClick && isPrimaryDialogBackdrop(event.target)) event.preventDefault();

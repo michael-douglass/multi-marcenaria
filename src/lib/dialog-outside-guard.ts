@@ -101,8 +101,19 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-whiteboard-fullscreen]') ||
       target.closest('[data-lead-ai-image-fullscreen]') ||
       target.closest('[data-lead-ai-render-fullscreen]') ||
+      target.closest('[data-whiteboard-project-picker]') ||
+      target.closest('[data-lead-folder-picker]') ||
       target.closest('[data-nested-dialog]'),
   );
+}
+
+/** Mantém a tela cheia aberta sem cancelar cliques de janelas por cima (fotos do projeto, pastas). */
+export function preventFullscreenOutsideDismiss(event: {
+  preventDefault: () => void;
+  target: EventTarget | null;
+}) {
+  if (isLeadNestedLayerEvent(event)) return;
+  event.preventDefault();
 }
 
 /** O card não deve fechar enquanto há uma camada por cima. */

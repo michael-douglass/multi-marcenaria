@@ -62,7 +62,11 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { setWhiteboardFullscreenOpenFlag } from '@/lib/dialog-outside-guard';
+import {
+  preventFullscreenOutsideDismiss,
+  PROJECT_IMAGE_PICKER_OPEN_ATTR,
+  setWhiteboardFullscreenOpenFlag,
+} from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,6 +94,15 @@ import { useWhiteboardTouchLock } from '@/hooks/useWhiteboardTouchLock';
 import { useWhiteboardViewport } from '@/hooks/useWhiteboardViewport';
 import { WhiteboardAnnotationsLayer } from '@/components/leads/whiteboard/WhiteboardAnnotationsLayer';
 import { FurnitureModuleThumb } from '@/components/leads/whiteboard/FurnitureModuleGfx';
+import { WhiteboardWoodFoil } from '@/components/leads/whiteboard/WhiteboardWoodFoil';
+import {
+  DraftingDivider,
+  DraftingGroup,
+  DraftingHint,
+  DraftingRail,
+  LousaUsageTips,
+  draftingIconClass,
+} from '@/components/leads/whiteboard/WhiteboardDraftingChrome';
 import {
   FURNITURE_FAMILIES,
   FURNITURE_MIN_HEIGHT,
@@ -1905,7 +1918,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     );
   }
 
-  const toolBtnClass = isMobile ? 'h-11 w-11' : 'h-8 w-8';
+  const toolBtnClass = draftingIconClass({ compact: !isMobile });
 
   return (
     <div
@@ -1922,9 +1935,11 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         data-whiteboard-viewport
         className={cn(
           'min-w-0 select-none overscroll-none',
-          isFullscreenLayout ? 'absolute inset-0' : 'relative w-full max-h-[min(52vh,420px)] order-1',
+          isFullscreenLayout
+            ? 'absolute inset-0'
+            : 'relative w-full max-h-[min(48vh,380px)] order-1 overflow-hidden rounded-xl border border-gold/30 shadow-[inset_0_1px_0_rgba(242,216,146,0.1),0_10px_28px_rgba(0,0,0,0.28)]',
         )}
-        style={isFullscreenLayout ? undefined : { minHeight: Math.min(minHeight, 320) }}
+        style={isFullscreenLayout ? undefined : { minHeight: Math.min(minHeight, 280) }}
       >
         <div
           ref={bindViewportRef}
@@ -1933,8 +1948,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           onClick={(e) => e.stopPropagation()}
           onDoubleClick={handleViewportDoubleClick}
           className={cn(
-            'absolute inset-0 overflow-hidden bg-muted/20',
-            isFullscreenLayout ? '' : 'rounded-xl border border-border/60 shadow-inner',
+            'absolute inset-0 overflow-hidden bg-[#120c09]',
             tool === 'eraser' && 'cursor-cell',
             tool === 'text' && textPlacementPending && 'cursor-crosshair',
             (tool === 'rect' || tool === 'ellipse' || tool === 'line') && 'cursor-crosshair',
@@ -2127,11 +2141,11 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         )}
 
         {!activeImage && !isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-4 p-6 z-10">
-            <div className="rounded-2xl bg-primary/10 p-4">
-              <ImageIcon className="h-10 w-10 text-primary/70" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-[#d4bc9f] gap-4 p-6 z-10">
+            <div className="rounded-2xl border border-gold/25 bg-gold/10 p-4">
+              <ImageIcon className="h-10 w-10 text-gold/80" />
             </div>
-            <p className="text-sm text-center max-w-xs font-medium">
+            <p className="text-sm text-center max-w-xs font-medium text-[#fff6ea]">
               Insira uma foto para medir, anotar e desenhar como no PhotoMeasure.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2 pointer-events-auto">
@@ -2198,29 +2212,30 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         />
       </div>
 
-      {/* Barra de ferramentas — aparece abaixo da foto para editar */}
+      {/* Barra de ferramentas — mesa de desenho, abaixo da foto */}
       <div
         data-whiteboard-toolbar
         className={cn(
-          'flex flex-wrap items-center gap-1.5 sm:gap-2 p-2 rounded-xl border border-border/80 shadow-sm shrink-0',
+          'relative overflow-hidden rounded-xl border border-gold/30 shadow-[0_8px_24px_rgba(0,0,0,0.28)] shrink-0',
           isFullscreenLayout
-            ? 'absolute inset-x-2 bottom-2 z-[9500] bg-[hsl(var(--card))]/95 backdrop-blur-sm'
-            : 'bg-[hsl(var(--card))] order-2',
+            ? 'absolute inset-x-2 bottom-2 z-[9500] bg-[#1a100c]/95 backdrop-blur-sm'
+            : 'bg-[#1a100c] order-2',
         )}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
+        <WhiteboardWoodFoil />
         {toolbarCollapsed ? (
           <TooltipProvider delayDuration={200}>
-            <div className="flex w-full items-center justify-between gap-2">
+            <div className="relative z-10 flex w-full items-center justify-between gap-2 px-2.5 py-2">
               <div className="flex items-center gap-1.5 min-w-0">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
                       size="icon"
-                      variant="default"
-                      className={toolBtnClass}
+                      variant="ghost"
+                      className={cn(toolBtnClass, 'bg-gold/20 text-gold ring-1 ring-gold/50')}
                       aria-label="Expandir ferramentas"
                       onClick={() => setToolbarCollapsed(false)}
                     >
@@ -2229,20 +2244,20 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                   </TooltipTrigger>
                   <TooltipContent>Mostrar ferramentas</TooltipContent>
                 </Tooltip>
-                <span className="text-xs text-muted-foreground truncate">
-                  Ferramentas recolhidas — pinça com 2 dedos para zoom
+                <span className="truncate font-display text-[11px] uppercase tracking-[0.16em] text-gold/80">
+                  Recolhida — pinça com 2 dedos para zoom
                 </span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {isOnline ? (
-                  <Cloud className="h-4 w-4 text-green-500 mr-1" />
+                  <Cloud className="h-4 w-4 text-emerald-400 mr-1" />
                 ) : (
-                  <CloudOff className="h-4 w-4 text-red-500 animate-pulse mr-1" />
+                  <CloudOff className="h-4 w-4 text-red-400 animate-pulse mr-1" />
                 )}
                 <Button
                   type="button"
                   size="icon"
-                  variant="outline"
+                  variant="ghost"
                   className={toolBtnClass}
                   onClick={zoomOut}
                   disabled={disabled || !activeImage}
@@ -2250,13 +2265,13 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 >
                   <ZoomOut className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
                 </Button>
-                <span className="text-xs font-mono tabular-nums text-muted-foreground min-w-[2.75rem] text-center">
+                <span className="min-w-[2.75rem] text-center font-mono text-xs tabular-nums text-[#fff6ea]">
                   {zoomPercent}%
                 </span>
                 <Button
                   type="button"
                   size="icon"
-                  variant="outline"
+                  variant="ghost"
                   className={toolBtnClass}
                   onClick={zoomIn}
                   disabled={disabled || !activeImage}
@@ -2268,7 +2283,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
+                    variant="ghost"
                     className={toolBtnClass}
                     onClick={onClose}
                     aria-label="Fechar"
@@ -2281,13 +2296,21 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           </TooltipProvider>
         ) : (
         <TooltipProvider delayDuration={200}>
+          <div className="relative z-10 flex flex-col gap-2.5 p-3">
+          {!activeImage && (
+            <p className="font-display text-[11px] uppercase tracking-[0.16em] text-gold/80">
+              Insira uma foto para usar as ferramentas
+            </p>
+          )}
+          <DraftingRail>
+          <DraftingGroup label="Mesa">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center px-1.5 py-1">
+              <div className="flex h-8 w-8 items-center justify-center">
                 {isOnline ? (
-                  <Cloud className="h-4 w-4 text-green-500" />
+                  <Cloud className="h-4 w-4 text-emerald-400" />
                 ) : (
-                  <CloudOff className="h-4 w-4 text-red-500 animate-pulse" />
+                  <CloudOff className="h-4 w-4 text-red-400 animate-pulse" />
                 )}
               </div>
             </TooltipTrigger>
@@ -2301,7 +2324,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               <Button
                 type="button"
                 size="icon"
-                variant="outline"
+                variant="ghost"
                 className={toolBtnClass}
                 aria-label="Recolher ferramentas"
                 onClick={() => setToolbarCollapsed(true)}
@@ -2311,13 +2334,11 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             </TooltipTrigger>
             <TooltipContent>Recolher barra (mais espaço para desenhar)</TooltipContent>
           </Tooltip>
+          </DraftingGroup>
 
-          <div className="w-px h-7 bg-border mx-0.5" />
+          <DraftingDivider />
 
-          {!activeImage && (
-            <span className="text-xs text-muted-foreground px-1">Insira uma foto para usar as ferramentas</span>
-          )}
-
+          <DraftingGroup label="Marcar">
           {(
             [
               { t: 'select' as Tool, icon: MousePointer, label: 'Selecionar' },
@@ -2328,6 +2349,32 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               { t: 'rect' as Tool, icon: Square, label: 'Retângulo' },
               { t: 'ellipse' as Tool, icon: Circle, label: 'Elipse' },
               { t: 'points' as Tool, icon: Waypoints, label: 'Pontos e linhas — duplo clique na lousa para finalizar' },
+            ] as const
+          ).map(({ t, icon: Icon, label }) => (
+            <Tooltip key={t}>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={draftingIconClass({ compact: !isMobile, active: tool === t })}
+                  disabled={toolsDisabled}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => selectTool(t)}
+                >
+                  <Icon className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          ))}
+          </DraftingGroup>
+
+          <DraftingDivider />
+
+          <DraftingGroup label="Medir">
+          {(
+            [
               { t: 'measure' as Tool, icon: Ruler, label: 'Medição reta' },
               { t: 'measure_arc' as Tool, icon: Spline, label: 'Medição em arco' },
             ] as const
@@ -2337,8 +2384,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 <Button
                   type="button"
                   size="icon"
-                  variant={tool === t ? 'default' : 'outline'}
-                  className={toolBtnClass}
+                  variant="ghost"
+                  className={draftingIconClass({ compact: !isMobile, active: tool === t })}
                   disabled={toolsDisabled}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => selectTool(t)}
@@ -2355,8 +2402,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               <Button
                 type="button"
                 size="icon"
-                variant={tool === 'furniture' ? 'default' : 'outline'}
-                className={toolBtnClass}
+                variant="ghost"
+                className={draftingIconClass({ compact: !isMobile, active: tool === 'furniture' })}
                 disabled={toolsDisabled}
                 aria-label="Móveis de marcenaria"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -2369,15 +2416,17 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             </TooltipTrigger>
             <TooltipContent>Móveis — esboços de marcenaria</TooltipContent>
           </Tooltip>
+          </DraftingGroup>
 
-          <div className="w-px h-7 bg-border mx-0.5 hidden sm:block" />
+          <DraftingDivider />
 
+          <DraftingGroup label="Foto">
           <Popover open={imageSourceOpen} onOpenChange={setImageSourceOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
                 size="icon"
-                variant="outline"
+                variant="ghost"
                 className={toolBtnClass}
                 disabled={disabled || uploadingCount > 0}
                 aria-label="Inserir foto"
@@ -2467,101 +2516,25 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 document.body,
               )
             : null}
+          </DraftingGroup>
+          </DraftingRail>
 
-          <div className="w-px h-7 bg-border mx-0.5" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className={toolBtnClass}
-                disabled={toolsDisabled || !canUndo || historyApplying}
-                onClick={() => void handleUndo()}
-              >
-                <Undo2 className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Voltar (desfazer) — Ctrl+Z</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className={toolBtnClass}
-                disabled={toolsDisabled || !canRedo || historyApplying}
-                onClick={() => void redoHistory()}
-              >
-                <Redo2 className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Avançar (refazer) — Ctrl+Y</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className={toolBtnClass}
-                disabled={toolsDisabled || imageDrawings.length === 0 || historyApplying}
-                onClick={() => void handleDeleteLast()}
-              >
-                <ArrowLeftToLine className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Apagar o último desenho</TooltipContent>
-          </Tooltip>
-
-          <div className="w-px h-7 bg-border mx-0.5" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" size="icon" variant="outline" className={toolBtnClass} onClick={zoomOut} disabled={disabled || !activeImage}>
-                <ZoomOut className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Diminuir zoom</TooltipContent>
-          </Tooltip>
-
-          <span className="text-xs font-mono tabular-nums text-muted-foreground min-w-[3rem] text-center px-1">
-            {zoomPercent}%
-          </span>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" size="icon" variant="outline" className={toolBtnClass} onClick={zoomIn} disabled={disabled || !activeImage}>
-                <ZoomIn className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Aumentar zoom</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className={toolBtnClass}
-                onClick={() => fitContent(16)}
-                disabled={disabled || !activeImage}
-              >
-                <Scan className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Ajustar foto na tela</TooltipContent>
-          </Tooltip>
-
+          {(tool === 'points' ||
+            tool === 'text' ||
+            textPlacementPending ||
+            tool === 'measure' ||
+            tool === 'measure_arc' ||
+            tool === 'furniture' ||
+            tool === 'pencil' ||
+            tool === 'eraser' ||
+            (ANNOTATION_TOOLS.includes(tool) &&
+              tool !== 'text' &&
+              tool !== 'measure' &&
+              tool !== 'measure_arc') ||
+            (selectedAnnotationId && tool === 'select')) && (
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain border-t border-gold/15 pt-2">
           {tool === 'points' && toolStepHint && (
-            <span className="text-[11px] font-mono tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-card/95 border border-border/60">
-              {toolStepHint}
-            </span>
+            <DraftingHint>{toolStepHint}</DraftingHint>
           )}
 
           {tool === 'points' && (pendingPolyline?.length ?? 0) > 0 && (
@@ -2569,7 +2542,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               type="button"
               size="sm"
               variant="secondary"
-              className={isMobile ? 'h-11' : 'h-8'}
+              className="h-8 shrink-0 bg-gold/20 text-gold hover:bg-gold/30"
               disabled={toolsDisabled || (pendingPolyline?.length ?? 0) < 2}
               onClick={() => void finalizePendingPolyline()}
             >
@@ -2580,18 +2553,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
           {(tool === 'text' || textPlacementPending) && (
             <>
-              <div className="w-px h-7 bg-border mx-0.5 hidden sm:block" />
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     disabled={toolsDisabled}
-                    className={cn(
-                      'font-mono tabular-nums px-2 min-w-[3.25rem]',
-                      isMobile ? 'h-11 text-sm' : 'h-8 text-xs',
-                    )}
+                    className="h-8 min-w-[3.25rem] px-2 font-mono text-xs tabular-nums text-[#fff6ea] hover:bg-gold/15 hover:text-gold"
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -2627,7 +2596,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 type="color"
                 value={textColorHex}
                 onChange={(e) => commitTextColorHex(e.target.value)}
-                className={cn('p-0 border cursor-pointer', isMobile ? 'h-11 w-12' : 'h-8 w-10')}
+                className="h-8 w-10 cursor-pointer border border-gold/30 bg-transparent p-0"
                 disabled={disabled || !isAdmin}
                 title={
                   isAdmin
@@ -2642,14 +2611,9 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
           {(tool === 'measure' || tool === 'measure_arc' || tool === 'furniture') && (
             <>
-              <div className="w-px h-7 bg-border mx-0.5 hidden sm:block" />
-              {toolStepHint && (
-                <span className="text-[11px] font-mono tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-card/95 border border-border/60 backdrop-blur-sm max-w-[14rem] leading-tight">
-                  {toolStepHint}
-                </span>
-              )}
+              {toolStepHint && <DraftingHint>{toolStepHint}</DraftingHint>}
               {tool === 'furniture' && (
-                <div className="flex max-w-[min(96vw,42rem)] flex-wrap items-center gap-1">
+                <div className="flex flex-nowrap items-center gap-1">
                   {FURNITURE_FAMILIES.map((family) => {
                     const variants = getFurnitureVariants(family.id);
                     const activeFamily = getFamilyForModuleType(furnitureModuleType) === family.id;
@@ -2671,8 +2635,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                             className={cn(
                               'flex items-center gap-1 rounded-lg border px-1.5 py-1 text-left transition-colors',
                               activeFamily
-                                ? 'border-primary/50 bg-primary/15 text-foreground'
-                                : 'border-border/70 bg-card/70 text-muted-foreground hover:bg-muted/50',
+                                ? 'border-gold/50 bg-gold/15 text-[#fff6ea]'
+                                : 'border-gold/20 bg-[#120c09]/70 text-[#d4bc9f] hover:bg-gold/10',
                             )}
                           >
                             <FurnitureModuleThumb moduleType={previewType} className="h-7 w-6" />
@@ -2757,12 +2721,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               tool !== 'measure' &&
               tool !== 'measure_arc')) && (
             <>
-              <div className="w-px h-7 bg-border mx-0.5 hidden sm:block" />
+              <span className="whitespace-nowrap font-display text-[11px] uppercase tracking-[0.16em] text-gold">
+                Traço
+              </span>
               <Input
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className={cn('p-0 border cursor-pointer', isMobile ? 'h-11 w-12' : 'h-8 w-10')}
+                className="h-8 w-10 cursor-pointer border border-gold/30 bg-transparent p-0"
                 disabled={toolsDisabled || tool === 'eraser'}
                 title="Cor do traço"
               />
@@ -2773,7 +2739,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 step={1}
                 disabled={toolsDisabled || tool === 'eraser'}
                 onValueChange={([v]) => setStrokeWidth(v)}
-                className={cn(isMobile ? 'w-24' : 'w-20')}
+                className="w-20 shrink-0"
               />
             </>
           )}
@@ -2783,7 +2749,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               type="button"
               size="sm"
               variant="destructive"
-              className={isMobile ? 'h-11' : 'h-8'}
+              className="h-8 shrink-0"
               disabled={disabled}
               onClick={() => {
                 void deleteDrawing(selectedAnnotationId);
@@ -2794,20 +2760,111 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               Remover forma
             </Button>
           )}
+          </div>
+          )}
 
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold/15 pt-2">
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" variant="ghost" className={toolBtnClass} onClick={zoomOut} disabled={disabled || !activeImage}>
+                    <ZoomOut className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Diminuir zoom</TooltipContent>
+              </Tooltip>
+
+              <span className="min-w-[3.25rem] px-1 text-center font-mono text-sm tabular-nums text-[#fff6ea]">
+                {zoomPercent}%
+              </span>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" variant="ghost" className={toolBtnClass} onClick={zoomIn} disabled={disabled || !activeImage}>
+                    <ZoomIn className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Aumentar zoom</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={toolBtnClass}
+                    onClick={() => fitContent(16)}
+                    disabled={disabled || !activeImage}
+                  >
+                    <Scan className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Ajustar foto na tela</TooltipContent>
+              </Tooltip>
+              <div className="mx-1 h-5 w-px bg-gold/25" aria-hidden />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={toolBtnClass}
+                    disabled={toolsDisabled || !canUndo || historyApplying}
+                    onClick={() => void handleUndo()}
+                  >
+                    <Undo2 className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Voltar (desfazer) — Ctrl+Z</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={toolBtnClass}
+                    disabled={toolsDisabled || !canRedo || historyApplying}
+                    onClick={() => void redoHistory()}
+                  >
+                    <Redo2 className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Avançar (refazer) — Ctrl+Y</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={toolBtnClass}
+                    disabled={toolsDisabled || imageDrawings.length === 0 || historyApplying}
+                    onClick={() => void handleDeleteLast()}
+                  >
+                    <ArrowLeftToLine className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Apagar o último desenho</TooltipContent>
+              </Tooltip>
+              {isSaving && <Loader2 className="h-4 w-4 animate-spin text-gold" />}
+            </div>
+
+            <div className="flex items-center gap-1.5">
           {activeImage && !toolsDisabled && (
             <Button
               type="button"
               size="sm"
-              variant="destructive"
-              className={isMobile ? 'h-11' : 'h-8'}
+              variant="ghost"
+              className="h-8 gap-1.5 px-2.5 text-xs font-medium text-red-200 hover:bg-destructive/30 hover:text-red-50"
               disabled={disabled}
               onClick={() => {
                 void deleteImage({ id: activeImage.id, fileUrl: activeImage.file_url });
                 setActiveImageId(null);
               }}
             >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              <Trash2 className="h-3.5 w-3.5" />
               Remover foto
             </Button>
           )}
@@ -2816,7 +2873,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             type="button"
             size="sm"
             variant="ghost"
-            className={cn('text-muted-foreground', isMobile ? 'h-11' : 'h-8')}
+            className="h-8 px-2.5 text-xs font-medium text-[#fff6ea] hover:bg-gold/15 hover:text-gold"
             disabled={
               toolsDisabled ||
               (imageDrawings.length === 0 &&
@@ -2831,21 +2888,19 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             Limpar desenhos
           </Button>
 
-          {isSaving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-
           {isFullscreenLayout && onClose && (
-            <>
-              <div className="w-px h-7 bg-border mx-0.5" />
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button type="button" size="icon" variant="outline" className={toolBtnClass} onClick={onClose}>
+                  <Button type="button" size="icon" variant="ghost" className={toolBtnClass} onClick={onClose}>
                     <Minimize2 className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Fechar</TooltipContent>
               </Tooltip>
-            </>
           )}
+            </div>
+          </div>
+          </div>
         </TooltipProvider>
         )}
       </div>
@@ -2858,10 +2913,10 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               type="button"
               onClick={() => setActiveImageId(img.id)}
               className={cn(
-                'relative shrink-0 h-16 w-16 rounded-lg overflow-hidden border-2 transition-all',
+                'relative shrink-0 h-14 w-14 rounded-lg overflow-hidden border-2 transition-all',
                 activeImageId === img.id
-                  ? 'border-primary ring-2 ring-primary/30'
-                  : 'border-border/60 opacity-80 hover:opacity-100',
+                  ? 'border-gold ring-2 ring-gold/30'
+                  : 'border-gold/25 opacity-80 hover:opacity-100',
               )}
             >
               <img src={img.file_url} alt={img.file_name} className="h-full w-full object-cover" />
@@ -2871,10 +2926,10 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
       )}
 
       {!isFullscreenLayout && (
-        <div className="shrink-0 order-4 space-y-1.5">
+        <div className="shrink-0 order-4 space-y-2">
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 font-display text-xs uppercase tracking-[0.16em] text-gold hover:text-[#fff6ea] transition-colors"
             onClick={() => setHelpExpanded((v) => !v)}
             aria-expanded={helpExpanded}
           >
@@ -2886,21 +2941,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               <ChevronDown className="h-3.5 w-3.5" />
             )}
           </button>
-          {helpExpanded && (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              <strong>Inserir foto</strong> — use o ícone de câmera ·{' '}
-              <strong>Tirar foto</strong> — no celular/tablet abre a câmera do aparelho (com zoom); no PC usa a webcam ·{' '}
-              <strong>Do projeto</strong> — use imagens já anexadas ·{' '}
-              <strong>Disquete</strong> — salva a foto com desenhos nos anexos e limpa a lousa ·{' '}
-              <strong>Linha reta</strong> — clique e arraste ·{' '}
-              <strong>Medição</strong> — clique dois pontos (reta) ou três (arco) ·{' '}
-              <strong>Etiqueta</strong> — toque no valor para editar (ex: 58,5) ·{' '}
-              <strong>Ferramentas</strong> — use o botão de seta para recolher a barra e ganhar espaço ·{' '}
-              <strong>Dois cliques</strong> na foto = ajustar zoom ·{' '}
-              <strong>Pinça</strong> — aproxime ou afaste dois dedos na foto para dar zoom ·{' '}
-              {isMobile && 'Use tela cheia para mais espaço.'}
-            </p>
-          )}
+          {helpExpanded && <LousaUsageTips isMobile={isMobile} />}
         </div>
       )}
 
@@ -2909,6 +2950,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           leadId={leadId}
           open={projectPickerOpen}
           onOpenChange={setProjectPickerOpen}
+          elevated={variant === 'fullscreen'}
           existingImageUrls={images.map((img) => img.file_url)}
           onSelect={handleImportFromProject}
           isSelecting={isImportingFromProject}
@@ -3024,15 +3066,20 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   return (
     <div
       id="lead-whiteboard"
-      className="space-y-2 w-full overflow-hidden rounded-xl border border-border/80 bg-gradient-to-b from-card/80 to-card/30 p-3 sm:border-0 sm:bg-transparent sm:p-0 sm:rounded-none"
+      className="relative w-full space-y-2 overflow-hidden rounded-xl border border-gold/25 bg-[#1a100c]/40 p-3 sm:border-0 sm:bg-transparent sm:p-0 sm:rounded-none"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
-        <Label className="flex items-center gap-2 text-sm sm:text-base font-semibold tracking-tight">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
-            <ImageIcon className="h-4 w-4 text-primary" />
+        <Label className="flex items-center gap-2 text-sm sm:text-base font-semibold tracking-tight text-[#fff6ea]">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gold/30 bg-gold/15">
+            <ImageIcon className="h-4 w-4 text-gold" />
           </span>
-          Fotos do lead
+          <span className="flex flex-col leading-tight">
+            <span className="font-display text-[10px] font-normal uppercase tracking-[0.22em] text-gold/80">
+              Lousa
+            </span>
+            Fotos do lead
+          </span>
         </Label>
         <div className="flex items-center gap-1.5">
           {canUploadAttachment && (
@@ -3080,7 +3127,19 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
         />
       )}
 
-      <Dialog open={fullscreen} onOpenChange={updateFullscreen}>
+      <Dialog
+        open={fullscreen}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            typeof document !== 'undefined' &&
+            document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR)
+          ) {
+            return;
+          }
+          updateFullscreen(open);
+        }}
+      >
         <DialogContent
           nested
           overlayClassName={leadFullscreenOverlayClass}
@@ -3089,9 +3148,9 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
             leadFullscreenContentClass,
             '!fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-background [&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation',
           )}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-          onFocusOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={preventFullscreenOutsideDismiss}
+          onInteractOutside={preventFullscreenOutsideDismiss}
+          onFocusOutside={preventFullscreenOutsideDismiss}
         >
           <DialogTitle className="sr-only">Fotos do lead</DialogTitle>
           {fullscreen && (
