@@ -46,7 +46,7 @@ interface LeadFolderPickDialogProps {
   notesCount?: number;
   onConfirm: (
     folderId: string | null,
-    options?: { fileName: string; includeNotes: boolean },
+    options?: { fileName: string; includeNotes: boolean; folderName?: string },
   ) => void | Promise<void>;
 }
 
@@ -115,6 +115,15 @@ export function LeadFolderPickDialog({
     try {
       let folderId = selectedId;
       if (folderId == null && askFolderName && folderNome.trim()) {
+        if (!leadId) {
+          await onConfirm(null, {
+            fileName: fileName.trim(),
+            includeNotes: notesToggle && includeNotes && notesCount > 0,
+            folderName: folderNome.trim(),
+          });
+          onOpenChange(false);
+          return;
+        }
         const existing = findFolderByName(folders, folderNome);
         folderId = existing
           ? existing.id
@@ -123,6 +132,7 @@ export function LeadFolderPickDialog({
       await onConfirm(folderId, {
         fileName: fileName.trim(),
         includeNotes: notesToggle && includeNotes && notesCount > 0,
+        folderName: folderNome.trim() || undefined,
       });
       onOpenChange(false);
       setSelectedId(null);

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { resolveMarketingMediasConfig } from '@/lib/empresa-tables';
@@ -15,6 +15,7 @@ import {
 } from '@/lib/pdf-image-cache';
 import { toast } from 'sonner';
 import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex';
+import { normalizeFolderName } from '@/lib/lead-media-folders';
 
 export type LeadAttachmentTipo = 'pdf' | 'imagem' | 'video';
 
@@ -36,9 +37,12 @@ export interface PendingLeadPDF {
   file: File;
   previewUrl: string;
   tipo: LeadAttachmentTipo;
+  /** Gaveta escolhida; null = Sem pasta. Ausente = ainda não decidido. */
+  folderId?: string | null;
+  /** Nome digitado antes do lead existir no banco. */
+  folderName?: string;
 }
 
-const ORCAMENTOS_FOLDER_NAME = 'orçamentos';
 const MAX_ATTACHMENT_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 const STORAGE_BUCKET = 'marketing-medias';
 const LEAD_ATTACHMENT_TIPOS: LeadAttachmentTipo[] = ['pdf', 'imagem', 'video'];
@@ -116,40 +120,43 @@ function fileExtension(file: File): string {
   return 'jpg';
 }
 
-async function getOrCreateOrcamentosFolder(
-  schema: string | null,
-  foldersTable: string,
-): Promise<string> {
-  const db = getMarketingDb(schema);
-
-  const { data: existing } = await db
-    .from(foldersTable)
-    .select('id')
-    .eq('nome', ORCAMENTOS_FOLDER_NAME)
-    .maybeSingle();
-
-  if (existing) return existing.id;
-
-  const { data: created, error } = await db
-    .from(foldersTable)
-    .insert({ nome: ORCAMENTOS_FOLDER_NAME, descricao: 'Orçamentos de leads' })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return created.id;
-}
-
 function buildStoragePath(schema: string | null, fileName: string): string {
   const prefix = schema ?? 'master';
   return `${prefix}/${fileName}`;
+}
+
+async function ensureLeadFolderId(
+  schema: string | null,
+  foldersTable: string,
+  leadId: number,
+  nomeBruto: string,
+): Promise<string> {
+  const nome = normalizeFolderName(nomeBruto);
+  if (!nome) throw new Error('Dê um nome para a pasta');
+  const db = getMarketingDb(schema);
+  const { data: rows, error: listError } = await db
+    .from(foldersTable)
+    .select('id, nome')
+    .eq('lead_id', leadId);
+  if (listError) throw listError;
+  const existing = (rows ?? []).find(
+    (row) => String(row.nome).trim().toLowerCase() === nome.toLowerCase(),
+  );
+  if (existing?.id) return String(existing.id);
+
+  const { data: created, error } = await db
+    .from(foldersTable)
+    .insert({ nome, lead_id: leadId })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return String(created.id);
 }
 
 export function useLeadPDFs(leadId: number | null | undefined) {
   const queryClient = useQueryClient();
   const { schemaEmpresa, queriesReady } = useEmpresa();
   const mediasConfig = resolveMarketingMediasConfig(schemaEmpresa);
-  const folderIdRef = useRef<string | null>(null);
   const [pendingPdfs, setPendingPdfs] = useState<PendingLeadPDF[]>([]);
 
   const clearPendingPdfs = useCallback(() => {
@@ -219,14 +226,6 @@ export function useLeadPDFs(leadId: number | null | undefined) {
 
     const tipo = getLeadAttachmentTipo(file)!;
 
-    const useExplicitFolder = folderId !== undefined;
-    if (!useExplicitFolder && !folderIdRef.current) {
-      folderIdRef.current = await getOrCreateOrcamentosFolder(
-        mediasConfig.schema,
-        mediasConfig.foldersTable,
-      );
-    }
-
     const cacheKey = pendingTempId
       ? pdfCacheKeyForPending(pendingTempId)
       : `upload:${crypto.randomUUID()}`;
@@ -263,7 +262,7 @@ export function useLeadPDFs(leadId: number | null | undefined) {
         file_name: file.name,
         file_size: file.size,
         mime_type: file.type || null,
-        folder_id: useExplicitFolder ? folderId : folderIdRef.current,
+        folder_id: folderId ?? null,
         lead_id: targetLeadId,
       })
       .select('id')
@@ -280,7 +279,10 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     }
   };
 
-  const stagePendingPDF = (file: File): void => {
+  const stagePendingPDF = (
+    file: File,
+    folder?: { folderId?: string | null; folderName?: string },
+  ): void => {
     const validationError = validateAttachmentFile(file);
     if (validationError) {
       toast.error(validationError);
@@ -300,6 +302,8 @@ export function useLeadPDFs(leadId: number | null | undefined) {
         file,
         previewUrl: URL.createObjectURL(file),
         tipo,
+        folderId: folder?.folderId,
+        folderName: folder?.folderName,
       },
     ]);
     if (tipo === 'pdf') {
@@ -324,14 +328,17 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     });
   };
 
-  const uploadPDF = async (file: File): Promise<void> => {
+  const uploadPDF = async (
+    file: File,
+    folder?: { folderId?: string | null; folderName?: string },
+  ): Promise<void> => {
     if (!leadId) {
-      stagePendingPDF(file);
+      stagePendingPDF(file, folder);
       return;
     }
 
     try {
-      await uploadPDFToLead(leadId, file);
+      await uploadPDFToLead(leadId, file, undefined, folder?.folderId ?? null);
       invalidateAttachmentQueries(leadId);
       toast.success('Arquivo anexado com sucesso');
     } catch (error) {
@@ -371,7 +378,21 @@ export function useLeadPDFs(leadId: number | null | undefined) {
 
     for (const pending of queue) {
       try {
-        await uploadPDFToLead(targetLeadId, pending.file, pending.tempId);
+        await uploadPDFToLead(
+          targetLeadId,
+          pending.file,
+          pending.tempId,
+          pending.folderId !== undefined
+            ? pending.folderId
+            : pending.folderName
+              ? await ensureLeadFolderId(
+                  mediasConfig.schema,
+                  mediasConfig.foldersTable,
+                  targetLeadId,
+                  pending.folderName,
+                )
+              : null,
+        );
         uploaded += 1;
       } catch (error) {
         const message =
@@ -391,6 +412,18 @@ export function useLeadPDFs(leadId: number | null | undefined) {
         uploaded === 1 ? 'Arquivo anexado ao lead' : `${uploaded} arquivos anexados ao lead`,
       );
     }
+  };
+
+  const assignMediasToFolder = async (mediaIds: string[], folderId: string | null): Promise<void> => {
+    const realIds = mediaIds.filter((id) => !id.includes(':'));
+    if (realIds.length === 0) return;
+    const db = getMarketingDb(mediasConfig.schema);
+    const { error } = await db
+      .from(mediasConfig.mediasTable)
+      .update({ folder_id: folderId })
+      .in('id', realIds);
+    if (error) throw error;
+    if (leadId) invalidateAttachmentQueries(leadId);
   };
 
   const deletePDF = async (mediaId: string, fileUrl: string): Promise<void> => {
@@ -423,6 +456,7 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     isLoading: query.isLoading,
     uploadPDF,
     uploadAttachment,
+    assignMediasToFolder,
     deletePDF,
     removePendingPDF,
     flushPendingPDFs,

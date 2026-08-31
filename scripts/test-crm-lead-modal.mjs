@@ -98,6 +98,21 @@ describe('Épico 11 — ficha do lead', () => {
     assert.doesNotMatch(exportLib, /window\.open/)
   })
 
+  it('tela cheia da composição não cancela clique nem foco', () => {
+    const guard = readSrc('src/lib/dialog-outside-guard.ts')
+    const dialog = readSrc('src/components/ui/dialog.tsx')
+    const ficha = readSrc('src/components/leads/LeadModal.tsx')
+    const composer = readSrc('src/components/leads/LeadAIAmbienteComposer.tsx')
+    assert.match(guard, /export function isLeadNestedLayerEvent/)
+    assert.match(guard, /data-ambiente-composer-fullscreen/)
+    assert.match(guard, /setAmbienteFullscreenOpenFlag/)
+    assert.match(dialog, /isLeadNestedLayerEvent\(event\)/)
+    assert.match(ficha, /modal=\{!orcamentoVisualizarOpen\}/)
+    assert.match(ficha, /if \(isLeadNestedLayerEvent\(e\)\) return/)
+    assert.match(composer, /updateFullscreen/)
+    assert.match(composer, /setAmbienteFullscreenOpenFlag/)
+  })
+
   it('clique no fundo fecha o card; atualizar a página reabre pelo ?id=', () => {
     const ficha = readSrc('src/components/leads/LeadModal.tsx')
     const dialog = readSrc('src/components/ui/dialog.tsx')

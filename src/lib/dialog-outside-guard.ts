@@ -19,6 +19,11 @@ export const FILE_PICKER_OPEN_ATTR = 'data-file-picker-open';
 export const ORCAMENTO_VISUALIZAR_OPEN_ATTR = 'data-orcamento-visualizar-open';
 
 const orcamentoVisualizarListeners = new Set<() => void>();
+const leadModalPassthroughListeners = new Set<() => void>();
+
+function notifyLeadModalPassthrough() {
+  leadModalPassthroughListeners.forEach((listener) => listener());
+}
 
 export function setOrcamentoVisualizarOpenFlag(open: boolean) {
   if (typeof document === 'undefined') return;
@@ -28,6 +33,29 @@ export function setOrcamentoVisualizarOpenFlag(open: boolean) {
     document.documentElement.removeAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR);
   }
   orcamentoVisualizarListeners.forEach((listener) => listener());
+  notifyLeadModalPassthrough();
+}
+
+/** Tela cheia do compositor de ambiente — o card do lead não pode “comer” os cliques. */
+export function setAmbienteFullscreenOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(AMBIENTE_FULLSCREEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(AMBIENTE_FULLSCREEN_ATTR);
+  }
+  notifyLeadModalPassthrough();
+}
+
+/** Tela cheia da lousa — mesmo caso da composição de ambiente. */
+export function setWhiteboardFullscreenOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(WHITEBOARD_FULLSCREEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(WHITEBOARD_FULLSCREEN_ATTR);
+  }
+  notifyLeadModalPassthrough();
 }
 
 export function isOrcamentoVisualizarOpen(): boolean {
@@ -40,6 +68,55 @@ export function subscribeOrcamentoVisualizarOpen(onStoreChange: () => void): () 
   return () => {
     orcamentoVisualizarListeners.delete(onStoreChange);
   };
+}
+
+/** Orçamento em slides, lousa ou composição em tela cheia — o card passa a ser não-modal. */
+export function isLeadModalPassthroughOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  const root = document.documentElement;
+  return (
+    root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
+    root.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
+    root.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR)
+  );
+}
+
+export function subscribeLeadModalPassthrough(onStoreChange: () => void): () => void {
+  leadModalPassthroughListeners.add(onStoreChange);
+  return () => {
+    leadModalPassthroughListeners.delete(onStoreChange);
+  };
+}
+
+/**
+ * Clique/foco numa janela por cima do card (tela cheia, confirmação).
+ * Não use preventDefault nesses eventos: o Radix cancela o clique original
+ * e a lousa / o texto ficam inacessíveis.
+ */
+export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boolean {
+  const target = e.target as HTMLElement | null;
+  if (!target?.closest) return false;
+  return Boolean(
+    target.closest('[data-ambiente-composer-fullscreen]') ||
+      target.closest('[data-whiteboard-fullscreen]') ||
+      target.closest('[data-lead-ai-image-fullscreen]') ||
+      target.closest('[data-lead-ai-render-fullscreen]') ||
+      target.closest('[data-nested-dialog]'),
+  );
+}
+
+/** O card não deve fechar enquanto há uma camada por cima. */
+export function isLeadDismissBlocked(options?: { filePickerActive?: boolean }): boolean {
+  if (shouldBlockLeadModalBackdropClose(options)) return true;
+  if (typeof document === 'undefined') return false;
+  return Boolean(
+    document.querySelector('[data-nested-dialog][data-state="open"]') ||
+      document.querySelector('[data-ambiente-composer-fullscreen]') ||
+      document.querySelector('[data-whiteboard-fullscreen]') ||
+      document.querySelector('[data-lead-ai-image-fullscreen]') ||
+      document.querySelector('[data-lead-ai-render-fullscreen]') ||
+      document.querySelector('[role="alertdialog"]'),
+  );
 }
 
 export function setEnviarProjetoDialogOpenFlag(open: boolean) {

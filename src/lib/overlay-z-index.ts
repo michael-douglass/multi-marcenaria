@@ -45,7 +45,7 @@ export const nestedModalClass = '!z-[60]';
 export const leadNestedMenuClass = '!z-[80]';
 /** Véu da tela cheia da lousa — o Radix força pointer-events:auto no overlay. */
 export const leadFullscreenOverlayClass = 'z-[80] !pointer-events-none';
-export const leadFullscreenContentClass = 'z-[81] pointer-events-auto';
+export const leadFullscreenContentClass = '!z-[81] pointer-events-auto';
 export const floatingAiBackgroundClass = 'z-[70]';
 export const floatingAgendaPanelClass = 'z-[200]';
 export const floatingAgendaIconClass = 'z-[210]';

@@ -59,6 +59,8 @@ import {
   ORCAMENTO_VISUALIZAR_OPEN_ATTR,
   PROJECT_IMAGE_PICKER_OPEN_ATTR,
   WHITEBOARD_FULLSCREEN_ATTR,
+  isLeadDismissBlocked,
+  isLeadNestedLayerEvent,
   isOrcamentoVisualizarOpen,
   isPrimaryDialogBackdrop,
   shouldBlockLeadModalBackdropClose,
@@ -1167,6 +1169,7 @@ export function LeadModal({
         // Clique na confirmação “Duplicar” não pode fechar o card no meio do caminho.
         if (!open && nestedOverlayOpen) return;
         if (!open && shouldBlockLeadModalBackdropClose({ filePickerActive })) return;
+        if (!open && isLeadDismissBlocked({ filePickerActive })) return;
         if (!open) requestClose();
       }}
     >
@@ -1185,16 +1188,20 @@ export function LeadModal({
           requestClose();
         }}
         onPointerDownOutside={(e) => {
+          // Tela cheia / janela interna: o preventDefault cancela o clique (lousa morta).
+          if (isLeadNestedLayerEvent(e)) return;
           // Fecha só no clique do véu (onOverlayClick). No pointerdown o card some
           // cedo e o clique cai no Kanban — abre “Novo lead” sem querer.
           e.preventDefault();
         }}
         onInteractOutside={(e) => {
+          if (isLeadNestedLayerEvent(e)) return;
           if (nestedOverlayOpen) e.preventDefault();
           if (isPrimaryDialogBackdrop(e.target)) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onFocusOutside={(e) => {
+          if (isLeadNestedLayerEvent(e)) return;
           if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}

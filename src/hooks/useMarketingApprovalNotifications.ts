@@ -30,8 +30,9 @@ export function useMarketingApprovalNotifications() {
 
   // Realtime subscription para novas notificações
   useEffect(() => {
+    const channelName = `marketing-approval-notifications-changes-${crypto.randomUUID()}`;
     const channel = supabase
-      .channel('marketing-approval-notifications-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -41,12 +42,12 @@ export function useMarketingApprovalNotifications() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['marketing-approval-notifications'] });
-        }
+        },
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [queryClient]);
 

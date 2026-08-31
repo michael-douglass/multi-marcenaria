@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { FloatingOverlayProvider } from "@/contexts/FloatingOverlayContext";
-import { isPrimaryDialogBackdrop, shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
+import { isLeadNestedLayerEvent, isPrimaryDialogBackdrop, shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
 import { floatingAgendaDialogClass, nestedModalClass } from "@/lib/overlay-z-index";
 
 const Dialog = DialogPrimitive.Root;
@@ -73,15 +73,29 @@ const DialogContent = React.forwardRef<
       data-floating-agenda-root={floatingLayer ? '' : undefined}
       data-nested-dialog={nested ? '' : undefined}
       onPointerDownOutside={(event) => {
+        // Tela cheia / janela interna: preventDefault aqui cancela o clique original
+        // (botões mortos, textarea sem foco). O card permanece aberto pelas guardas.
+        if (isLeadNestedLayerEvent(event)) {
+          onPointerDownOutside?.(event);
+          return;
+        }
         if (onOverlayClick) event.preventDefault();
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
         onPointerDownOutside?.(event);
       }}
       onFocusOutside={(event) => {
+        if (isLeadNestedLayerEvent(event)) {
+          onFocusOutside?.(event);
+          return;
+        }
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
         onFocusOutside?.(event);
       }}
       onInteractOutside={(event) => {
+        if (isLeadNestedLayerEvent(event)) {
+          onInteractOutside?.(event);
+          return;
+        }
         if (onOverlayClick && isPrimaryDialogBackdrop(event.target)) event.preventDefault();
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();
         onInteractOutside?.(event);

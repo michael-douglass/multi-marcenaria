@@ -62,7 +62,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { WHITEBOARD_FULLSCREEN_ATTR } from '@/lib/dialog-outside-guard';
+import { setWhiteboardFullscreenOpenFlag } from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -2874,13 +2874,18 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       userRole === 'vendedor' ||
       hasPermission('leads', 'edit'));
 
-  const openFullscreen = () => setFullscreen(true);
+  const updateFullscreen = useCallback((open: boolean) => {
+    setWhiteboardFullscreenOpenFlag(open);
+    setFullscreen(open);
+  }, []);
+
+  const openFullscreen = () => updateFullscreen(true);
 
   useEffect(() => {
     if (!fullscreen) return;
-    document.documentElement.setAttribute(WHITEBOARD_FULLSCREEN_ATTR, 'true');
+    setWhiteboardFullscreenOpenFlag(true);
     return () => {
-      document.documentElement.removeAttribute(WHITEBOARD_FULLSCREEN_ATTR);
+      setWhiteboardFullscreenOpenFlag(false);
     };
   }, [fullscreen]);
 
@@ -2972,7 +2977,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
         />
       )}
 
-      <Dialog open={fullscreen} onOpenChange={setFullscreen}>
+      <Dialog open={fullscreen} onOpenChange={updateFullscreen}>
         <DialogContent
           nested
           overlayClassName={leadFullscreenOverlayClass}
@@ -2992,7 +2997,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
               leadId={leadId}
               disabled={disabled}
               variant="fullscreen"
-              onClose={() => setFullscreen(false)}
+              onClose={() => updateFullscreen(false)}
               className="flex-1 min-h-0 h-full w-full"
             />
           )}

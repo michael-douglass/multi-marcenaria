@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -27,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, Pencil } from 'lucide-react';
 import {
   useLeadPDFs,
   getLeadAttachmentViewKind,
@@ -53,6 +54,22 @@ import { toast } from 'sonner';
 import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { filtrarAnexosParaPrestador } from '@/lib/prestador-visibilidade';
 import { useLeadAIRenders, useDeleteLeadAIRender } from '@/hooks/useLeadAIRenders';
+import { useLeadMediaFolders } from '@/hooks/useLeadMediaFolders';
+import {
+  LEAD_UNFILED_FOLDER_ID,
+  countFolderFiles,
+  findFolderByName,
+  getFolderCoverUrls,
+  isAttachmentInLeadFolder,
+  isLeadUnfiledFolderId,
+  normalizeFolderName,
+} from '@/lib/lead-media-folders';
+import {
+  canDeleteLeadAttachments,
+  canManageLeadAttachments,
+} from '@/lib/lead-attachments-access';
+import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
+import { LeadAttachmentFolderCard } from '@/components/leads/LeadAttachmentFolderCard';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   buildLeadFotosPdfFile,
@@ -128,7 +145,10 @@ function PDFThumbnail({ cacheKey, fileUrl, fileName, file }: PDFThumbnailProps) 
     }
 
     const source = file ? { file } : { url: fileUrl };
-    prewarmPdfThumbnail(cacheKey, source)
+    const timeout = new Promise<null>((resolve) => {
+      window.setTimeout(() => resolve(null), 8000);
+    });
+    Promise.race([prewarmPdfThumbnail(cacheKey, source), timeout])
       .then((src) => {
         if (!cancelled) {
           setImageSrc(src);
@@ -724,7 +744,7 @@ export interface LeadPDFAttachmentsHandle {
 
 export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAttachmentsProps>(
   function LeadPDFAttachments({ leadId, leadName, readOnly = false, prestadorPerm = null, onFilePickerActiveChange }, ref) {
-  const { userRole, isSuperAdmin: isSuperAdminAuth } = useAuth();
+  const { userRole, userRoles, isSuperAdmin: isSuperAdminAuth } = useAuth();
   const { empresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
   const { hasPermission } = usePermissions();
   const {
@@ -732,14 +752,18 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     pendingPdfs,
     isLoading,
     uploadPDF,
+    uploadAttachment,
+    assignMediasToFolder,
     deletePDF,
     removePendingPDF,
     flushPendingPDFs,
     clearPendingPdfs,
     hasPendingPdfs,
   } = useLeadPDFs(leadId);
-  const { formUploadAttachments, isLoading: formUploadsLoading } = useLeadFormUploadAttachments(leadId);
-  const { data: aiRenders = [], isLoading: aiRendersLoading } = useLeadAIRenders(leadId);
+  const { folders, isLoading: foldersLoading, createFolder, updateFolder, deleteFolder } =
+    useLeadMediaFolders(leadId);
+  const { formUploadAttachments } = useLeadFormUploadAttachments(leadId);
+  const { data: aiRenders = [] } = useLeadAIRenders(leadId);
   const deleteRenderMutation = useDeleteLeadAIRender(leadId);
 
   const anexosComRenders = useMemo(() => {
@@ -755,6 +779,50 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     ? filtrarAnexosParaPrestador(anexosComRenders, prestadorPerm)
     : anexosComRenders;
 
+  const leadFolderIds = useMemo(() => new Set(folders.map((folder) => folder.id)), [folders]);
+  const currentFolder = folders.find((folder) => folder.id === currentFolderId) ?? null;
+  const viewingRoot = currentFolderId === null;
+  const viewingUnfiled = isLeadUnfiledFolderId(currentFolderId);
+
+  const filesInView = useMemo(() => {
+    if (viewingRoot) return [];
+    if (viewingUnfiled) {
+      return pdfsVisiveis.filter((item) => !isAttachmentInLeadFolder(item.folder_id, leadFolderIds));
+    }
+    return pdfsVisiveis.filter((item) => item.folder_id === currentFolderId);
+  }, [pdfsVisiveis, viewingRoot, viewingUnfiled, currentFolderId, leadFolderIds]);
+
+  const pendingInView = useMemo(() => {
+    if (viewingRoot) {
+      return pendingPdfs.filter((item) => !item.folderId && !item.folderName);
+    }
+    if (viewingUnfiled) {
+      return pendingPdfs.filter((item) => item.folderId === null && !item.folderName);
+    }
+    return pendingPdfs.filter(
+      (item) =>
+        item.folderId === currentFolderId ||
+        (!!currentFolder &&
+          normalizeFolderName(item.folderName).toLowerCase() === currentFolder.nome.trim().toLowerCase()),
+    );
+  }, [pendingPdfs, viewingRoot, viewingUnfiled, currentFolderId, currentFolder]);
+
+  const unfiledItems = useMemo(
+    () => pdfsVisiveis.filter((item) => !isAttachmentInLeadFolder(item.folder_id, leadFolderIds)),
+    [pdfsVisiveis, leadFolderIds],
+  );
+  const unfiledCount = unfiledItems.length + pendingPdfs.filter((p) => !p.folderId && !p.folderName).length;
+
+  const coverSource = useMemo(
+    () =>
+      pdfsVisiveis.map((item) => ({
+        folder_id: isAttachmentInLeadFolder(item.folder_id, leadFolderIds) ? item.folder_id : null,
+        tipo: item.tipo,
+        file_url: item.file_url,
+      })),
+    [pdfsVisiveis, leadFolderIds],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
@@ -767,6 +835,14 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [uploadFolderName, setUploadFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderDraft, setNewFolderDraft] = useState('');
+  const [pickOpen, setPickOpen] = useState(false);
+  const [queuedFiles, setQueuedFiles] = useState<File[] | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string; nome: string } | null>(null);
+  const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
   const [fullscreenView, setFullscreenView] = useState<{
     kind: 'pdf' | 'image' | 'video';
@@ -785,7 +861,9 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const [isExportProcessing, setIsExportProcessing] = useState(false);
 
   const galleryImages = useMemo((): GalleryImageItem[] => {
-    const pendingImages = pendingPdfs
+    const sourcePending = viewingRoot ? pendingPdfs : pendingInView;
+    const sourceSaved = viewingRoot ? pdfsVisiveis : filesInView;
+    const pendingImages = sourcePending
       .filter((pending) => getLeadAttachmentViewKind(pending) === 'image')
       .map((pending) => ({
         key: `pending:${pending.tempId}`,
@@ -793,7 +871,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         fileName: pending.file.name,
         imageLabel: pending.file.name,
       }));
-    const savedImages = pdfsVisiveis
+    const savedImages = sourceSaved
       .filter((pdf) => getLeadAttachmentViewKind(pdf) === 'image')
       .map((pdf) => ({
         key: pdf.id,
@@ -802,11 +880,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         imageLabel: pdf.titulo || pdf.file_name,
       }));
     return [...pendingImages, ...savedImages];
-  }, [pendingPdfs, pdfsVisiveis]);
+  }, [pendingPdfs, pdfsVisiveis, pendingInView, filesInView, viewingRoot]);
 
   const selectableImages = useMemo(
-    () => pdfsVisiveis.filter((pdf) => getLeadAttachmentViewKind(pdf) === 'image'),
-    [pdfsVisiveis],
+    () => filesInView.filter((pdf) => getLeadAttachmentViewKind(pdf) === 'image'),
+    [filesInView],
   );
 
   const canUseSelectionMode = selectableImages.length >= 2;
@@ -851,7 +929,10 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
 
         if (action === 'attach' || action === 'both') {
           const file = await buildLeadFotosPdfFile(exportInput);
-          await uploadPDF(file);
+          await uploadPDF(file, {
+            folderId: viewingUnfiled ? null : currentFolderId,
+            folderName: viewingRoot ? normalizeFolderName(uploadFolderName) || undefined : currentFolder?.nome,
+          });
         }
 
         if (action === 'export') {
@@ -886,15 +967,21 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   );
 
   const isMasterUser = isSuperAdminAuth || isSuperAdminEmpresa || userRole === 'admin';
-  const canUploadPdf =
-    !readOnly &&
-    (isMasterUser ||
-      userRole === 'admin' ||
-      userRole === 'vendedor' ||
-      hasPermission('leads', 'edit'));
+  const canUploadPdf = canManageLeadAttachments({
+    readOnly,
+    isSuperAdmin: isMasterUser,
+    userRole,
+    userRoles,
+    hasLeadsEdit: hasPermission('leads', 'edit'),
+  });
   const canDownloadPdf =
-    readOnly || isMasterUser || userRole === 'admin' || userRole === 'vendedor';
-  const canDeletePdf = !readOnly && (isMasterUser || userRole === 'admin');
+    readOnly || isMasterUser || userRole === 'admin' || userRole === 'vendedor' || userRole === 'projetista' || userRole === 'projetista_admin';
+  const canDeletePdf = canDeleteLeadAttachments({
+    readOnly,
+    isSuperAdmin: isMasterUser,
+    userRole,
+    userRoles,
+  });
 
   const handleDownloadPdf = useCallback(async (pdf: LeadPDF) => {
     setDownloadingId(pdf.id);
@@ -968,13 +1055,53 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     );
   }, [onFilePickerActiveChange]);
 
-  const handleFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+  const resolveUploadFolder = useCallback(async () => {
+    if (!viewingRoot && !viewingUnfiled && currentFolderId) {
+      return { folderId: currentFolderId as string | null, folderName: currentFolder?.nome };
+    }
+    const typed = normalizeFolderName(uploadFolderName);
+    if (typed) {
+      if (!leadId) return { folderId: null as string | null, folderName: typed };
+      const existing = findFolderByName(folders, typed);
+      if (existing) return { folderId: existing.id, folderName: typed };
+      const created = await createFolder({ nome: typed });
+      setCurrentFolderId(created.id);
+      setUploadFolderName('');
+      return { folderId: created.id, folderName: typed };
+    }
+    return null;
+  }, [
+    viewingRoot,
+    viewingUnfiled,
+    currentFolderId,
+    currentFolder?.nome,
+    uploadFolderName,
+    leadId,
+    folders,
+    createFolder,
+  ]);
+
+  const sendFilesToFolder = useCallback(
+    async (files: File[], folder: { folderId?: string | null; folderName?: string }) => {
       setUploading(true);
       try {
-        for (const file of Array.from(files)) {
-          await uploadPDF(file);
+        for (const file of files) {
+          if (!leadId) {
+            await uploadPDF(file, folder);
+          } else if (folder.folderId !== undefined || folder.folderName) {
+            if (folder.folderId) {
+              await uploadAttachment(file, folder.folderId);
+            } else if (folder.folderName) {
+              const existing = findFolderByName(folders, folder.folderName);
+              const created = existing ?? (await createFolder({ nome: folder.folderName }));
+              await uploadAttachment(file, created.id);
+              setCurrentFolderId(created.id);
+            } else {
+              await uploadAttachment(file, null);
+            }
+          } else {
+            await uploadPDF(file, folder);
+          }
         }
       } finally {
         setUploading(false);
@@ -982,14 +1109,55 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     },
-    [uploadPDF, onFilePickerActiveChange],
+    [leadId, uploadPDF, uploadAttachment, folders, createFolder, onFilePickerActiveChange],
+  );
+
+  const handleFiles = useCallback(
+    async (files: FileList | null, fromDrop = false) => {
+      if (!files || files.length === 0) return;
+      const list = Array.from(files);
+
+      if (!viewingRoot && !viewingUnfiled && currentFolderId) {
+        await sendFilesToFolder(list, { folderId: currentFolderId, folderName: currentFolder?.nome });
+        return;
+      }
+
+      const typed = normalizeFolderName(uploadFolderName);
+      if (typed) {
+        const target = await resolveUploadFolder();
+        if (target) await sendFilesToFolder(list, target);
+        return;
+      }
+
+      if (!fromDrop) {
+        toast.error('Escreva o nome da pasta…', {
+          description: 'Ex.: Sala, Cozinha, Fachada — toda foto entra numa gaveta.',
+        });
+        onFilePickerActiveChange?.(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      setQueuedFiles(list);
+      setPickOpen(true);
+    },
+    [
+      viewingRoot,
+      viewingUnfiled,
+      currentFolderId,
+      currentFolder?.nome,
+      uploadFolderName,
+      resolveUploadFolder,
+      sendFilesToFolder,
+      onFilePickerActiveChange,
+    ],
   );
 
   const handleDrop = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
-      handleFiles(e.dataTransfer.files);
+      handleFiles(e.dataTransfer.files, true);
     },
     [handleFiles]
   );
@@ -1012,11 +1180,100 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     setDeleteTarget(null);
   };
 
+  const handleCreateNamedFolder = async () => {
+    const nome = normalizeFolderName(newFolderDraft);
+    if (!nome) return;
+    if (!leadId) {
+      toast.error('Salve o lead antes de criar pastas');
+      return;
+    }
+    try {
+      const created = await createFolder({ nome });
+      setNewFolderDraft('');
+      setCreatingFolder(false);
+      setCurrentFolderId(created.id);
+    } catch {
+      /* toast no hook */
+    }
+  };
+
+  const handleBaptizeUnfiled = async (nome: string) => {
+    if (!leadId) {
+      toast.error('Salve o lead antes de criar pastas');
+      return;
+    }
+    const realIds = unfiledItems
+      .filter((item) => !isAiRenderAttachmentId(item.id) && !isFormUploadAttachmentId(item.id))
+      .map((item) => item.id);
+    const created = await createFolder({ nome });
+    await assignMediasToFolder(realIds, created.id);
+    setCurrentFolderId(created.id);
+  };
+
+  const openFolderSlideshow = (folderId: string | null) => {
+    const images =
+      folderId === null
+        ? unfiledItems.filter((item) => getLeadAttachmentViewKind(item) === 'image')
+        : pdfsVisiveis.filter(
+            (item) => item.folder_id === folderId && getLeadAttachmentViewKind(item) === 'image',
+          );
+    if (images.length === 0) {
+      toast.error('Esta pasta ainda não tem fotos');
+      return;
+    }
+    const gallery = images.map((pdf) => ({
+      key: pdf.id,
+      fileUrl: pdf.file_url,
+      fileName: pdf.file_name,
+      imageLabel: pdf.titulo || pdf.file_name,
+    }));
+    setForcedGallery(gallery);
+    const first = images[0];
+    void openFullscreen(
+      'image',
+      pdfCacheKeyForMedia(first.id),
+      first.file_url,
+      first.file_name,
+      undefined,
+      first.id,
+      first.titulo || first.file_name,
+      first.id,
+    );
+  };
+
+  const folderLabel = viewingUnfiled ? 'Sem pasta' : currentFolder?.nome ?? 'Pasta';
+  const uploadHint = !canUploadPdf
+    ? 'Você não tem permissão para anexar arquivos'
+    : !viewingRoot && !viewingUnfiled
+      ? `Enviar para “${folderLabel}” · máx. 200MB`
+      : leadId
+        ? 'PDF, foto ou vídeo · arraste aqui · máx. 200MB'
+        : 'PDF, foto ou vídeo · serão enviados ao salvar o lead · máx. 200MB';
+
   return (
     <div className="space-y-3 w-full" data-dialog-file-picker-zone>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Label>{readOnly ? 'PDFs, fotos e vídeos do projeto' : 'Anexar PDFs, fotos e vídeos'}</Label>
-        {canUseSelectionMode && (
+        <div className="flex flex-wrap items-center gap-2">
+          {viewingRoot && canUploadPdf && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!leadId) {
+                  toast.error('Salve o lead antes de criar pastas');
+                  return;
+                }
+                setCreatingFolder(true);
+                setNewFolderDraft('');
+              }}
+            >
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Nova pasta
+            </Button>
+          )}
+          {canUseSelectionMode && (
           <Button
             type="button"
             variant={isSelectionMode ? 'secondary' : 'outline'}
@@ -1038,7 +1295,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               </>
             )}
           </Button>
-        )}
+          )}
+        </div>
       </div>
 
       {isSelectionMode && (
@@ -1064,6 +1322,94 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         </div>
       )}
 
+      {!viewingRoot && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-[rgba(42,24,18,0.06)] px-3 py-2">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentFolderId(null)}>
+            ← Pastas
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <FolderOpen className="h-4 w-4 text-amber-700" />
+          <span className="font-medium text-[#1a100c]">{folderLabel}</span>
+          {canUploadPdf && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title={viewingUnfiled ? 'Dar um nome à pasta' : 'Renomear'}
+              onClick={() => {
+                const next = window.prompt(
+                  viewingUnfiled ? 'Nome da pasta' : 'Novo nome',
+                  viewingUnfiled ? '' : folderLabel,
+                );
+                if (!next?.trim()) return;
+                if (viewingUnfiled) void handleBaptizeUnfiled(next);
+                else if (currentFolder) void updateFolder({ id: currentFolder.id, nome: next });
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {canUploadPdf && currentFolder && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive"
+              title="Excluir pasta"
+              onClick={() => setFolderToDelete({ id: currentFolder.id, nome: currentFolder.nome })}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {galleryImages.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-auto h-7 w-7"
+              title="Tela cheia"
+              onClick={() => openFolderSlideshow(viewingUnfiled ? null : currentFolderId)}
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {creatingFolder && viewingRoot && (
+        <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-3">
+          <Label htmlFor="nova-pasta-atalho" className="sr-only">
+            Nome da nova pasta
+          </Label>
+          <Input
+            id="nova-pasta-atalho"
+            value={newFolderDraft}
+            placeholder="Ex.: Sala"
+            autoFocus
+            onChange={(e) => setNewFolderDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleCreateNamedFolder();
+              }
+              if (e.key === 'Escape') {
+                setCreatingFolder(false);
+                setNewFolderDraft('');
+              }
+            }}
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingFolder(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" size="sm" onClick={() => void handleCreateNamedFolder()}>
+              Criar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {canUploadPdf && (
       <div
         className={`border-2 border-dashed rounded-md p-4 text-center transition-colors ${
@@ -1084,6 +1430,20 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
+        {viewingRoot && (
+          <div className="mx-auto mb-3 max-w-xs text-left">
+            <Label htmlFor="lead-upload-folder-name" className="text-xs text-[#4a3428]">
+              Nome da pasta
+            </Label>
+            <Input
+              id="lead-upload-folder-name"
+              value={uploadFolderName}
+              placeholder="Ex.: Sala, Cozinha, Fachada"
+              className="mt-1"
+              onChange={(e) => setUploadFolderName(e.target.value)}
+            />
+          </div>
+        )}
         <Button
           type="button"
           variant="outline"
@@ -1103,13 +1463,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
             </>
           )}
         </Button>
-        <p className="text-xs text-muted-foreground mt-1">
-          {!canUploadPdf
-            ? 'Você não tem permissão para anexar arquivos'
-            : leadId
-              ? 'PDF, foto ou vídeo · arraste aqui · máx. 200MB · clique para ampliar'
-              : 'PDF, foto ou vídeo · serão enviados ao salvar o lead · máx. 200MB'}
-        </p>
+        <p className="text-xs text-muted-foreground mt-1">{uploadHint}</p>
       </div>
       )}
 
@@ -1119,18 +1473,48 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         </p>
       )}
 
-      {isLoading || formUploadsLoading || aiRendersLoading ? (
-        <div className="grid grid-cols-2 gap-3">
+      {isLoading && foldersLoading && pdfsVisiveis.length === 0 && folders.length === 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Skeleton className="aspect-[3/4] rounded" />
           <Skeleton className="aspect-[3/4] rounded" />
         </div>
-      ) : readOnly && pdfsVisiveis.length === 0 ? (
+      ) : readOnly && pdfsVisiveis.length === 0 && folders.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6 text-center">
           Nenhum PDF, foto ou vídeo liberado para visualização neste lead.
         </p>
-      ) : pdfsVisiveis.length > 0 || pendingPdfs.length > 0 ? (
+      ) : viewingRoot ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {folders.map((folder, index) => (
+            <LeadAttachmentFolderCard
+              key={folder.id}
+              nome={folder.nome}
+              fileCount={countFolderFiles(coverSource, folder.id)}
+              covers={getFolderCoverUrls(coverSource, folder.id)}
+              index={index}
+              canManage={canUploadPdf}
+              onOpen={() => setCurrentFolderId(folder.id)}
+              onRename={(nome) => void updateFolder({ id: folder.id, nome })}
+              onDelete={() => setFolderToDelete({ id: folder.id, nome: folder.nome })}
+              onPlay={() => openFolderSlideshow(folder.id)}
+            />
+          ))}
+          {unfiledCount > 0 && (
+            <LeadAttachmentFolderCard
+              variant="unfiled"
+              nome="Sem pasta"
+              fileCount={unfiledCount}
+              covers={getFolderCoverUrls(coverSource, null)}
+              index={folders.length}
+              canManage={canUploadPdf}
+              onOpen={() => setCurrentFolderId(LEAD_UNFILED_FOLDER_ID)}
+              onRename={(nome) => void handleBaptizeUnfiled(nome)}
+              onPlay={() => openFolderSlideshow(null)}
+            />
+          )}
+        </div>
+      ) : filesInView.length > 0 || pendingInView.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {pendingPdfs.map((pending) => (
+          {pendingInView.map((pending) => (
             <div
               key={pending.tempId}
               className="relative group border border-dashed border-primary/40 rounded-md overflow-hidden bg-primary/5 cursor-pointer"
@@ -1174,7 +1558,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               )}
             </div>
           ))}
-          {pdfsVisiveis.map((pdf: LeadPDF) => {
+          {filesInView.map((pdf: LeadPDF) => {
             const viewKind = getLeadAttachmentViewKind(pdf);
             const thumbTipo =
               viewKind === 'video' ? 'video' : viewKind === 'pdf' ? 'pdf' : 'imagem';
@@ -1312,7 +1696,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
           );
           })}
         </div>
-      ) : null}
+      ) : (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Esta gaveta está vazia. Envie fotos para “{folderLabel}”.
+        </p>
+      )}
       {fullscreenView?.kind === 'pdf' && (
         <PDFFullscreenViewer
           cacheKey={fullscreenView.cacheKey}
@@ -1327,8 +1715,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       {fullscreenView?.kind === 'image' && (
         <ImageFullscreenViewer
           images={
-            galleryImages.length > 0
-              ? galleryImages
+            (forcedGallery && forcedGallery.length > 0 ? forcedGallery : galleryImages).length > 0
+              ? (forcedGallery && forcedGallery.length > 0 ? forcedGallery : galleryImages)
               : [
                   {
                     key: fullscreenView.imageKey || fullscreenView.fileUrl,
@@ -1340,12 +1728,17 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
           }
           initialIndex={Math.max(
             0,
-            galleryImages.findIndex((img) => img.key === fullscreenView.imageKey),
+            (forcedGallery && forcedGallery.length > 0 ? forcedGallery : galleryImages).findIndex(
+              (img) => img.key === fullscreenView.imageKey,
+            ),
           )}
           leadName={leadName}
           leadId={leadId}
           open
-          onClose={() => setFullscreenView(null)}
+          onClose={() => {
+            setForcedGallery(null);
+            setFullscreenView(null);
+          }}
           canDownload={canDownloadPdf}
         />
       )}
@@ -1367,6 +1760,61 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         isProcessing={isExportProcessing}
         onConfirm={(action) => void handleExportConfirm(action)}
       />
+
+      <LeadFolderPickDialog
+        open={pickOpen}
+        onOpenChange={(open) => {
+          setPickOpen(open);
+          if (!open) {
+            setQueuedFiles(null);
+            onFilePickerActiveChange?.(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+        }}
+        leadId={leadId}
+        title="Onde guardar?"
+        description="Toda foto entra numa gaveta do lead."
+        allowUnfiled={false}
+        askFolderName
+        folderNameLabel="Nome da pasta"
+        coverItems={coverSource}
+        onConfirm={async (folderId, options) => {
+          const files = queuedFiles ?? [];
+          setPickOpen(false);
+          setQueuedFiles(null);
+          if (files.length === 0) return;
+          await sendFilesToFolder(files, {
+            folderId,
+            folderName: options?.folderName,
+          });
+          if (folderId) setCurrentFolderId(folderId);
+        }}
+      />
+
+      <AlertDialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir pasta “{folderToDelete?.nome}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os arquivos não são apagados — voltam para Sem pasta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!folderToDelete) return;
+                void deleteFolder(folderToDelete.id).then(() => {
+                  if (currentFolderId === folderToDelete.id) setCurrentFolderId(null);
+                  setFolderToDelete(null);
+                });
+              }}
+            >
+              Excluir pasta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

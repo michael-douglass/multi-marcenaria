@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { AMBIENTE_FULLSCREEN_ATTR } from '@/lib/dialog-outside-guard';
+import { setAmbienteFullscreenOpenFlag } from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
 import { FurnitureModuleGfx } from '@/components/leads/whiteboard/FurnitureModuleGfx';
@@ -246,6 +246,11 @@ export function LeadAIAmbienteComposer({
   const [isSavingCopy, setIsSavingCopy] = useState(false);
   const [sourceFolderId, setSourceFolderId] = useState<string | null>(null);
   const renderStartedRef = useRef(false);
+
+  const updateFullscreen = useCallback((open: boolean) => {
+    setAmbienteFullscreenOpenFlag(open);
+    setIsFullscreen(open);
+  }, []);
 
   const { uploadAttachment, pdfs } = useLeadPDFs(leadId);
 
@@ -701,7 +706,7 @@ export function LeadAIAmbienteComposer({
         markers,
         shapes,
       });
-      setIsFullscreen(false);
+      updateFullscreen(false);
       await onRender({
         descricao: descricao.trim(),
         analiseTexto: analiseTexto ?? undefined,
@@ -727,6 +732,7 @@ export function LeadAIAmbienteComposer({
     onRender,
     overlays,
     shapes,
+    updateFullscreen,
   ]);
 
   const pointerToNorm = useCallback((event: { clientX: number; clientY: number }) => {
@@ -1074,12 +1080,12 @@ export function LeadAIAmbienteComposer({
   }, [applySelectedScale, locked, readSelectedScale, isFullscreen, readScene]);
 
   useEffect(() => {
+    setAmbienteFullscreenOpenFlag(isFullscreen);
     if (!isFullscreen) return;
-    document.documentElement.setAttribute(AMBIENTE_FULLSCREEN_ATTR, 'true');
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.documentElement.removeAttribute(AMBIENTE_FULLSCREEN_ATTR);
+      setAmbienteFullscreenOpenFlag(false);
       document.body.style.overflow = previousOverflow;
     };
   }, [isFullscreen]);
@@ -1347,7 +1353,7 @@ export function LeadAIAmbienteComposer({
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
-              onClick={() => setIsFullscreen((open) => !open)}
+              onClick={() => updateFullscreen(!isFullscreen)}
               aria-label={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}
             >
               {isFullscreen ? (
@@ -1368,7 +1374,7 @@ export function LeadAIAmbienteComposer({
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 text-cream-muted hover:text-foreground"
-                onClick={() => setIsFullscreen(false)}
+                onClick={() => updateFullscreen(false)}
                 aria-label="Fechar tela cheia"
               >
                 <X className="h-4 w-4" />
@@ -1535,7 +1541,7 @@ export function LeadAIAmbienteComposer({
                       variant="outline"
                       size="sm"
                       className="gap-2"
-                      onClick={() => setIsFullscreen(true)}
+                      onClick={() => updateFullscreen(true)}
                     >
                       <Maximize2 className="h-4 w-4" />
                       Tela cheia
@@ -1766,7 +1772,7 @@ export function LeadAIAmbienteComposer({
                     size="sm"
                     variant="secondary"
                     className="h-8 gap-1.5"
-                    onClick={() => setIsFullscreen(true)}
+                    onClick={() => updateFullscreen(true)}
                   >
                     <Maximize2 className="h-3.5 w-3.5" />
                     Tela cheia
@@ -2032,7 +2038,7 @@ export function LeadAIAmbienteComposer({
             variant="outline"
             size="sm"
             className="mt-4 gap-1.5 border-gold-border-subtle/40"
-            onClick={() => setIsFullscreen(false)}
+            onClick={() => updateFullscreen(false)}
           >
             <Minimize2 className="h-3.5 w-3.5" />
             Voltar ao card
@@ -2042,7 +2048,7 @@ export function LeadAIAmbienteComposer({
         composerBody
       )}
 
-      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+      <Dialog open={isFullscreen} onOpenChange={updateFullscreen}>
         <DialogContent
           nested
           overlayClassName={leadFullscreenOverlayClass}
