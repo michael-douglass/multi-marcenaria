@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   ImageIcon,
   Loader2,
@@ -89,8 +89,14 @@ import {
   clampAmbienteObjectWidth,
   clampAmbienteZoom,
   overlaySizeFromZoom,
+  wrapPhotoYaw,
+  clampPhotoPitch,
   zoomFromObjectWidth,
   zoomFromOverlayWidth,
+  planeFromContainFit,
+  planesDiffer,
+  remapSceneToPlane,
+  type AmbienteNormPlane,
 } from '@/lib/lead-ai-ambiente-zoom';
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import {
@@ -118,6 +124,8 @@ interface LeadAIAmbienteComposerProps {
   disabled?: boolean;
   isBusy?: boolean;
   incomingPhoto?: AmbienteIncomingPhoto | null;
+  /** JPEG da lousa atual, para o quadro “Antes” quando o render antigo não guardou a montagem. */
+  onCompositionPreviewUrl?: (url: string | null) => void;
   onAnalyze: (input: {
     descricao: string;
     imageDataUrl?: string;
@@ -144,6 +152,7 @@ type DragKind =
   | 'pan-background'
   | 'rotate-background'
   | 'rotate-overlay'
+  | 'orbit-overlay'
   | 'shape'
   | 'resize-shape'
   | 'rotate-shape';
@@ -256,6 +265,7 @@ export function LeadAIAmbienteComposer({
   disabled = false,
   isBusy = false,
   incomingPhoto = null,
+  onCompositionPreviewUrl,
   onAnalyze,
   onRender,
 }: LeadAIAmbienteComposerProps) {
@@ -318,6 +328,7 @@ export function LeadAIAmbienteComposer({
     let cancelled = false;
     setDraftReady(false);
     setDraftRestored(false);
+    onCompositionPreviewUrl?.(null);
     void (async () => {
       const draft = await loadAmbienteDraft(leadId);
       if (cancelled) return;
@@ -331,13 +342,28 @@ export function LeadAIAmbienteComposer({
         setSelectedId(draft.selectedId);
         setSourceFolderId(draft.sourceFolderId);
         setDraftRestored(true);
+        if (onCompositionPreviewUrl && (draft.background || draft.overlays.length > 0)) {
+          void exportAmbienteCompositionToJpeg({
+            background: draft.background,
+            overlays: draft.overlays,
+            objects: draft.objects,
+            markers: draft.markers,
+            shapes: draft.shapes,
+          })
+            .then((exported) => {
+              if (!cancelled) onCompositionPreviewUrl(exported.dataUrl);
+            })
+            .catch(() => {
+              if (!cancelled) onCompositionPreviewUrl(null);
+            });
+        }
       }
       setDraftReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [leadId]);
+  }, [leadId, onCompositionPreviewUrl]);
 
   useEffect(() => {
     if (!draftReady) return;
@@ -369,7 +395,7 @@ export function LeadAIAmbienteComposer({
     sourceFolderId,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
     const update = () => {
@@ -383,6 +409,41 @@ export function LeadAIAmbienteComposer({
     observer.observe(el);
     return () => observer.disconnect();
   }, [isFullscreen, catalogOpen, draftReady, background]);
+
+  const bgFit = background
+    ? containRotatedPlane(
+        background.naturalWidth || 1,
+        background.naturalHeight || 1,
+        viewportSize.w,
+        viewportSize.h,
+        background.rotation ?? 0,
+      )
+    : null;
+  const scenePlane: AmbienteNormPlane = bgFit
+    ? planeFromContainFit(bgFit.nw, bgFit.nh)
+    : { left: 0, top: 0, width: 1, height: 1 };
+
+  useLayoutEffect(() => {
+    if (viewportSize.w < 48 || viewportSize.h < 48) return;
+    const prev = scenePlaneRef.current;
+    scenePlaneRef.current = scenePlane;
+    if (!prev) return;
+    if (!planesDiffer(prev, scenePlane)) return;
+    const next = remapSceneToPlane(
+      {
+        overlays: overlaysRef.current,
+        objects: objectsRef.current,
+        markers: markersRef.current,
+        shapes: shapesRef.current,
+      },
+      prev,
+      scenePlane,
+    );
+    setOverlays(next.overlays);
+    setObjects(next.objects);
+    setMarkers(next.markers);
+    setShapes(next.shapes);
+  }, [scenePlane.left, scenePlane.top, scenePlane.width, scenePlane.height, viewportSize.h, viewportSize.w]);
 
   const backgroundRef = useRef(background);
   backgroundRef.current = background;
@@ -415,6 +476,8 @@ export function LeadAIAmbienteComposer({
     angle: number;
     rotation: number;
   } | null>(null);
+  const ignoreWheelUntilRef = useRef(0);
+  const scenePlaneRef = useRef<AmbienteNormPlane | null>(null);
   const historyRef = useRef<SceneHistoryEntry[]>([]);
   const redoRef = useRef<SceneHistoryEntry[]>([]);
   const pendingHistoryRef = useRef<SceneHistoryEntry | null>(null);
@@ -528,6 +591,8 @@ export function LeadAIAmbienteComposer({
         width: size.width,
         height: size.height,
         rotation: 0,
+        yaw: 0,
+        pitch: 0,
         flipH: false,
         flipV: false,
         zIndex: prev.length + 1,
@@ -858,6 +923,61 @@ export function LeadAIAmbienteComposer({
     toast.success('Foto atualizada na lousa', {
       description: 'Recorte, fundo e luz já entram na renderização e no salvar.',
     });
+  }, [pushHistory]);
+
+  const orbitSelectedPhotoYaw = useCallback((deltaDeg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !overlaysRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setOverlays((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, yaw: wrapPhotoYaw((item.yaw ?? 0) + deltaDeg) } : item,
+      ),
+    );
+  }, [pushHistory]);
+
+  const orbitSelectedPhotoPitch = useCallback((deltaDeg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !overlaysRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setOverlays((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, pitch: clampPhotoPitch((item.pitch ?? 0) + deltaDeg) } : item,
+      ),
+    );
+  }, [pushHistory]);
+
+  const setSelectedPhotoYaw = useCallback((deg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !overlaysRef.current.some((item) => item.id === id)) return;
+    setOverlays((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, yaw: wrapPhotoYaw(deg) } : item)),
+    );
+  }, []);
+
+  const setSelectedPhotoPitch = useCallback((deg: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !overlaysRef.current.some((item) => item.id === id)) return;
+    setOverlays((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, pitch: clampPhotoPitch(deg) } : item)),
+    );
+  }, []);
+
+  const setSelectedPhotoOrbit = useCallback((yaw: number, pitch?: number) => {
+    const id = selectedIdRef.current;
+    if (!id || !overlaysRef.current.some((item) => item.id === id)) return;
+    pushHistory();
+    setOverlays((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              yaw: wrapPhotoYaw(yaw),
+              pitch: clampPhotoPitch(pitch ?? item.pitch ?? 0),
+            }
+          : item,
+      ),
+    );
   }, [pushHistory]);
 
   const orbitSelectedYaw = useCallback((deltaDeg: number) => {
@@ -1283,6 +1403,16 @@ export function LeadAIAmbienteComposer({
         );
         return;
       }
+      if (drag.kind === 'orbit-overlay') {
+        const px = event.clientX - (drag.startClientX ?? event.clientX);
+        const py = event.clientY - (drag.startClientY ?? event.clientY);
+        const yaw = wrapPhotoYaw((drag.origYaw ?? 0) + px * 0.55);
+        const pitch = clampPhotoPitch((drag.origPitch ?? 0) - py * 0.42);
+        setOverlays((prev) =>
+          prev.map((item) => (item.id === drag.id ? { ...item, yaw, pitch } : item)),
+        );
+        return;
+      }
       if (drag.kind === 'rotate-background') {
         const angleNow = (Math.atan2(point.y - 0.5, point.x - 0.5) * 180) / Math.PI;
         const angleStart = (Math.atan2(drag.startY - 0.5, drag.startX - 0.5) * 180) / Math.PI;
@@ -1436,6 +1566,7 @@ export function LeadAIAmbienteComposer({
     const onWheel = (event: WheelEvent) => {
       if (locked) return;
       event.preventDefault();
+      if (Date.now() < ignoreWheelUntilRef.current) return;
       const direction: 1 | -1 = event.deltaY > 0 ? -1 : 1;
       applySelectedScale(readSelectedScale() + direction * AMBIENTE_ZOOM_STEP);
     };
@@ -1514,11 +1645,13 @@ export function LeadAIAmbienteComposer({
   }, [applySelectedScale, locked, readSelectedScale, isFullscreen, readScene]);
 
   useEffect(() => {
+    ignoreWheelUntilRef.current = Date.now() + 1000;
     setAmbienteFullscreenOpenFlag(isFullscreen);
     if (!isFullscreen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      ignoreWheelUntilRef.current = Date.now() + 1000;
       setAmbienteFullscreenOpenFlag(false);
       document.body.style.overflow = previousOverflow;
     };
@@ -1753,15 +1886,6 @@ export function LeadAIAmbienteComposer({
       : background && (selectedId === 'background' || (!selectedId && !selectedObject))
         ? background
         : null;
-  const bgFit = background
-    ? containRotatedPlane(
-        background.naturalWidth || 1,
-        background.naturalHeight || 1,
-        viewportSize.w,
-        viewportSize.h,
-        background.rotation ?? 0,
-      )
-    : null;
 
   const selectedKind =
     selectedOverlay || selectedId === 'background' || (photoHudTarget && !selectedObject && !selectedShape)
@@ -2023,6 +2147,8 @@ export function LeadAIAmbienteComposer({
                   top: `${overlay.y * 100}%`,
                   width: `${overlay.width * 100}%`,
                   height: `${overlay.height * 100}%`,
+                  perspective: '36rem',
+                  transformStyle: 'preserve-3d',
                   transform: `rotate(${overlay.rotation}deg)`,
                 }}
                 onPointerDown={(event) =>
@@ -2041,7 +2167,13 @@ export function LeadAIAmbienteComposer({
                   className="h-full w-full rounded-md object-contain"
                   draggable={false}
                   style={{
-                    transform: `scaleX(${overlay.flipH ? -1 : 1}) scaleY(${overlay.flipV ? -1 : 1})`,
+                    transform: [
+                      `rotateX(${overlay.pitch ?? 0}deg)`,
+                      `rotateY(${overlay.yaw ?? 0}deg)`,
+                      `scaleX(${overlay.flipH ? -1 : 1})`,
+                      `scaleY(${overlay.flipV ? -1 : 1})`,
+                    ].join(' '),
+                    transformStyle: 'preserve-3d',
                   }}
                 />
                 {selectedId === overlay.id && (
@@ -2050,6 +2182,18 @@ export function LeadAIAmbienteComposer({
                       label={overlay.label || 'foto'}
                       disabled={locked}
                       onRemove={() => removeById(overlay.id)}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Virar foto em todos os eixos"
+                      title="Arraste para virar de lado e inclinar"
+                      className="absolute -left-1.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 cursor-grab rounded-full border border-gold bg-[#f2d892] shadow active:cursor-grabbing"
+                      onPointerDown={(event) =>
+                        beginDrag('orbit-overlay', overlay.id, overlay.x, overlay.y, event, {
+                          yaw: overlay.yaw ?? 0,
+                          pitch: overlay.pitch ?? 0,
+                        })
+                      }
                     />
                     <button
                       type="button"
@@ -2261,8 +2405,21 @@ export function LeadAIAmbienteComposer({
             {photoHudTarget && (
               <AmbienteImageEditHud
                 rotation={photoHudTarget.rotation ?? 0}
+                yaw={selectedOverlay?.yaw ?? 0}
+                pitch={selectedOverlay?.pitch ?? 0}
                 flipH={Boolean(photoHudTarget.flipH)}
                 flipV={Boolean(photoHudTarget.flipV)}
+                anchor={
+                  selectedOverlay
+                    ? {
+                        x: selectedOverlay.x,
+                        y: selectedOverlay.y,
+                        width: selectedOverlay.width,
+                        height: selectedOverlay.height,
+                      }
+                    : undefined
+                }
+                showOrbit={Boolean(selectedOverlay)}
                 disabled={locked}
                 onRotate={rotateSelectedPhoto}
                 onRotationChange={setSelectedPhotoRotation}
@@ -2275,6 +2432,18 @@ export function LeadAIAmbienteComposer({
                   }
                   beginDrag('rotate-background', 'background', 0.5, 0.5, event, {
                     rotation: background?.rotation ?? 0,
+                  });
+                }}
+                onYaw={orbitSelectedPhotoYaw}
+                onPitch={orbitSelectedPhotoPitch}
+                onYawChange={setSelectedPhotoYaw}
+                onPitchChange={setSelectedPhotoPitch}
+                onOrbitPreset={setSelectedPhotoOrbit}
+                onOrbitPointerDown={(event) => {
+                  if (!selectedOverlay) return;
+                  beginDrag('orbit-overlay', selectedOverlay.id, selectedOverlay.x, selectedOverlay.y, event, {
+                    yaw: selectedOverlay.yaw ?? 0,
+                    pitch: selectedOverlay.pitch ?? 0,
                   });
                 }}
                 onFlipH={() => flipSelectedPhoto('h')}

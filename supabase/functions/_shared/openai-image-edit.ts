@@ -14,25 +14,31 @@ export async function callOpenAIImageEdit(
   maskBytes?: Uint8Array,
   options?: OpenAIImageEditOptions,
 ): Promise<Uint8Array> {
-  const attempt = async (withMask: boolean): Promise<Uint8Array> => {
+  const attempt = async (withMask: boolean, includeExtras: boolean): Promise<Uint8Array> => {
     const form = new FormData();
     form.append('model', model);
     form.append('prompt', prompt);
     const inputMime = mime.includes('jpeg') || mime.includes('jpg') ? 'image/jpeg' : 'image/png';
     const inputExt = inputMime === 'image/jpeg' ? 'jpg' : 'png';
-    const blob = new Blob([imageBytes], { type: inputMime });
-    form.append('image', blob, `input.${inputExt}`);
-
+    const blob = new File([imageBytes], `input.${inputExt}`, { type: inputMime });
     const extraImages = options?.extraImages ?? [];
-    if ((model === 'gpt-image-1' || model === 'gpt-image-1.5') && extraImages.length > 0) {
-      extraImages.slice(0, 15).forEach((extra, index) => {
-        const extraMime =
-          extra.mime.includes('png') ? 'image/png' : extra.mime.includes('webp') ? 'image/webp' : 'image/jpeg';
-        const extraExt = extraMime === 'image/png' ? 'png' : extraMime === 'image/webp' ? 'webp' : 'jpg';
-        const extraBlob = new Blob([extra.bytes], { type: extraMime });
-        form.append('image', extraBlob, extra.filename || `furniture-${index + 1}.${extraExt}`);
-      });
-    }
+    const extras =
+      includeExtras &&
+      (model === 'gpt-image-1' || model === 'gpt-image-1.5') &&
+      extraImages.length > 0
+        ? extraImages.slice(0, 15)
+        : [];
+    // Várias fotos: a API exige image[] (como o SDK). Repetir "image" gera Duplicate parameter.
+    const imageField = extras.length > 0 ? 'image[]' : 'image';
+    form.append(imageField, blob, `input.${inputExt}`);
+    extras.forEach((extra, index) => {
+      const extraMime =
+        extra.mime.includes('png') ? 'image/png' : extra.mime.includes('webp') ? 'image/webp' : 'image/jpeg';
+      const extraExt = extraMime === 'image/png' ? 'png' : extraMime === 'image/webp' ? 'webp' : 'jpg';
+      const filename = extra.filename || `furniture-${index + 1}.${extraExt}`;
+      const extraFile = new File([extra.bytes], filename, { type: extraMime });
+      form.append(imageField, extraFile, filename);
+    });
 
     if (withMask && maskBytes?.length) {
       const maskBlob = new Blob([maskBytes], { type: 'image/png' });
@@ -89,21 +95,35 @@ export async function callOpenAIImageEdit(
     throw new Error('A IA não retornou imagem de renderização');
   };
 
-  if (maskBytes?.length) {
-    try {
-      return await attempt(true);
-    } catch (err) {
-      if (options?.requireMask) {
-        throw err instanceof Error
-          ? err
-          : new Error('Falha na edição local com máscara — tente reposicionar o ponto');
+  const run = async (includeExtras: boolean): Promise<Uint8Array> => {
+    if (maskBytes?.length) {
+      try {
+        return await attempt(true, includeExtras);
+      } catch (err) {
+        if (options?.requireMask) {
+          throw err instanceof Error
+            ? err
+            : new Error('Falha na edição local com máscara — tente reposicionar o ponto');
+        }
+        console.warn('OpenAI edit com máscara falhou, tentando sem máscara:', err);
+        return await attempt(false, includeExtras);
       }
-      console.warn('OpenAI edit com máscara falhou, tentando sem máscara:', err);
-      return await attempt(false);
     }
-  }
 
-  return await attempt(false);
+    return await attempt(false, includeExtras);
+  };
+
+  const hasExtras = (options?.extraImages?.length ?? 0) > 0;
+  try {
+    return await run(hasExtras);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '';
+    if (hasExtras && /duplicate parameter/i.test(message)) {
+      console.warn('OpenAI recusou várias fotos (image[]); gerando só com a cena montada.');
+      return await run(false);
+    }
+    throw err;
+  }
 }
 
 function decodeImagePayload(openAiData: { data?: Array<{ b64_json?: string; url?: string }> }): Promise<Uint8Array> {

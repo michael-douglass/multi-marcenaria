@@ -46,6 +46,22 @@ function drawWarmPlaceholder(ctx: CanvasRenderingContext2D, width: number, heigh
   ctx.fillRect(0, 0, width, height * 0.18);
 }
 
+function applyPhotoOrbit(
+  ctx: CanvasRenderingContext2D,
+  rotation: number,
+  yaw = 0,
+  pitch = 0,
+  flipH = false,
+  flipV = false,
+) {
+  ctx.rotate((rotation * Math.PI) / 180);
+  const yawRad = (yaw * Math.PI) / 180;
+  const pitchRad = (pitch * Math.PI) / 180;
+  const sx = Math.max(0.12, Math.abs(Math.cos(yawRad))) * (Math.cos(yawRad) < 0 ? -1 : 1) * (flipH ? -1 : 1);
+  const sy = Math.max(0.16, Math.abs(Math.cos(pitchRad))) * (Math.cos(pitchRad) < 0 ? -1 : 1) * (flipV ? -1 : 1);
+  ctx.transform(sx, Math.sin(pitchRad) * 0.16, Math.sin(yawRad) * 0.22, sy, 0, 0);
+}
+
 function drawContainedImage(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -226,8 +242,14 @@ export async function exportAmbienteCompositionToJpeg(
       const dh = Math.max(24, overlay.height * world.height);
       ctx.save();
       ctx.translate(dx + dw / 2, dy + dh / 2);
-      ctx.rotate((overlay.rotation * Math.PI) / 180);
-      ctx.scale(overlay.flipH ? -1 : 1, overlay.flipV ? -1 : 1);
+      applyPhotoOrbit(
+        ctx,
+        overlay.rotation,
+        overlay.yaw ?? 0,
+        overlay.pitch ?? 0,
+        Boolean(overlay.flipH),
+        Boolean(overlay.flipV),
+      );
       ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
       ctx.restore();
     } catch {
@@ -311,8 +333,14 @@ export async function exportAmbienteFurnitureReferences(
       ctx.clearRect(0, 0, sized.width, sized.height);
       ctx.save();
       ctx.translate(sized.width / 2, sized.height / 2);
-      ctx.rotate(rad);
-      ctx.scale(overlay.flipH ? -1 : 1, overlay.flipV ? -1 : 1);
+      applyPhotoOrbit(
+        ctx,
+        overlay.rotation || 0,
+        overlay.yaw ?? 0,
+        overlay.pitch ?? 0,
+        Boolean(overlay.flipH),
+        Boolean(overlay.flipV),
+      );
       const fit = Math.min(sized.width / Math.max(1, boundsW), sized.height / Math.max(1, boundsH));
       ctx.drawImage(img, (-nw * fit) / 2, (-nh * fit) / 2, nw * fit, nh * fit);
       ctx.restore();

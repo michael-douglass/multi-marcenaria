@@ -11,11 +11,12 @@ import {
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import {
   downloadLeadAIRenderPng,
+  exportLeadAIRenderComparisonPng,
   exportLeadAIRenderPdf,
 } from '@/lib/lead-ai-render-export';
 import { leadNestedMenuClass } from '@/lib/overlay-z-index';
 import { cn } from '@/lib/utils';
-import { ChevronDown, Download, FileImage, FileText, Loader2 } from 'lucide-react';
+import { ChevronDown, Download, FileImage, FileText, LayoutTemplate, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LeadAIRenderDownloadMenuProps {
@@ -30,6 +31,9 @@ interface LeadAIRenderDownloadMenuProps {
   menuTitle?: string;
   className?: string;
   triggerClassName?: string;
+  leadName?: string | null;
+  leadId?: number | null;
+  onOpenStudio?: () => void;
   /**
    * Só use true fora de um Dialog. Dentro do card do lead, modal=true cria um
    * véu do Radix que engole os cliques (nada fecha, nada responde).
@@ -47,6 +51,9 @@ export function LeadAIRenderDownloadMenu({
   menuTitle = 'Exportar comparação',
   className,
   triggerClassName,
+  leadName,
+  leadId,
+  onOpenStudio,
   menuModal = false,
 }: LeadAIRenderDownloadMenuProps) {
   const { empresa } = useEmpresa();
@@ -54,34 +61,37 @@ export function LeadAIRenderDownloadMenu({
 
   const canExport = Boolean(outputUrl || sketchUrl);
 
-  const handleDownloadPng = useCallback(async () => {
-    const url = outputUrl || sketchUrl;
+  const exportOpts = {
+    sketchUrl,
+    sketchLabel,
+    outputUrl,
+    logoUrl: empresa?.logo_url,
+    nomeEmpresa: empresa?.nome,
+    cnpj: empresa?.cnpj,
+    leadName,
+    leadId,
+  };
+
+  const handleDownloadPng = useCallback(async (url: string | null, suffix: string) => {
     if (!url) return;
     setIsDownloading(true);
     try {
-      await downloadLeadAIRenderPng(url);
-      toast.success('Imagem baixada com sucesso');
+      await downloadLeadAIRenderPng(url, `${suffix}.png`);
+      toast.success('PNG baixado');
     } catch (error) {
-      toast.error('Erro ao baixar imagem', {
+      toast.error('Erro ao baixar PNG', {
         description: error instanceof Error ? error.message : 'Tente novamente.',
       });
     } finally {
       setIsDownloading(false);
     }
-  }, [outputUrl, sketchUrl]);
+  }, []);
 
   const handleExportPdf = useCallback(async () => {
     setIsDownloading(true);
     try {
-      await exportLeadAIRenderPdf({
-        sketchUrl,
-        sketchLabel,
-        outputUrl,
-        logoUrl: empresa?.logo_url,
-        nomeEmpresa: empresa?.nome,
-        cnpj: empresa?.cnpj,
-      });
-      toast.success('PDF baixado com sucesso');
+      await exportLeadAIRenderPdf(exportOpts);
+      toast.success('PDF da prancha baixado');
     } catch (error) {
       toast.error('Erro ao exportar PDF', {
         description: error instanceof Error ? error.message : 'Tente novamente.',
@@ -89,7 +99,21 @@ export function LeadAIRenderDownloadMenu({
     } finally {
       setIsDownloading(false);
     }
-  }, [empresa?.cnpj, empresa?.logo_url, empresa?.nome, outputUrl, sketchLabel, sketchUrl]);
+  }, [exportOpts]);
+
+  const handlePranchaPng = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      await exportLeadAIRenderComparisonPng(exportOpts);
+      toast.success('Prancha PNG baixada');
+    } catch (error) {
+      toast.error('Erro ao exportar prancha', {
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [exportOpts]);
 
   if (!canExport) return null;
 
@@ -143,23 +167,66 @@ export function LeadAIRenderDownloadMenu({
           {menuTitle}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-gold-border-subtle/20" />
-        {(outputUrl || sketchUrl) && (
+        {onOpenStudio && (
           <DropdownMenuItem
             disabled={isDownloading}
-            onSelect={() => void handleDownloadPng()}
+            onSelect={() => onOpenStudio()}
+            className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer focus:bg-gold/10 focus:text-gold"
+          >
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold ring-1 ring-gold/20">
+              <LayoutTemplate className="h-4 w-4" />
+            </span>
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-sm font-medium">Estúdio de impressão</span>
+              <span className="text-xs text-cream-muted leading-snug">
+                Ver a prancha e escolher PDF ou PNG
+              </span>
+            </span>
+          </DropdownMenuItem>
+        )}
+        {sketchUrl && (
+          <DropdownMenuItem
+            disabled={isDownloading}
+            onSelect={() => void handleDownloadPng(sketchUrl, 'antes')}
             className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer focus:bg-gold/10 focus:text-gold"
           >
             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold ring-1 ring-gold/20">
               <FileImage className="h-4 w-4" />
             </span>
             <span className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-sm font-medium">Baixar PNG</span>
-              <span className="text-xs text-cream-muted leading-snug">
-                Salva a imagem no seu computador
-              </span>
+              <span className="text-sm font-medium">PNG do antes</span>
+              <span className="text-xs text-cream-muted leading-snug">Montagem da lousa</span>
             </span>
           </DropdownMenuItem>
         )}
+        {outputUrl && (
+          <DropdownMenuItem
+            disabled={isDownloading}
+            onSelect={() => void handleDownloadPng(outputUrl, 'depois')}
+            className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer focus:bg-gold/10 focus:text-gold"
+          >
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold ring-1 ring-gold/20">
+              <FileImage className="h-4 w-4" />
+            </span>
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-sm font-medium">PNG do depois</span>
+              <span className="text-xs text-cream-muted leading-snug">Render fotorrealista</span>
+            </span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          disabled={isDownloading}
+          onSelect={() => void handlePranchaPng()}
+          className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer focus:bg-gold/10 focus:text-gold"
+        >
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/10 text-gold ring-1 ring-gold/20">
+            <FileImage className="h-4 w-4" />
+          </span>
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-sm font-medium">PNG da prancha</span>
+            <span className="text-xs text-cream-muted leading-snug">Antes e depois na mesma folha</span>
+          </span>
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={isDownloading}
           onSelect={() => void handleExportPdf()}
@@ -169,11 +236,9 @@ export function LeadAIRenderDownloadMenu({
             <FileText className="h-4 w-4" />
           </span>
           <span className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-sm font-medium">Baixar PDF</span>
+            <span className="text-sm font-medium">PDF para imprimir</span>
             <span className="text-xs text-cream-muted leading-snug">
-              {sketchUrl && outputUrl && sketchUrl !== outputUrl
-                ? 'Antes e depois com logo e nome da empresa'
-                : 'Com logo e nome da empresa'}
+              Folha A4 deitada, pronta para o cliente
             </span>
           </span>
         </DropdownMenuItem>

@@ -365,7 +365,12 @@ export function useAgendaGeral() {
         }
         await updateTarefa.mutateAsync(updates);
       }
-      toast.success(`Horário atualizado para ${format(newStart, 'HH:mm')}`);
+      // A página permanece no dia visível: o card muda de data, o calendário não acompanha.
+      if (isSameDay(event.start, newStart)) {
+        toast.success(`Horário atualizado para ${format(newStart, 'HH:mm')}`);
+      } else {
+        toast.success(`Tarefa adiada para ${format(newStart, 'dd/MM')} às ${format(newStart, 'HH:mm')}`);
+      }
     } catch {
       toast.error('Não foi possível atualizar o horário');
     } finally {

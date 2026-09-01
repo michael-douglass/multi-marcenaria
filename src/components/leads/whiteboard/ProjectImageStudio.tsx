@@ -47,7 +47,6 @@ import {
   studioUvToHostPercent,
   STUDIO_CROP_ASPECTS,
   type ImageStudioEdits,
-  type ImageStudioSeed,
   type StudioPreviewFit,
 } from '@/lib/lead-image-studio';
 import { ImageStudioCropFrame } from '@/components/leads/whiteboard/ImageStudioCropFrame';

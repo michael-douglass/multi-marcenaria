@@ -630,11 +630,16 @@ export function RenderImageFrame({
             )}
           </>
         ) : (
-          <div className="flex h-full items-center justify-center text-cream-faint">
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-cream-faint">
             {isAfter ? (
               <p className="text-sm italic text-cream-muted">A renderização aparecerá aqui</p>
             ) : (
-              <ImageIcon className="h-10 w-10 opacity-40" />
+              <>
+                <ImageIcon className="h-10 w-10 opacity-40" />
+                <p className="max-w-[16rem] text-[11px] leading-relaxed text-cream-muted">
+                  A montagem desta versão não foi guardada. Gere um novo render para ver o antes ao lado do depois.
+                </p>
+              </>
             )}
           </div>
         )}

@@ -86,6 +86,8 @@ export interface LeadAIAmbienteBackgroundJob {
   startedAt: number;
   errorMessage?: string;
   result?: RenderLeadAmbienteResult;
+  /** Montagem da lousa, para o quadro “Antes” enquanto o servidor grava o arquivo. */
+  compositionPreviewUrl?: string;
 }
 
 export interface StartLeadAIAmbienteRenderInput {
@@ -376,6 +378,7 @@ export function LeadAIRenderBackgroundProvider({ children }: { children: ReactNo
         leadName,
         status: 'running',
         startedAt: Date.now(),
+        compositionPreviewUrl: compositionDataUrl || sourceImageDataUrl,
       };
 
       let shouldProceed = true;

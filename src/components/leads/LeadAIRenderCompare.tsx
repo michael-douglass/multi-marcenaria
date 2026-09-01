@@ -10,9 +10,11 @@ import {
 import { LeadAIImageFullscreenDialog } from '@/components/leads/LeadAIImageFullscreenDialog';
 import { LeadAIRenderDownloadMenu } from '@/components/leads/LeadAIRenderDownloadMenu';
 import { LeadAIRenderEditDialog } from '@/components/leads/LeadAIRenderEditDialog';
+import { LeadAIRenderWipeStage } from '@/components/leads/LeadAIRenderWipeStage';
+import { LeadAIRenderExportStudio } from '@/components/leads/LeadAIRenderExportStudio';
 import type { LeadAIRender } from '@/hooks/useLeadAIRenders';
 import { cn } from '@/lib/utils';
-import { Maximize2 } from 'lucide-react';
+import { FileDown, Maximize2 } from 'lucide-react';
 
 interface LeadAIRenderCompareProps {
   sketchUrl: string | null;
@@ -22,6 +24,7 @@ interface LeadAIRenderCompareProps {
   isLoading?: boolean;
   className?: string;
   leadId?: number;
+  leadName?: string | null;
   activeRender?: LeadAIRender | null;
   historico?: LeadAIRender[];
   onEditSuccess?: (render: LeadAIRender) => void;
@@ -38,6 +41,7 @@ export function LeadAIRenderCompare({
   isLoading = false,
   className,
   leadId,
+  leadName,
   activeRender,
   historico = [],
   onEditSuccess,
@@ -48,9 +52,11 @@ export function LeadAIRenderCompare({
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [renderSingleOpen, setRenderSingleOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const canExpand = Boolean(sketchUrl || outputUrl);
   const canEdit = Boolean(outputUrl && activeRender && leadId);
+  const canExport = Boolean(sketchUrl || outputUrl);
 
   if (isLoading) {
     return (
@@ -69,7 +75,18 @@ export function LeadAIRenderCompare({
     <>
       <div className={cn('space-y-4', className)}>
         {canExpand && (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canExport && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setExportOpen(true)}
+                className="h-9 bg-[#f2d892] text-xs font-semibold text-[#2a1812] hover:bg-[#e8d09a]"
+              >
+                <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                Exportar PDF e PNG
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -81,6 +98,16 @@ export function LeadAIRenderCompare({
               Comparar em tela cheia
             </Button>
           </div>
+        )}
+
+        {sketchUrl && outputUrl && (
+          <LeadAIRenderWipeStage
+            beforeUrl={sketchUrl}
+            afterUrl={outputUrl}
+            beforeLabel={sketchLabel}
+            afterLabel="Render"
+            onExport={() => setExportOpen(true)}
+          />
         )}
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -103,15 +130,16 @@ export function LeadAIRenderCompare({
             onEdit={canEdit ? () => setEditOpen(true) : undefined}
             onDelete={onRequestDelete}
             headerAction={
-              outputUrl ? (
-                <LeadAIRenderDownloadMenu
-                  outputUrl={outputUrl}
-                  sketchUrl={sketchUrl}
-                  sketchLabel={sketchLabel}
-                  iconOnly
-                  triggerClassName="text-gold hover:text-gold"
-                />
-              ) : undefined
+              <LeadAIRenderDownloadMenu
+                outputUrl={outputUrl}
+                sketchUrl={sketchUrl}
+                sketchLabel={sketchLabel}
+                leadName={leadName}
+                leadId={leadId}
+                iconOnly
+                triggerClassName="text-gold hover:text-gold"
+                onOpenStudio={() => setExportOpen(true)}
+              />
             }
           />
         </div>
@@ -162,6 +190,17 @@ export function LeadAIRenderCompare({
           onSuccess={onEditSuccess}
           onSelectVersion={onSelectVersion}
           onDeleteVersion={onDeleteVersion}
+        />
+      )}
+      {exportOpen && (
+        <LeadAIRenderExportStudio
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          sketchUrl={sketchUrl}
+          sketchLabel={sketchLabel}
+          outputUrl={outputUrl}
+          leadName={leadName}
+          leadId={leadId}
         />
       )}
     </>

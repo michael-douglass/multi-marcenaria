@@ -507,11 +507,32 @@ Deno.serve(async (req) => {
 
     const { data: publicUrlData } = supabase.storage.from(RENDER_BUCKET).getPublicUrl(storagePath);
 
+    let compositionPublicUrl: string | undefined;
+    let compositionPath: string | undefined;
+    if (editSource) {
+      const antesExt = editSource.mime.includes('png') ? 'png' : 'jpg';
+      const antesMime = editSource.mime.includes('png') ? 'image/png' : 'image/jpeg';
+      compositionPath = `${storagePrefix(empresaSchema)}/${leadId}/${renderId}-antes.${antesExt}`;
+      const { error: antesError } = await supabase.storage
+        .from(RENDER_BUCKET)
+        .upload(compositionPath, editSource.bytes, {
+          contentType: antesMime,
+          upsert: false,
+        });
+      if (antesError) {
+        console.error('Erro ao salvar composição (antes) do ambiente:', antesError);
+      } else {
+        compositionPublicUrl = supabase.storage.from(RENDER_BUCKET).getPublicUrl(compositionPath).data
+          .publicUrl;
+      }
+    }
+
     const inputSnapshot = {
       source: 'anexo' as const,
       id: renderId,
       label: 'Composição de ambiente',
       mode: 'ambiente' as const,
+      imageUrl: compositionPublicUrl,
       descricao: descricao || undefined,
       cenaInventario: cenaInventario || undefined,
       furnitureRefCount: furnitureRefs.length,
@@ -537,7 +558,8 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Erro ao salvar histórico de ambiente:', insertError);
-      await supabase.storage.from(RENDER_BUCKET).remove([storagePath]);
+      const toRemove = compositionPath ? [storagePath, compositionPath] : [storagePath];
+      await supabase.storage.from(RENDER_BUCKET).remove(toRemove);
       return jsonResponse({ error: 'Render gerada mas não foi possível salvar no histórico' }, 500);
     }
 

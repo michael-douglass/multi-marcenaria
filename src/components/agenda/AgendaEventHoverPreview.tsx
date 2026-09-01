@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { FLOATING_AGENDA_ROOT_ATTR } from '@/lib/overlay-z-index';
+import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
+import { AgendaEventPostponeControls } from '@/components/agenda/AgendaEventPostponeControls';
 import type { AgendaEvent } from '@/hooks/useAgendaGeral';
 import type { LeadLembrete } from '@/hooks/useLeadLembretes';
 import type { MarketingTask } from '@/hooks/useMarketingTasks';
@@ -45,12 +47,18 @@ interface AgendaEventHoverPreviewProps {
   disabled?: boolean;
   onComplete?: (event: AgendaEvent) => void;
   onDelete?: (event: AgendaEvent) => void;
+  /** Toque no título do balão abre a edição. */
+  onEditEvent?: (event: AgendaEvent) => void;
+  /** Confirma o rascunho de adiar (mesmo caminho do arraste). */
+  onPostpone?: (event: AgendaEvent, newStart: Date, newEnd: Date) => void;
+  isRescheduling?: boolean;
   children: ReactElement;
 }
 
 /**
  * Prévia em hover estilo “vidro” sobre chips da agenda.
  * No painel flutuante, o popup fica confinado e redimensiona para caber no container.
+ * Primeiro toque no chip prende o balão; toque no título edita; setas só adianta.
  */
 export function AgendaEventHoverPreview({
   event,
@@ -58,10 +66,16 @@ export function AgendaEventHoverPreview({
   disabled = false,
   onComplete,
   onDelete,
+  onEditEvent,
+  onPostpone,
+  isRescheduling = false,
   children,
 }: AgendaEventHoverPreviewProps) {
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [draftStart, setDraftStart] = useState(event.start);
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [collisionBoundary, setCollisionBoundary] = useState<Element | null>(null);
 
@@ -74,7 +88,6 @@ export function AgendaEventHoverPreview({
     return document.querySelector<HTMLElement>(`[${FLOATING_AGENDA_ROOT_ATTR}]`);
   }, []);
 
-  // Resolve o painel cedo (não só no open) para o Portal já nascer no lugar certo
   useEffect(() => {
     if (!compact) {
       setPortalContainer(null);
@@ -87,25 +100,54 @@ export function AgendaEventHoverPreview({
       setCollisionBoundary(root);
     };
     sync();
-    // Reavalia no próximo frame caso o painel ainda esteja montando
     const id = window.requestAnimationFrame(sync);
     return () => window.cancelAnimationFrame(id);
   }, [compact, open, resolvePanelRoot]);
+
+  useEffect(() => {
+    if (open) setDraftStart(event.start);
+  }, [open, event.start]);
+
+  const unpin = useCallback(() => {
+    setPinned(false);
+    setOpen(false);
+  }, []);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (disabled) {
         setOpen(false);
+        setPinned(false);
         return;
       }
+      if (pinned && !next) return;
       setOpen(next);
+      if (!next) setPinned(false);
     },
-    [disabled],
+    [disabled, pinned],
   );
 
   useEffect(() => {
-    if (disabled) setOpen(false);
+    if (disabled) {
+      setOpen(false);
+      setPinned(false);
+    }
   }, [disabled]);
+
+  useEffect(() => {
+    if (!pinned) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (contentRef.current?.contains(target)) return;
+      if (triggerWrapRef.current?.contains(target)) return;
+      unpin();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [pinned, unpin]);
 
   if (disabled) {
     return children;
@@ -114,6 +156,7 @@ export function AgendaEventHoverPreview({
   const isDone = event.status === 'concluido';
   const subtitle = getEventSubtitle(event);
   const previewText = event.description?.trim() || null;
+  const canPostpone = Boolean(onPostpone) && isAgendaEventPostponable(event);
 
   const metaParts = [
     format(event.start, 'HH:mm'),
@@ -124,20 +167,33 @@ export function AgendaEventHoverPreview({
 
   const showActions = Boolean(onComplete || onDelete);
 
+  const handlePinFromChip = () => {
+    setPinned(true);
+    setOpen(true);
+  };
+
+  const handleEditFromTitle = () => {
+    if (!onEditEvent) return;
+    unpin();
+    onEditEvent(event);
+  };
+
   return (
     <HoverCardPrimitive.Root
       open={open}
       onOpenChange={handleOpenChange}
       openDelay={compact ? 180 : 280}
-      closeDelay={compact ? 160 : 200}
+      closeDelay={compact ? 320 : 400}
     >
-      {/* span wrapper: ancora o closest() no painel flutuante */}
       <span ref={triggerWrapRef} className="contents">
-        <HoverCardPrimitive.Trigger asChild>{children}</HoverCardPrimitive.Trigger>
+        <HoverCardPrimitive.Trigger asChild onClick={handlePinFromChip}>
+          {children}
+        </HoverCardPrimitive.Trigger>
       </span>
 
       <HoverCardPrimitive.Portal container={compact ? portalContainer ?? undefined : undefined}>
         <HoverCardPrimitive.Content
+          ref={contentRef}
           side={compact ? 'top' : 'left'}
           sideOffset={compact ? 4 : 8}
           align="start"
@@ -155,20 +211,19 @@ export function AgendaEventHoverPreview({
             'data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2',
             compact
               ? cn(
-                  // Largura/altura usam o espaço disponível do Popper → encolhe no canto
                   'z-[205] rounded-lg border border-border/30 bg-background/30 p-2',
                   'text-foreground/85 shadow-sm',
                   'backdrop-blur-xl backdrop-saturate-150',
                   'w-[min(11.5rem,var(--radix-hover-card-content-available-width,11.5rem))]',
                   'max-w-[min(11.5rem,var(--radix-hover-card-content-available-width,11.5rem))]',
-                  'max-h-[min(14rem,var(--radix-hover-card-content-available-height,14rem))]',
+                  'max-h-[min(20rem,var(--radix-hover-card-content-available-height,20rem))]',
                 )
               : cn(
                   'z-50 rounded-lg border border-border/50 bg-popover/90 p-3',
                   'text-popover-foreground shadow-md backdrop-blur-md',
                   'w-[min(16rem,var(--radix-hover-card-content-available-width,16rem))]',
                   'max-w-[min(16rem,var(--radix-hover-card-content-available-width,16rem))]',
-                  'max-h-[min(18rem,var(--radix-hover-card-content-available-height,18rem))]',
+                  'max-h-[min(22rem,var(--radix-hover-card-content-available-height,22rem))]',
                 ),
           )}
           onClick={(e) => e.stopPropagation()}
@@ -190,15 +245,30 @@ export function AgendaEventHoverPreview({
                 )}
                 aria-hidden
               />
-              <p
-                className={cn(
-                  'min-w-0 font-semibold leading-snug break-words',
-                  compact ? 'text-[11px]' : 'text-sm',
-                  isDone && 'line-through opacity-70',
-                )}
-              >
-                {event.title}
-              </p>
+              {onEditEvent ? (
+                <button
+                  type="button"
+                  className={cn(
+                    'min-w-0 text-left font-semibold leading-snug break-words',
+                    'rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    compact ? 'text-[11px]' : 'text-sm',
+                    isDone && 'line-through opacity-70',
+                  )}
+                  onClick={handleEditFromTitle}
+                >
+                  {event.title}
+                </button>
+              ) : (
+                <p
+                  className={cn(
+                    'min-w-0 font-semibold leading-snug break-words',
+                    compact ? 'text-[11px]' : 'text-sm',
+                    isDone && 'line-through opacity-70',
+                  )}
+                >
+                  {event.title}
+                </p>
+              )}
             </div>
 
             <p
@@ -209,6 +279,20 @@ export function AgendaEventHoverPreview({
             >
               {metaParts.join(' · ')}
             </p>
+
+            {canPostpone && (
+              <AgendaEventPostponeControls
+                event={event}
+                draftStart={draftStart}
+                onDraftStartChange={setDraftStart}
+                compact={compact}
+                isSaving={isRescheduling}
+                onConfirm={(newStart, newEnd) => {
+                  unpin();
+                  onPostpone?.(event, newStart, newEnd);
+                }}
+              />
+            )}
 
             {previewText ? (
               <p
@@ -225,9 +309,9 @@ export function AgendaEventHoverPreview({
               )
             )}
 
-            {!compact && (
-              <p className="pt-0.5 text-[10px] text-muted-foreground/60">
-                Passe o mouse para prévia · Clique para editar · Arraste para reagendar
+            {onEditEvent && (
+              <p className={cn('pt-0.5 text-muted-foreground/60', compact ? 'text-[9px]' : 'text-[10px]')}>
+                {compact ? 'Toque no título para editar' : 'Toque no título para editar · Arraste para reagendar'}
               </p>
             )}
           </div>
@@ -252,7 +336,7 @@ export function AgendaEventHoverPreview({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    setOpen(false);
+                    unpin();
                     onComplete(event);
                   }}
                 >
@@ -272,7 +356,7 @@ export function AgendaEventHoverPreview({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    setOpen(false);
+                    unpin();
                     onDelete(event);
                   }}
                 >

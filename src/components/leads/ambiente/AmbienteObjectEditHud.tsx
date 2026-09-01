@@ -288,7 +288,7 @@ export function AmbienteObjectEditHud({
             )}
             onPointerDown={onOrbitPointerDown}
           >
-            {yaw}° · {pitch > 0 ? `+${pitch}` : pitch}°
+            {yaw}° · {pitch}°
           </button>
           <button
             type="button"

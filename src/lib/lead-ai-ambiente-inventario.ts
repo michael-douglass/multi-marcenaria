@@ -77,7 +77,7 @@ export function buildAmbienteCenaInventario(input: AmbienteInventarioInput): str
       posicao: describePosicao(overlay.x + overlay.width / 2, overlay.y + overlay.height / 2),
       tamanho: `${pct(overlay.width)}% × ${pct(overlay.height)}%`,
       rotacao: Math.round(overlay.rotation || 0),
-      extra: `  tipo_modulo: null\n  espelho: ${overlay.flipH || overlay.flipV ? 'true' : 'false'}`,
+      extra: `  tipo_modulo: null\n  espelho: ${overlay.flipH || overlay.flipV ? 'true' : 'false'}\n  virar_transversal: ${Math.round(overlay.yaw || 0)}\n  inclinar: ${Math.round(overlay.pitch || 0)}`,
     })),
     ...input.objects.map((object) => ({
       fonte: 'icone_catalogo',

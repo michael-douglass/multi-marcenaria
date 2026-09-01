@@ -396,6 +396,15 @@ export function FullCalendar({
     onTimeSlotClick(setMinutes(setHours(startOfDay(targetDay), hour), 0));
   };
 
+  const eventPreviewProps = {
+    compact,
+    onComplete: onCompleteEvent,
+    onDelete: onDeleteEvent,
+    onEditEvent,
+    onPostpone: onEventDrop,
+    isRescheduling,
+  };
+
   const renderUntimedStrip = (untimedEvents: AgendaEvent[], dense = false) => {
     if (untimedEvents.length === 0) return null;
 
@@ -415,13 +424,10 @@ export function FullCalendar({
             <AgendaEventHoverPreview
               key={event.id}
               event={event}
-              compact={compact}
-              onComplete={onCompleteEvent}
-              onDelete={onDeleteEvent}
+              {...eventPreviewProps}
             >
               <button
                 type="button"
-                onClick={() => onEditEvent?.(event)}
                 className={cn(
                   getEventTypeClasses(event, true),
                   'text-left max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -469,17 +475,14 @@ export function FullCalendar({
         )}
         <AgendaEventHoverPreview
           event={event}
-          compact={compact}
           disabled={isDragging}
-          onComplete={onCompleteEvent}
-          onDelete={onDeleteEvent}
+          {...eventPreviewProps}
         >
           <div
             data-agenda-event
             role="button"
             tabIndex={0}
             {...getTimedEventPointerHandlers(event, targetDay, layout.hourHeightWeek)}
-            onClick={() => handleEditClick(event)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -579,22 +582,19 @@ export function FullCalendar({
                     <AgendaEventHoverPreview
                       key={event.id}
                       event={event}
-                      compact={compact}
-                      onComplete={onCompleteEvent}
-                      onDelete={onDeleteEvent}
+                      {...eventPreviewProps}
                     >
                       <div
                         role="button"
                         tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onEditEvent?.(event);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             e.stopPropagation();
-                            onEditEvent?.(event);
+                            handleEditClick(event);
                           }
                         }}
                         className={cn(
@@ -881,17 +881,14 @@ export function FullCalendar({
                       )}
                       <AgendaEventHoverPreview
                         event={event}
-                        compact={compact}
                         disabled={isDragging}
-                        onComplete={onCompleteEvent}
-                        onDelete={onDeleteEvent}
+                        {...eventPreviewProps}
                       >
                         <div
                           data-agenda-event
                           role="button"
                           tabIndex={0}
                           {...getTimedEventPointerHandlers(event, currentPivot, layout.hourHeightDay)}
-                          onClick={() => handleEditClick(event)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();

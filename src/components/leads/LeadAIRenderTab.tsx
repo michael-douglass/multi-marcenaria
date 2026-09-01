@@ -591,6 +591,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   const [sketchPreviewPdfPage, setSketchPreviewPdfPage] = useState<number | null>(null);
   const [ambienteIncomingPhoto, setAmbienteIncomingPhoto] = useState<AmbienteIncomingPhoto | null>(null);
   const [isSendingToAmbiente, setIsSendingToAmbiente] = useState(false);
+  const [liveAmbientePreviewUrl, setLiveAmbientePreviewUrl] = useState<string | null>(null);
   const [ambientePdfFollowUp, setAmbientePdfFollowUp] = useState<{
     item: LeadAIMediaItem;
     page: number;
@@ -664,13 +665,49 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   );
 
   const sketchPreviewUrl = useMemo(() => {
+    const snapshotAntes =
+      sketchSnapshot?.imageUrl ??
+      (activeRender?.inputSnapshot.mode === 'ambiente' ? activeRender.inputSnapshot.imageUrl : undefined);
+
+    const jobResult = ambienteJob?.result;
+    const jobMatchesActive = !jobResult || !activeRender || jobResult.renderId === activeRender.id;
+    const jobAntes = jobResult?.inputSnapshot?.imageUrl && jobMatchesActive
+      ? jobResult.inputSnapshot.imageUrl
+      : undefined;
+
+    const sessionAntes =
+      ambienteJob?.compositionPreviewUrl &&
+      (ambienteJob.status === 'preparing' ||
+        ambienteJob.status === 'running' ||
+        (jobResult != null && jobMatchesActive))
+        ? ambienteJob.compositionPreviewUrl
+        : undefined;
+
+    if (snapshotAntes) return snapshotAntes;
+    if (jobAntes) return jobAntes;
+    if (sessionAntes) return sessionAntes;
+    if (
+      liveAmbientePreviewUrl &&
+      (!activeRender || activeRender.inputSnapshot.mode === 'ambiente')
+    ) {
+      return liveAmbientePreviewUrl;
+    }
     if (displayedSketchItem?.kind === 'pdf') {
       return pdfSketchSrc;
     }
     if (displayedSketchItem) return resolveSketchPreviewUrl(displayedSketchItem);
     if (activeRender && sketchSnapshot) return resolveSketchPreviewUrl(null, sketchSnapshot);
     return null;
-  }, [activeRender, displayedSketchItem, pdfSketchSrc, sketchSnapshot]);
+  }, [
+    activeRender,
+    ambienteJob?.compositionPreviewUrl,
+    ambienteJob?.result,
+    ambienteJob?.status,
+    displayedSketchItem,
+    liveAmbientePreviewUrl,
+    pdfSketchSrc,
+    sketchSnapshot,
+  ]);
 
   useEffect(() => {
     if (historico.length > 0 && !displayedOutputUrl && !isBusy) {
@@ -1030,6 +1067,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
     void sendItemToAmbiente(selectedItem, selectedPdfPage);
   }, [ambienteConfigDisabled, selectedItem, selectedPdfPage, sendItemToAmbiente]);
 
+  const handleAmbientePreviewUrl = useCallback((url: string | null) => {
+    setLiveAmbientePreviewUrl(url);
+  }, []);
+
   const handleAnalyzeAmbiente = useCallback(
     async (input: { descricao: string; imageDataUrl?: string; cenaInventario?: string }) => {
       if (!aiConfig.renderAmbienteAtivo) {
@@ -1264,6 +1305,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
           ambienteJob?.status === 'preparing' || ambienteJob?.status === 'running'
         }
         incomingPhoto={ambienteIncomingPhoto}
+        onCompositionPreviewUrl={handleAmbientePreviewUrl}
         onAnalyze={handleAnalyzeAmbiente}
         onRender={handleRenderAmbiente}
       />
@@ -1278,6 +1320,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
             analiseTexto={isBusy ? null : displayedAnalise}
             isLoading={isBusy}
             leadId={leadId}
+            leadName={leadName}
             activeRender={activeRender}
             historico={historico}
             onEditSuccess={handleEditSuccess}

@@ -9,7 +9,12 @@ export interface AmbienteImageOverlay {
   y: number;
   width: number;
   height: number;
+  /** Giro no plano da lousa (graus, sentido horário). */
   rotation: number;
+  /** Virar no eixo vertical — transversal, para ver o lado. */
+  yaw?: number;
+  /** Inclinar para ver de cima ou de baixo. */
+  pitch?: number;
   /** Espelhar esquerda/direita. */
   flipH?: boolean;
   /** Espelhar cima/baixo. */

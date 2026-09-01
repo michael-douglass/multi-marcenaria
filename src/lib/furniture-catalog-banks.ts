@@ -84,8 +84,13 @@ export function wrapOrbitYaw(deg: number): number {
   return ((deg % 360) + 360) % 360;
 }
 
+export function wrapOrbitPitch(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
+/** Inclinação do móvel — volta completa. Nome antigo mantido nas chamadas. */
 export function clampOrbitPitch(deg: number): number {
-  return Math.min(48, Math.max(-36, deg));
+  return wrapOrbitPitch(deg);
 }
 
 export function quantizeOrbitDeg(deg: number, step = 5): number {

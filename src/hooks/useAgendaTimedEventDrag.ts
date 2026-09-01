@@ -143,11 +143,10 @@ export function useAgendaTimedEventDrag({
         window.setTimeout(() => {
           dragInteractionRef.current = false;
         }, 0);
-      } else {
-        onEditEvent?.(pending.event);
       }
+      // Toque sem arraste: o chip prende o balão. Edição é no título do balão.
     },
-    [getGridElement, onEditEvent, onEventDrop, resolveDay],
+    [getGridElement, onEventDrop, resolveDay],
   );
 
   const handlePointerUp = useCallback(
