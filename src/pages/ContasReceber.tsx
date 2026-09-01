@@ -1,5 +1,17 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { FileDown, FileText, Loader2 } from 'lucide-react'
+import {
+  AlertCircle,
+  Banknote,
+  FileDown,
+  FileText,
+  Loader2,
+  Plus,
+  Scale,
+  ScrollText,
+  Search,
+  Wallet,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useContasReceber } from '../hooks/useContasReceber'
 import { useObras } from '@/hooks/useObras'
 import { useOrcamentosFechados } from '../hooks/useOrcamentosFechados'
@@ -27,7 +39,7 @@ import {
   PeriodFilterBar,
   type PeriodFilter,
 } from '../components/ui/PeriodFilterBar'
-import { fmtCur, fmtDate, isOverdue, todayISO, addMonths } from '../lib/utils'
+import { cn, fmtCur, fmtDate, isOverdue, todayISO, addMonths } from '../lib/utils'
 import {
   resolveGrupoReceberId,
   revokePendingCrAnexoUrls,
@@ -819,31 +831,83 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
     setOpenRecibo(true)
   }
 
+  const kpiTiles = [
+    !isFinanceiroOnly && {
+      label: 'A receber',
+      hint: 'parcelas ainda em aberto',
+      value: kpiAReceber,
+      tone: 'gold' as const,
+      icon: Wallet,
+    },
+    !isFinanceiroOnly && {
+      label: 'Recebido',
+      hint: 'já entrou no caixa',
+      value: kpiRecebido,
+      tone: 'ok' as const,
+      icon: Banknote,
+    },
+    {
+      label: 'Em atraso',
+      hint: 'passou do vencimento',
+      value: kpiEmAtraso,
+      tone: 'late' as const,
+      icon: AlertCircle,
+    },
+    !isFinanceiroOnly && {
+      label: 'Fechado bruto',
+      hint: 'volume no período',
+      value: kpiFechadoBruto,
+      tone: 'ink' as const,
+      icon: Scale,
+    },
+  ].filter(Boolean) as Array<{
+    label: string
+    hint: string
+    value: number
+    tone: 'gold' | 'ok' | 'late' | 'ink'
+    icon: typeof Wallet
+  }>
+
   return (
-    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4">
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
       <CobrancasPageAura />
-      <div className="relative z-[1]">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display tracking-[0.06em]" style={{ fontSize: '2.05rem', color: '#1a100c' }}>
-            Cobranças & Contas a Receber
-          </h1>
-          <p className="section-label mt-1">
-            {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} exibida{filtered.length !== 1 ? 's' : ''}
-            {hasCobrancaReceberDraft() && !open ? ' · rascunho salvo' : ''}
-          </p>
+      <div className="relative z-[1] mx-auto max-w-6xl space-y-6 pt-4 md:pt-8">
+      <header className="cobrancas-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/92 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-8">
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              Caixa do ateliê
+              {readOnly ? (
+                <span className="rounded-full border border-[rgba(107,63,18,0.35)] px-2 py-0.5 text-[10px] font-normal normal-case tracking-normal">
+                  Somente visualização
+                </span>
+              ) : null}
+            </p>
+            <h1 className="mt-2 font-display text-3xl italic leading-tight text-[#1a100c] sm:text-5xl">
+              Cobranças
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-[#4a3428] sm:text-base">
+              O que ainda entra no caixa, o que já foi recebido e o que atrasou — no papel da casa.
+            </p>
+            <p className="section-label mt-3">
+              {filtered.length} parcela{filtered.length !== 1 ? 's' : ''} na mesa
+              {hasCobrancaReceberDraft() && !open ? ' · rascunho salvo neste navegador' : ''}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {isAdmin && (
+              <TemplatesConfigButton templatesHook={templatesHook} pixHook={pixHook} />
+            )}
+            {!readOnly && (
+              <button type="button" className="btn btn-gold btn-md gap-1.5" onClick={openNovaCobranca}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Nova cobrança
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
-            <TemplatesConfigButton templatesHook={templatesHook} pixHook={pixHook} />
-          )}
-          {!readOnly && (
-            <button type="button" className="btn btn-gold btn-md" onClick={openNovaCobranca}>
-              + Nova Cobrança
-            </button>
-          )}
-        </div>
-      </div>
+      </header>
 
       {/* Orçamentos ganhos aguardando entrada no caixa */}
       <OrcamentosFechados
@@ -1486,24 +1550,54 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
         }}
       />
 
-      {/* KPI strip — acompanha o filtro de período */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
-        {[
-          !isFinanceiroOnly && { l: 'A Receber',     v: kpiAReceber,    c: '#4ade80' },
-          !isFinanceiroOnly && { l: 'Recebido',       v: kpiRecebido,    c: '#f2d892' },
-          { l: 'Em Atraso',       v: kpiEmAtraso,    c: '#f87171' },
-          !isFinanceiroOnly && { l: 'Fechado Bruto',  v: kpiFechadoBruto, c: '#fffaf4' },
-        ].filter(Boolean).map((x, i) => {
-          const kpi = x as { l: string; v: number; c: string }
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {kpiTiles.map((kpi) => {
+          const Icon = kpi.icon
           return (
-            <div key={i} className="glass-card p-4 text-center">
-              <div className="section-label mb-1">{kpi.l}</div>
-              <div className="font-display" style={{ fontSize: '1.35rem', color: kpi.c }}>{fmtCur(kpi.v)}</div>
-            </div>
+            <Card
+              key={kpi.label}
+              className={cn(
+                'cobrancas-kpi-tile border-[rgba(26,16,12,0.14)] bg-[#fffaf4] shadow-[0_12px_32px_rgba(42,24,18,0.07)]',
+                kpi.tone === 'late' && 'border-[rgba(159,18,57,0.28)]',
+                kpi.tone === 'ok' && 'border-[rgba(20,108,56,0.24)]',
+                kpi.tone === 'gold' && 'border-[rgba(107,63,18,0.28)]',
+              )}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-[#4a3428]">
+                  <Icon
+                    className={cn(
+                      'h-4 w-4',
+                      kpi.tone === 'ok' && 'text-[#146c38]',
+                      kpi.tone === 'late' && 'text-[#9f1239]',
+                      kpi.tone === 'gold' && 'text-[#6b3f12]',
+                      kpi.tone === 'ink' && 'text-[#1a100c]',
+                    )}
+                    aria-hidden
+                  />
+                  {kpi.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  className={cn(
+                    'font-display text-2xl font-semibold sm:text-3xl',
+                    kpi.tone === 'ok' && 'text-[#146c38]',
+                    kpi.tone === 'late' && 'text-[#9f1239]',
+                    kpi.tone === 'gold' && 'text-[#6b3f12]',
+                    kpi.tone === 'ink' && 'text-[#1a100c]',
+                  )}
+                >
+                  {fmtCur(kpi.value)}
+                </p>
+                <p className="mt-1 text-xs text-[#6b5244]">{kpi.hint}</p>
+              </CardContent>
+            </Card>
           )
         })}
       </div>
 
+      <div className="cobrancas-filters">
       <FilterBar
         options={['Todos', ...STATUS_FILTER_OPTIONS]}
         multi
@@ -1524,55 +1618,61 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
           )
         }}
       />
+      </div>
 
-      <div className="mb-4">
+      <div className="relative mb-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b3f12]" aria-hidden />
         <input
-          type="text"
-          className="glass-input w-full"
-          placeholder="Buscar por nome, telefone, forma de pagamento ou valor..."
+          type="search"
+          className="glass-input w-full pl-10"
+          placeholder="Buscar por nome, telefone, forma de pagamento ou valor…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
+          aria-label="Buscar cobranças"
         />
       </div>
 
-      <div className="glass-card overflow-hidden">
+      <div className="cobrancas-ledger glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState message="Nenhuma cobrança para este filtro." />
         ) : (
           <div className="overflow-x-auto">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
-                {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Inicio e entrega de obra', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
-                  <th key={i} className="section-label text-left px-4 py-3">{h}</th>
-                ))}
-              </tr></thead>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Inicio e entrega de obra', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
+                    <th key={i} className="section-label px-4 py-3 text-left">{h}</th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {filtered.map(r => {
                   const s = getStatus(r.data_vencimento, r.status)
                   const pm = r.forma_pagamento as FormaPagamento
                   const inicioEntrega = inicioEntregaPorConta.get(r.id) ?? '—'
                   return (
-                    <tr key={r.id} className="trow">
-                      <td className="px-4 py-3" style={{ color: '#fffaf4', fontWeight: 500 }}>
+                    <tr key={r.id} className={cn('trow', s === 'vencido' && 'cobrancas-row-late')}>
+                      <td className="px-4 py-3 font-medium text-[#1a100c]">
                         {r.cliente_nome}
                         {r.observacao?.trim() ? (
-                          <div className="mt-1 text-xs font-normal text-[#b8957f] line-clamp-2" title={r.observacao}>
+                          <div className="mt-1 line-clamp-2 text-xs font-normal text-[#6b5244]" title={r.observacao}>
                             {r.observacao}
                           </div>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{r.numero_parcela}/{r.total_parcelas}</td>
-                      <td className="px-4 py-3" style={{ color: '#4ade80', fontWeight: 600 }}>{fmtCur(r.valor_parcela)}</td>
-                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(r.data_vencimento)}</td>
+                      <td className="px-4 py-3 text-sm text-[#4a3428]">{r.numero_parcela}/{r.total_parcelas}</td>
+                      <td className="px-4 py-3 font-semibold text-[#146c38]">{fmtCur(r.valor_parcela)}</td>
+                      <td className={cn('px-4 py-3 text-sm', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(r.data_vencimento)}</td>
                       <td
-                        className="px-4 py-3 whitespace-nowrap"
-                        style={{ color: inicioEntrega === '—' ? '#b8957f' : '#edd9c4', fontSize: '.85rem' }}
+                        className={cn(
+                          'whitespace-nowrap px-4 py-3 text-sm',
+                          inicioEntrega === '—' ? 'text-[#6b5244]' : 'text-[#4a3428]',
+                        )}
                         title={inicioEntrega === '—' ? 'Sem datas na Agenda de Obras' : inicioEntrega}
                       >
                         {inicioEntrega}
                       </td>
-                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{PM_ICON[pm]} {PM_LABEL[pm]}</td>
+                      <td className="px-4 py-3 text-sm text-[#4a3428]">{PM_ICON[pm]} {PM_LABEL[pm]}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3">
                         <button
@@ -1581,7 +1681,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                           title="Gerar Recibo"
                           onClick={() => abrirRecibo(r)}
                         >
-                          <FileText className="h-4 w-4 text-[#f2d892]" />
+                          <FileText className="h-4 w-4 text-[#6b3f12]" />
                         </button>
                       </td>
                       <td className="px-4 py-3">
@@ -1601,7 +1701,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                           {!readOnly && s !== 'recebido' ? (
                             <button className="btn btn-success btn-sm" onClick={() => marcarRecebido(r.id)}>✓ Recebido</button>
                           ) : s === 'recebido' ? (
-                            <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(r.data_recebimento)}</span>
+                            <span className="text-xs font-semibold text-[#146c38]">✓ {fmtDate(r.data_recebimento)}</span>
                           ) : null}
                         </div>
                         {isAdmin && (

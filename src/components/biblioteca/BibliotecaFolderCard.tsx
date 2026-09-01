@@ -31,28 +31,32 @@ export function BibliotecaFolderCard({
   return (
     <article
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.08] to-orange-500/[0.04]',
-        'transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/40 hover:shadow-lg hover:shadow-amber-500/10',
+        'biblioteca-folder-tab group relative overflow-hidden rounded-sm',
+        'transition-transform duration-300 hover:-translate-y-0.5',
         'animate-in fade-in slide-in-from-bottom-3 fill-mode-both',
       )}
       style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
     >
+      <span
+        className="pointer-events-none absolute left-4 top-0 h-2 w-14 rounded-b-sm bg-[#6b3f12]/80"
+        aria-hidden
+      />
       <button
         type="button"
         onClick={() => onOpen(folder)}
-        className="flex w-full flex-col items-center px-4 pb-3 pt-5 text-center"
+        className="flex w-full flex-col items-center px-4 pb-3 pt-6 text-center"
       >
-        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/15 ring-1 ring-amber-400/25 transition group-hover:bg-amber-500/25">
-          <Folder className="h-7 w-7 text-amber-300 transition group-hover:hidden" />
-          <FolderOpen className="hidden h-7 w-7 text-amber-200 group-hover:block" />
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-sm bg-[#f4e4c4] ring-1 ring-[rgba(107,63,18,0.28)] transition group-hover:bg-[#ead6b0]">
+          <Folder className="h-7 w-7 text-[#6b3f12] transition group-hover:hidden" />
+          <FolderOpen className="hidden h-7 w-7 text-[#6b3f12] group-hover:block" />
         </div>
-        <h3 className="w-full truncate text-sm font-semibold text-amber-50" title={folder.nome}>
+        <h3 className="w-full truncate text-sm font-semibold text-[#1a100c]" title={folder.nome}>
           {folder.nome}
         </h3>
         {folder.descricao && (
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-white/45">{folder.descricao}</p>
+          <p className="mt-0.5 line-clamp-2 text-[11px] text-[#6b5244]">{folder.descricao}</p>
         )}
-        <p className="mt-2 text-[11px] font-medium text-amber-400/80">
+        <p className="mt-2 text-[11px] font-medium text-[#6b3f12]">
           {itemCount} {itemCount === 1 ? 'arquivo' : 'arquivos'}
         </p>
       </button>
@@ -64,7 +68,7 @@ export function BibliotecaFolderCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 bg-black/30 text-white/80 backdrop-blur-sm hover:bg-black/50"
+                className="h-7 w-7 bg-[#fffaf4]/90 text-[#4a3428] hover:bg-[#f4e4c4]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreVertical className="h-3.5 w-3.5" />

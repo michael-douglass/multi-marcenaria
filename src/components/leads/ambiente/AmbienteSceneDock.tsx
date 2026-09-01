@@ -133,7 +133,7 @@ export function AmbienteSceneDock({
   return (
     <div
       data-ambiente-scene-dock=""
-      className="pointer-events-auto absolute right-2 top-1/2 z-[70] -translate-y-1/2"
+      className="pointer-events-auto absolute right-2 top-1/2 z-[70] flex max-h-[calc(100%-0.75rem)] -translate-y-1/2 flex-col"
       onPointerDown={(event) => event.stopPropagation()}
     >
       {!open ? (
@@ -162,7 +162,7 @@ export function AmbienteSceneDock({
       ) : (
         <div
           className={cn(
-            'relative w-[9.75rem] overflow-hidden rounded-2xl',
+            'relative flex max-h-[calc(100%-0.75rem)] w-[9.75rem] flex-col overflow-hidden rounded-2xl',
             'border border-[rgba(240,210,140,0.4)]',
             'shadow-[0_16px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(242,216,146,0.16)]',
           )}
@@ -197,7 +197,7 @@ export function AmbienteSceneDock({
               </button>
             </div>
 
-            <div className="flex flex-col gap-0.5 p-1.5">
+            <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-1.5">
               {actions.map((action) => {
                 const Icon = action.icon;
                 const busy = action.id === 'save' && isSaving;

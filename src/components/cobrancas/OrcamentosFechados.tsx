@@ -313,28 +313,22 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
   const previewMerged = previewLead ? getMerged(previewLead) : null
 
   return (
-    <div className="mb-8">
+      <div className="mb-8">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2
-            className="font-display"
-            style={{ fontSize: '1.3rem', color: '#f2d892', letterSpacing: '.06em' }}
-          >
-            Orçamentos Fechados — Dar entrada no caixa
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
+            Entrada no caixa
+          </p>
+          <h2 className="mt-1 font-display text-2xl tracking-[0.04em] text-[#1a100c] sm:text-3xl">
+            Orçamentos fechados
           </h2>
           <p className="section-label mt-0.5">
             {leads.length} orçamento{leads.length !== 1 ? 's' : ''} aguardando lançamento
           </p>
         </div>
-        <div
-          className="glass-card px-4 py-2 text-right"
-          style={{ borderLeft: '3px solid rgba(240,210,140,.5)' }}
-        >
+        <div className="rounded-xl border border-[rgba(107,63,18,0.28)] bg-[#fffaf4] px-4 py-2 text-right shadow-[0_8px_20px_rgba(42,24,18,0.06)]">
           <div className="section-label" style={{ fontSize: '.68rem' }}>Total em aberto</div>
-          <div
-            className="font-display"
-            style={{ fontSize: '1.2rem', color: '#f2d892' }}
-          >
+          <div className="font-display text-xl text-[#6b3f12] sm:text-2xl">
             {fmtCur(leads.reduce((s, l) => s + valorEfetivo(l), 0))}
           </div>
         </div>

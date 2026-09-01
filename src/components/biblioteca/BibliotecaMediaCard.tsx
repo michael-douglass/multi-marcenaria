@@ -22,7 +22,7 @@ function MediaThumbnail({ media }: { media: BibliotecaMedia }) {
         src={media.file_url}
         alt={media.titulo}
         loading="lazy"
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
       />
     );
   }
@@ -31,9 +31,9 @@ function MediaThumbnail({ media }: { media: BibliotecaMedia }) {
     return (
       <>
         <video src={media.file_url} className="h-full w-full object-cover" muted />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
-            <Play className="h-5 w-5 fill-white text-white" />
+        <div className="absolute inset-0 flex items-center justify-center bg-[#1a100c]/35">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fffaf4]/90 ring-1 ring-[rgba(107,63,18,0.35)]">
+            <Play className="h-5 w-5 fill-[#6b3f12] text-[#6b3f12]" />
           </div>
         </div>
       </>
@@ -42,15 +42,15 @@ function MediaThumbnail({ media }: { media: BibliotecaMedia }) {
 
   if (media.tipo === 'audio') {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-900/40 to-amber-900/30">
-        <Music className="h-10 w-10 text-amber-200/70" />
+      <div className="flex h-full w-full items-center justify-center bg-[#f4e4c4]">
+        <Music className="h-10 w-10 text-[#6b3f12]/80" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-800/80 to-amber-950/40">
-      <FileText className="h-10 w-10 text-amber-200/70" />
+    <div className="flex h-full w-full items-center justify-center bg-[#f0e4d4]">
+      <FileText className="h-10 w-10 text-[#6b3f12]/80" />
     </div>
   );
 }
@@ -68,12 +68,10 @@ export function BibliotecaMediaCard({
   return (
     <article
       className={cn(
-        'group relative overflow-hidden rounded-2xl border bg-white/[0.03] shadow-lg transition-all duration-300',
-        'hover:-translate-y-1 hover:shadow-amber-500/10',
+        'biblioteca-photo-mount group relative overflow-hidden rounded-sm p-2 pb-0',
+        'transition-transform duration-300 hover:-translate-y-0.5',
         'animate-in fade-in slide-in-from-bottom-3 fill-mode-both',
-        selected
-          ? 'border-amber-400/60 ring-2 ring-amber-400/30'
-          : 'border-white/8 hover:border-amber-500/30',
+        selected && 'is-selected',
       )}
       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
     >
@@ -85,10 +83,10 @@ export function BibliotecaMediaCard({
             onToggleSelect(media);
           }}
           className={cn(
-            'absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-md border transition',
+            'absolute left-3 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-sm border transition',
             selected
-              ? 'border-amber-400 bg-amber-500 text-black'
-              : 'border-white/30 bg-black/50 text-white/80 hover:border-amber-300 hover:bg-black/70',
+              ? 'border-[#6b3f12] bg-[#6b3f12] text-[#fffaf4]'
+              : 'border-[rgba(26,16,12,0.28)] bg-[#fffaf4]/90 text-[#4a3428] hover:border-[#6b3f12]',
           )}
           aria-label={selected ? 'Desmarcar arquivo' : 'Selecionar arquivo'}
           aria-pressed={selected}
@@ -100,33 +98,33 @@ export function BibliotecaMediaCard({
       <button
         type="button"
         onClick={() => onOpen(media)}
-        className="relative block aspect-[4/3] w-full overflow-hidden"
+        className="relative block aspect-[4/3] w-full overflow-hidden rounded-[2px] bg-[#efe4d4]"
       >
         <MediaThumbnail media={media} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-        <div className="absolute bottom-3 left-3 right-3 flex translate-y-2 items-end justify-between opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-          <span className="rounded-full bg-black/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/80 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1a100c]/55 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="absolute bottom-2 left-2 right-2 flex translate-y-1 items-end justify-between opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+          <span className="rounded-full bg-[#fffaf4]/92 px-2 py-0.5 text-[10px] uppercase tracking-wider text-[#6b3f12]">
             {media.tipo}
           </span>
-          <span className="rounded-full bg-amber-500/90 p-1.5 text-black">
+          <span className="rounded-full bg-[#6b3f12] p-1.5 text-[#fffaf4]">
             <Eye className="h-3.5 w-3.5" />
           </span>
         </div>
       </button>
 
-      <div className="space-y-2 p-3">
+      <div className="space-y-2 px-1 py-3">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap gap-1">
             {media.origem !== 'biblioteca' && (
-              <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-200 ring-1 ring-sky-400/20">
+              <span className="rounded-full bg-[#efe4d4] px-2 py-0.5 text-[10px] font-medium text-[#6b3f12] ring-1 ring-[rgba(107,63,18,0.2)]">
                 {getBibliotecaOrigemLabel(media.origem)}
               </span>
             )}
           </div>
-          <h3 className="truncate text-sm font-semibold text-foreground" title={media.titulo}>
+          <h3 className="truncate text-sm font-semibold text-[#1a100c]" title={media.titulo}>
             {media.titulo}
           </h3>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-[#6b5244]">
             {formatBibliotecaFileSize(media.file_size)}
           </p>
         </div>
@@ -135,7 +133,7 @@ export function BibliotecaMediaCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 flex-1 text-xs"
+            className="h-8 flex-1 text-xs text-[#4a3428] hover:bg-[#f4e4c4] hover:text-[#6b3f12]"
             onClick={() => onOpen(media)}
           >
             {media.tipo === 'video' ? (
@@ -154,7 +152,7 @@ export function BibliotecaMediaCard({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+              className="h-8 w-8 text-[#9f1239] hover:bg-[#9f1239]/10"
               onClick={() => onDelete(media)}
               title="Excluir"
             >

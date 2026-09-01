@@ -2180,6 +2180,79 @@ body::before {
   .cobrancas-page-shell .trow {
     border-bottom: 1px solid var(--cr-line);
   }
+  .cobrancas-masthead::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, #f2d892 0%, #6b3f12 55%, #2a1812 100%);
+  }
+  .cobrancas-masthead::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(107, 63, 18, 0.45), transparent);
+  }
+  .cobrancas-kpi-tile {
+    position: relative;
+    overflow: hidden;
+  }
+  .cobrancas-kpi-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(107, 63, 18, 0.35), transparent);
+  }
+  .cobrancas-ledger thead tr {
+    border-bottom: 1px solid var(--cr-line);
+    background: rgba(26, 16, 12, 0.035);
+  }
+  .cobrancas-row-late {
+    background: rgba(159, 18, 57, 0.06);
+  }
+  .cobrancas-row-late:hover {
+    background: rgba(159, 18, 57, 0.10) !important;
+  }
+  .cobrancas-filters button {
+    border-color: rgba(26, 16, 12, 0.18) !important;
+    color: var(--cr-muted) !important;
+    background: #fff !important;
+  }
+  .cobrancas-filters button[aria-pressed='true'] {
+    border-color: rgba(107, 63, 18, 0.45) !important;
+    background: #f4e4c4 !important;
+    color: var(--cr-gold) !important;
+  }
+  .cobrancas-page-shell .cobrancas-filters p {
+    color: var(--cr-faint) !important;
+  }
+
+  /* ── Biblioteca CRM: álbum do ateliê (fotos montadas no papel) ── */
+  .biblioteca-photo-mount {
+    background: #fffaf4;
+    border: 1px solid rgba(26, 16, 12, 0.14);
+    box-shadow: 0 12px 28px rgba(42, 24, 18, 0.07);
+  }
+  .biblioteca-photo-mount.is-selected {
+    border-color: rgba(107, 63, 18, 0.5);
+    box-shadow: 0 0 0 2px rgba(107, 63, 18, 0.2), 0 12px 28px rgba(42, 24, 18, 0.08);
+  }
+  .biblioteca-folder-tab {
+    background: linear-gradient(180deg, #f8efe3 0%, #fffaf4 42%);
+    border: 1px solid rgba(26, 16, 12, 0.14);
+    box-shadow: 0 10px 24px rgba(42, 24, 18, 0.06);
+  }
+  .biblioteca-upload-sheet {
+    border-color: rgba(107, 63, 18, 0.28);
+    background: linear-gradient(180deg, rgba(244, 228, 196, 0.35), #fffaf4);
+  }
+  .biblioteca-cat-btn[aria-pressed='true'] {
+    border-color: rgba(107, 63, 18, 0.45) !important;
+    background: #f4e4c4 !important;
+    color: #6b3f12 !important;
+  }
 
   /* ── Financeiro Pontua: tinta escura no papel (creme/ouro no fundo claro sumia) ── */
   .financeiro-pontua-shell {

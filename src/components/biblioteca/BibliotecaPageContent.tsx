@@ -41,6 +41,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BibliotecaPageAura } from '@/components/biblioteca/BibliotecaPageAura';
 import {
   Archive,
   ArrowLeft,
@@ -49,6 +51,7 @@ import {
   FileText,
   FolderOpen,
   ImageIcon,
+  Images,
   Loader2,
   Search,
   Shield,
@@ -336,47 +339,71 @@ export function BibliotecaPageContent() {
     : 'Arquivos e imagens de leads';
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="relative overflow-hidden border-b border-white/8 px-4 py-8 sm:px-8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_-10%,rgba(245,158,11,0.18),transparent),radial-gradient(ellipse_60%_50%_at_90%_0%,rgba(251,146,60,0.12),transparent)]" />
-        <div className="relative mx-auto max-w-7xl">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-400/80">
-                Acervo digital
-              </p>
-              <h1 className="font-display text-4xl tracking-wide text-amber-50 sm:text-5xl">
-                Biblioteca
-              </h1>
-              <p className="max-w-xl text-sm text-white/55 sm:text-base">
-                Imagens dos leads, vídeos e arquivos do sistema em um só lugar.
-                Inclui fotos da lousa e anexos dos cards de lead.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {BIBLIOTECA_CATEGORIAS.map((cat) => {
-                const Icon = CATEGORIA_ICONS[cat.id];
-                return (
-                  <div
-                    key={cat.id}
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-sm"
-                  >
-                    <Icon className="mb-1 h-4 w-4 text-amber-400/80" />
-                    <p className="font-display text-2xl leading-none text-amber-100">
-                      {counts[cat.id]}
-                    </p>
-                    <p className="mt-1 text-[11px] text-white/45">{cat.label}</p>
-                  </div>
-                );
-              })}
-            </div>
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
+      <BibliotecaPageAura />
+      <div className="relative z-[1] mx-auto max-w-6xl space-y-6 pt-4 md:pt-8">
+      <header className="cobrancas-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/92 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-8">
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
+              <Images className="h-3.5 w-3.5" aria-hidden />
+              Álbum do ateliê
+            </p>
+            <h1 className="mt-2 font-display text-3xl italic leading-tight text-[#1a100c] sm:text-5xl">
+              Biblioteca
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-[#4a3428] sm:text-base">
+              Fotos dos leads, vídeos e arquivos do CRM — no mesmo papel da casa.
+            </p>
+            <p className="section-label mt-3">
+              {filteredMedias.length}{' '}
+              {filteredMedias.length === 1 ? 'peça na mesa' : 'peças na mesa'}
+            </p>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-8 lg:flex-row">
-        <aside className="lg:w-56 lg:shrink-0">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {BIBLIOTECA_CATEGORIAS.map((cat) => {
+          const Icon = CATEGORIA_ICONS[cat.id];
+          const active = categoria === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => {
+                setCategoria(cat.id);
+                clearSelection();
+              }}
+              aria-pressed={active}
+              className="text-left"
+            >
+              <Card
+                className={cn(
+                  'cobrancas-kpi-tile border-[rgba(26,16,12,0.14)] bg-[#fffaf4] shadow-[0_12px_32px_rgba(42,24,18,0.07)] transition',
+                  active && 'border-[rgba(107,63,18,0.4)] ring-1 ring-[rgba(107,63,18,0.18)]',
+                )}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium text-[#4a3428]">
+                    <Icon className="h-4 w-4 text-[#6b3f12]" aria-hidden />
+                    {cat.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="font-display text-2xl font-semibold text-[#6b3f12] sm:text-3xl">
+                    {counts[cat.id]}
+                  </p>
+                  <p className="mt-1 text-xs text-[#6b5244]">{cat.description}</p>
+                </CardContent>
+              </Card>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <aside className="hidden lg:block lg:w-52 lg:shrink-0">
           <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
             {BIBLIOTECA_CATEGORIAS.map((cat) => {
               const Icon = CATEGORIA_ICONS[cat.id];
@@ -385,26 +412,27 @@ export function BibliotecaPageContent() {
                 <button
                   key={cat.id}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => {
                     setCategoria(cat.id);
                     clearSelection();
                   }}
                   className={cn(
-                    'flex min-w-[140px] items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all lg:min-w-0 lg:w-full',
+                    'biblioteca-cat-btn flex min-w-[140px] items-center gap-3 rounded-sm border px-4 py-3 text-left transition-all lg:min-w-0 lg:w-full',
                     active
-                      ? 'border-amber-500/40 bg-amber-500/12 text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.12)]'
-                      : 'border-white/8 bg-white/[0.02] text-white/65 hover:border-white/15 hover:bg-white/[0.05]',
+                      ? 'border-[rgba(107,63,18,0.45)] bg-[#f4e4c4] text-[#6b3f12]'
+                      : 'border-[rgba(26,16,12,0.14)] bg-[#fffaf4] text-[#4a3428] hover:border-[rgba(107,63,18,0.28)] hover:bg-[#f8efe3]',
                   )}
                 >
-                  <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-amber-400' : 'text-white/40')} />
+                  <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-[#6b3f12]' : 'text-[#6b5244]')} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{cat.label}</p>
-                    <p className="truncate text-[11px] opacity-60">{cat.description}</p>
+                    <p className="truncate text-[11px] text-[#6b5244]">{cat.description}</p>
                   </div>
                   <span
                     className={cn(
                       'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                      active ? 'bg-amber-500/25 text-amber-200' : 'bg-white/8 text-white/50',
+                      active ? 'bg-[#6b3f12]/15 text-[#6b3f12]' : 'bg-[#efe4d4] text-[#6b5244]',
                     )}
                   >
                     {counts[cat.id]}
@@ -415,8 +443,8 @@ export function BibliotecaPageContent() {
           </nav>
 
           {canManage && (
-            <div className="mt-4 hidden rounded-xl border border-amber-500/20 bg-amber-500/8 p-3 lg:block">
-              <div className="flex items-center gap-2 text-xs text-amber-200/90">
+            <div className="mt-4 hidden rounded-sm border border-[rgba(107,63,18,0.22)] bg-[#f8efe3] p-3 lg:block">
+              <div className="flex items-center gap-2 text-xs text-[#6b3f12]">
                 <Shield className="h-3.5 w-3.5" />
                 Você pode inserir, excluir, baixar e exportar PDF
               </div>
@@ -426,11 +454,11 @@ export function BibliotecaPageContent() {
 
         <main className="min-w-0 flex-1 space-y-5">
           {currentFolderId && currentFolder && (
-            <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
+            <div className="flex items-center gap-2 rounded-sm border border-[rgba(107,63,18,0.22)] bg-[#fffaf4] px-4 py-3">
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-1 text-amber-200 hover:bg-amber-500/10 hover:text-amber-100"
+                className="gap-1 text-[#6b3f12] hover:bg-[#f4e4c4] hover:text-[#5a340e]"
                 onClick={() => {
                   setCurrentFolderId(null);
                   clearSelection();
@@ -439,10 +467,10 @@ export function BibliotecaPageContent() {
                 <ArrowLeft className="h-4 w-4" />
                 Voltar
               </Button>
-              <span className="text-white/30">/</span>
+              <span className="text-[#6b5244]/50">/</span>
               <div className="flex min-w-0 items-center gap-2">
-                <FolderOpen className="h-4 w-4 shrink-0 text-amber-400" />
-                <span className="truncate font-medium text-amber-100">{currentFolder.nome}</span>
+                <FolderOpen className="h-4 w-4 shrink-0 text-[#6b3f12]" />
+                <span className="truncate font-medium text-[#1a100c]">{currentFolder.nome}</span>
               </div>
             </div>
           )}
@@ -450,18 +478,18 @@ export function BibliotecaPageContent() {
           <BibliotecaUploadZone onUpload={handleUpload} uploading={uploading} />
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b5244]" />
             <Input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar por nome ou número do lead..."
-              className="border-white/10 bg-white/[0.03] pl-10"
+              className="border-[rgba(26,16,12,0.2)] bg-white pl-10 text-[#1a100c] placeholder:text-[#6b5244]"
             />
           </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-24">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#6b3f12]" />
             </div>
           ) : (
             <>
@@ -483,14 +511,14 @@ export function BibliotecaPageContent() {
               <section className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <h2 className="font-display text-lg tracking-wide text-amber-100">
+                    <h2 className="font-display text-lg tracking-wide text-[#1a100c]">
                       {filesSectionLabel}
                     </h2>
-                    <p className="text-xs text-white/45">
+                    <p className="text-xs text-[#6b5244]">
                       {filteredMedias.length}{' '}
                       {filteredMedias.length === 1 ? 'arquivo encontrado' : 'arquivos encontrados'}
                       {selectedIds.size > 0 && (
-                        <span className="text-amber-200/80">
+                        <span className="text-[#6b3f12]">
                           {' '}
                           · {selectedIds.size} selecionado{selectedIds.size === 1 ? '' : 's'}
                         </span>
@@ -504,7 +532,7 @@ export function BibliotecaPageContent() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-white/15 bg-white/5"
+                        className="border-[rgba(26,16,12,0.18)] bg-[#fffaf4] text-[#4a3428] hover:bg-[#f4e4c4]"
                         onClick={handleSelectAllImages}
                         disabled={batchBusy}
                       >
@@ -514,7 +542,7 @@ export function BibliotecaPageContent() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-white/15 bg-white/5"
+                        className="border-[rgba(26,16,12,0.18)] bg-[#fffaf4] text-[#4a3428] hover:bg-[#f4e4c4]"
                         onClick={handleSelectAllVisible}
                         disabled={batchBusy}
                       >
@@ -525,8 +553,8 @@ export function BibliotecaPageContent() {
                 </div>
 
                 {canManage && selectedIds.size > 0 && (
-                  <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/30 bg-[#1a1410]/95 px-3 py-2 shadow-lg backdrop-blur-md">
-                    <span className="mr-1 text-xs text-amber-100/90">
+                  <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-sm border border-[rgba(107,63,18,0.28)] bg-[#fffaf4]/95 px-3 py-2 shadow-lg backdrop-blur-md">
+                    <span className="mr-1 text-xs text-[#1a100c]">
                       {selectedIds.size} selecionado{selectedIds.size === 1 ? '' : 's'}
                       {selectedImages.length > 0 && selectedImages.length !== selectedIds.size
                         ? ` (${selectedImages.length} foto${selectedImages.length === 1 ? '' : 's'})`
@@ -537,7 +565,7 @@ export function BibliotecaPageContent() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="border-white/15 bg-white/5"
+                        className="border-[rgba(26,16,12,0.18)] bg-white text-[#4a3428]"
                         onClick={() => void handleDownloadSelected()}
                         disabled={batchBusy}
                       >
@@ -553,7 +581,7 @@ export function BibliotecaPageContent() {
                       <Button
                         type="button"
                         size="sm"
-                        className="bg-amber-500/90 text-black hover:bg-amber-400"
+                        className="bg-[#6b3f12] text-[#fffaf4] hover:bg-[#5a340e]"
                         onClick={() => void handleExportSelectedPdf()}
                         disabled={batchBusy || selectedImages.length === 0}
                         title={
@@ -574,7 +602,7 @@ export function BibliotecaPageContent() {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="text-white/70"
+                      className="text-[#6b5244] hover:bg-[#f4e4c4] hover:text-[#1a100c]"
                       onClick={clearSelection}
                       disabled={batchBusy}
                     >
@@ -585,10 +613,10 @@ export function BibliotecaPageContent() {
                 )}
 
                 {filteredMedias.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] py-16 text-center">
-                    <Archive className="mx-auto mb-3 h-10 w-10 text-white/25" />
-                    <p className="font-medium text-white/70">Nenhum arquivo aqui</p>
-                    <p className="mt-1 text-sm text-white/40">
+                  <div className="rounded-sm border border-dashed border-[rgba(26,16,12,0.18)] bg-[#fffaf4] py-16 text-center">
+                    <Archive className="mx-auto mb-3 h-10 w-10 text-[#6b5244]/50" />
+                    <p className="font-medium text-[#1a100c]">Nenhum arquivo aqui</p>
+                    <p className="mt-1 text-sm text-[#6b5244]">
                       {currentFolderId
                         ? 'Envie imagens para esta pasta usando a área acima'
                         : categoria === 'imagens'
@@ -617,6 +645,7 @@ export function BibliotecaPageContent() {
             </>
           )}
         </main>
+      </div>
       </div>
 
       <BibliotecaDetailDialog

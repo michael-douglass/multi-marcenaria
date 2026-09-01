@@ -278,9 +278,9 @@ export function WhiteboardProjectImagePicker({
         data-whiteboard-project-picker=""
         overlayClassName={elevated ? leadFullscreenNestedOverlayClass : 'z-[80]'}
         className={cn(
-          'flex max-h-[min(92dvh,900px)] flex-col gap-0 overflow-hidden p-0',
+          'flex max-h-[min(94dvh,960px)] flex-col gap-0 overflow-hidden p-0',
           'border-gold-border-subtle/40 bg-mahogany-panel',
-          inspecting ? 'sm:max-w-5xl' : 'sm:max-w-2xl',
+          inspecting ? 'sm:max-w-6xl' : 'sm:max-w-2xl',
           elevated ? leadFullscreenNestedContentClass : '!z-[81]',
         )}
         onPointerDownOutside={(event) => event.stopPropagation()}
@@ -309,7 +309,7 @@ export function WhiteboardProjectImagePicker({
               Não há outras imagens do projeto disponíveis para importar.
             </div>
           ) : inspecting ? (
-            <div className="flex min-h-[min(58dvh,520px)] w-full flex-1 flex-col">
+            <div className="flex min-h-[min(68dvh,640px)] w-full flex-1 flex-col">
               <div className="relative flex min-h-0 flex-1">
                 <Button
                   type="button"
@@ -349,7 +349,7 @@ export function WhiteboardProjectImagePicker({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-cream-muted hover:text-gold lg:right-[18.5rem]"
+                  className="absolute right-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-cream-muted hover:text-gold lg:right-[20rem]"
                   disabled={!canGoNextFile && !canGoNextPage}
                   onClick={() => {
                     if (canGoNextPage) {

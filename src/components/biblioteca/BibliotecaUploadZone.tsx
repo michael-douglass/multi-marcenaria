@@ -305,42 +305,40 @@ export function BibliotecaUploadZone({ onUpload, uploading }: BibliotecaUploadZo
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          'group relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed p-6 sm:p-8 transition-all duration-300',
+          'biblioteca-upload-sheet group relative cursor-pointer overflow-hidden rounded-sm border-2 border-dashed p-6 sm:p-8 transition-all duration-300',
           dragOver
-            ? 'border-amber-400/80 bg-amber-500/10 scale-[1.01]'
-            : 'border-amber-500/25 bg-gradient-to-br from-amber-500/[0.06] via-transparent to-orange-500/[0.04] hover:border-amber-400/50 hover:bg-amber-500/[0.08]',
+            ? 'border-[#6b3f12] bg-[#f4e4c4] scale-[1.01]'
+            : 'hover:border-[#6b3f12]/70 hover:bg-[#f8efe3]',
         )}
       >
-        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-amber-400/10 blur-2xl transition group-hover:bg-amber-400/20" />
-        <div className="pointer-events-none absolute -left-6 bottom-0 h-24 w-24 rounded-full bg-orange-500/10 blur-2xl opacity-0 transition group-hover:opacity-100" />
         <div className="relative flex flex-col items-center gap-3 text-center">
           <div className="flex items-center gap-2">
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-amber-500/15 ring-1 ring-amber-400/25 transition group-hover:scale-105">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-sm bg-[#fffaf4] ring-1 ring-[rgba(107,63,18,0.28)] transition group-hover:scale-105">
               {isWorking ? (
-                <Loader2 className="h-6 w-6 sm:h-7 sm:w-7 animate-spin text-amber-300" />
+                <Loader2 className="h-6 w-6 sm:h-7 sm:w-7 animate-spin text-[#6b3f12]" />
               ) : (
-                <CloudUpload className="h-6 w-6 sm:h-7 sm:w-7 text-amber-300" />
+                <CloudUpload className="h-6 w-6 sm:h-7 sm:w-7 text-[#6b3f12]" />
               )}
             </div>
           </div>
           <div>
-            <p className="font-display text-lg sm:text-xl tracking-wide text-amber-100">
+            <p className="font-display text-lg sm:text-xl tracking-wide text-[#1a100c]">
               Arraste imagens, vídeos, áudios ou PDF
             </p>
-            <p className="mt-1 text-xs sm:text-sm text-white/55 max-w-md mx-auto">
+            <p className="mt-1 text-xs sm:text-sm text-[#6b5244] max-w-md mx-auto">
               Selecione vários de uma vez · JPG, PNG, WebP · MP4, WebM · MP3, WAV · PDF · até 200 MB
             </p>
           </div>
-          <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-[10px] uppercase tracking-[0.16em] text-amber-200/50">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#6b3f12]/70">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#fffaf4] px-2.5 py-1 ring-1 ring-[rgba(26,16,12,0.12)]">
               <ImageIcon className="h-3 w-3" />
               Foto
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#fffaf4] px-2.5 py-1 ring-1 ring-[rgba(26,16,12,0.12)]">
               <Film className="h-3 w-3" />
               Vídeo
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#fffaf4] px-2.5 py-1 ring-1 ring-[rgba(26,16,12,0.12)]">
               <FilePlus className="h-3 w-3" />
               Áudio
             </span>
@@ -348,7 +346,7 @@ export function BibliotecaUploadZone({ onUpload, uploading }: BibliotecaUploadZo
           <Button
             type="button"
             size="sm"
-            className="mt-1 bg-amber-500/90 text-black hover:bg-amber-400"
+            className="mt-1 bg-[#6b3f12] text-[#fffaf4] hover:bg-[#5a340e]"
             disabled={isWorking}
           >
             <FilePlus className="mr-2 h-4 w-4" />

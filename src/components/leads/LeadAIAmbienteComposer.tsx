@@ -187,6 +187,28 @@ async function fileFromImageUrl(url: string, fileName: string): Promise<File> {
   return new File([blob], fileName, { type, lastModified: Date.now() });
 }
 
+function ambienteBlockedMessage(params: {
+  kind: 'analyze' | 'render';
+  configOff: boolean;
+  locked: boolean;
+  busy?: boolean;
+  canGo: boolean;
+}): string | null {
+  if (params.configOff) {
+    return 'A renderização com ambiente está desligada. Ative em Pipeline → Configurações → IA e confira a chave da API.';
+  }
+  if (params.kind === 'render' && params.busy) {
+    return 'Já existe uma renderização em andamento. Espere ela terminar.';
+  }
+  if (params.locked) {
+    return 'Aguarde a ação atual terminar.';
+  }
+  if (!params.canGo) {
+    return 'Escreva o cômodo no prompt, coloque uma foto ou um móvel na lousa para começar.';
+  }
+  return null;
+}
+
 function SceneDeleteBadge({
   label,
   disabled,
@@ -256,6 +278,7 @@ export function LeadAIAmbienteComposer({
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [isSavingCopy, setIsSavingCopy] = useState(false);
   const [sourceFolderId, setSourceFolderId] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const renderStartedRef = useRef(false);
 
   const updateFullscreen = useCallback((open: boolean) => {
@@ -402,7 +425,10 @@ export function LeadAIAmbienteComposer({
     }
     pushHistory();
     const id = newId('ov');
-    const size = overlaySizeFromZoom(1);
+    const aspect = (preview.naturalWidth || 1) / Math.max(preview.naturalHeight || 1, 1);
+    const scene = viewportRef.current;
+    const sceneAspect = (scene?.clientWidth || 1) / Math.max(scene?.clientHeight || 1, 1);
+    const size = overlaySizeFromZoom(1, aspect, sceneAspect);
     setOverlays((prev) => [
       ...prev,
       {
@@ -493,7 +519,7 @@ export function LeadAIAmbienteComposer({
       return backgroundRef.current?.scale ?? 1;
     }
     const overlay = overlaysRef.current.find((item) => item.id === id);
-    if (overlay) return zoomFromOverlayWidth(overlay.width);
+    if (overlay) return zoomFromOverlayWidth(overlay.width, overlay.height);
     const object = objectsRef.current.find((item) => item.id === id);
     if (object) return zoomFromObjectWidth(object.width);
     return backgroundRef.current?.scale ?? 1;
@@ -509,7 +535,7 @@ export function LeadAIAmbienteComposer({
     }
     const overlay = overlaysRef.current.find((item) => item.id === id);
     if (overlay) {
-      const size = overlaySizeFromZoom(zoom);
+      const size = overlaySizeFromZoom(zoom, overlay.width / Math.max(overlay.height, 0.001), 1);
       setOverlays((prev) =>
         prev.map((item) => {
           if (item.id !== id) return item;
@@ -887,7 +913,11 @@ export function LeadAIAmbienteComposer({
       }
       if (drag.kind === 'resize-overlay' && drag.origWidth != null && drag.origHeight != null) {
         const factor = Math.max(0.2, 1 + dx * 2.4);
-        const size = overlaySizeFromZoom(zoomFromOverlayWidth(drag.origWidth * factor));
+        const aspect = drag.origWidth / Math.max(drag.origHeight, 0.001);
+        const size = overlaySizeFromZoom(
+          zoomFromOverlayWidth(drag.origWidth * factor, drag.origHeight * factor),
+          aspect,
+        );
         setOverlays((prev) =>
           prev.map((item) => {
             if (item.id !== drag.id) return item;
@@ -1370,7 +1400,7 @@ export function LeadAIAmbienteComposer({
   const hudScale = (() => {
     if (selectedId === 'background' || (!selectedId && background)) return background?.scale ?? 1;
     const overlay = overlays.find((item) => item.id === selectedId);
-    if (overlay) return zoomFromOverlayWidth(overlay.width);
+    if (overlay) return zoomFromOverlayWidth(overlay.width, overlay.height);
     const object = objects.find((item) => item.id === selectedId);
     if (object) return zoomFromObjectWidth(object.width);
     return background?.scale ?? 1;
@@ -1528,8 +1558,7 @@ export function LeadAIAmbienteComposer({
             role="application"
             aria-label="Área de composição do ambiente"
             className={cn(
-              'absolute inset-0 bg-muted/20 rounded-xl border border-border/60 shadow-inner',
-              selectedObject || selectedShape ? 'overflow-visible' : 'overflow-hidden',
+              'absolute inset-0 bg-muted/20 rounded-xl border border-border/60 shadow-inner overflow-hidden',
             )}
             style={{ touchAction: 'none' }}
             onPointerMove={(event) => {
@@ -1635,7 +1664,7 @@ export function LeadAIAmbienteComposer({
                 <img
                   src={overlay.url}
                   alt={overlay.label}
-                  className="h-full w-full rounded-md object-cover"
+                  className="h-full w-full rounded-md object-contain"
                   draggable={false}
                 />
                 {selectedId === overlay.id && (
@@ -1854,7 +1883,7 @@ export function LeadAIAmbienteComposer({
           <div
             data-ambiente-toolbar="true"
             className={cn(
-              'flex flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-[hsl(var(--card))] p-2 shadow-sm',
+              'relative z-20 flex flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-[hsl(var(--card))] p-2 shadow-sm',
               isFullscreen && 'shrink-0',
             )}
           >
@@ -1981,47 +2010,102 @@ export function LeadAIAmbienteComposer({
           </div>
         )}
 
-        <div className={cn('flex flex-wrap gap-2', isFullscreen && 'shrink-0')}>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={locked || !canAnalyze}
-            onClick={() => void handleAnalyze()}
-            className="border-gold-border-subtle/40 bg-mahogany-muted/40"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Desmembrando…
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Sugerir composição
-              </>
-            )}
-          </Button>
-          <Button
-            type="button"
-            disabled={locked || isBusy || !canRender}
-            onClick={() => void handleRenderAmbiente()}
-            className="relative overflow-hidden"
-          >
-            <AmbienteAtmosphereFoil intensity={1.35} />
-            <span className="relative z-10 inline-flex items-center">
-              {isBusy || isFlattening ? (
+        <div className={cn('relative z-20 space-y-2', isFullscreen && 'shrink-0')}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              aria-disabled={locked || !canAnalyze}
+              disabled={false}
+              onClick={() => {
+                const blocked = ambienteBlockedMessage({
+                  kind: 'analyze',
+                  configOff: disabled,
+                  locked,
+                  canGo: canAnalyze,
+                });
+                if (blocked) {
+                  setActionNotice(blocked);
+                  toast.error(blocked);
+                  return;
+                }
+                setActionNotice(null);
+                void handleAnalyze();
+              }}
+              className={cn(
+                'cursor-pointer border-gold-border-subtle/40 bg-mahogany-muted/40',
+                (locked || !canAnalyze) && 'opacity-80',
+              )}
+            >
+              {isAnalyzing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Renderizando ambiente…
+                  Desmembrando…
                 </>
               ) : (
                 <>
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Renderizar ambiente
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Sugerir composição
                 </>
               )}
-            </span>
-          </Button>
+            </Button>
+            <Button
+              type="button"
+              aria-disabled={locked || isBusy || !canRender}
+              disabled={false}
+              title={
+                disabled
+                  ? 'Ative a renderização com ambiente nas configurações de IA'
+                  : isBusy || isFlattening
+                    ? 'Já existe uma renderização em andamento'
+                    : locked
+                      ? 'Aguarde a ação atual terminar'
+                      : !canRender
+                        ? 'Descreva o cômodo, coloque uma foto ou um móvel na lousa'
+                        : 'Gerar a foto do ambiente'
+              }
+              onClick={() => {
+                const blocked = ambienteBlockedMessage({
+                  kind: 'render',
+                  configOff: disabled,
+                  locked,
+                  busy: isBusy || isFlattening,
+                  canGo: canRender,
+                });
+                if (blocked) {
+                  setActionNotice(blocked);
+                  toast.error(blocked);
+                  return;
+                }
+                setActionNotice(null);
+                void handleRenderAmbiente();
+              }}
+              className={cn(
+                'relative z-20 cursor-pointer overflow-hidden',
+                (locked || isBusy || !canRender) && 'opacity-80',
+              )}
+            >
+              <AmbienteAtmosphereFoil intensity={1.35} />
+              <span className="relative z-10 inline-flex items-center">
+                {isBusy || isFlattening ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Renderizando ambiente…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Renderizar ambiente
+                  </>
+                )}
+              </span>
+            </Button>
+          </div>
+          {actionNotice ? (
+            <p role="status" className="max-w-xl text-xs leading-relaxed text-gold">
+              {actionNotice}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
@@ -2107,21 +2191,14 @@ export function LeadAIAmbienteComposer({
           setIsImportingProject(true);
           try {
             const label = midia.preview_label || midia.file_name || 'Foto do projeto';
+            const preview = await urlToImagePreview(url, label).catch(() =>
+              previewFromImageUrl(url, label),
+            );
             setProjectPickerOpen(false);
-            await setPhotoAsBackgroundOrOverlay(previewFromImageUrl(url, label));
+            await setPhotoAsBackgroundOrOverlay(preview);
             if (midia.folder_id) setSourceFolderId(midia.folder_id);
             toast.success('Foto na lousa', {
               description: 'Agora você pode medir, anotar e posicionar móveis em cima dela.',
-            });
-            void urlToImagePreview(url, label).then((full) => {
-              setBackground((prev) => {
-                if (!prev || prev.url !== url) return prev;
-                return {
-                  ...prev,
-                  naturalWidth: full.naturalWidth,
-                  naturalHeight: full.naturalHeight,
-                };
-              });
             });
           } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');

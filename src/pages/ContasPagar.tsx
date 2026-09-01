@@ -1,6 +1,17 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pencil, Trash2, RefreshCw } from 'lucide-react'
+import {
+  AlertCircle,
+  Banknote,
+  Pencil,
+  Plus,
+  Receipt,
+  Search,
+  Trash2,
+  RefreshCw,
+  Wallet,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useFinanceData } from '@/context/FinanceDataContext'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
@@ -18,6 +29,7 @@ import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarC
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
 import { ContasPagarImportButton } from '../components/contas-pagar/ContasPagarImportButton'
 import { ContasPagarSelecaoPopup } from '../components/contas-pagar/ContasPagarSelecaoPopup'
+import { ContasPagarPageAura } from '../components/contas-pagar/ContasPagarPageAura'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -30,7 +42,7 @@ import {
   revokePendingAnexoUrls,
   uploadContaPagarAnexos,
 } from '../lib/contas-pagar-anexos'
-import { createId, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO, addMonths } from '../lib/utils'
+import { createId, cn, fmtCur, fmtDate, isOverdue, parseMoneyBr, todayISO, addMonths } from '../lib/utils'
 import { normalizeObraDate, parseIsoDate } from '../lib/date-br'
 import {
   applyPeriodFilter,
@@ -552,21 +564,27 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     if (hasCardsFiltroAtivo) {
       return [
         {
-          l: 'A Pagar',
-          v: kpiSource.filter(p => p.status !== 'pago').reduce((s, p) => s + restante(p), 0),
-          c: '#fbbf24',
+          label: 'A pagar',
+          hint: 'ainda sai do caixa neste recorte',
+          value: kpiSource.filter(p => p.status !== 'pago').reduce((s, p) => s + restante(p), 0),
+          tone: 'gold' as const,
+          icon: Wallet,
         },
         {
-          l: 'Pago',
-          v: kpiSource.reduce((s, p) => s + getValorPagoConta(p), 0),
-          c: '#4ade80',
+          label: 'Pago',
+          hint: 'já saiu do caixa',
+          value: kpiSource.reduce((s, p) => s + getValorPagoConta(p), 0),
+          tone: 'ok' as const,
+          icon: Banknote,
         },
         {
-          l: 'Vencido',
-          v: kpiSource
+          label: 'Vencido',
+          hint: 'passou do vencimento',
+          value: kpiSource
             .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
             .reduce((s, p) => s + restante(p), 0),
-          c: '#f87171',
+          tone: 'late' as const,
+          icon: AlertCircle,
         },
       ]
     }
@@ -575,25 +593,31 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
     return [
       {
-        l: 'A Pagar (mês atual)',
-        v: baseKpi
+        label: 'A pagar',
+        hint: 'vencimento neste mês',
+        value: baseKpi
           .filter(p => isVencimentoNoMesAtual(p.data_vencimento) && p.status !== 'pago')
           .reduce((s, p) => s + restante(p), 0),
-        c: '#fbbf24',
+        tone: 'gold' as const,
+        icon: Wallet,
       },
       {
-        l: 'Pago (mês atual)',
-        v: baseKpi
+        label: 'Pago',
+        hint: 'pago neste mês',
+        value: baseKpi
           .filter(p => isVencimentoNoMesAtual(p.data_vencimento))
           .reduce((s, p) => s + getValorPagoConta(p), 0),
-        c: '#4ade80',
+        tone: 'ok' as const,
+        icon: Banknote,
       },
       {
-        l: 'Vencidas (todas)',
-        v: baseKpi
+        label: 'Vencidas',
+        hint: 'todas as que atrasaram',
+        value: baseKpi
           .filter(p => p.status !== 'pago' && isOverdue(p.data_vencimento))
           .reduce((s, p) => s + restante(p), 0),
-        c: '#f87171',
+        tone: 'late' as const,
+        icon: AlertCircle,
       },
     ]
   }, [hasCardsFiltroAtivo, kpiSource, data, idsOcultos])
@@ -1002,31 +1026,50 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   return (
-    <div className="fade-in">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display" style={{ fontSize: '2.2rem', color: '#f2d892', letterSpacing: '.08em' }}>Contas a Pagar</h1>
-          <p className="section-label mt-1">
-            {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''}
-            {periodoLabel ? ` em ${periodoLabel}` : ' no período'}
-            {hasLancamentoPagarDraft() && !open ? ' · rascunho salvo' : ''}
-          </p>
-        </div>
-        {!readOnly && (
-          <div className="flex flex-wrap items-center gap-2">
-            <ContasPagarConfigButton readOnly={readOnly} formasHook={formasHook} />
-            <ContasPagarImportButton
-              fornecedores={fornecedores}
-              contasExistentes={data}
-              readOnly={readOnly}
-              onImport={importarCobrancasUnicas}
-            />
-            <button type="button" className="btn btn-gold btn-md" onClick={openManualLaunch}>
-              + Lançamento Manual
-            </button>
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
+      <ContasPagarPageAura />
+      <div className="relative z-[1] mx-auto max-w-6xl space-y-6 pt-4 md:pt-8">
+      <header className="cobrancas-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/92 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-8">
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
+              <Receipt className="h-3.5 w-3.5" aria-hidden />
+              Saídas do ateliê
+              {readOnly ? (
+                <span className="rounded-full border border-[rgba(107,63,18,0.35)] px-2 py-0.5 text-[10px] font-normal normal-case tracking-normal">
+                  Somente visualização
+                </span>
+              ) : null}
+            </p>
+            <h1 className="mt-2 font-display text-3xl italic leading-tight text-[#1a100c] sm:text-5xl">
+              Contas a pagar
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-[#4a3428] sm:text-base">
+              Fornecedores, parcelas e o que ainda precisa sair do caixa — no mesmo papel da casa.
+            </p>
+            <p className="section-label mt-3">
+              {periodFiltered.length} parcela{periodFiltered.length !== 1 ? 's' : ''}
+              {periodoLabel ? ` em ${periodoLabel}` : ' no período'}
+              {hasLancamentoPagarDraft() && !open ? ' · rascunho salvo neste navegador' : ''}
+            </p>
           </div>
-        )}
-      </div>
+          {!readOnly && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <ContasPagarConfigButton readOnly={readOnly} formasHook={formasHook} />
+              <ContasPagarImportButton
+                fornecedores={fornecedores}
+                contasExistentes={data}
+                readOnly={readOnly}
+                onImport={importarCobrancasUnicas}
+              />
+              <button type="button" className="btn btn-gold btn-md gap-1.5" onClick={openManualLaunch}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Lançamento manual
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
 
       {saveError && (
         <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
@@ -1042,13 +1085,49 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         }}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
-        {kpiCards.map((x, i) => (
-          <div key={i} className="glass-card p-4 text-center">
-            <div className="section-label mb-1">{x.l}</div>
-            <div className="font-display" style={{ fontSize: '1.35rem', color: x.c }}>{fmtCur(x.v)}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {kpiCards.map((kpi) => {
+          const Icon = kpi.icon
+          return (
+            <Card
+              key={kpi.label}
+              className={cn(
+                'cobrancas-kpi-tile border-[rgba(26,16,12,0.14)] bg-[#fffaf4] shadow-[0_12px_32px_rgba(42,24,18,0.07)]',
+                kpi.tone === 'late' && 'border-[rgba(159,18,57,0.28)]',
+                kpi.tone === 'ok' && 'border-[rgba(20,108,56,0.24)]',
+                kpi.tone === 'gold' && 'border-[rgba(107,63,18,0.28)]',
+              )}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-[#4a3428]">
+                  <Icon
+                    className={cn(
+                      'h-4 w-4',
+                      kpi.tone === 'ok' && 'text-[#146c38]',
+                      kpi.tone === 'late' && 'text-[#9f1239]',
+                      kpi.tone === 'gold' && 'text-[#6b3f12]',
+                    )}
+                    aria-hidden
+                  />
+                  {kpi.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  className={cn(
+                    'font-display text-2xl font-semibold sm:text-3xl',
+                    kpi.tone === 'ok' && 'text-[#146c38]',
+                    kpi.tone === 'late' && 'text-[#9f1239]',
+                    kpi.tone === 'gold' && 'text-[#6b3f12]',
+                  )}
+                >
+                  {fmtCur(kpi.value)}
+                </p>
+                <p className="mt-1 text-xs text-[#6b5244]">{kpi.hint}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       <Modal
@@ -1505,7 +1584,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       </Modal>
 
       <div className="flex items-start gap-2 flex-wrap">
-        <div className="flex-1 min-w-0">
+        <div className="cobrancas-filters min-w-0 flex-1">
           <FilterBar
             options={['Todos', ...STATUS_FILTER_OPTIONS]}
             multi
@@ -1696,14 +1775,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="relative mb-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b3f12]" aria-hidden />
         <input
-          type="text"
-          className="glass-input w-full"
-          placeholder="Buscar por fornecedor, descrição, valor total, valor da parcela ou data..."
+          type="search"
+          className="glass-input w-full pl-10"
+          placeholder="Buscar por fornecedor, descrição, valor total, valor da parcela ou data…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
+          aria-label="Buscar contas a pagar"
         />
       </div>
 
@@ -1726,7 +1806,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         />
       )}
 
-      <div className="glass-card overflow-hidden">
+      <div className="cobrancas-ledger glass-card overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState
             message={
@@ -1737,10 +1817,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           />
         ) : (
           <div className="overflow-x-auto">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: '1px solid rgba(240,210,140,.18)' }}>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
                 {!readOnly && (
-                  <th className="section-label px-3 py-3 w-10">
+                  <th className="section-label w-10 px-3 py-3">
                     <input
                       type="checkbox"
                       aria-label="Selecionar todas as contas visíveis"
@@ -1752,12 +1833,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         el.indeterminate = someChecked && !allChecked
                       }}
                       onChange={e => toggleSelectAllVisible(e.target.checked)}
-                      style={{ accentColor: '#f2d892' }}
+                      className="accent-[#6b3f12]"
                     />
                   </th>
                 )}
-                {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label text-left px-4 py-3">{h}</th>)}
-              </tr></thead>
+                {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label px-4 py-3 text-left">{h}</th>)}
+                </tr>
+              </thead>
               <tbody>
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
@@ -1766,7 +1848,10 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   const detalhes = getDetalhesExibicaoContaPagar(p, nomeExibido)
                   const valorTotalLancamento = getValorTotalLancamento(p, data)
                   return (
-                    <tr key={p.id} className="trow" style={isSelected ? { background: 'rgba(240,210,140,.06)' } : undefined}>
+                    <tr
+                      key={p.id}
+                      className={cn('trow', s === 'vencido' && 'cobrancas-row-late', isSelected && 'bg-[#f8efe0]')}
+                    >
                       {!readOnly && (
                         <td className="px-3 py-3 align-top">
                           <input
@@ -1774,34 +1859,33 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                             aria-label={`Selecionar ${nomeExibido}`}
                             checked={isSelected}
                             onChange={e => toggleSelectRow(p.id, e.target.checked)}
-                            style={{ accentColor: '#f2d892' }}
+                            className="accent-[#6b3f12]"
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3" style={{ color: '#fffaf4', maxWidth: 220 }}>
+                      <td className="max-w-[220px] px-4 py-3 font-medium text-[#1a100c]">
                         <div className="flex items-center gap-1.5">
                           {p.recorrente && (
                             <RefreshCw
-                              className="shrink-0 text-[#f2d892]"
-                              style={{ width: 11, height: 11 }}
+                              className="h-2.5 w-2.5 shrink-0 text-[#6b3f12]"
                               title="Cobrança recorrente"
                             />
                           )}
                           <span>{nomeExibido}</span>
                         </div>
                         {valorTotalLancamento != null && (
-                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#f2d892' }}>
+                          <div className="mt-0.5 text-[0.72rem] text-[#6b3f12]">
                             {fmtCur(valorTotalLancamento)}
                           </div>
                         )}
                         {p.fornecedor_id && getSaldoFornecedor(p.fornecedor_id) > 0 && s !== 'pago' && (
-                          <div className="mt-0.5 text-[0.72rem]" style={{ color: '#4ade80' }}>
+                          <div className="mt-0.5 text-[0.72rem] text-[#146c38]">
                             Saldo: {fmtCur(getSaldoFornecedor(p.fornecedor_id))}
                           </div>
                         )}
                         {detalhes.descricao ? (
                           <p
-                            className="mt-1 line-clamp-2 text-[0.75rem] text-[#edd9c4]"
+                            className="mt-1 line-clamp-2 text-[0.75rem] text-[#4a3428]"
                             title={detalhes.descricao}
                           >
                             {detalhes.descricao}
@@ -1809,21 +1893,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         ) : null}
                         {detalhes.observacao ? (
                           <p
-                            className="mt-0.5 line-clamp-2 text-[0.72rem] italic text-[#d4bc9f]"
+                            className="mt-0.5 line-clamp-2 text-[0.72rem] italic text-[#6b5244]"
                             title={detalhes.observacao}
                           >
                             {detalhes.observacao}
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-[0.82rem] text-[#edd9c4]">
+                      <td className="px-4 py-3 text-[0.82rem] text-[#4a3428]">
                         {p.movelaria_formas_pagamento_pagar?.nome ?? '—'}
                       </td>
-                      <td className="px-4 py-3" style={{ color: '#edd9c4', fontSize: '.85rem' }}>{p.numero_parcela}/{p.total_parcelas}</td>
-                      <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 600 }}>{fmtCur(p.valor_parcela)}</td>
-                      <td className="px-4 py-3" style={{ color: getValorPagoConta(p) > 0 ? '#4ade80' : '#4a5568', fontWeight: 600 }}>{fmtCur(getValorPagoConta(p))}</td>
-                      <td className="px-4 py-3" style={{ color: p.status === 'pago' ? '#4ade80' : '#fffaf4', fontWeight: 600 }}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
-                      <td className="px-4 py-3" style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4', fontSize: '.85rem' }}>{fmtDate(p.data_vencimento)}</td>
+                      <td className="px-4 py-3 text-sm text-[#4a3428]">{p.numero_parcela}/{p.total_parcelas}</td>
+                      <td className="px-4 py-3 font-semibold text-[#6b3f12]">{fmtCur(p.valor_parcela)}</td>
+                      <td className={cn('px-4 py-3 font-semibold', getValorPagoConta(p) > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(getValorPagoConta(p))}</td>
+                      <td className={cn('px-4 py-3 font-semibold', p.status === 'pago' ? 'text-[#146c38]' : 'text-[#1a100c]')}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
+                      <td className={cn('px-4 py-3 text-sm', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(p.data_vencimento)}</td>
                       <td className="px-4 py-3"><Badge status={s} /></td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -1894,7 +1978,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                               {revertingId === p.id ? 'Revertendo…' : `↩ Reverter (${fmtDate(p.data_pagamento)})`}
                             </button>
                           ) : s === 'pago' ? (
-                            <span style={{ color: '#4ade80', fontSize: '.75rem' }}>✓ {fmtDate(p.data_pagamento)}</span>
+                            <span className="text-xs font-semibold text-[#146c38]">✓ {fmtDate(p.data_pagamento)}</span>
                           ) : null}
                         </div>
                       </td>
@@ -1903,11 +1987,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: '1px solid rgba(240,210,140,.18)', background: 'rgba(240,210,140,.04)' }}>
-                  <td colSpan={readOnly ? 3 : 4} className="px-4 py-3 section-label" style={{ fontWeight: 700 }}>Total</td>
-                  <td className="px-4 py-3" style={{ color: '#f2d892', fontWeight: 700 }}>{fmtCur(totaisColunas.valorTotal)}</td>
-                  <td className="px-4 py-3" style={{ color: totaisColunas.pago > 0 ? '#4ade80' : '#4a5568', fontWeight: 700 }}>{fmtCur(totaisColunas.pago)}</td>
-                  <td className="px-4 py-3" style={{ color: totaisColunas.restante > 0 ? '#f87171' : '#4ade80', fontWeight: 700 }}>{fmtCur(totaisColunas.restante)}</td>
+                <tr className="border-t border-[rgba(26,16,12,0.14)] bg-[rgba(26,16,12,0.04)]">
+                  <td colSpan={readOnly ? 3 : 4} className="section-label px-4 py-3 font-bold">Total</td>
+                  <td className="px-4 py-3 font-bold text-[#6b3f12]">{fmtCur(totaisColunas.valorTotal)}</td>
+                  <td className={cn('px-4 py-3 font-bold', totaisColunas.pago > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(totaisColunas.pago)}</td>
+                  <td className={cn('px-4 py-3 font-bold', totaisColunas.restante > 0 ? 'text-[#9f1239]' : 'text-[#146c38]')}>{fmtCur(totaisColunas.restante)}</td>
                   <td colSpan={3} />
                 </tr>
               </tfoot>
@@ -2179,6 +2263,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       )}
 
       <CaixaPopup open={caixaOpen} onClose={() => setCaixaOpen(false)} />
+      </div>
     </div>
   )
 }

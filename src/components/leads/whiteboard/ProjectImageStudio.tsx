@@ -5,14 +5,17 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
 import {
   Contrast,
+  Crosshair,
   Eraser,
   FlipHorizontal2,
   FlipVertical2,
   Loader2,
+  MapPin,
   RotateCcw,
   RotateCw,
   SunMedium,
@@ -28,9 +31,15 @@ import { cn } from '@/lib/utils';
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 import {
   bakeImageStudio,
+  computeStudioAlphaMask,
+  containRotatedPlane,
   DEFAULT_IMAGE_STUDIO_EDITS,
+  getCanvasSourceSize,
   imageStudioHasEdits,
+  normalizeStudioRotation,
+  PREVIEW_CUTOUT_MAX_EDGE,
   type ImageStudioEdits,
+  type ImageStudioSeed,
 } from '@/lib/lead-image-studio';
 import { WhiteboardWoodFoil } from '@/components/leads/whiteboard/WhiteboardWoodFoil';
 
@@ -69,6 +78,55 @@ function StudioField({
   );
 }
 
+interface PreviewFit {
+  nw: number;
+  nh: number;
+}
+
+function hostPointToUv(
+  clientX: number,
+  clientY: number,
+  host: HTMLElement,
+  fit: PreviewFit,
+  edits: ImageStudioEdits,
+): ImageStudioSeed | null {
+  const rect = host.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return null;
+  const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -(((clientY - rect.top) / rect.height) * 2 - 1);
+  const sx = fit.nw * (edits.flipH ? -1 : 1);
+  const sy = fit.nh * (edits.flipV ? -1 : 1);
+  if (Math.abs(sx) < 1e-4 || Math.abs(sy) < 1e-4) return null;
+  const rz = -(edits.rotation * Math.PI) / 180;
+  const c = Math.cos(-rz);
+  const s = Math.sin(-rz);
+  const px = (nx * c - ny * s) / sx;
+  const py = (nx * s + ny * c) / sy;
+  if (Math.abs(px) > 1.02 || Math.abs(py) > 1.02) return null;
+  return {
+    u: Math.min(1, Math.max(0, (px + 1) / 2)),
+    v: Math.min(1, Math.max(0, (py + 1) / 2)),
+  };
+}
+
+function uvToHostPercent(seed: ImageStudioSeed, fit: PreviewFit, edits: ImageStudioEdits) {
+  const sx = fit.nw * (edits.flipH ? -1 : 1);
+  const sy = fit.nh * (edits.flipV ? -1 : 1);
+  const rz = -(edits.rotation * Math.PI) / 180;
+  const lx = seed.u * 2 - 1;
+  const ly = seed.v * 2 - 1;
+  const x = lx * sx;
+  const y = ly * sy;
+  const c = Math.cos(rz);
+  const s = Math.sin(rz);
+  const wx = x * c - y * s;
+  const wy = x * s + y * c;
+  return {
+    left: ((wx + 1) / 2) * 100,
+    top: ((1 - wy) / 2) * 100,
+  };
+}
+
 export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectImageStudioProps>(
   function ProjectImageStudio({ sourceUrl, disabled = false }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
@@ -79,10 +137,20 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       uWarmth: { value: number };
     } | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
+    const previewFitRef = useRef<PreviewFit>({ nw: 1, nh: 1 });
+    const sourcePixelsRef = useRef<{ image: CanvasImageSource; width: number; height: number } | null>(
+      null,
+    );
+    const applyMaskRef = useRef<(tex: THREE.DataTexture | null) => void>(() => {});
+    const maskJobRef = useRef(0);
+
     const [edits, setEdits] = useState<ImageStudioEdits>(DEFAULT_IMAGE_STUDIO_EDITS);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [webglOk, setWebglOk] = useState(true);
+    const [sourceReady, setSourceReady] = useState(0);
+    const [pointing, setPointing] = useState(false);
+    const [fitTick, setFitTick] = useState(0);
 
     const editsRef = useRef(edits);
     editsRef.current = edits;
@@ -97,7 +165,9 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
     );
 
     useEffect(() => {
-      setEdits(DEFAULT_IMAGE_STUDIO_EDITS);
+      setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [] });
+      setPointing(false);
+      sourcePixelsRef.current = null;
     }, [sourceUrl]);
 
     useEffect(() => {
@@ -113,6 +183,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       let material: THREE.ShaderMaterial | null = null;
       let mesh: THREE.Mesh | null = null;
       let ro: ResizeObserver | null = null;
+      let maskTexture: THREE.DataTexture | null = null;
 
       const rendererOrNull = tryCreateWebGLRenderer(
         () =>
@@ -133,11 +204,15 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       renderer = rendererOrNull;
       setWebglOk(true);
       renderer.setClearColor(0x000000, 0);
+      renderer.debug.checkShaderErrors = true;
       renderer.domElement.style.display = 'block';
       renderer.domElement.style.width = '100%';
       renderer.domElement.style.height = '100%';
       renderer.domElement.style.pointerEvents = 'none';
       host.appendChild(renderer.domElement);
+
+      const dummyMask = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+      dummyMask.needsUpdate = true;
 
       THREE.Cache.enabled = true;
       const manager = new THREE.LoadingManager();
@@ -146,13 +221,13 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
 
       const uniforms = {
         uMap: { value: new THREE.Texture() },
+        uMask: { value: dummyMask },
         uBrightness: { value: 1 },
         uContrast: { value: 1 },
         uSaturation: { value: 1 },
         uWarmth: { value: 0 },
         uCutBg: { value: 0 },
-        uCutTol: { value: 0.28 },
-        uCutColor: { value: new THREE.Vector3(0.92, 0.9, 0.86) },
+        uUseMask: { value: 0 },
       };
       uniformsRef.current = uniforms;
 
@@ -169,13 +244,13 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         `,
         fragmentShader: `
           uniform sampler2D uMap;
+          uniform sampler2D uMask;
           uniform float uBrightness;
           uniform float uContrast;
           uniform float uSaturation;
           uniform float uWarmth;
           uniform float uCutBg;
-          uniform float uCutTol;
-          uniform vec3 uCutColor;
+          uniform float uUseMask;
           varying vec2 vUv;
 
           void main() {
@@ -186,8 +261,8 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
             color = mix(vec3(luma), color, uSaturation);
             color.r += uWarmth * 0.18;
             color.b -= uWarmth * 0.14;
-            float cut = smoothstep(uCutTol * 0.7, uCutTol * 1.18, distance(texel.rgb, uCutColor));
-            float alpha = texel.a * mix(1.0, cut, uCutBg);
+            float keep = texture2D(uMask, vUv).r;
+            float alpha = texel.a * mix(1.0, keep, uCutBg * uUseMask);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), alpha);
           }
         `,
@@ -199,16 +274,13 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       scene.add(mesh);
       meshRef.current = mesh;
 
-      const fitMesh = (tex: THREE.Texture) => {
-        const img = tex.image as { width?: number; height?: number } | undefined;
-        const iw = Math.max(1, img?.width ?? 1);
-        const ih = Math.max(1, img?.height ?? 1);
-        const hostW = Math.max(host.clientWidth, 1);
-        const hostH = Math.max(host.clientHeight, 1);
-        const contain = Math.min(hostW / iw, hostH / ih);
-        const nw = (iw * contain) / hostW;
-        const nh = (ih * contain) / hostH;
-        mesh!.scale.set(nw, nh, 1);
+      applyMaskRef.current = (tex) => {
+        if (maskTexture && maskTexture !== dummyMask) {
+          maskTexture.dispose();
+        }
+        maskTexture = tex;
+        uniforms.uMask.value = tex ?? dummyMask;
+        uniforms.uUseMask.value = tex ? 1 : 0;
       };
 
       const applyEditsToMesh = () => {
@@ -218,11 +290,16 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         uniforms.uSaturation.value = current.saturation / 100;
         uniforms.uWarmth.value = current.warmth / 100;
         uniforms.uCutBg.value = current.removeBg ? 1 : 0;
-        uniforms.uCutTol.value = current.bgTolerance / 120;
         if (!mesh) return;
+        const src = sourcePixelsRef.current;
+        const hostW = Math.max(host.clientWidth, 1);
+        const hostH = Math.max(host.clientHeight, 1);
+        const iw = src?.width ?? (texture?.image as { width?: number } | undefined)?.width ?? 1;
+        const ih = src?.height ?? (texture?.image as { height?: number } | undefined)?.height ?? 1;
+        const fit = containRotatedPlane(iw, ih, hostW, hostH, current.rotation);
+        previewFitRef.current = fit;
         mesh.rotation.z = -(current.rotation * Math.PI) / 180;
-        mesh.scale.x = Math.abs(mesh.scale.x) * (current.flipH ? -1 : 1);
-        mesh.scale.y = Math.abs(mesh.scale.y) * (current.flipV ? -1 : 1);
+        mesh.scale.set(fit.nw * (current.flipH ? -1 : 1), fit.nh * (current.flipV ? -1 : 1), 1);
       };
 
       const resize = () => {
@@ -231,8 +308,8 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         const h = Math.max(host.clientHeight, 1);
         renderer.setPixelRatio(1);
         renderer.setSize(w, h, false);
-        fitMesh(texture);
         applyEditsToMesh();
+        setFitTick((n) => n + 1);
       };
 
       const draw = () => {
@@ -240,26 +317,6 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         frame = requestAnimationFrame(draw);
         applyEditsToMesh();
         renderer.render(scene, camera);
-      };
-
-      const sampleCorners = (image: CanvasImageSource) => {
-        const probe = document.createElement('canvas');
-        probe.width = 4;
-        probe.height = 4;
-        const ctx = probe.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(image, 0, 0, 4, 4);
-        const px = ctx.getImageData(0, 0, 4, 4).data;
-        const corners = [0, 3, 12, 15];
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        for (const index of corners) {
-          r += px[index * 4];
-          g += px[index * 4 + 1];
-          b += px[index * 4 + 2];
-        }
-        uniforms.uCutColor.value.set(r / 1020, g / 1020, b / 1020);
       };
 
       const attachTexture = (tex: THREE.Texture) => {
@@ -270,10 +327,18 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         tex.needsUpdate = true;
         texture = tex;
         uniforms.uMap.value = tex;
-        if (tex.image) sampleCorners(tex.image as CanvasImageSource);
+        if (tex.image) {
+          const size = getCanvasSourceSize(tex.image as CanvasImageSource);
+          sourcePixelsRef.current = {
+            image: tex.image as CanvasImageSource,
+            width: size.width,
+            height: size.height,
+          };
+        }
         resize();
         setIsLoading(false);
         setLoadError(null);
+        setSourceReady((n) => n + 1);
         draw();
       };
 
@@ -331,25 +396,88 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         running = false;
         cancelAnimationFrame(frame);
         ro?.disconnect();
+        applyMaskRef.current = () => {};
         uniformsRef.current = null;
         meshRef.current = null;
+        sourcePixelsRef.current = null;
         texture?.dispose();
         material?.dispose();
         mesh?.geometry.dispose();
+        if (maskTexture && maskTexture !== dummyMask) maskTexture.dispose();
+        dummyMask.dispose();
         renderer?.dispose();
         if (renderer?.domElement.parentNode === host) host.removeChild(renderer.domElement);
         if (blobUrl) URL.revokeObjectURL(blobUrl);
       };
     }, [sourceUrl]);
 
+    useEffect(() => {
+      if (!edits.removeBg) {
+        maskJobRef.current += 1;
+        applyMaskRef.current(null);
+        return;
+      }
+      const src = sourcePixelsRef.current;
+      if (!src) return;
+      const job = ++maskJobRef.current;
+      const seeds = edits.bgSeeds;
+      const tolerance = edits.bgTolerance;
+      const timer = window.setTimeout(() => {
+        try {
+          const result = computeStudioAlphaMask(
+            src.image,
+            src.width,
+            src.height,
+            tolerance,
+            seeds,
+            PREVIEW_CUTOUT_MAX_EDGE,
+          );
+          if (job !== maskJobRef.current) return;
+          const tex = new THREE.DataTexture(result.rgba, result.width, result.height, THREE.RGBAFormat);
+          tex.flipY = true;
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.needsUpdate = true;
+          applyMaskRef.current(tex);
+        } catch {
+          if (job === maskJobRef.current) applyMaskRef.current(null);
+        }
+      }, 70);
+      return () => window.clearTimeout(timer);
+    }, [edits.removeBg, edits.bgTolerance, edits.bgSeeds, sourceReady, sourceUrl]);
+
     const patch = useCallback((partial: Partial<ImageStudioEdits>) => {
       setEdits((prev) => ({ ...prev, ...partial }));
     }, []);
 
-    const rotate = (delta: 90 | -90) => {
+    const rotate = (delta: number) => {
       setEdits((prev) => ({
         ...prev,
-        rotation: ((((prev.rotation + delta) % 360) + 360) % 360) as ImageStudioEdits['rotation'],
+        rotation: normalizeStudioRotation(prev.rotation + delta),
+      }));
+    };
+
+    const handlePoint = (event: MouseEvent<HTMLDivElement>) => {
+      if (disabled || !pointing || !edits.removeBg) return;
+      const host = hostRef.current;
+      if (!host) return;
+      const seed = hostPointToUv(event.clientX, event.clientY, host, previewFitRef.current, edits);
+      if (!seed) return;
+      setEdits((prev) => ({ ...prev, bgSeeds: [...prev.bgSeeds, seed] }));
+    };
+
+    const undoLastSeed = () => {
+      setEdits((prev) => ({ ...prev, bgSeeds: prev.bgSeeds.slice(0, -1) }));
+    };
+
+    const clearSeeds = () => {
+      setEdits((prev) => ({ ...prev, bgSeeds: [] }));
+    };
+
+    const removeSeedAt = (index: number) => {
+      setEdits((prev) => ({
+        ...prev,
+        bgSeeds: prev.bgSeeds.filter((_, i) => i !== index),
       }));
     };
 
@@ -357,23 +485,63 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       <div data-image-studio-panel="" className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div
           className={cn(
-            'relative min-h-[240px] flex-1 overflow-hidden',
+            'relative min-h-[min(48dvh,380px)] flex-1 overflow-hidden lg:min-h-[min(58dvh,520px)]',
             edits.removeBg
-              ? 'bg-[linear-gradient(45deg,#3a241c_25%,transparent_25%,transparent_75%,#3a241c_75%),linear-gradient(45deg,#3a241c_25%,transparent_25%,transparent_75%,#3a241c_75%)] bg-[length:18px_18px] bg-[position:0_0,9px_9px] bg-[#1a100c]'
+              ? 'bg-[linear-gradient(45deg,#d7c7a8_25%,transparent_25%,transparent_75%,#d7c7a8_75%),linear-gradient(45deg,#d7c7a8_25%,transparent_25%,transparent_75%,#d7c7a8_75%)] bg-[length:18px_18px] bg-[position:0_0,9px_9px] bg-[#efe4cc]'
               : 'bg-mahogany-base',
           )}
         >
-          <div ref={hostRef} className="absolute inset-0" />
+          <div ref={hostRef} data-studio-preview="" className="absolute inset-3 sm:inset-4 lg:inset-5" />
           {!webglOk && (
             <img
               src={sourceUrl}
               alt=""
-              className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
+              className="absolute inset-3 m-auto max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] object-contain sm:inset-4"
               style={{
                 filter: `brightness(${edits.brightness}%) contrast(${edits.contrast}%) saturate(${edits.saturation}%)`,
                 transform: `rotate(${edits.rotation}deg) scaleX(${edits.flipH ? -1 : 1}) scaleY(${edits.flipV ? -1 : 1})`,
               }}
             />
+          )}
+          <div className="absolute inset-3 z-[5] sm:inset-4 lg:inset-5">
+            {edits.removeBg && pointing && !isLoading && !loadError && (
+              <div
+                className="absolute inset-0 cursor-crosshair touch-manipulation select-none"
+                onClick={handlePoint}
+                role="presentation"
+                aria-hidden
+              />
+            )}
+            {edits.removeBg &&
+              edits.bgSeeds.map((seed, index) => {
+                const pos = uvToHostPercent(seed, previewFitRef.current, edits);
+                return (
+                  <button
+                    key={`${seed.u.toFixed(4)}-${seed.v.toFixed(4)}-${index}-${fitTick}`}
+                    type="button"
+                    disabled={disabled}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeSeedAt(index);
+                    }}
+                    style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
+                    className="absolute z-[6] flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#1a100c] bg-gold shadow-[0_0_0_3px_rgba(201,162,74,0.28),0_2px_8px_rgba(0,0,0,0.45)] transition-transform hover:scale-110"
+                    aria-label={`Remover apontamento ${index + 1}`}
+                    title="Toque de novo para tirar este ponto"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#1a100c]" />
+                  </button>
+                );
+              })}
+          </div>
+          {edits.removeBg && !isLoading && !loadError && (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[7] flex justify-center">
+              <p className="max-w-[22rem] rounded-full border border-gold/35 bg-[#1a100c]/82 px-3 py-1.5 text-center text-[11px] leading-snug text-[#f4e6c8] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-[2px]">
+                {pointing
+                  ? 'Toque no resto de parede, chão ou sombra que ainda aparece.'
+                  : 'Ligue “Apontar restos” e toque na mancha que sobrou.'}
+              </p>
+            </div>
           )}
           {isLoading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[#1a100c]/55 text-cream-muted">
@@ -388,7 +556,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
           )}
         </div>
 
-        <aside className="relative flex w-full shrink-0 flex-col gap-3 overflow-y-auto border-t border-gold-border-subtle/20 bg-[#160e0a] px-4 py-4 lg:w-[17.5rem] lg:border-l lg:border-t-0">
+        <aside className="relative flex w-full shrink-0 flex-col gap-3 overflow-y-auto border-t border-gold-border-subtle/20 bg-[#160e0a] px-4 py-4 lg:w-[19rem] lg:border-l lg:border-t-0">
           <WhiteboardWoodFoil />
           <div className="relative z-[1] space-y-4">
             <div>
@@ -411,24 +579,77 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
               <Switch
                 checked={edits.removeBg}
                 disabled={disabled}
-                onCheckedChange={(checked) => patch({ removeBg: checked })}
+                onCheckedChange={(checked) => {
+                  patch({ removeBg: checked });
+                  setPointing(checked);
+                }}
                 aria-label="Remover fundo da foto"
               />
             </div>
 
             {edits.removeBg && (
-              <StudioField label="Sensibilidade" value={`${edits.bgTolerance}`}>
-                <Slider
-                  min={12}
-                  max={72}
-                  step={1}
-                  value={[edits.bgTolerance]}
-                  disabled={disabled}
-                  onValueChange={([value]) => patch({ bgTolerance: value ?? 34 })}
-                  aria-label="Sensibilidade da remoção de fundo"
-                  className={sliderClass}
-                />
-              </StudioField>
+              <div className="space-y-3 rounded-lg border border-gold/25 bg-gradient-to-b from-gold/10 to-black/20 p-3">
+                <StudioField label="Sensibilidade" value={`${edits.bgTolerance}`}>
+                  <Slider
+                    min={12}
+                    max={86}
+                    step={1}
+                    value={[edits.bgTolerance]}
+                    disabled={disabled}
+                    onValueChange={([value]) => patch({ bgTolerance: value ?? 38 })}
+                    aria-label="Sensibilidade da remoção de fundo"
+                    className={sliderClass}
+                  />
+                  <p className="text-[10px] leading-snug text-cream-faint">
+                    Mais à direita come mais fundo. Se morder o móvel, volte um pouco.
+                  </p>
+                </StudioField>
+
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold/90">
+                      <Crosshair className="h-3.5 w-3.5" />
+                      Apontar restos
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-cream-faint">
+                      {edits.bgSeeds.length === 0
+                        ? 'Toque na foto, na mancha que ficou.'
+                        : `${edits.bgSeeds.length} ponto${edits.bgSeeds.length === 1 ? '' : 's'} marcado${edits.bgSeeds.length === 1 ? '' : 's'}.`}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={pointing}
+                    disabled={disabled}
+                    onCheckedChange={setPointing}
+                    aria-label="Apontar restos de fundo na foto"
+                  />
+                </div>
+
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 flex-1 border-gold-border-subtle/35 bg-black/20 text-[11px]"
+                    disabled={disabled || edits.bgSeeds.length === 0}
+                    onClick={undoLastSeed}
+                  >
+                    <Undo2 className="mr-1 h-3.5 w-3.5" />
+                    Desfazer
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 flex-1 border-gold-border-subtle/35 bg-black/20 text-[11px]"
+                    disabled={disabled || edits.bgSeeds.length === 0}
+                    onClick={clearSeeds}
+                  >
+                    <MapPin className="mr-1 h-3.5 w-3.5" />
+                    Limpar
+                  </Button>
+                </div>
+              </div>
             )}
 
             <StudioField label="Brilho" value={`${edits.brightness}%`}>
@@ -495,6 +716,22 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
               </div>
             </StudioField>
 
+            <StudioField label="Giro" value={`${Math.round(normalizeStudioRotation(edits.rotation))}°`}>
+              <Slider
+                min={0}
+                max={359}
+                step={1}
+                value={[Math.round(normalizeStudioRotation(edits.rotation))]}
+                disabled={disabled}
+                onValueChange={([value]) => patch({ rotation: normalizeStudioRotation(value ?? 0) })}
+                aria-label="Girar a foto em qualquer direção"
+                className={sliderClass}
+              />
+              <p className="text-[10px] leading-snug text-cream-faint">
+                Arraste para virar a foto ao gosto. Os botões abaixo viram 90° de cada vez.
+              </p>
+            </StudioField>
+
             <div className="grid grid-cols-4 gap-1.5">
               <Button
                 type="button"
@@ -554,7 +791,10 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
               size="sm"
               className="h-8 justify-start gap-1.5 px-1 text-cream-muted hover:text-gold"
               disabled={disabled || !imageStudioHasEdits(edits)}
-              onClick={() => setEdits(DEFAULT_IMAGE_STUDIO_EDITS)}
+              onClick={() => {
+                setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [] });
+                setPointing(false);
+              }}
             >
               <Undo2 className="h-3.5 w-3.5" />
               Restaurar original

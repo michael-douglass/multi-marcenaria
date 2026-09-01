@@ -26,13 +26,13 @@ export function BibliotecaFoldersBar({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-lg tracking-wide text-amber-100">Pastas</h2>
-          <p className="text-xs text-white/45">Organize seus arquivos em pastas</p>
+          <h2 className="font-display text-lg tracking-wide text-[#1a100c]">Pastas</h2>
+          <p className="text-xs text-[#6b5244]">Organize seus arquivos em pastas</p>
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 border-amber-500/30 bg-amber-500/8 text-amber-100 hover:bg-amber-500/15"
+          className="shrink-0 border-[rgba(107,63,18,0.35)] bg-[#fffaf4] text-[#6b3f12] hover:bg-[#f4e4c4]"
           onClick={onCreateFolder}
         >
           <FolderPlus className="mr-2 h-4 w-4" />
@@ -41,12 +41,12 @@ export function BibliotecaFoldersBar({
       </div>
 
       {folders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-amber-500/20 bg-amber-500/[0.03] px-4 py-6 text-center">
-          <p className="text-sm text-white/50">Nenhuma pasta ainda</p>
+        <div className="rounded-sm border border-dashed border-[rgba(107,63,18,0.28)] bg-[#fffaf4] px-4 py-6 text-center">
+          <p className="text-sm text-[#6b5244]">Nenhuma pasta ainda</p>
           <Button
             variant="link"
             size="sm"
-            className="mt-1 text-amber-400"
+            className="mt-1 text-[#6b3f12]"
             onClick={onCreateFolder}
           >
             Criar a primeira pasta
