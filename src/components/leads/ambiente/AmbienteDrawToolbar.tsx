@@ -23,7 +23,7 @@ interface AmbienteDrawToolbarProps {
 }
 
 const TOOLS: { id: AmbienteDrawTool; label: string; hint: string; icon: typeof Square }[] = [
-  { id: 'select', label: 'Selecionar', hint: 'Mover e apagar o que já está na cena — V', icon: MousePointer2 },
+  { id: 'select', label: 'Selecionar', hint: 'Mover, girar e apagar o que já está na cena — V', icon: MousePointer2 },
   { id: 'pencil', label: 'Lápis', hint: 'Traço livre para paredes e recortes — P', icon: Pencil },
   { id: 'line', label: 'Linha', hint: 'Clique e arraste. Shift trava em 45° — L', icon: Minus },
   { id: 'rect', label: 'Retângulo', hint: 'Clique e arraste. Shift faz quadrado — R', icon: Square },

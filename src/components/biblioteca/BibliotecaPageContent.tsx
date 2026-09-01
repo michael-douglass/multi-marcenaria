@@ -10,6 +10,7 @@ import { BibliotecaUploadZone } from '@/components/biblioteca/BibliotecaUploadZo
 import { BibliotecaMediaCard } from '@/components/biblioteca/BibliotecaMediaCard';
 import { BibliotecaDetailDialog } from '@/components/biblioteca/BibliotecaDetailDialog';
 import { BibliotecaFoldersBar } from '@/components/biblioteca/BibliotecaFoldersBar';
+import { BibliotecaLeadFoldersSection } from '@/components/biblioteca/BibliotecaLeadFoldersSection';
 import {
   BIBLIOTECA_CATEGORIAS,
   type BibliotecaCategoria,
@@ -18,6 +19,7 @@ import {
   filterMediasByCategoria,
   filterMediasByFolder,
 } from '@/lib/biblioteca-utils';
+import { ordenarMidiasVista, splitPastasBiblioteca } from '@/lib/biblioteca-priority';
 import { downloadLeadFotosPdf } from '@/lib/lead-fotos-pdf-export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,6 +93,8 @@ export function BibliotecaPageContent() {
     isLoading: foldersLoading,
     createFolder,
     updateFolder,
+    pinFolder,
+    reorderPinnedFolders,
     deleteFolder,
   } = useMarketingMediaFolders();
   const { userRole } = useAuth();
@@ -98,7 +102,11 @@ export function BibliotecaPageContent() {
 
   /** Admin e vendedor podem gerenciar, baixar e exportar PDF. */
   const canManage =
-    userRole === 'admin' || userRole === 'vendedor' || isSuperAdmin;
+    userRole === 'admin' ||
+    userRole === 'vendedor' ||
+    userRole === 'projetista' ||
+    userRole === 'projetista_admin' ||
+    isSuperAdmin;
   const canDelete = canManage;
   const canDownload = canManage;
   const canExportPdf = canManage;
@@ -127,18 +135,25 @@ export function BibliotecaPageContent() {
 
   const getFolderItemCount = (folderId: string) => countFolderItems(medias, folderId);
 
+  const { loja, leads: leadFolders, favoritas, demaisLoja } = useMemo(
+    () => splitPastasBiblioteca(folders),
+    [folders],
+  );
+
   const filteredMedias = useMemo(() => {
     let list = filterMediasByCategoria(medias, categoria);
     list = filterMediasByFolder(list, currentFolderId);
 
     const term = busca.trim().toLowerCase();
-    if (!term) return list;
-    return list.filter(
-      (m) =>
-        m.titulo.toLowerCase().includes(term) ||
-        m.file_name.toLowerCase().includes(term) ||
-        (m.lead_id != null && String(m.lead_id).includes(term)),
-    );
+    if (term) {
+      list = list.filter(
+        (m) =>
+          m.titulo.toLowerCase().includes(term) ||
+          m.file_name.toLowerCase().includes(term) ||
+          (m.lead_id != null && String(m.lead_id).includes(term)),
+      );
+    }
+    return ordenarMidiasVista(list);
   }, [medias, categoria, busca, currentFolderId]);
 
   const selectedMedias = useMemo(
@@ -156,7 +171,7 @@ export function BibliotecaPageContent() {
   const handleUpload = async (file: File, titulo: string) => {
     setUploading(true);
     try {
-      await uploadFile(file, titulo, currentFolderId);
+      await uploadFile(file, titulo, currentFolderId, currentFolder?.lead_id ?? null);
     } finally {
       setUploading(false);
     }
@@ -334,9 +349,13 @@ export function BibliotecaPageContent() {
     setDeleteFolderTarget(null);
   };
 
+  const handlePinFolder = async (folder: MarketingMediaFolder) => {
+    await pinFolder({ id: folder.id, fixado: !folder.fixado });
+  };
+
   const filesSectionLabel = currentFolderId
     ? `Arquivos em "${currentFolder?.nome}"`
-    : 'Arquivos e imagens de leads';
+    : 'Arquivos fora de pasta';
 
   return (
     <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
@@ -353,7 +372,7 @@ export function BibliotecaPageContent() {
               Biblioteca
             </h1>
             <p className="mt-2 max-w-xl text-sm text-[#4a3428] sm:text-base">
-              Fotos dos leads, vídeos e arquivos do CRM — no mesmo papel da casa.
+              Pastas da loja, gavetas de cada cliente, fotos da lousa e anexos — no mesmo papel da casa.
             </p>
             <p className="section-label mt-3">
               {filteredMedias.length}{' '}
@@ -475,7 +494,9 @@ export function BibliotecaPageContent() {
             </div>
           )}
 
-          <BibliotecaUploadZone onUpload={handleUpload} uploading={uploading} />
+          {canManage && (
+            <BibliotecaUploadZone onUpload={handleUpload} uploading={uploading} />
+          )}
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b5244]" />
@@ -494,18 +515,38 @@ export function BibliotecaPageContent() {
           ) : (
             <>
               {!currentFolderId && (
-                <BibliotecaFoldersBar
-                  folders={folders}
-                  getItemCount={getFolderItemCount}
-                  canManage={canManage}
-                  onCreateFolder={openCreateFolderDialog}
-                  onOpenFolder={(folder) => {
-                    setCurrentFolderId(folder.id);
-                    clearSelection();
-                  }}
-                  onEditFolder={handleEditFolder}
-                  onDeleteFolder={setDeleteFolderTarget}
-                />
+                <>
+                  <BibliotecaFoldersBar
+                    folders={loja}
+                    favoritas={favoritas}
+                    demais={demaisLoja}
+                    getItemCount={getFolderItemCount}
+                    canManage={canManage}
+                    onCreateFolder={openCreateFolderDialog}
+                    onOpenFolder={(folder) => {
+                      setCurrentFolderId(folder.id);
+                      clearSelection();
+                    }}
+                    onEditFolder={handleEditFolder}
+                    onDeleteFolder={setDeleteFolderTarget}
+                    onPinFolder={(folder) => void handlePinFolder(folder)}
+                    onReorderFavoritas={(ids) => void reorderPinnedFolders(ids)}
+                  />
+                  <BibliotecaLeadFoldersSection
+                    folders={leadFolders}
+                    medias={medias}
+                    busca={busca}
+                    onOpenFolder={(folder) => {
+                      setCurrentFolderId(folder.id);
+                      clearSelection();
+                    }}
+                    onPlayFolder={(folder, first) => {
+                      setCurrentFolderId(folder.id);
+                      clearSelection();
+                      handleOpenDetail(first);
+                    }}
+                  />
+                </>
               )}
 
               <section className="space-y-3">
@@ -620,8 +661,8 @@ export function BibliotecaPageContent() {
                       {currentFolderId
                         ? 'Envie imagens para esta pasta usando a área acima'
                         : categoria === 'imagens'
-                          ? 'As fotos dos leads aparecerão aqui automaticamente'
-                          : 'Os arquivos aparecerão aqui quando forem adicionados'}
+                          ? 'As fotos da lousa e anexos sem gaveta aparecem aqui'
+                          : 'Os arquivos sem pasta aparecem nesta mesa'}
                     </p>
                   </div>
                 ) : (

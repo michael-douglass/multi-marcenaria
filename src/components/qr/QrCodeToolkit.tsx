@@ -13,10 +13,32 @@ type Tab = 'gerar' | 'ler'
 interface QrCodeToolkitProps {
   /** Classe extra no botão do ícone (ex.: alinhamento no header). */
   className?: string
+  /** Quando informado, o diálogo é controlado pelo pai. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Texto já colado ao abrir (chave PIX, boleto, telefone). */
+  initialValue?: string
+  /** Esconde o botão — útil quando outro gatilho abre o diálogo. */
+  hideTrigger?: boolean
 }
 
-export function QrCodeToolkit({ className }: QrCodeToolkitProps) {
-  const [open, setOpen] = useState(false)
+export function QrCodeToolkit({
+  className,
+  open: openProp,
+  onOpenChange,
+  initialValue = '',
+  hideTrigger = false,
+}: QrCodeToolkitProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = openProp ?? uncontrolledOpen
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  const isControlled = openProp !== undefined
+
+  const setOpen = useCallback((next: boolean) => {
+    onOpenChangeRef.current?.(next)
+    if (!isControlled) setUncontrolledOpen(next)
+  }, [isControlled])
   const [tab, setTab] = useState<Tab>('gerar')
 
   const [input, setInput] = useState('')
@@ -50,7 +72,29 @@ export function QrCodeToolkit({ className }: QrCodeToolkitProps) {
   const close = useCallback(() => {
     void stopCamera()
     setOpen(false)
-  }, [stopCamera])
+  }, [stopCamera, setOpen])
+
+  useEffect(() => {
+    if (!open) return
+    setTab('gerar')
+    const seed = initialValue.trim()
+    setInput(seed)
+    setPayload('')
+    setQrDataUrl(null)
+    if (!seed) return
+
+    const prepared = prepareQrPayload(seed)
+    if (!prepared.payload) return
+    let cancelled = false
+    void generateQrDataUrl(prepared.payload).then(url => {
+      if (cancelled) return
+      setPayload(prepared.payload)
+      setQrDataUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open, initialValue])
 
   const startCamera = useCallback(async () => {
     setCameraError(null)
@@ -81,7 +125,7 @@ export function QrCodeToolkit({ className }: QrCodeToolkitProps) {
           handledScanRef.current = true
           const text = decoded.trim()
           setScannedText(text)
-          await copyText(text, 'Número completo copiado')
+          await copyText(text, 'Número completo copiado sem espaços')
           await stopCamera()
         },
         () => {
@@ -144,11 +188,11 @@ export function QrCodeToolkit({ className }: QrCodeToolkitProps) {
   }
 
   const handleCopyPayload = () => {
-    void copyText(payload || input, 'Número copiado')
+    void copyText(payload || input, 'Número copiado sem espaços')
   }
 
   const handleCopyScanned = () => {
-    void copyText(scannedText, 'Número completo copiado')
+    void copyText(scannedText, 'Número completo copiado sem espaços')
   }
 
   const handleLerOutro = () => {
@@ -157,20 +201,29 @@ export function QrCodeToolkit({ className }: QrCodeToolkitProps) {
 
   return (
     <>
+      {hideTrigger ? null : (
       <button
         type="button"
-        className={cn('btn btn-outline btn-sm !px-2.5 !py-1.5', className)}
+        className={cn(
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+          'border border-[#f2d892]/35 bg-gradient-to-br from-[#f2d892]/20 to-[#b88f44]/15',
+          'text-[#f2d892] shadow-sm transition-all',
+          'hover:border-[#f2d892]/60 hover:from-[#f2d892]/30 hover:to-[#b88f44]/25 hover:text-[#f8e6b0] hover:shadow-md',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d892]/40',
+          className,
+        )}
         onClick={() => {
           setTab('gerar')
           setOpen(true)
         }}
-        title="QR Code — gerar ou ler"
-        aria-label="Abrir ferramenta de QR Code"
+        title="Sistema de QR Code"
+        aria-label="Abrir sistema de QR Code"
       >
         <QrCode className="h-4 w-4" />
       </button>
+      )}
 
-      <Modal open={open} onClose={close} title="QR Code">
+      <Modal open={open} onClose={close} title="Sistema de QR Code">
         <div className="space-y-4">
           <div className="flex p-1 gap-1 rounded-lg bg-black/20 w-fit border border-white/5">
             <button

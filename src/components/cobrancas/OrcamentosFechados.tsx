@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../ui/Modal'
 import { ModalFormFooter } from '../ui/ModalFormFooter'
 import { Field, FieldRow } from '../ui/Field'

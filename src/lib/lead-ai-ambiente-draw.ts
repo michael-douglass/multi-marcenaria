@@ -6,6 +6,66 @@ export const DRAW_MIN_SIZE = 0.014;
 export const PENCIL_MIN_DIST = 0.005;
 export const HIT_SLOP = 0.018;
 
+export function wrapShapeRotation(deg: number): number {
+  return ((Math.round(deg) % 360) + 360) % 360;
+}
+
+export function rotatePointAround(
+  px: number,
+  py: number,
+  cx: number,
+  cy: number,
+  deg: number,
+): { x: number; y: number } {
+  if (!deg) return { x: px, y: py };
+  const rad = (deg * Math.PI) / 180;
+  const dx = px - cx;
+  const dy = py - cy;
+  return {
+    x: cx + dx * Math.cos(rad) - dy * Math.sin(rad),
+    y: cy + dx * Math.sin(rad) + dy * Math.cos(rad),
+  };
+}
+
+export function unrotatedBounds(shape: AmbienteGeoShape): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  if (shape.kind === 'line') {
+    const x2 = shape.x2 ?? shape.x;
+    const y2 = shape.y2 ?? shape.y;
+    return {
+      x: Math.min(shape.x, x2),
+      y: Math.min(shape.y, y2),
+      width: Math.abs(x2 - shape.x),
+      height: Math.abs(y2 - shape.y),
+    };
+  }
+  if (shape.kind === 'pencil') {
+    const points = shape.points ?? [];
+    if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+    let minX = points[0].x;
+    let maxX = points[0].x;
+    let minY = points[0].y;
+    let maxY = points[0].y;
+    for (const point of points) {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    }
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+  return { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
+}
+
+export function shapeCenter(shape: AmbienteGeoShape): { x: number; y: number } {
+  const box = unrotatedBounds(shape);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
 /** Paleta da lousa do ambiente — contraste em foto clara e no fundo escuro. */
 export const AMBIENTE_INK_PRESETS = [
   { id: 'gold', hex: '#f2d892', label: 'Dourado' },
@@ -208,6 +268,13 @@ function pointInTriangle(
 }
 
 export function hitTestShape(shape: AmbienteGeoShape, px: number, py: number): boolean {
+  const rotation = shape.rotation ?? 0;
+  if (rotation) {
+    const center = shapeCenter(shape);
+    const local = rotatePointAround(px, py, center.x, center.y, -rotation);
+    px = local.x;
+    py = local.y;
+  }
   if (shape.kind === 'line') {
     return distToSegment(px, py, shape.x, shape.y, shape.x2 ?? shape.x, shape.y2 ?? shape.y) <= HIT_SLOP;
   }
@@ -265,32 +332,27 @@ export function shapeBounds(shape: AmbienteGeoShape): {
   width: number;
   height: number;
 } {
-  if (shape.kind === 'line') {
-    const x2 = shape.x2 ?? shape.x;
-    const y2 = shape.y2 ?? shape.y;
-    return {
-      x: Math.min(shape.x, x2),
-      y: Math.min(shape.y, y2),
-      width: Math.abs(x2 - shape.x),
-      height: Math.abs(y2 - shape.y),
-    };
+  const raw = unrotatedBounds(shape);
+  const rotation = shape.rotation ?? 0;
+  if (!rotation) return raw;
+  const center = { x: raw.x + raw.width / 2, y: raw.y + raw.height / 2 };
+  const corners = [
+    rotatePointAround(raw.x, raw.y, center.x, center.y, rotation),
+    rotatePointAround(raw.x + raw.width, raw.y, center.x, center.y, rotation),
+    rotatePointAround(raw.x + raw.width, raw.y + raw.height, center.x, center.y, rotation),
+    rotatePointAround(raw.x, raw.y + raw.height, center.x, center.y, rotation),
+  ];
+  let minX = corners[0].x;
+  let maxX = corners[0].x;
+  let minY = corners[0].y;
+  let maxY = corners[0].y;
+  for (const corner of corners) {
+    minX = Math.min(minX, corner.x);
+    maxX = Math.max(maxX, corner.x);
+    minY = Math.min(minY, corner.y);
+    maxY = Math.max(maxY, corner.y);
   }
-  if (shape.kind === 'pencil') {
-    const points = shape.points ?? [];
-    if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-    let minX = points[0].x;
-    let maxX = points[0].x;
-    let minY = points[0].y;
-    let maxY = points[0].y;
-    for (const point of points) {
-      minX = Math.min(minX, point.x);
-      maxX = Math.max(maxX, point.x);
-      minY = Math.min(minY, point.y);
-      maxY = Math.max(maxY, point.y);
-    }
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-  }
-  return { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 export function findTopShapeAt(shapes: AmbienteGeoShape[], px: number, py: number): AmbienteGeoShape | null {
@@ -364,6 +426,13 @@ export function paintGeoShape(
   ctx.lineJoin = 'round';
   ctx.shadowColor = inkFillFromStroke(stroke, 0.35);
   ctx.shadowBlur = 6;
+  const rotation = shape.rotation ?? 0;
+  if (rotation) {
+    const center = shapeCenter(shape);
+    ctx.translate(center.x * worldW, center.y * worldH);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.translate(-center.x * worldW, -center.y * worldH);
+  }
 
   if (shape.kind === 'line') {
     ctx.beginPath();

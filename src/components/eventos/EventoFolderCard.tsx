@@ -72,7 +72,7 @@ export function EventoFolderCard({
         </div>
 
         <div className="relative z-10 flex items-start justify-between gap-2 px-4 pb-2 pt-8">
-          <BibliotecaPinButton pinned={pasta.fixado} onToggle={onPin} />
+          <BibliotecaPinButton pinned={pasta.fixado} onToggle={onPin} tone="dark" />
           <div className="flex items-center gap-1">
             {pasta.tarefas_pendentes > 0 && (
               <button

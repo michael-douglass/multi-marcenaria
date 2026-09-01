@@ -2253,6 +2253,13 @@ body::before {
     background: #f4e4c4 !important;
     color: #6b3f12 !important;
   }
+  .biblioteca-folder-tab.is-pinned {
+    border-color: rgba(107, 63, 18, 0.45);
+    box-shadow: 0 0 0 1px rgba(107, 63, 18, 0.18), 0 12px 28px rgba(42, 24, 18, 0.08);
+  }
+  .biblioteca-priority-zone {
+    background: linear-gradient(180deg, rgba(244, 228, 196, 0.55), #fffaf4);
+  }
 
   /* ── Financeiro Pontua: tinta escura no papel (creme/ouro no fundo claro sumia) ── */
   .financeiro-pontua-shell {

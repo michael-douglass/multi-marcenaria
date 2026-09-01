@@ -42,15 +42,13 @@ export function filterMediasByFolder(
   folderId: string | null,
 ): BibliotecaMedia[] {
   if (folderId === null) {
-    return medias.filter(
-      (m) => m.folder_id === null || m.origem === 'lead_anexo' || m.origem === 'lead_whiteboard',
-    );
+    return medias.filter((m) => m.folder_id === null);
   }
-  return medias.filter((m) => m.folder_id === folderId && m.origem === 'biblioteca');
+  return medias.filter((m) => m.folder_id === folderId);
 }
 
 export function countFolderItems(medias: BibliotecaMedia[], folderId: string): number {
-  return medias.filter((m) => m.folder_id === folderId && m.origem === 'biblioteca').length;
+  return medias.filter((m) => m.folder_id === folderId).length;
 }
 
 export function countMediasByCategoria(medias: BibliotecaMedia[]): Record<BibliotecaCategoria, number> {

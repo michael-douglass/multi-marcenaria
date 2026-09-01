@@ -12,7 +12,7 @@ export interface PrepareQrPayloadResult {
 
 /**
  * Prepara o texto do QR: linhas só numéricas viram dígitos contínuos;
- * demais textos ficam como digitados (após trim).
+ * demais textos perdem espaços (PIX, e-mail, chave aleatória).
  */
 export function prepareQrPayload(raw: string): PrepareQrPayloadResult {
   const trimmed = raw.trim()
@@ -24,6 +24,11 @@ export function prepareQrPayload(raw: string): PrepareQrPayloadResult {
       return { payload: digitsOnly, compacted: true }
     }
     return { payload: digitsOnly || trimmed, compacted: false }
+  }
+
+  const compacted = trimmed.replace(/\s+/g, '')
+  if (compacted !== trimmed) {
+    return { payload: compacted, compacted: true }
   }
 
   return { payload: trimmed, compacted: false }

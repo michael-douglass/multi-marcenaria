@@ -35,7 +35,10 @@ interface AmbienteSceneDockProps {
   onRedo: () => void;
   onSave: () => void;
   onRemoveSelected?: () => void;
+  onClearDrawings?: () => void;
   onClearPhoto?: () => void;
+  selectedKind?: 'photo' | 'piece' | null;
+  hasDrawings?: boolean;
 }
 
 interface DockAction {
@@ -115,7 +118,10 @@ export function AmbienteSceneDock({
   onRedo,
   onSave,
   onRemoveSelected,
+  onClearDrawings,
   onClearPhoto,
+  selectedKind = null,
+  hasDrawings = false,
 }: AmbienteSceneDockProps) {
   const [open, setOpen] = useState(false);
   const woodSrc = useWoodStrip();
@@ -228,7 +234,18 @@ export function AmbienteSceneDock({
                 );
               })}
 
-              {hasSelection && onRemoveSelected && (
+              {(selectedKind === 'photo' || (!selectedKind && hasBackground)) && (onClearPhoto || onRemoveSelected) && (
+                <button
+                  type="button"
+                  disabled={locked}
+                  className="mt-0.5 flex h-9 items-center gap-2 rounded-lg px-2 text-left text-[11px] font-semibold text-[#f3c4b8] hover:bg-red-950/50 disabled:opacity-35"
+                  onClick={onClearPhoto ?? onRemoveSelected}
+                >
+                  <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                  Excluir foto
+                </button>
+              )}
+              {selectedKind === 'piece' && onRemoveSelected && (
                 <button
                   type="button"
                   disabled={locked}
@@ -239,15 +256,15 @@ export function AmbienteSceneDock({
                   Apagar peça
                 </button>
               )}
-              {hasBackground && onClearPhoto && (
+              {hasDrawings && onClearDrawings && (
                 <button
                   type="button"
                   disabled={locked}
                   className="flex h-9 items-center gap-2 rounded-lg px-2 text-left text-[11px] font-semibold text-[#d4bc9f] hover:bg-white/5 disabled:opacity-35"
-                  onClick={onClearPhoto}
+                  onClick={onClearDrawings}
                 >
                   <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                  Limpar foto
+                  Limpar desenhos
                 </button>
               )}
             </div>

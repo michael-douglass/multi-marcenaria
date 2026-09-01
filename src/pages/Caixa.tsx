@@ -18,6 +18,8 @@ import { CaixaMesFilterBar } from '@/components/caixa/CaixaMesFilterBar'
 import { CaixaValorEditavel } from '@/components/caixa/CaixaValorEditavel'
 import { AjustarValorRealDialog } from '@/components/caixa/AjustarValorRealDialog'
 import { QrCodeToolkit } from '@/components/qr/QrCodeToolkit'
+import { CaixaQrTrigger } from '@/components/caixa/CaixaQrTrigger'
+import { CaixaDestinatarioDetalheDialog } from '@/components/caixa/CaixaDestinatarioDetalheDialog'
 import type { ContaPagarResumoCaixa } from '@/hooks/useCaixa'
 import type { ReservaConsolidada, CaixaMovimentacao } from '@/types'
 
@@ -160,6 +162,18 @@ function CaixaContent({
   const [valorRealReserva, setValorRealReserva] = useState<ReservaConsolidada | null>(null)
   const [contasValorReal, setContasValorReal] = useState<ContaPagarResumoCaixa[]>([])
   const [loadingContasValorReal, setLoadingContasValorReal] = useState(false)
+  const [detalheDestinatario, setDetalheDestinatario] = useState<{
+    nome: string
+    id: string
+    tipo?: ReservaConsolidada['tipo_destinatario']
+  } | null>(null)
+  const [qrOpen, setQrOpen] = useState(false)
+  const [qrSeed, setQrSeed] = useState('')
+
+  const abrirQr = (seed = '') => {
+    setQrSeed(seed)
+    setQrOpen(true)
+  }
 
   const abrirComprovante = (item: ReservaConsolidada) => {
     setComprovanteReserva(item)
@@ -274,7 +288,7 @@ function CaixaContent({
             compact={embedded}
           />
           <div className="shrink-0">
-            <QrCodeToolkit />
+            <CaixaQrTrigger onClick={() => abrirQr('')} />
           </div>
         </div>
       </div>
@@ -296,46 +310,57 @@ function CaixaContent({
           embedded ? 'shrink-0 grid-cols-3 gap-1.5 sm:gap-2' : 'gap-3 sm:gap-4 md:grid-cols-3',
         )}
       >
-        <div className={cn('glass-card space-y-1', embedded ? 'p-2' : 'p-4 space-y-2')}>
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
-            Total Reservado
-          </p>
+        <div className={cn('glass-card relative space-y-1', embedded ? 'p-2' : 'p-4 space-y-2')}>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+              Total Reservado
+            </p>
+            <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
+          </div>
           <p className={cn('font-bold text-cream', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_reservado)}
           </p>
         </div>
         <div
           className={cn(
-            'glass-card border-l-2 border-l-red-500/30 space-y-1',
+            'glass-card relative border-l-2 border-l-red-500/30 space-y-1',
             embedded ? 'p-2' : 'p-4 space-y-2',
           )}
         >
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
-            Total Pago
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+              Total Pago
+            </p>
+            <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
+          </div>
           <p className={cn('font-bold text-red-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_pago)}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setSaldoDialogOpen(true)}
-          className={cn(
-            'glass-card border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40 space-y-1',
-            embedded ? 'p-2' : 'p-4 space-y-2',
-          )}
-          title="Clique para ver onde o saldo está guardado"
-        >
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
-            Saldo Disponível
-          </p>
-          <p className={cn('font-bold text-emerald-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
-            {fmtCur(resumo.saldo_disponivel)}
-          </p>
-          {!embedded && (
-            <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
-          )}
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setSaldoDialogOpen(true)}
+            className={cn(
+              'glass-card relative border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40 space-y-1',
+              embedded ? 'p-2 pr-11' : 'p-4 pr-14 space-y-2',
+            )}
+            title="Clique para ver onde o saldo está guardado"
+          >
+            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+              Saldo Disponível
+            </p>
+            <p className={cn('font-bold text-emerald-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
+              {fmtCur(resumo.saldo_disponivel)}
+            </p>
+            {!embedded && (
+              <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
+            )}
+          </button>
+          <div className={cn('absolute right-2 top-2', embedded && 'right-1.5 top-1.5')}>
+            <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
+          </div>
+        </div>
       </div>
 
       {/* Tabs & Ações */}
@@ -460,16 +485,37 @@ function CaixaContent({
                       return (
                         <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
                           <td className="px-6 py-4">
-                            <div className="font-semibold text-cream">{item.destinatario_nome}</div>
-                            <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">
-                              {item.destinatario_nome?.toLowerCase().startsWith('comissão:')
-                                ? 'Comissão'
-                                : item.tipo_destinatario === 'marceneiro'
-                                  ? 'Prestador'
-                                  : item.tipo_destinatario}
-                              {virtual && (
-                                <span className="ml-1 normal-case text-amber-400/90">· cadastre em Destinatários</span>
-                              )}
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 rounded text-left transition-colors hover:text-[#f2d892] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                                title="Ver telefone, endereço e PIX"
+                                onClick={() =>
+                                  setDetalheDestinatario({
+                                    nome: item.destinatario_nome,
+                                    id: item.destinatario_id,
+                                    tipo: item.tipo_destinatario,
+                                  })
+                                }
+                              >
+                                <div className="font-semibold text-cream underline-offset-4 hover:underline">
+                                  {item.destinatario_nome}
+                                </div>
+                                <div className="text-[0.7rem] text-[#edd9c4] uppercase tracking-tighter">
+                                  {item.destinatario_nome?.toLowerCase().startsWith('comissão:')
+                                    ? 'Comissão'
+                                    : item.tipo_destinatario === 'marceneiro'
+                                      ? 'Prestador'
+                                      : item.tipo_destinatario}
+                                  {virtual && (
+                                    <span className="ml-1 normal-case text-amber-400/90">· cadastre em Destinatários</span>
+                                  )}
+                                </div>
+                              </button>
+                              <CaixaQrTrigger
+                                className="h-8 w-8"
+                                onClick={() => abrirQr('')}
+                              />
                             </div>
                           </td>
                           <td className="px-6 py-4 text-[#d4bc9f]">
@@ -668,8 +714,25 @@ function CaixaContent({
                         <td className="px-6 py-4 text-[#d4bc9f]">
                           {new Date(mov.data_movimentacao + 'T12:00:00').toLocaleDateString('pt-BR')}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-cream">
-                          {mov.movelaria_caixa_destinatarios?.nome || '—'}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="min-w-0 flex-1 rounded text-left font-semibold text-cream underline-offset-4 transition-colors hover:text-[#f2d892] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                              title="Ver telefone, endereço e PIX"
+                              onClick={() => {
+                                const nome = mov.movelaria_caixa_destinatarios?.nome
+                                const id = mov.destinatario_id
+                                if (!nome || !id) return
+                                setDetalheDestinatario({ nome, id })
+                              }}
+                            >
+                              {mov.movelaria_caixa_destinatarios?.nome || '—'}
+                            </button>
+                            {mov.movelaria_caixa_destinatarios?.nome ? (
+                              <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-[#edd9c4]">
                           {mov.descricao || '—'}
@@ -766,6 +829,27 @@ function CaixaContent({
         onOpenChange={setSaldoDialogOpen}
         mesInicial={mes}
         anoInicial={ano}
+      />
+
+      <CaixaDestinatarioDetalheDialog
+        open={!!detalheDestinatario}
+        onOpenChange={open => {
+          if (!open) setDetalheDestinatario(null)
+        }}
+        destinatarioNome={detalheDestinatario?.nome ?? null}
+        destinatarioId={detalheDestinatario?.id ?? null}
+        tipoDestinatario={detalheDestinatario?.tipo}
+        onAbrirQr={seed => abrirQr(seed)}
+      />
+
+      <QrCodeToolkit
+        hideTrigger
+        open={qrOpen}
+        onOpenChange={open => {
+          setQrOpen(open)
+          if (!open) setQrSeed('')
+        }}
+        initialValue={qrSeed}
       />
 
       <CaixaComprovantePrintModal

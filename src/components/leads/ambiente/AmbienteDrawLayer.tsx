@@ -1,7 +1,13 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { Trash2 } from 'lucide-react';
+import { RotateCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AMBIENTE_INK, inkFillFromStroke, shapeBounds, trianglePoints } from '@/lib/lead-ai-ambiente-draw';
+import {
+  AMBIENTE_INK,
+  inkFillFromStroke,
+  shapeCenter,
+  trianglePoints,
+  unrotatedBounds,
+} from '@/lib/lead-ai-ambiente-draw';
 import type { AmbienteDrawTool, AmbienteGeoShape } from '@/lib/lead-ai-ambiente-types';
 
 interface AmbienteDrawLayerProps {
@@ -19,11 +25,25 @@ interface AmbienteDrawLayerProps {
     size: { width: number; height: number },
     event: ReactPointerEvent,
   ) => void;
+  onRotatePointerDown: (
+    id: string,
+    cx: number,
+    cy: number,
+    rotation: number,
+    event: ReactPointerEvent,
+  ) => void;
   onRemove: (id: string) => void;
 }
 
 function pct(value: number): string {
   return `${value * 100}%`;
+}
+
+function shapeRotateTransform(shape: AmbienteGeoShape): string | undefined {
+  const rotation = shape.rotation ?? 0;
+  if (!rotation) return undefined;
+  const center = shapeCenter(shape);
+  return `rotate(${rotation} ${center.x * 100} ${center.y * 100})`;
 }
 
 function ShapePath({
@@ -135,11 +155,14 @@ export function AmbienteDrawLayer({
   onSelect,
   onMovePointerDown,
   onResizePointerDown,
+  onRotatePointerDown,
   onRemove,
 }: AmbienteDrawLayerProps) {
   const canSelect = tool === 'select' && !disabled;
   const selected = shapes.find((shape) => shape.id === selectedId) ?? null;
-  const selectedBox = selected ? shapeBounds(selected) : null;
+  const selectedBox = selected ? unrotatedBounds(selected) : null;
+  const selectedCenter = selected ? shapeCenter(selected) : null;
+  const selectedRotation = selected?.rotation ?? 0;
   const canResize = selected && selected.kind !== 'line' && selected.kind !== 'pencil';
 
   return (
@@ -152,6 +175,7 @@ export function AmbienteDrawLayer({
         {shapes.map((shape) => (
           <g
             key={shape.id}
+            transform={shapeRotateTransform(shape)}
             className={cn(canSelect && 'pointer-events-auto cursor-grab')}
             onPointerDown={(event) => {
               if (!canSelect) return;
@@ -168,13 +192,13 @@ export function AmbienteDrawLayer({
           </g>
         ))}
         {preview && (
-          <g className="pointer-events-none">
+          <g className="pointer-events-none" transform={shapeRotateTransform(preview)}>
             <ShapePath shape={preview} dashed />
           </g>
         )}
       </svg>
 
-      {canSelect && selected && selectedBox && (
+      {canSelect && selected && selectedBox && selectedCenter && (
         <div
           className="pointer-events-none absolute"
           style={{
@@ -182,8 +206,26 @@ export function AmbienteDrawLayer({
             top: pct(selectedBox.y),
             width: pct(Math.max(selectedBox.width, 0.02)),
             height: pct(Math.max(selectedBox.height, 0.02)),
+            transform: selectedRotation ? `rotate(${selectedRotation}deg)` : undefined,
+            transformOrigin: 'center center',
           }}
         >
+          <span
+            className="absolute left-1/2 top-0 h-6 w-px -translate-x-1/2 -translate-y-full bg-[#f2d892]/70"
+            aria-hidden
+          />
+          <button
+            type="button"
+            aria-label="Girar desenho"
+            title="Arraste para girar o desenho"
+            className="pointer-events-auto absolute left-1/2 -top-8 z-20 flex h-7 w-7 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-[#f2d892]/60 bg-[#1c100c] text-[#f2d892] shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:bg-[#3a2218] active:cursor-grabbing"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onRotatePointerDown(selected.id, selectedCenter.x, selectedCenter.y, selected.rotation ?? 0, event);
+            }}
+          >
+            <RotateCw className="h-3.5 w-3.5" aria-hidden />
+          </button>
           <button
             type="button"
             aria-label="Apagar forma"

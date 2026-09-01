@@ -10,6 +10,10 @@ export interface AmbienteImageOverlay {
   width: number;
   height: number;
   rotation: number;
+  /** Espelhar esquerda/direita. */
+  flipH?: boolean;
+  /** Espelhar cima/baixo. */
+  flipV?: boolean;
   zIndex: number;
 }
 
@@ -81,6 +85,10 @@ export interface AmbienteBackground {
   scale: number;
   offsetX: number;
   offsetY: number;
+  /** Giro livre em graus (0–359), sentido horário. */
+  rotation?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 /** Foto vinda da galeria "Esboço do projeto" para a composição. */

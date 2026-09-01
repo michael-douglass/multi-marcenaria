@@ -3,6 +3,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase';
 import { resolveMarketingMediasConfig } from '@/lib/empresa-tables';
 import { getOrCreateComposicaoOrcamentoFolder } from '@/lib/biblioteca-composicao-orcamento';
+import { proximaOrdemPinBiblioteca } from '@/lib/biblioteca-priority';
 import { toast } from '@/hooks/use-toast';
 
 export interface MarketingMediaFolder {
@@ -11,6 +12,22 @@ export interface MarketingMediaFolder {
   descricao: string | null;
   criado_em: string;
   atualizado_em: string;
+  lead_id: number | null;
+  fixado: boolean;
+  ordem_topo: number | null;
+}
+
+function mapFolder(row: Record<string, unknown>): MarketingMediaFolder {
+  return {
+    id: String(row.id),
+    nome: String(row.nome ?? ''),
+    descricao: (row.descricao as string | null) ?? null,
+    criado_em: String(row.criado_em ?? ''),
+    atualizado_em: String(row.atualizado_em ?? ''),
+    lead_id: row.lead_id == null ? null : Number(row.lead_id),
+    fixado: row.fixado === true,
+    ordem_topo: row.ordem_topo == null ? null : Number(row.ordem_topo),
+  };
 }
 
 export function useMarketingMediaFolders() {
@@ -24,7 +41,6 @@ export function useMarketingMediaFolders() {
     queryKey,
     enabled: queriesReady,
     queryFn: async () => {
-      // Garante a pasta especial antes de listar.
       await getOrCreateComposicaoOrcamentoFolder(schemaEmpresa);
 
       const { data, error } = await db
@@ -32,7 +48,7 @@ export function useMarketingMediaFolders() {
         .select('*')
         .order('nome', { ascending: true });
       if (error) throw error;
-      return data as MarketingMediaFolder[];
+      return (data ?? []).map((row) => mapFolder(row as Record<string, unknown>));
     },
   });
 
@@ -47,11 +63,12 @@ export function useMarketingMediaFolders() {
         .insert({
           nome: folder.nome,
           descricao: folder.descricao ?? null,
+          lead_id: null,
         })
         .select()
         .single();
       if (error) throw error;
-      return data as MarketingMediaFolder;
+      return mapFolder(data as Record<string, unknown>);
     },
     onSuccess: () => {
       invalidate();
@@ -87,6 +104,41 @@ export function useMarketingMediaFolders() {
     },
   });
 
+  const pinMutation = useMutation({
+    mutationFn: async ({ id, fixado }: { id: string; fixado: boolean }) => {
+      const ordem = fixado ? proximaOrdemPinBiblioteca(query.data ?? []) : 0;
+      const { error } = await db
+        .from(mediasConfig.foldersTable as 'marketing_media_folders')
+        .update({ fixado, ordem_topo: ordem } as never)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      invalidate();
+      toast({ title: vars.fixado ? 'Pasta nas favoritas' : 'Pasta saiu do topo' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Não deu para fixar a pasta', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const reorderPinsMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const total = orderedIds.length;
+      for (let i = 0; i < orderedIds.length; i++) {
+        const { error } = await db
+          .from(mediasConfig.foldersTable as 'marketing_media_folders')
+          .update({ ordem_topo: total - i } as never)
+          .eq('id', orderedIds[i]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => invalidate(),
+    onError: (error: Error) => {
+      toast({ title: 'Não deu para reordenar', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await db
@@ -99,7 +151,7 @@ export function useMarketingMediaFolders() {
       invalidate();
       queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
       queryClient.invalidateQueries({ queryKey: ['biblioteca-medias'] });
-      toast({ title: 'Pasta removida' });
+      toast({ title: 'Pasta removida. Os arquivos ficaram sem pasta.' });
     },
     onError: (error: Error) => {
       toast({ title: 'Erro ao remover pasta', description: error.message, variant: 'destructive' });
@@ -111,6 +163,8 @@ export function useMarketingMediaFolders() {
     isLoading: query.isLoading,
     createFolder: createMutation.mutateAsync,
     updateFolder: updateMutation.mutateAsync,
+    pinFolder: pinMutation.mutateAsync,
+    reorderPinnedFolders: reorderPinsMutation.mutateAsync,
     deleteFolder: deleteMutation.mutateAsync,
   };
 }

@@ -2,6 +2,7 @@ import { snapshotRealisticFurniture } from '@/lib/lead-ai-ambiente-realistic-mes
 import { furnitureFrame, getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
+import { loadImageForRender } from '@/lib/render-image-normalize';
 import type {
   AmbienteBackground,
   AmbienteFurnitureObject,
@@ -53,6 +54,9 @@ function drawContainedImage(
   scale = 1,
   offsetX = 0.5,
   offsetY = 0.5,
+  rotation = 0,
+  flipH = false,
+  flipV = false,
 ) {
   const nw = img.naturalWidth || img.width;
   const nh = img.naturalHeight || img.height;
@@ -63,7 +67,12 @@ function drawContainedImage(
   const dh = nh * fit * zoom;
   const dx = (worldW - dw) * offsetX;
   const dy = (worldH - dh) * offsetY;
-  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.save();
+  ctx.translate(dx + dw / 2, dy + dh / 2);
+  ctx.rotate(((rotation || 0) * Math.PI) / 180);
+  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
 }
 
 function drawFurniture(
@@ -199,6 +208,9 @@ export async function exportAmbienteCompositionToJpeg(
       input.background.scale ?? 1,
       input.background.offsetX ?? 0.5,
       input.background.offsetY ?? 0.5,
+      input.background.rotation ?? 0,
+      Boolean(input.background.flipH),
+      Boolean(input.background.flipV),
     );
   } else {
     drawWarmPlaceholder(ctx, world.width, world.height);
@@ -215,6 +227,7 @@ export async function exportAmbienteCompositionToJpeg(
       ctx.save();
       ctx.translate(dx + dw / 2, dy + dh / 2);
       ctx.rotate((overlay.rotation * Math.PI) / 180);
+      ctx.scale(overlay.flipH ? -1 : 1, overlay.flipV ? -1 : 1);
       ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
       ctx.restore();
     } catch {
@@ -306,8 +319,17 @@ export async function exportAmbienteFurnitureReferences(
   return result;
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Não foi possível ler a foto'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function fileToImagePreview(file: File): Promise<AmbienteBackground> {
-  const url = URL.createObjectURL(file);
+  const url = await fileToDataUrl(file);
   const img = await loadImageForRender(url);
   return {
     url,
@@ -317,6 +339,9 @@ export async function fileToImagePreview(file: File): Promise<AmbienteBackground
     scale: 1,
     offsetX: 0.5,
     offsetY: 0.5,
+    rotation: 0,
+    flipH: false,
+    flipV: false,
   };
 }
 
@@ -339,6 +364,9 @@ export function previewFromImageUrl(url: string, label: string): AmbienteBackgro
     scale: 1,
     offsetX: 0.5,
     offsetY: 0.5,
+    rotation: 0,
+    flipH: false,
+    flipV: false,
   };
 }
 

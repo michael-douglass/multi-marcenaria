@@ -25,6 +25,8 @@ export interface BibliotecaMedia {
   criado_em: string;
   origem: BibliotecaMediaOrigem;
   lead_id: number | null;
+  fixado: boolean;
+  ordem_topo: number | null;
 }
 
 const STORAGE_BUCKET = 'marketing-medias';
@@ -45,6 +47,8 @@ function mapMarketingMedia(row: Record<string, unknown>): BibliotecaMedia {
     criado_em: row.criado_em as string,
     origem: leadId ? 'lead_anexo' : 'biblioteca',
     lead_id: leadId,
+    fixado: row.fixado === true,
+    ordem_topo: row.ordem_topo == null ? null : Number(row.ordem_topo),
   };
 }
 
@@ -64,6 +68,8 @@ function mapWhiteboardImage(row: Record<string, unknown>): BibliotecaMedia {
     criado_em: row.criado_em as string,
     origem: 'lead_whiteboard',
     lead_id: (row.lead_id as number) ?? null,
+    fixado: false,
+    ordem_topo: null,
   };
 }
 
@@ -142,10 +148,12 @@ export function useBibliotecaMedias() {
       file,
       titulo,
       folderId,
+      leadId,
     }: {
       file: File;
       titulo: string;
       folderId?: string | null;
+      leadId?: number | null;
     }) => {
       const sizeError = getBibliotecaFileSizeError(file);
       if (sizeError) throw new Error(sizeError);
@@ -179,6 +187,7 @@ export function useBibliotecaMedias() {
           file_size: file.size,
           mime_type: file.type || (tipo === 'imagem' ? 'image/jpeg' : null),
           folder_id: folderId ?? null,
+          lead_id: leadId ?? null,
         })
         .select()
         .single();
@@ -230,8 +239,13 @@ export function useBibliotecaMedias() {
     },
   });
 
-  const uploadFile = async (file: File, titulo: string, folderId?: string | null) => {
-    return uploadMutation.mutateAsync({ file, titulo, folderId });
+  const uploadFile = async (
+    file: File,
+    titulo: string,
+    folderId?: string | null,
+    leadId?: number | null,
+  ) => {
+    return uploadMutation.mutateAsync({ file, titulo, folderId, leadId });
   };
 
   const deleteMedia = async (media: BibliotecaMedia) => {
