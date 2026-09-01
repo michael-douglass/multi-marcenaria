@@ -11,20 +11,23 @@ function readSrc(rel) {
 }
 
 describe('Lembrete — adiar data dentro da janela', () => {
-  it('calendário do lembrete abre em camada modal e fecha ao escolher o dia', () => {
+  it('campo de data do lembrete usa o seletor que fica acima da janela', () => {
     const dialog = readSrc('src/components/agenda/LeadLembreteDialog.tsx')
-    assert.match(dialog, /<Popover modal/)
-    assert.match(dialog, /datePickerOpen/)
+    const dateInput = readSrc('src/components/ui/DateInput.tsx')
+    assert.match(dialog, /DateInput/)
     assert.match(dialog, /Adiar 1 dia/)
     assert.match(dialog, /handleAdiarUmDia/)
-    assert.match(dialog, /if \(datePickerOpen\) event\.preventDefault/)
+    assert.match(dateInput, /data-date-picker-root/)
+    assert.match(dateInput, /!z-\[350\]/)
+    assert.doesNotMatch(dialog, /nested=\{!floatingLayer\}/)
     assert.doesNotMatch(dialog, /initialFocus/)
   })
 
-  it('popover padrão é modal e sobe acima da janela da agenda', () => {
+  it('popover padrão é modal e sobe acima da janela aninhada', () => {
     const popover = readSrc('src/components/ui/popover.tsx')
     assert.match(popover, /modal = true/)
     assert.match(popover, /floatingNestedOverlayClass/)
+    assert.match(popover, /nestedPopoverClass/)
     assert.match(popover, /pointer-events-auto/)
     assert.doesNotMatch(popover, /"z-50 w-72/)
   })

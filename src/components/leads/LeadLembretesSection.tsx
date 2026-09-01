@@ -171,6 +171,7 @@ export function LeadLembretesSection({ leadId, leadName }: LeadLembretesSectionP
           onOpenChange={(o) => !o && setCreating(false)}
           leadId={leadId}
           leadName={leadName}
+          nested
         />
       )}
 
@@ -181,6 +182,7 @@ export function LeadLembretesSection({ leadId, leadName }: LeadLembretesSectionP
           leadId={editing.lead_id}
           leadName={editing.lead?.nome || leadName}
           lembrete={editing}
+          nested
         />
       )}
     </>

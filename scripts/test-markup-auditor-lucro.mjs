@@ -48,6 +48,15 @@ function formatarPercentualDiferenca(percentual) {
   return `${String(Math.abs(percentual)).replace('.', ',')}%`
 }
 
+function formatarVezesMaterial(percentualAtual) {
+  const vezes = arredondar(Math.max(0, Number(percentualAtual) || 0) / 100, 2)
+  return vezes.toFixed(2).replace('.', ',')
+}
+
+function formatarIndice(percentual) {
+  return String(Math.round(Math.max(0, Number(percentual) || 0)))
+}
+
 function rotuloAuditorFaixa(status, percentualDiferenca) {
   if (status === 'baixo') return `Preço abaixo do ideal ${formatarPercentualDiferenca(percentualDiferenca)}`
   if (status === 'acima') return `Preço acima do ideal ${formatarPercentualDiferenca(percentualDiferenca)}`
@@ -90,7 +99,21 @@ describe('Épico 1 — cálculo do Auditor de lucro', () => {
     assert.equal(r.precoIdeal, 24880)
     assert.equal(r.diferenca, 8143.61)
     assert.equal(r.percentualDiferenca, -32.7)
+    assert.equal(r.percentualAtual, 269.07)
     assert.equal(rotuloAuditorFaixa(r.status, r.percentualDiferenca), 'Preço abaixo do ideal 32,7%')
+  })
+
+  it('diz quantas vezes o material o preço atual representa e compara com o 400', () => {
+    const r = calcularAuditor({
+      custoMateriais: 22217.9,
+      precoFinal: 78082.11,
+      percentualAlvo: 400,
+    })
+    assert.equal(r.precoIdeal, 88871.6)
+    assert.equal(r.percentualAtual, 351.44)
+    assert.equal(formatarVezesMaterial(r.percentualAtual), '3,51')
+    assert.equal(formatarIndice(r.percentualAtual), '351')
+    assert.equal(formatarIndice(r.percentualAlvo), '400')
   })
 
   it('preço acima do ideal marca positivo e mostra o percentual a mais', () => {
@@ -148,9 +171,13 @@ describe('Épico 3 e 4 — presença viva e engrenagem no card', () => {
     assert.match(ui, /Configurar margem do auditor de lucro/)
     assert.match(ui, /Ideal\{' '\}/)
     assert.match(ui, /Faltam\{' '\}/)
+    assert.match(ui, /material ×/)
+    assert.match(ui, /está em/)
+    assert.match(ui, /data-markup-auditor-indice/)
     assert.match(lib, /Preço abaixo do ideal/)
     assert.match(lib, /Preço acima do ideal/)
     assert.match(lib, /percentualDiferenca/)
+    assert.match(lib, /formatarVezesMaterialAuditor/)
     assert.doesNotMatch(ui, /Material \{formatarMoedaMarkup/)
     assert.match(lib, /AUDITOR_LUCRO_PERCENTUAL_PADRAO = 400/)
   })

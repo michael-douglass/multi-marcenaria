@@ -29,15 +29,12 @@ import {
   Mail,
   MapPin,
   Calendar as CalIcon,
-  CalendarIcon,
   Clock,
   ExternalLink,
   FileText,
   CheckCircle2,
 } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { DateInput } from '@/components/ui/DateInput';
 import { getCurrentHora24h } from '@/lib/horarios-24h';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -59,6 +56,8 @@ interface Props {
   initialDate?: Date;
   /** Acima do painel flutuante da agenda (z-95). */
   floatingLayer?: boolean;
+  /** Janela aberta por cima de outro Dialog (ex.: card do lead). */
+  nested?: boolean;
 }
 
 /** Horários em formato 24h (00:00 até 23:45, a cada 15 min) */
@@ -80,6 +79,7 @@ export function LeadLembreteDialog({
   lembrete,
   initialDate,
   floatingLayer,
+  nested,
 }: Props) {
   const { user } = useAuth();
   const { schemaEmpresa, queriesReady } = useEmpresa();
@@ -95,7 +95,6 @@ export function LeadLembreteDialog({
   const [titularIds, setTitularIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const anexosDraft = useAgendaItemAnexosDraft({
     accept: 'images',
     scope: 'lembretes',
@@ -131,10 +130,7 @@ export function LeadLembreteDialog({
   });
 
   useEffect(() => {
-    if (!open) {
-      setDatePickerOpen(false);
-      return;
-    }
+    if (!open) return;
     if (lembrete) {
       setTitulo(lembrete.titulo);
       setDescricao(lembrete.descricao || '');
@@ -226,15 +222,17 @@ export function LeadLembreteDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        nested={!floatingLayer}
+        nested={Boolean(nested) && !floatingLayer}
         data-lead-lembrete-dialog=""
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         floatingLayer={floatingLayer}
         onPointerDownOutside={(event) => {
-          if (datePickerOpen) event.preventDefault();
+          const target = event.target as HTMLElement | null;
+          if (target?.closest('[data-date-picker-root]')) event.preventDefault();
         }}
         onFocusOutside={(event) => {
-          if (datePickerOpen) event.preventDefault();
+          const target = event.target as HTMLElement | null;
+          if (target?.closest('[data-date-picker-root]')) event.preventDefault();
         }}
         onInteractOutside={(event) => {
           if (!floatingLayer) event.preventDefault();
@@ -332,34 +330,26 @@ export function LeadLembreteDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Data *</Label>
-              <Popover modal open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isConcluido}
-                    className={cn(
-                      'w-full justify-start text-left font-normal pointer-events-auto',
-                      !data && 'text-muted-foreground',
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                    {data ? format(data, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione dia, mês e ano'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={data}
-                    onSelect={(day) => {
-                      setData(day);
-                      if (day) setDatePickerOpen(false);
-                    }}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
+            <Label htmlFor="lembrete-data">Data *</Label>
+              <DateInput
+                id="lembrete-data"
+                disabled={isConcluido}
+                value={data ? format(data, 'yyyy-MM-dd') : null}
+                onChange={(iso) => {
+                  if (!iso) {
+                    setData(undefined);
+                    return;
+                  }
+                  const [year, month, day] = iso.split('-').map(Number);
+                  if (!year || !month || !day) return;
+                  setData((atual) => {
+                    const next = atual ? new Date(atual.getTime()) : new Date();
+                    next.setFullYear(year, month - 1, day);
+                    return next;
+                  });
+                }}
+                aria-label="Data do lembrete"
+              />
               <Button
                 type="button"
                 variant="ghost"

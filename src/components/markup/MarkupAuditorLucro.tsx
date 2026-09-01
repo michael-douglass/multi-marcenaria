@@ -11,9 +11,12 @@ import { useMarkupConfig } from '@/hooks/useMarkupConfig';
 import {
   AUDITOR_LUCRO_PERCENTUAL_PADRAO,
   calcularAuditorLucro,
+  formatarIndiceAuditor,
+  formatarVezesMaterialAuditor,
   normalizarPercentualAuditorLucro,
   podeVerAuditorLucro,
   rotuloAuditorFaixa,
+  type AuditorLucroResultado,
   type AuditorLucroStatus,
 } from '@/lib/markup-auditor-lucro';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
@@ -27,7 +30,7 @@ interface MarkupAuditorLucroProps {
 }
 
 const ICON_SIZE = 36;
-const PANEL_WIDTH = 256;
+const PANEL_WIDTH = 280;
 
 function sortearDestinoNaPista(pista: HTMLElement, icon: number): { x: number; y: number } {
   const maxX = Math.max(0, pista.clientWidth - icon);
@@ -202,6 +205,59 @@ function MarkupAuditorOrb({
           status === 'acima' && 'from-emerald-200 to-[#1f3a18]',
         )}
       />
+    </div>
+  );
+}
+
+function AuditorIndiceMaterial({ auditor }: { auditor: AuditorLucroResultado }) {
+  if (auditor.status === 'sem_material' || !(auditor.custoMateriais > 0)) return null;
+
+  const vezes = formatarVezesMaterialAuditor(auditor.percentualAtual);
+  const atual = formatarIndiceAuditor(auditor.percentualAtual);
+  const alvo = formatarIndiceAuditor(auditor.percentualAlvo);
+  const progresso = Math.min(
+    1,
+    Math.max(0, auditor.percentualAlvo > 0 ? auditor.percentualAtual / auditor.percentualAlvo : 0),
+  );
+
+  return (
+    <div
+      data-markup-auditor-indice=""
+      className="relative mt-3 space-y-2 border-t border-amber-200/15 pt-2.5"
+      aria-label={`Preço atual é material vezes ${vezes}. Ideal ${alvo}, está em ${atual}.`}
+    >
+      <p className="text-[11px] leading-relaxed text-amber-100/78">
+        Preço atual{' '}
+        <strong className="font-semibold tabular-nums text-amber-50">material × {vezes}</strong>
+      </p>
+      <p className="text-[11px] leading-relaxed text-amber-100/78">
+        Ideal <strong className="tabular-nums text-amber-100">{alvo}</strong>
+        {' · '}está em{' '}
+        <strong
+          className={cn(
+            'tabular-nums',
+            auditor.status === 'baixo' && 'text-orange-200',
+            auditor.status === 'acima' && 'text-emerald-200',
+            auditor.status === 'ok' && 'text-amber-100',
+          )}
+        >
+          {atual}
+        </strong>
+      </p>
+      <div
+        className="h-1 overflow-hidden rounded-full bg-amber-200/10"
+        aria-hidden
+      >
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-500',
+            auditor.status === 'baixo' && 'bg-gradient-to-r from-[#8a3018] to-orange-300',
+            auditor.status === 'acima' && 'bg-gradient-to-r from-[#1f3a18] to-emerald-300',
+            auditor.status === 'ok' && 'bg-gradient-to-r from-[#5a3d16] to-amber-200',
+          )}
+          style={{ width: `${Math.max(progresso * 100, 5)}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -552,6 +608,8 @@ export function MarkupAuditorLucro({
               {auditor.status === 'sem_material' && (
                 <p className="relative mt-2.5 text-sm text-amber-100/70">Sem material ainda.</p>
               )}
+
+              <AuditorIndiceMaterial auditor={auditor} />
 
               <AnimatePresence initial={false}>
                 {ajustesAberto && (

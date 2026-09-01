@@ -252,7 +252,40 @@ export interface MarkupComposicaoAnterior {
   salvo_em: string;
 }
 
+export type MarkupOrcamentoSimplesDescontoTipo = 'percent' | 'reais';
+
+export interface MarkupOrcamentoSimplesItem {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  /** Preço unitário em centavos (evita erro de arredondamento). */
+  unitario_centavos: number;
+}
+
+export interface MarkupOrcamentoSimplesFoto {
+  id: string;
+  url: string;
+  /** lead = URL pública gravada no caderno; local = data URL só desta impressão. */
+  origem: 'lead' | 'local';
+}
+
+/** Folha comercial que o cliente recebe — independente do caderno de custo. */
+export interface MarkupOrcamentoSimples {
+  titulo: string;
+  itens: MarkupOrcamentoSimplesItem[];
+  desconto_tipo: MarkupOrcamentoSimplesDescontoTipo;
+  /** Percentual 0–100 ou valor em centavos, conforme desconto_tipo. */
+  desconto_valor: number;
+  validade_dias: number;
+  fotos: MarkupOrcamentoSimplesFoto[];
+  observacoes: string;
+}
+
 export interface MarkupModulosMeta {
+  /**
+   * Folha comercial (orçamento simples). Não altera o preco_final do caderno.
+   */
+  orcamento_simples?: MarkupOrcamentoSimples;
   /**
    * Ordem customizada dos produtos no catálogo da calculadora, por card de categoria.
    * Chave = rótulo do card (ex.: "CHAPAS DE MDF"); valor = IDs dos produtos na ordem desejada.

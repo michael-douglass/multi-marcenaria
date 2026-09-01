@@ -108,6 +108,7 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-ambiente-photo-studio]') ||
       target.closest('[data-lead-folder-picker]') ||
       target.closest('[data-enviar-projeto-dialog]') ||
+      target.closest('[data-markup-orcamento-simples]') ||
       target.closest('[data-lead-lembrete-dialog]') ||
       target.closest('[data-agenda-create-dialog]') ||
       target.closest('[data-floating-agenda-panel]') ||
@@ -131,6 +132,7 @@ export function isLeadDismissBlocked(options?: { filePickerActive?: boolean }): 
   if (typeof document === 'undefined') return false;
   return Boolean(
     document.querySelector('[data-nested-dialog][data-state="open"]') ||
+      document.querySelector('[data-markup-orcamento-simples][data-state="open"]') ||
       document.querySelector('[data-lead-lembrete-dialog][data-state="open"]') ||
       document.querySelector('[data-agenda-create-dialog][data-state="open"]') ||
       document.querySelector('[data-floating-agenda-root][data-state="open"]') ||

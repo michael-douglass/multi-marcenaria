@@ -42,6 +42,8 @@ export const Z_ORCAMENTO_VISUALIZAR_NESTED = 260;
 
 /** Classes Tailwind correspondentes (evita números mágicos espalhados). */
 export const nestedModalClass = '!z-[60]';
+/** Select/popover/calendário por cima de um Dialog aninhado (!z-[60]). */
+export const nestedPopoverClass = '!z-[100]';
 export const leadNestedMenuClass = '!z-[80]';
 /** Véu da tela cheia da lousa — o Radix força pointer-events:auto no overlay. */
 export const leadFullscreenOverlayClass = 'z-[80] !pointer-events-none';

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { Lead, LeadOrigin, LeadStatus, User } from '@/types/selletos';
 import { useLeads, useLeadDetail, type LeadWithVendor } from '@/hooks/useLeads';
@@ -15,11 +15,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useLeadOrigins } from '@/hooks/useLeadOrigins';
 import { DEFAULT_PIPELINE_STAGES, usePipelineCustomStages } from '@/hooks/usePipelineCustomStages';
-import { getPipelineInboxStageName, groupLeadModalStatusOptions, resolveLeadStatusDisplay, type LeadModalStatusOption } from '@/lib/pipeline-status-options';
-import {
-  LeadStatusColumnDisplay,
-  LeadStatusColumnOptionRow,
-} from './LeadStatusColumnDisplay';
+import { getPipelineInboxStageName, resolveLeadStatusDisplay, type LeadModalStatusOption } from '@/lib/pipeline-status-options';
+import { LeadStatusColumnDisplay } from './LeadStatusColumnDisplay';
+import { LeadStatusColumnCombobox } from './LeadStatusColumnCombobox';
 import { useRegioes } from '@/hooks/useRegioes';
 import { adaptLeadFromDatabase, adaptUserFromDatabase } from '@/lib/adapters';
 import { setLeadDetailCache } from '@/lib/leads-cache';
@@ -343,12 +341,6 @@ export function LeadModal({
     return inbox;
   }, [newLeadDefaultStatus, statusOptions, pipelineStages]);
 
-  const statusSelectGroups = useMemo(() => {
-    if (!usesKanbanPageStatuses || !statusOptions?.length) return null;
-    if (!statusOptions.some((opt) => opt.group)) return null;
-    return groupLeadModalStatusOptions(statusOptions);
-  }, [usesKanbanPageStatuses, statusOptions]);
-
   const statusDisplayInfo = useMemo(
     () => resolveLeadStatusDisplay(formData.status, statusOptions),
     [formData.status, statusOptions],
@@ -389,6 +381,28 @@ export function LeadModal({
     }
     return names;
   }, [usesKanbanPageStatuses, statusOptions, pipelineStages, formData.status, allStatusValues]);
+
+  const funnelColumnOptions = useMemo<LeadModalStatusOption[]>(() => {
+    if (usesKanbanPageStatuses && statusOptions?.length) {
+      const current = formData.status?.trim();
+      if (current && !statusOptions.some((opt) => opt.value === current)) {
+        return [
+          ...statusOptions,
+          {
+            value: current,
+            label: current,
+            group: 'Outros',
+          },
+        ];
+      }
+      return statusOptions;
+    }
+    return STATUSES.map((status) => ({
+      value: status,
+      label: status,
+      group: 'Pipeline principal',
+    }));
+  }, [usesKanbanPageStatuses, statusOptions, formData.status, STATUSES]);
 
   const isConfiguredPipelineStatus = (status: string) => STATUSES.includes(status);
 
@@ -1940,8 +1954,15 @@ export function LeadModal({
                     <span className="text-sm text-muted-foreground">Carregando colunas...</span>
                   </div>
                 ) : (
-                  <Select
-                    value={formData.status || undefined}
+                  <LeadStatusColumnCombobox
+                    value={formData.status || ''}
+                    options={funnelColumnOptions}
+                    displayInfo={statusDisplayFallback}
+                    placeholder={
+                      usesKanbanPageStatuses
+                        ? 'Escolha a página e a coluna'
+                        : 'Escolha a coluna do Pipeline'
+                    }
                     onValueChange={(newStatus) => {
                       markFormDirty();
                       setFormData((prev) => ({ ...prev, status: newStatus as LeadStatus }));
@@ -1952,69 +1973,7 @@ export function LeadModal({
                         });
                       }
                     }}
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        'h-auto min-h-12 w-full min-w-0 max-w-full py-2',
-                        'border-gold-border-subtle/30 bg-mahogany-muted/20',
-                        'hover:border-gold-border-subtle/50 focus:ring-gold/30',
-                      )}
-                    >
-                      <SelectValue
-                        placeholder={
-                          usesKanbanPageStatuses
-                            ? 'Escolha a página e a coluna'
-                            : 'Escolha a coluna do Pipeline'
-                        }
-                      >
-                        {formData.status ? (
-                          <LeadStatusColumnDisplay info={statusDisplayFallback} compact />
-                        ) : null}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[min(24rem,70vh)] min-w-[min(100%,22rem)]">
-                      {usesKanbanPageStatuses && statusOptions
-                        ? statusSelectGroups
-                          ? [...statusSelectGroups.entries()].map(([group, opts]) => (
-                              <SelectGroup key={group}>
-                                <SelectLabel
-                                  className={cn(
-                                    'sticky top-0 z-[1] pl-2 pr-2 py-2',
-                                    'border-b border-gold-border-subtle/20 bg-mahogany-elevated/95',
-                                    'text-[10px] font-semibold uppercase tracking-[0.14em] text-gold/90',
-                                  )}
-                                >
-                                  {group}
-                                </SelectLabel>
-                                {opts.map((opt, index) => (
-                                  <SelectItem
-                                    key={`${group}:${opt.value}`}
-                                    value={opt.value}
-                                    className="py-2 pl-8"
-                                  >
-                                    <LeadStatusColumnOptionRow
-                                      columnLabel={opt.label}
-                                      step={index + 1}
-                                    />
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            ))
-                          : statusOptions.map((opt, index) => (
-                              <SelectItem key={opt.value} value={opt.value} className="py-2 pl-8">
-                                <LeadStatusColumnOptionRow
-                                  columnLabel={opt.label}
-                                  step={index + 1}
-                                />
-                              </SelectItem>
-                            ))
-                        : STATUSES.map((status, index) => (
-                            <SelectItem key={status} value={status} className="py-2 pl-8">
-                              <LeadStatusColumnOptionRow columnLabel={status} step={index + 1} />
-                            </SelectItem>
-                          ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 )}
               </LeadEditableField>
             )}
@@ -2288,6 +2247,7 @@ export function LeadModal({
           onOpenChange={setShowLembreteDialog}
           leadId={leadId}
           leadName={formData.name || 'Lead'}
+          nested
         />
       )}
     </>

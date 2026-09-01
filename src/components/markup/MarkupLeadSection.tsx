@@ -15,6 +15,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { MarkupCardPreview } from './MarkupCardPreview';
 import { MarkupCalculatorSheet } from './MarkupCalculatorSheet';
+import {
+  MarkupOrcamentoSimplesDialog,
+  MarkupOrcamentoSimplesTrigger,
+} from './MarkupOrcamentoSimplesDialog';
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
@@ -42,9 +46,10 @@ export function MarkupLeadSection({
   onOrcamentoSync,
   readOnly = false,
 }: MarkupLeadSectionProps) {
-  const { orcamentos, isLoading, removerOrcamento } = useMarkupOrcamentos(leadId);
+  const { orcamentos, isLoading, removerOrcamento, salvarOrcamento } = useMarkupOrcamentos(leadId);
   const { syncValorLead } = useSyncLeadMarkupValor();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [folhaOpen, setFolhaOpen] = useState(false);
   const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
   const [forceNovo, setForceNovo] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
@@ -96,7 +101,7 @@ export function MarkupLeadSection({
     <>
       <Card className="lead-modal-panel">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
             <div>
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <Calculator className="h-4 w-4 text-emerald-500" />
@@ -122,12 +127,18 @@ export function MarkupLeadSection({
                   : 'Anexe PDF ou foto na ficha do lead e, na calculadora, marque “Usar estes anexos para precificar”. A IA extrai, você confere, e só então o preço pinta o card.'}
               </CardDescription>
             </div>
-            {!readOnly && (
-              <Button size="sm" variant="outline" onClick={abrirNovoMarkup}>
-                <Plus className="h-4 w-4 mr-1" />
-                Novo markup
-              </Button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              <MarkupOrcamentoSimplesTrigger
+                disabled={orcamentos.length === 0}
+                onClick={() => setFolhaOpen(true)}
+              />
+              {!readOnly && (
+                <Button size="sm" variant="outline" onClick={abrirNovoMarkup}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Novo markup
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -261,6 +272,15 @@ export function MarkupLeadSection({
           )}
         </CardContent>
       </Card>
+
+      <MarkupOrcamentoSimplesDialog
+        open={folhaOpen}
+        onOpenChange={setFolhaOpen}
+        leadId={leadId}
+        leadNome={leadNome}
+        orcamentos={orcamentos}
+        salvarOrcamento={(input) => salvarOrcamento.mutateAsync(input)}
+      />
 
       {!readOnly && (
         <>

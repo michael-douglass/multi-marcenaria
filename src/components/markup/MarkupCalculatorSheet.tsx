@@ -68,7 +68,8 @@ import type { MarkupComposicaoAnterior, MarkupComposeIAResult, MarkupLinhaOrigem
 import { aplicarRevisaoNaComposicao, sintetizarItensExtraidos } from '@/lib/markup-extracao';
 import type { MarkupItemExtraido } from '@/lib/markup-match';
 import { MarkupIAResumoPanel } from '@/components/markup/MarkupIAResumoPanel';
-import { recalcularModulos, formatarMoedaMarkup, aplicarConfiguracaoFixaNosModulos, garantirEstruturaModulos, arredondar, calcularDescontoPercentFromPrecoAlvo } from '@/lib/markup-calculo';
+import { MarkupLucroReaisInput } from '@/components/markup/MarkupLucroReaisInput';
+import { recalcularModulos, formatarMoedaMarkup, aplicarConfiguracaoFixaNosModulos, garantirEstruturaModulos, arredondar, calcularDescontoPercentFromPrecoAlvo, calcularMargemPercentFromLucroAlvo } from '@/lib/markup-calculo';
 import {
   chaveCardCatalogoMarkup,
   ordenarProdutosCardCatalogo,
@@ -955,6 +956,18 @@ export function MarkupCalculatorSheet({
     }));
     setPrecoFinalDraft(null);
   }, [precoFinalDraft, modulosSeguros.totais.preco_final_bruto, atualizarModulos]);
+
+  const confirmarLucroReaisEditado = useCallback(
+    (lucroAlvo: number) => {
+      const custo = modulosSeguros.totais.custo_com_impostos;
+      const pct = calcularMargemPercentFromLucroAlvo(custo, lucroAlvo);
+      atualizarModulos((prev) => ({
+        ...prev,
+        margem: { ...prev.margem, margem_lucro: pct },
+      }));
+    },
+    [modulosSeguros.totais.custo_com_impostos, atualizarModulos],
+  );
 
   const persistirMarkup = useCallback(
     async (silent: boolean) => {
@@ -2227,8 +2240,8 @@ export function MarkupCalculatorSheet({
                 <p className="font-medium">Parâmetros deste orçamento</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Edite aqui para este cliente. O padrão da empresa em Configurações de Markup não
-                  muda — e o que você alterar fica salvo neste orçamento. A legenda mostra a soma em
-                  R$ de cada parâmetro.
+                  muda — e o que você alterar fica salvo neste orçamento. Na margem, o valor em R$
+                  também é editável: você diz quanto quer lucrar e a % se ajusta.
                 </p>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
@@ -2312,17 +2325,22 @@ export function MarkupCalculatorSheet({
                   />
                 </div>
                 <div className="space-y-1">
-                  <ParamLabel
-                    htmlFor="markup-param-margem"
-                    titulo="Margem lucro (%)"
-                    soma={somaMargem}
-                  />
+                  <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                    <label htmlFor="markup-param-margem" className="min-w-0">
+                      Margem lucro (%)
+                    </label>
+                    <MarkupLucroReaisInput
+                      value={somaMargem}
+                      disabled={!(t.custo_com_impostos > 0)}
+                      onCommit={confirmarLucroReaisEditado}
+                    />
+                  </div>
                   <Input
                     id="markup-param-margem"
                     type="number"
                     min={0}
                     step={0.5}
-                    value={modulosSeguros.margem.margem_lucro}
+                    value={Number(Number(modulosSeguros.margem.margem_lucro).toFixed(2))}
                     onChange={(e) => {
                       const v = Math.max(0, parseFloat(e.target.value) || 0);
                       atualizarModulos((prev) => ({
@@ -2418,17 +2436,32 @@ export function MarkupCalculatorSheet({
                   modulosSeguros.totais.custo_com_impostos - modulosSeguros.totais.subtotal_custo,
                 ],
                 ['Custos totais (com impostos/taxas)', modulosSeguros.totais.custo_com_impostos],
-                [
-                  `Margem lucro (${modulosSeguros.margem.margem_lucro}%) sobre custos totais`,
-                  modulosSeguros.totais.preco_final_bruto - modulosSeguros.totais.custo_com_impostos,
-                ],
-                ['Preço antes do desconto', modulosSeguros.totais.preco_final_bruto],
               ].map(([label, val]) => (
                 <div key={label as string} className="flex items-start justify-between gap-3 px-4 py-2">
                   <span className="min-w-0 flex-1 text-muted-foreground">{label}</span>
                   <span className="shrink-0 tabular-nums">{formatarMoedaMarkup(val as number)}</span>
                 </div>
               ))}
+              <div className="flex items-center justify-between gap-3 px-4 py-2">
+                <span className="min-w-0 flex-1 text-muted-foreground">
+                  Margem lucro ({Number(modulosSeguros.margem.margem_lucro).toFixed(2)}%) sobre custos totais
+                </span>
+                <MarkupLucroReaisInput
+                  id="markup-resumo-lucro-reais"
+                  value={Math.max(
+                    0,
+                    modulosSeguros.totais.preco_final_bruto - modulosSeguros.totais.custo_com_impostos,
+                  )}
+                  disabled={!(modulosSeguros.totais.custo_com_impostos > 0)}
+                  onCommit={confirmarLucroReaisEditado}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-3 px-4 py-2">
+                <span className="min-w-0 flex-1 text-muted-foreground">Preço antes do desconto</span>
+                <span className="shrink-0 tabular-nums">
+                  {formatarMoedaMarkup(modulosSeguros.totais.preco_final_bruto)}
+                </span>
+              </div>
               <div className="flex justify-between items-center px-4 py-2 gap-3">
                 <span className="text-muted-foreground shrink-0">Desconto final (%)</span>
                 <Input

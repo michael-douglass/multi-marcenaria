@@ -91,6 +91,19 @@ export function calcularDescontoPercentFromPrecoAlvo(
   return Math.min(100, Math.max(0, pct));
 }
 
+/**
+ * Converte um lucro desejado em reais na % de margem sobre o custo com impostos.
+ * Ex.: custo 10.000 e lucro 3.000 → 30%.
+ */
+export function calcularMargemPercentFromLucroAlvo(
+  custoComImpostos: number,
+  lucroAlvo: number,
+): number {
+  if (!(custoComImpostos > 0)) return 0;
+  const lucro = Math.max(0, arredondar(lucroAlvo));
+  return Math.max(0, arredondar((lucro / custoComImpostos) * 100, 6));
+}
+
 /** Preenche campos ausentes em orçamentos legados ou parcialmente salvos. */
 export function garantirEstruturaModulos(
   modulos: Partial<MarkupModulos> | MarkupModulos | null | undefined,

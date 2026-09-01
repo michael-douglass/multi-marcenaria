@@ -82,6 +82,18 @@ export function formatarPercentualDiferencaAuditor(percentual: number): string {
   return `${String(abs).replace('.', ',')}%`;
 }
 
+/** 351,44% → "3,51" (preço atual = material × 3,51). */
+export function formatarVezesMaterialAuditor(percentualAtual: number): string {
+  const vezes = arredondar(Math.max(0, Number(percentualAtual) || 0) / 100, 2);
+  return vezes.toFixed(2).replace('.', ',');
+}
+
+/** 351,44 → "351" para comparar com o alvo 400. */
+export function formatarIndiceAuditor(percentual: number): string {
+  const n = Math.round(Math.max(0, Number(percentual) || 0));
+  return String(n);
+}
+
 export function rotuloAuditorFaixa(status: AuditorLucroStatus, percentualDiferenca: number): string | null {
   if (status === 'baixo') {
     return `Preço abaixo do ideal ${formatarPercentualDiferencaAuditor(percentualDiferenca)}`;
