@@ -212,6 +212,11 @@ describe('E4 — PDF e auras', () => {
     assert.match(pdf, /Custo por pessoa/)
     assert.match(pdf, /telefone_fornecedor/)
     assert.match(pdf, /print-color-adjust/)
+    assert.match(pdf, /table-layout: fixed/)
+    assert.match(pdf, /class="planilha/)
+    assert.match(pdf, /height: 297mm/)
+    assert.match(pdf, /Folha \$\{n\} de \$\{total\}/)
+    assert.doesNotMatch(pdf, /@import/)
     assert.doesNotMatch(pdf, /jsPDF/)
   })
 

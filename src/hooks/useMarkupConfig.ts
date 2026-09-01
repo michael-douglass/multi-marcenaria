@@ -6,6 +6,7 @@ import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase';
 import { supabase } from '@/integrations/supabase/client';
 import type { MarkupConfig, MarkupDespesaTemplate, MarkupServicoTemplate } from '@/lib/markup-types';
 import { MARKUP_DEFAULT_CONFIG } from '@/lib/markup-types';
+import { normalizarPercentualAuditorLucro } from '@/lib/markup-auditor-lucro';
 import { MARKUP_IA_AGENT_PROMPTS_DEFAULT, MARKUP_IA_DEFAULT_AUDITOR_MODEL, normalizarAgentPromptsFromRow } from '@/lib/markup-ia-prompts';
 import { normalizarChecklistVerificacao } from '@/lib/markup-ia-verificacao';
 import {
@@ -40,6 +41,7 @@ function normalizeConfig(row: MarkupConfig | null): MarkupConfig {
     markup_ia_auditor_model:
       row.markup_ia_auditor_model?.trim() || MARKUP_IA_DEFAULT_AUDITOR_MODEL,
     markup_ia_agent_prompts: normalizarAgentPromptsFromRow(row.markup_ia_agent_prompts),
+    auditor_lucro_percentual: normalizarPercentualAuditorLucro(row.auditor_lucro_percentual),
   };
 }
 

@@ -31,7 +31,7 @@ export function EventoPdfExportDialog({ open, onOpenChange, board, branding }: E
             <EventoPdfExportAura fill={fill} className="h-14 w-14" />
           </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-cream-muted">Marque o que entra no dossiê. A capa vai sempre.</p>
+        <p className="text-sm text-cream-muted">Marque o que entra no dossiê. Cada bloco vira a própria folha A4 — a capa vai sempre.</p>
         <ul className="space-y-2">
           {EVENTO_PDF_COLUNAS.map((coluna) => {
             const on = marcadas.includes(coluna.id)

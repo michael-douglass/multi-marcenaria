@@ -114,6 +114,8 @@ export interface MarkupConfig {
   markup_ia_ativo: boolean;
   markup_ia_verificacao: MarkupIAVerificacaoCategoria[];
   markup_ia_agent_prompts: MarkupIAAgentPrompts;
+  /** Preço final alvo = custo de material × (este % / 100). Padrão 400. */
+  auditor_lucro_percentual: number;
   criado_em?: string;
   atualizado_em?: string;
 }
@@ -489,6 +491,7 @@ export const MARKUP_DEFAULT_CONFIG: Omit<MarkupConfig, 'id'> = {
   markup_ia_verificacao: MARKUP_IA_VERIFICACAO_PADRAO,
   markup_ia_auditor_model: 'gpt-4o-mini',
   markup_ia_agent_prompts: { ...MARKUP_IA_AGENT_PROMPTS_DEFAULT },
+  auditor_lucro_percentual: 400,
 };
 
 export function criarModulosVazios(config?: Partial<MarkupConfig>): MarkupModulos {

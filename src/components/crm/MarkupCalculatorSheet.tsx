@@ -22,6 +22,7 @@ import type {
   MarkupServicoTemplate,
 } from '@/lib/markup-types'
 import { showToast } from '@/lib/toast'
+import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro'
 
 interface MarkupCalculatorSheetProps {
   open: boolean
@@ -133,9 +134,15 @@ export function MarkupCalculatorSheet({
       extraWide
       closeOnBackdrop={false}
       headerExtra={(
-        <p className="text-sm font-semibold text-emerald-300">
-          Preço final {formatarMoedaMarkup(totais.preco_final)}
-        </p>
+        <div className="flex items-center gap-3">
+          <MarkupAuditorLucro
+            custoMateriais={totais.custo_materiais}
+            precoFinal={totais.preco_final}
+          />
+          <p className="text-sm font-semibold text-emerald-300">
+            Preço final {formatarMoedaMarkup(totais.preco_final)}
+          </p>
+        </div>
       )}
     >
       <FieldRow>

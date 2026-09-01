@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Loader2, Save, FileDown, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2 } from 'lucide-react';
+import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   AlertDialog,
@@ -2501,9 +2502,13 @@ export function MarkupCalculatorSheet({
           </TabsContent>
         </Tabs>
 
-        <div className="flex shrink-0 items-center justify-between border-t bg-muted/30 px-6 py-3">
-          <span className="text-sm text-muted-foreground">Preço final</span>
-          <span className={cn('text-lg font-bold text-primary')}>
+        <div className="relative z-10 flex shrink-0 items-center gap-3 overflow-visible border-t bg-muted/30 px-6 py-3">
+          <span className="shrink-0 text-sm text-muted-foreground">Preço final</span>
+          <MarkupAuditorLucro
+            custoMateriais={modulosSeguros.totais.custo_materiais}
+            precoFinal={modulosSeguros.totais.preco_final}
+          />
+          <span className={cn('ml-auto text-lg font-bold text-primary')}>
             {formatarMoedaMarkup(modulosSeguros.totais.preco_final)}
           </span>
         </div>
