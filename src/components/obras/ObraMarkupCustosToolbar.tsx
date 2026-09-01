@@ -62,7 +62,7 @@ export function ObraMarkupCustosToolbar({
           {badgeContent}
         </div>
       )}
-      <p className="m-0 text-[0.58rem] leading-snug text-[#c4a882]/80">
+      <p className="m-0 text-[0.58rem] leading-snug text-[var(--color-text-muted)]">
         Em cada card, marque Mat. / Serv. / Desp. — fica salvo no sistema para todos
       </p>
     </div>

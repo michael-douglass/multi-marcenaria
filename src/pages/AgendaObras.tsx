@@ -228,9 +228,9 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
       {/* Nome + ações */}
       <div className="flex items-start gap-1.5 min-w-0">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#f2d892] leading-tight break-words">{obra.cliente_nome}</p>
+          <p className="font-semibold text-[var(--color-text-primary)] leading-tight break-words">{obra.cliente_nome}</p>
           {obra.lousa && (
-            <p className="text-[0.7rem] text-[#edd9c4] leading-snug break-words mt-0.5">{obra.lousa}</p>
+            <p className="text-[0.7rem] text-[var(--color-text-muted)] leading-snug break-words mt-0.5">{obra.lousa}</p>
           )}
         </div>
         {(canEdit || canDelete) && (
@@ -239,7 +239,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); onEdit(obra) }}
-                className="p-1 rounded text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-gold-muted)] transition-colors"
                 title="Editar"
               >
                 <Pencil size={12} />
@@ -250,7 +250,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
                 type="button"
                 disabled={loading}
                 onClick={e => { e.stopPropagation(); onExcluir(obra) }}
-                className="p-1 rounded text-[#edd9c4] hover:text-red-400 transition-colors disabled:opacity-50"
+                className="p-1 rounded text-[var(--color-text-muted)] hover:text-red-600 transition-colors disabled:opacity-50"
                 title="Excluir obra"
               >
                 {loading ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
@@ -344,7 +344,7 @@ function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles,
         )}
         {duracao(obra) && <CardInfoRow label="Duração" value={duracao(obra)} />}
         {obra.concluido_em_atraso && (
-          <p className="text-[0.72rem] font-semibold text-red-400 m-0">Concluída em atraso</p>
+          <p className="text-[0.72rem] font-semibold text-red-600 m-0">Concluída em atraso</p>
         )}
       </div>
 
@@ -478,12 +478,12 @@ function ConfigModal({
             {tipos.map(t => (
               <div key={t.id} className="flex items-center justify-between glass-card p-2 text-sm">
                 <div>
-                  <p className="font-semibold text-cream">{t.nome}</p>
-                  <p className="text-[0.7rem] text-[#edd9c4]">Médio: {t.tempo_medio_horas ?? '—'}h / Máx.: {t.tempo_maximo_horas_default ?? '—'}h</p>
+                  <p className="font-semibold text-[var(--color-text-primary)]">{t.nome}</p>
+                  <p className="text-[0.7rem] text-[var(--color-text-muted)]">Médio: {t.tempo_medio_horas ?? '—'}h / Máx.: {t.tempo_maximo_horas_default ?? '—'}h</p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => { setTipoEdit(t.id); setTipoForm({ nome: t.nome, descricao: t.descricao ?? null, tempo_medio_horas: t.tempo_medio_horas ?? null, tempo_maximo_horas_default: t.tempo_maximo_horas_default ?? null, ativo: t.ativo }) }} className="p-1 text-[#edd9c4] hover:text-[#f2d892]"><Pencil size={12} /></button>
-                  <button onClick={() => tiposHook.remove(t.id)} className="p-1 text-[#edd9c4] hover:text-red-400"><X size={12} /></button>
+                  <button onClick={() => { setTipoEdit(t.id); setTipoForm({ nome: t.nome, descricao: t.descricao ?? null, tempo_medio_horas: t.tempo_medio_horas ?? null, tempo_maximo_horas_default: t.tempo_maximo_horas_default ?? null, ativo: t.ativo }) }} className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-gold-muted)]"><Pencil size={12} /></button>
+                  <button onClick={() => tiposHook.remove(t.id)} className="p-1 text-[var(--color-text-muted)] hover:text-red-600"><X size={12} /></button>
                 </div>
               </div>
             ))}
@@ -509,10 +509,10 @@ function ConfigModal({
           <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
             {grupos.map(g => (
               <div key={g.id} className="flex items-center justify-between glass-card p-2 text-sm">
-                <p className="font-semibold text-cream">{g.nome}</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{g.nome}</p>
                 <div className="flex gap-1">
-                  <button onClick={() => { setGrupoEdit(g.id); setGrupoForm({ nome: g.nome, descricao: g.descricao ?? null, montador_admin_id: g.montador_admin_id ?? null, ativo: g.ativo }) }} className="p-1 text-[#edd9c4] hover:text-[#f2d892]"><Pencil size={12} /></button>
-                  <button onClick={() => gruposHook.remove(g.id)} className="p-1 text-[#edd9c4] hover:text-red-400"><X size={12} /></button>
+                  <button onClick={() => { setGrupoEdit(g.id); setGrupoForm({ nome: g.nome, descricao: g.descricao ?? null, montador_admin_id: g.montador_admin_id ?? null, ativo: g.ativo }) }} className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-gold-muted)]"><Pencil size={12} /></button>
+                  <button onClick={() => gruposHook.remove(g.id)} className="p-1 text-[var(--color-text-muted)] hover:text-red-600"><X size={12} /></button>
                 </div>
               </div>
             ))}

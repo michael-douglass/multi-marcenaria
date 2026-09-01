@@ -104,6 +104,7 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-whiteboard-project-picker]') ||
       target.closest('[data-ambiente-photo-studio]') ||
       target.closest('[data-lead-folder-picker]') ||
+      target.closest('[data-enviar-projeto-dialog]') ||
       target.closest('[data-nested-dialog]'),
   );
 }

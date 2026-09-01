@@ -885,9 +885,9 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   }>
 
   return (
-    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-2 pb-10 sm:-mx-3 sm:-mt-3 sm:px-3 md:px-4">
       <CobrancasPageAura />
-      <div className="relative z-[1] mx-auto max-w-6xl space-y-6 pt-4 md:pt-8">
+      <div className="relative z-[1] mx-auto w-full max-w-[1760px] space-y-6 pt-4 md:pt-8">
       <header className="cobrancas-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/92 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-8">
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
@@ -1648,16 +1648,33 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
         />
       </div>
 
-      <div className="cobrancas-ledger glass-card overflow-hidden">
+      <div className="cobrancas-ledger glass-card min-w-0 overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState message="Nenhuma cobrança para este filtro." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="min-w-0 overflow-x-auto xl:overflow-visible">
+            <table className="w-full min-w-0 table-auto border-collapse xl:table-fixed">
               <thead>
                 <tr>
-                  {['Cliente', 'Parcela', 'Valor', 'Vencimento', 'Inicio e entrega de obra', 'Pagamento', 'Status', 'Recibo', 'Anexos', ''].map((h, i) => (
-                    <th key={i} className="section-label px-4 py-3 text-left">{h}</th>
+                  {[
+                    { key: 'cliente', label: 'Cliente', className: 'xl:w-[18%]' },
+                    { key: 'parcela', label: 'Parcela', className: 'xl:w-[6%]' },
+                    { key: 'valor', label: 'Valor', className: 'xl:w-[10%]' },
+                    { key: 'vencimento', label: 'Vencimento', className: 'xl:w-[9%]' },
+                    { key: 'obra', label: 'Início e entrega', className: 'xl:w-[11%]' },
+                    { key: 'pagamento', label: 'Pagamento', className: 'xl:w-[8%]' },
+                    { key: 'status', label: 'Status', className: 'xl:w-[8%]' },
+                    { key: 'recibo', label: 'Recibo', className: 'xl:w-[5%]' },
+                    { key: 'anexos', label: 'Anexos', className: 'xl:w-[6%]' },
+                    { key: 'acoes', label: '', className: 'xl:w-[19%]' },
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      className={cn('section-label px-3 py-3 text-left leading-tight', col.className)}
+                      title={col.key === 'obra' ? 'Início e entrega de obra' : undefined}
+                    >
+                      {col.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -1668,29 +1685,37 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                   const inicioEntrega = inicioEntregaPorConta.get(r.id) ?? '—'
                   return (
                     <tr key={r.id} className={cn('trow', s === 'vencido' && 'cobrancas-row-late')}>
-                      <td className="px-4 py-3 font-medium text-[#1a100c]">
-                        {r.cliente_nome}
+                      <td className="min-w-0 px-3 py-3 align-top font-medium text-[#1a100c]">
+                        <div className="break-words">{r.cliente_nome}</div>
                         {r.observacao?.trim() ? (
                           <div className="mt-1 line-clamp-2 text-xs font-normal text-[#6b5244]" title={r.observacao}>
                             {r.observacao}
                           </div>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-sm text-[#4a3428]">{r.numero_parcela}/{r.total_parcelas}</td>
-                      <td className="px-4 py-3 font-semibold text-[#146c38]">{fmtCur(r.valor_parcela)}</td>
-                      <td className={cn('px-4 py-3 text-sm', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(r.data_vencimento)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 align-top text-sm text-[#4a3428]">{r.numero_parcela}/{r.total_parcelas}</td>
+                      <td className="whitespace-nowrap px-3 py-3 align-top font-semibold text-[#146c38]">{fmtCur(r.valor_parcela)}</td>
+                      <td className={cn('whitespace-nowrap px-3 py-3 align-top text-sm', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(r.data_vencimento)}</td>
                       <td
                         className={cn(
-                          'whitespace-nowrap px-4 py-3 text-sm',
+                          'px-3 py-3 align-top text-sm leading-snug',
                           inicioEntrega === '—' ? 'text-[#6b5244]' : 'text-[#4a3428]',
                         )}
                         title={inicioEntrega === '—' ? 'Sem datas na Agenda de Obras' : inicioEntrega}
                       >
-                        {inicioEntrega}
+                        {inicioEntrega === '—' ? (
+                          '—'
+                        ) : (
+                          <span className="flex flex-col">
+                            {inicioEntrega.split(' → ').map((parte, i) => (
+                              <span key={`${r.id}-obra-${i}`}>{i === 0 ? parte : `→ ${parte}`}</span>
+                            ))}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-[#4a3428]">{PM_ICON[pm]} {PM_LABEL[pm]}</td>
-                      <td className="px-4 py-3"><Badge status={s} /></td>
-                      <td className="px-4 py-3">
+                      <td className="whitespace-nowrap px-3 py-3 align-top text-sm text-[#4a3428]">{PM_ICON[pm]} {PM_LABEL[pm]}</td>
+                      <td className="px-3 py-3 align-top"><Badge status={s} /></td>
+                      <td className="px-3 py-3 align-top">
                         <button
                           type="button"
                           className="btn btn-outline btn-sm !p-1.5"
@@ -1700,15 +1725,15 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                           <FileText className="h-4 w-4 text-[#6b3f12]" />
                         </button>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3 align-top">
                         <ContaReceberAnexosButton
                           conta={r}
                           todasContas={data}
                           readOnly={readOnly}
                         />
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <td className="px-3 py-3 align-top text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <CobrancaCopyButton
                             conta={r}
                             templates={templatesHook.templates}
@@ -1721,7 +1746,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                           ) : null}
                         </div>
                         {isAdmin && (
-                          <div className="mt-2 flex justify-end gap-2 flex-wrap">
+                          <div className="mt-2 flex flex-wrap justify-end gap-1.5">
                             <button className="btn btn-outline btn-sm" onClick={() => void verHistorico(r)}>Histórico</button>
                             <button className="btn btn-outline btn-sm" onClick={() => openEditModal(r)}>Editar Única</button>
                             <button className="btn btn-gold btn-sm" onClick={() => openBulkEditModal(r)}>Editar Parcelamento</button>

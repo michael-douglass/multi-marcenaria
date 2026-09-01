@@ -29,17 +29,18 @@ import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
 import { ObraEquipeActionBar } from '@/components/obras/ObraEquipeActionBar'
 import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
 import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
+import { ObraDetalheLeadAura } from '@/components/obras/ObraDetalheLeadAura'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
 
 const STATUS_COR: Record<StatusKanbanObra, string> = {
-  datas_em_aberto: '#6b7280',
-  datas_em_atraso: '#ef4444',
-  datas_definidas: '#3b82f6',
-  em_andamento:    '#f59e0b',
-  concluida:       '#10b981',
-  cancelada:       '#9ca3af',
+  datas_em_aberto: '#c9b59a',
+  datas_em_atraso: '#ff7a62',
+  datas_definidas: '#9dccf0',
+  em_andamento:    '#f0c56a',
+  concluida:       '#7ed9b0',
+  cancelada:       '#b5a898',
 }
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
@@ -94,8 +95,8 @@ function Campo({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
     <div>
-      <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">{label}</p>
-      <p className="text-sm text-cream mt-0.5">{value}</p>
+      <p className="obra-field-label">{label}</p>
+      <p className="obra-field-value">{value}</p>
     </div>
   )
 }
@@ -213,15 +214,19 @@ export function ObraDetalheModal({
   return (
     <>
       <Modal open={open} onClose={onClose} title="DETALHES DA OBRA" wide>
+        <section className="obra-lead-card mb-5" data-obra-lead-card="">
+          <ObraDetalheLeadAura statusHex={cor} />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-[#f6dc9a]/75 to-transparent" />
+          <div className="relative z-[2] p-4 sm:p-5">
         {/* Cabeçalho: cliente + status + botão editar */}
         <div className="flex items-start justify-between gap-3 mb-5">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-[#f2d892] font-display leading-tight">
+            <h2 className="text-xl font-bold text-[#fff8ee] font-display leading-tight drop-shadow-[0_1px_2px_rgba(8,3,1,0.55)]">
               {obra.cliente_nome}
             </h2>
             <span
-              className="inline-block mt-1 rounded-full px-2.5 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide"
-              style={{ backgroundColor: `${cor}22`, color: cor, border: `1px solid ${cor}44` }}
+              className="obra-lead-card__status inline-block mt-1.5 rounded-full px-2.5 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide"
+              style={{ backgroundColor: `${cor}2e`, color: cor, border: `1px solid ${cor}88` }}
             >
               {STATUS_LABEL[obra.status_kanban]}
             </span>
@@ -241,7 +246,7 @@ export function ObraDetalheModal({
               type="button"
               disabled={isActioning}
               onClick={() => onExcluir(obra)}
-              className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0 text-red-400 border-red-400/30 hover:bg-red-400/10 disabled:opacity-50"
+              className="btn btn-outline btn-sm flex items-center gap-1.5 shrink-0 text-[#ff8a78] border-[#ff8a78]/35 hover:bg-[#ff8a78]/10 disabled:opacity-50"
             >
               {isActioning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
               Excluir
@@ -254,7 +259,7 @@ export function ObraDetalheModal({
         {obra.descricao && (
           <div
             className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
+            style={{ backgroundColor: 'rgba(126,217,176,0.1)', border: '1px solid rgba(126,217,176,0.28)' }}
           >
             <div className="flex items-center gap-1.5 mb-2">
               <FileText size={13} className="text-emerald-400" />
@@ -276,24 +281,24 @@ export function ObraDetalheModal({
         {hasObraDiasHorarios(obra) && (
           <div
             className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)' }}
+            style={{ backgroundColor: 'rgba(157,204,240,0.1)', border: '1px solid rgba(157,204,240,0.28)' }}
           >
             <div className="flex items-center gap-1.5 mb-3">
-              <Calendar size={13} className="text-sky-400" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-sky-400">
+              <Calendar size={13} className="text-[#9dccf0]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#9dccf0]">
                 Dias e Horários de Trabalho
               </p>
             </div>
 
             {diasTrabalhoLabels.length > 0 && (
               <div className="mb-3">
-                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] mb-2">Dias</p>
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#e4cbb0] mb-2">Dias</p>
                 <div className="flex flex-wrap gap-1.5">
                   {diasTrabalhoLabels.map(dia => (
                     <span
                       key={dia}
-                      className="rounded-full px-3 py-1 text-xs font-semibold text-sky-300 border border-sky-400/30"
-                      style={{ backgroundColor: 'rgba(59,130,246,0.12)' }}
+                      className="rounded-full px-3 py-1 text-xs font-semibold text-[#9dccf0] border border-[#9dccf0]/35"
+                      style={{ backgroundColor: 'rgba(157,204,240,0.14)' }}
                     >
                       {dia}
                     </span>
@@ -304,8 +309,8 @@ export function ObraDetalheModal({
 
             {horarioTrabalho && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Clock size={13} className="text-sky-400 shrink-0" />
-                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">Horário</p>
+                <Clock size={13} className="text-[#9dccf0] shrink-0" />
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#e4cbb0]">Horário</p>
                 <p className="text-sm text-cream font-medium">{horarioTrabalho}</p>
               </div>
             )}
@@ -324,19 +329,19 @@ export function ObraDetalheModal({
         )}
 
         {/* ── LOUSA (fotos + anotações) — começa minimizada ── */}
-        <div className="mb-5">
+        <div>
           {obra.lousa?.trim() && (
             <div
               className="mb-3 rounded-md p-3"
-              style={{ backgroundColor: 'rgba(240,210,140,0.07)', border: '1px solid rgba(240,210,140,0.18)' }}
+              style={{ backgroundColor: 'rgba(246,220,154,0.1)', border: '1px solid rgba(246,220,154,0.28)' }}
             >
               <div className="flex items-center gap-1.5 mb-1.5">
-                <FileText size={12} className="text-[#edd9c4]" />
-                <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
+                <FileText size={12} className="text-[#f6dc9a]" />
+                <p className="text-[0.65rem] uppercase tracking-wider text-[#f6dc9a]">
                   Observação do CRM
                 </p>
               </div>
-              <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
+              <p className="text-sm text-[#fff8ee] leading-relaxed whitespace-pre-wrap">{obra.lousa}</p>
             </div>
           )}
 
@@ -348,6 +353,8 @@ export function ObraDetalheModal({
             onExported={() => { void arqHook.reload() }}
           />
         </div>
+          </div>
+        </section>
 
         {/* ── CUSTOS MARKUP (Administrador) ───────────────────── */}
         {showMarkupCustos && markupCustos && (
@@ -410,8 +417,8 @@ export function ObraDetalheModal({
           )}
           {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
             <div className="col-span-2">
-              <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">Período Previsto</p>
-              <p className="text-sm text-cream mt-0.5">
+              <p className="obra-field-label">Período Previsto</p>
+              <p className="obra-field-value">
                 {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
                 {' → '}
                 {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
@@ -429,7 +436,7 @@ export function ObraDetalheModal({
           )}
           {obra.concluido_em_atraso && (
             <div className="col-span-2">
-              <p className="text-sm font-semibold text-red-400">Concluída em atraso</p>
+              <p className="text-sm font-semibold text-red-600">Concluída em atraso</p>
             </div>
           )}
         </div>
@@ -441,26 +448,26 @@ export function ObraDetalheModal({
         {obra.comissao_habilitada && comissaoItens.length > 0 && (
           <div
             className="mb-5 rounded-lg p-4"
-            style={{ backgroundColor: 'rgba(240,210,140,0.06)', border: '1px solid rgba(240,210,140,0.2)' }}
+            style={{ backgroundColor: 'rgba(246,220,154,0.1)', border: '1px solid rgba(246,220,154,0.28)' }}
           >
             <div className="flex items-center gap-1.5 mb-2">
-              <Banknote size={13} className="text-[#f2d892]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+              <Banknote size={13} className="text-[var(--color-gold-muted)]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[var(--color-gold-muted)]">
                 Comissão
                 {obra.comissao_gerada && (
-                  <span className="ml-2 text-emerald-400 normal-case">· Pagamentos gerados</span>
+                  <span className="ml-2 text-emerald-700 normal-case">· Pagamentos gerados</span>
                 )}
               </p>
             </div>
             <ul className="space-y-1 mb-2">
               {comissaoItens.map(item => (
-                <li key={item.prestador_id} className="flex justify-between text-sm text-cream gap-3">
+                <li key={item.prestador_id} className="flex justify-between text-sm text-[var(--color-text-primary)] gap-3">
                   <span className="truncate">{item.prestador_nome ?? 'Montador'}</span>
-                  <span className="font-mono text-[#f2d892] shrink-0">{fmtCur(item.valor)}</span>
+                  <span className="font-mono text-[var(--color-gold-muted)] shrink-0">{fmtCur(item.valor)}</span>
                 </li>
               ))}
             </ul>
-            <p className="text-right text-sm font-semibold text-[#f2d892]">
+            <p className="text-right text-sm font-semibold text-[var(--color-gold-muted)]">
               Total: {fmtCur(comissaoTotal)}
             </p>
             {podeGerarComissao && onAplicarComissao && (
@@ -471,7 +478,7 @@ export function ObraDetalheModal({
                   if (!confirm('Gerar pagamentos de comissão em Contas a Pagar para os prestadores?')) return
                   onAplicarComissao(obra.id)
                 }}
-                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-[#f2d892]/15 text-[#f2d892] hover:bg-[#f2d892]/25 transition-colors disabled:opacity-50"
+                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-[rgba(141,94,34,0.12)] text-[var(--color-gold-muted)] hover:bg-[rgba(141,94,34,0.2)] transition-colors disabled:opacity-50"
               >
                 {applyingComissao
                   ? <Loader2 size={14} className="animate-spin" />
@@ -497,14 +504,14 @@ export function ObraDetalheModal({
           />
 
         {/* ── EVOLUÇÃO DA OBRA (DIÁRIO) ───────────────────────── */}
-        <div className="border-t border-[rgba(240,210,140,0.12)] pt-4 mb-5">
+        <div className="border-t border-[rgba(232,196,112,0.22)] pt-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Camera size={15} className="text-[#f2d892]" />
-              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+              <Camera size={15} className="text-[var(--color-gold-muted)]" />
+              <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[var(--color-gold-muted)]">
                 Evolução da Obra (Diário)
                 {evolHook.data.length > 0 && (
-                  <span className="ml-2 text-[#edd9c4] normal-case font-normal">
+                  <span className="ml-2 text-[var(--color-text-muted)] normal-case font-normal">
                     ({evolHook.data.length})
                   </span>
                 )}
@@ -514,7 +521,7 @@ export function ObraDetalheModal({
               <button
                 onClick={() => setEvolModalOpen(true)}
                 disabled={evolHook.uploading}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(141,94,34,0.12)] text-[var(--color-gold-muted)] hover:bg-[rgba(141,94,34,0.2)] transition-colors disabled:opacity-50"
               >
                 {evolHook.uploading
                   ? <Loader2 size={12} className="animate-spin" />
@@ -530,11 +537,11 @@ export function ObraDetalheModal({
           )}
 
           {evolHook.loading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-[#edd9c4]">
+            <div className="flex items-center gap-2 py-4 text-xs text-[var(--color-text-muted)]">
               <Loader2 size={14} className="animate-spin" /> Carregando evolução...
             </div>
           ) : evolHook.data.length === 0 ? (
-            <p className="text-xs text-[#d4bc9f] py-4 bg-black/20 rounded-lg text-center border border-dashed border-[rgba(240,210,140,0.1)]">
+            <p className="text-xs text-[var(--color-text-muted)] py-4 rounded-lg text-center border border-dashed border-[var(--color-gold-border)] bg-[rgba(42,24,18,0.04)]">
               {isMontador || canUpload ? 'Nenhum progresso registrado. Use o botão acima para enviar fotos, vídeos ou observações do que foi feito.' : 'Nenhum progresso registrado.'}
             </p>
           ) : (
@@ -542,19 +549,19 @@ export function ObraDetalheModal({
               {diasEvolucao.map(dia => (
                 <div
                   key={dia.data}
-                  className="relative pl-5 border-l border-[rgba(240,210,140,0.22)]"
+                  className="relative pl-5 border-l border-[rgba(232,196,112,0.32)]"
                 >
                   <div className="absolute -left-[5px] top-1 w-[9px] h-[9px] rounded-full bg-[#f2d892] shadow-[0_0_8px_rgba(240,210,140,0.45)]" />
 
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className="text-sm font-bold text-[#f2d892] font-display tracking-wide">
+                    <span className="text-sm font-bold text-[var(--color-gold-muted)] font-display tracking-wide">
                       Dia {String(dia.diaNumero).padStart(2, '0')}
                     </span>
-                    <span className="flex items-center gap-1 text-[0.68rem] text-[#edd9c4]">
+                    <span className="flex items-center gap-1 text-[0.68rem] text-[var(--color-text-secondary)]">
                       <Calendar size={11} />
                       {fmtDate(dia.data)}
                     </span>
-                    <span className="text-[0.62rem] text-[#d4bc9f]">
+                    <span className="text-[0.62rem] text-[var(--color-text-muted)]">
                       · {dia.fotos.length} registro{dia.fotos.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -564,23 +571,23 @@ export function ObraDetalheModal({
                       item.kind === 'text' ? (
                         <div
                           key={item.id}
-                          className="relative min-w-[min(100%,16rem)] max-w-full flex-1 rounded-lg border border-[rgba(240,210,140,0.18)] bg-black/25 p-3"
+                          className="relative min-w-[min(100%,16rem)] max-w-full flex-1 rounded-lg border border-[var(--color-gold-border)] bg-[rgba(42,24,18,0.04)] p-3"
                         >
-                          <div className="mb-2 flex items-center gap-1.5 text-[#f2d892]">
+                          <div className="mb-2 flex items-center gap-1.5 text-[var(--color-gold-muted)]">
                             <MessageSquareText size={13} />
                             <span className="text-[0.65rem] font-semibold uppercase tracking-wide">Observação</span>
                           </div>
                           {item.observacao?.trim() && (
                             <EvolucaoObservacao
                               texto={item.observacao.trim()}
-                              className="text-[0.75rem] text-[#c4a882]"
+                              className="text-[0.75rem] text-[var(--color-text-secondary)]"
                             />
                           )}
                           {(isMontador || canUpload) && (
                             <button
                               type="button"
                               onClick={() => handleEvolDelete(item)}
-                              className="absolute right-2 top-2 rounded p-1 text-[#edd9c4] hover:bg-red-500/10 hover:text-red-400"
+                              className="absolute right-2 top-2 rounded p-1 text-[var(--color-text-muted)] hover:bg-red-500/10 hover:text-red-500"
                               aria-label="Excluir observação"
                             >
                               <Trash2 size={12} />
@@ -603,7 +610,7 @@ export function ObraDetalheModal({
                         {item.observacao?.trim() && (
                           <EvolucaoObservacao
                             texto={item.observacao.trim()}
-                            className="text-[0.62rem] text-[#c4a882]"
+                            className="text-[0.62rem] text-[var(--color-text-secondary)]"
                           />
                         )}
                       </div>
@@ -617,12 +624,12 @@ export function ObraDetalheModal({
         </div>
 
         {/* ── FOTOS E DOCUMENTOS ─────────────────────────────── */}
-        <div className="border-t border-[rgba(240,210,140,0.12)] pt-4">
+        <div className="border-t border-[rgba(232,196,112,0.22)] pt-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+            <p className="text-[0.7rem] uppercase tracking-wider font-semibold text-[var(--color-gold-muted)]">
               Fotos e Documentos
               {arqHook.data.length > 0 && (
-                <span className="ml-2 text-[#edd9c4] normal-case font-normal">
+                <span className="ml-2 text-[var(--color-text-muted)] normal-case font-normal">
                   ({arqHook.data.length})
                 </span>
               )}
@@ -632,7 +639,7 @@ export function ObraDetalheModal({
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={arqHook.uploading}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(240,210,140,0.12)] text-[#f2d892] hover:bg-[rgba(240,210,140,0.22)] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold bg-[rgba(141,94,34,0.12)] text-[var(--color-gold-muted)] hover:bg-[rgba(141,94,34,0.2)] transition-colors disabled:opacity-50"
                 >
                   {arqHook.uploading
                     ? <Loader2 size={12} className="animate-spin" />
@@ -657,11 +664,11 @@ export function ObraDetalheModal({
           )}
 
           {arqHook.loading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-[#edd9c4]">
+            <div className="flex items-center gap-2 py-4 text-xs text-[var(--color-text-muted)]">
               <Loader2 size={14} className="animate-spin" /> Carregando arquivos...
             </div>
           ) : arqHook.data.length === 0 ? (
-            <p className="text-xs text-[#d4bc9f] py-4">
+            <p className="text-xs text-[var(--color-text-muted)] py-4">
               {canUpload ? 'Nenhum arquivo. Clique em "Adicionar" para enviar fotos, PDFs ou vídeos.' : 'Nenhum arquivo enviado.'}
             </p>
           ) : (

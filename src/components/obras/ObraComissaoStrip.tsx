@@ -104,17 +104,16 @@ export function ObraComissaoStrip({
 
   return (
     <div
-      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.62rem] leading-snug"
+      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.62rem] leading-snug text-[var(--color-gold-muted)]"
       style={{
-        backgroundColor: 'rgba(240,210,140,0.1)',
-        border: '1px solid rgba(240,210,140,0.22)',
-        color: '#f2d892',
+        backgroundColor: 'rgba(141, 94, 34, 0.08)',
+        border: '1px solid var(--color-gold-border)',
       }}
     >
       <Banknote size={11} className="shrink-0 opacity-80" aria-hidden />
       <span className="min-w-0 break-words">{label}</span>
       {obra.comissao_gerada && (
-        <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase text-emerald-400">
+        <span className="shrink-0 rounded-full bg-emerald-600/15 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase text-emerald-800">
           Gerado
         </span>
       )}

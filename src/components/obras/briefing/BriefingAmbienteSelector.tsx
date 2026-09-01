@@ -34,7 +34,7 @@ export function BriefingAmbienteSelector({
 
   if (loading) {
     return (
-      <p className="text-[0.72rem] text-[#edd9c4]/60">
+              <p className="text-[0.72rem] text-[#e4cbb0]/70">
         Carregando ambientes disponíveis...
       </p>
     )
@@ -50,7 +50,7 @@ export function BriefingAmbienteSelector({
 
   if (!readOnly && ativos.length === 0) {
     return (
-      <p className="text-[0.72rem] text-[#edd9c4]/60">
+              <p className="text-[0.72rem] text-[#e4cbb0]/70">
         Nenhum ambiente cadastrado. Configure em Agenda → Configurações → Briefings Pré-Obra.
       </p>
     )
@@ -63,14 +63,14 @@ export function BriefingAmbienteSelector({
           {selected.map(m => (
             <span
               key={m.id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(240,210,140,0.25)] bg-[rgba(240,210,140,0.08)] px-3 py-1 text-[0.75rem] text-[#f2d892]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(246,220,154,0.45)] bg-[rgba(246,220,154,0.16)] px-3 py-1 text-[0.75rem] text-[#f6dc9a]"
             >
               {m.nome}
               {!readOnly && (
                 <button
                   type="button"
                   onClick={() => remove(m.id)}
-                  className="text-[#edd9c4] hover:text-red-400"
+                  className="text-[#e4cbb0] hover:text-red-400"
                   aria-label={`Remover ${m.nome}`}
                 >
                   <X size={12} />
@@ -82,8 +82,8 @@ export function BriefingAmbienteSelector({
       )}
 
       {!readOnly && available.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-dashed border-[rgba(240,210,140,0.22)] bg-[rgba(0,0,0,0.1)] p-2.5">
-          <p className="text-[0.68rem] font-medium uppercase tracking-wider text-[#f2d892]">
+        <div className="space-y-2 rounded-lg border border-dashed border-[rgba(246,220,154,0.38)] bg-[rgba(16,8,6,0.4)] p-2.5">
+          <p className="text-[0.68rem] font-medium uppercase tracking-wider text-[#f6dc9a]">
             Escolha os ambientes desta obra
           </p>
           <div className="flex flex-wrap gap-2">
@@ -92,9 +92,9 @@ export function BriefingAmbienteSelector({
                 key={m.id}
                 type="button"
                 onClick={() => add(m.id)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(240,210,140,0.2)] bg-[rgba(255,255,255,0.03)] px-3 py-1.5 text-[0.75rem] text-cream transition-colors hover:border-[#f2d892]/45 hover:bg-[rgba(240,210,140,0.08)]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(246,220,154,0.32)] bg-[rgba(42,24,16,0.65)] px-3 py-1.5 text-[0.75rem] text-[#fff8ee] transition-colors hover:border-[#f6dc9a]/70 hover:bg-[rgba(246,220,154,0.16)]"
               >
-                <Plus size={12} className="shrink-0 text-[#f2d892]" />
+                <Plus size={12} className="shrink-0 text-[#f6dc9a]" />
                 {m.nome}
               </button>
             ))}
@@ -103,19 +103,19 @@ export function BriefingAmbienteSelector({
       )}
 
       {readOnly && selected.length === 0 && (
-        <p className="text-[0.72rem] text-[#edd9c4]/60">
+              <p className="text-[0.72rem] text-[#e4cbb0]/70">
           Nenhum briefing vinculado a esta obra.
         </p>
       )}
 
       {!readOnly && selected.length === 0 && available.length > 0 && (
-        <p className="text-[0.72rem] text-[#edd9c4]/60">
+              <p className="text-[0.72rem] text-[#e4cbb0]/70">
           Toque nos ambientes acima para vincular o briefing a esta obra.
         </p>
       )}
 
       {!readOnly && available.length === 0 && selected.length > 0 && (
-        <p className="text-[0.72rem] text-[#edd9c4]/60">
+              <p className="text-[0.72rem] text-[#e4cbb0]/70">
           Todos os ambientes disponíveis já estão vinculados.
         </p>
       )}

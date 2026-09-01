@@ -44,13 +44,13 @@ export function ObraDataEntregaInput({
       ].join(' ')}
       onClick={e => e.stopPropagation()}
     >
-      <Calendar size={compact ? 12 : 14} className="text-[#f2d892] shrink-0" />
+      <Calendar size={compact ? 12 : 14} className="text-[var(--color-gold-muted)] shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[#edd9c4] text-[0.55rem] uppercase tracking-wider leading-none mb-1">
+        <p className="obra-field-label text-[0.55rem] leading-none mb-1">
           Chegada Material
         </p>
         <DateInput
-          className="w-full bg-transparent border-none p-0 text-[#fffaf4] text-[0.65rem] focus:ring-0"
+          className="w-full bg-transparent border-none p-0 text-[var(--color-text-primary)] text-[0.65rem] focus:ring-0"
           value={localDate}
           disabled={!canEdit || loading}
           onChange={handleChange}

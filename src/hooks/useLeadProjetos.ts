@@ -15,6 +15,7 @@ import {
   projetistaPuxaJaEmDesenho,
   stageNameLooksWaiting,
   MIN_CARACTERES_BUSCA_PROJETOS,
+  MIN_CARACTERES_ENVIO_SETOR,
 } from '@/lib/projetos-atelie'
 import { uploadLeadProjetoChatImage } from '@/lib/lead-projeto-chat'
 import { DEFAULT_PIPELINE_STAGES } from '@/hooks/usePipelineCustomStages'
@@ -509,7 +510,7 @@ export function useLeadProjetoMutations() {
   const queryClient = useQueryClient()
   const { user, userRoles } = useAuth()
   const { schemaEmpresa } = useEmpresa()
-  const { data: stages = [] } = useProjetoStages()
+  const { data: stages = [], isPending: stagesPending } = useProjetoStages()
 
   const invalidate = (leadId?: number) => {
     void queryClient.invalidateQueries({ queryKey: ['lead-projetos'] })
@@ -520,7 +521,13 @@ export function useLeadProjetoMutations() {
 
   const waitingId = () => {
     const id = getWaitingProjetoStageId(stages)
-    if (!id) throw new Error('Não há coluna de fila no ateliê.')
+    if (!id) {
+      throw new Error(
+        stagesPending
+          ? 'Ainda estou carregando as colunas do ateliê. Tente de novo em um instante.'
+          : 'Não há coluna de fila no ateliê.',
+      )
+    }
     return id
   }
 
@@ -733,44 +740,67 @@ export function useLeadProjetoMutations() {
       recado: string
       files: File[]
     }) => {
+      if (!user?.id) throw new Error('Faça login para enviar ao setor de projetos.')
+      const texto = recado.trim()
+      if (texto.length < MIN_CARACTERES_ENVIO_SETOR && files.length === 0) {
+        throw new Error(
+          `Escreva pelo menos ${MIN_CARACTERES_ENVIO_SETOR} caracteres ou anexe uma foto.`,
+        )
+      }
+
       const fila = waitingId()
-      const { data: existing } = await db
+      const { data: existing, error: existingError } = await db
         .from('lead_projetos')
         .select('id')
         .eq('lead_id', leadId)
         .maybeSingle()
+      if (existingError) throw existingError
 
       if (existing?.id) {
-        const { error } = await db
+        const { data: updated, error } = await db
           .from('lead_projetos')
           .update({
             stage_id: fila,
             arquiteto_id: null,
             aguardando_resposta: true,
-            enviado_por: user?.id ?? null,
+            enviado_por: user.id,
             enviado_em: new Date().toISOString(),
             atualizado_em: new Date().toISOString(),
           })
           .eq('id', existing.id)
+          .select('id')
+          .maybeSingle()
         if (error) throw error
+        if (!updated?.id) {
+          throw new Error('O ateliê não aceitou este envio. Recarregue e tente de novo.')
+        }
       } else {
         const { data: leadRow } = await db
           .from('leads')
           .select('vendedor_responsavel_id')
           .eq('id', leadId)
           .maybeSingle()
-        const { error } = await db.from('lead_projetos').insert({
-          lead_id: leadId,
-          stage_id: fila,
-          titular_id: leadRow?.vendedor_responsavel_id ? String(leadRow.vendedor_responsavel_id) : user?.id ?? null,
-          enviado_por: user?.id ?? null,
-          aguardando_resposta: true,
-        })
+        const { data: inserted, error } = await db
+          .from('lead_projetos')
+          .insert({
+            lead_id: leadId,
+            stage_id: fila,
+            titular_id: leadRow?.vendedor_responsavel_id
+              ? String(leadRow.vendedor_responsavel_id)
+              : user.id,
+            enviado_por: user.id,
+            aguardando_resposta: true,
+          })
+          .select('id')
+          .maybeSingle()
         if (error && error.code !== '23505') throw error
+        if (!inserted?.id && error?.code !== '23505') {
+          throw new Error('O ateliê não aceitou este envio. Recarregue e tente de novo.')
+        }
       }
 
       const tipo: LeadProjetoNotaTipo = existing?.id ? 'reenvio' : 'envio'
-      await inserirNota({ leadId, mensagem: recado.trim() || 'Pedido de projeto.', tipo })
+      await inserirNota({ leadId, mensagem: texto || 'Pedido de projeto.', tipo })
 
       for (const file of files) {
         const uploaded = await uploadLeadProjetoChatImage({

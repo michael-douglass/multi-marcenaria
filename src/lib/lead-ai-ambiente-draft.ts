@@ -1,3 +1,4 @@
+import type { AmbienteCoordSpace } from '@/lib/lead-ai-ambiente-zoom';
 import type {
   AmbienteBackground,
   AmbienteFurnitureObject,
@@ -21,6 +22,8 @@ export interface AmbienteComposerDraft {
   shapes: AmbienteGeoShape[];
   selectedId: string | null;
   sourceFolderId: string | null;
+  /** Rascunhos novos colam móveis na foto; os antigos ainda usam a janela. */
+  coordSpace?: AmbienteCoordSpace;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -110,6 +113,7 @@ export async function loadAmbienteDraft(leadId: number): Promise<AmbienteCompose
       shapes: Array.isArray(draft.shapes) ? draft.shapes : [],
       selectedId: draft.selectedId ?? null,
       sourceFolderId: draft.sourceFolderId ?? null,
+      coordSpace: draft.coordSpace === 'photo' ? 'photo' : 'viewport',
     };
   } catch {
     return null;

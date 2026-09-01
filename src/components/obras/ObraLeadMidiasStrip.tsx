@@ -41,7 +41,7 @@ function MidiaThumb({
     <button
       type="button"
       title={item.title}
-      className={`relative shrink-0 ${thumbSize} overflow-hidden rounded border border-[rgba(240,210,140,0.28)] bg-[rgba(68,46,34,0.65)] hover:border-[#f2d892]/70 transition-colors`}
+      className={`relative shrink-0 ${thumbSize} overflow-hidden rounded border border-[rgba(246,220,154,0.42)] bg-[rgba(42,24,16,0.85)] hover:border-[#f6dc9a] transition-colors`}
       onClick={() => onOpen(openIndex >= 0 ? openIndex : 0)}
     >
       {item.thumbUrl ? (
@@ -161,7 +161,7 @@ export function ObraLeadMidiasStrip({
         onMouseDown={e => e.stopPropagation()}
       >
         {variant === 'detail' && (
-          <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] m-0">
+          <p className="text-[0.65rem] uppercase tracking-wider text-[#e4cbb0] m-0">
             {folderGroups ? 'Pastas das fotos do lead' : 'Fotos / docs do projeto'}
             {expanding ? ' · convertendo PDF…' : ''}
             {galleryPages.length > 1 ? ` · ${galleryPages.length} fotos` : ''}
@@ -173,11 +173,11 @@ export function ObraLeadMidiasStrip({
             {folderGroups.map(group => (
               <div key={group.pasta} className="flex flex-col gap-1.5">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <Folder size={12} className="shrink-0 text-[#f2d892]" />
-                  <p className="truncate text-[0.72rem] font-semibold text-[#fffaf4] m-0">
+                  <Folder size={12} className="shrink-0 text-[#f6dc9a]" />
+                  <p className="truncate text-[0.72rem] font-semibold text-[#fff8ee] m-0">
                     {group.pasta}
                   </p>
-                  <span className="shrink-0 text-[0.62rem] text-[#c4a882]">
+                  <span className="shrink-0 text-[0.62rem] text-[#e4cbb0]">
                     {group.items.length}
                   </span>
                 </div>

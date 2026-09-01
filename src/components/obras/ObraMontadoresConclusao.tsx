@@ -59,7 +59,7 @@ export function ObraMontadoresConclusao({
           <span
             className={[
               'cal-week-conclusao__count',
-              todosOk ? 'text-emerald-300' : 'text-[#f2d892]',
+            todosOk ? 'text-emerald-700' : 'text-[var(--color-gold-muted)]',
             ].join(' ')}
           >
             {concluidos}/{montadores.length}
@@ -102,8 +102,8 @@ export function ObraMontadoresConclusao({
           'inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border font-medium shrink-0',
           'px-1.5 py-0.5 text-[0.5rem] tabular-nums',
           todosOk
-            ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300'
-            : 'border-amber-500/35 bg-amber-500/10 text-amber-300',
+            ? 'border-emerald-600/40 bg-emerald-600/12 text-emerald-800'
+            : 'border-amber-600/40 bg-amber-600/12 text-amber-800',
         ].join(' ')}
         title={tooltip}
       >
@@ -130,15 +130,14 @@ export function ObraMontadoresConclusao({
   return (
     <div
       className={[
-        'min-w-0 w-full rounded-md border border-[rgba(240,210,140,0.14)]',
+        'obra-paper-inset min-w-0 w-full rounded-md',
         compact ? 'px-2 py-1.5' : 'px-2.5 py-2',
-        'bg-[rgba(10,4,2,0.35)]',
       ].join(' ')}
     >
       <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
         <p
           className={[
-            'font-semibold uppercase tracking-wide text-[#edd9c4]',
+            'obra-field-label',
             compact ? 'text-[0.52rem]' : 'text-[0.58rem]',
           ].join(' ')}
         >
@@ -146,7 +145,7 @@ export function ObraMontadoresConclusao({
         </p>
         <span
           className={[
-            'shrink-0 tabular-nums text-[#f2d892]',
+            'shrink-0 tabular-nums text-[var(--color-gold-muted)]',
             compact ? 'text-[0.52rem]' : 'text-[0.58rem]',
           ].join(' ')}
         >
@@ -162,8 +161,8 @@ export function ObraMontadoresConclusao({
               'inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border font-medium',
               compact ? 'px-1.5 py-0.5 text-[0.52rem]' : 'px-2 py-0.5 text-[0.6rem]',
               m.concluiu
-                ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300'
-                : 'border-amber-500/35 bg-amber-500/10 text-amber-300',
+                ? 'border-emerald-600/40 bg-emerald-600/12 text-emerald-800'
+                : 'border-amber-600/40 bg-amber-600/12 text-amber-800',
             ].join(' ')}
             title={
               m.concluiu
@@ -182,7 +181,7 @@ export function ObraMontadoresConclusao({
       {fechadaPeloAdmin && (
         <p
           className={[
-            'mt-1 text-[#edd9c4]/85 leading-snug',
+            'mt-1 text-[var(--color-text-muted)] leading-snug',
             compact ? 'text-[0.5rem]' : 'text-[0.58rem]',
           ].join(' ')}
         >

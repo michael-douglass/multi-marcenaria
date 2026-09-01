@@ -5,6 +5,7 @@ import { useLeads } from '@/hooks/useLeads';
 
 export function useSyncLeadOrcamentoValor() {
   const { updateLead } = useLeads({ fetchLeads: false });
+  const mutateAsync = updateLead.mutateAsync;
 
   const syncValorLead = useCallback(
     async (leadId: number | null | undefined, prec: OrcamentoPrecificacao) => {
@@ -12,13 +13,13 @@ export function useSyncLeadOrcamentoValor() {
       const valor = valorInvestimentoParaLead(prec);
       if (valor <= 0) return;
 
-      await updateLead.mutateAsync({
+      await mutateAsync({
         id: leadId,
         updates: { valor_orcamento: valor },
         silent: true,
       });
     },
-    [updateLead],
+    [mutateAsync],
   );
 
   return { syncValorLead, isSyncing: updateLead.isPending };

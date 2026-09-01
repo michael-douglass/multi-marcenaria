@@ -35,9 +35,12 @@ export function LeadProjetoCanalDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] flex-col gap-3 border-gold/20 bg-[#120c09] sm:max-w-lg"
+        nested
+        className="lead-atelier-dialog pointer-events-auto flex max-h-[85vh] flex-col gap-3 border-gold/20 bg-[#120c09] sm:max-w-lg"
         onClick={stopCardEvent}
         onPointerDown={stopCardEvent}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="font-display text-gold">Canal do ateliê</DialogTitle>

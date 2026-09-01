@@ -84,7 +84,8 @@ import {
 import { buildAmbienteCenaInventario } from '@/lib/lead-ai-ambiente-inventario';
 import { parseAmbienteSugestoes } from '@/lib/lead-ai-ambiente-sugestoes';
 import {
-  AMBIENTE_ZOOM_STEP,
+  AMBIENTE_ZOOM_FACTOR,
+  AMBIENTE_ZOOM_MIN,
   clampAmbienteObjectHeight,
   clampAmbienteObjectWidth,
   clampAmbienteZoom,
@@ -94,9 +95,12 @@ import {
   zoomFromObjectWidth,
   zoomFromOverlayWidth,
   planeFromContainFit,
-  planesDiffer,
+  PHOTO_PLANE,
+  planeToViewportBox,
   remapSceneToPlane,
   isUsableAmbienteViewport,
+  scaleOverlayBox,
+  type AmbienteCoordSpace,
   type AmbienteNormPlane,
 } from '@/lib/lead-ai-ambiente-zoom';
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
@@ -308,9 +312,25 @@ export function LeadAIAmbienteComposer({
   const [draftReady, setDraftReady] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [viewportSize, setViewportSize] = useState({ w: 1, h: 1 });
+  const [photoSpaceReady, setPhotoSpaceReady] = useState(false);
+  /** Impede usar o tamanho da tela cheia na lousa pequena (e o contrário). */
+  const [fittedHost, setFittedHost] = useState<'card' | 'fullscreen' | null>(null);
   const viewportSizeRef = useRef(viewportSize);
   viewportSizeRef.current = viewportSize;
+  const layoutHost = isFullscreen ? 'fullscreen' : 'card';
+  const planeFitsHost =
+    fittedHost === layoutHost && isUsableAmbienteViewport(viewportSize.w, viewportSize.h);
+  const photoSpaceReadyRef = useRef(false);
+  photoSpaceReadyRef.current = photoSpaceReady;
+  const coordSpaceRef = useRef<AmbienteCoordSpace>('viewport');
+  const photoPlaneRef = useRef<HTMLDivElement>(null);
+  const lastPhotoPlaneRef = useRef<AmbienteNormPlane>(PHOTO_PLANE);
+  const scenePlaneRef = useRef<AmbienteNormPlane | null>(null);
+  const historyRef = useRef<SceneHistoryEntry[]>([]);
+  const redoRef = useRef<SceneHistoryEntry[]>([]);
+  const pendingHistoryRef = useRef<SceneHistoryEntry | null>(null);
   const renderStartedRef = useRef(false);
+  const persistComposerDraftRef = useRef<() => void>(() => {});
 
   const exportViewport = useCallback((): { width: number; height: number } | undefined => {
     const size = viewportSizeRef.current;
@@ -319,6 +339,8 @@ export function LeadAIAmbienteComposer({
   }, []);
 
   const updateFullscreen = useCallback((open: boolean) => {
+    if (!open) persistComposerDraftRef.current();
+    setFittedHost(null);
     setAmbienteFullscreenOpenFlag(open);
     setIsFullscreen(open);
   }, []);
@@ -337,11 +359,20 @@ export function LeadAIAmbienteComposer({
     let cancelled = false;
     setDraftReady(false);
     setDraftRestored(false);
+    setPhotoSpaceReady(false);
+    setFittedHost(null);
+    coordSpaceRef.current = 'viewport';
+    scenePlaneRef.current = null;
+    lastPhotoPlaneRef.current = PHOTO_PLANE;
     onCompositionPreviewUrl?.(null);
     void (async () => {
       const draft = await loadAmbienteDraft(leadId);
       if (cancelled) return;
       if (draft && ambienteDraftHasContent(draft)) {
+        const restoredSpace: AmbienteCoordSpace =
+          draft.coordSpace === 'photo' && draft.background ? 'photo' : 'viewport';
+        coordSpaceRef.current = restoredSpace;
+        setPhotoSpaceReady(restoredSpace === 'photo');
         setDescricao(draft.descricao);
         setBackground(draft.background);
         setOverlays(draft.overlays);
@@ -359,6 +390,7 @@ export function LeadAIAmbienteComposer({
             markers: draft.markers,
             shapes: draft.shapes,
             viewport: exportViewport(),
+            coordSpace: restoredSpace,
           })
             .then((exported) => {
               if (!cancelled) onCompositionPreviewUrl(exported.dataUrl);
@@ -389,6 +421,7 @@ export function LeadAIAmbienteComposer({
         shapes,
         selectedId,
         sourceFolderId,
+        coordSpace: photoSpaceReady ? 'photo' : 'viewport',
       });
     }, 650);
     return () => window.clearTimeout(timer);
@@ -403,16 +436,18 @@ export function LeadAIAmbienteComposer({
     selectedId,
     shapes,
     sourceFolderId,
+    photoSpaceReady,
   ]);
 
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
+    const host = isFullscreen ? 'fullscreen' : 'card';
     const update = () => {
-      setViewportSize({
-        w: Math.max(1, el.clientWidth),
-        h: Math.max(1, el.clientHeight),
-      });
+      const w = Math.max(1, el.clientWidth);
+      const h = Math.max(1, el.clientHeight);
+      setViewportSize({ w, h });
+      if (isUsableAmbienteViewport(w, h)) setFittedHost(host);
     };
     update();
     const observer = new ResizeObserver(update);
@@ -420,40 +455,78 @@ export function LeadAIAmbienteComposer({
     return () => observer.disconnect();
   }, [isFullscreen, catalogOpen, draftReady, background]);
 
-  const bgFit = background
-    ? containRotatedPlane(
-        background.naturalWidth || 1,
-        background.naturalHeight || 1,
-        viewportSize.w,
-        viewportSize.h,
-        background.rotation ?? 0,
-      )
-    : null;
+  const bgFit =
+    background && planeFitsHost
+      ? containRotatedPlane(
+          background.naturalWidth || 1,
+          background.naturalHeight || 1,
+          viewportSize.w,
+          viewportSize.h,
+          background.rotation ?? 0,
+        )
+      : null;
   const scenePlane: AmbienteNormPlane = bgFit
     ? planeFromContainFit(bgFit.nw, bgFit.nh)
     : { left: 0, top: 0, width: 1, height: 1 };
 
   useLayoutEffect(() => {
-    if (viewportSize.w < 48 || viewportSize.h < 48) return;
-    const prev = scenePlaneRef.current;
     scenePlaneRef.current = scenePlane;
-    if (!prev) return;
-    if (!planesDiffer(prev, scenePlane)) return;
-    const next = remapSceneToPlane(
-      {
-        overlays: overlaysRef.current,
-        objects: objectsRef.current,
-        markers: markersRef.current,
-        shapes: shapesRef.current,
-      },
-      prev,
-      scenePlane,
-    );
-    setOverlays(next.overlays);
-    setObjects(next.objects);
-    setMarkers(next.markers);
-    setShapes(next.shapes);
-  }, [scenePlane.left, scenePlane.top, scenePlane.width, scenePlane.height, viewportSize.h, viewportSize.w]);
+    if (!draftReady) return;
+    if (fittedHost !== layoutHost) return;
+    if (!isUsableAmbienteViewport(viewportSize.w, viewportSize.h)) return;
+
+    const scene = {
+      overlays: overlaysRef.current,
+      objects: objectsRef.current,
+      markers: markersRef.current,
+      shapes: shapesRef.current,
+    };
+
+    const remapHistories = (from: AmbienteNormPlane, to: AmbienteNormPlane) => {
+      const mapEntry = (entry: SceneHistoryEntry): SceneHistoryEntry => ({
+        ...entry,
+        ...remapSceneToPlane(entry, from, to),
+      });
+      historyRef.current = historyRef.current.map(mapEntry);
+      redoRef.current = redoRef.current.map(mapEntry);
+    };
+
+    const applyScene = (next: typeof scene, space: AmbienteCoordSpace) => {
+      coordSpaceRef.current = space;
+      setPhotoSpaceReady(space === 'photo');
+      setOverlays(next.overlays);
+      setObjects(next.objects);
+      setMarkers(next.markers);
+      setShapes(next.shapes);
+    };
+
+    if (background?.url && coordSpaceRef.current === 'viewport') {
+      remapHistories(scenePlane, PHOTO_PLANE);
+      applyScene(remapSceneToPlane(scene, scenePlane, PHOTO_PLANE), 'photo');
+      lastPhotoPlaneRef.current = scenePlane;
+      return;
+    }
+
+    if (!background?.url && coordSpaceRef.current === 'photo') {
+      const fromPlane = lastPhotoPlaneRef.current;
+      remapHistories(PHOTO_PLANE, fromPlane);
+      applyScene(remapSceneToPlane(scene, PHOTO_PLANE, fromPlane), 'viewport');
+      return;
+    }
+
+    if (background?.url) lastPhotoPlaneRef.current = scenePlane;
+  }, [
+    background?.url,
+    draftReady,
+    fittedHost,
+    layoutHost,
+    scenePlane.left,
+    scenePlane.top,
+    scenePlane.width,
+    scenePlane.height,
+    viewportSize.h,
+    viewportSize.w,
+  ]);
 
   const backgroundRef = useRef(background);
   backgroundRef.current = background;
@@ -473,6 +546,28 @@ export function LeadAIAmbienteComposer({
   drawColorRef.current = drawStroke;
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const descricaoRef = useRef(descricao);
+  descricaoRef.current = descricao;
+  const sourceFolderIdRef = useRef(sourceFolderId);
+  sourceFolderIdRef.current = sourceFolderId;
+  const draftReadyRef = useRef(draftReady);
+  draftReadyRef.current = draftReady;
+  persistComposerDraftRef.current = () => {
+    if (!draftReadyRef.current) return;
+    void saveAmbienteDraft({
+      leadId,
+      savedAt: Date.now(),
+      descricao: descricaoRef.current,
+      background: backgroundRef.current,
+      overlays: overlaysRef.current,
+      objects: objectsRef.current,
+      markers: markersRef.current,
+      shapes: shapesRef.current,
+      selectedId: selectedIdRef.current,
+      sourceFolderId: sourceFolderIdRef.current,
+      coordSpace: photoSpaceReadyRef.current ? 'photo' : 'viewport',
+    });
+  };
   const shapeOrigRef = useRef<AmbienteGeoShape | null>(null);
   const drawStrokeRef = useRef<{
     id: string;
@@ -487,10 +582,6 @@ export function LeadAIAmbienteComposer({
     rotation: number;
   } | null>(null);
   const ignoreWheelUntilRef = useRef(0);
-  const scenePlaneRef = useRef<AmbienteNormPlane | null>(null);
-  const historyRef = useRef<SceneHistoryEntry[]>([]);
-  const redoRef = useRef<SceneHistoryEntry[]>([]);
-  const pendingHistoryRef = useRef<SceneHistoryEntry | null>(null);
 
   const readScene = useCallback((): SceneHistoryEntry => ({
     background: backgroundRef.current,
@@ -587,8 +678,10 @@ export function LeadAIAmbienteComposer({
     pushHistory();
     const id = newId('ov');
     const aspect = (preview.naturalWidth || 1) / Math.max(preview.naturalHeight || 1, 1);
-    const scene = viewportRef.current;
-    const sceneAspect = (scene?.clientWidth || 1) / Math.max(scene?.clientHeight || 1, 1);
+    const plane = scenePlaneRef.current;
+    const sceneAspect = photoSpaceReadyRef.current && plane
+      ? (plane.width * viewportSizeRef.current.w) / Math.max(plane.height * viewportSizeRef.current.h, 1)
+      : (viewportRef.current?.clientWidth || 1) / Math.max(viewportRef.current?.clientHeight || 1, 1);
     const size = overlaySizeFromZoom(1, aspect, sceneAspect);
     setOverlays((prev) => [
       ...prev,
@@ -704,20 +797,11 @@ export function LeadAIAmbienteComposer({
     }
     const overlay = overlaysRef.current.find((item) => item.id === id);
     if (overlay) {
-      const size = overlaySizeFromZoom(zoom, overlay.width / Math.max(overlay.height, 0.001), 1);
+      const currentZoom = Math.max(AMBIENTE_ZOOM_MIN, zoomFromOverlayWidth(overlay.width, overlay.height));
+      const factor = zoom / currentZoom;
+      const next = scaleOverlayBox(overlay, factor);
       setOverlays((prev) =>
-        prev.map((item) => {
-          if (item.id !== id) return item;
-          const cx = item.x + item.width / 2;
-          const cy = item.y + item.height / 2;
-          return {
-            ...item,
-            width: size.width,
-            height: size.height,
-            x: cx - size.width / 2,
-            y: cy - size.height / 2,
-          };
-        }),
+        prev.map((item) => (item.id === id ? { ...item, ...next } : item)),
       );
       return;
     }
@@ -742,7 +826,8 @@ export function LeadAIAmbienteComposer({
 
   const nudgeSelectedScale = useCallback(
     (direction: 1 | -1) => {
-      applySelectedScale(readSelectedScale() + direction * AMBIENTE_ZOOM_STEP);
+      const factor = direction > 0 ? AMBIENTE_ZOOM_FACTOR : 1 / AMBIENTE_ZOOM_FACTOR;
+      applySelectedScale(readSelectedScale() * factor);
     },
     [applySelectedScale, readSelectedScale],
   );
@@ -894,8 +979,10 @@ export function LeadAIAmbienteComposer({
     const naturalHeight = img.naturalHeight || img.height || 1;
     pushHistory();
     if (overlay) {
-      const scene = viewportRef.current;
-      const sceneAspect = (scene?.clientWidth || 1) / Math.max(scene?.clientHeight || 1, 1);
+      const plane = scenePlaneRef.current;
+      const sceneAspect = photoSpaceReadyRef.current && plane
+        ? (plane.width * viewportSizeRef.current.w) / Math.max(plane.height * viewportSizeRef.current.h, 1)
+        : (viewportRef.current?.clientWidth || 1) / Math.max(viewportRef.current?.clientHeight || 1, 1);
       const zoom = zoomFromOverlayWidth(overlay.width, overlay.height);
       const size = overlaySizeFromZoom(zoom, naturalWidth / Math.max(naturalHeight, 1), sceneAspect);
       const cx = overlay.x + overlay.width / 2;
@@ -1122,6 +1209,7 @@ export function LeadAIAmbienteComposer({
           markers,
           shapes,
           viewport: exportViewport(),
+          coordSpace: photoSpaceReady ? 'photo' : 'viewport',
         });
         imageDataUrl = exported.dataUrl;
       }
@@ -1157,6 +1245,7 @@ export function LeadAIAmbienteComposer({
     onAnalyze,
     overlays,
     shapes,
+    photoSpaceReady,
   ]);
 
   const handleRenderAmbiente = useCallback(async () => {
@@ -1190,6 +1279,7 @@ export function LeadAIAmbienteComposer({
           markers,
           shapes,
           viewport: exportViewport(),
+          coordSpace: photoSpaceReady ? 'photo' : 'viewport',
         });
         compositionDataUrl = exported.dataUrl;
       } else if (background) {
@@ -1199,6 +1289,7 @@ export function LeadAIAmbienteComposer({
           objects: [],
           markers: [],
           viewport: exportViewport(),
+          coordSpace: photoSpaceReady ? 'photo' : 'viewport',
         });
         compositionDataUrl = exported.dataUrl;
       }
@@ -1253,16 +1344,24 @@ export function LeadAIAmbienteComposer({
     overlays,
     shapes,
     updateFullscreen,
+    photoSpaceReady,
   ]);
 
-  const pointerToNorm = useCallback((event: { clientX: number; clientY: number }) => {
-    const rect = viewportRef.current?.getBoundingClientRect();
+  const pointerToNorm = useCallback((
+    event: { clientX: number; clientY: number },
+    space: 'auto' | 'viewport' = 'auto',
+  ) => {
+    const usePhoto =
+      space !== 'viewport' && photoSpaceReady && photoPlaneRef.current;
+    const rect = usePhoto
+      ? photoPlaneRef.current!.getBoundingClientRect()
+      : viewportRef.current?.getBoundingClientRect();
     if (!rect || rect.width <= 0 || rect.height <= 0) return { x: 0.5, y: 0.5 };
     return {
       x: (event.clientX - rect.left) / rect.width,
       y: (event.clientY - rect.top) / rect.height,
     };
-  }, []);
+  }, [photoSpaceReady]);
 
   const beginDrag = useCallback(
     (
@@ -1280,7 +1379,10 @@ export function LeadAIAmbienteComposer({
       if (kind === 'shape' || kind === 'resize-shape' || kind === 'rotate-shape') {
         shapeOrigRef.current = shapesRef.current.find((item) => item.id === id) ?? null;
       }
-      const point = pointerToNorm(event);
+      const point = pointerToNorm(
+        event,
+        kind === 'pan-background' || kind === 'rotate-background' ? 'viewport' : 'auto',
+      );
       setSelectedId(id);
       setDrag({
         kind,
@@ -1304,7 +1406,10 @@ export function LeadAIAmbienteComposer({
   const onViewportPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!drag) return;
-      const point = pointerToNorm(event);
+      const point = pointerToNorm(
+        event,
+        drag.kind === 'pan-background' || drag.kind === 'rotate-background' ? 'viewport' : 'auto',
+      );
       const dx = point.x - drag.startX;
       const dy = point.y - drag.startY;
       if (drag.kind === 'pan-background') {
@@ -1320,25 +1425,13 @@ export function LeadAIAmbienteComposer({
         return;
       }
       if (drag.kind === 'resize-overlay' && drag.origWidth != null && drag.origHeight != null) {
-        const factor = Math.max(0.2, 1 + dx * 2.4);
-        const aspect = drag.origWidth / Math.max(drag.origHeight, 0.001);
-        const size = overlaySizeFromZoom(
-          zoomFromOverlayWidth(drag.origWidth * factor, drag.origHeight * factor),
-          aspect,
+        const factor = Math.max(0.05, 1 + dx * 2.4);
+        const next = scaleOverlayBox(
+          { x: drag.origX, y: drag.origY, width: drag.origWidth, height: drag.origHeight },
+          factor,
         );
         setOverlays((prev) =>
-          prev.map((item) => {
-            if (item.id !== drag.id) return item;
-            const cx = drag.origX + drag.origWidth! / 2;
-            const cy = drag.origY + drag.origHeight! / 2;
-            return {
-              ...item,
-              width: size.width,
-              height: size.height,
-              x: cx - size.width / 2,
-              y: cy - size.height / 2,
-            };
-          }),
+          prev.map((item) => (item.id === drag.id ? { ...item, ...next } : item)),
         );
         return;
       }
@@ -1582,8 +1675,8 @@ export function LeadAIAmbienteComposer({
       if (locked) return;
       event.preventDefault();
       if (Date.now() < ignoreWheelUntilRef.current) return;
-      const direction: 1 | -1 = event.deltaY > 0 ? -1 : 1;
-      applySelectedScale(readSelectedScale() + direction * AMBIENTE_ZOOM_STEP);
+      const factor = event.deltaY > 0 ? 1 / AMBIENTE_ZOOM_FACTOR : AMBIENTE_ZOOM_FACTOR;
+      applySelectedScale(readSelectedScale() * factor);
     };
 
     const onTouchStart = (event: TouchEvent) => {
@@ -1752,6 +1845,7 @@ export function LeadAIAmbienteComposer({
         markers: markersRef.current,
         shapes: shapesRef.current,
         viewport: exportViewport(),
+        coordSpace: photoSpaceReadyRef.current ? 'photo' : 'viewport',
       });
       const composedFile = dataUrlToFile(exported.dataUrl, `${baseName}.jpg`);
       await uploadAttachment(composedFile, folderId, baseName);
@@ -2085,15 +2179,22 @@ export function LeadAIAmbienteComposer({
                 src={background.url}
                 alt={background.label}
                 className={cn(
-                  'absolute left-1/2 top-1/2 max-w-none origin-center object-contain transition-[transform] duration-150',
+                  planeFitsHost
+                    ? 'absolute max-w-none origin-center'
+                    : 'absolute inset-0 h-full w-full origin-center object-contain',
                   selectedId === 'background' && 'ring-1 ring-inset ring-gold/40',
                 )}
                 draggable={false}
                 style={{
-                  width: `${(bgFit?.nw ?? 1) * 100}%`,
-                  height: `${(bgFit?.nh ?? 1) * 100}%`,
+                  ...(planeFitsHost
+                    ? {
+                        left: `${scenePlane.left * 100}%`,
+                        top: `${scenePlane.top * 100}%`,
+                        width: `${scenePlane.width * 100}%`,
+                        height: `${scenePlane.height * 100}%`,
+                      }
+                    : undefined),
                   transform: [
-                    'translate(-50%, -50%)',
                     `translate(${(background.offsetX - 0.5) * 40}%, ${(background.offsetY - 0.5) * 40}%)`,
                     `rotate(${background.rotation ?? 0}deg)`,
                     `scaleX(${background.flipH ? -1 : 1})`,
@@ -2123,6 +2224,27 @@ export function LeadAIAmbienteComposer({
               </div>
             )}
 
+            <div
+              ref={photoSpaceReady && background && planeFitsHost ? photoPlaneRef : undefined}
+              data-ambiente-photo-plane={photoSpaceReady && background && planeFitsHost ? 'true' : undefined}
+              className={cn(
+                photoSpaceReady && background && planeFitsHost
+                  ? 'pointer-events-none absolute z-20 overflow-visible'
+                  : photoSpaceReady && background
+                    ? 'hidden'
+                    : 'contents',
+              )}
+              style={
+                photoSpaceReady && background && planeFitsHost
+                  ? {
+                      left: `${scenePlane.left * 100}%`,
+                      top: `${scenePlane.top * 100}%`,
+                      width: `${scenePlane.width * 100}%`,
+                      height: `${scenePlane.height * 100}%`,
+                    }
+                  : undefined
+              }
+            >
             <AmbienteDrawLayer
               shapes={shapes}
               preview={drawPreview}
@@ -2155,7 +2277,7 @@ export function LeadAIAmbienteComposer({
               <div
                 key={overlay.id}
                 className={cn(
-                  'absolute z-20 cursor-grab overflow-visible rounded-md border bg-transparent shadow-md active:cursor-grabbing',
+                  'absolute z-20 cursor-grab overflow-visible rounded-md border bg-transparent shadow-md pointer-events-auto active:cursor-grabbing',
                   selectedId === overlay.id ? 'border-gold ring-2 ring-gold/40' : 'border-gold/30',
                 )}
                 style={{
@@ -2254,7 +2376,7 @@ export function LeadAIAmbienteComposer({
                 <div
                   key={object.id}
                   className={cn(
-                    'absolute z-30 cursor-grab overflow-visible active:cursor-grabbing',
+                    'absolute z-30 cursor-grab overflow-visible pointer-events-auto active:cursor-grabbing',
                     selectedId === object.id && 'drop-shadow-[0_0_12px_rgba(242,216,146,0.55)]',
                   )}
                   style={{
@@ -2350,7 +2472,7 @@ export function LeadAIAmbienteComposer({
               <div
                 key={marker.id}
                 className={cn(
-                  'absolute z-40 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border px-2.5 py-1 text-[11px] font-semibold text-[#f2d892] active:cursor-grabbing',
+                  'absolute z-40 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border px-2.5 py-1 text-[11px] font-semibold text-[#f2d892] pointer-events-auto active:cursor-grabbing',
                   selectedId === marker.id
                     ? 'border-gold bg-[#2a1812] ring-2 ring-gold/40'
                     : 'border-[rgba(240,210,140,0.45)] bg-[#2a1812]/90',
@@ -2368,6 +2490,8 @@ export function LeadAIAmbienteComposer({
                 )}
               </div>
             ))}
+
+            </div>
 
             <TooltipProvider delayDuration={180}>
               <AmbienteSceneDock
@@ -2427,12 +2551,14 @@ export function LeadAIAmbienteComposer({
                 flipV={Boolean(photoHudTarget.flipV)}
                 anchor={
                   selectedOverlay
-                    ? {
-                        x: selectedOverlay.x,
-                        y: selectedOverlay.y,
-                        width: selectedOverlay.width,
-                        height: selectedOverlay.height,
-                      }
+                    ? photoSpaceReady
+                      ? planeToViewportBox(selectedOverlay, scenePlane)
+                      : {
+                          x: selectedOverlay.x,
+                          y: selectedOverlay.y,
+                          width: selectedOverlay.width,
+                          height: selectedOverlay.height,
+                        }
                     : undefined
                 }
                 showOrbit={Boolean(selectedOverlay)}

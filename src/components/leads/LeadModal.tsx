@@ -92,6 +92,8 @@ import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { buildMarkAsWonUpdates } from '@/lib/vendas-ganhos';
 import { buildChangedLeadUpdates, resolveVendorUserIdFromForm } from '@/lib/lead-form-auto-save';
 
+const MAX_LEAD_AUTO_SAVE_RETRIES = 2;
+
 // Schema de validação para leads
 const leadSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome muito longo'),
@@ -215,6 +217,11 @@ export function LeadModal({
   const [autoSaveState, setAutoSaveState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const persistRetryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const persistInFlightRef = useRef(false);
+  const persistQueuedRef = useRef(false);
+  const persistRetryCountRef = useRef(0);
+  const persistLeadChangesRef = useRef<() => Promise<boolean>>(async () => false);
   /** Evita auto-save / flush ao fechar depois de excluir o lead (corrida com update). */
   const skipPersistOnCloseRef = useRef(false);
   /** Usuário editou o orçamento à mão — o markup não deve apagar esse valor nesta sessão. */
@@ -308,6 +315,7 @@ export function LeadModal({
       });
       if (!mudou) return true;
       // Evita o efeito de hidratação sobrescrever com valor_orcamento antigo do lead.
+      persistRetryCountRef.current = 0;
       setFormDirty(true);
       setBudgetDisplay(
         valor > 0
@@ -448,7 +456,11 @@ export function LeadModal({
       lastSavedSnapshotRef.current = null;
       budgetManualOverrideRef.current = false;
       skipPersistOnCloseRef.current = false;
+      persistInFlightRef.current = false;
+      persistQueuedRef.current = false;
+      persistRetryCountRef.current = 0;
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (persistRetryTimerRef.current) clearTimeout(persistRetryTimerRef.current);
       setFormData({
         name: '',
         email: '',
@@ -512,12 +524,14 @@ export function LeadModal({
 
   const markFormDirty = () => {
     formDirtyRef.current = true;
+    persistRetryCountRef.current = 0;
     if (!formDirty) setFormDirty(true);
   };
 
   /** Preenche nome + contato a partir de um lead já cadastrado (autocomplete do campo Nome). */
   const handleSelectLeadContact = useCallback((suggestion: LeadContactSuggestion) => {
     formDirtyRef.current = true;
+    persistRetryCountRef.current = 0;
     setFormDirty(true);
     setFormData((prev) => ({
       ...prev,
@@ -591,12 +605,19 @@ export function LeadModal({
     return buildFormSnapshot(formData, dbLead);
   }, [buildFormSnapshot, dbLead, formData]);
 
+  const mutateLeadAsync = updateLeadMutation.mutateAsync;
+
   /** Grava alterações pendentes imediatamente (usado no debounce, ao fechar campo e ao fechar o card). */
   const persistLeadChanges = useCallback(async (): Promise<boolean> => {
     const currentLead = dbLeadRef.current;
     const currentForm = formDataRef.current;
     if (skipPersistOnCloseRef.current) return false;
     if (!leadId || !currentLead || !autoSaveEnabled || isSubmitting) return false;
+
+    if (persistInFlightRef.current) {
+      persistQueuedRef.current = true;
+      return false;
+    }
 
     const vendorUserId = resolveVendorUserIdFromForm(
       currentForm.vendor,
@@ -622,9 +643,11 @@ export function LeadModal({
       return true;
     }
 
+    persistInFlightRef.current = true;
+    persistQueuedRef.current = false;
     setAutoSaveState('saving');
     try {
-      const saved = await updateLeadMutation.mutateAsync({
+      const saved = await mutateLeadAsync({
         id: leadId,
         updates,
         silent: true,
@@ -633,13 +656,42 @@ export function LeadModal({
         setLeadDetailCache(queryClient, saved, schemaEmpresa);
       }
       lastSavedSnapshotRef.current = snapshot;
+      persistRetryCountRef.current = 0;
       setFormDirty(false);
       setAutoSaveState('saved');
       window.setTimeout(() => setAutoSaveState('idle'), 2000);
       return true;
     } catch {
+      persistRetryCountRef.current += 1;
       setAutoSaveState('error');
+      if (
+        persistRetryCountRef.current <= MAX_LEAD_AUTO_SAVE_RETRIES &&
+        !skipPersistOnCloseRef.current
+      ) {
+        if (persistRetryTimerRef.current) clearTimeout(persistRetryTimerRef.current);
+        persistRetryTimerRef.current = setTimeout(() => {
+          persistRetryTimerRef.current = undefined;
+          if (formDirtyRef.current && !skipPersistOnCloseRef.current) {
+            void persistLeadChangesRef.current();
+          }
+        }, 2000 * persistRetryCountRef.current);
+      }
       return false;
+    } finally {
+      persistInFlightRef.current = false;
+      if (
+        persistQueuedRef.current &&
+        persistRetryCountRef.current === 0 &&
+        formDirtyRef.current &&
+        !skipPersistOnCloseRef.current
+      ) {
+        persistQueuedRef.current = false;
+        queueMicrotask(() => {
+          void persistLeadChangesRef.current();
+        });
+      } else {
+        persistQueuedRef.current = false;
+      }
     }
   }, [
     autoSaveEnabled,
@@ -647,12 +699,14 @@ export function LeadModal({
     dbUsers,
     isSubmitting,
     leadId,
+    mutateLeadAsync,
     queryClient,
     regiaoToTabelaMap,
     schemaEmpresa,
     statusChangeOnSelect,
-    updateLeadMutation,
   ]);
+
+  persistLeadChangesRef.current = persistLeadChanges;
 
   const flushAutoSave = useCallback(async () => {
     if (autoSaveTimerRef.current) {
@@ -699,11 +753,20 @@ export function LeadModal({
 
   useEffect(() => {
     if (!autoSaveEnabled || !dbLeadRef.current || isSubmitting || !formDirty) return;
+    if (persistInFlightRef.current) {
+      persistQueuedRef.current = true;
+      return;
+    }
+    if (persistRetryCountRef.current > MAX_LEAD_AUTO_SAVE_RETRIES) return;
 
     setAutoSaveState((s) => (s === 'saving' ? s : 'pending'));
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
     autoSaveTimerRef.current = setTimeout(() => {
+      if (persistInFlightRef.current) {
+        persistQueuedRef.current = true;
+        return;
+      }
       void persistLeadChanges();
     }, 700);
 
@@ -1128,9 +1191,15 @@ export function LeadModal({
     setFormDirty(false);
     formDirtyRef.current = false;
     setAutoSaveState('idle');
+    persistQueuedRef.current = false;
+    persistRetryCountRef.current = 0;
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = undefined;
+    }
+    if (persistRetryTimerRef.current) {
+      clearTimeout(persistRetryTimerRef.current);
+      persistRetryTimerRef.current = undefined;
     }
 
     setIsSubmitting(true);

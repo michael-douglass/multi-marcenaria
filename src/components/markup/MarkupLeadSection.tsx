@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Calculator, Plus, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,8 @@ export function MarkupLeadSection({
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
 
   const maisRecente = orcamentos[0] ?? null;
+  const syncValorLeadRef = useRef(syncValorLead);
+  syncValorLeadRef.current = syncValorLead;
 
   const confirmarExclusao = async () => {
     if (!deleteTarget || readOnly) return;
@@ -64,20 +66,17 @@ export function MarkupLeadSection({
 
   // Preenche Orçamentos com o markup só se o lead ainda não tiver valor próprio.
   // Edição manual (ou valor já salvo diferente) não é sobrescrita ao abrir o card.
+  // syncValorLead fica num ref: a mutation do React Query muda de objeto a cada
+  // render e, se entrar nas deps, dispara PATCH em loop até o navegador travar.
   useEffect(() => {
     const preco = Number(maisRecente?.preco_final ?? 0);
     if (!Number.isFinite(preco) || preco <= 0) return;
     const accepted = onOrcamentoSync?.(preco);
     if (accepted === false) return;
-    void syncValorLead(leadId, preco, { onlyIfEmpty: true });
-  }, [
-    leadId,
-    maisRecente?.id,
-    maisRecente?.preco_final,
-    maisRecente?.atualizado_em,
-    onOrcamentoSync,
-    syncValorLead,
-  ]);
+    void syncValorLeadRef.current(leadId, preco, { onlyIfEmpty: true }).catch(() => {
+      /* O auto-save do card tenta de novo sem inundar a rede. */
+    });
+  }, [leadId, maisRecente?.id, maisRecente?.preco_final, onOrcamentoSync]);
 
   const abrirNovoMarkup = () => {
     if (readOnly) return;

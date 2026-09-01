@@ -168,7 +168,7 @@ export function FinanceiroPontuaPageAura({ className }: { className?: string }) 
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const clockStart = performance.now()
     let frame = 0
     let running = true
     let visible = true
@@ -196,7 +196,7 @@ export function FinanceiroPontuaPageAura({ className }: { className?: string }) 
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
       if (!visible) return
-      material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
+      material.uniforms.uTime.value = prefersReduced ? 0 : (performance.now() - clockStart) / 1000
       renderer.render(scene, camera)
     }
 

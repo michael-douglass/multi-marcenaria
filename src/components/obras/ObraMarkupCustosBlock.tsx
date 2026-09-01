@@ -31,7 +31,7 @@ export function ObraMarkupCustosBlock({
   return (
     <div
       className={[
-        'rounded-md border border-[rgba(240,210,140,0.2)] bg-[rgba(255,255,255,0.03)]',
+        'obra-paper-inset rounded-md',
         compact ? 'px-1.5 py-1' : 'px-3 py-2',
       ].join(' ')}
       onClick={e => e.stopPropagation()}
@@ -39,13 +39,13 @@ export function ObraMarkupCustosBlock({
     >
       <p
         className={[
-          'font-bold uppercase tracking-wide text-[#c4a882] m-0 mb-0.5',
+          'obra-field-label m-0 mb-0.5',
           compact ? 'text-[0.52rem]' : 'text-[0.65rem]',
         ].join(' ')}
       >
         Custos markup
         {editavel && (
-          <span className="ml-1 font-medium normal-case tracking-normal text-[#c4a882]/75">
+          <span className="ml-1 font-medium normal-case tracking-normal text-[var(--color-text-muted)]">
             · marque o que entra no total
           </span>
         )}
@@ -63,14 +63,14 @@ export function ObraMarkupCustosBlock({
                   className={[
                     'flex cursor-pointer items-center justify-between gap-2 min-w-0 rounded px-0.5',
                     compact ? 'text-[0.62rem]' : 'text-[0.78rem]',
-                    checked ? 'text-[#edd9c4]' : 'text-[#edd9c4]/45',
-                    'hover:bg-[rgba(255,255,255,0.04)]',
+                    checked ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-faint)]',
+                    'hover:bg-[rgba(42,24,18,0.04)]',
                   ].join(' ')}
                 >
                   <span className="inline-flex min-w-0 items-center gap-1">
                     <input
                       type="checkbox"
-                      className="accent-[#f2d892] scale-90 shrink-0"
+                      className="accent-[#8d5e22] scale-90 shrink-0"
                       checked={checked}
                       onChange={e =>
                         onFiltroChange({ ...filtro, [opt.key]: e.target.checked })
@@ -92,7 +92,7 @@ export function ObraMarkupCustosBlock({
               className={[
                 'flex items-center justify-between gap-2 min-w-0',
                 compact ? 'text-[0.62rem]' : 'text-[0.78rem]',
-                'text-[#edd9c4]',
+                'text-[var(--color-text-primary)]',
               ].join(' ')}
             >
               <span className="truncate">{label}</span>
@@ -103,7 +103,7 @@ export function ObraMarkupCustosBlock({
 
         <li
           className={[
-            'flex items-center justify-between gap-2 min-w-0 mt-0.5 pt-0.5 border-t border-[rgba(240,210,140,0.18)] font-semibold text-[#f2d892]',
+            'flex items-center justify-between gap-2 min-w-0 mt-0.5 pt-0.5 border-t border-[var(--color-gold-border)] font-semibold text-[var(--color-gold-muted)]',
             compact ? 'text-[0.62rem]' : 'text-[0.78rem]',
           ].join(' ')}
         >

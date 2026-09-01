@@ -668,10 +668,10 @@ export function ObraLousa({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-[rgba(240,210,140,0.12)]"
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-[rgba(246,220,154,0.16)]"
         style={{
-          backgroundColor: 'rgba(240,210,140,0.07)',
-          border: '1px solid rgba(240,210,140,0.22)',
+          backgroundColor: 'rgba(246,220,154,0.1)',
+          border: '1px solid rgba(246,220,154,0.38)',
         }}
         aria-expanded={false}
         aria-label="Abrir Lousa"
@@ -679,10 +679,10 @@ export function ObraLousa({
         <span className="flex items-center gap-2 min-w-0">
           <PenLine size={16} className="text-[#f2d892] shrink-0" />
           <span className="min-w-0">
-            <span className="block text-[0.72rem] uppercase tracking-wider font-semibold text-[#f2d892]">
+            <span className="block text-[0.72rem] uppercase tracking-wider font-semibold text-[#f6dc9a]">
               Lousa
             </span>
-            <span className="block text-[0.68rem] text-[#d4bc9f] mt-0.5">
+            <span className="block text-[0.68rem] text-[#e4cbb0] mt-0.5">
               Clique para abrir e anexar fotos / riscar
             </span>
           </span>

@@ -61,13 +61,13 @@ export function AmbienteZoomHud({
           <Slider
             min={sliderMin}
             max={sliderMax}
-            step={4}
+            step={5}
             value={[percent]}
             disabled={disabled}
             onValueChange={([value]) => onScaleChange((value ?? percent) / 100)}
             aria-label="Distância da foto na cena"
             className={cn(
-              'w-[7.5rem] sm:w-40',
+              'w-[9.5rem] sm:w-52',
               '[&>span]:h-1 [&>span]:bg-[#2a1812]/90',
               '[&>span>span]:bg-gold',
               '[&_[role=slider]]:h-3.5 [&_[role=slider]]:w-3.5 [&_[role=slider]]:border-gold [&_[role=slider]]:bg-[#fff6ea]',

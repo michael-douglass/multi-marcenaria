@@ -45,7 +45,7 @@ export function BriefingFieldEntry({
   if (!obraId) {
     return (
       <Field label="Briefing Pré-Obra">
-        <p className="text-[0.72rem] text-[#edd9c4]/60">
+        <p className="text-[0.72rem] text-[#e4cbb0]/70">
           Salve a obra primeiro para vincular briefings de ambiente.
         </p>
       </Field>
@@ -55,7 +55,7 @@ export function BriefingFieldEntry({
   return (
     <>
       <Field label="Briefing Pré-Obra">
-        <div className="space-y-3 rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(0,0,0,0.12)] p-3">
+        <div className="space-y-3 rounded-lg border border-[rgba(232,196,112,0.32)] bg-[rgba(16,8,6,0.45)] p-3">
           <BriefingAmbienteSelector
             modelos={modelos}
             selectedIds={selectedModeloIds}
@@ -66,7 +66,7 @@ export function BriefingFieldEntry({
           />
 
           {loading && !modelosLoading && (
-            <p className="text-[0.72rem] text-[#edd9c4]/60">Atualizando briefings da obra...</p>
+            <p className="text-[0.72rem] text-[#e4cbb0]/70">Atualizando briefings da obra...</p>
           )}
 
           {briefings.length > 0 && (
@@ -77,19 +77,19 @@ export function BriefingFieldEntry({
                 return (
                   <div
                     key={b.id}
-                    className="flex items-center gap-3 rounded-lg border border-[rgba(240,210,140,0.1)] bg-[rgba(255,255,255,0.03)] p-2.5"
+                    className="flex items-center gap-3 rounded-lg border border-[rgba(232,196,112,0.28)] bg-[rgba(42,24,16,0.55)] p-2.5"
                   >
                     <ClipboardList size={16} className="shrink-0 text-[#f2d892]" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-cream">{b.modelo_nome}</p>
                       <div className="mt-1 flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(16,8,6,0.55)]">
                           <div
-                            className="h-full rounded-full bg-[#f2d892] transition-all"
+                            className="h-full rounded-full bg-[#f6dc9a] transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className="text-[0.65rem] text-[#edd9c4]">
+                        <span className="text-[0.65rem] text-[#e4cbb0]">
                           {answered}/{total}
                           {b.status === 'concluido' && ' ✓'}
                         </span>

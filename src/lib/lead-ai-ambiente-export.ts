@@ -4,7 +4,14 @@ import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-cat
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
 import { containRotatedPlane } from '@/lib/lead-image-studio';
 import { loadImageForRender } from '@/lib/render-image-normalize';
-import { containedRectInBox, isUsableAmbienteViewport } from '@/lib/lead-ai-ambiente-zoom';
+import {
+  containedRectInBox,
+  isUsableAmbienteViewport,
+  PHOTO_PLANE,
+  planeFromContainFit,
+  remapSceneToPlane,
+  type AmbienteCoordSpace,
+} from '@/lib/lead-ai-ambiente-zoom';
 import type {
   AmbienteBackground,
   AmbienteFurnitureObject,
@@ -32,6 +39,8 @@ export interface AmbienteExportInput {
   shapes?: AmbienteGeoShape[];
   /** Tamanho da lousa na tela — sem isso a foto encaixa errado na hora de enviar. */
   viewport?: AmbienteExportViewport;
+  /** `photo` = peças coladas na foto do cômodo, não na janela larga. */
+  coordSpace?: AmbienteCoordSpace;
 }
 
 function scaleToMaxEdge(width: number, height: number, maxEdge: number) {
@@ -381,6 +390,25 @@ export async function exportAmbienteCompositionToJpeg(
   canvas.height = worldH;
   const ctx = canvasContext(canvas);
 
+  const liveScene =
+    input.coordSpace === 'photo' && input.background && bgFit
+      ? remapSceneToPlane(
+          {
+            overlays: input.overlays,
+            objects: input.objects,
+            markers: input.markers,
+            shapes: input.shapes ?? [],
+          },
+          PHOTO_PLANE,
+          planeFromContainFit(bgFit.nw, bgFit.nh),
+        )
+      : {
+          overlays: input.overlays,
+          objects: input.objects,
+          markers: input.markers,
+          shapes: input.shapes ?? [],
+        };
+
   if (input.background) {
     ctx.fillStyle = '#1a100c';
     ctx.fillRect(0, 0, worldW, worldH);
@@ -392,7 +420,7 @@ export async function exportAmbienteCompositionToJpeg(
     drawWarmPlaceholder(ctx, worldW, worldH);
   }
 
-  const overlays = [...input.overlays].sort((a, b) => a.zIndex - b.zIndex);
+  const overlays = [...liveScene.overlays].sort((a, b) => a.zIndex - b.zIndex);
   for (const overlay of overlays) {
     try {
       const img = await loadImageForRender(overlay.url);
@@ -402,12 +430,12 @@ export async function exportAmbienteCompositionToJpeg(
     }
   }
 
-  for (const shape of input.shapes ?? []) {
+  for (const shape of liveScene.shapes) {
     paintGeoShape(ctx, shape, worldW, worldH);
   }
 
   let woodImg: HTMLImageElement | null = null;
-  if (input.objects.some((item) => item.viewMode === 'realista')) {
+  if (liveScene.objects.some((item) => item.viewMode === 'realista')) {
     try {
       woodImg = await loadImageForRender(GARBO_WOOD_TEXTURE_URL);
     } catch {
@@ -415,7 +443,7 @@ export async function exportAmbienteCompositionToJpeg(
     }
   }
 
-  for (const object of input.objects) {
+  for (const object of liveScene.objects) {
     if (object.viewMode === 'realista') {
       try {
         const snap = await snapshotRealisticFurniture(object.moduleType, 360, {
@@ -438,7 +466,7 @@ export async function exportAmbienteCompositionToJpeg(
     }
     drawFurniture(ctx, object, worldW, worldH, woodImg);
   }
-  for (const marker of input.markers) {
+  for (const marker of liveScene.markers) {
     drawMarker(ctx, marker, worldW, worldH);
   }
 

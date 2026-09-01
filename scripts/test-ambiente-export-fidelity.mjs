@@ -84,8 +84,11 @@ describe('exportação da lousa — fidelidade da montagem', () => {
     assert.match(exportLib, /viewport\?: AmbienteExportViewport/);
     assert.match(exportLib, /drawBackgroundLikeBoard/);
     assert.match(exportLib, /backgroundVisualBounds/);
+    assert.match(exportLib, /coordSpace\?: AmbienteCoordSpace/);
+    assert.match(exportLib, /PHOTO_PLANE/);
     assert.match(composer, /viewport: exportViewport\(\)/);
     assert.equal((composer.match(/viewport: exportViewport\(\)/g) || []).length, 5);
+    assert.match(composer, /coordSpace: photoSpaceReady/);
   });
 
   it('não força JPEG no recorte sem fundo nem quadrado na IA', () => {
