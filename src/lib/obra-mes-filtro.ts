@@ -1,4 +1,5 @@
 import type { AgendaMesFiltro } from '@/lib/agenda-mes-filtro-storage'
+import { getStatusEfetivo } from '@/lib/obra-progresso'
 import type { ObraFull } from '@/types'
 
 /** Mês/ano da data de entrega (último prazo) da obra. */
@@ -25,13 +26,23 @@ export function filterObrasPorMesEntrega(obras: ObraFull[], mes: number, ano: nu
   return obras.filter(obra => obraPertenceAoMesPorEntrega(obra, mes, ano))
 }
 
-export function applyAgendaMesFiltro(obras: ObraFull[], filtro: AgendaMesFiltro): ObraFull[] {
+export function applyAgendaMesFiltro(
+  obras: ObraFull[],
+  filtro: AgendaMesFiltro,
+  refDate: Date = new Date(),
+): ObraFull[] {
   if (filtro.mode === 'all') return obras
+  const mesAtual = refDate.getMonth() + 1
+  const anoAtual = refDate.getFullYear()
+  const isMesCorrente = filtro.mes === mesAtual && filtro.ano === anoAtual
+
   return obras.filter(obra => {
     if (!obra.data_prevista_fim) {
       return obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada'
     }
-    return obraPertenceAoMesPorEntrega(obra, filtro.mes, filtro.ano)
+    if (obraPertenceAoMesPorEntrega(obra, filtro.mes, filtro.ano)) return true
+    // Atraso de meses anteriores continua no mês atual até a obra ser concluída.
+    return isMesCorrente && getStatusEfetivo(obra, refDate) === 'datas_em_atraso'
   })
 }
 

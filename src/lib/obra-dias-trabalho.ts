@@ -61,6 +61,23 @@ function dayOfWeekFromIso(iso: string): number {
   return new Date(`${iso}T12:00:00`).getDay()
 }
 
+function hojeIsoLocal(ref: Date = new Date()): string {
+  return ref.toISOString().slice(0, 10)
+}
+
+type ObraCalendarioDia = Pick<
+  ObraFull,
+  'data_prevista_inicio' | 'data_prevista_fim' | 'dias_trabalho' | 'status_kanban' | 'finalizado_em'
+>
+
+/** Prazo já passou e a obra ainda não foi concluída nem cancelada. */
+export function obraEmAtrasoAberta(obra: ObraCalendarioDia, hojeIso: string): boolean {
+  if (obra.status_kanban === 'concluida' || obra.status_kanban === 'cancelada') return false
+  if (obra.finalizado_em) return false
+  const fim = normalizeObraDate(obra.data_prevista_fim)
+  return Boolean(fim && fim < hojeIso)
+}
+
 /** Verifica se a obra está ativa em um dia (intervalo de datas + dias da semana). */
 export function obraAtivaNoDia(
   obra: Pick<ObraFull, 'data_prevista_inicio' | 'data_prevista_fim' | 'dias_trabalho'>,
@@ -84,15 +101,38 @@ export function obraAtivaNoDia(
   return diasPadraoAtivos.includes(dow)
 }
 
+/**
+ * No calendário, obra em atraso continua aparecendo no dia de hoje
+ * até alguém concluir — senão some no vencimento e o montador não vê.
+ */
+export function obraVisivelNoDiaCalendario(
+  obra: ObraCalendarioDia,
+  iso: string,
+  diasPadraoAtivos: number[],
+  hojeIso: string = hojeIsoLocal(),
+): boolean {
+  if (obraAtivaNoDia(obra, iso, diasPadraoAtivos)) return true
+  return iso === hojeIso && obraEmAtrasoAberta(obra, hojeIso)
+}
+
 /** Obras visíveis em um dia do calendário, respeitando dias_trabalho de cada obra. */
 export function obrasParaDiaCalendario(
   obras: ObraFull[],
   iso: string,
   diasPadraoAtivos: number[],
+  hojeIso: string = hojeIsoLocal(),
 ): ObraFull[] {
-  return sortObrasPorHorarioInicio(
-    obras.filter(o => obraAtivaNoDia(o, iso, diasPadraoAtivos)),
-  )
+  const visiveis = obras.filter(o => obraVisivelNoDiaCalendario(o, iso, diasPadraoAtivos, hojeIso))
+  const atrasadas: ObraFull[] = []
+  const noPrazo: ObraFull[] = []
+  for (const obra of visiveis) {
+    if (obraEmAtrasoAberta(obra, hojeIso)) atrasadas.push(obra)
+    else noPrazo.push(obra)
+  }
+  return [
+    ...sortObrasPorHorarioInicio(atrasadas),
+    ...sortObrasPorHorarioInicio(noPrazo),
+  ]
 }
 
 /** Dia ativo no calendário: config global ou pelo menos uma obra naquele dia. */

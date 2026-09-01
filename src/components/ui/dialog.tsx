@@ -41,6 +41,8 @@ const DialogContent = React.forwardRef<
     onOverlayClick?: React.PointerEventHandler<HTMLDivElement>;
     /** Acima de um Dialog aberto (z-50) — janelas internas do card do lead. */
     nested?: boolean;
+    /** Destino do portal. Padrão: body — evita a janela nascer dentro de outro Dialog. */
+    portalContainer?: HTMLElement | null;
   }
 >(({
   className,
@@ -48,13 +50,14 @@ const DialogContent = React.forwardRef<
   overlayClassName,
   onOverlayClick,
   nested,
+  portalContainer,
   children,
   onPointerDownOutside,
   onFocusOutside,
   onInteractOutside,
   ...props
 }, ref) => (
-  <DialogPortal>
+  <DialogPortal container={portalContainer ?? undefined}>
     <DialogOverlay
       data-nested-dialog={nested ? '' : undefined}
       className={cn(

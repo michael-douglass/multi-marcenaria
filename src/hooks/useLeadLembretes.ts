@@ -150,7 +150,7 @@ export function useLeadLembretes(
         ),
       ];
 
-      const [leadsResult, titularesResult] = await Promise.all([
+      const [leadsResult, titularesResult, agendaTitularesResult] = await Promise.all([
         leadIds.length > 0
           ? db
               .from(lembretesConfig.leadsTable)
@@ -163,10 +163,20 @@ export function useLeadLembretes(
               .select('id, nome, avatar_url')
               .in('id', titularIds as string[])
           : Promise.resolve({ data: [], error: null } as const),
+        titularIds.length > 0
+          ? supabase.rpc('movelaria_listar_titulares_agenda')
+          : Promise.resolve({ data: [], error: null } as const),
       ]);
 
-      if (leadsResult.error) throw leadsResult.error;
-      if (titularesResult.error) throw titularesResult.error;
+      if (leadsResult.error) {
+        console.warn('Leads dos lembretes:', leadsResult.error.message);
+      }
+      if (titularesResult.error) {
+        console.warn('Titulares CRM dos lembretes:', titularesResult.error.message);
+      }
+      if (agendaTitularesResult.error) {
+        console.warn('Titulares da agenda (Casa):', agendaTitularesResult.error.message);
+      }
 
       const leadsById = new Map<number, { id: number; nome: string; telefone: string | null }>();
       for (const lead of (leadsResult.data || []) as {
@@ -181,13 +191,30 @@ export function useLeadLembretes(
       for (const titular of (titularesResult.data || []) as LeadLembreteTitular[]) {
         titularesById.set(titular.id, titular);
       }
+      for (const row of (agendaTitularesResult.data || []) as {
+        id: string;
+        nome: string | null;
+        avatar_url?: string | null;
+      }[]) {
+        if (!row?.id || titularesById.has(row.id)) continue;
+        titularesById.set(row.id, {
+          id: row.id,
+          nome: row.nome?.trim() || 'Usuário',
+          avatar_url: row.avatar_url ?? null,
+        });
+      }
 
       return lembretes
         .map((lembrete) => {
           const ids = resolveTitularIds(lembrete);
-          const titulares = ids
-            .map((id) => titularesById.get(id))
-            .filter((t): t is LeadLembreteTitular => !!t);
+          const titulares = ids.map(
+            (id) =>
+              titularesById.get(id) ?? {
+                id,
+                nome: 'Usuário',
+                avatar_url: null,
+              },
+          );
           return {
             ...lembrete,
             titular_ids: ids,

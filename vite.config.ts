@@ -111,6 +111,8 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     host: true,
+    // Túnel Cloudflare (trycloudflare.com) para testar no celular / outro lugar.
+    allowedHosts: ['.trycloudflare.com'],
     headers: {
       'Permissions-Policy': 'geolocation=(self), camera=(self)',
     },

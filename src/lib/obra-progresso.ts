@@ -1,6 +1,6 @@
 ﻿import { fmtDate } from './utils'
 import { normalizeObraDate } from './date-br'
-import { obraAtivaNoDia } from './obra-dias-trabalho'
+import { obraVisivelNoDiaCalendario } from './obra-dias-trabalho'
 import type { ObraFull, StatusKanbanObra } from '../types'
 
 export type ObraProgressoVariant =
@@ -158,7 +158,7 @@ export function filtrarObrasCalendario(
     if (filtros.etapa && statusEfetivo !== filtros.etapa) return false
 
     if (filtros.data) {
-      if (!obraAtivaNoDia(obra, filtros.data, [0, 1, 2, 3, 4, 5, 6])) return false
+      if (!obraVisivelNoDiaCalendario(obra, filtros.data, [0, 1, 2, 3, 4, 5, 6])) return false
     }
 
     return true

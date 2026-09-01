@@ -223,7 +223,7 @@ export function FuncionarioDocumentosPanel({
           <button
             type="button"
             onClick={() => setPasta('raiz')}
-            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.45)] px-3 py-2 text-sm text-[#b8957f] transition hover:border-[rgba(212,168,83,0.4)] hover:text-[#f2d892]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(26,16,12,0.16)] bg-[#fffaf4] px-3 py-2 text-sm text-[#4a3428] transition hover:border-[rgba(107,63,18,0.4)] hover:text-[#6b3f12]"
           >
             <ArrowLeft size={16} />
             Voltar aos documentos
@@ -291,7 +291,7 @@ export function FuncionarioDocumentosPanel({
         <button
           type="button"
           onClick={() => setPasta('ponto')}
-          className="group relative block w-full overflow-hidden rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] text-left shadow-mogno transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
+          className="group relative block w-full overflow-hidden rounded-xl border border-[rgba(26,16,12,0.14)] bg-[#fffaf4] text-left shadow-[0_12px_28px_rgba(42,24,18,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(107,63,18,0.42)] hover:shadow-[0_18px_36px_rgba(42,24,18,0.12)]"
           aria-label={`Abrir pasta ${PASTA_PONTO_LABEL}`}
         >
           <div
@@ -303,8 +303,8 @@ export function FuncionarioDocumentosPanel({
           />
           <div className="absolute left-0 right-0 top-0 h-2.5 rounded-t-xl bg-gradient-to-r from-[#c9a045] via-[#f2d892] to-[#c9a045]" />
           <div className="relative flex items-center gap-4 p-5 pt-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(212,168,83,0.3)] bg-[rgba(96,165,250,0.18)]">
-              <Clock size={22} className="text-sky-200" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(26,16,12,0.12)] bg-sky-50">
+              <Clock size={22} className="text-sky-900" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">

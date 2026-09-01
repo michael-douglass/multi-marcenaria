@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -198,8 +199,11 @@ export function MarkupCatalogoCategoriaCard({
   onQuantidadeChange,
 }: MarkupCatalogoCategoriaCardProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 220, tolerance: 8 },
     }),
   );
 
@@ -248,7 +252,7 @@ export function MarkupCatalogoCategoriaCard({
       <h4 className="sticky top-0 z-10 mb-2 bg-background py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {categoriaKey}
       </h4>
-      <div className="overflow-x-auto -mx-1 px-1">
+      <div className="-mx-1 px-1">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

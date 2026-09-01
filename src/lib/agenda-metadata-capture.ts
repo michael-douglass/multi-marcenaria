@@ -2,7 +2,7 @@ import type { AgendaConfig, MetadataCapturada } from '@/hooks/useAgenda';
 import { captureUserLocation, type UserLocationResult } from '@/lib/geolocation';
 
 export interface AgendaMetadataCaptureOptions {
-  /** Localização já solicitada ao abrir o formulário (melhora taxa de sucesso). */
+  /** Localização já pedida no toque do botão (o iPhone recusa pedido automático ao abrir a tela). */
   prefetchedLocation?: UserLocationResult | null;
 }
 

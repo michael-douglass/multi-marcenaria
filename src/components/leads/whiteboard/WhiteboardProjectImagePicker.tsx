@@ -276,6 +276,7 @@ export function WhiteboardProjectImagePicker({
       <DialogContent
         nested
         data-whiteboard-project-picker=""
+        portalContainer={typeof document !== 'undefined' ? document.body : undefined}
         overlayClassName={cn(
           elevated ? leadFullscreenNestedOverlayClass : 'z-[80]',
           'ambiente-project-picker-overlay',
@@ -283,7 +284,7 @@ export function WhiteboardProjectImagePicker({
         className={cn(
           'flex max-h-[min(94dvh,960px)] flex-col gap-0 overflow-hidden p-0',
           'border-gold-border-subtle/40 bg-mahogany-panel',
-          inspecting ? 'sm:max-w-6xl' : 'sm:max-w-2xl',
+          inspecting ? 'h-[min(90dvh,880px)] min-h-[min(62dvh,480px)] sm:max-w-6xl' : 'sm:max-w-2xl',
           elevated ? leadFullscreenNestedContentClass : '!z-[81]',
         )}
         onPointerDownOutside={(event) => event.stopPropagation()}
@@ -314,8 +315,8 @@ export function WhiteboardProjectImagePicker({
                 : 'As fotos deste lead já estão na lousa. Use Inserir para trazer outra do computador.'}
             </div>
           ) : inspecting ? (
-            <div className="flex min-h-[min(68dvh,640px)] w-full flex-1 flex-col">
-              <div className="relative flex min-h-0 flex-1">
+            <div className="flex h-full min-h-[min(68dvh,640px)] w-full flex-1 flex-col">
+              <div className="relative flex min-h-[min(48dvh,360px)] flex-1">
                 <Button
                   type="button"
                   variant="ghost"

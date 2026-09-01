@@ -24,19 +24,22 @@ float hash(vec2 p) {
 
 void main() {
   vec2 uv = vUv;
-  float t = uTime * 0.05;
-  vec2 brandUv = uv * vec2(1.4, 2.2) + vec2(0.02 * sin(t), 0.0);
+  float t = uTime * 0.04;
+  vec2 brandUv = uv * vec2(1.35, 2.05) + vec2(0.015 * sin(t), 0.0);
   vec3 brand = texture2D(uBrand, brandUv).rgb * uHasBrand;
-  float grain = hash(uv * 110.0 + t) * 0.08;
-  float wash = exp(-length((uv - vec2(0.18, 0.35)) * vec2(1.4, 1.8)) * 1.6);
-  float rim = pow(1.0 - uv.y, 3.0) * 0.28;
-  vec3 gold = vec3(0.95, 0.84, 0.55);
-  vec3 ink = vec3(0.08, 0.035, 0.018);
-  vec3 color = mix(ink, gold, wash * 0.18);
-  color = mix(color, brand, 0.1 * uHasBrand);
-  color += gold * (grain * 0.55 + rim * 0.55);
-  float alpha = 0.1 + wash * 0.08 + rim * 0.06;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.2));
+  float grain = hash(uv * 90.0 + t) * 0.05;
+  float wash = exp(-length((uv - vec2(0.22, 0.28)) * vec2(1.35, 1.7)) * 1.45);
+  float rim = pow(1.0 - uv.y, 2.4) * 0.22;
+  float fresnel = pow(1.0 - abs(uv.x - 0.5) * 1.6, 2.4) * 0.12;
+
+  vec3 gold = vec3(0.42, 0.28, 0.10);
+  vec3 paper = vec3(0.97, 0.93, 0.86);
+  vec3 color = mix(paper, gold, wash * 0.10 + fresnel * 0.45);
+  color = mix(color, brand, 0.05 * uHasBrand);
+  color += gold * (grain * 0.18 + rim * 0.12);
+
+  float alpha = 0.05 + wash * 0.05 + rim * 0.04;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.12));
 }
 `
 

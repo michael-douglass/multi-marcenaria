@@ -10,6 +10,7 @@ import {
 import { AssinaturaCanvas } from '@/components/ui/AssinaturaCanvas'
 import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoLocalizacaoLabel } from '@/components/ponto/PontoLocalizacaoLabel'
+import { PontoLocalizacaoManual } from '@/components/ponto/PontoLocalizacaoManual'
 import { PontoSelfieCapture } from '@/components/ponto/PontoSelfieCapture'
 import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { PontoWizardStep } from '@/components/ponto/PontoWizardStep'
@@ -41,6 +42,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
     resultado,
     reload,
     solicitarLocalizacao,
+    confirmarLocalizacaoManual,
     definirSelfie,
     definirAssinatura,
     registrar,
@@ -138,6 +140,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                             → Localização → Permitir.
                           </li>
                           <li>Volte nesta tela e toque de novo no botão abaixo.</li>
+                          <li>Se ainda bloquear, digite só o CEP.</li>
                         </ol>
                       )}
                     </div>
@@ -151,6 +154,12 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                     {submitting ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
                     {error ? 'Tentar localização de novo' : 'Permitir localização'}
                   </button>
+                  {error && (
+                    <PontoLocalizacaoManual
+                      disabled={submitting}
+                      onConfirm={confirmarLocalizacaoManual}
+                    />
+                  )}
                 </div>
               )}
 
@@ -158,7 +167,9 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                 <div className="space-y-4">
                   {geo && (
                     <p className="text-center text-xs text-emerald-300">
-                      Localização obtida (±{Math.round(geo.accuracy)}m)
+                      {geo.origem === 'manual'
+                        ? 'Local informado pelo CEP'
+                        : `Localização obtida (±${Math.round(geo.accuracy ?? 0)}m)`}
                     </p>
                   )}
                   <p className="text-center text-sm text-[#edd9c4]">
@@ -211,8 +222,13 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                             <PontoLocalizacaoLabel
                               latitude={geo.latitude}
                               longitude={geo.longitude}
-                              precisaoMetros={geo.accuracy}
+                              precisaoMetros={geo.origem === 'manual' ? null : geo.accuracy}
                             />
+                            {geo.origem === 'manual' && (
+                              <span className="mt-1 block text-[10px] text-[#b8957f]">
+                                Informado pelo CEP
+                              </span>
+                            )}
                           </dd>
                         </div>
                       )}

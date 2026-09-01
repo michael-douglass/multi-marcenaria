@@ -113,7 +113,7 @@ export function AdvertenciaDisciplinarPanel({
 
   return (
     <section
-      className="advertencia-panel relative overflow-hidden rounded-2xl border border-[rgba(212,168,83,0.28)] bg-[rgba(36,16,8,0.78)] p-5 shadow-mogno"
+      className="advertencia-panel relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.14)] bg-[#fffaf4] p-5 shadow-[0_12px_28px_rgba(42,24,18,0.07)]"
       aria-label="Advertência disciplinar"
     >
       <div
@@ -145,10 +145,10 @@ export function AdvertenciaDisciplinarPanel({
           onClick={() => void exportarPdf()}
           className={
             'inline-flex items-center gap-1.5 rounded-lg border border-[rgba(212,168,83,0.4)] ' +
-            'bg-[rgba(56,28,12,0.95)] px-3.5 py-2 text-[0.72rem] font-medium uppercase ' +
-            'tracking-wider text-[#f2d892] shadow-sm transition-all duration-200 ' +
-            'ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[rgba(212,168,83,0.6)] ' +
-            'hover:bg-[rgba(72,36,14,0.98)] hover:text-[#f7e7be] ' +
+            'bg-[#f4e4c4] px-3.5 py-2 text-[0.72rem] font-semibold uppercase ' +
+            'tracking-wider text-[#6b3f12] shadow-sm transition-all duration-200 ' +
+            'ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[rgba(107,63,18,0.55)] ' +
+            'hover:bg-[#ecd7a8] hover:text-[#1a100c] ' +
             'active:scale-x-[0.97] active:scale-y-[1.04] ' +
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(242,216,146,0.4)] ' +
             'disabled:cursor-not-allowed disabled:opacity-55'

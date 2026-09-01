@@ -27,7 +27,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { resolveChatContatosQueryConfig } from '@/lib/empresa-tables';
 import { cn, formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils';
-import { Bell, Copy, Share2, Webhook, Ban, FileText, Sparkles, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen, X } from 'lucide-react';
+import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen, X } from 'lucide-react';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
 import { LeadModalHeaderAura } from '@/components/leads/LeadModalHeaderAura';
 import { LeadLembreteDialog } from '@/components/agenda/LeadLembreteDialog';
@@ -74,10 +74,12 @@ const LeadWhiteboard = lazy(() =>
 import { LeadModalFooter } from './LeadModalFooter';
 import { LeadAIAnalysisTab } from './LeadAIAnalysisTab';
 import { LeadModalSection, LeadModalScrollBody } from './LeadModalSection';
+import { LeadModalNav } from './LeadModalNav';
+import type { LeadIaSubtab, LeadModalTabId, LeadNavJumpItem } from './lead-modal-nav';
+import { waitAndScrollLeadModalToSection } from '@/lib/lead-modal-scroll';
 import { LeadPontuaGarboContactPanel } from './LeadPontuaGarboContactPanel';
 import { LeadPontuaGarboPartnerBadge } from './LeadPontuaGarboPartnerBadge';
 import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LeadEditableField } from './LeadEditableField';
 import {
   LeadNameAutocomplete,
@@ -207,7 +209,8 @@ export function LeadModal({
   const [showSaleValueDialog, setShowSaleValueDialog] = useState(false);
   const [showScheduleMeetingDialog, setShowScheduleMeetingDialog] = useState(false);
   const [showLembreteDialog, setShowLembreteDialog] = useState(false);
-  const [leadModalTab, setLeadModalTab] = useState('detalhes');
+  const [leadModalTab, setLeadModalTab] = useState<LeadModalTabId>('detalhes');
+  const [iaSubtab, setIaSubtab] = useState<LeadIaSubtab>(initialIaSubtab);
   const lembretesCountMap = useLeadLembretesCountMap();
   const lembretesAbertosCount = leadId ? lembretesCountMap.get(leadId) ?? 0 : 0;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -451,6 +454,7 @@ export function LeadModal({
       setSelectedWebhookId('');
       setAutoSaveState('idle');
       setLeadModalTab('detalhes');
+      setIaSubtab(initialIaSubtab);
       setShowDuplicateAlert(false);
       setIsDuplicating(false);
       lastSavedSnapshotRef.current = null;
@@ -520,7 +524,14 @@ export function LeadModal({
     if (initialTab === 'analise-ia') {
       setLeadModalTab('analise-ia');
     }
-  }, [isOpen, leadId, initialTab]);
+    setIaSubtab(initialIaSubtab);
+  }, [isOpen, leadId, initialTab, initialIaSubtab]);
+
+  const handleLeadNavJump = useCallback((item: LeadNavJumpItem) => {
+    setLeadModalTab(item.tab);
+    if (item.iaSubtab) setIaSubtab(item.iaSubtab);
+    waitAndScrollLeadModalToSection(item.id);
+  }, []);
 
   const markFormDirty = () => {
     formDirtyRef.current = true;
@@ -1287,9 +1298,24 @@ export function LeadModal({
           }
         }}
       >
+        {leadId ? (
+          <LeadModalNav
+            activeTab={leadModalTab}
+            iaSubtab={iaSubtab}
+            onJump={handleLeadNavJump}
+            onOpenMenu={(menu) => {
+              setLeadModalTab(menu === 'ia' ? 'analise-ia' : 'detalhes');
+            }}
+            showIa
+            hideContratos={modoProjeto}
+            hideOrcamentos={contextoProjeto}
+            hideMarkup={contextoProjeto}
+            hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
+          />
+        ) : null}
         <DialogHeader className="lead-modal-header relative z-[1] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left">
           <LeadModalHeaderAura />
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-gold/55 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-[color:var(--lead-gold)]/45 to-transparent" />
           <div className="relative z-[2]">
             {hasPermission('lead_vendor', 'view') && (
               <LeadVendorBanner
@@ -1339,11 +1365,11 @@ export function LeadModal({
                 {leadId && formData.status && (
                   <div className="lead-modal-stage mt-2 inline-flex max-w-full flex-col gap-0.5 rounded-md border px-2 py-1">
                     {statusDisplayFallback.pageLabel && (
-                      <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f2d892]/75">
+                      <span className="truncate text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--lead-cream)]">
                         {statusDisplayFallback.pageLabel}
                       </span>
                     )}
-                    <span className="truncate text-[11px] font-medium text-[#f2d892]">
+                    <span className="truncate text-[12px] font-semibold text-[color:var(--lead-cream)]">
                       {statusDisplayFallback.columnLabel}
                     </span>
                   </div>
@@ -1355,7 +1381,7 @@ export function LeadModal({
                       autoSaveState === 'error' && 'text-destructive',
                       autoSaveState === 'saved' && 'text-[#8fc9a8]',
                       (autoSaveState === 'pending' || autoSaveState === 'saving') &&
-                        'text-[#d4bc9f]',
+                        'text-[color:var(--lead-muted)]',
                     )}
                   >
                     {autoSaveState === 'pending' && 'Preparando salvamento...'}
@@ -1365,7 +1391,7 @@ export function LeadModal({
                   </p>
                 )}
                 {autoSaveEnabled && autoSaveState === 'idle' && isEditMode && editingFields.size > 0 && (
-                  <p className="text-[11px] text-[#d4bc9f] mt-1.5">
+                  <p className="text-[11px] text-[color:var(--lead-muted)] mt-1.5">
                     Clique no campo para editar — as alterações são salvas automaticamente.
                   </p>
                 )}
@@ -1373,7 +1399,7 @@ export function LeadModal({
               <DialogDescription className="sr-only">
                 {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
               </DialogDescription>
-              <div className="flex items-center gap-1 shrink-0 rounded-lg border border-gold-border-subtle/30 bg-[#120c09]/40 p-1">
+              <div className="flex items-center gap-1 shrink-0 rounded-lg border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)]/80 p-1">
                 {leadId && (
                   <>
                     <LeadLembretesPopover
@@ -1385,7 +1411,7 @@ export function LeadModal({
                         variant="outline"
                         size="icon"
                         className={cn(
-                          'h-8 w-8 relative border-[#c4a05a]/35 text-[#f2d892] hover:bg-gold/10 bg-transparent',
+                          'h-8 w-8 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-gold)]/10 bg-transparent',
                           lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/45',
                         )}
                         title={
@@ -1408,6 +1434,7 @@ export function LeadModal({
                         isLoading={isDuplicating}
                         disabled={isSubmitting || isDuplicating || !initialized}
                         onClick={() => setShowDuplicateAlert(true)}
+                        className="border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-gold)]/10 hover:text-[color:var(--lead-gold)] hover:shadow-none"
                       />
                     )}
                     {!isMobile && (
@@ -1416,7 +1443,7 @@ export function LeadModal({
                         variant="outline"
                         size="sm"
                         onClick={handleShareLead}
-                        className="flex h-8 items-center gap-2 border-[#c4a05a]/30 bg-transparent px-2.5 text-[#f2d892] hover:bg-gold/10 hover:text-[#fff6ea]"
+                        className="flex h-8 items-center gap-2 border-[color:var(--lead-line)] bg-transparent px-2.5 text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-gold)]/10 hover:text-[color:var(--lead-cream)]"
                         title="Compartilhar lead com outro usuário"
                       >
                         <Share2 className="h-4 w-4" />
@@ -1429,7 +1456,7 @@ export function LeadModal({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 shrink-0 border-[#c4a05a]/30 bg-transparent text-[#d4bc9f] shadow-none transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="h-8 w-8 shrink-0 border-[color:var(--lead-line)] bg-transparent text-[color:var(--lead-muted)] shadow-none transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                   title="Fechar card do lead"
                   aria-label="Fechar card do lead"
                   onClick={() => requestClose()}
@@ -1449,34 +1476,9 @@ export function LeadModal({
           }}
           className="relative z-[1] flex-1 min-h-0 flex flex-col"
         >
-          {leadId && (
-            <Tabs
-              value={leadModalTab}
-              onValueChange={setLeadModalTab}
-              className="lead-modal-chrome relative z-[1] shrink-0 border-b px-3 sm:px-4 py-1.5"
-            >
-              <TabsList className="grid h-10 w-full max-w-md grid-cols-2 bg-mahogany-muted/50 p-1 border border-gold-border-subtle/20">
-                <TabsTrigger
-                  value="detalhes"
-              className="flex items-center gap-2 text-cream-muted data-[state=active]:bg-gold/20 data-[state=active]:text-gold data-[state=active]:shadow-sm"
-                >
-                  <FileText className="h-4 w-4" />
-                  Detalhes
-                </TabsTrigger>
-                <TabsTrigger
-                  value="analise-ia"
-              className="flex items-center gap-2 text-cream-muted data-[state=active]:bg-gold/20 data-[state=active]:text-gold data-[state=active]:shadow-sm"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Análise IA
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
-
           {(!leadId || leadModalTab === 'detalhes') && (
             <LeadModalScrollBody>
-            <LeadModalSection title="Contato" icon={UserIcon}>
+            <LeadModalSection title="Contato" icon={UserIcon} sectionId="contato">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
             <LeadEditableField
               fieldId="name"
@@ -1657,7 +1659,7 @@ export function LeadModal({
               </div>
             )}
 
-            <LeadModalSection title="Negócio" icon={Building2}>
+            <LeadModalSection title="Negócio" icon={Building2} sectionId="negocio">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
 
             <LeadEditableField
@@ -1852,7 +1854,7 @@ export function LeadModal({
                 </div>
             </LeadModalSection>
 
-            <LeadModalSection title="Equipe & status" icon={Users}>
+            <LeadModalSection title="Equipe & status" icon={Users} sectionId="equipe">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
 
             <LeadEditableField
@@ -2021,7 +2023,7 @@ export function LeadModal({
             </LeadModalSection>
 
 
-          <LeadModalSection title="Observações" icon={StickyNote} className="[&>div:last-child]:pt-3">
+          <LeadModalSection title="Observações" icon={StickyNote} sectionId="observacoes" className="[&>div:last-child]:pt-3">
           <LeadEditableField
             fieldId="observations"
             label="Notas internas"
@@ -2075,28 +2077,40 @@ export function LeadModal({
           >
 
           {/* Contratos vinculados */}
-          {leadId && !modoProjeto && <LeadContratosSection leadId={leadId} />}
+          {leadId && !modoProjeto && (
+            <div id="lead-sec-contratos" data-lead-section="contratos">
+              <LeadContratosSection leadId={leadId} />
+            </div>
+          )}
 
           {/* Orçamentos em slides — no ateliê já sobem no topo */}
-          {leadId && !contextoProjeto && <LeadOrcamentoSlidesSection leadId={leadId} />}
+          {leadId && !contextoProjeto && (
+            <div id="lead-sec-orcamentos" data-lead-section="orcamentos">
+              <LeadOrcamentoSlidesSection leadId={leadId} />
+            </div>
+          )}
 
           {leadId && !contextoProjeto && (
-            <MarkupLeadSection
-              leadId={leadId}
-              leadNome={formData.name}
-              onOrcamentoSync={handleMarkupOrcamentoSync}
-              readOnly={authUserRole === 'vendedor'}
-            />
+            <div id="lead-sec-markup" data-lead-section="markup">
+              <MarkupLeadSection
+                leadId={leadId}
+                leadNome={formData.name}
+                onOrcamentoSync={handleMarkupOrcamentoSync}
+                readOnly={authUserRole === 'vendedor'}
+              />
+            </div>
           )}
 
 
           {/* Anexar PDFs */}
-          <LeadPDFAttachments
-            ref={pdfAttachmentsRef}
-            leadId={leadId}
-            leadName={formData.name}
-            onFilePickerActiveChange={setFilePickerActive}
-          />
+          <div id="lead-sec-fotos" data-lead-section="fotos">
+            <LeadPDFAttachments
+              ref={pdfAttachmentsRef}
+              leadId={leadId}
+              leadName={formData.name}
+              onFilePickerActiveChange={setFilePickerActive}
+            />
+          </div>
 
           {leadId && (
             <LeadKnowledgeMemoryCard
@@ -2118,7 +2132,7 @@ export function LeadModal({
 
           {/* Histórico de Conversas WhatsApp com Input integrado */}
           {hasPermission('lead_whatsapp_history', 'view') && leadId && whatsappTelefone && (
-            <div className="w-full min-w-0 max-w-full">
+            <div id="lead-sec-whatsapp" data-lead-section="whatsapp" className="w-full min-w-0 max-w-full">
               <WhatsAppHistoryCard
                 telefone={whatsappTelefone}
                 leadName={formData.name || 'Lead Sem Nome'}
@@ -2129,15 +2143,17 @@ export function LeadModal({
           )}
 
           {/* Lousa — carrega sob demanda para não pesar ao abrir o lead */}
-          <Suspense
-            fallback={
-              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20">
-                <p className="text-sm text-muted-foreground">Carregando fotos...</p>
-              </div>
-            }
-          >
-            <LeadWhiteboard leadId={leadId} disabled={!isEditable} />
-          </Suspense>
+          <div id="lead-sec-lousa" data-lead-section="lousa">
+            <Suspense
+              fallback={
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20">
+                  <p className="text-sm text-muted-foreground">Carregando fotos...</p>
+                </div>
+              }
+            >
+              <LeadWhiteboard leadId={leadId} disabled={!isEditable} />
+            </Suspense>
+          </div>
           </LeadModalSection>
             </LeadModalScrollBody>
           )}
@@ -2149,6 +2165,8 @@ export function LeadModal({
                 leadName={formData.name}
                 leadOrigin={formData.origin}
                 defaultSubtab={initialIaSubtab}
+                subtab={iaSubtab}
+                onSubtabChange={setIaSubtab}
               />
             </LeadModalScrollBody>
           )}

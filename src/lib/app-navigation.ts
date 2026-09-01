@@ -692,7 +692,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     icon: Monitor,
     radialColor: 'rgba(167,139,250,0.92)',
     sector: 'casa',
-    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Visualizador'],
+    roles: ['Administrador', 'Financeiro', 'AdministradorObras', 'MontadorAdmin', 'Montador', 'Visualizador'],
   },
   {
     id: 'configuracoes',

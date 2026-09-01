@@ -1670,8 +1670,8 @@ export function MarkupCalculatorSheet({
     : linhasNaComposicao;
 
   const tabPanelBase =
-    'mt-0 flex-1 min-h-0 overflow-x-hidden px-6 pb-6 focus-visible:outline-none data-[state=inactive]:hidden';
-  const tabPanelScroll = `${tabPanelBase} overflow-y-auto`;
+    'mt-0 min-h-0 flex-1 basis-0 overflow-x-hidden px-6 pb-6 focus-visible:outline-none data-[state=inactive]:hidden';
+  const tabPanelScroll = `${tabPanelBase} overflow-y-auto overscroll-contain`;
   const tabPanelMateriais = `${tabPanelBase} flex flex-col overflow-hidden pt-3`;
 
   return (
@@ -1680,6 +1680,9 @@ export function MarkupCalculatorSheet({
       <SheetContent
         side="right"
         overlayClassName={modal ? undefined : 'pointer-events-none bg-black/40'}
+        data-markup-calculator=""
+        onWheel={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
         className="w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden"
       >
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
@@ -1866,7 +1869,7 @@ export function MarkupCalculatorSheet({
         <Tabs
           value={abaAtiva}
           onValueChange={setAbaAtiva}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden"
         >
           <TabsList className="mx-6 mt-3 grid h-auto w-[calc(100%-3rem)] shrink-0 grid-cols-2 gap-1 sm:grid-cols-4">
             <TabsTrigger value="materiais" className="px-2 py-2 text-xs sm:text-sm">
@@ -1893,7 +1896,10 @@ export function MarkupCalculatorSheet({
                 className="h-9 pl-9"
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div
+              data-markup-catalog-scroll
+              className="min-h-0 flex-1 basis-0 overflow-x-auto overflow-y-auto overscroll-contain"
+            >
               {loadingProdutos ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1946,7 +1952,10 @@ export function MarkupCalculatorSheet({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="flex max-h-[min(32vh,280px)] flex-col overflow-hidden border-t border-primary/10">
-                    <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+                    <div
+                      className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain"
+                      onWheel={(event) => event.stopPropagation()}
+                    >
                       <Table className="min-w-[720px]">
                         <TableHeader>
                           <TableRow>

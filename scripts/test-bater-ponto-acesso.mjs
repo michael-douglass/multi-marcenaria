@@ -107,6 +107,8 @@ describe('bater ponto — localização no celular', () => {
     assert.match(page, /isGeolocationPermissionDenied/)
     assert.match(page, /Tentar localização de novo/)
     assert.match(page, /Ajustes → Privacidade/)
+    assert.match(page, /PontoLocalizacaoManual/)
+    assert.match(page, /digite só o CEP/)
     assert.doesNotMatch(page, /ErrorState message=\{error\}/)
   })
 

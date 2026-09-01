@@ -14,6 +14,7 @@ const composer = readFileSync(join(root, 'src/components/leads/LeadAIAmbienteCom
 const draftLib = readFileSync(join(root, 'src/lib/lead-ai-ambiente-draft.ts'), 'utf8');
 const exportLib = readFileSync(join(root, 'src/lib/lead-ai-ambiente-export.ts'), 'utf8');
 const picker = readFileSync(join(root, 'src/components/leads/whiteboard/WhiteboardProjectImagePicker.tsx'), 'utf8');
+const studio = readFileSync(join(root, 'src/components/leads/whiteboard/ProjectImageStudio.tsx'), 'utf8');
 const css = readFileSync(join(root, 'src/index.css'), 'utf8');
 
 function planeFromContainFit(nw, nh) {
@@ -107,12 +108,15 @@ describe('lousa — tela cheia e card colados na foto', () => {
 describe('lousa — Do projeto em tela cheia', () => {
   it('abre o seletor por cima da lousa, não atrás dela', () => {
     assert.match(composer, /const overlayDialogs = \(/);
-    assert.match(composer, /isFullscreen \? overlayDialogs : null/);
+    assert.match(composer, /\{overlayDialogs\}/);
+    assert.doesNotMatch(composer, /isFullscreen \? overlayDialogs : null/);
     assert.match(composer, /setProjectImagePickerOpenFlag\(true\)/);
     assert.match(composer, /existingImageUrls=\{overlays\.map/);
     assert.match(css, /data-whiteboard-project-picker/);
     assert.match(css, /ambiente-project-picker-overlay/);
     assert.match(picker, /ambiente-project-picker-overlay/);
+    assert.match(picker, /portalContainer/);
+    assert.match(picker, /h-\[min\(90dvh,880px\)\]/);
   });
 
   it('não esconde a foto do cômodo na lista do projeto', () => {
@@ -121,5 +125,17 @@ describe('lousa — Do projeto em tela cheia', () => {
       /existingImageUrls=\{background \? \[background\.url, \.\.\.overlays/,
     );
     assert.match(picker, /Este lead ainda não tem foto anexada/);
+  });
+
+  it('mostra a foto na bancada mesmo se o quadro 3D ainda não tiver tamanho', () => {
+    assert.match(studio, /previewHostReady/);
+    assert.match(studio, /!isLoading && webglOk && !loadError && previewHostReady && 'opacity-0'/);
+    assert.match(studio, /src=\{sourceUrl\}/);
+  });
+
+  it('não esconde as peças da lousa enquanto o plano JS ainda não encaixou', () => {
+    assert.match(composer, /planeFitsHost \? 'js' : 'css'/);
+    assert.match(composer, /min-h-\[min\(48dvh,420px\)\] flex-1/);
+    assert.doesNotMatch(composer, /: 'hidden'/);
   });
 });

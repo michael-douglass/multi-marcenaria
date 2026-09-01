@@ -457,7 +457,7 @@ export function LeadAIAmbienteComposer({
   }, [isFullscreen, catalogOpen, draftReady, background]);
 
   const bgFit =
-    background && planeFitsHost
+    background && isUsableAmbienteViewport(viewportSize.w, viewportSize.h)
       ? containRotatedPlane(
           background.naturalWidth || 1,
           background.naturalHeight || 1,
@@ -2013,7 +2013,7 @@ export function LeadAIAmbienteComposer({
       className={cn(
         'overflow-hidden border bg-gradient-to-b from-mahogany-card/80 to-mahogany-elevated/40 shadow-inner shadow-black/10 transition-[box-shadow,border-color] duration-500',
         isFullscreen
-          ? 'flex h-full min-h-0 w-full flex-col rounded-none border-0'
+          ? 'flex h-full min-h-0 w-full flex-1 flex-col rounded-none border-0'
           : 'rounded-xl',
         photoPulse ? 'border-gold/70 shadow-[0_0_0_1px_rgba(242,216,146,0.35)]' : 'border-gold-border-subtle/30',
       )}
@@ -2147,7 +2147,11 @@ export function LeadAIAmbienteComposer({
             data-whiteboard-viewport="true"
             className={cn(
               'relative min-w-0 w-full select-none overscroll-none',
-              isFullscreen ? 'min-h-0 flex-1' : catalogOpen ? 'h-[320px] max-h-[320px]' : 'max-h-[min(52vh,420px)]',
+              isFullscreen
+                ? 'min-h-[min(48dvh,420px)] flex-1'
+                : catalogOpen
+                  ? 'h-[320px] max-h-[320px]'
+                  : 'max-h-[min(52vh,420px)]',
             )}
             style={isFullscreen ? undefined : { minHeight: 320 }}
           >
@@ -2227,12 +2231,12 @@ export function LeadAIAmbienteComposer({
 
             <div
               ref={photoSpaceReady && background && planeFitsHost ? photoPlaneRef : undefined}
-              data-ambiente-photo-plane={photoSpaceReady && background && planeFitsHost ? 'true' : undefined}
+              data-ambiente-photo-plane={photoSpaceReady && background ? (planeFitsHost ? 'js' : 'css') : undefined}
               className={cn(
                 photoSpaceReady && background && planeFitsHost
                   ? 'pointer-events-none absolute z-20 overflow-visible'
                   : photoSpaceReady && background
-                    ? 'hidden'
+                    ? 'pointer-events-none absolute inset-0 z-20 flex items-center justify-center overflow-visible'
                     : 'contents',
               )}
               style={
@@ -2242,6 +2246,23 @@ export function LeadAIAmbienteComposer({
                       top: `${scenePlane.top * 100}%`,
                       width: `${scenePlane.width * 100}%`,
                       height: `${scenePlane.height * 100}%`,
+                    }
+                  : undefined
+              }
+            >
+            <div
+              ref={photoSpaceReady && background && !planeFitsHost ? photoPlaneRef : undefined}
+              className={
+                photoSpaceReady && background && !planeFitsHost
+                  ? 'relative max-h-full max-w-full overflow-visible'
+                  : 'contents'
+              }
+              style={
+                photoSpaceReady && background && !planeFitsHost
+                  ? {
+                      aspectRatio: `${Math.max(1, background.naturalWidth || 1)} / ${Math.max(1, background.naturalHeight || 1)}`,
+                      height: '100%',
+                      width: 'auto',
                     }
                   : undefined
               }
@@ -2492,6 +2513,7 @@ export function LeadAIAmbienteComposer({
               </div>
             ))}
 
+            </div>
             </div>
 
             <TooltipProvider delayDuration={180}>
@@ -2994,11 +3016,10 @@ export function LeadAIAmbienteComposer({
             Monte o cômodo na lousa, posicione móveis do catálogo e gire cada peça em todas as direções.
           </DialogDescription>
           {isFullscreen ? composerBody : null}
-          {isFullscreen ? overlayDialogs : null}
         </DialogContent>
       </Dialog>
 
-      {!isFullscreen ? overlayDialogs : null}
+      {overlayDialogs}
       <input
         ref={fileInputRef}
         type="file"

@@ -117,6 +117,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
     const [cropping, setCropping] = useState(initialCropMode);
     const [cropAspectId, setCropAspectId] = useState('livre');
     const [fitTick, setFitTick] = useState(0);
+    const [previewHostReady, setPreviewHostReady] = useState(false);
 
     const editsRef = useRef(edits);
     editsRef.current = edits;
@@ -137,6 +138,9 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       setPointing(false);
       setCropping(initialCropMode);
       setCropAspectId('livre');
+      setPreviewHostReady(false);
+      setIsLoading(true);
+      setLoadError(null);
       sourcePixelsRef.current = null;
     }, [sourceUrl, initialCropMode]);
 
@@ -293,6 +297,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       };
 
       const resize = () => {
+        setPreviewHostReady(host.clientWidth > 8 && host.clientHeight > 8);
         if (!renderer || !texture) return;
         const w = Math.max(host.clientWidth, 1);
         const h = Math.max(host.clientHeight, 1);
@@ -481,18 +486,24 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
               : 'bg-mahogany-base',
           )}
         >
-          <div ref={hostRef} data-studio-preview="" className="absolute inset-3 sm:inset-4 lg:inset-5" />
-          {!webglOk && (
-            <img
-              src={sourceUrl}
-              alt=""
-              className="absolute inset-3 m-auto max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] object-contain sm:inset-4"
-              style={{
-                filter: `brightness(${edits.brightness}%) contrast(${edits.contrast}%) saturate(${edits.saturation}%)`,
-                transform: `rotate(${edits.rotation}deg) scaleX(${edits.flipH ? -1 : 1}) scaleY(${edits.flipV ? -1 : 1})`,
-              }}
-            />
-          )}
+          <div ref={hostRef} data-studio-preview="" className="absolute inset-3 z-[1] sm:inset-4 lg:inset-5" />
+          <img
+            src={sourceUrl}
+            alt=""
+            className={cn(
+              'pointer-events-none absolute inset-3 z-0 m-auto max-h-[calc(100%-1.5rem)] max-w-[calc(100%-1.5rem)] object-contain sm:inset-4',
+              !isLoading && webglOk && !loadError && previewHostReady && 'opacity-0',
+            )}
+            draggable={false}
+            style={
+              !webglOk
+                ? {
+                    filter: `brightness(${edits.brightness}%) contrast(${edits.contrast}%) saturate(${edits.saturation}%)`,
+                    transform: `rotate(${edits.rotation}deg) scaleX(${edits.flipH ? -1 : 1}) scaleY(${edits.flipV ? -1 : 1})`,
+                  }
+                : undefined
+            }
+          />
           <div className="absolute inset-3 z-[5] sm:inset-4 lg:inset-5">
             {edits.removeBg && pointing && !isLoading && !loadError && (
               <div

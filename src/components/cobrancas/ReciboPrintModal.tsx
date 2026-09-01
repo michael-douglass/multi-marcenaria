@@ -1,9 +1,15 @@
-﻿import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
 import { fmtCur, todayISO } from '@/lib/utils'
-import { buildReciboCompleto, imprimirReciboTexto, type ReciboPrintOverrides } from '@/lib/recibo-print'
+import {
+  buildReciboCompleto,
+  buildReciboPrintLayout,
+  imprimirReciboLayout,
+  type ReciboPrintOverrides,
+} from '@/lib/recibo-print'
+import { ReciboPrintPreview, type ReciboPrintPreviewHandle } from '@/components/cobrancas/ReciboPrintPreview'
 import type { ReciboConfig } from '@/hooks/useReciboConfig'
 import type { ContaReceber, FormaPagamento } from '@/types'
 
@@ -34,6 +40,7 @@ export function ReciboPrintModal({
   nomeBeneficiario,
   onClose,
 }: ReciboPrintModalProps) {
+  const previewRef = useRef<ReciboPrintPreviewHandle>(null)
   const [chavePix, setChavePix] = useState('')
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix')
   const [dataPagamento, setDataPagamento] = useState(todayISO())
@@ -77,24 +84,40 @@ export function ReciboPrintModal({
     setTextoRecibo(gerarTextoDoModelo())
   }
 
+  const layout = useMemo(() => {
+    if (!conta) return null
+    return buildReciboPrintLayout(conta, textoRecibo, {
+      formaPagamentoLabel: PM_LABEL[formaPagamento],
+      dataPagamento,
+      cnpj: reciboConfig?.cnpj,
+    })
+  }, [conta, textoRecibo, formaPagamento, dataPagamento, reciboConfig?.cnpj])
+
   const handlePrint = () => {
-    if (!conta || !textoRecibo.trim()) return
-    imprimirReciboTexto(conta, textoRecibo)
+    if (!conta || !textoRecibo.trim() || !layout) return
+    const foilDataUrl = previewRef.current?.snapshotFoil() ?? null
+    imprimirReciboLayout({ ...layout, foilDataUrl })
     onClose()
   }
 
   if (!conta) return null
 
   return (
-    <Modal open={open} onClose={onClose} title="IMPRIMIR RECIBO" wide closeOnBackdrop={false}>
-      <p className="mb-4 text-sm text-[#edd9c4]">
-        O texto abaixo é o que será impresso. Você pode alterar qualquer parte livremente.
-        Os campos de PIX, forma e data servem para preencher automaticamente — clique em
-        &quot;Atualizar texto&quot; quando quiser aplicá-los.
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="IMPRIMIR RECIBO"
+      extraWide
+      tall
+      closeOnBackdrop={false}
+    >
+      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[#edd9c4]">
+        À esquerda você ajusta o texto. À direita aparece o recibo como vai sair no papel:
+        com a logo da Garbo, a faixa dourada e os dados da cobrança.
       </p>
 
       <div className="mb-4 rounded-lg border border-[rgba(240,210,140,0.15)] bg-black/20 px-3 py-2 text-sm">
-        <span className="text-[#f2d892] font-semibold">{conta.cliente_nome}</span>
+        <span className="font-semibold text-[#f2d892]">{conta.cliente_nome}</span>
         <span className="mx-2 text-[#d4bc9f]">·</span>
         <span className="text-[#4ade80]">{fmtCur(conta.valor_parcela)}</span>
         <span className="mx-2 text-[#d4bc9f]">·</span>
@@ -137,29 +160,39 @@ export function ReciboPrintModal({
         </Field>
       </div>
 
-      <div className="mb-3 flex justify-end">
-        <button
-          type="button"
-          className="btn btn-outline btn-sm"
-          onClick={aplicarCamposAoTexto}
-          disabled={!reciboConfig}
-        >
-          Atualizar texto com os campos acima
-        </button>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.92fr)]">
+        <div>
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={aplicarCamposAoTexto}
+              disabled={!reciboConfig}
+            >
+              Atualizar texto com os campos acima
+            </button>
+          </div>
+
+          <Field label="Texto do recibo (miolo impresso)">
+            <textarea
+              className="glass-input min-h-[280px] resize-y font-mono text-[0.82rem] leading-relaxed"
+              value={textoRecibo}
+              onChange={e => setTextoRecibo(e.target.value)}
+              spellCheck
+            />
+          </Field>
+          <p className="mt-2 text-[0.72rem] text-[#d4bc9f]">
+            A logo, o título e a ficha de valores entram automaticamente. O recibo sai em uma folha A4.
+          </p>
+        </div>
+
+        <div className="rounded-[1.25rem] border border-[rgba(240,210,140,0.16)] bg-[rgba(20,10,4,0.45)] p-2 sm:p-3">
+          <p className="mb-2 px-1 font-display text-[11px] tracking-[0.28em] text-[#f2d892]">
+            PRÉVIA DO PAPEL
+          </p>
+          {layout ? <ReciboPrintPreview ref={previewRef} layout={layout} /> : null}
+        </div>
       </div>
-
-      <Field label="Texto do recibo (será impresso exatamente assim)">
-        <textarea
-          className="glass-input min-h-[280px] resize-y font-mono text-[0.82rem] leading-relaxed"
-          value={textoRecibo}
-          onChange={e => setTextoRecibo(e.target.value)}
-          spellCheck
-        />
-      </Field>
-
-      <p className="mt-2 text-[0.72rem] text-[#d4bc9f]">
-        O recibo será impresso em uma única folha A4.
-      </p>
 
       <ModalFormFooter
         onCancel={onClose}

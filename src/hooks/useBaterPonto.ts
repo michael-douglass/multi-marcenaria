@@ -187,6 +187,12 @@ export function useBaterPonto() {
       })
   }
 
+  const confirmarLocalizacaoManual = (pos: GeoPosition) => {
+    setError(null)
+    setGeo({ ...pos, origem: 'manual' })
+    setStep('selfie')
+  }
+
   const definirSelfie = async (file: File | Blob) => {
     setError(null)
     setSubmitting(true)
@@ -279,6 +285,7 @@ export function useBaterPonto() {
     resultado,
     reload,
     solicitarLocalizacao,
+    confirmarLocalizacaoManual,
     definirSelfie,
     definirAssinatura,
     registrar,

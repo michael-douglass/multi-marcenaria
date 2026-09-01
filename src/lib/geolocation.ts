@@ -7,18 +7,15 @@ export interface UserLocationResult {
 export interface GeoPosition {
   latitude: number;
   longitude: number;
-  accuracy: number;
+  accuracy: number | null;
+  /** gps = celular; manual = endereço digitado depois que o GPS foi bloqueado. */
+  origem?: 'gps' | 'manual';
 }
-
-const GEOLOCATION_OPTIONS: PositionOptions = {
-  enableHighAccuracy: true,
-  timeout: 15_000,
-  maximumAge: 60_000,
-};
 
 /** Leitura recente vale: bater ponto não precisa de GPS novo a cada segundo. */
 const PONTO_GEO_MAX_AGE_MS = 120_000;
 const PONTO_GEO_WAIT_MS = 30_000;
+const CAPTURE_GEO_WAIT_MS = 15_000;
 
 function isStandalonePwa(): boolean {
   if (typeof window === 'undefined') return false;
@@ -27,6 +24,10 @@ function isStandalonePwa(): boolean {
     ('standalone' in window.navigator &&
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true)
   );
+}
+
+function isPermissionDeniedCode(error: unknown): boolean {
+  return readGeolocationErrorCode(error) === 1;
 }
 
 function readGeolocationErrorCode(error: unknown): number | null {
@@ -73,35 +74,35 @@ export function isGeolocationPermissionDenied(message: string): boolean {
   );
 }
 
+function geoOptions(): PositionOptions {
+  return {
+    enableHighAccuracy: true,
+    maximumAge: PONTO_GEO_MAX_AGE_MS,
+  };
+}
+
 /**
  * Tenta obter a localização do usuário de forma silenciosa.
  * Falhas não bloqueiam o fluxo — retorna apenas um objeto com `erro` amigável.
  */
 export function captureUserLocation(): Promise<UserLocationResult | null> {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    return Promise.resolve({ erro: 'Geolocalização não suportada neste navegador' });
-  }
-
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (error) => {
-        resolve({ erro: formatGeolocationError(error) });
-      },
-      GEOLOCATION_OPTIONS,
-    );
-  });
+  return requestGeolocation(CAPTURE_GEO_WAIT_MS)
+    .then((pos) => ({
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+    }))
+    .catch((error) => ({
+      erro: error instanceof Error ? error.message : formatGeolocationError(error),
+    }));
 }
 
 /**
- * Pede a localização no mesmo instante do toque (sem segunda tentativa depois).
- * No iPhone, um segundo pedido fora do toque vira "User denied Geolocation"
- * mesmo quando a pessoa tocou em Permitir.
+ * Pede a localização no mesmo instante do toque.
+ *
+ * No iPhone, dois pedidos ao mesmo tempo (getCurrentPosition + watchPosition)
+ * fazem o segundo falhar na hora com "User denied Geolocation" — mesmo com o
+ * diálogo ainda aberto. Por isso o watch só ajuda a achar o GPS; recusa dele
+ * não encerra o fluxo. Recusa de verdade vem só do pedido principal.
  */
 export function requestGeolocation(timeoutMs = PONTO_GEO_WAIT_MS): Promise<GeoPosition> {
   if (typeof window !== 'undefined' && window.isSecureContext === false) {
@@ -136,6 +137,7 @@ export function requestGeolocation(timeoutMs = PONTO_GEO_WAIT_MS): Promise<GeoPo
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
+        origem: 'gps',
       });
     };
 
@@ -148,16 +150,18 @@ export function requestGeolocation(timeoutMs = PONTO_GEO_WAIT_MS): Promise<GeoPo
 
     // Sem `timeout` nas opções do GPS: no iPhone o Safari às vezes trata
     // tempo esgotado como se a pessoa tivesse recusado a permissão.
-    const options: PositionOptions = {
-      enableHighAccuracy: true,
-      maximumAge: PONTO_GEO_MAX_AGE_MS,
-    };
+    const options = geoOptions();
 
     try {
       navigator.geolocation.getCurrentPosition(succeed, (err) => {
-        if (err.code === err.PERMISSION_DENIED) fail(err);
+        if (isPermissionDeniedCode(err)) fail(err);
       }, options);
-      watchId = navigator.geolocation.watchPosition(succeed, fail, options);
+
+      watchId = navigator.geolocation.watchPosition(succeed, (err) => {
+        // iPhone recusa o 2º pedido enquanto o diálogo do 1º ainda está aberto.
+        if (isPermissionDeniedCode(err)) return;
+        if (readGeolocationErrorCode(err) === 2) fail(err);
+      }, options);
     } catch (error) {
       fail(error);
       return;

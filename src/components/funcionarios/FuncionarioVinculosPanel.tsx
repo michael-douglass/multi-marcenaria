@@ -111,7 +111,7 @@ export function FuncionarioVinculosPanel({
         ) : (
           <div className="max-h-80 overflow-auto rounded-lg border border-[rgba(212,168,83,0.12)]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-[rgba(36,16,8,0.96)] backdrop-blur-sm">
+              <thead className="sticky top-0 z-10 bg-[#f8efe3] backdrop-blur-sm">
                 <tr className="border-b border-[rgba(212,168,83,0.15)] text-left text-[0.65rem] uppercase tracking-wider text-[#b8957f]">
                   <th className="px-3 py-2.5 pr-3">Descrição</th>
                   <th className="px-3 py-2.5 pr-3">Vencimento</th>

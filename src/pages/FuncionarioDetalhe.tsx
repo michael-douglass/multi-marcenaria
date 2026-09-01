@@ -11,6 +11,7 @@ import { FuncionarioMeusDocumentosForm } from '@/components/funcionarios/Funcion
 import { FuncionarioPontoPanel } from '@/components/funcionarios/FuncionarioPontoPanel'
 import { FuncionarioRecibosPanel } from '@/components/funcionarios/FuncionarioRecibosPanel'
 import { FuncionarioVinculosPanel } from '@/components/funcionarios/FuncionarioVinculosPanel'
+import { FuncionariosPageAura } from '@/components/funcionarios/FuncionariosPageAura'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
 import { isAdministrador, isPastaPontoRegistrosRestrita, podeEditarPontoRegistrosTerceiro } from '@/lib/role-access'
@@ -130,19 +131,21 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   }
 
   return (
-    <div className="fade-in">
+    <div className="cobrancas-page-shell funcionarios-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
+      <FuncionariosPageAura />
+      <div className="relative z-[1] mx-auto max-w-6xl pt-4 md:pt-8">
       <Link
         to={abaOrigem === 'dispensados' ? '/funcionarios?aba=dispensados' : '/funcionarios'}
-        className="mb-4 inline-flex items-center gap-2 text-sm text-[#b8957f] hover:text-[#f2d892]"
+        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-[#4a3428] hover:text-[#6b3f12]"
       >
         <ArrowLeft size={16} />
         Voltar às pastas
       </Link>
 
       {somenteHistorico && (
-        <div className="glass-card mb-5 border border-violet-500/25 bg-violet-500/5 p-4">
-          <p className="font-medium text-violet-200">Funcionário dispensado</p>
-          <p className="mt-1 text-sm text-[#b8957f]">
+        <div className="glass-card mb-5 border border-violet-800/25 bg-violet-50 p-4">
+          <p className="font-medium text-violet-900">Funcionário dispensado</p>
+          <p className="mt-1 text-sm text-[#4a3428]">
             Esta pasta é somente leitura. O histórico de ponto, documentos e recibos foi preservado.
             {funcionario.dispensado_em && (
               <> Dispensado em {new Date(funcionario.dispensado_em).toLocaleString('pt-BR')}.</>
@@ -151,29 +154,31 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="relative">
-          <div className="absolute -left-1 top-0 h-full w-1 rounded-full bg-gradient-to-b from-[#f2d892] to-[#c9a045]" />
-          <div className="pl-4">
-            <p className="section-label">{FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}</p>
-            <h1 className="font-display text-[2.4rem] tracking-wide text-[#f2d892]">{funcionario.nome}</h1>
+      <header className="mb-6 overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="relative pl-4">
+            <div className="absolute left-0 top-1 h-[calc(100%-0.25rem)] w-1 rounded-full bg-gradient-to-b from-[#c4963a] to-[#6b3f12]" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
+              {FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}
+            </p>
+            <h1 className="mt-1 font-display text-3xl tracking-wide text-[#1a100c] sm:text-5xl">{funcionario.nome}</h1>
           </div>
+          {funcionario.ativo && isAdministrador(roles) && !readOnly && (
+            <button
+              type="button"
+              className="btn btn-outline border-red-800/40 text-red-800 hover:bg-red-50"
+              disabled={dispensando}
+              onClick={() => void handleDispensar()}
+            >
+              <UserMinus size={16} />
+              {dispensando ? 'Dispensando…' : 'Dispensar funcionário'}
+            </button>
+          )}
         </div>
-        {funcionario.ativo && isAdministrador(roles) && !readOnly && (
-          <button
-            type="button"
-            className="btn btn-outline border-red-500/40 text-red-300 hover:bg-red-500/10"
-            disabled={dispensando}
-            onClick={() => void handleDispensar()}
-          >
-            <UserMinus size={16} />
-            {dispensando ? 'Dispensando…' : 'Dispensar funcionário'}
-          </button>
-        )}
-      </div>
+      </header>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <nav className="flex shrink-0 flex-row gap-1 overflow-x-auto lg:w-48 lg:flex-col">
+        <nav className="flex shrink-0 flex-row gap-1 overflow-x-auto rounded-xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-1 lg:w-52 lg:flex-col">
           {(pastaPontoRestrita ? TABS.filter(t => t.id === 'ponto') : TABS).map(t => {
             const Icon = t.icon
             const active = tab === t.id
@@ -182,16 +187,16 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm transition ${
+                className={`flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
                   active
-                    ? 'border border-[rgba(212,168,83,0.35)] bg-[rgba(212,168,83,0.12)] text-[#f2d892]'
-                    : 'text-[#b8957f] hover:bg-[rgba(212,168,83,0.06)] hover:text-[#edd9c4]'
+                    ? 'bg-[#f4e4c4] text-[#6b3f12]'
+                    : 'text-[#4a3428] hover:bg-[rgba(26,16,12,0.04)] hover:text-[#1a100c]'
                 }`}
               >
                 <Icon size={16} />
                 {t.label}
                 {t.id === 'recibos' && recibos.filter(r => r.status !== 'assinado').length > 0 && (
-                  <span className="ml-auto rounded-full bg-amber-500/20 px-1.5 text-[0.6rem] text-amber-300">
+                  <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-[0.6rem] font-semibold text-amber-900">
                     {recibos.filter(r => r.status !== 'assinado').length}
                   </span>
                 )}
@@ -283,6 +288,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
             />
           )}
         </div>
+      </div>
       </div>
     </div>
   )

@@ -9,6 +9,8 @@ interface LeadAIAnalysisTabProps {
   leadName?: string;
   leadOrigin?: string;
   defaultSubtab?: 'visual' | 'render';
+  subtab?: 'visual' | 'render';
+  onSubtabChange?: (value: 'visual' | 'render') => void;
 }
 
 export function LeadAIAnalysisTab({
@@ -16,37 +18,54 @@ export function LeadAIAnalysisTab({
   leadName,
   leadOrigin,
   defaultSubtab = 'visual',
+  subtab: controlledSubtab,
+  onSubtabChange,
 }: LeadAIAnalysisTabProps) {
-  const [subtab, setSubtab] = useState(defaultSubtab);
+  const [internalSubtab, setInternalSubtab] = useState(defaultSubtab);
+  const subtab = controlledSubtab ?? internalSubtab;
 
   useEffect(() => {
-    setSubtab(defaultSubtab);
-  }, [defaultSubtab, leadId]);
+    if (controlledSubtab) return;
+    setInternalSubtab(defaultSubtab);
+  }, [controlledSubtab, defaultSubtab, leadId]);
+
+  const setSubtab = (value: 'visual' | 'render') => {
+    onSubtabChange?.(value);
+    if (controlledSubtab == null) setInternalSubtab(value);
+  };
 
   return (
     <Tabs value={subtab} onValueChange={(v) => setSubtab(v as 'visual' | 'render')} className="space-y-4">
-      <TabsList className="grid h-10 w-full max-w-lg grid-cols-2 bg-mahogany-muted/50 p-1 border border-gold-border-subtle/20">
+      <TabsList className="grid h-10 w-full max-w-lg grid-cols-2 bg-[color:var(--lead-inset)] p-1 border border-[color:var(--lead-line)]">
         <TabsTrigger
           value="visual"
-          className="flex items-center gap-2 data-[state=active]:bg-gold/15 data-[state=active]:text-gold"
+          className="flex items-center gap-2 text-[color:var(--lead-muted)] data-[state=active]:bg-[color:var(--lead-gold)]/15 data-[state=active]:text-[color:var(--lead-gold)]"
         >
           <Sparkles className="h-4 w-4" />
           Análise visual
         </TabsTrigger>
         <TabsTrigger
           value="render"
-          className="flex items-center gap-2 data-[state=active]:bg-gold/15 data-[state=active]:text-gold"
+          className="flex items-center gap-2 text-[color:var(--lead-muted)] data-[state=active]:bg-[color:var(--lead-gold)]/15 data-[state=active]:text-[color:var(--lead-gold)]"
         >
           <ImageIcon className="h-4 w-4" />
           Renderização de projetos
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="visual" className="mt-0 focus-visible:outline-none">
+      <TabsContent
+        value="visual"
+        className="mt-0 focus-visible:outline-none"
+        data-lead-section="ia-visual"
+      >
         <LeadAIAnalysisVisualTab leadId={leadId} leadName={leadName} leadOrigin={leadOrigin} />
       </TabsContent>
 
-      <TabsContent value="render" className="mt-0 focus-visible:outline-none">
+      <TabsContent
+        value="render"
+        className="mt-0 focus-visible:outline-none"
+        data-lead-section="ia-render"
+      >
         <LeadAIRenderTab leadId={leadId} leadName={leadName} leadOrigin={leadOrigin} />
       </TabsContent>
     </Tabs>

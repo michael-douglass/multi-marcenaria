@@ -14,11 +14,19 @@ const TIPO_ICON: Record<FuncionarioTipo, typeof User> = {
   financeiro: Wallet,
 }
 
-const TIPO_COLOR: Record<FuncionarioTipo, string> = {
-  montador: 'rgba(96,165,250,0.25)',
-  montador_admin: 'rgba(251,191,36,0.25)',
-  administrador_obras: 'rgba(167,139,250,0.25)',
-  financeiro: 'rgba(52,211,153,0.25)',
+/** Aba da pasta — tinta saturada, legível no papel creme. */
+const TIPO_TAB: Record<FuncionarioTipo, string> = {
+  montador: '#1e4a73',
+  montador_admin: '#6b3f12',
+  administrador_obras: '#4c1d77',
+  financeiro: '#146c38',
+}
+
+const TIPO_WASH: Record<FuncionarioTipo, string> = {
+  montador: 'rgba(30, 74, 115, 0.10)',
+  montador_admin: 'rgba(107, 63, 18, 0.12)',
+  administrador_obras: 'rgba(76, 29, 119, 0.10)',
+  financeiro: 'rgba(20, 108, 56, 0.10)',
 }
 
 interface Props {
@@ -30,7 +38,8 @@ interface Props {
 
 export function FuncionarioFolderCard({ funcionario, dispensado, pontoOnly }: Props) {
   const Icon = TIPO_ICON[funcionario.tipo] ?? User
-  const tipoColor = TIPO_COLOR[funcionario.tipo] ?? 'rgba(212,168,83,0.15)'
+  const tabColor = TIPO_TAB[funcionario.tipo] ?? '#6b3f12'
+  const wash = TIPO_WASH[funcionario.tipo] ?? 'rgba(107, 63, 18, 0.10)'
   const pastaHref = dispensado
     ? `/funcionarios/${funcionario.id}?aba=dispensados${pontoOnly ? '&tab=ponto' : ''}`
     : pontoOnly
@@ -40,57 +49,68 @@ export function FuncionarioFolderCard({ funcionario, dispensado, pontoOnly }: Pr
   return (
     <Link
       to={pastaHref}
-      className="group relative block overflow-hidden rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno transition-all duration-300 hover:-translate-y-1 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
+      className="funcionario-folder-card group relative block overflow-hidden rounded-xl border border-[rgba(26,16,12,0.14)] bg-[#fffaf4] shadow-[0_12px_28px_rgba(42,24,18,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-[rgba(107,63,18,0.42)] hover:shadow-[0_18px_36px_rgba(42,24,18,0.12)]"
     >
-      <div className="absolute left-0 right-0 top-0 h-3 rounded-t-xl bg-gradient-to-r from-[#c9a045] via-[#f2d892] to-[#c9a045]" />
-      <div className="relative p-5 pt-6">
+      <span
+        className="absolute inset-x-0 top-0 h-2.5"
+        style={{ background: `linear-gradient(90deg, ${tabColor}, #c4963a, ${tabColor})` }}
+        aria-hidden
+      />
+      <span
+        className="pointer-events-none absolute left-3 top-0 h-3 w-16 rounded-b-sm"
+        style={{ background: tabColor }}
+        aria-hidden
+      />
+      <div className="relative p-5 pt-7">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div
-            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[rgba(212,168,83,0.3)]"
-            style={{ background: tipoColor }}
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[rgba(26,16,12,0.12)]"
+            style={{ background: wash, color: tabColor }}
           >
-            <Icon size={22} className="text-[#f2d892]" />
+            <Icon size={22} />
           </div>
-          <FolderOpen size={18} className="text-[#b8957f] opacity-60 transition group-hover:text-[#f2d892]" />
+          <FolderOpen size={18} className="text-[#6b5244] opacity-70 transition group-hover:text-[#6b3f12]" />
         </div>
 
-        <h3 className="font-display text-xl tracking-wide text-[#f2d892]">{funcionario.nome}</h3>
-        <p className="section-label mt-1">{FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}</p>
+        <h3 className="font-display text-xl tracking-wide text-[#1a100c]">{funcionario.nome}</h3>
+        <p className="mt-1 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[#4a3428]">
+          {FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}
+        </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {dispensado && (
-            <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-violet-200">
+            <span className="rounded-full border border-violet-800/30 bg-violet-50 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-violet-900">
               Dispensado
             </span>
           )}
           {!pontoOnly && (
-            <span className="rounded-full border border-[rgba(212,168,83,0.25)] px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
+            <span className="rounded-full border border-[rgba(26,16,12,0.16)] bg-[#f8efe3] px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-[#4a3428]">
               {ADMISSAO_STATUS_LABEL[funcionario.admissao_status]}
             </span>
           )}
           {!dispensado && funcionario.ponto_resumo?.jornada_ativa && funcionario.ponto_resumo.hora_entrada && (
-            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-sky-200">
+            <span className="rounded-full border border-sky-800/25 bg-sky-50 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-sky-900">
               {funcionario.ponto_resumo.hora_entrada.slice(0, 5)}–{(funcionario.ponto_resumo.hora_saida ?? '17:00').slice(0, 5)}
             </span>
           )}
           {!dispensado && funcionario.ponto_resumo?.status_hoje && (
-            <span className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider ${
+            <span className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider ${
               funcionario.ponto_resumo.status_hoje === 'atraso' || funcionario.ponto_resumo.status_hoje === 'falta'
-                ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                ? 'border-amber-800/30 bg-amber-50 text-amber-900'
                 : funcionario.ponto_resumo.status_hoje === 'folga'
-                  ? 'border-violet-500/30 bg-violet-500/10 text-violet-200'
-                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  ? 'border-violet-800/30 bg-violet-50 text-violet-900'
+                  : 'border-emerald-800/30 bg-emerald-50 text-emerald-900'
             }`}>
               {PONTO_STATUS_DIA_LABEL[funcionario.ponto_resumo.status_hoje] ?? funcionario.ponto_resumo.status_hoje}
             </span>
           )}
           {!pontoOnly && (funcionario.recibos_pendentes ?? 0) > 0 && (
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-amber-300">
+            <span className="rounded-full border border-amber-800/30 bg-amber-50 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-amber-900">
               {funcionario.recibos_pendentes} recibo{(funcionario.recibos_pendentes ?? 0) !== 1 ? 's' : ''}
             </span>
           )}
           {!pontoOnly && funcionario.usuario_id && (
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full border border-emerald-800/30 bg-emerald-50 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-emerald-900">
               Vinculado
             </span>
           )}

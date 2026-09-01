@@ -46,7 +46,7 @@ export function ExportarDocumentosChecklistButton({ className }: Props) {
         type="button"
         className={
           className
-          ?? 'group relative inline-flex items-center gap-2 overflow-hidden rounded-lg border border-[rgba(212,168,83,0.35)] bg-[linear-gradient(135deg,rgba(36,16,8,0.92),rgba(58,28,12,0.88))] px-4 py-2.5 text-sm font-medium text-[#f2d892] shadow-[0_8px_24px_rgba(20,8,2,0.35)] transition duration-300 hover:-translate-y-0.5 hover:border-[rgba(242,216,146,0.55)] hover:text-[#fff1c4]'
+          ?? 'group relative inline-flex items-center gap-2 overflow-hidden rounded-lg border border-[rgba(107,63,18,0.35)] bg-[#f4e4c4] px-4 py-2.5 text-sm font-semibold text-[#6b3f12] shadow-[0_8px_24px_rgba(42,24,18,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[rgba(107,63,18,0.55)] hover:bg-[#ecd7a8] hover:text-[#1a100c]'
         }
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
@@ -66,7 +66,7 @@ export function ExportarDocumentosChecklistButton({ className }: Props) {
 
       <Modal open={open} onClose={() => !exportando && setOpen(false)} title="EXPORTAR DOCUMENTOS">
         <div className="space-y-5">
-          <div className="relative overflow-hidden rounded-xl border border-[rgba(212,168,83,0.25)] bg-[linear-gradient(160deg,#1c0e07_0%,#2a160c_55%,#1a0d06_100%)] p-4">
+          <div className="relative overflow-hidden rounded-xl border border-[rgba(26,16,12,0.14)] bg-[#fffaf4] p-4">
             <div
               aria-hidden
               className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[rgba(242,216,146,0.12)] blur-2xl"
@@ -87,7 +87,7 @@ export function ExportarDocumentosChecklistButton({ className }: Props) {
 
           <div>
             <p className="section-label mb-2">Itens do checklist</p>
-            <ol className="max-h-52 space-y-1.5 overflow-y-auto rounded-xl border border-[rgba(212,168,83,0.15)] bg-[rgba(20,10,4,0.35)] p-3">
+            <ol className="max-h-52 space-y-1.5 overflow-y-auto rounded-xl border border-[rgba(26,16,12,0.12)] bg-[#fffcf8] p-3">
               {ADMISSAO_DOC_TIPOS.map((doc, i) => (
                 <li
                   key={doc.id}

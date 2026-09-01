@@ -15,54 +15,36 @@ interface StartServiceDialogProps {
 
 export function StartServiceDialog({ open, onStart }: StartServiceDialogProps) {
   const [endereco, setEndereco] = useState('');
-  const [latitude, setLatitude] = useState<number | undefined>();
-  const [longitude, setLongitude] = useState<number | undefined>();
-  const [geoStatus, setGeoStatus] = useState<'loading' | 'success' | 'error' | 'idle'>('idle');
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading'>('idle');
 
   useEffect(() => {
-    if (!open) return;
+    if (open) return;
+    setEndereco('');
+    setGeoStatus('idle');
+  }, [open]);
+
+  const handleStart = async () => {
     setGeoStatus('loading');
+    const result = await captureUserLocation();
+    const lat = result?.latitude;
+    const lng = result?.longitude;
+    let enderecoFinal = endereco.trim();
 
-    let cancelled = false;
-
-    captureUserLocation().then(async (result) => {
-      if (cancelled) return;
-
-      if (!result?.latitude || !result?.longitude) {
-        setGeoStatus('error');
-        return;
-      }
-
-      const lat = result.latitude;
-      const lng = result.longitude;
-      setLatitude(lat);
-      setLongitude(lng);
-
+    if (lat != null && lng != null && !enderecoFinal) {
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
           { headers: { 'Accept-Language': 'pt-BR' } },
         );
-        const data = await res.json();
-        if (data?.display_name) {
-          setEndereco(data.display_name);
-        }
-        setGeoStatus('success');
+        const data = (await res.json()) as { display_name?: string };
+        if (data?.display_name) enderecoFinal = data.display_name;
       } catch {
-        setGeoStatus('success');
+        // Endereço digitado (ou vazio) segue valendo.
       }
-    });
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  const handleStart = () => {
-    onStart(endereco || undefined, latitude, longitude);
+    onStart(enderecoFinal || undefined, lat, lng);
     setEndereco('');
-    setLatitude(undefined);
-    setLongitude(undefined);
     setGeoStatus('idle');
   };
 
@@ -91,25 +73,25 @@ export function StartServiceDialog({ open, onStart }: StartServiceDialogProps) {
               onChange={(e) => setEndereco(e.target.value)}
               className="mt-1"
             />
-            {geoStatus === 'loading' && (
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Obtendo localização automaticamente...
-              </p>
-            )}
-            {geoStatus === 'error' && (
-              <p className="text-xs text-amber-600 mt-1">
-                Não foi possível obter a localização. Você pode digitar o endereço manualmente.
-              </p>
-            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ao tocar em Iniciar serviço, o celular pode pedir permissão de localização. Toque em Permitir.
+            </p>
           </div>
           <p className="text-xs text-muted-foreground">
             Horário de entrada será registrado automaticamente.
           </p>
         </div>
         <DialogFooter>
-          <Button onClick={handleStart} className="w-full bg-emerald-500 hover:bg-emerald-600">
-            <Play className="h-4 w-4 mr-2" />
+          <Button
+            onClick={() => void handleStart()}
+            disabled={geoStatus === 'loading'}
+            className="w-full bg-emerald-500 hover:bg-emerald-600"
+          >
+            {geoStatus === 'loading' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
             Iniciar serviço
           </Button>
         </DialogFooter>

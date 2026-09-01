@@ -88,12 +88,12 @@ export function LeadEditableField({
         {htmlFor ? (
           <Label
             htmlFor={htmlFor}
-            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cream-muted leading-tight"
+            className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--lead-cream)] leading-tight"
           >
             {label}
           </Label>
         ) : (
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cream-muted leading-none">
+          <span className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--lead-cream)] leading-none">
             {label}
           </span>
         )}
@@ -103,8 +103,8 @@ export function LeadEditableField({
             variant="ghost"
             size="icon"
             className={cn(
-              'h-7 w-7 shrink-0 text-cream-faint transition-colors',
-              'opacity-70 group-hover/field:opacity-100 hover:text-gold hover:bg-gold/10',
+              'h-7 w-7 shrink-0 text-[color:var(--lead-muted)] transition-colors',
+              'opacity-90 group-hover/field:opacity-100 hover:text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-gold)]/10',
             )}
             onClick={() => onToggleEdit(fieldId)}
             title={isEditing ? 'Fechar edição' : 'Editar campo'}
@@ -157,7 +157,7 @@ export function LeadEditableField({
                 multilineView
                   ? 'whitespace-pre-wrap leading-relaxed'
                   : '[overflow-wrap:anywhere] text-sm text-cream-secondary',
-                emptyValue && canEdit && 'text-cream-faint italic',
+                emptyValue && canEdit && 'text-[color:var(--lead-muted)] italic',
               )}
             >
               {emptyValue && canEdit ? 'Clique para preencher' : displayValue}

@@ -201,7 +201,7 @@ export function PontoRegistrosExportStudio({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg border border-[rgba(212,168,83,0.35)] bg-[linear-gradient(135deg,rgba(36,16,8,0.92),rgba(58,28,12,0.88))] px-3.5 py-2 text-[0.78rem] font-medium uppercase tracking-wider text-[#f2d892] shadow-[0_8px_24px_rgba(20,8,2,0.35)] transition duration-300 hover:-translate-y-0.5 hover:border-[rgba(242,216,146,0.55)] hover:text-[#fff1c4]"
+        className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg border border-[rgba(107,63,18,0.35)] bg-[#f4e4c4] px-3.5 py-2 text-[0.78rem] font-semibold uppercase tracking-wider text-[#6b3f12] shadow-[0_8px_24px_rgba(42,24,18,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[rgba(107,63,18,0.55)] hover:text-[#1a100c]"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -236,14 +236,14 @@ export function PontoRegistrosExportStudio({
               }}
             />
             <div className="relative z-[1] flex items-start gap-3 p-4">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[rgba(212,168,83,0.4)] bg-[rgba(20,10,4,0.45)] text-[#f2d892]">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[rgba(107,63,18,0.35)] bg-[#f4e4c4] text-[#6b3f12]">
                 <ScrollText size={18} />
               </div>
               <div>
-                <p className="font-display text-lg tracking-wide text-[#f2d892]">
+                <p className="font-display text-lg tracking-wide text-[#1a100c]">
                   Documento completo do período
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-[#edd9c4]/85">
+                <p className="mt-1 text-sm leading-relaxed text-[#4a3428]">
                   Junta horas extras, faltas, folgas e abonos numa folha só — e, se você quiser,
                   imprime também a foto e a assinatura de cada batida.
                 </p>
@@ -261,8 +261,8 @@ export function PontoRegistrosExportStudio({
                   onClick={() => aplicarPreset(p)}
                   className={`rounded-lg px-3 py-1.5 text-xs uppercase tracking-wider ${
                     preset === p
-                      ? 'bg-[rgba(240,210,140,0.14)] text-[#f2d892]'
-                      : 'border border-[rgba(212,168,83,0.2)] text-[#b8957f] hover:text-[#edd9c4]'
+                      ? 'bg-[#f4e4c4] text-[#6b3f12]'
+                      : 'border border-[rgba(26,16,12,0.16)] text-[#4a3428] hover:text-[#1a100c]'
                   }`}
                 >
                   {p === 'semana' ? 'Esta semana' : p === 'mes' ? 'Este mês' : 'Dias específicos'}

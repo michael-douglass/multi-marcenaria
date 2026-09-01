@@ -72,8 +72,8 @@ export function LeadVendorBanner({
       cn(
         'px-3 sm:px-4 py-1.5',
         hasVendor
-          ? 'border-gold-border-subtle/35 bg-[#120c09]/55 text-[#f2d892]'
-          : 'border-gold-border-subtle/25 bg-[#120c09]/35 text-[#d4bc9f]',
+          ? 'border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-gold)]'
+          : 'border-[color:var(--lead-line)] bg-[color:var(--lead-inset)]/70 text-[color:var(--lead-muted)]',
       ),
     editable &&
       'cursor-pointer transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',

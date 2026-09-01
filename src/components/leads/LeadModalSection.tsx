@@ -14,6 +14,8 @@ interface LeadModalSectionProps {
   description?: string;
   variant?: 'default' | 'accent' | 'alert';
   className?: string;
+  /** Âncora para o índice do topo pular até aqui. */
+  sectionId?: string;
   children: ReactNode;
 }
 
@@ -21,20 +23,20 @@ const variantStyles = {
   default: {
     shell: 'lead-modal-panel',
     accent: 'via-gold/35',
-    title: 'text-cream-secondary',
-    icon: 'text-gold',
+    title: 'text-[color:var(--lead-cream)]',
+    icon: 'text-[color:var(--lead-gold)]',
   },
   accent: {
     shell: 'lead-modal-panel border-[color:var(--lead-line-strong)]',
     accent: 'via-gold/60',
-    title: 'text-gold',
-    icon: 'text-gold',
+    title: 'text-[color:var(--lead-cream)]',
+    icon: 'text-[color:var(--lead-gold)]',
   },
   alert: {
     shell: 'lead-modal-panel border-amber-500/40',
     accent: 'via-amber-400/50',
-    title: 'text-amber-200',
-    icon: 'text-amber-400',
+    title: 'text-amber-800',
+    icon: 'text-amber-700',
   },
 };
 
@@ -46,12 +48,15 @@ export function LeadModalSection({
   description,
   variant = 'default',
   className,
+  sectionId,
   children,
 }: LeadModalSectionProps) {
   const styles = variantStyles[variant];
 
   return (
     <section
+      id={sectionId ? `lead-sec-${sectionId}` : undefined}
+      data-lead-section={sectionId}
       className={cn(
         'relative overflow-hidden rounded-xl border shadow-sm shadow-black/5',
         styles.shell,
@@ -71,7 +76,7 @@ export function LeadModalSection({
             {Icon && <Icon className={cn('h-4 w-4 shrink-0', styles.icon)} aria-hidden />}
             <h3
               className={cn(
-                'text-[11px] font-semibold uppercase tracking-[0.18em]',
+                'text-xs font-bold uppercase tracking-[0.12em]',
                 styles.title,
               )}
             >
@@ -80,7 +85,7 @@ export function LeadModalSection({
             {badge}
           </div>
           {description && (
-            <p className="text-xs text-cream-muted leading-relaxed">{description}</p>
+            <p className="text-xs text-[color:var(--lead-muted)] leading-relaxed">{description}</p>
           )}
         </div>
         {actions && <div className="shrink-0">{actions}</div>}

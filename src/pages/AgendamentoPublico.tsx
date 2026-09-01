@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,7 +32,6 @@ import {
   filterCustomFormFields,
   NATIVE_PUBLIC_LEAD_FIELDS,
 } from '@/lib/agenda-form-field-utils';
-import { captureUserLocation, type UserLocationResult } from '@/lib/geolocation';
 import { buildAgendaMetadataCapturada } from '@/lib/agenda-metadata-capture';
 import { uploadAgendaPublicFiles } from '@/lib/agenda-public-api';
 import { buildAcceptFromCategories, validateAgendaFile } from '@/lib/agenda-file-types';
@@ -546,36 +545,6 @@ export default function AgendamentoPublico() {
   const [pendingFormData, setPendingFormData] = useState<Record<string, string> | null>(null);
   const [pendingFormFiles, setPendingFormFiles] = useState<Record<string, File[]>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [prefetchedLocation, setPrefetchedLocation] = useState<UserLocationResult | null>(null);
-  const [locationCaptureStatus, setLocationCaptureStatus] = useState<
-    'idle' | 'pending' | 'granted' | 'denied'
-  >('idle');
-
-  const shouldCaptureLocation = config?.capturar_localizacao !== false;
-
-  useEffect(() => {
-    if (step !== 'form' || !shouldCaptureLocation) {
-      return;
-    }
-
-    let cancelled = false;
-    setLocationCaptureStatus('pending');
-
-    captureUserLocation().then((result) => {
-      if (cancelled || !result) return;
-      setPrefetchedLocation(result);
-      if (result.latitude && result.longitude) {
-        setLocationCaptureStatus('granted');
-      } else {
-        setLocationCaptureStatus('denied');
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [step, shouldCaptureLocation]);
-
   // Assinatura dos campos para forçar remontagem segura do formulário quando o backend muda a configuração
   const formKey = useMemo(() => {
     const signature = fields
@@ -619,9 +588,7 @@ export default function AgendamentoPublico() {
 
     setSubmitting(true);
     try {
-      const metadataCapturada = await buildAgendaMetadataCapturada(config, {
-        prefetchedLocation,
-      });
+      const metadataCapturada = await buildAgendaMetadataCapturada(config);
       const payload: Record<string, string> = { ...pendingFormData };
 
       for (const field of filterCustomFormFields(fields)) {
@@ -709,13 +676,6 @@ export default function AgendamentoPublico() {
                   Não foi possível carregar o formulário. Tente recarregar a página.
                 </div>
               ) : (
-                <>
-                  {shouldCaptureLocation && locationCaptureStatus === 'pending' && (
-                    <p className="mb-4 rounded-lg border border-[#c9b8a8] bg-[#fff7f2] px-3 py-2 text-xs font-medium text-[#4a3228]">
-                      Para registrar sua localização aproximada, permita o acesso quando o navegador
-                      solicitar.
-                    </p>
-                  )}
                   <PublicBookingForm
                     key={formKey}
                     fields={fields}
@@ -723,7 +683,6 @@ export default function AgendamentoPublico() {
                     submitLabel="Continuar"
                     onSubmit={onFormContinue}
                   />
-                </>
               )}
           </div>
         )}

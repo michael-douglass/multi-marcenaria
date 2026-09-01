@@ -2290,6 +2290,83 @@ body::before {
     background: linear-gradient(180deg, rgba(244, 228, 196, 0.55), #fffaf4);
   }
 
+  /* ── Funcionários / pastas RH: tinta mogno no papel (ouro claro sumia) ── */
+  .funcionarios-page-shell {
+    --fn-ink: #1a100c;
+    --fn-muted: #4a3428;
+    --fn-faint: #6b5244;
+    --fn-sheet: #fffaf4;
+    --fn-gold: #6b3f12;
+    --fn-ok: #146c38;
+    --fn-late: #9f1239;
+    --fn-line: rgba(26, 16, 12, 0.14);
+    color: var(--fn-ink);
+    color-scheme: light;
+  }
+  .paper-workspace .funcionarios-page-shell h1,
+  .funcionarios-page-shell h1 {
+    color: var(--fn-ink) !important;
+  }
+  .funcionarios-page-shell [class*="text-[#b8957f]"],
+  .funcionarios-page-shell [class*="text-[#c4a882]"],
+  .funcionarios-page-shell [class*="text-[#d4bc9f]"],
+  .funcionarios-page-shell [class*="text-[#e2c9ab]"],
+  .funcionarios-page-shell [class*="text-[#e4cbb0]"],
+  .funcionarios-page-shell [class*="text-[#edd9c4]"],
+  .funcionarios-page-shell [class*="text-[#f0e0d2]"],
+  .funcionarios-page-shell [class*="text-[#faf2ea]"],
+  .funcionarios-page-shell [class*="text-[#fff1c4]"],
+  .funcionarios-page-shell [class*="text-[#fff8ee]"],
+  .funcionarios-page-shell [class*="text-[#fffaf4]"] {
+    color: var(--fn-muted) !important;
+  }
+  .funcionarios-page-shell [class*="text-[#f2d892]"],
+  .funcionarios-page-shell [class*="text-[#f6dc9a]"],
+  .funcionarios-page-shell .text-gold {
+    color: var(--fn-gold) !important;
+  }
+  .funcionarios-page-shell [class*="text-emerald-300"],
+  .funcionarios-page-shell [class*="text-[#86efac]"],
+  .funcionarios-page-shell [class*="text-[#4ade80]"] {
+    color: var(--fn-ok) !important;
+  }
+  .funcionarios-page-shell [class*="text-amber-300"],
+  .funcionarios-page-shell [class*="text-[#fbbf24]"],
+  .funcionarios-page-shell [class*="text-[#fca5a5]"],
+  .funcionarios-page-shell [class*="text-red-300"],
+  .funcionarios-page-shell [class*="text-[#f87171]"] {
+    color: var(--fn-late) !important;
+  }
+  .funcionarios-page-shell [class*="text-sky-200"],
+  .funcionarios-page-shell [class*="text-violet-200"] {
+    color: var(--fn-ink) !important;
+  }
+  .funcionarios-page-shell [class*="bg-[rgba(36,16,8"],
+  .funcionarios-page-shell [class*="bg-[rgba(20,10,4"],
+  .funcionarios-page-shell [class*="bg-[rgba(58,28,12"],
+  .funcionarios-page-shell [class*="bg-[#1c0e07"],
+  .funcionarios-page-shell [class*="bg-[#2a160c"],
+  .funcionarios-page-shell [class*="bg-[#1a0d06"],
+  .funcionarios-page-shell [class*="bg-[#2a1810"] {
+    background-color: var(--fn-sheet) !important;
+  }
+  .funcionarios-page-shell thead {
+    background: rgba(26, 16, 12, 0.045) !important;
+    color: var(--fn-muted);
+  }
+  .funcionarios-page-shell .funcionario-folder-card h3 {
+    color: var(--fn-ink) !important;
+  }
+  .funcionarios-page-shell .glass-input {
+    background: #fff;
+    border-color: rgba(26, 16, 12, 0.2);
+    color: var(--fn-ink);
+  }
+  .funcionarios-page-shell .glass-input::placeholder {
+    color: var(--fn-faint);
+    opacity: 1;
+  }
+
   /* ── Financeiro Pontua: tinta escura no papel (creme/ouro no fundo claro sumia) ── */
   .financeiro-pontua-shell {
     --fp-ink: #1a100c;
@@ -2996,19 +3073,19 @@ body::before {
   color: #fff8ee;
 }
 
-/* Paleta fixa do card do lead — mogno, creme e ouro. Vale para todas as caixas. */
+/* Paleta fixa do card do lead — papel linho, tinta mogno e ouro antigo. */
 .lead-modal-shell,
 .lead-atelier-dialog {
-  --lead-wood: #1a120e;
-  --lead-panel: #241810;
-  --lead-inset: #120c09;
-  --lead-cream: #fff6ea;
-  --lead-soft: #f6ead8;
-  --lead-muted: #d4bc9f;
-  --lead-faint: #b89a78;
-  --lead-gold: #f2d892;
-  --lead-line: rgba(196, 150, 58, 0.32);
-  --lead-line-strong: rgba(242, 216, 146, 0.42);
+  --lead-wood: #f3e8d8;
+  --lead-panel: #fffaf3;
+  --lead-inset: #efe4d4;
+  --lead-cream: #140c08;
+  --lead-soft: #1c120c;
+  --lead-muted: #3d2a1c;
+  --lead-faint: #5c4334;
+  --lead-gold: #5a3a12;
+  --lead-line: rgba(80, 52, 24, 0.28);
+  --lead-line-strong: rgba(90, 58, 18, 0.48);
   color: var(--lead-soft);
 }
 .glass-dialog.lead-modal-shell {
@@ -3020,10 +3097,13 @@ body::before {
   max-width: min(42rem, calc(100vw - 2rem)) !important;
   height: min(84dvh, calc(100dvh - 4rem)) !important;
   max-height: min(84dvh, calc(100dvh - 4rem)) !important;
-  background: var(--lead-wood) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 243, 0.97) 0%, rgba(243, 232, 216, 0.98) 100%) !important;
   color: var(--lead-soft) !important;
   border-color: var(--lead-line) !important;
-  box-shadow: 0 28px 64px rgba(8, 3, 1, 0.55) !important;
+  box-shadow:
+    0 28px 64px rgba(60, 40, 24, 0.18),
+    inset 0 1px 0 rgba(255, 252, 246, 0.85) !important;
   /* Nested Sheet/AlertDialog (markup, confirmar duplicar) não podem congelar o card. */
   pointer-events: auto !important;
 }
@@ -3041,7 +3121,7 @@ body::before {
   background: var(--lead-wood) !important;
   color: var(--lead-soft) !important;
   border-color: var(--lead-line-strong) !important;
-  box-shadow: 0 24px 56px rgba(8, 3, 1, 0.55) !important;
+  box-shadow: 0 24px 56px rgba(60, 40, 24, 0.16) !important;
 }
 .lead-atelier-dialog .text-muted-foreground,
 .paper-workspace .lead-atelier-dialog .text-muted-foreground {
@@ -3063,16 +3143,52 @@ body::before {
 
 .lead-modal-header {
   color: var(--lead-soft);
-  background: linear-gradient(180deg, rgba(42, 28, 22, 0.72) 0%, rgba(18, 12, 9, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(255, 250, 243, 0.72) 0%, rgba(243, 232, 216, 0.45) 100%);
 }
 .lead-modal-header .lead-modal-title {
   color: var(--lead-cream);
-  text-shadow: 0 1px 2px rgba(8, 3, 1, 0.55);
+  text-shadow: none;
 }
 .lead-modal-header .lead-modal-stage {
-  border-color: var(--lead-line);
-  background: var(--lead-inset);
+  border-color: var(--lead-line-strong);
+  background: var(--lead-panel);
   color: var(--lead-gold);
+}
+
+.lead-modal-nav {
+  background: rgba(255, 250, 243, 0.88);
+  border-color: var(--lead-line);
+  color: var(--lead-soft);
+  backdrop-filter: blur(10px);
+}
+.lead-modal-nav__trigger {
+  color: var(--lead-soft);
+}
+.lead-modal-nav__trigger[data-active='true'] {
+  background: rgba(90, 58, 18, 0.14);
+  color: var(--lead-cream);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.7);
+}
+.lead-modal-nav__panel {
+  transform-origin: top center;
+}
+.lead-modal-nav__item {
+  color: var(--lead-soft);
+  border-color: var(--lead-line);
+  background: var(--lead-panel);
+}
+.lead-modal-nav__scroller {
+  scrollbar-color: var(--lead-line-strong) transparent;
+}
+.lead-modal-nav__scroller::-webkit-scrollbar {
+  height: 6px;
+}
+.lead-modal-nav__scroller::-webkit-scrollbar-thumb {
+  background: var(--lead-line-strong);
+  border-radius: 999px;
+}
+.lead-modal-shell [data-lead-section] {
+  scroll-margin-top: 12px;
 }
 
 /*
@@ -3140,15 +3256,15 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
 }
 
 .lead-modal-panel {
-  background: var(--lead-panel, #241810) !important;
-  border-color: var(--lead-line, rgba(196, 150, 58, 0.32)) !important;
-  color: var(--lead-soft, #f6ead8);
-  box-shadow: inset 0 1px 0 rgba(242, 216, 146, 0.06);
+  background: var(--lead-panel, #fffaf3) !important;
+  border-color: var(--lead-line, rgba(120, 90, 50, 0.22)) !important;
+  color: var(--lead-soft, #3d2a1c);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.85);
 }
 .lead-modal-chrome {
-  background: var(--lead-wood, #1a120e) !important;
-  border-color: var(--lead-line, rgba(196, 150, 58, 0.32)) !important;
-  color: var(--lead-soft, #f6ead8);
+  background: var(--lead-wood, #f3e8d8) !important;
+  border-color: var(--lead-line, rgba(120, 90, 50, 0.22)) !important;
+  color: var(--lead-soft, #3d2a1c);
 }
 
 /* Ficha do lead dentro de Detalhes da Obra — mogno laqueado, creme e ouro. */
@@ -3189,16 +3305,16 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   }
 }
 .lead-modal-body {
-  background: var(--lead-wood, #1a120e);
-  color: var(--lead-soft, #f6ead8);
+  background: transparent;
+  color: var(--lead-soft, #3d2a1c);
 }
 .lead-modal-kicker {
-  color: var(--lead-muted, #d4bc9f) !important;
+  color: var(--lead-soft, #1c120c) !important;
 }
 .lead-modal-bubble {
-  background: var(--lead-inset, #120c09);
-  border-color: var(--lead-line, rgba(196, 150, 58, 0.32));
-  color: var(--lead-soft, #f6ead8);
+  background: var(--lead-inset, #efe4d4);
+  border-color: var(--lead-line, rgba(120, 90, 50, 0.22));
+  color: var(--lead-soft, #3d2a1c);
 }
 
 .lead-modal-shell .text-cream,
@@ -3217,8 +3333,17 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   color: var(--lead-muted);
 }
 .lead-modal-shell .text-gold,
-.lead-modal-shell [class*="text-[#f2d892]"] {
+.lead-modal-shell [class*="text-[#f2d892]"],
+.lead-modal-shell [class*="text-[#d4bc9f]"],
+.lead-modal-shell [class*="text-[#edd9c4]"],
+.lead-modal-shell [class*="text-[#c4a05a]"] {
   color: var(--lead-gold);
+}
+.lead-modal-shell label,
+.paper-workspace .lead-modal-shell label,
+.lead-modal-panel h3,
+.paper-workspace .lead-modal-shell .lead-modal-panel h3 {
+  color: var(--lead-cream) !important;
 }
 .lead-modal-shell .bg-muted,
 .lead-modal-shell .bg-muted\/20,
@@ -3229,8 +3354,10 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   border-color: var(--lead-line) !important;
 }
 .lead-modal-shell [class*="text-[#2a1812]"],
-.lead-modal-shell [class*="text-[#6b5244]"],
 .lead-modal-shell [class*="text-[#3d261c]"] {
+  color: var(--lead-cream) !important;
+}
+.lead-modal-shell [class*="text-[#6b5244]"] {
   color: var(--lead-muted) !important;
 }
 .lead-modal-shell .bg-background,
@@ -3269,13 +3396,13 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
 .paper-workspace .lead-modal-shell .text-cream-muted,
 .paper-workspace .lead-modal-shell .text-cream-faint,
 .paper-workspace .lead-modal-shell .text-muted-foreground,
-.paper-workspace .lead-modal-shell .lead-modal-kicker,
-.paper-workspace .lead-modal-shell [class*="text-[#d4bc9f]"],
-.paper-workspace .lead-modal-shell [class*="text-[#edd9c4]"] {
-  color: var(--lead-muted) !important;
+.paper-workspace .lead-modal-shell .lead-modal-kicker {
+  color: var(--lead-soft) !important;
 }
 .paper-workspace .lead-modal-shell .text-gold,
-.paper-workspace .lead-modal-shell [class*="text-[#f2d892]"] {
+.paper-workspace .lead-modal-shell [class*="text-[#f2d892]"],
+.paper-workspace .lead-modal-shell [class*="text-[#d4bc9f]"],
+.paper-workspace .lead-modal-shell [class*="text-[#edd9c4]"] {
   color: var(--lead-gold) !important;
 }
 
@@ -5127,7 +5254,12 @@ body {
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(237, 217, 196, 0.82);
+  color: #4a3428;
+}
+
+.garbo-loading-brand--fullscreen .garbo-loading-brand__message,
+.garbo-loading-brand--overlay .garbo-loading-brand__message {
+  color: #f2d892;
 }
 
 @media (prefers-reduced-motion: reduce) {

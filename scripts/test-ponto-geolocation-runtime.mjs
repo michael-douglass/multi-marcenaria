@@ -3,7 +3,7 @@
  * Rodar: node --test scripts/test-ponto-geolocation-runtime.mjs
  */
 import assert from 'node:assert/strict'
-import { describe, it, beforeEach, afterEach } from 'node:test'
+import { describe, it, afterEach } from 'node:test'
 import {
   formatGeolocationError,
   isGeolocationPermissionDenied,
@@ -14,13 +14,14 @@ function mockGeo({
   position = null,
   error = null,
   delayMs = 0,
+  watchError = null,
 } = {}) {
   const watches = new Map()
   let watchSeq = 1
 
-  const deliver = (success, fail) => {
+  const deliver = (success, fail, overrideError = error) => {
     const run = () => {
-      if (position) {
+      if (position && !overrideError) {
         success({
           coords: {
             latitude: position.latitude,
@@ -30,7 +31,7 @@ function mockGeo({
         })
         return
       }
-      fail(error)
+      fail(overrideError)
     }
     if (delayMs) setTimeout(run, delayMs)
     else run()
@@ -47,6 +48,10 @@ function mockGeo({
     watchPosition(success, fail) {
       const id = watchSeq++
       watches.set(id, { success, fail })
+      if (watchError) {
+        fail(watchError)
+        return id
+      }
       deliver(success, fail)
       return id
     },
@@ -99,6 +104,17 @@ describe('pedido de GPS (execução)', () => {
       () => requestGeolocation(1000),
       /Não encontramos sua posição/,
     )
+  })
+
+  it('não trata recusa falsa do iPhone no segundo pedido como bloqueio', async () => {
+    mockGeo({
+      position: { latitude: -23.55, longitude: -46.63, accuracy: 8 },
+      delayMs: 40,
+      watchError: { code: 1, message: 'User denied Geolocation', PERMISSION_DENIED: 1 },
+    })
+    const pos = await requestGeolocation(1000)
+    assert.equal(pos.latitude, -23.55)
+    assert.equal(pos.longitude, -46.63)
   })
 })
 

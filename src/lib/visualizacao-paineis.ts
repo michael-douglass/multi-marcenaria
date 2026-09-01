@@ -100,6 +100,14 @@ export const VISUALIZACAO_PAINEIS_MONTADOR_ADMIN: VisualizacaoPainelId[] = [
   'obras_atrasadas',
 ]
 
+/** Montador de campo: vê o andamento e, principalmente, obras em atraso. */
+export const VISUALIZACAO_PAINEIS_MONTADOR: VisualizacaoPainelId[] = [
+  'calendario_obras',
+  'acompanhamento_obras',
+  'obras_do_dia',
+  'obras_atrasadas',
+]
+
 function isGestaoVisualizacao(roles: UserRole[]): boolean {
   return (
     roles.includes('Administrador')
@@ -123,6 +131,7 @@ export function shouldFiltrarPaineisVisualizacao(roles: UserRole[]): boolean {
 export function paineisPermitidosPorRoles(roles: UserRole[]): VisualizacaoPainelId[] | null {
   if (isGestaoVisualizacao(roles)) return null
   if (roles.includes('MontadorAdmin')) return [...VISUALIZACAO_PAINEIS_MONTADOR_ADMIN]
+  if (roles.includes('Montador')) return [...VISUALIZACAO_PAINEIS_MONTADOR]
   return null
 }
 
