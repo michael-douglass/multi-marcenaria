@@ -83,6 +83,8 @@ export function parseEventoParticipante(raw: unknown): EventoParticipante | null
     evento_id: asText(row.evento_id),
     lead_id: row.lead_id == null ? null : asNumber(row.lead_id),
     nome: asText(row.nome),
+    telefone: typeof row.telefone === 'string' && row.telefone.trim() ? row.telefone.trim() : null,
+    email: typeof row.email === 'string' && row.email.trim() ? row.email.trim() : null,
     ordem: asNumber(row.ordem),
     criado_em: asText(row.criado_em),
     midias: midiasRaw.map(parseEventoMidia).filter((m): m is EventoMidia => m != null),

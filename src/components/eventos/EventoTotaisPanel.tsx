@@ -1,14 +1,16 @@
 import { formatarMoedaEvento, totalLinhaItem } from '@/lib/evento-helpers'
 import type { EventoItem, EventoTotais } from '@/lib/evento-types'
+import { cn } from '@/lib/utils'
 
 interface EventoTotaisPanelProps {
   totais: EventoTotais
   itens: EventoItem[]
+  className?: string
 }
 
-export function EventoTotaisPanel({ totais, itens }: EventoTotaisPanelProps) {
+export function EventoTotaisPanel({ totais, itens, className }: EventoTotaisPanelProps) {
   return (
-    <div className="flex h-full min-h-[420px] flex-col rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-4">
+    <div className={cn('flex h-full min-h-[280px] flex-col rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-4', className)}>
       <p className="text-[11px] uppercase tracking-[0.18em] text-gold/80">4 · Totais</p>
       <p className="mt-1 text-sm text-cream-faint">Resumo</p>
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -25,7 +27,7 @@ export function EventoTotaisPanel({ totais, itens }: EventoTotaisPanelProps) {
           <dd className="font-display text-xl text-gold">{formatarMoedaEvento(totais.total)}</dd>
         </div>
       </dl>
-      <ul className="mt-4 h-[280px] space-y-2 overflow-y-auto pr-1">
+      <ul className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {itens.length === 0 && (
           <li className="text-sm text-cream-faint">Nada para somar ainda.</li>
         )}

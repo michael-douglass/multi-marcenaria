@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { supabase } from '@/integrations/supabase/client'
+import { resolveLeadsQueryConfig } from '@/lib/empresa-tables'
 import {
   EVENTO_STORAGE_BUCKET,
   eventoStoragePath,
@@ -26,11 +28,51 @@ import type {
   EventoSecao,
   EventoUnidade,
 } from '@/lib/evento-types'
+import { formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils'
 import { WHITEBOARD_MAX_IMAGE_BYTES } from '@/lib/whiteboard-image-upload'
 
 export interface EventoParticipanteInput {
   nome: string
   lead_id?: number | null
+  telefone?: string | null
+  email?: string | null
+}
+
+interface LeadContato {
+  nome: string
+  telefone: string | null
+  email: string | null
+}
+
+function leadsClient(schema: string | null) {
+  const config = resolveLeadsQueryConfig(schema)
+  const db = (config.schema ? supabase.schema(config.schema) : supabase) as unknown as SupabaseClient
+  return { db, table: config.leadsTable }
+}
+
+async function fetchLeadContatos(schema: string | null, leadIds: number[]): Promise<Map<number, LeadContato>> {
+  const map = new Map<number, LeadContato>()
+  const unique = [...new Set(leadIds.filter((id) => Number.isFinite(id) && id > 0))]
+  if (unique.length === 0) return map
+  const { db, table } = leadsClient(schema)
+  const { data, error } = await db.from(table).select('id, nome, email, telefone').in('id', unique)
+  if (error) throw error
+  for (const row of data ?? []) {
+    const id = Number((row as { id?: number }).id)
+    if (!Number.isFinite(id)) continue
+    const email = typeof (row as { email?: string | null }).email === 'string' ? (row as { email: string }).email.trim() : ''
+    const telefone = typeof (row as { telefone?: string | null }).telefone === 'string' ? (row as { telefone: string }).telefone.trim() : ''
+    map.set(id, {
+      nome: String((row as { nome?: string }).nome ?? ''),
+      email: email || null,
+      telefone: telefone ? formatInternationalPhone(telefone) : null,
+    })
+  }
+  return map
+}
+
+function emailValido(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
 export interface EventoItemInput {
@@ -78,6 +120,15 @@ export function useEventoBoard(eventoId: string | undefined) {
       const participantes = (partRes.data ?? [])
         .map(parseEventoParticipante)
         .filter((p): p is NonNullable<typeof p> => p != null)
+
+      const leadIds = participantes.map((p) => p.lead_id).filter((id): id is number => id != null)
+      let contatos = new Map<number, LeadContato>()
+      try {
+        contatos = await fetchLeadContatos(schema, leadIds)
+      } catch {
+        contatos = new Map()
+      }
+
       const itens = (itemRes.data ?? []).map(parseEventoItem).filter((p): p is NonNullable<typeof p> => p != null)
 
       const partIds = participantes.map((p) => p.id)
@@ -114,10 +165,15 @@ export function useEventoBoard(eventoId: string | undefined) {
 
       return {
         evento,
-        participantes: participantes.map((p) => ({
-          ...p,
-          midias: (midiasPart.get(p.id) ?? []).filter((m): m is NonNullable<typeof m> => m != null),
-        })),
+        participantes: participantes.map((p) => {
+          const contato = p.lead_id != null ? contatos.get(p.lead_id) : undefined
+          return {
+            ...p,
+            telefone: contato?.telefone ?? p.telefone,
+            email: contato?.email ?? p.email,
+            midias: (midiasPart.get(p.id) ?? []).filter((m): m is NonNullable<typeof m> => m != null),
+          }
+        }),
         itens: itens.map((p) => ({
           ...p,
           midias: (midiasItem.get(p.id) ?? []).filter((m): m is NonNullable<typeof m> => m != null),
@@ -143,6 +199,7 @@ export function useEventoBoard(eventoId: string | undefined) {
     void qc.invalidateQueries({ queryKey: ['controle-eventos'] })
     void qc.invalidateQueries({ queryKey: ['evento-catalogo'] })
     void qc.invalidateQueries({ queryKey: ['evento-tarefas'] })
+    void qc.invalidateQueries({ queryKey: ['leads'] })
   }
 
   const upsertCatalogo = async (input: EventoItemInput) => {
@@ -173,10 +230,44 @@ export function useEventoBoard(eventoId: string | undefined) {
       if (!eventoId) throw new Error('Pasta não encontrada')
       const nome = input.nome.trim()
       if (!nome) throw new Error('Digite o nome da pessoa')
+      const telefone = formatInternationalPhone(input.telefone ?? '') || null
+      const email = input.email?.trim() || null
+      if (email && !emailValido(email)) throw new Error('Confira o e-mail')
+
+      let leadId = input.lead_id ?? null
+      const { db: leadsDb, table: leadsTable } = leadsClient(schema)
+      if (leadId) {
+        const { error: leadError } = await leadsDb
+          .from(leadsTable)
+          .update({ nome, telefone, email, atualizado_em: new Date().toISOString() })
+          .eq('id', leadId)
+        if (leadError) throw leadError
+      } else {
+        const { data: created, error: createError } = await leadsDb
+          .from(leadsTable)
+          .insert({
+            nome,
+            email,
+            telefone,
+            origem: 'Controle de Eventos',
+            status: 'Novo Lead',
+            valor_negocio: 0,
+            valor_orcamento: 0,
+            data_chegada: getTodaySaoPaulo(),
+            vendedor_responsavel_id: user?.id ?? null,
+          })
+          .select('id')
+          .single()
+        if (createError) throw createError
+        const createdId = Number((created as { id?: number } | null)?.id)
+        if (!Number.isFinite(createdId)) throw new Error('Não deu para criar o lead')
+        leadId = createdId
+      }
+
       if (id) {
         const { error } = await db
           .from(tables.participantes)
-          .update({ nome, lead_id: input.lead_id ?? null })
+          .update({ nome, lead_id: leadId })
           .eq('id', id)
         if (error) throw error
         return id
@@ -184,7 +275,7 @@ export function useEventoBoard(eventoId: string | undefined) {
       const ordem = (query.data?.participantes ?? []).length
       const { data, error } = await db
         .from(tables.participantes)
-        .insert({ evento_id: eventoId, nome, lead_id: input.lead_id ?? null, ordem })
+        .insert({ evento_id: eventoId, nome, lead_id: leadId, ordem })
         .select('id')
         .single()
       if (error) throw error

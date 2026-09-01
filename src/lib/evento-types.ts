@@ -62,6 +62,8 @@ export interface EventoParticipante {
   evento_id: string
   lead_id: number | null
   nome: string
+  telefone: string | null
+  email: string | null
   ordem: number
   criado_em: string
   midias: EventoMidia[]

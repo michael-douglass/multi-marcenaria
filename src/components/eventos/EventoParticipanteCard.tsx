@@ -1,10 +1,19 @@
 import { useState } from 'react'
-import { ImagePlus, Pencil, Trash2, UserRound } from 'lucide-react'
+import { ImagePlus, Mail, Pencil, Phone, Trash2, UserRound } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LeadNameAutocomplete } from '@/components/leads/LeadNameAutocomplete'
 import type { EventoParticipanteInput } from '@/hooks/useEventoBoard'
 import type { EventoParticipante } from '@/lib/evento-types'
+import { formatInternationalPhone } from '@/lib/utils'
+
+function labelTelefone(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+  if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return value
+}
 
 interface EventoParticipanteCardProps {
   pessoa: EventoParticipante
@@ -16,6 +25,7 @@ interface EventoParticipanteCardProps {
 export function EventoParticipanteCard({ pessoa, onSave, onDelete, onFotos }: EventoParticipanteCardProps) {
   const [open, setOpen] = useState(false)
   const capa = pessoa.midias[0]
+  const contato = [pessoa.telefone ? labelTelefone(pessoa.telefone) : null, pessoa.email].filter(Boolean).join(' · ')
 
   return (
     <>
@@ -32,6 +42,9 @@ export function EventoParticipanteCard({ pessoa, onSave, onDelete, onFotos }: Ev
         <div className="flex items-start justify-between gap-2 px-3 py-2">
           <button type="button" onClick={() => setOpen(true)} className="min-w-0 text-left">
             <p className="truncate font-medium text-cream-secondary">{pessoa.nome}</p>
+            {contato ? (
+              <p className="mt-0.5 truncate text-[11px] text-cream-faint">{contato}</p>
+            ) : null}
             <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
               {pessoa.lead_id ? 'Lead' : 'Convidado'}
             </span>
@@ -77,26 +90,34 @@ export function EventoParticipanteDialog({
 }: EventoParticipanteDialogProps) {
   const [nome, setNome] = useState(initial?.nome ?? '')
   const [leadId, setLeadId] = useState<number | null>(initial?.lead_id ?? null)
+  const [telefone, setTelefone] = useState(initial?.telefone ?? '')
+  const [email, setEmail] = useState(initial?.email ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const resetFrom = (pessoa?: EventoParticipante | null) => {
+    setNome(pessoa?.nome ?? '')
+    setLeadId(pessoa?.lead_id ?? null)
+    setTelefone(pessoa?.telefone ?? '')
+    setEmail(pessoa?.email ?? '')
+  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
-        if (next) {
-          setNome(initial?.nome ?? '')
-          setLeadId(initial?.lead_id ?? null)
-        }
+        if (next) resetFrom(initial)
       }}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{initial ? 'Editar pessoa' : 'Adicionar pessoa'}</DialogTitle>
+          <DialogTitle>{initial ? 'Editar pessoa' : 'Adicionar lead'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Busque um lead ou digite o nome</Label>
+            <Label htmlFor="evento-pessoa-nome">Nome</Label>
             <LeadNameAutocomplete
+              id="evento-pessoa-nome"
               value={nome}
               onChange={(value) => {
                 setNome(value)
@@ -105,18 +126,51 @@ export function EventoParticipanteDialog({
               onSelectLead={(lead) => {
                 setNome(lead.name)
                 setLeadId(lead.id)
+                setTelefone(lead.phone || '')
+                setEmail(lead.email || '')
               }}
-              placeholder="Nome da pessoa"
+              placeholder="Busque um lead ou digite o nome"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="evento-pessoa-telefone">Telefone</Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-faint" />
+              <Input
+                id="evento-pessoa-telefone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                className="pl-9"
+                placeholder="(11) 99999-0000"
+                value={telefone}
+                onChange={(e) => setTelefone(formatInternationalPhone(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="evento-pessoa-email">E-mail</Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-faint" />
+              <Input
+                id="evento-pessoa-email"
+                type="email"
+                autoComplete="email"
+                className="pl-9"
+                placeholder="pessoa@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
           {leadId ? (
             <span className="inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gold">
-              Lead
+              Lead cadastrado
             </span>
           ) : (
-            <span className="inline-block rounded-full border border-gold-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-cream-faint">
-              Convidado
-            </span>
+            <p className="text-[11px] text-cream-faint">
+              Pessoa nova entra no CRM como lead, com este nome, telefone e e-mail.
+            </p>
           )}
         </div>
         <DialogFooter>
@@ -126,10 +180,13 @@ export function EventoParticipanteDialog({
           <button
             type="button"
             className="btn btn-proforco btn-md"
-            disabled={!nome.trim()}
-            onClick={() => void onSave({ nome, lead_id: leadId })}
+            disabled={!nome.trim() || saving}
+            onClick={() => {
+              setSaving(true)
+              void onSave({ nome, lead_id: leadId, telefone, email }).finally(() => setSaving(false))
+            }}
           >
-            Salvar
+            {saving ? 'Salvando...' : 'Salvar'}
           </button>
         </DialogFooter>
       </DialogContent>

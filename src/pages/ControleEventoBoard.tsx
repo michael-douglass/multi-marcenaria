@@ -98,19 +98,19 @@ export default function ControleEventoBoard() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4 xl:overflow-hidden">
-        <section className="flex min-h-[420px] flex-col rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-3">
-          <div className="mb-3 flex items-center justify-between">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(30rem,1.55fr)] xl:grid-rows-[minmax(0,1fr)_minmax(10.5rem,0.38fr)] xl:overflow-hidden">
+        <section className="flex min-h-[280px] flex-col overflow-hidden rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-3 xl:col-start-1 xl:row-start-1 xl:min-h-0">
+          <div className="mb-3 flex shrink-0 items-center justify-between">
             <p className="text-[11px] uppercase tracking-[0.18em] text-gold/80">1 · Participantes</p>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setPessoaOpen(true)}>
               <Plus className="h-3 w-3" />
               Pessoa
             </button>
           </div>
-          <div className="space-y-3 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
             {board.participantes.length === 0 && (
               <p className="rounded-lg border border-dashed border-gold-border px-3 py-8 text-center text-sm text-cream-faint">
-                Ninguém na lista ainda. Busque um lead ou digite o nome.
+                Ninguém na lista ainda. Adicione um lead com nome, telefone e e-mail.
               </p>
             )}
             {board.participantes.map((pessoa) => (
@@ -125,15 +125,15 @@ export default function ControleEventoBoard() {
           </div>
         </section>
 
-        <section className="flex min-h-[420px] flex-col rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-3">
-          <div className="mb-3 flex items-center justify-between">
+        <section className="flex min-h-[280px] flex-col overflow-hidden rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-3 xl:col-start-2 xl:row-start-1 xl:min-h-0">
+          <div className="mb-3 flex shrink-0 items-center justify-between">
             <p className="text-[11px] uppercase tracking-[0.18em] text-gold/80">2 · Compras</p>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setItemOpen(true)}>
               <Plus className="h-3 w-3" />
               Item
             </button>
           </div>
-          <div className="space-y-3 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
             {board.itens.length === 0 && (
               <p className="rounded-lg border border-dashed border-gold-border px-3 py-8 text-center text-sm text-cream-faint">
                 Adicione o que precisa comprar. O preço fica salvo para a próxima vez.
@@ -153,13 +153,14 @@ export default function ControleEventoBoard() {
         </section>
 
         <EventoDocumentoPanel
+          className="min-h-[520px] lg:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:min-h-0"
           paginas={board.paginas}
           onSave={(input) => salvarPagina.mutateAsync(input)}
           onNovaFolha={(secao) => criarFolha.mutateAsync(secao)}
           onExcluirFolha={(input) => excluirFolha.mutateAsync(input)}
         />
 
-        <EventoTotaisPanel totais={totais} itens={board.itens} />
+        <EventoTotaisPanel className="overflow-hidden xl:col-span-2 xl:col-start-1 xl:row-start-2 xl:min-h-0" totais={totais} itens={board.itens} />
       </div>
 
       <EventoParticipanteDialog
