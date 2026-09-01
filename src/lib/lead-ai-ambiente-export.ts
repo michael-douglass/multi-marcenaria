@@ -286,7 +286,7 @@ const MAX_FURNITURE_REFS = 4;
 const MAX_FURNITURE_REF_EDGE = 768;
 const FURNITURE_REF_QUALITY = 0.82;
 
-/** Recortes JPEG das fotos de móvel posicionadas na lousa — referência fiel para a IA. */
+/** Recortes das fotos de móvel posicionadas na lousa — já com giro, espelho e retoque. */
 export async function exportAmbienteFurnitureReferences(
   overlays: AmbienteImageOverlay[],
   maxCount = MAX_FURNITURE_REFS,
@@ -298,18 +298,38 @@ export async function exportAmbienteFurnitureReferences(
       const img = await loadImageForRender(overlay.url);
       const nw = img.naturalWidth || img.width || 1;
       const nh = img.naturalHeight || img.height || 1;
-      const sized = scaleToMaxEdge(nw, nh, MAX_FURNITURE_REF_EDGE);
+      const rotation = overlay.rotation || 0;
+      const rad = (rotation * Math.PI) / 180;
+      const boundsW = Math.abs(nw * Math.cos(rad)) + Math.abs(nh * Math.sin(rad));
+      const boundsH = Math.abs(nw * Math.sin(rad)) + Math.abs(nh * Math.cos(rad));
+      const sized = scaleToMaxEdge(Math.max(1, boundsW), Math.max(1, boundsH), MAX_FURNITURE_REF_EDGE);
       const canvas = document.createElement('canvas');
       canvas.width = sized.width;
       canvas.height = sized.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) continue;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, sized.width, sized.height);
-      ctx.drawImage(img, 0, 0, sized.width, sized.height);
+      ctx.clearRect(0, 0, sized.width, sized.height);
+      ctx.save();
+      ctx.translate(sized.width / 2, sized.height / 2);
+      ctx.rotate(rad);
+      ctx.scale(overlay.flipH ? -1 : 1, overlay.flipV ? -1 : 1);
+      const fit = Math.min(sized.width / Math.max(1, boundsW), sized.height / Math.max(1, boundsH));
+      ctx.drawImage(img, (-nw * fit) / 2, (-nh * fit) / 2, nw * fit, nh * fit);
+      ctx.restore();
+
+      const pixels = ctx.getImageData(0, 0, sized.width, sized.height).data;
+      let hasAlpha = false;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i]! < 250) {
+          hasAlpha = true;
+          break;
+        }
+      }
       result.push({
         label: overlay.label || 'Móvel do projeto',
-        dataUrl: canvas.toDataURL('image/jpeg', FURNITURE_REF_QUALITY),
+        dataUrl: hasAlpha
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', FURNITURE_REF_QUALITY),
       });
     } catch {
       // overlay inválido — a composição achatada ainda carrega a peça

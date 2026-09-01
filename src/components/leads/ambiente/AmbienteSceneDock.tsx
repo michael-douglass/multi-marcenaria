@@ -133,7 +133,7 @@ export function AmbienteSceneDock({
     { id: 'objects', label: 'Objetos', hint: catalogOpen ? 'Fechar catálogo' : 'Abrir catálogo de móveis', icon: Sofa, onClick: onToggleCatalog, disabled: locked },
     { id: 'undo', label: 'Desfazer', hint: 'Desfazer — Ctrl+Z', icon: Undo2, onClick: onUndo, disabled: !canUndo },
     { id: 'redo', label: 'Refazer', hint: 'Refazer — Ctrl+Y', icon: Redo2, onClick: onRedo, disabled: !canRedo },
-    { id: 'save', label: 'Salvar', hint: 'Salvar cópia na pasta do lead', icon: Save, onClick: onSave, disabled: !canSave },
+    { id: 'save', label: 'Salvar', hint: 'Guardar na pasta do lead e tirar da lousa', icon: Save, onClick: onSave, disabled: !canSave },
   ];
 
   return (

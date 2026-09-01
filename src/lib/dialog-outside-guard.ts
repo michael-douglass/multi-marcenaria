@@ -102,6 +102,7 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-lead-ai-image-fullscreen]') ||
       target.closest('[data-lead-ai-render-fullscreen]') ||
       target.closest('[data-whiteboard-project-picker]') ||
+      target.closest('[data-ambiente-photo-studio]') ||
       target.closest('[data-lead-folder-picker]') ||
       target.closest('[data-nested-dialog]'),
   );
@@ -205,6 +206,7 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-markup-orcamento-simples]')) return true;
   if (target?.closest('[data-enviar-projeto-dialog]')) return true;
   if (target?.closest('[data-whiteboard-project-picker]')) return true;
+  if (target?.closest('[data-ambiente-photo-studio]')) return true;
   if (target?.closest('[data-pontua-garbo-dialog]')) return true;
   if (target?.closest('[data-whiteboard-viewport]')) return true;
   if (target?.closest('[data-whiteboard-fullscreen]')) return true;

@@ -1,5 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
+  Crop,
+  Eraser,
   FlipHorizontal2,
   FlipVertical2,
   RotateCcw,
@@ -23,6 +25,8 @@ interface AmbienteImageEditHudProps {
   onRotatePointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onFlipH: () => void;
   onFlipV: () => void;
+  onCrop?: () => void;
+  onRetouch?: () => void;
   onRemove?: () => void;
 }
 
@@ -42,6 +46,8 @@ export function AmbienteImageEditHud({
   onRotatePointerDown,
   onFlipH,
   onFlipV,
+  onCrop,
+  onRetouch,
   onRemove,
 }: AmbienteImageEditHudProps) {
   const deg = wrapPhotoRotation(rotation);
@@ -50,7 +56,7 @@ export function AmbienteImageEditHud({
     <div className="pointer-events-auto absolute inset-x-3 top-3 z-[55] flex justify-center pr-12">
       <div
         role="toolbar"
-        aria-label="Girar foto"
+        aria-label="Editar foto"
         className={cn(
           'relative overflow-hidden rounded-2xl border border-gold/35 bg-[#1a100c]/90 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md',
           'px-2 py-1.5 sm:px-3',
@@ -129,6 +135,30 @@ export function AmbienteImageEditHud({
           >
             <FlipVertical2 className="h-4 w-4" />
           </button>
+          {onCrop ? (
+            <button
+              type="button"
+              className={hudBtn}
+              disabled={disabled}
+              title="Recortar a foto"
+              aria-label="Recortar a foto"
+              onClick={onCrop}
+            >
+              <Crop className="h-4 w-4" />
+            </button>
+          ) : null}
+          {onRetouch ? (
+            <button
+              type="button"
+              className={hudBtn}
+              disabled={disabled}
+              title="Remover fundo e ajustar luz"
+              aria-label="Retocar a foto"
+              onClick={onRetouch}
+            >
+              <Eraser className="h-4 w-4" />
+            </button>
+          ) : null}
           {onRemove ? (
             <button
               type="button"

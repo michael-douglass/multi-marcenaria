@@ -6,6 +6,14 @@ export interface ImageStudioSeed {
   v: number;
 }
 
+/** Recorte na foto original, origem no canto superior esquerdo (0–1). */
+export interface ImageStudioCrop {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface ImageStudioEdits {
   brightness: number;
   contrast: number;
@@ -19,7 +27,10 @@ export interface ImageStudioEdits {
   bgTolerance: number;
   /** Toques manuais em restos de fundo que o recorte automático não pegou. */
   bgSeeds: ImageStudioSeed[];
+  crop: ImageStudioCrop;
 }
+
+export const FULL_IMAGE_CROP: ImageStudioCrop = { x: 0, y: 0, w: 1, h: 1 };
 
 export const DEFAULT_IMAGE_STUDIO_EDITS: ImageStudioEdits = {
   brightness: 100,
@@ -32,10 +43,124 @@ export const DEFAULT_IMAGE_STUDIO_EDITS: ImageStudioEdits = {
   removeBg: false,
   bgTolerance: 38,
   bgSeeds: [],
+  crop: { ...FULL_IMAGE_CROP },
 };
 
 const MAX_BAKE_EDGE_PX = 1600;
 export const PREVIEW_CUTOUT_MAX_EDGE = 800;
+
+export function studioCropIsActive(crop?: ImageStudioCrop | null): boolean {
+  if (!crop) return false;
+  return crop.x > 0.004 || crop.y > 0.004 || crop.w < 0.996 || crop.h < 0.996;
+}
+
+export function clampStudioCrop(crop: ImageStudioCrop): ImageStudioCrop {
+  const w = Math.min(1, Math.max(0.08, crop.w));
+  const h = Math.min(1, Math.max(0.08, crop.h));
+  return {
+    x: Math.min(1 - w, Math.max(0, crop.x)),
+    y: Math.min(1 - h, Math.max(0, crop.y)),
+    w,
+    h,
+  };
+}
+
+/** Converte o recorte (topo-esquerda) para o retângulo do shader (vUv, y=0 embaixo). */
+export function cropToShaderRect(crop: ImageStudioCrop): { x: number; y: number; z: number; w: number } {
+  const safe = clampStudioCrop(crop);
+  return {
+    x: safe.x,
+    y: 1 - (safe.y + safe.h),
+    z: safe.w,
+    w: safe.h,
+  };
+}
+
+export const STUDIO_CROP_ASPECTS: Array<{ id: string; label: string; value: number | null }> = [
+  { id: 'livre', label: 'Livre', value: null },
+  { id: '1-1', label: '1:1', value: 1 },
+  { id: '4-3', label: '4:3', value: 4 / 3 },
+  { id: '3-4', label: '3:4', value: 3 / 4 },
+  { id: '16-9', label: '16:9', value: 16 / 9 },
+];
+
+/** Maior recorte centrado com a proporção pedida (largura/altura em pixels). */
+export function maxCropForPixelAspect(
+  imageW: number,
+  imageH: number,
+  pixelAspect: number,
+): ImageStudioCrop {
+  const iw = Math.max(1, imageW);
+  const ih = Math.max(1, imageH);
+  const uvAspect = pixelAspect * (ih / iw);
+  if (uvAspect >= 1) {
+    const h = Math.min(1, 1 / uvAspect);
+    const w = Math.min(1, h * uvAspect);
+    return clampStudioCrop({ x: (1 - w) / 2, y: (1 - h) / 2, w, h });
+  }
+  const w = Math.min(1, uvAspect);
+  const h = Math.min(1, w / Math.max(uvAspect, 1e-4));
+  return clampStudioCrop({ x: (1 - w) / 2, y: (1 - h) / 2, w, h });
+}
+
+export interface StudioPreviewFit {
+  nw: number;
+  nh: number;
+}
+
+export function studioHostPointToUv(
+  clientX: number,
+  clientY: number,
+  host: HTMLElement,
+  fit: StudioPreviewFit,
+  edits: Pick<ImageStudioEdits, 'rotation' | 'flipH' | 'flipV'>,
+): ImageStudioSeed | null {
+  const rect = host.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return null;
+  const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -(((clientY - rect.top) / rect.height) * 2 - 1);
+  const sx = fit.nw * (edits.flipH ? -1 : 1);
+  const sy = fit.nh * (edits.flipV ? -1 : 1);
+  if (Math.abs(sx) < 1e-4 || Math.abs(sy) < 1e-4) return null;
+  const rz = -(edits.rotation * Math.PI) / 180;
+  const c = Math.cos(-rz);
+  const s = Math.sin(-rz);
+  const px = (nx * c - ny * s) / sx;
+  const py = (nx * s + ny * c) / sy;
+  if (Math.abs(px) > 1.02 || Math.abs(py) > 1.02) return null;
+  return {
+    u: Math.min(1, Math.max(0, (px + 1) / 2)),
+    v: Math.min(1, Math.max(0, (py + 1) / 2)),
+  };
+}
+
+export function studioUvToHostPercent(
+  seed: ImageStudioSeed,
+  fit: StudioPreviewFit,
+  edits: Pick<ImageStudioEdits, 'rotation' | 'flipH' | 'flipV'>,
+) {
+  const sx = fit.nw * (edits.flipH ? -1 : 1);
+  const sy = fit.nh * (edits.flipV ? -1 : 1);
+  const rz = -(edits.rotation * Math.PI) / 180;
+  const lx = seed.u * 2 - 1;
+  const ly = seed.v * 2 - 1;
+  const x = lx * sx;
+  const y = ly * sy;
+  const c = Math.cos(rz);
+  const s = Math.sin(rz);
+  const wx = x * c - y * s;
+  const wy = x * s + y * c;
+  return {
+    left: ((wx + 1) / 2) * 100,
+    top: ((1 - wy) / 2) * 100,
+  };
+}
+
+export function cropCornerToUv(crop: ImageStudioCrop, corner: 'nw' | 'ne' | 'sw' | 'se'): ImageStudioSeed {
+  const x = corner === 'ne' || corner === 'se' ? crop.x + crop.w : crop.x;
+  const y = corner === 'sw' || corner === 'se' ? crop.y + crop.h : crop.y;
+  return { u: x, v: 1 - y };
+}
 
 export function imageStudioHasEdits(edits: ImageStudioEdits): boolean {
   return (
@@ -46,7 +171,8 @@ export function imageStudioHasEdits(edits: ImageStudioEdits): boolean {
     edits.rotation !== 0 ||
     edits.flipH ||
     edits.flipV ||
-    edits.removeBg
+    edits.removeBg ||
+    studioCropIsActive(edits.crop)
   );
 }
 
@@ -488,6 +614,21 @@ function applyColorGrade(imageData: ImageData, edits: ImageStudioEdits) {
   }
 }
 
+function extractStudioCrop(source: HTMLCanvasElement, crop: ImageStudioCrop): HTMLCanvasElement {
+  const safe = clampStudioCrop(crop);
+  const sx = Math.min(source.width - 1, Math.max(0, Math.round(safe.x * source.width)));
+  const sy = Math.min(source.height - 1, Math.max(0, Math.round(safe.y * source.height)));
+  const sw = Math.max(1, Math.min(source.width - sx, Math.round(safe.w * source.width)));
+  const sh = Math.max(1, Math.min(source.height - sy, Math.round(safe.h * source.height)));
+  const out = document.createElement('canvas');
+  out.width = sw;
+  out.height = sh;
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return source;
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
+  return out;
+}
+
 export async function bakeImageStudio(sourceUrl: string, edits: ImageStudioEdits): Promise<string> {
   if (!imageStudioHasEdits(edits)) return sourceUrl;
 
@@ -496,7 +637,7 @@ export async function bakeImageStudio(sourceUrl: string, edits: ImageStudioEdits
   const srcH = Math.max(1, img.naturalHeight || img.height);
   const workSize = scaleToMaxEdge(srcW, srcH, MAX_BAKE_EDGE_PX);
 
-  const work = document.createElement('canvas');
+  let work = document.createElement('canvas');
   work.width = workSize.width;
   work.height = workSize.height;
   const workCtx = work.getContext('2d', { willReadFrequently: true });
@@ -507,6 +648,10 @@ export async function bakeImageStudio(sourceUrl: string, edits: ImageStudioEdits
     const cut = workCtx.getImageData(0, 0, work.width, work.height);
     removeStudioBackground(cut, edits.bgTolerance, edits.bgSeeds);
     workCtx.putImageData(cut, 0, 0);
+  }
+
+  if (studioCropIsActive(edits.crop)) {
+    work = extractStudioCrop(work, edits.crop);
   }
 
   const rotation = normalizeStudioRotation(edits.rotation);

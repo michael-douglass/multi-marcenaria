@@ -10,6 +10,7 @@ import {
 } from 'react';
 import {
   Contrast,
+  Crop,
   Crosshair,
   Eraser,
   FlipHorizontal2,
@@ -33,14 +34,23 @@ import {
   bakeImageStudio,
   computeStudioAlphaMask,
   containRotatedPlane,
+  cropToShaderRect,
   DEFAULT_IMAGE_STUDIO_EDITS,
+  FULL_IMAGE_CROP,
   getCanvasSourceSize,
   imageStudioHasEdits,
+  maxCropForPixelAspect,
   normalizeStudioRotation,
   PREVIEW_CUTOUT_MAX_EDGE,
+  studioCropIsActive,
+  studioHostPointToUv,
+  studioUvToHostPercent,
+  STUDIO_CROP_ASPECTS,
   type ImageStudioEdits,
   type ImageStudioSeed,
+  type StudioPreviewFit,
 } from '@/lib/lead-image-studio';
+import { ImageStudioCropFrame } from '@/components/leads/whiteboard/ImageStudioCropFrame';
 import { WhiteboardWoodFoil } from '@/components/leads/whiteboard/WhiteboardWoodFoil';
 
 export interface ProjectImageStudioHandle {
@@ -51,6 +61,8 @@ export interface ProjectImageStudioHandle {
 interface ProjectImageStudioProps {
   sourceUrl: string;
   disabled?: boolean;
+  /** Abre já no modo recorte — atalho da lousa. */
+  initialCropMode?: boolean;
 }
 
 const sliderClass =
@@ -78,66 +90,19 @@ function StudioField({
   );
 }
 
-interface PreviewFit {
-  nw: number;
-  nh: number;
-}
-
-function hostPointToUv(
-  clientX: number,
-  clientY: number,
-  host: HTMLElement,
-  fit: PreviewFit,
-  edits: ImageStudioEdits,
-): ImageStudioSeed | null {
-  const rect = host.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) return null;
-  const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
-  const ny = -(((clientY - rect.top) / rect.height) * 2 - 1);
-  const sx = fit.nw * (edits.flipH ? -1 : 1);
-  const sy = fit.nh * (edits.flipV ? -1 : 1);
-  if (Math.abs(sx) < 1e-4 || Math.abs(sy) < 1e-4) return null;
-  const rz = -(edits.rotation * Math.PI) / 180;
-  const c = Math.cos(-rz);
-  const s = Math.sin(-rz);
-  const px = (nx * c - ny * s) / sx;
-  const py = (nx * s + ny * c) / sy;
-  if (Math.abs(px) > 1.02 || Math.abs(py) > 1.02) return null;
-  return {
-    u: Math.min(1, Math.max(0, (px + 1) / 2)),
-    v: Math.min(1, Math.max(0, (py + 1) / 2)),
-  };
-}
-
-function uvToHostPercent(seed: ImageStudioSeed, fit: PreviewFit, edits: ImageStudioEdits) {
-  const sx = fit.nw * (edits.flipH ? -1 : 1);
-  const sy = fit.nh * (edits.flipV ? -1 : 1);
-  const rz = -(edits.rotation * Math.PI) / 180;
-  const lx = seed.u * 2 - 1;
-  const ly = seed.v * 2 - 1;
-  const x = lx * sx;
-  const y = ly * sy;
-  const c = Math.cos(rz);
-  const s = Math.sin(rz);
-  const wx = x * c - y * s;
-  const wy = x * s + y * c;
-  return {
-    left: ((wx + 1) / 2) * 100,
-    top: ((1 - wy) / 2) * 100,
-  };
-}
-
 export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectImageStudioProps>(
-  function ProjectImageStudio({ sourceUrl, disabled = false }, ref) {
+  function ProjectImageStudio({ sourceUrl, disabled = false, initialCropMode = false }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const uniformsRef = useRef<{
       uBrightness: { value: number };
       uContrast: { value: number };
       uSaturation: { value: number };
       uWarmth: { value: number };
+      uCropRect: { value: THREE.Vector4 };
+      uCropPreview: { value: number };
     } | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
-    const previewFitRef = useRef<PreviewFit>({ nw: 1, nh: 1 });
+    const previewFitRef = useRef<StudioPreviewFit>({ nw: 1, nh: 1 });
     const sourcePixelsRef = useRef<{ image: CanvasImageSource; width: number; height: number } | null>(
       null,
     );
@@ -150,10 +115,14 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
     const [webglOk, setWebglOk] = useState(true);
     const [sourceReady, setSourceReady] = useState(0);
     const [pointing, setPointing] = useState(false);
+    const [cropping, setCropping] = useState(initialCropMode);
+    const [cropAspectId, setCropAspectId] = useState('livre');
     const [fitTick, setFitTick] = useState(0);
 
     const editsRef = useRef(edits);
     editsRef.current = edits;
+    const croppingRef = useRef(cropping);
+    croppingRef.current = cropping;
 
     useImperativeHandle(
       ref,
@@ -165,10 +134,12 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
     );
 
     useEffect(() => {
-      setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [] });
+      setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [], crop: { ...FULL_IMAGE_CROP } });
       setPointing(false);
+      setCropping(initialCropMode);
+      setCropAspectId('livre');
       sourcePixelsRef.current = null;
-    }, [sourceUrl]);
+    }, [sourceUrl, initialCropMode]);
 
     useEffect(() => {
       const host = hostRef.current;
@@ -228,6 +199,8 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         uWarmth: { value: 0 },
         uCutBg: { value: 0 },
         uUseMask: { value: 0 },
+        uCropRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+        uCropPreview: { value: 0 },
       };
       uniformsRef.current = uniforms;
 
@@ -251,6 +224,8 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
           uniform float uWarmth;
           uniform float uCutBg;
           uniform float uUseMask;
+          uniform vec4 uCropRect;
+          uniform float uCropPreview;
           varying vec2 vUv;
 
           void main() {
@@ -263,6 +238,19 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
             color.b -= uWarmth * 0.14;
             float keep = texture2D(uMask, vUv).r;
             float alpha = texel.a * mix(1.0, keep, uCutBg * uUseMask);
+
+            vec2 cropMin = uCropRect.xy;
+            vec2 cropMax = uCropRect.xy + uCropRect.zw;
+            float inside = step(cropMin.x, vUv.x) * step(vUv.x, cropMax.x)
+              * step(cropMin.y, vUv.y) * step(vUv.y, cropMax.y);
+
+            if (uCropPreview < 0.5 && inside < 0.5) {
+              discard;
+            }
+
+            float veil = mix(0.18, 1.0, inside);
+            color *= mix(1.0, veil, uCropPreview);
+            alpha *= mix(1.0, mix(0.22, 1.0, inside), uCropPreview);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), alpha);
           }
         `,
@@ -290,6 +278,9 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
         uniforms.uSaturation.value = current.saturation / 100;
         uniforms.uWarmth.value = current.warmth / 100;
         uniforms.uCutBg.value = current.removeBg ? 1 : 0;
+        const shaderCrop = cropToShaderRect(current.crop ?? FULL_IMAGE_CROP);
+        uniforms.uCropRect.value.set(shaderCrop.x, shaderCrop.y, shaderCrop.z, shaderCrop.w);
+        uniforms.uCropPreview.value = croppingRef.current ? 1 : 0;
         if (!mesh) return;
         const src = sourcePixelsRef.current;
         const hostW = Math.max(host.clientWidth, 1);
@@ -461,7 +452,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
       if (disabled || !pointing || !edits.removeBg) return;
       const host = hostRef.current;
       if (!host) return;
-      const seed = hostPointToUv(event.clientX, event.clientY, host, previewFitRef.current, edits);
+      const seed = studioHostPointToUv(event.clientX, event.clientY, host, previewFitRef.current, edits);
       if (!seed) return;
       setEdits((prev) => ({ ...prev, bgSeeds: [...prev.bgSeeds, seed] }));
     };
@@ -514,7 +505,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
             )}
             {edits.removeBg &&
               edits.bgSeeds.map((seed, index) => {
-                const pos = uvToHostPercent(seed, previewFitRef.current, edits);
+                const pos = studioUvToHostPercent(seed, previewFitRef.current, edits);
                 return (
                   <button
                     key={`${seed.u.toFixed(4)}-${seed.v.toFixed(4)}-${index}-${fitTick}`}
@@ -533,8 +524,28 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
                   </button>
                 );
               })}
+            {cropping && !isLoading && !loadError && (
+              <ImageStudioCropFrame
+                crop={edits.crop ?? FULL_IMAGE_CROP}
+                fit={previewFitRef.current}
+                edits={edits}
+                host={hostRef.current}
+                disabled={disabled}
+                pixelAspect={STUDIO_CROP_ASPECTS.find((item) => item.id === cropAspectId)?.value ?? null}
+                imageWidth={sourcePixelsRef.current?.width ?? 1}
+                imageHeight={sourcePixelsRef.current?.height ?? 1}
+                onChange={(crop) => patch({ crop })}
+              />
+            )}
           </div>
-          {edits.removeBg && !isLoading && !loadError && (
+          {cropping && !isLoading && !loadError && (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[7] flex justify-center">
+              <p className="max-w-[22rem] rounded-full border border-gold/35 bg-[#1a100c]/82 px-3 py-1.5 text-center text-[11px] leading-snug text-[#f4e6c8] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-[2px]">
+                Arraste a janela dourada. Os cantos apertam ou alargam o recorte.
+              </p>
+            </div>
+          )}
+          {edits.removeBg && !isLoading && !loadError && !cropping && (
             <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[7] flex justify-center">
               <p className="max-w-[22rem] rounded-full border border-gold/35 bg-[#1a100c]/82 px-3 py-1.5 text-center text-[11px] leading-snug text-[#f4e6c8] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-[2px]">
                 {pointing
@@ -564,9 +575,72 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
                 Bancada de retoque
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-cream-muted">
-                Ajuste a foto do projeto antes de colocar no ambiente. O original do lead não muda.
+                Recorte o que importa, tire o fundo e ajuste a luz. O original do lead não muda.
               </p>
             </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-gold-border-subtle/25 bg-black/25 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold/90">
+                  <Crop className="h-3.5 w-3.5" />
+                  Recortar
+                </div>
+                <p className="mt-0.5 text-[10px] text-cream-faint">
+                  {studioCropIsActive(edits.crop) ? 'Há um recorte ativo nesta foto.' : 'Escolha só o pedaço que entra na lousa.'}
+                </p>
+              </div>
+              <Switch
+                checked={cropping}
+                disabled={disabled}
+                onCheckedChange={(checked) => {
+                  setCropping(checked);
+                  if (checked) setPointing(false);
+                }}
+                aria-label="Recortar a foto"
+              />
+            </div>
+
+            {cropping && (
+              <div className="space-y-3 rounded-lg border border-gold/25 bg-gradient-to-b from-gold/10 to-black/20 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold/90">Proporção</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {STUDIO_CROP_ASPECTS.map((aspect) => (
+                    <Button
+                      key={aspect.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'h-7 px-2 text-[10px] border-gold-border-subtle/35 bg-black/20',
+                        cropAspectId === aspect.id && 'border-gold/60 bg-gold/15 text-gold',
+                      )}
+                      disabled={disabled}
+                      onClick={() => {
+                        setCropAspectId(aspect.id);
+                        if (aspect.value) {
+                          const src = sourcePixelsRef.current;
+                          patch({
+                            crop: maxCropForPixelAspect(src?.width ?? 1, src?.height ?? 1, aspect.value),
+                          });
+                        }
+                      }}
+                    >
+                      {aspect.label}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full border-gold-border-subtle/35 bg-black/20 text-[11px]"
+                  disabled={disabled || !studioCropIsActive(edits.crop)}
+                  onClick={() => patch({ crop: { ...FULL_IMAGE_CROP } })}
+                >
+                  Foto inteira
+                </Button>
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-3 rounded-lg border border-gold-border-subtle/25 bg-black/25 px-3 py-2.5">
               <div className="min-w-0">
@@ -582,6 +656,7 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
                 onCheckedChange={(checked) => {
                   patch({ removeBg: checked });
                   setPointing(checked);
+                  if (checked) setCropping(false);
                 }}
                 aria-label="Remover fundo da foto"
               />
@@ -620,7 +695,10 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
                   <Switch
                     checked={pointing}
                     disabled={disabled}
-                    onCheckedChange={setPointing}
+                    onCheckedChange={(checked) => {
+                      setPointing(checked);
+                      if (checked) setCropping(false);
+                    }}
                     aria-label="Apontar restos de fundo na foto"
                   />
                 </div>
@@ -792,8 +870,10 @@ export const ProjectImageStudio = forwardRef<ProjectImageStudioHandle, ProjectIm
               className="h-8 justify-start gap-1.5 px-1 text-cream-muted hover:text-gold"
               disabled={disabled || !imageStudioHasEdits(edits)}
               onClick={() => {
-                setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [] });
+                setEdits({ ...DEFAULT_IMAGE_STUDIO_EDITS, bgSeeds: [], crop: { ...FULL_IMAGE_CROP } });
                 setPointing(false);
+                setCropping(false);
+                setCropAspectId('livre');
               }}
             >
               <Undo2 className="h-3.5 w-3.5" />

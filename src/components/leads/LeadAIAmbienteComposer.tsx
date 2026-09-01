@@ -45,6 +45,7 @@ import { AmbienteDrawLayer } from '@/components/leads/ambiente/AmbienteDrawLayer
 import { AmbienteDrawToolbar } from '@/components/leads/ambiente/AmbienteDrawToolbar';
 import { AmbienteImageEditHud } from '@/components/leads/ambiente/AmbienteImageEditHud';
 import { AmbienteObjectEditHud } from '@/components/leads/ambiente/AmbienteObjectEditHud';
+import { AmbientePhotoStudioDialog } from '@/components/leads/ambiente/AmbientePhotoStudioDialog';
 import { AmbienteShapeEditHud } from '@/components/leads/ambiente/AmbienteShapeEditHud';
 import { AmbienteSceneDock } from '@/components/leads/ambiente/AmbienteSceneDock';
 import { AmbienteZoomHud } from '@/components/leads/ambiente/AmbienteZoomHud';
@@ -52,6 +53,7 @@ import { RealisticFurnitureObject } from '@/components/leads/ambiente/RealisticF
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { useLeadPDFs } from '@/hooks/useLeadPDFs';
 import { dataUrlToFile } from '@/lib/contrato-anexo-upload';
+import { loadImageForRender } from '@/lib/render-image-normalize';
 import { sanitizeVisitFileBaseName } from '@/lib/lead-photo-checklist-catalog';
 import { whiteboardSaveStamp } from '@/lib/lead-whiteboard-save';
 import {
@@ -68,12 +70,14 @@ import {
 } from '@/lib/lead-ai-ambiente-draw';
 import {
   exportAmbienteCompositionToJpeg,
+  exportAmbienteFurnitureReferences,
   fileToImagePreview,
   previewFromImageUrl,
   urlToImagePreview,
 } from '@/lib/lead-ai-ambiente-export';
 import {
   ambienteDraftHasContent,
+  clearAmbienteDraft,
   loadAmbienteDraft,
   saveAmbienteDraft,
 } from '@/lib/lead-ai-ambiente-draft';
@@ -192,14 +196,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
-async function fileFromImageUrl(url: string, fileName: string): Promise<File> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Não foi possível copiar a foto original');
-  const blob = await response.blob();
-  const type = blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
-  return new File([blob], fileName, { type, lastModified: Date.now() });
-}
-
 function ambienteBlockedMessage(params: {
   kind: 'analyze' | 'render';
   configOff: boolean;
@@ -295,6 +291,8 @@ export function LeadAIAmbienteComposer({
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [isSavingCopy, setIsSavingCopy] = useState(false);
   const [sourceFolderId, setSourceFolderId] = useState<string | null>(null);
+  const [photoStudioOpen, setPhotoStudioOpen] = useState(false);
+  const [photoStudioCrop, setPhotoStudioCrop] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -797,6 +795,71 @@ export function LeadAIAmbienteComposer({
     if (!id) setSelectedId('background');
   }, [pushHistory]);
 
+  const selectedPhotoUrl = (): string | null => {
+    const id = selectedIdRef.current;
+    const overlay = id ? overlaysRef.current.find((item) => item.id === id) : null;
+    if (overlay) return overlay.url;
+    return backgroundRef.current?.url ?? null;
+  };
+
+  const openPhotoStudio = useCallback((startInCrop: boolean) => {
+    if (!selectedPhotoUrl()) {
+      toast.error('Selecione uma foto na lousa para editar');
+      return;
+    }
+    setPhotoStudioCrop(startInCrop);
+    setPhotoStudioOpen(true);
+  }, []);
+
+  const applyStudioBakedUrl = useCallback(async (bakedUrl: string) => {
+    const id = selectedIdRef.current;
+    const overlay = id ? overlaysRef.current.find((item) => item.id === id) : null;
+    const img = await loadImageForRender(bakedUrl);
+    const naturalWidth = img.naturalWidth || img.width || 1;
+    const naturalHeight = img.naturalHeight || img.height || 1;
+    pushHistory();
+    if (overlay) {
+      const scene = viewportRef.current;
+      const sceneAspect = (scene?.clientWidth || 1) / Math.max(scene?.clientHeight || 1, 1);
+      const zoom = zoomFromOverlayWidth(overlay.width, overlay.height);
+      const size = overlaySizeFromZoom(zoom, naturalWidth / Math.max(naturalHeight, 1), sceneAspect);
+      const cx = overlay.x + overlay.width / 2;
+      const cy = overlay.y + overlay.height / 2;
+      setOverlays((prev) =>
+        prev.map((item) =>
+          item.id === overlay.id
+            ? {
+                ...item,
+                url: bakedUrl,
+                width: size.width,
+                height: size.height,
+                x: cx - size.width / 2,
+                y: cy - size.height / 2,
+              }
+            : item,
+        ),
+      );
+      toast.success('Foto atualizada na lousa', {
+        description: 'Recorte, fundo e luz já entram na renderização e no salvar.',
+      });
+      return;
+    }
+    setBackground((prev) =>
+      prev
+        ? {
+            ...prev,
+            url: bakedUrl,
+            naturalWidth,
+            naturalHeight,
+          }
+        : prev,
+    );
+    if (!id) setSelectedId('background');
+    toast.success('Foto atualizada na lousa', {
+      description: 'Recorte, fundo e luz já entram na renderização e no salvar.',
+    });
+  }, [pushHistory]);
+
   const orbitSelectedYaw = useCallback((deltaDeg: number) => {
     const id = selectedIdRef.current;
     if (!id || !objectsRef.current.some((item) => item.id === id)) return;
@@ -1013,6 +1076,8 @@ export function LeadAIAmbienteComposer({
         markers,
         shapes,
       });
+      const furnitureReferences =
+        overlays.length > 0 ? await exportAmbienteFurnitureReferences(overlays) : undefined;
       updateFullscreen(false);
       setIsFlattening(false);
       renderStartedRef.current = false;
@@ -1022,6 +1087,8 @@ export function LeadAIAmbienteComposer({
           analiseTexto: analiseTexto ?? undefined,
           cenaInventario,
           compositionDataUrl,
+          sourceImageDataUrl: background?.url,
+          furnitureReferences,
         }),
       ).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Não foi possível renderizar o ambiente';
@@ -1506,57 +1573,61 @@ export function LeadAIAmbienteComposer({
     });
   }, [pushHistory]);
 
-  const canSaveCopy = Boolean(background) && !locked;
-  const saveDisabledReason = !background
-    ? 'Insira uma foto na cena antes de salvar'
-    : locked
-      ? 'Aguarde o processamento terminar'
-      : undefined;
+  const canSaveCopy = (Boolean(background) || overlays.length > 0) && !locked;
+  const saveDisabledReason =
+    !background && overlays.length === 0
+      ? 'Insira uma foto na cena antes de salvar'
+      : locked
+        ? 'Aguarde o processamento terminar'
+        : undefined;
 
   const performSaveCopy = useCallback(async (
     folderId: string | null,
     options?: { fileName: string; includeNotes: boolean },
   ) => {
     const currentBackground = backgroundRef.current;
-    if (!leadId || !currentBackground) return;
+    const currentOverlays = overlaysRef.current;
+    if (!leadId || (!currentBackground && currentOverlays.length === 0)) return;
     const stamp = whiteboardSaveStamp();
     const baseName = sanitizeVisitFileBaseName(
-      options?.fileName || currentBackground.label.replace(/\.[^.]+$/, '') || `ambiente-lead-${leadId}-${stamp}`,
+      options?.fileName
+        || currentBackground?.label.replace(/\.[^.]+$/, '')
+        || currentOverlays[0]?.label.replace(/\.[^.]+$/, '')
+        || `ambiente-lead-${leadId}-${stamp}`,
     );
     setIsSavingCopy(true);
     try {
-      const originalName = `${baseName}.jpg`;
-      const originalFile = currentBackground.url.startsWith('data:')
-        ? dataUrlToFile(currentBackground.url, originalName)
-        : await fileFromImageUrl(currentBackground.url, originalName);
-      await uploadAttachment(originalFile, folderId, `${baseName} (cópia)`);
+      const exported = await exportAmbienteCompositionToJpeg({
+        background: currentBackground,
+        overlays: currentOverlays,
+        objects: objectsRef.current,
+        markers: markersRef.current,
+        shapes: shapesRef.current,
+      });
+      const composedFile = dataUrlToFile(exported.dataUrl, `${baseName}.jpg`);
+      await uploadAttachment(composedFile, folderId, baseName);
 
-      const hasEdits =
-        overlaysRef.current.length > 0 ||
-        objectsRef.current.length > 0 ||
-        markersRef.current.length > 0 ||
-        shapesRef.current.length > 0 ||
-        (currentBackground.scale ?? 1) !== 1;
-      if (hasEdits) {
-        const exported = await exportAmbienteCompositionToJpeg({
-          background: currentBackground,
-          overlays: overlaysRef.current,
-          objects: objectsRef.current,
-          markers: markersRef.current,
-          shapes: shapesRef.current,
-        });
-        const composedFile = dataUrlToFile(exported.dataUrl, `${baseName}-ambiente.jpg`);
-        await uploadAttachment(composedFile, folderId, `${baseName} (ambiente)`);
-      }
+      const urlsToRevoke = [
+        currentBackground?.url,
+        ...currentOverlays.map((item) => item.url),
+      ];
+      setBackground(null);
+      setOverlays([]);
+      setSelectedId(null);
+      setSourceFolderId(null);
+      urlsToRevoke.forEach((url) => {
+        if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+      });
+      await clearAmbienteDraft(leadId);
 
       toast.success(
         folderId
-          ? 'Cópia da foto e composição salvas na pasta. A original do lead não foi alterada.'
-          : 'Cópia da foto e composição salvas nos anexos. A original do lead não foi alterada.',
+          ? 'Foto guardada na pasta. Ela saiu da lousa e já aparece na galeria.'
+          : 'Foto guardada nos anexos. Ela saiu da lousa e já aparece na galeria.',
       );
       setFolderPickerOpen(false);
     } catch (error) {
-      toast.error('Não foi possível salvar a cópia', {
+      toast.error('Não foi possível salvar a foto', {
         description: error instanceof Error ? error.message : undefined,
       });
     } finally {
@@ -1566,15 +1637,8 @@ export function LeadAIAmbienteComposer({
 
   const saveCopyToFolder = useCallback(async () => {
     if (!canSaveCopy) return;
-    if (sourceFolderId) {
-      await performSaveCopy(sourceFolderId, {
-        fileName: sanitizeVisitFileBaseName(background?.label.replace(/\.[^.]+$/, '') || 'ambiente'),
-        includeNotes: false,
-      });
-      return;
-    }
     setFolderPickerOpen(true);
-  }, [background?.label, canSaveCopy, performSaveCopy, sourceFolderId]);
+  }, [canSaveCopy]);
 
   useEffect(() => {
     return () => {
@@ -1772,7 +1836,7 @@ export function LeadAIAmbienteComposer({
               className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
               disabled={!canSaveCopy}
               onClick={() => void saveCopyToFolder()}
-              aria-label="Salvar cópia na pasta do lead"
+              aria-label="Guardar na pasta do lead e tirar da lousa"
             >
               {isSavingCopy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">Salvar</span>
@@ -1951,7 +2015,7 @@ export function LeadAIAmbienteComposer({
               <div
                 key={overlay.id}
                 className={cn(
-                  'absolute z-20 cursor-grab overflow-visible rounded-md border shadow-md active:cursor-grabbing',
+                  'absolute z-20 cursor-grab overflow-visible rounded-md border bg-transparent shadow-md active:cursor-grabbing',
                   selectedId === overlay.id ? 'border-gold ring-2 ring-gold/40' : 'border-gold/30',
                 )}
                 style={{
@@ -2215,6 +2279,8 @@ export function LeadAIAmbienteComposer({
                 }}
                 onFlipH={() => flipSelectedPhoto('h')}
                 onFlipV={() => flipSelectedPhoto('v')}
+                onCrop={() => openPhotoStudio(true)}
+                onRetouch={() => openPhotoStudio(false)}
                 onRemove={removeSelectedPhoto}
               />
             )}
@@ -2321,13 +2387,13 @@ export function LeadAIAmbienteComposer({
                   variant="outline"
                   className="h-8 w-8"
                   disabled={!canSaveCopy}
-                  aria-label="Salvar cópia na pasta do lead"
+                  aria-label="Guardar na pasta do lead e tirar da lousa"
                   onClick={() => void saveCopyToFolder()}
                 >
                   {isSavingCopy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{saveDisabledReason ?? 'Salvar cópia na pasta do lead'}</TooltipContent>
+              <TooltipContent>{saveDisabledReason ?? 'Guardar na pasta e tirar da lousa'}</TooltipContent>
             </Tooltip>
             <Button
               type="button"
@@ -2506,7 +2572,7 @@ export function LeadAIAmbienteComposer({
       <Dialog
         open={isFullscreen}
         onOpenChange={(open) => {
-          if (!open && (projectPickerOpen || folderPickerOpen || cameraOpen)) return;
+          if (!open && (projectPickerOpen || folderPickerOpen || cameraOpen || photoStudioOpen)) return;
           if (
             !open &&
             typeof document !== 'undefined' &&
@@ -2587,19 +2653,30 @@ export function LeadAIAmbienteComposer({
         open={folderPickerOpen}
         onOpenChange={setFolderPickerOpen}
         leadId={leadId}
-        title="Salvar cópia em qual pasta?"
-        description="A foto original do lead não muda. Na pasta entram uma cópia da foto e, se houver objetos, a composição do ambiente."
-        confirmLabel="Salvar nesta pasta"
-        previewUrl={background?.url}
+        title="Guardar a foto em qual pasta?"
+        description="A foto com zoom, recorte e posição sai da lousa e entra na galeria da pasta escolhida."
+        confirmLabel="Guardar nesta pasta"
+        previewUrl={background?.url ?? overlays[0]?.url}
         elevated={isFullscreen}
         coverItems={pdfs}
         askFileName
+        defaultFolderId={sourceFolderId}
         defaultFileName={
           background?.label
             ? sanitizeVisitFileBaseName(background.label.replace(/\.[^.]+$/, ''))
-            : 'ambiente'
+            : overlays[0]?.label
+              ? sanitizeVisitFileBaseName(overlays[0].label.replace(/\.[^.]+$/, ''))
+              : 'ambiente'
         }
         onConfirm={(folderId, options) => performSaveCopy(folderId, options)}
+      />
+      <AmbientePhotoStudioDialog
+        open={photoStudioOpen}
+        sourceUrl={selectedOverlay?.url ?? background?.url ?? null}
+        photoLabel={selectedOverlay?.label ?? background?.label}
+        startInCrop={photoStudioCrop}
+        onOpenChange={setPhotoStudioOpen}
+        onApply={(bakedUrl) => applyStudioBakedUrl(bakedUrl)}
       />
       <WhiteboardCameraCapture
         ref={cameraCaptureRef}
