@@ -26,9 +26,11 @@ export interface RealisticOrbit {
 interface Kit {
   wood: THREE.MeshStandardMaterial;
   glass: THREE.MeshStandardMaterial;
+  glassShade: THREE.ShaderMaterial;
   metal: THREE.MeshStandardMaterial;
   cream: THREE.MeshStandardMaterial;
   stone: THREE.ShaderMaterial;
+  fabric: THREE.ShaderMaterial;
 }
 
 export function clearRealisticGroup(group: THREE.Group, geometries: THREE.BufferGeometry[]) {
@@ -104,6 +106,168 @@ const STONE_LOOKS: Record<string, { base: number; vein: number; scale: number }>
   bancada_corian: { base: 0xf0ebe4, vein: 0xd0c8bc, scale: 6 },
 };
 
+function createGlassFresnelMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTint: { value: new THREE.Color(0x9ec4d8) },
+      uEdge: { value: new THREE.Color(0xf7fcff) },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uTint;
+      uniform vec3 uEdge;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      void main() {
+        vec3 viewDir = normalize(-vViewPosition);
+        float fresnel = pow(1.0 - max(0.0, dot(viewDir, normalize(vNormal))), 2.6);
+        vec3 color = mix(uTint, uEdge, fresnel);
+        float alpha = mix(0.22, 0.78, fresnel);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  });
+}
+
+function createFabricMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uBase: { value: new THREE.Color(0xc4b496) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      void main() {
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uBase;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+      float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+      }
+      void main() {
+        float n = noise(vUv * 22.0);
+        vec3 color = mix(uBase, uBase * 0.72, n * 0.42);
+        vec3 viewDir = normalize(-vViewPosition);
+        float rim = pow(1.0 - max(0.0, dot(viewDir, normalize(vNormal))), 2.8);
+        color += vec3(0.12, 0.1, 0.07) * rim;
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
+  });
+}
+
+function addCabinetDoors(
+  group: THREE.Group,
+  geometries: THREE.BufferGeometry[],
+  kit: Kit,
+  w: number,
+  h: number,
+  d: number,
+  y: number,
+  doors: number,
+  glass: boolean,
+) {
+  const count = Math.max(1, doors);
+  const doorW = (w * 0.9) / count;
+  const panel = glass ? kit.glassShade : kit.wood;
+  for (let i = 0; i < count; i += 1) {
+    const x = -w / 2 + w * 0.05 + doorW / 2 + i * doorW;
+    addBox(group, geometries, panel, doorW * 0.9, h * 0.84, glass ? 0.016 : 0.02, x, y, d / 2 + 0.012);
+    addBox(group, geometries, kit.metal, 0.024, 0.09, 0.024, x + doorW * 0.28, y, d / 2 + 0.038);
+  }
+}
+
+function buildDiningTable(
+  type: FurnitureModuleType,
+  kit: Kit,
+  group: THREE.Group,
+  geometries: THREE.BufferGeometry[],
+  w: number,
+  d: number,
+) {
+  const { wood, metal, glassShade } = kit;
+  const isCenter = type.includes('centro') || type === 'mesa_apoio' || type === 'mesa_canto' || type === 'mesa_lateral';
+  const isHigh = type === 'mesa_bistro' || type === 'mesa_bar';
+  const topH = isCenter ? 0.36 : isHigh ? 0.96 : 0.72;
+  const topT = type.includes('vidro') ? 0.03 : 0.05;
+  const topMat = type.includes('vidro') ? glassShade : wood;
+  const round = type.includes('redonda') || type.includes('pedestal');
+  const oval = type.includes('oval');
+  const square = type.includes('quadrada');
+  const topW = type.includes('8lugares')
+    ? w * 1.12
+    : type.includes('6lugares') || type.includes('extensivel')
+      ? w * 1.06
+      : square
+        ? Math.min(w, d * 1.4)
+        : w;
+  const topD = square ? topW * 0.72 : oval ? d * 0.78 : d;
+
+  if (round) {
+    const radius = Math.max(0.28, topW * 0.38);
+    addCyl(group, geometries, topMat, radius, radius, topT, 0, topH, 0, 28);
+    addCyl(group, geometries, wood, 0.08, 0.14, topH, 0, topH / 2, 0, 12);
+    return;
+  }
+
+  if (type === 'mesa_dobravel') {
+    addBox(group, geometries, wood, topW, topT, topD * 0.55, 0, topH, -topD * 0.12);
+    addBox(group, geometries, wood, 0.06, topH, 0.06, -topW * 0.38, topH / 2, 0.02);
+    addBox(group, geometries, wood, 0.06, topH, 0.06, topW * 0.38, topH / 2, 0.02);
+    return;
+  }
+
+  addBox(group, geometries, topMat, topW, topT, topD, 0, topH, 0);
+  if (oval) {
+    const mesh = group.children[group.children.length - 1];
+    if (mesh instanceof THREE.Mesh) mesh.scale.set(1.08, 1, 0.82);
+  }
+  const legMat = type === 'mesa_industrial' ? metal : wood;
+  const leg = type === 'mesa_industrial' ? 0.05 : 0.07;
+  addBox(group, geometries, legMat, leg, topH, leg, -topW * 0.42, topH / 2, -topD * 0.36);
+  addBox(group, geometries, legMat, leg, topH, leg, topW * 0.42, topH / 2, -topD * 0.36);
+  addBox(group, geometries, legMat, leg, topH, leg, -topW * 0.42, topH / 2, topD * 0.36);
+  addBox(group, geometries, legMat, leg, topH, leg, topW * 0.42, topH / 2, topD * 0.36);
+  if (type === 'mesa_industrial') {
+    addBox(group, geometries, metal, topW * 0.72, 0.03, 0.03, 0, 0.12, 0);
+  }
+  if (type.includes('extensivel')) {
+    addBox(group, geometries, wood, 0.02, topT + 0.01, topD * 0.9, 0, topH, 0);
+  }
+}
+
 function createStoneVeinMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -178,7 +342,7 @@ function buildCatalogExtraPiece(
   d: number,
   colorHex?: string,
 ): boolean {
-  const { wood, glass, metal, cream, stone } = kit;
+  const { wood, metal, cream, stone } = kit;
   const fam = meta.family;
 
   if (fam === 'pedra' || fam === 'revestimento') {
@@ -314,19 +478,8 @@ function buildCatalogExtraPiece(
     return true;
   }
 
-  if (fam === 'mesa') {
-    const topH = type === 'mesa_centro' || type === 'mesa_lateral' ? 0.38 : 0.72;
-    const topT = 0.05;
-    if (type === 'mesa_jantar_redonda') {
-      addCyl(group, geometries, wood, w * 0.42, w * 0.42, topT, 0, topH, 0, 24);
-      addCyl(group, geometries, wood, 0.08, 0.12, topH, 0, topH / 2, 0, 10);
-    } else {
-      addBox(group, geometries, wood, w, topT, d, 0, topH, 0);
-      addBox(group, geometries, wood, 0.07, topH, 0.07, -w * 0.42, topH / 2, -d * 0.38);
-      addBox(group, geometries, wood, 0.07, topH, 0.07, w * 0.42, topH / 2, -d * 0.38);
-      addBox(group, geometries, wood, 0.07, topH, 0.07, -w * 0.42, topH / 2, d * 0.38);
-      addBox(group, geometries, wood, 0.07, topH, 0.07, w * 0.42, topH / 2, d * 0.38);
-    }
+  if (fam === 'mesa' || type.startsWith('mesa_cozinha') || type === 'mesa_bistro') {
+    buildDiningTable(type, kit, group, geometries, w, d);
     return true;
   }
 
@@ -358,16 +511,116 @@ function buildCatalogExtraPiece(
   }
 
   if (fam === 'banheiro') {
-    if (type === 'toalheiro') {
-      addBox(group, geometries, metal, 0.42, 0.04, 0.04, 0, 0.85, 0);
-      addBox(group, geometries, metal, 0.42, 0.04, 0.04, 0, 0.62, 0);
+    if (type === 'toalheiro' || type === 'papeleira') {
+      addBox(group, geometries, metal, type === 'papeleira' ? 0.18 : 0.42, 0.04, 0.04, 0, 0.85, 0);
+      addBox(group, geometries, metal, type === 'papeleira' ? 0.18 : 0.42, 0.04, 0.04, 0, 0.62, 0);
+      if (type === 'papeleira') addCyl(group, geometries, cream, 0.06, 0.06, 0.12, 0, 0.72, 0.04, 10);
       return true;
     }
-    addBox(group, geometries, wood, w * 0.75, 0.48, d, 0, 0.28, 0);
-    addCyl(group, geometries, cream, 0.18, 0.2, 0.1, 0, 0.58, 0, 16);
-    if (type === 'gabinete_banheiro') {
-      addBox(group, geometries, glass, w * 0.45, 0.42, 0.03, 0, 0.95, -d * 0.2);
+    if (type === 'ducha') {
+      addCyl(group, geometries, metal, 0.03, 0.03, 1.35, 0, 0.7, 0, 8);
+      addBox(group, geometries, metal, 0.22, 0.04, 0.12, 0, 1.35, 0.04);
+      addCyl(group, geometries, metal, 0.08, 0.08, 0.05, 0, 1.28, 0.08, 12);
+      return true;
     }
+    if (type === 'box_vidro') {
+      addBox(group, geometries, metal, w * 0.72, 1.45, 0.04, 0, 0.74, -d * 0.2);
+      addBox(group, geometries, kit.glassShade, w * 0.62, 1.28, 0.02, -w * 0.12, 0.72, -d * 0.16);
+      addBox(group, geometries, kit.glassShade, w * 0.28, 1.28, 0.02, w * 0.22, 0.72, d * 0.05);
+      return true;
+    }
+    if (type === 'nicho_box') {
+      addBox(group, geometries, wood, w * 0.55, 0.42, d * 0.45, 0, 0.85, 0);
+      addBox(group, geometries, wood, w * 0.46, 0.03, d * 0.32, 0, 0.85, 0);
+      return true;
+    }
+    if (type === 'vaso_sanitario') {
+      addCyl(group, geometries, cream, 0.18, 0.22, 0.16, 0, 0.32, 0.04, 16);
+      addBox(group, geometries, cream, 0.28, 0.42, 0.18, 0, 0.52, -0.12);
+      return true;
+    }
+    if (type === 'lixeira_banheiro') {
+      addCyl(group, geometries, metal, 0.12, 0.14, 0.32, 0, 0.18, 0, 12);
+      addCyl(group, geometries, metal, 0.13, 0.13, 0.03, 0, 0.36, 0, 12);
+      return true;
+    }
+    if (type.includes('aereo')) {
+      addBox(group, geometries, wood, w * 0.78, 0.4, d * 0.62, 0, 1.12, 0);
+      addCabinetDoors(group, geometries, kit, w * 0.78, 0.4, d * 0.62, 1.12, 2, type.includes('vidro'));
+      return true;
+    }
+    if (type.includes('coluna')) {
+      addBox(group, geometries, wood, w * 0.48, 1.35, d * 0.7, 0, 0.68, 0);
+      addCabinetDoors(group, geometries, kit, w * 0.48, 1.35, d * 0.7, 0.68, 1, false);
+      return true;
+    }
+    addBox(group, geometries, wood, w * 0.82, 0.5, d, 0, 0.28, 0);
+    addBox(group, geometries, cream, w * 0.88, 0.05, d * 1.06, 0, 0.55, 0);
+    addCyl(group, geometries, cream, 0.16, 0.18, 0.08, 0, 0.62, 0.04, 16);
+    if (type.includes('gavetas')) {
+      addBox(group, geometries, wood, w * 0.32, 0.1, 0.02, -w * 0.18, 0.32, d / 2 + 0.01);
+      addBox(group, geometries, wood, w * 0.32, 0.1, 0.02, -w * 0.18, 0.18, d / 2 + 0.01);
+      addBox(group, geometries, wood, w * 0.32, 0.22, 0.02, w * 0.18, 0.26, d / 2 + 0.01);
+    } else {
+      addCabinetDoors(group, geometries, kit, w * 0.82, 0.42, d, 0.26, 2, type.includes('vidro'));
+    }
+    if (type === 'gabinete_banheiro') {
+      addBox(group, geometries, kit.glassShade, w * 0.42, 0.38, 0.02, 0, 0.98, -d * 0.18);
+    }
+    return true;
+  }
+
+  if (fam === 'cozinha') {
+    if (type === 'paneleiro') {
+      addBox(group, geometries, wood, w * 0.5, 1.35, d, 0, 0.68, 0);
+      for (const y of [0.28, 0.55, 0.82, 1.1]) {
+        addBox(group, geometries, wood, w * 0.42, 0.03, d * 0.8, 0, y, 0);
+      }
+      return true;
+    }
+    if (type === 'adega') {
+      addBox(group, geometries, wood, w * 0.48, 1.15, d * 0.7, 0, 0.58, 0);
+      addBox(group, geometries, kit.glassShade, w * 0.38, 0.95, 0.02, 0, 0.6, d * 0.38);
+      return true;
+    }
+    if (type === 'canto_cafe') {
+      addBox(group, geometries, wood, w * 0.7, 0.72, d, 0, 0.36, 0);
+      addBox(group, geometries, cream, w * 0.74, 0.05, d * 1.04, 0, 0.74, 0);
+      addBox(group, geometries, wood, w * 0.7, 0.42, d * 0.7, 0, 1.08, 0);
+      return true;
+    }
+    if (type === 'torre_geladeira') {
+      addBox(group, geometries, wood, w * 0.55, 1.55, d, 0, 0.78, 0);
+      addBox(group, geometries, metal, w * 0.42, 1.28, d * 0.7, 0, 0.72, 0.04);
+      return true;
+    }
+  }
+
+  if (fam === 'lavanderia') {
+    if (type === 'tanque') {
+      addBox(group, geometries, wood, w * 0.7, 0.55, d, 0, 0.32, 0);
+      addBox(group, geometries, cream, w * 0.62, 0.12, d * 0.7, 0, 0.62, 0);
+      return true;
+    }
+    if (type === 'cesto_roupa') {
+      addCyl(group, geometries, cream, 0.18, 0.2, 0.38, 0, 0.22, 0, 12);
+      return true;
+    }
+    if (type === 'tabua_passar') {
+      addBox(group, geometries, cream, w, 0.05, d * 0.45, 0, 0.82, 0);
+      addCyl(group, geometries, metal, 0.03, 0.03, 0.8, -w * 0.35, 0.4, 0, 8);
+      addCyl(group, geometries, metal, 0.03, 0.03, 0.8, w * 0.35, 0.4, 0, 8);
+      return true;
+    }
+    addBox(group, geometries, wood, w * 0.75, 0.85, d, 0, 0.48, 0);
+    addCabinetDoors(group, geometries, kit, w * 0.75, 0.72, d, 0.48, 2, false);
+    return true;
+  }
+
+  if (type === 'arquivo') {
+    addBox(group, geometries, wood, w * 0.48, 0.72, d, 0, 0.36, 0);
+    addBox(group, geometries, wood, w * 0.4, 0.14, 0.02, 0, 0.48, d / 2 + 0.01);
+    addBox(group, geometries, wood, w * 0.4, 0.14, 0.02, 0, 0.28, d / 2 + 0.01);
     return true;
   }
 
@@ -410,27 +663,48 @@ export function buildRealisticFurniturePiece(
     return;
   }
 
-  if (type === 'sofa' || type === 'sofa_2lugares' || type === 'sofa_canto') {
+  if (type.startsWith('sofa') || type === 'chaise') {
     const seatH = 0.28;
-    addBox(group, geometries, wood, w, seatH, d, 0, seatH / 2, 0);
-    addBox(group, geometries, wood, w, 0.48, 0.12, 0, 0.28 + 0.24, -d / 2 + 0.06);
-    addBox(group, geometries, wood, 0.1, 0.36, d * 0.92, -w / 2 + 0.05, 0.36, 0);
-    addBox(group, geometries, wood, 0.1, 0.36, d * 0.92, w / 2 - 0.05, 0.36, 0);
-    if (type === 'sofa_canto') {
-      addBox(group, geometries, wood, w * 0.42, seatH, d * 0.85, w / 2 - w * 0.18, seatH / 2, d * 0.22);
+    const fabric = kit.fabric;
+    const long = type.includes('4lugares') || type.includes('modular');
+    const compact = type.includes('namoradeira') || type === 'sofa_2lugares';
+    const seatW = long ? w * 1.05 : compact ? w * 0.85 : w;
+    addBox(group, geometries, fabric, seatW, seatH, d, 0, seatH / 2, 0);
+    addBox(group, geometries, fabric, seatW, type === 'sofa_capitone' ? 0.52 : 0.48, 0.12, 0, 0.28 + 0.24, -d / 2 + 0.06);
+    addBox(group, geometries, fabric, 0.1, 0.36, d * 0.92, -seatW / 2 + 0.05, 0.36, 0);
+    addBox(group, geometries, fabric, 0.1, 0.36, d * 0.92, seatW / 2 - 0.05, 0.36, 0);
+    if (type.includes('canto') || type === 'sofa_canto_chaise' || type === 'sofa_modular') {
+      addBox(group, geometries, fabric, seatW * 0.42, seatH, d * 0.9, seatW / 2 - seatW * 0.16, seatH / 2, d * 0.28);
+    }
+    if (type === 'sofa_reclinavel') {
+      addBox(group, geometries, fabric, seatW * 0.42, 0.12, d * 0.7, seatW * 0.22, 0.34, d * 0.18);
+    }
+    if (type === 'sofa_cama') {
+      addBox(group, geometries, cream, seatW * 0.88, 0.08, d * 1.15, 0, 0.18, d * 0.22);
+    }
+    if (type === 'sofa_capitone') {
+      addCyl(group, geometries, metal, 0.02, 0.02, 0.04, -0.18, 0.58, -d / 2 + 0.08, 8);
+      addCyl(group, geometries, metal, 0.02, 0.02, 0.04, 0.18, 0.58, -d / 2 + 0.08, 8);
     }
     return;
   }
 
-  if (type === 'cadeira' || type === 'cadeira_poltrona') {
-    const seatW = type === 'cadeira_poltrona' ? 0.72 : 0.52;
-    const seatD = type === 'cadeira_poltrona' ? 0.62 : 0.48;
-    addBox(group, geometries, wood, seatW, 0.1, seatD, 0, 0.38, 0);
-    addBox(group, geometries, wood, seatW, 0.52, 0.08, 0, 0.68, -seatD / 2 + 0.04);
-    addBox(group, geometries, wood, 0.07, 0.38, 0.07, -seatW / 2 + 0.06, 0.19, -seatD / 2 + 0.06);
-    addBox(group, geometries, wood, 0.07, 0.38, 0.07, seatW / 2 - 0.06, 0.19, -seatD / 2 + 0.06);
-    addBox(group, geometries, wood, 0.07, 0.38, 0.07, -seatW / 2 + 0.06, 0.19, seatD / 2 - 0.06);
-    addBox(group, geometries, wood, 0.07, 0.38, 0.07, seatW / 2 - 0.06, 0.19, seatD / 2 - 0.06);
+  if (type === 'cadeira' || type === 'cadeira_poltrona' || type.startsWith('poltrona') || type === 'cadeira_escritorio') {
+    const isLounge = type.includes('poltrona');
+    const seatW = isLounge ? 0.72 : type === 'cadeira_escritorio' ? 0.55 : 0.52;
+    const seatD = isLounge ? 0.62 : 0.48;
+    const seatMat = isLounge ? kit.fabric : wood;
+    addBox(group, geometries, seatMat, seatW, 0.1, seatD, 0, 0.38, 0);
+    addBox(group, geometries, seatMat, seatW, type === 'poltrona_leitura' ? 0.62 : 0.52, 0.08, 0, 0.68, -seatD / 2 + 0.04);
+    if (type === 'cadeira_escritorio' || type === 'poltrona_giro') {
+      addCyl(group, geometries, metal, 0.04, 0.04, 0.32, 0, 0.2, 0, 8);
+      addCyl(group, geometries, metal, 0.16, 0.16, 0.04, 0, 0.04, 0, 10);
+    } else {
+      addBox(group, geometries, wood, 0.07, 0.38, 0.07, -seatW / 2 + 0.06, 0.19, -seatD / 2 + 0.06);
+      addBox(group, geometries, wood, 0.07, 0.38, 0.07, seatW / 2 - 0.06, 0.19, -seatD / 2 + 0.06);
+      addBox(group, geometries, wood, 0.07, 0.38, 0.07, -seatW / 2 + 0.06, 0.19, seatD / 2 - 0.06);
+      addBox(group, geometries, wood, 0.07, 0.38, 0.07, seatW / 2 - 0.06, 0.19, seatD / 2 - 0.06);
+    }
     return;
   }
 
@@ -459,15 +733,29 @@ export function buildRealisticFurniturePiece(
     return;
   }
 
-  if (type === 'cama') {
-    addBox(group, geometries, wood, w, 0.22, d * 1.35, 0, 0.22, 0);
-    addBox(group, geometries, cream, w * 0.92, 0.14, d * 1.2, 0, 0.36, 0.04);
-    addBox(group, geometries, wood, w, 0.55, 0.1, 0, 0.5, -d * 0.62);
+  if (type.startsWith('cama') || type === 'berco') {
+    const bedW = type.includes('solteiro') ? w * 0.72 : type.includes('king') ? w * 1.12 : type.includes('queen') ? w * 1.05 : w;
+    addBox(group, geometries, wood, bedW, 0.22, d * 1.35, 0, 0.22, 0);
+    addBox(group, geometries, cream, bedW * 0.92, 0.14, d * 1.2, 0, 0.36, 0.04);
+    addBox(group, geometries, wood, bedW, type === 'berco' ? 0.72 : 0.55, 0.1, 0, type === 'berco' ? 0.58 : 0.5, -d * 0.62);
+    if (type.includes('beliche')) {
+      addBox(group, geometries, wood, bedW, 0.12, d * 1.2, 0, 0.95, 0);
+      addBox(group, geometries, wood, 0.06, 1.05, 0.06, -bedW / 2 + 0.05, 0.55, -d * 0.55);
+      addBox(group, geometries, wood, 0.06, 1.05, 0.06, bedW / 2 - 0.05, 0.55, -d * 0.55);
+    }
+    if (type.includes('bicama')) {
+      addBox(group, geometries, wood, bedW * 0.9, 0.14, d * 1.1, 0.08, 0.1, d * 0.15);
+    }
     return;
   }
 
-  if (type === 'cabeceira') {
-    addBox(group, geometries, wood, w * 1.15, 0.7, 0.08, 0, 0.45, 0);
+  if (type.startsWith('cabeceira')) {
+    const mat = type.includes('estofada') || type.includes('capitone') ? kit.fabric : wood;
+    addBox(group, geometries, mat, w * 1.15, 0.7, 0.08, 0, 0.45, 0);
+    if (type.includes('capitone')) {
+      addCyl(group, geometries, metal, 0.02, 0.02, 0.03, -0.22, 0.45, 0.05, 8);
+      addCyl(group, geometries, metal, 0.02, 0.02, 0.03, 0.22, 0.45, 0.05, 8);
+    }
     return;
   }
 
@@ -492,10 +780,10 @@ export function buildRealisticFurniturePiece(
     return;
   }
 
-  if (type === 'comoda' || type.startsWith('gaveta') || type.startsWith('mesa_cabeceira')) {
-    const h = type.startsWith('mesa_cabeceira') ? 0.55 : type === 'gaveta_5' ? 0.95 : 0.72;
+  if (type === 'comoda' || type.startsWith('comoda') || type.startsWith('gaveta') || type.startsWith('mesa_cabeceira')) {
+    const h = type.startsWith('mesa_cabeceira') ? 0.55 : type === 'gaveta_5' || type === 'comoda_6gav' ? 0.95 : 0.72;
     addBox(group, geometries, wood, w * 0.7, h, d, 0, h / 2, 0);
-    const rows = type === 'gaveta_5' ? 5 : type === 'gaveta_3' ? 3 : 3;
+    const rows = type === 'gaveta_5' ? 5 : type === 'comoda_6gav' ? 6 : type === 'gaveta_3' ? 3 : 3;
     for (let i = 0; i < rows; i += 1) {
       const y = 0.1 + (i + 0.5) * ((h - 0.12) / rows);
       addBox(group, geometries, wood, w * 0.62, (h - 0.14) / rows - 0.04, 0.02, 0, y, d / 2 + 0.01);
@@ -504,10 +792,36 @@ export function buildRealisticFurniturePiece(
     return;
   }
 
-  if (type.startsWith('guarda_roupa')) {
-    cabinetBody(group, geometries, kit, w * 0.72, 1.48, d * 0.88, type === 'guarda_roupa_casal' ? 3 : 2);
-    if (type === 'guarda_roupa_gavetas') {
-      addBox(group, geometries, wood, w * 0.62, 0.18, 0.03, 0, 0.22, d * 0.46);
+  if (type.startsWith('guarda_roupa') || type.startsWith('closet')) {
+    const doors = type.includes('4portas') ? 4 : type.includes('casal') ? 3 : type.includes('solteiro') ? 1 : 2;
+    const bodyW = type.includes('solteiro') ? w * 0.52 : type.includes('4portas') ? w * 0.9 : w * 0.72;
+    const bodyH = 1.48;
+    const bodyD = d * 0.88;
+    if (type === 'guarda_roupa_aberto' || type === 'closet') {
+      addBox(group, geometries, wood, bodyW, bodyH, bodyD * 0.7, 0, bodyH / 2, 0);
+      addBox(group, geometries, wood, bodyW * 0.86, 0.03, bodyD * 0.5, 0, 0.55, 0);
+      addBox(group, geometries, wood, bodyW * 0.86, 0.03, bodyD * 0.5, 0, 1.05, 0);
+      addCyl(group, geometries, metal, 0.015, 0.015, bodyW * 0.7, 0, 1.28, 0.08, 8);
+      const rod = group.children[group.children.length - 1];
+      if (rod instanceof THREE.Mesh) rod.rotation.z = Math.PI / 2;
+      return;
+    }
+    if (type === 'closet_ilha') {
+      addBox(group, geometries, wood, w * 0.85, 0.72, d * 1.1, 0, 0.36, 0);
+      addBox(group, geometries, wood, w * 0.75, 0.12, 0.02, 0, 0.48, d * 0.56);
+      addBox(group, geometries, wood, w * 0.75, 0.12, 0.02, 0, 0.28, d * 0.56);
+      return;
+    }
+    addBox(group, geometries, wood, bodyW, bodyH, bodyD, 0, bodyH / 2, 0);
+    addCabinetDoors(group, geometries, kit, bodyW, bodyH, bodyD, bodyH / 2, doors, type.includes('vidro'));
+    if (type.includes('espelho')) {
+      addBox(group, geometries, kit.glassShade, bodyW * 0.38, bodyH * 0.78, 0.02, bodyW * 0.12, bodyH / 2, bodyD / 2 + 0.02);
+    }
+    if (type.includes('canto')) {
+      addBox(group, geometries, wood, bodyW * 0.45, bodyH, bodyD * 0.7, bodyW * 0.28, bodyH / 2, -bodyD * 0.15);
+    }
+    if (type.includes('gavetas')) {
+      addBox(group, geometries, wood, bodyW * 0.62, 0.18, 0.03, 0, 0.22, bodyD * 0.52);
     }
     return;
   }
@@ -563,11 +877,16 @@ export function buildRealisticFurniturePiece(
   }
 
   if (type.includes('aereo')) {
-    addBox(group, geometries, wood, w * 0.7, 0.42, d * 0.7, 0, 1.05, 0);
+    const bodyW = type.includes('canto') ? w * 0.78 : w * 0.7;
+    addBox(group, geometries, wood, bodyW, 0.42, d * 0.7, 0, 1.05, 0);
+    addCabinetDoors(group, geometries, kit, bodyW, 0.42, d * 0.7, 1.05, type.includes('canto') ? 1 : 2, type.includes('vidro'));
+    if (type.includes('canto')) {
+      addBox(group, geometries, wood, bodyW * 0.42, 0.42, d * 0.55, bodyW * 0.28, 1.05, -d * 0.12);
+    }
     return;
   }
 
-  if (type.startsWith('bancada') || type.includes('cozinha')) {
+  if (type.startsWith('bancada') || type.startsWith('armario_cozinha')) {
     addBox(group, geometries, wood, w, 0.72, d, 0, 0.36, 0);
     addBox(group, geometries, cream, w * 1.04, 0.05, d * 1.06, 0, 0.75, 0);
     if (type === 'bancada_ilha') {
@@ -636,6 +955,7 @@ function createKit(wood: THREE.MeshStandardMaterial): Kit {
       transparent: true,
       opacity: 0.72,
     }),
+    glassShade: createGlassFresnelMaterial(),
     metal: new THREE.MeshStandardMaterial({
       color: 0x8d8d8d,
       roughness: 0.32,
@@ -647,6 +967,7 @@ function createKit(wood: THREE.MeshStandardMaterial): Kit {
       metalness: 0.02,
     }),
     stone: createStoneVeinMaterial(),
+    fabric: createFabricMaterial(),
   };
 }
 
@@ -775,9 +1096,11 @@ function renderSharedSnapshot(
   if (!studio) return null;
   const woodColor = studio.kit.wood.color.clone();
   const creamColor = studio.kit.cream.color.clone();
+  const fabricBase = studio.kit.fabric.uniforms.uBase.value.clone();
   if (colorHex && isCustomFurnitureColor(colorHex)) {
     studio.kit.wood.color.set(colorHex);
     studio.kit.cream.color.set(colorHex);
+    studio.kit.fabric.uniforms.uBase.value.set(colorHex);
   }
   try {
     buildRealisticFurniturePiece(type, studio.kit, studio.piece, studio.geometries, colorHex);
@@ -795,6 +1118,7 @@ function renderSharedSnapshot(
   } finally {
     studio.kit.wood.color.copy(woodColor);
     studio.kit.cream.color.copy(creamColor);
+    studio.kit.fabric.uniforms.uBase.value.copy(fabricBase);
   }
 }
 

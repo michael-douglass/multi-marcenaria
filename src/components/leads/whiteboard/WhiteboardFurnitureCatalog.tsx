@@ -11,6 +11,7 @@ import { useFurnitureFavorites } from '@/hooks/useFurnitureFavorites';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import {
   FURNITURE_CATALOG_GROUPS,
+  FURNITURE_FAMILIES,
   getFurnitureModuleMeta,
   type FurnitureCatalogGroupId,
 } from '@/lib/furniture-modules';
@@ -127,6 +128,19 @@ export function WhiteboardFurnitureCatalog({
     () => searchCatalogBank(bank, query, group as FurnitureCatalogGroupId | string, favorites),
     [bank, query, group, favorites],
   );
+
+  const groupedResults = useMemo(() => {
+    const buckets = new Map<string, typeof results>();
+    for (const mod of results) {
+      const list = buckets.get(mod.family) ?? [];
+      list.push(mod);
+      buckets.set(mod.family, list);
+    }
+    return FURNITURE_FAMILIES.map((family) => ({
+      family,
+      items: buckets.get(family.id) ?? [],
+    })).filter((entry) => entry.items.length > 0);
+  }, [results]);
 
   useEffect(() => {
     setPreviewType(selectedType);
@@ -301,7 +315,7 @@ export function WhiteboardFurnitureCatalog({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="Ex.: cadeira, tapete, granito, ripado…"
+                  placeholder="Ex.: armário de banheiro, mesa de cozinha, guarda-roupa, sofá…"
                   aria-label="Buscar objeto no catálogo"
                   disabled={disabled}
                   className="h-10 border-[rgba(240,210,140,0.35)] bg-black/35 pl-9 text-sm text-[#fff6ea] placeholder:text-[#d4bc9f]/75"
@@ -335,70 +349,87 @@ export function WhiteboardFurnitureCatalog({
           </header>
 
           <ScrollArea className="min-h-0 flex-1">
-            <div className="grid grid-cols-2 gap-1.5 p-2">
-              {results.map((mod) => {
-                const active = selectedType === mod.type;
-                const fav = isFavorite(mod.type);
-                return (
-                  <div key={`${bank}-${mod.type}`} className="relative">
-                    <button
-                      type="button"
-                      title={mod.description}
-                      disabled={disabled}
-                      data-furniture-item={mod.type}
-                      aria-label={`${mod.label} — ${activeBank.label}`}
-                      aria-pressed={active}
-                      onMouseEnter={() => setPreviewType(mod.type)}
-                      onFocus={() => setPreviewType(mod.type)}
-                      onClick={() => onSelect(mod.type, bank)}
-                      className={cn(
-                        'flex w-full items-center gap-1.5 rounded-xl border px-1.5 py-1.5 pr-7 text-left transition-colors',
-                        active
-                          ? 'border-[#f2d892] bg-[#f2d892]/16 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.18)]'
-                          : 'border-[rgba(240,210,140,0.16)] bg-black/15 text-[#fff6ea] hover:border-[rgba(240,210,140,0.4)] hover:bg-white/5',
-                      )}
+            <div className="flex flex-col gap-3 p-2">
+              {groupedResults.map(({ family, items }) => (
+                <section key={family.id} aria-label={family.label}>
+                  <header className="sticky top-0 z-10 mb-1.5 flex items-baseline justify-between gap-2 rounded-md bg-[#120c08]/92 px-1 py-1 backdrop-blur-sm">
+                    <h4
+                      className="text-[11px] tracking-[0.14em] text-[#f2d892]"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}
                     >
-                      <FurnitureModuleThumb
-                        moduleType={mod.type}
-                        flatFront={bank === 'reto'}
-                        className="h-11 w-9 shrink-0 text-[#f2d892]"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-[11px] font-semibold leading-tight">
-                          {mod.label}
-                        </span>
-                        <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
-                          {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      title={fav ? 'Remover dos favoritos' : 'Marcar como favorito'}
-                      aria-label={fav ? `Desmarcar ${mod.label} como favorito` : `Marcar ${mod.label} como favorito`}
-                      aria-pressed={fav}
-                      disabled={disabled}
-                      className={cn(
-                        'absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full',
-                        fav ? 'text-[#f2d892]' : 'text-[#d4bc9f]/70 hover:text-[#f2d892]',
-                      )}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        event.preventDefault();
-                        toggle(mod.type);
-                      }}
-                    >
-                      <Star className={cn('h-3.5 w-3.5', fav && 'fill-current')} />
-                    </button>
+                      {family.label}
+                    </h4>
+                    <span className="text-[9px] text-[#d4bc9f]/80">
+                      {items.length} modelo{items.length === 1 ? '' : 's'}
+                    </span>
+                  </header>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {items.map((mod) => {
+                      const active = selectedType === mod.type;
+                      const fav = isFavorite(mod.type);
+                      return (
+                        <div key={`${bank}-${mod.type}`} className="relative">
+                          <button
+                            type="button"
+                            title={mod.description}
+                            disabled={disabled}
+                            data-furniture-item={mod.type}
+                            aria-label={`${mod.label} — ${activeBank.label}`}
+                            aria-pressed={active}
+                            onMouseEnter={() => setPreviewType(mod.type)}
+                            onFocus={() => setPreviewType(mod.type)}
+                            onClick={() => onSelect(mod.type, bank)}
+                            className={cn(
+                              'flex w-full items-center gap-1.5 rounded-xl border px-1.5 py-1.5 pr-7 text-left transition-colors',
+                              active
+                                ? 'border-[#f2d892] bg-[#f2d892]/16 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.18)]'
+                                : 'border-[rgba(240,210,140,0.16)] bg-black/15 text-[#fff6ea] hover:border-[rgba(240,210,140,0.4)] hover:bg-white/5',
+                            )}
+                          >
+                            <FurnitureModuleThumb
+                              moduleType={mod.type}
+                              flatFront={bank === 'reto'}
+                              className="h-11 w-9 shrink-0 text-[#f2d892]"
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-[11px] font-semibold leading-tight">
+                                {mod.label}
+                              </span>
+                              <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
+                                {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
+                              </span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            title={fav ? 'Remover dos favoritos' : 'Marcar como favorito'}
+                            aria-label={fav ? `Desmarcar ${mod.label} como favorito` : `Marcar ${mod.label} como favorito`}
+                            aria-pressed={fav}
+                            disabled={disabled}
+                            className={cn(
+                              'absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full',
+                              fav ? 'text-[#f2d892]' : 'text-[#d4bc9f]/70 hover:text-[#f2d892]',
+                            )}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              event.preventDefault();
+                              toggle(mod.type);
+                            }}
+                          >
+                            <Star className={cn('h-3.5 w-3.5', fav && 'fill-current')} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </section>
+              ))}
             </div>
             {results.length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-[#d4bc9f]">
                 {group === 'favoritos'
-                  ? 'Nenhum favorito ainda. Toque na estrela de uma cadeira para ela aparecer primeiro na busca.'
-                  : `Nenhum item para “${query}”. Tente tapete, granito, ripado, cadeira ou nicho.`}
+                  ? 'Nenhum favorito ainda. Toque na estrela de um móvel para ele aparecer primeiro na busca.'
+                  : `Nenhum item para “${query}”. Tente banheiro, mesa de cozinha, guarda-roupa ou sofá.`}
               </p>
             )}
           </ScrollArea>

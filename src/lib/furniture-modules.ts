@@ -42,7 +42,8 @@ export type FurnitureFamilyId =
   | 'mesa'
   | 'pedra'
   | 'revestimento'
-  | 'banheiro';
+  | 'banheiro'
+  | 'lavanderia';
 
 export interface FurnitureFamilyMeta {
   id: FurnitureFamilyId;
@@ -738,10 +739,10 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
   {
     id: 'guarda_roupa',
     label: 'Guarda-roupa',
-    description: 'Roupeiros',
+    description: 'Roupeiros, portas de vidro, espelho e closet',
     defaultType: 'guarda_roupa',
   },
-  { id: 'cozinha', label: 'Cozinha', description: 'Balcões de cozinha', defaultType: 'armario_cozinha' },
+  { id: 'cozinha', label: 'Cozinha', description: 'Balcões, aéreos e mesas de cozinha', defaultType: 'armario_cozinha' },
   { id: 'gaveta', label: 'Gaveteiro', description: 'Blocos de gavetas', defaultType: 'gaveta' },
   { id: 'sapateira', label: 'Sapateira', description: 'Sapateiras', defaultType: 'sapateira' },
   { id: 'aereo', label: 'Aéreo', description: 'Armários aéreos', defaultType: 'armario_aereo' },
@@ -781,7 +782,7 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
   {
     id: 'sala',
     label: 'Sala',
-    description: 'Sofás, cadeiras e poltronas',
+    description: 'Sofás, poltronas, namoradeira e canto',
     defaultType: 'sofa',
   },
   {
@@ -799,7 +800,7 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
   {
     id: 'mesa',
     label: 'Mesas',
-    description: 'Jantar, centro, aparador e escrivaninha',
+    description: 'Jantar, cozinha, centro, bar e apoio',
     defaultType: 'mesa_jantar',
   },
   {
@@ -817,8 +818,14 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
   {
     id: 'banheiro',
     label: 'Banheiro',
-    description: 'Cuba, gabinete e toalheiro',
-    defaultType: 'gabinete_banheiro',
+    description: 'Armário aéreo, bancada, vidro, cuba e box',
+    defaultType: 'armario_banheiro_bancada',
+  },
+  {
+    id: 'lavanderia',
+    label: 'Serviço',
+    description: 'Tanque, armário e cesto de roupa',
+    defaultType: 'armario_lavanderia',
   },
 ];
 
@@ -851,7 +858,8 @@ export type FurnitureCatalogGroupId =
   | 'bancada'
   | 'pedra'
   | 'revestimento'
-  | 'banheiro';
+  | 'banheiro'
+  | 'lavanderia';
 
 export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; label: string }> = [
   { id: 'todos', label: 'Todos' },
@@ -864,6 +872,7 @@ export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; labe
   { id: 'pedra', label: 'Pedras' },
   { id: 'revestimento', label: 'Revestimentos' },
   { id: 'banheiro', label: 'Banheiro' },
+  { id: 'lavanderia', label: 'Serviço' },
   { id: 'eletro', label: 'Eletros' },
   { id: 'espelho', label: 'Espelhos' },
   { id: 'marcenaria', label: 'Marcenaria' },
@@ -873,7 +882,7 @@ export function furnitureCatalogGroup(
   familyId: FurnitureFamilyId,
 ): Exclude<FurnitureCatalogGroupId, 'todos' | 'favoritos'> {
   if (familyId === 'eletro') return 'eletro';
-  if (familyId === 'cozinha') return 'cozinha';
+  if (familyId === 'cozinha' || familyId === 'aereo') return 'cozinha';
   if (familyId === 'espelho') return 'espelho';
   if (familyId === 'sala' || familyId === 'mesa') return 'sala';
   if (familyId === 'decoracao' || familyId === 'iluminacao') return 'decoracao';
@@ -881,6 +890,7 @@ export function furnitureCatalogGroup(
   if (familyId === 'pedra') return 'pedra';
   if (familyId === 'revestimento') return 'revestimento';
   if (familyId === 'banheiro') return 'banheiro';
+  if (familyId === 'lavanderia') return 'lavanderia';
   if (familyId === 'quarto' || familyId === 'mesa_cabeceira' || familyId === 'guarda_roupa') {
     return 'quarto';
   }
@@ -892,6 +902,7 @@ function normalizeFurnitureQuery(value: string): string {
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .toLowerCase()
+    .replace(/[-_]+/g, ' ')
     .trim();
 }
 
@@ -1990,16 +2001,107 @@ export function furnitureFrame(
         break;
       }
       if (fam === 'banheiro') {
+        if (moduleType.includes('aereo')) {
+          drawInnerBox(0.08, 0.12, 0.92, 0.88);
+          seg(lines, fu(0.5, 0.12), fu(0.5, 0.88));
+          if (moduleType.includes('vidro')) {
+            drawInnerBox(0.12, 0.18, 0.46, 0.82);
+            drawInnerBox(0.54, 0.18, 0.88, 0.82);
+            seg(lines, fu(0.16, 0.24), fu(0.42, 0.74));
+          }
+          drawHandle(0.42, 0.5);
+          drawHandle(0.58, 0.5);
+          break;
+        }
+        if (moduleType.includes('coluna')) {
+          drawInnerBox(0.18, 0.08, 0.82, 0.92);
+          for (const t of [0.32, 0.52, 0.72]) {
+            seg(lines, fu(0.22, t), fu(0.78, t));
+          }
+          break;
+        }
+        if (moduleType === 'box_vidro' || moduleType === 'ducha') {
+          drawInnerBox(0.12, 0.08, 0.88, 0.92);
+          seg(lines, fu(0.5, 0.08), fu(0.5, 0.92));
+          break;
+        }
+        if (moduleType === 'nicho_box') {
+          drawInnerBox(0.18, 0.22, 0.82, 0.78);
+          seg(lines, fu(0.18, 0.5), fu(0.82, 0.5));
+          break;
+        }
         drawInnerBox(0.12, 0.38, 0.88, 0.92);
-        if (moduleType === 'cuba_apoiada') {
+        if (moduleType === 'cuba_apoiada' || moduleType.includes('bancada') || moduleType.startsWith('gabinete')) {
           drawInnerBox(0.28, 0.18, 0.72, 0.42);
+        }
+        if (moduleType.includes('vidro')) {
+          drawInnerBox(0.18, 0.48, 0.46, 0.88);
+          drawInnerBox(0.54, 0.48, 0.82, 0.88);
+          seg(lines, fu(0.22, 0.54), fu(0.42, 0.82));
         }
         break;
       }
-      if (moduleType === 'estante' || moduleType === 'buffet' || moduleType === 'chaise' || moduleType === 'banqueta') {
+      if (moduleType === 'estante' || moduleType === 'buffet' || moduleType === 'chaise' || moduleType === 'banqueta' || moduleType === 'arquivo' || moduleType === 'cadeira_escritorio') {
         drawInnerBox(0.1, 0.12, 0.9, 0.88);
         seg(lines, fu(0.1, 0.4), fu(0.9, 0.4));
         seg(lines, fu(0.1, 0.66), fu(0.9, 0.66));
+        break;
+      }
+      if (fam === 'guarda_roupa' || moduleType.startsWith('closet')) {
+        seg(lines, fu(0.5, 0.05), fu(0.5, 0.95));
+        if (moduleType.includes('4portas')) {
+          seg(lines, fu(0.25, 0.05), fu(0.25, 0.95));
+          seg(lines, fu(0.75, 0.05), fu(0.75, 0.95));
+        }
+        if (moduleType.includes('vidro') || moduleType.includes('espelho')) {
+          drawInnerBox(0.12, 0.12, 0.46, 0.88);
+          drawInnerBox(0.54, 0.12, 0.88, 0.88);
+          seg(lines, fu(0.18, 0.2), fu(0.4, 0.78));
+        }
+        drawHandle(0.42, 0.5);
+        drawHandle(0.58, 0.5);
+        break;
+      }
+      if (moduleType.startsWith('sofa') || moduleType.startsWith('poltrona')) {
+        drawInnerBox(0.04, 0.12, 0.96, 0.42);
+        drawInnerBox(0.08, 0.42, 0.92, 0.82);
+        if (moduleType.includes('4lugares') || moduleType.includes('modular')) {
+          seg(lines, fu(0.28, 0.42), fu(0.28, 0.82));
+          seg(lines, fu(0.52, 0.42), fu(0.52, 0.82));
+          seg(lines, fu(0.76, 0.42), fu(0.76, 0.82));
+        } else if (moduleType.includes('namoradeira') || moduleType.includes('2')) {
+          seg(lines, fu(0.5, 0.42), fu(0.5, 0.82));
+        } else {
+          seg(lines, fu(0.36, 0.42), fu(0.36, 0.82));
+          seg(lines, fu(0.64, 0.42), fu(0.64, 0.82));
+        }
+        break;
+      }
+      if (moduleType.startsWith('cama') || moduleType === 'berco') {
+        seg(lines, fu(0.08, 0.22), fu(0.92, 0.22));
+        drawInnerBox(0.1, 0.26, 0.9, 0.92);
+        if (moduleType.includes('beliche')) {
+          seg(lines, fu(0.08, 0.52), fu(0.92, 0.52));
+        }
+        break;
+      }
+      if (moduleType.startsWith('cabeceira')) {
+        drawInnerBox(0.06, 0.18, 0.94, 0.86);
+        seg(lines, fu(0.5, 0.18), fu(0.5, 0.86));
+        break;
+      }
+      if (fam === 'lavanderia') {
+        drawInnerBox(0.12, 0.28, 0.88, 0.92);
+        drawInnerBox(0.22, 0.12, 0.78, 0.32);
+        break;
+      }
+      if (fam === 'cozinha' && (moduleType.startsWith('mesa') || moduleType === 'mesa_bistro')) {
+        drawInnerBox(0.08, 0.38, 0.92, 0.52);
+        seg(lines, fu(0.14, 0.52), fu(0.14, 0.92));
+        seg(lines, fu(0.86, 0.52), fu(0.86, 0.92));
+        if (moduleType.includes('redonda')) {
+          drawInnerBox(0.22, 0.28, 0.78, 0.62);
+        }
         break;
       }
       break;
