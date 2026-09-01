@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function MeuPontoSection({ funcionarioTipo }: Props) {
-  const { status, loading, error } = useBaterPonto()
+  const { status, loading, statusError } = useBaterPonto()
 
   if (!podeBaterPontoPorTipo(funcionarioTipo)) return null
 
@@ -34,11 +34,11 @@ export function MeuPontoSection({ funcionarioTipo }: Props) {
 
       {loading && <p className="text-sm text-[#b8957f]">Carregando…</p>}
 
-      {!loading && error && (
-        <p className="text-sm text-red-300">{error}</p>
+      {!loading && statusError && (
+        <p className="text-sm text-red-300">{statusError}</p>
       )}
 
-      {!loading && !error && !status && (
+      {!loading && !statusError && !status && (
         <p className="text-sm text-[#b8957f]">
           Não foi possível carregar seu ponto. Peça ao RH para verificar seu vínculo e jornada.
         </p>

@@ -111,11 +111,17 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     host: true,
+    headers: {
+      'Permissions-Policy': 'geolocation=(self), camera=(self)',
+    },
   },
   preview: {
     port: 3000,
     strictPort: true,
     host: true,
+    headers: {
+      'Permissions-Policy': 'geolocation=(self), camera=(self)',
+    },
   },
   build: {
     chunkSizeWarningLimit: 1600,

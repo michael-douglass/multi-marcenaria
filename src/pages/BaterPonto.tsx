@@ -66,14 +66,18 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
 
       {loading && <LoadingState message="Carregando seu ponto…" />}
 
-      {!loading && error && (
-        <ErrorState message={error} onRetry={() => void reload()} />
+      {!loading && statusError && (
+        <div className="flex flex-col items-center gap-3">
+          <ErrorState message={statusError} />
+          <button type="button" className="btn btn-outline" onClick={() => void reload()}>
+            Tentar de novo
+          </button>
+        </div>
       )}
 
-      {!loading && !error && !status && (
+      {!loading && !statusError && !status && (
         <ErrorState
           message="Só funcionários cadastrados pela empresa podem bater ponto. Peça ao RH para vincular sua pasta."
-          onRetry={() => void reload()}
         />
       )}
 
@@ -105,7 +109,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
             <div className="glass-card p-5">
               <PontoWizardStep current={stepNum} total={4} labels={STEPS} />
 
-              {error && (
+              {error && step !== 'permissoes' && (
                 <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                   {error}
                 </div>
@@ -120,14 +124,32 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                     Precisamos da sua localização para registrar onde você está batendo ponto.
                     Toque em permitir quando o celular pedir.
                   </p>
+                  {error && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-sm text-red-200">
+                      <p>{error}</p>
+                      {isGeolocationPermissionDenied(error) && (
+                        <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-xs text-red-100/90">
+                          <li>
+                            iPhone: Ajustes → Privacidade e Segurança → Serviços de Localização
+                            (ligue) → Safari ou GARBO → Ao Usar o App.
+                          </li>
+                          <li>
+                            Android: toque no cadeado ao lado do endereço do site → Permissões
+                            → Localização → Permitir.
+                          </li>
+                          <li>Volte nesta tela e toque de novo no botão abaixo.</li>
+                        </ol>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="btn btn-gold w-full"
                     disabled={submitting}
-                    onClick={() => void solicitarLocalizacao()}
+                    onClick={() => solicitarLocalizacao()}
                   >
                     {submitting ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
-                    Permitir localização
+                    {error ? 'Tentar localização de novo' : 'Permitir localização'}
                   </button>
                 </div>
               )}

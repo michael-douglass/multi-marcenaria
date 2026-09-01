@@ -74,3 +74,49 @@ describe('bater ponto — sem WebGL em computador antigo', () => {
     }
   })
 })
+
+describe('bater ponto — localização no celular', () => {
+  it('não mostra o erro em inglês do navegador (User denied Geolocation)', () => {
+    const geo = readSrc('src/lib/geolocation.ts')
+    const ponto = readSrc('src/lib/funcionario-ponto.ts')
+    assert.match(geo, /formatGeolocationError/)
+    assert.match(geo, /O celular bloqueou a localização/)
+    assert.match(geo, /watchPosition/)
+    assert.doesNotMatch(geo, /err\.message/)
+    assert.doesNotMatch(ponto, /User denied/)
+    assert.doesNotMatch(ponto, /err\.message \|\| 'Permissão de localização/)
+  })
+
+  it('pede o GPS uma vez no toque, sem segunda tentativa depois do tempo esgotar', () => {
+    const geo = readSrc('src/lib/geolocation.ts')
+    const hook = readSrc('src/hooks/useBaterPonto.ts')
+    assert.match(geo, /requestGeolocation/)
+    assert.match(geo, /getCurrentPosition/)
+    assert.match(geo, /watchPosition/)
+    assert.doesNotMatch(geo, /readPositionOnce/)
+    assert.match(hook, /solicitarLocalizacao = \(\) =>/)
+    assert.match(hook, /requestGeolocation\(\)/)
+    assert.doesNotMatch(hook, /await requestGeolocation/)
+  })
+
+  it('erro de GPS fica no passo 1, com instrução de como ligar de novo', () => {
+    const page = readSrc('src/pages/BaterPonto.tsx')
+    const hook = readSrc('src/hooks/useBaterPonto.ts')
+    assert.match(hook, /statusError/)
+    assert.match(page, /statusError/)
+    assert.match(page, /isGeolocationPermissionDenied/)
+    assert.match(page, /Tentar localização de novo/)
+    assert.match(page, /Ajustes → Privacidade/)
+    assert.doesNotMatch(page, /ErrorState message=\{error\}/)
+  })
+
+  it('o servidor autoriza localização e câmera no cabeçalho da página', () => {
+    const netlify = readSrc('netlify.toml')
+    const vercel = readSrc('vercel.json')
+    const vite = readSrc('vite.config.ts')
+    assert.match(netlify, /Permissions-Policy/)
+    assert.match(netlify, /geolocation=\(self\)/)
+    assert.match(vercel, /Permissions-Policy/)
+    assert.match(vite, /Permissions-Policy/)
+  })
+})

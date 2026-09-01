@@ -3,9 +3,6 @@ import { FUNCIONARIO_DOCS_BUCKET, getFuncionarioDocSignedUrl, getFuncionarioDocs
 import { createId } from '@/lib/utils'
 import { PONTO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import { requestGeolocation, type GeoPosition } from '@/lib/geolocation'
-
-export type { GeoPosition }
-export { requestGeolocation }
 import type {
   FuncionarioJornada,
   FuncionarioTipo,
@@ -20,6 +17,9 @@ import type {
   PontoStatusDiaPayload,
   RepArquivo,
 } from '@/types'
+
+export type { GeoPosition }
+export { requestGeolocation }
 
 export const PONTO_TIPOS_ORDEM: PontoMarcacaoTipo[] = [
   'entrada',
