@@ -206,7 +206,7 @@ function MediaSelectCard({
   return (
     <article
       className={cn(
-        'group/card relative overflow-hidden rounded-xl border transition-all duration-300',
+        'group/card relative cursor-pointer overflow-hidden rounded-xl border transition-all duration-300',
         'bg-mahogany-card/60 shadow-lg shadow-black/20',
         'animate-in fade-in slide-in-from-bottom-2 fill-mode-both',
         selected
@@ -215,6 +215,8 @@ function MediaSelectCard({
         isDeleting && 'pointer-events-none opacity-60',
       )}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+      title="Clique para selecionar"
+      onClick={() => onChange(true)}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-mahogany-base">
         {isPdf ? (
@@ -246,6 +248,7 @@ function MediaSelectCard({
             id={inputId}
             checked={selected}
             onCheckedChange={(value) => onChange(value === true)}
+            onClick={(event) => event.stopPropagation()}
             className={cn(
               'h-5 w-5 border-gold-border/60 bg-mahogany-panel/90 data-[state=checked]:border-gold data-[state=checked]:bg-gold data-[state=checked]:text-gold-on',
             )}
@@ -978,11 +981,14 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
     async (item: LeadAIMediaItem, pdfPage?: number | null) => {
       setIsSendingToAmbiente(true);
       try {
-        const imageUrl = await resolveMediaItemImageUrlForEdit(
-          item,
-          item.kind === 'pdf' ? (pdfPage ?? undefined) : undefined,
-          buildRenderOptions(item),
-        );
+        const directUrl = item.kind === 'image' ? item.fileUrl ?? item.thumbnailUrl ?? null : null;
+        const imageUrl =
+          directUrl ??
+          (await resolveMediaItemImageUrlForEdit(
+            item,
+            item.kind === 'pdf' ? (pdfPage ?? undefined) : undefined,
+            buildRenderOptions(item),
+          ));
         if (!imageUrl) {
           toast.error('Não foi possível carregar a imagem selecionada');
           return;
@@ -991,8 +997,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
           url: imageUrl,
           label: item.label,
           nonce: Date.now(),
+          asBackground: true,
         });
-        scrollToAmbienteComposer();
+        window.setTimeout(() => scrollToAmbienteComposer(), 40);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Não foi possível enviar a foto ao ambiente');
       } finally {
@@ -1012,8 +1019,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   const handleOpenAmbienteComposer = useCallback(() => {
     if (ambienteConfigDisabled) return;
     if (!selectedItem) {
-      toast.error('Selecione uma foto para enviar ao ambiente');
-      scrollToAmbienteComposer();
+      toast.error('Clique na foto que deseja enviar à lousa');
       return;
     }
     if (selectedItem.kind === 'pdf' && selectedPdfPage == null) {
@@ -1022,7 +1028,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       return;
     }
     void sendItemToAmbiente(selectedItem, selectedPdfPage);
-  }, [ambienteConfigDisabled, scrollToAmbienteComposer, selectedItem, selectedPdfPage, sendItemToAmbiente]);
+  }, [ambienteConfigDisabled, selectedItem, selectedPdfPage, sendItemToAmbiente]);
 
   const handleAnalyzeAmbiente = useCallback(
     async (input: { descricao: string; imageDataUrl?: string; cenaInventario?: string }) => {
@@ -1148,8 +1154,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 Selecione uma imagem para renderizar
               </Label>
               <p className="text-xs text-cream-muted">
-                Funciona com esboços à mão na lousa, fotos de painel ou anexos. Em PDFs, escolha a página
-                que deseja renderizar ou editar. Você pode gerar quantas renderizações quiser — todas ficam salvas no histórico.
+                Clique na foto para selecionar. Depois use <strong>Renderizar com ambiente</strong> para
+                enviá-la à lousa e editar. Em PDFs, escolha a página. Cada render fica salvo no histórico.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

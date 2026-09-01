@@ -18,6 +18,10 @@ import { clampOrbitPitch, wrapOrbitYaw } from '@/lib/furniture-catalog-banks';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import type { AmbienteFurnitureObject } from '@/lib/lead-ai-ambiente-types';
 import type { FurnitureViewMode } from '@/lib/furniture-catalog-banks';
+import {
+  DEFAULT_FURNITURE_COLOR,
+  FURNITURE_FINISH_PRESETS,
+} from '@/lib/furniture-finish-colors';
 
 function normalizeDeg(deg: number): number {
   let value = ((deg % 360) + 360) % 360;
@@ -38,6 +42,7 @@ interface AmbienteObjectEditHudProps {
   onOrbitPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onChangeType: (moduleType: FurnitureModuleType) => void;
   onChangeViewMode: (viewMode: FurnitureViewMode) => void;
+  onChangeColor: (colorHex: string) => void;
   onRemove: () => void;
 }
 
@@ -65,6 +70,7 @@ export function AmbienteObjectEditHud({
   onOrbitPointerDown,
   onChangeType,
   onChangeViewMode,
+  onChangeColor,
   onRemove,
 }: AmbienteObjectEditHudProps) {
   const rotDeg = normalizeDeg(object.rotation ?? 0);
@@ -313,6 +319,54 @@ export function AmbienteObjectEditHud({
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
+        </div>
+      </div>
+
+      <div
+        className="flex flex-col gap-1.5 rounded-xl border border-amber-500/25 bg-zinc-900/80 px-1.5 py-1.5"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <p className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">
+          Cor do objeto
+        </p>
+        <div className="flex flex-wrap items-center gap-1">
+          {FURNITURE_FINISH_PRESETS.map((preset) => {
+            const active = (object.colorHex ?? DEFAULT_FURNITURE_COLOR).toLowerCase() === preset.hex.toLowerCase();
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.label}
+                aria-label={`Pintar de ${preset.label}`}
+                aria-pressed={active}
+                disabled={disabled}
+                className={cn(
+                  'h-5 w-5 rounded-full border shadow-inner transition hover:scale-110 disabled:opacity-40',
+                  active ? 'border-amber-200 ring-2 ring-amber-400/70' : 'border-black/40',
+                )}
+                style={{ backgroundColor: preset.hex }}
+                onClick={() => onChangeColor(preset.hex)}
+              />
+            );
+          })}
+          <label className="relative h-5 w-5 overflow-hidden rounded-full border border-amber-400/50" title="Cor livre">
+            <span className="sr-only">Escolher cor livre</span>
+            <input
+              type="color"
+              disabled={disabled}
+              value={object.colorHex ?? DEFAULT_FURNITURE_COLOR}
+              aria-label="Escolher cor livre do objeto"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+              onChange={(event) => onChangeColor(event.target.value)}
+            />
+            <span
+              className="block h-full w-full"
+              style={{
+                background:
+                  'conic-gradient(#f2d892, #3a241c, #3d5c4a, #3a4a62, #a85a3a, #f4efe6, #f2d892)',
+              }}
+            />
+          </label>
         </div>
       </div>
       </div>

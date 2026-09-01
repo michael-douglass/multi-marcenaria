@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useLeadMidiasParaOrcamento } from '@/hooks/useLeadMidiasParaOrcamento';
-import { setProjectImagePickerOpenFlag } from '@/lib/dialog-outside-guard';
+import { setProjectImagePickerOpenFlag, swallowClickThroughAfterDialogClose } from '@/lib/dialog-outside-guard';
 import { isLeadMidiaPdf } from '@/lib/orcamento-slide-projeto-files';
 import type { LeadMidiaDisponivel } from '@/lib/orcamento-slide-types';
 import {
@@ -100,6 +100,7 @@ export function WhiteboardProjectImagePicker({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isBaking, setIsBaking] = useState(false);
   const studioRef = useRef<ProjectImageStudioHandle>(null);
+  const confirmingRef = useRef(false);
 
   const existing = new Set(existingImageUrls);
   const disponiveis = midias.filter((m) => !existing.has(m.file_url));
@@ -200,12 +201,37 @@ export function WhiteboardProjectImagePicker({
   const studioSourceUrl = inspectingPdf ? activePdfPage?.src : inspecting?.file_url;
 
   const handleConfirmInspect = async () => {
-    if (!inspecting || isSelecting || isBaking) return;
+    if (!inspecting || isSelecting || isBaking || confirmingRef.current) return;
     if (inspectingPdf && !activePdfPage) return;
 
+    const sourceUrl = (inspectingPdf ? activePdfPage?.src : inspecting.file_url) || '';
+    if (!sourceUrl) {
+      toast.error('Esta foto não tem um arquivo válido');
+      return;
+    }
+
+    confirmingRef.current = true;
     try {
       setIsBaking(true);
-      const bakedUrl = studioRef.current ? await studioRef.current.bake() : studioSourceUrl;
+      let bakedUrl = sourceUrl;
+      const shouldBake = Boolean(studioRef.current?.hasEdits());
+      if (shouldBake && studioRef.current) {
+        try {
+          bakedUrl = await Promise.race([
+            studioRef.current.bake(),
+            new Promise<string>((_, reject) => {
+              window.setTimeout(() => reject(new Error('O retoque demorou demais')), 6000);
+            }),
+          ]);
+          bakedUrl = bakedUrl || sourceUrl;
+        } catch (err) {
+          bakedUrl = sourceUrl;
+          toast.message('A foto entra como está — o retoque não pôde ser aplicado.', {
+            description: err instanceof Error ? err.message : undefined,
+          });
+        }
+      }
+
       if (inspectingPdf && activePdfPage) {
         const base = inspecting.file_name.replace(/\.[^.]+$/, '') || 'documento';
         await onSelect({
@@ -215,16 +241,18 @@ export function WhiteboardProjectImagePicker({
           preview_label: `${inspecting.preview_label || 'PDF'} · pág. ${activePdfPage.pageNumber}`,
           tipo_arquivo: 'imagem',
         });
-        return;
+      } else {
+        await onSelect({
+          ...inspecting,
+          file_url: bakedUrl || inspecting.file_url,
+          preview_label: inspecting.preview_label || inspecting.file_name,
+        });
       }
-      await onSelect({
-        ...inspecting,
-        file_url: bakedUrl || inspecting.file_url,
-        preview_label: inspecting.preview_label || inspecting.file_name,
-      });
+      swallowClickThroughAfterDialogClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível aplicar a edição da foto');
     } finally {
+      confirmingRef.current = false;
       setIsBaking(false);
     }
   };
@@ -428,7 +456,16 @@ export function WhiteboardProjectImagePicker({
             <Button
               type="button"
               disabled={isSelecting || isBaking || (inspectingPdf && (pdfLoading || !activePdfPage))}
-              onClick={() => void handleConfirmInspect()}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (event.button !== 0) return;
+                void handleConfirmInspect();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleConfirmInspect();
+              }}
               className="bg-gold text-gold-on hover:bg-gold/90"
             >
               {isSelecting || isBaking ? (

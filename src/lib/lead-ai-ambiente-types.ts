@@ -88,6 +88,8 @@ export interface AmbienteIncomingPhoto {
   url: string;
   label: string;
   nonce: number;
+  /** Se verdadeiro, a foto vira o fundo da lousa (não um recorte por cima). */
+  asBackground?: boolean;
 }
 
 export interface AmbienteCompositionSnapshot {

@@ -241,7 +241,7 @@ export async function exportAmbienteCompositionToJpeg(
         const snap = await snapshotRealisticFurniture(object.moduleType, 360, {
           yaw: object.yaw ?? 0,
           pitch: object.pitch ?? 0,
-        });
+        }, object.colorHex);
         const cx = object.x * world.width;
         const cy = object.y * world.height;
         const w = Math.max(40, object.width * world.width);
@@ -320,15 +320,38 @@ export async function fileToImagePreview(file: File): Promise<AmbienteBackground
   };
 }
 
-export async function urlToImagePreview(url: string, label: string): Promise<AmbienteBackground> {
-  const img = await loadImageForRender(url);
+function loadImageForDisplay(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Não foi possível carregar a imagem'));
+    img.src = src;
+  });
+}
+
+/** Preview imediato para a lousa — não depende de CORS/fetch. */
+export function previewFromImageUrl(url: string, label: string): AmbienteBackground {
   return {
     url,
     label,
-    naturalWidth: img.naturalWidth || WORLD_MIN_W,
-    naturalHeight: img.naturalHeight || WORLD_MIN_H,
+    naturalWidth: WORLD_MIN_W,
+    naturalHeight: WORLD_MIN_H,
     scale: 1,
     offsetX: 0.5,
     offsetY: 0.5,
   };
+}
+
+export async function urlToImagePreview(url: string, label: string): Promise<AmbienteBackground> {
+  const fallback = previewFromImageUrl(url, label);
+  try {
+    const img = await loadImageForDisplay(url);
+    return {
+      ...fallback,
+      naturalWidth: img.naturalWidth || WORLD_MIN_W,
+      naturalHeight: img.naturalHeight || WORLD_MIN_H,
+    };
+  } catch {
+    return fallback;
+  }
 }

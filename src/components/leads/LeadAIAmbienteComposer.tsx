@@ -64,6 +64,7 @@ import {
 import {
   exportAmbienteCompositionToJpeg,
   fileToImagePreview,
+  previewFromImageUrl,
   urlToImagePreview,
 } from '@/lib/lead-ai-ambiente-export';
 import { buildAmbienteCenaInventario } from '@/lib/lead-ai-ambiente-inventario';
@@ -244,6 +245,7 @@ export function LeadAIAmbienteComposer({
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [selectedFurnitureType, setSelectedFurnitureType] = useState<FurnitureModuleType>('rack');
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [isImportingProject, setIsImportingProject] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -437,28 +439,53 @@ export function LeadAIAmbienteComposer({
     [setPhotoAsBackgroundOrOverlay],
   );
 
+  const setPhotoRef = useRef(setPhotoAsBackgroundOrOverlay);
+  setPhotoRef.current = setPhotoAsBackgroundOrOverlay;
+
   useEffect(() => {
-    if (!incomingPhoto) return;
+    if (!incomingPhoto?.url) return;
     const photo = incomingPhoto;
     let cancelled = false;
     void (async () => {
       try {
         const preview = await urlToImagePreview(photo.url, photo.label);
         if (cancelled) return;
-        await setPhotoAsBackgroundOrOverlay(preview);
-        toast.success('Foto enviada para Compor ambiente', {
-          description: 'Use o zoom para aproximar ou afastar a imagem na cena.',
+        if (photo.asBackground) {
+          if (backgroundRef.current) pushHistory();
+          setBackground({
+            ...preview,
+            scale: preview.scale ?? 1,
+            offsetX: preview.offsetX ?? 0.5,
+            offsetY: preview.offsetY ?? 0.5,
+          });
+          setSelectedId('background');
+          pulseComposer();
+        } else {
+          await setPhotoRef.current(preview);
+        }
+        toast.success('Foto na lousa', {
+          description: 'Agora você pode medir, anotar e posicionar móveis em cima dela.',
         });
       } catch (err) {
-        if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : 'Não foi possível enviar a foto ao ambiente');
-        }
+        if (cancelled) return;
+        setBackground({
+          url: photo.url,
+          label: photo.label,
+          naturalWidth: 960,
+          naturalHeight: 640,
+          scale: 1,
+          offsetX: 0.5,
+          offsetY: 0.5,
+        });
+        setSelectedId('background');
+        pulseComposer();
+        toast.error(err instanceof Error ? err.message : 'A foto entrou na lousa, mas o ajuste fino falhou');
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [incomingPhoto, setPhotoAsBackgroundOrOverlay]);
+  }, [incomingPhoto?.asBackground, incomingPhoto?.label, incomingPhoto?.nonce, incomingPhoto?.url, pulseComposer, pushHistory]);
 
   const readSelectedScale = useCallback((): number => {
     const id = selectedIdRef.current;
@@ -620,6 +647,15 @@ export function LeadAIAmbienteComposer({
     pushHistory();
     setObjects((prev) =>
       prev.map((item) => (item.id === id ? { ...item, viewMode } : item)),
+    );
+  }, [pushHistory]);
+
+  const changeSelectedObjectColor = useCallback((colorHex: string) => {
+    const id = selectedIdRef.current;
+    if (!id) return;
+    pushHistory();
+    setObjects((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, colorHex } : item)),
     );
   }, [pushHistory]);
 
@@ -1661,6 +1697,7 @@ export function LeadAIAmbienteComposer({
                       selected={selectedId === object.id}
                       yaw={object.yaw ?? 0}
                       pitch={object.pitch ?? 0}
+                      colorHex={object.colorHex}
                     />
                   ) : (
                     <div
@@ -1728,6 +1765,7 @@ export function LeadAIAmbienteComposer({
                 }
                 onChangeType={changeSelectedObjectType}
                 onChangeViewMode={changeSelectedViewMode}
+                onChangeColor={changeSelectedObjectColor}
                 onRemove={() => removeById(selectedObject.id)}
               />
             )}
@@ -2057,19 +2095,38 @@ export function LeadAIAmbienteComposer({
         leadId={leadId}
         open={projectPickerOpen}
         onOpenChange={setProjectPickerOpen}
-        elevated={isFullscreen}
+        elevated
+        isSelecting={isImportingProject}
         existingImageUrls={background ? [background.url, ...overlays.map((o) => o.url)] : []}
         onSelect={async (midia) => {
+          const url = midia.file_url?.trim();
+          if (!url) {
+            toast.error('Esta foto não tem um arquivo válido');
+            return;
+          }
+          setIsImportingProject(true);
           try {
-            const preview = await urlToImagePreview(
-              midia.file_url,
-              midia.preview_label || midia.file_name || 'Foto do projeto',
-            );
-            await setPhotoAsBackgroundOrOverlay(preview);
-            if (midia.folder_id) setSourceFolderId(midia.folder_id);
+            const label = midia.preview_label || midia.file_name || 'Foto do projeto';
             setProjectPickerOpen(false);
+            await setPhotoAsBackgroundOrOverlay(previewFromImageUrl(url, label));
+            if (midia.folder_id) setSourceFolderId(midia.folder_id);
+            toast.success('Foto na lousa', {
+              description: 'Agora você pode medir, anotar e posicionar móveis em cima dela.',
+            });
+            void urlToImagePreview(url, label).then((full) => {
+              setBackground((prev) => {
+                if (!prev || prev.url !== url) return prev;
+                return {
+                  ...prev,
+                  naturalWidth: full.naturalWidth,
+                  naturalHeight: full.naturalHeight,
+                };
+              });
+            });
           } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');
+          } finally {
+            setIsImportingProject(false);
           }
         }}
       />

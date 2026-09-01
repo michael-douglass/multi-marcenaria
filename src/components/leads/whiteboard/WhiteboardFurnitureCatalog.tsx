@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, Home, Search, Square, X } from 'lucide-react';
+import { Box, Home, Search, Square, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FurnitureModuleThumb } from '@/components/leads/whiteboard/FurnitureModuleGfx';
 import { ChecklistGoldFoil } from '@/components/leads/whiteboard/ChecklistGoldFoil';
 import { RealisticFurniturePreview } from '@/components/leads/ambiente/RealisticFurniturePreview';
+import { useFurnitureFavorites } from '@/hooks/useFurnitureFavorites';
 import type { FurnitureModuleType } from '@/lib/whiteboard-annotations';
 import {
   FURNITURE_CATALOG_GROUPS,
@@ -111,6 +112,7 @@ export function WhiteboardFurnitureCatalog({
   const [group, setGroup] = useState<string>('todos');
   const [previewType, setPreviewType] = useState<FurnitureModuleType>(selectedType);
   const [box, setBox] = useState<FloatingBox | null>(null);
+  const { favorites, toggle, isFavorite } = useFurnitureFavorites();
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const selected = getFurnitureModuleMeta(selectedType);
@@ -122,8 +124,8 @@ export function WhiteboardFurnitureCatalog({
   const groupChips = FURNITURE_CATALOG_GROUPS;
 
   const results = useMemo(
-    () => searchCatalogBank(bank, query, group as FurnitureCatalogGroupId | string),
-    [bank, query, group],
+    () => searchCatalogBank(bank, query, group as FurnitureCatalogGroupId | string, favorites),
+    [bank, query, group, favorites],
   );
 
   useEffect(() => {
@@ -299,7 +301,7 @@ export function WhiteboardFurnitureCatalog({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="Ex.: espelho, sofá, geladeira, cama…"
+                  placeholder="Ex.: cadeira, tapete, granito, ripado…"
                   aria-label="Buscar objeto no catálogo"
                   disabled={disabled}
                   className="h-10 border-[rgba(240,210,140,0.35)] bg-black/35 pl-9 text-sm text-[#fff6ea] placeholder:text-[#d4bc9f]/75"
@@ -336,45 +338,67 @@ export function WhiteboardFurnitureCatalog({
             <div className="grid grid-cols-2 gap-1.5 p-2">
               {results.map((mod) => {
                 const active = selectedType === mod.type;
+                const fav = isFavorite(mod.type);
                 return (
-                  <button
-                    key={`${bank}-${mod.type}`}
-                    type="button"
-                    title={mod.description}
-                    disabled={disabled}
-                    data-furniture-item={mod.type}
-                    aria-label={`${mod.label} — ${activeBank.label}`}
-                    aria-pressed={active}
-                    onMouseEnter={() => setPreviewType(mod.type)}
-                    onFocus={() => setPreviewType(mod.type)}
-                    onClick={() => onSelect(mod.type, bank)}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-xl border px-1.5 py-1.5 text-left transition-colors',
-                      active
-                        ? 'border-[#f2d892] bg-[#f2d892]/16 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.18)]'
-                        : 'border-[rgba(240,210,140,0.16)] bg-black/15 text-[#fff6ea] hover:border-[rgba(240,210,140,0.4)] hover:bg-white/5',
-                    )}
-                  >
-                    <FurnitureModuleThumb
-                      moduleType={mod.type}
-                      flatFront={bank === 'reto'}
-                      className="h-11 w-9 shrink-0 text-[#f2d892]"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-[11px] font-semibold leading-tight">
-                        {mod.label}
+                  <div key={`${bank}-${mod.type}`} className="relative">
+                    <button
+                      type="button"
+                      title={mod.description}
+                      disabled={disabled}
+                      data-furniture-item={mod.type}
+                      aria-label={`${mod.label} — ${activeBank.label}`}
+                      aria-pressed={active}
+                      onMouseEnter={() => setPreviewType(mod.type)}
+                      onFocus={() => setPreviewType(mod.type)}
+                      onClick={() => onSelect(mod.type, bank)}
+                      className={cn(
+                        'flex w-full items-center gap-1.5 rounded-xl border px-1.5 py-1.5 pr-7 text-left transition-colors',
+                        active
+                          ? 'border-[#f2d892] bg-[#f2d892]/16 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.18)]'
+                          : 'border-[rgba(240,210,140,0.16)] bg-black/15 text-[#fff6ea] hover:border-[rgba(240,210,140,0.4)] hover:bg-white/5',
+                      )}
+                    >
+                      <FurnitureModuleThumb
+                        moduleType={mod.type}
+                        flatFront={bank === 'reto'}
+                        className="h-11 w-9 shrink-0 text-[#f2d892]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-semibold leading-tight">
+                          {mod.label}
+                        </span>
+                        <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
+                          {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
+                        </span>
                       </span>
-                      <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
-                        {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
-                      </span>
-                    </span>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      title={fav ? 'Remover dos favoritos' : 'Marcar como favorito'}
+                      aria-label={fav ? `Desmarcar ${mod.label} como favorito` : `Marcar ${mod.label} como favorito`}
+                      aria-pressed={fav}
+                      disabled={disabled}
+                      className={cn(
+                        'absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full',
+                        fav ? 'text-[#f2d892]' : 'text-[#d4bc9f]/70 hover:text-[#f2d892]',
+                      )}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        toggle(mod.type);
+                      }}
+                    >
+                      <Star className={cn('h-3.5 w-3.5', fav && 'fill-current')} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
             {results.length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-[#d4bc9f]">
-                Nenhum item para “{query}”. Tente espelho, sofá, cadeira, fogão ou nicho.
+                {group === 'favoritos'
+                  ? 'Nenhum favorito ainda. Toque na estrela de uma cadeira para ela aparecer primeiro na busca.'
+                  : `Nenhum item para “${query}”. Tente tapete, granito, ripado, cadeira ou nicho.`}
               </p>
             )}
           </ScrollArea>

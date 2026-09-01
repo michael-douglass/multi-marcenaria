@@ -3,6 +3,8 @@ import type {
   WhiteboardFurnitureModulePayload,
   WhiteboardPoint,
 } from '@/lib/whiteboard-annotations';
+import { EXTRA_FURNITURE_MODULES } from '@/lib/furniture-catalog-extend';
+import { rankFurnitureByFavorite } from '@/lib/furniture-favorites';
 
 export interface FurnitureModuleMeta {
   type: FurnitureModuleType;
@@ -34,7 +36,13 @@ export type FurnitureFamilyId =
   | 'eletro'
   | 'espelho'
   | 'quarto'
-  | 'sala';
+  | 'sala'
+  | 'decoracao'
+  | 'iluminacao'
+  | 'mesa'
+  | 'pedra'
+  | 'revestimento'
+  | 'banheiro';
 
 export interface FurnitureFamilyMeta {
   id: FurnitureFamilyId;
@@ -47,7 +55,7 @@ export interface FurnitureFamilyMeta {
  * Catálogo de pré-desenhos 3D para marcenaria.
  * Colocação: 1º clique no topo, 2º embaixo (puxar para baixo).
  */
-export const FURNITURE_MODULES: FurnitureModuleMeta[] = [
+const CORE_FURNITURE_MODULES: FurnitureModuleMeta[] = [
   // —— Nichos ——
   {
     type: 'nicho',
@@ -719,6 +727,11 @@ export const FURNITURE_MODULES: FurnitureModuleMeta[] = [
   },
 ];
 
+export const FURNITURE_MODULES: FurnitureModuleMeta[] = [
+  ...CORE_FURNITURE_MODULES,
+  ...EXTRA_FURNITURE_MODULES,
+];
+
 export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
   { id: 'nicho', label: 'Nicho', description: 'Nichos e prateleiras box', defaultType: 'nicho' },
   { id: 'armario', label: 'Armário', description: 'Armários altos', defaultType: 'armario_vazio' },
@@ -771,6 +784,42 @@ export const FURNITURE_FAMILIES: FurnitureFamilyMeta[] = [
     description: 'Sofás, cadeiras e poltronas',
     defaultType: 'sofa',
   },
+  {
+    id: 'decoracao',
+    label: 'Decoração',
+    description: 'Tapetes, vasos, plantas e quadros',
+    defaultType: 'tapete',
+  },
+  {
+    id: 'iluminacao',
+    label: 'Iluminação',
+    description: 'Pendentes, spots e arandelas',
+    defaultType: 'pendente',
+  },
+  {
+    id: 'mesa',
+    label: 'Mesas',
+    description: 'Jantar, centro, aparador e escrivaninha',
+    defaultType: 'mesa_jantar',
+  },
+  {
+    id: 'pedra',
+    label: 'Pedras',
+    description: 'Mármore, granito e quartzito',
+    defaultType: 'pedra_marmore',
+  },
+  {
+    id: 'revestimento',
+    label: 'Revestimentos',
+    description: 'Ripado, porcelanato e tijolinho',
+    defaultType: 'revest_ripado',
+  },
+  {
+    id: 'banheiro',
+    label: 'Banheiro',
+    description: 'Cuba, gabinete e toalheiro',
+    defaultType: 'gabinete_banheiro',
+  },
 ];
 
 export function getFurnitureModuleMeta(type: FurnitureModuleType): FurnitureModuleMeta {
@@ -791,28 +840,47 @@ export function getFamilyForModuleType(type: FurnitureModuleType): FurnitureFami
 
 export type FurnitureCatalogGroupId =
   | 'todos'
+  | 'favoritos'
   | 'cozinha'
   | 'quarto'
   | 'espelho'
   | 'eletro'
   | 'marcenaria'
-  | 'sala';
+  | 'sala'
+  | 'decoracao'
+  | 'bancada'
+  | 'pedra'
+  | 'revestimento'
+  | 'banheiro';
 
 export const FURNITURE_CATALOG_GROUPS: Array<{ id: FurnitureCatalogGroupId; label: string }> = [
   { id: 'todos', label: 'Todos' },
+  { id: 'favoritos', label: 'Favoritos' },
   { id: 'sala', label: 'Sala' },
   { id: 'quarto', label: 'Quarto' },
   { id: 'cozinha', label: 'Cozinha' },
+  { id: 'decoracao', label: 'Decoração' },
+  { id: 'bancada', label: 'Bancadas' },
+  { id: 'pedra', label: 'Pedras' },
+  { id: 'revestimento', label: 'Revestimentos' },
+  { id: 'banheiro', label: 'Banheiro' },
   { id: 'eletro', label: 'Eletros' },
   { id: 'espelho', label: 'Espelhos' },
   { id: 'marcenaria', label: 'Marcenaria' },
 ];
 
-export function furnitureCatalogGroup(familyId: FurnitureFamilyId): Exclude<FurnitureCatalogGroupId, 'todos'> {
+export function furnitureCatalogGroup(
+  familyId: FurnitureFamilyId,
+): Exclude<FurnitureCatalogGroupId, 'todos' | 'favoritos'> {
   if (familyId === 'eletro') return 'eletro';
   if (familyId === 'cozinha') return 'cozinha';
   if (familyId === 'espelho') return 'espelho';
-  if (familyId === 'sala') return 'sala';
+  if (familyId === 'sala' || familyId === 'mesa') return 'sala';
+  if (familyId === 'decoracao' || familyId === 'iluminacao') return 'decoracao';
+  if (familyId === 'bancada') return 'bancada';
+  if (familyId === 'pedra') return 'pedra';
+  if (familyId === 'revestimento') return 'revestimento';
+  if (familyId === 'banheiro') return 'banheiro';
   if (familyId === 'quarto' || familyId === 'mesa_cabeceira' || familyId === 'guarda_roupa') {
     return 'quarto';
   }
@@ -827,14 +895,20 @@ function normalizeFurnitureQuery(value: string): string {
     .trim();
 }
 
-/** Busca móvel ou utensílio pelo nome, família ou palavra-chave. */
+/** Busca móvel ou utensílio pelo nome, família ou palavra-chave. Favoritos sobem na lista. */
 export function searchFurnitureModules(
   query: string,
   group: FurnitureCatalogGroupId = 'todos',
+  favorites?: ReadonlySet<string>,
 ): FurnitureModuleMeta[] {
   const needle = normalizeFurnitureQuery(query);
-  return FURNITURE_MODULES.filter((mod) => {
-    if (group !== 'todos' && furnitureCatalogGroup(mod.family) !== group) return false;
+  const favs = favorites instanceof Set ? favorites : new Set(favorites ?? []);
+  const hits = FURNITURE_MODULES.filter((mod) => {
+    if (group === 'favoritos') {
+      if (!favs.has(mod.type)) return false;
+    } else if (group !== 'todos' && furnitureCatalogGroup(mod.family) !== group) {
+      return false;
+    }
     if (!needle) return true;
     const haystack = [
       mod.label,
@@ -848,6 +922,7 @@ export function searchFurnitureModules(
       .join(' ');
     return haystack.includes(needle);
   });
+  return rankFurnitureByFavorite(hits, query, favs);
 }
 
 export interface FurnitureFrame {
@@ -1830,8 +1905,105 @@ export function furnitureFrame(
       seg(lines, fu(0.5, 0.1), fu(0.5, 0.9));
       break;
     }
-    default:
+    default: {
+      const fam = meta.family;
+      if (moduleType.startsWith('tapete')) {
+        drawInnerBox(0.08, 0.22, 0.92, 0.78);
+        if (moduleType.includes('redondo')) {
+          drawInnerBox(0.22, 0.12, 0.78, 0.88);
+        } else {
+          seg(lines, fu(0.14, 0.32), fu(0.86, 0.32));
+          seg(lines, fu(0.14, 0.68), fu(0.86, 0.68));
+        }
+        break;
+      }
+      if (moduleType.startsWith('vaso') || moduleType.startsWith('planta') || moduleType === 'cachepot') {
+        drawInnerBox(0.32, 0.55, 0.68, 0.92);
+        drawInnerBox(0.22, 0.12, 0.78, 0.55);
+        break;
+      }
+      if (moduleType === 'cortina' || moduleType === 'persiana' || moduleType === 'biombo') {
+        for (const u of [0.18, 0.38, 0.58, 0.78]) {
+          seg(lines, fu(u, 0.08), fu(u, 0.92));
+        }
+        break;
+      }
+      if (moduleType === 'quadro' || moduleType === 'galeria_quadros') {
+        drawInnerBox(0.12, 0.16, 0.88, 0.84);
+        if (moduleType === 'galeria_quadros') {
+          seg(lines, fu(0.5, 0.16), fu(0.5, 0.84));
+          seg(lines, fu(0.12, 0.5), fu(0.88, 0.5));
+        }
+        break;
+      }
+      if (moduleType === 'almofada' || moduleType === 'manta') {
+        drawInnerBox(0.18, 0.28, 0.82, 0.72);
+        break;
+      }
+      if (moduleType === 'relogio_parede') {
+        drawInnerBox(0.22, 0.18, 0.78, 0.82);
+        seg(lines, fu(0.5, 0.28), fu(0.5, 0.5));
+        seg(lines, fu(0.5, 0.5), fu(0.68, 0.58));
+        break;
+      }
+      if (moduleType === 'livros' || moduleType === 'escultura') {
+        drawInnerBox(0.22, 0.35, 0.78, 0.88);
+        drawInnerBox(0.3, 0.12, 0.7, 0.35);
+        break;
+      }
+      if (moduleType === 'lareira') {
+        drawInnerBox(0.12, 0.18, 0.88, 0.88);
+        drawInnerBox(0.28, 0.38, 0.72, 0.82);
+        break;
+      }
+      if (fam === 'iluminacao' || moduleType === 'candelabro') {
+        drawInnerBox(0.38, 0.08, 0.62, 0.22);
+        drawInnerBox(0.28, 0.22, 0.72, 0.72);
+        break;
+      }
+      if (fam === 'mesa' || moduleType === 'banco') {
+        drawInnerBox(0.08, 0.38, 0.92, 0.52);
+        seg(lines, fu(0.14, 0.52), fu(0.14, 0.92));
+        seg(lines, fu(0.86, 0.52), fu(0.86, 0.92));
+        if (moduleType.includes('redonda')) {
+          drawInnerBox(0.22, 0.28, 0.78, 0.62);
+        }
+        break;
+      }
+      if (fam === 'pedra' || fam === 'revestimento') {
+        drawInnerBox(0.06, 0.1, 0.94, 0.9);
+        seg(lines, fu(0.1, 0.28), fu(0.9, 0.42));
+        seg(lines, fu(0.08, 0.58), fu(0.92, 0.7));
+        if (moduleType === 'revest_ripado' || moduleType === 'revest_lambris') {
+          for (const u of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+            seg(lines, fu(u, 0.12), fu(u, 0.88));
+          }
+        }
+        break;
+      }
+      if (fam === 'bancada') {
+        const topOutL = add(tl, -ux * width * 0.03, -uy * width * 0.03);
+        const topOutR = add(tr, ux * width * 0.03, uy * width * 0.03);
+        seg(lines, topOutL, topOutR);
+        drawInnerBox(0.06, 0.32, 0.94, 0.48);
+        drawInnerBox(0.1, 0.48, 0.9, 0.92);
+        break;
+      }
+      if (fam === 'banheiro') {
+        drawInnerBox(0.12, 0.38, 0.88, 0.92);
+        if (moduleType === 'cuba_apoiada') {
+          drawInnerBox(0.28, 0.18, 0.72, 0.42);
+        }
+        break;
+      }
+      if (moduleType === 'estante' || moduleType === 'buffet' || moduleType === 'chaise' || moduleType === 'banqueta') {
+        drawInnerBox(0.1, 0.12, 0.9, 0.88);
+        seg(lines, fu(0.1, 0.4), fu(0.9, 0.4));
+        seg(lines, fu(0.1, 0.66), fu(0.9, 0.66));
+        break;
+      }
       break;
+    }
   }
 
   return {

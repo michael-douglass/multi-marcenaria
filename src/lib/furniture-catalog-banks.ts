@@ -70,9 +70,10 @@ export function searchCatalogBank(
   bank: FurnitureCatalogBankId,
   query: string,
   group: FurnitureCatalogGroupId | string,
+  favorites?: ReadonlySet<string>,
 ): FurnitureModuleMeta[] {
   void bank;
-  return searchFurnitureModules(query, group as FurnitureCatalogGroupId);
+  return searchFurnitureModules(query, group as FurnitureCatalogGroupId, favorites);
 }
 
 export function furnitureViewIsFlat(mode: FurnitureViewMode | undefined): boolean {
