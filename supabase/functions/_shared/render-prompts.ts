@@ -239,14 +239,15 @@ Inventário YAML da cena (móveis + ambiente):
 Inventário da lousa montada pelo vendedor:
 {{cena_inventario}}
 
-A PRIMEIRA imagem é a lousa (layout, posições, desenhos e peças). Se houver imagens seguintes, cada uma é a FOTO FIEL de um móvel que deve aparecer IDENTICAMENTE na posição da montagem.
+A PRIMEIRA imagem é a montagem EXATA da lousa (foto do cômodo + fotos de móveis já recortadas e posicionadas). Preserve layout, proporção e cores pixel a pixel. Se houver imagens seguintes, cada uma é a FOTO FIEL de um móvel — use só para detalhe, sem recolorir o que já está na montagem.
 
 FIDELIDADE DOS MÓVEIS (prioridade máxima — acima de estética):
 - Cada móvel da montagem é o MESMO produto: mesmos módulos, portas, gavetas, puxadores, proporções, materiais e cores
-- NÃO redesenhe, restilize, modernize, simplifique ou “melhore” o móvel
+- NÃO redesenhe, restilize, modernize, simplifique, recolorir ou “melhore” o móvel
 - NÃO troque madeira, laca, vidro, tecido ou ferragens
 - NÃO invente variação do projeto
-- Se a peça já está como foto na montagem ou nas imagens de referência, COPIE essa peça — só ajuste perspectiva, escala, luz e sombra para integrar no cômodo
+- NÃO estique, esmague ou mude a posição das peças já encaixadas na foto
+- Se a peça já está como foto na montagem, COPIE essa peça nas cores e no recorte visíveis — só integre luz e sombra no cômodo
 - Se a peça está como desenho/ícone, transforme o traço em acabamento realista SEM alterar a geometria
 
 AMBIENTE (da descrição + foto de fundo):
@@ -291,8 +292,8 @@ export function appendAmbienteFurnitureFidelity(
   const refCount = vars.furnitureRefCount ?? 0;
   const refHint =
     refCount > 0
-      ? `A primeira imagem é a montagem da lousa. As ${refCount} imagens seguintes são FOTOS FIÉIS dos móveis — copie cada uma identicamente na posição da montagem.`
-      : 'A imagem de entrada é a montagem da lousa (desenhos + peças). Transforme em foto sem redesenhar os móveis.';
+      ? `A primeira imagem é a montagem EXATA da lousa. As ${refCount} imagens seguintes são recortes fiéis dos móveis — copie cor, material e silhueta da montagem; as extras só reforçam detalhe.`
+      : 'A imagem de entrada é a montagem EXATA da lousa (foto do cômodo + peças posicionadas). Transforme em foto sem redesenhar, recolorir ou reposicionar os móveis.';
 
   const alreadyHasInventario = renderPrompt.includes(inventario);
   const inventarioBlock = alreadyHasInventario

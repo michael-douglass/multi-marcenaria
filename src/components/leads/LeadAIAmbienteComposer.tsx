@@ -96,6 +96,7 @@ import {
   planeFromContainFit,
   planesDiffer,
   remapSceneToPlane,
+  isUsableAmbienteViewport,
   type AmbienteNormPlane,
 } from '@/lib/lead-ai-ambiente-zoom';
 import { getFurnitureModuleMeta } from '@/lib/furniture-modules';
@@ -307,7 +308,15 @@ export function LeadAIAmbienteComposer({
   const [draftReady, setDraftReady] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [viewportSize, setViewportSize] = useState({ w: 1, h: 1 });
+  const viewportSizeRef = useRef(viewportSize);
+  viewportSizeRef.current = viewportSize;
   const renderStartedRef = useRef(false);
+
+  const exportViewport = useCallback((): { width: number; height: number } | undefined => {
+    const size = viewportSizeRef.current;
+    if (!isUsableAmbienteViewport(size.w, size.h)) return undefined;
+    return { width: size.w, height: size.h };
+  }, []);
 
   const updateFullscreen = useCallback((open: boolean) => {
     setAmbienteFullscreenOpenFlag(open);
@@ -349,6 +358,7 @@ export function LeadAIAmbienteComposer({
             objects: draft.objects,
             markers: draft.markers,
             shapes: draft.shapes,
+            viewport: exportViewport(),
           })
             .then((exported) => {
               if (!cancelled) onCompositionPreviewUrl(exported.dataUrl);
@@ -1111,6 +1121,7 @@ export function LeadAIAmbienteComposer({
           objects,
           markers,
           shapes,
+          viewport: exportViewport(),
         });
         imageDataUrl = exported.dataUrl;
       }
@@ -1139,6 +1150,7 @@ export function LeadAIAmbienteComposer({
     background,
     canAnalyze,
     descricao,
+    exportViewport,
     hasComposition,
     markers,
     objects,
@@ -1177,6 +1189,7 @@ export function LeadAIAmbienteComposer({
           objects,
           markers,
           shapes,
+          viewport: exportViewport(),
         });
         compositionDataUrl = exported.dataUrl;
       } else if (background) {
@@ -1185,6 +1198,7 @@ export function LeadAIAmbienteComposer({
           overlays: [],
           objects: [],
           markers: [],
+          viewport: exportViewport(),
         });
         compositionDataUrl = exported.dataUrl;
       }
@@ -1228,6 +1242,7 @@ export function LeadAIAmbienteComposer({
     canRender,
     descricao,
     disabled,
+    exportViewport,
     hasComposition,
     isBusy,
     isFlattening,
@@ -1736,6 +1751,7 @@ export function LeadAIAmbienteComposer({
         objects: objectsRef.current,
         markers: markersRef.current,
         shapes: shapesRef.current,
+        viewport: exportViewport(),
       });
       const composedFile = dataUrlToFile(exported.dataUrl, `${baseName}.jpg`);
       await uploadAttachment(composedFile, folderId, baseName);
@@ -1766,7 +1782,7 @@ export function LeadAIAmbienteComposer({
     } finally {
       setIsSavingCopy(false);
     }
-  }, [leadId, uploadAttachment]);
+  }, [exportViewport, leadId, uploadAttachment]);
 
   const saveCopyToFolder = useCallback(async () => {
     if (!canSaveCopy) return;

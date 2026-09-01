@@ -92,6 +92,33 @@ export function planeFromContainFit(nw: number, nh: number): AmbienteNormPlane {
   };
 }
 
+/**
+ * Caixa object-contain: a foto cabe inteira, sem esticar.
+ * Igual ao CSS `object-contain` da lousa.
+ */
+export function containedRectInBox(
+  boxW: number,
+  boxH: number,
+  contentW: number,
+  contentH: number,
+): { dx: number; dy: number; dw: number; dh: number } {
+  const srcW = Math.max(1, contentW);
+  const srcH = Math.max(1, contentH);
+  const fit = Math.min(boxW / srcW, boxH / srcH);
+  const dw = srcW * fit;
+  const dh = srcH * fit;
+  return {
+    dx: (boxW - dw) / 2,
+    dy: (boxH - dh) / 2,
+    dw,
+    dh,
+  };
+}
+
+export function isUsableAmbienteViewport(width: number, height: number): boolean {
+  return width >= 48 && height >= 48;
+}
+
 export function planesDiffer(a: AmbienteNormPlane, b: AmbienteNormPlane, eps = 0.01): boolean {
   return (
     Math.abs(a.left - b.left) > eps ||

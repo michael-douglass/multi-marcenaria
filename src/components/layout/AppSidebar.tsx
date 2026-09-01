@@ -37,8 +37,11 @@ import {
 } from '@/lib/app-navigation'
 import { colaboradorCrmRoles, canAccessCrmPath } from '@/lib/crm-identity'
 import { canAccessSection } from '@/lib/role-access'
-import { flattenSidebarPages, matchSidebarLeads, matchSidebarPages } from '@/lib/sidebar-search'
+import { flattenSidebarPages, matchSidebarClientes, matchSidebarCobrancas, matchSidebarLeads, matchSidebarObras, matchSidebarPages } from '@/lib/sidebar-search'
 import { useSidebarLeadsIndex } from '@/hooks/useSidebarLeadsIndex'
+import { useSidebarCobrancasIndex } from '@/hooks/useSidebarCobrancasIndex'
+import { useObras } from '@/hooks/useObras'
+import { useFinanceDataOptional } from '@/context/FinanceDataContext'
 import { isPontoLightPath } from '@/lib/webgl-support'
 import { cn } from '@/lib/utils'
 import type { ActiveSection } from '@/types'
@@ -197,6 +200,9 @@ export function AppSidebar() {
   const { pages } = useKanbanConfig()
   const { count: manutencaoCount } = useManutencaoAttentionCount()
   const canSearchLeads = canAccessCrmPath('/leads', crmProfile, userProfile)
+  const canSearchObras = canAccessSection(roles, 'agendaObras')
+  const canSearchCobrancas = canAccessSection(roles, 'cobranças')
+  const canSearchClientes = canAccessSection(roles, 'clientes')
 
   const items = attachPipelineKanbanPages(
     getVisibleNavMainItems(navVisibilityFromProfiles(roles, crmProfile, userProfile)),
@@ -209,14 +215,42 @@ export function AppSidebar() {
   const allPages = useMemo(() => flattenSidebarPages(items), [items])
   const searchHits = useMemo(() => matchSidebarPages(allPages, searchQuery), [allPages, searchQuery])
   const { data: leadIndex = [], isFetching: leadsFetching } = useSidebarLeadsIndex(canSearchLeads)
+  const obrasStore = useObras()
+  const finance = useFinanceDataOptional()
+  const { data: cobrancaIndex = [], isFetching: cobrancasFetching } = useSidebarCobrancasIndex(canSearchCobrancas)
   const leadHits = useMemo(
     () => (canSearchLeads ? matchSidebarLeads(leadIndex, searchQuery) : []),
     [canSearchLeads, leadIndex, searchQuery],
   )
+  const obraHits = useMemo(
+    () => (canSearchObras ? matchSidebarObras(obrasStore.data, searchQuery, leadIndex) : []),
+    [canSearchObras, obrasStore.data, searchQuery, leadIndex],
+  )
+  const cobrancaHits = useMemo(
+    () => (canSearchCobrancas ? matchSidebarCobrancas(cobrancaIndex, searchQuery, leadIndex) : []),
+    [canSearchCobrancas, cobrancaIndex, searchQuery, leadIndex],
+  )
+  const clienteHits = useMemo(() => {
+    if (!canSearchClientes) return []
+    const clientes = finance?.clientes.data ?? []
+    const cobrancaNomes = new Set(cobrancaHits.map(hit => hit.title))
+    return matchSidebarClientes(clientes, searchQuery).filter(hit => !cobrancaNomes.has(hit.title))
+  }, [canSearchClientes, finance?.clientes.data, searchQuery, cobrancaHits])
+  const financeiroHits = useMemo(
+    () => [...cobrancaHits, ...clienteHits],
+    [cobrancaHits, clienteHits],
+  )
   const isSearching = searchQuery.trim().length > 0
   const crmHits = searchHits.filter(hit => hit.sector === 'comercial')
   const casaHits = searchHits.filter(hit => hit.sector === 'casa')
-  const searchEmpty = isSearching && searchHits.length === 0 && leadHits.length === 0 && !leadsFetching
+  const searchEmpty =
+    isSearching &&
+    searchHits.length === 0 &&
+    leadHits.length === 0 &&
+    obraHits.length === 0 &&
+    financeiroHits.length === 0 &&
+    !leadsFetching &&
+    !cobrancasFetching
 
   const financeiroAbertoPorRota = isFinanceiroSection(activeSection)
   const funcionariosAbertoPorRota = isFuncionariosSection(activeSection)
@@ -492,6 +526,41 @@ export function AppSidebar() {
                       const isActive =
                         location.pathname === '/pipeline' &&
                         new URLSearchParams(location.search).get('id') === leadId
+                      return (
+                        <SidebarMenuItem key={hit.id}>
+                          {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </>
+              ) : null}
+              {obraHits.length > 0 ? (
+                <>
+                  <p className="sidebar-search-kicker sidebar-search-kicker--casa">Agenda de Obras</p>
+                  <SidebarMenu>
+                    {obraHits.map(hit => {
+                      const Icon = hit.icon
+                      const obraId = hit.id.replace(/^obra-/, '')
+                      const isActive =
+                        location.pathname === '/agenda-obras' &&
+                        new URLSearchParams(location.search).get('obra') === obraId
+                      return (
+                        <SidebarMenuItem key={hit.id}>
+                          {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </>
+              ) : null}
+              {financeiroHits.length > 0 ? (
+                <>
+                  <p className="sidebar-search-kicker sidebar-search-kicker--casa">Financeiro</p>
+                  <SidebarMenu>
+                    {financeiroHits.map(hit => {
+                      const Icon = hit.icon
+                      const isActive = isLeafPathActive(location.pathname, hit.url.split('?')[0])
                       return (
                         <SidebarMenuItem key={hit.id}>
                           {renderLeaf(hit.url, hit.title, Icon, isActive, false, 0, undefined, hit.trail)}

@@ -3,6 +3,62 @@ export interface OpenAIImageEditOptions {
   requireMask?: boolean;
   /** Fotos extras de referência (gpt-image-1 / 1.5 — até 16 no total com a cena). */
   extraImages?: Array<{ bytes: Uint8Array; mime: string; filename?: string }>;
+  /** Tamanho da saída. Se omitido, escolhe o mais próximo da foto de entrada. */
+  size?: '1024x1024' | '1536x1024' | '1024x1536';
+}
+
+export function pickGptImageEditSize(
+  width: number,
+  height: number,
+): '1024x1024' | '1536x1024' | '1024x1536' {
+  const ratio = width / Math.max(height, 1);
+  if (ratio >= 1.25) return '1536x1024';
+  if (ratio <= 0.8) return '1024x1536';
+  return '1024x1024';
+}
+
+export function readImageDimensions(
+  bytes: Uint8Array,
+  mime = '',
+): { width: number; height: number } | null {
+  const looksPng =
+    mime.includes('png') ||
+    (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47);
+  if (looksPng && bytes.length >= 24) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const width = view.getUint32(16);
+    const height = view.getUint32(20);
+    if (width > 0 && height > 0) return { width, height };
+  }
+
+  const looksJpeg =
+    mime.includes('jpeg') ||
+    mime.includes('jpg') ||
+    (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff);
+  if (!looksJpeg) return null;
+
+  let i = 2;
+  while (i + 8 < bytes.length) {
+    if (bytes[i] !== 0xff) {
+      i += 1;
+      continue;
+    }
+    const marker = bytes[i + 1]!;
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+      const height = (bytes[i + 5]! << 8) | bytes[i + 6]!;
+      const width = (bytes[i + 7]! << 8) | bytes[i + 8]!;
+      if (width > 0 && height > 0) return { width, height };
+      return null;
+    }
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
+      i += 2;
+      continue;
+    }
+    const length = (bytes[i + 2]! << 8) | bytes[i + 3]!;
+    if (length < 2) break;
+    i += 2 + length;
+  }
+  return null;
 }
 
 export async function callOpenAIImageEdit(
@@ -48,8 +104,11 @@ export async function callOpenAIImageEdit(
     const isGptImage = model === 'gpt-image-1' || model === 'gpt-image-1.5';
     form.append('n', '1');
     if (isGptImage) {
-      // /images/edits não aceita size=auto — usar dimensão explícita
-      form.append('size', '1024x1024');
+      const dims = readImageDimensions(imageBytes, mime);
+      const size =
+        options?.size ||
+        (dims ? pickGptImageEditSize(dims.width, dims.height) : '1024x1024');
+      form.append('size', size);
       form.append('output_format', 'png');
       form.append('quality', 'high');
       form.append('input_fidelity', 'high');

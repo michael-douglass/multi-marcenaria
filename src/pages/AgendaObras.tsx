@@ -1,4 +1,5 @@
 ﻿import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Settings, Plus, X, Pencil, Loader2, Search, Camera, Trash2 } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
@@ -533,6 +534,7 @@ export function AgendaObras() {
 
 function AgendaObrasContent() {
   const { roles, userProfile } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
   const gruposHook = useGruposObra()
@@ -655,6 +657,14 @@ function AgendaObrasContent() {
   )
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
+  const obraFromUrl = searchParams.get('obra')
+
+  const clearObraDaUrl = useCallback(() => {
+    if (!searchParams.has('obra')) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('obra')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (!userProfile?.id) return
@@ -677,6 +687,13 @@ function AgendaObrasContent() {
     if (fresh) setDetalheObra(fresh)
     else setDetalheObra(null)
   }, [obrasHook.data, detalheObra?.id])
+
+  // Clique na busca do menu: abre o card da obra pelo ?obra=
+  useEffect(() => {
+    if (!obraFromUrl) return
+    const found = obrasHook.data.find(o => o.id === obraFromUrl)
+    if (found) setDetalheObra(found)
+  }, [obraFromUrl, obrasHook.data])
 
   // ── Drag and drop ──────────────────────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -1058,7 +1075,10 @@ function AgendaObrasContent() {
     setActioning(obra.id)
     try {
       await obrasHook.remove(obra.id)
-      if (detalheObra?.id === obra.id) setDetalheObra(null)
+      if (detalheObra?.id === obra.id) {
+        setDetalheObra(null)
+        clearObraDaUrl()
+      }
       if (editObra?.id === obra.id) setObraOpen(false)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Não foi possível excluir a obra.')
@@ -1307,8 +1327,8 @@ function AgendaObrasContent() {
         isMontador={isMontador}
         montadorUserId={userProfile?.id}
         actioning={actioning}
-        onClose={() => setDetalheObra(null)}
-        onEdit={obra => { setDetalheObra(null); setTimeout(() => openEdit(obra), 80) }}
+        onClose={() => { setDetalheObra(null); clearObraDaUrl() }}
+        onEdit={obra => { setDetalheObra(null); clearObraDaUrl(); setTimeout(() => openEdit(obra), 80) }}
         onIniciar={handleIniciar}
         onConcluir={handleConcluir}
         onReabrir={handleReabrir}

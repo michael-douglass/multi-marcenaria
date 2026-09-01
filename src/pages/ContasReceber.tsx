@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   Banknote,
@@ -129,6 +130,8 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const [search, setSearch] = useState('')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ mode: 'all' })
   const [isDefaultView, setIsDefaultView] = useState(true)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const buscaDaUrl = searchParams.get('q')
   const activeFilterSet = useMemo(() => new Set(activeFilters), [activeFilters])
   const [open, setOpen] = useState(false)
   const [openRecibo, setOpenRecibo] = useState(false)
@@ -145,6 +148,19 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const skipParcelasRegenRef = useRef(false)
   const createAnexosRef = useRef(createAnexos)
   createAnexosRef.current = createAnexos
+
+  useEffect(() => {
+    const termo = buscaDaUrl?.trim()
+    if (!termo) return
+    setSearch(termo)
+    setIsDefaultView(false)
+    setSearchParams(prev => {
+      if (!prev.has('q')) return prev
+      const next = new URLSearchParams(prev)
+      next.delete('q')
+      return next
+    }, { replace: true })
+  }, [buscaDaUrl, setSearchParams])
 
   useEffect(() => {
     if (skipParcelasRegenRef.current) {

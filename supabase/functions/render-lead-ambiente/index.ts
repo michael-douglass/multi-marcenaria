@@ -477,7 +477,7 @@ Deno.serve(async (req) => {
             extraImages: furnitureRefs.map((ref, index) => ({
               bytes: ref.bytes,
               mime: ref.mime,
-              filename: `furniture-${index + 1}.jpg`,
+              filename: `furniture-${index + 1}.${ref.mime.includes('png') ? 'png' : 'jpg'}`,
             })),
           },
         );

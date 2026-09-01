@@ -2,7 +2,9 @@ import { snapshotRealisticFurniture } from '@/lib/lead-ai-ambiente-realistic-mes
 import { furnitureFrame, getFurnitureModuleMeta } from '@/lib/furniture-modules';
 import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
+import { containRotatedPlane } from '@/lib/lead-image-studio';
 import { loadImageForRender } from '@/lib/render-image-normalize';
+import { containedRectInBox, isUsableAmbienteViewport } from '@/lib/lead-ai-ambiente-zoom';
 import type {
   AmbienteBackground,
   AmbienteFurnitureObject,
@@ -11,10 +13,16 @@ import type {
   AmbienteLabelMarker,
 } from '@/lib/lead-ai-ambiente-types';
 
-const MAX_EDGE_PX = 1024;
-const JPEG_QUALITY = 0.84;
+const MAX_EDGE_PX = 1536;
+const MAX_CANVAS_PX = 4096;
+const JPEG_QUALITY = 0.92;
 const WORLD_MIN_W = 960;
 const WORLD_MIN_H = 640;
+
+export interface AmbienteExportViewport {
+  width: number;
+  height: number;
+}
 
 export interface AmbienteExportInput {
   background: AmbienteBackground | null;
@@ -22,6 +30,8 @@ export interface AmbienteExportInput {
   objects: AmbienteFurnitureObject[];
   markers: AmbienteLabelMarker[];
   shapes?: AmbienteGeoShape[];
+  /** Tamanho da lousa na tela — sem isso a foto encaixa errado na hora de enviar. */
+  viewport?: AmbienteExportViewport;
 }
 
 function scaleToMaxEdge(width: number, height: number, maxEdge: number) {
@@ -62,33 +72,149 @@ function applyPhotoOrbit(
   ctx.transform(sx, Math.sin(pitchRad) * 0.16, Math.sin(yawRad) * 0.22, sy, 0, 0);
 }
 
-function drawContainedImage(
+function backgroundElementSize(
+  worldW: number,
+  worldH: number,
+  fit: { nw: number; nh: number },
+) {
+  return {
+    elemW: fit.nw * worldW,
+    elemH: fit.nh * worldH,
+  };
+}
+
+/** Mesmo giro/zoom/pan da foto de fundo na lousa. */
+function mapBackgroundLocalPoint(
+  localX: number,
+  localY: number,
+  worldW: number,
+  worldH: number,
+  elemW: number,
+  elemH: number,
+  bg: AmbienteBackground,
+): { x: number; y: number } {
+  const zoom = Math.max(0.05, bg.scale ?? 1);
+  const sx = (bg.flipH ? -1 : 1) * zoom;
+  const sy = (bg.flipV ? -1 : 1) * zoom;
+  const px = localX * sx;
+  const py = localY * sy;
+  const rad = ((bg.rotation ?? 0) * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  const panX = ((bg.offsetX ?? 0.5) - 0.5) * 0.4 * elemW;
+  const panY = ((bg.offsetY ?? 0.5) - 0.5) * 0.4 * elemH;
+  return {
+    x: worldW / 2 + panX + (px * c - py * s),
+    y: worldH / 2 + panY + (px * s + py * c),
+  };
+}
+
+function backgroundVisualBounds(
+  worldW: number,
+  worldH: number,
+  fit: { nw: number; nh: number },
+  bg: AmbienteBackground,
+): { x: number; y: number; w: number; h: number } {
+  const { elemW, elemH } = backgroundElementSize(worldW, worldH, fit);
+  const corners = [
+    mapBackgroundLocalPoint(-elemW / 2, -elemH / 2, worldW, worldH, elemW, elemH, bg),
+    mapBackgroundLocalPoint(elemW / 2, -elemH / 2, worldW, worldH, elemW, elemH, bg),
+    mapBackgroundLocalPoint(elemW / 2, elemH / 2, worldW, worldH, elemW, elemH, bg),
+    mapBackgroundLocalPoint(-elemW / 2, elemH / 2, worldW, worldH, elemW, elemH, bg),
+  ];
+  const minX = Math.min(...corners.map((p) => p.x));
+  const maxX = Math.max(...corners.map((p) => p.x));
+  const minY = Math.min(...corners.map((p) => p.y));
+  const maxY = Math.max(...corners.map((p) => p.y));
+  const x = Math.max(0, Math.floor(minX));
+  const y = Math.max(0, Math.floor(minY));
+  const w = Math.max(1, Math.min(worldW - x, Math.ceil(maxX) - x));
+  const h = Math.max(1, Math.min(worldH - y, Math.ceil(maxY) - y));
+  return { x, y, w, h };
+}
+
+function drawBackgroundLikeBoard(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   worldW: number,
   worldH: number,
-  scale = 1,
-  offsetX = 0.5,
-  offsetY = 0.5,
-  rotation = 0,
-  flipH = false,
-  flipV = false,
+  fit: { nw: number; nh: number },
+  bg: AmbienteBackground,
 ) {
   const nw = img.naturalWidth || img.width;
   const nh = img.naturalHeight || img.height;
   if (nw <= 0 || nh <= 0) return;
-  const fit = Math.min(worldW / nw, worldH / nh);
-  const zoom = Math.max(0.05, scale);
-  const dw = nw * fit * zoom;
-  const dh = nh * fit * zoom;
-  const dx = (worldW - dw) * offsetX;
-  const dy = (worldH - dh) * offsetY;
+  const { elemW, elemH } = backgroundElementSize(worldW, worldH, fit);
+  const zoom = Math.max(0.05, bg.scale ?? 1);
   ctx.save();
-  ctx.translate(dx + dw / 2, dy + dh / 2);
-  ctx.rotate(((rotation || 0) * Math.PI) / 180);
-  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+  ctx.translate(worldW / 2, worldH / 2);
+  ctx.translate(((bg.offsetX ?? 0.5) - 0.5) * 0.4 * elemW, ((bg.offsetY ?? 0.5) - 0.5) * 0.4 * elemH);
+  ctx.rotate(((bg.rotation ?? 0) * Math.PI) / 180);
+  ctx.scale(bg.flipH ? -1 : 1, bg.flipV ? -1 : 1);
+  ctx.scale(zoom, zoom);
+  ctx.drawImage(img, -elemW / 2, -elemH / 2, elemW, elemH);
   ctx.restore();
+}
+
+function drawOverlayLikeBoard(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  overlay: AmbienteImageOverlay,
+  worldW: number,
+  worldH: number,
+) {
+  const boxW = Math.max(24, overlay.width * worldW);
+  const boxH = Math.max(24, overlay.height * worldH);
+  const srcW = img.naturalWidth || img.width || 1;
+  const srcH = img.naturalHeight || img.height || 1;
+  const contained = containedRectInBox(boxW, boxH, srcW, srcH);
+  ctx.save();
+  ctx.translate(overlay.x * worldW + boxW / 2, overlay.y * worldH + boxH / 2);
+  applyPhotoOrbit(
+    ctx,
+    overlay.rotation,
+    overlay.yaw ?? 0,
+    overlay.pitch ?? 0,
+    Boolean(overlay.flipH),
+    Boolean(overlay.flipV),
+  );
+  ctx.drawImage(
+    img,
+    -contained.dw / 2,
+    -contained.dh / 2,
+    contained.dw,
+    contained.dh,
+  );
+  ctx.restore();
+}
+
+function cropCanvas(
+  source: HTMLCanvasElement,
+  crop: { x: number; y: number; w: number; h: number },
+): HTMLCanvasElement {
+  const w = Math.max(1, Math.min(source.width - crop.x, crop.w));
+  const h = Math.max(1, Math.min(source.height - crop.y, crop.h));
+  if (crop.x <= 0 && crop.y <= 0 && w >= source.width && h >= source.height) {
+    return source;
+  }
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d', { colorSpace: 'srgb', alpha: false });
+  if (!ctx) return source;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, crop.x, crop.y, w, h, 0, 0, w, h);
+  return out;
+}
+
+function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const ctx =
+    canvas.getContext('2d', { colorSpace: 'srgb', alpha: true }) ?? canvas.getContext('2d');
+  if (!ctx) throw new Error('Não foi possível montar a composição do ambiente');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  return ctx;
 }
 
 function drawFurniture(
@@ -198,67 +324,86 @@ function drawMarker(
   ctx.fillText(marker.nome, x, y, textW - 12);
 }
 
-/** Achata a montagem do ambiente em JPEG para a IA renderizar. */
+/** Achata a montagem do ambiente exatamente como o vendedor vê na lousa. */
 export async function exportAmbienteCompositionToJpeg(
   input: AmbienteExportInput,
 ): Promise<{ dataUrl: string; width: number; height: number }> {
-  const bgW = input.background?.naturalWidth || WORLD_MIN_W;
-  const bgH = input.background?.naturalHeight || WORLD_MIN_H;
-  const world = scaleToMaxEdge(Math.max(bgW, WORLD_MIN_W), Math.max(bgH, WORLD_MIN_H), MAX_EDGE_PX);
+  const viewport = input.viewport;
+  const hasViewport = Boolean(
+    viewport && isUsableAmbienteViewport(viewport.width, viewport.height),
+  );
+  const bgFit =
+    input.background && hasViewport && viewport
+      ? containRotatedPlane(
+          input.background.naturalWidth || 1,
+          input.background.naturalHeight || 1,
+          viewport.width,
+          viewport.height,
+          input.background.rotation ?? 0,
+        )
+      : input.background
+        ? { nw: 1, nh: 1 }
+        : null;
+
+  let worldW: number;
+  let worldH: number;
+  let crop: { x: number; y: number; w: number; h: number } | null = null;
+
+  if (input.background && hasViewport && viewport && bgFit) {
+    const photoW = Math.max(1, bgFit.nw * viewport.width);
+    const photoH = Math.max(1, bgFit.nh * viewport.height);
+    const kPhoto = MAX_EDGE_PX / Math.max(photoW, photoH);
+    const kCanvas = MAX_CANVAS_PX / Math.max(viewport.width, viewport.height);
+    const k = Math.min(kPhoto, kCanvas, 4);
+    worldW = Math.max(1, Math.round(viewport.width * k));
+    worldH = Math.max(1, Math.round(viewport.height * k));
+    crop = backgroundVisualBounds(worldW, worldH, bgFit, input.background);
+  } else if (input.background) {
+    const sized = scaleToMaxEdge(
+      input.background.naturalWidth || WORLD_MIN_W,
+      input.background.naturalHeight || WORLD_MIN_H,
+      MAX_EDGE_PX,
+    );
+    worldW = sized.width;
+    worldH = sized.height;
+  } else if (hasViewport && viewport) {
+    const sized = scaleToMaxEdge(viewport.width, viewport.height, MAX_EDGE_PX);
+    worldW = sized.width;
+    worldH = sized.height;
+  } else {
+    const sized = scaleToMaxEdge(WORLD_MIN_W, WORLD_MIN_H, MAX_EDGE_PX);
+    worldW = sized.width;
+    worldH = sized.height;
+  }
 
   const canvas = document.createElement('canvas');
-  canvas.width = world.width;
-  canvas.height = world.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Não foi possível montar a composição do ambiente');
+  canvas.width = worldW;
+  canvas.height = worldH;
+  const ctx = canvasContext(canvas);
 
   if (input.background) {
     ctx.fillStyle = '#1a100c';
-    ctx.fillRect(0, 0, world.width, world.height);
+    ctx.fillRect(0, 0, worldW, worldH);
     const img = await loadImageForRender(input.background.url);
-    drawContainedImage(
-      ctx,
-      img,
-      world.width,
-      world.height,
-      input.background.scale ?? 1,
-      input.background.offsetX ?? 0.5,
-      input.background.offsetY ?? 0.5,
-      input.background.rotation ?? 0,
-      Boolean(input.background.flipH),
-      Boolean(input.background.flipV),
-    );
+    if (bgFit) {
+      drawBackgroundLikeBoard(ctx, img, worldW, worldH, bgFit, input.background);
+    }
   } else {
-    drawWarmPlaceholder(ctx, world.width, world.height);
+    drawWarmPlaceholder(ctx, worldW, worldH);
   }
 
   const overlays = [...input.overlays].sort((a, b) => a.zIndex - b.zIndex);
   for (const overlay of overlays) {
     try {
       const img = await loadImageForRender(overlay.url);
-      const dx = overlay.x * world.width;
-      const dy = overlay.y * world.height;
-      const dw = Math.max(24, overlay.width * world.width);
-      const dh = Math.max(24, overlay.height * world.height);
-      ctx.save();
-      ctx.translate(dx + dw / 2, dy + dh / 2);
-      applyPhotoOrbit(
-        ctx,
-        overlay.rotation,
-        overlay.yaw ?? 0,
-        overlay.pitch ?? 0,
-        Boolean(overlay.flipH),
-        Boolean(overlay.flipV),
-      );
-      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
-      ctx.restore();
+      drawOverlayLikeBoard(ctx, img, overlay, worldW, worldH);
     } catch {
       // overlay inválido — segue a composição
     }
   }
 
   for (const shape of input.shapes ?? []) {
-    paintGeoShape(ctx, shape, world.width, world.height);
+    paintGeoShape(ctx, shape, worldW, worldH);
   }
 
   let woodImg: HTMLImageElement | null = null;
@@ -277,10 +422,10 @@ export async function exportAmbienteCompositionToJpeg(
           yaw: object.yaw ?? 0,
           pitch: object.pitch ?? 0,
         }, object.colorHex);
-        const cx = object.x * world.width;
-        const cy = object.y * world.height;
-        const w = Math.max(40, object.width * world.width);
-        const h = Math.max(48, object.height * world.height);
+        const cx = object.x * worldW;
+        const cy = object.y * worldH;
+        const w = Math.max(40, object.width * worldW);
+        const h = Math.max(48, object.height * worldH);
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(((object.rotation ?? 0) * Math.PI) / 180);
@@ -291,16 +436,17 @@ export async function exportAmbienteCompositionToJpeg(
         // cai no desenho técnico se o WebGL falhar
       }
     }
-    drawFurniture(ctx, object, world.width, world.height, woodImg);
+    drawFurniture(ctx, object, worldW, worldH, woodImg);
   }
   for (const marker of input.markers) {
-    drawMarker(ctx, marker, world.width, world.height);
+    drawMarker(ctx, marker, worldW, worldH);
   }
 
+  const flattened = crop ? cropCanvas(canvas, crop) : canvas;
   return {
-    dataUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY),
-    width: world.width,
-    height: world.height,
+    dataUrl: flattened.toDataURL('image/jpeg', JPEG_QUALITY),
+    width: flattened.width,
+    height: flattened.height,
   };
 }
 
@@ -331,6 +477,8 @@ export async function exportAmbienteFurnitureReferences(
       const ctx = canvas.getContext('2d');
       if (!ctx) continue;
       ctx.clearRect(0, 0, sized.width, sized.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.save();
       ctx.translate(sized.width / 2, sized.height / 2);
       applyPhotoOrbit(

@@ -47,6 +47,45 @@ function matchSidebarLeads(leads, query) {
     .slice(0, 20)
 }
 
+function leadIdsQueBatam(leads, termo) {
+  return new Set(
+    leads
+      .filter(lead => leadCorrespondeBusca(lead.nome, lead.telefone, termo))
+      .map(lead => String(lead.id)),
+  )
+}
+
+function matchSidebarObras(obras, query, leads = []) {
+  const termo = query.trim()
+  if (!termo) return []
+  const leadIds = leadIdsQueBatam(leads, termo)
+  return obras
+    .filter(obra =>
+      leadCorrespondeBusca(obra.cliente_nome, null, termo)
+      || (obra.origem_lead_id && leadIds.has(String(obra.origem_lead_id).trim())),
+    )
+    .slice(0, 20)
+}
+
+function matchSidebarCobrancas(cobrancas, query, leads = []) {
+  const termo = query.trim()
+  if (!termo) return []
+  const leadIds = leadIdsQueBatam(leads, termo)
+  const seen = new Set()
+  const hits = []
+  for (const conta of cobrancas) {
+    const peloNome = leadCorrespondeBusca(conta.cliente_nome, conta.cliente_telefone, termo)
+    const peloLead = conta.origem_lead_id && leadIds.has(String(conta.origem_lead_id).trim())
+    if (!peloNome && !peloLead) continue
+    const chave = (conta.origem_lead_id || '').trim() || compactarBuscaLead(conta.cliente_nome)
+    if (!chave || seen.has(chave)) continue
+    seen.add(chave)
+    hits.push(conta)
+    if (hits.length >= 20) break
+  }
+  return hits
+}
+
 function paginaCorrespondeBusca(texto, termo) {
   const termoLimpo = termo.trim()
   if (!termoLimpo) return true
@@ -179,23 +218,62 @@ describe('busca do menu lateral', () => {
     assert.equal(matchSidebarLeads(leads, '988887777').some(l => l.id === 2), true)
   })
 
-  it('AppSidebar usa o campo e a busca flexível de páginas e leads', () => {
+  it('acha obra na agenda pelo nome do cliente, mesmo com acento', () => {
+    const obras = [
+      { id: 'o1', cliente_nome: 'José da Silva', origem_lead_id: '1', status_kanban: 'em_andamento' },
+      { id: 'o2', cliente_nome: 'Ana Lima', origem_lead_id: '9', status_kanban: 'concluida' },
+    ]
+    assert.equal(matchSidebarObras(obras, 'JOSE SILVA').some(o => o.id === 'o1'), true)
+    assert.equal(matchSidebarObras(obras, 'ana').some(o => o.id === 'o2'), true)
+    assert.equal(matchSidebarObras(obras, 'Pedro').length, 0)
+  })
+
+  it('acha obra pelo lead vinculado mesmo se o nome da obra for outro', () => {
+    const leads = [{ id: 42, nome: 'Maria Souza', telefone: null }]
+    const obras = [
+      { id: 'o9', cliente_nome: 'Obra sala comercial', origem_lead_id: '42' },
+    ]
+    assert.equal(matchSidebarObras(obras, 'maria souza', leads).some(o => o.id === 'o9'), true)
+  })
+
+  it('acha cobrança no financeiro pelo nome e junta parcelas do mesmo cliente', () => {
+    const cobrancas = [
+      { id: 'c1', cliente_nome: 'José da Silva', cliente_telefone: '(31) 99277-6813', origem_lead_id: '1' },
+      { id: 'c2', cliente_nome: 'José da Silva', cliente_telefone: '(31) 99277-6813', origem_lead_id: '1' },
+      { id: 'c3', cliente_nome: 'Ana Lima', origem_lead_id: '9' },
+    ]
+    const hits = matchSidebarCobrancas(cobrancas, 'jose silva')
+    assert.equal(hits.length, 1)
+    assert.equal(hits[0].cliente_nome, 'José da Silva')
+    assert.equal(matchSidebarCobrancas(cobrancas, 'ana').length, 1)
+  })
+
+  it('AppSidebar usa o campo e a busca flexível de páginas, leads, obras e financeiro', () => {
     const sidebar = readSrc('src/components/layout/AppSidebar.tsx')
     const field = readSrc('src/components/layout/SidebarSearchField.tsx')
     const aura = readSrc('src/components/layout/SidebarSearchAura.tsx')
     const lib = readSrc('src/lib/sidebar-search.ts')
+    const agenda = readSrc('src/pages/AgendaObras.tsx')
+    const cobrancas = readSrc('src/pages/ContasReceber.tsx')
     assert.match(sidebar, /SidebarSearchField/)
     assert.match(sidebar, /flattenSidebarPages/)
     assert.match(sidebar, /matchSidebarPages/)
     assert.match(sidebar, /matchSidebarLeads/)
+    assert.match(sidebar, /matchSidebarObras/)
+    assert.match(sidebar, /matchSidebarCobrancas/)
     assert.match(sidebar, /useSidebarLeadsIndex/)
-    assert.match(field, /Buscar páginas ou leads/)
+    assert.match(sidebar, /useSidebarCobrancasIndex/)
+    assert.match(field, /Buscar páginas, leads, obras/)
     assert.match(aura, /TextureLoader/)
     assert.match(aura, /identidade-visual-garbo|GARBO_LOGO_SRC/)
     assert.match(lib, /compactarBuscaPagina/)
     assert.match(lib, /compactarBuscaLead/)
     assert.match(lib, /leadCorrespondeBusca/)
     assert.match(lib, /\/pipeline\?id=/)
+    assert.match(lib, /\/agenda-obras\?obra=/)
+    assert.match(lib, /\/cobrancas\?q=/)
     assert.match(lib, /\[-_\/\]\+/)
+    assert.match(agenda, /searchParams\.get\('obra'\)/)
+    assert.match(cobrancas, /searchParams\.get\('q'\)/)
   })
 })

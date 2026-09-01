@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useClientes } from '../hooks/useClientes'
 import { Modal } from '../components/ui/Modal'
@@ -26,6 +27,20 @@ export function Clientes({ readOnly }: Props) {
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const buscaDaUrl = searchParams.get('q')
+
+  useEffect(() => {
+    const termo = buscaDaUrl?.trim()
+    if (!termo) return
+    setSearch(termo)
+    setSearchParams(prev => {
+      if (!prev.has('q')) return prev
+      const next = new URLSearchParams(prev)
+      next.delete('q')
+      return next
+    }, { replace: true })
+  }, [buscaDaUrl, setSearchParams])
 
   const f = (k: keyof ClienteInput) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))

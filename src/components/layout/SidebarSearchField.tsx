@@ -31,7 +31,7 @@ export function SidebarSearchField({
       <button
         type="button"
         className="sidebar-search-icon-btn"
-        aria-label="Buscar páginas ou leads"
+        aria-label="Buscar páginas, leads, obras e financeiro"
         onClick={e => {
           e.preventDefault()
           e.stopPropagation()
@@ -64,8 +64,8 @@ export function SidebarSearchField({
             inputRef.current?.blur()
           }
         }}
-        placeholder="Buscar páginas ou leads…"
-        aria-label="Buscar páginas do menu, nome ou telefone do lead"
+        placeholder="Buscar páginas, leads, obras…"
+        aria-label="Buscar páginas do menu, leads, agenda de obras e financeiro"
         autoComplete="off"
         spellCheck={false}
       />
@@ -89,6 +89,6 @@ export function SidebarSearchField({
 }
 
 export function SidebarSearchEmpty({ query }: { query: string }) {
-  return <p className="sidebar-search-empty">Nenhuma página ou lead para “{query.trim()}”.</p>
+  return <p className="sidebar-search-empty">Nada encontrado para “{query.trim()}”.</p>
 }
 
