@@ -4,6 +4,9 @@ import { MARKUP_CALCULATOR_OPEN_ATTR, MARKUP_ORCAMENTO_SIMPLES_OPEN_ATTR } from 
 
 export const ENVIAR_PROJETO_DIALOG_OPEN_ATTR = 'data-enviar-projeto-dialog-open';
 
+/** Painel da agenda flutuante (não o ícone). */
+export const FLOATING_AGENDA_PANEL_ATTR = 'data-floating-agenda-panel';
+
 export const AMBIENTE_FULLSCREEN_ATTR = 'data-ambiente-fullscreen';
 
 /** Lousa digital em tela cheia, por cima do card do lead. */
@@ -105,6 +108,10 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-ambiente-photo-studio]') ||
       target.closest('[data-lead-folder-picker]') ||
       target.closest('[data-enviar-projeto-dialog]') ||
+      target.closest('[data-lead-lembrete-dialog]') ||
+      target.closest('[data-agenda-create-dialog]') ||
+      target.closest('[data-floating-agenda-panel]') ||
+      target.closest('[data-radix-dialog-content][data-floating-agenda-root]') ||
       target.closest('[data-nested-dialog]'),
   );
 }
@@ -124,6 +131,10 @@ export function isLeadDismissBlocked(options?: { filePickerActive?: boolean }): 
   if (typeof document === 'undefined') return false;
   return Boolean(
     document.querySelector('[data-nested-dialog][data-state="open"]') ||
+      document.querySelector('[data-lead-lembrete-dialog][data-state="open"]') ||
+      document.querySelector('[data-agenda-create-dialog][data-state="open"]') ||
+      document.querySelector('[data-floating-agenda-root][data-state="open"]') ||
+      document.querySelector('[data-floating-agenda-panel]') ||
       document.querySelector('[data-ambiente-composer-fullscreen]') ||
       document.querySelector('[data-whiteboard-fullscreen]') ||
       document.querySelector('[data-lead-ai-image-fullscreen]') ||
@@ -206,6 +217,9 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-markup-calculator]')) return true;
   if (target?.closest('[data-markup-orcamento-simples]')) return true;
   if (target?.closest('[data-enviar-projeto-dialog]')) return true;
+  if (target?.closest('[data-lead-lembrete-dialog]')) return true;
+  if (target?.closest('[data-agenda-create-dialog]')) return true;
+  if (target?.closest('[data-floating-agenda-panel]')) return true;
   if (target?.closest('[data-whiteboard-project-picker]')) return true;
   if (target?.closest('[data-ambiente-photo-studio]')) return true;
   if (target?.closest('[data-pontua-garbo-dialog]')) return true;

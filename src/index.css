@@ -3094,6 +3094,25 @@ body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
 }
 
 /*
+ * Fotos do projeto / bancada: em tela cheia o quadro cobre a tela (z-81).
+ * Sem isto o clique em “Do projeto” não chega na janela de escolher foto.
+ */
+html[data-project-image-picker-open] [data-whiteboard-project-picker],
+html[data-project-image-picker-open] [data-whiteboard-project-picker] *,
+html[data-project-image-picker-open] [data-ambiente-photo-studio],
+html[data-project-image-picker-open] [data-ambiente-photo-studio] *,
+html[data-project-image-picker-open] .ambiente-project-picker-overlay {
+  pointer-events: auto !important;
+}
+html[data-project-image-picker-open] [data-whiteboard-project-picker],
+html[data-project-image-picker-open] [data-ambiente-photo-studio] {
+  z-index: 9801 !important;
+}
+html[data-project-image-picker-open] .ambiente-project-picker-overlay {
+  z-index: 9800 !important;
+}
+
+/*
  * Menu Exportar: o Radix coloca o painel num wrapper no body (z-auto).
  * A apresentação está em z-240 — sem z-index no wrapper o menu some atrás.
  */

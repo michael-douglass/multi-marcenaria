@@ -13,6 +13,8 @@ const zoomLib = readFileSync(join(root, 'src/lib/lead-ai-ambiente-zoom.ts'), 'ut
 const composer = readFileSync(join(root, 'src/components/leads/LeadAIAmbienteComposer.tsx'), 'utf8');
 const draftLib = readFileSync(join(root, 'src/lib/lead-ai-ambiente-draft.ts'), 'utf8');
 const exportLib = readFileSync(join(root, 'src/lib/lead-ai-ambiente-export.ts'), 'utf8');
+const picker = readFileSync(join(root, 'src/components/leads/whiteboard/WhiteboardProjectImagePicker.tsx'), 'utf8');
+const css = readFileSync(join(root, 'src/index.css'), 'utf8');
 
 function planeFromContainFit(nw, nh) {
   return {
@@ -99,5 +101,25 @@ describe('lousa — tela cheia e card colados na foto', () => {
       'o tamanho antigo da tela cheia estica a foto no card',
     );
     assert.equal(Number(liveAspect.toFixed(4)), Number((photoW / photoH).toFixed(4)));
+  });
+});
+
+describe('lousa — Do projeto em tela cheia', () => {
+  it('abre o seletor por cima da lousa, não atrás dela', () => {
+    assert.match(composer, /const overlayDialogs = \(/);
+    assert.match(composer, /isFullscreen \? overlayDialogs : null/);
+    assert.match(composer, /setProjectImagePickerOpenFlag\(true\)/);
+    assert.match(composer, /existingImageUrls=\{overlays\.map/);
+    assert.match(css, /data-whiteboard-project-picker/);
+    assert.match(css, /ambiente-project-picker-overlay/);
+    assert.match(picker, /ambiente-project-picker-overlay/);
+  });
+
+  it('não esconde a foto do cômodo na lista do projeto', () => {
+    assert.doesNotMatch(
+      composer,
+      /existingImageUrls=\{background \? \[background\.url, \.\.\.overlays/,
+    );
+    assert.match(picker, /Este lead ainda não tem foto anexada/);
   });
 });

@@ -129,7 +129,13 @@ export function CreateTarefaPessoalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" floatingLayer={floatingLayer}>
+      <DialogContent
+        nested={!floatingLayer}
+        data-agenda-create-dialog=""
+        className="max-w-md max-h-[90vh] overflow-y-auto"
+        floatingLayer={floatingLayer}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Nova Tarefa Pessoal</DialogTitle>
         </DialogHeader>

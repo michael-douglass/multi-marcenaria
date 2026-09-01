@@ -104,6 +104,7 @@ export function useBaterPonto() {
   )
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [resultado, setResultado] = useState<PontoMarcacao | null>(null)
 
@@ -153,12 +154,12 @@ export function useBaterPonto() {
   const reload = useCallback(async () => {
     if (!isReady) return
     setLoading(true)
-    setError(null)
+    setStatusError(null)
     try {
       const data = await fetchPontoStatusDia()
       setStatus(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar status do ponto.')
+      setStatusError(e instanceof Error ? e.message : 'Erro ao carregar status do ponto.')
     } finally {
       setLoading(false)
     }
@@ -168,18 +169,22 @@ export function useBaterPonto() {
     void reload()
   }, [reload])
 
-  const solicitarLocalizacao = async () => {
+  const solicitarLocalizacao = () => {
     setError(null)
     setSubmitting(true)
-    try {
-      const pos = await requestGeolocation()
-      setGeo(pos)
-      setStep('selfie')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao obter localização.')
-    } finally {
-      setSubmitting(false)
-    }
+    // Chama o GPS ainda no toque do botão. Se esperarmos (await) e tentarmos
+    // de novo depois, o iPhone trata como se a pessoa tivesse recusado.
+    requestGeolocation()
+      .then((pos) => {
+        setGeo(pos)
+        setStep('selfie')
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Não foi possível obter sua localização.')
+      })
+      .finally(() => {
+        setSubmitting(false)
+      })
   }
 
   const definirSelfie = async (file: File | Blob) => {
@@ -269,6 +274,7 @@ export function useBaterPonto() {
     assinaturaDataUrl,
     loading,
     submitting,
+    statusError,
     error,
     resultado,
     reload,

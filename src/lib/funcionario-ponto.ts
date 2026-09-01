@@ -2,6 +2,10 @@ import { supabase } from '@/lib/supabase'
 import { FUNCIONARIO_DOCS_BUCKET, getFuncionarioDocSignedUrl, getFuncionarioDocsSignedUrls } from '@/lib/funcionario-documentos'
 import { createId } from '@/lib/utils'
 import { PONTO_TIPO_LABEL } from '@/lib/funcionario-constants'
+import { requestGeolocation, type GeoPosition } from '@/lib/geolocation'
+
+export type { GeoPosition }
+export { requestGeolocation }
 import type {
   FuncionarioJornada,
   FuncionarioTipo,
@@ -69,61 +73,6 @@ export function formatJornadaMarcas(
 export async function sha256Hex(payload: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload))
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-export interface GeoPosition {
-  latitude: number
-  longitude: number
-  accuracy: number
-}
-
-function readPositionOnce(
-  options: PositionOptions,
-  timeoutMs: number,
-): Promise<GeoPosition> {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      reject(new Error('Tempo esgotado ao obter localização. Verifique se o GPS está ativo.'))
-    }, timeoutMs)
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        clearTimeout(timer)
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        })
-      },
-      err => {
-        clearTimeout(timer)
-        reject(new Error(err.message || 'Permissão de localização negada.'))
-      },
-      options,
-    )
-  })
-}
-
-/**
- * Pede a localização com tentativa rápida (GPS) e fallback mais leve.
- * Assim o fluxo de ponto não trava minutos em aparelhos lentos.
- */
-export async function requestGeolocation(timeoutMs = 12000): Promise<GeoPosition> {
-  if (!navigator.geolocation) {
-    throw new Error('Seu dispositivo não suporta geolocalização.')
-  }
-
-  const quickTimeout = Math.min(8000, timeoutMs)
-  try {
-    return await readPositionOnce(
-      { enableHighAccuracy: true, timeout: quickTimeout, maximumAge: 30_000 },
-      quickTimeout + 500,
-    )
-  } catch {
-    return readPositionOnce(
-      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60_000 },
-      timeoutMs + 500,
-    )
-  }
 }
 
 export async function uploadPontoArquivo(

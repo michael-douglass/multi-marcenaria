@@ -276,7 +276,10 @@ export function WhiteboardProjectImagePicker({
       <DialogContent
         nested
         data-whiteboard-project-picker=""
-        overlayClassName={elevated ? leadFullscreenNestedOverlayClass : 'z-[80]'}
+        overlayClassName={cn(
+          elevated ? leadFullscreenNestedOverlayClass : 'z-[80]',
+          'ambiente-project-picker-overlay',
+        )}
         className={cn(
           'flex max-h-[min(94dvh,960px)] flex-col gap-0 overflow-hidden p-0',
           'border-gold-border-subtle/40 bg-mahogany-panel',
@@ -306,7 +309,9 @@ export function WhiteboardProjectImagePicker({
           ) : disponiveis.length === 0 ? (
             <div className="rounded-lg px-4 py-12 text-center text-sm text-muted-foreground">
               <Image className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              Não há outras imagens do projeto disponíveis para importar.
+              {midias.length === 0
+                ? 'Este lead ainda não tem foto anexada. Use Inserir ou Tirar foto, ou anexe no card.'
+                : 'As fotos deste lead já estão na lousa. Use Inserir para trazer outra do computador.'}
             </div>
           ) : inspecting ? (
             <div className="flex min-h-[min(68dvh,640px)] w-full flex-1 flex-col">

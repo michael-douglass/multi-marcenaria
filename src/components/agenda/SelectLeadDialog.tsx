@@ -56,7 +56,12 @@ export function SelectLeadDialog({
         }
       }}
     >
-      <DialogContent className="max-w-md" floatingLayer={floatingLayer}>
+      <DialogContent
+        nested={!floatingLayer}
+        className="max-w-md"
+        floatingLayer={floatingLayer}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-4 w-4 text-primary" />

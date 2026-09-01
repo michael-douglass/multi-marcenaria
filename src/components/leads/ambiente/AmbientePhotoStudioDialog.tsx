@@ -79,7 +79,7 @@ export function AmbientePhotoStudioDialog({
       <DialogContent
         nested
         data-ambiente-photo-studio=""
-        overlayClassName={leadFullscreenNestedOverlayClass}
+        overlayClassName={cn(leadFullscreenNestedOverlayClass, 'ambiente-project-picker-overlay')}
         className={cn(
           'flex max-h-[min(94dvh,960px)] flex-col gap-0 overflow-hidden p-0',
           'border-gold-border-subtle/40 bg-mahogany-panel sm:max-w-6xl',

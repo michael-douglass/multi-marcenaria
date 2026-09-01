@@ -15,6 +15,7 @@ import { PontoStatusCard } from '@/components/ponto/PontoStatusCard'
 import { PontoWizardStep } from '@/components/ponto/PontoWizardStep'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { labelPontoTipo, formatJornadaResumo } from '@/lib/funcionario-ponto'
+import { isGeolocationPermissionDenied } from '@/lib/geolocation'
 import { useBaterPonto } from '@/hooks/useBaterPonto'
 
 const STEPS = ['Localização', 'Selfie', 'Assinatura', 'Confirmar']
@@ -35,6 +36,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
     assinaturaDataUrl,
     loading,
     submitting,
+    statusError,
     error,
     resultado,
     reload,

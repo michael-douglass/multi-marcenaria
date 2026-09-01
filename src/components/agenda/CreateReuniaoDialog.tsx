@@ -103,7 +103,12 @@ export function CreateReuniaoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" floatingLayer={floatingLayer}>
+      <DialogContent
+        nested={!floatingLayer}
+        className="max-w-md"
+        floatingLayer={floatingLayer}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />

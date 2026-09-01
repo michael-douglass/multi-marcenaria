@@ -62,6 +62,7 @@ export function FloatingAgendaGeralPopup({
     <div
       ref={panelRef}
       data-floating-agenda-root
+      data-floating-agenda-panel=""
       className={cn(
         'fixed top-14 bottom-0 pointer-events-auto',
         floatingAgendaPanelClass,

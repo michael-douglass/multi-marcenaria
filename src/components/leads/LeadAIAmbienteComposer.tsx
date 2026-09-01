@@ -31,6 +31,7 @@ import {
   preventFullscreenOutsideDismiss,
   PROJECT_IMAGE_PICKER_OPEN_ATTR,
   setAmbienteFullscreenOpenFlag,
+  setProjectImagePickerOpenFlag,
 } from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
 import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
@@ -670,8 +671,8 @@ export function LeadAIAmbienteComposer({
       return;
     }
     const existingOverlay = overlaysRef.current.find((item) => item.url === preview.url);
-    if (current.url === preview.url || existingOverlay) {
-      setSelectedId(current.url === preview.url ? 'background' : existingOverlay?.id ?? 'background');
+    if (existingOverlay) {
+      setSelectedId(existingOverlay.id);
       pulseComposer();
       return;
     }
@@ -2507,7 +2508,10 @@ export function LeadAIAmbienteComposer({
                 hasDrawings={hasDrawings}
                 onInsertPhoto={() => fileInputRef.current?.click()}
                 onCapture={() => cameraCaptureRef.current?.requestCapture()}
-                onProject={() => setProjectPickerOpen(true)}
+                onProject={() => {
+                  setProjectImagePickerOpenFlag(true);
+                  setProjectPickerOpen(true);
+                }}
                 onToggleCatalog={toggleCatalog}
                 onUndo={undoLast}
                 onRedo={redoLast}
@@ -2854,6 +2858,79 @@ export function LeadAIAmbienteComposer({
     </section>
   );
 
+  const overlayDialogs = (
+    <>
+      <WhiteboardProjectImagePicker
+        leadId={leadId}
+        open={projectPickerOpen}
+        onOpenChange={setProjectPickerOpen}
+        elevated
+        isSelecting={isImportingProject}
+        existingImageUrls={overlays.map((item) => item.url)}
+        onSelect={async (midia) => {
+          const url = midia.file_url?.trim();
+          if (!url) {
+            toast.error('Esta foto não tem um arquivo válido');
+            return;
+          }
+          setIsImportingProject(true);
+          try {
+            const label = midia.preview_label || midia.file_name || 'Foto do projeto';
+            const preview = await urlToImagePreview(url, label).catch(() =>
+              previewFromImageUrl(url, label),
+            );
+            setProjectPickerOpen(false);
+            await setPhotoAsBackgroundOrOverlay(preview);
+            if (midia.folder_id) setSourceFolderId(midia.folder_id);
+            toast.success('Foto na lousa', {
+              description: 'Agora você pode medir, anotar e posicionar móveis em cima dela.',
+            });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');
+          } finally {
+            setIsImportingProject(false);
+          }
+        }}
+      />
+      <LeadFolderPickDialog
+        open={folderPickerOpen}
+        onOpenChange={setFolderPickerOpen}
+        leadId={leadId}
+        title="Guardar a foto em qual pasta?"
+        description="A foto com zoom, recorte e posição sai da lousa e entra na galeria da pasta escolhida."
+        confirmLabel="Guardar nesta pasta"
+        previewUrl={background?.url ?? overlays[0]?.url}
+        elevated={isFullscreen}
+        coverItems={pdfs}
+        askFileName
+        defaultFolderId={sourceFolderId}
+        defaultFileName={
+          background?.label
+            ? sanitizeVisitFileBaseName(background.label.replace(/\.[^.]+$/, ''))
+            : overlays[0]?.label
+              ? sanitizeVisitFileBaseName(overlays[0].label.replace(/\.[^.]+$/, ''))
+              : 'ambiente'
+        }
+        onConfirm={(folderId, options) => performSaveCopy(folderId, options)}
+      />
+      <AmbientePhotoStudioDialog
+        open={photoStudioOpen}
+        sourceUrl={selectedOverlay?.url ?? background?.url ?? null}
+        photoLabel={selectedOverlay?.label ?? background?.label}
+        startInCrop={photoStudioCrop}
+        onOpenChange={setPhotoStudioOpen}
+        onApply={(bakedUrl) => applyStudioBakedUrl(bakedUrl)}
+      />
+      <WhiteboardCameraCapture
+        ref={cameraCaptureRef}
+        open={cameraOpen}
+        onOpenChange={setCameraOpen}
+        disabled={locked}
+        onCapture={(file) => void handleFileList([file])}
+      />
+    </>
+  );
+
   return (
     <>
       {isFullscreen ? (
@@ -2904,7 +2981,9 @@ export function LeadAIAmbienteComposer({
             '[&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation',
           )}
           onOpenAutoFocus={(event) => {
-            if (catalogOpen) event.preventDefault();
+            if (catalogOpen || projectPickerOpen || photoStudioOpen || cameraOpen || folderPickerOpen) {
+              event.preventDefault();
+            }
           }}
           onPointerDownOutside={preventFullscreenOutsideDismiss}
           onInteractOutside={preventFullscreenOutsideDismiss}
@@ -2915,41 +2994,11 @@ export function LeadAIAmbienteComposer({
             Monte o cômodo na lousa, posicione móveis do catálogo e gire cada peça em todas as direções.
           </DialogDescription>
           {isFullscreen ? composerBody : null}
+          {isFullscreen ? overlayDialogs : null}
         </DialogContent>
       </Dialog>
 
-      <WhiteboardProjectImagePicker
-        leadId={leadId}
-        open={projectPickerOpen}
-        onOpenChange={setProjectPickerOpen}
-        elevated
-        isSelecting={isImportingProject}
-        existingImageUrls={background ? [background.url, ...overlays.map((o) => o.url)] : []}
-        onSelect={async (midia) => {
-          const url = midia.file_url?.trim();
-          if (!url) {
-            toast.error('Esta foto não tem um arquivo válido');
-            return;
-          }
-          setIsImportingProject(true);
-          try {
-            const label = midia.preview_label || midia.file_name || 'Foto do projeto';
-            const preview = await urlToImagePreview(url, label).catch(() =>
-              previewFromImageUrl(url, label),
-            );
-            setProjectPickerOpen(false);
-            await setPhotoAsBackgroundOrOverlay(preview);
-            if (midia.folder_id) setSourceFolderId(midia.folder_id);
-            toast.success('Foto na lousa', {
-              description: 'Agora você pode medir, anotar e posicionar móveis em cima dela.',
-            });
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Não foi possível importar a foto');
-          } finally {
-            setIsImportingProject(false);
-          }
-        }}
-      />
+      {!isFullscreen ? overlayDialogs : null}
       <input
         ref={fileInputRef}
         type="file"
@@ -2959,42 +3008,6 @@ export function LeadAIAmbienteComposer({
           void handleFileList(event.target.files);
           event.currentTarget.value = '';
         }}
-      />
-      <LeadFolderPickDialog
-        open={folderPickerOpen}
-        onOpenChange={setFolderPickerOpen}
-        leadId={leadId}
-        title="Guardar a foto em qual pasta?"
-        description="A foto com zoom, recorte e posição sai da lousa e entra na galeria da pasta escolhida."
-        confirmLabel="Guardar nesta pasta"
-        previewUrl={background?.url ?? overlays[0]?.url}
-        elevated={isFullscreen}
-        coverItems={pdfs}
-        askFileName
-        defaultFolderId={sourceFolderId}
-        defaultFileName={
-          background?.label
-            ? sanitizeVisitFileBaseName(background.label.replace(/\.[^.]+$/, ''))
-            : overlays[0]?.label
-              ? sanitizeVisitFileBaseName(overlays[0].label.replace(/\.[^.]+$/, ''))
-              : 'ambiente'
-        }
-        onConfirm={(folderId, options) => performSaveCopy(folderId, options)}
-      />
-      <AmbientePhotoStudioDialog
-        open={photoStudioOpen}
-        sourceUrl={selectedOverlay?.url ?? background?.url ?? null}
-        photoLabel={selectedOverlay?.label ?? background?.label}
-        startInCrop={photoStudioCrop}
-        onOpenChange={setPhotoStudioOpen}
-        onApply={(bakedUrl) => applyStudioBakedUrl(bakedUrl)}
-      />
-      <WhiteboardCameraCapture
-        ref={cameraCaptureRef}
-        open={cameraOpen}
-        onOpenChange={setCameraOpen}
-        disabled={locked}
-        onCapture={(file) => void handleFileList([file])}
       />
     </>
   );

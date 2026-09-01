@@ -226,6 +226,8 @@ export function LeadLembreteDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        nested={!floatingLayer}
+        data-lead-lembrete-dialog=""
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         floatingLayer={floatingLayer}
         onPointerDownOutside={(event) => {
@@ -233,6 +235,9 @@ export function LeadLembreteDialog({
         }}
         onFocusOutside={(event) => {
           if (datePickerOpen) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (!floatingLayer) event.preventDefault();
         }}
       >
         <DialogHeader>
