@@ -34,6 +34,42 @@ export interface SaldoMesInsightConfig {
   enabled: boolean
 }
 
+/** Previsão mensal: a receber − a pagar (mesma regra do dashboard). */
+export interface SaldoMesForecast {
+  /** Ex.: Out/2026 */
+  label: string
+  mesCurto: string
+  ano: number
+  totalAReceber: number
+  totalAPagarMes: number
+  saldo: number
+}
+
+const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'] as const
+
+export function buildSaldoMesForecast(input: {
+  mesIndex: number
+  ano: number
+  totalAReceber: number
+  totalAPagarMes: number
+}): SaldoMesForecast {
+  const totalAReceber = roundMoney(Number(input.totalAReceber) || 0)
+  const totalAPagarMes = roundMoney(Number(input.totalAPagarMes) || 0)
+  const mesCurto = MESES_CURTOS[input.mesIndex] ?? '—'
+  return {
+    label: `${mesCurto}/${input.ano}`,
+    mesCurto,
+    ano: input.ano,
+    totalAReceber,
+    totalAPagarMes,
+    saldo: roundMoney(totalAReceber - totalAPagarMes),
+  }
+}
+
+export function resolveSaldoMesForecastTone(saldo: number): SaldoMesInsightTone {
+  return resolveSaldoMesInsightTone(saldo)
+}
+
 const STORAGE_KEY = 'garbo.saldo-mes-insight.config'
 
 function roundMoney(n: number): number {

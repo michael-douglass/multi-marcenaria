@@ -25,6 +25,25 @@ function resolveTone(saldo) {
   return 'falta'
 }
 
+function buildSaldoMesForecast(input) {
+  const receber = roundMoney(Number(input.totalAReceber) || 0)
+  const pagar = roundMoney(Number(input.totalAPagarMes) || 0)
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const mesCurto = meses[input.mesIndex] ?? '—'
+  return {
+    label: `${mesCurto}/${input.ano}`,
+    mesCurto,
+    ano: input.ano,
+    totalAReceber: receber,
+    totalAPagarMes: pagar,
+    saldo: roundMoney(receber - pagar),
+  }
+}
+
+function resolveSaldoMesForecastTone(saldo) {
+  return resolveTone(saldo)
+}
+
 function buildMessage({ totalAReceber, totalAPagarMes }) {
   const receber = roundMoney(Number(totalAReceber) || 0)
   const pagar = roundMoney(Number(totalAPagarMes) || 0)
@@ -136,6 +155,22 @@ check('mensagem alerta (>60k)', () => {
   assert.equal(msg.tone, 'alerta')
   assert.equal(msg.headline, 'Ainda falta')
   assert.equal(msg.valorDestaque, 80_000)
+})
+
+check('buildSaldoMesForecast monta label e saldo', () => {
+  const mes = buildSaldoMesForecast({
+    mesIndex: 9,
+    ano: 2026,
+    totalAReceber: 50_000,
+    totalAPagarMes: 30_000,
+  })
+  assert.equal(mes.label, 'Out/2026')
+  assert.equal(mes.saldo, 20_000)
+})
+
+check('resolveSaldoMesForecastTone espelha saldo', () => {
+  assert.equal(resolveSaldoMesForecastTone(-38_339.77), 'quase')
+  assert.equal(resolveSaldoMesForecastTone(-70_000), 'alerta')
 })
 
 check('defaults 5min / 5s', () => {

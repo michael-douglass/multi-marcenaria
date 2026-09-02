@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SaldoMesInsightCard } from '@/components/dashboard/SaldoMesInsightCard'
 import { useApp } from '@/context/AppContext'
-import { useFinanceiroStats } from '@/hooks/useFinanceiroDashboard'
+import { useFinanceiroStats, useSaldoMesProximosMeses } from '@/hooks/useFinanceiroDashboard'
 import { isAdministrador } from '@/lib/role-access'
 import {
   buildSaldoMesInsightMessage,
@@ -19,6 +19,7 @@ export function SaldoMesInsightHost() {
   const { roles } = useApp()
   const isAdmin = isAdministrador(roles)
   const { data: stats, isSuccess } = useFinanceiroStats()
+  const { data: proximosMeses = [], isLoading: proximosLoading } = useSaldoMesProximosMeses(3)
   const [config, setConfig] = useState<SaldoMesInsightConfig>(() => {
     // Garante 5 segundos na primeira carga desta versão (evita config antiga curta demais).
     const loaded = loadSaldoMesInsightConfig()
@@ -130,6 +131,8 @@ export function SaldoMesInsightHost() {
   return (
     <SaldoMesInsightCard
       message={message}
+      proximosMeses={proximosMeses}
+      proximosLoading={proximosLoading}
       config={config}
       visible={visible}
       exiting={exiting}

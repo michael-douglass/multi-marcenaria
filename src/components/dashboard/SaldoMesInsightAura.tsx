@@ -20,6 +20,7 @@ const FRAGMENT = `
 uniform float uTime;
 uniform vec2 uResolution;
 uniform vec3 uAccent;
+uniform float uReveal;
 varying vec2 vUv;
 
 float hash(vec2 p) {
@@ -34,14 +35,15 @@ void main() {
   float wash = exp(-dist * 2.4);
   float sweep = 0.5 + 0.5 * sin(uTime * 1.1 + uv.x * 4.0);
   float grain = hash(uv * 140.0 + uTime * 0.2) * 0.04;
+  float revealBand = smoothstep(0.38, 0.92, uv.y) * uReveal;
 
   vec3 paper = vec3(1.0, 0.988, 0.972);
   vec3 oak = vec3(0.93, 0.86, 0.76);
   vec3 color = mix(paper, oak, wash * 0.35);
-  color = mix(color, uAccent, wash * (0.18 + sweep * 0.12));
+  color = mix(color, uAccent, wash * (0.18 + sweep * 0.12) + revealBand * 0.14);
   color += grain;
 
-  float alpha = 0.12 + wash * 0.22;
+  float alpha = 0.12 + wash * 0.22 + revealBand * 0.08;
   gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.38));
 }
 `
@@ -55,14 +57,19 @@ const ACCENT_RGB: Record<SaldoMesInsightTone, [number, number, number]> = {
 
 export function SaldoMesInsightAura({
   tone,
+  reveal = 0,
   className,
 }: {
   tone: SaldoMesInsightTone
+  /** 0–1: painel dos próximos meses aberto (shader acompanha). */
+  reveal?: number
   className?: string
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const toneRef = useRef(tone)
+  const revealRef = useRef(reveal)
   toneRef.current = tone
+  revealRef.current = reveal
 
   useEffect(() => {
     const host = hostRef.current
@@ -92,6 +99,7 @@ export function SaldoMesInsightAura({
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2(1, 1) },
       uAccent: { value: new THREE.Vector3(r, g, b) },
+      uReveal: { value: revealRef.current },
     }
     const material = new THREE.ShaderMaterial({
       transparent: true,
@@ -125,6 +133,7 @@ export function SaldoMesInsightAura({
       if (!prefersReduced) frame = requestAnimationFrame(draw)
       const [ar, ag, ab] = ACCENT_RGB[toneRef.current]
       uniforms.uAccent.value.set(ar, ag, ab)
+      uniforms.uReveal.value = revealRef.current
       uniforms.uTime.value = prefersReduced ? 0 : (performance.now() - startedAt) / 1000
       renderer.render(scene, camera)
     }

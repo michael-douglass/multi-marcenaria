@@ -1,14 +1,16 @@
 import { useEffect, useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Settings2, X } from 'lucide-react'
+import { ArrowRight, Settings2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SaldoMesInsightAura } from '@/components/dashboard/SaldoMesInsightAura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  type SaldoMesForecast,
   type SaldoMesInsightConfig,
   type SaldoMesInsightMessage,
+  resolveSaldoMesForecastTone,
   minutesToMs,
   msToMinutes,
   msToSeconds,
@@ -18,43 +20,97 @@ import { cn, fmtCur } from '@/lib/utils'
 
 interface SaldoMesInsightCardProps {
   message: SaldoMesInsightMessage
+  proximosMeses: SaldoMesForecast[]
+  proximosLoading?: boolean
   config: SaldoMesInsightConfig
   visible: boolean
   exiting?: boolean
   onDismiss: () => void
   onSaveConfig: (next: SaldoMesInsightConfig) => void
-  /** Quando true, o timer de sumir pausa (ex.: painel de ajustes aberto). */
   onHoldChange?: (holding: boolean) => void
 }
 
 const TONE_STYLES: Record<
   SaldoMesInsightMessage['tone'],
-  { bar: string; chip: string; value: string }
+  { bar: string; chip: string; value: string; rowPos: string; rowNeg: string }
 > = {
   sucesso: {
     bar: 'linear-gradient(180deg, #059669 0%, rgba(5,150,105,0.12) 100%)',
     chip: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800',
     value: 'text-emerald-700',
+    rowPos: 'text-emerald-700',
+    rowNeg: 'text-red-700',
   },
   quase: {
     bar: 'linear-gradient(180deg, #c4963a 0%, rgba(196,150,58,0.12) 100%)',
     chip: 'border-[rgba(196,150,58,0.35)] bg-[rgba(196,150,58,0.12)] text-[#8d5e22]',
     value: 'text-[#8d5e22]',
+    rowPos: 'text-emerald-700',
+    rowNeg: 'text-[#8d5e22]',
   },
   falta: {
     bar: 'linear-gradient(180deg, #c2410c 0%, rgba(194,65,12,0.12) 100%)',
     chip: 'border-orange-400/30 bg-orange-500/10 text-orange-900',
     value: 'text-orange-800',
+    rowPos: 'text-emerald-700',
+    rowNeg: 'text-orange-800',
   },
   alerta: {
     bar: 'linear-gradient(180deg, #dc2626 0%, rgba(220,38,38,0.12) 100%)',
     chip: 'border-red-400/30 bg-red-500/10 text-red-700',
     value: 'text-red-700',
+    rowPos: 'text-emerald-700',
+    rowNeg: 'text-red-700',
   },
+}
+
+function ForecastRow({
+  mes,
+  index,
+  styles,
+}: {
+  mes: SaldoMesForecast
+  index: number
+  styles: (typeof TONE_STYLES)[SaldoMesInsightMessage['tone']]
+}) {
+  const tone = resolveSaldoMesForecastTone(mes.saldo)
+  const positivo = mes.saldo >= 0
+
+  return (
+    <li
+      className="saldo-mes-insight-forecast-row rounded-lg border border-[rgba(42,24,18,0.08)] bg-[rgba(42,24,18,0.03)] px-3 py-2.5"
+      style={{ animationDelay: `${index * 70}ms` }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b5244]">
+          {mes.label}
+        </span>
+        <span
+          className={cn(
+            'font-display text-sm tabular-nums tracking-[0.03em]',
+            positivo ? styles.rowPos : styles.rowNeg,
+          )}
+        >
+          {fmtCur(mes.saldo)}
+        </span>
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.12em] text-[#8a7060]">
+        <span>Receber {fmtCur(mes.totalAReceber)}</span>
+        <span>Pagar {fmtCur(mes.totalAPagarMes)}</span>
+      </div>
+      {tone === 'alerta' ? (
+        <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-red-700/80">
+          Atenção: buraco acima de 60 mil
+        </p>
+      ) : null}
+    </li>
+  )
 }
 
 export function SaldoMesInsightCard({
   message,
+  proximosMeses,
+  proximosLoading = false,
   config,
   visible,
   exiting = false,
@@ -64,10 +120,16 @@ export function SaldoMesInsightCard({
 }: SaldoMesInsightCardProps) {
   const navigate = useNavigate()
   const titleId = useId()
+  const forecastId = useId()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [pinned, setPinned] = useState(false)
   const [intervalMin, setIntervalMin] = useState(msToMinutes(config.intervalMs))
   const [durationSec, setDurationSec] = useState(msToSeconds(config.durationMs))
   const [enabled, setEnabled] = useState(config.enabled)
+
+  const forecastOpen = hovering || pinned
+  const holding = settingsOpen || forecastOpen
 
   useEffect(() => {
     setIntervalMin(msToMinutes(config.intervalMs))
@@ -76,9 +138,17 @@ export function SaldoMesInsightCard({
   }, [config.durationMs, config.enabled, config.intervalMs])
 
   useEffect(() => {
-    onHoldChange?.(settingsOpen)
+    onHoldChange?.(holding)
     return () => onHoldChange?.(false)
-  }, [onHoldChange, settingsOpen])
+  }, [holding, onHoldChange])
+
+  useEffect(() => {
+    if (!visible) {
+      setHovering(false)
+      setPinned(false)
+      setSettingsOpen(false)
+    }
+  }, [visible])
 
   if (!visible || typeof document === 'undefined') return null
 
@@ -103,6 +173,11 @@ export function SaldoMesInsightCard({
     setSettingsOpen(false)
   }
 
+  const handleCardClick = () => {
+    if (settingsOpen) return
+    setPinned(open => !open)
+  }
+
   return createPortal(
     <aside
       role="dialog"
@@ -111,20 +186,25 @@ export function SaldoMesInsightCard({
       className={cn(
         'saldo-mes-insight fixed z-[220]',
         'right-3 top-3 sm:right-5 sm:top-4',
-        'w-[min(100vw-1.5rem,22rem)]',
+        forecastOpen ? 'w-[min(100vw-1.5rem,26rem)]' : 'w-[min(100vw-1.5rem,22rem)]',
+        'transition-[width] duration-300 ease-out',
         exiting ? 'saldo-mes-insight-exit' : 'saldo-mes-insight-enter',
       )}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
     >
       <article
-        role="link"
+        role="button"
         tabIndex={0}
-        onClick={goDashboard}
+        onClick={handleCardClick}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            goDashboard()
+            handleCardClick()
           }
         }}
+        aria-expanded={forecastOpen}
+        aria-controls={forecastId}
         className={cn(
           'group relative cursor-pointer overflow-hidden rounded-xl border border-[rgba(42,24,18,0.12)]',
           'bg-[#fffcf8] text-[#2a1812] shadow-[0_18px_48px_rgba(42,24,18,0.16)]',
@@ -133,7 +213,7 @@ export function SaldoMesInsightCard({
           'focus-visible:ring-2 focus-visible:ring-[#c4963a]/60 focus-visible:ring-offset-2',
         )}
       >
-        <SaldoMesInsightAura tone={message.tone} />
+        <SaldoMesInsightAura tone={message.tone} reveal={forecastOpen ? 1 : 0} />
         <div
           aria-hidden
           className="absolute inset-y-0 left-0 w-[3px]"
@@ -207,9 +287,51 @@ export function SaldoMesInsightCard({
 
           <p className="text-sm leading-snug text-[#6b5244]">{message.detail}</p>
 
-          <p className="pt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
-            Toque para abrir o dashboard
-          </p>
+          {!forecastOpen ? (
+            <p className="pt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
+              Passe o mouse ou clique para ver os próximos 3 meses
+            </p>
+          ) : null}
+
+          <div
+            id={forecastId}
+            className={cn(
+              'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
+              forecastOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="saldo-mes-insight-forecast pt-2">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b5244]">
+                  Próximos 3 meses
+                </p>
+                {proximosLoading ? (
+                  <p className="text-xs text-[#8a7060]">Carregando previsão…</p>
+                ) : (
+                  <ul className="space-y-2" aria-label="Previsão dos próximos três meses">
+                    {proximosMeses.map((mes, index) => (
+                      <ForecastRow key={mes.label} mes={mes} index={index} styles={tone} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={cn(
+              'mt-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]',
+              'text-[#8d5e22] transition-colors hover:text-[#6b4520]',
+            )}
+            onClick={e => {
+              stop(e)
+              goDashboard()
+            }}
+          >
+            Abrir dashboard
+            <ArrowRight className="h-3 w-3" aria-hidden />
+          </button>
 
           {settingsOpen ? (
             <div

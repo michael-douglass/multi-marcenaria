@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FinanceiroStats, DadoGraficoMensal, DadoGraficoComparativo } from '@/types'
+import { buildSaldoMesForecast, type SaldoMesForecast } from '@/lib/saldo-mes-insight'
 import { startOfMonth, endOfMonth, format, addMonths } from 'date-fns'
 
 export function useFinanceiroStats() {
@@ -157,6 +158,61 @@ export function useFinanceiroStats() {
         novosClientesMes: novosClientesMes ?? 0
       }
     }
+  })
+}
+
+/** A receber − a pagar dos próximos 3 meses (vencimento em aberto). */
+export function useSaldoMesProximosMeses(count = 3) {
+  return useQuery<SaldoMesForecast[]>({
+    queryKey: ['saldo-mes-proximos', count, 'v1'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const now = new Date()
+      const resultados: SaldoMesForecast[] = []
+
+      for (let offset = 1; offset <= count; offset += 1) {
+        const ref = addMonths(now, offset)
+        const firstDay = format(startOfMonth(ref), 'yyyy-MM-dd')
+        const lastDay = format(endOfMonth(ref), 'yyyy-MM-dd')
+
+        const [{ data: aReceberData }, { data: aPagarData }] = await Promise.all([
+          supabase
+            .from('movelaria_contas_receber')
+            .select('valor_parcela')
+            .eq('status', 'pendente')
+            .gte('data_vencimento', firstDay)
+            .lte('data_vencimento', lastDay),
+          supabase
+            .from('movelaria_contas_pagar')
+            .select('valor_parcela, valor_pago, status')
+            .in('status', ['pendente', 'parcialmente_pago'])
+            .gte('data_vencimento', firstDay)
+            .lte('data_vencimento', lastDay),
+        ])
+
+        const totalAReceber = (aReceberData ?? []).reduce(
+          (acc, curr) => acc + Number(curr.valor_parcela),
+          0,
+        )
+        const totalAPagarMes = (aPagarData ?? []).reduce((acc, curr) => {
+          const parcela = Number(curr.valor_parcela)
+          const pago = Number(curr.valor_pago ?? 0)
+          return acc + Math.max(0, parcela - pago)
+        }, 0)
+
+        resultados.push(
+          buildSaldoMesForecast({
+            mesIndex: ref.getMonth(),
+            ano: ref.getFullYear(),
+            totalAReceber,
+            totalAPagarMes,
+          }),
+        )
+      }
+
+      return resultados
+    },
   })
 }
 
