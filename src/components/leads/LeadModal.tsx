@@ -25,10 +25,11 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { resolveChatContatosQueryConfig } from '@/lib/empresa-tables';
 import { cn, formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils';
-import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen, X, Maximize2 } from 'lucide-react';
+import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen } from 'lucide-react';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
 import { LeadModalHeaderAura } from '@/components/leads/LeadModalHeaderAura';
 import { LeadModalResizeHandles } from '@/components/leads/LeadModalResizeHandles';
+import { LeadModalWindowControls } from '@/components/leads/LeadModalWindowControls';
 import { useLeadModalSize } from '@/hooks/useLeadModalSize';
 import { leadModalSizeToCssVars } from '@/lib/lead-modal-size';
 import { LeadLembreteDialog } from '@/components/agenda/LeadLembreteDialog';
@@ -198,7 +199,7 @@ export function LeadModal({
 }: LeadModalProps) {
   const isMobile = useIsMobile();
   const { user: authUser, userRole: authUserRole, hasRole, isSuperAdmin: isSuperAdminAuth } = useAuth();
-  const { size: leadCardSize, isResizing: isLeadCardResizing, beginResize: beginLeadCardResize, resetSize: resetLeadCardSize } =
+  const { size: leadCardSize, mode: leadWindowMode, isResizing: isLeadCardResizing, isDragging: isLeadCardDragging, beginResize: beginLeadCardResize, beginDrag: beginLeadCardDrag, minimize: minimizeLeadCard, toggleMaximize: toggleLeadCardMaximize } =
     useLeadModalSize(isOpen);
   const { schemaEmpresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
   const empresaDb = useEmpresaSupabase();
@@ -1311,10 +1312,14 @@ export function LeadModal({
       <DialogContent
         data-lead-card=""
         data-lead-resizing={isLeadCardResizing ? 'true' : undefined}
+        data-lead-window-mode={leadWindowMode}
         style={leadModalSizeToCssVars(leadCardSize)}
         className={cn(
           'lead-modal-shell w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 shadow-2xl shadow-black/40 [&>button.absolute]:hidden',
+          (isLeadCardResizing || isLeadCardDragging) && 'select-none',
           isLeadCardResizing && 'cursor-nwse-resize',
+          isLeadCardDragging && 'cursor-grabbing',
+          leadWindowMode === 'minimized' && 'lead-modal-shell--minimized',
         )}
         onOpenAutoFocus={(e) => {
           const body = document.querySelector<HTMLElement>('[data-lead-modal-scroll="true"]');
@@ -1358,15 +1363,33 @@ export function LeadModal({
           }
         }}
       >
-        <LeadModalResizeHandles
-          isMobile={isMobile}
-          isResizing={isLeadCardResizing}
-          onBeginResize={beginLeadCardResize}
-        />
-        <DialogHeader className="lead-modal-header relative z-[1] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left">
+        {leadWindowMode !== 'minimized' && (
+          <LeadModalResizeHandles
+            isMobile={isMobile}
+            isResizing={isLeadCardResizing}
+            onBeginResize={beginLeadCardResize}
+          />
+        )}
+        <DialogHeader
+          className={cn(
+            'lead-modal-header relative z-[1] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left',
+            leadWindowMode !== 'maximized' && 'cursor-grab active:cursor-grabbing',
+          )}
+          onPointerDown={(e) => {
+            if (leadWindowMode === 'maximized') return
+            const target = e.target as HTMLElement
+            if (target.closest('button, a, input, textarea, [role="menu"], [data-radix-collection-item]')) return
+            beginLeadCardDrag(e)
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault()
+            toggleLeadCardMaximize()
+          }}
+        >
           <LeadModalHeaderAura />
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-[color:var(--lead-gold)]/35 to-transparent" />
-          <div className="relative z-[2]">
+          {leadWindowMode !== 'minimized' && (
+            <>
             {hasPermission('lead_vendor', 'view') && (
               <LeadVendorBanner
                 vendor={formData.vendor}
@@ -1395,9 +1418,26 @@ export function LeadModal({
                 }
               />
             )}
-            <div className="flex items-start justify-between gap-3 px-3 sm:px-5 pt-3.5 sm:pt-4 pb-3.5 sm:pb-4">
+            </>
+          )}
+          <div className="relative z-[2]">
+            <div
+              className={cn(
+                'flex items-start justify-between gap-3 px-4 sm:px-6',
+                leadWindowMode === 'minimized'
+                  ? 'py-2.5 sm:py-3'
+                  : 'pt-4 sm:pt-5 pb-4 sm:pb-5',
+              )}
+            >
               <div className="min-w-0 flex-1">
-                <DialogTitle className="lead-modal-title font-serif text-[1.55rem] sm:text-[1.95rem] font-semibold leading-snug tracking-tight line-clamp-2 pr-1">
+                <DialogTitle
+                  className={cn(
+                    'lead-modal-title font-serif font-semibold leading-snug tracking-tight line-clamp-2 pr-1',
+                    leadWindowMode === 'minimized'
+                      ? 'text-base sm:text-lg'
+                      : 'text-[1.55rem] sm:text-[1.95rem]',
+                  )}
+                >
                   <span className="inline-flex max-w-full items-start gap-2">
                     {pontuaGarboPartnerBadge && (
                       <Star className="mt-1 h-4 w-4 sm:h-5 sm:w-5 shrink-0 fill-gold text-gold drop-shadow-[0_0_8px_rgba(242,216,146,0.75)]" aria-hidden />
@@ -1407,12 +1447,12 @@ export function LeadModal({
                     </span>
                   </span>
                 </DialogTitle>
-                {pontuaGarboPartnerBadge && (
+                {leadWindowMode !== 'minimized' && pontuaGarboPartnerBadge && (
                   <div className="mt-2">
                     <LeadPontuaGarboPartnerBadge badge={pontuaGarboPartnerBadge} variant="inline" />
                   </div>
                 )}
-                {leadId && formData.status && (
+                {leadWindowMode !== 'minimized' && leadId && formData.status && (
                   <div className="lead-modal-stage mt-2.5 inline-flex max-w-full flex-col gap-0.5 rounded-md border px-2.5 py-1.5">
                     {statusDisplayFallback.pageLabel && (
                       <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--lead-cream)]">
@@ -1424,7 +1464,7 @@ export function LeadModal({
                     </span>
                   </div>
                 )}
-                {autoSaveEnabled && autoSaveState !== 'idle' && (
+                {leadWindowMode !== 'minimized' && autoSaveEnabled && autoSaveState !== 'idle' && (
                   <p
                     className={cn(
                       'text-[11px] mt-1.5',
@@ -1440,7 +1480,11 @@ export function LeadModal({
                     {autoSaveState === 'error' && 'Não foi possível salvar. Tente de novo.'}
                   </p>
                 )}
-                {autoSaveEnabled && autoSaveState === 'idle' && isEditMode && editingFields.size > 0 && (
+                {leadWindowMode !== 'minimized' &&
+                  autoSaveEnabled &&
+                  autoSaveState === 'idle' &&
+                  isEditMode &&
+                  editingFields.size > 0 && (
                   <p className="text-[11px] text-[color:var(--lead-muted)] mt-1.5">
                     Clique no campo para editar — as alterações são salvas automaticamente.
                   </p>
@@ -1449,9 +1493,9 @@ export function LeadModal({
               <DialogDescription className="sr-only">
                 {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
               </DialogDescription>
-              <div className="flex items-center gap-1 shrink-0 rounded-lg border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-1">
-                {leadId && (
-                  <>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {leadId && leadWindowMode !== 'minimized' && (
+                  <div className="flex items-center gap-1 rounded-lg border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-1">
                     <LeadLembretesPopover
                       leadId={leadId}
                       leadName={formData.name || 'Lead'}
@@ -1461,7 +1505,7 @@ export function LeadModal({
                         variant="outline"
                         size="icon"
                         className={cn(
-                          'h-9 w-9 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
+                          'h-8 w-8 sm:h-9 sm:w-9 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
                           lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/45',
                         )}
                         title={
@@ -1484,7 +1528,7 @@ export function LeadModal({
                         isLoading={isDuplicating}
                         disabled={isSubmitting || isDuplicating || !initialized}
                         onClick={() => setShowDuplicateAlert(true)}
-                        className="h-9 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none"
+                        className="h-8 sm:h-9 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none"
                       />
                     )}
                     {!isMobile && (
@@ -1493,42 +1537,27 @@ export function LeadModal({
                         variant="outline"
                         size="sm"
                         onClick={handleShareLead}
-                        className="flex h-9 items-center gap-2 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-3 text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-cream)]"
+                        className="flex h-8 sm:h-9 items-center gap-2 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-3 text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-cream)]"
                         title="Compartilhar lead com outro usuário"
                       >
                         <Share2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Compartilhar</span>
                       </Button>
                     )}
-                  </>
+                  </div>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-gold)] shadow-none transition-colors hover:bg-[color:var(--lead-inset)]"
-                  title="Restaurar tamanho padrão do card"
-                  aria-label="Restaurar tamanho padrão do card"
-                  onClick={() => resetLeadCardSize()}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-muted)] shadow-none transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-                  title="Fechar card do lead"
-                  aria-label="Fechar card do lead"
-                  onClick={() => requestClose()}
-                >
-                  <X className="h-4 w-4" strokeWidth={2.25} />
-                </Button>
+                <LeadModalWindowControls
+                  mode={leadWindowMode}
+                  isMobile={isMobile}
+                  onMinimize={minimizeLeadCard}
+                  onToggleMaximize={toggleLeadCardMaximize}
+                  onClose={() => requestClose()}
+                />
               </div>
             </div>
           </div>
         </DialogHeader>
-        {leadId ? (
+        {leadWindowMode !== 'minimized' && leadId ? (
           <LeadModalNav
             activeTab={leadModalTab}
             iaSubtab={iaSubtab}
@@ -1544,6 +1573,7 @@ export function LeadModal({
           />
         ) : null}
 
+        {leadWindowMode !== 'minimized' && (
         <form
           id={LEAD_MODAL_FORM_ID}
           onSubmit={(e) => {
@@ -2215,6 +2245,7 @@ export function LeadModal({
             />
             </div>
           </form>
+        )}
       </DialogContent>
     </Dialog>
 

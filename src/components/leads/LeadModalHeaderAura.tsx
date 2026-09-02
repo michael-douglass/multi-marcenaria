@@ -28,19 +28,19 @@ void main() {
   vec2 brandUv = uv * vec2(1.35, 2.05) + vec2(0.015 * sin(t), 0.0);
   vec3 brand = texture2D(uBrand, brandUv).rgb * uHasBrand;
   float grain = hash(uv * 90.0 + t) * 0.05;
-  float wash = exp(-length((uv - vec2(0.22, 0.28)) * vec2(1.35, 1.7)) * 1.45);
-  float rim = pow(1.0 - uv.y, 2.4) * 0.22;
-  float fresnel = pow(1.0 - abs(uv.x - 0.5) * 1.6, 2.4) * 0.12;
+  float wash = exp(-length((uv - vec2(0.18, 0.22)) * vec2(1.15, 1.45)) * 1.2);
+  float rim = pow(1.0 - uv.y, 2.2) * 0.18;
+  float fresnel = pow(1.0 - abs(uv.x - 0.5) * 1.35, 2.2) * 0.10;
 
   vec3 gold = vec3(0.55, 0.40, 0.22);
   vec3 paper = vec3(0.998, 0.980, 0.955);
   vec3 linen = vec3(0.965, 0.930, 0.880);
-  vec3 color = mix(paper, linen, wash * 0.55 + fresnel * 0.25);
-  color = mix(color, brand, 0.04 * uHasBrand);
-  color += gold * (grain * 0.10 + rim * 0.08);
+  vec3 color = mix(paper, linen, wash * 0.48 + fresnel * 0.22);
+  color = mix(color, brand, 0.035 * uHasBrand);
+  color += gold * (grain * 0.08 + rim * 0.07);
 
-  float alpha = 0.04 + wash * 0.04 + rim * 0.03;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.10));
+  float alpha = 0.035 + wash * 0.035 + rim * 0.028;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.09));
 }
 `
 

@@ -3703,12 +3703,12 @@ body::before {
 .glass-dialog.lead-modal-shell {
   position: fixed !important;
   inset: auto !important;
-  left: var(--lead-card-x, 50%) !important;
-  top: var(--lead-card-y, 50%) !important;
-  width: var(--lead-card-w, min(71.7rem, calc(100vw - 2rem))) !important;
-  max-width: calc(100vw - 1rem) !important;
-  height: var(--lead-card-h, min(44.875rem, calc(100dvh - 3rem))) !important;
-  max-height: calc(100dvh - 1rem) !important;
+  left: var(--lead-card-x, 16px) !important;
+  top: var(--lead-card-y, 16px) !important;
+  width: var(--lead-card-w, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 16px) !important;
+  height: var(--lead-card-h, calc(100dvh - 32px)) !important;
+  max-height: calc(100dvh - 16px) !important;
   margin: 0 !important;
   transform: none !important;
   background:
@@ -3721,6 +3721,21 @@ body::before {
   /* Nested Sheet/AlertDialog (markup, confirmar duplicar) não podem congelar o card. */
   pointer-events: auto !important;
 }
+.glass-dialog.lead-modal-shell[data-lead-window-mode='minimized'] {
+  height: var(--lead-card-h, 52px) !important;
+  max-height: 56px !important;
+}
+@media (max-width: 767px) {
+  .glass-dialog.lead-modal-shell {
+    left: var(--lead-card-x, 8px) !important;
+    top: var(--lead-card-y, 8px) !important;
+    width: var(--lead-card-w, calc(100vw - 16px)) !important;
+    max-width: calc(100vw - 12px) !important;
+    height: var(--lead-card-h, calc(100dvh - 16px)) !important;
+    max-height: calc(100dvh - 12px) !important;
+    border-radius: 0.85rem !important;
+  }
+}
 @media (max-width: 640px) {
   .glass-dialog.lead-modal-shell {
     border-radius: 0.75rem !important;
@@ -3729,6 +3744,9 @@ body::before {
 .glass-dialog.lead-modal-shell[data-lead-resizing='true'] {
   user-select: none;
   transition: none !important;
+}
+.lead-modal-window-controls {
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.85);
 }
 
 .glass-dialog.lead-atelier-dialog {

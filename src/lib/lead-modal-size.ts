@@ -1,9 +1,6 @@
 /**
- * Tamanho e posição do card do lead.
- * Cada usuário guarda a dimensão escolhida; ao reabrir, o card volta no mesmo tamanho.
- *
- * Padrão desktop (referência de atelier): ~1147×718 — o tamanho confortável
- * visto em tela cheia de trabalho; centralizado na viewport.
+ * Janela do card do lead — estilo “quase tela cheia” com margem,
+ * mais controles tipo Windows (minimizar / maximizar / restaurar).
  */
 
 export interface LeadModalSize {
@@ -13,28 +10,37 @@ export interface LeadModalSize {
   h: number
 }
 
+export type LeadModalWindowMode = 'maximized' | 'restored' | 'minimized'
+
+export interface LeadModalLayout extends LeadModalSize {
+  mode: LeadModalWindowMode
+}
+
 export type LeadResizeEdge = 'se' | 'sw' | 'ne' | 'nw' | 'e' | 's' | 'w' | 'n'
 
-/** v2: novo padrão fixo (~1147×718) centralizado. */
-export const LEAD_MODAL_SIZE_STORAGE_KEY = 'lead-modal-size-v2'
+/** v4: maximizado por padrão + modo de janela. */
+export const LEAD_MODAL_SIZE_STORAGE_KEY = 'lead-modal-size-v4'
 export const LEAD_MODAL_MOBILE_BREAKPOINT = 768
 
-/** Dimensão fixa de referência no desktop (o “tamanho atual” do card). */
-export const LEAD_MODAL_PREFERRED_W = 1147
-export const LEAD_MODAL_PREFERRED_H = 718
+export const LEAD_MODAL_MARGIN_DESKTOP = 16
+export const LEAD_MODAL_MARGIN_MOBILE = 8
 
-/** Desktop: card usável sem ficar minúsculo. */
 export const LEAD_MODAL_MIN_W_DESKTOP = 420
 export const LEAD_MODAL_MIN_H_DESKTOP = 360
-
-/** Celular: alvos de toque e conteúdo mínimo. */
 export const LEAD_MODAL_MIN_W_MOBILE = 280
 export const LEAD_MODAL_MIN_H_MOBILE = 320
+
+/** Altura da faixa quando minimizado (só o chrome). */
+export const LEAD_MODAL_MINIMIZED_H = 52
 
 export function isLeadModalMobileViewport(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
 ): boolean {
   return vw < LEAD_MODAL_MOBILE_BREAKPOINT
+}
+
+export function leadModalOuterMargin(vw?: number): number {
+  return isLeadModalMobileViewport(vw) ? LEAD_MODAL_MARGIN_MOBILE : LEAD_MODAL_MARGIN_DESKTOP
 }
 
 export function leadModalMins(vw?: number) {
@@ -60,23 +66,39 @@ function centerLeadModalSize(
   }
 }
 
-export function defaultLeadModalSize(
+/** Quase tela cheia: viewport menos a margem dos quatro lados. */
+export function maximizedLeadModalSize(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
-  const mobile = isLeadModalMobileViewport(vw)
   const { minW, minH } = leadModalMins(vw)
-  const margin = mobile ? 8 : 16
+  const margin = leadModalOuterMargin(vw)
+  const w = Math.max(minW, vw - margin * 2)
+  const h = Math.max(minH, vh - margin * 2)
+  return clampLeadModalSize(centerLeadModalSize(w, h, vw, vh, margin), vw, vh)
+}
 
-  if (mobile) {
-    const w = Math.max(minW, vw - margin * 2)
-    const h = Math.max(minH, Math.round(Math.min(vh * 0.9, vh - margin * 2)))
-    return centerLeadModalSize(w, h, vw, vh, margin)
-  }
+/** Alias: padrão fixo = maximizado. */
+export function defaultLeadModalSize(vw?: number, vh?: number): LeadModalSize {
+  return maximizedLeadModalSize(vw, vh)
+}
 
-  // Desktop: tamanho fixo de referência, encolhe só se a tela for menor.
-  const w = Math.min(LEAD_MODAL_PREFERRED_W, Math.max(minW, vw - margin * 2))
-  const h = Math.min(LEAD_MODAL_PREFERRED_H, Math.max(minH, vh - margin * 2))
+export function defaultLeadModalLayout(
+  vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
+  vh = typeof window !== 'undefined' ? window.innerHeight : 900,
+): LeadModalLayout {
+  return { ...maximizedLeadModalSize(vw, vh), mode: 'maximized' }
+}
+
+/** Tamanho “restaurado” intermediário (quando sai do maximizado). */
+export function restoredLeadModalSize(
+  vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
+  vh = typeof window !== 'undefined' ? window.innerHeight : 900,
+): LeadModalSize {
+  const { minW, minH } = leadModalMins(vw)
+  const margin = leadModalOuterMargin(vw)
+  const w = Math.min(Math.max(minW, Math.round(vw * 0.72)), vw - margin * 2)
+  const h = Math.min(Math.max(minH, Math.round(vh * 0.78)), vh - margin * 2)
   return clampLeadModalSize(centerLeadModalSize(w, h, vw, vh, margin), vw, vh)
 }
 
@@ -86,7 +108,7 @@ export function clampLeadModalSize(
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
   const { minW, minH } = leadModalMins(vw)
-  const margin = isLeadModalMobileViewport(vw) ? 8 : 16
+  const margin = leadModalOuterMargin(vw)
   const maxW = Math.max(minW, vw - margin * 2)
   const maxH = Math.max(minH, vh - margin * 2)
   const w = Math.min(Math.max(size.w, minW), maxW)
@@ -96,23 +118,32 @@ export function clampLeadModalSize(
   return { x, y, w, h }
 }
 
-/** Re-centra mantendo largura/altura (após restaurar padrão ou abrir). */
-export function centerLeadModalKeepSize(
-  size: Pick<LeadModalSize, 'w' | 'h'>,
+/** Resolve o retângulo visível conforme o modo da janela. */
+export function resolveLeadModalDisplaySize(
+  layout: LeadModalLayout,
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
-  const margin = isLeadModalMobileViewport(vw) ? 8 : 16
-  return clampLeadModalSize(
-    centerLeadModalSize(size.w, size.h, vw, vh, margin),
-    vw,
-    vh,
-  )
+  if (layout.mode === 'maximized') {
+    return maximizedLeadModalSize(vw, vh)
+  }
+  if (layout.mode === 'minimized') {
+    const margin = leadModalOuterMargin(vw)
+    const maxW = Math.max(280, vw - margin * 2)
+    const w = Math.min(Math.max(layout.w, 280), maxW)
+    const x = Math.min(Math.max(layout.x, margin), Math.max(margin, vw - w - margin))
+    const y = Math.min(
+      Math.max(layout.y, margin),
+      Math.max(margin, vh - LEAD_MODAL_MINIMIZED_H - margin),
+    )
+    return { x, y, w, h: LEAD_MODAL_MINIMIZED_H }
+  }
+  return clampLeadModalSize(layout, vw, vh)
 }
 
-export function parseLeadModalSize(raw: unknown): LeadModalSize | null {
+export function parseLeadModalLayout(raw: unknown): LeadModalLayout | null {
   if (!raw || typeof raw !== 'object') return null
-  const parsed = raw as Partial<LeadModalSize>
+  const parsed = raw as Partial<LeadModalLayout>
   if (
     typeof parsed.x !== 'number' ||
     typeof parsed.y !== 'number' ||
@@ -124,32 +155,57 @@ export function parseLeadModalSize(raw: unknown): LeadModalSize | null {
   if (![parsed.x, parsed.y, parsed.w, parsed.h].every((n) => Number.isFinite(n))) {
     return null
   }
-  return clampLeadModalSize({
+  const mode: LeadModalWindowMode =
+    parsed.mode === 'restored' || parsed.mode === 'minimized' || parsed.mode === 'maximized'
+      ? parsed.mode
+      : 'maximized'
+
+  const size = clampLeadModalSize({
     x: parsed.x,
     y: parsed.y,
     w: Math.round(parsed.w),
     h: Math.round(parsed.h),
   })
-}
 
-export function readInitialLeadModalSize(): LeadModalSize {
-  if (typeof window === 'undefined') {
-    return {
-      x: 40,
-      y: 40,
-      w: LEAD_MODAL_PREFERRED_W,
-      h: LEAD_MODAL_PREFERRED_H,
+  // Se veio de versão antiga e está bem menor que a tela, força maximizado.
+  if (typeof window !== 'undefined' && mode === 'restored') {
+    const max = maximizedLeadModalSize()
+    if (size.w < max.w * 0.85 || size.h < max.h * 0.85) {
+      return { ...max, mode: 'maximized' }
     }
   }
+
+  if (mode === 'maximized') {
+    return { ...maximizedLeadModalSize(), mode: 'maximized' }
+  }
+
+  return { ...size, mode }
+}
+
+export function readInitialLeadModalLayout(): LeadModalLayout {
+  if (typeof window === 'undefined') {
+    return defaultLeadModalLayout(1440, 900)
+  }
   try {
-    const fromLocal = parseLeadModalSize(
+    const fromLocal = parseLeadModalLayout(
       JSON.parse(localStorage.getItem(LEAD_MODAL_SIZE_STORAGE_KEY) ?? 'null'),
     )
     if (fromLocal) return fromLocal
   } catch {
     /* fallthrough */
   }
-  return clampLeadModalSize(defaultLeadModalSize())
+  // Migra legado v3 pequeno → maximizado
+  try {
+    const legacy = JSON.parse(localStorage.getItem('lead-modal-size-v3') ?? 'null')
+    if (legacy && typeof legacy === 'object') {
+      const max = maximizedLeadModalSize()
+      localStorage.removeItem('lead-modal-size-v3')
+      return { ...max, mode: 'maximized' }
+    }
+  } catch {
+    /* fallthrough */
+  }
+  return defaultLeadModalLayout()
 }
 
 export function applyLeadModalResize(
@@ -186,7 +242,6 @@ export function applyLeadModalResize(
   return clampLeadModalSize(next, vw, vh)
 }
 
-/** Estilo CSS aplicado no DialogContent via variáveis. */
 export function leadModalSizeToCssVars(size: LeadModalSize): Record<string, string> {
   return {
     '--lead-card-x': `${Math.round(size.x)}px`,

@@ -1,42 +1,57 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   LEAD_MODAL_SIZE_STORAGE_KEY,
   applyLeadModalResize,
   clampLeadModalSize,
-  defaultLeadModalSize,
-  parseLeadModalSize,
-  readInitialLeadModalSize,
-  type LeadModalSize,
+  defaultLeadModalLayout,
+  maximizedLeadModalSize,
+  parseLeadModalLayout,
+  readInitialLeadModalLayout,
+  resolveLeadModalDisplaySize,
+  restoredLeadModalSize,
+  type LeadModalLayout,
   type LeadResizeEdge,
 } from '@/lib/lead-modal-size'
 
 /**
- * Tamanho do card do lead por usuário.
- * Salva no navegador na hora e no banco (para o mesmo tamanho em outro aparelho).
+ * Janela do card do lead por usuário.
+ * Padrão fixo: maximizado (quase tela cheia, centralizado).
+ * Controles estilo Windows: minimizar, maximizar/restaurar, redimensionar pelas bordas.
  */
 export function useLeadModalSize(open: boolean) {
   const { user } = useAuth()
-  const [size, setSize] = useState<LeadModalSize>(readInitialLeadModalSize)
+  const [layout, setLayout] = useState<LeadModalLayout>(readInitialLeadModalLayout)
   const [isResizing, setIsResizing] = useState(false)
-  const sizeRef = useRef(size)
+  const [isDragging, setIsDragging] = useState(false)
+  const layoutRef = useRef(layout)
   const saveTimerRef = useRef<number | null>(null)
   const resizeRef = useRef<{
     edge: LeadResizeEdge
     startX: number
     startY: number
-    startSize: LeadModalSize
+    startSize: LeadModalLayout
   } | null>(null)
+  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(
+    null,
+  )
+  const hydratedRef = useRef(false)
 
   useEffect(() => {
-    sizeRef.current = size
-  }, [size])
+    layoutRef.current = layout
+  }, [layout])
 
-  const persistSize = useCallback(
-    (next: LeadModalSize) => {
-      const clamped = clampLeadModalSize(next)
-      localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(clamped))
+  const displaySize = useMemo(() => resolveLeadModalDisplaySize(layout), [layout])
+
+  const persistLayout = useCallback(
+    (next: LeadModalLayout) => {
+      const normalized: LeadModalLayout =
+        next.mode === 'maximized'
+          ? { ...maximizedLeadModalSize(), mode: 'maximized' }
+          : { ...clampLeadModalSize(next), mode: next.mode }
+
+      localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(normalized))
 
       if (!user?.id) return
 
@@ -47,7 +62,7 @@ export function useLeadModalSize(open: boolean) {
           .upsert({
             usuario_id: user.id,
             key: LEAD_MODAL_SIZE_STORAGE_KEY,
-            value: clamped,
+            value: normalized,
             atualizado_em: new Date().toISOString(),
           })
           .then(({ error }) => {
@@ -58,49 +73,51 @@ export function useLeadModalSize(open: boolean) {
     [user?.id],
   )
 
+  const commitLayout = useCallback(
+    (next: LeadModalLayout) => {
+      setLayout(next)
+      persistLayout(next)
+    },
+    [persistLayout],
+  )
+
   useEffect(() => {
-    if (!user?.id || !open) return
-
-    let cancelled = false
-    void (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('movelaria_ui_settings')
-          .select('value')
-          .eq('usuario_id', user.id)
-          .eq('key', LEAD_MODAL_SIZE_STORAGE_KEY)
-          .maybeSingle()
-
-        if (cancelled) return
-        if (error) throw error
-
-        const parsed = parseLeadModalSize(data?.value)
-        if (parsed) {
-          setSize(parsed)
-          localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(parsed))
-          return
-        }
-
-        const next = clampLeadModalSize(defaultLeadModalSize())
-        setSize(next)
-        persistSize(next)
-      } catch (err) {
-        console.error('[LeadModal] Erro ao carregar tamanho do card:', err)
-      }
-    })()
-
-    return () => {
-      cancelled = true
+    if (!open) {
+      hydratedRef.current = false
+      return
     }
-  }, [user?.id, open, persistSize])
+
+    // Abertura: tamanho fixo maximizado (quase tela toda, centralizado).
+    const next = defaultLeadModalLayout()
+    setLayout(next)
+    persistLayout(next)
+    hydratedRef.current = true
+
+    if (!user?.id) return
+
+    void supabase
+      .from('movelaria_ui_settings')
+      .upsert({
+        usuario_id: user.id,
+        key: LEAD_MODAL_SIZE_STORAGE_KEY,
+        value: next,
+        atualizado_em: new Date().toISOString(),
+      })
+      .then(({ error }) => {
+        if (error) console.error('[LeadModal] Erro ao sincronizar tamanho do card:', error)
+      })
+  }, [open, user?.id, persistLayout])
 
   useEffect(() => {
     const onViewportResize = () => {
-      setSize((prev) => {
-        const next = clampLeadModalSize(prev)
-        if (next.x !== prev.x || next.y !== prev.y || next.w !== prev.w || next.h !== prev.h) {
+      setLayout((prev) => {
+        if (prev.mode === 'maximized') {
+          const next = { ...maximizedLeadModalSize(), mode: 'maximized' as const }
           localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(next))
+          return next
         }
+        const next = { ...clampLeadModalSize(prev), mode: prev.mode }
+        localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(next))
         return next
       })
     }
@@ -114,33 +131,80 @@ export function useLeadModalSize(open: boolean) {
     }
   }, [])
 
-  const beginResize = useCallback((edge: LeadResizeEdge, e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number }) => {
+  const beginResize = useCallback(
+    (
+      edge: LeadResizeEdge,
+      e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number },
+    ) => {
+      if (layoutRef.current.mode === 'minimized') return
+      e.preventDefault()
+      e.stopPropagation()
+      const current =
+        layoutRef.current.mode === 'maximized'
+          ? { ...maximizedLeadModalSize(), mode: 'restored' as const }
+          : { ...layoutRef.current, mode: 'restored' as const }
+      resizeRef.current = {
+        edge,
+        startX: e.clientX,
+        startY: e.clientY,
+        startSize: current,
+      }
+      setLayout(current)
+      setIsResizing(true)
+    },
+    [],
+  )
+
+  const beginDrag = useCallback((e: { preventDefault: () => void; clientX: number; clientY: number }) => {
+    if (layoutRef.current.mode === 'maximized') return
     e.preventDefault()
-    e.stopPropagation()
-    resizeRef.current = {
-      edge,
+    const display = resolveLeadModalDisplaySize(layoutRef.current)
+    dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
-      startSize: { ...sizeRef.current },
+      originX: display.x,
+      originY: display.y,
     }
-    setIsResizing(true)
+    setIsDragging(true)
   }, [])
 
   useEffect(() => {
-    if (!isResizing) return
+    if (!isResizing && !isDragging) return
 
     const onMove = (e: PointerEvent) => {
+      if (isDragging && dragRef.current) {
+        const dx = e.clientX - dragRef.current.startX
+        const dy = e.clientY - dragRef.current.startY
+        setLayout((prev) => {
+          const base = resolveLeadModalDisplaySize(prev)
+          return {
+            ...prev,
+            mode: prev.mode === 'minimized' ? 'minimized' : 'restored',
+            ...clampLeadModalSize({
+              x: dragRef.current!.originX + dx,
+              y: dragRef.current!.originY + dy,
+              w: base.w,
+              h: base.h,
+            }),
+          }
+        })
+        return
+      }
+
       const resize = resizeRef.current
       if (!resize) return
       const dx = e.clientX - resize.startX
       const dy = e.clientY - resize.startY
-      setSize(applyLeadModalResize(resize.startSize, resize.edge, dx, dy))
+      const nextSize = applyLeadModalResize(resize.startSize, resize.edge, dx, dy)
+      setLayout({ ...nextSize, mode: 'restored' })
     }
 
     const onUp = () => {
-      persistSize(sizeRef.current)
+      persistLayout(layoutRef.current)
       setIsResizing(false)
+      setIsDragging(false)
       resizeRef.current = null
+      dragRef.current = null
     }
 
     window.addEventListener('pointermove', onMove)
@@ -151,18 +215,49 @@ export function useLeadModalSize(open: boolean) {
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [isResizing, persistSize])
+  }, [isResizing, isDragging, persistLayout])
+
+  const maximize = useCallback(() => {
+    commitLayout({ ...maximizedLeadModalSize(), mode: 'maximized' })
+  }, [commitLayout])
+
+  const restore = useCallback(() => {
+    const prev = layoutRef.current
+    const size =
+      prev.mode === 'maximized' || prev.mode === 'minimized'
+        ? restoredLeadModalSize()
+        : clampLeadModalSize(prev)
+    commitLayout({ ...size, mode: 'restored' })
+  }, [commitLayout])
+
+  const minimize = useCallback(() => {
+    const prev = layoutRef.current
+    const base =
+      prev.mode === 'maximized' ? restoredLeadModalSize() : clampLeadModalSize(prev)
+    commitLayout({ ...base, mode: 'minimized' })
+  }, [commitLayout])
+
+  const toggleMaximize = useCallback(() => {
+    if (layoutRef.current.mode === 'maximized') restore()
+    else maximize()
+  }, [maximize, restore])
 
   const resetSize = useCallback(() => {
-    const next = clampLeadModalSize(defaultLeadModalSize())
-    setSize(next)
-    persistSize(next)
-  }, [persistSize])
+    maximize()
+  }, [maximize])
 
   return {
-    size,
+    size: displaySize,
+    layout,
+    mode: layout.mode,
     isResizing,
+    isDragging,
     beginResize,
+    beginDrag,
+    maximize,
+    restore,
+    minimize,
+    toggleMaximize,
     resetSize,
   }
 }

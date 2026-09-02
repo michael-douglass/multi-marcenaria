@@ -143,7 +143,7 @@ export function LeadModalScrollBody({
     >
       <div
         className={cn(
-          'mx-auto w-full min-w-0 max-w-full space-y-4 px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 pb-6',
+          'mx-auto w-full min-w-0 max-w-full space-y-4 px-4 py-5 sm:space-y-5 sm:px-6 sm:py-6 pb-8',
           contentClassName,
         )}
       >

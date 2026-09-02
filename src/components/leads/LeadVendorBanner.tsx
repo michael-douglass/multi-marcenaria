@@ -70,7 +70,7 @@ export function LeadVendorBanner({
       ),
     variant === 'header' &&
       cn(
-        'px-3 sm:px-4 py-1.5',
+        'px-4 sm:px-6 py-1.5',
         hasVendor
           ? 'border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-gold)]'
           : 'border-[color:var(--lead-line)] bg-[color:var(--lead-inset)]/70 text-[color:var(--lead-muted)]',

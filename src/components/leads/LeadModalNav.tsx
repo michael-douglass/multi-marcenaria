@@ -78,7 +78,7 @@ export function LeadModalNav({
   return (
     <nav
       ref={rootRef}
-      className="lead-modal-nav relative z-[3] shrink-0 border-b px-3 sm:px-5 py-3 sm:py-3.5"
+      className="lead-modal-nav relative z-[3] shrink-0 border-b px-4 sm:px-6 py-3 sm:py-3.5"
       aria-label="Índice do card do lead"
     >
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
