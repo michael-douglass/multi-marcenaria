@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
+import { ResumoPontoAura } from '@/components/ponto/ResumoPontoAura'
 import { ResumoPontoEmpresaHero } from '@/components/ponto/ResumoPontoEmpresaHero'
 import { ResumoPontoFuncionarioCard } from '@/components/ponto/ResumoPontoFuncionarioCard'
 import { useResumoPonto } from '@/hooks/useResumoPonto'
@@ -63,12 +64,12 @@ function formatIntervalo(inicio?: string, fim?: string): string {
 }
 
 const CHIP_BASE =
-  'resumo-ponto-periodo-chip rounded-lg px-3 py-2 text-sm font-medium ' +
+  'resumo-ponto-periodo-chip rounded-lg px-3 py-2 text-sm font-semibold ' +
   'transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ' +
   'active:scale-x-[0.97] active:scale-y-[1.04] sm:px-4'
 
-const CHIP_ON = 'bg-[rgba(201,160,69,0.22)] text-[#f2d892] shadow-sm'
-const CHIP_OFF = 'text-[#b8957f] hover:text-[#edd9c4]'
+const CHIP_ON = 'bg-[#f4e4c4] text-[#6b3f12] shadow-sm'
+const CHIP_OFF = 'text-[#6b5244] hover:bg-white hover:text-[#1a100c]'
 
 export function ResumoPonto() {
   const {
@@ -127,132 +128,138 @@ export function ResumoPonto() {
   }
 
   return (
-    <div className="resumo-ponto-page space-y-6">
-      <header className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="section-label">Funcionários</p>
-            <h1 className="font-display text-3xl tracking-wide text-[#f2d892]">Resumo de ponto</h1>
-            <p className="mt-1 max-w-xl text-sm text-[#b8957f]">
-              Chegadas, atrasos, hora extra, faltas e o saldo do período (positivas − negativas) — por pessoa e o total da empresa.
-            </p>
-          </div>
-
-          <div
-            className="flex flex-wrap gap-1 rounded-xl border border-[rgba(212,168,83,0.25)] bg-[rgba(36,16,8,0.65)] p-1"
-            role="tablist"
-            aria-label="Tipo de período"
-          >
-            {MODOS.map(p => {
-              const ativo = periodo === p.id
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={ativo}
-                  className={`${CHIP_BASE} ${ativo ? CHIP_ON : CHIP_OFF}`}
-                  onClick={() => trocarModo(p.id)}
-                >
-                  {p.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {periodo === 'mes' && (
-          <div
-            className="resumo-ponto-meses flex gap-1.5 overflow-x-auto overscroll-x-contain rounded-xl border border-[rgba(212,168,83,0.2)] bg-[rgba(20,10,4,0.45)] p-2"
-            role="listbox"
-            aria-label="Escolher mês"
-          >
-            {meses.map((m) => {
-              const ativo = mesRef === m.id
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="option"
-                  aria-selected={ativo}
-                  title={m.label}
-                  onClick={() => trocarMes(m.id)}
-                  className={
-                    'resumo-ponto-periodo-chip shrink-0 rounded-lg px-3.5 py-2 text-sm font-medium ' +
-                    'transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ' +
-                    'active:scale-x-[0.97] active:scale-y-[1.04] ' +
-                    (ativo
-                      ? 'bg-[rgba(201,160,69,0.28)] text-[#f7e7be] shadow-sm ring-1 ring-[rgba(212,168,83,0.45)]'
-                      : 'text-[#b8957f] hover:bg-[rgba(201,160,69,0.1)] hover:text-[#edd9c4]')
-                  }
-                >
-                  {m.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </header>
-
-      {loading && <LoadingState message="Carregando resumo do período…" />}
-      {!loading && error && <ErrorState message={error} onRetry={() => void reload()} />}
-
-      {!loading && !error && resumo && (
-        <>
-          <ResumoPontoEmpresaHero
-            empresa={resumo.empresa}
-            periodoLabel={periodoLabel}
-            intervaloLabel={intervaloLabel}
-            filtroFaltasAtivo={filtroFaltas}
-            onToggleFiltroFaltas={() => setFiltroFaltas(v => !v)}
-          />
-
-          {resumo.funcionarios.length === 0 ? (
-            <div className="glass-card p-10 text-center text-[#b8957f]">
-              Nenhum funcionário de campo cadastrado.
+    <div className="resumo-ponto-page relative -mx-2 min-h-[calc(100svh-4.25rem)] px-2 pb-10 sm:-mx-3 sm:px-3 md:px-4">
+      <ResumoPontoAura />
+      <div className="relative z-[1] mx-auto w-full max-w-[1400px] space-y-6 pt-2 md:pt-4">
+        <header className="resumo-ponto-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/95 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="section-label text-[#6b3f12]">Funcionários</p>
+              <h1 className="mt-1 font-display text-3xl tracking-wide text-[#1a100c] sm:text-4xl">
+                Resumo de ponto
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4a3428] sm:text-base">
+                Chegadas, atrasos, hora extra, faltas e o saldo do período (positivas − negativas) —
+                por pessoa e o total da empresa.
+              </p>
             </div>
-          ) : funcionarios.length === 0 ? (
-            <div className="glass-card p-10 text-center text-[#b8957f]">
-              Ninguém com falta neste período.
-              <button
-                type="button"
-                className="mt-3 block w-full text-sm text-[#f2d892] underline-offset-2 hover:underline"
-                onClick={() => setFiltroFaltas(false)}
-              >
-                Ver toda a equipe
-              </button>
-            </div>
-          ) : (
-            <>
-              {filtroFaltas && (
-                <p className="text-sm text-[#b8957f]">
-                  Mostrando {funcionarios.length} com falta
-                  {' · '}
+
+            <div
+              className="flex flex-wrap gap-1 rounded-xl border border-[rgba(26,16,12,0.14)] bg-white/90 p-1 shadow-sm"
+              role="tablist"
+              aria-label="Tipo de período"
+            >
+              {MODOS.map(p => {
+                const ativo = periodo === p.id
+                return (
                   <button
+                    key={p.id}
                     type="button"
-                    className="text-[#f2d892] underline-offset-2 hover:underline"
-                    onClick={() => setFiltroFaltas(false)}
+                    role="tab"
+                    aria-selected={ativo}
+                    className={`${CHIP_BASE} ${ativo ? CHIP_ON : CHIP_OFF}`}
+                    onClick={() => trocarModo(p.id)}
                   >
-                    limpar filtro
+                    {p.label}
                   </button>
-                </p>
-              )}
-              <div className="grid gap-5 xl:grid-cols-2">
-                {funcionarios.map((row, i) => (
-                  <ResumoPontoFuncionarioCard
-                    key={row.funcionario_id}
-                    row={row}
-                    index={i}
-                    periodoLabel={periodoLabel}
-                    intervaloLabel={intervaloLabel}
-                    repCnpj={repCnpj}
-                  />
-                ))}
-              </div>
-            </>
+                )
+              })}
+            </div>
+          </div>
+
+          {periodo === 'mes' && (
+            <div
+              className="resumo-ponto-meses mt-4 flex gap-1.5 overflow-x-auto overscroll-x-contain rounded-xl border border-[rgba(26,16,12,0.12)] bg-[#f7efe4]/80 p-2"
+              role="listbox"
+              aria-label="Escolher mês"
+            >
+              {meses.map((m) => {
+                const ativo = mesRef === m.id
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="option"
+                    aria-selected={ativo}
+                    title={m.label}
+                    onClick={() => trocarMes(m.id)}
+                    className={
+                      'resumo-ponto-periodo-chip shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold ' +
+                      'transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ' +
+                      'active:scale-x-[0.97] active:scale-y-[1.04] ' +
+                      (ativo
+                        ? 'bg-white text-[#6b3f12] shadow-sm ring-1 ring-[rgba(107,63,18,0.35)]'
+                        : 'text-[#6b5244] hover:bg-white/80 hover:text-[#1a100c]')
+                    }
+                  >
+                    {m.label}
+                  </button>
+                )
+              })}
+            </div>
           )}
-        </>
-      )}
+        </header>
+
+        {loading && <LoadingState message="Carregando resumo do período…" />}
+        {!loading && error && <ErrorState message={error} onRetry={() => void reload()} />}
+
+        {!loading && !error && resumo && (
+          <>
+            <ResumoPontoEmpresaHero
+              empresa={resumo.empresa}
+              periodoLabel={periodoLabel}
+              intervaloLabel={intervaloLabel}
+              filtroFaltasAtivo={filtroFaltas}
+              onToggleFiltroFaltas={() => setFiltroFaltas(v => !v)}
+            />
+
+            {resumo.funcionarios.length === 0 ? (
+              <div className="rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-10 text-center text-[#6b5244]">
+                Nenhum funcionário de campo cadastrado.
+              </div>
+            ) : funcionarios.length === 0 ? (
+              <div className="rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-10 text-center text-[#6b5244]">
+                Ninguém com falta neste período.
+                <button
+                  type="button"
+                  className="mt-3 block w-full text-sm font-semibold text-[#6b3f12] underline-offset-2 hover:underline"
+                  onClick={() => setFiltroFaltas(false)}
+                >
+                  Ver toda a equipe
+                </button>
+              </div>
+            ) : (
+              <>
+                {filtroFaltas && (
+                  <p className="text-sm text-[#6b5244]">
+                    Mostrando {funcionarios.length} com falta
+                    {' · '}
+                    <button
+                      type="button"
+                      className="font-semibold text-[#6b3f12] underline-offset-2 hover:underline"
+                      onClick={() => setFiltroFaltas(false)}
+                    >
+                      limpar filtro
+                    </button>
+                  </p>
+                )}
+                <div className="grid gap-5 xl:grid-cols-2">
+                  {funcionarios.map((row, i) => (
+                    <ResumoPontoFuncionarioCard
+                      key={row.funcionario_id}
+                      row={row}
+                      index={i}
+                      periodoLabel={periodoLabel}
+                      intervaloLabel={intervaloLabel}
+                      repCnpj={repCnpj}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
 
       <style>{`
         .resumo-ponto-hero {

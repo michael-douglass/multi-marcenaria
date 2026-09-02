@@ -5,6 +5,7 @@ import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
 import { useMeuFuncionario } from '@/hooks/useMeuFuncionario'
 import { BaterPonto } from '@/pages/BaterPonto'
 import { PontoControleFuncionarios } from '@/components/ponto/PontoControleFuncionarios'
+import { PontoPageAura } from '@/components/ponto/PontoPageAura'
 import { LoadingState } from '@/components/ui/EmptyState'
 
 type PontoTab = 'bater' | 'controle'
@@ -31,13 +32,14 @@ export function PontoPage() {
 
   if (!showBater && !showControle) {
     return (
-      <div className="fade-in obra-page-shell mx-auto flex max-w-lg flex-col gap-4 p-1 pb-10">
-        <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#f2d892]">
+      <div className="ponto-page-shell fade-in obra-page-shell relative mx-auto flex max-w-lg flex-col gap-4 p-1 pb-10">
+        <PontoPageAura />
+        <h1 className="ponto-page-title font-display flex items-center gap-2 text-[2rem] tracking-wide">
           <Clock size={28} />
           Bater Ponto
         </h1>
         <div className="glass-card p-8 text-center">
-          <p className="text-[#edd9c4]">
+          <p>
             Só funcionários cadastrados pela empresa podem bater ponto.
           </p>
           <p className="mt-2 text-sm text-[#b8957f]">
@@ -49,15 +51,15 @@ export function PontoPage() {
     )
   }
 
-  // Montador / Montador Admin / Adm. Obras: página completa de bater ponto com status e batidas
   if (onlyBater) {
     return <BaterPonto />
   }
 
   return (
-    <div className="fade-in obra-page-shell flex flex-col gap-6 p-1 pb-10">
+    <div className="ponto-page-shell fade-in obra-page-shell relative flex flex-col gap-6 p-1 pb-10">
+      <PontoPageAura />
       <div>
-        <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#f2d892]">
+        <h1 className="ponto-page-title font-display flex items-center gap-2 text-[2rem] tracking-wide">
           <Clock size={28} />
           Ponto
         </h1>
@@ -70,7 +72,7 @@ export function PontoPage() {
 
       {!onlyOne && (
         <nav
-          className="flex gap-1 rounded-xl border border-[rgba(212,168,83,0.2)] bg-[rgba(36,16,8,0.45)] p-1"
+          className="flex gap-1 rounded-xl border border-[rgba(26,16,12,0.14)] bg-[#fffaf4]/95 p-1 shadow-[0_8px_20px_rgba(42,24,18,0.05)]"
           aria-label="Abas do ponto"
         >
           {showBater && (
@@ -79,8 +81,8 @@ export function PontoPage() {
               onClick={() => setTab('bater')}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
                 activeTab === 'bater'
-                  ? 'bg-[rgba(240,210,140,0.14)] text-[#f2d892] shadow-sm'
-                  : 'text-[#b8957f] hover:text-[#edd9c4]'
+                  ? 'bg-[#f4e4c4] text-[#6b3f12] shadow-sm'
+                  : 'text-[#6b5244] hover:text-[#1a100c]'
               }`}
             >
               <UserCheck size={16} />
@@ -93,8 +95,8 @@ export function PontoPage() {
               onClick={() => setTab('controle')}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
                 activeTab === 'controle'
-                  ? 'bg-[rgba(240,210,140,0.14)] text-[#f2d892] shadow-sm'
-                  : 'text-[#b8957f] hover:text-[#edd9c4]'
+                  ? 'bg-[#f4e4c4] text-[#6b3f12] shadow-sm'
+                  : 'text-[#6b5244] hover:text-[#1a100c]'
               }`}
             >
               <LayoutGrid size={16} />

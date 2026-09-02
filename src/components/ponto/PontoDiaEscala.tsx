@@ -38,14 +38,10 @@ export function PontoDiaEscala({ marcacoes, jornada, compact = false }: Props) {
             <div className="ponto-escala__head">
               <div className="min-w-0 flex-1">
                 <p className="ponto-escala__tipo">{labelPontoTipo(tipo)}</p>
-                <p className="ponto-escala__horas">
-                  <span className="text-[#b8957f]">Previsto </span>
-                  <span className="text-[#edd9c4]">{formatHoraPonto(previsto)}</span>
-                  <span className="mx-2 text-[#6b5344]">·</span>
-                  <span className="text-[#b8957f]">Real </span>
-                  <span className={marcacao ? 'text-[#f2d892]' : 'text-[#6b5344]'}>
-                    {marcacao ? realizado : '—'}
-                  </span>
+                    <p className="ponto-escala__horas">
+                  Previsto {formatHoraPonto(previsto)}
+                  <span aria-hidden> · </span>
+                  Real {marcacao ? realizado : '—'}
                 </p>
                 {marcacao?.status === 'atraso' && marcacao.atraso_minutos > 0 && (
                   <p className="mt-1 flex items-center gap-1 text-xs text-amber-400">
@@ -84,7 +80,7 @@ export function PontoDiaEscala({ marcacoes, jornada, compact = false }: Props) {
                     {marcacao.fotoUrl ? (
                       <img src={marcacao.fotoUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-[#6b5344]">
+                      <div className="flex h-full items-center justify-center text-[#c4a88a]">
                         <UserX size={compact ? 18 : 24} strokeWidth={1.2} />
                       </div>
                     )}

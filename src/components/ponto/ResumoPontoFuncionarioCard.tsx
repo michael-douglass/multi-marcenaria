@@ -25,31 +25,31 @@ interface ResumoPontoFuncionarioCardProps {
 
 const CARD_CLASS =
   'resumo-ponto-card group relative block overflow-hidden rounded-2xl ' +
-  'border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno ' +
-  'transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(212,168,83,0.45)] ' +
-  'hover:shadow-mogno-lg focus-visible:outline-none focus-visible:ring-2 ' +
-  'focus-visible:ring-[rgba(242,216,146,0.4)]'
+  'border border-[rgba(26,16,12,0.12)] bg-[#fffdf9] shadow-[0_12px_28px_rgba(42,24,18,0.06)] ' +
+  'transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(107,63,18,0.28)] ' +
+  'hover:shadow-[0_18px_36px_rgba(42,24,18,0.1)] focus-visible:outline-none focus-visible:ring-2 ' +
+  'focus-visible:ring-[rgba(107,63,18,0.35)]'
 
 const BADGE_HE =
-  'rounded-full border border-amber-500/35 bg-amber-500/10 px-2.5 py-0.5 ' +
-  'text-[0.65rem] uppercase tracking-wider text-amber-300'
+  'rounded-full border border-[#92400e]/30 bg-[#fff7ed] px-2.5 py-0.5 ' +
+  'text-[0.65rem] font-semibold uppercase tracking-wider text-[#92400e]'
 
 const BADGE_ATRASO =
-  'rounded-full border border-rose-500/40 bg-rose-500/10 px-2.5 py-0.5 ' +
-  'text-[0.65rem] uppercase tracking-wider text-rose-300'
+  'rounded-full border border-[#9f1239]/30 bg-[#fff1f2] px-2.5 py-0.5 ' +
+  'text-[0.65rem] font-semibold uppercase tracking-wider text-[#9f1239]'
 
 const BADGE_FALTA_ON =
-  'rounded-full border border-red-500/35 bg-red-500/10 px-2.5 py-0.5 ' +
-  'text-[0.65rem] uppercase tracking-wider text-red-300'
+  'rounded-full border border-[#9f1239]/35 bg-[#fde8ec] px-2.5 py-0.5 ' +
+  'text-[0.65rem] font-semibold uppercase tracking-wider text-[#9f1239]'
 
 const BADGE_FALTA_OFF =
-  'rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 ' +
-  'text-[0.65rem] uppercase tracking-wider text-emerald-300'
+  'rounded-full border border-[#146c38]/30 bg-[#edf8f1] px-2.5 py-0.5 ' +
+  'text-[0.65rem] font-semibold uppercase tracking-wider text-[#146c38]'
 
 const TH =
-  'px-2 py-2 text-center font-medium text-[0.6rem] uppercase tracking-wider text-[#b8957f]'
+  'px-2 py-2 text-center font-semibold text-[0.6rem] uppercase tracking-wider text-[#6b5244]'
 
-const TD_HORA = 'px-2 py-1.5 text-center tabular-nums text-[#f2d892]'
+const TD_HORA = 'px-2 py-1.5 text-center tabular-nums text-[#1a100c]'
 
 function formatDataCurta(iso: string): string {
   if (!iso) return '-'
@@ -60,19 +60,19 @@ function formatDataCurta(iso: string): string {
 function CellHora({ valor }: { valor: string | null }) {
   return (
     <td className={TD_HORA}>
-      {valor ?? <span className="text-[#b8957f]">-</span>}
+      {valor ?? <span className="text-[#9a8170]">-</span>}
     </td>
   )
 }
 
 function saldoTone(status: 'positivo' | 'negativo' | 'zerado'): string {
   if (status === 'positivo') {
-    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+    return 'border-[#146c38]/30 bg-[#edf8f1] text-[#146c38]'
   }
   if (status === 'negativo') {
-    return 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+    return 'border-[#9f1239]/30 bg-[#fff1f2] text-[#9f1239]'
   }
-  return 'border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] text-[#f2d892]'
+  return 'border-[rgba(26,16,12,0.14)] bg-[#f7efe4] text-[#6b3f12]'
 }
 
 function saldoTitulo(status: 'positivo' | 'negativo' | 'zerado'): string {
@@ -109,7 +109,6 @@ export function ResumoPontoFuncionarioCard({
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Não foi possível exportar o PDF.')
     } finally {
-      // A janela de impressão abre de forma assíncrona; liberamos o botão em seguida.
       window.setTimeout(() => setExportando(false), 800)
     }
   }
@@ -128,12 +127,12 @@ export function ResumoPontoFuncionarioCard({
           aria-label={`Exportar resumo de ponto de ${row.nome} em PDF`}
           className={
             'resumo-ponto-export-btn inline-flex items-center gap-1.5 rounded-lg border ' +
-            'border-[rgba(212,168,83,0.35)] bg-[rgba(36,16,8,0.85)] px-3 py-1.5 ' +
-            'text-[0.7rem] font-medium uppercase tracking-wider text-[#f2d892] ' +
+            'border-[rgba(107,63,18,0.35)] bg-white px-3 py-1.5 ' +
+            'text-[0.7rem] font-semibold uppercase tracking-wider text-[#6b3f12] ' +
             'shadow-sm transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ' +
-            'hover:border-[rgba(212,168,83,0.55)] hover:bg-[rgba(56,28,12,0.95)] ' +
-            'hover:text-[#f7e7be] active:scale-x-[0.97] active:scale-y-[1.04] ' +
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(242,216,146,0.4)] ' +
+            'hover:border-[rgba(107,63,18,0.55)] hover:bg-[#f4e4c4] ' +
+            'active:scale-x-[0.97] active:scale-y-[1.04] ' +
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(107,63,18,0.35)] ' +
             'disabled:cursor-wait disabled:opacity-70'
           }
         >
@@ -152,20 +151,20 @@ export function ResumoPontoFuncionarioCard({
         className={CARD_CLASS}
       >
         <div
-          className="absolute inset-x-0 top-0 h-1 opacity-60"
+          className="absolute inset-x-0 top-0 h-1 opacity-80"
           style={{
-            background: 'linear-gradient(to right, transparent, #f2d892, transparent)',
+            background: 'linear-gradient(to right, transparent, #c4963a, transparent)',
           }}
         />
 
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(212,168,83,0.12)] px-5 py-4">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(26,16,12,0.1)] px-5 py-4">
           <div>
-            <h3 className="font-display text-xl tracking-wide text-[#f2d892] group-hover:underline group-hover:underline-offset-4">
+            <h3 className="font-display text-xl tracking-wide text-[#1a100c] group-hover:underline group-hover:underline-offset-4">
               {row.nome}
             </h3>
-            <p className="section-label mt-0.5">
+            <p className="section-label mt-0.5 text-[#6b5244]">
               {FUNCIONARIO_TIPO_LABEL[row.tipo] ?? row.tipo}
-              <span className="ml-2 text-[0.6rem] tracking-wider text-[#c9a045]">Abrir pasta</span>
+              <span className="ml-2 text-[0.6rem] tracking-wider text-[#6b3f12]">Abrir pasta</span>
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -185,18 +184,18 @@ export function ResumoPontoFuncionarioCard({
 
         <div className="space-y-5 p-5">
           <section>
-            <h4 className="text-[0.65rem] font-medium uppercase tracking-widest text-[#b8957f]">
-              Batidas e faltas no periodo
+            <h4 className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
+              Batidas e faltas no período
             </h4>
             {dias.length === 0 && (
-              <p className="mt-2 text-sm text-[#b8957f]">Nenhuma batida registrada.</p>
+              <p className="mt-2 text-sm text-[#6b5244]">Nenhuma batida registrada.</p>
             )}
             {dias.length > 0 && (
-              <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[rgba(212,168,83,0.18)]">
+              <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[rgba(26,16,12,0.12)] bg-white">
                 <table className="w-full min-w-[420px] border-collapse text-sm">
-                  <thead className="sticky top-0 bg-[rgba(20,10,4,0.95)]">
+                  <thead className="sticky top-0 bg-[#f7efe4]">
                     <tr>
-                      <th className="px-2 py-2 text-left font-medium text-[0.6rem] uppercase tracking-wider text-[#b8957f]">
+                      <th className="px-2 py-2 text-left font-semibold text-[0.6rem] uppercase tracking-wider text-[#6b5244]">
                         Data
                       </th>
                       <th className={TH}>Início</th>
@@ -211,20 +210,20 @@ export function ResumoPontoFuncionarioCard({
                       <tr
                         key={dia.data}
                         className={
-                          'border-t border-[rgba(212,168,83,0.12)] ' +
+                          'border-t border-[rgba(26,16,12,0.08)] ' +
                           (dia.ehFalta
-                            ? 'bg-[rgba(136,19,55,0.28)]'
+                            ? 'bg-[#fff1f2]'
                             : dia.atraso_minutos > 0 && dia.excedente_minutos === 0
-                              ? 'bg-[rgba(136,19,55,0.18)]'
+                              ? 'bg-[#fff7f8]'
                               : dia.excedente_minutos > 0
-                                ? 'bg-[rgba(16,85,55,0.18)]'
-                                : 'bg-[rgba(20,10,4,0.35)]')
+                                ? 'bg-[#f3fbf6]'
+                                : 'bg-white')
                         }
                       >
-                        <td className="px-2 py-1.5 text-left tabular-nums text-[#edd9c4]">
+                        <td className="px-2 py-1.5 text-left tabular-nums font-medium text-[#1a100c]">
                           {formatDataCurta(dia.data)}
                           {dia.ehFalta && (
-                            <span className="ml-1 text-[0.6rem] uppercase tracking-wider text-rose-300">
+                            <span className="ml-1 text-[0.6rem] font-semibold uppercase tracking-wider text-[#9f1239]">
                               falta
                             </span>
                           )}
@@ -235,18 +234,18 @@ export function ResumoPontoFuncionarioCard({
                         <CellHora valor={dia.saida} />
                         <td className="px-2 py-1.5 text-center tabular-nums">
                           {dia.ehFalta ? (
-                            <span className="font-medium text-rose-300">Falta</span>
+                            <span className="font-semibold text-[#9f1239]">Falta</span>
                           ) : dia.excedente_minutos === 0 && dia.atraso_minutos === 0 ? (
-                            <span className="text-[#b8957f]">—</span>
+                            <span className="text-[#9a8170]">—</span>
                           ) : (
                             <span className="inline-flex flex-col items-center gap-0.5 leading-tight">
                               {dia.excedente_minutos > 0 && (
-                                <span className="font-medium text-emerald-300">
+                                <span className="font-semibold text-[#146c38]">
                                   +{formatMinutosSaldo(dia.excedente_minutos)}
                                 </span>
                               )}
                               {dia.atraso_minutos > 0 && (
-                                <span className="font-medium text-rose-300">
+                                <span className="font-semibold text-[#9f1239]">
                                   −{formatMinutosSaldo(dia.atraso_minutos)}
                                 </span>
                               )}
@@ -254,7 +253,7 @@ export function ResumoPontoFuncionarioCard({
                                 <span
                                   className={
                                     'text-[0.65rem] ' +
-                                    (dia.saldo_minutos >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90')
+                                    (dia.saldo_minutos >= 0 ? 'text-[#146c38]' : 'text-[#9f1239]')
                                   }
                                 >
                                   (= {formatMinutosComSinal(dia.saldo_minutos)})
@@ -272,26 +271,26 @@ export function ResumoPontoFuncionarioCard({
           </section>
 
           <section
-            className="rounded-xl border border-[rgba(212,168,83,0.22)] bg-[rgba(20,10,4,0.45)] p-3.5"
+            className="rounded-xl border border-[rgba(26,16,12,0.12)] bg-[#faf6f0] p-3.5"
             aria-label="Balanço de horas do período"
           >
-            <h4 className="text-[0.65rem] font-medium uppercase tracking-widest text-[#b8957f]">
+            <h4 className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
               Balanço do período
             </h4>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2 py-2 text-center">
-                <p className="text-[0.55rem] uppercase tracking-wider text-emerald-400/80">
+              <div className="rounded-lg border border-[#146c38]/25 bg-[#edf8f1] px-2 py-2 text-center">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#146c38]/80">
                   Excedentes
                 </p>
-                <p className="mt-1 font-display text-sm tabular-nums text-emerald-300">
+                <p className="mt-1 font-display text-sm tabular-nums text-[#146c38]">
                   {formatMinutosHoraExtra(balanco.horas_positivas_minutos)}
                 </p>
               </div>
-              <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-2 py-2 text-center">
-                <p className="text-[0.55rem] uppercase tracking-wider text-rose-400/80">
+              <div className="rounded-lg border border-[#9f1239]/25 bg-[#fff1f2] px-2 py-2 text-center">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#9f1239]/80">
                   Atrasos
                 </p>
-                <p className="mt-1 font-display text-sm tabular-nums text-rose-300">
+                <p className="mt-1 font-display text-sm tabular-nums text-[#9f1239]">
                   {balanco.horas_negativas_minutos > 0
                     ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}`
                     : '0min'}
@@ -300,7 +299,7 @@ export function ResumoPontoFuncionarioCard({
               <div
                 className={`rounded-lg border px-2 py-2 text-center ${saldoTone(balanco.status)}`}
               >
-                <p className="text-[0.55rem] uppercase tracking-wider opacity-80">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider opacity-80">
                   {saldoTitulo(balanco.status)}
                 </p>
                 <p className="mt-1 font-display text-sm tabular-nums">
@@ -308,7 +307,7 @@ export function ResumoPontoFuncionarioCard({
                 </p>
               </div>
             </div>
-            <p className="mt-2 text-[0.65rem] leading-relaxed text-[#b8957f]">
+            <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
               No dia: verde = excedente (saiu depois) · vermelho = atraso (entrou depois).
               No período: Positivas = soma dos excedentes · Negativas = soma dos atrasos ·
               Saldo = positivas − negativas.
@@ -316,18 +315,18 @@ export function ResumoPontoFuncionarioCard({
           </section>
 
           <section>
-            <h4 className="text-[0.65rem] font-medium uppercase tracking-widest text-[#b8957f]">
+            <h4 className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
               Faltas (dias sem ponto)
             </h4>
             {!temFaltas && (
-              <p className="mt-2 text-sm text-emerald-300/90">Nenhuma falta no periodo.</p>
+              <p className="mt-2 text-sm font-medium text-[#146c38]">Nenhuma falta no período.</p>
             )}
             {temFaltas && (
               <ul className="mt-2 flex flex-wrap gap-2">
                 {row.faltas_datas.map((data) => (
                   <li
                     key={data}
-                    className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-sm tabular-nums text-red-200"
+                    className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-2.5 py-1 text-sm font-medium tabular-nums text-[#9f1239]"
                     title={formatDataCurtaPonto(data)}
                   >
                     {formatDataCurta(data)}

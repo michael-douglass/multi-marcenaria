@@ -18,6 +18,7 @@ import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { labelPontoTipo, formatJornadaResumo } from '@/lib/funcionario-ponto'
 import { isGeolocationPermissionDenied } from '@/lib/geolocation'
 import { useBaterPonto } from '@/hooks/useBaterPonto'
+import { PontoPageAura } from '@/components/ponto/PontoPageAura'
 
 const STEPS = ['Localização', 'Selfie', 'Assinatura', 'Confirmar']
 const STEP_INDEX: Record<string, number> = {
@@ -53,10 +54,17 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
   const bloqueado = !status?.jornada || !!status?.ocorrencia || !status?.proximo_tipo
 
   return (
-    <div className={embedded ? 'flex flex-col gap-6' : 'fade-in obra-page-shell mx-auto flex max-w-lg flex-col gap-6 p-1 pb-10'}>
+    <div
+      className={
+        embedded
+          ? 'flex flex-col gap-6'
+          : 'ponto-page-shell fade-in obra-page-shell relative mx-auto flex max-w-lg flex-col gap-6 p-1 pb-10'
+      }
+    >
+      {!embedded && <PontoPageAura />}
       {!embedded && (
         <div>
-          <h1 className="font-display flex items-center gap-2 text-[2rem] tracking-wide text-[#f2d892]">
+          <h1 className="ponto-page-title font-display flex items-center gap-2 text-[2rem] tracking-wide">
             <Clock size={28} />
             Bater Ponto
           </h1>

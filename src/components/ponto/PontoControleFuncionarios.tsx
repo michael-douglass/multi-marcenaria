@@ -37,15 +37,15 @@ function statusStyle(status: PontoStatusDia): string {
   switch (status) {
     case 'em_dia':
     case 'completo':
-      return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+      return 'border-emerald-400/45 bg-emerald-500/15 text-emerald-200'
     case 'atraso':
-      return 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+      return 'border-amber-400/50 bg-amber-500/15 text-amber-200'
     case 'falta':
-      return 'border-red-500/35 bg-red-500/10 text-red-300'
+      return 'border-red-400/45 bg-red-500/15 text-red-200'
     case 'folga':
-      return 'border-violet-500/35 bg-violet-500/10 text-violet-200'
+      return 'border-violet-400/45 bg-violet-500/15 text-violet-200'
     default:
-      return 'border-[rgba(212,168,83,0.25)] bg-[rgba(36,16,8,0.5)] text-[#b8957f]'
+      return 'border-[rgba(242,216,146,0.5)] bg-[rgba(242,216,146,0.14)] text-[#f6e4a8] font-semibold'
   }
 }
 
@@ -62,26 +62,16 @@ function ResumoChip({
   active: boolean
   onClick: () => void
 }) {
-  const tones = {
-    gold: 'from-[rgba(201,160,69,0.18)] border-[rgba(212,168,83,0.35)] text-[#f2d892]',
-    green: 'from-emerald-500/15 border-emerald-500/30 text-emerald-300',
-    amber: 'from-amber-500/15 border-amber-500/30 text-amber-300',
-    red: 'from-red-500/15 border-red-500/30 text-red-300',
-    muted: 'from-[rgba(36,16,8,0.6)] border-[rgba(212,168,83,0.2)] text-[#edd9c4]',
-  }
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       aria-label={`Filtrar por ${label}: ${value}`}
-      className={`rounded-xl border bg-gradient-to-br to-transparent px-4 py-3 text-left transition-all duration-200 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853]/60 ${tones[tone]} ${
-        active
-          ? 'ring-2 ring-[#d4a853]/70 shadow-mogno scale-[1.02]'
-          : 'opacity-90 hover:opacity-100'
-      }`}
+      data-tone={tone}
+      className="ponto-resumo-chip rounded-xl px-4 py-3 text-left transition-all duration-200 hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b3f12]/45"
     >
-      <p className="text-[0.65rem] uppercase tracking-widest opacity-80">{label}</p>
+      <p className="ponto-resumo-chip__label">{label}</p>
       <p className="font-display mt-1 text-2xl tabular-nums">{value}</p>
     </button>
   )
@@ -89,12 +79,12 @@ function ResumoChip({
 
 function saldoBadgeClass(saldo: PontoSaldoDia): string {
   if (saldo.status === 'credito') {
-    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+    return 'border-emerald-400/45 bg-emerald-500/15 text-emerald-200'
   }
   if (saldo.status === 'devendo') {
-    return 'border-red-500/40 bg-red-500/10 text-red-300'
+    return 'border-red-400/45 bg-red-500/15 text-red-200'
   }
-  return 'border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] text-[#f2d892]'
+  return 'border-[rgba(242,216,146,0.4)] bg-[rgba(242,216,146,0.12)] text-[#f6e4a8]'
 }
 
 function saldoLabel(saldo: PontoSaldoDia): string {
@@ -109,17 +99,17 @@ function FuncionarioPontoCard({ row }: { row: PontoControleFuncionarioRow }) {
 
   return (
     <article
-      className="group relative overflow-hidden rounded-2xl border border-[rgba(212,168,83,0.22)] bg-[rgba(36,16,8,0.72)] shadow-mogno transition-all duration-300 hover:border-[rgba(212,168,83,0.45)] hover:shadow-mogno-lg"
+      className="ponto-dark-island group relative overflow-hidden rounded-2xl transition-all duration-300 hover:border-[rgba(242,216,146,0.5)]"
       style={{ animation: 'fadeIn 0.45s ease-out both' }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-1 opacity-60"
+        className="absolute inset-x-0 top-0 h-1 opacity-70"
         style={{
           background: 'linear-gradient(to right, transparent, #f2d892, transparent)',
         }}
       />
 
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(212,168,83,0.12)] px-5 py-4">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(242,216,146,0.18)] px-5 py-4">
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-xl tracking-wide text-[#f2d892]">{row.nome}</h3>
           <p className="section-label mt-0.5">{FUNCIONARIO_TIPO_LABEL[row.tipo]}</p>

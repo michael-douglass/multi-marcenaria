@@ -2238,6 +2238,53 @@ body::before {
   .cobrancas-ledger th {
     white-space: normal;
   }
+
+  /* Contas a pagar: livro-caixa largo — colunas legíveis sem zoom */
+  .cobrancas-ledger--pagar .cobrancas-ledger__table {
+    table-layout: fixed;
+    min-width: 1080px;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-check {
+    width: 2.5rem;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-fornecedor {
+    width: 28%;
+    min-width: 0;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-pagamento {
+    width: 8%;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-parcela {
+    width: 5.5%;
+    white-space: nowrap;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-valor {
+    width: 8.5%;
+    white-space: nowrap;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-venc {
+    width: 7.5%;
+    white-space: nowrap;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-status {
+    width: 7%;
+  }
+  .cobrancas-ledger--pagar .cobrancas-ledger__col-acoes {
+    width: 18%;
+  }
+
+  @media (min-width: 1400px) {
+    .cobrancas-ledger--pagar .cobrancas-ledger__table {
+      min-width: 0;
+    }
+    .cobrancas-ledger--pagar .cobrancas-ledger__col-fornecedor {
+      width: 30%;
+    }
+    .cobrancas-ledger--pagar .cobrancas-ledger__col-acoes {
+      width: 16%;
+    }
+  }
+
   .cobrancas-row-late {
     background: rgba(159, 18, 57, 0.06);
   }
@@ -2811,6 +2858,66 @@ body::before {
     border: 1px solid rgba(240, 210, 140, 0.28);
     color: #f2d892;
     background: rgba(28, 12, 6, 0.72);
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      background 0.18s ease;
+  }
+
+  .sidebar-search-icon-btn:hover,
+  .sidebar-search-icon-btn[aria-expanded='true'] {
+    border-color: rgba(242, 216, 146, 0.55);
+    background: rgba(42, 18, 8, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(242, 216, 146, 0.18),
+      0 8px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Caixa de busca flutuante com sidebar recolhida */
+  .sidebar-search-flyout {
+    position: fixed;
+    z-index: 80;
+    width: min(280px, calc(100vw - 24px));
+    padding: 0.45rem;
+    border-radius: 14px;
+    border: 1px solid rgba(240, 210, 140, 0.38);
+    background:
+      radial-gradient(120% 90% at 8% 0%, rgba(242, 216, 146, 0.16), transparent 55%),
+      linear-gradient(180deg, rgba(22, 10, 5, 0.98), rgba(10, 4, 2, 0.96));
+    box-shadow:
+      0 18px 40px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(240, 210, 140, 0.18);
+    animation: sidebar-search-flyout-in 0.18s ease-out;
+  }
+
+  .sidebar-search--flyout {
+    margin: 0;
+  }
+
+  .sidebar-search-flyout-hint {
+    margin: 0.4rem 0.2rem 0.1rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(237, 217, 196, 0.55);
+    font-family: Raleway, sans-serif;
+  }
+
+  @keyframes sidebar-search-flyout-in {
+    from {
+      opacity: 0;
+      transform: translateX(-6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-search-flyout {
+      animation: none;
+    }
   }
 
   .sidebar-search-empty {
@@ -4461,19 +4568,20 @@ body {
   margin-bottom: 0.55rem;
   padding: 0.85rem 1rem;
   border-radius: 0.85rem;
-  border: 1px solid rgba(212, 168, 83, 0.18);
-  background: rgba(20, 10, 6, 0.55);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(242, 216, 146, 0.28);
+  background: rgba(10, 5, 3, 0.55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 
 .ponto-escala__item--feito {
-  border-color: rgba(212, 168, 83, 0.35);
-  background: linear-gradient(135deg, rgba(36, 16, 8, 0.85), rgba(20, 10, 6, 0.65));
+  border-color: rgba(242, 216, 146, 0.42);
+  background: linear-gradient(135deg, rgba(28, 14, 8, 0.92), rgba(12, 6, 3, 0.78));
 }
 
 .ponto-escala__item--pendente {
   border-style: dashed;
-  opacity: 0.72;
+  opacity: 1;
+  background: rgba(14, 8, 5, 0.48);
 }
 
 .ponto-escala__head {
@@ -4488,12 +4596,19 @@ body {
   font-family: var(--font-display, serif);
   font-size: 0.95rem;
   letter-spacing: 0.04em;
-  color: #f2d892;
+  color: #f6e4a8;
 }
 
 .ponto-escala__horas {
   margin: 0.2rem 0 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #f3e6d0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.ponto-escala__horas span {
+  color: inherit;
 }
 
 .ponto-escala__nsr {
@@ -4501,7 +4616,7 @@ body {
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #b8957f;
+  color: #e2c9a8;
 }
 
 .ponto-escala__body {
@@ -4517,16 +4632,16 @@ body {
   gap: 0.5rem;
   padding: 0.55rem 0.7rem;
   border-radius: 0.65rem;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(14, 165, 233, 0.14);
   font-size: 0.75rem;
-  color: #7dd3fc;
+  color: #bae6fd;
   text-decoration: none;
 }
 
 .ponto-escala__map:hover {
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(14, 165, 233, 0.14);
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(14, 165, 233, 0.2);
 }
 
 .ponto-escala__midia {
@@ -4538,18 +4653,18 @@ body {
 .ponto-escala__thumb {
   overflow: hidden;
   border-radius: 0.65rem;
-  border: 1px solid rgba(212, 168, 83, 0.2);
-  background: #1a1208;
+  border: 1px solid rgba(242, 216, 146, 0.28);
+  background: #140c08;
 }
 
 .ponto-escala__thumb > p {
   margin: 0;
   padding: 0.35rem 0.55rem;
-  border-bottom: 1px solid rgba(212, 168, 83, 0.12);
+  border-bottom: 1px solid rgba(242, 216, 146, 0.16);
   font-size: 0.58rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #b8957f;
+  color: #e8d2b0;
 }
 
 .ponto-escala__thumb > img,
@@ -4564,15 +4679,301 @@ body {
 
 .ponto-escala__aguardando {
   margin: 0.55rem 0 0;
-  font-size: 0.74rem;
-  color: #b8957f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f0d8b0;
+}
+
+/* ── Página de ponto: tinta no papel + ilhas mogno legíveis ── */
+.ponto-page-shell {
+  --pt-ink: #1a100c;
+  --pt-muted: #4a3428;
+  --pt-faint: #6b5244;
+  --pt-gold: #6b3f12;
+  --pt-sheet: #fffaf4;
+  --pt-line: rgba(26, 16, 12, 0.14);
+  --pt-ok: #146c38;
+  --pt-late: #9f1239;
+  --pt-warn: #92400e;
+  position: relative;
+  isolation: isolate;
+  color: var(--pt-ink);
+  color-scheme: light;
+}
+
+/* ── Resumo de ponto: folha clara (tinta sobre papel) ── */
+.resumo-ponto-page {
+  --rp-ink: #1a100c;
+  --rp-muted: #4a3428;
+  --rp-faint: #6b5244;
+  --rp-gold: #6b3f12;
+  --rp-sheet: #fffaf4;
+  --rp-line: rgba(26, 16, 12, 0.12);
+  position: relative;
+  isolation: isolate;
+  color: var(--rp-ink);
+  color-scheme: light;
+}
+
+.resumo-ponto-page > :not(.resumo-ponto-aura) {
+  position: relative;
+  z-index: 1;
+}
+
+.paper-workspace .resumo-ponto-page h1,
+.resumo-ponto-page h1 {
+  color: var(--rp-ink) !important;
+}
+
+.paper-workspace .resumo-ponto-page h2,
+.paper-workspace .resumo-ponto-page h3,
+.resumo-ponto-page h2,
+.resumo-ponto-page h3 {
+  color: var(--rp-ink) !important;
+}
+
+.paper-workspace .resumo-ponto-page .section-label,
+.resumo-ponto-page .section-label {
+  color: var(--rp-gold) !important;
+}
+
+.paper-workspace .resumo-ponto-page [class*="text-[#f2d892]"],
+.paper-workspace .resumo-ponto-page [class*="text-[#f7e7be]"],
+.resumo-ponto-page [class*="text-[#f2d892]"] {
+  color: var(--rp-gold) !important;
+}
+
+.paper-workspace .resumo-ponto-page [class*="text-[#b8957f]"],
+.paper-workspace .resumo-ponto-page [class*="text-[#edd9c4]"],
+.resumo-ponto-page [class*="text-[#b8957f]"],
+.resumo-ponto-page [class*="text-[#edd9c4]"] {
+  color: var(--rp-muted) !important;
+}
+
+.resumo-ponto-masthead::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #f2d892 0%, #6b3f12 55%, #2a1812 100%);
+}
+
+.resumo-ponto-meses {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 63, 18, 0.35) transparent;
+}
+
+.ponto-page-shell > :not(.ponto-page-aura) {
+  position: relative;
+  z-index: 1;
+}
+
+.paper-workspace .ponto-page-shell h1,
+.ponto-page-shell h1,
+.ponto-page-shell .ponto-page-title {
+  color: var(--pt-gold) !important;
+}
+
+.paper-workspace .ponto-page-shell .section-label,
+.ponto-page-shell .section-label {
+  color: var(--pt-faint) !important;
+}
+
+.paper-workspace .ponto-page-shell [class*="text-[#f2d892]"],
+.paper-workspace .ponto-page-shell [class*="text-[#f6dc9a]"],
+.ponto-page-shell [class*="text-[#f2d892]"],
+.ponto-page-shell [class*="text-[#f6dc9a]"] {
+  color: var(--pt-gold) !important;
+}
+
+.paper-workspace .ponto-page-shell [class*="text-[#edd9c4]"],
+.paper-workspace .ponto-page-shell [class*="text-[#b8957f]"],
+.paper-workspace .ponto-page-shell [class*="text-[#d4bc9f]"],
+.ponto-page-shell [class*="text-[#edd9c4]"],
+.ponto-page-shell [class*="text-[#b8957f]"],
+.ponto-page-shell [class*="text-[#d4bc9f]"] {
+  color: var(--pt-muted) !important;
+}
+
+.ponto-page-shell .glass-card {
+  background: var(--pt-sheet);
+  border-color: var(--pt-line);
+  color: var(--pt-ink);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 12px 28px rgba(42, 24, 18, 0.07);
+}
+
+.ponto-page-shell .glass-card [class*="text-[#edd9c4]"],
+.ponto-page-shell .glass-card [class*="text-[#b8957f]"],
+.ponto-page-shell .glass-card [class*="text-[#d4bc9f]"],
+.ponto-page-shell .glass-card .text-cream {
+  color: var(--pt-muted) !important;
+}
+
+.ponto-page-shell .glass-card [class*="text-[#f2d892]"],
+.ponto-page-shell .glass-card .text-gold {
+  color: var(--pt-gold) !important;
+}
+
+.ponto-page-shell .glass-card [class*="bg-[rgba(36,16,8"],
+.ponto-page-shell .glass-card [class*="bg-[rgba(20,10,6"] {
+  background-color: rgba(42, 24, 18, 0.06) !important;
+  border-color: rgba(26, 16, 12, 0.14) !important;
+}
+
+.ponto-page-shell .btn-outline {
+  border-color: rgba(107, 63, 18, 0.35);
+  color: var(--pt-gold);
+  background: rgba(255, 250, 244, 0.9);
+}
+
+.ponto-page-shell .text-emerald-300,
+.ponto-page-shell .text-emerald-200 {
+  color: var(--pt-ok) !important;
+}
+
+.ponto-page-shell .text-amber-300,
+.ponto-page-shell .text-amber-400,
+.ponto-page-shell .text-amber-200 {
+  color: var(--pt-warn) !important;
+}
+
+.ponto-page-shell .text-red-300,
+.ponto-page-shell .text-red-200 {
+  color: var(--pt-late) !important;
+}
+
+.ponto-page-shell .text-violet-200 {
+  color: #5b21b6 !important;
+}
+
+.ponto-resumo-chip {
+  border: 1px solid var(--pt-line);
+  background: linear-gradient(165deg, #fffdf9 0%, #f7efe4 100%);
+  color: var(--pt-ink);
+  box-shadow: 0 8px 20px rgba(42, 24, 18, 0.05);
+}
+
+.ponto-resumo-chip[data-tone='gold'] {
+  border-color: rgba(107, 63, 18, 0.35);
+  color: var(--pt-gold);
+}
+
+.ponto-resumo-chip[data-tone='green'] {
+  border-color: rgba(20, 108, 56, 0.35);
+  color: var(--pt-ok);
+  background: linear-gradient(165deg, #f3fbf6 0%, #e7f5ec 100%);
+}
+
+.ponto-resumo-chip[data-tone='amber'] {
+  border-color: rgba(146, 64, 14, 0.35);
+  color: var(--pt-warn);
+  background: linear-gradient(165deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.ponto-resumo-chip[data-tone='red'] {
+  border-color: rgba(159, 18, 57, 0.35);
+  color: var(--pt-late);
+  background: linear-gradient(165deg, #fff5f7 0%, #fde8ec 100%);
+}
+
+.ponto-resumo-chip[data-tone='muted'] {
+  border-color: rgba(26, 16, 12, 0.18);
+  color: var(--pt-muted);
+}
+
+.ponto-resumo-chip[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px rgba(107, 63, 18, 0.35),
+    0 10px 24px rgba(42, 24, 18, 0.08);
+  transform: translateY(-1px);
+}
+
+.ponto-resumo-chip__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Ilha mogno: devolve creme/ouro (paper-workspace não pode escurecer o texto) */
+.ponto-dark-island {
+  color: #f3e2cc;
+  background:
+    linear-gradient(165deg, rgba(42, 22, 14, 0.96) 0%, rgba(18, 9, 5, 0.94) 100%);
+  border: 1px solid rgba(242, 216, 146, 0.32);
+  box-shadow:
+    0 1px 0 rgba(255, 248, 235, 0.08) inset,
+    0 16px 36px rgba(8, 3, 1, 0.28);
+}
+
+.paper-workspace .ponto-dark-island,
+.paper-workspace .ponto-dark-island .text-cream,
+.paper-workspace .ponto-dark-island [class*="text-cream"],
+.paper-workspace .ponto-dark-island [class*="text-[#edd9c4]"],
+.paper-workspace .ponto-dark-island [class*="text-[#d4bc9f]"],
+.paper-workspace .ponto-dark-island [class*="text-[#b8957f]"],
+.paper-workspace .ponto-dark-island [class*="text-[#c4a88a]"],
+.paper-workspace .ponto-dark-island [class*="text-[#f6ead8]"],
+.paper-workspace .ponto-dark-island [class*="text-[#faf2ea]"],
+.ponto-page-shell .ponto-dark-island,
+.ponto-page-shell .ponto-dark-island [class*="text-[#edd9c4]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#d4bc9f]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#b8957f]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#c4a88a]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#f6ead8]"] {
+  color: #f0dcc4 !important;
+}
+
+.paper-workspace .ponto-dark-island [class*="text-[#f2d892]"],
+.paper-workspace .ponto-dark-island [class*="text-[#f6dc9a]"],
+.paper-workspace .ponto-dark-island [class*="text-[#f6e4a8]"],
+.paper-workspace .ponto-dark-island .text-gold,
+.paper-workspace .ponto-dark-island h1,
+.paper-workspace .ponto-dark-island h2,
+.paper-workspace .ponto-dark-island h3,
+.ponto-page-shell .ponto-dark-island [class*="text-[#f2d892]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#f6dc9a]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#f6e4a8]"],
+.ponto-page-shell .ponto-dark-island h3 {
+  color: #f6e4a8 !important;
+}
+
+.ponto-page-shell .ponto-dark-island .text-emerald-300,
+.ponto-page-shell .ponto-dark-island .text-emerald-200 {
+  color: #6ee7b7 !important;
+}
+
+.ponto-page-shell .ponto-dark-island .text-amber-300,
+.ponto-page-shell .ponto-dark-island .text-amber-400 {
+  color: #fcd34d !important;
+}
+
+.ponto-page-shell .ponto-dark-island .text-red-300,
+.ponto-page-shell .ponto-dark-island .text-red-200 {
+  color: #fca5a5 !important;
+}
+
+.ponto-page-shell .ponto-dark-island .text-violet-200 {
+  color: #ddd6fe !important;
+}
+
+.ponto-page-shell .ponto-dark-island .section-label {
+  color: #d4bc9f !important;
+}
+
+.ponto-page-shell .ponto-dark-island .ponto-escala__horas [class*="text-[#6b5344]"],
+.ponto-page-shell .ponto-dark-island [class*="text-[#6b5344]"] {
+  color: #c4a88a !important;
 }
 
 .ponto-registro__details {
   overflow: hidden;
   border-radius: 0.65rem;
-  border: 1px solid rgba(212, 168, 83, 0.18);
-  background: rgba(20, 10, 6, 0.45);
+  border: 1px solid rgba(242, 216, 146, 0.22);
+  background: rgba(12, 6, 3, 0.55);
 }
 
 .ponto-registro__summary {
@@ -4598,7 +4999,7 @@ body {
 }
 
 .ponto-registro__body {
-  border-top: 1px solid rgba(212, 168, 83, 0.12);
+  border-top: 1px solid rgba(242, 216, 146, 0.16);
   padding: 0.85rem;
   display: flex;
   flex-direction: column;
@@ -4615,8 +5016,8 @@ body {
 .ponto-registro__horarios > div {
   padding: 0.55rem 0.7rem;
   border-radius: 0.55rem;
-  border: 1px solid rgba(212, 168, 83, 0.12);
-  background: rgba(36, 16, 8, 0.35);
+  border: 1px solid rgba(242, 216, 146, 0.18);
+  background: rgba(20, 10, 6, 0.55);
 }
 
 .ponto-registro__horarios dt {
@@ -4624,13 +5025,13 @@ body {
   font-size: 0.58rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #b8957f;
+  color: #e2c9a8;
 }
 
 .ponto-registro__horarios dd {
   margin: 0.2rem 0 0;
   font-size: 0.9rem;
-  color: #edd9c4;
+  color: #f6ead8;
 }
 
 .viz-list-item__title {
@@ -5772,6 +6173,110 @@ body {
   background:
     radial-gradient(circle at 35% 30%, rgba(255, 244, 214, 0.9), transparent 42%),
     linear-gradient(145deg, #f0d28c, #8a6230);
+}
+
+.evento-caderno-busca {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0 0.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 210, 140, 0.34);
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(242, 216, 146, 0.14), transparent 52%),
+    linear-gradient(180deg, rgba(28, 12, 6, 0.92), rgba(12, 6, 3, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 140, 0.16),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.evento-caderno-busca__icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  color: #f2d892;
+  opacity: 0.9;
+}
+
+.evento-caderno-busca input {
+  width: 100%;
+  min-width: 0;
+  height: 2.1rem;
+  border: 0;
+  background: transparent;
+  color: #f5e6c8;
+  font-family: Raleway, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  outline: none;
+}
+
+.evento-caderno-busca input::placeholder {
+  color: rgba(237, 217, 196, 0.5);
+}
+
+.evento-caderno-busca input::-webkit-search-decoration,
+.evento-caderno-busca input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.evento-caderno-busca__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.evento-caderno-busca__count {
+  min-width: 2.4rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f2d892;
+  font-family: Raleway, sans-serif;
+}
+
+.evento-caderno-busca__nav,
+.evento-caderno-busca__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: #edd9c4;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.evento-caderno-busca__nav:hover:not(:disabled),
+.evento-caderno-busca__clear:hover {
+  color: #f2d892;
+  border-color: rgba(240, 210, 140, 0.28);
+  background: rgba(240, 210, 140, 0.08);
+}
+
+.evento-caderno-busca__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.evento-caderno-folha--busca {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 0 48px rgba(92, 58, 28, 0.07),
+    0 0 0 1px rgba(178, 59, 50, 0.22),
+    8px 0 18px rgba(0, 0, 0, 0.18),
+    0 22px 48px rgba(0, 0, 0, 0.42);
+}
+
+.evento-caderno-folha--busca ::selection {
+  background: rgba(240, 210, 140, 0.55);
+  color: #1a100c;
 }
 
 .evento-caderno-folha {

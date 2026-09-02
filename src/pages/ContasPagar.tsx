@@ -1027,9 +1027,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   return (
-    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-3 pb-10 sm:-mx-3 sm:-mt-3 sm:px-4 md:px-8">
+    <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-2 pb-10 sm:-mx-3 sm:-mt-3 sm:px-3 md:px-4">
       <ContasPagarPageAura />
-      <div className="relative z-[1] mx-auto max-w-6xl space-y-6 pt-4 md:pt-8">
+      <div className="relative z-[1] mx-auto w-full max-w-[1760px] space-y-6 pt-4 md:pt-8">
       <header className="cobrancas-masthead relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4]/92 px-5 py-6 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:px-8 sm:py-8">
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
@@ -1766,7 +1766,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         />
       )}
 
-      <div className="cobrancas-ledger glass-card overflow-hidden">
+      <div className="cobrancas-ledger cobrancas-ledger--pagar glass-card min-w-0 overflow-hidden">
         {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? (
           <EmptyState
             message={
@@ -1777,11 +1777,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="cobrancas-ledger__table w-full border-collapse">
               <thead>
                 <tr>
                 {!readOnly && (
-                  <th className="section-label w-10 px-3 py-3">
+                  <th className="section-label cobrancas-ledger__col-check px-2 py-3">
                     <input
                       type="checkbox"
                       aria-label="Selecionar todas as contas visíveis"
@@ -1797,7 +1797,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                     />
                   </th>
                 )}
-                {['Fornecedor', 'Pagamento', 'Parcela', 'Valor Total', 'Pago', 'Restante', 'Vencimento', 'Status', ''].map((h, i) => <th key={i} className="section-label px-4 py-3 text-left">{h}</th>)}
+                <th className="section-label cobrancas-ledger__col-fornecedor px-4 py-3 text-left">Fornecedor</th>
+                <th className="section-label cobrancas-ledger__col-pagamento px-3 py-3 text-left">Pagamento</th>
+                <th className="section-label cobrancas-ledger__col-parcela px-3 py-3 text-left">Parcela</th>
+                <th className="section-label cobrancas-ledger__col-valor px-3 py-3 text-left">Valor Total</th>
+                <th className="section-label cobrancas-ledger__col-valor px-3 py-3 text-left">Pago</th>
+                <th className="section-label cobrancas-ledger__col-valor px-3 py-3 text-left">Restante</th>
+                <th className="section-label cobrancas-ledger__col-venc px-3 py-3 text-left">Vencimento</th>
+                <th className="section-label cobrancas-ledger__col-status px-3 py-3 text-left">Status</th>
+                <th className="section-label cobrancas-ledger__col-acoes px-3 py-3 text-left" aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
@@ -1813,7 +1821,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       className={cn('trow', s === 'vencido' && 'cobrancas-row-late', isSelected && 'bg-[#f8efe0]')}
                     >
                       {!readOnly && (
-                        <td className="px-3 py-3 align-top">
+                        <td className="cobrancas-ledger__col-check px-2 py-3 align-top">
                           <input
                             type="checkbox"
                             aria-label={`Selecionar ${nomeExibido}`}
@@ -1823,15 +1831,15 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                           />
                         </td>
                       )}
-                      <td className="max-w-[220px] px-4 py-3 font-medium text-[#1a100c]">
-                        <div className="flex items-center gap-1.5">
+                      <td className="cobrancas-ledger__col-fornecedor px-4 py-3 font-medium text-[#1a100c]">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           {p.recorrente && (
                             <RefreshCw
                               className="h-2.5 w-2.5 shrink-0 text-[#6b3f12]"
                               title="Cobrança recorrente"
                             />
                           )}
-                          <span>{nomeExibido}</span>
+                          <span className="min-w-0 break-words">{nomeExibido}</span>
                         </div>
                         {valorTotalLancamento != null && (
                           <div className="mt-0.5 text-[0.72rem] text-[#6b3f12]">
@@ -1845,7 +1853,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         )}
                         {detalhes.descricao ? (
                           <p
-                            className="mt-1 line-clamp-2 text-[0.75rem] text-[#4a3428]"
+                            className="mt-1 text-[0.75rem] leading-snug text-[#4a3428]"
                             title={detalhes.descricao}
                           >
                             {detalhes.descricao}
@@ -1853,24 +1861,24 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                         ) : null}
                         {detalhes.observacao ? (
                           <p
-                            className="mt-0.5 line-clamp-2 text-[0.72rem] italic text-[#6b5244]"
+                            className="mt-0.5 text-[0.72rem] italic leading-snug text-[#6b5244]"
                             title={detalhes.observacao}
                           >
                             {detalhes.observacao}
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-[0.82rem] text-[#4a3428]">
+                      <td className="cobrancas-ledger__col-pagamento px-3 py-3 text-[0.82rem] text-[#4a3428]">
                         {p.movelaria_formas_pagamento_pagar?.nome ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-[#4a3428]">{p.numero_parcela}/{p.total_parcelas}</td>
-                      <td className="px-4 py-3 font-semibold text-[#6b3f12]">{fmtCur(p.valor_parcela)}</td>
-                      <td className={cn('px-4 py-3 font-semibold', getValorPagoConta(p) > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(getValorPagoConta(p))}</td>
-                      <td className={cn('px-4 py-3 font-semibold', p.status === 'pago' ? 'text-[#146c38]' : 'text-[#1a100c]')}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
-                      <td className={cn('px-4 py-3 text-sm', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(p.data_vencimento)}</td>
-                      <td className="px-4 py-3"><Badge status={s} /></td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <td className="cobrancas-ledger__col-parcela px-3 py-3 text-sm text-[#4a3428]">{p.numero_parcela}/{p.total_parcelas}</td>
+                      <td className="cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums text-[#6b3f12]">{fmtCur(p.valor_parcela)}</td>
+                      <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums', getValorPagoConta(p) > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(getValorPagoConta(p))}</td>
+                      <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums', p.status === 'pago' ? 'text-[#146c38]' : 'text-[#1a100c]')}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
+                      <td className={cn('cobrancas-ledger__col-venc px-3 py-3 text-sm tabular-nums', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(p.data_vencimento)}</td>
+                      <td className="cobrancas-ledger__col-status px-3 py-3"><Badge status={s} /></td>
+                      <td className="cobrancas-ledger__col-acoes px-3 py-3 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <ContaPagarAnexosButton conta={p} todasContas={data} />
                           {!readOnly && (
                             <>
@@ -1949,9 +1957,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               <tfoot>
                 <tr className="border-t border-[rgba(26,16,12,0.14)] bg-[rgba(26,16,12,0.04)]">
                   <td colSpan={readOnly ? 3 : 4} className="section-label px-4 py-3 font-bold">Total</td>
-                  <td className="px-4 py-3 font-bold text-[#6b3f12]">{fmtCur(totaisColunas.valorTotal)}</td>
-                  <td className={cn('px-4 py-3 font-bold', totaisColunas.pago > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(totaisColunas.pago)}</td>
-                  <td className={cn('px-4 py-3 font-bold', totaisColunas.restante > 0 ? 'text-[#9f1239]' : 'text-[#146c38]')}>{fmtCur(totaisColunas.restante)}</td>
+                  <td className="cobrancas-ledger__col-valor px-3 py-3 font-bold tabular-nums text-[#6b3f12]">{fmtCur(totaisColunas.valorTotal)}</td>
+                  <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-bold tabular-nums', totaisColunas.pago > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(totaisColunas.pago)}</td>
+                  <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-bold tabular-nums', totaisColunas.restante > 0 ? 'text-[#9f1239]' : 'text-[#146c38]')}>{fmtCur(totaisColunas.restante)}</td>
                   <td colSpan={3} />
                 </tr>
               </tfoot>
