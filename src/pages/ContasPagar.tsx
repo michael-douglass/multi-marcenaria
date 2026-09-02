@@ -30,6 +30,7 @@ import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarE
 import { ContasPagarImportButton } from '../components/contas-pagar/ContasPagarImportButton'
 import { ContasPagarSelecaoPopup } from '../components/contas-pagar/ContasPagarSelecaoPopup'
 import { ContasPagarPageAura } from '../components/contas-pagar/ContasPagarPageAura'
+import { ContasPagarPanelStatusFilter } from '../components/contas-pagar/ContasPagarPanelStatusFilter'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -1636,48 +1637,20 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
 
           {ocultarOpen && (
             <div
-              className="absolute right-0 z-[200] rounded-lg border border-[rgba(240,210,140,.2)]"
-              style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.7)', width: 320, top: 'calc(100% + 4px)' }}
+              className="cobrancas-action-panel absolute right-0 z-[200]"
+              style={{ width: 320, top: 'calc(100% + 4px)' }}
             >
-              {/* Filtrar lista por status */}
-              <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
-                <div className="section-label mb-2" style={{ fontSize: '.7rem' }}>Filtrar lista por status</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {([
-                    { key: 'todos', label: 'Todos' },
-                    { key: 'pago', label: 'Pagas' },
-                    { key: 'pendente', label: 'Pendentes' },
-                    { key: 'vencido', label: 'Vencidos' },
-                    { key: 'parcialmente_pago', label: 'Parc. Pagas' },
-                  ] as const).map(opt => {
-                    const active = ocultarStatuses.has(opt.key)
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setOcultarStatuses(p => {
-                          const next = new Set(p)
-                          if (active) next.delete(opt.key); else next.add(opt.key)
-                          return next
-                        })}
-                        style={{
-                          padding: '.2rem .55rem', borderRadius: 9999,
-                          border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
-                          background: active ? 'rgba(240,210,140,.14)' : 'transparent',
-                          color: active ? '#f2d892' : '#edd9c4',
-                          cursor: 'pointer', fontSize: '.75rem', fontWeight: 600,
-                          fontFamily: 'Raleway, sans-serif', transition: 'all .15s',
-                        }}
-                      >
-                        {active ? '✕ ' : ''}{opt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+              <ContasPagarPanelStatusFilter
+                activeKeys={ocultarStatuses}
+                onToggle={key => setOcultarStatuses(p => {
+                  const next = new Set(p)
+                  if (next.has(key)) next.delete(key)
+                  else next.add(key)
+                  return next
+                })}
+              />
 
-              {/* Busca individual */}
-              <div className="px-3 py-2 border-b border-[rgba(240,210,140,.1)]">
+              <div className="cobrancas-action-panel__section">
                 <input
                   type="text"
                   className="glass-input w-full"
@@ -1688,9 +1661,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 />
               </div>
 
-              {/* Marcar todos */}
               {ocultarListaFiltrada.length > 0 && (
-                <div className="px-3 py-1.5 border-b border-[rgba(240,210,140,.08)] flex items-center gap-2">
+                <label className="cobrancas-action-panel__select-all">
                   <input
                     type="checkbox"
                     ref={el => {
@@ -1706,47 +1678,36 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       else ocultarListaFiltrada.forEach(c => next.delete(c.id))
                       return next
                     })}
-                    style={{ accentColor: '#f2d892', flexShrink: 0 }}
                   />
-                  <span style={{ color: '#edd9c4', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
-                    Marcar todos ({ocultarListaFiltrada.length})
-                  </span>
-                </div>
+                  <span>Marcar todos ({ocultarListaFiltrada.length})</span>
+                </label>
               )}
 
-              {/* Lista individual */}
-              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              <div className="cobrancas-action-panel__list cobrancas-action-panel__list--compact">
                 {ocultarListaFiltrada.length === 0 ? (
-                  <div className="px-3 py-3 text-sm text-[#edd9c4]">Nenhuma dívida encontrada.</div>
+                  <p className="cobrancas-action-panel__empty">Nenhuma dívida encontrada.</p>
                 ) : (
                   ocultarListaFiltrada.map(c => {
                     const s = getStatus(c.data_vencimento, c.status)
                     const nome = c.fornecedor_nome ?? fornecedores.find(x => x.id === c.fornecedor_id)?.nome ?? c.descricao ?? '—'
                     const checked = ocultarIds.has(c.id)
                     return (
-                      <label
-                        key={c.id}
-                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.05)]"
-                      >
+                      <label key={c.id} className="cobrancas-action-panel__list-row">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={e => setOcultarIds(p => {
                             const next = new Set(p)
-                            if (e.target.checked) next.add(c.id); else next.delete(c.id)
+                            if (e.target.checked) next.add(c.id)
+                            else next.delete(c.id)
                             return next
                           })}
-                          style={{ accentColor: '#f2d892', flexShrink: 0 }}
                         />
-                        <div className="flex-1 min-w-0">
-                          <div style={{
-                            color: checked ? '#edd9c4' : '#fffaf4',
-                            fontSize: '.82rem', overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
+                        <div className="min-w-0 flex-1">
+                          <div className={`cobrancas-action-panel__list-title${checked ? '' : ' cobrancas-action-panel__list-title--muted'}`}>
                             {nome}
                           </div>
-                          <div style={{ color: '#edd9c4', fontSize: '.7rem' }}>
+                          <div className="cobrancas-action-panel__list-meta">
                             {fmtCur(c.valor_parcela)} · {fmtDate(c.data_vencimento)}
                           </div>
                         </div>
@@ -1757,14 +1718,13 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 )}
               </div>
 
-              {/* Rodapé */}
               {ocultarIds.size > 0 && (
-                <div className="px-3 py-2 border-t border-[rgba(240,210,140,.1)] flex items-center justify-between">
-                  <span style={{ fontSize: '.75rem', color: '#edd9c4' }}>{ocultarIds.size} item(s) oculto(s)</span>
+                <div className="cobrancas-action-panel__footer">
+                  <span>{ocultarIds.size} item(s) oculto(s)</span>
                   <button
                     type="button"
+                    className="cobrancas-action-panel__footer-action"
                     onClick={() => setOcultarIds(new Set())}
-                    style={{ color: '#f87171', fontSize: '.75rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Raleway, sans-serif' }}
                   >
                     Limpar tudo
                   </button>

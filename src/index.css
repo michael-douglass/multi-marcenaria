@@ -2258,6 +2258,169 @@ body::before {
     color: var(--cr-faint) !important;
   }
 
+  /* Painéis Exportar / Ocultar — folha clara (não o tema escuro legado) */
+  .cobrancas-action-panel {
+    background: var(--cr-sheet);
+    border: 1px solid rgba(26, 16, 12, 0.14);
+    border-radius: 0.75rem;
+    box-shadow:
+      0 12px 32px rgba(42, 24, 18, 0.1),
+      0 2px 8px rgba(42, 24, 18, 0.05);
+    color: var(--cr-ink);
+    overflow: hidden;
+  }
+  .cobrancas-action-panel__section {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(26, 16, 12, 0.08);
+  }
+  .cobrancas-action-panel__section:last-child {
+    border-bottom: none;
+  }
+  .cobrancas-action-panel__section--filters {
+    background: linear-gradient(180deg, rgba(107, 63, 18, 0.05) 0%, rgba(255, 250, 244, 0) 100%);
+  }
+  .cobrancas-action-panel__label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cr-muted);
+  }
+  .cobrancas-action-panel__period-value {
+    color: var(--cr-ink);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .cobrancas-action-panel__hint {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--cr-faint);
+  }
+  .cobrancas-action-panel__hint--warn {
+    color: var(--cr-late);
+  }
+  .cobrancas-status-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+  .cobrancas-status-chip {
+    padding: 0.28rem 0.7rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(26, 16, 12, 0.16);
+    background: #fff;
+    color: var(--cr-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: Raleway, sans-serif;
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+    white-space: nowrap;
+  }
+  .cobrancas-status-chip:hover {
+    border-color: rgba(107, 63, 18, 0.35);
+    background: rgba(107, 63, 18, 0.04);
+    color: var(--cr-gold);
+  }
+  .cobrancas-status-chip--active {
+    border-color: rgba(107, 63, 18, 0.45);
+    background: #f4e4c4;
+    color: var(--cr-gold);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+  .cobrancas-action-panel__list {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .cobrancas-action-panel__list--compact {
+    max-height: 200px;
+  }
+  .cobrancas-action-panel__list-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .cobrancas-action-panel__list-row:hover {
+    background: rgba(107, 63, 18, 0.06);
+  }
+  .cobrancas-action-panel__list-row input[type='checkbox'] {
+    accent-color: var(--cr-gold);
+    flex-shrink: 0;
+  }
+  .cobrancas-action-panel__list-title {
+    color: var(--cr-ink);
+    font-size: 0.82rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cobrancas-action-panel__list-title--muted {
+    color: var(--cr-muted);
+  }
+  .cobrancas-action-panel__list-meta {
+    color: var(--cr-faint);
+    font-size: 0.7rem;
+  }
+  .cobrancas-action-panel__select-all {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 1rem;
+    border-bottom: 1px solid rgba(26, 16, 12, 0.06);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: Raleway, sans-serif;
+    color: var(--cr-muted);
+  }
+  .cobrancas-action-panel__select-all input[type='checkbox'] {
+    accent-color: var(--cr-gold);
+    flex-shrink: 0;
+  }
+  .cobrancas-action-panel__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid rgba(26, 16, 12, 0.08);
+    font-size: 0.75rem;
+    color: var(--cr-faint);
+  }
+  .cobrancas-action-panel__footer-action {
+    color: var(--cr-late);
+    font-size: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: Raleway, sans-serif;
+    padding: 0;
+  }
+  .cobrancas-action-panel__footer-action:hover {
+    text-decoration: underline;
+  }
+  .cobrancas-action-panel__empty {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--cr-faint);
+  }
+  .cobrancas-action-panel__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.25rem 1rem 0.75rem;
+  }
+
   /* ── Biblioteca CRM: álbum do ateliê (fotos montadas no papel) ── */
   .biblioteca-photo-mount {
     background: #fffaf4;

@@ -21,15 +21,8 @@ import {
 import { fmtCur, fmtDate } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
 import type { PeriodFilter } from '@/components/ui/PeriodFilterBar'
+import { ContasPagarPanelStatusFilter } from '@/components/contas-pagar/ContasPagarPanelStatusFilter'
 import type { ContaPagar, Fornecedor } from '@/types'
-
-const STATUS_OPTIONS = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'pago', label: 'Pagas' },
-  { key: 'pendente', label: 'Pendentes' },
-  { key: 'vencido', label: 'Vencidos' },
-  { key: 'parcialmente_pago', label: 'Parc. Pagas' },
-] as const
 
 interface ContasPagarExportButtonProps {
   todasContas: ContaPagar[]
@@ -222,56 +215,35 @@ export function ContasPagarExportButton({
 
       {open && (
         <div
-          className="absolute right-0 z-[200] rounded-lg border border-[rgba(240,210,140,.2)]"
-          style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.7)', width: 340, top: 'calc(100% + 4px)' }}
+          className="cobrancas-action-panel absolute right-0 z-[200]"
+          style={{ width: 340, top: 'calc(100% + 4px)' }}
         >
-          <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
-            <div className="section-label mb-1" style={{ fontSize: '.7rem' }}>Período atual</div>
-            <div style={{ color: '#fffaf4', fontSize: '.85rem', fontWeight: 600 }}>{periodLabel}</div>
+          <div className="cobrancas-action-panel__section">
+            <p className="cobrancas-action-panel__label">Período atual</p>
+            <p className="cobrancas-action-panel__period-value">{periodLabel}</p>
             {needsMonth && (
-              <p className="mt-2 text-xs text-[#f87171]">
+              <p className="cobrancas-action-panel__hint cobrancas-action-panel__hint--warn">
                 Escolha um mês no filtro acima para exportar as despesas desse período.
               </p>
             )}
             {!needsMonth && statuses.has('pago') && (
-              <p className="mt-2 text-xs text-[#edd9c4]">
+              <p className="cobrancas-action-panel__hint">
                 Inclui contas pagas neste período, mesmo que o vencimento seja em outro mês.
               </p>
             )}
           </div>
 
-          <div className="px-3 pt-3 pb-2 border-b border-[rgba(240,210,140,.1)]">
-            <div className="section-label mb-2" style={{ fontSize: '.7rem' }}>Filtrar lista por status</div>
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_OPTIONS.map(opt => {
-                const active = statuses.has(opt.key)
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => updateStatuses(prev => {
-                      const next = new Set(prev)
-                      if (active) next.delete(opt.key)
-                      else next.add(opt.key)
-                      return next
-                    })}
-                    style={{
-                      padding: '.2rem .55rem', borderRadius: 9999,
-                      border: active ? '1px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
-                      background: active ? 'rgba(240,210,140,.14)' : 'transparent',
-                      color: active ? '#f2d892' : '#edd9c4',
-                      cursor: 'pointer', fontSize: '.75rem', fontWeight: 600,
-                      fontFamily: 'Raleway, sans-serif', transition: 'all .15s',
-                    }}
-                  >
-                    {active ? '✕ ' : ''}{opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <ContasPagarPanelStatusFilter
+            activeKeys={statuses}
+            onToggle={key => updateStatuses(prev => {
+              const next = new Set(prev)
+              if (next.has(key)) next.delete(key)
+              else next.add(key)
+              return next
+            })}
+          />
 
-          <div className="px-3 py-2 border-b border-[rgba(240,210,140,.1)]">
+          <div className="cobrancas-action-panel__section">
             <input
               type="text"
               className="glass-input w-full"
@@ -283,7 +255,7 @@ export function ContasPagarExportButton({
           </div>
 
           {listaFiltrada.length > 0 && (
-            <div className="px-3 py-1.5 border-b border-[rgba(240,210,140,.08)] flex items-center gap-2">
+            <label className="cobrancas-action-panel__select-all">
               <input
                 type="checkbox"
                 ref={el => {
@@ -299,17 +271,14 @@ export function ContasPagarExportButton({
                   else listaFiltrada.forEach(c => next.delete(c.id))
                   return next
                 })}
-                style={{ accentColor: '#f2d892', flexShrink: 0 }}
               />
-              <span style={{ color: '#edd9c4', fontSize: '.78rem', fontWeight: 600, fontFamily: 'Raleway, sans-serif' }}>
-                Marcar todos ({listaFiltrada.length})
-              </span>
-            </div>
+              <span>Marcar todos ({listaFiltrada.length})</span>
+            </label>
           )}
 
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+          <div className="cobrancas-action-panel__list">
             {listaFiltrada.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-[#edd9c4]">Nenhuma conta encontrada.</div>
+              <p className="cobrancas-action-panel__empty">Nenhuma conta encontrada.</p>
             ) : (
               listaFiltrada.map(c => {
                 const s = getStatus(c.data_vencimento, c.status)
@@ -320,10 +289,7 @@ export function ContasPagarExportButton({
                   ? `Pago em ${fmtDate(dataPagamento)} · Venc. ${fmtDate(c.data_vencimento)}`
                   : `Venc. ${fmtDate(c.data_vencimento)}`
                 return (
-                  <label
-                    key={c.id}
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.05)]"
-                  >
+                  <label key={c.id} className="cobrancas-action-panel__list-row">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -333,17 +299,12 @@ export function ContasPagarExportButton({
                         else next.delete(c.id)
                         return next
                       })}
-                      style={{ accentColor: '#f2d892', flexShrink: 0 }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div style={{
-                        color: checked ? '#fffaf4' : '#edd9c4',
-                        fontSize: '.82rem', overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
+                    <div className="min-w-0 flex-1">
+                      <div className={`cobrancas-action-panel__list-title${checked ? '' : ' cobrancas-action-panel__list-title--muted'}`}>
                         {nome}
                       </div>
-                      <div style={{ color: '#edd9c4', fontSize: '.7rem' }}>
+                      <div className="cobrancas-action-panel__list-meta">
                         {fmtCur(c.valor_parcela)} · {detalheData}
                       </div>
                     </div>
@@ -354,22 +315,22 @@ export function ContasPagarExportButton({
             )}
           </div>
 
-          <div className="px-3 py-2 border-t border-[rgba(240,210,140,.1)] flex items-center justify-between gap-2">
-            <span style={{ fontSize: '.75rem', color: '#edd9c4' }}>
+          <div className="cobrancas-action-panel__footer">
+            <span>
               {selectedIds.size} de {contas.length} selecionada(s)
             </span>
             {selectedIds.size > 0 && (
               <button
                 type="button"
+                className="cobrancas-action-panel__footer-action"
                 onClick={() => updateSelectedIds(() => new Set())}
-                style={{ color: '#f87171', fontSize: '.75rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Raleway, sans-serif' }}
               >
                 Limpar
               </button>
             )}
           </div>
 
-          <div className="px-3 pb-3 pt-1 flex flex-col gap-2">
+          <div className="cobrancas-action-panel__actions">
             <button
               type="button"
               className="btn btn-gold btn-sm w-full"
@@ -412,7 +373,7 @@ export function ContasPagarExportButton({
         title="TEXTO PARA COPIAR"
         wide
       >
-        <p className="mb-3 text-sm text-[#edd9c4]">
+        <p className="mb-3 text-sm text-[#4a3428]">
           Selecione o texto abaixo ou use o botão copiar para colar em WhatsApp, e-mail ou outra planilha.
         </p>
         <textarea
