@@ -291,7 +291,7 @@ export default function Projetos() {
           />
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,12.5rem)_minmax(0,1fr)_auto] lg:items-stretch">
           <ProjetosAbertosCard
             compact
             fila={counts.fila}
@@ -300,7 +300,7 @@ export default function Projetos() {
             feitos={counts.feitos}
           />
           <ProjetosChatPreview compact onOpenLead={openLead} />
-          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-1 lg:self-center">
             <div className="hidden md:block">
               <KanbanPageZoomControls variant="inline" />
             </div>

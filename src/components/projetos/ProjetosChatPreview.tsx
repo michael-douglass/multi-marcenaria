@@ -21,7 +21,10 @@ import { useIsMobile } from '@/hooks/use-mobile'
 
 interface ProjetosChatPreviewProps {
   onOpenLead: (leadId: number) => void
-  /** Só o resumo (como no celular) — não lista conversas na página. */
+  /**
+   * Dock horizontal no cabeçalho: usa a largura livre, altura baixa.
+   * No celular continua como botão-resumo.
+   */
   compact?: boolean
 }
 
@@ -55,7 +58,8 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
   )
   const waveformMode = pending > 0 ? 'urgent' : threads.length > 0 ? 'active' : 'idle'
   const active = threads.find((thread) => thread.lead_id === activeLeadId) ?? threads[0] ?? null
-  const useStrip = isMobile || compact
+  const showMobileStrip = isMobile
+  const showDock = compact && !isMobile
 
   const openSheet = (thread?: LeadProjetoChatThread) => {
     setActiveLeadId(thread?.lead_id ?? threads[0]?.lead_id ?? null)
@@ -64,24 +68,14 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
 
   return (
     <>
-      {useStrip ? (
+      {showMobileStrip ? (
         <button
           type="button"
           onClick={() => openSheet()}
-          className={cn(
-            'relative w-full min-w-0 overflow-hidden p-[2px] text-left',
-            compact
-              ? 'rounded-xl bg-gradient-to-br from-sky-400/60 via-[#120c09] to-gold/60'
-              : 'rounded-[1.4rem] bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
-          )}
+          className="relative w-full min-w-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-400/60 via-[#120c09] to-gold/60 p-[2px] text-left"
           aria-label="Abrir rádio do ateliê"
         >
-          <div
-            className={cn(
-              'relative flex items-center gap-2.5 bg-[#fffcf8]',
-              compact ? 'rounded-[0.65rem] px-2.5 py-1.5' : 'rounded-[1.25rem] px-3 py-2.5',
-            )}
-          >
+          <div className="relative flex items-center gap-2.5 rounded-[0.65rem] bg-[#fffcf8] px-2.5 py-1.5">
             <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/30 bg-[#120c09]">
               <Radio className="relative h-3.5 w-3.5 text-sky-200" />
               {pending > 0 ? (
@@ -108,6 +102,107 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
             </span>
           </div>
         </button>
+      ) : showDock ? (
+        <article
+          className={cn(
+            'projetos-radio-dock relative min-w-0 overflow-hidden rounded-xl p-[2px]',
+            'bg-gradient-to-br from-sky-400/55 via-[#120c09] to-gold/55',
+          )}
+        >
+          <div
+            className="relative flex min-h-[4.75rem] flex-col justify-between gap-1.5 rounded-[0.65rem] bg-[#fffcf8] px-2.5 py-2"
+            style={{
+              backgroundImage:
+                'radial-gradient(ellipse 80% 120% at 0% 50%, rgba(14,116,144,0.07), transparent 55%), radial-gradient(ellipse 60% 100% at 100% 0%, rgba(242,216,146,0.1), transparent 50%)',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/35 bg-[#120c09]"
+                onClick={() => openSheet()}
+                aria-label="Abrir rádio do ateliê"
+              >
+                <ProjetoNotasAura className="absolute inset-0 h-8 w-8 opacity-80" />
+                <Radio className="relative h-3.5 w-3.5 text-sky-100" />
+                {pending > 0 ? (
+                  <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-[#fffcf8]" />
+                ) : null}
+              </button>
+
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                <p className="font-display text-[9px] tracking-[0.28em] text-[#0e7490]">RÁDIO</p>
+                <span className="rounded-full border border-[rgba(42,24,18,0.12)] px-1.5 py-0.5 text-[10px] text-[#8d5e22]">
+                  {threads.length} {threads.length === 1 ? 'conversa' : 'conversas'}
+                </span>
+                {pending > 0 ? (
+                  <span className="animate-pulse rounded-full border border-sky-400/45 bg-sky-950/55 px-1.5 py-0.5 text-[10px] text-sky-100">
+                    {pending} a responder
+                  </span>
+                ) : null}
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 border-sky-700/25 px-2 text-[11px] text-sky-900 hover:bg-sky-50"
+                onClick={() => openSheet()}
+              >
+                Abrir chat
+              </Button>
+            </div>
+
+            <div className="flex min-w-0 items-stretch gap-2">
+              <ul
+                className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                aria-label="Conversas recentes do rádio"
+              >
+                {threads.length === 0 ? (
+                  <li className="flex min-h-[2.35rem] flex-1 items-center rounded-lg border border-dashed border-[rgba(42,24,18,0.14)] px-3 text-[11px] text-[#8a7060]">
+                    Ainda sem mensagens — quando alguém escrever, aparece aqui.
+                  </li>
+                ) : (
+                  threads.slice(0, 12).map((thread) => {
+                    const needs = thread.last.autor_id !== user?.id
+                    return (
+                      <li key={thread.lead_id} className="shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openSheet(thread)}
+                          className={cn(
+                            'group flex h-full min-h-[2.35rem] w-[min(11.5rem,42vw)] flex-col justify-center rounded-lg border px-2 py-1.5 text-left transition-colors',
+                            needs
+                              ? 'border-sky-400/45 bg-sky-950/[0.06] hover:bg-sky-950/10'
+                              : 'border-[rgba(42,24,18,0.1)] bg-white/55 hover:border-[#8d5e22]/35 hover:bg-[#fff8ee]',
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {needs ? (
+                              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-500" />
+                            ) : null}
+                            <span className="truncate text-[11px] font-semibold text-[#2a1812]">
+                              {thread.lead_nome}
+                            </span>
+                            <span className="ml-auto shrink-0 text-[9px] tabular-nums text-[#8a7060]">
+                              {previewHora(thread.last.criado_em)}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 truncate text-[10px] leading-tight text-[#6b5244]">
+                            {previewMensagem(thread)}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })
+                )}
+              </ul>
+              <div className="hidden w-16 shrink-0 self-center sm:block">
+                <ProjetosChatWaveform mode={waveformMode} className="h-6" />
+              </div>
+            </div>
+          </div>
+        </article>
       ) : (
         <article
           className={cn(
@@ -148,7 +243,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                     </span>
                   ) : null}
                 </div>
-                <ul className="mt-2 max-h-[min(18.5rem,46vh)] space-y-1 overflow-y-auto touch-pan-y">
+                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto touch-pan-y">
                   {threads.slice(0, 4).map((thread) => {
                     const needs = thread.last.autor_id !== user?.id
                     return (
