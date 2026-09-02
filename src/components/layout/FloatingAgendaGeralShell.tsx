@@ -3,7 +3,12 @@ import { FloatingCalendarIcon } from './FloatingCalendarIcon';
 import { FloatingAgendaGeralPopup } from './FloatingAgendaGeralPopup';
 import { useAgendaGeral } from '@/hooks/useAgendaGeral';
 import type { FloatingAgendaSide } from '@/hooks/useUiPreferences';
+import {
+  FLOATING_AGENDA_ICON_RIGHT,
+  FLOATING_TOP_EDGE,
+} from '@/lib/floating-ui-layout';
 import { floatingAgendaIconClass } from '@/lib/overlay-z-index';
+import { cn } from '@/lib/utils';
 
 interface FloatingAgendaGeralShellProps {
   isOpen: boolean;
@@ -16,6 +21,7 @@ interface FloatingAgendaGeralShellProps {
 /**
  * Agenda Geral sempre visível em todas as páginas com MainLayout.
  * Renderizado via portal no body para não ser cortado pelo layout da sidebar.
+ * Ícone fica na faixa mais alta da tela (junto ao Saldo do mês).
  */
 export function FloatingAgendaGeralShell({
   isOpen,
@@ -32,7 +38,12 @@ export function FloatingAgendaGeralShell({
     <>
       <div
         data-floating-agenda-root
-        className={`fixed top-[4rem] right-4 ${floatingAgendaIconClass} pointer-events-auto`}
+        className={cn(
+          'fixed pointer-events-auto',
+          FLOATING_TOP_EDGE,
+          FLOATING_AGENDA_ICON_RIGHT,
+          floatingAgendaIconClass,
+        )}
       >
         <FloatingCalendarIcon
           count={pendingTodayCount}

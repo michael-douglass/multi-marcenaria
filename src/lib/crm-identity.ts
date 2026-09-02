@@ -277,6 +277,7 @@ export const CRM_APP_PATHS = [
   '/eventos-crm',
   '/chat-crm',
   '/projetos',
+  '/projetos-producao',
 ] as const
 
 export function isCrmAppPath(pathname: string): boolean {
@@ -294,6 +295,11 @@ export function canAccessCrmPath(
 
   if (isPortalOnly(movelaria, crm)) return false
 
+  // Montador Admin acessa produção mesmo sem papel CRM
+  if (pathname.startsWith('/projetos-producao')) {
+    if (movelaria?.perfil === 'montador_admin') return true
+  }
+
   const roles = colaboradorCrmRoles(crm)
   if (roles.length === 0) return false
 
@@ -307,7 +313,10 @@ export function canAccessCrmPath(
     return (vendedor || projetista) && !marketingOnly && !isProjetistaOnlyCrm(crm)
   }
   if (pathname.startsWith('/leads')) return (vendedor || projetista) && !marketingOnly
-  if (pathname.startsWith('/projetos')) return canAccessProjetosBoard(crm)
+  if (pathname.startsWith('/projetos-producao')) {
+    return (admin || vendedor || projetista) && !marketingOnly
+  }
+  if (pathname === '/projetos' || pathname.startsWith('/projetos/')) return canAccessProjetosBoard(crm)
   if (pathname.startsWith('/agenda-comercial')) return vendedor && !marketingOnly
   if (pathname.startsWith('/contratos')) return vendedor && !marketingOnly
   if (pathname.startsWith('/automacoes')) return (vendedor || marketing) && !(marketingOnly && pathname === '/automacoes')

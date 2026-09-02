@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Loader2,
   PlusCircle,
-  Save,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -62,6 +61,8 @@ interface Props {
   /** Lançar/editar batidas. Falso para o próprio ponto. */
   podeEditarRegistros?: boolean
   onReload?: () => void
+  /** Incrementado quando a aba Admissão sincroniza a jornada — recarrega os horários do ponto. */
+  jornadaSyncToken?: number
   onSyncAdmissaoHorarios?: (patch: {
     horarios_semana: NonNullable<FuncionarioAdmissaoDados['horarios_semana']>
     horarios_dias_ativos: NonNullable<FuncionarioAdmissaoDados['horarios_dias_ativos']>
@@ -78,6 +79,14 @@ const DEFAULT_JORNADA: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criad
   ativo: true,
 }
 
+const JORNADA_SAVE_DEBOUNCE_MS = 450
+
+function serializeJornadaForm(
+  form: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+): string {
+  return JSON.stringify(form)
+}
+
 type SubTab = 'jornada' | 'registros' | 'ocorrencias' | 'documentos' | 'fiscal'
 
 export function FuncionarioPontoPanel({
@@ -91,6 +100,7 @@ export function FuncionarioPontoPanel({
   somenteRegistros = false,
   podeEditarRegistros,
   onReload,
+  jornadaSyncToken = 0,
   onSyncAdmissaoHorarios,
 }: Props) {
   const {
@@ -112,6 +122,12 @@ export function FuncionarioPontoPanel({
   const [subTab, setSubTab] = useState<SubTab>(somenteRegistros ? 'registros' : 'jornada')
   const [form, setForm] = useState(DEFAULT_JORNADA)
   const [saving, setSaving] = useState(false)
+  const [jornadaAutoSave, setJornadaAutoSave] = useState<'idle' | 'pending' | 'saving' | 'saved'>('idle')
+  const formRef = useRef(form)
+  const lastSavedFormRef = useRef(serializeJornadaForm(DEFAULT_JORNADA))
+  const jornadaSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const jornadaSavingRef = useRef(false)
+  formRef.current = form
   const [exportando, setExportando] = useState(false)
   const [baixandoId, setBaixandoId] = useState<string | null>(null)
   const [ocData, setOcData] = useState(pontoDataLocal())
@@ -165,7 +181,84 @@ export function FuncionarioPontoPanel({
 
   useEffect(() => {
     seededFromAdmissaoRef.current = false
+    lastSavedFormRef.current = serializeJornadaForm(DEFAULT_JORNADA)
+    setJornadaAutoSave('idle')
   }, [funcionarioId])
+
+  useEffect(() => {
+    if (jornadaSyncToken <= 0) return
+    void reload()
+  }, [jornadaSyncToken, reload])
+
+  const applyFormFromSource = (
+    next: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+  ) => {
+    setForm(next)
+    lastSavedFormRef.current = serializeJornadaForm(next)
+    setJornadaAutoSave('idle')
+  }
+
+  const flushJornadaSave = async (
+    nextForm: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+  ) => {
+    if (readOnly || somenteRegistros || jornadaSavingRef.current) return
+    const serialized = serializeJornadaForm(nextForm)
+    if (serialized === lastSavedFormRef.current) return
+
+    jornadaSavingRef.current = true
+    setJornadaAutoSave('saving')
+    try {
+      await saveJornada(nextForm)
+      if (onSyncAdmissaoHorarios) {
+        await onSyncAdmissaoHorarios(horariosAdmissaoFromJornada(nextForm))
+      }
+      lastSavedFormRef.current = serialized
+      setJornadaAutoSave('saved')
+      onReload?.()
+    } catch (e) {
+      setJornadaAutoSave('idle')
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar jornada.', 'error')
+    } finally {
+      jornadaSavingRef.current = false
+    }
+  }
+
+  const scheduleJornadaSave = (
+    nextForm: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+  ) => {
+    if (readOnly || somenteRegistros) return
+    const serialized = serializeJornadaForm(nextForm)
+    if (serialized === lastSavedFormRef.current) {
+      setJornadaAutoSave('idle')
+      return
+    }
+    setJornadaAutoSave('pending')
+    if (jornadaSaveTimerRef.current) clearTimeout(jornadaSaveTimerRef.current)
+    jornadaSaveTimerRef.current = setTimeout(() => {
+      jornadaSaveTimerRef.current = null
+      void flushJornadaSave(nextForm)
+    }, JORNADA_SAVE_DEBOUNCE_MS)
+  }
+
+  const patchJornadaForm = (
+    patch: Partial<Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>>,
+  ) => {
+    setForm(prev => {
+      const next = { ...prev, ...patch }
+      scheduleJornadaSave(next)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    return () => {
+      if (jornadaSaveTimerRef.current) {
+        clearTimeout(jornadaSaveTimerRef.current)
+        void flushJornadaSave(formRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flush no unmount
+  }, [])
 
   useEffect(() => {
     if (tiposDisponiveisManual.length === 0) return
@@ -181,7 +274,7 @@ export function FuncionarioPontoPanel({
 
   useEffect(() => {
     if (jornada) {
-      setForm({
+      applyFormFromSource({
         hora_entrada: jornada.hora_entrada?.slice(0, 5) ?? '08:00',
         hora_saida_intervalo: jornada.hora_saida_intervalo?.slice(0, 5) ?? '12:00',
         hora_retorno_intervalo: jornada.hora_retorno_intervalo?.slice(0, 5) ?? '13:00',
@@ -197,7 +290,7 @@ export function FuncionarioPontoPanel({
       admissaoDados?.horarios_semana,
       admissaoDados?.horarios_dias_ativos,
     )
-    if (fromAdmissao) setForm(fromAdmissao)
+    if (fromAdmissao) applyFormFromSource(fromAdmissao)
   }, [jornada, admissaoDados])
 
   // Se ainda não existe jornada no ponto, mas a admissão já tem horários, cria a jornada.
@@ -231,22 +324,6 @@ export function FuncionarioPontoPanel({
   }, [somenteRegistros, subTab])
 
   if (loading) return <LoadingState message="Carregando ponto…" />
-
-  const handleSaveJornada = async () => {
-    setSaving(true)
-    try {
-      await saveJornada(form)
-      if (onSyncAdmissaoHorarios) {
-        await onSyncAdmissaoHorarios(horariosAdmissaoFromJornada(form))
-      }
-      showToast('Jornada salva e sincronizada com a admissão.')
-      onReload?.()
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao salvar jornada.', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleOcorrencia = async () => {
     setSaving(true)
@@ -374,21 +451,41 @@ export function FuncionarioPontoPanel({
             Horários de trabalho
           </h3>
           <p className="text-xs text-[#b8957f]">
-            Mesmos horários da aba Admissão. Ao salvar, a grade de admissão também é atualizada e
-            o funcionário vê esses horários ao bater ponto.
+            Mesmos horários da aba Admissão. Alterações são salvas automaticamente e usadas na batida
+            de ponto, no cálculo de horas extras e faltas.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Entrada">
-              <TimeInput value={form.hora_entrada} onChange={v => setForm(p => ({ ...p, hora_entrada: v ?? '08:00' }))} disabled={readOnly} />
+              <TimeInput
+                value={form.hora_entrada}
+                debounceMs={400}
+                onChange={v => patchJornadaForm({ hora_entrada: v ?? '08:00' })}
+                disabled={readOnly}
+              />
             </Field>
             <Field label="Saída almoço">
-              <TimeInput value={form.hora_saida_intervalo} onChange={v => setForm(p => ({ ...p, hora_saida_intervalo: v ?? '12:00' }))} disabled={readOnly} />
+              <TimeInput
+                value={form.hora_saida_intervalo}
+                debounceMs={400}
+                onChange={v => patchJornadaForm({ hora_saida_intervalo: v ?? '12:00' })}
+                disabled={readOnly}
+              />
             </Field>
             <Field label="Retorno almoço">
-              <TimeInput value={form.hora_retorno_intervalo} onChange={v => setForm(p => ({ ...p, hora_retorno_intervalo: v ?? '13:00' }))} disabled={readOnly} />
+              <TimeInput
+                value={form.hora_retorno_intervalo}
+                debounceMs={400}
+                onChange={v => patchJornadaForm({ hora_retorno_intervalo: v ?? '13:00' })}
+                disabled={readOnly}
+              />
             </Field>
             <Field label="Saída">
-              <TimeInput value={form.hora_saida} onChange={v => setForm(p => ({ ...p, hora_saida: v ?? '17:00' }))} disabled={readOnly} />
+              <TimeInput
+                value={form.hora_saida}
+                debounceMs={400}
+                onChange={v => patchJornadaForm({ hora_saida: v ?? '17:00' })}
+                disabled={readOnly}
+              />
             </Field>
           </div>
           <Field label="Tolerância (minutos)">
@@ -399,7 +496,7 @@ export function FuncionarioPontoPanel({
               className="glass-input w-24"
               value={form.tolerancia_minutos}
               disabled={readOnly}
-              onChange={e => setForm(p => ({ ...p, tolerancia_minutos: Number(e.target.value) || 0 }))}
+              onChange={e => patchJornadaForm({ tolerancia_minutos: Number(e.target.value) || 0 })}
             />
           </Field>
           <div>
@@ -413,12 +510,17 @@ export function FuncionarioPontoPanel({
                     key={label}
                     type="button"
                     disabled={readOnly}
-                    onClick={() => setForm(p => ({
-                      ...p,
-                      dias_uteis: active
-                        ? p.dias_uteis.filter(d => d !== dow)
-                        : [...p.dias_uteis, dow].sort(),
-                    }))}
+                    onClick={() => setForm(prev => {
+                      const active = prev.dias_uteis.includes(dow)
+                      const next = {
+                        ...prev,
+                        dias_uteis: active
+                          ? prev.dias_uteis.filter(d => d !== dow)
+                          : [...prev.dias_uteis, dow].sort(),
+                      }
+                      scheduleJornadaSave(next)
+                      return next
+                    })}
                     className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
                       active
                         ? 'border border-[#f2d892]/40 bg-[#f2d892]/10 text-[#f2d892]'
@@ -431,11 +533,12 @@ export function FuncionarioPontoPanel({
               })}
             </div>
           </div>
-          {!readOnly && (
-            <button type="button" className="btn btn-gold" disabled={saving} onClick={() => void handleSaveJornada()}>
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              Salvar jornada
-            </button>
+          {!readOnly && jornadaAutoSave !== 'idle' && (
+            <p className="text-xs text-[#b8957f]">
+              {jornadaAutoSave === 'pending' && 'Salvando alterações…'}
+              {jornadaAutoSave === 'saving' && 'Gravando jornada…'}
+              {jornadaAutoSave === 'saved' && 'Jornada salva e sincronizada com a admissão.'}
+            </p>
           )}
         </div>
       )}

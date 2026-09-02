@@ -1,18 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { maskTime24Input, normalizeTime24, parseTime24Input } from '@/lib/time-24'
 
 interface TimeInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> {
   value: string | null | undefined
   onChange: (time: string | null) => void
+  /** Quando definido, dispara onChange ao completar HH:mm (com debounce), sem esperar blur. */
+  debounceMs?: number
 }
 
 /** Campo de horário no formato 24h (hh:mm). */
-export function TimeInput({ value, onChange, className, disabled, onBlur, ...rest }: TimeInputProps) {
+export function TimeInput({
+  value,
+  onChange,
+  debounceMs,
+  className,
+  disabled,
+  onBlur,
+  ...rest
+}: TimeInputProps) {
   const [display, setDisplay] = useState(() => normalizeTime24(value))
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   useEffect(() => {
     setDisplay(normalizeTime24(value))
   }, [value])
+
+  useEffect(() => {
+    if (!debounceMs || disabled) return
+    const time = parseTime24Input(display)
+    const normalizedValue = normalizeTime24(value)
+    if (!time || time === normalizedValue) return
+
+    const timer = setTimeout(() => {
+      onChangeRef.current(time)
+      setDisplay(time)
+    }, debounceMs)
+
+    return () => clearTimeout(timer)
+  }, [display, debounceMs, disabled, value])
 
   const commit = (nextDisplay: string) => {
     if (!nextDisplay.trim()) {

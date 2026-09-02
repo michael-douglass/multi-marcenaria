@@ -23,16 +23,22 @@ export const Z_LEAD_NESTED_MENU = 80;
 export const Z_FLOATING_AI_BACKGROUND = 70;
 
 /** Painel lateral da Agenda Geral (MainLayout). */
-export const Z_FLOATING_AGENDA_PANEL = 200;
+export const Z_FLOATING_AGENDA_PANEL = 240;
 
-/** Ícone flutuante do calendário. */
-export const Z_FLOATING_AGENDA_ICON = 210;
+/** Ícone flutuante do calendário — faixa superior da tela. */
+export const Z_FLOATING_AGENDA_ICON = 250;
+
+/** Card Saldo do mês (sempre acima do conteúdo; ao lado do ícone da agenda). */
+export const Z_SALDO_MES_INSIGHT = 250;
+
+/** Popup Agenda de Obras (arrastável). */
+export const Z_AGENDA_OBRAS_POPUP = 250;
 
 /** Diálogos abertos a partir do painel flutuante. */
-export const Z_FLOATING_AGENDA_DIALOG = 220;
+export const Z_FLOATING_AGENDA_DIALOG = 260;
 
 /** Select, popover e dropdown dentro desses diálogos. */
-export const Z_FLOATING_AGENDA_NESTED = 230;
+export const Z_FLOATING_AGENDA_NESTED = 270;
 
 /** Visualização em tela cheia do orçamento em slides (portal sobre o card). */
 export const Z_ORCAMENTO_VISUALIZAR = 240;
@@ -52,10 +58,12 @@ export const leadFullscreenContentClass = '!z-[81] pointer-events-auto';
 export const leadFullscreenNestedOverlayClass = 'z-[9800]';
 export const leadFullscreenNestedContentClass = '!z-[9801]';
 export const floatingAiBackgroundClass = 'z-[70]';
-export const floatingAgendaPanelClass = 'z-[200]';
-export const floatingAgendaIconClass = 'z-[210]';
-export const floatingAgendaDialogClass = '!z-[220]';
-export const floatingNestedOverlayClass = '!z-[230]';
+export const floatingAgendaPanelClass = 'z-[240]';
+export const floatingAgendaIconClass = 'z-[250]';
+export const saldoMesInsightClass = 'z-[250]';
+export const agendaObrasPopupClass = 'z-[250]';
+export const floatingAgendaDialogClass = '!z-[260]';
+export const floatingNestedOverlayClass = '!z-[270]';
 export const orcamentoVisualizarOverlayClass = 'z-[240]';
 export const orcamentoVisualizarNestedClass = '!z-[260]';
 

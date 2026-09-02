@@ -167,6 +167,7 @@ export function HorariosSemanaFields({ value, diasAtivos, disabled, onChange }: 
                           <TimeInput
                             className="glass-input"
                             disabled={disabled}
+                            debounceMs={400}
                             value={dia[key] ?? ''}
                             onChange={v => setMarca(id, key, v ?? '')}
                           />

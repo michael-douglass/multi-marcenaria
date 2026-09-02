@@ -54,6 +54,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   const [tab, setTab] = useState<Tab>(pastaPontoRestrita ? 'ponto' : tabInicial)
   const [saving, setSaving] = useState(false)
   const [dispensando, setDispensando] = useState(false)
+  const [jornadaSyncToken, setJornadaSyncToken] = useState(0)
 
   useEffect(() => {
     if (pastaPontoRestrita && tab !== 'ponto') setTab('ponto')
@@ -223,6 +224,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
                 salarioFixoMensal={valorFixoMensal}
                 readOnly={edicaoBloqueada}
                 onUpdate={handleUpdate}
+                onJornadaSynced={() => setJornadaSyncToken(t => t + 1)}
                 saving={saving}
               />
               {podeGerenciarAdmissao && (
@@ -252,6 +254,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
                 && podeEditarPontoRegistrosTerceiro(roles, funcionario.usuario_id, user?.id)
               }
               onReload={() => void reload()}
+              jornadaSyncToken={jornadaSyncToken}
               onSyncAdmissaoHorarios={
                 pastaPontoRestrita
                   ? undefined

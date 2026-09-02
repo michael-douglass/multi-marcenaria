@@ -33,6 +33,7 @@ import { ProjetosBoardAura } from '@/components/projetos/ProjetosBoardAura'
 import { ProjetoKanbanColumn } from '@/components/projetos/ProjetoKanbanColumn'
 import { ProjetoKanbanCard } from '@/components/projetos/ProjetoKanbanCard'
 import { CriarLeadProjetoDialog } from '@/components/projetos/CriarLeadProjetoDialog'
+import { AdicionarLeadProjetoDialog } from '@/components/projetos/AdicionarLeadProjetoDialog'
 import { ProjetoStagesConfigDialog } from '@/components/projetos/ProjetoStagesConfigDialog'
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/EmptyState'
 import {
@@ -99,6 +100,7 @@ export default function Projetos() {
   const lembretesCountMap = useLeadLembretesCountMap()
   const [searchParams, setSearchParams] = useSearchParams()
   const [novoOpen, setNovoOpen] = useState(false)
+  const [adicionarOpen, setAdicionarOpen] = useState(false)
   const [colunasOpen, setColunasOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; run: () => void } | null>(null)
@@ -217,6 +219,15 @@ export default function Projetos() {
           <Button
             type="button"
             size="sm"
+            className="gap-1.5 bg-[#2a7d6a] text-white hover:bg-[#236b5b]"
+            onClick={() => setAdicionarOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar lead
+          </Button>
+          <Button
+            type="button"
+            size="sm"
             className="gap-1.5 bg-gold text-[#1a120e] hover:bg-gold/90"
             onClick={() => setNovoOpen(true)}
           >
@@ -330,6 +341,12 @@ export default function Projetos() {
         open={novoOpen}
         onOpenChange={setNovoOpen}
         onCreated={openLead}
+      />
+      <AdicionarLeadProjetoDialog
+        open={adicionarOpen}
+        onOpenChange={setAdicionarOpen}
+        projetos={projetos}
+        onPuxado={openLead}
       />
       <ProjetoStagesConfigDialog open={colunasOpen} onOpenChange={setColunasOpen} />
 

@@ -6,6 +6,7 @@ import { AgendaObras } from '@/pages/AgendaObras'
 import { CalendarioObras } from '@/pages/CalendarioObras'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppContext'
+import { agendaObrasPopupClass } from '@/lib/overlay-z-index'
 
 interface Position {
   x: number
@@ -24,7 +25,21 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
   const [tab, setTab] = useState<'agenda' | 'calendario'>('agenda')
   const [position, setPosition] = useState<Position>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? JSON.parse(saved) : { x: 100, y: 100 }
+    if (saved) {
+      try {
+        return JSON.parse(saved) as Position
+      } catch {
+        /* fallthrough */
+      }
+    }
+    // Abre no topo da tela (canto superior), com margem segura.
+    if (typeof window !== 'undefined') {
+      return {
+        x: Math.max(16, window.innerWidth - Math.min(window.innerWidth * 0.9, 1000) - 24),
+        y: 12,
+      }
+    }
+    return { x: 100, y: 12 }
   })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 })
@@ -78,7 +93,6 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
   }, [userProfile?.id])
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (isMinimized) return
     const rect = popupRef.current?.getBoundingClientRect()
     if (rect) {
       setIsDragging(true)
@@ -131,15 +145,30 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
   return createPortal(
     <div
       className={cn(
-        "fixed z-[100] transition-all duration-300 ease-in-out",
-        isMobile ? "inset-0" : ""
+        'fixed transition-all duration-300 ease-in-out',
+        agendaObrasPopupClass,
+        isMobile && !isMinimized ? 'inset-0' : '',
       )}
-      style={!isMobile ? {
-        left: position.x,
-        top: position.y,
-        width: isMinimized ? '300px' : 'min(90vw, 1000px)',
-        height: isMinimized ? 'auto' : 'min(85vh, 800px)',
-      } : {}}
+      style={
+        isMobile
+          ? isMinimized
+            ? {
+                left: 'auto',
+                right: 'max(0.75rem, env(safe-area-inset-right))',
+                top: 'max(0.75rem, env(safe-area-inset-top))',
+                bottom: 'auto',
+                width: 'min(calc(100vw - 1.5rem), 20rem)',
+                height: 'auto',
+                inset: 'unset',
+              }
+            : undefined
+          : {
+              left: position.x,
+              top: position.y,
+              width: isMinimized ? '300px' : 'min(90vw, 1000px)',
+              height: isMinimized ? 'auto' : 'min(85vh, 800px)',
+            }
+      }
     >
       <div 
         ref={popupRef}
@@ -190,16 +219,17 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {!isMobile && (
-              <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
-                title={isMinimized ? "Maximizar" : "Minimizar"}
-              >
-                {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-              </button>
-            )}
             <button
+              type="button"
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
+              title={isMinimized ? 'Maximizar' : 'Minimizar'}
+              aria-label={isMinimized ? 'Maximizar agenda' : 'Minimizar agenda'}
+            >
+              {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               className="rounded-md p-1.5 text-[#edd9c4] hover:bg-[rgba(255,0,0,0.1)] hover:text-red-400"
               title="Fechar"

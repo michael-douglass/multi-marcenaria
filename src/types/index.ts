@@ -21,6 +21,7 @@ export type ActiveSection =
   | 'biblioteca'
   | 'caixa'
   | 'agendaObras'
+  | 'projetosProducao'
   | 'pedidosObras'
   | 'acompanhamentoObras'
   | 'calendarioObras'

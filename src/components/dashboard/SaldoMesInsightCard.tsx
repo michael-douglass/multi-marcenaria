@@ -1,11 +1,16 @@
 import { useEffect, useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Settings2, X } from 'lucide-react'
+import { ArrowRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SaldoMesInsightAura } from '@/components/dashboard/SaldoMesInsightAura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  FLOATING_SALDO_RIGHT,
+  FLOATING_TOP_EDGE,
+} from '@/lib/floating-ui-layout'
+import { saldoMesInsightClass } from '@/lib/overlay-z-index'
 import {
   type SaldoMesForecast,
   type SaldoMesInsightConfig,
@@ -131,14 +136,15 @@ export function SaldoMesInsightCard({
   const titleId = useId()
   const forecastId = useId()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [intervalMin, setIntervalMin] = useState(msToMinutes(config.intervalMs))
   const [durationSec, setDurationSec] = useState(msToSeconds(config.durationMs))
   const [enabled, setEnabled] = useState(config.enabled)
 
-  const forecastOpen = (!isMobile && hovering) || pinned
-  const holding = settingsOpen || forecastOpen
+  const forecastOpen = !minimized && ((!isMobile && hovering) || pinned)
+  const holding = settingsOpen || forecastOpen || minimized
 
   useEffect(() => {
     setIntervalMin(msToMinutes(config.intervalMs))
@@ -166,6 +172,7 @@ export function SaldoMesInsightCard({
       setHovering(false)
       setPinned(false)
       setSettingsOpen(false)
+      setMinimized(false)
     }
   }, [visible])
 
@@ -192,18 +199,38 @@ export function SaldoMesInsightCard({
     setSettingsOpen(false)
   }
 
+  const minimize = (e?: MouseEvent) => {
+    e?.stopPropagation()
+    setMinimized(true)
+    setPinned(false)
+    setHovering(false)
+    setSettingsOpen(false)
+  }
+
+  const expand = (e?: MouseEvent) => {
+    e?.stopPropagation()
+    setMinimized(false)
+  }
+
   const handleCardClick = () => {
-    if (settingsOpen) return
+    if (settingsOpen || minimized) return
     setPinned(open => !open)
   }
 
   const handleCardPointerEnter = () => {
-    if (!isMobile) setHovering(true)
+    if (!isMobile && !minimized) setHovering(true)
   }
 
   const handleCardPointerLeave = () => {
     if (!isMobile) setHovering(false)
   }
+
+  const actionBtnClass = cn(
+    'inline-flex items-center justify-center rounded-md',
+    'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
+    'transition-colors hover:bg-[rgba(42,24,18,0.08)]',
+    isMobile ? 'h-9 w-9' : 'h-7 w-7',
+  )
 
   return createPortal(
     <aside
@@ -211,16 +238,89 @@ export function SaldoMesInsightCard({
       aria-modal="false"
       aria-labelledby={titleId}
       className={cn(
-        'saldo-mes-insight fixed z-[220] touch-manipulation',
-        'right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))]',
-        'sm:right-5 sm:top-4',
-        forecastOpen ? 'w-[min(100vw-1.5rem,26rem)]' : 'w-[min(calc(100vw-1.5rem),22rem)]',
+        'saldo-mes-insight fixed touch-manipulation',
+        saldoMesInsightClass,
+        FLOATING_TOP_EDGE,
+        FLOATING_SALDO_RIGHT,
+        minimized
+          ? 'w-auto max-w-[min(calc(100vw-5.5rem),18rem)]'
+          : forecastOpen
+            ? 'w-[min(100vw-5.5rem,26rem)]'
+            : 'w-[min(calc(100vw-5.5rem),22rem)]',
         !isMobile && 'transition-[width] duration-300 ease-out',
         exiting ? 'saldo-mes-insight-exit' : 'saldo-mes-insight-enter',
       )}
       onPointerEnter={handleCardPointerEnter}
       onPointerLeave={handleCardPointerLeave}
     >
+      {minimized ? (
+        <article
+          role="button"
+          tabIndex={0}
+          onClick={() => expand()}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              expand()
+            }
+          }}
+          aria-expanded={false}
+          className={cn(
+            'group relative flex cursor-pointer items-center gap-2 overflow-hidden rounded-xl border border-[rgba(42,24,18,0.12)]',
+            'bg-[#fffcf8] px-3 py-2 text-[#2a1812] shadow-[0_12px_32px_rgba(42,24,18,0.14)]',
+            'outline-none focus-visible:ring-2 focus-visible:ring-[#c4963a]/60 focus-visible:ring-offset-2',
+            '-webkit-tap-highlight-color-transparent',
+          )}
+        >
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-[3px]"
+            style={{ background: tone.bar }}
+          />
+          <span
+            id={titleId}
+            className={cn(
+              'ml-1 inline-flex shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em]',
+              tone.chip,
+            )}
+          >
+            Saldo
+          </span>
+          {message.valorDestaque != null ? (
+            <span className={cn('truncate font-display text-sm tabular-nums', tone.value)}>
+              {fmtCur(message.valorDestaque)}
+            </span>
+          ) : (
+            <span className="truncate text-xs text-[#6b5244]">{message.headline}</span>
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className={actionBtnClass}
+              aria-label="Expandir saldo do mês"
+              title="Expandir"
+              onClick={e => expand(e)}
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className={cn(
+                actionBtnClass,
+                'hover:border-red-300/50 hover:bg-red-500/10 hover:text-red-700',
+              )}
+              aria-label="Fechar lembrete de saldo"
+              title="Fechar"
+              onClick={e => {
+                stop(e)
+                onDismiss()
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </article>
+      ) : (
       <article
         role="button"
         tabIndex={0}
@@ -265,12 +365,16 @@ export function SaldoMesInsightCard({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className={cn(
-                'inline-flex items-center justify-center rounded-md',
-                'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
-                'transition-colors hover:bg-[rgba(42,24,18,0.08)]',
-                isMobile ? 'h-9 w-9' : 'h-7 w-7',
-              )}
+              className={actionBtnClass}
+              aria-label="Minimizar saldo do mês"
+              title="Minimizar"
+              onClick={e => minimize(e)}
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className={actionBtnClass}
               aria-label="Configurar lembrete de saldo"
               aria-expanded={settingsOpen}
               onClick={e => {
@@ -283,10 +387,8 @@ export function SaldoMesInsightCard({
             <button
               type="button"
               className={cn(
-                'inline-flex items-center justify-center rounded-md',
-                'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
-                'transition-colors hover:border-red-300/50 hover:bg-red-500/10 hover:text-red-700',
-                isMobile ? 'h-9 w-9' : 'h-7 w-7',
+                actionBtnClass,
+                'hover:border-red-300/50 hover:bg-red-500/10 hover:text-red-700',
               )}
               aria-label="Fechar lembrete de saldo"
               onClick={e => {
@@ -426,6 +528,7 @@ export function SaldoMesInsightCard({
           ) : null}
         </div>
       </article>
+      )}
     </aside>,
     document.body,
   )

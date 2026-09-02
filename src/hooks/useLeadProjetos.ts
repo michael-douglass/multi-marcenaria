@@ -14,6 +14,8 @@ import {
   getWaitingProjetoStageId,
   projetistaPuxaJaEmDesenho,
   stageNameLooksWaiting,
+  classifyProjetoStage,
+  canPegarProjeto,
   MIN_CARACTERES_BUSCA_PROJETOS,
   MIN_CARACTERES_ENVIO_SETOR,
 } from '@/lib/projetos-atelie'
@@ -685,43 +687,72 @@ export function useLeadProjetoMutations() {
   })
 
   const puxarParaProjeto = useMutation({
-    mutationFn: async (leadId: number) => {
+    mutationFn: async (input: number | { leadId: number; stageId?: string }) => {
+      const leadId = typeof input === 'number' ? input : input.leadId
+      const destinoStageId =
+        typeof input === 'number' ? waitingId() : input.stageId?.trim() || waitingId()
+
+      const destinoStage = stages.find((stage) => stage.id === destinoStageId)
+      const kind = destinoStage ? classifyProjetoStage(destinoStage, stages) : 'waiting'
+      const claimNow =
+        projetistaPuxaJaEmDesenho(userRoles) ||
+        (canPegarProjeto(userRoles) && kind !== 'waiting' && kind !== 'feito')
+
       const { data: existing } = await db
         .from('lead_projetos')
-        .select('id')
+        .select('id, stage_id')
         .eq('lead_id', leadId)
         .maybeSingle()
+
       if (existing?.id) {
-        return { already: true as const, leadId }
+        if (existing.stage_id !== destinoStageId) {
+          const { error } = await db
+            .from('lead_projetos')
+            .update({
+              stage_id: destinoStageId,
+              ...(claimNow
+                ? {
+                    arquiteto_id: user?.id ?? null,
+                    aguardando_resposta: false,
+                  }
+                : {}),
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq('id', existing.id)
+          if (error) throw error
+          return { already: true as const, moved: true as const, leadId }
+        }
+        return { already: true as const, moved: false as const, leadId }
       }
 
-      const fila = waitingId()
-      const jaDesenho = projetistaPuxaJaEmDesenho(userRoles)
       const { error } = await db.from('lead_projetos').insert({
         lead_id: leadId,
-        stage_id: fila,
+        stage_id: destinoStageId,
         enviado_por: user?.id ?? null,
-        titular_id: jaDesenho ? null : user?.id ?? null,
-        arquiteto_id: jaDesenho ? user?.id ?? null : null,
-        aguardando_resposta: !jaDesenho,
+        titular_id: claimNow ? null : user?.id ?? null,
+        arquiteto_id: claimNow ? user?.id ?? null : null,
+        aguardando_resposta: !claimNow,
       })
       if (error) {
-        if (error.code === '23505') return { already: true as const, leadId }
+        if (error.code === '23505') return { already: true as const, moved: false as const, leadId }
         throw error
       }
 
+      const colunaNome = destinoStage?.nome ?? 'fila'
       await inserirNota({
         leadId,
-        mensagem: jaDesenho
-          ? 'Puxou este lead para o ateliê e ficou com o desenho.'
-          : 'Puxou este lead para o ateliê.',
+        mensagem: claimNow
+          ? `Puxou este lead para “${colunaNome}” e ficou com o desenho.`
+          : `Puxou este lead para “${colunaNome}”.`,
         tipo: 'envio',
       })
-      return { already: false as const, leadId }
+      return { already: false as const, moved: false as const, leadId }
     },
     onSuccess: (result) => {
       invalidate(result.leadId)
-      if (result.already) {
+      if (result.already && result.moved) {
+        toast.success('Lead movido para a coluna escolhida')
+      } else if (result.already) {
         toast.info('Este cliente já está no quadro')
       } else {
         toast.success('Lead no ateliê')

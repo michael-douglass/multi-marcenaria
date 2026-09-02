@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Calendar, GripVertical, PanelLeft, PanelRight, X } from 'lucide-react';
+import { Calendar, GripVertical, Minimize2, PanelLeft, PanelRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -64,7 +64,7 @@ export function FloatingAgendaGeralPopup({
       data-floating-agenda-root
       data-floating-agenda-panel=""
       className={cn(
-        'fixed top-14 bottom-0 pointer-events-auto',
+        'fixed top-0 bottom-0 pointer-events-auto',
         floatingAgendaPanelClass,
         'flex flex-col overflow-hidden bg-background/95 backdrop-blur-md border shadow-2xl',
         side === 'right' ? 'right-0 border-l rounded-l-xl' : 'left-0 border-r rounded-r-xl',
@@ -135,6 +135,20 @@ export function FloatingAgendaGeralPopup({
           onClick={onClose}
           className="h-6 w-6 shrink-0"
           data-no-drag
+          title="Minimizar agenda"
+          aria-label="Minimizar agenda"
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-6 w-6 shrink-0"
+          data-no-drag
+          title="Fechar agenda"
+          aria-label="Fechar agenda"
         >
           <X className="h-3.5 w-3.5" />
         </Button>

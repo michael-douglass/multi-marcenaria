@@ -6,6 +6,24 @@
 /** h-14 (3.5rem) + 0.5rem de respiro */
 export const FLOATING_ICONS_TOP = 'top-[4rem]';
 
+/**
+ * Topo absoluto da viewport (Saldo do mês + Agenda Geral).
+ * Ficam sempre na faixa mais alta da tela, com respiro da safe-area.
+ */
+export const FLOATING_TOP_EDGE =
+  'top-[max(0.75rem,env(safe-area-inset-top))] sm:top-4';
+
+/** Ícone da Agenda no canto superior direito. */
+export const FLOATING_AGENDA_ICON_RIGHT =
+  'right-[max(0.75rem,env(safe-area-inset-right))] sm:right-4';
+
+/**
+ * Saldo do mês: à esquerda do ícone da agenda (h-14 + gap),
+ * para os dois caberem no topo sem um cobrir o outro.
+ */
+export const FLOATING_SALDO_RIGHT =
+  'right-[calc(max(0.75rem,env(safe-area-inset-right))+4rem)] sm:right-[calc(1rem+4rem)]';
+
 /** Faixa de ícones (~3rem) abaixo do header */
 export const FLOATING_POPUP_TOP = 'top-[7.25rem]';
 

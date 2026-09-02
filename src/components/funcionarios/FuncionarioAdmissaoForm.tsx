@@ -20,6 +20,8 @@ interface Props {
   salarioFixoMensal?: number | null
   readOnly?: boolean
   onUpdate: (input: Partial<FuncionarioInput>) => Promise<void>
+  /** Chamado após sincronizar a jornada do ponto a partir dos horários da admissão. */
+  onJornadaSynced?: () => void
   saving?: boolean
 }
 
@@ -30,6 +32,7 @@ export function FuncionarioAdmissaoForm({
   salarioFixoMensal,
   readOnly,
   onUpdate,
+  onJornadaSynced,
   saving,
 }: Props) {
   const [draft, setDraft] = useState<FuncionarioAdmissaoDados>(
@@ -63,6 +66,7 @@ export function FuncionarioAdmissaoForm({
     syncingJornadaRef.current = true
     try {
       await salvarJornada(funcionario.id, jornada)
+      onJornadaSynced?.()
     } catch (e) {
       showToast(
         e instanceof Error ? e.message : 'Não foi possível sincronizar a jornada do ponto.',

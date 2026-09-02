@@ -303,7 +303,21 @@ const FUNCIONARIOS_CHILDREN: NavChildItem[] = [
   },
 ]
 
+const CRM_COMERCIAL_ROLES: CrmRole[] = ['admin', 'vendedor', 'projetista', 'projetista_admin']
+const CRM_VENDA_ROLES: CrmRole[] = ['admin', 'vendedor']
+const CRM_MARKETING_ROLES: CrmRole[] = ['admin', 'marketing']
+const CRM_MKT_VISIVEL_ROLES: CrmRole[] = ['admin', 'vendedor', 'marketing']
+
 const OBRAS_CHILDREN: NavChildItem[] = [
+  {
+    id: 'projetosProducao',
+    title: 'Projetos de produção',
+    url: '/projetos-producao',
+    icon: Ruler,
+    radialColor: 'rgba(94,234,212,0.92)',
+    roles: ['MontadorAdmin'],
+    crmRoles: CRM_COMERCIAL_ROLES,
+  },
   {
     id: 'agendaObras',
     title: 'Agenda de Obras',
@@ -353,11 +367,6 @@ const OBRAS_CHILDREN: NavChildItem[] = [
     roles: ['Administrador', 'AdministradorObras', 'MontadorAdmin'],
   },
 ]
-
-const CRM_COMERCIAL_ROLES: CrmRole[] = ['admin', 'vendedor', 'projetista', 'projetista_admin']
-const CRM_VENDA_ROLES: CrmRole[] = ['admin', 'vendedor']
-const CRM_MARKETING_ROLES: CrmRole[] = ['admin', 'marketing']
-const CRM_MKT_VISIVEL_ROLES: CrmRole[] = ['admin', 'vendedor', 'marketing']
 
 const COMERCIAL_CHILDREN: NavChildItem[] = [
   {
@@ -646,6 +655,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     radialColor: 'rgba(251,146,60,0.92)',
     sector: 'casa',
     roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin', 'Financeiro'],
+    crmRoles: CRM_COMERCIAL_ROLES,
     children: OBRAS_CHILDREN,
   },
   {
@@ -714,6 +724,9 @@ export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[]
       const children = filterNavChildren(item.children, ctx)
       if (item.id === 'comercial' && ctx.projetistaOnly) {
         return { ...item, url: '/projetos', children }
+      }
+      if (item.id === 'obras' && children.length > 0) {
+        return { ...item, url: children[0]?.url ?? item.url, children }
       }
       return { ...item, children }
     })
@@ -833,6 +846,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
   if (pathname.startsWith('/admin/webhooks')) return 'adminWebhooks'
   if (pathname.startsWith('/admin/marca')) return 'marcaCrm'
   if (pathname === '/admin' || pathname.startsWith('/admin')) return 'adminUsuarios'
+  if (pathname.startsWith('/projetos-producao')) return 'projetosProducao'
   if (pathname.startsWith('/projetos')) return 'projetos'
   if (pathname.startsWith('/contratos')) return 'contratosCrm'
   if (pathname.startsWith('/orcamento-slides')) return 'orcamentoSlides'
@@ -853,6 +867,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/biblioteca': 'biblioteca',
     '/caixa': 'caixa',
     '/agenda-obras': 'agendaObras',
+    '/projetos-producao': 'projetosProducao',
     '/pedidos-obras': 'pedidosObras',
     '/acompanhamento-obras': 'acompanhamentoObras',
     '/calendario-obras': 'calendarioObras',

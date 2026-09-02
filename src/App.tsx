@@ -13,12 +13,14 @@ import {
   evaluateIdentityGate,
   hasCrmColaboradorAccess,
   isCrmAppPath,
+  isCrmAdmin,
   isPortalOnly,
 } from '@/lib/crm-identity'
 import { ForaDoHorario } from '@/pages/ForaDoHorario'
 import { ChatCrmPage } from '@/pages/crm/ChatCrmPage'
 import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
 import { consumePontoResumeFlag, peekPontoResumeFlag } from '@/hooks/useBaterPonto'
+import { canAccessProjetosProducao } from '@/lib/projetos-producao'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess, hasPedidosObrasAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
@@ -85,6 +87,7 @@ const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/Apre
 const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
 const CadastroDeAlunos = lazy(() => import('@/pages/CadastroDeAlunos'))
 const ProjetosPage = lazy(() => import('@/pages/Projetos'))
+const ProjetosProducaoPage = lazy(() => import('@/pages/ProjetosProducao'))
 const ControleEventosPage = lazy(() => import('@/pages/ControleEventos'))
 const ControleEventoBoardPage = lazy(() => import('@/pages/ControleEventoBoard'))
 
@@ -378,6 +381,22 @@ function AuthenticatedRoutes() {
           />
 
           {/* Agenda de Obras */}
+          <Route
+            path="/projetos-producao"
+            element={
+              canAccessProjetosProducao(
+                crmProfile,
+                roles,
+                isCrmAdmin(crmProfile) || roles.includes('Administrador'),
+              )
+                ? (
+                  <CrmLazy>
+                    <ProjetosProducaoPage />
+                  </CrmLazy>
+                )
+                : <Restricted message="Projetos de produção: projetista, vendedor ou Montador Admin." />
+            }
+          />
           <Route
             path="/agenda-obras"
             element={
