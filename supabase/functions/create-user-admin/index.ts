@@ -76,7 +76,14 @@ async function syncRoles(
       ? [rolesInput]
       : ["nenhum"];
 
-  const allowed = new Set(["admin", "vendedor", "marketing", "nenhum"]);
+  const allowed = new Set([
+    "admin",
+    "vendedor",
+    "marketing",
+    "projetista",
+    "projetista_admin",
+    "nenhum",
+  ]);
   const unique = Array.from(
     new Set(
       raw

@@ -68,7 +68,7 @@ export function ProjetoKanbanCard({
         boxShadow: '0 8px 18px rgba(8, 4, 2, 0.55)',
       }}
       className={cn(
-        'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#f2d892]/70 text-left text-[#fff8ee]',
+        'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#f2d892]/70 text-left text-[#fff8ee] touch-manipulation',
         'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#f2d892]',
         !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
         isDragging && 'z-50 scale-[1.03] rotate-1 ring-2 ring-sky-400/40',
@@ -94,6 +94,7 @@ export function ProjetoKanbanCard({
           type="button"
           className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-[#f6ead8] hover:bg-white/10"
           aria-label="Arrastar card"
+          data-dnd-handle
           onClick={(event) => event.stopPropagation()}
           {...attributes}
           {...listeners}

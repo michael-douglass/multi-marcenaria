@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   pointerWithin,
   useSensor,
   useSensors,
@@ -107,7 +108,69 @@ export default function Projetos() {
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; run: () => void } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectedLeadId = searchParams.get('id') ? Number(searchParams.get('id')) : null
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  // Mouse = arrastar no computador. Toque = precisa segurar um pouco para não brigar com o scroll.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 10 } }),
+  )
+  const draggingRef = useRef(false)
+  draggingRef.current = Boolean(activeId)
+
+  /**
+   * No celular, overflow-x no quadro “prende” o dedo: o gesto vertical não sobe para a página.
+   * Se o movimento for mais para cima/baixo do que para os lados, rolamos o workspace manualmente.
+   */
+  useEffect(() => {
+    const board = scrollRef.current
+    if (!board) return
+    if (!window.matchMedia('(max-width: 767px)').matches) return
+
+    let lastX = 0
+    let lastY = 0
+    let axis: 'undecided' | 'x' | 'y' = 'undecided'
+    let skip = false
+
+    const onStart = (event: TouchEvent) => {
+      const target = event.target as HTMLElement | null
+      skip = Boolean(target?.closest('[data-dnd-handle]'))
+      const touch = event.touches[0]
+      if (!touch) return
+      lastX = touch.clientX
+      lastY = touch.clientY
+      axis = 'undecided'
+    }
+
+    const onMove = (event: TouchEvent) => {
+      if (skip || draggingRef.current) return
+      const touch = event.touches[0]
+      if (!touch) return
+      const dx = touch.clientX - lastX
+      const dy = touch.clientY - lastY
+
+      if (axis === 'undecided') {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        axis = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x'
+      }
+
+      lastX = touch.clientX
+      lastY = touch.clientY
+
+      if (axis !== 'y') return
+
+      const parent = board.closest('.paper-workspace') as HTMLElement | null
+      if (!parent) return
+      parent.scrollTop -= dy
+      event.preventDefault()
+    }
+
+    board.addEventListener('touchstart', onStart, { passive: true })
+    board.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      board.removeEventListener('touchstart', onStart)
+      board.removeEventListener('touchmove', onMove)
+    }
+  }, [stages.length, loadingStages, loadingProjetos])
+
   const stageIds = useMemo(() => new Set(stages.map((stage) => stage.id)), [stages])
   const chatByLead = useMemo(
     () => new Map(chatThreads.map((thread) => [thread.lead_id, thread])),
@@ -289,7 +352,7 @@ export default function Projetos() {
             <div className="relative flex h-auto w-full min-w-0 flex-col overflow-visible pb-8">
               <div
                 ref={scrollRef}
-                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(58vh,calc(100svh-16rem))] min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 touch-pan-x md:min-h-[min(72vh,calc(100svh-14rem))] md:gap-5"
+                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(58vh,calc(100svh-16rem))] min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 touch-pan-x touch-pan-y md:min-h-[min(72vh,calc(100svh-14rem))] md:gap-5"
               >
                 {columns.map(({ stage, items }) => (
                   <ProjetoKanbanColumn

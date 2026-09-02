@@ -49,6 +49,19 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { UserAvatar } from '@/components/ui/user-avatar';
 
+/** Aceita DDD+número (10/11) ou com 55; devolve só dígitos normalizados. */
+function normalizeBrasilPhoneDigits(raw: string | null | undefined): string {
+  const digits = (raw ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+    return digits;
+  }
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+  return digits;
+}
+
 // ─── Schema de validação ──────────────────────────────────────────────────────
 const createUserSchema = z.object({
   name: z.string()
@@ -62,15 +75,16 @@ const createUserSchema = z.object({
   phone: z
     .string()
     .optional()
-    .transform((v) => (v ?? '').replace(/\D/g, ''))
+    .transform((v) => normalizeBrasilPhoneDigits(v))
     .pipe(
       z.union([
         z.literal(''),
         z
           .string()
-          .regex(/^[1-9]\d{10,14}$/, 'Telefone inválido (ex: 5531999999999)')
-          .min(11, 'Telefone deve ter no mínimo 11 dígitos')
-          .max(15, 'Telefone deve ter no máximo 15 dígitos'),
+          .regex(
+            /^55[1-9]\d{9,10}$/,
+            'Telefone inválido. Use DDD + número (ex: 31999999999)',
+          ),
       ]),
     ),
   role: z.enum(['ADMIN', 'VENDEDOR', 'MARKETING', 'NENHUM']).optional(),
@@ -196,6 +210,7 @@ export default function Admin() {
   });
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
   const [createFormData, setCreateFormData] = useState({
     nome: '',
     email: '',
@@ -274,7 +289,7 @@ export default function Admin() {
       createUserSchema.parse({
         name: editFormData.nome,
         email: editFormData.email,
-        phone: editFormData.telefone,
+        phone: normalizeBrasilPhoneDigits(editFormData.telefone),
         roles: editFormData.roles,
       });
 
@@ -283,7 +298,7 @@ export default function Admin() {
         updates: {
           nome: editFormData.nome,
           email: editFormData.email,
-          telefone: editFormData.telefone,
+          telefone: normalizeBrasilPhoneDigits(editFormData.telefone) || editFormData.telefone,
           horario_acesso_inicio: editFormData.horario_acesso_inicio || null,
           horario_acesso_fim: editFormData.horario_acesso_fim || null,
           tipo_usuario: editFormData.tipo_usuario,
@@ -328,7 +343,7 @@ export default function Admin() {
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error('Erro de validação', {
-          description: error.errors[0].message,
+          description: error.issues[0]?.message ?? 'Dados inválidos',
         });
       }
     }
@@ -351,15 +366,17 @@ export default function Admin() {
 
   const handleCreateUser = async () => {
     try {
+      setCreateFormError(null);
+
       if (!hasEmpresaSelecionada) {
-        toast.error('Selecione uma empresa', {
-          description:
-            'Vá em Gerenciamento de Empresas → Entrar na empresa antes de cadastrar usuários.',
-        });
+        const msg =
+          'Vá em Gerenciamento de Empresas → Entrar na empresa antes de cadastrar usuários.';
+        setCreateFormError(msg);
+        toast.error('Selecione uma empresa', { description: msg });
         return;
       }
 
-      const phoneDigits = createFormData.telefone.replace(/\D/g, '');
+      const phoneDigits = normalizeBrasilPhoneDigits(createFormData.telefone);
       const createRoles =
         createFormData.tipo_usuario === 'colaborador'
           ? normalizeRoles(createFormData.roles)
@@ -371,9 +388,9 @@ export default function Admin() {
         createFormData.tipo_usuario === 'colaborador' &&
         (createRoles.length === 0 || (createRoles.length === 1 && createRoles[0] === 'nenhum'))
       ) {
-        toast.error('Selecione ao menos uma função', {
-          description: 'Ex.: Vendedor, Marketing ou as duas juntas.',
-        });
+        const msg = 'Selecione ao menos uma função (ex.: Vendedor, Projetista ou Marketing).';
+        setCreateFormError(msg);
+        toast.error('Selecione ao menos uma função', { description: msg });
         return;
       }
 
@@ -388,9 +405,9 @@ export default function Admin() {
         createFormData.tipo_usuario === 'prestador_servico' &&
         !createFormData.titulo.trim()
       ) {
-        toast.error('Título obrigatório', {
-          description: 'Selecione ou cadastre o título do prestador (ex: Arquiteto).',
-        });
+        const msg = 'Selecione ou cadastre o título do prestador (ex: Arquiteto).';
+        setCreateFormError(msg);
+        toast.error('Título obrigatório', { description: msg });
         return;
       }
 
@@ -411,6 +428,7 @@ export default function Admin() {
       });
 
       setCreateDialogOpen(false);
+      setCreateFormError(null);
       setCreateFormData({
         nome: '',
         email: '',
@@ -421,10 +439,15 @@ export default function Admin() {
         comissao_ativa: false,
       });
     } catch (error) {
+      const msg =
+        error instanceof z.ZodError
+          ? String(error.issues[0]?.message ?? 'Dados inválidos')
+          : error instanceof Error && typeof error.message === 'string' && error.message.trim() && !error.message.startsWith('[')
+            ? error.message
+            : 'Não foi possível cadastrar o usuário. Tente novamente.';
+      setCreateFormError(msg);
       if (error instanceof z.ZodError) {
-        toast.error('Erro de validação', {
-          description: error.errors[0].message,
-        });
+        toast.error('Erro de validação', { description: msg });
       }
     }
   };
@@ -651,7 +674,13 @@ export default function Admin() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle>Usuários do Sistema</CardTitle>
-              <Button onClick={() => setCreateDialogOpen(true)} disabled={!hasEmpresaSelecionada}>
+              <Button
+                onClick={() => {
+                  setCreateFormError(null);
+                  setCreateDialogOpen(true);
+                }}
+                disabled={!hasEmpresaSelecionada}
+              >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Cadastrar Usuário
               </Button>
@@ -1215,7 +1244,10 @@ export default function Admin() {
               <Input
                 id="create-name"
                 value={createFormData.nome}
-                onChange={(e) => setCreateFormData({ ...createFormData, nome: e.target.value })}
+                onChange={(e) => {
+                  setCreateFormError(null);
+                  setCreateFormData({ ...createFormData, nome: e.target.value });
+                }}
                 placeholder="Nome completo"
               />
             </div>
@@ -1225,7 +1257,10 @@ export default function Admin() {
                 id="create-email"
                 type="email"
                 value={createFormData.email}
-                onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+                onChange={(e) => {
+                  setCreateFormError(null);
+                  setCreateFormData({ ...createFormData, email: e.target.value });
+                }}
                 placeholder="email@exemplo.com"
               />
             </div>
@@ -1235,10 +1270,16 @@ export default function Admin() {
                 id="create-phone"
                 type="tel"
                 value={createFormData.telefone}
-                onChange={(e) => setCreateFormData({ ...createFormData, telefone: formatPhone(e.target.value) })}
-                placeholder="553199999999"
+                onChange={(e) => {
+                  setCreateFormError(null);
+                  setCreateFormData({ ...createFormData, telefone: formatPhone(e.target.value) });
+                }}
+                placeholder="31999999999"
                 maxLength={15}
               />
+              <p className="text-xs text-muted-foreground">
+                Pode digitar só DDD + número. O sistema completa o 55 automaticamente.
+              </p>
             </div>
 
             {/* Campo: Funções — somente para colaboradores */}
@@ -1248,7 +1289,10 @@ export default function Admin() {
                 <RoleMultiSelect
                   idPrefix="create-role"
                   value={createFormData.roles}
-                  onChange={(roles) => setCreateFormData({ ...createFormData, roles })}
+                  onChange={(roles) => {
+                    setCreateFormError(null);
+                    setCreateFormData({ ...createFormData, roles });
+                  }}
                 />
               </div>
             )}
@@ -1259,7 +1303,10 @@ export default function Admin() {
                 <PrestadorTituloField
                   id="create-titulo"
                   value={createFormData.titulo}
-                  onChange={(titulo) => setCreateFormData({ ...createFormData, titulo })}
+                  onChange={(titulo) => {
+                    setCreateFormError(null);
+                    setCreateFormData({ ...createFormData, titulo });
+                  }}
                 />
 
                 {/* Toggle Pontua Garbo */}
@@ -1286,6 +1333,12 @@ export default function Admin() {
                 <AlertDescription>
                   O Lead será cadastrado sem acesso ao sistema. O administrador pode ativar o acesso a qualquer momento editando o usuário.
                 </AlertDescription>
+              </Alert>
+            )}
+
+            {createFormError && (
+              <Alert variant="destructive">
+                <AlertDescription>{createFormError}</AlertDescription>
               </Alert>
             )}
           </div>

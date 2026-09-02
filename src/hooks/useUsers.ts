@@ -259,13 +259,24 @@ export function useUsers() {
         },
       });
 
-      if (error) {
-        const message = (data as { error?: string })?.error || error.message || 'Erro ao criar usuário via Edge Function';
-        throw new Error(message);
+      const payload = data as { error?: string; success?: boolean; message?: string } | null;
+
+      if (payload?.error) {
+        throw new Error(payload.error);
       }
 
-      if (data?.error) {
-        throw new Error(data.error as string);
+      if (error) {
+        let message = error.message || 'Erro ao criar usuário via Edge Function';
+        const ctx = (error as { context?: Response }).context;
+        if (ctx) {
+          try {
+            const errBody = (await ctx.clone().json()) as { error?: string };
+            if (errBody?.error) message = errBody.error;
+          } catch {
+            /* ignore parse errors */
+          }
+        }
+        throw new Error(message);
       }
 
       return data;
