@@ -16,9 +16,14 @@ export interface Empresa {
   razao_social?: string | null
 }
 
-/** Casa única: Movelaria Garbo. Sem seletor de empresas na UI. */
+/**
+ * Casa única: Movelaria Garbo. Sem seletor de empresas na UI.
+ * `id` deve ser o UUID real em `CRM-multi-empresas>empresas<` (não o schema_nome).
+ */
+export const GARBO_EMPRESA_ID = '2c196e67-dd26-4e1c-839d-4d234f3a3dfd';
+
 export const GARBO_EMPRESA: Empresa = {
-  id: 'emp_garbo',
+  id: GARBO_EMPRESA_ID,
   nome: 'Garbo Movelaria',
   slug: 'garbo',
   schema_nome: 'emp_garbo',

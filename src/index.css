@@ -1079,11 +1079,130 @@ body::before {
   min-width: 0;
 }
 
-/* ── Calendário: grade semanal — colunas largas + scroll no dia ── */
-.cal-week-wrap {
+.chegada-material-calendario--page {
+  padding-bottom: 0.75rem;
+}
+
+/* Página dedicada: a semana ocupa o espaço livre da tela */
+.chegada-material-calendario--page .chegada-cal-week-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chegada-material-calendario--page .chegada-cal-week-grid {
+  flex: 1 1 auto;
+  min-height: min(58vh, 32rem);
+  height: 100%;
+  /* Colunas mais estreitas e estáveis — o card do lead fica maior em relação à coluna */
+  grid-template-columns: repeat(7, minmax(9.75rem, 10.85rem));
+  gap: 0.4rem;
   width: max-content;
-  min-width: 100%;
   max-width: none;
+  margin-inline: auto;
+  justify-content: center;
+}
+
+.chegada-materiais-aura {
+  z-index: 0;
+  opacity: 0.45;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.14) 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.14) 55%, transparent 100%);
+}
+
+.obra-page-shell--calendario-obras {
+  isolation: isolate;
+}
+
+/* Badges e botões legíveis nos cards claros do calendário de obras */
+.obra-page-shell--calendario-obras .cal-week-card span.inline-flex[class*="text-[#f2d892]"],
+.obra-page-shell--calendario-obras .cal-week-card [class*="text-[#f2d892]"] {
+  color: var(--color-gold-muted) !important;
+}
+
+.obra-page-shell--calendario-obras .cal-week-card span.inline-flex[class*="bg-[rgba(240,210,140"] {
+  background: rgba(196, 150, 58, 0.12) !important;
+  border-color: rgba(141, 94, 34, 0.28) !important;
+  color: var(--color-gold-muted) !important;
+}
+
+.obra-page-shell--calendario-obras .cal-week-day {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7f0e6 100%);
+  border: 1px solid rgba(42, 24, 18, 0.16);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 20px rgba(42, 24, 18, 0.06);
+}
+
+.obra-page-shell--calendario-obras .cal-week-day:has(.cal-week-day__hoje) {
+  background:
+    linear-gradient(180deg, #fff8ec 0%, #f3e6d4 100%);
+  border-color: rgba(196, 150, 58, 0.4);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--start {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  color: #92400e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--start:hover {
+  border-color: rgba(180, 83, 9, 0.55);
+  background: #ffedd5;
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--done {
+  border-color: rgba(5, 150, 105, 0.35);
+  background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--done:hover {
+  border-color: rgba(5, 150, 105, 0.55);
+  background: #d1fae5;
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--reopen {
+  border-color: rgba(194, 65, 12, 0.35);
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  color: #9a3412;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn--reopen:hover {
+  border-color: rgba(194, 65, 12, 0.55);
+  background: #ffedd5;
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-btn:focus-visible {
+  outline-color: var(--color-gold-muted);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-confirm {
+  border-color: rgba(42, 24, 18, 0.14);
+  background: #fffcf8;
+  color: var(--color-text-secondary);
+}
+
+.obra-page-shell--calendario-obras .obra-equipe-confirm__text {
+  color: var(--color-text-secondary);
+}
+
+/* ── Calendário: grade semanal — 7 dias visíveis no desktop ── */
+.cal-week-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cal-week-scroll-hint {
@@ -1099,11 +1218,11 @@ body::before {
 
 .cal-week-grid {
   display: grid;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
   align-items: stretch;
-  /* Colunas largas: nomes cabem lado a lado e o card fica mais baixo */
-  grid-template-columns: repeat(7, minmax(240px, 280px));
+  /* Desktop: 7 colunas iguais — a agenda inteira cabe na tela */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.45rem;
 }
 
@@ -1116,20 +1235,55 @@ body::before {
   overflow: hidden;
 }
 
+.cal-week-day--chegada {
+  min-height: 12rem;
+  max-height: min(64vh, 34rem);
+  padding: 0.45rem !important;
+  border-radius: 0.65rem;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f6eee4 100%);
+  border: 1px solid rgba(42, 24, 18, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 22px rgba(42, 24, 18, 0.08);
+}
+
+.cal-week-day--chegada.cal-week-day--today {
+  background:
+    linear-gradient(180deg, #fff8ec 0%, #f3e6d4 100%);
+  border-color: rgba(196, 150, 58, 0.45);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(196, 150, 58, 0.18),
+    0 10px 24px rgba(42, 24, 18, 0.08);
+}
+
+.cal-week-day--chegada.cal-week-day--empty {
+  opacity: 0.9;
+  background:
+    linear-gradient(180deg, #fbf7f1 0%, #f3ebe1 100%);
+}
+
 .cal-week-day__cards {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-gold-border) transparent;
-  padding-right: 0.15rem;
+  scrollbar-color: rgba(42, 24, 18, 0.28) transparent;
+  padding-right: 0.1rem;
+}
+
+.cal-week-day--chegada .cal-week-day__cards {
+  /* Dica visual: se houver mais itens, o fim some um pouco — role para ver */
+  mask-image: linear-gradient(180deg, #000 0%, #000 calc(100% - 0.65rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 calc(100% - 0.65rem), transparent 100%);
 }
 
 .cal-week-day__cards::-webkit-scrollbar {
@@ -1138,12 +1292,99 @@ body::before {
 
 .cal-week-day__cards::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: var(--color-gold-border);
+  background: rgba(42, 24, 18, 0.28);
 }
 
-/* Legado: ChegadaMaterialCalendario */
+.cal-week-day__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 3.5rem;
+  color: var(--color-text-faint);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.cal-week-day__empty-mark {
+  width: 1.35rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(42, 24, 18, 0.28), transparent);
+}
+
+.cal-week-day__count--chegada {
+  background: rgba(5, 150, 105, 0.14);
+  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.28);
+}
+
+.cal-week-card.cal-week-card--chegada {
+  gap: 0.35rem;
+  min-height: 5.75rem;
+  padding: 0.85rem 0.7rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(42, 24, 18, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 6px 14px rgba(42, 24, 18, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-week-card.cal-week-card--chegada:hover {
+  filter: none;
+  transform: translateY(-1px);
+  border-color: rgba(42, 24, 18, 0.2);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 10px 20px rgba(42, 24, 18, 0.1);
+}
+
+.cal-week-card.cal-week-card--chegada .cal-week-card__title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  -webkit-line-clamp: 3;
+}
+
+.cal-week-card.cal-week-card--chegada .cal-week-card__meta {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.cal-week-card.cal-week-card--chegada .cal-week-card__pedido {
+  margin: 0.12rem 0 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  color: var(--color-gold-muted);
+  font-weight: 600;
+}
+
+/* Badge de montador legível no card claro */
+.cal-week-card.cal-week-card--chegada [class*="text-[#f2d892]"],
+.cal-week-card.cal-week-card--chegada .text-\[\#f2d892\] {
+  color: var(--color-gold-muted) !important;
+}
+
+.cal-week-card.cal-week-card--chegada [class*="bg-[rgba(240,210,140"],
+.chegada-material-calendario--page .cal-week-card.cal-week-card--chegada span.inline-flex {
+  background: rgba(196, 150, 58, 0.12);
+  color: var(--color-gold-muted);
+  border-color: rgba(141, 94, 34, 0.28);
+}
+
+/* Legado: ChegadaMaterialCalendario (scroll interno) */
 .cal-week-day--scroll-cards .cal-week-day__cards {
-  max-height: 30rem;
+  max-height: none;
 }
 
 .cal-week-day__cards--scroll {
@@ -1156,8 +1397,8 @@ body::before {
   flex-direction: column;
   gap: 0.05rem;
   border-bottom: 1px solid var(--color-gold-border-subtle);
-  padding-bottom: 0.25rem;
-  margin-bottom: 0.3rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 
 .cal-week-day__title-row {
@@ -1199,8 +1440,8 @@ body::before {
 .cal-week-day__hoje {
   flex-shrink: 0;
   border-radius: 0.2rem;
-  background: rgba(242, 216, 146, 0.18);
-  color: #f2d892;
+  background: rgba(196, 150, 58, 0.18);
+  color: var(--color-gold-muted);
   padding: 0.05rem 0.28rem;
   font-size: 0.48rem;
   font-weight: 700;
@@ -1208,17 +1449,25 @@ body::before {
   text-transform: uppercase;
 }
 
+.cal-week-day--chegada .cal-week-day__title-row {
+  color: var(--color-text-secondary);
+}
+
+.cal-week-day--chegada .cal-week-day__date {
+  color: var(--color-text-faint);
+}
+
 .cal-week-day__count {
   display: flex;
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(240, 210, 140, 0.2);
-  color: #f2d892;
-  font-size: 0.5rem;
+  background: rgba(196, 150, 58, 0.16);
+  color: var(--color-gold-muted);
+  font-size: 0.55rem;
   font-weight: 700;
 }
 
@@ -1227,7 +1476,7 @@ body::before {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.48rem;
-  color: rgba(237, 217, 196, 0.55);
+  color: var(--color-text-faint);
   letter-spacing: 0.02em;
 }
 
@@ -1238,9 +1487,13 @@ body::before {
   flex-direction: column;
   gap: 0.28rem;
   overflow: visible;
-  border-radius: 0.35rem;
+  border-radius: 0.4rem;
   padding: 0.4rem 0.4rem;
   font-size: 0.62rem;
+  border: 1px solid rgba(42, 24, 18, 0.1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 4px 12px rgba(42, 24, 18, 0.05);
 }
 
 .cal-week-card__title {
@@ -1253,7 +1506,7 @@ body::before {
   word-break: break-word;
   font-weight: 700;
   line-height: 1.25;
-  color: #f5efe6;
+  color: var(--color-text-primary);
   font-size: 0.68rem;
   letter-spacing: 0.01em;
 }
@@ -1297,7 +1550,7 @@ body::before {
 }
 
 .cal-week-card__person-block--empty {
-  opacity: 0.6;
+  opacity: 0.72;
 }
 
 .cal-week-card__person-head {
@@ -1309,7 +1562,7 @@ body::before {
 
 .cal-week-card__person-icon {
   flex-shrink: 0;
-  color: #f2d892;
+  color: var(--color-gold-muted);
 }
 
 .cal-week-card__person-label {
@@ -1317,7 +1570,7 @@ body::before {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #c4a88a;
+  color: var(--color-text-muted);
 }
 
 .cal-week-card__admin-chip {
@@ -1327,10 +1580,10 @@ body::before {
   align-items: center;
   gap: 0.25rem;
   border-radius: 999px;
-  border: 1px solid rgba(240, 210, 140, 0.28);
-  background: rgba(240, 210, 140, 0.12);
+  border: 1px solid rgba(141, 94, 34, 0.28);
+  background: rgba(196, 150, 58, 0.12);
   padding: 0.12rem 0.45rem;
-  color: #f2d892;
+  color: var(--color-gold-muted);
   font-size: 0.55rem;
   font-weight: 650;
   line-height: 1.2;
@@ -1362,13 +1615,13 @@ body::before {
   box-sizing: border-box;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid rgba(240, 210, 140, 0.25);
-  background: rgba(240, 210, 140, 0.1);
+  border: 1px solid rgba(42, 24, 18, 0.16);
+  background: rgba(42, 24, 18, 0.05);
   padding: 0.18rem 0.45rem;
   font-size: 0.6rem;
   font-weight: 650;
   line-height: 1.25;
-  color: #f2d892;
+  color: var(--color-text-secondary);
   word-break: normal;
   overflow-wrap: break-word;
   white-space: normal;
@@ -1378,14 +1631,14 @@ body::before {
 .cal-week-card__person-empty {
   margin: 0;
   font-size: 0.58rem;
-  color: #c4a88a;
+  color: var(--color-text-faint);
 }
 
 .cal-week-conclusao {
   min-width: 0;
-  border-radius: 0.3rem;
-  border: 1px solid rgba(240, 210, 140, 0.16);
-  background: rgba(10, 4, 2, 0.4);
+  border-radius: 0.35rem;
+  border: 1px solid rgba(42, 24, 18, 0.12);
+  background: rgba(255, 252, 248, 0.92);
   padding: 0.35rem 0.4rem;
 }
 
@@ -1403,13 +1656,14 @@ body::before {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #edd9c4;
+  color: var(--color-text-muted);
 }
 
 .cal-week-conclusao__count {
   font-size: 0.58rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
 }
 
 .cal-week-conclusao__names {
@@ -1437,15 +1691,15 @@ body::before {
 }
 
 .cal-week-conclusao__chip--ok {
-  border-color: rgba(52, 211, 153, 0.35);
-  background: rgba(16, 185, 129, 0.12);
-  color: #6ee7b7;
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(5, 150, 105, 0.1);
+  color: #047857;
 }
 
 .cal-week-conclusao__chip--pending {
-  border-color: rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.1);
-  color: #fcd34d;
+  border-color: rgba(217, 119, 6, 0.35);
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
 }
 
 .cal-week-conclusao__chip-name {
@@ -1461,7 +1715,7 @@ body::before {
   margin: 0.25rem 0 0;
   font-size: 0.5rem;
   line-height: 1.25;
-  color: rgba(237, 217, 196, 0.85);
+  color: var(--color-text-faint);
 }
 
 .cal-week-card__meta {
@@ -1760,9 +2014,10 @@ body::before {
   min-width: 0;
 }
 
-/* Telas estreitas: rolagem horizontal; colunas ainda largas o bastante para nomes */
-@media (max-width: 900px) {
-  .cal-week-wrap {
+/* Telas estreitas: rolagem horizontal; colunas ainda legíveis */
+@media (max-width: 1099px) {
+  .cal-week-wrap,
+  .chegada-cal-week-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
@@ -1771,24 +2026,44 @@ body::before {
     padding-bottom: 0.25rem;
   }
 
-  .cal-week-grid {
+  .cal-week-grid,
+  .chegada-cal-week-grid {
     width: max-content;
     min-width: max-content;
-    grid-template-columns: repeat(7, minmax(200px, 220px));
+    grid-template-columns: repeat(7, minmax(148px, 1fr));
   }
 
   .cal-week-day {
     max-height: min(62vh, 30rem);
   }
-}
-
-@media (max-width: 639px) {
-  .cal-week-grid {
-    grid-template-columns: repeat(7, minmax(180px, 200px));
-  }
 
   .cal-week-scroll-hint {
     display: block;
+  }
+}
+
+@media (max-width: 639px) {
+  .cal-week-grid,
+  .chegada-cal-week-grid {
+    grid-template-columns: repeat(7, minmax(136px, 160px));
+  }
+
+  .chegada-material-calendario--page .chegada-cal-week-grid {
+    min-height: 18rem;
+    width: max(100%, calc(7 * 136px + 6 * 0.35rem));
+  }
+
+  .cal-week-card.cal-week-card--chegada {
+    min-height: 5rem;
+    padding: 0.7rem 0.6rem;
+  }
+}
+
+/* Mantém altura limitada para scroll vertical dentro de cada dia */
+@media (min-width: 1100px) {
+  .chegada-material-calendario--page .cal-week-day--chegada {
+    min-height: 0;
+    max-height: 100%;
   }
 }
 

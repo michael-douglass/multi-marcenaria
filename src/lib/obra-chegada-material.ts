@@ -51,10 +51,10 @@ export function obrasParaDiaChegada(
 }
 
 export function getChegadaCardColor(obra: ObraFull, hoje = todayISO()): string {
-  if (!obra.data_entrega_pedido) return '#edd9c4'
-  if (obra.data_entrega_pedido < hoje && obra.status_kanban !== 'concluida') return '#ef4444'
-  if (obra.status_kanban === 'concluida') return '#10b981'
-  return '#34d399'
+  if (!obra.data_entrega_pedido) return '#8a7060'
+  if (obra.data_entrega_pedido < hoje && obra.status_kanban !== 'concluida') return '#dc2626'
+  if (obra.status_kanban === 'concluida') return '#047857'
+  return '#059669'
 }
 
 export function toISODate(d: Date): string {

@@ -57,12 +57,12 @@ type CalVizOverlay = 'calendario' | 'obras_do_dia' | null
 
 // ── Constantes ───────────────────────────────────────────────
 const STATUS_COLORS: Record<StatusKanbanObra, string> = {
-  datas_em_aberto: '#6b7280',
-  datas_em_atraso: '#ef4444',
-  datas_definidas: '#3b82f6',
-  em_andamento:    '#f59e0b',
-  concluida:       '#10b981',
-  cancelada:       '#9ca3af',
+  datas_em_aberto: '#4b5563',
+  datas_em_atraso: '#dc2626',
+  datas_definidas: '#2563eb',
+  em_andamento:    '#d97706',
+  concluida:       '#059669',
+  cancelada:       '#6b7280',
 }
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
@@ -175,8 +175,8 @@ function ConfigDiasPanel({
         className="glass-panel rounded-2xl w-full max-w-sm"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(240,210,140,0.18)]">
-          <p className="font-display text-lg text-[#f2d892] tracking-widest">Dias de Trabalho</p>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(42,24,18,0.12)]">
+          <p className="font-display text-lg text-[var(--color-gold-muted)] tracking-widest">Dias de Trabalho</p>
           <button onClick={onClose} className="btn btn-outline btn-sm !px-2">
             <X size={15} />
           </button>
@@ -282,12 +282,12 @@ function DayPopup({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(240,210,140,0.18)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(42,24,18,0.12)]">
           <div>
-            <p className="font-display text-lg text-[#f2d892] tracking-widest">
+            <p className="font-display text-lg text-[var(--color-gold-muted)] tracking-widest">
               {WEEKDAYS_LONG[date.getDay()]}, {date.getDate()} de {MONTHS_FULL[date.getMonth()]}
             </p>
-            <p className="text-xs text-[#edd9c4]">{obras.length} obra{obras.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{obras.length} obra{obras.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="btn btn-outline btn-sm !px-2">
             <X size={15} />
@@ -297,7 +297,7 @@ function DayPopup({
         {/* Lista de obras */}
         <div className="overflow-y-auto flex-1 p-4 space-y-2">
           {obras.length === 0 ? (
-            <p className="text-center text-sm text-[#edd9c4] py-6">Nenhuma obra neste dia.</p>
+            <p className="text-center text-sm text-[var(--color-text-muted)] py-6">Nenhuma obra neste dia.</p>
           ) : (
             obras.map(o => {
               const cor = STATUS_COLORS[getStatusEfetivo(o)]
@@ -311,10 +311,10 @@ function DayPopup({
                     variant="prominent"
                   />
                 <div
-                  className="rounded-lg overflow-hidden transition-all hover:brightness-110"
+                  className="rounded-lg overflow-hidden transition-all hover:brightness-[1.02] border"
                   style={{
-                    backgroundColor: `${cor}14`,
-                    border: `1px solid ${cor}33`,
+                    backgroundColor: `color-mix(in srgb, ${cor} 12%, #fffcf8)`,
+                    borderColor: `${cor}44`,
                   }}
                 >
                   <button
@@ -324,19 +324,19 @@ function DayPopup({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-cream text-sm leading-tight truncate">
+                        <p className="font-semibold text-[var(--color-text-primary)] text-sm leading-tight truncate">
                           {o.cliente_nome}
                         </p>
                         {o.tipo_obra_nome && (
-                          <p className="text-xs text-[#edd9c4] mt-0.5">{o.tipo_obra_nome}</p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{o.tipo_obra_nome}</p>
                         )}
                         <ObraMontadorBadge obra={o} compact />
                         <ObraPedidoMaterialBadge obra={o} compact />
                         {o.endereco_obra && (
-                          <p className="text-xs text-[#edd9c4] truncate">{o.endereco_obra}</p>
+                          <p className="text-xs text-[var(--color-text-muted)] truncate">{o.endereco_obra}</p>
                         )}
                         {(o.data_prevista_inicio || o.data_prevista_fim) && (
-                          <p className="text-xs text-[#edd9c4] mt-0.5">
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                             {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
                             {' → '}
                             {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
@@ -762,7 +762,7 @@ function CalendarioObrasContent() {
   return (
     <div
       className={[
-        'obra-page-shell obra-page-shell--calendario fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden',
+        'obra-page-shell obra-page-shell--calendario obra-page-shell--calendario-obras fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden',
         view === 'week' ? 'obra-page-shell--cal-week' : '',
         view === 'month' ? 'obra-page-shell--cal-month' : '',
       ].filter(Boolean).join(' ')}
@@ -775,7 +775,7 @@ function CalendarioObrasContent() {
           subtitle={
             <>
               {obrasFiltradas.length} de {obrasHook.data.length} obra{obrasHook.data.length !== 1 ? 's' : ''}
-              {filtrosAtivos && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
+              {filtrosAtivos && <span className="ml-1 text-[var(--color-gold-muted)]">· filtrado</span>}
             </>
           }
           actions={
@@ -834,7 +834,7 @@ function CalendarioObrasContent() {
                     <ChevronLeft size={15} />
                   </button>
                   <span
-                    className="obra-page-nav-label text-sm font-semibold text-[#f2d892] px-2 text-center"
+                    className="obra-page-nav-label text-sm font-semibold text-[var(--color-gold-muted)] px-2 text-center"
                     title={rangeLabel}
                   >
                     {rangeLabel}
@@ -850,13 +850,13 @@ function CalendarioObrasContent() {
                   'obra-page-filters glass-card',
                   view === 'week' ? 'p-2.5' : 'p-4',
                 ].join(' ')}
-                style={{ borderColor: filtrosAtivos ? 'rgba(240,210,140,0.35)' : undefined }}
+                style={{ borderColor: filtrosAtivos ? 'rgba(141,94,34,0.35)' : undefined }}
               >
                 <div className={[
-                  'flex items-center gap-2 text-[#edd9c4] shrink-0 lg:pb-0',
+                  'flex items-center gap-2 text-[var(--color-text-muted)] shrink-0 lg:pb-0',
                   view === 'week' ? 'pb-0' : 'pb-2',
                 ].join(' ')}>
-                  <Filter size={view === 'week' ? 12 : 14} className="text-[#f2d892] shrink-0" />
+                  <Filter size={view === 'week' ? 12 : 14} className="text-[var(--color-gold-muted)] shrink-0" />
                   <span className={[
                     'font-semibold uppercase tracking-wider whitespace-nowrap',
                     view === 'week' ? 'text-[0.65rem]' : 'text-xs',
@@ -866,7 +866,7 @@ function CalendarioObrasContent() {
                 <div className="relative min-w-0">
                   <Search
                     size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)] pointer-events-none"
                   />
                   <input
                     className="glass-input w-full min-w-0 pl-9 pr-8"
@@ -878,7 +878,7 @@ function CalendarioObrasContent() {
                     <button
                       type="button"
                       onClick={() => setBusca('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)] hover:text-[var(--color-gold-muted)] transition-colors"
                     >
                       <X size={13} />
                     </button>
@@ -886,7 +886,7 @@ function CalendarioObrasContent() {
                 </div>
 
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#edd9c4]">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[var(--color-text-muted)]">
                     Etapa
                   </label>
                   <select
@@ -901,7 +901,7 @@ function CalendarioObrasContent() {
                 </div>
 
                 <div className="min-w-0">
-                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[#edd9c4]">
+                  <label className="mb-1 block text-[0.62rem] uppercase tracking-wider text-[var(--color-text-muted)]">
                     Data
                   </label>
                   <input
@@ -948,8 +948,8 @@ function CalendarioObrasContent() {
             <div className="w-full max-w-full min-w-0 space-y-3">
               {/* Horário do dia */}
               {dayIsDiaUtil && horarioDiaAtual && (horarioDiaAtual.inicio || horarioDiaAtual.fim) && (
-                <div className="flex items-center gap-2 px-1 text-xs text-[#edd9c4]">
-                  <Settings size={11} className="text-[#f2d892] shrink-0" />
+                <div className="flex items-center gap-2 px-1 text-xs text-[var(--color-text-muted)]">
+                  <Settings size={11} className="text-[var(--color-gold-muted)] shrink-0" />
                   <span>
                     {horarioDiaAtual.inicio && horarioDiaAtual.fim
                       ? `${horarioDiaAtual.inicio} → ${horarioDiaAtual.fim}`
@@ -960,21 +960,21 @@ function CalendarioObrasContent() {
                 </div>
               )}
               {!dayIsDiaUtil ? (
-                <div className="glass-card p-10 text-center opacity-60">
-                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#edd9c4', opacity: 0.3 }} />
-                  <p className="text-[#edd9c4] text-sm">Este dia não é um dia de trabalho.</p>
+                <div className="glass-card p-10 text-center opacity-70">
+                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: 'var(--color-text-faint)', opacity: 0.55 }} />
+                  <p className="text-[var(--color-text-muted)] text-sm">Este dia não é um dia de trabalho.</p>
                   <button
                     type="button"
                     onClick={() => setShowConfigDias(true)}
-                    className="mt-3 text-xs text-[#f2d892]/70 hover:text-[#f2d892] transition-colors underline underline-offset-2"
+                    className="mt-3 text-xs text-[var(--color-gold-muted)]/80 hover:text-[var(--color-gold-muted)] transition-colors underline underline-offset-2"
                   >
                     Configurar dias de trabalho
                   </button>
                 </div>
               ) : dayViewObras.length === 0 ? (
                 <div className="glass-card p-10 text-center">
-                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: '#f2d892', opacity: 0.25 }} />
-                  <p className="text-[#edd9c4] text-sm">Nenhuma obra para este dia.</p>
+                  <CalendarDays size={36} className="mx-auto mb-3" style={{ color: 'var(--color-gold-muted)', opacity: 0.4 }} />
+                  <p className="text-[var(--color-text-muted)] text-sm">Nenhuma obra para este dia.</p>
                 </div>
               ) : dayViewObras.map(o => {
                 const cor = STATUS_COLORS[getStatusEfetivo(o)]
@@ -988,8 +988,11 @@ function CalendarioObrasContent() {
                     variant="prominent"
                   />
                   <div
-                    className="box-border w-full max-w-full min-w-0 overflow-hidden glass-card hover:brightness-110 transition-all"
-                    style={{ borderLeft: `3px solid ${cor}` }}
+                    className="box-border w-full max-w-full min-w-0 overflow-hidden glass-card hover:brightness-[1.02] transition-all"
+                    style={{
+                      borderLeft: `3px solid ${cor}`,
+                      backgroundColor: `color-mix(in srgb, ${cor} 8%, #fffcf8)`,
+                    }}
                   >
                     <button
                       type="button"
@@ -999,7 +1002,7 @@ function CalendarioObrasContent() {
                       <div className="flex w-full min-w-0 items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
-                            <p className="font-semibold text-cream leading-tight break-words min-w-0">{o.cliente_nome}</p>
+                            <p className="font-semibold text-[var(--color-text-primary)] leading-tight break-words min-w-0">{o.cliente_nome}</p>
                             <span
                               className="shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase"
                               style={{ backgroundColor: `${cor}22`, color: cor }}
@@ -1009,7 +1012,7 @@ function CalendarioObrasContent() {
                             <ObraMontadorBadge obra={o} />
                             <ObraPedidoMaterialBadge obra={o} />
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#edd9c4] min-w-0">
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[var(--color-text-muted)] min-w-0">
                             {o.tipo_obra_nome  && <span className="break-words">{o.tipo_obra_nome}</span>}
                             {o.grupo_obra_nome && <span className="break-words">Grupo: {o.grupo_obra_nome}</span>}
                             {o.pedido_material_feito && o.data_entrega_pedido && (
@@ -1022,7 +1025,7 @@ function CalendarioObrasContent() {
                             )}
                           </div>
                           {(o.data_prevista_inicio || o.data_prevista_fim) && (
-                            <p className="text-xs text-[#edd9c4] mt-1.5">
+                            <p className="text-xs text-[var(--color-text-muted)] mt-1.5">
                               {o.data_prevista_inicio ? fmtDate(o.data_prevista_inicio) : '?'}
                               {' → '}
                               {o.data_prevista_fim ? fmtDate(o.data_prevista_fim) : '?'}
@@ -1095,13 +1098,13 @@ function CalendarioObrasContent() {
                       className={[
                         'cal-week-day glass-card p-2 flex flex-col min-h-[140px] transition-all',
                         !isDiaUtil   ? 'opacity-40' : '',
-                        isToday      ? 'ring-1 ring-[#f2d892]/40' : '',
-                        isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
-                        isDiaUtil && hasObras ? 'cursor-pointer hover:brightness-110' : '',
+                        isToday      ? 'ring-1 ring-[rgba(141,94,34,0.45)]' : '',
+                        isDataFiltro ? 'ring-1 ring-[rgba(37,99,235,0.45)]' : '',
+                        isDiaUtil && hasObras ? 'cursor-pointer hover:brightness-[1.02]' : '',
                       ].join(' ')}
                     >
                       <div className="cal-week-day__header">
-                        <div className={`cal-week-day__title-row ${isToday ? 'text-[#f2d892]' : 'text-[#edd9c4]'}`}>
+                        <div className={`cal-week-day__title-row ${isToday ? 'text-[var(--color-gold-muted)]' : 'text-[var(--color-text-secondary)]'}`}>
                           <span className="cal-week-day__label" title={fmtDayHeader(day)}>
                             <span className="cal-week-day__weekday">{WEEKDAYS[day.getDay()]}</span>
                             <span className="cal-week-day__date">
@@ -1125,7 +1128,7 @@ function CalendarioObrasContent() {
                       </div>
                       <div className="cal-week-day__cards">
                         {dayObras.length === 0 ? (
-                          <p className="text-[0.62rem] text-[#c4a88a] mt-1 text-center opacity-60">—</p>
+                          <p className="text-[0.62rem] text-[var(--color-text-faint)] mt-1 text-center opacity-70">—</p>
                         ) : (
                           dayObras.map(o => {
                             const statusEfetivo = getStatusEfetivo(o)
@@ -1135,8 +1138,8 @@ function CalendarioObrasContent() {
                               key={o.id}
                               className="cal-week-card"
                               style={{
-                                backgroundColor: `${statusCor}18`,
-                                borderLeft: `2px solid ${statusCor}`,
+                                backgroundColor: `color-mix(in srgb, ${statusCor} 14%, #fffcf8)`,
+                                borderLeft: `3px solid ${statusCor}`,
                               }}
                             >
                               <ObraComissaoStrip
@@ -1190,7 +1193,7 @@ function CalendarioObrasContent() {
                       key={wd}
                       className={[
                         'text-center text-[0.65rem] font-bold py-1 uppercase tracking-widest transition-opacity',
-                        configDias.diasAtivos.includes(wdIdx) ? 'text-[#edd9c4]' : 'text-[#edd9c4] opacity-30',
+                        configDias.diasAtivos.includes(wdIdx) ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-faint)] opacity-40',
                       ].join(' ')}
                     >
                       {wd}
@@ -1220,17 +1223,17 @@ function CalendarioObrasContent() {
                           'rounded-lg p-1.5 flex flex-col transition-all',
                           isThisMonth  ? 'glass-card' : 'opacity-30',
                           isThisMonth && !isDiaUtil ? '!opacity-35' : '',
-                          isToday      ? 'ring-1 ring-[#f2d892]/50' : '',
-                          isDataFiltro ? 'ring-1 ring-[#3b82f6]/50' : '',
-                          (isDiaUtil && hasObras) || !isThisMonth ? 'cursor-pointer hover:brightness-110' : '',
+                          isToday      ? 'ring-1 ring-[rgba(141,94,34,0.5)]' : '',
+                          isDataFiltro ? 'ring-1 ring-[rgba(37,99,235,0.45)]' : '',
+                          (isDiaUtil && hasObras) || !isThisMonth ? 'cursor-pointer hover:brightness-[1.02]' : '',
                         ].join(' ')}
                         style={{ minHeight: '64px' }}
                       >
                         <span className={[
                           'text-[0.7rem] font-bold self-start w-5 h-5 flex items-center justify-center rounded-full mb-1',
                           isToday
-                            ? 'bg-[#f2d892] text-[#1a0f0a]'
-                            : isThisMonth ? 'text-[#a08040]' : 'text-[#c4a88a]',
+                            ? 'bg-[var(--color-gold)] text-[var(--color-gold-on)]'
+                            : isThisMonth ? 'text-[var(--color-gold-muted)]' : 'text-[var(--color-text-faint)]',
                         ].join(' ')}>
                           {day.getDate()}
                         </span>
@@ -1243,7 +1246,7 @@ function CalendarioObrasContent() {
                             />
                           ))}
                           {dayObras.length > 4 && (
-                            <span className="text-[0.55rem] text-[#f2d892] font-bold leading-none self-center">
+                            <span className="text-[0.55rem] text-[var(--color-gold-muted)] font-bold leading-none self-center">
                               +{dayObras.length - 4}
                             </span>
                           )}
@@ -1259,7 +1262,7 @@ function CalendarioObrasContent() {
           {/* Legenda */}
           <div className="mt-6 flex flex-wrap gap-3">
             {Object.entries(STATUS_COLORS).map(([key, cor]) => (
-              <div key={key} className="flex items-center gap-1.5 text-[0.7rem] text-[#edd9c4]">
+              <div key={key} className="flex items-center gap-1.5 text-[0.7rem] text-[var(--color-text-muted)]">
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cor }} />
                 {STATUS_LABEL[key as StatusKanbanObra]}
               </div>

@@ -9,6 +9,7 @@ import { ObraFormModal } from '@/components/obras/ObraFormModal'
 import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { ObraPageHeader } from '@/components/obras/ObraPageHeader'
 import { ChegadaMaterialCalendario } from '@/components/obras/ChegadaMaterialCalendario'
+import { ChegadaMateriaisAura } from '@/components/obras/ChegadaMateriaisAura'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { KanbanPageToolbar, PageZoomProvider } from '@/components/page-zoom'
 import { canEditObras, canDeleteObras, canViewObraBriefing, canEditObraBriefing } from '@/lib/obra-permissions'
@@ -152,8 +153,10 @@ function ChegadaMateriaisCalendarioContent() {
   }
 
   return (
-    <div className="obra-page-shell obra-page-shell--calendario fade-in flex flex-col min-h-0">
-      <KanbanPageToolbar className="shrink-0">
+    <div className="obra-page-shell obra-page-shell--calendario obra-page-shell--chegada-materiais obra-page-shell--cal-week fade-in relative flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
+      <ChegadaMateriaisAura className="opacity-55" />
+
+      <KanbanPageToolbar className="relative z-[1] shrink-0">
         <ObraPageHeader
           title="Chegada de Materiais"
           collapseBelowOnMobile
@@ -190,19 +193,21 @@ function ChegadaMateriaisCalendarioContent() {
       {!obrasHook.loading && obrasHook.error && <ErrorState message={obrasHook.error} />}
 
       {!obrasHook.loading && !obrasHook.error && (
-        <ChegadaMaterialCalendario
-          obras={obrasFiltradas}
-          viewDate={viewDate}
-          onViewDateChange={setViewDate}
-          onObraClick={setDetalheObra}
-          canEdit={canEdit}
-          onUpdateDataEntrega={handleUpdateDataEntrega}
-          updatingDataEntrega={updatingDataEntrega}
-          onTogglePedido={handleTogglePedidoMaterial}
-          togglingPedido={togglingPedidoMaterial}
-          showHeader={false}
-          embedded={false}
-        />
+        <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+          <ChegadaMaterialCalendario
+            obras={obrasFiltradas}
+            viewDate={viewDate}
+            onViewDateChange={setViewDate}
+            onObraClick={setDetalheObra}
+            canEdit={canEdit}
+            onUpdateDataEntrega={handleUpdateDataEntrega}
+            updatingDataEntrega={updatingDataEntrega}
+            onTogglePedido={handleTogglePedidoMaterial}
+            togglingPedido={togglingPedidoMaterial}
+            showHeader={false}
+            embedded={false}
+          />
+        </div>
       )}
 
       <ObraDetalheModal

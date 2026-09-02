@@ -5,8 +5,21 @@ import {
   dbFromSchema,
   MASTER_TABLES,
   resolveEmpresaDb,
+  resolveEmpresaId,
 } from "../_shared/empresa-tables.ts";
 import { ensurePontuaGarboPartnerLead } from "../_shared/pontua-garbo-lead.ts";
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null) {
+    const o = error as Record<string, unknown>;
+    if (typeof o.message === "string" && o.message.trim()) return o.message;
+    if (typeof o.error_description === "string" && o.error_description.trim()) {
+      return o.error_description;
+    }
+  }
+  return String(error);
+}
 
 async function upsertUsuario(
   admin: ReturnType<typeof createClient>,
@@ -145,8 +158,18 @@ serve(async (req) => {
     }
 
     const target = resolveEmpresaDb(schemaNome);
+    // Frontend legado pode enviar schema_nome (ex.: emp_garbo) no lugar do UUID.
+    const empresaUuid = await resolveEmpresaId(supabaseClient, empresaId, schemaNome);
 
-    console.log("Processing user request:", { nome, email, role, roles, tipo_usuario, empresaId, schemaNome });
+    console.log("Processing user request:", {
+      nome,
+      email,
+      role,
+      roles,
+      tipo_usuario,
+      empresaId: empresaUuid,
+      schemaNome,
+    });
 
     const { data: existingUserData, error: listUsersError } =
       await supabaseClient.auth.admin.listUsers({
@@ -213,7 +236,7 @@ serve(async (req) => {
       comissao_ativa ?? false,
     );
     await syncRoles(supabaseClient, target, userId, roles ?? role ?? "nenhum");
-    await linkUsuarioEmpresa(supabaseClient, userId, empresaId);
+    await linkUsuarioEmpresa(supabaseClient, userId, empresaUuid);
 
     const entraPontuaGarbo = (comissao_ativa ?? false) === true;
     let pontuaGarboLeadId: number | null = null;
@@ -234,7 +257,12 @@ serve(async (req) => {
       }
     }
 
-    console.log("Operation completed successfully:", { userId, empresaId, schemaNome, tipo_usuario });
+    console.log("Operation completed successfully:", {
+      userId,
+      empresaId: empresaUuid,
+      schemaNome,
+      tipo_usuario,
+    });
 
     return new Response(
       JSON.stringify({
@@ -249,7 +277,7 @@ serve(async (req) => {
       },
     );
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : String(error);
+    const errMessage = errorMessage(error);
     console.error("Error in create-user-admin:", error);
     return new Response(
       JSON.stringify({

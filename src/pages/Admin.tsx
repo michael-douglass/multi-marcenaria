@@ -439,12 +439,16 @@ export default function Admin() {
         comissao_ativa: false,
       });
     } catch (error) {
-      const msg =
+      const raw =
         error instanceof z.ZodError
           ? String(error.issues[0]?.message ?? 'Dados inválidos')
-          : error instanceof Error && typeof error.message === 'string' && error.message.trim() && !error.message.startsWith('[')
-            ? error.message
-            : 'Não foi possível cadastrar o usuário. Tente novamente.';
+          : error instanceof Error
+            ? error.message.trim()
+            : '';
+      const msg =
+        raw && raw !== '[object Object]'
+          ? raw
+          : 'Não foi possível cadastrar o usuário. Tente novamente.';
       setCreateFormError(msg);
       if (error instanceof z.ZodError) {
         toast.error('Erro de validação', { description: msg });

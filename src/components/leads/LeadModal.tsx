@@ -91,6 +91,16 @@ import { z } from 'zod';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { buildMarkAsWonUpdates } from '@/lib/vendas-ganhos';
 import { buildChangedLeadUpdates, resolveVendorUserIdFromForm } from '@/lib/lead-form-auto-save';
+import {
+  duplicarLeadRelacionados,
+  resumirDuplicacaoLead,
+} from '@/lib/lead-duplicar-relacionados';
+import { markupOrcamentosQueryKey, markupLeadResumoMapQueryKey } from '@/lib/markup-tables';
+import {
+  orcamentoPorLeadQueryKey,
+  orcamentoLeadMapQueryKey,
+  orcamentoSlidesQueryKey,
+} from '@/hooks/useOrcamentoSlides';
 
 const MAX_LEAD_AUTO_SAVE_RETRIES = 2;
 
@@ -1130,10 +1140,36 @@ export function LeadModal({
         }
       }
 
+      // Markup, orçamentos, pastas/fotos (mesma biblioteca) e lousa.
+      const relacionados = await duplicarLeadRelacionados({
+        db: empresaDb,
+        schemaEmpresa,
+        origemLeadId: leadId,
+        novoLeadId: newLead.id,
+        criadoPor: authUser?.id ?? '',
+        clienteNome: nomeDaCopia(formData.name ?? ''),
+      });
+
+      queryClient.invalidateQueries({ queryKey: markupOrcamentosQueryKey(schemaEmpresa, newLead.id) });
+      queryClient.invalidateQueries({ queryKey: markupLeadResumoMapQueryKey(schemaEmpresa) });
+      queryClient.invalidateQueries({ queryKey: orcamentoSlidesQueryKey(schemaEmpresa) });
+      queryClient.invalidateQueries({ queryKey: orcamentoPorLeadQueryKey(schemaEmpresa, newLead.id) });
+      queryClient.invalidateQueries({ queryKey: orcamentoLeadMapQueryKey(schemaEmpresa) });
+      queryClient.invalidateQueries({ queryKey: ['lead-pdfs'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-media-folders'] });
+      queryClient.invalidateQueries({ queryKey: ['biblioteca-medias'] });
+      queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-whiteboard'] });
+
       setShowDuplicateAlert(false);
       toast.success('Lead duplicado', {
-        description: 'Abrindo a cópia — o nome ganhou “ (cópia)” para não misturar com o original.',
+        description: resumirDuplicacaoLead(relacionados),
       });
+      if (relacionados.avisos.length > 0) {
+        toast.warning('Algumas partes não vieram na cópia', {
+          description: relacionados.avisos.join(' '),
+        });
+      }
 
       if (onLeadDuplicated) {
         onLeadDuplicated(newLead.id);
@@ -2185,9 +2221,9 @@ export function LeadModal({
                 ?
               </span>
               <span className="block text-xs leading-relaxed">
-                Serão copiados nome, e-mail, telefone, empresa, origem, região, status,
-                valores, observações, vendedor e campos personalizados. Anexos, contratos,
-                lousa e histórico do WhatsApp ficam só no lead original.
+                Vão junto: dados do card, campos personalizados, markups, orçamentos,
+                pastas e fotos da biblioteca (mesmos arquivos, sem reenviar) e a lousa.
+                Contratos e histórico do WhatsApp ficam só no lead original.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
