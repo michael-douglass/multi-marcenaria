@@ -101,10 +101,13 @@ export function LeadModalScrollBody({
   className,
   contentClassName,
   children,
+  onScrollTop,
 }: {
   className?: string;
   contentClassName?: string;
   children: ReactNode;
+  /** scrollTop atual — para ocultar/mostrar o cabeçalho ao rolar */
+  onScrollTop?: (scrollTop: number) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +128,6 @@ export function LeadModalScrollBody({
       scrollEl.scrollBy({ top: delta, behavior: 'auto' });
     };
 
-    // capture: pega a seta antes de abas, botões e o dialog do Radix.
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, []);
@@ -140,10 +142,13 @@ export function LeadModalScrollBody({
         'lead-modal-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain outline-none',
         className,
       )}
+      onScroll={(event) => {
+        onScrollTop?.(event.currentTarget.scrollTop);
+      }}
     >
       <div
         className={cn(
-          'mx-auto w-full min-w-0 max-w-full space-y-4 px-4 py-5 sm:space-y-5 sm:px-6 sm:py-6 pb-8',
+          'mx-auto w-full min-w-0 max-w-full space-y-4 px-4 py-4 sm:space-y-5 sm:px-6 sm:py-5 pb-8',
           contentClassName,
         )}
       >

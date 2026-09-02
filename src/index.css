@@ -3777,6 +3777,9 @@ body::before {
   color: var(--lead-soft);
   background: var(--lead-panel);
 }
+.lead-modal-header--collapsed {
+  box-shadow: 0 8px 20px rgba(60, 40, 24, 0.08);
+}
 .lead-modal-header .lead-modal-title {
   color: var(--lead-cream);
   text-shadow: none;

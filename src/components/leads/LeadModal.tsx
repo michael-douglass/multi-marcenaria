@@ -199,8 +199,35 @@ export function LeadModal({
 }: LeadModalProps) {
   const isMobile = useIsMobile();
   const { user: authUser, userRole: authUserRole, hasRole, isSuperAdmin: isSuperAdminAuth } = useAuth();
-  const { size: leadCardSize, mode: leadWindowMode, isResizing: isLeadCardResizing, isDragging: isLeadCardDragging, beginResize: beginLeadCardResize, beginDrag: beginLeadCardDrag, minimize: minimizeLeadCard, toggleMaximize: toggleLeadCardMaximize } =
+  const { size: leadCardSize, mode: leadWindowMode, isResizing: isLeadCardResizing, isDragging: isLeadCardDragging, beginResize: beginLeadCardResize, beginDrag: beginLeadCardDrag, maximize: maximizeLeadCard, toggleMaximize: toggleLeadCardMaximize } =
     useLeadModalSize(isOpen);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const headerPinnedCollapsedRef = useRef(false);
+
+  const handleLeadBodyScroll = useCallback((scrollTop: number) => {
+    if (leadWindowMode === 'minimized') return;
+    if (scrollTop > 24) {
+      setHeaderCollapsed(true);
+      return;
+    }
+    if (scrollTop <= 6 && !headerPinnedCollapsedRef.current) {
+      setHeaderCollapsed(false);
+    }
+  }, [leadWindowMode]);
+
+  const handleToggleHeaderCollapse = useCallback(() => {
+    if (leadWindowMode === 'minimized') {
+      maximizeLeadCard();
+      headerPinnedCollapsedRef.current = false;
+      setHeaderCollapsed(false);
+      return;
+    }
+    setHeaderCollapsed((prev) => {
+      const next = !prev;
+      headerPinnedCollapsedRef.current = next;
+      return next;
+    });
+  }, [leadWindowMode, maximizeLeadCard]);
   const { schemaEmpresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
   const empresaDb = useEmpresaSupabase();
   const table = useTableName();
@@ -487,6 +514,8 @@ export function LeadModal({
       setIaSubtab(initialIaSubtab);
       setShowDuplicateAlert(false);
       setIsDuplicating(false);
+      setHeaderCollapsed(false);
+      headerPinnedCollapsedRef.current = false;
       lastSavedSnapshotRef.current = null;
       budgetManualOverrideRef.current = false;
       skipPersistOnCloseRef.current = false;
@@ -1372,9 +1401,11 @@ export function LeadModal({
         )}
         <DialogHeader
           className={cn(
-            'lead-modal-header relative z-[1] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left',
+            'lead-modal-header relative z-[4] shrink-0 overflow-hidden border-b border-[color:var(--lead-line)] px-0 pt-0 pb-0 text-left transition-[max-height,box-shadow] duration-300 ease-out',
             leadWindowMode !== 'maximized' && 'cursor-grab active:cursor-grabbing',
+            headerCollapsed && leadWindowMode !== 'minimized' && 'lead-modal-header--collapsed',
           )}
+          data-collapsed={headerCollapsed ? 'true' : 'false'}
           onPointerDown={(e) => {
             if (leadWindowMode === 'maximized') return
             const target = e.target as HTMLElement
@@ -1388,86 +1419,77 @@ export function LeadModal({
         >
           <LeadModalHeaderAura />
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-[color:var(--lead-gold)]/35 to-transparent" />
-          {leadWindowMode !== 'minimized' && (
-            <>
-            {hasPermission('lead_vendor', 'view') && (
-              <LeadVendorBanner
-                vendor={formData.vendor}
-                variant="header"
-                canEdit={
-                  Boolean(leadId) &&
-                  isEditable &&
-                  (isMasterUser || hasPermission('lead_vendor', 'edit'))
-                }
-                vendors={vendorUsers.map((u) => ({ id: u.id, nome: u.nome }))}
-                isLoadingVendors={isLoadingUsers}
-                isSaving={false}
-                onVendorChange={
-                  leadId && isEditable
-                    ? (vendorName) => {
-                        const nextForm = {
-                          ...formDataRef.current,
-                          vendor: vendorName ?? '',
-                        };
-                        formDataRef.current = nextForm;
-                        markFormDirty();
-                        setFormData(nextForm);
-                        void flushAutoSave();
-                      }
-                    : undefined
-                }
-              />
-            )}
-            </>
+          {!headerCollapsed && leadWindowMode !== 'minimized' && hasPermission('lead_vendor', 'view') && (
+            <LeadVendorBanner
+              vendor={formData.vendor}
+              variant="header"
+              canEdit={
+                Boolean(leadId) &&
+                isEditable &&
+                (isMasterUser || hasPermission('lead_vendor', 'edit'))
+              }
+              vendors={vendorUsers.map((u) => ({ id: u.id, nome: u.nome }))}
+              isLoadingVendors={isLoadingUsers}
+              isSaving={false}
+              onVendorChange={
+                leadId && isEditable
+                  ? (vendorName) => {
+                      const nextForm = {
+                        ...formDataRef.current,
+                        vendor: vendorName ?? '',
+                      };
+                      formDataRef.current = nextForm;
+                      markFormDirty();
+                      setFormData(nextForm);
+                      void flushAutoSave();
+                    }
+                  : undefined
+              }
+            />
           )}
           <div className="relative z-[2]">
             <div
               className={cn(
-                'flex items-start justify-between gap-3 px-4 sm:px-6',
-                leadWindowMode === 'minimized'
-                  ? 'py-2.5 sm:py-3'
-                  : 'pt-4 sm:pt-5 pb-4 sm:pb-5',
+                'flex items-center justify-between gap-2 px-3 sm:px-5',
+                headerCollapsed || leadWindowMode === 'minimized'
+                  ? 'py-1.5 sm:py-2'
+                  : 'py-2 sm:py-2.5',
               )}
             >
               <div className="min-w-0 flex-1">
                 <DialogTitle
                   className={cn(
-                    'lead-modal-title font-serif font-semibold leading-snug tracking-tight line-clamp-2 pr-1',
-                    leadWindowMode === 'minimized'
-                      ? 'text-base sm:text-lg'
-                      : 'text-[1.55rem] sm:text-[1.95rem]',
+                    'lead-modal-title font-serif font-semibold leading-tight tracking-tight line-clamp-1 pr-1',
+                    headerCollapsed || leadWindowMode === 'minimized'
+                      ? 'text-[0.95rem] sm:text-base'
+                      : 'text-[1.15rem] sm:text-[1.35rem]',
                   )}
                 >
-                  <span className="inline-flex max-w-full items-start gap-2">
+                  <span className="inline-flex max-w-full items-center gap-1.5">
                     {pontuaGarboPartnerBadge && (
-                      <Star className="mt-1 h-4 w-4 sm:h-5 sm:w-5 shrink-0 fill-gold text-gold drop-shadow-[0_0_8px_rgba(242,216,146,0.75)]" aria-hidden />
+                      <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 fill-gold text-gold" aria-hidden />
                     )}
-                    <span className="min-w-0">
+                    <span className="min-w-0 truncate">
                       {leadId ? (formData.name || 'Detalhes do Lead') : 'Novo Lead'}
                     </span>
                   </span>
                 </DialogTitle>
-                {leadWindowMode !== 'minimized' && pontuaGarboPartnerBadge && (
-                  <div className="mt-2">
-                    <LeadPontuaGarboPartnerBadge badge={pontuaGarboPartnerBadge} variant="inline" />
-                  </div>
-                )}
-                {leadWindowMode !== 'minimized' && leadId && formData.status && (
-                  <div className="lead-modal-stage mt-2.5 inline-flex max-w-full flex-col gap-0.5 rounded-md border px-2.5 py-1.5">
+                {!headerCollapsed && leadWindowMode !== 'minimized' && leadId && formData.status && (
+                  <div className="lead-modal-stage mt-1 inline-flex max-w-full items-center gap-1.5 rounded border px-1.5 py-0.5">
                     {statusDisplayFallback.pageLabel && (
-                      <span className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--lead-cream)]">
+                      <span className="truncate text-[9px] font-bold uppercase tracking-[0.1em] text-[color:var(--lead-cream)] opacity-80">
                         {statusDisplayFallback.pageLabel}
                       </span>
                     )}
-                    <span className="truncate text-[13px] font-semibold text-[color:var(--lead-cream)]">
+                    <span className="truncate text-[11px] font-semibold text-[color:var(--lead-cream)]">
                       {statusDisplayFallback.columnLabel}
                     </span>
                   </div>
                 )}
-                {leadWindowMode !== 'minimized' && autoSaveEnabled && autoSaveState !== 'idle' && (
+                {!headerCollapsed && leadWindowMode !== 'minimized' && autoSaveEnabled && autoSaveState !== 'idle' && (
                   <p
                     className={cn(
-                      'text-[11px] mt-1.5',
+                      'text-[10px] mt-1',
                       autoSaveState === 'error' && 'text-destructive',
                       autoSaveState === 'saved' && 'text-[#8fc9a8]',
                       (autoSaveState === 'pending' || autoSaveState === 'saving') &&
@@ -1480,22 +1502,13 @@ export function LeadModal({
                     {autoSaveState === 'error' && 'Não foi possível salvar. Tente de novo.'}
                   </p>
                 )}
-                {leadWindowMode !== 'minimized' &&
-                  autoSaveEnabled &&
-                  autoSaveState === 'idle' &&
-                  isEditMode &&
-                  editingFields.size > 0 && (
-                  <p className="text-[11px] text-[color:var(--lead-muted)] mt-1.5">
-                    Clique no campo para editar — as alterações são salvas automaticamente.
-                  </p>
-                )}
               </div>
               <DialogDescription className="sr-only">
                 {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
               </DialogDescription>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {leadId && leadWindowMode !== 'minimized' && (
-                  <div className="flex items-center gap-1 rounded-lg border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-1">
+              <div className="flex items-center gap-1 shrink-0">
+                {!headerCollapsed && leadId && leadWindowMode !== 'minimized' && (
+                  <div className="flex items-center gap-0.5 rounded-md border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-0.5">
                     <LeadLembretesPopover
                       leadId={leadId}
                       leadName={formData.name || 'Lead'}
@@ -1505,7 +1518,7 @@ export function LeadModal({
                         variant="outline"
                         size="icon"
                         className={cn(
-                          'h-8 w-8 sm:h-9 sm:w-9 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
+                          'h-7 w-7 sm:h-8 sm:w-8 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
                           lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/45',
                         )}
                         title={
@@ -1514,9 +1527,9 @@ export function LeadModal({
                             : 'Ver lembretes deste lead'
                         }
                       >
-                        <Bell className="h-4 w-4" />
+                        <Bell className="h-3.5 w-3.5" />
                         {lembretesAbertosCount > 0 && (
-                          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center border border-background">
+                          <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center border border-background">
                             {lembretesAbertosCount > 9 ? '9+' : lembretesAbertosCount}
                           </span>
                         )}
@@ -1524,32 +1537,32 @@ export function LeadModal({
                     </LeadLembretesPopover>
                     {isEditable && (
                       <LeadDuplicateButton
-                        iconOnly={isMobile}
+                        iconOnly
                         isLoading={isDuplicating}
                         disabled={isSubmitting || isDuplicating || !initialized}
                         onClick={() => setShowDuplicateAlert(true)}
-                        className="h-8 sm:h-9 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none"
+                        className="h-7 w-7 sm:h-8 sm:w-8 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none"
                       />
                     )}
                     {!isMobile && (
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="icon"
                         onClick={handleShareLead}
-                        className="flex h-8 sm:h-9 items-center gap-2 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-3 text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-cream)]"
+                        className="h-7 w-7 sm:h-8 sm:w-8 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)]"
                         title="Compartilhar lead com outro usuário"
                       >
-                        <Share2 className="h-4 w-4" />
-                        <span className="hidden sm:inline">Compartilhar</span>
+                        <Share2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                 )}
                 <LeadModalWindowControls
                   mode={leadWindowMode}
+                  headerCollapsed={headerCollapsed}
                   isMobile={isMobile}
-                  onMinimize={minimizeLeadCard}
+                  onMinimize={handleToggleHeaderCollapse}
                   onToggleMaximize={toggleLeadCardMaximize}
                   onClose={() => requestClose()}
                 />
@@ -1557,7 +1570,7 @@ export function LeadModal({
             </div>
           </div>
         </DialogHeader>
-        {leadWindowMode !== 'minimized' && leadId ? (
+        {leadWindowMode !== 'minimized' && !headerCollapsed && leadId ? (
           <LeadModalNav
             activeTab={leadModalTab}
             iaSubtab={iaSubtab}
@@ -1583,7 +1596,7 @@ export function LeadModal({
           className="relative z-[1] flex-1 min-h-0 flex flex-col"
         >
           {(!leadId || leadModalTab === 'detalhes') && (
-            <LeadModalScrollBody>
+            <LeadModalScrollBody onScrollTop={handleLeadBodyScroll}>
             <LeadModalSection title="Contato" icon={UserIcon} sectionId="contato">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
             <LeadEditableField
@@ -2210,7 +2223,7 @@ export function LeadModal({
           )}
 
           {leadId && leadModalTab === 'analise-ia' && (
-            <LeadModalScrollBody className="pb-4">
+            <LeadModalScrollBody className="pb-4" onScrollTop={handleLeadBodyScroll}>
               <LeadAIAnalysisTab
                 leadId={leadId}
                 leadName={formData.name}

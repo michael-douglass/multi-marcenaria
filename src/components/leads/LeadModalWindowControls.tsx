@@ -1,9 +1,11 @@
-import { Minus, Square, Copy, X } from 'lucide-react'
+import { ChevronDown, Copy, Minus, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LeadModalWindowMode } from '@/lib/lead-modal-size'
 
 interface LeadModalWindowControlsProps {
   mode: LeadModalWindowMode
+  /** Cabeçalho recolhido (por rolagem ou minimizar) */
+  headerCollapsed?: boolean
   isMobile: boolean
   onMinimize: () => void
   onToggleMaximize: () => void
@@ -11,17 +13,23 @@ interface LeadModalWindowControlsProps {
 }
 
 /**
- * Controles de janela no estilo Windows: minimizar, maximizar/restaurar, fechar.
+ * Controles de janela no estilo Windows: minimizar/expandir cabeçalho, maximizar, fechar.
  */
 export function LeadModalWindowControls({
   mode,
+  headerCollapsed = false,
   isMobile,
   onMinimize,
   onToggleMaximize,
   onClose,
 }: LeadModalWindowControlsProps) {
   const btn =
-    'inline-flex h-8 w-10 sm:h-9 sm:w-11 items-center justify-center rounded-sm text-[color:var(--lead-soft)] transition-colors hover:bg-[color:var(--lead-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/40'
+    'inline-flex h-7 w-9 sm:h-8 sm:w-10 items-center justify-center rounded-sm text-[color:var(--lead-soft)] transition-colors hover:bg-[color:var(--lead-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/40'
+
+  const minimizeLabel =
+    mode === 'minimized' || headerCollapsed
+      ? 'Expandir cabeçalho do lead'
+      : 'Recolher cabeçalho do lead'
 
   return (
     <div
@@ -35,11 +43,20 @@ export function LeadModalWindowControls({
       <button
         type="button"
         className={btn}
-        title="Minimizar"
-        aria-label="Minimizar card do lead"
+        title={
+          mode === 'minimized' || headerCollapsed
+            ? 'Expandir cabeçalho'
+            : 'Recolher cabeçalho'
+        }
+        aria-label={minimizeLabel}
+        aria-pressed={headerCollapsed || mode === 'minimized'}
         onClick={onMinimize}
       >
-        <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+        {mode === 'minimized' || headerCollapsed ? (
+          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+        ) : (
+          <Minus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+        )}
       </button>
       <button
         type="button"
@@ -64,7 +81,7 @@ export function LeadModalWindowControls({
         aria-label="Fechar card do lead"
         onClick={onClose}
       >
-        <X className="h-4 w-4" strokeWidth={2.25} />
+        <X className="h-3.5 w-3.5" strokeWidth={2.25} />
       </button>
     </div>
   )
