@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SaldoMesInsightCard } from '@/components/dashboard/SaldoMesInsightCard'
 import { useApp } from '@/context/AppContext'
 import { useFinanceiroStats, useSaldoMesProximosMeses } from '@/hooks/useFinanceiroDashboard'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { isAdministrador } from '@/lib/role-access'
 import {
   buildSaldoMesInsightMessage,
@@ -12,16 +13,14 @@ import {
 
 /**
  * Lembrete flutuante do saldo do mês — só para Administrador.
- * Desce do canto superior direito, fica alguns segundos e some;
- * o intervalo e a duração vêm da config salva no próprio card.
+ * Otimizado para celular: menos refetch, shader leve, toque estável.
  */
 export function SaldoMesInsightHost() {
   const { roles } = useApp()
   const isAdmin = isAdministrador(roles)
+  const isMobile = useMobileLayout()
   const { data: stats, isSuccess } = useFinanceiroStats()
-  const { data: proximosMeses = [], isLoading: proximosLoading } = useSaldoMesProximosMeses(3)
   const [config, setConfig] = useState<SaldoMesInsightConfig>(() => {
-    // Garante 5 segundos na primeira carga desta versão (evita config antiga curta demais).
     const loaded = loadSaldoMesInsightConfig()
     if (loaded.durationMs < 5_000) {
       const next = { ...loaded, durationMs: 5_000 }
@@ -33,6 +32,10 @@ export function SaldoMesInsightHost() {
   const [visible, setVisible] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [holding, setHolding] = useState(false)
+  const [forecastOpen, setForecastOpen] = useState(false)
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === 'undefined' || document.visibilityState === 'visible',
+  )
   const hideTimerRef = useRef<number | null>(null)
   const exitTimerRef = useRef<number | null>(null)
   const visibleRef = useRef(false)
@@ -41,6 +44,11 @@ export function SaldoMesInsightHost() {
   configRef.current = config
   visibleRef.current = visible
   holdingRef.current = holding
+
+  const shouldFetchForecast = visible && forecastOpen
+  const { data: proximosMeses = [], isLoading: proximosLoading } = useSaldoMesProximosMeses(3, {
+    enabled: shouldFetchForecast,
+  })
 
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current != null) {
@@ -66,30 +74,32 @@ export function SaldoMesInsightHost() {
       exitTimerRef.current = window.setTimeout(() => {
         setVisible(false)
         setExiting(false)
+        setForecastOpen(false)
         exitTimerRef.current = null
-      }, 280)
+      }, isMobile ? 180 : 280)
     }, configRef.current.durationMs)
-  }, [clearHideTimer])
+  }, [clearHideTimer, isMobile])
 
   const dismiss = useCallback(() => {
     clearTimers()
     setHolding(false)
+    setForecastOpen(false)
     setExiting(true)
     exitTimerRef.current = window.setTimeout(() => {
       setVisible(false)
       setExiting(false)
       exitTimerRef.current = null
-    }, 280)
-  }, [clearTimers])
+    }, isMobile ? 180 : 280)
+  }, [clearTimers, isMobile])
 
   const show = useCallback(() => {
-    if (!configRef.current.enabled) return
+    if (!configRef.current.enabled || !pageVisible) return
     if (visibleRef.current) return
     clearTimers()
     setExiting(false)
     setVisible(true)
     armHideTimer()
-  }, [armHideTimer, clearTimers])
+  }, [armHideTimer, clearTimers, pageVisible])
 
   useEffect(() => {
     if (!visible) return
@@ -101,15 +111,23 @@ export function SaldoMesInsightHost() {
   }, [armHideTimer, clearHideTimer, holding, visible])
 
   useEffect(() => {
-    if (!isAdmin || !config.enabled || !isSuccess) {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (!isAdmin || !config.enabled || !isSuccess || !pageVisible) {
       clearTimers()
-      setVisible(false)
-      setExiting(false)
+      if (!pageVisible || !config.enabled) {
+        setVisible(false)
+        setExiting(false)
+        setForecastOpen(false)
+      }
       return
     }
 
-    // Primeira aparição logo após os números do mês estarem prontos.
-    const boot = window.setTimeout(() => show(), 900)
+    const boot = window.setTimeout(() => show(), isMobile ? 1400 : 900)
     const tick = window.setInterval(() => show(), config.intervalMs)
 
     return () => {
@@ -117,27 +135,41 @@ export function SaldoMesInsightHost() {
       window.clearInterval(tick)
       clearTimers()
     }
-  }, [clearTimers, config.enabled, config.intervalMs, isAdmin, isSuccess, show])
+  }, [
+    clearTimers,
+    config.enabled,
+    config.intervalMs,
+    isAdmin,
+    isMobile,
+    isSuccess,
+    pageVisible,
+    show,
+  ])
 
   useEffect(() => () => clearTimers(), [clearTimers])
 
-  if (!isAdmin || !stats) return null
+  const message = useMemo(() => {
+    if (!stats) return null
+    return buildSaldoMesInsightMessage({
+      totalAReceber: stats.totalAReceber,
+      totalAPagarMes: stats.totalAPagarMes,
+    })
+  }, [stats])
 
-  const message = buildSaldoMesInsightMessage({
-    totalAReceber: stats.totalAReceber,
-    totalAPagarMes: stats.totalAPagarMes,
-  })
+  if (!isAdmin || !stats || !message) return null
 
   return (
     <SaldoMesInsightCard
       message={message}
       proximosMeses={proximosMeses}
-      proximosLoading={proximosLoading}
+      proximosLoading={proximosLoading && shouldFetchForecast}
       config={config}
       visible={visible}
       exiting={exiting}
+      isMobile={isMobile}
       onDismiss={dismiss}
       onHoldChange={setHolding}
+      onForecastOpenChange={setForecastOpen}
       onSaveConfig={next => {
         saveSaldoMesInsightConfig(next)
         setConfig(next)

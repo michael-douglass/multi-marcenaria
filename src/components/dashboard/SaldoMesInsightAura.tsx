@@ -12,10 +12,6 @@ void main() {
 }
 `
 
-/**
- * Aura do card de saldo: lavagem de papel + brilho suave no tom do insight.
- * Alpha baixo para não competir com o texto.
- */
 const FRAGMENT = `
 uniform float uTime;
 uniform vec2 uResolution;
@@ -55,14 +51,47 @@ const ACCENT_RGB: Record<SaldoMesInsightTone, [number, number, number]> = {
   alerta: [0.86, 0.15, 0.15],
 }
 
-export function SaldoMesInsightAura({
+const CSS_AURA: Record<SaldoMesInsightTone, string> = {
+  sucesso:
+    'radial-gradient(circle at 88% 12%, rgba(5,150,105,0.16) 0%, transparent 58%), linear-gradient(165deg, rgba(255,252,248,0.98) 0%, rgba(236,253,245,0.35) 100%)',
+  quase:
+    'radial-gradient(circle at 88% 12%, rgba(196,150,58,0.18) 0%, transparent 58%), linear-gradient(165deg, rgba(255,252,248,0.98) 0%, rgba(255,247,237,0.35) 100%)',
+  falta:
+    'radial-gradient(circle at 88% 12%, rgba(194,65,12,0.16) 0%, transparent 58%), linear-gradient(165deg, rgba(255,252,248,0.98) 0%, rgba(255,247,237,0.28) 100%)',
+  alerta:
+    'radial-gradient(circle at 88% 12%, rgba(220,38,38,0.14) 0%, transparent 58%), linear-gradient(165deg, rgba(255,252,248,0.98) 0%, rgba(254,242,242,0.28) 100%)',
+}
+
+function CssAura({
   tone,
-  reveal = 0,
+  reveal,
   className,
 }: {
   tone: SaldoMesInsightTone
-  /** 0–1: painel dos próximos meses aberto (shader acompanha). */
+  reveal: number
+  className?: string
+}) {
+  return (
+    <div
+      className={cn('pointer-events-none absolute inset-0', className)}
+      aria-hidden
+      style={{
+        background: CSS_AURA[tone],
+        opacity: reveal > 0 ? 1 : 0.92,
+      }}
+    />
+  )
+}
+
+export function SaldoMesInsightAura({
+  tone,
+  reveal = 0,
+  lite = false,
+  className,
+}: {
+  tone: SaldoMesInsightTone
   reveal?: number
+  lite?: boolean
   className?: string
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -72,10 +101,12 @@ export function SaldoMesInsightAura({
   revealRef.current = reveal
 
   useEffect(() => {
+    if (lite) return
     const host = hostRef.current
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isPhone = window.matchMedia('(max-width: 767px)').matches
     const renderer = tryCreateWebGLRenderer(
       () =>
         new THREE.WebGLRenderer({
@@ -115,12 +146,14 @@ export function SaldoMesInsightAura({
 
     let frame = 0
     let running = true
+    let drawing = true
     const startedAt = performance.now()
 
     const resize = () => {
       const w = Math.max(host.clientWidth, 1)
       const h = Math.max(host.clientHeight, 1)
-      renderer.setPixelRatio(1)
+      const cap = isPhone ? 1 : 1.25
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap))
       renderer.setSize(w, h, false)
       uniforms.uResolution.value.set(w, h)
     }
@@ -128,9 +161,18 @@ export function SaldoMesInsightAura({
     ro.observe(host)
     resize()
 
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        drawing = entry?.isIntersecting !== false
+      },
+      { threshold: 0.05 },
+    )
+    io.observe(host)
+
     const draw = () => {
       if (!running) return
-      if (!prefersReduced) frame = requestAnimationFrame(draw)
+      if (!prefersReduced && drawing) frame = requestAnimationFrame(draw)
+      if (!drawing) return
       const [ar, ag, ab] = ACCENT_RGB[toneRef.current]
       uniforms.uAccent.value.set(ar, ag, ab)
       uniforms.uReveal.value = revealRef.current
@@ -145,12 +187,17 @@ export function SaldoMesInsightAura({
       running = false
       cancelAnimationFrame(frame)
       ro.disconnect()
+      io.disconnect()
       material.dispose()
       mesh.geometry.dispose()
       renderer.dispose()
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement)
     }
-  }, [])
+  }, [lite])
+
+  if (lite) {
+    return <CssAura tone={tone} reveal={reveal} className={className} />
+  }
 
   return (
     <div

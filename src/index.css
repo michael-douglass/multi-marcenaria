@@ -3231,6 +3231,16 @@ body::before {
     }
   }
 
+  @media (max-width: 767px) {
+    .saldo-mes-insight-enter {
+      animation-duration: 0.32s;
+    }
+
+    .saldo-mes-insight-exit {
+      animation-duration: 0.18s;
+    }
+  }
+
   @keyframes saldoMesInsightExit {
     from {
       opacity: 1;

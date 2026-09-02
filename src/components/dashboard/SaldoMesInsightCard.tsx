@@ -25,9 +25,11 @@ interface SaldoMesInsightCardProps {
   config: SaldoMesInsightConfig
   visible: boolean
   exiting?: boolean
+  isMobile?: boolean
   onDismiss: () => void
   onSaveConfig: (next: SaldoMesInsightConfig) => void
   onHoldChange?: (holding: boolean) => void
+  onForecastOpenChange?: (open: boolean) => void
 }
 
 const TONE_STYLES: Record<
@@ -68,18 +70,23 @@ function ForecastRow({
   mes,
   index,
   styles,
+  animate = true,
 }: {
   mes: SaldoMesForecast
   index: number
   styles: (typeof TONE_STYLES)[SaldoMesInsightMessage['tone']]
+  animate?: boolean
 }) {
   const tone = resolveSaldoMesForecastTone(mes.saldo)
   const positivo = mes.saldo >= 0
 
   return (
     <li
-      className="saldo-mes-insight-forecast-row rounded-lg border border-[rgba(42,24,18,0.08)] bg-[rgba(42,24,18,0.03)] px-3 py-2.5"
-      style={{ animationDelay: `${index * 70}ms` }}
+      className={cn(
+        'rounded-lg border border-[rgba(42,24,18,0.08)] bg-[rgba(42,24,18,0.03)] px-3 py-2.5',
+        animate && 'saldo-mes-insight-forecast-row',
+      )}
+      style={animate ? { animationDelay: `${index * 70}ms` } : undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b5244]">
@@ -114,9 +121,11 @@ export function SaldoMesInsightCard({
   config,
   visible,
   exiting = false,
+  isMobile = false,
   onDismiss,
   onSaveConfig,
   onHoldChange,
+  onForecastOpenChange,
 }: SaldoMesInsightCardProps) {
   const navigate = useNavigate()
   const titleId = useId()
@@ -128,7 +137,7 @@ export function SaldoMesInsightCard({
   const [durationSec, setDurationSec] = useState(msToSeconds(config.durationMs))
   const [enabled, setEnabled] = useState(config.enabled)
 
-  const forecastOpen = hovering || pinned
+  const forecastOpen = (!isMobile && hovering) || pinned
   const holding = settingsOpen || forecastOpen
 
   useEffect(() => {
@@ -139,8 +148,18 @@ export function SaldoMesInsightCard({
 
   useEffect(() => {
     onHoldChange?.(holding)
-    return () => onHoldChange?.(false)
   }, [holding, onHoldChange])
+
+  useEffect(() => {
+    onForecastOpenChange?.(forecastOpen)
+  }, [forecastOpen, onForecastOpenChange])
+
+  useEffect(() => {
+    return () => {
+      onHoldChange?.(false)
+      onForecastOpenChange?.(false)
+    }
+  }, [onForecastOpenChange, onHoldChange])
 
   useEffect(() => {
     if (!visible) {
@@ -178,20 +197,29 @@ export function SaldoMesInsightCard({
     setPinned(open => !open)
   }
 
+  const handleCardPointerEnter = () => {
+    if (!isMobile) setHovering(true)
+  }
+
+  const handleCardPointerLeave = () => {
+    if (!isMobile) setHovering(false)
+  }
+
   return createPortal(
     <aside
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
       className={cn(
-        'saldo-mes-insight fixed z-[220]',
-        'right-3 top-3 sm:right-5 sm:top-4',
-        forecastOpen ? 'w-[min(100vw-1.5rem,26rem)]' : 'w-[min(100vw-1.5rem,22rem)]',
-        'transition-[width] duration-300 ease-out',
+        'saldo-mes-insight fixed z-[220] touch-manipulation',
+        'right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))]',
+        'sm:right-5 sm:top-4',
+        forecastOpen ? 'w-[min(100vw-1.5rem,26rem)]' : 'w-[min(calc(100vw-1.5rem),22rem)]',
+        !isMobile && 'transition-[width] duration-300 ease-out',
         exiting ? 'saldo-mes-insight-exit' : 'saldo-mes-insight-enter',
       )}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      onPointerEnter={handleCardPointerEnter}
+      onPointerLeave={handleCardPointerLeave}
     >
       <article
         role="button"
@@ -208,12 +236,17 @@ export function SaldoMesInsightCard({
         className={cn(
           'group relative cursor-pointer overflow-hidden rounded-xl border border-[rgba(42,24,18,0.12)]',
           'bg-[#fffcf8] text-[#2a1812] shadow-[0_18px_48px_rgba(42,24,18,0.16)]',
-          'outline-none transition-[box-shadow,transform] duration-300',
-          'hover:shadow-[0_22px_56px_rgba(42,24,18,0.2)]',
+          'outline-none',
+          !isMobile && 'transition-[box-shadow,transform] duration-300 hover:shadow-[0_22px_56px_rgba(42,24,18,0.2)]',
           'focus-visible:ring-2 focus-visible:ring-[#c4963a]/60 focus-visible:ring-offset-2',
+          '-webkit-tap-highlight-color-transparent',
         )}
       >
-        <SaldoMesInsightAura tone={message.tone} reveal={forecastOpen ? 1 : 0} />
+        <SaldoMesInsightAura
+          tone={message.tone}
+          reveal={forecastOpen ? 1 : 0}
+          lite={isMobile}
+        />
         <div
           aria-hidden
           className="absolute inset-y-0 left-0 w-[3px]"
@@ -233,9 +266,10 @@ export function SaldoMesInsightCard({
             <button
               type="button"
               className={cn(
-                'inline-flex h-7 w-7 items-center justify-center rounded-md',
+                'inline-flex items-center justify-center rounded-md',
                 'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
                 'transition-colors hover:bg-[rgba(42,24,18,0.08)]',
+                isMobile ? 'h-9 w-9' : 'h-7 w-7',
               )}
               aria-label="Configurar lembrete de saldo"
               aria-expanded={settingsOpen}
@@ -249,9 +283,10 @@ export function SaldoMesInsightCard({
             <button
               type="button"
               className={cn(
-                'inline-flex h-7 w-7 items-center justify-center rounded-md',
+                'inline-flex items-center justify-center rounded-md',
                 'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
                 'transition-colors hover:border-red-300/50 hover:bg-red-500/10 hover:text-red-700',
+                isMobile ? 'h-9 w-9' : 'h-7 w-7',
               )}
               aria-label="Fechar lembrete de saldo"
               onClick={e => {
@@ -289,34 +324,36 @@ export function SaldoMesInsightCard({
 
           {!forecastOpen ? (
             <p className="pt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
-              Passe o mouse ou clique para ver os próximos 3 meses
+              {isMobile
+                ? 'Toque para ver os próximos 3 meses'
+                : 'Passe o mouse ou clique para ver os próximos 3 meses'}
             </p>
           ) : null}
 
-          <div
-            id={forecastId}
-            className={cn(
-              'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
-              forecastOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-            )}
-          >
-            <div className="overflow-hidden">
-              <div className="saldo-mes-insight-forecast pt-2">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b5244]">
-                  Próximos 3 meses
-                </p>
-                {proximosLoading ? (
-                  <p className="text-xs text-[#8a7060]">Carregando previsão…</p>
-                ) : (
-                  <ul className="space-y-2" aria-label="Previsão dos próximos três meses">
-                    {proximosMeses.map((mes, index) => (
-                      <ForecastRow key={mes.label} mes={mes} index={index} styles={tone} />
-                    ))}
-                  </ul>
-                )}
-              </div>
+          {forecastOpen ? (
+            <div id={forecastId} className="saldo-mes-insight-forecast pt-2">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b5244]">
+                Próximos 3 meses
+              </p>
+              {proximosLoading ? (
+                <p className="text-xs text-[#8a7060]">Carregando previsão…</p>
+              ) : (
+                <ul className="space-y-2" aria-label="Previsão dos próximos três meses">
+                  {proximosMeses.map((mes, index) => (
+                    <ForecastRow
+                      key={mes.label}
+                      mes={mes}
+                      index={index}
+                      styles={tone}
+                      animate={!isMobile}
+                    />
+                  ))}
+                </ul>
+              )}
             </div>
-          </div>
+          ) : (
+            <div id={forecastId} className="hidden" aria-hidden />
+          )}
 
           <button
             type="button"

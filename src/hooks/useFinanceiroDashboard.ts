@@ -162,56 +162,85 @@ export function useFinanceiroStats() {
 }
 
 /** A receber − a pagar dos próximos 3 meses (vencimento em aberto). */
-export function useSaldoMesProximosMeses(count = 3) {
+export function useSaldoMesProximosMeses(
+  count = 3,
+  options?: { enabled?: boolean },
+) {
+  const enabled = options?.enabled ?? true
+
   return useQuery<SaldoMesForecast[]>({
-    queryKey: ['saldo-mes-proximos', count, 'v1'],
-    refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
+    queryKey: ['saldo-mes-proximos', count, 'v2-batched'],
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
     queryFn: async () => {
       const now = new Date()
-      const resultados: SaldoMesForecast[] = []
+      const rangeStart = format(startOfMonth(addMonths(now, 1)), 'yyyy-MM-dd')
+      const rangeEnd = format(endOfMonth(addMonths(now, count)), 'yyyy-MM-dd')
 
+      const bucketKeys: string[] = []
+      const totals = new Map<string, { receber: number; pagar: number }>()
       for (let offset = 1; offset <= count; offset += 1) {
         const ref = addMonths(now, offset)
-        const firstDay = format(startOfMonth(ref), 'yyyy-MM-dd')
-        const lastDay = format(endOfMonth(ref), 'yyyy-MM-dd')
-
-        const [{ data: aReceberData }, { data: aPagarData }] = await Promise.all([
-          supabase
-            .from('movelaria_contas_receber')
-            .select('valor_parcela')
-            .eq('status', 'pendente')
-            .gte('data_vencimento', firstDay)
-            .lte('data_vencimento', lastDay),
-          supabase
-            .from('movelaria_contas_pagar')
-            .select('valor_parcela, valor_pago, status')
-            .in('status', ['pendente', 'parcialmente_pago'])
-            .gte('data_vencimento', firstDay)
-            .lte('data_vencimento', lastDay),
-        ])
-
-        const totalAReceber = (aReceberData ?? []).reduce(
-          (acc, curr) => acc + Number(curr.valor_parcela),
-          0,
-        )
-        const totalAPagarMes = (aPagarData ?? []).reduce((acc, curr) => {
-          const parcela = Number(curr.valor_parcela)
-          const pago = Number(curr.valor_pago ?? 0)
-          return acc + Math.max(0, parcela - pago)
-        }, 0)
-
-        resultados.push(
-          buildSaldoMesForecast({
-            mesIndex: ref.getMonth(),
-            ano: ref.getFullYear(),
-            totalAReceber,
-            totalAPagarMes,
-          }),
-        )
+        const key = `${ref.getFullYear()}-${ref.getMonth()}`
+        bucketKeys.push(key)
+        totals.set(key, { receber: 0, pagar: 0 })
       }
 
-      return resultados
+      const [{ data: aReceberData }, { data: aPagarData }] = await Promise.all([
+        supabase
+          .from('movelaria_contas_receber')
+          .select('valor_parcela, data_vencimento')
+          .eq('status', 'pendente')
+          .gte('data_vencimento', rangeStart)
+          .lte('data_vencimento', rangeEnd),
+        supabase
+          .from('movelaria_contas_pagar')
+          .select('valor_parcela, valor_pago, status, data_vencimento')
+          .in('status', ['pendente', 'parcialmente_pago'])
+          .gte('data_vencimento', rangeStart)
+          .lte('data_vencimento', rangeEnd),
+      ])
+
+      const addToSlot = (
+        iso: string | null | undefined,
+        field: 'receber' | 'pagar',
+        value: number,
+      ) => {
+        const monthIndex = monthIndexFromIso(iso)
+        if (monthIndex == null || !iso || iso.length < 4) return
+        const year = Number(iso.slice(0, 4))
+        if (!Number.isFinite(year)) return
+        const key = `${year}-${monthIndex}`
+        const bucket = totals.get(key)
+        if (!bucket) return
+        bucket[field] += value
+      }
+
+      for (const row of aReceberData ?? []) {
+        addToSlot(row.data_vencimento, 'receber', Number(row.valor_parcela) || 0)
+      }
+
+      for (const row of aPagarData ?? []) {
+        const parcela = Number(row.valor_parcela) || 0
+        const pago = Number(row.valor_pago ?? 0)
+        addToSlot(row.data_vencimento, 'pagar', Math.max(0, parcela - pago))
+      }
+
+      return bucketKeys.map(key => {
+        const [yearStr, monthStr] = key.split('-')
+        const ano = Number(yearStr)
+        const mesIndex = Number(monthStr)
+        const bucket = totals.get(key) ?? { receber: 0, pagar: 0 }
+        return buildSaldoMesForecast({
+          mesIndex,
+          ano,
+          totalAReceber: bucket.receber,
+          totalAPagarMes: bucket.pagar,
+        })
+      })
     },
   })
 }
