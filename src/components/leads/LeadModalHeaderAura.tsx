@@ -32,14 +32,15 @@ void main() {
   float rim = pow(1.0 - uv.y, 2.4) * 0.22;
   float fresnel = pow(1.0 - abs(uv.x - 0.5) * 1.6, 2.4) * 0.12;
 
-  vec3 gold = vec3(0.42, 0.28, 0.10);
-  vec3 paper = vec3(0.97, 0.93, 0.86);
-  vec3 color = mix(paper, gold, wash * 0.10 + fresnel * 0.45);
-  color = mix(color, brand, 0.05 * uHasBrand);
-  color += gold * (grain * 0.18 + rim * 0.12);
+  vec3 gold = vec3(0.55, 0.40, 0.22);
+  vec3 paper = vec3(0.998, 0.980, 0.955);
+  vec3 linen = vec3(0.965, 0.930, 0.880);
+  vec3 color = mix(paper, linen, wash * 0.55 + fresnel * 0.25);
+  color = mix(color, brand, 0.04 * uHasBrand);
+  color += gold * (grain * 0.10 + rim * 0.08);
 
-  float alpha = 0.05 + wash * 0.05 + rim * 0.04;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.12));
+  float alpha = 0.04 + wash * 0.04 + rim * 0.03;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.10));
 }
 `
 

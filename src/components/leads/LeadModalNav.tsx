@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronDown, FileText, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, FileText, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   filterLeadDetailsNav,
@@ -34,7 +34,7 @@ export function LeadModalNav({
 }: LeadModalNavProps) {
   const [openMenu, setOpenMenu] = useState<LeadNavMenu | null>(null);
   const reduceMotion = useReducedMotion();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLElement>(null);
   const panelId = useId();
   const detailsItems = filterLeadDetailsNav({
     hideContratos,
@@ -78,16 +78,16 @@ export function LeadModalNav({
   return (
     <nav
       ref={rootRef}
-      className="lead-modal-nav relative z-[3] shrink-0 border-b px-3 sm:px-4 py-2"
+      className="lead-modal-nav relative z-[3] shrink-0 border-b px-3 sm:px-5 py-3 sm:py-3.5"
       aria-label="Índice do card do lead"
     >
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
         <NavTrigger
           label="Detalhes"
           icon={FileText}
           open={openMenu === 'detalhes'}
           active={activeTab === 'detalhes'}
-          controls={`${panelId}-detalhes`}
+          controls={`${panelId}-panel`}
           onClick={() => toggleMenu('detalhes')}
         />
         {showIa && (
@@ -97,7 +97,7 @@ export function LeadModalNav({
             icon={Sparkles}
             open={openMenu === 'ia'}
             active={activeTab === 'analise-ia'}
-            controls={`${panelId}-ia`}
+            controls={`${panelId}-panel`}
             onClick={() => toggleMenu('ia')}
           />
         )}
@@ -107,17 +107,19 @@ export function LeadModalNav({
         {openMenu && openItems.length > 0 && (
           <motion.div
             key={openMenu}
-            id={openMenu === 'ia' ? `${panelId}-ia` : `${panelId}-detalhes`}
-            className="lead-modal-nav__panel mt-2 overflow-hidden"
+            id={`${panelId}-panel`}
+            role="listbox"
+            aria-label={openMenu === 'ia' ? 'Escolha o estúdio' : 'Ir para a seção'}
+            className="lead-modal-nav__panel mt-3 overflow-hidden rounded-xl border"
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.38, ease: unrollEase }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, ease: unrollEase }}
           >
-            <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[color:var(--lead-muted)]">
-              {openMenu === 'ia' ? 'Escolha o estúdio' : 'Ir para a seção'}
-            </p>
-            <div className="lead-modal-nav__scroller -mx-1 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <div className="lead-modal-nav__list max-h-[min(22rem,42vh)] overflow-y-auto p-1.5 [scrollbar-width:thin]">
+              <p className="lead-modal-nav__menu-label px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                {openMenu === 'ia' ? 'Escolha o estúdio' : 'Ir para a seção'}
+              </p>
               {openItems.map((item, index) => {
                 const isCurrent =
                   item.tab === activeTab &&
@@ -126,26 +128,33 @@ export function LeadModalNav({
                   <motion.button
                     key={item.id}
                     type="button"
+                    role="option"
+                    aria-selected={isCurrent}
                     className={cn(
-                      'lead-modal-nav__item shrink-0 rounded-lg border px-2.5 py-1.5 text-left transition-colors',
-                      isCurrent && 'border-[color:var(--lead-line-strong)]',
+                      'lead-modal-nav__item flex w-full items-start gap-2 rounded-lg px-2.5 py-2.5 text-left transition-colors',
+                      isCurrent && 'is-current',
                     )}
-                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: reduceMotion ? 0 : 0.28,
-                      delay: reduceMotion ? 0 : 0.04 * index,
+                      duration: reduceMotion ? 0 : 0.22,
+                      delay: reduceMotion ? 0 : 0.03 * index,
                       ease: unrollEase,
                     }}
                     onClick={() => handleJump(item)}
                   >
-                    <span className="block text-[11px] font-semibold leading-none tracking-wide">
-                      {item.label}
-                    </span>
-                    {item.hint && (
-                      <span className="mt-1 block max-w-[9.5rem] truncate text-[10px] text-[color:var(--lead-muted)]">
-                        {item.hint}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-semibold leading-tight tracking-wide">
+                        {item.label}
                       </span>
+                      {item.hint && (
+                        <span className="mt-0.5 block text-[11px] leading-snug opacity-75">
+                          {item.hint}
+                        </span>
+                      )}
+                    </span>
+                    {isCurrent && (
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--lead-gold)]" aria-hidden />
                     )}
                   </motion.button>
                 );
@@ -179,19 +188,22 @@ function NavTrigger({
     <button
       type="button"
       className={cn(
-        'lead-modal-nav__trigger inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/45',
+        'lead-modal-nav__trigger inline-flex h-11 min-w-[8.5rem] items-center justify-between gap-2 rounded-lg border px-3.5 text-[15px] font-semibold tracking-wide transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/40',
       )}
       data-active={active ? 'true' : 'false'}
+      data-state={open ? 'open' : 'closed'}
       aria-label={srLabel}
       aria-expanded={open}
       aria-controls={controls}
       onClick={onClick}
     >
-      <Icon className="h-4 w-4" aria-hidden />
-      {label}
+      <span className="inline-flex items-center gap-2">
+        <Icon className="h-[1.05rem] w-[1.05rem]" aria-hidden />
+        {label}
+      </span>
       <ChevronDown
-        className={cn('h-3.5 w-3.5 transition-transform duration-300', open && 'rotate-180')}
+        className={cn('h-4 w-4 shrink-0 opacity-70 transition-transform duration-300', open && 'rotate-180')}
         aria-hidden
       />
     </button>

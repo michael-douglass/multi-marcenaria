@@ -3702,31 +3702,33 @@ body::before {
 }
 .glass-dialog.lead-modal-shell {
   position: fixed !important;
-  inset: 0 !important;
-  margin: auto !important;
+  inset: auto !important;
+  left: var(--lead-card-x, 50%) !important;
+  top: var(--lead-card-y, 50%) !important;
+  width: var(--lead-card-w, min(71.7rem, calc(100vw - 2rem))) !important;
+  max-width: calc(100vw - 1rem) !important;
+  height: var(--lead-card-h, min(44.875rem, calc(100dvh - 3rem))) !important;
+  max-height: calc(100dvh - 1rem) !important;
+  margin: 0 !important;
   transform: none !important;
-  width: min(42rem, calc(100vw - 2rem)) !important;
-  max-width: min(42rem, calc(100vw - 2rem)) !important;
-  height: min(84dvh, calc(100dvh - 4rem)) !important;
-  max-height: min(84dvh, calc(100dvh - 4rem)) !important;
   background:
-    linear-gradient(180deg, rgba(255, 250, 243, 0.97) 0%, rgba(243, 232, 216, 0.98) 100%) !important;
+    linear-gradient(180deg, rgba(255, 250, 243, 0.98) 0%, rgba(245, 236, 223, 0.99) 100%) !important;
   color: var(--lead-soft) !important;
   border-color: var(--lead-line) !important;
   box-shadow:
-    0 28px 64px rgba(60, 40, 24, 0.18),
-    inset 0 1px 0 rgba(255, 252, 246, 0.85) !important;
+    0 28px 64px rgba(60, 40, 24, 0.16),
+    inset 0 1px 0 rgba(255, 252, 246, 0.9) !important;
   /* Nested Sheet/AlertDialog (markup, confirmar duplicar) não podem congelar o card. */
   pointer-events: auto !important;
 }
 @media (max-width: 640px) {
   .glass-dialog.lead-modal-shell {
-    width: calc(100vw - 1rem) !important;
-    max-width: calc(100vw - 1rem) !important;
-    height: min(90dvh, calc(100dvh - 1.5rem)) !important;
-    max-height: min(90dvh, calc(100dvh - 1.5rem)) !important;
     border-radius: 0.75rem !important;
   }
+}
+.glass-dialog.lead-modal-shell[data-lead-resizing='true'] {
+  user-select: none;
+  transition: none !important;
 }
 
 .glass-dialog.lead-atelier-dialog {
@@ -3755,49 +3757,70 @@ body::before {
 
 .lead-modal-header {
   color: var(--lead-soft);
-  background: linear-gradient(180deg, rgba(255, 250, 243, 0.72) 0%, rgba(243, 232, 216, 0.45) 100%);
+  background: var(--lead-panel);
 }
 .lead-modal-header .lead-modal-title {
   color: var(--lead-cream);
   text-shadow: none;
 }
 .lead-modal-header .lead-modal-stage {
-  border-color: var(--lead-line-strong);
-  background: var(--lead-panel);
+  border-color: var(--lead-line);
+  background: var(--lead-inset);
   color: var(--lead-gold);
 }
 
 .lead-modal-nav {
-  background: rgba(255, 250, 243, 0.88);
+  background: var(--lead-panel);
   border-color: var(--lead-line);
   color: var(--lead-soft);
-  backdrop-filter: blur(10px);
 }
 .lead-modal-nav__trigger {
   color: var(--lead-soft);
+  border-color: var(--lead-line);
+  background: var(--lead-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.85);
 }
-.lead-modal-nav__trigger[data-active='true'] {
-  background: rgba(90, 58, 18, 0.14);
+.lead-modal-nav__trigger:hover {
+  background: var(--lead-inset);
+  border-color: var(--lead-line-strong);
+}
+.lead-modal-nav__trigger[data-active='true'],
+.lead-modal-nav__trigger[data-state='open'] {
+  background: var(--lead-inset);
+  border-color: var(--lead-line-strong);
   color: var(--lead-cream);
-  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.7);
 }
 .lead-modal-nav__panel {
   transform-origin: top center;
+  background: var(--lead-panel);
+  border-color: var(--lead-line);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.85);
+}
+.lead-modal-nav__list {
+  scrollbar-color: var(--lead-line-strong) transparent;
+}
+.lead-modal-nav__list::-webkit-scrollbar {
+  width: 6px;
+}
+.lead-modal-nav__list::-webkit-scrollbar-thumb {
+  background: var(--lead-line-strong);
+  border-radius: 999px;
+}
+.lead-modal-nav__menu-label {
+  color: var(--lead-muted);
 }
 .lead-modal-nav__item {
   color: var(--lead-soft);
-  border-color: var(--lead-line);
-  background: var(--lead-panel);
+  background: transparent;
 }
-.lead-modal-nav__scroller {
-  scrollbar-color: var(--lead-line-strong) transparent;
+.lead-modal-nav__item:hover,
+.lead-modal-nav__item:focus-visible {
+  background: var(--lead-inset);
+  color: var(--lead-cream);
+  outline: none;
 }
-.lead-modal-nav__scroller::-webkit-scrollbar {
-  height: 6px;
-}
-.lead-modal-nav__scroller::-webkit-scrollbar-thumb {
-  background: var(--lead-line-strong);
-  border-radius: 999px;
+.lead-modal-nav__item.is-current {
+  background: var(--lead-inset);
 }
 .lead-modal-shell [data-lead-section] {
   scroll-margin-top: 12px;
