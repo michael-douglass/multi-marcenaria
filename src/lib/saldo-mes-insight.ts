@@ -71,6 +71,7 @@ export function resolveSaldoMesForecastTone(saldo: number): SaldoMesInsightTone 
 }
 
 const STORAGE_KEY = 'garbo.saldo-mes-insight.config'
+const LOCK_STORAGE_KEY = 'garbo.saldo-mes-insight.locked'
 
 function roundMoney(n: number): number {
   if (!Number.isFinite(n)) return 0
@@ -193,6 +194,26 @@ export function saveSaldoMesInsightConfig(config: SaldoMesInsightConfig): void {
   if (typeof window === 'undefined') return
   const next = clampSaldoMesInsightConfig(config)
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+}
+
+/** Trava no cabeçalho: sobrevive a refresh até o usuário destravar. */
+export function loadSaldoMesInsightLocked(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(LOCK_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveSaldoMesInsightLocked(locked: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (locked) window.localStorage.setItem(LOCK_STORAGE_KEY, '1')
+    else window.localStorage.removeItem(LOCK_STORAGE_KEY)
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 export function msToMinutes(ms: number): number {

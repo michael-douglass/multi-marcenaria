@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { BarChart3, CalendarDays } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -20,6 +20,7 @@ import { CrmSelletosDock } from '@/components/crm/CrmSelletosDock'
 import { useKanbanRealtimeSync } from '@/hooks/useKanbanRealtimeSync'
 import { useUiPreferences } from '@/hooks/useUiPreferences'
 import { SaldoMesInsightHost } from '@/components/dashboard/SaldoMesInsightHost'
+import { SaldoMesInsightProvider } from '@/context/SaldoMesInsightContext'
 
 function FloatingNavButton({
   label,
@@ -132,6 +133,7 @@ export function MainLayout() {
 
   return (
     <ContasPagarNotifProvider>
+    <SaldoMesInsightShell active={showSaldoMesInsight}>
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
       <SidebarInset className="relative h-svh max-h-svh min-h-0 overflow-hidden bg-transparent">
@@ -221,6 +223,19 @@ export function MainLayout() {
         </>
       )}
     </SidebarProvider>
+    </SaldoMesInsightShell>
     </ContasPagarNotifProvider>
   )
+}
+
+/** Provider só para administrador — evita buscar saldo nos outros perfis. */
+function SaldoMesInsightShell({
+  active,
+  children,
+}: {
+  active: boolean
+  children: ReactNode
+}) {
+  if (!active) return children
+  return <SaldoMesInsightProvider>{children}</SaldoMesInsightProvider>
 }

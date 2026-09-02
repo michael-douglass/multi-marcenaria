@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
+import { ArrowRight, Lock, Maximize2, Minimize2, Settings2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SaldoMesInsightAura } from '@/components/dashboard/SaldoMesInsightAura'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ interface SaldoMesInsightCardProps {
   exiting?: boolean
   isMobile?: boolean
   onDismiss: () => void
+  onLock: () => void
   onSaveConfig: (next: SaldoMesInsightConfig) => void
   onHoldChange?: (holding: boolean) => void
   onForecastOpenChange?: (open: boolean) => void
@@ -128,6 +129,7 @@ export function SaldoMesInsightCard({
   exiting = false,
   isMobile = false,
   onDismiss,
+  onLock,
   onSaveConfig,
   onHoldChange,
   onForecastOpenChange,
@@ -296,6 +298,21 @@ export function SaldoMesInsightCard({
           <div className="ml-auto flex shrink-0 items-center gap-1">
             <button
               type="button"
+              className={cn(
+                actionBtnClass,
+                'hover:border-[#c4963a]/45 hover:bg-[rgba(196,150,58,0.12)] hover:text-[#8d5e22]',
+              )}
+              aria-label="Travar saldo no cabeçalho"
+              title="Travar no topo"
+              onClick={e => {
+                stop(e)
+                onLock()
+              }}
+            >
+              <Lock className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
               className={actionBtnClass}
               aria-label="Expandir saldo do mês"
               title="Expandir"
@@ -363,6 +380,21 @@ export function SaldoMesInsightCard({
             Saldo do mês
           </span>
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className={cn(
+                actionBtnClass,
+                'hover:border-[#c4963a]/45 hover:bg-[rgba(196,150,58,0.12)] hover:text-[#8d5e22]',
+              )}
+              aria-label="Travar saldo no cabeçalho"
+              title="Travar no topo"
+              onClick={e => {
+                stop(e)
+                onLock()
+              }}
+            >
+              <Lock className="h-3.5 w-3.5" />
+            </button>
             <button
               type="button"
               className={actionBtnClass}

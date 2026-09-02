@@ -5,6 +5,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
+import { SaldoMesInsightHeaderDock } from '@/components/dashboard/SaldoMesInsightHeaderDock'
 import { useApp } from '@/context/AppContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
 import { canAccessCrmPath, canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
@@ -95,7 +96,8 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
         <Logo full={false} />
       </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+        <SaldoMesInsightHeaderDock />
         <ContasPagarNotifBell />
         <AppRefreshButton showLabel />
 
