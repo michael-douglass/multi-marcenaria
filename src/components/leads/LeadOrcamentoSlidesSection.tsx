@@ -238,7 +238,7 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
                         {format(new Date(o.criado_em), 'dd/MM/yyyy', { locale: ptBR })}
                       </p>
                       {investimento > 0 && (
-                        <p className="text-xs text-amber-200/90 font-medium">
+                        <p className="text-xs text-maroon font-medium">
                           Investimento: {BRL(investimento)}
                           {desconto > 0 && (
                             <span className="text-muted-foreground font-normal">
