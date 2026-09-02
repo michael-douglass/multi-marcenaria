@@ -28,6 +28,7 @@ export function ProjetoVisitaColumnAura({ className }: { className?: string }) {
     fragment: FRAGMENT,
     uniforms: () => ({}),
     pauseWhenHidden: true,
+    skipOnPhone: true,
   })
 
   return (

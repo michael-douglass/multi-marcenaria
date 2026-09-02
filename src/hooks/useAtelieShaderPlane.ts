@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -14,6 +15,8 @@ export interface AtelieShaderPlaneOptions {
   uniforms: () => Record<string, THREE.IUniform>
   pixelRatioMax?: number
   pauseWhenHidden?: boolean
+  /** No celular, pula o canvas (Safari limita WebGL e a página some). */
+  skipOnPhone?: boolean
   className?: string
 }
 
@@ -23,6 +26,7 @@ export function useAtelieShaderPlane({
   uniforms,
   pixelRatioMax = 1.5,
   pauseWhenHidden = false,
+  skipOnPhone = false,
 }: Omit<AtelieShaderPlaneOptions, 'className'>) {
   const hostRef = useRef<HTMLDivElement>(null)
   const uniformsRef = useRef(uniforms)
@@ -33,16 +37,19 @@ export function useAtelieShaderPlane({
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let renderer: THREE.WebGLRenderer
-    try {
-      renderer = new THREE.WebGLRenderer({
-        antialias: false,
-        alpha: true,
-        powerPreference: 'low-power',
-      })
-    } catch {
-      return
-    }
+    const isPhone = window.matchMedia('(max-width: 767px)').matches
+    if (skipOnPhone && isPhone) return
+
+    const renderer = tryCreateWebGLRenderer(
+      () =>
+        new THREE.WebGLRenderer({
+          antialias: false,
+          alpha: true,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        }),
+    )
+    if (!renderer) return
 
     renderer.setClearColor(0x000000, 0)
     renderer.domElement.style.display = 'block'
@@ -75,7 +82,8 @@ export function useAtelieShaderPlane({
     const resize = () => {
       const w = Math.max(host.clientWidth, 1)
       const h = Math.max(host.clientHeight, 1)
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioMax))
+      const cap = isPhone ? Math.min(pixelRatioMax, 1.15) : pixelRatioMax
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap))
       renderer.setSize(w, h, false)
       material.uniforms.uResolution.value.set(w, h)
     }
@@ -84,7 +92,7 @@ export function useAtelieShaderPlane({
     resize()
 
     const io =
-      pauseWhenHidden
+      pauseWhenHidden || isPhone
         ? new IntersectionObserver(
             ([entry]) => {
               visible = entry?.isIntersecting !== false
@@ -110,7 +118,7 @@ export function useAtelieShaderPlane({
     const draw = () => {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
-      if (pauseWhenHidden && !visible) return
+      if ((pauseWhenHidden || isPhone) && !visible) return
       renderOnce(clock.getElapsedTime())
     }
 
@@ -130,7 +138,7 @@ export function useAtelieShaderPlane({
       renderer.dispose()
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement)
     }
-  }, [fragment, pixelRatioMax, pauseWhenHidden])
+  }, [fragment, pixelRatioMax, pauseWhenHidden, skipOnPhone])
 
   return hostRef
 }

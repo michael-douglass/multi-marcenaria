@@ -17,6 +17,7 @@ import { ProjetosChatWaveform } from '@/components/projetos/ProjetosChatWaveform
 import { ProjetosChatSheetAura } from '@/components/projetos/ProjetosChatSheetAura'
 import { ProjetoChatThread } from '@/components/projetos/ProjetoChatThread'
 import { ProjetoChatComposer } from '@/components/projetos/ProjetoChatComposer'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface ProjetosChatPreviewProps {
   onOpenLead: (leadId: number) => void
@@ -39,6 +40,7 @@ function previewHora(iso: string): string {
 
 export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const { data: threads = [] } = useLeadProjetoChatBoard({ realtime: true })
   const { adicionarNota } = useLeadProjetoMutations()
   const [open, setOpen] = useState(false)
@@ -59,85 +61,124 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
 
   return (
     <>
-      <article
-        className={cn(
-          'relative overflow-hidden rounded-[1.7rem] p-[3px] md:max-w-[24rem]',
-          'bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
-          'transition-transform duration-700 hover:-translate-y-0.5',
-        )}
-      >
-        <div
-          className="relative rounded-[1.55rem] bg-[#fffcf8] px-3 py-3"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(0deg, rgba(125,211,252,0.05) 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, rgba(242,216,146,0.05) 0 1px, transparent 1px 12px)',
-          }}
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={() => openSheet()}
+          className={cn(
+            'relative w-full overflow-hidden rounded-[1.4rem] p-[3px] text-left',
+            'bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
+          )}
+          aria-label="Abrir rádio do ateliê"
         >
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-sky-400/30"
-              onClick={() => openSheet()}
-              aria-label="Abrir rádio do ateliê"
-            >
-              <ProjetoNotasAura className="absolute inset-0 h-11 w-11" />
-              <Radio className="relative h-4 w-4 text-sky-100" />
+          <div className="relative flex items-center gap-3 rounded-[1.25rem] bg-[#fffcf8] px-3 py-2.5">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/30 bg-[#120c09]">
+              <Radio className="relative h-4 w-4 text-sky-200" />
               {pending > 0 ? (
                 <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-sky-400" />
               ) : null}
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <p className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">RÁDIO</p>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">RÁDIO</span>
                 <span className="rounded-full border border-[rgba(42,24,18,0.14)] px-1.5 py-0.5 text-[10px] text-[#8d5e22]">
                   {threads.length} {threads.length === 1 ? 'conversa' : 'conversas'}
                 </span>
                 {pending > 0 ? (
-                  <span className="animate-pulse rounded-full border border-sky-400/40 bg-sky-950/50 px-1.5 py-0.5 text-[10px] text-sky-200">
+                  <span className="rounded-full border border-sky-400/40 bg-sky-950/50 px-1.5 py-0.5 text-[10px] text-sky-200">
                     {pending} a responder
                   </span>
                 ) : null}
-              </div>
-              <ul className="mt-2 max-h-[min(18.5rem,46vh)] space-y-1 overflow-y-auto touch-pan-y">
-                {threads.slice(0, 4).map((thread) => {
-                  const needs = thread.last.autor_id !== user?.id
-                  return (
-                    <li key={thread.lead_id}>
-                      <button
-                        type="button"
-                        className="flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-[rgba(42,24,18,0.04)]"
-                        onClick={() => openSheet(thread)}
-                      >
-                        {needs ? (
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
-                        ) : (
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0" />
-                        )}
-                        <span className="min-w-0">
-                          <span className="block line-clamp-2 text-[13px] font-medium leading-snug text-gold">
-                            {thread.lead_nome}
-                          </span>
-                          <span className="mt-0.5 block line-clamp-2 text-[12px] leading-5 text-cream-secondary">
-                            {previewMensagem(thread)}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-                {threads.length === 0 ? (
-                  <li className="px-1 py-2 text-xs leading-5 text-cream-secondary">
-                    Titular e projetista ainda não escreveram.
-                  </li>
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-[#6b5244]">
+                {threads[0]
+                  ? `${threads[0].lead_nome} — ${previewMensagem(threads[0])}`
+                  : 'Titular e projetista ainda não escreveram.'}
+              </span>
+            </span>
+          </div>
+        </button>
+      ) : (
+        <article
+          className={cn(
+            'relative min-w-0 overflow-hidden rounded-[1.7rem] p-[3px] md:max-w-[24rem]',
+            'bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
+            'transition-transform duration-700 hover:-translate-y-0.5',
+          )}
+        >
+          <div
+            className="relative rounded-[1.55rem] bg-[#fffcf8] px-3 py-3"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(0deg, rgba(125,211,252,0.05) 0 1px, transparent 1px 12px), repeating-linear-gradient(90deg, rgba(242,216,146,0.05) 0 1px, transparent 1px 12px)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                className="relative flex h-11 w-11 items-center justify-center rounded-full border border-sky-400/30"
+                onClick={() => openSheet()}
+                aria-label="Abrir rádio do ateliê"
+              >
+                <ProjetoNotasAura className="absolute inset-0 h-11 w-11" />
+                <Radio className="relative h-4 w-4 text-sky-100" />
+                {pending > 0 ? (
+                  <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-sky-400" />
                 ) : null}
-              </ul>
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">RÁDIO</p>
+                  <span className="rounded-full border border-[rgba(42,24,18,0.14)] px-1.5 py-0.5 text-[10px] text-[#8d5e22]">
+                    {threads.length} {threads.length === 1 ? 'conversa' : 'conversas'}
+                  </span>
+                  {pending > 0 ? (
+                    <span className="animate-pulse rounded-full border border-sky-400/40 bg-sky-950/50 px-1.5 py-0.5 text-[10px] text-sky-200">
+                      {pending} a responder
+                    </span>
+                  ) : null}
+                </div>
+                <ul className="mt-2 max-h-[min(18.5rem,46vh)] space-y-1 overflow-y-auto touch-pan-y">
+                  {threads.slice(0, 4).map((thread) => {
+                    const needs = thread.last.autor_id !== user?.id
+                    return (
+                      <li key={thread.lead_id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-[rgba(42,24,18,0.04)]"
+                          onClick={() => openSheet(thread)}
+                        >
+                          {needs ? (
+                            <span className="mt-2 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
+                          ) : (
+                            <span className="mt-2 h-1.5 w-1.5 shrink-0" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block line-clamp-2 text-[13px] font-medium leading-snug text-gold">
+                              {thread.lead_nome}
+                            </span>
+                            <span className="mt-0.5 block line-clamp-2 text-[12px] leading-5 text-cream-secondary">
+                              {previewMensagem(thread)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                  {threads.length === 0 ? (
+                    <li className="px-1 py-2 text-xs leading-5 text-cream-secondary">
+                      Titular e projetista ainda não escreveram.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            </div>
+            <div className="mt-2 h-7">
+              <ProjetosChatWaveform mode={waveformMode} />
             </div>
           </div>
-          <div className="mt-2 h-7">
-            <ProjetosChatWaveform mode={waveformMode} />
-          </div>
-        </div>
-      </article>
+        </article>
+      )}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="flex h-full w-full flex-col border-gold/20 bg-[#120c09] p-0 sm:max-w-3xl">

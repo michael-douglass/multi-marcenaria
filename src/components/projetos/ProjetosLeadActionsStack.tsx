@@ -70,6 +70,9 @@ function ActionsAura({ className }: { className?: string }) {
     const host = hostRef.current
     if (!host) return
 
+    // No celular o CSS do cartão basta — economiza um contexto WebGL.
+    if (window.matchMedia('(max-width: 767px)').matches) return
+
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const renderer = tryCreateWebGLRenderer(
       () =>
@@ -105,6 +108,7 @@ function ActionsAura({ className }: { className?: string }) {
     const clock = new THREE.Clock()
     let frame = 0
     let running = true
+    let visible = true
 
     const resize = () => {
       const w = Math.max(host.clientWidth, 1)
@@ -116,18 +120,33 @@ function ActionsAura({ className }: { className?: string }) {
     ro.observe(host)
     resize()
 
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry?.isIntersecting !== false
+      },
+      { threshold: 0.05 },
+    )
+    io.observe(host)
+
     const draw = () => {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
+      if (!visible) return
       material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
       renderer.render(scene, camera)
     }
-    draw()
+
+    if (prefersReduced) {
+      renderer.render(scene, camera)
+    } else {
+      draw()
+    }
 
     return () => {
       running = false
       cancelAnimationFrame(frame)
       ro.disconnect()
+      io.disconnect()
       material.dispose()
       mesh.geometry.dispose()
       renderer.dispose()
@@ -152,8 +171,9 @@ export function ProjetosLeadActionsStack({
   return (
     <div
       className={cn(
-        'relative isolate w-[min(100%,11.5rem)] overflow-hidden rounded-2xl border border-[#c9a35a]/35',
+        'relative isolate min-w-0 w-full overflow-hidden rounded-2xl border border-[#c9a35a]/35',
         'bg-[#fff8ee]/80 shadow-[0_14px_28px_rgba(42,24,18,0.08)] backdrop-blur-md',
+        'md:w-[min(100%,11.5rem)]',
         className,
       )}
     >
@@ -163,13 +183,15 @@ export function ProjetosLeadActionsStack({
         aria-hidden
       />
 
-      <div className="relative z-10 flex flex-col gap-2 p-2.5">
-        <p className="px-1 font-display text-[10px] tracking-[0.28em] text-[#8d5e22]">LEAD</p>
+      <div className="relative z-10 flex flex-row gap-2 p-2.5 md:flex-col">
+        <p className="hidden px-1 font-display text-[10px] tracking-[0.28em] text-[#8d5e22] md:block">
+          LEAD
+        </p>
 
         <Button
           type="button"
           size="sm"
-          className="h-auto w-full flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-gold px-3 py-2 text-left text-[#1a120e] shadow-sm hover:bg-gold/90"
+          className="h-auto min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-gold px-3 py-2 text-left text-[#1a120e] shadow-sm hover:bg-gold/90"
           onClick={onAdicionar}
         >
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
@@ -184,7 +206,7 @@ export function ProjetosLeadActionsStack({
         <Button
           type="button"
           size="sm"
-          className="h-auto w-full flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-[#2a7d6a] px-3 py-2 text-left text-white shadow-sm hover:bg-[#236b5b]"
+          className="h-auto min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-[#2a7d6a] px-3 py-2 text-left text-white shadow-sm hover:bg-[#236b5b]"
           onClick={onPuxar}
         >
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">

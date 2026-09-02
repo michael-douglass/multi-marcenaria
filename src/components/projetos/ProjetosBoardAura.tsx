@@ -60,7 +60,10 @@ function makeLinenTexture() {
   return texture
 }
 
-/** Véu de linho só na área do quadro — as colunas sentam em cima da página. */
+/**
+ * Véu de linho só na primeira tela — nunca cresce com o scroll do quadro
+ * (no celular um canvas de milhares de px derruba a página).
+ */
 export function ProjetosBoardAura({ className }: { className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null)
 
@@ -69,6 +72,7 @@ export function ProjetosBoardAura({ className }: { className?: string }) {
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isPhone = window.matchMedia('(max-width: 767px)').matches
     const renderer = tryCreateWebGLRenderer(
       () =>
         new THREE.WebGLRenderer({
@@ -126,29 +130,49 @@ export function ProjetosBoardAura({ className }: { className?: string }) {
     const clock = new THREE.Clock()
     let frame = 0
     let running = true
+    let visible = true
 
     const resize = () => {
       const w = Math.max(host.clientWidth, 1)
-      const h = Math.max(host.clientHeight, 1)
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35))
+      // Trava na altura da janela — o host já é 100svh, mas reforçamos.
+      const h = Math.min(Math.max(host.clientHeight, 1), Math.round(window.innerHeight) || 1)
+      const cap = isPhone ? 1.1 : 1.35
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap))
       renderer.setSize(w, h, false)
     }
     const ro = new ResizeObserver(resize)
     ro.observe(host)
     resize()
 
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry?.isIntersecting !== false
+      },
+      { threshold: 0.05 },
+    )
+    io.observe(host)
+
     const draw = () => {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
+      if (!visible) return
       material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
       renderer.render(scene, camera)
     }
-    draw()
+
+    if (prefersReduced) {
+      renderer.render(scene, camera)
+    } else {
+      draw()
+    }
 
     return () => {
       running = false
       cancelAnimationFrame(frame)
       ro.disconnect()
+      io.disconnect()
+      const brand = material.uniforms.uBrand.value as THREE.Texture
+      if (brand && brand !== fallback) brand.dispose()
       linen.dispose()
       fallback.dispose()
       material.dispose()
@@ -161,7 +185,10 @@ export function ProjetosBoardAura({ className }: { className?: string }) {
   return (
     <div
       ref={hostRef}
-      className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}
+      className={cn(
+        'pointer-events-none absolute inset-x-0 top-0 z-0 h-[100svh] max-h-full overflow-hidden',
+        className,
+      )}
       aria-hidden
     />
   )

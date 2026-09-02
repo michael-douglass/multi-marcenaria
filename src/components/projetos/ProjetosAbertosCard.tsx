@@ -43,33 +43,34 @@ export function ProjetosAbertosCard({ fila, visitas, desenho, feitos }: Projetos
     uniforms: () => ({
       uProgress: { value: progress } as THREE.IUniform,
     }),
-    pixelRatioMax: 1.75,
+    pixelRatioMax: 1.5,
+    pauseWhenHidden: true,
   })
 
   return (
     <article
       className={cn(
-        'relative overflow-hidden rounded-[1.7rem] p-[3px] md:max-w-[20.5rem]',
+        'relative min-w-0 overflow-hidden rounded-[1.7rem] p-[3px] md:max-w-[20.5rem]',
         'bg-gradient-to-br from-sky-400/70 via-[#120c09] to-gold/70',
         'transition-transform duration-700 hover:-translate-y-0.5',
       )}
     >
-      <div className="relative flex items-center gap-3 rounded-[1.55rem] bg-[#fffcf8] px-4 py-3">
+      <div className="relative flex items-center gap-3 rounded-[1.55rem] bg-[#fffcf8] px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="min-w-0 flex-1">
           <p className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">ABERTOS</p>
           <p
-            className="font-display text-[2.75rem] leading-none text-gold"
+            className="font-display text-[2.35rem] leading-none text-gold sm:text-[2.75rem]"
             style={{ textShadow: '0 0 18px rgba(242,216,146,0.45)' }}
           >
             {abertos}
           </p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] sm:mt-2">
             <span className="text-amber-800">Fila {fila}</span>
             <span className="text-teal-800">Visitas {visitas}</span>
             <span className="text-sky-800">Desenho {desenho}</span>
           </div>
         </div>
-        <div ref={hostRef} className="h-24 w-24 shrink-0" aria-hidden />
+        <div ref={hostRef} className="h-16 w-16 shrink-0 sm:h-24 sm:w-24" aria-hidden />
       </div>
     </article>
   )

@@ -29,12 +29,19 @@ export function ProjetoClaimedAura({ className }: { className?: string }) {
     fragment: FRAGMENT,
     uniforms: () => ({}),
     pauseWhenHidden: true,
+    // Um canvas por card “em desenho” estoura o limite de WebGL no celular.
+    skipOnPhone: true,
   })
 
   return (
     <div
       ref={hostRef}
-      className={cn('pointer-events-none h-9 w-9 shrink-0', className)}
+      className={cn(
+        'pointer-events-none relative h-9 w-9 shrink-0 overflow-hidden rounded-full',
+        'bg-[radial-gradient(circle_at_50%_45%,rgba(242,216,146,0.55),rgba(125,211,252,0.15)_55%,transparent_72%)]',
+        'ring-1 ring-[#f2d892]/50',
+        className,
+      )}
       aria-hidden
     />
   )

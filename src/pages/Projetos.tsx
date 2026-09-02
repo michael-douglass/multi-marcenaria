@@ -190,17 +190,38 @@ export default function Projetos() {
   const error = stagesError ?? projetosError
 
   return (
-    <div className="relative">
+    <div className="relative isolate min-w-0">
       <ProjetosBoardAura />
 
-      <header className="sticky top-0 z-20 -mx-1 mb-1 flex flex-col gap-3 bg-gradient-to-b from-[#f8f4ee] from-75% to-transparent px-1 pb-5 pt-2 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0 max-w-md space-y-3">
-          <div>
-            <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
-            <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
-            <p className="mt-1 max-w-md text-xs text-[#6b5244]">
-              Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
-            </p>
+      {/*
+        No celular o sticky antigo engolia a tela inteira (título+medidor+rádio+botões)
+        e o quadro nunca aparecia. Sticky só na faixa útil; o resto rola.
+      */}
+      <header className="relative z-20 -mx-1 mb-3 space-y-3 px-1 pt-2 md:sticky md:top-0 md:mb-1 md:bg-gradient-to-b md:from-[#f8f4ee] md:from-75% md:to-transparent md:pb-5">
+        <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-gradient-to-b from-[#f8f4ee] from-80% to-transparent px-1 pb-3 md:static md:mx-0 md:bg-none md:p-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
+              <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
+              <p className="mt-1 hidden max-w-md text-xs text-[#6b5244] sm:block">
+                Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5 md:hidden">
+              <KanbanPageZoomControls variant="inline" />
+              {canConfig ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 border-[#8d5e22]/40 px-2 text-[#8d5e22]"
+                  onClick={() => setColunasOpen(true)}
+                  aria-label="Colunas"
+                >
+                  <Columns3 className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
           </div>
           <ProjetosLeadSearch
             projetos={projetos}
@@ -208,31 +229,36 @@ export default function Projetos() {
             onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
           />
         </div>
-        <ProjetosAbertosCard
-          fila={counts.fila}
-          visitas={counts.visitas}
-          desenho={counts.desenho}
-          feitos={counts.feitos}
-        />
-        <ProjetosChatPreview onOpenLead={openLead} />
-        <div className="flex flex-wrap items-start gap-2">
-          <KanbanPageZoomControls variant="inline" />
-          <ProjetosLeadActionsStack
-            onAdicionar={() => setNovoOpen(true)}
-            onPuxar={() => setAdicionarOpen(true)}
+
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 md:flex md:flex-row md:items-start md:justify-between">
+          <ProjetosAbertosCard
+            fila={counts.fila}
+            visitas={counts.visitas}
+            desenho={counts.desenho}
+            feitos={counts.feitos}
           />
-          {canConfig ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5 border-[#8d5e22]/40 text-[#8d5e22]"
-              onClick={() => setColunasOpen(true)}
-            >
-              <Columns3 className="h-4 w-4" />
-              Colunas
-            </Button>
-          ) : null}
+          <ProjetosChatPreview onOpenLead={openLead} />
+          <div className="flex min-w-0 flex-wrap items-stretch gap-2 sm:col-span-2 md:col-span-1 md:items-start">
+            <div className="hidden md:block">
+              <KanbanPageZoomControls variant="inline" />
+            </div>
+            <ProjetosLeadActionsStack
+              onAdicionar={() => setNovoOpen(true)}
+              onPuxar={() => setAdicionarOpen(true)}
+            />
+            {canConfig ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="hidden gap-1.5 border-[#8d5e22]/40 text-[#8d5e22] md:inline-flex"
+                onClick={() => setColunasOpen(true)}
+              >
+                <Columns3 className="h-4 w-4" />
+                Colunas
+              </Button>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -263,7 +289,7 @@ export default function Projetos() {
             <div className="relative flex h-auto w-full min-w-0 flex-col overflow-visible pb-8">
               <div
                 ref={scrollRef}
-                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(72vh,calc(100svh-14rem))] min-w-0 items-stretch gap-4 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 md:gap-5"
+                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(58vh,calc(100svh-16rem))] min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 touch-pan-x md:min-h-[min(72vh,calc(100svh-14rem))] md:gap-5"
               >
                 {columns.map(({ stage, items }) => (
                   <ProjetoKanbanColumn
