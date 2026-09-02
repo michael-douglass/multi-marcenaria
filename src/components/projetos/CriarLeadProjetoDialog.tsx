@@ -37,7 +37,7 @@ export function CriarLeadProjetoDialog({ open, onOpenChange, onCreated }: CriarL
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-gold/20 bg-[#120c09]">
         <DialogHeader>
-          <DialogTitle className="font-display text-gold">Novo lead no ateliê</DialogTitle>
+          <DialogTitle className="font-display text-gold">Adicionar lead</DialogTitle>
           <DialogDescription>
             Cria o cadastro comercial e já coloca na fila. Sem recado — o time pega depois.
           </DialogDescription>

@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { Columns3, Plus } from 'lucide-react'
+import { Columns3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -34,6 +34,7 @@ import { ProjetoKanbanColumn } from '@/components/projetos/ProjetoKanbanColumn'
 import { ProjetoKanbanCard } from '@/components/projetos/ProjetoKanbanCard'
 import { CriarLeadProjetoDialog } from '@/components/projetos/CriarLeadProjetoDialog'
 import { AdicionarLeadProjetoDialog } from '@/components/projetos/AdicionarLeadProjetoDialog'
+import { ProjetosLeadActionsStack } from '@/components/projetos/ProjetosLeadActionsStack'
 import { ProjetoStagesConfigDialog } from '@/components/projetos/ProjetoStagesConfigDialog'
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/EmptyState'
 import {
@@ -214,26 +215,12 @@ export default function Projetos() {
           feitos={counts.feitos}
         />
         <ProjetosChatPreview onOpenLead={openLead} />
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <KanbanPageZoomControls variant="inline" />
-          <Button
-            type="button"
-            size="sm"
-            className="gap-1.5 bg-[#2a7d6a] text-white hover:bg-[#236b5b]"
-            onClick={() => setAdicionarOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar lead
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="gap-1.5 bg-gold text-[#1a120e] hover:bg-gold/90"
-            onClick={() => setNovoOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Novo lead
-          </Button>
+          <ProjetosLeadActionsStack
+            onAdicionar={() => setNovoOpen(true)}
+            onPuxar={() => setAdicionarOpen(true)}
+          />
           {canConfig ? (
             <Button
               type="button"

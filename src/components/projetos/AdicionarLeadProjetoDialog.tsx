@@ -95,10 +95,10 @@ export function AdicionarLeadProjetoDialog({
           <DialogHeader className="shrink-0 space-y-2 text-left">
             <p className="font-display text-[10px] tracking-[0.28em] text-[#8d5e22]">ATELIÊ</p>
             <DialogTitle className="font-display text-2xl text-[#2a1812]">
-              Adicionar lead
+              Puxar lead
             </DialogTitle>
             <DialogDescription className="text-[#6b5244]">
-              Busque no kanban comercial e puxe para a coluna que você escolher.
+              Busque um lead que já existe e escolha a coluna do ateliê.
             </DialogDescription>
           </DialogHeader>
 
