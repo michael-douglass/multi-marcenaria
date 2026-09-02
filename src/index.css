@@ -3211,6 +3211,44 @@ body::before {
     }
   }
 
+  /* Lembrete admin: saldo do mês desce do canto superior direito */
+  .saldo-mes-insight-enter {
+    animation: saldoMesInsightEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .saldo-mes-insight-exit {
+    animation: saldoMesInsightExit 0.28s ease-in both;
+  }
+
+  @keyframes saldoMesInsightEnter {
+    from {
+      opacity: 0;
+      transform: translate3d(12%, -120%, 0) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes saldoMesInsightExit {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(8%, -40%, 0) scale(0.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .saldo-mes-insight-enter,
+    .saldo-mes-insight-exit {
+      animation: none;
+    }
+  }
+
   /* ── Modal / popup de cadastro ── */
   .modal-overlay {
     position: fixed;

@@ -9,7 +9,7 @@ import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
 import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
 import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
-import { isVisualizadorOnly } from '@/lib/role-access'
+import { isVisualizadorOnly, isAdministrador } from '@/lib/role-access'
 import { hasObrasAdminSectionsAccess } from '@/lib/obra-permissions'
 import { cn } from '@/lib/utils'
 import { canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
@@ -19,6 +19,7 @@ import { AppPaperAura } from '@/components/layout/AppPaperAura'
 import { CrmSelletosDock } from '@/components/crm/CrmSelletosDock'
 import { useKanbanRealtimeSync } from '@/hooks/useKanbanRealtimeSync'
 import { useUiPreferences } from '@/hooks/useUiPreferences'
+import { SaldoMesInsightHost } from '@/components/dashboard/SaldoMesInsightHost'
 
 function FloatingNavButton({
   label,
@@ -117,6 +118,7 @@ export function MainLayout() {
   }
   const hideAgenda = isVisualizadorOnly(roles)
   const showMetricasFab = hasObrasAdminSectionsAccess(roles)
+  const showSaldoMesInsight = isAdministrador(roles)
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
   const hideFabsOnPonto = isPontoLightPath(location.pathname)
   const isCrmArea = isCrmAppPath(location.pathname)
@@ -179,6 +181,12 @@ export function MainLayout() {
           <CrmSelletosDock />
         </AppErrorBoundary>
       )}
+
+      {showSaldoMesInsight && !hideFabsOnPonto ? (
+        <AppErrorBoundary>
+          <SaldoMesInsightHost />
+        </AppErrorBoundary>
+      ) : null}
 
       {!hideFactoryFabs && (!hideAgenda || showMetricasFab) && (
         <>

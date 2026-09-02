@@ -1,0 +1,273 @@
+import { useEffect, useId, useState, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { Settings2, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { SaldoMesInsightAura } from '@/components/dashboard/SaldoMesInsightAura'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  type SaldoMesInsightConfig,
+  type SaldoMesInsightMessage,
+  minutesToMs,
+  msToMinutes,
+  msToSeconds,
+  secondsToMs,
+} from '@/lib/saldo-mes-insight'
+import { cn, fmtCur } from '@/lib/utils'
+
+interface SaldoMesInsightCardProps {
+  message: SaldoMesInsightMessage
+  config: SaldoMesInsightConfig
+  visible: boolean
+  exiting?: boolean
+  onDismiss: () => void
+  onSaveConfig: (next: SaldoMesInsightConfig) => void
+  /** Quando true, o timer de sumir pausa (ex.: painel de ajustes aberto). */
+  onHoldChange?: (holding: boolean) => void
+}
+
+const TONE_STYLES: Record<
+  SaldoMesInsightMessage['tone'],
+  { bar: string; chip: string; value: string }
+> = {
+  sucesso: {
+    bar: 'linear-gradient(180deg, #059669 0%, rgba(5,150,105,0.12) 100%)',
+    chip: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800',
+    value: 'text-emerald-700',
+  },
+  quase: {
+    bar: 'linear-gradient(180deg, #c4963a 0%, rgba(196,150,58,0.12) 100%)',
+    chip: 'border-[rgba(196,150,58,0.35)] bg-[rgba(196,150,58,0.12)] text-[#8d5e22]',
+    value: 'text-[#8d5e22]',
+  },
+  falta: {
+    bar: 'linear-gradient(180deg, #c2410c 0%, rgba(194,65,12,0.12) 100%)',
+    chip: 'border-orange-400/30 bg-orange-500/10 text-orange-900',
+    value: 'text-orange-800',
+  },
+  alerta: {
+    bar: 'linear-gradient(180deg, #dc2626 0%, rgba(220,38,38,0.12) 100%)',
+    chip: 'border-red-400/30 bg-red-500/10 text-red-700',
+    value: 'text-red-700',
+  },
+}
+
+export function SaldoMesInsightCard({
+  message,
+  config,
+  visible,
+  exiting = false,
+  onDismiss,
+  onSaveConfig,
+  onHoldChange,
+}: SaldoMesInsightCardProps) {
+  const navigate = useNavigate()
+  const titleId = useId()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [intervalMin, setIntervalMin] = useState(msToMinutes(config.intervalMs))
+  const [durationSec, setDurationSec] = useState(msToSeconds(config.durationMs))
+  const [enabled, setEnabled] = useState(config.enabled)
+
+  useEffect(() => {
+    setIntervalMin(msToMinutes(config.intervalMs))
+    setDurationSec(msToSeconds(config.durationMs))
+    setEnabled(config.enabled)
+  }, [config.durationMs, config.enabled, config.intervalMs])
+
+  useEffect(() => {
+    onHoldChange?.(settingsOpen)
+    return () => onHoldChange?.(false)
+  }, [onHoldChange, settingsOpen])
+
+  if (!visible || typeof document === 'undefined') return null
+
+  const tone = TONE_STYLES[message.tone]
+
+  const goDashboard = () => {
+    onDismiss()
+    navigate('/dashboard')
+  }
+
+  const stop = (e: MouseEvent) => {
+    e.stopPropagation()
+  }
+
+  const saveSettings = (e: MouseEvent) => {
+    e.stopPropagation()
+    onSaveConfig({
+      intervalMs: minutesToMs(intervalMin),
+      durationMs: secondsToMs(durationSec),
+      enabled,
+    })
+    setSettingsOpen(false)
+  }
+
+  return createPortal(
+    <aside
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={titleId}
+      className={cn(
+        'saldo-mes-insight fixed z-[220]',
+        'right-3 top-3 sm:right-5 sm:top-4',
+        'w-[min(100vw-1.5rem,22rem)]',
+        exiting ? 'saldo-mes-insight-exit' : 'saldo-mes-insight-enter',
+      )}
+    >
+      <article
+        role="link"
+        tabIndex={0}
+        onClick={goDashboard}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            goDashboard()
+          }
+        }}
+        className={cn(
+          'group relative cursor-pointer overflow-hidden rounded-xl border border-[rgba(42,24,18,0.12)]',
+          'bg-[#fffcf8] text-[#2a1812] shadow-[0_18px_48px_rgba(42,24,18,0.16)]',
+          'outline-none transition-[box-shadow,transform] duration-300',
+          'hover:shadow-[0_22px_56px_rgba(42,24,18,0.2)]',
+          'focus-visible:ring-2 focus-visible:ring-[#c4963a]/60 focus-visible:ring-offset-2',
+        )}
+      >
+        <SaldoMesInsightAura tone={message.tone} />
+        <div
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-[3px]"
+          style={{ background: tone.bar }}
+        />
+
+        <div className="relative flex items-start justify-between gap-2 px-4 pb-1 pt-3">
+          <span
+            className={cn(
+              'inline-flex rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em]',
+              tone.chip,
+            )}
+          >
+            Saldo do mês
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded-md',
+                'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
+                'transition-colors hover:bg-[rgba(42,24,18,0.08)]',
+              )}
+              aria-label="Configurar lembrete de saldo"
+              aria-expanded={settingsOpen}
+              onClick={e => {
+                stop(e)
+                setSettingsOpen(open => !open)
+              }}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded-md',
+                'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
+                'transition-colors hover:border-red-300/50 hover:bg-red-500/10 hover:text-red-700',
+              )}
+              aria-label="Fechar lembrete de saldo"
+              onClick={e => {
+                stop(e)
+                onDismiss()
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative space-y-2 px-4 pb-4 pt-1">
+          <h2 id={titleId} className="font-display text-[1.35rem] leading-tight tracking-[0.03em]">
+            {message.headline}
+          </h2>
+
+          {message.valorDestaque != null ? (
+            <p
+              className={cn(
+                'font-display text-[1.85rem] leading-none tracking-[0.03em] tabular-nums',
+                tone.value,
+              )}
+              aria-label={
+                message.tone === 'sucesso'
+                  ? `Previsão de faturamento ${fmtCur(message.valorDestaque)}`
+                  : `Falta ${fmtCur(message.valorDestaque)} para fechar o mês`
+              }
+            >
+              {fmtCur(message.valorDestaque)}
+            </p>
+          ) : null}
+
+          <p className="text-sm leading-snug text-[#6b5244]">{message.detail}</p>
+
+          <p className="pt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a7060]">
+            Toque para abrir o dashboard
+          </p>
+
+          {settingsOpen ? (
+            <div
+              className="mt-2 space-y-3 rounded-lg border border-[rgba(42,24,18,0.10)] bg-[rgba(42,24,18,0.03)] p-3"
+              onClick={stop}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6b5244]">
+                Frequência do lembrete
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="saldo-insight-interval" className="text-[10px] text-[#6b5244]">
+                    A cada (min)
+                  </Label>
+                  <Input
+                    id="saldo-insight-interval"
+                    type="number"
+                    min={1}
+                    max={60}
+                    step={1}
+                    value={intervalMin}
+                    onChange={e => setIntervalMin(Number(e.target.value) || 1)}
+                    className="h-8 bg-[#fffcf8]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="saldo-insight-duration" className="text-[10px] text-[#6b5244]">
+                    Fica (seg)
+                  </Label>
+                  <Input
+                    id="saldo-insight-duration"
+                    type="number"
+                    min={2}
+                    max={60}
+                    step={1}
+                    value={durationSec}
+                    onChange={e => setDurationSec(Number(e.target.value) || 2)}
+                    className="h-8 bg-[#fffcf8]"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-[#6b5244]">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={e => setEnabled(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-[rgba(42,24,18,0.25)]"
+                />
+                Mostrar lembrete automaticamente
+              </label>
+              <Button type="button" size="sm" className="w-full" onClick={saveSettings}>
+                Salvar ajustes
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </article>
+    </aside>,
+    document.body,
+  )
+}
