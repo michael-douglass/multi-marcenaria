@@ -61,7 +61,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
 
   return (
     <div ref={wrapRef} className="relative max-w-md">
-      <div className="mb-1.5 flex gap-1 text-[11px]">
+      <div className="mb-1 flex gap-1 text-[10px]">
         <button
           type="button"
           className={cn(
@@ -84,12 +84,12 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
         </button>
       </div>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a7060]" />
+        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a7060]" />
         <Input
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={escopo === 'quadro' ? 'Buscar neste quadro' : 'Buscar todos os leads'}
-          className="border-[rgba(42,24,18,0.16)] bg-[#fffcf8] pl-9 text-[#2a1812] shadow-[0_10px_24px_rgba(42,24,18,0.08)] placeholder:text-[#8a7060]"
+          className="h-9 border-[rgba(42,24,18,0.16)] bg-[#fffcf8] pl-9 text-sm text-[#2a1812] shadow-[0_8px_18px_rgba(42,24,18,0.06)] placeholder:text-[#8a7060]"
         />
         {isFetching ? (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#8a7060]">…</span>

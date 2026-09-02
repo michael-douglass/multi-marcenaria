@@ -9,6 +9,7 @@ interface ProjetosLeadActionsStackProps {
   onAdicionar: () => void
   onPuxar: () => void
   className?: string
+  compact?: boolean
 }
 
 const VERTEX = `
@@ -167,55 +168,79 @@ export function ProjetosLeadActionsStack({
   onAdicionar,
   onPuxar,
   className,
+  compact = false,
 }: ProjetosLeadActionsStackProps) {
   return (
     <div
       className={cn(
-        'relative isolate min-w-0 w-full overflow-hidden rounded-2xl border border-[#c9a35a]/35',
+        'relative isolate min-w-0 overflow-hidden border border-[#c9a35a]/35',
         'bg-[#fff8ee]/80 shadow-[0_14px_28px_rgba(42,24,18,0.08)] backdrop-blur-md',
-        'md:w-[min(100%,11.5rem)]',
+        compact
+          ? 'w-full rounded-xl md:w-auto md:min-w-[10.5rem]'
+          : 'w-full rounded-2xl md:w-[min(100%,11.5rem)]',
         className,
       )}
     >
-      <ActionsAura />
+      {!compact ? <ActionsAura /> : null}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:repeating-linear-gradient(0deg,transparent,transparent_10px,#2a1812_11px)]"
         aria-hidden
       />
 
-      <div className="relative z-10 flex flex-row gap-2 p-2.5 md:flex-col">
-        <p className="hidden px-1 font-display text-[10px] tracking-[0.28em] text-[#8d5e22] md:block">
-          LEAD
-        </p>
+      <div
+        className={cn(
+          'relative z-10 flex flex-row gap-2',
+          compact ? 'p-1.5' : 'p-2.5 md:flex-col',
+        )}
+      >
+        {!compact ? (
+          <p className="hidden px-1 font-display text-[10px] tracking-[0.28em] text-[#8d5e22] md:block">
+            LEAD
+          </p>
+        ) : null}
 
         <Button
           type="button"
           size="sm"
-          className="h-auto min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-gold px-3 py-2 text-left text-[#1a120e] shadow-sm hover:bg-gold/90"
+          className={cn(
+            'min-w-0 flex-1 whitespace-normal rounded-xl bg-gold text-left text-[#1a120e] shadow-sm hover:bg-gold/90',
+            compact
+              ? 'h-9 flex-row items-center gap-1.5 px-2.5 py-0 text-xs font-medium'
+              : 'h-auto flex-col items-stretch justify-start gap-0.5 px-3 py-2',
+          )}
           onClick={onAdicionar}
         >
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-            <Plus className="h-4 w-4 shrink-0" aria-hidden />
-            Adicionar lead
+            <Plus className={cn('shrink-0', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} aria-hidden />
+            {compact ? 'Adicionar' : 'Adicionar lead'}
           </span>
-          <span className="pl-5 text-[10px] font-normal leading-tight text-[#1a120e]/75">
-            Cria um cadastro novo na fila
-          </span>
+          {!compact ? (
+            <span className="pl-5 text-[10px] font-normal leading-tight text-[#1a120e]/75">
+              Cria um cadastro novo na fila
+            </span>
+          ) : null}
         </Button>
 
         <Button
           type="button"
           size="sm"
-          className="h-auto min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-xl bg-[#2a7d6a] px-3 py-2 text-left text-white shadow-sm hover:bg-[#236b5b]"
+          className={cn(
+            'min-w-0 flex-1 whitespace-normal rounded-xl bg-[#2a7d6a] text-left text-white shadow-sm hover:bg-[#236b5b]',
+            compact
+              ? 'h-9 flex-row items-center gap-1.5 px-2.5 py-0 text-xs font-medium'
+              : 'h-auto flex-col items-stretch justify-start gap-0.5 px-3 py-2',
+          )}
           onClick={onPuxar}
         >
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-            <ArrowDownToLine className="h-4 w-4 shrink-0" aria-hidden />
-            Puxar lead
+            <ArrowDownToLine className={cn('shrink-0', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} aria-hidden />
+            {compact ? 'Puxar' : 'Puxar lead'}
           </span>
-          <span className="pl-5 text-[10px] font-normal leading-tight text-white/80">
-            Busca um lead que já existe
-          </span>
+          {!compact ? (
+            <span className="pl-5 text-[10px] font-normal leading-tight text-white/80">
+              Busca um lead que já existe
+            </span>
+          ) : null}
         </Button>
       </div>
     </div>

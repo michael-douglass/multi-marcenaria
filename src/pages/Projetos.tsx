@@ -257,27 +257,24 @@ export default function Projetos() {
       <ProjetosBoardAura />
 
       {/*
-        No celular o sticky antigo engolia a tela inteira (título+medidor+rádio+botões)
-        e o quadro nunca aparecia. Sticky só na faixa útil; o resto rola.
+        Sticky só na faixa útil (título + busca). Medidor/rádio ficam compactos
+        e rolam embora — assim as colunas ganham altura de verdade.
       */}
-      <header className="relative z-20 -mx-1 mb-3 space-y-3 px-1 pt-2 md:sticky md:top-0 md:mb-1 md:bg-gradient-to-b md:from-[#f8f4ee] md:from-75% md:to-transparent md:pb-5">
-        <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-gradient-to-b from-[#f8f4ee] from-80% to-transparent px-1 pb-3 md:static md:mx-0 md:bg-none md:p-0">
-          <div className="flex items-start justify-between gap-2">
+      <header className="relative z-20 -mx-1 mb-2 space-y-2 px-1 pt-1.5 md:sticky md:top-0 md:mb-1 md:bg-gradient-to-b md:from-[#f8f4ee] md:from-80% md:to-transparent md:pb-3">
+        <div className="sticky top-0 z-20 -mx-1 space-y-1.5 bg-gradient-to-b from-[#f8f4ee] from-85% to-transparent px-1 pb-2 md:static md:mx-0 md:bg-none md:p-0">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="font-display text-[11px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
-              <h1 className="font-display text-2xl text-[#2a1812] md:text-3xl">Projetos</h1>
-              <p className="mt-1 hidden max-w-md text-xs text-[#6b5244] sm:block">
-                Todos os projetistas veem o mesmo quadro. Puxar o lead marca o card na Pipeline.
-              </p>
+              <p className="font-display text-[9px] tracking-[0.28em] text-[#8d5e22]">SETOR</p>
+              <h1 className="font-display text-xl leading-tight text-[#2a1812] md:text-2xl">Projetos</h1>
             </div>
-            <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5 md:hidden">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 md:hidden">
               <KanbanPageZoomControls variant="inline" />
               {canConfig ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-9 gap-1 border-[#8d5e22]/40 px-2 text-[#8d5e22]"
+                  className="h-8 gap-1 border-[#8d5e22]/40 px-2 text-[#8d5e22]"
                   onClick={() => setColunasOpen(true)}
                   aria-label="Colunas"
                 >
@@ -286,6 +283,7 @@ export default function Projetos() {
               ) : null}
             </div>
           </div>
+
           <ProjetosLeadSearch
             projetos={projetos}
             onOpenLead={openLead}
@@ -293,19 +291,21 @@ export default function Projetos() {
           />
         </div>
 
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 md:flex md:flex-row md:items-start md:justify-between">
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] lg:items-center">
           <ProjetosAbertosCard
+            compact
             fila={counts.fila}
             visitas={counts.visitas}
             desenho={counts.desenho}
             feitos={counts.feitos}
           />
-          <ProjetosChatPreview onOpenLead={openLead} />
-          <div className="flex min-w-0 flex-wrap items-stretch gap-2 sm:col-span-2 md:col-span-1 md:items-start">
+          <ProjetosChatPreview compact onOpenLead={openLead} />
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-1">
             <div className="hidden md:block">
               <KanbanPageZoomControls variant="inline" />
             </div>
             <ProjetosLeadActionsStack
+              compact
               onAdicionar={() => setNovoOpen(true)}
               onPuxar={() => setAdicionarOpen(true)}
             />
@@ -314,7 +314,7 @@ export default function Projetos() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="hidden gap-1.5 border-[#8d5e22]/40 text-[#8d5e22] md:inline-flex"
+                className="hidden h-9 gap-1.5 border-[#8d5e22]/40 text-[#8d5e22] md:inline-flex"
                 onClick={() => setColunasOpen(true)}
               >
                 <Columns3 className="h-4 w-4" />
@@ -342,7 +342,7 @@ export default function Projetos() {
       )}
 
       {!loading && !error && stages.length > 0 && (
-        <KanbanPageZoomShell className="relative z-10 min-h-[min(72vh,calc(100svh-14rem))] overflow-visible">
+        <KanbanPageZoomShell className="relative z-10 min-h-[min(78vh,calc(100svh-10rem))] overflow-visible">
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}
@@ -352,7 +352,7 @@ export default function Projetos() {
             <div className="relative flex h-auto w-full min-w-0 flex-col overflow-visible pb-8">
               <div
                 ref={scrollRef}
-                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(58vh,calc(100svh-16rem))] min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 touch-pan-x touch-pan-y md:min-h-[min(72vh,calc(100svh-14rem))] md:gap-5"
+                className="scrollbar-always-visible relative z-[1] flex h-auto min-h-[min(68vh,calc(100svh-11rem))] min-w-0 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 pb-6 touch-pan-x touch-pan-y md:min-h-[min(78vh,calc(100svh-10rem))] md:gap-5"
               >
                 {columns.map(({ stage, items }) => (
                   <ProjetoKanbanColumn

@@ -48,7 +48,7 @@ export function ProjetoKanbanColumn({
       ref={setNodeRef}
       aria-label={`${stage.nome}, ${count} ${count === 1 ? 'projeto' : 'projetos'}`}
       className={cn(
-        'kanban-dark-island relative z-10 flex h-auto min-h-[min(58vh,calc(100svh-16rem))] flex-none flex-col snap-start rounded-2xl border md:min-h-[min(72vh,calc(100svh-14rem))]',
+        'kanban-dark-island relative z-10 flex h-auto min-h-[min(68vh,calc(100svh-11rem))] flex-none flex-col snap-start rounded-2xl border md:min-h-[min(78vh,calc(100svh-10rem))]',
         KANBAN_COLUMN_WIDTH_CLASS,
         kindShell[kind],
         isOver && 'ring-1 ring-sky-400/40',

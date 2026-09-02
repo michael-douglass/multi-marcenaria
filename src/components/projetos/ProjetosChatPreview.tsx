@@ -21,6 +21,8 @@ import { useIsMobile } from '@/hooks/use-mobile'
 
 interface ProjetosChatPreviewProps {
   onOpenLead: (leadId: number) => void
+  /** Só o resumo (como no celular) — não lista conversas na página. */
+  compact?: boolean
 }
 
 function previewMensagem(thread: LeadProjetoChatThread): string {
@@ -38,7 +40,7 @@ function previewHora(iso: string): string {
   return format(date, 'dd/MM', { locale: ptBR })
 }
 
-export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
+export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosChatPreviewProps) {
   const { user } = useAuth()
   const isMobile = useIsMobile()
   const { data: threads = [] } = useLeadProjetoChatBoard({ realtime: true })
@@ -53,6 +55,7 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
   )
   const waveformMode = pending > 0 ? 'urgent' : threads.length > 0 ? 'active' : 'idle'
   const active = threads.find((thread) => thread.lead_id === activeLeadId) ?? threads[0] ?? null
+  const useStrip = isMobile || compact
 
   const openSheet = (thread?: LeadProjetoChatThread) => {
     setActiveLeadId(thread?.lead_id ?? threads[0]?.lead_id ?? null)
@@ -61,26 +64,33 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
 
   return (
     <>
-      {isMobile ? (
+      {useStrip ? (
         <button
           type="button"
           onClick={() => openSheet()}
           className={cn(
-            'relative w-full overflow-hidden rounded-[1.4rem] p-[3px] text-left',
-            'bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
+            'relative w-full min-w-0 overflow-hidden p-[2px] text-left',
+            compact
+              ? 'rounded-xl bg-gradient-to-br from-sky-400/60 via-[#120c09] to-gold/60'
+              : 'rounded-[1.4rem] bg-gradient-to-br from-sky-400 via-[#120c09] to-gold',
           )}
           aria-label="Abrir rádio do ateliê"
         >
-          <div className="relative flex items-center gap-3 rounded-[1.25rem] bg-[#fffcf8] px-3 py-2.5">
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-400/30 bg-[#120c09]">
-              <Radio className="relative h-4 w-4 text-sky-200" />
+          <div
+            className={cn(
+              'relative flex items-center gap-2.5 bg-[#fffcf8]',
+              compact ? 'rounded-[0.65rem] px-2.5 py-1.5' : 'rounded-[1.25rem] px-3 py-2.5',
+            )}
+          >
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/30 bg-[#120c09]">
+              <Radio className="relative h-3.5 w-3.5 text-sky-200" />
               {pending > 0 ? (
                 <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-sky-400" />
               ) : null}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-1.5">
-                <span className="font-display text-[10px] tracking-[0.28em] text-[#0e7490]">RÁDIO</span>
+                <span className="font-display text-[9px] tracking-[0.28em] text-[#0e7490]">RÁDIO</span>
                 <span className="rounded-full border border-[rgba(42,24,18,0.14)] px-1.5 py-0.5 text-[10px] text-[#8d5e22]">
                   {threads.length} {threads.length === 1 ? 'conversa' : 'conversas'}
                 </span>
@@ -90,7 +100,7 @@ export function ProjetosChatPreview({ onOpenLead }: ProjetosChatPreviewProps) {
                   </span>
                 ) : null}
               </span>
-              <span className="mt-0.5 block truncate text-xs text-[#6b5244]">
+              <span className="mt-0.5 block truncate text-[11px] text-[#6b5244]">
                 {threads[0]
                   ? `${threads[0].lead_nome} — ${previewMensagem(threads[0])}`
                   : 'Titular e projetista ainda não escreveram.'}
