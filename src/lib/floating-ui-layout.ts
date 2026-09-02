@@ -38,7 +38,7 @@ export const floatingPopupBesideIconsClass = `fixed ${FLOATING_ICONS_TOP} right-
 
 /** Altura máxima útil para painéis flutuantes */
 export const floatingPopupMaxHeightStyle = {
-  maxHeight: 'min(600px, calc(100vh - 8.5rem))',
+  maxHeight: 'min(800px, calc(100vh - 8.5rem))', // Aumentado para 800px
 } as const;
 
 /** Popups de lembrete no horário — logo abaixo da faixa de ícones flutuantes (direita) */
