@@ -5,8 +5,8 @@ import {
   LEAD_MODAL_SIZE_STORAGE_KEY,
   applyLeadModalResize,
   clampLeadModalSize,
+  isLeadModalMobileViewport,
   maximizedLeadModalSize,
-  parseLeadModalLayout,
   readInitialLeadModalLayout,
   resolveLeadModalDisplaySize,
   restoredLeadModalSize,
@@ -14,16 +14,23 @@ import {
   type LeadResizeEdge,
 } from '@/lib/lead-modal-size'
 
+/** No celular o card abre maximizado; no computador, tamanho médio (restored). */
+function openingLeadModalLayout(): LeadModalLayout {
+  if (isLeadModalMobileViewport()) {
+    return { ...maximizedLeadModalSize(), mode: 'maximized' }
+  }
+  return { ...restoredLeadModalSize(), mode: 'restored' }
+}
+
 /**
  * Janela do card do lead por usuário.
- * Padrão fixo: tamanho médio (restored). O usuário pode maximizar se quiser.
+ * Desktop: tamanho médio (restored). Celular: maximizado ao abrir.
  * Controles estilo Windows: minimizar, maximizar/restaurar, redimensionar pelas bordas.
  */
 export function useLeadModalSize(open: boolean) {
   const { user } = useAuth()
   const [layout, setLayout] = useState<LeadModalLayout>(() => {
-    // Ao abrir: sempre comece no tamanho médio (restored), para o lead ficar no formato padrão.
-    if (open) return { ...restoredLeadModalSize(), mode: 'restored' }
+    if (open) return openingLeadModalLayout()
     return readInitialLeadModalLayout()
   })
   const [isResizing, setIsResizing] = useState(false)
@@ -90,8 +97,8 @@ export function useLeadModalSize(open: boolean) {
       return
     }
 
-    // Abertura: tamanho fixo restaurado (tamanho médio, com espaço para o layout).
-    const next: LeadModalLayout = { ...restoredLeadModalSize(), mode: 'restored' }
+    // Celular → tela quase cheia; computador → tamanho médio de sempre.
+    const next = openingLeadModalLayout()
     setLayout(next)
     persistLayout(next)
     hydratedRef.current = true
