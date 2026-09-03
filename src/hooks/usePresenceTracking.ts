@@ -32,7 +32,6 @@ export function usePresenceTracking() {
   const sessionIdRef = useRef<string | null>(null);
   const lastHeartbeatRef = useRef<number>(0);
   const accessTokenRef = useRef<string | null>(null);
-  const [showStartService, setShowStartService] = useState(false);
   const [showInactivityCheck, setShowInactivityCheck] = useState(false);
   const inactivityShownAtRef = useRef<number | null>(null);
   const initDoneRef = useRef(false);
@@ -99,48 +98,6 @@ export function usePresenceTracking() {
       sessionIdRef.current = data.id;
       queryClient.invalidateQueries({ queryKey: ['online-users'] });
     }
-  }, [user?.id, queryClient, checkTodaySession]);
-
-  // Start a session (vendedor flow with ponto)
-  const startSession = useCallback(async (endereco?: string, latitude?: number, longitude?: number) => {
-    if (!user?.id) return;
-    
-    // Avoid duplicate session
-    if (sessionIdRef.current) {
-      setShowStartService(false);
-      return;
-    }
-
-    const hasSession = await checkTodaySession();
-    if (hasSession) {
-      setShowStartService(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from(presenceTable)
-      .insert({
-        user_id: user.id,
-        endereco: endereco || null,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-      })
-      .select('id')
-      .single();
-
-    if (!error && data) {
-      sessionIdRef.current = data.id;
-      // Register ponto only for vendedor
-      await supabase.from(pontoTable).insert({
-        user_id: user.id,
-        tipo: 'entrada',
-        endereco: endereco || null,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-      });
-      queryClient.invalidateQueries({ queryKey: ['online-users'] });
-    }
-    setShowStartService(false);
   }, [user?.id, queryClient, checkTodaySession]);
 
   // Heartbeat
@@ -275,12 +232,7 @@ export function usePresenceTracking() {
       const hasSession = await checkTodaySession();
 
       if (!hasSession) {
-        if (currentIsVendedor) {
-          setShowStartService(true);
-          await createPresenceSession();
-        } else {
-          await createPresenceSession();
-        }
+        await createPresenceSession();
       }
 
       if (currentIsVendedor) {
@@ -343,12 +295,9 @@ export function usePresenceTracking() {
   }, [user?.id, userRole]);
 
   return {
-    showStartService,
     showInactivityCheck,
-    startSession,
     confirmPresence,
     endSession,
-    setShowStartService,
     myActiveSession: sessionIdRef.current,
   };
 }

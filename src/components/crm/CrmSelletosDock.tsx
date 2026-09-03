@@ -9,7 +9,6 @@ import { FloatingMarketingCalendarPopup } from '@/components/layout/FloatingMark
 import { FloatingApprovalIcon } from '@/components/layout/FloatingApprovalIcon'
 import { FloatingPresenceIcon } from '@/components/layout/FloatingPresenceIcon'
 import { PresencePopup } from '@/components/layout/PresencePopup'
-import { StartServiceDialog } from '@/components/layout/StartServiceDialog'
 import { InactivityCheckDialog } from '@/components/layout/InactivityCheckDialog'
 import { MarketingApprovalPopup } from '@/components/marketing-conteudo/MarketingApprovalPopup'
 import { useLeadNotifications } from '@/hooks/useLeadNotifications'
@@ -249,11 +248,6 @@ export function CrmSelletosDock() {
           onlineUsers={onlineUsers}
         />
       )}
-
-      <StartServiceDialog
-        open={presenceTracking.showStartService}
-        onStart={presenceTracking.startSession}
-      />
 
       <InactivityCheckDialog
         open={presenceTracking.showInactivityCheck}
