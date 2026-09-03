@@ -6,8 +6,8 @@ interface PrestadorPortalAtmosphereProps {
 }
 
 /**
- * Atmosfera do portal: ripado de madeira + pontos dourados orbitando a logo
- * (Three.js TextureLoader). Não captura clique — o menu e o texto passam por cima.
+ * Atmosfera do portal: ripado de madeira + globo de pontos dourados (sem logo no centro).
+ * Não captura clique — o menu e o texto passam por cima.
  */
 export function PrestadorPortalAtmosphere({ active = true }: PrestadorPortalAtmosphereProps) {
   return (
@@ -29,6 +29,7 @@ export function PrestadorPortalAtmosphere({ active = true }: PrestadorPortalAtmo
       />
       <GarboPontuaPointsScene
         active={active}
+        showCenterLogo={false}
         className="absolute inset-y-0 right-0 h-full w-full opacity-50 sm:w-[58%] sm:opacity-80"
       />
     </div>

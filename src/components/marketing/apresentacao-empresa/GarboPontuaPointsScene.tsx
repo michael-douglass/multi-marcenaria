@@ -8,13 +8,19 @@ interface GarboPontuaPointsSceneProps {
   className?: string;
   /** Quando false, pausa o loop de animação (economia de CPU fora da tela). */
   active?: boolean;
+  /** Logo Garbo no centro do globo. No portal do prestador fica off — só o núcleo 3D. */
+  showCenterLogo?: boolean;
 }
 
 /**
- * Campo de pontos dourados orbitando a marca — metáfora do programa de pontuação.
- * A logo entra via TextureLoader (Three.js), com cache e fallback se o WebGL falhar.
+ * Campo de pontos dourados orbitando — metáfora do programa de pontuação.
+ * Núcleo em arame com shader Fresnel; logo opcional via TextureLoader.
  */
-export function GarboPontuaPointsScene({ className, active = true }: GarboPontuaPointsSceneProps) {
+export function GarboPontuaPointsScene({
+  className,
+  active = true,
+  showCenterLogo = true,
+}: GarboPontuaPointsSceneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,13 +57,18 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
     const gold = new THREE.Color(GARBO_APRESENTACAO_THEME.gold);
     const wood = new THREE.Color(GARBO_APRESENTACAO_THEME.wood);
 
+    /** Sem logo no centro, o núcleo fica um pouco maior e mais luminoso. */
+    const coreRadius = showCenterLogo ? 0.55 : 0.72;
+    const coreAlpha = showCenterLogo ? 0.42 : 0.52;
+
     const sphereGeo = new THREE.SphereGeometry(0.055, 16, 16);
-    const coreGeo = new THREE.IcosahedronGeometry(0.55, 1);
+    const coreGeo = new THREE.IcosahedronGeometry(coreRadius, 1);
     const coreMat = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
         goldColor: { value: gold },
         woodColor: { value: wood },
+        baseAlpha: { value: coreAlpha },
       },
       transparent: true,
       wireframe: true,
@@ -72,6 +83,7 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
       `,
       fragmentShader: `
         uniform float time;
+        uniform float baseAlpha;
         uniform vec3 goldColor;
         uniform vec3 woodColor;
         varying vec3 vNormal;
@@ -81,43 +93,46 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
           float fresnel = pow(1.0 - max(0.0, dot(viewDirection, vNormal)), 2.6);
           float pulse = 0.55 + 0.45 * sin(time * 1.15);
           vec3 color = mix(woodColor, goldColor, fresnel * pulse);
-          gl_FragColor = vec4(color, 0.42 + fresnel * 0.45);
+          gl_FragColor = vec4(color, baseAlpha + fresnel * 0.45);
         }
       `,
     });
     const core = new THREE.Mesh(coreGeo, coreMat);
     group.add(core);
 
-    THREE.Cache.enabled = true;
-    const manager = new THREE.LoadingManager();
-    const textureLoader = new THREE.TextureLoader(manager);
     let logoTexture: THREE.Texture | null = null;
     let logoSprite: THREE.Sprite | null = null;
 
-    textureLoader.load(
-      GARBO_LOGO_SRC,
-      (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.needsUpdate = true;
-        logoTexture = texture;
-        const spriteMat = new THREE.SpriteMaterial({
-          map: texture,
-          transparent: true,
-          depthWrite: false,
-          opacity: 0.92,
-        });
-        logoSprite = new THREE.Sprite(spriteMat);
-        logoSprite.scale.set(1.35, 1.35, 1);
-        logoSprite.position.set(0, 0.05, 0.15);
-        group.add(logoSprite);
-      },
-      undefined,
-      () => {
-        /* Sem logo o núcleo de arame continua sozinho. */
-      },
-    );
+    if (showCenterLogo) {
+      THREE.Cache.enabled = true;
+      const manager = new THREE.LoadingManager();
+      const textureLoader = new THREE.TextureLoader(manager);
+
+      textureLoader.load(
+        GARBO_LOGO_SRC,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.needsUpdate = true;
+          logoTexture = texture;
+          const spriteMat = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+            opacity: 0.92,
+          });
+          logoSprite = new THREE.Sprite(spriteMat);
+          logoSprite.scale.set(1.35, 1.35, 1);
+          logoSprite.position.set(0, 0.05, 0.15);
+          group.add(logoSprite);
+        },
+        undefined,
+        () => {
+          /* Sem logo o núcleo de arame continua sozinho. */
+        },
+      );
+    }
 
     const ambient = new THREE.AmbientLight(0xfff5e6, 0.55);
     const key = new THREE.PointLight(0xf2d892, 2.2, 18);
@@ -219,7 +234,7 @@ export function GarboPontuaPointsScene({ className, active = true }: GarboPontua
         host.removeChild(renderer.domElement);
       }
     };
-  }, [active]);
+  }, [active, showCenterLogo]);
 
   return (
     <div
