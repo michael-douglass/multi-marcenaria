@@ -23,6 +23,8 @@ import type {
 } from '@/lib/markup-types'
 import { showToast } from '@/lib/toast'
 import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro'
+import { useAuth } from '@/contexts/AuthContext'
+import { podeVerMarkupResumo } from '@/lib/markup-auditor-lucro'
 
 interface MarkupCalculatorSheetProps {
   open: boolean
@@ -58,6 +60,8 @@ export function MarkupCalculatorSheet({
   onClose,
   onSave,
 }: MarkupCalculatorSheetProps) {
+  const { userRole, isSuperAdmin } = useAuth()
+  const podeVerResumo = podeVerMarkupResumo(userRole, isSuperAdmin)
   const [titulo, setTitulo] = useState('')
   const [status, setStatus] = useState('rascunho')
   const [observacoes, setObservacoes] = useState('')
@@ -74,6 +78,10 @@ export function MarkupCalculatorSheet({
     setAba('materiais')
     setBusca('')
   }, [open, orcamento, config])
+
+  useEffect(() => {
+    if (!podeVerResumo && aba === 'resumo') setAba('materiais')
+  }, [podeVerResumo, aba])
 
   const grupos = useMemo(
     () => agrupatProdutosPorCategoria(produtos, categorias, busca),
@@ -158,7 +166,11 @@ export function MarkupCalculatorSheet({
       </FieldRow>
 
       <div className="mb-3 flex flex-wrap gap-2">
-        {(['materiais', 'servicos', 'despesas', 'resumo'] as const).map(item => (
+        {(
+          podeVerResumo
+            ? (['materiais', 'servicos', 'despesas', 'resumo'] as const)
+            : (['materiais', 'servicos', 'despesas'] as const)
+        ).map(item => (
           <button
             key={item}
             type="button"
@@ -298,7 +310,7 @@ export function MarkupCalculatorSheet({
         </div>
       )}
 
-      {aba === 'resumo' && (
+      {podeVerResumo && aba === 'resumo' && (
         <div className="space-y-3">
           <FieldRow>
             <Field label="Sobras %" half>

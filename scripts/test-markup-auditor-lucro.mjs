@@ -133,6 +133,17 @@ describe('Épico 2 — persistência e permissão de admin', () => {
     assert.equal(podeVerAuditorLucro('nenhum', true), true)
   })
 
+  it('aba Resumo da calculadora fica só para administrador', () => {
+    const lib = readSrc('src/lib/markup-auditor-lucro.ts')
+    const sheet = readSrc('src/components/markup/MarkupCalculatorSheet.tsx')
+    const crm = readSrc('src/components/crm/MarkupCalculatorSheet.tsx')
+    assert.match(lib, /export function podeVerMarkupResumo/)
+    assert.match(sheet, /podeVerMarkupResumo\(userRole, isSuperAdmin\)/)
+    assert.match(sheet, /\{podeVerResumo && \(/)
+    assert.match(crm, /podeVerMarkupResumo\(userRole, isSuperAdmin\)/)
+    assert.match(crm, /podeVerResumo && aba === 'resumo'/)
+  })
+
   it('config guarda auditor_lucro_percentual com padrão 400', () => {
     const types = readSrc('src/lib/markup-types.ts')
     const hook = readSrc('src/hooks/useMarkupConfig.ts')

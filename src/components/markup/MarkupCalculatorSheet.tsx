@@ -89,6 +89,8 @@ import { exportarMarkupPdf } from '@/lib/markup-pdf-export';
 import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { podeVerMarkupResumo } from '@/lib/markup-auditor-lucro';
 
 interface MarkupCalculatorSheetProps {
   open: boolean;
@@ -280,6 +282,8 @@ export function MarkupCalculatorSheet({
   onPrecoFinalChange,
   modal = true,
 }: MarkupCalculatorSheetProps) {
+  const { userRole, isSuperAdmin } = useAuth();
+  const podeVerResumo = podeVerMarkupResumo(userRole, isSuperAdmin);
   const { empresa, schemaEmpresa, queriesReady } = useEmpresa();
   const { config, isLoading: loadingConfig } = useMarkupConfig();
   const { config: pipelineAiConfig } = usePipelineLeadAIConfig();
@@ -1318,7 +1322,7 @@ export function MarkupCalculatorSheet({
     );
     setModulos(modulosComMeta);
     setFormDirty(true);
-    setAbaAtiva('resumo');
+    if (podeVerResumo) setAbaAtiva('resumo');
 
     const preco = modulosComMeta.totais.preco_final;
     const itensDespesa = resultado.despesas?.filter((d) => d.ativo).length ?? 0;
@@ -1881,11 +1885,19 @@ export function MarkupCalculatorSheet({
         </SheetHeader>
 
         <Tabs
-          value={abaAtiva}
-          onValueChange={setAbaAtiva}
+          value={abaAtiva === 'resumo' && !podeVerResumo ? 'materiais' : abaAtiva}
+          onValueChange={(value) => {
+            if (value === 'resumo' && !podeVerResumo) return;
+            setAbaAtiva(value);
+          }}
           className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden"
         >
-          <TabsList className="mx-6 mt-3 grid h-auto w-[calc(100%-3rem)] shrink-0 grid-cols-2 gap-1 sm:grid-cols-4">
+          <TabsList
+            className={cn(
+              'mx-6 mt-3 grid h-auto w-[calc(100%-3rem)] shrink-0 grid-cols-2 gap-1',
+              podeVerResumo ? 'sm:grid-cols-4' : 'sm:grid-cols-3',
+            )}
+          >
             <TabsTrigger value="materiais" className="px-2 py-2 text-xs sm:text-sm">
               Materiais
             </TabsTrigger>
@@ -1895,9 +1907,11 @@ export function MarkupCalculatorSheet({
             <TabsTrigger value="despesas" className="px-2 py-2 text-xs sm:text-sm">
               Despesas
             </TabsTrigger>
-            <TabsTrigger value="resumo" className="px-2 py-2 text-xs sm:text-sm">
-              Resumo
-            </TabsTrigger>
+            {podeVerResumo && (
+              <TabsTrigger value="resumo" className="px-2 py-2 text-xs sm:text-sm">
+                Resumo
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="materiais" className={tabPanelMateriais}>
@@ -2224,6 +2238,7 @@ export function MarkupCalculatorSheet({
             </Button>
           </TabsContent>
 
+          {podeVerResumo && (
           <TabsContent value="resumo" className={cn(tabPanelScroll, 'pt-4')}>
               <div className="min-w-0 space-y-4">
             <MarkupIAResumoPanel
@@ -2533,6 +2548,7 @@ export function MarkupCalculatorSheet({
             </div>
               </div>
           </TabsContent>
+          )}
         </Tabs>
 
         <div className="relative z-10 flex shrink-0 items-center gap-3 overflow-visible border-t bg-muted/30 px-6 py-3">

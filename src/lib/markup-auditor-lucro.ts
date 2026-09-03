@@ -29,11 +29,27 @@ export function normalizarPercentualAuditorLucro(valor: unknown): number {
   return arredondar(Math.min(9999, Math.max(1, n)));
 }
 
-export function podeVerAuditorLucro(
+/** Administrador do CRM (ou super admin). */
+export function isMarkupAdmin(
   userRole: string | null | undefined,
   isSuperAdmin = false,
 ): boolean {
   return isSuperAdmin || userRole === 'admin';
+}
+
+export function podeVerAuditorLucro(
+  userRole: string | null | undefined,
+  isSuperAdmin = false,
+): boolean {
+  return isMarkupAdmin(userRole, isSuperAdmin);
+}
+
+/** Aba Resumo da calculadora (parâmetros, margem e detalhe de lucro). */
+export function podeVerMarkupResumo(
+  userRole: string | null | undefined,
+  isSuperAdmin = false,
+): boolean {
+  return isMarkupAdmin(userRole, isSuperAdmin);
 }
 
 export function calcularPrecoIdealAuditor(
