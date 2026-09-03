@@ -14,6 +14,7 @@ interface LeadModalWindowControlsProps {
 
 /**
  * Controles de janela no estilo Windows: minimizar/expandir cabeçalho, maximizar, fechar.
+ * No celular os alvos de toque ficam maiores (≥44px) e acima da camada de redimensionar.
  */
 export function LeadModalWindowControls({
   mode,
@@ -23,8 +24,14 @@ export function LeadModalWindowControls({
   onToggleMaximize,
   onClose,
 }: LeadModalWindowControlsProps) {
-  const btn =
-    'inline-flex h-7 w-9 sm:h-8 sm:w-10 items-center justify-center rounded-sm text-[color:var(--lead-soft)] transition-colors hover:bg-[color:var(--lead-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/40'
+  const btn = cn(
+    'inline-flex items-center justify-center rounded-sm text-[color:var(--lead-soft)] transition-colors',
+    'hover:bg-[color:var(--lead-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--lead-gold)]/40',
+    isMobile ? 'h-11 min-w-[2.75rem] px-2' : 'h-7 w-9 sm:h-8 sm:w-10',
+  )
+
+  const iconClass = isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'
+  const squareClass = isMobile ? 'h-3.5 w-3.5' : 'h-3 w-3'
 
   const minimizeLabel =
     mode === 'minimized' || headerCollapsed
@@ -34,8 +41,7 @@ export function LeadModalWindowControls({
   return (
     <div
       className={cn(
-        'lead-modal-window-controls flex shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)]',
-        isMobile && 'scale-[0.98]',
+        'lead-modal-window-controls relative z-40 flex shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)]',
       )}
       role="toolbar"
       aria-label="Controles da janela do lead"
@@ -53,9 +59,9 @@ export function LeadModalWindowControls({
         onClick={onMinimize}
       >
         {mode === 'minimized' || headerCollapsed ? (
-          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          <ChevronDown className={iconClass} strokeWidth={2.5} aria-hidden />
         ) : (
-          <Minus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          <Minus className={iconClass} strokeWidth={2.5} aria-hidden />
         )}
       </button>
       <button
@@ -66,9 +72,9 @@ export function LeadModalWindowControls({
         onClick={onToggleMaximize}
       >
         {mode === 'maximized' ? (
-          <Copy className="h-3.5 w-3.5 rotate-90" strokeWidth={2.25} aria-hidden />
+          <Copy className={cn(iconClass, 'rotate-90')} strokeWidth={2.25} aria-hidden />
         ) : (
-          <Square className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+          <Square className={squareClass} strokeWidth={2.5} aria-hidden />
         )}
       </button>
       <button
@@ -81,7 +87,7 @@ export function LeadModalWindowControls({
         aria-label="Fechar card do lead"
         onClick={onClose}
       >
-        <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+        <X className={iconClass} strokeWidth={2.25} />
       </button>
     </div>
   )

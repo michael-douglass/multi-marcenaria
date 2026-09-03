@@ -80,6 +80,7 @@ export function FloatingAgendaGeralPopup({
     >
       <div
         {...dragHandleProps}
+        data-floating-agenda-chrome=""
         className={cn(
           'flex items-center gap-1 px-2 py-1.5 border-b bg-muted/20 shrink-0 select-none',
           'cursor-grab active:cursor-grabbing touch-none',

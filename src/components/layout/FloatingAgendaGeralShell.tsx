@@ -38,6 +38,7 @@ export function FloatingAgendaGeralShell({
     <>
       <div
         data-floating-agenda-root
+        data-floating-agenda-icon=""
         className={cn(
           'fixed pointer-events-auto',
           FLOATING_TOP_EDGE,

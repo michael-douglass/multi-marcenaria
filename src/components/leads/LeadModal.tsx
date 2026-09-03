@@ -1453,7 +1453,7 @@ export function LeadModal({
                 'flex items-center justify-between gap-2 px-3 sm:px-5',
                 headerCollapsed || leadWindowMode === 'minimized'
                   ? 'py-1.5 sm:py-2'
-                  : 'py-2 sm:py-2.5',
+                  : 'py-2.5 sm:py-2.5',
               )}
             >
               <div className="min-w-0 flex-1">
@@ -1506,7 +1506,7 @@ export function LeadModal({
               <DialogDescription className="sr-only">
                 {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
               </DialogDescription>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="relative z-40 flex items-center gap-1 shrink-0">
                 {!headerCollapsed && leadId && leadWindowMode !== 'minimized' && (
                   <div className="flex items-center gap-0.5 rounded-md border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-0.5">
                     <LeadLembretesPopover
@@ -1518,7 +1518,8 @@ export function LeadModal({
                         variant="outline"
                         size="icon"
                         className={cn(
-                          'h-7 w-7 sm:h-8 sm:w-8 relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
+                          'relative border-[color:var(--lead-line)] text-[color:var(--lead-gold)] hover:bg-[color:var(--lead-inset)] bg-[color:var(--lead-panel)]',
+                          isMobile ? 'h-11 w-11' : 'h-7 w-7 sm:h-8 sm:w-8',
                           lembretesAbertosCount > 0 && 'ring-2 ring-amber-400/45',
                         )}
                         title={
@@ -1527,7 +1528,7 @@ export function LeadModal({
                             : 'Ver lembretes deste lead'
                         }
                       >
-                        <Bell className="h-3.5 w-3.5" />
+                        <Bell className={isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
                         {lembretesAbertosCount > 0 && (
                           <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center border border-background">
                             {lembretesAbertosCount > 9 ? '9+' : lembretesAbertosCount}
@@ -1541,7 +1542,10 @@ export function LeadModal({
                         isLoading={isDuplicating}
                         disabled={isSubmitting || isDuplicating || !initialized}
                         onClick={() => setShowDuplicateAlert(true)}
-                        className="h-7 w-7 sm:h-8 sm:w-8 border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none"
+                        className={cn(
+                          'border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] text-[color:var(--lead-soft)] shadow-none hover:border-[color:var(--lead-line-strong)] hover:bg-[color:var(--lead-inset)] hover:text-[color:var(--lead-gold)] hover:shadow-none',
+                          isMobile ? 'h-11 w-11' : 'h-7 w-7 sm:h-8 sm:w-8',
+                        )}
                       />
                     )}
                     {!isMobile && (

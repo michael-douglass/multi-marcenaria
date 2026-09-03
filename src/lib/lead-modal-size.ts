@@ -25,6 +25,9 @@ export const LEAD_MODAL_MOBILE_BREAKPOINT = 768
 export const LEAD_MODAL_MARGIN_DESKTOP = 16
 export const LEAD_MODAL_MARGIN_MOBILE = 8
 
+/** Respiro extra no topo do celular (abaixo do notch / status bar). */
+export const LEAD_MODAL_MOBILE_TOP_EXTRA = 4
+
 export const LEAD_MODAL_MIN_W_DESKTOP = 420
 export const LEAD_MODAL_MIN_H_DESKTOP = 360
 export const LEAD_MODAL_MIN_W_MOBILE = 280
@@ -32,6 +35,20 @@ export const LEAD_MODAL_MIN_H_MOBILE = 320
 
 /** Altura da faixa quando minimizado (só o chrome). */
 export const LEAD_MODAL_MINIMIZED_H = 52
+
+function readCssSafeAreaInset(side: 'top' | 'right' | 'bottom' | 'left'): number {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return 0
+  try {
+    const probe = document.createElement('div')
+    probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;padding-${side}:env(safe-area-inset-${side},0px);`
+    document.body.appendChild(probe)
+    const value = Number.parseFloat(getComputedStyle(probe).getPropertyValue(`padding-${side}`)) || 0
+    document.body.removeChild(probe)
+    return Number.isFinite(value) ? value : 0
+  } catch {
+    return 0
+  }
+}
 
 export function isLeadModalMobileViewport(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
@@ -43,6 +60,29 @@ export function leadModalOuterMargin(vw?: number): number {
   return isLeadModalMobileViewport(vw) ? LEAD_MODAL_MARGIN_MOBILE : LEAD_MODAL_MARGIN_DESKTOP
 }
 
+/** Margens assimétricas: no celular o topo respeita o notch para o X ficar alcançável. */
+export function leadModalInsets(vw?: number): {
+  top: number
+  right: number
+  bottom: number
+  left: number
+} {
+  const base = leadModalOuterMargin(vw)
+  if (!isLeadModalMobileViewport(vw)) {
+    return { top: base, right: base, bottom: base, left: base }
+  }
+  const safeTop = readCssSafeAreaInset('top')
+  const safeRight = readCssSafeAreaInset('right')
+  const safeBottom = readCssSafeAreaInset('bottom')
+  const safeLeft = readCssSafeAreaInset('left')
+  return {
+    top: Math.max(base, Math.ceil(safeTop) + LEAD_MODAL_MOBILE_TOP_EXTRA),
+    right: Math.max(base, Math.ceil(safeRight)),
+    bottom: Math.max(base, Math.ceil(safeBottom)),
+    left: Math.max(base, Math.ceil(safeLeft)),
+  }
+}
+
 export function leadModalMins(vw?: number) {
   const mobile = isLeadModalMobileViewport(vw)
   return {
@@ -51,31 +91,33 @@ export function leadModalMins(vw?: number) {
   }
 }
 
-function centerLeadModalSize(
+function placeLeadModalSize(
   w: number,
   h: number,
   vw: number,
   vh: number,
-  margin: number,
+  insets: { top: number; right: number; bottom: number; left: number },
 ): LeadModalSize {
+  const usableW = Math.max(0, vw - insets.left - insets.right)
+  const usableH = Math.max(0, vh - insets.top - insets.bottom)
   return {
-    x: Math.max(margin, Math.round((vw - w) / 2)),
-    y: Math.max(margin, Math.round((vh - h) / 2)),
+    x: Math.max(insets.left, Math.round(insets.left + (usableW - w) / 2)),
+    y: Math.max(insets.top, Math.round(insets.top + (usableH - h) / 2)),
     w,
     h,
   }
 }
 
-/** Quase tela cheia: viewport menos a margem dos quatro lados. */
+/** Quase tela cheia: viewport menos a margem dos quatro lados (topo com safe-area no celular). */
 export function maximizedLeadModalSize(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
   const { minW, minH } = leadModalMins(vw)
-  const margin = leadModalOuterMargin(vw)
-  const w = Math.max(minW, vw - margin * 2)
-  const h = Math.max(minH, vh - margin * 2)
-  return clampLeadModalSize(centerLeadModalSize(w, h, vw, vh, margin), vw, vh)
+  const insets = leadModalInsets(vw)
+  const w = Math.max(minW, vw - insets.left - insets.right)
+  const h = Math.max(minH, vh - insets.top - insets.bottom)
+  return clampLeadModalSize(placeLeadModalSize(w, h, vw, vh, insets), vw, vh)
 }
 
 /** Alias: padrão fixo = maximizado. */
@@ -96,10 +138,12 @@ export function restoredLeadModalSize(
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
   const { minW, minH } = leadModalMins(vw)
-  const margin = leadModalOuterMargin(vw)
-  const w = Math.min(Math.max(minW, Math.round(vw * 0.72)), vw - margin * 2)
-  const h = Math.min(Math.max(minH, Math.round(vh * 0.78)), vh - margin * 2)
-  return clampLeadModalSize(centerLeadModalSize(w, h, vw, vh, margin), vw, vh)
+  const insets = leadModalInsets(vw)
+  const maxW = Math.max(minW, vw - insets.left - insets.right)
+  const maxH = Math.max(minH, vh - insets.top - insets.bottom)
+  const w = Math.min(Math.max(minW, Math.round(vw * 0.72)), maxW)
+  const h = Math.min(Math.max(minH, Math.round(vh * 0.78)), maxH)
+  return clampLeadModalSize(placeLeadModalSize(w, h, vw, vh, insets), vw, vh)
 }
 
 export function clampLeadModalSize(
@@ -108,13 +152,13 @@ export function clampLeadModalSize(
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalSize {
   const { minW, minH } = leadModalMins(vw)
-  const margin = leadModalOuterMargin(vw)
-  const maxW = Math.max(minW, vw - margin * 2)
-  const maxH = Math.max(minH, vh - margin * 2)
+  const insets = leadModalInsets(vw)
+  const maxW = Math.max(minW, vw - insets.left - insets.right)
+  const maxH = Math.max(minH, vh - insets.top - insets.bottom)
   const w = Math.min(Math.max(size.w, minW), maxW)
   const h = Math.min(Math.max(size.h, minH), maxH)
-  const x = Math.min(Math.max(size.x, margin), Math.max(margin, vw - w - margin))
-  const y = Math.min(Math.max(size.y, margin), Math.max(margin, vh - h - margin))
+  const x = Math.min(Math.max(size.x, insets.left), Math.max(insets.left, vw - w - insets.right))
+  const y = Math.min(Math.max(size.y, insets.top), Math.max(insets.top, vh - h - insets.bottom))
   return { x, y, w, h }
 }
 
@@ -128,13 +172,13 @@ export function resolveLeadModalDisplaySize(
     return maximizedLeadModalSize(vw, vh)
   }
   if (layout.mode === 'minimized') {
-    const margin = leadModalOuterMargin(vw)
-    const maxW = Math.max(280, vw - margin * 2)
+    const insets = leadModalInsets(vw)
+    const maxW = Math.max(280, vw - insets.left - insets.right)
     const w = Math.min(Math.max(layout.w, 280), maxW)
-    const x = Math.min(Math.max(layout.x, margin), Math.max(margin, vw - w - margin))
+    const x = Math.min(Math.max(layout.x, insets.left), Math.max(insets.left, vw - w - insets.right))
     const y = Math.min(
-      Math.max(layout.y, margin),
-      Math.max(margin, vh - LEAD_MODAL_MINIMIZED_H - margin),
+      Math.max(layout.y, insets.top),
+      Math.max(insets.top, vh - LEAD_MODAL_MINIMIZED_H - insets.bottom),
     )
     return { x, y, w, h: LEAD_MODAL_MINIMIZED_H }
   }

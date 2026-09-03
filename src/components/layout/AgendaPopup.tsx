@@ -144,6 +144,8 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
 
   return createPortal(
     <div
+      data-agenda-obras-popup=""
+      data-floating-agenda-root=""
       className={cn(
         'fixed transition-all duration-300 ease-in-out',
         agendaObrasPopupClass,
@@ -164,9 +166,10 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
             : undefined
           : {
               left: position.x,
-              top: position.y,
+              top: Math.max(12, Math.min(position.y, window.innerHeight - 96)),
               width: isMinimized ? '300px' : 'min(90vw, 1000px)',
-              height: isMinimized ? 'auto' : 'min(85vh, 800px)',
+              /* Mais baixo que antes: o X do cabeçalho permanece alcançável com o lead aberto */
+              height: isMinimized ? 'auto' : 'min(72dvh, 640px)',
             }
       }
     >
@@ -179,6 +182,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
       >
         {/* Header/Draggable area */}
         <div 
+          data-floating-agenda-chrome=""
           className={cn(
             "flex shrink-0 items-center justify-between border-b border-[rgba(240,210,140,0.18)] bg-[rgba(10,4,2,0.85)] px-4 py-3",
             !isMobile && "cursor-grab"

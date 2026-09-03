@@ -133,20 +133,37 @@ export function LeadModalResizeHandles({
       data-lead-resize-layer=""
       aria-hidden
     >
+      {/* No celular: começa abaixo do cabeçalho para não cobrir o X / minimizar */}
       <div
-        className={cn(handleClass, 'pointer-events-auto right-0 top-10 bottom-10 cursor-ew-resize', edgePad)}
+        className={cn(
+          handleClass,
+          'pointer-events-auto right-0 bottom-10 cursor-ew-resize',
+          edgePad,
+          isMobile ? 'top-14' : 'top-10',
+        )}
         onPointerDown={(e) => onBeginResize('e', e)}
       />
       <div
-        className={cn(handleClass, 'pointer-events-auto left-0 top-10 bottom-10 cursor-ew-resize', edgePad)}
+        className={cn(
+          handleClass,
+          'pointer-events-auto left-0 bottom-10 cursor-ew-resize',
+          edgePad,
+          isMobile ? 'top-14' : 'top-10',
+        )}
         onPointerDown={(e) => onBeginResize('w', e)}
       />
       <div
         className={cn(handleClass, 'pointer-events-auto bottom-0 left-8 right-8 cursor-ns-resize', edgePadH)}
         onPointerDown={(e) => onBeginResize('s', e)}
       />
+      {/* Topo: no celular deixa a faixa direita livre para os controles de fechar */}
       <div
-        className={cn(handleClass, 'pointer-events-auto top-0 left-8 right-8 cursor-ns-resize', edgePadH)}
+        className={cn(
+          handleClass,
+          'pointer-events-auto top-0 cursor-ns-resize',
+          edgePadH,
+          isMobile ? 'left-8 right-24' : 'left-8 right-8',
+        )}
         onPointerDown={(e) => onBeginResize('n', e)}
       />
 
@@ -162,14 +179,19 @@ export function LeadModalResizeHandles({
         className={cn(handleClass, 'pointer-events-auto bottom-0 left-0 cursor-nesw-resize', corner)}
         onPointerDown={(e) => onBeginResize('sw', e)}
       />
-      <div
-        className={cn(handleClass, 'pointer-events-auto top-0 right-0 cursor-nesw-resize', corner)}
-        onPointerDown={(e) => onBeginResize('ne', e)}
-      />
-      <div
-        className={cn(handleClass, 'pointer-events-auto top-0 left-0 cursor-nwse-resize', corner)}
-        onPointerDown={(e) => onBeginResize('nw', e)}
-      />
+      {/* Cantos superiores: só no desktop — no celular cobriam o botão fechar */}
+      {!isMobile ? (
+        <>
+          <div
+            className={cn(handleClass, 'pointer-events-auto top-0 right-0 cursor-nesw-resize', corner)}
+            onPointerDown={(e) => onBeginResize('ne', e)}
+          />
+          <div
+            className={cn(handleClass, 'pointer-events-auto top-0 left-0 cursor-nwse-resize', corner)}
+            onPointerDown={(e) => onBeginResize('nw', e)}
+          />
+        </>
+      ) : null}
     </div>
   )
 }

@@ -113,6 +113,8 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-agenda-create-dialog]') ||
       target.closest('[data-floating-agenda-panel]') ||
       target.closest('[data-radix-dialog-content][data-floating-agenda-root]') ||
+      target.closest('[data-saldo-mes-insight]') ||
+      target.closest('[data-floating-ui-root]') ||
       target.closest('[data-nested-dialog]'),
   );
 }
@@ -245,6 +247,7 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-date-picker-root]')) return true;
   if (target?.closest('[data-floating-agenda-root]')) return true;
   if (target?.closest('[data-floating-ui-root]')) return true;
+  if (target?.closest('[data-saldo-mes-insight]')) return true;
   if (target?.closest('[data-radix-dropdown-menu-content]')) return true;
   if (target?.closest('[role="menu"]')) return true;
   // AlertDialog/Dialog aninhado (ex.: confirmar duplicar) vive em outro portal —

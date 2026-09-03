@@ -10,7 +10,7 @@ import {
   FLOATING_SALDO_RIGHT,
   FLOATING_TOP_EDGE,
 } from '@/lib/floating-ui-layout'
-import { saldoMesInsightClass } from '@/lib/overlay-z-index'
+import { FLOATING_UI_ROOT_ATTR, saldoMesInsightClass } from '@/lib/overlay-z-index'
 import {
   type SaldoMesForecast,
   type SaldoMesInsightConfig,
@@ -231,7 +231,8 @@ export function SaldoMesInsightCard({
     'inline-flex items-center justify-center rounded-md',
     'border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.04)] text-[#6b5244]',
     'transition-colors hover:bg-[rgba(42,24,18,0.08)]',
-    isMobile ? 'h-9 w-9' : 'h-7 w-7',
+    /* Toque ≥44px no celular; desktop um pouco maior para fechar com lead aberto */
+    isMobile ? 'h-11 w-11' : 'h-8 w-8',
   )
 
   return createPortal(
@@ -239,8 +240,10 @@ export function SaldoMesInsightCard({
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
+      data-saldo-mes-insight=""
+      {...{ [FLOATING_UI_ROOT_ATTR]: '' }}
       className={cn(
-        'saldo-mes-insight fixed touch-manipulation',
+        'saldo-mes-insight fixed touch-manipulation pointer-events-auto',
         saldoMesInsightClass,
         FLOATING_TOP_EDGE,
         FLOATING_SALDO_RIGHT,
@@ -295,7 +298,7 @@ export function SaldoMesInsightCard({
           ) : (
             <span className="truncate text-xs text-[#6b5244]">{message.headline}</span>
           )}
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1" data-saldo-mes-chrome="">
             <button
               type="button"
               className={cn(
@@ -370,7 +373,10 @@ export function SaldoMesInsightCard({
           style={{ background: tone.bar }}
         />
 
-        <div className="relative flex items-start justify-between gap-2 px-4 pb-1 pt-3">
+        <div
+          data-saldo-mes-chrome=""
+          className="relative z-[2] flex items-start justify-between gap-2 px-4 pb-1 pt-2.5 sm:pt-3"
+        >
           <span
             className={cn(
               'inline-flex rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em]',
@@ -433,15 +439,15 @@ export function SaldoMesInsightCard({
           </div>
         </div>
 
-        <div className="relative space-y-2 px-4 pb-4 pt-1">
-          <h2 id={titleId} className="font-display text-[1.35rem] leading-tight tracking-[0.03em]">
+        <div className="relative space-y-1.5 px-4 pb-3 pt-0.5 sm:space-y-2 sm:pb-4 sm:pt-1">
+          <h2 id={titleId} className="font-display text-[1.15rem] leading-tight tracking-[0.03em] sm:text-[1.35rem]">
             {message.headline}
           </h2>
 
           {message.valorDestaque != null ? (
             <p
               className={cn(
-                'font-display text-[1.85rem] leading-none tracking-[0.03em] tabular-nums',
+                'font-display text-[1.55rem] leading-none tracking-[0.03em] tabular-nums sm:text-[1.85rem]',
                 tone.value,
               )}
               aria-label={

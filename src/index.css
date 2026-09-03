@@ -3752,12 +3752,15 @@ body::before {
 @media (max-width: 767px) {
   .glass-dialog.lead-modal-shell {
     left: var(--lead-card-x, 8px) !important;
-    top: var(--lead-card-y, 8px) !important;
+    top: var(--lead-card-y, max(8px, env(safe-area-inset-top, 0px))) !important;
     width: var(--lead-card-w, calc(100vw - 16px)) !important;
     max-width: calc(100vw - 12px) !important;
-    height: var(--lead-card-h, calc(100dvh - 16px)) !important;
-    max-height: calc(100dvh - 12px) !important;
+    height: var(--lead-card-h, calc(100dvh - 16px - env(safe-area-inset-top, 0px))) !important;
+    max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     border-radius: 0.85rem !important;
+  }
+  .lead-modal-window-controls {
+    z-index: 40;
   }
 }
 @media (max-width: 640px) {
@@ -3872,12 +3875,56 @@ body::before {
 }
 
 /*
- * A agenda flutuante fica em z-200, acima do card (z-50).
- * Sem isto, o painel “come” os cliques mesmo com o lead aberto.
+ * Com o card do lead aberto: o corpo da agenda não “come” cliques do lead,
+ * mas o ícone e o chrome (fechar/minimizar) continuam clicáveis.
  */
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root],
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
   pointer-events: none !important;
+}
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-chrome],
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-chrome] *,
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-icon],
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-icon] * {
+  pointer-events: auto !important;
+}
+
+/* Com o lead aberto: só um respiro no topo para o X ficar alcançável — altura quase normal */
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-panel] {
+  top: max(0.5rem, env(safe-area-inset-top)) !important;
+  bottom: 0 !important;
+}
+
+/* Agenda de obras (FAB): cliques liberados por cima do lead */
+body:has([data-lead-card][data-state="open"]) [data-agenda-obras-popup],
+body:has([data-lead-card][data-state="open"]) [data-agenda-obras-popup] * {
+  pointer-events: auto !important;
+}
+
+/*
+ * Saldo do mês: o Dialog do lead deixa o body com pointer-events:none.
+ * Sem isto o X do lembrete não responde com o card do lead aberto.
+ */
+body:has([data-lead-card][data-state="open"]) [data-saldo-mes-insight],
+body:has([data-lead-card][data-state="open"]) [data-saldo-mes-insight] *,
+body:has([data-lead-card][data-state="open"]) [data-floating-ui-root],
+body:has([data-lead-card][data-state="open"]) [data-floating-ui-root] * {
+  pointer-events: auto !important;
+}
+
+/* Com o lead aberto: card mais baixo, chrome (X) sempre no topo e fácil de tocar */
+body:has([data-lead-card][data-state="open"]) [data-saldo-mes-insight] {
+  top: max(0.5rem, env(safe-area-inset-top)) !important;
+  max-height: min(42dvh, 18rem) !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+body:has([data-lead-card][data-state="open"]) [data-saldo-mes-chrome] {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: linear-gradient(180deg, #fffcf8 70%, rgba(255, 252, 248, 0.92) 100%);
 }
 
 /*
