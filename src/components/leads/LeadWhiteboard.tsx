@@ -2296,17 +2296,17 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           </TooltipProvider>
         ) : (
         <TooltipProvider delayDuration={200}>
-          <div className="relative z-10 flex flex-col gap-2.5 p-3">
+          <div className="relative z-10 flex flex-col gap-2.5 p-2.5 sm:p-3">
           {!activeImage && (
             <p className="font-display text-[11px] uppercase tracking-[0.16em] text-gold/80">
               Insira uma foto para usar as ferramentas
             </p>
           )}
           <DraftingRail>
-          <DraftingGroup label="Mesa">
+          <DraftingGroup label="Mesa" className="order-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex h-8 w-8 items-center justify-center">
+              <div className="flex h-8 w-8 items-center justify-center sm:h-8 sm:w-8">
                 {isOnline ? (
                   <Cloud className="h-4 w-4 text-emerald-400" />
                 ) : (
@@ -2338,7 +2338,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
           <DraftingDivider />
 
-          <DraftingGroup label="Marcar">
+          <DraftingGroup label="Marcar" fullOnMobile className="order-2 sm:order-none">
           {(
             [
               { t: 'select' as Tool, icon: MousePointer, label: 'Selecionar' },
@@ -2372,7 +2372,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
           <DraftingDivider />
 
-          <DraftingGroup label="Medir">
+          <DraftingGroup label="Medir" className="order-3 sm:order-none">
           {(
             [
               { t: 'measure' as Tool, icon: Ruler, label: 'Medição reta' },
@@ -2420,7 +2420,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
           <DraftingDivider />
 
-          <DraftingGroup label="Foto">
+          <DraftingGroup label="Foto" className="order-4 sm:order-none">
           <Popover open={imageSourceOpen} onOpenChange={setImageSourceOpen}>
             <PopoverTrigger asChild>
               <Button

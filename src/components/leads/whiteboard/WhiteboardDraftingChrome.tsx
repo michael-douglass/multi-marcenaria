@@ -18,24 +18,55 @@ export function DraftingGroup({
   label,
   children,
   className,
+  /** No celular, ocupa a linha inteira e deixa os ícones quebrarem. */
+  fullOnMobile = false,
 }: {
   label: string;
   children: ReactNode;
   className?: string;
+  fullOnMobile?: boolean;
 }) {
   return (
-    <div className={cn('flex min-w-0 shrink-0 flex-col gap-1', className)}>
-      <span className="whitespace-nowrap font-display px-0.5 text-[11px] font-normal uppercase tracking-[0.2em] text-gold">
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-1',
+        fullOnMobile
+          ? 'w-full basis-full sm:w-auto sm:basis-auto sm:shrink-0'
+          : 'shrink-0',
+        fullOnMobile &&
+          'rounded-lg border border-gold/20 bg-black/25 p-1.5 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0',
+        className,
+      )}
+    >
+      <span className="whitespace-nowrap font-display px-0.5 text-[10px] font-normal uppercase tracking-[0.18em] text-gold sm:text-[11px] sm:tracking-[0.2em]">
         {label}
       </span>
-      <div className="flex flex-nowrap items-center gap-0.5">{children}</div>
+      <div
+        className={cn(
+          'flex items-center gap-0.5',
+          fullOnMobile ? 'flex-wrap sm:flex-nowrap' : 'flex-nowrap',
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
+/**
+ * Faixa de ferramentas da lousa.
+ * Celular: quebra em linhas (tudo à vista, sem “sumir” para o lado).
+ * Desktop: uma linha com scroll fino se precisar.
+ */
 export function DraftingRail({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-end gap-3 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:thin]">
+    <div
+      className={cn(
+        'flex w-full items-end gap-x-2.5 gap-y-2.5',
+        'flex-wrap',
+        'sm:flex-nowrap sm:gap-3 sm:overflow-x-auto sm:overscroll-x-contain sm:pb-0.5 sm:[scrollbar-width:thin]',
+      )}
+    >
       {children}
     </div>
   );

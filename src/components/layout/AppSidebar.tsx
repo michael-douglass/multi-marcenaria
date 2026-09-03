@@ -504,9 +504,13 @@ export function AppSidebar() {
           <SidebarSearchField
             value={searchQuery}
             onChange={setSearchQuery}
-            collapsed={!open}
-            onExpand={() => setOpen(true)}
+            collapsed={!open && !isMobile}
+            onExpand={() => {
+              if (isMobile) setOpenMobile(true)
+              else setOpen(true)
+            }}
             disableAura={skipWebGL}
+            mobileSheet={isMobile}
           />
         </div>
       </SidebarHeader>

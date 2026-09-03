@@ -123,7 +123,9 @@ export function MainLayout() {
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
   const hideFabsOnPonto = isPontoLightPath(location.pathname)
   const isCrmArea = isCrmAppPath(location.pathname)
-  const hideFactoryFabs = hideFabsOnPonto || isCrmArea
+  // Agenda + Métricas ficam em todo o sistema (CRM e Movelaria), exceto no ponto.
+  const hideFactoryFabs = hideFabsOnPonto
+  const showFactoryFabs = !hideFactoryFabs && (!hideAgenda || showMetricasFab)
   const isProjetosAtelie = location.pathname.startsWith('/projetos')
   const isPipelineBoard =
     location.pathname === '/pipeline' ||
@@ -142,7 +144,10 @@ export function MainLayout() {
         <div className={cn(
           'paper-workspace relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
           boardOnPage
-            ? 'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 pb-10 sm:px-3 sm:py-3 sm:pb-10'
+            ? cn(
+                'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 sm:px-3 sm:py-3',
+                showFactoryFabs ? 'pb-24 sm:pb-24' : 'pb-10 sm:pb-10',
+              )
             : 'overflow-x-hidden overflow-y-auto touch-pan-y',
           !boardOnPage && isCrmArea
             ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
@@ -190,7 +195,7 @@ export function MainLayout() {
         </AppErrorBoundary>
       ) : null}
 
-      {!hideFactoryFabs && (!hideAgenda || showMetricasFab) && (
+      {showFactoryFabs && (
         <>
           <div className="fixed bottom-6 right-6 z-[201] flex flex-row-reverse items-end gap-3">
             {!hideAgenda && (

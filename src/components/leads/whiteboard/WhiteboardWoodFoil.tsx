@@ -89,8 +89,8 @@ export function WhiteboardWoodFoil({ className }: WhiteboardWoodFoilProps) {
           color = mix(color, cream, rim * sweep * 0.07);
           color += grain * gold * 0.22;
 
-          float alpha = 0.34 + rim * 0.16 + sweep * 0.06;
-          gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.62));
+          float alpha = 0.28 + rim * 0.14 + sweep * 0.05;
+          gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.52));
         }
       `,
     });

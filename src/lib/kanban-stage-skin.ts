@@ -13,7 +13,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-emerald-400/30 shadow-[0_3px_8px_rgba(16,185,129,0.07)]',
     card:
-      'text-cream border-emerald-400/30 bg-gradient-to-br from-emerald-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-emerald-400/35 bg-gradient-to-br from-emerald-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-emerald-400',
   },
   {
@@ -22,7 +22,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-sky-400/30 shadow-[0_3px_8px_rgba(56,189,248,0.07)]',
     card:
-      'text-cream border-sky-400/30 bg-gradient-to-br from-sky-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-sky-400/35 bg-gradient-to-br from-sky-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-sky-400',
   },
   {
@@ -31,7 +31,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-teal-400/30 shadow-[0_3px_8px_rgba(45,212,191,0.07)]',
     card:
-      'text-cream border-teal-400/30 bg-gradient-to-br from-teal-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-teal-400/35 bg-gradient-to-br from-teal-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-teal-400',
   },
   {
@@ -40,7 +40,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-amber-400/30 shadow-[0_3px_8px_rgba(251,191,36,0.07)]',
     card:
-      'text-cream border-amber-400/30 bg-gradient-to-br from-amber-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-amber-400/35 bg-gradient-to-br from-amber-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-amber-400',
   },
   {
@@ -49,7 +49,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-gold/30 shadow-[0_3px_8px_rgba(242,216,146,0.07)]',
     card:
-      'text-cream border-gold/30 bg-gradient-to-br from-[#3a2a12]/80 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-gold/35 bg-gradient-to-br from-[#3a2a12]/85 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-gold',
   },
   {
@@ -58,7 +58,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-violet-400/30 shadow-[0_3px_8px_rgba(167,139,250,0.07)]',
     card:
-      'text-cream border-violet-400/30 bg-gradient-to-br from-violet-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-violet-400/35 bg-gradient-to-br from-violet-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-violet-400',
   },
   {
@@ -67,7 +67,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-rose-400/30 shadow-[0_3px_8px_rgba(251,113,133,0.07)]',
     card:
-      'text-cream border-rose-400/30 bg-gradient-to-br from-rose-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-rose-400/35 bg-gradient-to-br from-rose-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-rose-400',
   },
   {
@@ -76,7 +76,7 @@ const SKINS: KanbanStageSkin[] = [
     column:
       'border-cyan-400/30 shadow-[0_3px_8px_rgba(34,211,238,0.07)]',
     card:
-      'text-cream border-cyan-400/30 bg-gradient-to-br from-cyan-950/70 via-[#140c08]/92 to-[#0a0402]/95 shadow-[0_2px_6px_rgba(0,0,0,0.18)]',
+      'text-cream border-cyan-400/35 bg-gradient-to-br from-cyan-950/75 via-[#140c08]/94 to-[#0a0402]/97 shadow-[0_8px_22px_-12px_rgba(0,0,0,0.55)]',
     rail: 'bg-cyan-400',
   },
 ]
@@ -118,4 +118,27 @@ export function kanbanStageSkin(
   if (name.includes('cadastr')) return SKINS[7]!
 
   return SKINS[Math.abs(columnIndex) % SKINS.length]!
+}
+
+/** Hex do trilho da coluna — tingir o foil do card. */
+export function kanbanStageTintHex(key: string): string {
+  switch (key) {
+    case 'emerald':
+      return '#34d399'
+    case 'sky':
+      return '#38bdf8'
+    case 'teal':
+      return '#2dd4bf'
+    case 'amber':
+      return '#fbbf24'
+    case 'violet':
+      return '#a78bfa'
+    case 'rose':
+      return '#fb7185'
+    case 'cyan':
+      return '#22d3ee'
+    case 'gold':
+    default:
+      return '#f2d892'
+  }
 }

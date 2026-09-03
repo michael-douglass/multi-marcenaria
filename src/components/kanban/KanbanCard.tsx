@@ -40,7 +40,8 @@ import { KanbanProjetoSignal } from '@/components/kanban/KanbanProjetoSignal';
 import { LeadProjetoCardActions } from '@/components/projetos/LeadProjetoCardActions';
 import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
 import { kanbanCardProjetoRingClass, projetoSignalTone } from '@/lib/projetos-atelie';
-import { kanbanStageSkin } from '@/lib/kanban-stage-skin';
+import { kanbanStageSkin, kanbanStageTintHex } from '@/lib/kanban-stage-skin';
+import { KanbanLeadCardFoil } from '@/components/kanban/KanbanLeadCardFoil';
 
 interface KanbanCardProps {
   lead: Lead;
@@ -115,6 +116,7 @@ export function KanbanCard({
   const { getColorForElapsedTime, formatElapsedTime, configs } = usePipelineTimeConfig();
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [isSavingVendor, setIsSavingVendor] = useState(false);
+  const [foilActive, setFoilActive] = useState(false);
   const pontuaGarboBadge = usePontuaGarboPartnerBadge(lead.id);
   const { data: leadProjetos = [] } = useLeadProjetos();
   const { data: projetoStages = [] } = useProjetoStages();
@@ -174,7 +176,16 @@ export function KanbanCard({
   });
 
   const appearDelayMs = Math.min(appearIndex, 12) * 45;
-  const skin = kanbanStageSkin(stageTitle ?? lead.status, colorToken, columnIndex)
+  const skin = kanbanStageSkin(stageTitle ?? lead.status, colorToken, columnIndex);
+  const stageTintHex = kanbanStageTintHex(skin.key);
+  const showFoil = foilActive || isDragging;
+
+  const nameInitials = useMemo(() => {
+    const parts = lead.name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+    return `${parts[0]![0] ?? ''}${parts[parts.length - 1]![0] ?? ''}`.toUpperCase();
+  }, [lead.name]);
 
   const sortableStyle = {
     transform: CSS.Transform.toString(transform),
@@ -281,7 +292,7 @@ export function KanbanCard({
     <div ref={setNodeRef} style={sortableStyle} className="w-full min-w-0">
       <Card
         className={cn(
-          'kanban-lead-card w-full min-w-0 overflow-hidden cursor-pointer',
+          'kanban-lead-card group/lead relative w-full min-w-0 overflow-hidden cursor-pointer',
           skin.card,
           !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
           isDragging && 'z-50 scale-[1.03] rotate-1 opacity-95 ring-2 ring-gold/40',
@@ -289,44 +300,164 @@ export function KanbanCard({
           kanbanCardProjetoRingClass(projetoTone),
         )}
         onClick={onClick}
+        onMouseEnter={() => setFoilActive(true)}
+        onMouseLeave={() => setFoilActive(false)}
+        onFocusCapture={() => setFoilActive(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setFoilActive(false);
+          }
+        }}
       >
-      {hasPermission('lead_vendor', 'view') && (
-        <div
-          className="relative z-10"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <LeadVendorBanner
-            vendor={lead.vendor}
-            variant="card"
-            canEdit={canEditVendor}
-            vendors={vendorOptions}
-            isLoadingVendors={isLoadingUsers}
-            isSaving={isSavingVendor}
-            onVendorChange={canEditVendor ? handleVendorChange : undefined}
-          />
-        </div>
-      )}
-      <CardContent
-        className={cn(
-          'space-y-2.5 overflow-x-hidden p-3 sm:p-3.5',
-          !isDragging && 'animate-in fade-in duration-300 fill-mode-backwards',
-        )}
-        style={{ animationDelay: `${appearDelayMs}ms` }}
-      >
-        {/* Cabeçalho: badges à esquerda, controles à direita (sem posição absoluta) */}
-        <div className="flex items-start justify-between gap-2 min-w-0">
-          <button
-            type="button"
-            className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 cursor-grab active:cursor-grabbing touch-none"
-            aria-label="Arrastar card"
+        {/* Trilho da coluna — identifica o estágio sem ler o título */}
+        <span
+          className={cn(
+            'pointer-events-none absolute inset-y-0 left-0 z-[2] w-[3px]',
+            skin.rail,
+          )}
+          aria-hidden
+        />
+
+        <KanbanLeadCardFoil active={showFoil} tintHex={stageTintHex} />
+
+        {hasPermission('lead_vendor', 'view') && (
+          <div
+            className="relative z-10"
             onClick={(e) => e.stopPropagation()}
-            {...attributes}
-            {...listeners}
+            onPointerDown={(e) => e.stopPropagation()}
           >
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-          <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
+            <LeadVendorBanner
+              vendor={lead.vendor}
+              variant="card"
+              canEdit={canEditVendor}
+              vendors={vendorOptions}
+              isLoadingVendors={isLoadingUsers}
+              isSaving={isSavingVendor}
+              onVendorChange={canEditVendor ? handleVendorChange : undefined}
+            />
+          </div>
+        )}
+
+        <CardContent
+          className={cn(
+            'relative z-[2] space-y-2.5 overflow-x-hidden pl-4 pr-3 py-3 sm:pr-3.5 sm:py-3.5',
+            !isDragging && 'animate-in fade-in duration-300 fill-mode-backwards',
+          )}
+          style={{ animationDelay: `${appearDelayMs}ms` }}
+        >
+          {/* Linha 1: arrastar + avatar + nome + controles */}
+          <div className="flex items-start gap-2 min-w-0">
+            <button
+              type="button"
+              className="mt-1.5 shrink-0 rounded p-0.5 text-cream/35 hover:text-cream/70 hover:bg-white/5 cursor-grab active:cursor-grabbing touch-none transition-colors"
+              aria-label="Arrastar card"
+              onClick={(e) => e.stopPropagation()}
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+
+            <div
+              className={cn(
+                'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                'bg-gradient-to-br from-white/12 to-black/25',
+                'border border-white/10 text-[11px] font-semibold tracking-wide text-cream/95',
+                'shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+              )}
+              aria-hidden
+            >
+              {hasPermission('lead_name', 'view') ? nameInitials : '··'}
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="kanban-lead-name inline-flex max-w-full items-start gap-1 text-[15px] font-bold leading-snug tracking-tight">
+                  {pontuaGarboBadge && (
+                    <Star
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]"
+                      aria-hidden
+                    />
+                  )}
+                  <span className="line-clamp-2 break-words">
+                    {hasPermission('lead_name', 'view') ? lead.name : '•••••'}
+                  </span>
+                </h4>
+
+                <div
+                  className="flex shrink-0 items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {bellButton}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center">
+                        <Switch
+                          checked={lead.needsAttention || false}
+                          onCheckedChange={(checked) =>
+                            handleAttentionToggle(checked, {
+                              stopPropagation: () => {},
+                            } as React.MouseEvent)
+                          }
+                          className="h-4 w-7 data-[state=checked]:bg-destructive"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs">
+                      <p>Dar atenção</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                  {formatYMDToBR(lead.dateArrived)}
+                </span>
+                {configs && configs.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-black/25 text-cream/80"
+                        style={
+                          timeColor?.cor
+                            ? { backgroundColor: timeColor.cor, color: '#1a120e' }
+                            : undefined
+                        }
+                      >
+                        <Clock className="h-2.5 w-2.5 shrink-0" />
+                        {timeDisplay}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <p>Última interação</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {unreadCount && unreadCount > 0 && lastMessageData?.isFromLead && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-green-500 text-white animate-pulse">
+                        <MessageCircle className="h-2.5 w-2.5" />
+                        {unreadCount}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <p>
+                        {unreadCount} mensagem{unreadCount > 1 ? 'ns' : ''} não lida
+                        {unreadCount > 1 ? 's' : ''}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sinais / badges */}
+          <div className="flex flex-wrap items-center gap-1 min-w-0 pl-0.5">
             {projetoTone ? <KanbanProjetoSignal tone={projetoTone} /> : null}
             {lead.needsAttention && (
               <Badge
@@ -410,92 +541,13 @@ export function KanbanCard({
             )}
           </div>
 
-          <div
-            className="flex shrink-0 flex-col items-end gap-1"
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-1">
-              {bellButton}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center">
-                    <Switch
-                      checked={lead.needsAttention || false}
-                      onCheckedChange={(checked) =>
-                        handleAttentionToggle(checked, { stopPropagation: () => {} } as React.MouseEvent)
-                      }
-                      className="h-4 w-7 data-[state=checked]:bg-destructive"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  <p>Dar atenção</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-1 max-w-[88px]">
-              {unreadCount && unreadCount > 0 && lastMessageData?.isFromLead && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-green-500 text-white animate-pulse shrink-0">
-                      <MessageCircle className="h-2.5 w-2.5" />
-                      <span>{unreadCount}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="text-xs">
-                    <p>
-                      {unreadCount} mensagem{unreadCount > 1 ? 'ns' : ''} não lida
-                      {unreadCount > 1 ? 's' : ''}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {configs && configs.length > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className="flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5 bg-muted text-muted-foreground shrink-0"
-                      style={
-                        timeColor?.cor
-                          ? { backgroundColor: timeColor.cor, color: '#1a120e' }
-                          : undefined
-                      }
-                    >
-                      <Clock className="h-2.5 w-2.5 shrink-0" />
-                      <span className="whitespace-nowrap">{timeDisplay}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="text-xs">
-                    <p className="text-muted-foreground">Última interação</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="min-w-0 space-y-1">
-          <h4 className="kanban-lead-name inline-flex max-w-full items-start gap-1 text-[15px] font-bold leading-snug tracking-tight">
-            {pontuaGarboBadge && (
-              <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]" aria-hidden />
-            )}
-            <span className="line-clamp-2 break-words">
-              {hasPermission('lead_name', 'view') ? lead.name : '•••••'}
-            </span>
-          </h4>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
-            <Calendar className="h-3.5 w-3.5 shrink-0" />
-            <span>{formatYMDToBR(lead.dateArrived)}</span>
-          </div>
           {lastMessageData?.lastMessage && (
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
-              <MessageSquare className="h-3 w-3 shrink-0" />
+            <div className="flex items-center gap-1.5 rounded-md bg-black/20 px-2 py-1.5 text-[10px] text-muted-foreground min-w-0 border border-white/5">
+              <MessageSquare className="h-3 w-3 shrink-0 opacity-70" />
               <span
                 className={cn(
                   'truncate min-w-0 flex-1',
-                  lastMessageData.isFromLead && 'font-medium text-foreground/80',
+                  lastMessageData.isFromLead && 'font-medium text-cream/90',
                 )}
               >
                 {lastMessageData.isFromLead ? '' : '↩ '}
@@ -503,118 +555,116 @@ export function KanbanCard({
               </span>
             </div>
           )}
-        </div>
 
-        {pontuaGarboBadge && (
-          <div className="w-full min-w-0 max-w-full overflow-hidden">
-            <LeadPontuaGarboPartnerBadge badge={pontuaGarboBadge} variant="card" />
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-1 min-w-0">
-          <Badge
-            className={cn(
-              'text-[10px] max-w-full truncate shrink',
-              originColors[lead.origin] || originColors['Outros'],
-            )}
-          >
-            <span className="truncate">
-              {hasPermission('lead_origin', 'view') ? lead.origin : '•••'}
-            </span>
-          </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Badge
-                variant="secondary"
-                className="text-[9px] px-1.5 py-0 h-5 max-w-full bg-amber-50 text-amber-700 border-amber-200 font-medium inline-flex items-center gap-0.5 cursor-pointer hover:bg-amber-100 transition-colors min-w-0"
-              >
-                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate max-w-[120px]">{currentRegiao || 'Sem região'}</span>
-                <ChevronDown className="h-2.5 w-2.5 shrink-0" />
-              </Badge>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[140px]">
-              {regioesDisponiveis.map((regiao) => (
-                <DropdownMenuItem
-                  key={regiao}
-                  onClick={(e) => handleRegiaoChange(regiao, e)}
-                  className={cn('cursor-pointer', currentRegiao === regiao && 'bg-accent')}
-                >
-                  <MapPin className="h-3 w-3 mr-2" />
-                  {regiao}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {(markupResumo || (podeAbrirMarkup && onOpenMarkup)) && (
-          <div className="relative z-10 min-w-0">
-            {markupResumo && markupResumo.preco_final > 0 ? (
-              <MarkupCardPreview
-                resumo={markupResumo}
-                compact
-                readOnly={!podeAbrirMarkup}
-                onClick={
-                  podeAbrirMarkup
-                    ? (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onOpenMarkup?.(lead.id, markupResumo.orcamento_id);
-                      }
-                    : undefined
-                }
-              />
-            ) : podeAbrirMarkup && onOpenMarkup ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-7 text-[10px] border-emerald-500/30 text-emerald-200"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onOpenMarkup(lead.id);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <Calculator className="h-3 w-3 mr-1" />
-                Markup
-              </Button>
-            ) : null}
-          </div>
-        )}
-
-        <div
-          className="flex min-w-0 flex-col gap-1.5 border-t border-gold/20 pt-2"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <LeadProjetoCardActions leadId={lead.id} leadNome={lead.name}>
-            <div className="flex flex-wrap gap-1.5">
-              <LeadSinalizarButton
-                leadId={lead.id}
-                leadNome={lead.name}
-                leadStatus={lead.status}
-                className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
-              />
-              {canMarkAsSale && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
-                  onClick={handleMarkSale}
-                >
-                  <DollarSign className="mr-1 h-3.5 w-3.5 shrink-0" />
-                  <span>Marcar Venda</span>
-                </Button>
-              )}
+          {pontuaGarboBadge && (
+            <div className="w-full min-w-0 max-w-full overflow-hidden">
+              <LeadPontuaGarboPartnerBadge badge={pontuaGarboBadge} variant="card" />
             </div>
-          </LeadProjetoCardActions>
-        </div>
-      </CardContent>
-      </Card>
+          )}
 
+          <div className="flex flex-wrap items-center gap-1 min-w-0">
+            <Badge
+              className={cn(
+                'text-[10px] max-w-full truncate shrink',
+                originColors[lead.origin] || originColors['Outros'],
+              )}
+            >
+              <span className="truncate">
+                {hasPermission('lead_origin', 'view') ? lead.origin : '•••'}
+              </span>
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Badge
+                  variant="secondary"
+                  className="text-[9px] px-1.5 py-0 h-5 max-w-full bg-amber-50/95 text-amber-800 border-amber-200/80 font-medium inline-flex items-center gap-0.5 cursor-pointer hover:bg-amber-100 transition-colors min-w-0"
+                >
+                  <MapPin className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate max-w-[120px]">{currentRegiao || 'Sem região'}</span>
+                  <ChevronDown className="h-2.5 w-2.5 shrink-0" />
+                </Badge>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[140px]">
+                {regioesDisponiveis.map((regiao) => (
+                  <DropdownMenuItem
+                    key={regiao}
+                    onClick={(e) => handleRegiaoChange(regiao, e)}
+                    className={cn('cursor-pointer', currentRegiao === regiao && 'bg-accent')}
+                  >
+                    <MapPin className="h-3 w-3 mr-2" />
+                    {regiao}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {(markupResumo || (podeAbrirMarkup && onOpenMarkup)) && (
+            <div className="relative z-10 min-w-0">
+              {markupResumo && markupResumo.preco_final > 0 ? (
+                <MarkupCardPreview
+                  resumo={markupResumo}
+                  compact
+                  readOnly={!podeAbrirMarkup}
+                  onClick={
+                    podeAbrirMarkup
+                      ? (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onOpenMarkup?.(lead.id, markupResumo.orcamento_id);
+                        }
+                      : undefined
+                  }
+                />
+              ) : podeAbrirMarkup && onOpenMarkup ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-[10px] border-emerald-500/30 text-emerald-200"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenMarkup(lead.id);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <Calculator className="h-3 w-3 mr-1" />
+                  Markup
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+          <div
+            className="flex min-w-0 flex-col gap-1.5 border-t border-gold/15 pt-2"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <LeadProjetoCardActions leadId={lead.id} leadNome={lead.name}>
+              <div className="flex flex-wrap gap-1.5">
+                <LeadSinalizarButton
+                  leadId={lead.id}
+                  leadNome={lead.name}
+                  leadStatus={lead.status}
+                  className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
+                />
+                {canMarkAsSale && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
+                    onClick={handleMarkSale}
+                  >
+                    <DollarSign className="mr-1 h-3.5 w-3.5 shrink-0" />
+                    <span>Marcar Venda</span>
+                  </Button>
+                )}
+              </div>
+            </LeadProjetoCardActions>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
