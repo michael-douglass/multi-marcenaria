@@ -1,32 +1,45 @@
-import { FolderOpen, HardHat, Shield, User, Wallet } from 'lucide-react'
+import { FolderOpen, HardHat, Palette, PenTool, Shield, User, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   ADMISSAO_STATUS_LABEL,
+  FUNCIONARIO_CATEGORIA_LABEL,
   FUNCIONARIO_TIPO_LABEL,
   PONTO_STATUS_DIA_LABEL,
 } from '@/lib/funcionario-constants'
-import type { Funcionario, FuncionarioTipo } from '@/types'
+import type { Funcionario, FuncionarioCategoria, FuncionarioTipo } from '@/types'
 
 const TIPO_ICON: Record<FuncionarioTipo, typeof User> = {
+  design: Palette,
+  projetista: PenTool,
   montador: HardHat,
   montador_admin: Shield,
   administrador_obras: User,
   financeiro: Wallet,
+  administrativo: Users,
+  outro: FolderOpen,
 }
 
 /** Aba da pasta — tinta saturada, legível no papel creme. */
 const TIPO_TAB: Record<FuncionarioTipo, string> = {
+  design: '#9a3412',
+  projetista: '#1d4ed8',
   montador: '#1e4a73',
   montador_admin: '#6b3f12',
   administrador_obras: '#4c1d77',
   financeiro: '#146c38',
+  administrativo: '#57534e',
+  outro: '#6b5244',
 }
 
 const TIPO_WASH: Record<FuncionarioTipo, string> = {
+  design: 'rgba(154, 52, 18, 0.10)',
+  projetista: 'rgba(29, 78, 216, 0.10)',
   montador: 'rgba(30, 74, 115, 0.10)',
   montador_admin: 'rgba(107, 63, 18, 0.12)',
   administrador_obras: 'rgba(76, 29, 119, 0.10)',
   financeiro: 'rgba(20, 108, 56, 0.10)',
+  administrativo: 'rgba(87, 83, 78, 0.10)',
+  outro: 'rgba(107, 82, 68, 0.10)',
 }
 
 interface Props {
@@ -74,6 +87,10 @@ export function FuncionarioFolderCard({ funcionario, dispensado, pontoOnly }: Pr
 
         <h3 className="font-display text-xl tracking-wide text-[#1a100c]">{funcionario.nome}</h3>
         <p className="mt-1 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[#4a3428]">
+          {FUNCIONARIO_CATEGORIA_LABEL[(funcionario.categoria ?? 'outro') as FuncionarioCategoria]
+            ?? FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}
+        </p>
+        <p className="mt-0.5 text-[0.65rem] text-[#6b5244]">
           {FUNCIONARIO_TIPO_LABEL[funcionario.tipo]}
         </p>
 

@@ -173,7 +173,9 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
 
   const fixoPorMontador = useMemo(
     () => Object.fromEntries(
-      fixoHook.data.map(f => [f.montador_id, f.valor_fixo_mensal]),
+      fixoHook.data
+        .filter(f => f.montador_id)
+        .map(f => [f.montador_id as string, f.valor_fixo_mensal]),
     ),
     [fixoHook.data],
   )

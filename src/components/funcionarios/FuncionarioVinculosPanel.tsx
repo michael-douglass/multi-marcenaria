@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
 import { ExternalLink, Link2, Unlink } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { FUNCIONARIO_TIPO_PERFIL } from '@/lib/funcionario-constants'
+import { FUNCIONARIO_TIPO_LABEL, FUNCIONARIO_TIPO_PERFIL } from '@/lib/funcionario-constants'
+import { USUARIO_ORIGEM_LABEL, usuarioOrigem } from '@/lib/funcionario-usuario-busca'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { ContaPagar, Funcionario, FuncionarioInput } from '@/types'
 import type { UsuarioAdmin } from '@/hooks/useUsuarios'
+import { FuncionarioUsuarioSelect } from './FuncionarioUsuarioSelect'
 
 interface Props {
   funcionario: Funcionario
@@ -24,17 +25,7 @@ export function FuncionarioVinculosPanel({
   saving,
 }: Props) {
   const perfilEsperado = FUNCIONARIO_TIPO_PERFIL[funcionario.tipo]
-
-  const usuariosCompativeis = useMemo(
-    () =>
-      usuarios.filter(
-        u =>
-          u.ativo &&
-          (u.perfil === perfilEsperado ||
-            u.perfis_extras?.includes(perfilEsperado)),
-      ),
-    [usuarios, perfilEsperado],
-  )
+  const tipoLabel = FUNCIONARIO_TIPO_LABEL[funcionario.tipo] ?? funcionario.tipo
 
   const usuarioVinculado = usuarios.find(u => u.id === funcionario.usuario_id)
 
@@ -50,25 +41,27 @@ export function FuncionarioVinculosPanel({
           <h3 className="font-semibold text-[#f2d892]">Usuário do sistema</h3>
         </div>
         <p className="mb-4 text-sm text-[#b8957f]">
-          Vincule este funcionário a um login existente. Contas a pagar com{' '}
-          <code className="text-[#edd9c4]">prestador_id</code> aparecerão automaticamente aqui.
+          Vincule esta pasta a qualquer login do sistema — Movelaria ou CRM. Assim a pessoa
+          consegue bater ponto (quando tiver acesso) e as contas a pagar do prestador
+          aparecem aqui.
         </p>
 
+        {!perfilEsperado && (
+          <p className="mb-3 rounded-lg border border-sky-800/20 bg-sky-50 px-3 py-2 text-xs text-[#1a100c]">
+            Pasta do tipo <strong>{tipoLabel}</strong> não exige um perfil específico de login.
+            Você pode vincular qualquer usuário do sistema (Movelaria ou CRM).
+          </p>
+        )}
+
         {!readOnly && (
-          <div className="flex flex-wrap gap-3">
-            <select
-              className="glass-input min-w-[240px] flex-1"
-              value={funcionario.usuario_id ?? ''}
+          <div className="flex flex-wrap items-start gap-3">
+            <FuncionarioUsuarioSelect
+              usuarios={usuarios}
+              value={funcionario.usuario_id}
+              perfilEsperado={perfilEsperado}
               disabled={saving}
-              onChange={e => void handleVincular(e.target.value)}
-            >
-              <option value="">— Sem vínculo —</option>
-              {usuariosCompativeis.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.nome ?? u.email} ({u.perfil})
-                </option>
-              ))}
-            </select>
+              onChange={id => void handleVincular(id)}
+            />
             {funcionario.usuario_id && (
               <button
                 type="button"
@@ -83,10 +76,21 @@ export function FuncionarioVinculosPanel({
           </div>
         )}
 
+        {!readOnly && usuarios.length === 0 && (
+          <p className="mt-3 text-sm text-amber-800">
+            Nenhum usuário encontrado. Cadastre o login em Configurações → Usuários
+            e volte aqui para vincular.
+          </p>
+        )}
+
         {usuarioVinculado && (
           <div className="mt-4 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.06)] p-3 text-sm">
             <p className="text-[#f2d892]">{usuarioVinculado.nome ?? usuarioVinculado.email}</p>
             <p className="text-[#b8957f]">{usuarioVinculado.email}</p>
+            <p className="mt-1 text-xs text-[#b8957f]">
+              Acesso {USUARIO_ORIGEM_LABEL[usuarioOrigem(usuarioVinculado)]}
+              {usuarioVinculado.ativo ? '' : ' · login inativo'}
+            </p>
           </div>
         )}
       </div>

@@ -3,8 +3,9 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { DateInput } from '@/components/ui/DateInput'
 import type { useFixoMontador } from '@/hooks/useFixoMontador'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { FUNCIONARIO_CATEGORIA_LABEL } from '@/lib/funcionario-constants'
 import { fmtCur, fmtDate } from '@/lib/utils'
-import type { MontadorFixoMensal } from '@/types'
+import type { FuncionarioCategoria, MontadorFixoMensal } from '@/types'
 
 const STATUS_LABEL: Record<MontadorFixoMensal['status_mes'], string> = {
   pendente: 'Pendente',
@@ -34,9 +35,12 @@ function defaultVencimento(): string {
   return d.toISOString().slice(0, 10)
 }
 
+function labelCategoria(categoria?: string | null): string {
+  if (!categoria) return '—'
+  return FUNCIONARIO_CATEGORIA_LABEL[categoria as FuncionarioCategoria] ?? categoria
+}
+
 export function FixoMontadorSection({
-  mes,
-  ano,
   periodoLabel,
   canEdit,
   comissaoConcluidaPorMontador = {},
@@ -46,17 +50,16 @@ export function FixoMontadorSection({
   const [draftsValor, setDraftsValor] = useState<Record<string, string>>({})
   const [draftsData, setDraftsData] = useState<Record<string, string>>({})
   const [visiveis, setVisiveis] = useState<Set<string>>(new Set())
-  const [montadorSelecionado, setMontadorSelecionado] = useState('')
+  const [funcionarioSelecionado, setFuncionarioSelecionado] = useState('')
 
   useEffect(() => {
     const valores: Record<string, string> = {}
-    // Sempre expõe todos os montadores ativos — quem tem fixo e quem ainda não.
     const todosIds = new Set<string>()
 
     for (const row of data) {
-      todosIds.add(row.montador_id)
+      todosIds.add(row.funcionario_id)
       if (row.valor_fixo_mensal > 0) {
-        valores[row.montador_id] = String(row.valor_fixo_mensal)
+        valores[row.funcionario_id] = String(row.valor_fixo_mensal)
       }
     }
 
@@ -66,88 +69,87 @@ export function FixoMontadorSection({
       const next = { ...prev }
       for (const row of data) {
         if (row.valor_fixo_mensal > 0) {
-          next[row.montador_id] = row.primeiro_vencimento ?? defaultVencimento()
-        } else if (!next[row.montador_id]) {
-          // Data padrão para quem ainda não tem fixo (evita salvar sem vencimento).
-          next[row.montador_id] = defaultVencimento()
+          next[row.funcionario_id] = row.primeiro_vencimento ?? defaultVencimento()
+        } else if (!next[row.funcionario_id]) {
+          next[row.funcionario_id] = defaultVencimento()
         }
       }
       return next
     })
   }, [data])
 
-  const montadoresOcultos = useMemo(
-    () => data.filter(row => !visiveis.has(row.montador_id)),
+  const funcionariosOcultos = useMemo(
+    () => data.filter(row => !visiveis.has(row.funcionario_id)),
     [data, visiveis],
   )
 
   const linhasVisiveis = useMemo(() => {
-    // Lista completa: valores fixos expostos para todos os montadores ativos.
     if (!canEdit) {
       return data.filter(row => row.valor_fixo_mensal > 0)
     }
-    return data.filter(row => visiveis.has(row.montador_id))
+    return data.filter(row => visiveis.has(row.funcionario_id))
   }, [canEdit, data, visiveis])
 
-  const parseDraftValor = (montadorId: string, fallback: number): number => {
-    const raw = draftsValor[montadorId] ?? ''
+  const parseDraftValor = (funcionarioId: string, fallback: number): number => {
+    const raw = draftsValor[funcionarioId] ?? ''
     if (raw === '') return fallback
     return Math.max(0, Number(raw.replace(',', '.')) || 0)
   }
 
   const totais = useMemo(() => {
-    let fixo = 0
+    let fixoTotal = 0
     let comissao = 0
     let aPagar = 0
 
     for (const row of linhasVisiveis) {
       const fixoLinha = canEdit
-        ? parseDraftValor(row.montador_id, row.valor_fixo_mensal)
+        ? parseDraftValor(row.funcionario_id, row.valor_fixo_mensal)
         : row.valor_fixo_mensal
-      const comissaoLinha = comissaoConcluidaPorMontador[row.montador_id] ?? 0
-      fixo += fixoLinha
+      const comissaoLinha = row.montador_id
+        ? (comissaoConcluidaPorMontador[row.montador_id] ?? 0)
+        : 0
+      fixoTotal += fixoLinha
       comissao += comissaoLinha
       aPagar += fixoLinha + comissaoLinha
     }
 
-    return { fixo, comissao, aPagar }
+    return { fixo: fixoTotal, comissao, aPagar }
   }, [linhasVisiveis, canEdit, draftsValor, comissaoConcluidaPorMontador])
 
-  const adicionarMontador = () => {
-    if (!montadorSelecionado) return
-    setVisiveis(prev => new Set([...prev, montadorSelecionado]))
+  const adicionarFuncionario = () => {
+    if (!funcionarioSelecionado) return
+    setVisiveis(prev => new Set([...prev, funcionarioSelecionado]))
     setDraftsValor(prev => ({
       ...prev,
-      [montadorSelecionado]: prev[montadorSelecionado] ?? '',
+      [funcionarioSelecionado]: prev[funcionarioSelecionado] ?? '',
     }))
     setDraftsData(prev => ({
       ...prev,
-      [montadorSelecionado]: prev[montadorSelecionado] ?? defaultVencimento(),
+      [funcionarioSelecionado]: prev[funcionarioSelecionado] ?? defaultVencimento(),
     }))
-    setMontadorSelecionado('')
+    setFuncionarioSelecionado('')
   }
 
   const handleSave = async (row: MontadorFixoMensal) => {
-    const raw = draftsValor[row.montador_id] ?? ''
+    const raw = draftsValor[row.funcionario_id] ?? ''
     const valor = raw === '' ? 0 : Math.max(0, Number(raw.replace(',', '.')) || 0)
-    // Usa a data do campo (ou a padrão exibida) — nunca manda null se há valor.
     const dataPagamento =
-      draftsData[row.montador_id]
+      draftsData[row.funcionario_id]
       || row.primeiro_vencimento
       || defaultVencimento()
-    await salvarFixo(row.montador_id, valor, valor > 0 ? dataPagamento : null)
+    await salvarFixo(row.funcionario_id, valor, valor > 0 ? dataPagamento : null)
 
     if (valor <= 0) {
-      setDraftsValor(prev => ({ ...prev, [row.montador_id]: '' }))
-      setDraftsData(prev => ({ ...prev, [row.montador_id]: defaultVencimento() }))
+      setDraftsValor(prev => ({ ...prev, [row.funcionario_id]: '' }))
+      setDraftsData(prev => ({ ...prev, [row.funcionario_id]: defaultVencimento() }))
     }
   }
 
   const handleExcluir = async (row: MontadorFixoMensal) => {
-    if (row.valor_fixo_mensal <= 0 && !(draftsValor[row.montador_id] ?? '').trim()) {
+    if (row.valor_fixo_mensal <= 0 && !(draftsValor[row.funcionario_id] ?? '').trim()) {
       return
     }
-    const nome = row.montador_nome?.trim() || 'este montador'
+    const nome = row.montador_nome?.trim() || 'este funcionário'
     const ok = confirm(
       `Excluir o fixo de ${nome}?\n\n`
       + 'O valor fixo será zerado e as cobranças pendentes em Contas a Pagar serão encerradas.\n'
@@ -155,20 +157,20 @@ export function FixoMontadorSection({
     )
     if (!ok) return
 
-    await salvarFixo(row.montador_id, 0, null)
-    setDraftsValor(prev => ({ ...prev, [row.montador_id]: '' }))
-    setDraftsData(prev => ({ ...prev, [row.montador_id]: defaultVencimento() }))
+    await salvarFixo(row.funcionario_id, 0, null)
+    setDraftsValor(prev => ({ ...prev, [row.funcionario_id]: '' }))
+    setDraftsData(prev => ({ ...prev, [row.funcionario_id]: defaultVencimento() }))
   }
 
   return (
     <div className="glass-card mb-6 overflow-hidden">
       <div className="border-b border-[rgba(240,210,140,0.12)] px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-[#f2d892]">
-          Fixo Montador
+          Fixo mensal da equipe
         </h2>
         <p className="mt-1 text-xs text-[#edd9c4]">
-          Ao salvar, o sistema gera cobranças fixas mensais em Contas a Pagar (do mês da data até 12 meses à frente).
-          Use Excluir para zerar o fixo e encerrar as cobranças pendentes.
+          Todo funcionário cadastrado em RH aparece aqui. Ao salvar, o sistema gera cobranças
+          fixas mensais em Contas a Pagar (do mês da data até 12 meses à frente).
         </p>
       </div>
 
@@ -184,21 +186,22 @@ export function FixoMontadorSection({
         </div>
       )}
 
-      {canEdit && !loading && montadoresOcultos.length > 0 && (
+      {canEdit && !loading && funcionariosOcultos.length > 0 && (
         <div className="flex flex-wrap items-end gap-2 border-b border-[rgba(240,210,140,0.08)] px-4 py-3">
           <div className="min-w-[12rem] flex-1">
             <label className="mb-1 block text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
-              Selecionar montador
+              Selecionar funcionário
             </label>
             <select
               className="glass-input !h-9 w-full text-sm"
-              value={montadorSelecionado}
-              onChange={e => setMontadorSelecionado(e.target.value)}
+              value={funcionarioSelecionado}
+              onChange={e => setFuncionarioSelecionado(e.target.value)}
             >
-              <option value="">Escolha um montador...</option>
-              {montadoresOcultos.map(m => (
-                <option key={m.montador_id} value={m.montador_id}>
+              <option value="">Escolha um funcionário...</option>
+              {funcionariosOcultos.map(m => (
+                <option key={m.funcionario_id} value={m.funcionario_id}>
                   {m.montador_nome}
+                  {m.categoria ? ` (${labelCategoria(m.categoria)})` : ''}
                 </option>
               ))}
             </select>
@@ -206,8 +209,8 @@ export function FixoMontadorSection({
           <button
             type="button"
             className="btn btn-outline btn-sm flex items-center gap-1"
-            disabled={!montadorSelecionado}
-            onClick={adicionarMontador}
+            disabled={!funcionarioSelecionado}
+            onClick={adicionarFuncionario}
           >
             <Plus size={14} />
             Adicionar
@@ -216,12 +219,12 @@ export function FixoMontadorSection({
       )}
 
       {loading && (
-        <div className="p-8 text-center text-sm text-[#edd9c4]">Carregando montadores...</div>
+        <div className="p-8 text-center text-sm text-[#edd9c4]">Carregando equipe...</div>
       )}
 
       {!loading && data.length === 0 && (
         <div className="p-8">
-          <EmptyState message="Nenhum montador ativo cadastrado em Configurações." />
+          <EmptyState message="Nenhum funcionário ativo cadastrado em Funcionários." />
         </div>
       )}
 
@@ -233,11 +236,12 @@ export function FixoMontadorSection({
 
       {!loading && linhasVisiveis.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-[rgba(240,210,140,0.12)]">
                 {[
-                  'Montador',
+                  'Funcionário',
+                  'Categoria',
                   'Valor fixo mensal',
                   'Valor a pagar',
                   'Data de pagamento',
@@ -255,23 +259,28 @@ export function FixoMontadorSection({
             </thead>
             <tbody>
               {linhasVisiveis.map((row, i) => {
-                const isSaving = savingId === row.montador_id
-                const draftValor = draftsValor[row.montador_id] ?? ''
-                const draftData = draftsData[row.montador_id] ?? defaultVencimento()
+                const isSaving = savingId === row.funcionario_id
+                const draftValor = draftsValor[row.funcionario_id] ?? ''
+                const draftData = draftsData[row.funcionario_id] ?? defaultVencimento()
                 const valorAtual = row.valor_fixo_mensal
                 const fixoEfetivo = canEdit
-                  ? parseDraftValor(row.montador_id, valorAtual)
+                  ? parseDraftValor(row.funcionario_id, valorAtual)
                   : valorAtual
-                const comissaoConcluida = comissaoConcluidaPorMontador[row.montador_id] ?? 0
+                const comissaoConcluida = row.montador_id
+                  ? (comissaoConcluidaPorMontador[row.montador_id] ?? 0)
+                  : 0
                 const valorAPagar = fixoEfetivo + comissaoConcluida
 
                 return (
                   <tr
-                    key={row.montador_id}
+                    key={row.funcionario_id}
                     className={`border-b border-[rgba(240,210,140,0.06)] ${i % 2 === 0 ? 'bg-[rgba(255,255,255,0.01)]' : ''}`}
                   >
                     <td className="px-4 py-3 font-semibold text-cream">
                       {row.montador_nome}
+                    </td>
+                    <td className="px-4 py-3 text-[#edd9c4]">
+                      {labelCategoria(row.categoria)}
                     </td>
                     <td className="px-4 py-3">
                       {canEdit ? (
@@ -286,7 +295,7 @@ export function FixoMontadorSection({
                             disabled={isSaving}
                             onChange={e => setDraftsValor(prev => ({
                               ...prev,
-                              [row.montador_id]: e.target.value,
+                              [row.funcionario_id]: e.target.value,
                             }))}
                             placeholder="0,00"
                           />
@@ -315,7 +324,7 @@ export function FixoMontadorSection({
                           disabled={isSaving}
                           onChange={iso => setDraftsData(prev => ({
                             ...prev,
-                            [row.montador_id]: iso ?? '',
+                            [row.funcionario_id]: iso ?? '',
                           }))}
                         />
                       ) : (
@@ -376,7 +385,7 @@ export function FixoMontadorSection({
             </tbody>
             <tfoot>
               <tr className="border-t border-[rgba(240,210,140,0.2)] bg-[rgba(240,210,140,0.04)]">
-                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#f2d892]">
+                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#f2d892]" colSpan={2}>
                   Total do mês
                 </td>
                 <td className="px-4 py-3 font-mono font-bold text-[#f2d892]">

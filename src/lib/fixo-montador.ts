@@ -12,8 +12,10 @@ export function podeExpandirFixoMontadores(roles: UserRole[]): boolean {
 
 function mapFixoRow(row: Record<string, unknown>): MontadorFixoMensal {
   return {
-    montador_id: String(row.montador_id),
-    montador_nome: String(row.montador_nome ?? 'Montador'),
+    funcionario_id: String(row.funcionario_id ?? ''),
+    montador_id: row.montador_id ? String(row.montador_id) : null,
+    montador_nome: String(row.montador_nome ?? 'Funcionário'),
+    categoria: row.categoria ? String(row.categoria) : null,
     valor_fixo_mensal: Number(row.valor_fixo_mensal) || 0,
     primeiro_vencimento: row.primeiro_vencimento
       ? String(row.primeiro_vencimento).slice(0, 10)
@@ -45,14 +47,18 @@ export function mergeMontadoresComFixo(
   montadores: UsuarioMontador[],
   fixos: MontadorFixoMensal[],
 ): MontadorFixoMensal[] {
-  const fixoPorId = new Map(fixos.map(f => [f.montador_id, f]))
+  const fixoPorUsuario = new Map(
+    fixos.filter(f => f.montador_id).map(f => [f.montador_id as string, f]),
+  )
 
   return montadores.map(m => {
-    const fixo = fixoPorId.get(m.id)
+    const fixo = fixoPorUsuario.get(m.id)
     const nome = m.nome?.trim() || m.email.split('@')[0] || 'Montador'
     return fixo ?? {
+      funcionario_id: '',
       montador_id: m.id,
       montador_nome: nome,
+      categoria: 'montador',
       valor_fixo_mensal: 0,
       primeiro_vencimento: null,
       status_mes: 'sem_fixo',
@@ -61,6 +67,21 @@ export function mergeMontadoresComFixo(
   })
 }
 
+/** Salva o fixo pela pasta do funcionário (gera Contas a Pagar). */
+export async function atualizarFixoFuncionario(
+  funcionarioId: string,
+  valor: number,
+  primeiroVencimento?: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('movelaria_atualizar_fixo_funcionario', {
+    p_funcionario_id: funcionarioId,
+    p_valor: valor,
+    p_primeiro_vencimento: primeiroVencimento || null,
+  })
+  if (error) throw error
+}
+
+/** @deprecated Preferir atualizarFixoFuncionario — mantido para montadores legados. */
 export async function atualizarFixoMontador(
   montadorId: string,
   valor: number,

@@ -81,12 +81,15 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
         if (cpErr) throw cpErr
         setContasPagar((cpRows ?? []) as ContaPagar[])
 
-        const fixoRow = fixos.find(f => f.montador_id === func.usuario_id)
-        const fixo = Number(fixoRow?.valor_fixo_mensal) || 0
+        const fixoRow = fixos.find(
+          f => f.funcionario_id === func.id || f.montador_id === func.usuario_id,
+        )
+        const fixo = Number(fixoRow?.valor_fixo_mensal) || Number(func.valor_fixo_mensal) || 0
         setValorFixoMensal(fixo > 0 ? fixo : null)
       } else {
         setContasPagar([])
-        setValorFixoMensal(null)
+        const fixo = Number(func.valor_fixo_mensal) || 0
+        setValorFixoMensal(fixo > 0 ? fixo : null)
       }
     } catch (err) {
       if (!silent) {

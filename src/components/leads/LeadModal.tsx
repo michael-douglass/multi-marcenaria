@@ -77,8 +77,10 @@ import { LeadModalFooter } from './LeadModalFooter';
 import { LeadAIAnalysisTab } from './LeadAIAnalysisTab';
 import { LeadModalSection, LeadModalScrollBody } from './LeadModalSection';
 import { LeadModalNav } from './LeadModalNav';
+import { LeadModalSearch } from './LeadModalSearch';
 import type { LeadIaSubtab, LeadModalTabId, LeadNavJumpItem } from './lead-modal-nav';
-import { waitAndScrollLeadModalToSection } from '@/lib/lead-modal-scroll';
+import type { LeadSearchHit } from '@/lib/lead-modal-search';
+import { waitAndScrollLeadModalToSection, waitAndScrollLeadModalToSelector } from '@/lib/lead-modal-scroll';
 import { LeadPontuaGarboContactPanel } from './LeadPontuaGarboContactPanel';
 import { LeadPontuaGarboPartnerBadge } from './LeadPontuaGarboPartnerBadge';
 import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
@@ -590,6 +592,16 @@ export function LeadModal({
     setLeadModalTab(item.tab);
     if (item.iaSubtab) setIaSubtab(item.iaSubtab);
     waitAndScrollLeadModalToSection(item.id);
+  }, []);
+
+  const handleLeadSearchJump = useCallback((hit: LeadSearchHit) => {
+    setLeadModalTab(hit.tab);
+    if (hit.iaSubtab) setIaSubtab(hit.iaSubtab);
+    if (hit.fieldId) {
+      waitAndScrollLeadModalToSelector(`[data-lead-search-field="${CSS.escape(hit.fieldId)}"]`);
+      return;
+    }
+    if (hit.sectionId) waitAndScrollLeadModalToSection(hit.sectionId);
   }, []);
 
   const markFormDirty = () => {
@@ -1506,7 +1518,17 @@ export function LeadModal({
               <DialogDescription className="sr-only">
                 {leadId ? 'Formulário para visualizar e editar os dados do lead.' : 'Formulário para cadastrar um novo lead.'}
               </DialogDescription>
-              <div className="relative z-40 flex items-center gap-1 shrink-0">
+              <div className="relative z-40 flex items-center gap-1.5 shrink-0">
+                {leadId && leadWindowMode !== 'minimized' && (
+                  <LeadModalSearch
+                    onJump={handleLeadSearchJump}
+                    showIa
+                    hideContratos={modoProjeto}
+                    hideOrcamentos={contextoProjeto}
+                    hideMarkup={contextoProjeto}
+                    hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
+                  />
+                )}
                 {!headerCollapsed && leadId && leadWindowMode !== 'minimized' && (
                   <div className="flex items-center gap-0.5 rounded-md border border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] p-0.5">
                     <LeadLembretesPopover

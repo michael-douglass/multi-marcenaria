@@ -805,7 +805,7 @@ export function LeadCustomFieldsSection({
           (showPontuaGarbo || selectedUser?.tipo_usuario === 'prestador_servico');
 
         return (
-          <div key={field.id} className="space-y-1 w-full overflow-hidden">
+          <div key={field.id} className="space-y-1 w-full overflow-hidden" data-lead-search-field={`custom:${field.id}`}>
             <div className="flex items-center justify-between">
               <Label className="text-sm">
                 {field.nome}

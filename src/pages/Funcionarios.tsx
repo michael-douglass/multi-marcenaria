@@ -10,11 +10,22 @@ import { Modal } from '@/components/ui/Modal'
 import { ModalFormFooter } from '@/components/ui/ModalFormFooter'
 import { Field } from '@/components/ui/Field'
 import { EmptyState, LoadingState, ErrorState } from '@/components/ui/EmptyState'
-import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
+import {
+  FUNCIONARIO_CATEGORIA_LABEL,
+  FUNCIONARIO_CATEGORIAS,
+  FUNCIONARIO_TIPO_LABEL,
+  FUNCIONARIO_TIPOS_CADASTRO,
+  categoriaPadraoPorTipo,
+} from '@/lib/funcionario-constants'
 import { isPastaPontoRegistrosRestrita } from '@/lib/role-access'
-import type { FuncionarioInput, FuncionarioTipo } from '@/types'
+import { showToast } from '@/lib/toast'
+import type { FuncionarioCategoria, FuncionarioInput, FuncionarioTipo } from '@/types'
 
-const BLANK: FuncionarioInput = { nome: '', tipo: 'montador' }
+const BLANK: FuncionarioInput = {
+  nome: '',
+  tipo: 'design',
+  categoria: 'design',
+}
 
 interface Props {
   readOnly?: boolean
@@ -33,6 +44,7 @@ export function Funcionarios({ readOnly }: Props) {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<FuncionarioTipo | 'todos'>('todos')
+  const [filtroCategoria, setFiltroCategoria] = useState<FuncionarioCategoria | 'todos'>('todos')
   const [createdNome, setCreatedNome] = useState<string | null>(null)
 
   const mudarAba = (nova: FuncionarioListagem) => {
@@ -46,19 +58,35 @@ export function Funcionarios({ readOnly }: Props) {
 
   const filtered = useMemo(() => data.filter(f => {
     if (filtroTipo !== 'todos' && f.tipo !== filtroTipo) return false
+    if (filtroCategoria !== 'todos' && f.categoria !== filtroCategoria) return false
     const q = search.trim().toLowerCase()
     if (!q) return true
-    return [f.nome, f.email ?? '', f.telefone ?? '', f.cpf ?? ''].join(' ').toLowerCase().includes(q)
-  }), [data, filtroTipo, search])
+    return [f.nome, f.email ?? '', f.telefone ?? '', f.cpf ?? '', f.categoria ?? '']
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  }), [data, filtroTipo, filtroCategoria, search])
 
   const save = async () => {
-    if (!form.nome.trim()) return
+    if (!form.nome.trim()) {
+      showToast('Informe o nome completo do funcionário.', 'error')
+      return
+    }
     setSaving(true)
     try {
-      const row = await create(form)
+      const row = await create({
+        ...form,
+        categoria: form.categoria ?? categoriaPadraoPorTipo(form.tipo),
+      })
       setCreatedNome(row.nome)
       setOpen(false)
       setForm(BLANK)
+      showToast(`Pasta de ${row.nome} criada.`, 'success')
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Não foi possível criar a pasta.',
+        'error',
+      )
     } finally {
       setSaving(false)
     }
@@ -143,6 +171,7 @@ export function Funcionarios({ readOnly }: Props) {
             <p className="font-medium text-emerald-900">Funcionário cadastrado!</p>
             <p className="mt-1 text-sm text-[#4a3428]">
               Pasta criada para <strong className="text-[#1a100c]">{createdNome}</strong>.
+              Folha de ponto liberada e nome disponível em Métricas de Obras para definir o fixo.
             </p>
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setCreatedNome(null)}>
@@ -177,11 +206,23 @@ export function Funcionarios({ readOnly }: Props) {
           <option value="todos">Todos os tipos</option>
           {(pastaPontoRestrita
             ? (['montador', 'montador_admin', 'administrador_obras'] as FuncionarioTipo[])
-            : (Object.keys(FUNCIONARIO_TIPO_LABEL) as FuncionarioTipo[])
+            : FUNCIONARIO_TIPOS_CADASTRO
           ).map(t => (
             <option key={t} value={t}>{FUNCIONARIO_TIPO_LABEL[t]}</option>
           ))}
         </select>
+        {!pastaPontoRestrita && (
+          <select
+            className="glass-input sm:w-48"
+            value={filtroCategoria}
+            onChange={e => setFiltroCategoria(e.target.value as FuncionarioCategoria | 'todos')}
+          >
+            <option value="todos">Todas as categorias</option>
+            {FUNCIONARIO_CATEGORIAS.map(c => (
+              <option key={c} value={c}>{FUNCIONARIO_CATEGORIA_LABEL[c]}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading && <LoadingState />}
@@ -207,12 +248,27 @@ export function Funcionarios({ readOnly }: Props) {
         <Field label="Nome completo *">
           <input className="glass-input" value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} />
         </Field>
-        <Field label="Tipo *">
-          <select className="glass-input" value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value as FuncionarioTipo }))}>
-            {(Object.keys(FUNCIONARIO_TIPO_LABEL) as FuncionarioTipo[]).map(t => (
+        <Field label="Tipo de pasta *">
+          <select
+            className="glass-input"
+            value={form.tipo}
+            onChange={e => {
+              const tipo = e.target.value as FuncionarioTipo
+              setForm(p => ({
+                ...p,
+                tipo,
+                categoria: categoriaPadraoPorTipo(tipo),
+              }))
+            }}
+          >
+            {FUNCIONARIO_TIPOS_CADASTRO.map(t => (
               <option key={t} value={t}>{FUNCIONARIO_TIPO_LABEL[t]}</option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-[#b8957f]">
+            Escolha o tipo da pasta: Design, Projetista, Montador, Financeiro e outros.
+            A pessoa ganha folha de ponto e aparece no fixo de Métricas.
+          </p>
         </Field>
         <Field label="Telefone">
           <input className="glass-input" value={form.telefone ?? ''} onChange={e => setForm(p => ({ ...p, telefone: e.target.value }))} />
@@ -220,7 +276,14 @@ export function Funcionarios({ readOnly }: Props) {
         <Field label="E-mail">
           <input type="email" className="glass-input" value={form.email ?? ''} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
         </Field>
-        <ModalFormFooter onCancel={() => setOpen(false)} onSave={() => void save()} saving={saving} saveLabel="Criar pasta" />
+        <ModalFormFooter
+          onCancel={() => setOpen(false)}
+          onSubmit={() => void save()}
+          submitting={saving}
+          submitLabel="Criar pasta"
+          submittingLabel="Criando..."
+          submitDisabled={!form.nome.trim()}
+        />
       </Modal>
       </div>
     </div>

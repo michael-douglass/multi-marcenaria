@@ -15,7 +15,7 @@ function readSrc(rel) {
 }
 
 describe('bater ponto — só funcionário cadastrado', () => {
-  it('tipos de pasta que batem ponto não incluem financeiro', () => {
+  it('tipos de pasta que batem ponto incluem a equipe (com financeiro)', () => {
     const constants = readSrc('src/lib/funcionario-constants.ts')
     assert.match(constants, /TIPOS_FUNCIONARIO_PONTO/)
     assert.match(constants, /podeBaterPontoPorTipo/)
@@ -25,7 +25,27 @@ describe('bater ponto — só funcionário cadastrado', () => {
       constants.indexOf('TIPOS_FUNCIONARIO_PONTO'),
       constants.indexOf('podeBaterPontoPorTipo'),
     )
-    assert.doesNotMatch(block, /financeiro/)
+    assert.match(block, /financeiro/)
+  })
+
+  it('cadastro de funcionário tem tipos de pasta Design e Projetista', () => {
+    const constants = readSrc('src/lib/funcionario-constants.ts')
+    assert.match(constants, /FUNCIONARIO_TIPOS_CADASTRO/)
+    assert.match(constants, /design/)
+    assert.match(constants, /projetista/)
+    const page = readSrc('src/pages/Funcionarios.tsx')
+    assert.match(page, /FUNCIONARIO_TIPOS_CADASTRO/)
+    assert.match(page, /Tipo de pasta/)
+  })
+
+  it('métricas de obras salvam fixo pelo funcionário e geram contas a pagar', () => {
+    const fixoLib = readSrc('src/lib/fixo-montador.ts')
+    assert.match(fixoLib, /atualizarFixoFuncionario/)
+    assert.match(fixoLib, /movelaria_atualizar_fixo_funcionario/)
+    const section = readSrc('src/components/metricas/FixoMontadorSection.tsx')
+    assert.match(section, /Fixo mensal da equipe/)
+    assert.match(section, /funcionario_id/)
+    assert.match(section, /Categoria/)
   })
 
   it('a página de ponto exige cadastro, não só o perfil de login', () => {

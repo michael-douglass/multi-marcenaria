@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  atualizarFixoMontador,
+  atualizarFixoFuncionario,
   fetchFixoMontadores,
   fetchMontadoresAtivos,
   mergeMontadoresComFixo,
@@ -22,23 +22,21 @@ export function useFixoMontador(mes: number, ano: number) {
     setLoading(true)
     setError(null)
     try {
-      // Fonte principal: RPC de fixo (já traz todos os montadores + valores).
       try {
         const fixos = await fetchFixoMontadores(mes, ano)
         setData(fixos)
         return
       } catch (fixoErr) {
-        // Fallback: lista montadores e mescla (valores podem vir zerados).
         const montadores = await fetchMontadoresAtivos()
         setData(mergeMontadoresComFixo(montadores, []))
         setError(
           fixoErr instanceof Error
             ? `Não foi possível carregar os fixos: ${fixoErr.message}`
-            : 'Não foi possível carregar os fixos dos montadores.',
+            : 'Não foi possível carregar os fixos da equipe.',
         )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar montadores.')
+      setError(err instanceof Error ? err.message : 'Erro ao carregar funcionários.')
       setData([])
     } finally {
       setLoading(false)
@@ -48,21 +46,25 @@ export function useFixoMontador(mes: number, ano: number) {
   useEffect(() => { void load() }, [load])
 
   const salvarFixo = useCallback(async (
-    montadorId: string,
+    funcionarioId: string,
     valor: number,
     primeiroVencimento?: string | null,
   ) => {
+    if (!funcionarioId) {
+      const msg = 'Funcionário inválido para salvar o fixo.'
+      setError(msg)
+      throw new Error(msg)
+    }
     if (valor > 0 && !primeiroVencimento) {
       const msg = 'Informe a data de pagamento para ativar o fixo.'
       setError(msg)
       throw new Error(msg)
     }
-    setSavingId(montadorId)
+    setSavingId(funcionarioId)
     setError(null)
     setSuccessMsg(null)
     try {
-      await atualizarFixoMontador(montadorId, valor, primeiroVencimento)
-      // Libera Contas a Pagar para reexpandir/recarregar as novas cobranças.
+      await atualizarFixoFuncionario(funcionarioId, valor, primeiroVencimento)
       resetExpandirFixoMontadoresSessao()
       await load()
       setSuccessMsg(

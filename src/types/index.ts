@@ -776,9 +776,22 @@ export interface PrestadorFinanceiroItem {
 
 export type MontadorFixoStatusMes = 'pendente' | 'pago' | 'sem_fixo'
 
+/** Categoria de cargo no RH (independente do tipo de login/pasta). */
+export type FuncionarioCategoria =
+  | 'design'
+  | 'projetista'
+  | 'montador'
+  | 'financeiro'
+  | 'administrativo'
+  | 'outro'
+
 export interface MontadorFixoMensal {
-  montador_id: string
+  /** Pasta RH — chave para salvar o fixo. */
+  funcionario_id: string
+  /** Usuário vinculado (comissão / contas); pode ser null. */
+  montador_id: string | null
   montador_nome: string
+  categoria?: FuncionarioCategoria | string | null
   valor_fixo_mensal: number
   primeiro_vencimento?: string | null
   status_mes: MontadorFixoStatusMes
@@ -824,6 +837,10 @@ export type FuncionarioTipo =
   | 'montador_admin'
   | 'administrador_obras'
   | 'financeiro'
+  | 'design'
+  | 'projetista'
+  | 'administrativo'
+  | 'outro'
 
 export type FuncionarioAdmissaoStatus = 'pendente' | 'preenchido_funcionario' | 'completo'
 
@@ -892,6 +909,7 @@ export interface Funcionario {
   telefone?: string | null
   email?: string | null
   tipo: FuncionarioTipo
+  categoria: FuncionarioCategoria
   usuario_id?: string | null
   ativo: boolean
   dispensado_em?: string | null
@@ -899,6 +917,8 @@ export interface Funcionario {
   admissao_token: string
   admissao_status: FuncionarioAdmissaoStatus
   admissao_dados: FuncionarioAdmissaoDados
+  valor_fixo_mensal?: number
+  fixo_primeiro_vencimento?: string | null
   foto_perfil_path?: string | null
   criado_em?: string
   atualizado_em?: string
@@ -907,7 +927,7 @@ export interface Funcionario {
 }
 
 export type FuncionarioInput = Pick<Funcionario, 'nome' | 'tipo'> &
-  Partial<Pick<Funcionario, 'cpf' | 'telefone' | 'email' | 'usuario_id' | 'ativo' | 'admissao_dados' | 'admissao_status'>>
+  Partial<Pick<Funcionario, 'categoria' | 'cpf' | 'telefone' | 'email' | 'usuario_id' | 'ativo' | 'admissao_dados' | 'admissao_status'>>
 
 export interface FuncionarioDocumento {
   id: string

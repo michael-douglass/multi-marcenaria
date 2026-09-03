@@ -1,24 +1,79 @@
-import type { FuncionarioTipo } from '@/types'
+import type { FuncionarioCategoria, FuncionarioTipo } from '@/types'
 
 export const FUNCIONARIO_TIPO_LABEL: Record<FuncionarioTipo, string> = {
+  design: 'Design',
+  projetista: 'Projetista',
   montador: 'Montador',
   montador_admin: 'Montador Admin',
   administrador_obras: 'Adm. Obras',
   financeiro: 'Financeiro',
+  administrativo: 'Administrativo',
+  outro: 'Outro',
 }
 
-export const FUNCIONARIO_TIPO_PERFIL: Record<FuncionarioTipo, string> = {
+/** Ordem amigável no select de nova pasta. */
+export const FUNCIONARIO_TIPOS_CADASTRO: readonly FuncionarioTipo[] = [
+  'design',
+  'projetista',
+  'montador',
+  'montador_admin',
+  'administrador_obras',
+  'financeiro',
+  'administrativo',
+  'outro',
+]
+
+export const FUNCIONARIO_CATEGORIA_LABEL: Record<FuncionarioCategoria, string> = {
+  design: 'Design',
+  projetista: 'Projetista',
+  montador: 'Montador',
+  financeiro: 'Financeiro',
+  administrativo: 'Administrativo',
+  outro: 'Outro',
+}
+
+export const FUNCIONARIO_CATEGORIAS = Object.keys(
+  FUNCIONARIO_CATEGORIA_LABEL,
+) as FuncionarioCategoria[]
+
+/** Alinha a categoria de cargo ao tipo de pasta escolhido. */
+export function categoriaPadraoPorTipo(tipo: FuncionarioTipo): FuncionarioCategoria {
+  switch (tipo) {
+    case 'design':
+      return 'design'
+    case 'projetista':
+      return 'projetista'
+    case 'montador':
+    case 'montador_admin':
+      return 'montador'
+    case 'financeiro':
+      return 'financeiro'
+    case 'administrador_obras':
+    case 'administrativo':
+      return 'administrativo'
+    default:
+      return 'outro'
+  }
+}
+
+/** Só tipos que batem com perfil de login no sistema. */
+export const FUNCIONARIO_TIPO_PERFIL: Partial<Record<FuncionarioTipo, string>> = {
   montador: 'montador',
   montador_admin: 'montador_admin',
   administrador_obras: 'administrador_obras',
   financeiro: 'financeiro',
 }
 
-/** Tipos de pasta que batem ponto (não inclui financeiro). */
+/** Todo funcionário ativo (exceto marceneiro) ganha folha de ponto. */
 export const TIPOS_FUNCIONARIO_PONTO: readonly FuncionarioTipo[] = [
+  'design',
+  'projetista',
   'montador',
   'montador_admin',
   'administrador_obras',
+  'financeiro',
+  'administrativo',
+  'outro',
 ]
 
 export function podeBaterPontoPorTipo(tipo: string | null | undefined): boolean {

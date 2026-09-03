@@ -83,7 +83,10 @@ export function LeadEditableField({
   };
 
   return (
-    <div className={cn('group/field space-y-1.5 min-w-0 max-w-full', className)}>
+    <div
+      className={cn('group/field space-y-1.5 min-w-0 max-w-full', className)}
+      data-lead-search-field={fieldId}
+    >
       <div className="flex items-center justify-between gap-2 min-h-7">
         {htmlFor ? (
           <Label

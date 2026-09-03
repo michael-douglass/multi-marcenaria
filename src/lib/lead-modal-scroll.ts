@@ -41,6 +41,39 @@ export function scrollLeadModalToSection(sectionId: string, offsetY = 10): boole
     overwrite: 'auto',
     scrollTo: { y: Math.max(0, top) },
   });
+  target.classList.remove('lead-modal-search-flash');
+  void target.offsetWidth;
+  target.classList.add('lead-modal-search-flash');
+  window.setTimeout(() => target.classList.remove('lead-modal-search-flash'), 1400);
+  return true;
+}
+
+export function scrollLeadModalToElement(target: HTMLElement, offsetY = 10): boolean {
+  const scroller = getLeadModalScrollEl();
+  if (!scroller || !scroller.contains(target)) return false;
+
+  const top =
+    target.getBoundingClientRect().top -
+    scroller.getBoundingClientRect().top +
+    scroller.scrollTop -
+    offsetY;
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) {
+    scroller.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+  } else {
+    gsap.to(scroller, {
+      duration: 0.62,
+      ease: 'power3.out',
+      overwrite: 'auto',
+      scrollTo: { y: Math.max(0, top) },
+    });
+  }
+
+  target.classList.remove('lead-modal-search-flash');
+  void target.offsetWidth;
+  target.classList.add('lead-modal-search-flash');
+  window.setTimeout(() => target.classList.remove('lead-modal-search-flash'), 1400);
   return true;
 }
 
@@ -50,6 +83,17 @@ export function waitAndScrollLeadModalToSection(sectionId: string, maxFrames = 2
   const tick = () => {
     tries += 1;
     if (scrollLeadModalToSection(sectionId)) return;
+    if (tries < maxFrames) window.requestAnimationFrame(tick);
+  };
+  window.requestAnimationFrame(tick);
+}
+
+export function waitAndScrollLeadModalToSelector(selector: string, maxFrames = 24): void {
+  let tries = 0;
+  const tick = () => {
+    tries += 1;
+    const target = document.querySelector<HTMLElement>(selector);
+    if (target && scrollLeadModalToElement(target)) return;
     if (tries < maxFrames) window.requestAnimationFrame(tick);
   };
   window.requestAnimationFrame(tick);

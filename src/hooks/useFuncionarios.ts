@@ -93,6 +93,7 @@ export function useFuncionarios(options?: UseFuncionariosOptions) {
       .insert({
         nome: input.nome.trim(),
         tipo: input.tipo,
+        categoria: input.categoria ?? 'montador',
         cpf: input.cpf?.trim() || null,
         telefone: input.telefone?.trim() || null,
         email: input.email?.trim() || null,
@@ -113,6 +114,7 @@ export function useFuncionarios(options?: UseFuncionariosOptions) {
     const payload: Record<string, unknown> = { atualizado_em: new Date().toISOString() }
     if (input.nome !== undefined) payload.nome = input.nome.trim()
     if (input.tipo !== undefined) payload.tipo = input.tipo
+    if (input.categoria !== undefined) payload.categoria = input.categoria
     if (input.cpf !== undefined) payload.cpf = input.cpf?.trim() || null
     if (input.telefone !== undefined) payload.telefone = input.telefone?.trim() || null
     if (input.email !== undefined) payload.email = input.email?.trim() || null
