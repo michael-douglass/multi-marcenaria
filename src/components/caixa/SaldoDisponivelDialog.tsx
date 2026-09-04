@@ -126,11 +126,11 @@ export function SaldoDisponivelDialog({
               Total em todas as contas (todos os meses)
             </p>
             {loadingGlobal ? (
-              <p className="mt-1 text-lg font-bold text-emerald-400/60 animate-pulse">Carregando...</p>
+              <p className="mt-1 text-lg font-bold text-[#0f6a44]/70 animate-pulse">Carregando...</p>
             ) : contasGlobais.length === 0 ? (
               <p className="mt-1 text-sm text-[#edd9c4]">Nenhuma conta cadastrada ainda.</p>
             ) : (
-              <p className="mt-1 text-2xl font-bold text-emerald-400">{fmtCur(totalGlobalContas)}</p>
+              <p className="mt-1 text-2xl font-bold text-[#0f6a44]">{fmtCur(totalGlobalContas)}</p>
             )}
           </div>
 
@@ -143,13 +143,13 @@ export function SaldoDisponivelDialog({
                 {contasGlobais.map(conta => (
                   <div
                     key={conta.descricao}
-                    className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5"
+                    className="inline-flex items-center gap-2 rounded-md border border-[rgba(42,24,18,0.14)] bg-[rgba(42,24,18,0.05)] px-2.5 py-1.5"
                   >
                     <Landmark className="h-3.5 w-3.5 shrink-0 text-[#f2d892]" />
                     <span className="truncate text-xs font-medium text-cream max-w-[140px] sm:max-w-[180px]">
                       {conta.descricao}
                     </span>
-                    <span className="shrink-0 text-xs font-bold text-emerald-400">
+                    <span className="shrink-0 text-xs font-bold text-[#0f6a44]">
                       {fmtCur(conta.total)}
                     </span>
                   </div>
@@ -183,7 +183,7 @@ export function SaldoDisponivelDialog({
             <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
               Saldo disponível
             </p>
-            <p className="mt-1 text-lg font-bold text-emerald-400">{fmtCur(saldoDisponivel)}</p>
+            <p className="mt-1 text-lg font-bold text-[#0f6a44]">{fmtCur(saldoDisponivel)}</p>
           </div>
           <div className="rounded-lg border border-[#f2d892]/20 bg-[#f2d892]/5 p-3">
             <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
@@ -212,10 +212,10 @@ export function SaldoDisponivelDialog({
               className={cn(
                 'mt-1 text-lg font-bold',
                 Math.abs(diferenca) < 0.01
-                  ? 'text-emerald-400'
+                  ? 'text-[#0f6a44]'
                   : diferenca > 0
-                    ? 'text-amber-400'
-                    : 'text-red-400',
+                    ? 'text-[#8a4f06]'
+                    : 'text-[#a02818]',
               )}
             >
               {Math.abs(diferenca) < 0.01 ? '✓' : fmtCur(Math.abs(diferenca))}
@@ -223,7 +223,7 @@ export function SaldoDisponivelDialog({
           </div>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-black/20 p-4 space-y-4">
+        <div className="rounded-lg border border-[rgba(42,24,18,0.14)] bg-[rgba(42,24,18,0.05)] p-4 space-y-4">
           <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#f2d892]">
             {editing ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {editing ? 'Editar conta / banco' : 'Adicionar conta / banco'}
@@ -246,7 +246,7 @@ export function SaldoDisponivelDialog({
               />
             </Field>
           </div>
-          {formError && <p className="text-sm text-red-400">{formError}</p>}
+          {formError && <p className="text-sm text-[#a02818]">{formError}</p>}
           <div className="flex justify-end gap-2">
             {editing && (
               <Button variant="ghost" size="sm" onClick={resetForm}>
@@ -265,7 +265,7 @@ export function SaldoDisponivelDialog({
         </div>
 
         {error && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-[#a02818]">
             {error}
           </p>
         )}
@@ -280,7 +280,7 @@ export function SaldoDisponivelDialog({
               Carregando...
             </div>
           ) : alocacoes.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/10 py-10 text-center">
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-[rgba(42,24,18,0.14)] py-10 text-center">
               <Wallet className="h-8 w-8 text-[#edd9c4]/50" />
               <p className="text-sm text-[#edd9c4]">
                 Nenhuma conta cadastrada para este mês.
@@ -290,11 +290,11 @@ export function SaldoDisponivelDialog({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-white/5 rounded-lg border border-white/10 overflow-hidden">
+            <div className="divide-y divide-[rgba(42,24,18,0.09)] rounded-lg border border-[rgba(42,24,18,0.14)] overflow-hidden">
               {alocacoes.map(item => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-[rgba(42,24,18,0.035)] transition-colors"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f2d892]/10">
                     <Landmark className="h-4 w-4 text-[#f2d892]" />
@@ -302,7 +302,7 @@ export function SaldoDisponivelDialog({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-cream text-sm">{item.descricao}</p>
                   </div>
-                  <p className="shrink-0 font-bold text-emerald-400">{fmtCur(item.valor)}</p>
+                  <p className="shrink-0 font-bold text-[#0f6a44]">{fmtCur(item.valor)}</p>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"

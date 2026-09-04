@@ -106,8 +106,8 @@ export function CaixaValorEditavel({
         value={draft}
         aria-label="Editar valor"
         className={cn(
-          'ml-auto w-[7.5rem] rounded border border-white/15 bg-white/5 px-2 py-1 text-right text-[0.85rem] font-semibold outline-none',
-          'focus:border-[#f2d892]/60 focus:ring-1 focus:ring-[#f2d892]/30',
+          'caixa-num ml-auto w-[7.5rem] rounded border border-[rgba(42,24,18,0.24)] bg-[#fffcf8] px-2 py-1 text-right text-[0.85rem] font-semibold outline-none',
+          'focus:border-[#c4963a] focus:ring-2 focus:ring-[#c4963a]/30',
           'disabled:opacity-60',
           className,
         )}
@@ -137,7 +137,7 @@ export function CaixaValorEditavel({
       onClick={startEdit}
       className={cn(
         'ml-auto block w-full cursor-pointer rounded px-1 py-0.5 text-right transition-colors',
-        'hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#c4963a]/50',
         'disabled:cursor-wait disabled:opacity-60',
         className,
       )}

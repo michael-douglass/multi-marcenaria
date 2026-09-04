@@ -3539,11 +3539,13 @@ body::before {
     font-size: .68rem;
     line-height: 1.4;
   }
-  .badge-gold  { background: var(--color-gold-dim); color: var(--color-gold); border: 1px solid var(--color-gold-border); }
-  .badge-green { background: rgba(34,197,94,.12);  color: #4ade80; border: 1px solid rgba(34,197,94,.32); }
-  .badge-red   { background: rgba(220,38,38,.12);  color: #f87171; border: 1px solid rgba(220,38,38,.32); }
-  .badge-amber { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.32); }
-  .badge-blue  { background: rgba(96,165,250,.1);  color: #93c5fd; border: 1px solid rgba(96,165,250,.28); }
+  /* Tinta escura sobre a tinta clara: os badges nasceram no tema mogno e
+     ficavam quase brancos no papel. Agora cada estado tem contraste AA. */
+  .badge-gold  { background: rgba(196,150,58,.14); color: #7a4e10; border: 1px solid rgba(196,150,58,.45); }
+  .badge-green { background: rgba(15,106,68,.10);  color: #0f6a44; border: 1px solid rgba(15,106,68,.32); }
+  .badge-red   { background: rgba(160,40,24,.10);  color: #a02818; border: 1px solid rgba(160,40,24,.32); }
+  .badge-amber { background: rgba(180,105,10,.12); color: #8a4f06; border: 1px solid rgba(180,105,10,.34); }
+  .badge-blue  { background: rgba(23,85,126,.10);  color: #17557e; border: 1px solid rgba(23,85,126,.30); }
 
   /* ── Section label ── */
   .section-label {
@@ -7287,4 +7289,98 @@ body {
   .fn-user-pick__chip {
     transition: none;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CAIXA — leitura do dinheiro sobre papel (Bourbon Daylight)
+   O tema virou claro, mas o Caixa herdou classes do tema escuro
+   (text-cream/60, text-red-400, text-emerald-400) que somem no papel.
+   Aqui cada coluna de valor ganha cor própria com contraste AA (>= 4.5:1)
+   sobre #fffcf8: real = tinta mogno · reservado = azul retido ·
+   pago = vinho · restante = ouro escuro · saldo = verde cofre.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --caixa-real:         #2a1812;
+  --caixa-reservado:    #17557e;
+  --caixa-reservado-bg: rgba(23, 85, 126, 0.06);
+  --caixa-pago:         #a02818;
+  --caixa-pago-bg:      rgba(160, 40, 24, 0.06);
+  --caixa-restante:     #8a5a14;
+  --caixa-restante-bg:  rgba(138, 90, 20, 0.08);
+  --caixa-saldo:        #0f6a44;
+  --caixa-saldo-bg:     rgba(15, 106, 68, 0.07);
+  --caixa-line:         rgba(42, 24, 18, 0.10);
+  --caixa-line-strong:  rgba(42, 24, 18, 0.20);
+}
+
+/* Dígitos de mesma largura: as colunas de valor alinham na vertical. */
+.caixa-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.005em;
+}
+
+.caixa-v-real      { color: var(--caixa-real); }
+.caixa-v-reservado { color: var(--caixa-reservado); }
+.caixa-v-pago      { color: var(--caixa-pago); }
+.caixa-v-restante  { color: var(--caixa-restante); }
+.caixa-v-saldo     { color: var(--caixa-saldo); }
+
+/* Cabeçalho da tabela: legível sem zoom, cada rótulo na cor da sua coluna. */
+.caixa-th {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.caixa-th-reservado { color: var(--caixa-reservado); }
+.caixa-th-pago      { color: var(--caixa-pago); }
+.caixa-th-restante  { color: var(--caixa-restante); }
+
+/* Faixas de coluna: identificam Reservado / Já Pago / Restante mesmo
+   para quem não distingue as cores dos números. */
+.caixa-col-reservado,
+.caixa-col-pago,
+.caixa-col-restante {
+  box-shadow: inset 1px 0 0 var(--caixa-line);
+}
+.caixa-col-reservado { background-color: var(--caixa-reservado-bg); }
+.caixa-col-pago      { background-color: var(--caixa-pago-bg); }
+.caixa-col-restante  { background-color: var(--caixa-restante-bg); }
+
+.caixa-row { transition: background-color 0.15s ease; }
+.caixa-row:hover                       { background-color: rgba(42, 24, 18, 0.035); }
+.caixa-row:hover .caixa-col-reservado  { background-color: rgba(23, 85, 126, 0.11); }
+.caixa-row:hover .caixa-col-pago       { background-color: rgba(160, 40, 24, 0.11); }
+.caixa-row:hover .caixa-col-restante   { background-color: rgba(138, 90, 20, 0.14); }
+
+/* Linha de total: âncora visual do rodapé da tabela. */
+.caixa-tfoot-row {
+  background-color: rgba(196, 150, 58, 0.10);
+  border-top: 2px solid var(--caixa-line-strong);
+}
+
+/* Pílula "Pagar" / "A pagar": ouro escuro sobre creme, não ouro sobre ouro. */
+.caixa-pill {
+  border: 1px solid rgba(196, 150, 58, 0.55);
+  background: rgba(196, 150, 58, 0.14);
+  color: #6f4610;
+}
+button.caixa-pill:hover {
+  background: rgba(196, 150, 58, 0.26);
+  border-color: rgba(196, 150, 58, 0.8);
+  color: #4d2f06;
+}
+.caixa-pill__value {
+  background: #2a1812;
+  color: #f6dc9a;
+  box-shadow: inset 0 0 0 1px rgba(246, 220, 154, 0.28);
+}
+
+/* Célula de valor editável: o alvo de clique precisa se anunciar no papel. */
+.caixa-edit-cell:hover {
+  background-color: rgba(42, 24, 18, 0.06);
+  box-shadow: inset 0 -1px 0 var(--caixa-line-strong);
 }

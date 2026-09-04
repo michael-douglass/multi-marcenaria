@@ -73,7 +73,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
   if (!reserva) return null
 
   const inputClass =
-    'w-full min-h-11 bg-black/20 border border-white/10 rounded-md px-3 py-2.5 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50'
+    'w-full min-h-11 bg-[rgba(42,24,18,0.05)] border border-[rgba(42,24,18,0.14)] rounded-md px-3 py-2.5 text-sm text-cream focus:outline-none focus:border-[#f2d892]/50'
 
   return (
     <Modal
@@ -83,7 +83,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
     >
       <div className="space-y-5">
         {/* Resumo da conta */}
-        <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-4 space-y-3">
+        <div className="rounded-xl border border-[rgba(42,24,18,0.14)] bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-4 space-y-3">
           <div>
             <p className="text-[0.65rem] text-[#edd9c4] uppercase font-bold tracking-wider">
               Destinatário
@@ -127,7 +127,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
               />
             </div>
             <p id="pagar-hint" className="mt-1.5 text-[0.7rem] leading-relaxed text-[#edd9c4]/90">
-              Preenchido com <strong className="text-cream/90">reservado − já pago</strong>
+              Preenchido com <strong className="text-[color:var(--color-text-primary)]">reservado − já pago</strong>
               {aPagar > 0 ? ` → ${fmtCur(aPagar)}` : ''}.
             </p>
           </Field>
@@ -150,7 +150,7 @@ export function PagarReservaDialog({ open, onOpenChange, reserva }: PagarReserva
           />
         </Field>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-white/5 pt-4 sm:flex-row sm:justify-end sm:gap-3">
+        <div className="flex flex-col-reverse gap-2 border-t border-[rgba(42,24,18,0.09)] pt-4 sm:flex-row sm:justify-end sm:gap-3">
           <Button
             variant="ghost"
             className="min-h-11 w-full sm:w-auto"
@@ -185,15 +185,15 @@ function ResumoChip({
       className={cn(
         'rounded-lg border px-2.5 py-2',
         tom === 'destaque' && 'border-[#f2d892]/35 bg-[#f2d892]/10',
-        tom === 'muted' && 'border-white/5 bg-black/20',
-        tom === 'default' && 'border-white/8 bg-black/15',
+        tom === 'muted' && 'border-[rgba(42,24,18,0.09)] bg-[rgba(42,24,18,0.05)]',
+        tom === 'default' && 'border-[rgba(42,24,18,0.11)] bg-[rgba(42,24,18,0.04)]',
       )}
     >
       <p className="text-[0.58rem] font-bold uppercase tracking-wider text-[#edd9c4]">{label}</p>
       <p
         className={cn(
           'mt-0.5 font-mono text-[0.8rem] font-semibold tabular-nums leading-tight sm:text-[0.85rem]',
-          tom === 'destaque' ? 'text-[#f2d892]' : 'text-cream/90',
+          tom === 'destaque' ? 'text-[#f2d892]' : 'text-[color:var(--color-text-primary)]',
         )}
       >
         {fmtCur(valor)}

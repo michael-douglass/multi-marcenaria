@@ -35,6 +35,8 @@ interface ArquitetosPontuaGarboMuralProps {
   onBuscaChange: (value: string) => void;
   selecionadoId: string | null;
   onSelecionar: (id: string) => void;
+  /** Dentro do menu de arquitetos o cabeçalho e a busca são do diálogo. */
+  embedded?: boolean;
 }
 
 export function ArquitetosPontuaGarboMural({
@@ -45,6 +47,7 @@ export function ArquitetosPontuaGarboMural({
   onBuscaChange,
   selecionadoId,
   onSelecionar,
+  embedded = false,
 }: ArquitetosPontuaGarboMuralProps) {
   const [contatoId, setContatoId] = useState<string | null>(null);
   const arquitetoContato = arquitetos.find((item) => item.id === contatoId) ?? null;
@@ -56,12 +59,18 @@ export function ArquitetosPontuaGarboMural({
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-5 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:p-7"
-      aria-labelledby="mural-arquitetos-titulo"
+      className={cn(
+        'relative',
+        !embedded &&
+          'overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-5 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:p-7',
+      )}
+      aria-labelledby={embedded ? undefined : 'mural-arquitetos-titulo'}
+      aria-label={embedded ? 'Arquitetos reconhecidos no Pontua Garbo' : undefined}
     >
       <style>{muralCss}</style>
 
-      <div className="relative space-y-6">
+      <div className={cn('relative', embedded ? 'space-y-4' : 'space-y-6')}>
+        {!embedded && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
@@ -95,6 +104,7 @@ export function ArquitetosPontuaGarboMural({
             </div>
           </div>
         </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center gap-2 py-8 text-sm text-[#4a3428]">

@@ -319,7 +319,7 @@ export function CaixaPopup({ open, onClose }: CaixaPopupProps) {
         </div>
 
         {!isMinimized && (
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-[rgba(52,34,26,0.4)]">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[rgba(243,235,225,0.82)]">
             <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden p-2.5 sm:p-3">
               <Caixa embedded />
             </div>

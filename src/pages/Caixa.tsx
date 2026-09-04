@@ -312,28 +312,28 @@ function CaixaContent({
       >
         <div className={cn('glass-card relative space-y-1', embedded ? 'p-2' : 'p-4 space-y-2')}>
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            <p className="caixa-th caixa-th-reservado text-[0.7rem] sm:text-[0.75rem]">
               Total Reservado
             </p>
             <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
           </div>
-          <p className={cn('font-bold text-cream', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
+          <p className={cn('caixa-num caixa-v-reservado font-bold', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_reservado)}
           </p>
         </div>
         <div
           className={cn(
-            'glass-card relative border-l-2 border-l-red-500/30 space-y-1',
+            'glass-card relative border-l-[3px] border-l-[#a02818]/50 space-y-1',
             embedded ? 'p-2' : 'p-4 space-y-2',
           )}
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            <p className="caixa-th caixa-th-pago text-[0.7rem] sm:text-[0.75rem]">
               Total Pago
             </p>
             <CaixaQrTrigger className="h-8 w-8" onClick={() => abrirQr('')} />
           </div>
-          <p className={cn('font-bold text-red-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
+          <p className={cn('caixa-num caixa-v-pago font-bold', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
             {fmtCur(resumo.total_pago)}
           </p>
         </div>
@@ -342,19 +342,19 @@ function CaixaContent({
             type="button"
             onClick={() => setSaldoDialogOpen(true)}
             className={cn(
-              'glass-card relative border-l-2 border-l-emerald-500/30 text-left w-full cursor-pointer transition-all hover:bg-emerald-500/5 hover:border-l-emerald-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500/40 space-y-1',
+              'glass-card relative border-l-[3px] border-l-[#0f6a44]/50 text-left w-full cursor-pointer transition-all hover:bg-[#0f6a44]/[0.06] hover:border-l-[#0f6a44] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f6a44]/50 space-y-1',
               embedded ? 'p-2 pr-11' : 'p-4 pr-14 space-y-2',
             )}
             title="Clique para ver onde o saldo está guardado"
           >
-            <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold sm:text-[0.7rem]">
+            <p className="caixa-th text-[0.7rem] sm:text-[0.75rem]" style={{ color: 'var(--caixa-saldo)' }}>
               Saldo Disponível
             </p>
-            <p className={cn('font-bold text-emerald-400', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
+            <p className={cn('caixa-num caixa-v-saldo font-bold', embedded ? 'text-sm sm:text-base' : 'text-xl')}>
               {fmtCur(resumo.saldo_disponivel)}
             </p>
             {!embedded && (
-              <p className="text-[0.65rem] text-[#edd9c4]">Clique para justificar contas →</p>
+              <p className="text-[0.7rem] text-[#edd9c4]">Clique para justificar contas →</p>
             )}
           </button>
           <div className={cn('absolute right-2 top-2', embedded && 'right-1.5 top-1.5')}>
@@ -370,15 +370,15 @@ function CaixaContent({
           embedded ? 'shrink-0 gap-1.5' : 'gap-4',
         )}
       >
-        <div className="flex w-fit gap-1 rounded-lg border border-white/5 bg-black/20 p-1">
+        <div className="flex w-fit gap-1 rounded-lg border border-[rgba(42,24,18,0.12)] bg-[rgba(42,24,18,0.05)] p-1">
           <button
             onClick={() => setTab('reservas')}
             className={cn(
               'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
               embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
               tab === 'reservas'
-                ? 'bg-[#f2d892] text-[#2a1812]'
-                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
+                ? 'bg-[#f2d892] text-[#2a1812] ring-1 ring-[#c4963a]/55 shadow-[0_1px_3px_rgba(42,24,18,0.22)]'
+                : 'text-[color:var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[color:var(--color-text-primary)]',
             )}
           >
             <Receipt className="h-3.5 w-3.5" />
@@ -390,8 +390,8 @@ function CaixaContent({
               'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
               embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
               tab === 'movimentacoes'
-                ? 'bg-[#f2d892] text-[#2a1812]'
-                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
+                ? 'bg-[#f2d892] text-[#2a1812] ring-1 ring-[#c4963a]/55 shadow-[0_1px_3px_rgba(42,24,18,0.22)]'
+                : 'text-[color:var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[color:var(--color-text-primary)]',
             )}
           >
             <History className="h-3.5 w-3.5" />
@@ -403,8 +403,8 @@ function CaixaContent({
               'flex items-center gap-1.5 rounded-md text-xs font-semibold transition-all',
               embedded ? 'px-3 py-1.5' : 'gap-2 px-4 py-2',
               tab === 'historico'
-                ? 'bg-[#f2d892] text-[#2a1812]'
-                : 'text-[#edd9c4] hover:bg-white/5 hover:text-cream',
+                ? 'bg-[#f2d892] text-[#2a1812] ring-1 ring-[#c4963a]/55 shadow-[0_1px_3px_rgba(42,24,18,0.22)]'
+                : 'text-[color:var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[color:var(--color-text-primary)]',
             )}
           >
             <Users className="h-3.5 w-3.5" />
@@ -415,7 +415,10 @@ function CaixaContent({
         <div className={cn('flex items-center', embedded ? 'gap-2' : 'gap-3')}>
           <Button
             variant="outline"
-            className={cn('border-white/10 text-xs hover:bg-white/5', embedded ? 'h-8' : 'h-9')}
+            className={cn(
+              'border-[rgba(42,24,18,0.18)] text-xs hover:bg-[rgba(42,24,18,0.06)]',
+              embedded ? 'h-8' : 'h-9',
+            )}
             onClick={() => setDestinatariosOpen(true)}
           >
             <Users className="mr-2 h-3.5 w-3.5 text-[#f2d892]" />
@@ -450,23 +453,23 @@ function CaixaContent({
                 <thead
                   className={
                     embedded
-                      ? 'sticky top-0 z-10 bg-[rgba(28,16,10,0.96)] backdrop-blur-sm'
+                      ? 'sticky top-0 z-10 bg-[rgba(255,252,248,0.97)] backdrop-blur-sm'
                       : undefined
                   }
                 >
-                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
+                  <tr className="caixa-th border-b-2 border-[rgba(42,24,18,0.16)]">
                     <th className="px-6 py-4">Destinatário</th>
                     <th className="px-6 py-4">Vencimento</th>
                     <th className="px-6 py-4 text-center">Lanç.</th>
                     <th className="px-6 py-4 text-right">Valor Real</th>
-                    <th className="px-6 py-4 text-right">Reservado</th>
-                    <th className="px-6 py-4 text-right">Já Pago</th>
-                    <th className="px-6 py-4 text-right">Restante</th>
+                    <th className="caixa-th-reservado caixa-col-reservado px-6 py-4 text-right">Reservado</th>
+                    <th className="caixa-th-pago caixa-col-pago px-6 py-4 text-right">Já Pago</th>
+                    <th className="caixa-th-restante caixa-col-restante px-6 py-4 text-right">Restante</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-[rgba(42,24,18,0.09)]">
                   {reservasFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
@@ -483,12 +486,12 @@ function CaixaContent({
                       const virtual = isCaixaDestinatarioVirtual(item.destinatario_id)
 
                       return (
-                        <tr key={item.destinatario_id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
+                        <tr key={item.destinatario_id} className="caixa-row group text-[0.85rem]">
                           <td className="px-6 py-4">
                             <div className="flex items-start gap-2">
                               <button
                                 type="button"
-                                className="min-w-0 flex-1 rounded text-left transition-colors hover:text-[#f2d892] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                                className="min-w-0 flex-1 rounded text-left transition-colors hover:text-[#7a4e10] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#c4963a]/50"
                                 title="Ver telefone, endereço e PIX"
                                 onClick={() =>
                                   setDetalheDestinatario({
@@ -508,7 +511,7 @@ function CaixaContent({
                                       ? 'Prestador'
                                       : item.tipo_destinatario}
                                   {virtual && (
-                                    <span className="ml-1 normal-case text-amber-400/90">· cadastre em Destinatários</span>
+                                    <span className="ml-1 normal-case font-semibold text-[#8a4f06]">· cadastre em Destinatários</span>
                                   )}
                                 </div>
                               </button>
@@ -518,27 +521,27 @@ function CaixaContent({
                               />
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-[#d4bc9f]">
+                          <td className="caixa-num px-6 py-4 text-[#d4bc9f]">
                             {item.data_vencimento ? new Date(item.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
                           </td>
-                          <td className="px-6 py-4 text-center text-cream/70 font-mono">
+                          <td className="caixa-num px-6 py-4 text-center text-[color:var(--color-text-muted)]">
                             {item.totalLancamentosMes}
                           </td>
-                          <td className="px-6 py-4 text-right font-semibold text-cream/90">
+                          <td className="caixa-num caixa-v-real px-6 py-4 text-right font-semibold">
                             <button
                               type="button"
                               title="Clique para ajustar o valor real (Contas a Pagar)"
                               onClick={() => void abrirAjusteValorReal(item)}
-                              className="ml-auto block w-full cursor-pointer rounded px-1 py-0.5 text-right transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                              className="caixa-edit-cell ml-auto block w-full cursor-pointer rounded px-1 py-0.5 text-right transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#c4963a]/50"
                             >
                               {fmtCur(item.valor_total_real)}
                             </button>
                           </td>
-                          <td className="px-6 py-4 text-right font-semibold text-cream/60">
+                          <td className="caixa-col-reservado px-6 py-4 text-right font-semibold">
                             <CaixaValorEditavel
                               valor={item.valor_em_reserva}
                               editavel={!virtual}
-                              className="text-cream/60"
+                              className="caixa-num caixa-v-reservado caixa-edit-cell"
                               title="Clique para ajustar o valor reservado"
                               onSave={async novoValor => {
                                 await ajustarTotalConsolidado({
@@ -551,12 +554,12 @@ function CaixaContent({
                               }}
                             />
                           </td>
-                          <td className="px-6 py-4 text-right font-semibold text-red-400">
+                          <td className="caixa-col-pago px-6 py-4 text-right font-semibold">
                             <CaixaValorEditavel
                               valor={item.total_pago}
                               editavel={!virtual}
                               emptyLabel="—"
-                              className="text-red-400"
+                              className="caixa-num caixa-v-pago caixa-edit-cell"
                               title="Clique para ajustar o valor já pago"
                               onSave={async novoValor => {
                                 await ajustarTotalConsolidado({
@@ -569,7 +572,7 @@ function CaixaContent({
                               }}
                             />
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
+                          <td className="caixa-num caixa-v-restante caixa-col-restante px-6 py-4 text-right font-bold">
                             {fmtCur(restante)}
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -581,7 +584,7 @@ function CaixaContent({
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 text-xs text-[#edd9c4] hover:text-cream hover:bg-white/5"
+                                  className="h-8 text-xs text-[color:var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[color:var(--color-text-primary)]"
                                   disabled={desfazendoId === item.destinatario_id}
                                   title="Remove a reserva do caixa e devolve a conta para a pagar"
                                   onClick={() => void handleDesfazerReserva(item)}
@@ -600,16 +603,14 @@ function CaixaContent({
                                   }
                                   onClick={() => setPagarReserva(item)}
                                   className={cn(
-                                    'inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-all',
-                                    'border-[#f2d892]/35 bg-[#f2d892]/10 text-[#f2d892]',
-                                    'hover:border-[#f2d892]/55 hover:bg-[#f2d892]/18 hover:text-[#f8e6b0]',
-                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d892]/40',
+                                    'caixa-pill inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-2.5 text-xs font-bold transition-all',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4963a]/55',
                                     'active:scale-[0.98]',
                                   )}
                                 >
                                   <span className="shrink-0 tracking-wide">Pagar</span>
                                   {aPagar > 0 ? (
-                                    <span className="inline-flex min-w-0 items-center rounded-full bg-[#2a1812]/55 px-2 py-0.5 font-mono text-[0.7rem] font-bold tabular-nums text-[#f2d892] ring-1 ring-[#f2d892]/25">
+                                    <span className="caixa-pill__value caixa-num inline-flex min-w-0 items-center rounded-full px-2 py-0.5 text-[0.7rem] font-bold">
                                       {fmtCur(aPagar)}
                                     </span>
                                   ) : null}
@@ -619,7 +620,7 @@ function CaixaContent({
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 text-xs text-[#edd9c4] hover:text-cream hover:bg-white/5"
+                                  className="h-8 text-xs text-[color:var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[color:var(--color-text-primary)]"
                                   title="Comprovante de que pagamos ao destinatário"
                                   onClick={() => abrirComprovante(item)}
                                 >
@@ -630,7 +631,7 @@ function CaixaContent({
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 text-xs text-red-400/80 hover:text-red-400 hover:bg-red-400/10"
+                                className="h-8 text-xs text-[#a02818]/85 hover:bg-[#a02818]/10 hover:text-[#a02818]"
                                 disabled={excluindoId === item.destinatario_id}
                                 title="Excluir esta conta do Caixa e de Contas a Pagar neste mês"
                                 onClick={() => void handleExcluirLinha(item)}
@@ -647,30 +648,30 @@ function CaixaContent({
                 </tbody>
                 {reservasFiltradas.length > 0 && (
                   <tfoot>
-                    <tr className="border-t border-[rgba(240,210,140,.25)] bg-[rgba(240,210,140,.06)] text-[0.85rem]">
-                      <td className="px-6 py-4 font-bold text-[#f2d892]" colSpan={3}>
+                    <tr className="caixa-tfoot-row text-[0.85rem]">
+                      <td className="caixa-th px-6 py-4 !text-[0.8rem]" colSpan={3}>
                         Total
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-cream">
+                      <td className="caixa-num caixa-v-real px-6 py-4 text-right font-bold">
                         {fmtCur(totaisReservas.valorReal)}
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-cream">
+                      <td className="caixa-num caixa-v-reservado caixa-col-reservado px-6 py-4 text-right font-bold">
                         {fmtCur(totaisReservas.reservado)}
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-red-400">
+                      <td className="caixa-num caixa-v-pago caixa-col-pago px-6 py-4 text-right font-bold">
                         {fmtCur(totaisReservas.pago)}
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-[#f2d892]">
+                      <td className="caixa-num caixa-v-restante caixa-col-restante px-6 py-4 text-right font-bold">
                         {fmtCur(totaisReservas.restante)}
                       </td>
                       <td className="px-6 py-4" />
                       <td className="px-6 py-4 text-right">
                         <div
-                          className="ml-auto inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[#f2d892]/35 bg-[#f2d892]/10 px-2.5 text-xs font-semibold text-[#f2d892]"
+                          className="caixa-pill ml-auto inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-2.5 text-xs font-bold"
                           title="Soma de todos os saldos a pagar (reservado − já pago)"
                         >
                           <span className="shrink-0 tracking-wide">A pagar</span>
-                          <span className="inline-flex min-w-0 items-center rounded-full bg-[#2a1812]/55 px-2 py-0.5 font-mono text-[0.7rem] font-bold tabular-nums text-[#f2d892] ring-1 ring-[#f2d892]/25">
+                          <span className="caixa-pill__value caixa-num inline-flex min-w-0 items-center rounded-full px-2 py-0.5 text-[0.7rem] font-bold">
                             {fmtCur(totaisReservas.aPagar)}
                           </span>
                         </div>
@@ -686,11 +687,11 @@ function CaixaContent({
                 <thead
                   className={
                     embedded
-                      ? 'sticky top-0 z-10 bg-[rgba(28,16,10,0.96)] backdrop-blur-sm'
+                      ? 'sticky top-0 z-10 bg-[rgba(255,252,248,0.97)] backdrop-blur-sm'
                       : undefined
                   }
                 >
-                  <tr className="border-b border-white/5 text-[0.65rem] uppercase tracking-wider text-[#edd9c4] font-bold">
+                  <tr className="caixa-th border-b-2 border-[rgba(42,24,18,0.16)]">
                     <th className="px-6 py-4">Data</th>
                     <th className="px-6 py-4">Destinatário</th>
                     <th className="px-6 py-4">Descrição</th>
@@ -699,7 +700,7 @@ function CaixaContent({
                     <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-[rgba(42,24,18,0.09)]">
                   {movimentacoesFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-20 text-center text-[#edd9c4] text-sm">
@@ -710,15 +711,15 @@ function CaixaContent({
                     </tr>
                   ) : (
                     movimentacoesFiltradas.map(mov => (
-                      <tr key={mov.id} className="group hover:bg-white/[0.02] transition-colors text-[0.85rem]">
-                        <td className="px-6 py-4 text-[#d4bc9f]">
+                      <tr key={mov.id} className="caixa-row group text-[0.85rem]">
+                        <td className="caixa-num px-6 py-4 text-[#d4bc9f]">
                           {new Date(mov.data_movimentacao + 'T12:00:00').toLocaleDateString('pt-BR')}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              className="min-w-0 flex-1 rounded text-left font-semibold text-cream underline-offset-4 transition-colors hover:text-[#f2d892] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#f2d892]/40"
+                              className="min-w-0 flex-1 rounded text-left font-semibold text-cream underline-offset-4 transition-colors hover:text-[#7a4e10] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#c4963a]/50"
                               title="Ver telefone, endereço e PIX"
                               onClick={() => {
                                 const nome = mov.movelaria_caixa_destinatarios?.nome
@@ -738,19 +739,21 @@ function CaixaContent({
                           {mov.descricao || '—'}
                         </td>
                         <td className={cn(
-                          "px-6 py-4 text-right font-bold",
-                          mov.tipo_movimentacao === 'reserva' ? "text-cream" : "text-red-400"
+                          'caixa-num px-6 py-4 text-right font-bold',
+                          mov.tipo_movimentacao === 'reserva'
+                            ? 'caixa-v-reservado caixa-col-reservado'
+                            : 'caixa-v-pago caixa-col-pago',
                         )}>
                           {mov.tipo_movimentacao === 'pagamento' ? '-' : ''}{fmtCur(mov.valor)}
                         </td>
                         <td className="px-6 py-4 text-center">
                           {mov.tipo_movimentacao === 'reserva' ? (
-                            <span className="inline-flex items-center gap-1 text-[0.65rem] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 rounded border border-[rgba(23,85,126,0.30)] bg-[rgba(23,85,126,0.10)] px-2 py-0.5 text-[0.68rem] font-bold tracking-wide text-[#17557e]">
                               <ArrowUpRight className="w-2.5 h-2.5" />
                               RESERVA
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[0.65rem] font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                            <span className="inline-flex items-center gap-1 rounded border border-[rgba(160,40,24,0.30)] bg-[rgba(160,40,24,0.10)] px-2 py-0.5 text-[0.68rem] font-bold tracking-wide text-[#a02818]">
                               <ArrowDownLeft className="w-2.5 h-2.5" />
                               PAGAMENTO
                             </span>
@@ -760,7 +763,7 @@ function CaixaContent({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 text-xs text-red-400/80 hover:text-red-400 hover:bg-red-400/10"
+                            className="h-8 text-xs text-[#a02818]/85 hover:bg-[#a02818]/10 hover:text-[#a02818]"
                             disabled={excluindoId === mov.id}
                             title="Excluir esta movimentação"
                             onClick={() => void handleExcluirMovimentacao(mov)}

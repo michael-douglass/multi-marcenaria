@@ -14,11 +14,15 @@ describe('P1 — portaria e mural', () => {
   it('Admin tem interruptor Pontua e o mural lista arquitetos reconhecidos', () => {
     const admin = readSrc('src/pages/Admin.tsx')
     const financeiro = readSrc('src/pages/Financeiro.tsx')
+    const menu = readSrc('src/components/financeiro/ArquitetosPontuaDialog.tsx')
     const hook = readSrc('src/hooks/usePontuaGarboFinanceiro.ts')
     assert.match(admin, /comissao_ativa/)
     assert.match(admin, /Programa Pontua Garbo/)
     assert.match(admin, /ensurePontuaGarboLead/)
-    assert.match(financeiro, /ArquitetosPontuaGarboMural/)
+    // O mural saiu do corpo da página e passou a morar no menu de arquitetos.
+    assert.match(financeiro, /ArquitetosPontuaDialog/)
+    assert.match(menu, /ArquitetosPontuaGarboMural/)
+    assert.match(menu, /PrestadorFinanceiroRow/)
     assert.match(hook, /comissao_ativa', true/)
   })
 })

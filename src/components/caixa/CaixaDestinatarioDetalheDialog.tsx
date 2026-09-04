@@ -91,7 +91,7 @@ export function CaixaDestinatarioDetalheDialog({
         />
       }
     >
-      <div className="relative overflow-hidden rounded-xl border border-[rgba(240,210,140,0.22)] bg-[rgba(18,8,4,0.55)]">
+      <div className="obra-lead-card relative overflow-hidden rounded-xl border border-[rgba(240,210,140,0.28)] bg-[rgba(20,10,6,0.94)]">
         <CaixaDestinatarioFoil />
         <div className="relative z-10 space-y-5 p-4 sm:p-5">
           {loading ? (

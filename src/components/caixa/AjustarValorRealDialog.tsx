@@ -75,17 +75,17 @@ export function AjustarValorRealDialog({
       <button
         type="button"
         aria-label="Fechar"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(42,24,18,0.10)] backdrop-blur-sm"
         disabled={saving}
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1510] p-5 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-[rgba(42,24,18,0.14)] bg-[#1a1510] p-5 shadow-2xl">
         <h3 className="text-base font-semibold text-cream">Ajustar valor real</h3>
         <p className="mt-1 text-sm text-[#edd9c4]">
           Destinatário: <span className="font-medium text-cream">{reserva.destinatario_nome}</span>
         </p>
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <div className="mt-4 rounded-xl border border-[rgba(42,24,18,0.14)] bg-white/[0.03] p-3">
           <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">
             Cadastrado em Contas a Pagar
           </p>
@@ -94,18 +94,18 @@ export function AjustarValorRealDialog({
           {loadingContas ? (
             <p className="mt-2 text-xs text-[#edd9c4]">Carregando lançamentos…</p>
           ) : contas.length === 0 ? (
-            <p className="mt-2 text-xs text-amber-300/90">
+            <p className="mt-2 text-xs text-[#8a4f06]">
               Nenhum lançamento encontrado em Contas a Pagar neste mês.
             </p>
           ) : (
-            <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto text-xs text-cream/80">
+            <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto text-xs text-[color:var(--color-text-primary)]">
               {contas.map(c => (
                 <li
                   key={c.id}
-                  className="flex items-start justify-between gap-3 border-t border-white/5 pt-2 first:border-0 first:pt-0"
+                  className="flex items-start justify-between gap-3 border-t border-[rgba(42,24,18,0.09)] pt-2 first:border-0 first:pt-0"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-cream/90">
+                    <p className="truncate font-medium text-[color:var(--color-text-primary)]">
                       {c.descricao?.trim() || 'Sem descrição'}
                     </p>
                     <p className="text-[0.7rem] text-[#edd9c4]">
@@ -114,7 +114,7 @@ export function AjustarValorRealDialog({
                       {statusLabel(c.status)}
                     </p>
                   </div>
-                  <span className="shrink-0 font-mono text-cream/90">{fmtCur(c.valor_parcela)}</span>
+                  <span className="shrink-0 font-mono text-[color:var(--color-text-primary)]">{fmtCur(c.valor_parcela)}</span>
                 </li>
               ))}
             </ul>
@@ -135,7 +135,7 @@ export function AjustarValorRealDialog({
                 void handleConfirm()
               }
             }}
-            className="mt-1.5 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-right text-sm font-semibold text-cream outline-none focus:border-[#f2d892]/60 focus:ring-1 focus:ring-[#f2d892]/30 disabled:opacity-60"
+            className="mt-1.5 w-full rounded-lg border border-[rgba(42,24,18,0.20)] bg-white/5 px-3 py-2 text-right text-sm font-semibold text-cream outline-none focus:border-[#f2d892]/60 focus:ring-1 focus:ring-[#f2d892]/30 disabled:opacity-60"
           />
         </label>
         <p className="mt-2 text-[0.7rem] leading-relaxed text-[#edd9c4]/90">

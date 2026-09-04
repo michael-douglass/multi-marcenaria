@@ -80,7 +80,7 @@ export function CaixaComprovantePrintModal({
         o destinatário abaixo. Não é recibo de cobrança de cliente.
       </p>
 
-      <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3">
+      <div className="mb-4 rounded-xl border border-[rgba(42,24,18,0.14)] bg-[rgba(42,24,18,0.05)] p-3">
         <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#edd9c4]">Pagamos a</p>
         <p className="text-sm font-semibold text-cream">{reserva.destinatario_nome}</p>
         <p className="mt-1 text-[0.72rem] text-[#d4bc9f]">
@@ -134,7 +134,7 @@ export function CaixaComprovantePrintModal({
       </Field>
 
       {!reciboConfig?.cnpj?.trim() && (
-        <p className="mt-2 text-[0.72rem] text-amber-400/90">
+        <p className="mt-2 text-[0.72rem] text-[#8a4f06]">
           CNPJ não configurado — configure em Cobranças → ⚙️ para aparecer no comprovante.
         </p>
       )}

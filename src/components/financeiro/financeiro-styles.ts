@@ -35,3 +35,22 @@ export const finValueGold = 'text-[#6b3f12]';
 export const finValueOk = 'text-[#146c38]';
 export const finValueLate = 'text-[#9f1239]';
 export const finValueSky = 'text-[#0e4d73]';
+
+/**
+ * Paleta dos gráficos do Pontua — validada para daltonismo sobre a folha
+ * `#fffaf4` (delta E >= 20 em protan/deutan/tritan). Máximo 2 séries por
+ * gráfico: um terceiro tom nesta família de marrom colide.
+ * Verde/rosa abaixo ficam reservados para status, nunca para série.
+ */
+export const finSerieCadastro = '#b45309';
+export const finSeriePontuando = '#0369a1';
+export const finChartGrid = 'rgba(26,16,12,0.10)';
+export const finChartAxis = '#6b5244';
+
+export const finChartTooltip = {
+  backgroundColor: '#fffaf4',
+  border: '1px solid rgba(26,16,12,0.16)',
+  borderRadius: '10px',
+  boxShadow: '0 10px 28px rgba(42,24,18,0.14)',
+  fontSize: '12px',
+} as const;
