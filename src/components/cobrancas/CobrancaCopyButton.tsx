@@ -6,6 +6,7 @@ import { TIPOS_CHAVE_PIX } from '@/hooks/usePixConfig'
 import type { ContaReceber } from '@/types'
 import type { TemplateCobranca } from '@/lib/processarTemplate'
 import type { PixConfig } from '@/hooks/usePixConfig'
+import { cn } from '@/lib/utils'
 
 interface Props {
   conta: ContaReceber
@@ -74,73 +75,46 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
       </button>
 
       {open && (
-        <div
-          className="absolute z-[300] right-0 mt-1 rounded-lg"
-          style={{
-            background: '#1a0f0a',
-            border: '1px solid rgba(240,210,140,.25)',
-            boxShadow: '0 8px 32px rgba(0,0,0,.65)',
-            minWidth: 230,
-            maxWidth: 280,
-          }}
-        >
-          {/* Cabeçalho */}
-          <div
-            className="px-3 py-2 section-label"
-            style={{
-              borderBottom: '1px solid rgba(240,210,140,.12)',
-              fontSize: '.68rem',
-              color: '#f2d892',
-            }}
-          >
-            COPIAR COBRANÇA
+        <div className="cobrancas-copy-popover absolute z-[300] right-0 mt-1 min-w-[230px] max-w-[280px] overflow-hidden rounded-xl">
+          <div className="cobrancas-copy-popover__header">
+            Copiar cobrança
           </div>
 
-          {/* Seleção de template */}
           <div className="px-3 pt-2.5 pb-1">
-            <p className="section-label mb-1.5" style={{ fontSize: '.65rem' }}>Template</p>
+            <p className="cobrancas-copy-popover__label mb-1.5">Template</p>
             <div className="flex flex-col gap-1">
-              {templates.map(t => (
-                <label
-                  key={t.id}
-                  className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 transition-colors"
-                  style={{
-                    background: selectedId === t.id
-                      ? 'rgba(240,210,140,.12)'
-                      : 'transparent',
-                    border: selectedId === t.id
-                      ? '1px solid rgba(240,210,140,.3)'
-                      : '1px solid transparent',
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={`template-${conta.id}`}
-                    value={t.id}
-                    checked={selectedId === t.id}
-                    onChange={() => setSelectedId(t.id)}
-                    style={{ accentColor: '#f2d892' }}
-                  />
-                  <span style={{ color: '#fffaf4', fontSize: '.8rem', fontFamily: 'Raleway, sans-serif' }}>
-                    {t.nome}
-                  </span>
-                </label>
-              ))}
+              {templates.map(t => {
+                const selected = selectedId === t.id
+                return (
+                  <label
+                    key={t.id}
+                    className={cn(
+                      'cobrancas-copy-popover__option flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors',
+                      selected && 'cobrancas-copy-popover__option--active',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name={`template-${conta.id}`}
+                      value={t.id}
+                      checked={selected}
+                      onChange={() => setSelectedId(t.id)}
+                      className="cobrancas-copy-popover__radio"
+                    />
+                    <span className="cobrancas-copy-popover__option-name">{t.nome}</span>
+                  </label>
+                )
+              })}
             </div>
           </div>
 
-          {/* Info PIX */}
-          <div
-            className="mx-3 mb-2.5 mt-2 rounded px-2.5 py-2"
-            style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(240,210,140,.1)' }}
-          >
-            <div className="flex items-center justify-between mb-0.5">
-              <p className="section-label" style={{ fontSize: '.63rem' }}>Chave PIX</p>
+          <div className="cobrancas-copy-popover__pix mx-3 mb-2.5 mt-2 rounded-lg px-2.5 py-2">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <p className="cobrancas-copy-popover__label">Chave PIX</p>
               {pixConfig && (
                 <button
                   type="button"
-                  className="btn btn-outline btn-sm !px-1.5 !py-0.5"
-                  style={{ fontSize: '.65rem', height: 'auto' }}
+                  className="btn btn-outline btn-sm !h-auto !px-1.5 !py-0.5 text-[0.65rem]"
                   title="Copiar chave PIX"
                   onClick={async () => {
                     const linhas = [
@@ -151,39 +125,33 @@ export function CobrancaCopyButton({ conta, templates, pixConfig }: Props) {
                     showToast('PIX copiado!')
                   }}
                 >
-                  <Copy className="h-3 w-3 mr-1" />
+                  <Copy className="mr-1 h-3 w-3" />
                   Copiar chave
                 </button>
               )}
             </div>
             {pixConfig ? (
               <>
-                <p style={{ color: '#fffaf4', fontSize: '.78rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                  {pixConfig.chave_pix}
-                </p>
-                <p style={{ color: '#edd9c4', fontSize: '.68rem', marginTop: '.1rem' }}>
+                <p className="cobrancas-copy-popover__pix-key">{pixConfig.chave_pix}</p>
+                <p className="cobrancas-copy-popover__pix-meta">
                   {tipoLabel}
                   {pixConfig.nome_beneficiario ? ` · ${pixConfig.nome_beneficiario}` : ''}
                 </p>
               </>
             ) : (
-              <p style={{ color: '#f87171', fontSize: '.75rem' }}>
+              <p className="cobrancas-copy-popover__pix-warn">
                 Não configurado — configure em ⚙️
               </p>
             )}
           </div>
 
-          {/* Botão copiar */}
-          <div
-            className="px-3 pb-3"
-            style={{ borderTop: '1px solid rgba(240,210,140,.1)', paddingTop: '.6rem' }}
-          >
+          <div className="cobrancas-copy-popover__footer px-3 pb-3 pt-2">
             <button
               type="button"
               className="btn btn-gold btn-sm w-full"
               onClick={() => void handleCopiar()}
             >
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
               Copiar mensagem
             </button>
           </div>
