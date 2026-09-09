@@ -43,7 +43,7 @@ export function AmbienteDrawToolbar({
   return (
     <div
       data-ambiente-draw-toolbar="true"
-      className="relative overflow-hidden rounded-xl border border-gold/30 bg-[#1a100c]/90 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+      className="ambiente-lousa-draw relative overflow-hidden rounded-xl border border-[#f2d892]/40 bg-[#120b08]/95 shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
     >
       <div
         className="pointer-events-none absolute inset-0"
@@ -68,8 +68,8 @@ export function AmbienteDrawToolbar({
                   aria-label={item.label}
                   aria-pressed={selected}
                   className={cn(
-                    'h-8 w-8 text-[#fff6ea] hover:bg-gold/15 hover:text-gold',
-                    selected && 'bg-gold/20 text-gold ring-1 ring-gold/50',
+                    'h-8 w-8 text-[#fff6ea] hover:bg-[#f2d892]/15 hover:text-[#f2d892]',
+                    selected && 'bg-[#f2d892]/22 text-[#f2d892] ring-1 ring-[#f2d892]/55',
                   )}
                   onClick={() => onToolChange(item.id)}
                 >
@@ -91,7 +91,7 @@ export function AmbienteDrawToolbar({
               aria-pressed={fill}
               className={cn(
                 'h-8 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#fff6ea]',
-                fill && 'bg-gold/20 text-gold ring-1 ring-gold/50',
+                fill && 'bg-[#f2d892]/22 text-[#f2d892] ring-1 ring-[#f2d892]/55',
               )}
               onClick={() => onFillChange(!fill)}
             >
@@ -152,7 +152,7 @@ export function AmbienteDrawToolbar({
             />
           </label>
         </div>
-        <span className="hidden px-1.5 text-[10px] uppercase tracking-[0.14em] text-gold/70 sm:inline">
+        <span className="hidden px-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f2d892] sm:inline">
           Lousa
         </span>
       </div>

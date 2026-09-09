@@ -4516,6 +4516,185 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   color: #f2d892;
 }
 
+/* ── Lousa / ambiente: barra e HUDs sempre legíveis (creme/ouro no mogno) ── */
+.lead-modal-shell .ambiente-lousa-toolbar,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar,
+.lead-ai-dark-island .ambiente-lousa-toolbar {
+  border: 1px solid rgba(242, 216, 146, 0.38);
+  background:
+    linear-gradient(145deg, rgba(58, 36, 28, 0.98) 0%, rgba(26, 16, 12, 0.96) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 246, 234, 0.1) inset,
+    0 10px 28px rgba(0, 0, 0, 0.35);
+  color: #fff6ea;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__hint,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__hint {
+  color: #e8d4b0 !important;
+  font-weight: 600;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__zoom,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__zoom {
+  color: #f2d892 !important;
+  font-weight: 800;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__sep,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__sep {
+  background: rgba(242, 216, 146, 0.28);
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__btn,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__btn,
+.lead-modal-shell .ambiente-lousa-toolbar button:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar button:not(:disabled) {
+  color: #fff6ea !important;
+  border-color: rgba(242, 216, 146, 0.28);
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__btn:hover:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__btn:hover:not(:disabled) {
+  background: rgba(242, 216, 146, 0.14) !important;
+  color: #f2d892 !important;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__btn--danger,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__btn--danger {
+  color: #f3c4b8 !important;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar__btn--danger:hover:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar__btn--danger:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.45) !important;
+  color: #fecaca !important;
+}
+
+/* Nested draw toolbar inside the strip — keep its own dark card */
+.lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar],
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar],
+.lead-modal-shell .ambiente-lousa-draw,
+.paper-workspace .lead-modal-shell .ambiente-lousa-draw {
+  border-color: rgba(242, 216, 146, 0.45) !important;
+  background: rgba(12, 7, 5, 0.88) !important;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar] button,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar] button,
+.lead-modal-shell .ambiente-lousa-draw button,
+.paper-workspace .lead-modal-shell .ambiente-lousa-draw button {
+  color: #fff6ea !important;
+}
+
+.lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar] span,
+.paper-workspace .lead-modal-shell .ambiente-lousa-toolbar [data-ambiente-draw-toolbar] span,
+.lead-modal-shell .ambiente-lousa-draw span {
+  color: #f2d892 !important;
+}
+
+/* Painel lateral “Foto” */
+.lead-modal-shell .ambiente-lousa-hud,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud,
+.lead-ai-dark-island .ambiente-lousa-hud {
+  border: 1px solid rgba(242, 216, 146, 0.45);
+  background: rgba(26, 16, 12, 0.96) !important;
+  color: #fff6ea !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__header,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__header {
+  border-bottom: 1px solid rgba(242, 216, 146, 0.28);
+  background: linear-gradient(90deg, rgba(242, 216, 146, 0.16), transparent 70%);
+}
+
+.lead-modal-shell .ambiente-lousa-hud__title,
+.lead-modal-shell .ambiente-lousa-hud__gold,
+.lead-modal-shell .ambiente-lousa-hud__label,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__title,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__gold,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__label {
+  color: #f2d892 !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__label,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__label {
+  opacity: 0.9;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__icon-btn,
+.lead-modal-shell .ambiente-lousa-hud button.ambiente-lousa-hud__icon-btn,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__icon-btn {
+  color: #f2d892 !important;
+  border: 1px solid rgba(242, 216, 146, 0.28);
+  background: transparent;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__icon-btn:hover:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff6ea !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__icon-btn--active,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__icon-btn--active {
+  background: rgba(242, 216, 146, 0.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(242, 216, 146, 0.55);
+}
+
+.lead-modal-shell .ambiente-lousa-hud__nudge,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__nudge {
+  color: #fff6ea !important;
+  border: 1px solid rgba(242, 216, 146, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.lead-modal-shell .ambiente-lousa-hud__primary,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__primary {
+  color: #fff6ea !important;
+  border: 1px solid rgba(242, 216, 146, 0.5);
+  background: rgba(242, 216, 146, 0.16);
+}
+
+.lead-modal-shell .ambiente-lousa-hud__primary:hover:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__primary:hover:not(:disabled) {
+  background: rgba(242, 216, 146, 0.26) !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__preset,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__preset {
+  color: #f2d892 !important;
+  border: 1px solid rgba(242, 216, 146, 0.3);
+  background: transparent;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__preset--active,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__preset--active {
+  color: #fff6ea !important;
+  border-color: rgba(242, 216, 146, 0.7);
+  background: rgba(242, 216, 146, 0.22);
+}
+
+.lead-modal-shell .ambiente-lousa-hud__btn--danger,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__btn--danger {
+  color: #f3c4b8 !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__btn--danger:hover:not(:disabled),
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__btn--danger:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.55) !important;
+}
+
+.lead-modal-shell .ambiente-lousa-hud__orbit,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud__orbit {
+  border-top: 1px solid rgba(242, 216, 146, 0.28);
+}
+
+.lead-modal-shell .ambiente-lousa-hud label,
+.paper-workspace .lead-modal-shell .ambiente-lousa-hud label {
+  color: #f2d892 !important;
+}
+
 /* Markup no card claro: ilha verde-escura para o valor não “estourar”. */
 .lead-markup-chip {
   background: linear-gradient(180deg, #1a3d2c 0%, #102418 100%);

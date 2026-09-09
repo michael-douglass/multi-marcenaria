@@ -2648,16 +2648,16 @@ export function LeadAIAmbienteComposer({
           <div
             data-ambiente-toolbar="true"
             className={cn(
-              'relative z-20 flex flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-[hsl(var(--card))] p-2 shadow-sm',
+              'ambiente-lousa-toolbar relative z-20 flex flex-wrap items-center gap-1.5 rounded-xl p-2',
               isFullscreen && 'shrink-0',
             )}
           >
             {!background ? (
-              <span className="px-1 text-xs text-muted-foreground">
+              <span className="ambiente-lousa-toolbar__hint px-1 text-xs">
                 Insira uma foto ou desenhe o cômodo na lousa
               </span>
             ) : (
-              <span className="hidden px-1 text-[11px] text-muted-foreground sm:inline">
+              <span className="ambiente-lousa-toolbar__hint hidden px-1 text-[11px] sm:inline">
                 {isDrawCreateTool(drawTool)
                   ? 'Clique e arraste para desenhar · Shift trava proporção'
                   : 'Selecione para mover · pinça no objeto · +/− para tamanho'}
@@ -2680,7 +2680,7 @@ export function LeadAIAmbienteComposer({
             />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={!canUndo} onClick={undoLast}>
+                <Button type="button" size="icon" variant="ghost" className="ambiente-lousa-toolbar__btn h-8 w-8" disabled={!canUndo} onClick={undoLast}>
                   <Undo2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -2688,40 +2688,40 @@ export function LeadAIAmbienteComposer({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={!canRedo} onClick={redoLast}>
+                <Button type="button" size="icon" variant="ghost" className="ambiente-lousa-toolbar__btn h-8 w-8" disabled={!canRedo} onClick={redoLast}>
                   <Redo2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Refazer — Ctrl+Y</TooltipContent>
             </Tooltip>
-            <div className="mx-0.5 hidden h-7 w-px bg-border sm:block" />
+            <div className="ambiente-lousa-toolbar__sep mx-0.5 hidden h-7 w-px sm:block" />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={locked || !showZoomHud} onClick={() => nudgeSelectedScale(-1)}>
+                <Button type="button" size="icon" variant="ghost" className="ambiente-lousa-toolbar__btn h-8 w-8" disabled={locked || !showZoomHud} onClick={() => nudgeSelectedScale(-1)}>
                   <ZoomOut className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Diminuir</TooltipContent>
             </Tooltip>
-            <span className="min-w-[3rem] px-1 text-center font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="ambiente-lousa-toolbar__zoom min-w-[3rem] px-1 text-center font-mono text-xs tabular-nums">
               {zoomPercent}%
             </span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={locked || !showZoomHud} onClick={() => nudgeSelectedScale(1)}>
+                <Button type="button" size="icon" variant="ghost" className="ambiente-lousa-toolbar__btn h-8 w-8" disabled={locked || !showZoomHud} onClick={() => nudgeSelectedScale(1)}>
                   <ZoomIn className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Aumentar</TooltipContent>
             </Tooltip>
-            <div className="mx-0.5 hidden h-7 w-px bg-border sm:block" />
+            <div className="ambiente-lousa-toolbar__sep mx-0.5 hidden h-7 w-px sm:block" />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="button"
                   size="icon"
-                  variant="outline"
-                  className="h-8 w-8"
+                  variant="ghost"
+                  className="ambiente-lousa-toolbar__btn h-8 w-8"
                   disabled={!canSaveCopy}
                   aria-label="Guardar na pasta do lead e tirar da lousa"
                   onClick={() => void saveCopyToFolder()}
@@ -2735,7 +2735,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 gap-1.5 text-cream-muted"
+              className="ambiente-lousa-toolbar__btn h-8 gap-1.5"
               disabled={locked || !hasDrawings}
               onClick={clearDrawings}
             >
@@ -2746,7 +2746,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 gap-1.5 text-[#f3c4b8] hover:bg-red-950/40 hover:text-[#f3c4b8]"
+              className="ambiente-lousa-toolbar__btn ambiente-lousa-toolbar__btn--danger h-8 gap-1.5"
               disabled={locked || !canRemovePhoto}
               onClick={removeSelectedPhoto}
             >

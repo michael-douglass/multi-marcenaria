@@ -59,13 +59,13 @@ interface AmbienteImageEditHudProps {
 }
 
 const hudBtn =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#f2d892] transition hover:bg-white/10 active:scale-95 disabled:opacity-40';
+  'ambiente-lousa-hud__icon-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition hover:bg-white/10 active:scale-95 disabled:opacity-40';
 
 const nudgeBtn =
-  'flex h-8 min-w-[2rem] flex-1 items-center justify-center rounded-md border border-[#f2d892]/30 font-mono text-[10px] font-bold tabular-nums text-[#fff6ea] transition hover:bg-white/10 active:scale-95 disabled:opacity-40';
+  'ambiente-lousa-hud__nudge flex h-8 min-w-[2rem] flex-1 items-center justify-center rounded-md font-mono text-[10px] font-bold tabular-nums transition hover:bg-white/10 active:scale-95 disabled:opacity-40';
 
 const sliderClass =
-  '[&>span]:bg-[#2a1812]/90 [&>span>span]:bg-gold [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-gold [&_[role=slider]]:bg-[#fff6ea] [&_[role=slider]]:shadow-[0_0_0_3px_rgba(26,16,12,0.85)]';
+  '[&>span]:bg-[#2a1812]/90 [&>span>span]:bg-[#f2d892] [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-[#f2d892] [&_[role=slider]]:bg-[#fff6ea] [&_[role=slider]]:shadow-[0_0_0_3px_rgba(26,16,12,0.85)]';
 
 const YAW_PRESETS: Array<{ yaw: number; label: string; hint: string }> = [
   { yaw: 0, label: 'Frente', hint: 'De frente' },
@@ -223,17 +223,17 @@ export function AmbienteImageEditHud({
           title="Ferramentas da foto"
           className={cn(
             'group relative flex h-[4.35rem] w-10 flex-col items-center justify-center gap-1 overflow-hidden',
-            'rounded-l-2xl rounded-r-md border border-gold/40 bg-[#1a100c]/92',
+            'ambiente-lousa-hud rounded-l-2xl rounded-r-md',
             'shadow-[0_10px_28px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(242,216,146,0.18)]',
-            'backdrop-blur-md transition hover:border-gold/70 hover:brightness-110',
+            'backdrop-blur-md transition hover:brightness-110',
           )}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={toggleMinimized}
         >
           <HudShaderFoil />
-          <PanelRight className="relative h-3.5 w-3.5 text-[#f2d892]" />
+          <PanelRight className="ambiente-lousa-hud__gold relative h-3.5 w-3.5" />
           <span
-            className="relative font-display text-[10px] leading-none tracking-[0.18em] text-[#f2d892]"
+            className="ambiente-lousa-hud__gold relative font-display text-[10px] leading-none tracking-[0.18em]"
             style={{ writingMode: 'vertical-rl' }}
           >
             Foto
@@ -245,16 +245,16 @@ export function AmbienteImageEditHud({
           role="toolbar"
           aria-label="Editar foto"
           className={cn(
-            'relative flex h-full w-[11.5rem] min-h-0 flex-col overflow-hidden rounded-2xl',
-            'border border-gold/40 bg-[#1a100c]/92 backdrop-blur-md',
+            'ambiente-lousa-hud relative flex h-full w-[11.5rem] min-h-0 flex-col overflow-hidden rounded-2xl',
             'shadow-[0_12px_32px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(242,216,146,0.16)]',
+            'backdrop-blur-md',
           )}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <HudShaderFoil />
 
-          <div className="relative flex shrink-0 items-center justify-between gap-0.5 border-b border-[#f2d892]/18 px-1.5 py-1">
-            <p className="font-display text-[11px] leading-none tracking-[0.22em] text-[#f2d892]">
+          <div className="ambiente-lousa-hud__header relative flex shrink-0 items-center justify-between gap-0.5 px-1.5 py-1">
+            <p className="ambiente-lousa-hud__title font-display text-[11px] leading-none tracking-[0.22em]">
               Foto
             </p>
             <button
@@ -263,7 +263,7 @@ export function AmbienteImageEditHud({
               aria-controls="ambiente-image-edit-hud"
               aria-label="Minimizar ferramentas da foto"
               title="Minimizar"
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f2d892]/25 text-[#f2d892] transition hover:bg-white/10"
+              className="ambiente-lousa-hud__icon-btn flex h-6 w-6 items-center justify-center rounded-full"
               onClick={toggleMinimized}
             >
               <ChevronRight className="h-3.5 w-3.5" />
@@ -272,7 +272,7 @@ export function AmbienteImageEditHud({
 
           <div className="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden px-2 py-2 [scrollbar-width:thin]">
             <div className="flex w-full shrink-0 flex-col gap-1.5">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#f2d892]/70">
+              <span className="ambiente-lousa-hud__label text-[9px] font-semibold uppercase tracking-[0.16em]">
                 Giro no plano
               </span>
               <div className="flex items-center gap-1">
@@ -292,9 +292,8 @@ export function AmbienteImageEditHud({
                   aria-label="Girar a foto em tempo real"
                   disabled={disabled}
                   className={cn(
-                    'relative flex h-10 min-h-10 flex-1 items-center justify-center gap-1 rounded-xl',
-                    'border border-[#f2d892]/45 bg-[#f2d892]/12 text-[#fff6ea]',
-                    'cursor-grab active:cursor-grabbing hover:bg-[#f2d892]/20',
+                    'ambiente-lousa-hud__primary relative flex h-10 min-h-10 flex-1 items-center justify-center gap-1 rounded-xl',
+                    'cursor-grab active:cursor-grabbing',
                     'disabled:opacity-40',
                   )}
                   onPointerDown={onRotatePointerDown}
@@ -372,7 +371,7 @@ export function AmbienteImageEditHud({
             <div className="grid shrink-0 grid-cols-4 gap-1">
               <button
                 type="button"
-                className={cn(hudBtn, flipH && 'bg-[#f2d892]/20 ring-1 ring-[#f2d892]/50')}
+                className={cn(hudBtn, flipH && 'ambiente-lousa-hud__icon-btn--active')}
                 disabled={disabled}
                 title="Espelhar esquerda e direita"
                 aria-label="Espelhar horizontalmente"
@@ -382,7 +381,7 @@ export function AmbienteImageEditHud({
               </button>
               <button
                 type="button"
-                className={cn(hudBtn, flipV && 'bg-[#f2d892]/20 ring-1 ring-[#f2d892]/50')}
+                className={cn(hudBtn, flipV && 'ambiente-lousa-hud__icon-btn--active')}
                 disabled={disabled}
                 title="Espelhar cima e baixo"
                 aria-label="Espelhar verticalmente"
@@ -419,7 +418,7 @@ export function AmbienteImageEditHud({
             {onRemove ? (
               <button
                 type="button"
-                className={cn(hudBtn, 'w-full text-[#f3c4b8] hover:bg-red-950/70')}
+                className={cn(hudBtn, 'ambiente-lousa-hud__btn--danger w-full')}
                 disabled={disabled}
                 title="Excluir só esta foto — os desenhos ficam"
                 aria-label="Excluir esta foto"
@@ -430,8 +429,8 @@ export function AmbienteImageEditHud({
             ) : null}
 
             {canOrbit ? (
-              <div className="mt-0.5 flex w-full shrink-0 flex-col gap-1.5 border-t border-[#f2d892]/18 pt-2">
-                <p className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f2d892]/75">
+              <div className="ambiente-lousa-hud__orbit mt-0.5 flex w-full shrink-0 flex-col gap-1.5 pt-2">
+                <p className="ambiente-lousa-hud__label flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
                   <Move3d className="h-3 w-3" aria-hidden />
                   Eixos 3D
                 </p>
@@ -447,10 +446,8 @@ export function AmbienteImageEditHud({
                         aria-label={preset.hint}
                         aria-pressed={active}
                         className={cn(
-                          'h-7 rounded-md border text-[10px] font-semibold uppercase tracking-wide transition active:scale-95 disabled:opacity-40',
-                          active
-                            ? 'border-[#f2d892]/70 bg-[#f2d892]/20 text-[#fff6ea]'
-                            : 'border-[#f2d892]/25 bg-transparent text-[#f2d892] hover:bg-white/10',
+                          'ambiente-lousa-hud__preset h-7 rounded-md text-[10px] font-semibold uppercase tracking-wide transition active:scale-95 disabled:opacity-40',
+                          active && 'ambiente-lousa-hud__preset--active',
                         )}
                         onClick={() => onOrbitPreset?.(preset.yaw, pitchDeg)}
                       >
@@ -471,10 +468,8 @@ export function AmbienteImageEditHud({
                         aria-label={preset.hint}
                         aria-pressed={active}
                         className={cn(
-                          'h-7 rounded-md border text-[10px] font-semibold uppercase tracking-wide transition active:scale-95 disabled:opacity-40',
-                          active
-                            ? 'border-[#f2d892]/70 bg-[#f2d892]/20 text-[#fff6ea]'
-                            : 'border-[#f2d892]/25 bg-transparent text-[#f2d892] hover:bg-white/10',
+                          'ambiente-lousa-hud__preset h-7 rounded-md text-[10px] font-semibold uppercase tracking-wide transition active:scale-95 disabled:opacity-40',
+                          active && 'ambiente-lousa-hud__preset--active',
                         )}
                         onClick={() => onOrbitPreset?.(yawDeg, preset.pitch)}
                       >
@@ -490,9 +485,8 @@ export function AmbienteImageEditHud({
                   aria-label="Virar a foto em todas as direções"
                   disabled={disabled}
                   className={cn(
-                    'relative flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl',
-                    'border border-[#f2d892]/45 bg-[#f2d892]/12 text-[#fff6ea]',
-                    'cursor-grab active:cursor-grabbing hover:bg-[#f2d892]/20',
+                    'ambiente-lousa-hud__primary relative flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl',
+                    'cursor-grab active:cursor-grabbing',
                     'disabled:opacity-40',
                   )}
                   onPointerDown={onOrbitPointerDown}
@@ -500,7 +494,7 @@ export function AmbienteImageEditHud({
                   <Move3d className="h-4 w-4 opacity-80" />
                   <span className="flex flex-col items-start leading-tight">
                     <span className="font-mono text-xs font-bold tabular-nums">Lado {yawDeg}°</span>
-                    <span className="font-mono text-[10px] font-bold tabular-nums text-[#f2d892]/80">
+                    <span className="ambiente-lousa-hud__gold font-mono text-[10px] font-bold tabular-nums opacity-90">
                       Inclina {pitchDeg}°
                     </span>
                   </span>
@@ -592,7 +586,7 @@ export function AmbienteImageEditHud({
                 </div>
 
                 <label className="flex w-full flex-col gap-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f2d892]/65">
+                  <span className="ambiente-lousa-hud__label text-[9px] font-semibold uppercase tracking-[0.14em]">
                     Lado · {yawDeg}°
                   </span>
                   <Slider
@@ -607,7 +601,7 @@ export function AmbienteImageEditHud({
                   />
                 </label>
                 <label className="flex w-full flex-col gap-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f2d892]/65">
+                  <span className="ambiente-lousa-hud__label text-[9px] font-semibold uppercase tracking-[0.14em]">
                     Inclina · {pitchDeg}°
                   </span>
                   <Slider
