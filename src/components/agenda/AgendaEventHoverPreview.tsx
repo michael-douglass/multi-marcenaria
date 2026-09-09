@@ -11,19 +11,13 @@ import type { AgendaEvent } from '@/hooks/useAgendaGeral';
 import type { LeadLembrete } from '@/hooks/useLeadLembretes';
 import type { MarketingTask } from '@/hooks/useMarketingTasks';
 import type { PessoalAgendaEventData } from '@/components/agenda/TarefaPessoalOcorrenciaDialog';
+import { getAgendaEventDotColor } from '@/lib/agenda-event-colors';
 
 const EVENT_TYPE_LABELS: Record<AgendaEvent['type'], string> = {
   tarefa: 'Reunião',
   lembrete: 'Lembrete',
   pessoal: 'Pessoal',
   conteudo: 'Marketing',
-};
-
-const EVENT_TYPE_DOT: Record<AgendaEvent['type'], string> = {
-  tarefa: 'bg-blue-500',
-  lembrete: 'bg-amber-500',
-  pessoal: 'bg-emerald-500',
-  conteudo: 'bg-purple-500',
 };
 
 function getEventSubtitle(event: AgendaEvent): string | undefined {
@@ -239,10 +233,8 @@ export function AgendaEventHoverPreview({
           >
             <div className="flex items-start gap-1.5">
               <span
-                className={cn(
-                  'mt-1 h-2 w-2 shrink-0 rounded-full',
-                  EVENT_TYPE_DOT[event.type],
-                )}
+                className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: getAgendaEventDotColor(event) }}
                 aria-hidden
               />
               {onEditEvent ? (

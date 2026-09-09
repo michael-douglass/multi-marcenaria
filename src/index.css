@@ -4317,6 +4317,99 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   color: var(--lead-gold) !important;
 }
 
+/*
+ * Ilha IA (render / ambiente): o modal claro força tinta escura.
+ * Aqui devolvemos creme e ouro claros sobre o mogno, para dar para ler.
+ */
+.lead-modal-shell .lead-ai-dark-island,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island {
+  --lead-ai-cream: #fff6ea;
+  --lead-ai-cream-soft: #f6ead8;
+  --lead-ai-cream-muted: #e2c9a8;
+  --lead-ai-gold: #f2d892;
+  --lead-ai-gold-soft: #e8c878;
+  --lead-ai-line: rgba(242, 216, 146, 0.42);
+  color: var(--lead-ai-cream-soft);
+}
+
+.lead-modal-shell .lead-ai-dark-island .text-cream,
+.lead-modal-shell .lead-ai-dark-island .text-cream-secondary,
+.lead-modal-shell .lead-ai-dark-island .text-foreground,
+.lead-modal-shell .lead-ai-dark-island .text-foreground\/95,
+.lead-modal-shell .lead-ai-dark-island .text-foreground\/80,
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#fff6ea]"],
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#faf2ea]"],
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#fffaf4]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-cream,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-cream-secondary,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#fff6ea]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#faf2ea]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#fffaf4]"] {
+  color: var(--lead-ai-cream) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island .text-cream-muted,
+.lead-modal-shell .lead-ai-dark-island .text-cream-faint,
+.lead-modal-shell .lead-ai-dark-island .text-muted-foreground,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-cream-muted,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-cream-faint,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-muted-foreground {
+  color: var(--lead-ai-cream-muted) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island .text-gold,
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#f2d892]"],
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#d4bc9f]"],
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#edd9c4]"],
+.lead-modal-shell .lead-ai-dark-island [class*="text-[#c4a05a]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island .text-gold,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#f2d892]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#d4bc9f]"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island [class*="text-[#edd9c4]"] {
+  color: var(--lead-ai-gold) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island label,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island label {
+  color: var(--lead-ai-cream) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island .bg-muted,
+.lead-modal-shell .lead-ai-dark-island .bg-muted\/20,
+.lead-modal-shell .lead-ai-dark-island .bg-muted\/80 {
+  background: rgba(20, 12, 8, 0.55) !important;
+  color: var(--lead-ai-cream-soft) !important;
+  border-color: var(--lead-ai-line) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+.lead-modal-shell .lead-ai-dark-island textarea,
+.lead-modal-shell .lead-ai-dark-island select {
+  background: rgba(28, 16, 10, 0.72) !important;
+  color: var(--lead-ai-cream) !important;
+  border-color: var(--lead-ai-line) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island input::placeholder,
+.lead-modal-shell .lead-ai-dark-island textarea::placeholder {
+  color: rgba(226, 201, 168, 0.72) !important;
+}
+
+.lead-modal-shell .lead-ai-dark-island button:not(:disabled),
+.paper-workspace .lead-modal-shell .lead-ai-dark-island button:not(:disabled) {
+  color: inherit;
+}
+
+.lead-modal-shell .lead-ai-dark-island button[class*="border"],
+.paper-workspace .lead-modal-shell .lead-ai-dark-island button[class*="border"] {
+  color: #fff6ea;
+}
+
+.lead-modal-shell .lead-ai-dark-island strong,
+.paper-workspace .lead-modal-shell .lead-ai-dark-island strong {
+  color: #f2d892;
+}
+
 /* Markup no card claro: ilha verde-escura para o valor não “estourar”. */
 .lead-markup-chip {
   background: linear-gradient(180deg, #1a3d2c 0%, #102418 100%);

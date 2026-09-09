@@ -207,11 +207,11 @@ function MediaSelectCard({
     <article
       className={cn(
         'group/card relative cursor-pointer overflow-hidden rounded-xl border transition-all duration-300',
-        'bg-mahogany-card/60 shadow-lg shadow-black/20',
+        'bg-mahogany-card shadow-lg shadow-black/25',
         'animate-in fade-in slide-in-from-bottom-2 fill-mode-both',
         selected
-          ? 'border-gold/60 ring-2 ring-gold/40 shadow-gold/10 shadow-xl scale-[1.02]'
-          : 'border-gold-border-subtle/25 hover:border-gold-border/50',
+          ? 'border-gold/70 ring-2 ring-gold/45 shadow-gold/15 shadow-xl scale-[1.02]'
+          : 'border-gold-border-subtle/45 hover:border-gold-border/70',
         isDeleting && 'pointer-events-none opacity-60',
       )}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
@@ -238,8 +238,8 @@ function MediaSelectCard({
           className={cn(
             'pointer-events-none absolute inset-0 transition-opacity duration-300',
             selected
-              ? 'bg-gradient-to-t from-gold/25 via-gold/5 to-transparent opacity-100'
-              : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-90 group-hover/card:opacity-100',
+              ? 'bg-gradient-to-t from-gold/20 via-transparent to-transparent opacity-100'
+              : 'bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-80 group-hover/card:opacity-95',
           )}
         />
 
@@ -290,8 +290,8 @@ function MediaSelectCard({
         )}
       </div>
 
-      <div className="border-t border-gold-border-subtle/20 bg-mahogany-elevated/90 px-3 py-2.5">
-        <p className="truncate text-xs font-medium text-cream-secondary" title={item.label}>
+      <div className="border-t border-gold-border-subtle/35 bg-mahogany-elevated px-3 py-2.5">
+        <p className="truncate text-xs font-semibold text-cream-secondary" title={item.label}>
           {item.label}
           {isPdf && selected && selectedPdfPage != null && (
             <span className="text-gold"> · Pág. {selectedPdfPage}</span>
@@ -317,7 +317,7 @@ function MediaSelectCard({
           aria-label={`Excluir ${item.label}`}
           className={cn(
             'absolute right-2.5 top-11 z-20 h-7 w-7',
-            'border border-white/10 bg-black/55 text-cream-secondary backdrop-blur-sm',
+            'border border-white/15 bg-black/65 text-cream-secondary backdrop-blur-sm',
             'opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100',
             'hover:border-destructive/40 hover:bg-destructive/90 hover:text-white',
           )}
@@ -373,11 +373,11 @@ function SavedRenderCard({
     <article
       className={cn(
         'group/card relative overflow-hidden rounded-xl border transition-all duration-300',
-        'bg-mahogany-card/60 shadow-lg shadow-black/20',
+        'bg-mahogany-card shadow-lg shadow-black/25',
         'animate-in fade-in slide-in-from-bottom-2 fill-mode-both',
         selected
-          ? 'border-gold/60 ring-2 ring-gold/40 shadow-gold/10 shadow-xl scale-[1.02]'
-          : 'border-gold-border-subtle/25 hover:border-gold-border/50',
+          ? 'border-gold/70 ring-2 ring-gold/45 shadow-gold/15 shadow-xl scale-[1.02]'
+          : 'border-gold-border-subtle/45 hover:border-gold-border/70',
         isDeleting && 'pointer-events-none opacity-60',
       )}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
@@ -397,7 +397,7 @@ function SavedRenderCard({
           />
         </button>
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent opacity-90 group-hover/card:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-85 group-hover/card:opacity-95" />
 
         <div className="absolute left-2.5 top-2.5 z-10">
           <Badge variant="outline" className={cn('border px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm', meta.tone)}>
@@ -455,11 +455,11 @@ function SavedRenderCard({
         </div>
       </div>
 
-      <div className="border-t border-gold-border-subtle/20 bg-mahogany-elevated/90 px-3 py-2.5">
-        <p className="truncate text-xs font-medium text-cream-secondary" title={title}>
+      <div className="border-t border-gold-border-subtle/35 bg-mahogany-elevated px-3 py-2.5">
+        <p className="truncate text-xs font-semibold text-cream-secondary" title={title}>
           {title}
         </p>
-        <p className="mt-0.5 text-[10px] tabular-nums text-cream-faint">
+        <p className="mt-0.5 text-[10px] tabular-nums text-cream-muted">
           {format(new Date(render.criadoEm), "dd/MM/yy · HH:mm", { locale: ptBR })}
         </p>
       </div>
@@ -498,15 +498,19 @@ function getSketchGridCols(viewportWidth: number): number {
   return 2;
 }
 
-/** 2 linhas do grid: card (aspect 4:5) + rodapé do card. */
-function computeSketchGridHeight(containerWidth: number, cols: number): number {
+/** Altura de N linhas do grid: card (aspect 4:5) + rodapé. */
+function computeSketchGridHeight(containerWidth: number, cols: number, rows: number): number {
   const gapPx = 12;
-  const footerPx = 42;
+  const footerPx = 48;
   const cellWidth = (containerWidth - gapPx * (cols - 1)) / cols;
   const cardHeight = cellWidth * (5 / 4) + footerPx;
-  return Math.ceil(cardHeight * 2 + gapPx);
+  return Math.ceil(cardHeight * rows + gapPx * Math.max(0, rows - 1));
 }
 
+/**
+ * Mostra todos os cards quando cabem.
+ * Só rola depois de 3 linhas cheias — evita “sumir” imagens atrás de um corte de 2 linhas.
+ */
 function SketchMediaGrid({
   children,
   itemCount,
@@ -515,7 +519,7 @@ function SketchMediaGrid({
   itemCount: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [layout, setLayout] = useState({ height: 0, cols: 2 });
+  const [layout, setLayout] = useState({ maxHeight: 0, cols: 2 });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -524,8 +528,9 @@ function SketchMediaGrid({
     const update = () => {
       const width = el.clientWidth;
       if (width <= 0) return;
-      const cols = getSketchGridCols(window.innerWidth);
-      setLayout({ cols, height: computeSketchGridHeight(width, cols) });
+      // Usa a largura do card (não da janela) — na grade 2 colunas o painel é mais estreito
+      const cols = getSketchGridCols(width);
+      setLayout({ cols, maxHeight: computeSketchGridHeight(width, cols, 3) });
     };
 
     update();
@@ -538,18 +543,31 @@ function SketchMediaGrid({
     };
   }, []);
 
-  const showScrollHint = itemCount > layout.cols * 2;
+  const rowsNeeded = layout.cols > 0 ? Math.ceil(itemCount / layout.cols) : 0;
+  const needsScroll = rowsNeeded > 3 && layout.maxHeight > 0;
 
   return (
     <div ref={containerRef} className="relative min-w-0 w-full">
       <div
-        className="overflow-y-auto overscroll-contain scroll-smooth pr-1"
-        style={layout.height > 0 ? { height: layout.height, maxHeight: layout.height } : undefined}
+        className={cn(
+          'overscroll-contain scroll-smooth pr-1',
+          needsScroll && 'overflow-y-auto',
+        )}
+        style={needsScroll ? { maxHeight: layout.maxHeight } : undefined}
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{children}</div>
+        <div
+          className={cn(
+            'grid gap-3',
+            layout.cols >= 4 && 'grid-cols-4',
+            layout.cols === 3 && 'grid-cols-3',
+            layout.cols <= 2 && 'grid-cols-2',
+          )}
+        >
+          {children}
+        </div>
       </div>
-      {showScrollHint && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-mahogany-elevated/95 via-mahogany-elevated/70 to-transparent pb-1.5 pt-6 text-center text-[10px] font-medium uppercase tracking-wider text-cream-faint">
+      {needsScroll && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#1a100c] via-[#1a100c]/85 to-transparent pb-1.5 pt-8 text-center text-[10px] font-semibold uppercase tracking-wider text-[#f2d892]">
           Role para ver mais imagens
         </p>
       )}
@@ -1141,10 +1159,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   );
 
   return (
-    <div className="space-y-6 py-1">
+    <div className="lead-ai-dark-island space-y-4 py-1 xl:space-y-5">
       {isBusy && (
-        <div className="flex items-start gap-2 rounded-xl border border-gold/35 bg-gold/10 px-3 py-2.5 text-sm text-cream-secondary">
-          <Loader2 className="h-4 w-4 shrink-0 mt-0.5 animate-spin text-gold" />
+        <div className="flex items-start gap-2 rounded-xl border border-[#f2d892]/45 bg-[#f2d892]/12 px-3 py-2.5 text-sm text-[#fff6ea]">
+          <Loader2 className="h-4 w-4 shrink-0 mt-0.5 animate-spin text-[#f2d892]" />
           <p>
             A renderização continua em segundo plano. Você pode fechar este card, trocar de aba ou
             navegar pelo sistema — avisaremos quando terminar.
@@ -1181,22 +1199,25 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-gold-border-subtle/30 bg-gradient-to-b from-mahogany-card/80 to-mahogany-elevated/40 shadow-inner shadow-black/10">
-        <div className="border-b border-gold-border-subtle/20 bg-mahogany-elevated/60 px-4 py-3 sm:px-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gold">
+      {/* Em telas largas: esboço + ambiente lado a lado para ver os dois cards sem rolar tanto */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start xl:gap-5">
+      <section className="overflow-hidden rounded-xl border-2 border-[#f2d892]/45 bg-gradient-to-b from-[#2a1812] to-[#1a100c] shadow-[0_12px_32px_rgba(8,3,1,0.35)]">
+        <div className="relative border-b border-[#f2d892]/28 bg-[#241610] px-4 py-3 sm:px-5">
+          <AmbienteAtmosphereFoil variant="shader" intensity={0.95} />
+          <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <div className="flex items-center gap-2 text-[#f2d892]">
                 <Layers className="h-4 w-4" aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                   Esboço do projeto
                 </span>
               </div>
-              <Label className="text-sm font-medium text-foreground">
+              <Label className="text-sm font-semibold text-[#fff6ea]">
                 Selecione uma imagem para renderizar
               </Label>
-              <p className="text-xs text-cream-muted">
-                Clique na foto para selecionar. Depois use <strong>Renderizar com ambiente</strong> para
-                enviá-la à lousa e editar. Em PDFs, escolha a página. Cada render fica salvo no histórico.
+              <p className="max-w-xl text-xs leading-relaxed text-[#e2c9a8]">
+                Clique na foto · <strong className="font-medium text-[#f2d892]">Renderizar com ambiente</strong> envia à lousa.
+                Em PDFs, escolha a página.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1206,7 +1227,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 size="sm"
                 onClick={() => void handleOpenPointEdit()}
                 disabled={photoEditDisabled}
-                className="border-gold-border-subtle/40 bg-mahogany-muted/40 hover:bg-mahogany-soft/60"
+                className="border-[#f2d892]/40 bg-[#3a2418]/70 text-[#fff6ea] hover:bg-[#4a3020] hover:text-[#fff6ea]"
               >
                 {isPreparingPhotoEdit ? (
                   <>
@@ -1259,18 +1280,21 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
           </div>
         </div>
 
-        <div className="p-4 sm:p-5">
+        <div className="p-3 sm:p-4">
           {loading ? (
             <SketchMediaGrid itemCount={4}>
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-mahogany-muted/50" />
+                <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-[#3a2418]/80" />
               ))}
             </SketchMediaGrid>
           ) : sketchItems.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gold-border-subtle/30 bg-mahogany-muted/30 px-4 py-10 text-center">
-              <ImageIcon className="mx-auto mb-3 h-8 w-8 text-cream-faint opacity-60" />
-              <p className="text-sm text-cream-muted">
-                Nenhuma imagem disponível. Adicione um esboço na lousa ou anexe uma foto do projeto.
+            <div className="rounded-xl border border-dashed border-[#f2d892]/50 bg-[#1c100c]/80 px-4 py-6 text-center">
+              <ImageIcon className="mx-auto mb-2 h-7 w-7 text-[#f2d892]" />
+              <p className="text-sm font-semibold text-[#fff6ea]">
+                Nenhuma imagem disponível
+              </p>
+              <p className="mt-1 text-xs text-[#e2c9a8]">
+                Adicione um esboço na lousa ou anexe uma foto do projeto.
               </p>
             </div>
           ) : (
@@ -1309,10 +1333,11 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         onAnalyze={handleAnalyzeAmbiente}
         onRender={handleRenderAmbiente}
       />
+      </div>
 
       {(displayedOutputUrl || isBusy || sketchPreviewUrl) && (
-        <section className="space-y-3">
-          <Label className="text-sm font-medium">Resultado da renderização</Label>
+        <section className="space-y-3 rounded-xl border-2 border-[#f2d892]/40 bg-gradient-to-b from-[#2a1812] to-[#1a100c] p-3 shadow-[0_12px_32px_rgba(8,3,1,0.3)] sm:p-4">
+          <Label className="text-sm font-semibold text-[#fff6ea]">Resultado da renderização</Label>
           <LeadAIRenderCompare
             sketchUrl={sketchPreviewUrl}
             sketchLabel={displayedSketchItem?.label ?? sketchSnapshot?.label ?? activeRender?.inputSnapshot?.label}
@@ -1331,25 +1356,33 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         </section>
       )}
 
-      <section className="space-y-3">
-        <Label className="flex items-center gap-2 text-sm font-medium">
-          <History className="h-4 w-4 text-gold" />
-          Fotos renderizadas
-        </Label>
-        <p className="text-xs text-cream-muted">
-          Cada render fica salvo neste lead. Amplie para baixar ou exclua se não gostar do resultado.
-        </p>
+      <section className="space-y-3 rounded-xl border-2 border-[#f2d892]/40 bg-gradient-to-b from-[#2a1812] to-[#1a100c] p-3 shadow-[0_12px_32px_rgba(8,3,1,0.3)] sm:p-4">
+        <div className="relative overflow-hidden rounded-lg border border-[#f2d892]/30 bg-[#241610] px-3 py-2.5">
+          <AmbienteAtmosphereFoil intensity={0.75} />
+          <div className="relative z-10">
+            <Label className="flex items-center gap-2 text-sm font-semibold text-[#fff6ea]">
+              <History className="h-4 w-4 text-[#f2d892]" />
+              Fotos renderizadas
+            </Label>
+            <p className="mt-0.5 text-xs text-[#e2c9a8]">
+              Cada render fica salvo neste lead. Amplie para baixar ou exclua se não gostar do resultado.
+            </p>
+          </div>
+        </div>
         {historicoLoading ? (
           <SketchMediaGrid itemCount={4}>
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-mahogany-muted/50" />
+              <Skeleton key={i} className="aspect-[4/5] rounded-xl bg-[#3a2418]/80" />
             ))}
           </SketchMediaGrid>
         ) : historico.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gold-border-subtle/30 bg-mahogany-base/40 px-4 py-6 text-center">
-            <History className="mx-auto mb-2 h-5 w-5 text-cream-faint" />
-            <p className="text-xs text-cream-muted">
-              Nenhuma renderização ainda. Gere a primeira acima — cada nova foto será salva aqui para baixar ou excluir.
+          <div className="rounded-xl border border-dashed border-[#f2d892]/50 bg-[#1c100c]/85 px-4 py-5 text-center">
+            <History className="mx-auto mb-2 h-5 w-5 text-[#f2d892]" />
+            <p className="text-xs font-semibold text-[#fff6ea]">
+              Nenhuma renderização ainda
+            </p>
+            <p className="mt-1 text-[11px] text-[#e2c9a8]">
+              Gere a primeira acima — cada nova foto será salva aqui para baixar ou excluir.
             </p>
           </div>
         ) : (

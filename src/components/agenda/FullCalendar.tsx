@@ -45,6 +45,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { getDateTimeFromGridDrop } from '@/lib/agenda-calendar-drag';
 import { useAgendaTimedEventDrag } from '@/hooks/useAgendaTimedEventDrag';
 import { AgendaEventHoverPreview } from '@/components/agenda/AgendaEventHoverPreview';
+import { getAgendaEventChipStyle } from '@/lib/agenda-event-colors';
 
 interface FullCalendarProps {
   events: AgendaEvent[];
@@ -129,16 +130,12 @@ function getEventTypeClasses(event: AgendaEvent, compact = false) {
     compact ? 'text-[10px] px-1.5 py-0.5' : 'text-[10px] p-1',
     'rounded border shadow-sm cursor-pointer transition-all hover:z-30 hover:brightness-95',
     compact ? 'overflow-visible' : 'overflow-hidden',
-    event.type === 'tarefa' &&
-      'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/40 dark:border-blue-800',
-    event.type === 'lembrete' &&
-      'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/40 dark:border-amber-800',
-    event.type === 'pessoal' &&
-      'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:border-emerald-800',
-    event.type === 'conteudo' &&
-      'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/40 dark:border-purple-800',
     event.status === 'concluido' && 'opacity-60 line-through',
   );
+}
+
+function getEventChipStyle(event: AgendaEvent) {
+  return getAgendaEventChipStyle(event);
 }
 
 function getTimedEventPosition(
@@ -432,6 +429,7 @@ export function FullCalendar({
                   getEventTypeClasses(event, true),
                   'text-left max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
+                style={getEventChipStyle(event)}
               >
                 <span className="block truncate font-medium">
                   {format(event.start, 'HH:mm')} · {event.title}
@@ -469,7 +467,7 @@ export function FullCalendar({
               getEventTypeClasses(event, true),
               'absolute z-[5] opacity-35 border-dashed pointer-events-none',
             )}
-            style={position}
+            style={{ ...position, ...getEventChipStyle(event) }}
             aria-hidden
           />
         )}
@@ -495,7 +493,7 @@ export function FullCalendar({
               canDrag && 'cursor-grab active:cursor-grabbing',
               isDragging && 'cursor-grabbing ring-2 ring-primary shadow-lg scale-[1.02] opacity-95',
             )}
-            style={displayStyle}
+            style={{ ...displayStyle, ...getEventChipStyle(event) }}
           >
             <div className="font-bold truncate">
               {isDragging && dragState
@@ -601,12 +599,9 @@ export function FullCalendar({
                           'rounded border truncate flex items-center gap-0.5 cursor-pointer hover:brightness-95',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           compact ? 'text-[8px] px-1 py-px' : 'text-[10px] px-1.5 py-0.5',
-                          event.type === 'tarefa' && "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800",
-                          event.type === 'lembrete' && "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800",
-                          event.type === 'pessoal' && "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800",
-                          event.type === 'conteudo' && "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-800",
-                          event.status === 'concluido' && "opacity-60 line-through"
+                          event.status === 'concluido' && 'opacity-60 line-through',
                         )}
+                        style={getEventChipStyle(event)}
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
                         {compact
@@ -903,13 +898,9 @@ export function FullCalendar({
                             canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                             isDragging && 'cursor-grabbing ring-2 ring-primary shadow-xl scale-[1.02] opacity-95',
                             getEventTypeClasses(event, compact),
-                            event.type === 'tarefa' && 'border-blue-400 dark:border-blue-600',
-                            event.type === 'lembrete' && 'border-amber-400 dark:border-amber-600',
-                            event.type === 'pessoal' && 'border-emerald-400 dark:border-emerald-600',
-                            event.type === 'conteudo' && 'border-purple-400 dark:border-purple-600',
                             event.status === 'concluido' && 'grayscale-[0.3]',
                           )}
-                          style={displayStyle}
+                          style={{ ...displayStyle, ...getEventChipStyle(event) }}
                           title={
                             canDrag
                               ? 'Segure e arraste para alterar o horário, ou clique para editar'

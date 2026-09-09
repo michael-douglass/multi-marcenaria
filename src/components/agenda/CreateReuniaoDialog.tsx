@@ -23,6 +23,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getNearestHoraSlot } from '@/lib/horarios-24h';
+import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 
 interface CreateReuniaoDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface CreateReuniaoDialogProps {
     convidado_whatsapp?: string;
     link_video_conferencia?: string;
     observacoes?: string;
+    cor?: string | null;
   }) => void;
   initialDate?: Date;
   /** Acima do painel flutuante da agenda (z-95). */
@@ -56,6 +58,7 @@ export function CreateReuniaoDialog({
   const [convidadoWhatsapp, setConvidadoWhatsapp] = useState('');
   const [linkVideo, setLinkVideo] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  const [cor, setCor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +71,7 @@ export function CreateReuniaoDialog({
     setConvidadoWhatsapp('');
     setLinkVideo('');
     setObservacoes('');
+    setCor(null);
   }, [open, initialDate]);
 
   const handleSubmit = () => {
@@ -85,6 +89,7 @@ export function CreateReuniaoDialog({
       convidado_whatsapp: convidadoWhatsapp || undefined,
       link_video_conferencia: linkVideo || undefined,
       observacoes: observacoes || undefined,
+      cor,
     });
 
     onOpenChange(false);
@@ -188,6 +193,13 @@ export function CreateReuniaoDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <AgendaColorPicker
+            value={cor}
+            onChange={setCor}
+            eventType="tarefa"
+            hint="Escolha uma cor para achar esta reunião mais fácil no calendário."
+          />
 
           <div className="border-t pt-4">
             <p className="text-sm font-medium mb-3">Convidado (opcional)</p>

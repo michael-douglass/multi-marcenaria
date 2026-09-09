@@ -74,6 +74,7 @@ export type Database = {
           titular_id: string
           titular_nome: string | null
           titulo: string
+          cor: string | null
         }
         Insert: {
           anexos?: Json
@@ -95,6 +96,7 @@ export type Database = {
           titular_id: string
           titular_nome?: string | null
           titulo: string
+          cor?: string | null
         }
         Update: {
           anexos?: Json
@@ -116,6 +118,7 @@ export type Database = {
           titular_id?: string
           titular_nome?: string | null
           titulo?: string
+          cor?: string | null
         }
         Relationships: []
       }
@@ -1083,6 +1086,7 @@ export type Database = {
           tipo: string
           titulo: string
           titular_ids: string[] | null
+          cor: string | null
         }
         Insert: {
           atualizado_em?: string
@@ -1110,6 +1114,7 @@ export type Database = {
           tipo?: string
           titulo: string
           titular_ids?: string[] | null
+          cor?: string | null
         }
         Update: {
           atualizado_em?: string
@@ -1137,6 +1142,7 @@ export type Database = {
           tipo?: string
           titulo?: string
           titular_ids?: string[] | null
+          cor?: string | null
         }
         Relationships: [
           {
@@ -1588,6 +1594,7 @@ export type Database = {
           titular_id: string
           titular_ids: string[]
           titulo: string
+          cor: string | null
         }
         Insert: {
           anexos?: Json
@@ -1603,6 +1610,7 @@ export type Database = {
           titular_id: string
           titular_ids?: string[]
           titulo: string
+          cor?: string | null
         }
         Update: {
           anexos?: Json
@@ -1618,6 +1626,7 @@ export type Database = {
           titular_id?: string
           titular_ids?: string[]
           titulo?: string
+          cor?: string | null
         }
         Relationships: [
           {

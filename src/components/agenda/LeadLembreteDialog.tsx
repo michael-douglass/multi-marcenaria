@@ -45,6 +45,7 @@ import { normalizeLembreteTitularIds } from '@/lib/lead-lembrete-titulares';
 import { LeadLembreteTitularesPicker } from '@/components/agenda/LeadLembreteTitularesPicker';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
+import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 
 interface Props {
   open: boolean;
@@ -93,6 +94,7 @@ export function LeadLembreteDialog({
   const [data, setData] = useState<Date | undefined>(undefined);
   const [hora, setHora] = useState('09:00');
   const [titularIds, setTitularIds] = useState<string[]>([]);
+  const [cor, setCor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
   const anexosDraft = useAgendaItemAnexosDraft({
@@ -143,12 +145,14 @@ export function LeadLembreteDialog({
           lembrete.criado_por,
         ),
       );
+      setCor(lembrete.cor ?? null);
     } else {
       setTitulo(`Lembrete: ${leadName}`);
       setDescricao('');
       setData(initialDate ?? new Date());
       setHora(getCurrentHora24h());
       setTitularIds(user?.id ? [user.id] : []);
+      setCor(null);
     }
     resetAnexos(lembrete?.anexos);
   }, [open, lembrete, leadName, user?.id, initialDate, resetAnexos]);
@@ -174,6 +178,7 @@ export function LeadLembreteDialog({
             data_hora: dataHoraISO,
             titular_ids: ids,
             anexos,
+            cor,
           },
         });
       } else {
@@ -185,6 +190,7 @@ export function LeadLembreteDialog({
           data_hora: dataHoraISO,
           titular_ids: ids,
           anexos,
+          cor,
         });
       }
       onOpenChange(false);
@@ -391,6 +397,13 @@ export function LeadLembreteDialog({
               rows={3}
             />
           </div>
+
+          <AgendaColorPicker
+            value={cor}
+            onChange={setCor}
+            eventType="lembrete"
+            hint="Escolha uma cor para achar este lembrete de lead mais fácil no calendário."
+          />
 
           <LeadLembreteTitularesPicker
             value={titularIds}

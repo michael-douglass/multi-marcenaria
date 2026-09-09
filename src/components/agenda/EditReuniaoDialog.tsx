@@ -36,6 +36,7 @@ import {
 } from '@/lib/agenda-form-field-utils';
 import { normalizeTitularIdsForSave } from '@/lib/agenda-reuniao-titulares';
 import { AgendaReuniaoTitularesPicker } from './AgendaReuniaoTitularesPicker';
+import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 
 interface EditReuniaoDialogProps {
   reuniao: AgendaReuniao | null;
@@ -94,6 +95,7 @@ export function EditReuniaoDialog({
   const [convidadoEmail, setConvidadoEmail] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [titularIds, setTitularIds] = useState<string[] | null>(null);
+  const [cor, setCor] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<Record<string, string>>({});
   const { fields: formFieldDefs } = useAgendaFormFields(config?.id);
 
@@ -119,6 +121,7 @@ export function EditReuniaoDialog({
       setConvidadoEmail(reuniao.convidado_email || '');
       setObservacoes(reuniao.observacoes || '');
       setTitularIds(reuniao.titular_ids ?? null);
+      setCor(reuniao.cor ?? null);
       setFormFields(parseRespostaFormulario(reuniao.resposta_formulario));
     }
   }, [reuniao]);
@@ -216,6 +219,7 @@ export function EditReuniaoDialog({
       observacoes: observacoes || null,
       resposta_formulario: respostaFormularioStr,
       titular_ids: normalizeTitularIdsForSave(titularIds, false),
+      cor,
     };
 
     onSave(reuniao.id, updates);
@@ -256,6 +260,13 @@ export function EditReuniaoDialog({
               rows={2}
             />
           </div>
+
+          <AgendaColorPicker
+            value={cor}
+            onChange={setCor}
+            eventType="tarefa"
+            hint="Escolha uma cor para achar esta reunião mais fácil no calendário."
+          />
 
           {/* Data e Hora */}
           <div className="grid grid-cols-2 gap-4">

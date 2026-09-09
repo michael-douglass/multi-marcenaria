@@ -30,6 +30,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useAgendaPessoal } from '@/hooks/useAgendaPessoal';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
+import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 
 const DIAS_SEMANA_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -64,6 +65,7 @@ export function CreateTarefaPessoalDialog({
   const [dataFimRecorrencia, setDataFimRecorrencia] = useState('');
   const [data, setData] = useState<Date | undefined>(undefined);
   const [ocultarDeOutrosAdmins, setOcultarDeOutrosAdmins] = useState(false);
+  const [cor, setCor] = useState<string | null>(null);
   const anexosDraft = useAgendaItemAnexosDraft({
     accept: 'images-and-pdfs',
     scope: 'tarefas-pessoais',
@@ -84,6 +86,7 @@ export function CreateTarefaPessoalDialog({
     // Dia visível na agenda (Hoje / setas); se não houver, usa hoje
     setData(initialDate || new Date());
     setOcultarDeOutrosAdmins(false);
+    setCor(null);
   }, [open, initialDate, initialHora, user?.id]);
 
   const toggleDiaSemana = (dia: number) => {
@@ -118,6 +121,7 @@ export function CreateTarefaPessoalDialog({
         data_fim_recorrencia:
           tipoAgendamento === 'recorrente' && dataFimRecorrencia ? dataFimRecorrencia : undefined,
         ocultar_de_outros_admins: isAdminAgendaPessoal ? ocultarDeOutrosAdmins : undefined,
+        cor,
         anexos,
       });
 
@@ -159,6 +163,8 @@ export function CreateTarefaPessoalDialog({
               rows={3}
             />
           </div>
+
+          <AgendaColorPicker value={cor} onChange={setCor} eventType="pessoal" />
 
           <div>
             <Label>Data *</Label>

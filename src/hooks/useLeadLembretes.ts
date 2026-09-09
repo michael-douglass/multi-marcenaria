@@ -37,6 +37,8 @@ export interface LeadLembrete {
   concluido_em: string | null;
   criado_em: string;
   atualizado_em: string;
+  /** Cor hex (#rrggbb) no calendário; null = cor padrão de lead. */
+  cor: string | null;
   anexos: AgendaItemAnexo[];
   lead?: {
     id: number;
@@ -219,6 +221,7 @@ export function useLeadLembretes(
             ...lembrete,
             titular_ids: ids,
             titular_id: lembrete.titular_id || ids[0] || '',
+            cor: lembrete.cor ?? null,
             anexos: parseAgendaItemAnexos((lembrete as { anexos?: unknown }).anexos),
             lead: leadsById.get(lembrete.lead_id) ?? null,
             titular: titulares[0] ?? titularesById.get(lembrete.titular_id) ?? null,
@@ -283,6 +286,7 @@ export function useLeadLembretes(
       data_hora: string;
       titular_ids?: string[];
       anexos?: AgendaItemAnexo[];
+      cor?: string | null;
       /** @deprecated use titular_ids */
       titular_id?: string;
     }) => {
@@ -304,6 +308,7 @@ export function useLeadLembretes(
         titular_ids,
         criado_por: user.id,
         status: 'pendente',
+        cor: input.cor ?? null,
         anexos: input.anexos ?? [],
       };
       if (input.id) payload.id = input.id;
@@ -339,6 +344,7 @@ export function useLeadLembretes(
           | 'titular_ids'
           | 'concluido_em'
           | 'anexos'
+          | 'cor'
         >
       >;
     }) => {

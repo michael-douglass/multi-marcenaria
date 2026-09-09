@@ -33,6 +33,8 @@ export interface AgendaEvent {
   end: Date;
   status: 'pendente' | 'concluido' | 'cancelado' | 'confirmado' | 'em_andamento';
   type: 'tarefa' | 'lembrete' | 'pessoal' | 'conteudo';
+  /** Cor hex (#rrggbb) escolhida no item; null/undefined = cor padrão do tipo. */
+  color?: string | null;
   originalData: unknown;
 }
 
@@ -69,6 +71,7 @@ export function buildAgendaGeralEvents({
       end: new Date(r.data_hora_fim),
       status: r.status,
       type: 'tarefa',
+      color: r.cor ?? null,
       originalData: r,
     });
   });
@@ -83,6 +86,7 @@ export function buildAgendaGeralEvents({
       end: addHours(start, 1),
       status: l.status,
       type: 'lembrete',
+      color: l.cor ?? null,
       originalData: l,
     });
   });
@@ -110,6 +114,7 @@ export function buildAgendaGeralEvents({
         end: addHours(start, 1),
         status: o.concluida ? 'concluido' : 'pendente',
         type: 'pessoal',
+        color: t.cor ?? null,
         originalData: { ...t, dataOcorrencia: o.dataOcorrencia },
       });
     });
@@ -127,6 +132,7 @@ export function buildAgendaGeralEvents({
       end: addHours(start, 1),
       status: t.status,
       type: 'conteudo',
+      color: null,
       originalData: t,
     });
   });

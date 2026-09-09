@@ -29,6 +29,8 @@ export interface TarefaPessoal {
   conclusoes_ocorrencias: string[] | null;
   /** Quando true, só o titular/criador vê; outros admins não veem na agenda pessoal nem na agenda geral. */
   ocultar_de_outros_admins: boolean;
+  /** Cor hex (#rrggbb) no calendário; null = cor padrão do tipo pessoal. */
+  cor: string | null;
   criado_em: string;
   atualizado_em: string;
   anexos: AgendaItemAnexo[];
@@ -120,6 +122,7 @@ export function useAgendaPessoal() {
       }
       return ((data || []) as unknown as TarefaPessoal[]).map((tarefa) => ({
         ...tarefa,
+        cor: tarefa.cor ?? null,
         anexos: parseAgendaItemAnexos((tarefa as { anexos?: unknown }).anexos),
       }));
     },
@@ -172,6 +175,7 @@ export function useAgendaPessoal() {
       recorrencia_dias_semana?: number[];
       data_fim_recorrencia?: string;
       ocultar_de_outros_admins?: boolean;
+      cor?: string | null;
       anexos?: AgendaItemAnexo[];
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
@@ -196,6 +200,7 @@ export function useAgendaPessoal() {
             recorrencia_dias_semana: tarefa.recorrencia_dias_semana || [],
             data_fim_recorrencia: tarefa.data_fim_recorrencia || null,
             ocultar_de_outros_admins: tarefa.ocultar_de_outros_admins ?? false,
+            cor: tarefa.cor ?? null,
             anexos: tarefa.anexos ?? [],
           },
         ])
@@ -318,7 +323,7 @@ export function useAgendaPessoal() {
       tarefa: TarefaPessoal;
       dataOcorrenciaAntiga: string;
       novaData: string;
-      updates?: Partial<Pick<TarefaPessoal, 'titulo' | 'descricao' | 'hora'>>;
+      updates?: Partial<Pick<TarefaPessoal, 'titulo' | 'descricao' | 'hora' | 'cor'>>;
     }) => {
       const wasConcluida =
         tarefa.tipo_agendamento === 'unica'
@@ -333,6 +338,7 @@ export function useAgendaPessoal() {
             titulo: updates?.titulo ?? tarefa.titulo,
             descricao: updates?.descricao !== undefined ? updates.descricao : tarefa.descricao,
             hora: updates?.hora !== undefined ? updates.hora : tarefa.hora,
+            cor: updates?.cor !== undefined ? updates.cor : tarefa.cor,
             atualizado_em: new Date().toISOString(),
           })
           .eq('id', tarefa.id);
@@ -362,6 +368,7 @@ export function useAgendaPessoal() {
             descricao: updates?.descricao !== undefined ? updates.descricao : tarefa.descricao,
             data: novaData,
             hora: updates?.hora !== undefined ? updates.hora : tarefa.hora,
+            cor: updates?.cor !== undefined ? updates.cor : tarefa.cor,
             tipo_agendamento: 'unica',
             titular_id: tarefa.titular_id,
             titular_nome: tarefa.titular_nome,

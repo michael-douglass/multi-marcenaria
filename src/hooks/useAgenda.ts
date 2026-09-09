@@ -106,6 +106,8 @@ export interface AgendaReuniao {
   /** NULL/[] = todos os titulares; caso contrário, IDs designados. */
   titular_ids?: string[] | null;
   lead_id: number | null;
+  /** Cor hex (#rrggbb) no calendário; null = cor padrão de reunião. */
+  cor?: string | null;
   criado_em: string;
   atualizado_em: string;
   confirmado_em: string | null;
@@ -246,6 +248,7 @@ export function useAgenda() {
       responsavel_id?: string;
       titular_ids?: string[] | null;
       lead_id?: number;
+      cor?: string | null;
     }) => {
       const { data, error } = await db
         .from(agendaReunioesTable)

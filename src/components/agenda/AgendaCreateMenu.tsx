@@ -55,6 +55,7 @@ export function AgendaCreateMenu({
     convidado_whatsapp?: string;
     link_video_conferencia?: string;
     observacoes?: string;
+    cor?: string | null;
   }) => {
     const dataInicio = new Date(data.data_hora_inicio);
     const dataFim = new Date(dataInicio.getTime() + data.duracao_minutos * 60 * 1000);

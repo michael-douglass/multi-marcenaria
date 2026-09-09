@@ -49,6 +49,7 @@ import { useAgendaPessoal, type TarefaPessoal } from '@/hooks/useAgendaPessoal';
 import { formatRecorrenciaResumo } from '@/lib/agenda-pessoal-recorrencia';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
+import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 
 const DIAS_SEMANA_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -80,6 +81,7 @@ export function TarefaPessoalOcorrenciaDialog({
   const [recorrenciaTipo, setRecorrenciaTipo] = useState<'todo_dia' | 'dias_semana' | 'mensal'>('todo_dia');
   const [recorrenciaDias, setRecorrenciaDias] = useState<number[]>([]);
   const [dataFimRecorrencia, setDataFimRecorrencia] = useState('');
+  const [cor, setCor] = useState<string | null>(null);
   const anexosDraft = useAgendaItemAnexosDraft({
     accept: 'images-and-pdfs',
     scope: 'tarefas-pessoais',
@@ -99,6 +101,7 @@ export function TarefaPessoalOcorrenciaDialog({
     setRecorrenciaTipo((eventData.recorrencia_tipo as 'todo_dia' | 'dias_semana' | 'mensal') || 'todo_dia');
     setRecorrenciaDias((eventData.recorrencia_dias_semana as number[]) || []);
     setDataFimRecorrencia(eventData.data_fim_recorrencia || '');
+    setCor(eventData.cor ?? null);
     resetAnexos(eventData.anexos);
   }, [open, eventData, resetAnexos]);
 
@@ -144,6 +147,7 @@ export function TarefaPessoalOcorrenciaDialog({
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
       hora: hora.trim() || null,
+      cor,
       anexos,
     };
 
@@ -313,6 +317,8 @@ export function TarefaPessoalOcorrenciaDialog({
               <Label>Hora</Label>
               <TimeInput24h value={hora} onChange={setHora} optional />
             </div>
+
+            <AgendaColorPicker value={cor} onChange={setCor} eventType="pessoal" />
             <div className="space-y-2">
               <Label>Descrição</Label>
               <Textarea

@@ -363,7 +363,7 @@ export function WhiteboardFurnitureCatalog({
                       {items.length} modelo{items.length === 1 ? '' : 's'}
                     </span>
                   </header>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {items.map((mod) => {
                       const active = selectedType === mod.type;
                       const fav = isFavorite(mod.type);
@@ -380,22 +380,22 @@ export function WhiteboardFurnitureCatalog({
                             onFocus={() => setPreviewType(mod.type)}
                             onClick={() => onSelect(mod.type, bank)}
                             className={cn(
-                              'flex w-full items-center gap-1.5 rounded-xl border px-1.5 py-1.5 pr-7 text-left transition-colors',
+                              'flex w-full items-center gap-2 rounded-xl border px-2 py-2 pr-8 text-left transition-colors',
                               active
-                                ? 'border-[#f2d892] bg-[#f2d892]/16 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.18)]'
-                                : 'border-[rgba(240,210,140,0.16)] bg-black/15 text-[#fff6ea] hover:border-[rgba(240,210,140,0.4)] hover:bg-white/5',
+                                ? 'border-[#f2d892] bg-[#f2d892]/20 text-[#fff6ea] shadow-[0_0_14px_rgba(242,216,146,0.22)]'
+                                : 'border-[rgba(240,210,140,0.28)] bg-black/25 text-[#fff6ea] hover:border-[rgba(240,210,140,0.5)] hover:bg-white/8',
                             )}
                           >
                             <FurnitureModuleThumb
                               moduleType={mod.type}
                               flatFront={bank === 'reto'}
-                              className="h-11 w-9 shrink-0 text-[#f2d892]"
+                              className="h-14 w-11 shrink-0 text-[#f2d892]"
                             />
                             <span className="min-w-0">
-                              <span className="block text-[11px] font-semibold leading-tight">
+                              <span className="block text-[12px] font-semibold leading-tight text-[#fff6ea]">
                                 {mod.label}
                               </span>
-                              <span className="mt-0.5 block text-[9px] leading-tight text-[#d4bc9f] line-clamp-2">
+                              <span className="mt-0.5 block text-[10px] leading-tight text-[#e2c9a8] line-clamp-2">
                                 {bank === 'reto' ? 'Frontal' : bank === '3d' ? 'Volume 3D' : mod.description}
                               </span>
                             </span>
@@ -407,8 +407,8 @@ export function WhiteboardFurnitureCatalog({
                             aria-pressed={fav}
                             disabled={disabled}
                             className={cn(
-                              'absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full',
-                              fav ? 'text-[#f2d892]' : 'text-[#d4bc9f]/70 hover:text-[#f2d892]',
+                              'absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full',
+                              fav ? 'text-[#f2d892]' : 'text-[#d4bc9f]/80 hover:text-[#f2d892]',
                             )}
                             onClick={(event) => {
                               event.stopPropagation();

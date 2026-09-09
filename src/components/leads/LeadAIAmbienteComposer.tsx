@@ -2011,31 +2011,30 @@ export function LeadAIAmbienteComposer({
     <section
       id={isFullscreen ? 'lead-ai-ambiente-composer-fullscreen' : 'lead-ai-ambiente-composer'}
       className={cn(
-        'overflow-hidden border bg-gradient-to-b from-mahogany-card/80 to-mahogany-elevated/40 shadow-inner shadow-black/10 transition-[box-shadow,border-color] duration-500',
+        'lead-ai-dark-island overflow-hidden border-2 bg-gradient-to-b from-[#2a1812] to-[#1a100c] shadow-[0_12px_32px_rgba(8,3,1,0.35)] transition-[box-shadow,border-color] duration-500',
         isFullscreen
           ? 'flex h-full min-h-0 w-full flex-1 flex-col rounded-none border-0'
-          : 'rounded-xl',
-        photoPulse ? 'border-gold/70 shadow-[0_0_0_1px_rgba(242,216,146,0.35)]' : 'border-gold-border-subtle/30',
+          : 'h-full rounded-xl',
+        photoPulse ? 'border-[#f2d892]/80 shadow-[0_0_0_1px_rgba(242,216,146,0.45)]' : 'border-[#f2d892]/45',
       )}
     >
-      <div className="relative shrink-0 border-b border-gold-border-subtle/20 bg-mahogany-elevated/60 px-4 py-3 sm:px-5">
-        <AmbienteAtmosphereFoil intensity={0.7} />
+      <div className="relative shrink-0 border-b border-[#f2d892]/28 bg-[#241610] px-4 py-3 sm:px-5">
+        <AmbienteAtmosphereFoil variant="shader" intensity={0.9} />
         <div className="relative z-10 flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-gold">
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex items-center gap-2 text-[#f2d892]">
               <Sofa className="h-4 w-4" aria-hidden />
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                 Compor ambiente
               </span>
             </div>
-            <Label className="text-sm font-medium text-foreground">
+            <Label className="text-sm font-semibold text-[#fff6ea]">
               Descreva o cômodo, desenhe na lousa e posicione os móveis
             </Label>
             {!isFullscreen && (
-              <p className="text-xs text-cream-muted">
-                A IA lê os desenhos da lousa e cada móvel posicionado, entende o cômodo descrito e
-                gera a foto sem variar o móvel.
-                {draftRestored ? ' Rascunho recuperado — pode continuar de onde parou.' : ' A montagem é guardada sozinha se o sistema cair.'}
+              <p className="text-xs leading-relaxed text-[#e2c9a8]">
+                A IA lê a lousa e os móveis; a montagem é guardada sozinha.
+                {draftRestored ? ' Rascunho recuperado.' : null}
               </p>
             )}
           </div>
@@ -2044,7 +2043,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
+              className="h-9 gap-1.5 border-[#f2d892]/40 bg-[#3a2418]/75 text-[#fff6ea] hover:bg-[#4a3020] hover:text-[#fff6ea]"
               disabled={!canUndo}
               onClick={undoLast}
               aria-label="Desfazer última ação"
@@ -2056,7 +2055,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
+              className="h-9 gap-1.5 border-[#f2d892]/40 bg-[#3a2418]/75 text-[#fff6ea] hover:bg-[#4a3020] hover:text-[#fff6ea]"
               disabled={!canRedo}
               onClick={redoLast}
               aria-label="Refazer última ação"
@@ -2068,7 +2067,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
+              className="h-9 gap-1.5 border-[#f2d892]/40 bg-[#3a2418]/75 text-[#fff6ea] hover:bg-[#4a3020] hover:text-[#fff6ea]"
               disabled={!canSaveCopy}
               onClick={() => void saveCopyToFolder()}
               aria-label="Guardar na pasta do lead e tirar da lousa"
@@ -2080,7 +2079,7 @@ export function LeadAIAmbienteComposer({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 border-gold-border-subtle/40 bg-mahogany-muted/40"
+              className="h-9 gap-1.5 border-[#f2d892]/40 bg-[#3a2418]/75 text-[#fff6ea] hover:bg-[#4a3020] hover:text-[#fff6ea]"
               onClick={() => updateFullscreen(!isFullscreen)}
               aria-label={isFullscreen ? 'Sair da tela cheia' : 'Abrir em tela cheia'}
             >
@@ -2114,12 +2113,12 @@ export function LeadAIAmbienteComposer({
 
       <div
         className={cn(
-          'space-y-4 p-4 sm:p-5',
+          'space-y-3 p-3 sm:p-4',
           isFullscreen && 'flex min-h-0 flex-1 flex-col',
         )}
       >
-        <div className={cn('space-y-2', isFullscreen && 'shrink-0')}>
-          <Label htmlFor="lead-ai-ambiente-descricao" className="text-xs text-cream-secondary">
+        <div className={cn('space-y-1.5', isFullscreen && 'shrink-0')}>
+          <Label htmlFor="lead-ai-ambiente-descricao" className="text-xs font-medium text-[#fff6ea]">
             Prompt do ambiente
           </Label>
           <Textarea
@@ -2127,12 +2126,12 @@ export function LeadAIAmbienteComposer({
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             disabled={locked}
-            rows={isFullscreen ? 2 : 4}
+            rows={isFullscreen ? 2 : 3}
             maxLength={2000}
             placeholder="Ex.: Sala de estar contemporânea, sofá linho claro, piso carvalho, luz natural da janela à esquerda, painel TV em noce…"
             className={cn(
-              'resize-y border-gold-border-subtle/30 bg-mahogany-muted/40 text-sm',
-              isFullscreen ? 'min-h-[64px]' : 'min-h-[96px]',
+              'resize-y border-[#f2d892]/40 bg-[#1c100c]/80 text-sm text-[#fff6ea] placeholder:text-[#e2c9a8]/75',
+              isFullscreen ? 'min-h-[56px]' : 'min-h-[72px]',
             )}
           />
         </div>
@@ -2150,10 +2149,10 @@ export function LeadAIAmbienteComposer({
               isFullscreen
                 ? 'min-h-[min(48dvh,420px)] flex-1'
                 : catalogOpen
-                  ? 'h-[320px] max-h-[320px]'
-                  : 'max-h-[min(52vh,420px)]',
+                  ? 'h-[280px] max-h-[280px]'
+                  : 'max-h-[min(42vh,340px)]',
             )}
-            style={isFullscreen ? undefined : { minHeight: 320 }}
+            style={isFullscreen ? undefined : { minHeight: 260 }}
           >
           <div
             ref={viewportRef}
