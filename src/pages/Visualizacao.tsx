@@ -440,7 +440,7 @@ function VisualizacaoContent() {
               <VisualizacaoPanel
                 title="Chegada de Materiais"
                 subtitle={rangeLabel}
-                accent="#34d399"
+                accent="#059669"
                 badge={obrasChegada.length}
                 headerExtra={
                   semPedidoMaterialCount > 0
@@ -457,7 +457,7 @@ function VisualizacaoContent() {
               <VisualizacaoPanel
                 title="Calendário de Obras"
                 subtitle={rangeLabel}
-                accent="#60a5fa"
+                accent="#2563eb"
                 headerEnd={
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     {painelVisivel('obras_do_dia') ? (
@@ -483,7 +483,7 @@ function VisualizacaoContent() {
               <VisualizacaoPanel
                 title="Acompanhamento de Obras"
                 subtitle={`Hoje · ${fmtDate(hoje)} · obras do dia`}
-                accent="#f2d892"
+                accent="#c4963a"
                 badge={totalFotosHoje || obrasDoDia.length}
                 className="viz-panel--span-2 viz-stagger-3"
               >
@@ -499,7 +499,7 @@ function VisualizacaoContent() {
                     ? 'Obras da sua equipe com prazo vencido'
                     : 'Todas as obras com prazo vencido'
                 }
-                accent="#ef4444"
+                accent="#dc2626"
                 badge={obrasAtrasadas.length}
                 className="viz-panel--span-2 viz-stagger-5"
               >
@@ -511,7 +511,7 @@ function VisualizacaoContent() {
               <VisualizacaoPanel
                 title="Cobranças Atrasadas"
                 subtitle="Clientes com parcelas vencidas"
-                accent="#f59e0b"
+                accent="#d97706"
                 badge={clientesAtrasados.length}
                 className="viz-panel--span-2 viz-stagger-6"
               >
@@ -523,7 +523,7 @@ function VisualizacaoContent() {
               <VisualizacaoPanel
                 title="Ponto"
                 subtitle={`Hoje · ${fmtDate(hoje)} · registros diários da equipe`}
-                accent="#a78bfa"
+                accent="#7c3aed"
                 badge={pontoResumo.total}
                 headerEnd={
                   <Link
