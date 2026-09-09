@@ -221,8 +221,10 @@ function editFormFromConta(conta: ContaPagar, todasContas?: ContaPagar[]): EditC
 
 const getStatus = (vencimento: string, status: string): string => {
   if (status === 'pago') return 'pago'
-  if (isOverdue(vencimento)) return 'vencido'
+  // Parcial tem prioridade sobre vencido: senão o filtro "Pago" some
+  // com o botão "Zerar" quando a parcela já venceu (ex.: pró-labore).
   if (status === 'parcialmente_pago') return 'parcialmente_pago'
+  if (isOverdue(vencimento)) return 'vencido'
   return 'pendente'
 }
 
@@ -519,8 +521,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     }
     return (
       (activeFilterSet.has('Pendente') && (s === 'pendente' || s === 'parcialmente_pago')) ||
-      (activeFilterSet.has('Pago') && s === 'pago') ||
-      (activeFilterSet.has('Vencido') && s === 'vencido')
+      // "Pago" inclui parcial: há valor já pago que dá para ver e desfazer.
+      (activeFilterSet.has('Pago') && (s === 'pago' || s === 'parcialmente_pago')) ||
+      (activeFilterSet.has('Vencido') && (
+        s === 'vencido' || (s === 'parcialmente_pago' && isOverdue(p.data_vencimento))
+      ))
     )
   }, [isDefaultView, activeFilterSet, periodoAtivo])
 
@@ -1811,6 +1816,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               <tbody>
                 {filtered.map(p => {
                   const s = getStatus(p.data_vencimento, p.status)
+                  const isParcial = p.status === 'parcialmente_pago'
+                  const isAtrasada = p.status !== 'pago' && isOverdue(p.data_vencimento)
                   const isSelected = selectedRowIds.has(p.id)
                   const nomeExibido = p.fornecedor_nome ?? fornecedores.find(x => x.id === p.fornecedor_id)?.nome ?? p.descricao ?? '—'
                   const detalhes = getDetalhesExibicaoContaPagar(p, nomeExibido)
@@ -1818,7 +1825,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                   return (
                     <tr
                       key={p.id}
-                      className={cn('trow', s === 'vencido' && 'cobrancas-row-late', isSelected && 'bg-[#f8efe0]')}
+                      className={cn('trow', isAtrasada && 'cobrancas-row-late', isSelected && 'bg-[#f8efe0]')}
                     >
                       {!readOnly && (
                         <td className="cobrancas-ledger__col-check px-2 py-3 align-top">
@@ -1875,7 +1882,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                       <td className="cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums text-[#6b3f12]">{fmtCur(p.valor_parcela)}</td>
                       <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums', getValorPagoConta(p) > 0 ? 'text-[#146c38]' : 'text-[#6b5244]')}>{fmtCur(getValorPagoConta(p))}</td>
                       <td className={cn('cobrancas-ledger__col-valor px-3 py-3 font-semibold tabular-nums', p.status === 'pago' ? 'text-[#146c38]' : 'text-[#1a100c]')}>{fmtCur(Math.max(0, p.valor_parcela - getValorPagoConta(p)))}</td>
-                      <td className={cn('cobrancas-ledger__col-venc px-3 py-3 text-sm tabular-nums', s === 'vencido' ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(p.data_vencimento)}</td>
+                      <td className={cn('cobrancas-ledger__col-venc px-3 py-3 text-sm tabular-nums', isAtrasada ? 'font-semibold text-[#9f1239]' : 'text-[#4a3428]')}>{fmtDate(p.data_vencimento)}</td>
                       <td className="cobrancas-ledger__col-status px-3 py-3"><Badge status={s} /></td>
                       <td className="cobrancas-ledger__col-acoes px-3 py-3 text-right">
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1921,9 +1928,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                           {!readOnly && s !== 'pago' ? (
                             <>
                               <button type="button" className="btn btn-success btn-sm" onClick={() => handleMarcarPago(p)}>
-                                {s === 'parcialmente_pago' ? '+ Pagar mais' : '✓ Marcar Pago'}
+                                {isParcial ? '+ Pagar mais' : '✓ Marcar Pago'}
                               </button>
-                              {s === 'parcialmente_pago' && (
+                              {isParcial && (
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm"
