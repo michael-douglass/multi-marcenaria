@@ -10,6 +10,7 @@ import {
   Scale,
   ScrollText,
   Search,
+  Undo2,
   Wallet,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -116,7 +117,17 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const { role, roles } = useApp()
   const isAdmin = role === 'Administrador'
   const isFinanceiroOnly = roles.includes('Financeiro') && !roles.includes('Administrador')
-  const { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao } = useContasReceber()
+  const {
+    data,
+    loading,
+    error,
+    gerarCobranca,
+    marcarRecebido,
+    estornarRecebimento,
+    atualizarTransacao,
+    reestruturarParcelamento,
+    removerTransacao,
+  } = useContasReceber()
   const obrasHook = useObras()
   const orcamentos = useOrcamentosFechados()
   const templatesHook = useTemplatesCobranca()
@@ -138,7 +149,14 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const [reciboConta, setReciboConta] = useState<ContaReceber | null>(null)
   const [openEdit, setOpenEdit] = useState(false)
   const [openBulkEdit, setOpenBulkEdit] = useState(false)
+  const [openEstorno, setOpenEstorno] = useState(false)
   const [selectedConta, setSelectedConta] = useState<ContaReceber | null>(null)
+  const [estornoForm, setEstornoForm] = useState({
+    valor_parcela: '',
+    data_vencimento: todayISO(),
+    forma_pagamento: 'pix' as FormaPagamento,
+  })
+  const [savingEstorno, setSavingEstorno] = useState(false)
   const [bulkParcelas, setBulkParcelas] = useState<ContaReceber[]>([])
   const [form, setForm] = useState(emptyCobrancaReceberDraftForm)
   const [createAnexos, setCreateAnexos] = useState<PendingContaReceberAnexo[]>([])
@@ -426,6 +444,22 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const [editAnexoScope, setEditAnexoScope] = useState<ContaReceberAnexoScope>('single')
   const [bulkObservacao, setBulkObservacao] = useState('')
   const [bulkAnexos, setBulkAnexos] = useState<PendingContaReceberAnexo[]>([])
+  const [bulkRecebidas, setBulkRecebidas] = useState<ContaReceber[]>([])
+  const [bulkBaseId, setBulkBaseId] = useState<string | null>(null)
+  const [bulkPlan, setBulkPlan] = useState({
+    valorTotal: '',
+    temEntrada: false,
+    valorEntrada: '',
+    formaEntrada: 'pix' as FormaPagamento,
+    dataEntrada: todayISO(),
+    tipo: 'nosso_parcelamento' as TipoRecebimento,
+    forma: 'pix' as FormaPagamento,
+    parcelas: '2',
+    primeiroVenc: todayISO(),
+    descontoCartao: '0',
+  })
+  const [bulkDraftParcelas, setBulkDraftParcelas] = useState<ParcelaInput[]>([])
+  const skipBulkRegenRef = useRef(false)
   const [saving, setSaving] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [savingBulk, setSavingBulk] = useState(false)
@@ -444,88 +478,232 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const openBulkEditModal = (conta: ContaReceber) => {
     const related = parcelasRelacionadas(conta, data)
       .sort((a, b) => a.numero_parcela - b.numero_parcela)
+    const recebidas = related.filter(p => p.status === 'recebido')
+    const pendentes = related.filter(p => p.status !== 'recebido')
 
-    setBulkParcelas(related)
+    const valorTotal = Number(conta.valor_total ?? 0)
+    const valorJaRecebido = recebidas.reduce((s, p) => s + p.valor_parcela, 0)
+    const valorDisponivel = parseFloat((valorTotal - valorJaRecebido).toFixed(2))
+
+    // Heurística: se a 1ª pendente parece entrada (há mais parcelas depois), pré-marca entrada
+    const primeiraPendente = pendentes[0]
+    const temEntradaExistente =
+      pendentes.length >= 2 &&
+      primeiraPendente?.numero_parcela === 1 &&
+      primeiraPendente.valor_parcela < valorDisponivel
+
+    const restanteParcelas = temEntradaExistente ? pendentes.slice(1) : pendentes
+    const formaRestante = restanteParcelas[0]?.forma_pagamento ?? pendentes[0]?.forma_pagamento ?? 'pix'
+    const tipoInferido: TipoRecebimento =
+      formaRestante === 'cartao'
+        ? 'cartao_parcelado'
+        : restanteParcelas.length <= 1 && !temEntradaExistente
+          ? 'a_vista'
+          : 'nosso_parcelamento'
+
+    skipBulkRegenRef.current = true
+    setBulkBaseId(conta.id)
+    setBulkRecebidas(recebidas)
     setBulkObservacao(conta.observacao ?? '')
+    setBulkPlan({
+      valorTotal: String(valorTotal || ''),
+      temEntrada: temEntradaExistente,
+      valorEntrada: temEntradaExistente ? String(primeiraPendente.valor_parcela) : '',
+      formaEntrada: temEntradaExistente
+        ? primeiraPendente.forma_pagamento
+        : 'pix',
+      dataEntrada: temEntradaExistente
+        ? primeiraPendente.data_vencimento
+        : todayISO(),
+      tipo: tipoInferido,
+      forma: formaRestante === 'cartao' ? 'pix' : formaRestante,
+      parcelas: String(Math.max(2, restanteParcelas.length || 2)),
+      primeiroVenc:
+        restanteParcelas[0]?.data_vencimento
+        || pendentes[0]?.data_vencimento
+        || todayISO(),
+      descontoCartao: '0',
+    })
+
+    if (tipoInferido === 'nosso_parcelamento' && restanteParcelas.length > 0) {
+      setBulkDraftParcelas(
+        restanteParcelas.map((p, i) => ({
+          numero: i + 1,
+          valor: p.valor_parcela,
+          vencimento: p.data_vencimento,
+        })),
+      )
+    } else {
+      setBulkDraftParcelas([])
+    }
+
+    // Mantém lista antiga só para referência no PDF/export se necessário
+    setBulkParcelas(related)
     revokePendingCrAnexoUrls(bulkAnexos)
     setBulkAnexos([])
     setOpenBulkEdit(true)
   }
 
-  const updateBulkParcela = (index: number, field: 'valor_parcela' | 'data_vencimento', value: string | number) => {
-    const newParcelas = [...bulkParcelas]
+  const bulkValorTotal = parseFloat(bulkPlan.valorTotal) || 0
+  const bulkValorJaRecebido = bulkRecebidas.reduce((s, p) => s + p.valor_parcela, 0)
+  const bulkValorDisponivel = parseFloat((bulkValorTotal - bulkValorJaRecebido).toFixed(2))
+  const bulkEntradaVal = bulkPlan.temEntrada ? (parseFloat(bulkPlan.valorEntrada) || 0) : 0
+  const bulkEntradaAtiva =
+    bulkPlan.temEntrada && bulkEntradaVal > 0 && bulkEntradaVal < bulkValorDisponivel
+  const bulkValorBase = bulkEntradaAtiva
+    ? parseFloat((bulkValorDisponivel - bulkEntradaVal).toFixed(2))
+    : bulkValorDisponivel
+
+  useEffect(() => {
+    if (!openBulkEdit) return
+    if (skipBulkRegenRef.current) {
+      skipBulkRegenRef.current = false
+      return
+    }
+    if (bulkPlan.tipo !== 'nosso_parcelamento') {
+      setBulkDraftParcelas([])
+      return
+    }
+    const n = parseInt(bulkPlan.parcelas) || 1
+    const start = bulkPlan.primeiroVenc || todayISO()
+    const valorUnit = parseFloat((bulkValorBase / Math.max(1, n)).toFixed(2))
+    setBulkDraftParcelas(
+      Array.from({ length: Math.max(1, n) }, (_, i) => ({
+        numero: i + 1,
+        valor:
+          i === n - 1
+            ? parseFloat((bulkValorBase - valorUnit * (n - 1)).toFixed(2))
+            : valorUnit,
+        vencimento: addMonths(start, i),
+      })),
+    )
+  }, [
+    openBulkEdit,
+    bulkPlan.tipo,
+    bulkPlan.parcelas,
+    bulkPlan.primeiroVenc,
+    bulkPlan.temEntrada,
+    bulkPlan.valorEntrada,
+    bulkPlan.valorTotal,
+    bulkValorBase,
+  ])
+
+  const updateBulkDraftParcela = (
+    index: number,
+    field: keyof ParcelaInput,
+    value: string | number,
+  ) => {
+    const newParcelas = [...bulkDraftParcelas]
     const p = { ...newParcelas[index] }
 
-    if (field === 'valor_parcela') {
+    if (field === 'valor') {
       const newVal = parseFloat(value as string) || 0
-      p.valor_parcela = newVal
+      p.valor = newVal
       newParcelas[index] = p
 
-      // Recalcula as próximas (apenas se não foram recebidas)
-      const totalVenda = p.valor_total
-      const jaPago = newParcelas.slice(0, index + 1).reduce((sum, item) => sum + item.valor_parcela, 0)
-      const restante = totalVenda - jaPago
-      
-      const restGrid = newParcelas.slice(index + 1).filter(x => x.status !== 'recebido')
-      const nRestantes = restGrid.length
-
+      const jaPago = newParcelas.slice(0, index + 1).reduce((sum, item) => sum + item.valor, 0)
+      const restante = bulkValorBase - jaPago
+      const nRestantes = newParcelas.length - (index + 1)
       if (nRestantes > 0) {
         const valorRestUnit = restante / nRestantes
-        let currentRest = 0
         for (let i = index + 1; i < newParcelas.length; i++) {
-          if (newParcelas[i].status !== 'recebido') {
-            currentRest++
-            newParcelas[i] = {
-              ...newParcelas[i],
-              valor_parcela:
-                currentRest === nRestantes
-                  ? parseFloat((restante - valorRestUnit * (nRestantes - 1)).toFixed(2))
-                  : parseFloat(valorRestUnit.toFixed(2)),
-            }
+          newParcelas[i] = {
+            ...newParcelas[i],
+            valor:
+              i === newParcelas.length - 1
+                ? parseFloat((restante - valorRestUnit * (nRestantes - 1)).toFixed(2))
+                : parseFloat(valorRestUnit.toFixed(2)),
           }
         }
       }
-    } else if (field === 'data_vencimento') {
-      p.data_vencimento = value as string
+    } else if (field === 'vencimento') {
+      p.vencimento = value as string
       newParcelas[index] = p
     }
 
-    setBulkParcelas(newParcelas)
+    setBulkDraftParcelas(newParcelas)
   }
 
+  const selectBulkTipo = (tipo: TipoRecebimento) =>
+    setBulkPlan(p => ({
+      ...p,
+      tipo,
+      forma: tipo === 'a_vista' ? 'pix' : tipo === 'cartao_parcelado' ? 'cartao' : p.forma,
+      parcelas: tipo === 'a_vista' ? '1' : p.parcelas === '1' ? '2' : p.parcelas,
+    }))
+
   const saveBulkEdit = async () => {
-    if (bulkParcelas.length === 0) return
-    const totalVenda = bulkParcelas[0].valor_total
-    const sum = bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0)
-    
-    if (Math.abs(sum - totalVenda) > 0.01) {
-      alert(`A soma das parcelas (${fmtCur(sum)}) deve ser igual ao valor total (${fmtCur(totalVenda)}).`)
+    if (!bulkBaseId) return
+    const tot = parseFloat(bulkPlan.valorTotal)
+    if (!tot || tot <= 0) {
+      alert('Informe o valor total da venda.')
       return
+    }
+    if (bulkValorDisponivel <= 0) {
+      alert('Não há valor pendente para reestruturar. Estorne um recebimento primeiro.')
+      return
+    }
+    if (bulkPlan.temEntrada) {
+      if (bulkEntradaVal <= 0) {
+        alert('Informe o valor da entrada.')
+        return
+      }
+      if (bulkEntradaVal >= bulkValorDisponivel) {
+        alert('A entrada deve ser menor que o valor ainda pendente.')
+        return
+      }
+    }
+    if (bulkPlan.tipo === 'nosso_parcelamento') {
+      const n = parseInt(bulkPlan.parcelas) || 0
+      if (n < 2) {
+        alert('Informe ao menos 2 parcelas para o restante.')
+        return
+      }
+      const sum = bulkDraftParcelas.reduce((acc, p) => acc + p.valor, 0)
+      if (Math.abs(sum - bulkValorBase) > 0.01) {
+        alert(`A soma das parcelas (${fmtCur(sum)}) deve ser igual ao restante (${fmtCur(bulkValorBase)}).`)
+        return
+      }
     }
 
     setSavingBulk(true)
     try {
-      await atualizarParcelasEmLote(
-        bulkParcelas.map(p => ({
-          id: p.id,
-          valor_parcela: p.valor_parcela,
-          data_vencimento: p.data_vencimento,
-        })),
-        totalVenda,
-        bulkObservacao,
-      )
+      const inserted = await reestruturarParcelamento(bulkBaseId, {
+        valor_total: tot,
+        tipo_recebimento: bulkPlan.tipo,
+        forma_pagamento: bulkPlan.tipo === 'cartao_parcelado' ? 'cartao' : bulkPlan.forma,
+        total_parcelas: bulkPlan.tipo === 'a_vista' ? 1 : parseInt(bulkPlan.parcelas) || 1,
+        primeiro_vencimento: bulkPlan.primeiroVenc,
+        entrada: bulkEntradaAtiva
+          ? {
+              valor: bulkEntradaVal,
+              data: bulkPlan.dataEntrada,
+              forma_pagamento: bulkPlan.formaEntrada,
+            }
+          : undefined,
+        parcelas_detalhadas:
+          bulkPlan.tipo === 'nosso_parcelamento' ? bulkDraftParcelas : undefined,
+        desconto_cartao_percentual:
+          bulkPlan.tipo === 'cartao_parcelado'
+            ? parseFloat(bulkPlan.descontoCartao) || 0
+            : undefined,
+        observacao: bulkObservacao,
+      })
       if (bulkAnexos.length > 0) {
-        const base = bulkParcelas[0]
-        await uploadContaReceberAnexos({
-          scope: 'all',
-          contaReceberId: base.id,
-          grupoId: resolveGrupoReceberId(base),
-          anexos: bulkAnexos,
-        })
+        const base = inserted[0] ?? bulkRecebidas[0]
+        if (base) {
+          await uploadContaReceberAnexos({
+            scope: 'all',
+            contaReceberId: base.id,
+            grupoId: resolveGrupoReceberId(base),
+            anexos: bulkAnexos,
+          })
+        }
         revokePendingCrAnexoUrls(bulkAnexos)
         setBulkAnexos([])
       }
       setOpenBulkEdit(false)
+      setBulkBaseId(null)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erro ao salvar alterações.')
     } finally {
@@ -750,6 +928,43 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
     setEditAnexos([])
     setEditAnexoScope(cobrancaTemParcelamento(conta, data) ? 'all' : 'single')
     setOpenEdit(true)
+  }
+
+  const openEstornoModal = (conta: ContaReceber) => {
+    setSelectedConta(conta)
+    setEstornoForm({
+      valor_parcela: String(conta.valor_parcela),
+      data_vencimento: conta.data_vencimento || todayISO(),
+      forma_pagamento: conta.forma_pagamento,
+    })
+    setOpenEstorno(true)
+  }
+
+  const saveEstorno = async () => {
+    if (!selectedConta) return
+    const valor = parseFloat(estornoForm.valor_parcela)
+    if (!valor || valor <= 0) {
+      alert('Informe um valor válido para a parcela.')
+      return
+    }
+    if (!estornoForm.data_vencimento) {
+      alert('Informe a data em que o pagamento deve ser dado entrada novamente.')
+      return
+    }
+    setSavingEstorno(true)
+    try {
+      await estornarRecebimento(selectedConta.id, {
+        valor_parcela: valor,
+        data_vencimento: estornoForm.data_vencimento,
+        forma_pagamento: estornoForm.forma_pagamento,
+      })
+      setOpenEstorno(false)
+      setSelectedConta(null)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao estornar recebimento.')
+    } finally {
+      setSavingEstorno(false)
+    }
   }
 
   const saveEdit = async () => {
@@ -1256,11 +1471,9 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
         </Field>
         <FieldRow>
           <Field label="Vencimento" half>
-            <input
-              className="glass-input"
-              type="date"
+            <DateInput
               value={editForm.data_vencimento}
-              onChange={e => setEditForm(p => ({ ...p, data_vencimento: e.target.value }))}
+              onChange={v => setEditForm(p => ({ ...p, data_vencimento: v ?? '' }))}
             />
           </Field>
           <Field label="Forma de Pagamento" half>
@@ -1288,11 +1501,9 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
             </select>
           </Field>
           <Field label="Data de Recebimento" half>
-            <input
-              className="glass-input"
-              type="date"
+            <DateInput
               value={editForm.data_recebimento}
-              onChange={e => setEditForm(p => ({ ...p, data_recebimento: e.target.value }))}
+              onChange={v => setEditForm(p => ({ ...p, data_recebimento: v ?? '' }))}
               disabled={editForm.status !== 'recebido'}
             />
           </Field>
@@ -1352,6 +1563,79 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
       </Modal>
 
       <Modal
+        open={openEstorno}
+        onClose={() => {
+          if (savingEstorno) return
+          setOpenEstorno(false)
+          setSelectedConta(null)
+        }}
+        title="ESTORNAR RECEBIMENTO"
+      >
+        {selectedConta ? (
+          <div className="mb-4 rounded-lg border border-[rgba(107,63,18,0.2)] bg-[#fff8ef] px-3 py-3 text-sm text-[#4a3428]">
+            <p className="font-semibold text-[#1a100c]">{selectedConta.cliente_nome}</p>
+            <p className="mt-1">
+              Parcela {selectedConta.numero_parcela}/{selectedConta.total_parcelas}
+              {' · '}
+              Recebido em {fmtDate(selectedConta.data_recebimento)}
+            </p>
+            <p className="mt-2 text-xs text-[#6b5244]">
+              O valor volta a ficar pendente (aguardando entrada). Você pode ajustar o valor, a data e a forma de pagamento antes de confirmar.
+            </p>
+          </div>
+        ) : null}
+
+        <Field label="Valor da entrada / parcela (R$) *">
+          <input
+            className="glass-input"
+            type="number"
+            min="0"
+            step="0.01"
+            value={estornoForm.valor_parcela}
+            onChange={e => setEstornoForm(p => ({ ...p, valor_parcela: e.target.value }))}
+          />
+        </Field>
+        <FieldRow>
+          <Field label="Data para dar entrada *" half>
+            <DateInput
+              value={estornoForm.data_vencimento}
+              onChange={v => setEstornoForm(p => ({ ...p, data_vencimento: v ?? '' }))}
+            />
+          </Field>
+          <Field label="Forma de pagamento *" half>
+            <select
+              className="glass-input"
+              value={estornoForm.forma_pagamento}
+              onChange={e =>
+                setEstornoForm(p => ({ ...p, forma_pagamento: e.target.value as FormaPagamento }))
+              }
+            >
+              {PAYMENT_METHODS.map(m => (
+                <option key={m} value={m}>
+                  {PM_ICON[m]} {PM_LABEL[m]}
+                </option>
+              ))}
+              <option value="cartao">
+                {PM_ICON.cartao} {PM_LABEL.cartao}
+              </option>
+            </select>
+          </Field>
+        </FieldRow>
+
+        <ModalFormFooter
+          onCancel={() => {
+            setOpenEstorno(false)
+            setSelectedConta(null)
+          }}
+          onSubmit={() => void saveEstorno()}
+          submitLabel="Confirmar estorno"
+          submittingLabel="Estornando..."
+          submitting={savingEstorno}
+          submitDisabled={!estornoForm.valor_parcela || !estornoForm.data_vencimento}
+        />
+      </Modal>
+
+      <Modal
         open={openBulkEdit}
         onClose={() => setOpenBulkEdit(false)}
         title="EDITAR PARCELAMENTO"
@@ -1371,73 +1655,414 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
           ) : null
         }
       >
-        <div className="mb-4">
-          <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
-            {bulkParcelas[0]?.cliente_nome} — Total: {fmtCur(bulkParcelas[0]?.valor_total)}
+        <div className="mb-3 section-label" style={{ color: '#f2d892', fontWeight: 600 }}>
+          {bulkParcelas[0]?.cliente_nome ?? 'Cliente'} — reconfigure como no &quot;Dar Entrada&quot;
+        </div>
+
+        <Field label="Valor Total da Venda (R$) *">
+          <input
+            className="glass-input"
+            type="number"
+            value={bulkPlan.valorTotal}
+            onChange={e => setBulkPlan(p => ({ ...p, valorTotal: e.target.value }))}
+            placeholder="0,00"
+            min="0"
+            step="0.01"
+          />
+        </Field>
+
+        {bulkRecebidas.length > 0 && (
+          <div className="mb-3 rounded-lg border border-[rgba(74,222,128,.25)] bg-[rgba(74,222,128,.06)] px-3 py-2 text-xs text-[#4ade80]">
+            Já recebido: {fmtCur(bulkValorJaRecebido)} ({bulkRecebidas.length} parcela
+            {bulkRecebidas.length !== 1 ? 's' : ''}). O novo plano vale para o restante:{' '}
+            <strong>{fmtCur(Math.max(0, bulkValorDisponivel))}</strong>.
           </div>
-          <div
+        )}
+
+        {/* Entrada parcial — mesmo padrão do Dar Entrada */}
+        <div style={{ marginBottom: '.75rem' }}>
+          <button
+            type="button"
+            onClick={() =>
+              setBulkPlan(p => ({
+                ...p,
+                temEntrada: !p.temEntrada,
+                valorEntrada: p.temEntrada ? '' : p.valorEntrada,
+              }))
+            }
             style={{
-              display: 'grid',
-              gap: '.5rem',
-              maxHeight: '400px',
-              overflowY: 'auto',
-              padding: '.5rem',
-              background: 'rgba(240,210,140,.03)',
-              border: '1px solid rgba(240,210,140,.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '.5rem .85rem',
               borderRadius: 8,
+              border: bulkPlan.temEntrada ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.25)',
+              background: bulkPlan.temEntrada ? 'rgba(240,210,140,.1)' : 'transparent',
+              color: bulkPlan.temEntrada ? '#f2d892' : '#edd9c4',
+              cursor: 'pointer',
+              fontSize: '.78rem',
+              fontWeight: 600,
+              fontFamily: 'Raleway, sans-serif',
+              transition: 'all .15s',
             }}
           >
-            {bulkParcelas.map((p, i) => (
-              <div
-                key={p.id}
+            <span>Dar Entrada Parcial</span>
+            <span style={{ fontSize: '.75rem', opacity: 0.7 }}>
+              {bulkPlan.temEntrada ? '▲ ocultar' : '▼ configurar'}
+            </span>
+          </button>
+
+          {bulkPlan.temEntrada && (
+            <div
+              style={{
+                marginTop: '.4rem',
+                padding: '.65rem .85rem',
+                background: 'rgba(240,210,140,.04)',
+                border: '1px solid rgba(240,210,140,.15)',
+                borderRadius: 8,
+              }}
+            >
+              <FieldRow>
+                <Field label="Valor da Entrada (R$) *" half>
+                  <input
+                    className="glass-input"
+                    type="number"
+                    value={bulkPlan.valorEntrada}
+                    onChange={e => setBulkPlan(p => ({ ...p, valorEntrada: e.target.value }))}
+                    placeholder="0,00"
+                    min="0.01"
+                    step="0.01"
+                  />
+                </Field>
+                <Field label="Data de Pagamento *" half>
+                  <DateInput
+                    value={bulkPlan.dataEntrada}
+                    onChange={v => setBulkPlan(p => ({ ...p, dataEntrada: v ?? '' }))}
+                  />
+                </Field>
+              </FieldRow>
+              <Field label="Forma de Pagamento da Entrada">
+                <select
+                  className="glass-input"
+                  value={bulkPlan.formaEntrada}
+                  onChange={e =>
+                    setBulkPlan(p => ({
+                      ...p,
+                      formaEntrada: e.target.value as FormaPagamento,
+                    }))
+                  }
+                >
+                  {([...PAYMENT_METHODS, 'cartao'] as FormaPagamento[]).map(pm => (
+                    <option key={pm} value={pm}>
+                      {PM_ICON[pm]} {PM_LABEL[pm]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {bulkValorDisponivel > 0 && bulkEntradaVal > 0 && (
+                <div
+                  style={{
+                    marginTop: '.5rem',
+                    paddingTop: '.5rem',
+                    borderTop: '1px solid rgba(240,210,140,.15)',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    gap: '.28rem .75rem',
+                    fontSize: '.78rem',
+                  }}
+                >
+                  <span className="section-label">Valor a reestruturar</span>
+                  <span style={{ color: '#fffaf4', textAlign: 'right' }}>
+                    {fmtCur(bulkValorDisponivel)}
+                  </span>
+                  <span className="section-label">Entrada</span>
+                  <span style={{ color: '#f2d892', textAlign: 'right' }}>
+                    − {fmtCur(bulkEntradaVal)}
+                  </span>
+                  <span
+                    className="section-label"
+                    style={{
+                      borderTop: '1px solid rgba(240,210,140,.18)',
+                      paddingTop: '.28rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Restante a pagar
+                  </span>
+                  <span
+                    style={{
+                      color: bulkEntradaVal < bulkValorDisponivel ? '#4ade80' : '#f87171',
+                      fontWeight: 700,
+                      textAlign: 'right',
+                      borderTop: '1px solid rgba(240,210,140,.18)',
+                      paddingTop: '.28rem',
+                    }}
+                  >
+                    {fmtCur(
+                      bulkEntradaVal < bulkValorDisponivel
+                        ? bulkValorDisponivel - bulkEntradaVal
+                        : 0,
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Field
+          label={
+            bulkEntradaAtiva
+              ? `Como pagar o restante (${fmtCur(bulkValorBase)})?`
+              : 'Como será recebido?'
+          }
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '.5rem' }}>
+            {TIPOS.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => selectBulkTipo(t)}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '40px 1fr 1.2fr 80px',
-                  gap: '.5rem',
-                  alignItems: 'center',
-                  padding: '.25rem',
-                  borderRadius: 6,
-                  background: p.status === 'recebido' ? 'rgba(74,222,128,.05)' : 'rgba(255,255,255,.02)',
-                  opacity: p.status === 'recebido' ? 0.8 : 1,
+                  padding: '.65rem .4rem',
+                  borderRadius: 8,
+                  border: bulkPlan.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
+                  background: bulkPlan.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
+                  color: bulkPlan.tipo === t ? '#f2d892' : '#edd9c4',
+                  cursor: 'pointer',
+                  fontSize: '.7rem',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  fontFamily: 'Raleway, sans-serif',
+                  lineHeight: 1.4,
+                  transition: 'all .15s',
                 }}
               >
-                <span className="section-label" style={{ textAlign: 'center', fontSize: '.75rem' }}>
-                  {p.numero_parcela}/{p.total_parcelas}
-                </span>
-                <input
-                  className="glass-input"
-                  style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
-                  type="number"
-                  value={p.valor_parcela}
-                  onChange={e => updateBulkParcela(i, 'valor_parcela', e.target.value)}
-                  step="0.01"
-                  disabled={p.status === 'recebido'}
-                />
-                <input
-                  className="glass-input"
-                  style={{ padding: '.35rem .5rem', fontSize: '.82rem' }}
-                  type="date"
-                  value={p.data_vencimento}
-                  onChange={e => updateBulkParcela(i, 'data_vencimento', e.target.value)}
-                  disabled={p.status === 'recebido'}
-                />
-                <div style={{ textAlign: 'center' }}>
-                  <Badge status={p.status === 'recebido' ? 'recebido' : isOverdue(p.data_vencimento) ? 'vencido' : 'pendente'} />
-                </div>
-              </div>
+                <div style={{ fontSize: '1.15rem', marginBottom: '.2rem' }}>{TIPO_ICONS[t]}</div>
+                {TIPO_LABELS[t]}
+              </button>
             ))}
           </div>
-          <div className="mt-2 flex justify-between px-1">
-            <span className="section-label" style={{ fontSize: '.75rem' }}>
-              Soma: {fmtCur(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0))}
-            </span>
-            {Math.abs(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0) - (bulkParcelas[0]?.valor_total || 0)) > 0.01 && (
-              <span className="text-red-400" style={{ fontSize: '.75rem' }}>
-                Diferença: {fmtCur((bulkParcelas[0]?.valor_total || 0) - bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0))}
-              </span>
-            )}
+        </Field>
+
+        {bulkPlan.tipo === 'a_vista' ? (
+          <FieldRow>
+            <Field label="Forma" half>
+              <select
+                className="glass-input"
+                value={bulkPlan.forma}
+                onChange={e =>
+                  setBulkPlan(p => ({ ...p, forma: e.target.value as FormaPagamento }))
+                }
+              >
+                {PAYMENT_METHODS.filter(m => m !== 'boleto').map(pm => (
+                  <option key={pm} value={pm}>
+                    {PM_ICON[pm]} {PM_LABEL[pm]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Data de Recebimento" half>
+              <DateInput
+                value={bulkPlan.primeiroVenc}
+                onChange={v => setBulkPlan(p => ({ ...p, primeiroVenc: v ?? '' }))}
+              />
+            </Field>
+          </FieldRow>
+        ) : bulkPlan.tipo === 'cartao_parcelado' ? (
+          <>
+            <FieldRow>
+              <Field label="% de Desconto do Cartão *" half>
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={bulkPlan.descontoCartao}
+                  onChange={e => setBulkPlan(p => ({ ...p, descontoCartao: e.target.value }))}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="Ex: 4.99"
+                />
+              </Field>
+              <Field label="Parcelas no cartão (informativo)" half>
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={bulkPlan.parcelas}
+                  onChange={e => setBulkPlan(p => ({ ...p, parcelas: e.target.value }))}
+                  min="2"
+                  max="24"
+                />
+              </Field>
+            </FieldRow>
+            <p className="section-label mb-2" style={{ fontSize: '.72rem' }}>
+              No cartão parcelado, o sistema lança 1 entrada líquida já recebida hoje. As parcelas do cartão ficam só como informação.
+            </p>
+          </>
+        ) : (
+          <FieldRow>
+            <Field label="Forma" half>
+              <select
+                className="glass-input"
+                value={bulkPlan.forma}
+                onChange={e =>
+                  setBulkPlan(p => ({ ...p, forma: e.target.value as FormaPagamento }))
+                }
+              >
+                {([...PAYMENT_METHODS, 'cartao'] as FormaPagamento[]).map(pm => (
+                  <option key={pm} value={pm}>
+                    {PM_ICON[pm]} {PM_LABEL[pm]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nº de Parcelas" half>
+              <input
+                className="glass-input"
+                type="number"
+                value={bulkPlan.parcelas}
+                onChange={e => setBulkPlan(p => ({ ...p, parcelas: e.target.value }))}
+                min="2"
+                max="60"
+              />
+            </Field>
+            <Field label="1ª Parcela" half>
+              <DateInput
+                value={bulkPlan.primeiroVenc}
+                onChange={v => setBulkPlan(p => ({ ...p, primeiroVenc: v ?? '' }))}
+              />
+            </Field>
+          </FieldRow>
+        )}
+
+        {bulkRecebidas.length > 0 && (
+          <div className="mb-3">
+            <div className="section-label mb-2" style={{ color: '#4ade80', fontWeight: 600 }}>
+              Já recebidas (não serão alteradas)
+            </div>
+            <div style={{ display: 'grid', gap: '.35rem' }}>
+              {bulkRecebidas.map(p => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-md border border-[rgba(74,222,128,.2)] bg-[rgba(74,222,128,.05)] px-2 py-1.5 text-xs"
+                >
+                  <span>
+                    {p.numero_parcela}/{p.total_parcelas} · {PM_LABEL[p.forma_pagamento]}
+                  </span>
+                  <span className="font-semibold text-[#4ade80]">{fmtCur(p.valor_parcela)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {bulkPlan.tipo === 'nosso_parcelamento' && bulkDraftParcelas.length > 0 && (
+          <div className="mb-4">
+            <div className="section-label mb-2" style={{ color: '#f2d892', fontWeight: 600 }}>
+              Detalhamento das Parcelas
+              {bulkEntradaAtiva ? ' (após a entrada)' : ''}
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gap: '.5rem',
+                maxHeight: '300px',
+                overflowY: 'auto',
+                padding: '.5rem',
+                background: 'rgba(240,210,140,.03)',
+                border: '1px solid rgba(240,210,140,.1)',
+                borderRadius: 8,
+              }}
+            >
+              {bulkDraftParcelas.map((p, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '30px 1fr 1.2fr',
+                    gap: '.5rem',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span className="section-label" style={{ textAlign: 'center' }}>
+                    {bulkRecebidas.length + (bulkEntradaAtiva ? 1 : 0) + p.numero}
+                  </span>
+                  <input
+                    className="glass-input"
+                    style={{ padding: '.3rem .5rem', fontSize: '.85rem' }}
+                    type="number"
+                    value={p.valor}
+                    onChange={e => updateBulkDraftParcela(i, 'valor', e.target.value)}
+                    step="0.01"
+                  />
+                  <DateInput
+                    className="glass-input !py-[0.3rem] !px-[0.5rem] !text-[0.85rem]"
+                    value={p.vencimento}
+                    onChange={v => updateBulkDraftParcela(i, 'vencimento', v ?? '')}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex justify-between px-1">
+              <span className="section-label" style={{ fontSize: '.7rem' }}>
+                Soma: {fmtCur(bulkDraftParcelas.reduce((acc, p) => acc + p.valor, 0))}
+              </span>
+              {Math.abs(
+                bulkDraftParcelas.reduce((acc, p) => acc + p.valor, 0) - bulkValorBase,
+              ) > 0.01 && (
+                <span className="text-red-400" style={{ fontSize: '.7rem' }}>
+                  Diferença:{' '}
+                  {fmtCur(
+                    bulkValorBase - bulkDraftParcelas.reduce((acc, p) => acc + p.valor, 0),
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {bulkValorDisponivel > 0 && (
+          <div
+            style={{
+              background: 'rgba(74,222,128,.06)',
+              border: '1px solid rgba(74,222,128,.2)',
+              borderRadius: 8,
+              padding: '.6rem .85rem',
+              marginBottom: '.75rem',
+            }}
+          >
+            {bulkEntradaAtiva && (
+              <div
+                style={{
+                  marginBottom: '.35rem',
+                  paddingBottom: '.35rem',
+                  borderBottom: '1px solid rgba(74,222,128,.15)',
+                  fontSize: '.78rem',
+                  color: '#f2d892',
+                }}
+              >
+                Entrada {fmtCur(bulkEntradaVal)} via {PM_LABEL[bulkPlan.formaEntrada]} ·{' '}
+                {bulkPlan.dataEntrada}
+              </div>
+            )}
+            <span style={{ color: '#4ade80', fontSize: '.82rem' }}>
+              {bulkPlan.tipo === 'a_vista'
+                ? `${fmtCur(bulkValorBase)} via ${PM_LABEL[bulkPlan.forma]} · ${bulkPlan.primeiroVenc}`
+                : bulkPlan.tipo === 'cartao_parcelado'
+                  ? `Restante no cartão · líquido estimado ${fmtCur(
+                      parseFloat(
+                        (
+                          bulkValorBase *
+                          (1 - Math.min(100, Math.max(0, parseFloat(bulkPlan.descontoCartao) || 0)) / 100)
+                        ).toFixed(2),
+                      ),
+                    )}`
+                  : `${bulkPlan.parcelas}× sobre ${fmtCur(bulkValorBase)} · ${PM_LABEL[bulkPlan.forma]}`}
+            </span>
+          </div>
+        )}
 
         <Field label="Observação (todas as parcelas)">
           <textarea
@@ -1461,13 +2086,17 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
             setBulkAnexos([])
             setOpenBulkEdit(false)
           }}
-          onSubmit={saveBulkEdit}
+          onSubmit={() => void saveBulkEdit()}
           submitLabel="Salvar Parcelamento"
           submitting={savingBulk}
           submittingLabel="Salvando..."
           submitDisabled={
-            bulkParcelas.length === 0 ||
-            Math.abs(bulkParcelas.reduce((acc, p) => acc + p.valor_parcela, 0) - (bulkParcelas[0]?.valor_total || 0)) > 0.01
+            !bulkPlan.valorTotal ||
+            bulkValorDisponivel <= 0 ||
+            (bulkPlan.tipo === 'nosso_parcelamento' &&
+              Math.abs(
+                bulkDraftParcelas.reduce((acc, p) => acc + p.valor, 0) - bulkValorBase,
+              ) > 0.01)
           }
         />
       </Modal>
@@ -1742,7 +2371,20 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                           {!readOnly && s !== 'recebido' ? (
                             <button className="btn btn-success btn-sm" onClick={() => marcarRecebido(r.id)}>✓ Recebido</button>
                           ) : s === 'recebido' ? (
-                            <span className="text-xs font-semibold text-[#146c38]">✓ {fmtDate(r.data_recebimento)}</span>
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <span className="text-xs font-semibold text-[#146c38]">✓ {fmtDate(r.data_recebimento)}</span>
+                              {!readOnly ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  title="Estornar e voltar para pendente"
+                                  onClick={() => openEstornoModal(r)}
+                                >
+                                  <Undo2 className="h-3.5 w-3.5" />
+                                  Estornar
+                                </button>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                         {isAdmin && (

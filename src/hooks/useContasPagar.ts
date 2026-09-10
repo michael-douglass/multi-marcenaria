@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { canUseRealtime } from '../lib/device'
 import type { ContaPagar } from '../types'
-import { addMonths, createId, todayISO } from '../lib/utils'
+import { addMonths, createId, todayISO, fmtCur } from '../lib/utils'
 import { setIsoDay } from '../lib/date-br'
 import { getContasRelacionadas, getModeloRecorrencia, lancamentoTemParcelamento } from '../lib/contas-pagar-grupo'
 import { expandirTodosFixoMontadores, podeExpandirFixoMontadores } from '../lib/fixo-montador'
@@ -500,11 +500,24 @@ export function useContasPagar() {
   }
 
   const marcarPago = async (id: string, valorPagar: number) => {
-    const contaAtual = data.find(c => c.id === id)
+    // Lê do banco (não do state local) para não dobrar se duas abas/cliques correrem juntos
+    const { data: contaAtual, error: fetchErr } = await supabase
+      .from('movelaria_contas_pagar')
+      .select('id, valor_parcela, valor_pago')
+      .eq('id', id)
+      .single()
+    if (fetchErr) throw new Error(fetchErr.message)
     if (!contaAtual) throw new Error('Conta não encontrada.')
-    const valorPagoAtual = contaAtual.valor_pago ?? 0
+
+    const valorPagoAtual = Number(contaAtual.valor_pago ?? 0)
+    const valorParcela = Number(contaAtual.valor_parcela)
     const novoValorPago = parseFloat((valorPagoAtual + valorPagar).toFixed(2))
-    const novoStatus = novoValorPago >= contaAtual.valor_parcela ? 'pago' : 'parcialmente_pago'
+    if (novoValorPago > valorParcela + 0.005) {
+      throw new Error(
+        `Valor excede o restante da parcela (${fmtCur(Math.max(0, valorParcela - valorPagoAtual))}).`,
+      )
+    }
+    const novoStatus = novoValorPago >= valorParcela - 0.005 ? 'pago' : 'parcialmente_pago'
 
     const { data: row, error: err } = await supabase
       .from('movelaria_contas_pagar')
@@ -515,9 +528,14 @@ export function useContasPagar() {
         atualizado_em: new Date().toISOString(),
       })
       .eq('id', id)
+      // Só aplica se o valor_pago ainda for o que lemos (evita corrida)
+      .eq('valor_pago', valorPagoAtual)
       .select('*, movelaria_formas_pagamento_pagar!forma_pagamento_id ( id, nome )')
-      .single()
+      .maybeSingle()
     if (err) throw new Error(err.message)
+    if (!row) {
+      throw new Error('Pagamento já foi registrado por outra ação. Atualize a página e tente de novo.')
+    }
     setData(prev => prev.map(x => (x.id === id ? (row as ContaPagar) : x)))
   }
 

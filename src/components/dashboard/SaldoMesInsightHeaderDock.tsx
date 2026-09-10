@@ -23,6 +23,7 @@ const TONE_VALUE: Record<SaldoMesInsightMessage['tone'], string> = {
 /**
  * Chip compacto no NavigationHeader enquanto o saldo está travado.
  * Visual madeira/ouro do cabeçalho + aura (shader leve / CSS no mobile).
+ * No celular ocupa a faixa central do header para não ser esmagado.
  */
 export function SaldoMesInsightHeaderDock() {
   const ctx = useSaldoMesInsightOptional()
@@ -39,9 +40,9 @@ export function SaldoMesInsightHeaderDock() {
       role="status"
       aria-labelledby={titleId}
       className={cn(
-        'saldo-mes-header-dock group relative flex h-9 max-w-[min(100%,18rem)] items-center gap-2 overflow-hidden',
+        'saldo-mes-header-dock group relative flex h-9 w-full min-w-[10.5rem] max-w-[18rem] items-center gap-1.5 overflow-hidden sm:gap-2',
         'rounded-lg border border-[rgba(240,210,140,0.34)]',
-        'bg-[rgba(28,16,12,0.72)] pl-2.5 pr-1 shadow-[0_0_0_1px_rgba(0,0,0,0.25),0_8px_24px_rgba(0,0,0,0.28)]',
+        'bg-[rgba(28,16,12,0.72)] pl-2 pr-1 shadow-[0_0_0_1px_rgba(0,0,0,0.25),0_8px_24px_rgba(0,0,0,0.28)] sm:pl-2.5',
         'backdrop-blur-sm',
       )}
     >
@@ -59,12 +60,13 @@ export function SaldoMesInsightHeaderDock() {
         title="Abrir dashboard"
         onClick={() => navigate('/dashboard')}
       >
-        <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#c4a882]">
+        <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#c4a882] sm:text-[8px] sm:tracking-[0.18em]">
           Saldo · travado
         </span>
         <span
           className={cn(
-            'truncate font-display text-[0.95rem] leading-none tracking-[0.03em] tabular-nums',
+            'truncate font-display leading-none tracking-[0.03em] tabular-nums',
+            'text-[0.85rem] sm:text-[0.95rem]',
             TONE_VALUE[message.tone],
           )}
         >

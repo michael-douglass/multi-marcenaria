@@ -336,6 +336,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     open: false, conta: null, valorPagarAgora: '',
     formaPagamentoId: '', valorCaixa: '', formaPagamentoRestanteId: '', saving: false, erro: null,
   })
+  const pagarSavingRef = useRef(false)
   const [revertingId, setRevertingId] = useState<string | null>(null)
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
@@ -962,6 +963,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const confirmarPagamento = async () => {
+    // Ref + flag: o state do React ainda não atualizou no 2º clique no mesmo instante
+    if (pagarSavingRef.current || pagarModal.saving) return
     const { conta, valorPagarAgora, formaPagamentoId, valorCaixa, formaPagamentoRestanteId } = pagarModal
     if (!conta) return
     const valorPagarAgoraNum = parseMoneyBr(valorPagarAgora) || 0
@@ -989,6 +992,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       }
     }
 
+    pagarSavingRef.current = true
     setPagarModal(p => ({ ...p, saving: true, erro: null }))
     try {
       if (valorCaixaNum > 0 && conta.fornecedor_id) {
@@ -1003,6 +1007,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       setPagarModal(p => ({ ...p, open: false, conta: null, saving: false }))
     } catch (e) {
       setPagarModal(p => ({ ...p, erro: e instanceof Error ? e.message : 'Erro ao processar pagamento.', saving: false }))
+    } finally {
+      pagarSavingRef.current = false
     }
   }
 

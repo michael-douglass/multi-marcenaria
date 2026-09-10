@@ -27,12 +27,18 @@ export function AppRefreshButton({
   }
 
   const isCompactHeader = variant === 'header' && !showLabel
+  /** No cabeçalho, o texto só aparece a partir de sm — no celular fica só o ícone. */
+  const headerWithLabel = variant === 'header' && showLabel
 
   const variantClass =
     variant === 'floating'
       ? 'fixed right-4 top-4 z-50 h-10 w-10 rounded-full border border-[rgba(240,210,140,0.35)] bg-[rgba(20,8,4,0.92)] text-[#f2d892] shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md hover:border-[rgba(240,210,140,0.6)] hover:bg-[rgba(240,210,140,0.12)] hover:text-[#f5e0a8]'
-      : variant === 'toolbar' || (variant === 'header' && showLabel)
-        ? 'h-8 gap-1.5 border border-[rgba(240,210,140,0.22)] bg-[rgba(240,210,140,0.05)] px-2.5 text-[0.68rem] font-semibold uppercase tracking-wide text-[#edd9c4] hover:border-[rgba(240,210,140,0.4)] hover:bg-[rgba(240,210,140,0.12)] hover:text-[#f5e0a8]'
+      : variant === 'toolbar' || headerWithLabel
+        ? cn(
+            'h-8 border border-[rgba(240,210,140,0.22)] bg-[rgba(240,210,140,0.05)] text-[0.68rem] font-semibold uppercase tracking-wide text-[#edd9c4]',
+            'hover:border-[rgba(240,210,140,0.4)] hover:bg-[rgba(240,210,140,0.12)] hover:text-[#f5e0a8]',
+            headerWithLabel ? 'w-8 justify-center px-0 sm:w-auto sm:gap-1.5 sm:px-2.5' : 'gap-1.5 px-2.5',
+          )
         : 'h-8 w-8 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]'
 
   return (
@@ -59,7 +65,7 @@ export function AppRefreshButton({
         aria-hidden
       />
       {showLabel && (
-        <span className={cn(isCompactHeader ? 'hidden sm:inline' : 'inline')}>
+        <span className={headerWithLabel || isCompactHeader ? 'hidden sm:inline' : 'inline'}>
           Atualizar
         </span>
       )}

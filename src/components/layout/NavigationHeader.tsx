@@ -7,10 +7,12 @@ import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
 import { SaldoMesInsightHeaderDock } from '@/components/dashboard/SaldoMesInsightHeaderDock'
 import { useApp } from '@/context/AppContext'
+import { useSaldoMesInsightOptional } from '@/context/SaldoMesInsightContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
 import { canAccessCrmPath, canUseAgendaGeral, isCrmAppPath } from '@/lib/crm-identity'
 import { podeBaterPontoPorTipo } from '@/lib/funcionario-constants'
 import { useMeuFuncionario } from '@/hooks/useMeuFuncionario'
+import { cn } from '@/lib/utils'
 
 const PERFIL_LABEL: Record<string, string> = {
   administrador: 'Administrador',
@@ -31,21 +33,33 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   const location = useLocation()
   const { roles, userProfile, crmProfile, signOut } = useApp()
   const { data: meuFuncionario } = useMeuFuncionario()
+  const saldoCtx = useSaldoMesInsightOptional()
   const perfilLabel = userProfile ? (PERFIL_LABEL[userProfile.perfil] ?? userProfile.perfil) : ''
   const isCrmArea = isCrmAppPath(location.pathname)
   const canCrmAgenda = canAccessCrmPath('/agenda-comercial', crmProfile, userProfile)
   const showAgendaBtn = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
   const showPontoBtn = podeBaterPontoPorTipo(meuFuncionario?.tipo)
+  /** Chip travado no cabeçalho — precisa de espaço próprio no celular. */
+  const saldoDockVisible = Boolean(saldoCtx?.enabled && saldoCtx.locked && saldoCtx.message)
+
+  const navIconClass =
+    'h-8 w-8 shrink-0 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]'
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[rgba(240,210,140,0.28)] bg-[rgba(52,34,26,0.94)] px-4 backdrop-blur-md safe-area-top-offset">
-      <div className="flex items-center gap-2">
+    <header
+      className={cn(
+        'sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-[rgba(240,210,140,0.28)]',
+        'bg-[rgba(52,34,26,0.94)] backdrop-blur-md safe-area-top-offset',
+        saldoDockVisible ? 'gap-1.5 px-2 sm:gap-3 sm:px-4' : 'gap-2 px-3 sm:gap-3 sm:px-4',
+      )}
+    >
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         <SidebarTrigger />
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
+          className={navIconClass}
           onClick={() => navigate(-1)}
           aria-label="Voltar"
         >
@@ -55,7 +69,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
+          className={navIconClass}
           onClick={() => navigate(defaultPathForRoles(roles))}
           aria-label="Início"
         >
@@ -63,20 +77,20 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
         </Button>
 
         {showAgendaBtn && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
-          onClick={() => {
-            if (isCrmArea && canCrmAgenda) navigate('/agenda-comercial')
-            else onOpenAgenda?.()
-          }}
-          title="Agenda"
-          aria-label="Agenda"
-        >
-          <CalendarDays className="h-4 w-4" />
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-[#f2d892] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f5e0a8]"
+            onClick={() => {
+              if (isCrmArea && canCrmAgenda) navigate('/agenda-comercial')
+              else onOpenAgenda?.()
+            }}
+            title="Agenda"
+            aria-label="Agenda"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </Button>
         )}
 
         {showPontoBtn && (
@@ -84,7 +98,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-[#4ade80] hover:bg-[rgba(74,222,128,0.12)] hover:text-[#86efac]"
+            className="h-8 w-8 shrink-0 text-[#4ade80] hover:bg-[rgba(74,222,128,0.12)] hover:text-[#86efac]"
             onClick={() => navigate('/bater-ponto')}
             title="Bater Ponto"
             aria-label="Bater Ponto"
@@ -93,17 +107,30 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
           </Button>
         )}
 
-        <Logo full={false} />
+        {/* Com o saldo travado, a logo cede espaço no celular/tablet. */}
+        <div className={cn(saldoDockVisible ? 'hidden lg:block' : 'block')}>
+          <Logo full={false} />
+        </div>
       </div>
 
-      <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
-        <SaldoMesInsightHeaderDock />
+      {saldoDockVisible ? (
+        <div className="flex min-w-0 flex-1 items-center justify-center px-0.5 sm:justify-start sm:px-1 md:max-w-[18rem]">
+          <SaldoMesInsightHeaderDock />
+        </div>
+      ) : null}
+
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
         <ContasPagarNotifBell />
         <AppRefreshButton showLabel />
 
         <div className="hidden h-4 w-px bg-[rgba(240,210,140,0.18)] sm:block" />
 
-        <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            'items-center gap-2',
+            saldoDockVisible ? 'hidden sm:flex' : 'flex',
+          )}
+        >
           <User className="h-3.5 w-3.5 shrink-0 text-[#edd9c4]" />
           <div className="hidden flex-col items-end sm:flex">
             <span className="max-w-[180px] truncate text-[0.72rem] font-semibold text-cream">
@@ -121,7 +148,7 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-[#edd9c4] hover:text-[#f5e0a8]"
+          className={navIconClass}
           onClick={() => signOut()}
           title="Sair"
         >

@@ -47,6 +47,22 @@ export interface AtualizarTransacaoInput {
   observacaoScope?: ContaReceberExclusaoScope
 }
 
+export interface ReestruturarParcelamentoInput {
+  valor_total: number
+  tipo_recebimento: TipoRecebimento
+  forma_pagamento: FormaPagamento
+  total_parcelas: number
+  primeiro_vencimento: string
+  entrada?: {
+    valor: number
+    data: string
+    forma_pagamento: FormaPagamento
+  }
+  parcelas_detalhadas?: ParcelaInput[]
+  desconto_cartao_percentual?: number
+  observacao?: string | null
+}
+
 export type ContaReceberExclusaoScope = 'single' | 'all'
 
 export function parcelasRelacionadas(conta: ContaReceber, todas: ContaReceber[]): ContaReceber[] {
@@ -275,6 +291,48 @@ export function useContasReceber(options?: { enabled?: boolean }) {
     setData(prev => prev.map(x => (x.id === id ? row : x)))
   }
 
+  /** Desfaz um recebimento: a parcela volta a pendente (aguardando entrada), com nova forma/data se informadas. */
+  const estornarRecebimento = async (
+    id: string,
+    opts?: {
+      forma_pagamento?: FormaPagamento
+      data_vencimento?: string
+      valor_parcela?: number
+    },
+  ) => {
+    const atual = data.find(x => x.id === id)
+    if (!atual) throw new Error('Cobrança não encontrada.')
+    if (atual.status !== 'recebido') {
+      throw new Error('Só é possível estornar uma parcela já marcada como recebida.')
+    }
+
+    const valor =
+      opts?.valor_parcela !== undefined ? opts.valor_parcela : atual.valor_parcela
+    if (!valor || valor <= 0) throw new Error('Informe um valor válido para a parcela.')
+
+    const payload: Record<string, unknown> = {
+      status: 'pendente',
+      data_recebimento: null,
+      valor_parcela: valor,
+      forma_pagamento: opts?.forma_pagamento ?? atual.forma_pagamento,
+      data_vencimento: opts?.data_vencimento || atual.data_vencimento || todayISO(),
+      atualizado_em: new Date().toISOString(),
+    }
+
+    const { data: row, error: err } = await supabase
+      .from('movelaria_contas_receber')
+      .update(payload)
+      .eq('id', id)
+      .eq('status', 'recebido')
+      .select()
+      .single()
+    if (err) throw new Error(err.message)
+    setData(prev =>
+      prev.map(x => (x.id === id ? { ...row, cliente_telefone: x.cliente_telefone } : x)),
+    )
+    return row
+  }
+
   const atualizarTransacao = async (id: string, input: AtualizarTransacaoInput) => {
     const conta = data.find(x => x.id === id)
     const observacao =
@@ -372,6 +430,222 @@ export function useContasReceber(options?: { enabled?: boolean }) {
       })
       return newData
     })
+  }
+
+  /**
+   * Troca o plano de parcelas (ex.: de 1× à vista para entrada + parcelas),
+   * no mesmo espírito do "Dar Entrada". Parcelas já recebidas são preservadas;
+   * as pendentes são substituídas pelo novo plano.
+   */
+  const reestruturarParcelamento = async (
+    contaId: string,
+    input: ReestruturarParcelamentoInput,
+  ): Promise<ContaReceber[]> => {
+    const conta = data.find(x => x.id === contaId)
+    if (!conta) throw new Error('Cobrança não encontrada.')
+
+    const relacionadas = parcelasRelacionadas(conta, data)
+    const recebidas = relacionadas
+      .filter(p => p.status === 'recebido')
+      .sort((a, b) => a.numero_parcela - b.numero_parcela)
+    const pendentes = relacionadas.filter(p => p.status !== 'recebido')
+
+    const valorTotal = parseFloat(Number(input.valor_total).toFixed(2))
+    if (!valorTotal || valorTotal <= 0) throw new Error('Informe um valor total válido.')
+
+    const valorJaRecebido = parseFloat(
+      recebidas.reduce((s, p) => s + p.valor_parcela, 0).toFixed(2),
+    )
+    const valorDisponivel = parseFloat((valorTotal - valorJaRecebido).toFixed(2))
+    if (valorDisponivel < -0.01) {
+      throw new Error(
+        `O valor total (${valorTotal}) não pode ser menor que o já recebido (${valorJaRecebido}).`,
+      )
+    }
+    if (valorDisponivel <= 0.009) {
+      throw new Error('Não há valor pendente para reestruturar. Estorne um recebimento primeiro.')
+    }
+
+    if (input.entrada) {
+      if (input.entrada.valor <= 0) throw new Error('Informe um valor de entrada válido.')
+      if (input.entrada.valor >= valorDisponivel) {
+        throw new Error('A entrada deve ser menor que o valor ainda pendente.')
+      }
+    }
+
+    if (input.tipo_recebimento !== 'a_vista' && input.tipo_recebimento !== 'cartao_parcelado') {
+      if (Math.max(1, input.total_parcelas) < 2) {
+        throw new Error('Informe ao menos 2 parcelas para o restante.')
+      }
+    }
+
+    const valorBase = input.entrada
+      ? parseFloat((valorDisponivel - input.entrada.valor).toFixed(2))
+      : valorDisponivel
+
+    const descontoPercentual =
+      input.tipo_recebimento === 'cartao_parcelado'
+        ? Math.max(0, Math.min(100, input.desconto_cartao_percentual ?? 0))
+        : 0
+    const valorDesconto = parseFloat(((valorBase * descontoPercentual) / 100).toFixed(2))
+    const valorLiquido = parseFloat((valorBase - valorDesconto).toFixed(2))
+
+    const nRestante =
+      input.tipo_recebimento === 'a_vista' || input.tipo_recebimento === 'cartao_parcelado'
+        ? 1
+        : Math.max(1, input.total_parcelas)
+
+    let formaPag: FormaPagamento = input.forma_pagamento
+    if (input.tipo_recebimento === 'cartao_parcelado') formaPag = 'cartao'
+
+    const observacao =
+      input.observacao !== undefined
+        ? (input.observacao?.trim() || null)
+        : (conta.observacao ?? null)
+
+    const grupoId = conta.grupo_id || conta.origem_lead_id || createId()
+    const agora = new Date().toISOString()
+
+    const baseRow = {
+      cliente_id: conta.cliente_id,
+      cliente_nome: conta.cliente_nome,
+      valor_total: valorTotal,
+      origem_tipo: conta.origem_tipo ?? 'manual',
+      origem_lead_id: conta.origem_lead_id ?? null,
+      grupo_id: grupoId,
+      observacao,
+    }
+
+    const novas: Record<string, unknown>[] = []
+    let nextNum = recebidas.length + 1
+
+    if (input.entrada) {
+      novas.push({
+        ...baseRow,
+        numero_parcela: nextNum++,
+        valor_parcela: input.entrada.valor,
+        data_vencimento: input.entrada.data,
+        forma_pagamento: input.entrada.forma_pagamento,
+        status: 'pendente',
+      })
+    }
+
+    if (valorBase > 0.009) {
+      if (input.tipo_recebimento === 'a_vista') {
+        novas.push({
+          ...baseRow,
+          numero_parcela: nextNum++,
+          valor_parcela: valorBase,
+          data_vencimento: input.primeiro_vencimento,
+          forma_pagamento: formaPag,
+          status: 'pendente',
+        })
+      } else if (input.tipo_recebimento === 'cartao_parcelado') {
+        novas.push({
+          ...baseRow,
+          numero_parcela: nextNum++,
+          valor_parcela: valorLiquido,
+          data_vencimento: todayISO(),
+          forma_pagamento: 'cartao',
+          status: 'recebido',
+          data_recebimento: todayISO(),
+        })
+      } else if (input.parcelas_detalhadas && input.parcelas_detalhadas.length > 0) {
+        for (const p of input.parcelas_detalhadas) {
+          novas.push({
+            ...baseRow,
+            numero_parcela: nextNum++,
+            valor_parcela: p.valor,
+            data_vencimento: p.vencimento,
+            forma_pagamento: formaPag,
+            status: 'pendente',
+          })
+        }
+      } else {
+        const valorUnit = parseFloat((valorBase / nRestante).toFixed(2))
+        for (let i = 0; i < nRestante; i++) {
+          novas.push({
+            ...baseRow,
+            numero_parcela: nextNum++,
+            valor_parcela:
+              i === nRestante - 1
+                ? parseFloat((valorBase - valorUnit * (nRestante - 1)).toFixed(2))
+                : valorUnit,
+            data_vencimento: addMonths(input.primeiro_vencimento, i),
+            forma_pagamento: formaPag,
+            status: 'pendente',
+          })
+        }
+      }
+    }
+
+    const totalFinal = recebidas.length + novas.length
+    for (const row of novas) {
+      row.total_parcelas = totalFinal
+    }
+
+    if (pendentes.length > 0) {
+      const { error: delErr } = await supabase
+        .from('movelaria_contas_receber')
+        .delete()
+        .in(
+          'id',
+          pendentes.map(p => p.id),
+        )
+      if (delErr) throw new Error(delErr.message)
+    }
+
+    let inserted: ContaReceber[] = []
+    if (novas.length > 0) {
+      const { data: rows, error: insErr } = await supabase
+        .from('movelaria_contas_receber')
+        .insert(novas)
+        .select()
+      if (insErr) throw new Error(insErr.message)
+      inserted = (rows ?? []) as ContaReceber[]
+    }
+
+    if (recebidas.length > 0) {
+      const { error: updErr } = await supabase
+        .from('movelaria_contas_receber')
+        .update({
+          valor_total: valorTotal,
+          total_parcelas: totalFinal,
+          grupo_id: grupoId,
+          observacao,
+          atualizado_em: agora,
+        })
+        .in(
+          'id',
+          recebidas.map(p => p.id),
+        )
+      if (updErr) throw new Error(updErr.message)
+    }
+
+    const pendenteIds = new Set(pendentes.map(p => p.id))
+    setData(prev => {
+      const kept = prev
+        .filter(x => !pendenteIds.has(x.id))
+        .map(x => {
+          if (!recebidas.some(r => r.id === x.id)) return x
+          return {
+            ...x,
+            valor_total: valorTotal,
+            total_parcelas: totalFinal,
+            grupo_id: grupoId,
+            observacao,
+          }
+        })
+      return [
+        ...kept,
+        ...inserted.map(r => ({
+          ...r,
+          cliente_telefone: conta.cliente_telefone,
+        })),
+      ]
+    })
+
+    return inserted
   }
 
   const marcarLeadsExcluidos = async (leadIds: string[]) => {
@@ -516,5 +790,17 @@ export function useContasReceber(options?: { enabled?: boolean }) {
     setData(prev => prev.filter(x => x.id !== id))
   }
 
-  return { data, loading, error, gerarCobranca, marcarRecebido, atualizarTransacao, atualizarParcelasEmLote, removerTransacao, reload: load }
+  return {
+    data,
+    loading,
+    error,
+    gerarCobranca,
+    marcarRecebido,
+    estornarRecebimento,
+    atualizarTransacao,
+    atualizarParcelasEmLote,
+    reestruturarParcelamento,
+    removerTransacao,
+    reload: load,
+  }
 }
