@@ -319,6 +319,21 @@ export function useAgendaGeral() {
     [titularFilteredEvents, searchTerm],
   );
 
+  /** Eventos ativos no calendário (concluídas saem da grade e vão para o histórico). */
+  const calendarEvents = useMemo(
+    () => titularFilteredEvents.filter((event) => event.status !== 'concluido'),
+    [titularFilteredEvents],
+  );
+
+  /** Histórico do dia selecionado: concluídas só daquele dia (busca continua com todos os dias). */
+  const completedEvents = useMemo(
+    () =>
+      titularFilteredEvents
+        .filter((event) => event.status === 'concluido' && isSameDay(event.start, selectedDate))
+        .sort((a, b) => b.start.getTime() - a.start.getTime()),
+    [titularFilteredEvents, selectedDate],
+  );
+
   const pendingTodayCount = useMemo(
     () => countPendingEventsToday(titularFilteredEvents),
     [titularFilteredEvents],
@@ -478,6 +493,8 @@ export function useAgendaGeral() {
 
   return {
     allEvents: titularFilteredEvents,
+    calendarEvents,
+    completedEvents,
     filteredEvents,
     pendingTodayCount,
     selectedDate,

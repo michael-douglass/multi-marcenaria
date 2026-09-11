@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useAgendaGeral } from '@/hooks/useAgendaGeral';
 import { FullCalendar } from './FullCalendar';
 import { AgendaGeralSearch } from './AgendaGeralSearch';
+import { AgendaGeralCompletedHistory } from './AgendaGeralCompletedHistory';
 import { AgendaGeralTitularFilter } from './AgendaGeralTitularFilter';
 import { AgendaCreateMenu } from './AgendaCreateMenu';
 import { CreateTarefaPessoalDialog } from './CreateTarefaPessoalDialog';
@@ -76,10 +77,16 @@ export function AgendaGeralContent({
         compact={compact}
       />
 
+      <AgendaGeralCompletedHistory
+        events={agenda.completedEvents}
+        onSelectEvent={agenda.handleSearchResultSelect}
+        compact={compact}
+      />
+
       <Card className={cn(compact && 'border-0 shadow-none flex-1 min-h-0 flex flex-col')}>
         <CardContent className={cn('p-0', compact && 'flex-1 min-h-0 flex flex-col relative')}>
           <FullCalendar
-            events={agenda.allEvents}
+            events={agenda.calendarEvents}
             selectedDate={agenda.selectedDate}
             onSelectDate={agenda.setSelectedDate}
             onEditEvent={agenda.handleEditEvent}
