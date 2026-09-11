@@ -70,6 +70,18 @@ export function useLeadMediaFolders(leadId: number | null | undefined) {
       return data as LeadMediaFolder;
     },
     onSuccess: (created) => {
+      // Atualiza a lista na hora — assim o app já consegue abrir a pasta nova
+      // sem o efeito de “pasta sumiu” te jogar de volta para a raiz.
+      if (typeof leadId === 'number') {
+        const key = leadFoldersQueryKey(schemaEmpresa, leadId);
+        queryClient.setQueryData<LeadMediaFolder[]>(key, (prev) => {
+          const list = prev ?? [];
+          if (list.some((folder) => folder.id === created.id)) return list;
+          return [...list, created].sort((a, b) =>
+            a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }),
+          );
+        });
+      }
       invalidate();
       toast.success(`Pasta “${created.nome}” criada`);
     },

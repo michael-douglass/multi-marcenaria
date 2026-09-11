@@ -876,7 +876,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
 
   useEffect(() => {
     if (!currentFolderId || isLeadUnfiledFolderId(currentFolderId)) return;
-    if (foldersLoading) return;
+    // Evita fechar a pasta nova enquanto a lista ainda está carregando/atualizando.
+    if (foldersLoading || folders.length === 0) return;
     if (!folders.some((folder) => folder.id === currentFolderId)) {
       setCurrentFolderId(null);
     }
@@ -1281,6 +1282,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       const created = await createFolder({ nome });
       setNewFolderDraft('');
       setCreatingFolder(false);
+      // Entra direto na pasta recém-criada.
       setCurrentFolderId(created.id);
     } catch {
       /* toast no hook */
