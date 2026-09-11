@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, Pencil } from 'lucide-react';
+import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, FolderInput, Pencil } from 'lucide-react';
 import {
   useLeadPDFs,
   getLeadAttachmentViewKind,
@@ -754,7 +754,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     isLoading,
     uploadPDF,
     uploadAttachment,
-    assignMediasToFolder,
+    moveAttachmentsToFolder,
     deletePDF,
     removePendingPDF,
     flushPendingPDFs,
@@ -776,6 +776,9 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const [newFolderDraft, setNewFolderDraft] = useState('');
   const [pickOpen, setPickOpen] = useState(false);
   const [queuedFiles, setQueuedFiles] = useState<File[] | null>(null);
+  const [movePickOpen, setMovePickOpen] = useState(false);
+  const [idsToMove, setIdsToMove] = useState<string[] | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string; nome: string } | null>(null);
   const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
@@ -906,7 +909,17 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     [filesInView],
   );
 
-  const canUseSelectionMode = selectableImages.length >= 2;
+  /** Arquivos que podem mudar de pasta (anexos reais ou Render IA virtual). */
+  const movableFiles = useMemo(
+    () =>
+      filesInView.filter(
+        (pdf) => !isFormUploadAttachmentId(pdf.id),
+      ),
+    [filesInView],
+  );
+
+  const canUseSelectionMode =
+    (!viewingRoot && movableFiles.length >= 1) || selectableImages.length >= 2;
 
   const toggleImageSelection = useCallback((id: string) => {
     setSelectedImageIds((prev) => {
@@ -921,6 +934,54 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     setIsSelectionMode(false);
     setSelectedImageIds(new Set());
   }, []);
+
+  const openMovePicker = useCallback((ids: string[]) => {
+    if (ids.length === 0) {
+      toast.error('Selecione ao menos um arquivo para mover.');
+      return;
+    }
+    if (!leadId) {
+      toast.error('Salve o lead antes de mover arquivos.');
+      return;
+    }
+    setIdsToMove(ids);
+    setMovePickOpen(true);
+  }, [leadId]);
+
+  const handleMoveConfirm = useCallback(
+    async (folderId: string | null) => {
+      const ids = idsToMove ?? [];
+      if (ids.length === 0) return;
+
+      const items = pdfsVisiveis.filter((pdf) => ids.includes(pdf.id) && !isFormUploadAttachmentId(pdf.id));
+      if (items.length === 0) {
+        toast.error('Nenhum arquivo válido para mover.');
+        return;
+      }
+
+      setIsMoving(true);
+      try {
+        const moved = await moveAttachmentsToFolder(items, folderId);
+        setMovePickOpen(false);
+        setIdsToMove(null);
+        exitSelectionMode();
+        if (folderId) setCurrentFolderId(folderId);
+        else setCurrentFolderId(LEAD_UNFILED_FOLDER_ID);
+        toast.success(
+          moved === 1
+            ? 'Arquivo movido para a pasta'
+            : `${moved} arquivos movidos para a pasta`,
+        );
+      } catch (error) {
+        toast.error('Não foi possível mover os arquivos', {
+          description: error instanceof Error ? error.message : 'Tente novamente.',
+        });
+      } finally {
+        setIsMoving(false);
+      }
+    },
+    [idsToMove, pdfsVisiveis, moveAttachmentsToFolder, exitSelectionMode],
+  );
 
   const handleExportConfirm = useCallback(
     async (action: LeadFotosExportAction) => {
@@ -1231,11 +1292,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       toast.error('Salve o lead antes de criar pastas');
       return;
     }
-    const realIds = unfiledItems
-      .filter((item) => !isAiRenderAttachmentId(item.id) && !isFormUploadAttachmentId(item.id))
-      .map((item) => item.id);
     const created = await createFolder({ nome });
-    await assignMediasToFolder(realIds, created.id);
+    await moveAttachmentsToFolder(
+      unfiledItems.filter((item) => !isFormUploadAttachmentId(item.id)),
+      created.id,
+    );
     setCurrentFolderId(created.id);
   };
 
@@ -1320,7 +1381,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
             ) : (
               <>
                 <CheckSquare className="h-4 w-4 mr-2" />
-                Selecionar fotos
+                {selectableImages.length >= 2 ? 'Selecionar' : 'Selecionar para mover'}
               </>
             )}
           </Button>
@@ -1331,23 +1392,45 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
       {isSelectionMode && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
           <p className="text-sm text-muted-foreground">
-            {selectedImageIds.size} foto{selectedImageIds.size !== 1 ? 's' : ''} selecionada
+            {selectedImageIds.size} arquivo{selectedImageIds.size !== 1 ? 's' : ''} selecionado
             {selectedImageIds.size !== 1 ? 's' : ''}
-            {selectedImageIds.size < 2 ? ' · selecione pelo menos 2' : ''}
           </p>
-          <Button
-            type="button"
-            size="sm"
-            disabled={selectedImageIds.size < 2 || isExportProcessing}
-            onClick={() => setExportDialogOpen(true)}
-          >
-            {isExportProcessing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <FileText className="h-4 w-4 mr-2" />
+          <div className="flex flex-wrap items-center gap-2">
+            {canUploadPdf && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={selectedImageIds.size < 1 || isMoving}
+                onClick={() => openMovePicker([...selectedImageIds])}
+              >
+                {isMoving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FolderInput className="h-4 w-4 mr-2" />
+                )}
+                Mover para pasta
+              </Button>
             )}
-            Exportar em PDF
-          </Button>
+            {selectableImages.length >= 2 && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  selectableImages.filter((pdf) => selectedImageIds.has(pdf.id)).length < 2 ||
+                  isExportProcessing
+                }
+                onClick={() => setExportDialogOpen(true)}
+              >
+                {isExportProcessing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                Exportar em PDF
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1619,11 +1702,12 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               viewKind === 'video' ? 'video' : viewKind === 'pdf' ? 'pdf' : 'imagem';
             const isVirtualAiRender = isAiRenderAttachmentId(pdf.id);
             const isFormUpload = isFormUploadAttachmentId(pdf.id);
-            const isSelectableImage = viewKind === 'image';
+            const isMovable = !isFormUpload;
+            const isSelectable = isMovable;
             const isSelected = selectedImageIds.has(pdf.id);
 
             const handleCardActivate = () => {
-              if (isSelectionMode && isSelectableImage) {
+              if (isSelectionMode && isSelectable) {
                 toggleImageSelection(pdf.id);
                 return;
               }
@@ -1644,8 +1728,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               key={pdf.id}
               className={cn(
                 'relative group border rounded-md overflow-hidden bg-muted/20 cursor-pointer',
-                isSelectionMode && isSelectableImage && isSelected && 'ring-2 ring-primary border-primary',
-                isSelectionMode && !isSelectableImage && 'opacity-60',
+                isSelectionMode && isSelectable && isSelected && 'ring-2 ring-primary border-primary',
+                isSelectionMode && !isSelectable && 'opacity-60',
               )}
               onClick={handleCardActivate}
               onKeyDown={(e) => {
@@ -1657,14 +1741,14 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               role="button"
               tabIndex={0}
               title={
-                isSelectionMode && isSelectableImage
+                isSelectionMode && isSelectable
                   ? isSelected
                     ? 'Clique para desmarcar'
                     : 'Clique para selecionar'
                   : 'Clique para ver em tela cheia'
               }
             >
-              {isSelectionMode && isSelectableImage && (
+              {isSelectionMode && isSelectable && (
                 <div
                   className="absolute left-2 top-2 z-20"
                   onClick={(e) => e.stopPropagation()}
@@ -1733,12 +1817,31 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   <Maximize2 className="h-3 w-3 text-muted-foreground opacity-60" />
                 </div>
               </div>
-              {canUploadPdf && !isSelectionMode && viewKind === 'image' && typeof leadId === 'number' && (
+              {canUploadPdf && !isSelectionMode && isMovable && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
                   className="absolute top-1.5 left-1.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                  title="Mover para outra pasta"
+                  disabled={isMoving}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openMovePicker([pdf.id]);
+                  }}
+                >
+                  <FolderInput className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {canUploadPdf && !isSelectionMode && viewKind === 'image' && typeof leadId === 'number' && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className={cn(
+                    'absolute h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10',
+                    isMovable ? 'top-1.5 left-10' : 'top-1.5 left-1.5',
+                  )}
                   title="Editar na lousa"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1869,6 +1972,28 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
           });
           if (folderId) setCurrentFolderId(folderId);
         }}
+      />
+
+      <LeadFolderPickDialog
+        open={movePickOpen}
+        onOpenChange={(open) => {
+          setMovePickOpen(open);
+          if (!open) setIdsToMove(null);
+        }}
+        leadId={leadId}
+        title="Mover para qual pasta?"
+        description={
+          (idsToMove?.length ?? 0) <= 1
+            ? 'Escolha a pasta de destino deste arquivo.'
+            : `Escolha a pasta de destino dos ${idsToMove?.length ?? 0} arquivos.`
+        }
+        confirmLabel={isMoving ? 'Movendo…' : 'Mover para esta pasta'}
+        allowUnfiled
+        askFolderName
+        folderNameLabel="Ou crie uma pasta nova"
+        coverItems={coverSource}
+        defaultFolderId={viewingUnfiled ? null : currentFolderId}
+        onConfirm={(folderId) => void handleMoveConfirm(folderId)}
       />
 
       <AlertDialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>

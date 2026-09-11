@@ -435,6 +435,53 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     if (leadId) invalidateAttachmentQueries(leadId);
   };
 
+  /**
+   * Move anexos para uma pasta (ou Sem pasta).
+   * IDs reais: só atualiza folder_id.
+   * Renders IA virtuais (ainda sem linha em marketing_medias): cria o anexo na pasta destino.
+   */
+  const moveAttachmentsToFolder = async (
+    items: Array<
+      Pick<LeadPDF, 'id' | 'titulo' | 'file_url' | 'file_name' | 'tipo' | 'mime_type' | 'file_size'>
+    >,
+    folderId: string | null,
+  ): Promise<number> => {
+    if (!leadId) throw new Error('Salve o lead antes de mover arquivos');
+    if (items.length === 0) return 0;
+
+    const db = getMarketingDb(mediasConfig.schema);
+    const realIds = items.filter((item) => !item.id.includes(':')).map((item) => item.id);
+    const virtualAiItems = items.filter((item) => item.id.startsWith('ai-render:'));
+
+    if (realIds.length > 0) {
+      const { error } = await db
+        .from(mediasConfig.mediasTable)
+        .update({ folder_id: folderId })
+        .in('id', realIds);
+      if (error) throw error;
+    }
+
+    for (const item of virtualAiItems) {
+      const { error } = await db.from(mediasConfig.mediasTable).insert({
+        titulo: item.titulo,
+        tipo: item.tipo,
+        file_url: item.file_url,
+        file_name: item.file_name,
+        file_size: item.file_size,
+        mime_type: item.mime_type,
+        folder_id: folderId,
+        lead_id: leadId,
+      });
+      if (error) throw error;
+    }
+
+    invalidateAttachmentQueries(leadId);
+    if (virtualAiItems.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ['lead-ai-renders'] });
+    }
+    return realIds.length + virtualAiItems.length;
+  };
+
   const deletePDF = async (mediaId: string, fileUrl: string): Promise<void> => {
     try {
       const url = new URL(fileUrl);
@@ -466,6 +513,7 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     uploadPDF,
     uploadAttachment,
     assignMediasToFolder,
+    moveAttachmentsToFolder,
     deletePDF,
     removePendingPDF,
     flushPendingPDFs,
