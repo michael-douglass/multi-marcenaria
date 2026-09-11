@@ -4,7 +4,12 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { FloatingOverlayProvider } from "@/contexts/FloatingOverlayContext";
-import { isLeadNestedLayerEvent, isPrimaryDialogBackdrop, shouldPreventDialogOutsideClose } from "@/lib/dialog-outside-guard";
+import {
+  isLeadNestedLayerEvent,
+  isPrimaryDialogBackdrop,
+  shouldAllowDialogFocusOutside,
+  shouldPreventDialogOutsideClose,
+} from "@/lib/dialog-outside-guard";
 import { floatingAgendaDialogClass, nestedModalClass } from "@/lib/overlay-z-index";
 
 const Dialog = DialogPrimitive.Root;
@@ -85,7 +90,8 @@ const DialogContent = React.forwardRef<
         onPointerDownOutside?.(event);
       }}
       onFocusOutside={(event) => {
-        if (isLeadNestedLayerEvent(event)) {
+        if (isLeadNestedLayerEvent(event) || shouldAllowDialogFocusOutside(event)) {
+          onFocusOutside?.(event);
           return;
         }
         if (shouldPreventDialogOutsideClose(event)) event.preventDefault();

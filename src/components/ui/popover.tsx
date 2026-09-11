@@ -20,12 +20,15 @@ const PopoverTrigger = PopoverPrimitive.Trigger;
 
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
+    /** Portal dentro de um Dialog (ex.: card do lead) — senão o foco fica preso e não digita. */
+    portalContainer?: HTMLElement | null;
+  }
+>(({ className, align = "center", sideOffset = 4, onOpenAutoFocus, onCloseAutoFocus, portalContainer, ...props }, ref) => {
   const floatingLayer = useFloatingOverlayLayer();
 
   return (
-  <PopoverPrimitive.Portal>
+  <PopoverPrimitive.Portal container={portalContainer ?? undefined}>
     <PopoverPrimitive.Content
       ref={ref}
       align={align}

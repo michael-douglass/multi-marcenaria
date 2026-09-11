@@ -4516,6 +4516,66 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   color: #f2d892;
 }
 
+/*
+ * Seletor “Coluna no funil”: lista mogno dentro do card claro.
+ * Força creme/ouro legíveis (o shell do lead remapeia text-cream → marrom).
+ */
+[data-lead-funnel-column-picker],
+.lead-modal-shell [data-lead-funnel-column-picker],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] {
+  --funnel-picker-cream: #fff6ea;
+  --funnel-picker-cream-muted: #e2c9a8;
+  --funnel-picker-gold: #f2d892;
+  color: var(--funnel-picker-cream) !important;
+  background: rgba(42, 24, 18, 0.97) !important;
+}
+
+[data-lead-funnel-column-picker] input,
+.lead-modal-shell [data-lead-funnel-column-picker] input,
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] input {
+  color: var(--funnel-picker-cream) !important;
+  caret-color: var(--funnel-picker-gold) !important;
+  background: transparent !important;
+}
+
+[data-lead-funnel-column-picker] input::placeholder,
+.lead-modal-shell [data-lead-funnel-column-picker] input::placeholder,
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] input::placeholder {
+  color: rgba(226, 201, 168, 0.8) !important;
+}
+
+[data-lead-funnel-column-picker] [data-funnel-picker-item],
+.lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item] {
+  color: var(--funnel-picker-cream) !important;
+}
+
+[data-lead-funnel-column-picker] [data-funnel-picker-item][data-active='true'],
+.lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item][data-active='true'],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item][data-active='true'] {
+  background: rgba(196, 150, 58, 0.28) !important;
+  color: var(--funnel-picker-cream) !important;
+}
+
+[data-lead-funnel-column-picker] [data-funnel-picker-item][data-current='true'],
+.lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item][data-current='true'],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-item][data-current='true'] {
+  background: rgba(196, 150, 58, 0.16) !important;
+}
+
+[data-lead-funnel-column-picker] [data-funnel-picker-step],
+.lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-step],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-step] {
+  color: var(--funnel-picker-gold) !important;
+  border-color: rgba(242, 216, 146, 0.35) !important;
+}
+
+[data-lead-funnel-column-picker] [data-funnel-picker-heading],
+.lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-heading],
+.paper-workspace .lead-modal-shell [data-lead-funnel-column-picker] [data-funnel-picker-heading] {
+  color: var(--funnel-picker-gold) !important;
+}
+
 /* ── Lousa / ambiente: barra e HUDs sempre legíveis (creme/ouro no mogno) ── */
 .lead-modal-shell .ambiente-lousa-toolbar,
 .paper-workspace .lead-modal-shell .ambiente-lousa-toolbar,

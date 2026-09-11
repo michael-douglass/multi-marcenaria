@@ -65,6 +65,7 @@ import {
   isLeadNestedLayerEvent,
   isOrcamentoVisualizarOpen,
   isPrimaryDialogBackdrop,
+  shouldAllowDialogFocusOutside,
   shouldBlockLeadModalBackdropClose,
   shouldPreventDialogOutsideClose,
   subscribeOrcamentoVisualizarOpen,
@@ -1387,7 +1388,7 @@ export function LeadModal({
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onFocusOutside={(e) => {
-          if (isLeadNestedLayerEvent(e)) return;
+          if (isLeadNestedLayerEvent(e) || shouldAllowDialogFocusOutside(e)) return;
           if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}

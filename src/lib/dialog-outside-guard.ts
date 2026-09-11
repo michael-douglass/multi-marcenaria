@@ -119,6 +119,30 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
   );
 }
 
+/**
+ * Popovers/selects abrem em portal fora do Dialog.
+ * Em onFocusOutside, NÃO use preventDefault nesses alvos — senão o campo de
+ * busca (ex.: “Coluna no funil”) não aceita digitação nem setas.
+ * O dismiss do card continua bloqueado via onPointerDownOutside / onInteractOutside.
+ */
+export function shouldAllowDialogFocusOutside(e: { target: EventTarget | null }): boolean {
+  const target = e.target as HTMLElement | null;
+  if (!target?.closest) return false;
+  if (isLeadNestedLayerEvent(e)) return true;
+  return Boolean(
+    target.closest('[data-radix-popover-content]') ||
+      target.closest('[data-radix-select-content]') ||
+      target.closest('[data-radix-dropdown-menu-content]') ||
+      target.closest('[data-radix-popper-content-wrapper]') ||
+      target.closest('[data-radix-menu-content]') ||
+      target.closest('[cmdk-root]') ||
+      target.closest('[data-lead-funnel-column-picker]') ||
+      target.closest('[data-lead-name-autocomplete]') ||
+      target.closest('[data-lead-origem-picker]') ||
+      target.closest('[data-date-picker-root]'),
+  );
+}
+
 /** Mantém a tela cheia aberta sem cancelar cliques de janelas por cima (fotos do projeto, pastas). */
 export function preventFullscreenOutsideDismiss(event: {
   preventDefault: () => void;

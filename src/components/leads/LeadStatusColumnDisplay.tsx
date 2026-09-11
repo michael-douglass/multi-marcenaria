@@ -84,20 +84,20 @@ export function LeadStatusColumnOptionRow({
   className,
 }: LeadStatusColumnOptionRowProps) {
   return (
-    <span className={cn('flex min-w-0 items-center gap-2', className)}>
+    <span className={cn('flex min-w-0 items-center gap-2 text-[#fff6ea]', className)}>
       {typeof step === 'number' && step > 0 && (
         <span
           aria-hidden
           className={cn(
             'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md px-1',
-            'border border-gold-border-subtle/30 bg-mahogany-muted/50',
-            'font-mono text-[10px] font-semibold tabular-nums text-gold/90',
+            'border border-[#f2d892]/35 bg-mahogany-muted/50',
+            'font-mono text-[10px] font-semibold tabular-nums text-[#f2d892]',
           )}
         >
           {step}
         </span>
       )}
-      <span className="min-w-0 truncate">{columnLabel}</span>
+      <span className="min-w-0 truncate font-medium text-[#fff6ea]">{columnLabel}</span>
     </span>
   );
 }
