@@ -229,8 +229,6 @@ function ChegadaMateriaisCalendarioContent() {
         showAllComissao
         onUpdateDataEntrega={handleUpdateDataEntrega}
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
-        canViewBriefing={canViewBriefing}
-        canEditBriefing={canEditBriefing}
       />
 
       <ObraFormModal

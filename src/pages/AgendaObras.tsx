@@ -1281,8 +1281,6 @@ function AgendaObrasContent({
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
         onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
         updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
-        canViewBriefing={canViewBriefing}
-        canEditBriefing={canEditBriefing}
         showMarkupCustos={canViewMarkupCustos}
         markupCustos={detalheObra ? getObraMarkupCustos(detalheObra, custosByLead) : null}
         markupCustosFiltro={

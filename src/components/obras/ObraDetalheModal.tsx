@@ -28,7 +28,6 @@ import { ObraNumeroPedidoCortClaudInput } from '@/components/obras/ObraNumeroPed
 import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
 import { ObraEquipeActionBar } from '@/components/obras/ObraEquipeActionBar'
 import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
-import { ObraBriefingSection } from '@/components/obras/briefing/ObraBriefingSection'
 import { ObraDetalheLeadAura } from '@/components/obras/ObraDetalheLeadAura'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
@@ -76,8 +75,6 @@ interface Props {
   updatingDataEntrega?: boolean
   onUpdateNumeroPedidoCortClaud?: (obra: ObraFull, numero: string | null) => void
   updatingNumeroPedidoCortClaud?: boolean
-  canViewBriefing?: boolean
-  canEditBriefing?: boolean
   showMarkupCustos?: boolean
   markupCustos?: MarkupOrcamentoCustos | null
   markupCustosFiltro?: MarkupCustosFiltro
@@ -108,7 +105,6 @@ export function ObraDetalheModal({
   prestadorId, showAllComissao = false,
   onUpdateDataEntrega, updatingDataEntrega = false,
   onUpdateNumeroPedidoCortClaud, updatingNumeroPedidoCortClaud = false,
-  canViewBriefing = false, canEditBriefing = false,
   showMarkupCustos = false,
   markupCustos = null,
   markupCustosFiltro,
@@ -268,12 +264,6 @@ export function ObraDetalheModal({
               </p>
             </div>
             <p className="text-sm text-cream leading-relaxed whitespace-pre-wrap">{obra.descricao}</p>
-          </div>
-        )}
-
-        {canViewBriefing && (
-          <div className="mb-5">
-            <ObraBriefingSection obraId={obra.id} canEdit={canEditBriefing} />
           </div>
         )}
 

@@ -1342,8 +1342,6 @@ export function CalendarioObrasContent({
         updatingDataEntrega={updatingDataEntrega === detalheObra?.id}
         onUpdateNumeroPedidoCortClaud={handleUpdateNumeroPedidoCortClaud}
         updatingNumeroPedidoCortClaud={updatingNumeroPedidoCortClaud === detalheObra?.id}
-        canViewBriefing={canViewBriefing}
-        canEditBriefing={canEditBriefing}
       />
 
       {/* Modal edição */}
