@@ -3,6 +3,7 @@ import { Check, ChevronsUpDown, Loader2, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTitularesAgenda, type TitularAgenda } from '@/hooks/useTitularesAgenda';
 import {
   formatTitularAgendaPapel,
@@ -47,6 +48,7 @@ export function AgendaTitularCombobox({
   className,
 }: AgendaTitularComboboxProps) {
   void _elevated;
+  const { user } = useAuth();
   const { titulares, isLoading } = useTitularesAgenda();
   const [open, setOpen] = useState(false);
   const [busca, setBusca] = useState('');
@@ -173,7 +175,10 @@ export function AgendaTitularCombobox({
           ) : selected ? (
             <>
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">{selected.nome}</span>
+              <span className="truncate">
+                {selected.nome}
+                {selected.id === user?.id ? ' (eu)' : ''}
+              </span>
             </>
           ) : (
             <>
@@ -241,17 +246,17 @@ export function AgendaTitularCombobox({
                       <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Equipe
                       </p>
-                      {grouped.equipe.map((user) => {
+                      {grouped.equipe.map((titular) => {
                         flatIndex += 1;
                         const index = flatIndex;
                         const isActive = index === activeIndex;
-                        const isCurrent = user.id === value;
-                        const papel = formatTitularAgendaPapel(user.perfil_casa, user.crm_roles);
+                        const isCurrent = titular.id === value;
+                        const papel = formatTitularAgendaPapel(titular.perfil_casa, titular.crm_roles);
                         return (
                           <button
-                            key={user.id}
+                            key={titular.id}
                             type="button"
-                            id={`agenda-titular-option-${user.id}`}
+                            id={`agenda-titular-option-${titular.id}`}
                             role="option"
                             aria-selected={isActive}
                             data-active={isActive ? 'true' : 'false'}
@@ -264,7 +269,7 @@ export function AgendaTitularCombobox({
                             onMouseDown={(event) => {
                               // Evita o botão “roubar” o foco do campo de busca antes do clique.
                               event.preventDefault();
-                              pick(user.id);
+                              pick(titular.id);
                             }}
                           >
                             <Check
@@ -274,13 +279,14 @@ export function AgendaTitularCombobox({
                               )}
                             />
                             <Avatar className="mr-2 h-6 w-6 shrink-0">
-                              <AvatarImage src={user.avatar_url || undefined} />
+                              <AvatarImage src={titular.avatar_url || undefined} />
                               <AvatarFallback className="text-[10px]">
-                                {user.nome?.charAt(0).toUpperCase() || '?'}
+                                {titular.nome?.charAt(0).toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>
                             <span className="min-w-0 flex-1 truncate">
-                              {user.nome}
+                              {titular.nome}
+                              {titular.id === user?.id ? ' (eu)' : ''}
                               <span className="ml-1.5 text-[10px] text-muted-foreground">
                                 ({papel})
                               </span>
@@ -296,17 +302,17 @@ export function AgendaTitularCombobox({
                       <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Montadores
                       </p>
-                      {grouped.montadores.map((user) => {
+                      {grouped.montadores.map((titular) => {
                         flatIndex += 1;
                         const index = flatIndex;
                         const isActive = index === activeIndex;
-                        const isCurrent = user.id === value;
-                        const papel = formatTitularAgendaPapel(user.perfil_casa, user.crm_roles);
+                        const isCurrent = titular.id === value;
+                        const papel = formatTitularAgendaPapel(titular.perfil_casa, titular.crm_roles);
                         return (
                           <button
-                            key={user.id}
+                            key={titular.id}
                             type="button"
-                            id={`agenda-titular-option-${user.id}`}
+                            id={`agenda-titular-option-${titular.id}`}
                             role="option"
                             aria-selected={isActive}
                             data-active={isActive ? 'true' : 'false'}
@@ -318,7 +324,7 @@ export function AgendaTitularCombobox({
                             onMouseEnter={() => setActiveIndex(index)}
                             onMouseDown={(event) => {
                               event.preventDefault();
-                              pick(user.id);
+                              pick(titular.id);
                             }}
                           >
                             <Check
@@ -328,13 +334,14 @@ export function AgendaTitularCombobox({
                               )}
                             />
                             <Avatar className="mr-2 h-6 w-6 shrink-0">
-                              <AvatarImage src={user.avatar_url || undefined} />
+                              <AvatarImage src={titular.avatar_url || undefined} />
                               <AvatarFallback className="text-[10px]">
-                                {user.nome?.charAt(0).toUpperCase() || '?'}
+                                {titular.nome?.charAt(0).toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>
                             <span className="min-w-0 flex-1 truncate">
-                              {user.nome}
+                              {titular.nome}
+                              {titular.id === user?.id ? ' (eu)' : ''}
                               <span className="ml-1.5 text-[10px] text-muted-foreground">
                                 ({papel})
                               </span>

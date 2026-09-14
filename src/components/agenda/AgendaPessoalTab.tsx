@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 import { AgendaCalendar } from './AgendaCalendar';
 import { TarefaPessoalOcorrenciaDialog, type PessoalAgendaEventData } from './TarefaPessoalOcorrenciaDialog';
 import { useAgendaPessoal, TarefaPessoal } from '@/hooks/useAgendaPessoal';
-import { useUsers } from '@/hooks/useUsers';
 import { useTitularesAgenda } from '@/hooks/useTitularesAgenda';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -75,7 +74,6 @@ export function AgendaPessoalTab() {
     adminTitularFilter,
     saveAdminTitularFilter,
   } = useAgendaPessoal();
-  const { users } = useUsers();
   const { titulares } = useTitularesAgenda();
   const { user, userRole } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -112,10 +110,10 @@ export function AgendaPessoalTab() {
   const handleTitularidadeModeChange = (mode: 'all' | 'self' | 'provider') => {
     if (mode === 'provider') {
       const currentId = adminTitularFilter?.filter_titular_id;
-      const stillValid = !!(currentId && users?.some((u) => u.id === currentId));
+      const stillValid = !!(currentId && titulares.some((u) => u.id === currentId));
       const pick = stillValid
         ? currentId!
-        : users?.find((u) => u.id !== user?.id)?.id ?? users?.[0]?.id;
+        : titulares.find((u) => u.id !== user?.id)?.id ?? titulares[0]?.id;
       if (!pick) {
         return;
       }
@@ -348,26 +346,13 @@ export function AgendaPessoalTab() {
               </SelectContent>
             </Select>
             {adminTitularFilter.filter_mode === 'provider' && (
-              <Select
+              <AgendaTitularCombobox
                 value={adminTitularFilter.filter_titular_id ?? ''}
-                onValueChange={handleTitularidadePrestadorChange}
+                onChange={handleTitularidadePrestadorChange}
                 disabled={saveAdminTitularFilter.isPending}
-              >
-                <SelectTrigger className="w-full sm:max-w-md">
-                  <SelectValue placeholder="Prestador titular" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(users ?? [])
-                    .slice()
-                    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-                    .map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nome}
-                        {u.id === user?.id ? ' (eu)' : ''}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                placeholder="Buscar titular (equipe ou montador)..."
+                className="w-full sm:max-w-md"
+              />
             )}
           </CardContent>
         </Card>
@@ -538,7 +523,6 @@ export function AgendaPessoalTab() {
                       key={`pend-${o.tarefa.id}-${i}`}
                       ocorrencia={o}
                       isAdmin={isAdmin}
-                      users={users}
                       showDate
                       onToggle={handleToggleConcluida}
                       onEdit={() => openEditDialog(o.tarefa, o.dataOcorrencia)}
@@ -869,7 +853,6 @@ function OcorrenciaCard({
 function OcorrenciaCardDetailed({
   ocorrencia,
   isAdmin,
-  users,
   showDate,
   onToggle,
   onEdit,
@@ -877,7 +860,6 @@ function OcorrenciaCardDetailed({
 }: {
   ocorrencia: OcorrenciaTarefa;
   isAdmin: boolean;
-  users: any[] | undefined;
   showDate?: boolean;
   onToggle: (o: OcorrenciaTarefa) => void;
   onEdit: () => void;

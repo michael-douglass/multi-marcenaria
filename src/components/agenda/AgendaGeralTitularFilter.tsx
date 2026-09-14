@@ -1,41 +1,37 @@
 import { Users } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AgendaTitularCombobox } from '@/components/agenda/AgendaTitularCombobox';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTitularesAgenda } from '@/hooks/useTitularesAgenda';
 import type { AgendaGeralAdminTitularFilter } from '@/hooks/useAgendaGeral';
-import type { DatabaseUser } from '@/hooks/useUsers';
 
 interface AgendaGeralTitularFilterProps {
   filter: AgendaGeralAdminTitularFilter;
-  users: DatabaseUser[] | undefined;
   onModeChange: (mode: 'all' | 'self' | 'provider', titularId?: string) => void;
   isSaving: boolean;
 }
 
 export function AgendaGeralTitularFilter({
   filter,
-  users,
   onModeChange,
   isSaving,
 }: AgendaGeralTitularFilterProps) {
   const { user } = useAuth();
+  const { titulares } = useTitularesAgenda();
 
   const handleModeChange = (mode: 'all' | 'self' | 'provider') => {
     if (mode === 'provider') {
       const currentId = filter.filter_titular_id;
-      const stillValid = !!(currentId && users?.some((u) => u.id === currentId));
+      const stillValid = !!(currentId && titulares.some((u) => u.id === currentId));
       const pick = stillValid
         ? currentId!
-        : users?.find((u) => u.id !== user?.id)?.id ?? users?.[0]?.id;
+        : titulares.find((u) => u.id !== user?.id)?.id ?? titulares[0]?.id;
       if (!pick) return;
       onModeChange('provider', pick);
       return;
     }
     onModeChange(mode);
   };
-
-  const sortedUsers = [...(users ?? [])].sort((a, b) =>
-    a.nome.localeCompare(b.nome, 'pt-BR'),
-  );
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed bg-muted/40 px-3 py-2">
@@ -60,23 +56,13 @@ export function AgendaGeralTitularFilter({
       </Select>
 
       {filter.filter_mode === 'provider' && (
-        <Select
+        <AgendaTitularCombobox
           value={filter.filter_titular_id ?? ''}
-          onValueChange={(id) => onModeChange('provider', id)}
+          onChange={(id) => onModeChange('provider', id)}
           disabled={isSaving}
-        >
-          <SelectTrigger className="h-7 w-auto min-w-[180px] text-xs">
-            <SelectValue placeholder="Selecionar usuário" />
-          </SelectTrigger>
-          <SelectContent className="max-h-72">
-            {sortedUsers.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.nome}
-                {u.id === user?.id ? ' (eu)' : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Buscar titular (equipe ou montador)..."
+          className="min-w-[220px] flex-1 sm:max-w-md"
+        />
       )}
     </div>
   );

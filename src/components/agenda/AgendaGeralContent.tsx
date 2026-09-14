@@ -58,7 +58,6 @@ export function AgendaGeralContent({
       {!compact && agenda.isAdminAgendaGeral && agenda.adminGeralTitularFilter && (
         <AgendaGeralTitularFilter
           filter={agenda.adminGeralTitularFilter}
-          users={agenda.users ?? []}
           onModeChange={(mode, titularId) =>
             agenda.saveAdminGeralTitularFilter.mutate({
               filter_mode: mode,
