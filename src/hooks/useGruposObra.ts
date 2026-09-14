@@ -22,6 +22,25 @@ export function useGruposObra() {
 
   useEffect(() => { void load() }, [load])
 
+  // Recarrega montadores ao voltar para a aba — quem acabou de ser
+  // cadastrado em Funcionários/Configurações aparece sem precisar dar F5.
+  useEffect(() => {
+    if (!isReady) return
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+
+    const onFocus = () => { void load() }
+
+    document.addEventListener('visibilitychange', refreshIfVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [isReady, load])
+
   const create = async (input: GrupoObraInput) => {
     const { error: err } = await supabase.from('movelaria_grupos_obra').insert(input)
     if (err) throw new Error(err.message)
