@@ -177,9 +177,10 @@ export function useControleEventos() {
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
-      const [{ data: participantes }, { data: itens }] = await Promise.all([
+      const [{ data: participantes }, { data: itens }, { data: galeria }] = await Promise.all([
         db.from(tables.participantes).select('id').eq('evento_id', id),
         db.from(tables.itens).select('id').eq('evento_id', id),
+        db.from(tables.eventoMidias).select('storage_path').eq('evento_id', id),
       ])
       const partIds = (participantes ?? []).map((row) => String((row as { id: string }).id))
       const itemIds = (itens ?? []).map((row) => String((row as { id: string }).id))
@@ -193,7 +194,11 @@ export function useControleEventos() {
       ] as const
       const [partMidias, itemMidias] = await Promise.all(midiaQueries)
 
-      const paths = [...(partMidias.data ?? []), ...(itemMidias.data ?? [])]
+      const paths = [
+        ...(partMidias.data ?? []),
+        ...(itemMidias.data ?? []),
+        ...(galeria ?? []),
+      ]
         .map((row) => (row as { storage_path?: string | null }).storage_path)
         .filter((path): path is string => Boolean(path))
 

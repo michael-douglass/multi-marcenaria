@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, FileDown, ListChecks, Plus } from 'lucide-react'
+import { ArrowLeft, FileDown, ListChecks, Paperclip, Plus } from 'lucide-react'
 import { EventoDocumentoPanel } from '@/components/eventos/EventoDocumentoPanel'
 import { EventoFolderDialog } from '@/components/eventos/EventoFolderDialog'
 import { EventoItemCard, EventoItemDialog } from '@/components/eventos/EventoItemCard'
@@ -31,6 +31,7 @@ export default function ControleEventoBoard() {
   const [itemOpen, setItemOpen] = useState(false)
   const [tarefasOpen, setTarefasOpen] = useState(false)
   const [pdfOpen, setPdfOpen] = useState(false)
+  const [galeriaOpen, setGaleriaOpen] = useState(false)
   const [editPasta, setEditPasta] = useState(false)
   const [fotosDe, setFotosDe] = useState<
     | { kind: 'participantes'; owner: EventoParticipante }
@@ -49,6 +50,40 @@ export default function ControleEventoBoard() {
     [board],
   )
   const pendentes = board?.tarefas.filter((t) => !t.concluida).length ?? 0
+
+  const midiasCaderno = useMemo(() => {
+    if (!board) return []
+    const list: { id: string; file_url: string; label: string }[] = []
+    const galeria = Array.isArray(board.galeria) ? board.galeria : []
+    for (const midia of galeria) {
+      list.push({
+        id: midia.id,
+        file_url: midia.file_url,
+        label: midia.file_name?.trim() || 'Galeria',
+      })
+    }
+    for (const pessoa of board.participantes) {
+      for (const midia of pessoa.midias) {
+        list.push({
+          id: midia.id,
+          file_url: midia.file_url,
+          label: pessoa.nome,
+        })
+      }
+    }
+    for (const item of board.itens) {
+      for (const midia of item.midias) {
+        list.push({
+          id: midia.id,
+          file_url: midia.file_url,
+          label: item.nome,
+        })
+      }
+    }
+    return list
+  }, [board])
+
+  const galeriaMidias = Array.isArray(board?.galeria) ? board.galeria : []
 
   if (loading) return <LoadingState variant="page" message="Abrindo o caderno..." />
   if (error || !board) {
@@ -85,6 +120,13 @@ export default function ControleEventoBoard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-outline btn-md" onClick={() => setGaleriaOpen(true)}>
+              <Paperclip className="h-4 w-4" />
+              Anexar
+              {galeriaMidias.length > 0 && (
+                <span className="ml-1 text-gold">{galeriaMidias.length}</span>
+              )}
+            </button>
             <button type="button" className="btn btn-outline btn-md" onClick={() => setTarefasOpen(true)}>
               <ListChecks className="h-4 w-4" />
               Tarefas
@@ -155,6 +197,7 @@ export default function ControleEventoBoard() {
         <EventoDocumentoPanel
           className="min-h-[520px] lg:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:min-h-0"
           paginas={board.paginas}
+          midiasDisponiveis={midiasCaderno}
           onSave={(input) => salvarPagina.mutateAsync(input)}
           onNovaFolha={(secao) => criarFolha.mutateAsync(secao)}
           onExcluirFolha={(input) => excluirFolha.mutateAsync(input)}
@@ -214,6 +257,20 @@ export default function ControleEventoBoard() {
           })}
         />
       )}
+      <EventoCardFotosSheet
+        open={galeriaOpen}
+        onOpenChange={setGaleriaOpen}
+        titulo={board.evento.titulo}
+        midias={galeriaMidias}
+        branding={branding}
+        onUpload={(file) => uploadFoto.mutateAsync({ kind: 'galeria', file })}
+        onAnotacoes={(midiaId, anotacoes) => salvarAnotacoes.mutateAsync({ kind: 'galeria', midiaId, anotacoes })}
+        onDelete={(midia) => excluirFoto.mutateAsync({
+          kind: 'galeria',
+          midiaId: midia.id,
+          storagePath: midia.storage_path,
+        })}
+      />
     </div>
   )
 }

@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Search, Trash2, X } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ImagePlus,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { EventoDocumentoAura } from '@/components/eventos/EventoDocumentoAura'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  parseEventoCadernoCorpo,
+  serializeEventoCadernoCorpo,
+  textoEventoCadernoSemAnexos,
+} from '@/lib/evento-caderno-anexos'
 import type { EventoPagina, EventoSecao } from '@/lib/evento-types'
 import { EVENTO_SECOES, EVENTO_SECAO_DICAS } from '@/lib/evento-types'
 import { cn } from '@/lib/utils'
@@ -15,8 +31,16 @@ interface CadernoHit {
   end: number
 }
 
+/** Foto já enviada no evento (participante ou item) para colar no caderno. */
+export interface EventoCadernoMidiaOption {
+  id: string
+  file_url: string
+  label: string
+}
+
 interface EventoDocumentoPanelProps {
   paginas: EventoPagina[]
+  midiasDisponiveis?: EventoCadernoMidiaOption[]
   onSave: (input: { id: string; titulo: string; corpo: string }) => Promise<unknown>
   onNovaFolha: (secao: EventoSecao) => Promise<unknown>
   onExcluirFolha: (input: { id: string; secao: EventoSecao }) => Promise<unknown>
@@ -88,7 +112,8 @@ function collectCadernoHits(
   const hits: CadernoHit[] = []
   for (const page of ordered) {
     const titulo = draft && draft.id === page.id ? draft.titulo : page.titulo
-    const corpo = draft && draft.id === page.id ? draft.corpo : page.corpo
+    const corpo =
+      draft && draft.id === page.id ? draft.corpo : textoEventoCadernoSemAnexos(page.corpo)
     hits.push(...findHitsInField(page.id, page.secao, 'titulo', titulo, q))
     hits.push(...findHitsInField(page.id, page.secao, 'corpo', corpo, q))
   }
@@ -101,6 +126,7 @@ function folhasDaSecao(paginas: EventoPagina[], secao: EventoSecao) {
 
 export function EventoDocumentoPanel({
   paginas,
+  midiasDisponiveis = [],
   onSave,
   onNovaFolha,
   onExcluirFolha,
@@ -113,6 +139,8 @@ export function EventoDocumentoPanel({
 
   const [titulo, setTitulo] = useState('')
   const [corpo, setCorpo] = useState('')
+  const [anexos, setAnexos] = useState<string[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [saveHint, setSaveHint] = useState<SaveHint>('Salva sozinho')
   const [busca, setBusca] = useState('')
   const [hitIdx, setHitIdx] = useState(0)
@@ -135,11 +163,22 @@ export function EventoDocumentoPanel({
   )
   const activeHit = hitsLive[hitIdx] ?? null
 
+  const midiasNaoAnexadas = useMemo(
+    () => midiasDisponiveis.filter((m) => !anexos.includes(m.file_url)),
+    [midiasDisponiveis, anexos],
+  )
+
   useEffect(() => {
     if (!atual) return
+    const parsed = parseEventoCadernoCorpo(atual.corpo)
     setTitulo(atual.titulo)
-    setCorpo(atual.corpo)
-    snapshotRef.current = { id: atual.id, titulo: atual.titulo, corpo: atual.corpo }
+    setCorpo(parsed.texto)
+    setAnexos(parsed.imageUrls)
+    snapshotRef.current = {
+      id: atual.id,
+      titulo: atual.titulo,
+      corpo: serializeEventoCadernoCorpo(parsed.texto, parsed.imageUrls),
+    }
     dirtyRef.current = false
     setSaveHint('Salva sozinho')
   }, [atual?.id])
@@ -168,8 +207,12 @@ export function EventoDocumentoPanel({
     }
   }, [onSave])
 
-  const schedule = useCallback((nextTitulo: string, nextCorpo: string) => {
-    snapshotRef.current = { ...snapshotRef.current, titulo: nextTitulo, corpo: nextCorpo }
+  const schedule = useCallback((nextTitulo: string, nextCorpo: string, nextAnexos: string[]) => {
+    snapshotRef.current = {
+      ...snapshotRef.current,
+      titulo: nextTitulo,
+      corpo: serializeEventoCadernoCorpo(nextCorpo, nextAnexos),
+    }
     dirtyRef.current = true
     setSaveHint('Salva sozinho')
     window.clearTimeout(timerRef.current)
@@ -177,6 +220,19 @@ export function EventoDocumentoPanel({
       void flush()
     }, 400)
   }, [flush])
+
+  const anexarUrl = useCallback((url: string) => {
+    if (!url || anexos.includes(url)) return
+    const next = [...anexos, url]
+    setAnexos(next)
+    schedule(titulo, corpo, next)
+  }, [anexos, titulo, corpo, schedule])
+
+  const removerAnexo = useCallback((url: string) => {
+    const next = anexos.filter((u) => u !== url)
+    setAnexos(next)
+    schedule(titulo, corpo, next)
+  }, [anexos, titulo, corpo, schedule])
 
   const applyHitSelection = useCallback((hit: CadernoHit) => {
     const token = ++markTokenRef.current
@@ -499,27 +555,105 @@ export function EventoDocumentoPanel({
             value={titulo}
             onChange={(e) => {
               setTitulo(e.target.value)
-              schedule(e.target.value, corpo)
+              schedule(e.target.value, corpo, anexos)
             }}
             onBlur={() => void flush()}
           />
           <textarea
             ref={corpoRef}
             aria-label="Páginas do caderno"
-            className="evento-caderno-corpo min-h-[320px] w-full flex-1 resize-none bg-transparent outline-none xl:min-h-0"
+            className="evento-caderno-corpo min-h-[220px] w-full flex-1 resize-none bg-transparent outline-none xl:min-h-0"
             placeholder="Escreva o roteiro do dia…"
             value={corpo}
             onChange={(e) => {
               setCorpo(e.target.value)
-              schedule(titulo, e.target.value)
+              schedule(titulo, e.target.value, anexos)
             }}
             onBlur={() => void flush()}
           />
+
+          <div className="evento-caderno-anexos mt-3 shrink-0">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[#5c4030]">
+                Fotos nesta folha
+              </p>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-[rgba(201,160,123,0.6)] bg-white/50 px-2.5 py-1 text-[11px] text-[#5c4030] hover:border-[#c9a07b] hover:text-[#2a1812]"
+                onClick={() => setPickerOpen(true)}
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                Anexar imagem
+              </button>
+            </div>
+            {anexos.length === 0 ? (
+              <p className="text-[12px] leading-snug text-[#8a6a4a]">
+                Nenhuma foto ainda. Use o botão Anexar no topo (imagem ou PDF) e depois cole aqui.
+              </p>
+            ) : (
+              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {anexos.map((url) => (
+                  <li
+                    key={url}
+                    className="group relative overflow-hidden rounded-md border border-[rgba(201,160,123,0.5)] bg-white/70"
+                  >
+                    <img src={url} alt="" className="aspect-square w-full object-cover" />
+                    <button
+                      type="button"
+                      aria-label="Tirar imagem desta folha"
+                      className="absolute right-1 top-1 rounded-full bg-[rgba(42,24,18,0.8)] p-1 text-white opacity-90 hover:bg-red-700"
+                      onClick={() => removerAnexo(url)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <p className="evento-caderno-rodape mt-3">
             Folha {Math.min(index, folhas.length - 1) + 1} de {folhas.length} · {saveHint}
           </p>
         </div>
       </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Anexar imagem nesta folha</DialogTitle>
+            <DialogDescription className="sr-only">
+              Escolha uma foto já enviada na pasta para colar nesta folha do caderno.
+            </DialogDescription>
+          </DialogHeader>
+          {midiasDisponiveis.length === 0 ? (
+            <p className="text-sm text-cream-faint">
+              Ainda não há fotos neste evento. Clique em Anexar no topo da pasta, envie imagem ou PDF
+              (o PDF vira páginas em imagem) e volte aqui.
+            </p>
+          ) : midiasNaoAnexadas.length === 0 ? (
+            <p className="text-sm text-cream-faint">Todas as fotos do evento já estão nesta folha.</p>
+          ) : (
+            <ul className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+              {midiasNaoAnexadas.map((midia) => (
+                <li key={midia.id}>
+                  <button
+                    type="button"
+                    className="w-full overflow-hidden rounded-lg border border-gold-border/50 text-left hover:border-gold"
+                    onClick={() => {
+                      anexarUrl(midia.file_url)
+                      setPickerOpen(false)
+                    }}
+                  >
+                    <img src={midia.file_url} alt="" className="aspect-square w-full object-cover" />
+                    <span className="block truncate px-1.5 py-1 text-[10px] text-cream-faint">{midia.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

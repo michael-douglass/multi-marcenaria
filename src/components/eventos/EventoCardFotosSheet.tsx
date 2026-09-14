@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { Download, Trash2, Upload } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EventoPhotoDrawCanvas } from '@/components/eventos/EventoPhotoDrawCanvas'
 import { downloadEventoFotosPdf } from '@/lib/evento-pdf-export'
-import { prepareWhiteboardImageForUpload } from '@/lib/whiteboard-image-upload'
+import { prepareEventoMidiaFiles } from '@/lib/evento-midia-upload'
 import type { EventoDesenho, EventoMidia } from '@/lib/evento-types'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -30,33 +30,51 @@ export function EventoCardFotosSheet({
   onDelete,
 }: EventoCardFotosSheetProps) {
   const [atualId, setAtualId] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const atual = midias.find((m) => m.id === (atualId ?? midias[0]?.id)) ?? null
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return
+    setUploading(true)
     try {
+      let totalPages = 0
       for (const file of Array.from(files)) {
-        const prepared = await prepareWhiteboardImageForUpload(file)
-        await onUpload(prepared)
+        const prepared = await prepareEventoMidiaFiles(file)
+        totalPages += prepared.length
+        for (const page of prepared) {
+          await onUpload(page)
+        }
+      }
+      if (totalPages > 1) {
+        toast.success(
+          files.length === 1 && totalPages > 1
+            ? `PDF convertido em ${totalPages} imagens.`
+            : `${totalPages} imagens enviadas.`,
+        )
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Falha no upload')
+    } finally {
+      setUploading(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Fotos · {titulo}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Envie imagens ou PDF. PDF vira páginas em imagem para visualizar e anotar.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-[220px_1fr]">
           <div className="space-y-2">
             <input
               ref={inputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -64,10 +82,18 @@ export function EventoCardFotosSheet({
                 e.target.value = ''
               }}
             />
-            <button type="button" className="btn btn-outline btn-md w-full" onClick={() => inputRef.current?.click()}>
+            <button
+              type="button"
+              className="btn btn-outline btn-md w-full"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
               <Upload className="h-4 w-4" />
-              Subir foto
+              {uploading ? 'Enviando…' : 'Subir foto ou PDF'}
             </button>
+            <p className="text-[11px] leading-snug text-cream-faint">
+              Imagem ou PDF. Se for PDF, cada página vira uma foto para você ver e desenhar.
+            </p>
             <button
               type="button"
               className="btn btn-outline btn-md w-full"
@@ -113,7 +139,7 @@ export function EventoCardFotosSheet({
               </div>
             ) : (
               <p className="rounded-xl border border-dashed border-gold-border px-4 py-16 text-center text-sm text-cream-faint">
-                Suba uma foto para desenhar em cima.
+                Suba uma foto ou um PDF. Se for PDF, cada página vira uma imagem para você ver.
               </p>
             )}
           </div>

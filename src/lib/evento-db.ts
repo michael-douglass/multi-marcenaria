@@ -9,6 +9,7 @@ export interface EventosTableNames {
   participanteMidias: string
   itens: string
   itemMidias: string
+  eventoMidias: string
   catalogo: string
   tarefas: string
   paginas: string
@@ -23,6 +24,7 @@ export function resolveEventosTables(schemaNome: string | null | undefined): Eve
       participanteMidias: 'evento_participante_midias',
       itens: 'evento_itens',
       itemMidias: 'evento_item_midias',
+      eventoMidias: 'evento_midias',
       catalogo: 'evento_catalogo_itens',
       tarefas: 'evento_tarefas',
       paginas: 'evento_paginas',
@@ -35,6 +37,7 @@ export function resolveEventosTables(schemaNome: string | null | undefined): Eve
     participanteMidias: 'crm_multiempresas_evento_participante_midias',
     itens: 'crm_multiempresas_evento_itens',
     itemMidias: 'crm_multiempresas_evento_item_midias',
+    eventoMidias: 'crm_multiempresas_evento_midias',
     catalogo: 'crm_multiempresas_evento_catalogo_itens',
     tarefas: 'crm_multiempresas_evento_tarefas',
     paginas: 'crm_multiempresas_evento_paginas',
@@ -50,11 +53,14 @@ export const EVENTO_STORAGE_BUCKET = 'marketing-medias'
 
 export function eventoStoragePath(
   eventoId: string,
-  kind: 'participantes' | 'itens',
+  kind: 'participantes' | 'itens' | 'galeria',
   ownerId: string,
   fileName: string,
 ): string {
   const safe = fileName.replace(/[^\w.-]+/g, '-').slice(-80) || 'foto.jpg'
   const rand = Math.random().toString(36).slice(2, 8)
+  if (kind === 'galeria') {
+    return `eventos/${eventoId}/galeria/${Date.now()}-${rand}-${safe}`
+  }
   return `eventos/${eventoId}/${kind}/${ownerId}/${Date.now()}-${rand}-${safe}`
 }

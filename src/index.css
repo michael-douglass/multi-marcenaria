@@ -7535,6 +7535,10 @@ body {
   font-size: 19px;
   line-height: var(--caderno-linha, 32px);
 }
+.evento-caderno-anexos {
+  border-top: 1px dashed rgba(201, 160, 123, 0.55);
+  padding-top: 0.65rem;
+}
 .evento-caderno-rodape {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 12px;

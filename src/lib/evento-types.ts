@@ -122,6 +122,8 @@ export interface EventoBoard {
   itens: EventoItem[]
   paginas: EventoPagina[]
   tarefas: EventoTarefa[]
+  /** Fotos/PDF convertidos anexados na pasta (não ligados a pessoa/item). */
+  galeria: EventoMidia[]
 }
 
 export interface EventoTotais {

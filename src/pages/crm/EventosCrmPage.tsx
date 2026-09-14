@@ -3,6 +3,7 @@ import { CrmPageFrame, CrmPageHeader } from '@/components/crm/CrmPageFrame'
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/EmptyState'
 import { useCrmEventos } from '@/hooks/useCrmComunicacao'
 import { paginasDoEvento } from '@/lib/crm-comunicacao'
+import { textoEventoCadernoSemAnexos } from '@/lib/evento-caderno-anexos'
 import { fmtDate } from '@/lib/utils'
 
 export function EventosCrmPage() {
@@ -34,14 +35,17 @@ export function EventosCrmPage() {
               </p>
               {evento.observacoes && <p className="mt-2 text-sm">{evento.observacoes}</p>}
               <div className="mt-4 space-y-3">
-                {blocos.filter(b => b.titulo.trim() || b.corpo.trim()).map(bloco => (
+                {blocos.filter(b => b.titulo.trim() || textoEventoCadernoSemAnexos(b.corpo).trim()).map(bloco => {
+                  const corpoTexto = textoEventoCadernoSemAnexos(bloco.corpo)
+                  return (
                   <section key={bloco.id} className="rounded-xl border border-border/60 p-3">
                     {bloco.titulo.trim() && <h3 className="text-sm font-semibold">{bloco.titulo}</h3>}
-                    {bloco.corpo.trim() && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{bloco.corpo}</p>
+                    {corpoTexto.trim() && (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{corpoTexto}</p>
                     )}
                   </section>
-                ))}
+                  )
+                })}
               </div>
             </article>
           )

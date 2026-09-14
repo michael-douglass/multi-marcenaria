@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { parseEventoCadernoCorpo } from '@/lib/evento-caderno-anexos'
 import { compositeEventoPhoto } from '@/lib/evento-photo-composite'
 import {
   formatarMoedaEvento,
@@ -273,10 +274,17 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
     const dica = EVENTO_SECAO_DICAS[secao]
     if (folhas.length === 0) continue
     folhas.forEach((folha, i) => {
-      const partes = partirLinhas(folha.corpo, FOLHA.cadernoCols, FOLHA.cadernoLinhas)
+      const { texto, imageUrls } = parseEventoCadernoCorpo(folha.corpo)
+      const partes = partirLinhas(texto, FOLHA.cadernoCols, FOLHA.cadernoLinhas)
       partes.forEach((parte, p) => {
         const corpo = parte.trim()
         const parteLabel = partes.length > 1 ? ` · parte ${p + 1} de ${partes.length}` : ''
+        const anexosHtml =
+          p === partes.length - 1 && imageUrls.length > 0
+            ? `<div class="folha-anexos">${imageUrls
+                .map((url) => `<img src="${esc(url)}" alt="" />`)
+                .join('')}</div>`
+            : ''
         drafts.push({
           secao: `${dica.aba} · folha ${i + 1}${parteLabel}`,
           variant: 'papel',
@@ -289,7 +297,8 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
                   <p class="folha-dica">${esc(dica.dica)}</p>
                 </td></tr>
                 <tr class="papel-miolo"><td>
-                  <pre>${corpo ? esc(parte) : '<span class="vazio">— em branco —</span>'}</pre>
+                  <pre>${corpo ? esc(parte) : imageUrls.length && p === 0 ? '' : '<span class="vazio">— em branco —</span>'}</pre>
+                  ${anexosHtml}
                 </td></tr>
                 <tr class="papel-base"><td>
                   Atualizada em ${esc(formatarQuandoIso(folha.atualizado_em))}
@@ -686,6 +695,19 @@ const CSS = `
     line-height: 8mm;
     margin: 0;
     min-height: 0;
+  }
+  .folha-anexos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3mm;
+    margin-top: 4mm;
+  }
+  .folha-anexos img {
+    width: 42mm;
+    height: 42mm;
+    object-fit: cover;
+    border: 0.4pt solid #c9a07b;
+    border-radius: 1.5mm;
   }
   .vazio { color: #9a8170; font-style: italic; }
   .tarefas { list-style: none; padding: 0; margin: 0; }

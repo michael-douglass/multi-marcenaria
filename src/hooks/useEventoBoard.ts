@@ -133,16 +133,19 @@ export function useEventoBoard(eventoId: string | undefined) {
 
       const partIds = participantes.map((p) => p.id)
       const itemIds = itens.map((p) => p.id)
-      const [partMidias, itemMidias] = await Promise.all([
+      const [partMidias, itemMidias, galeriaMidias] = await Promise.all([
         partIds.length
           ? db.from(tables.participanteMidias).select('*').in('participante_id', partIds).order('ordem')
           : Promise.resolve({ data: [], error: null }),
         itemIds.length
           ? db.from(tables.itemMidias).select('*').in('item_id', itemIds).order('ordem')
           : Promise.resolve({ data: [], error: null }),
+        db.from(tables.eventoMidias).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
       ])
       if (partMidias.error) throw partMidias.error
       if (itemMidias.error) throw itemMidias.error
+      // Galeria é nova: se a tabela ainda não existir neste schema, segue com lista vazia.
+      const galeriaRows = galeriaMidias.error ? [] : (galeriaMidias.data ?? [])
 
       const midiasPart = new Map<string, NonNullable<ReturnType<typeof parseEventoMidia>>[]>()
       for (const raw of partMidias.data ?? []) {
@@ -180,6 +183,9 @@ export function useEventoBoard(eventoId: string | undefined) {
         })),
         paginas: (pagRes.data ?? []).map(parseEventoPagina).filter((p): p is NonNullable<typeof p> => p != null),
         tarefas: (tarRes.data ?? []).map(parseEventoTarefa).filter((p): p is NonNullable<typeof p> => p != null),
+        galeria: galeriaRows
+          .map(parseEventoMidia)
+          .filter((m): m is NonNullable<typeof m> => m != null),
       }
     },
   })
@@ -395,19 +401,34 @@ export function useEventoBoard(eventoId: string | undefined) {
       ownerId,
       file,
     }: {
-      kind: 'participantes' | 'itens'
-      ownerId: string
+      kind: 'participantes' | 'itens' | 'galeria'
+      ownerId?: string
       file: File
     }) => {
       if (!eventoId) throw new Error('Pasta não encontrada')
       if (file.size > WHITEBOARD_MAX_IMAGE_BYTES) throw new Error('Imagem muito grande (máx. 15 MB)')
-      const path = eventoStoragePath(eventoId, kind, ownerId, file.name)
+      if (kind !== 'galeria' && !ownerId) throw new Error('Dono da foto não informado')
+      const path = eventoStoragePath(eventoId, kind, ownerId ?? eventoId, file.name)
       const { error: uploadError } = await supabase.storage.from(EVENTO_STORAGE_BUCKET).upload(path, file, {
         contentType: file.type || 'image/jpeg',
         upsert: false,
       })
       if (uploadError) throw uploadError
       const { data: urlData } = supabase.storage.from(EVENTO_STORAGE_BUCKET).getPublicUrl(path)
+
+      if (kind === 'galeria') {
+        const { error } = await db.from(tables.eventoMidias).insert({
+          evento_id: eventoId,
+          file_url: urlData.publicUrl,
+          storage_path: path,
+          file_name: file.name,
+          anotacoes: [],
+          ordem: 0,
+        })
+        if (error) throw error
+        return
+      }
+
       const table = kind === 'participantes' ? tables.participanteMidias : tables.itemMidias
       const fk = kind === 'participantes' ? 'participante_id' : 'item_id'
       const { error } = await db.from(table).insert({
@@ -430,11 +451,16 @@ export function useEventoBoard(eventoId: string | undefined) {
       midiaId,
       anotacoes,
     }: {
-      kind: 'participantes' | 'itens'
+      kind: 'participantes' | 'itens' | 'galeria'
       midiaId: string
       anotacoes: EventoDesenho[]
     }) => {
-      const table = kind === 'participantes' ? tables.participanteMidias : tables.itemMidias
+      const table =
+        kind === 'galeria'
+          ? tables.eventoMidias
+          : kind === 'participantes'
+            ? tables.participanteMidias
+            : tables.itemMidias
       const { error } = await db.from(table).update({ anotacoes }).eq('id', midiaId)
       if (error) throw error
     },
@@ -448,11 +474,16 @@ export function useEventoBoard(eventoId: string | undefined) {
       midiaId,
       storagePath,
     }: {
-      kind: 'participantes' | 'itens'
+      kind: 'participantes' | 'itens' | 'galeria'
       midiaId: string
       storagePath: string | null
     }) => {
-      const table = kind === 'participantes' ? tables.participanteMidias : tables.itemMidias
+      const table =
+        kind === 'galeria'
+          ? tables.eventoMidias
+          : kind === 'participantes'
+            ? tables.participanteMidias
+            : tables.itemMidias
       const { error } = await db.from(table).delete().eq('id', midiaId)
       if (error) throw error
       if (storagePath) await supabase.storage.from(EVENTO_STORAGE_BUCKET).remove([storagePath])
@@ -461,7 +492,12 @@ export function useEventoBoard(eventoId: string | undefined) {
   })
 
   return {
-    board: query.data ?? null,
+    board: query.data
+      ? {
+          ...query.data,
+          galeria: Array.isArray(query.data.galeria) ? query.data.galeria : [],
+        }
+      : null,
     loading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     catalogo: catalogoQuery.data ?? [],
