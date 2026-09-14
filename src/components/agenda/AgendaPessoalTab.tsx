@@ -21,7 +21,12 @@ import { AgendaCalendar } from './AgendaCalendar';
 import { TarefaPessoalOcorrenciaDialog, type PessoalAgendaEventData } from './TarefaPessoalOcorrenciaDialog';
 import { useAgendaPessoal, TarefaPessoal } from '@/hooks/useAgendaPessoal';
 import { useUsers } from '@/hooks/useUsers';
+import { useTitularesAgenda } from '@/hooks/useTitularesAgenda';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  AgendaTitularCombobox,
+  findTitularAgendaNome,
+} from '@/components/agenda/AgendaTitularCombobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getOcorrenciasNoDia, getOcorrenciasNoMes, getOcorrenciasNoIntervalo, getRecorrenciaTipoLabel, OcorrenciaTarefa } from '@/lib/agenda-pessoal-recorrencia';
 import { AgendaItemAnexosBadge, AgendaItemAnexosField, AgendaItemAnexosMiniStrip } from '@/components/agenda/AgendaItemAnexosField';
@@ -71,6 +76,7 @@ export function AgendaPessoalTab() {
     saveAdminTitularFilter,
   } = useAgendaPessoal();
   const { users } = useUsers();
+  const { titulares } = useTitularesAgenda();
   const { user, userRole } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -214,7 +220,7 @@ export function AgendaPessoalTab() {
     if (!formTitulo.trim() || !formTitularId) return;
 
     const effectiveTitularId = canAssignTarefaToOthers ? formTitularId : user?.id || formTitularId;
-    const selectedUser = users?.find((u) => u.id === effectiveTitularId);
+    const selectedUser = titulares.find((u) => u.id === effectiveTitularId);
 
     try {
       if (editingTarefa) {
@@ -607,25 +613,14 @@ export function AgendaPessoalTab() {
             <div>
               <Label>Titular *</Label>
               {canAssignTarefaToOthers ? (
-                <Select value={formTitularId} onValueChange={setFormTitularId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o titular" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users?.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-muted-foreground" />
-                          {u.nome}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AgendaTitularCombobox
+                  value={formTitularId}
+                  onChange={setFormTitularId}
+                />
               ) : (
                 <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm text-muted-foreground">
                   <User className="h-3.5 w-3.5" />
-                  {users?.find((u) => u.id === formTitularId)?.nome || 'Você'}
+                  {findTitularAgendaNome(titulares, formTitularId)}
                 </div>
               )}
             </div>

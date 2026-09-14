@@ -137,6 +137,7 @@ export function shouldAllowDialogFocusOutside(e: { target: EventTarget | null })
       target.closest('[data-radix-menu-content]') ||
       target.closest('[cmdk-root]') ||
       target.closest('[data-lead-funnel-column-picker]') ||
+      target.closest('[data-agenda-titular-picker]') ||
       target.closest('[data-lead-name-autocomplete]') ||
       target.closest('[data-lead-origem-picker]') ||
       target.closest('[data-date-picker-root]'),

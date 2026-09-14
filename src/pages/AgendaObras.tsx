@@ -430,9 +430,13 @@ function AgendaObrasContent({
   const {
     lockMode: headerLockMode,
     expanded: headerExpanded,
+    autoCycleActive: headerAutoCycleActive,
     setLockMode: setHeaderLockMode,
     toggleManual: toggleHeaderManual,
-  } = useAgendaHeaderCollapse(userProfile?.id)
+  } = useAgendaHeaderCollapse(userProfile?.id, {
+    // Sobe/desce a cada 5s só no Kanban — Filas e Calendário ficam estáveis.
+    autoCycleEnabled: view === 'kanban',
+  })
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
   const obraFromUrl = searchParams.get('obra')
@@ -911,6 +915,7 @@ function AgendaObrasContent({
           }
           expanded={headerExpanded}
           lockMode={headerLockMode}
+          autoCycleActive={headerAutoCycleActive}
           onToggle={toggleHeaderManual}
           onLockModeChange={setHeaderLockMode}
         >

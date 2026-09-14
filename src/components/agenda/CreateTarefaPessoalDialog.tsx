@@ -28,12 +28,17 @@ import { getCurrentHora24h } from '@/lib/horarios-24h';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
-import { useUsers } from '@/hooks/useUsers';
+import { useTitularesAgenda } from '@/hooks/useTitularesAgenda';
 import { useAgendaPessoal } from '@/hooks/useAgendaPessoal';
+import {
+  AgendaTitularCombobox,
+  findTitularAgendaNome,
+} from '@/components/agenda/AgendaTitularCombobox';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
 import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
 import { getEventosDb, resolveEventosTables } from '@/lib/evento-db';
+import { shouldAllowDialogFocusOutside } from '@/lib/dialog-outside-guard';
 
 const DIAS_SEMANA_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const COR_EVENTO_PADRAO = '#f59e0b';
@@ -65,7 +70,7 @@ export function CreateTarefaPessoalDialog({
 }: CreateTarefaPessoalDialogProps) {
   const { user } = useAuth();
   const { empresa } = useEmpresa();
-  const { users } = useUsers();
+  const { titulares } = useTitularesAgenda();
   const { createTarefa, isAdminAgendaPessoal, canAssignTarefaToOthers } = useAgendaPessoal();
   const schema = empresa?.schema_nome ?? null;
   const tables = resolveEventosTables(schema);
@@ -118,7 +123,8 @@ export function CreateTarefaPessoalDialog({
   const handleSubmit = async () => {
     if (!titulo.trim() || !titularId) return;
 
-    const selectedUser = users?.find((u) => u.id === titularId);
+    const effectiveTitularId = canAssignTarefaToOthers ? titularId : user?.id || titularId;
+    const titularNome = titulares.find((u) => u.id === effectiveTitularId)?.nome;
     const dataStr = data ? format(data, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
     const nome = titulo.trim();
     let eventoTarefaId: string | null = null;
@@ -161,8 +167,8 @@ export function CreateTarefaPessoalDialog({
         descricao: descricao.trim() || undefined,
         data: dataStr,
         hora: hora || undefined,
-        titular_id: canAssignTarefaToOthers ? titularId : user?.id || titularId,
-        titular_nome: selectedUser?.nome,
+        titular_id: effectiveTitularId,
+        titular_nome: titularNome,
         tipo_agendamento: tipoAgendamento,
         recorrencia_tipo: tipoAgendamento === 'recorrente' ? recorrenciaTipo : undefined,
         recorrencia_dias_semana:
@@ -198,7 +204,15 @@ export function CreateTarefaPessoalDialog({
         data-agenda-create-dialog=""
         className="max-w-md max-h-[90vh] overflow-y-auto"
         floatingLayer={floatingLayer}
-        onInteractOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => {
+          // Libera clique/foco no seletor de titular (portal fora do dialog).
+          if (shouldAllowDialogFocusOutside(event)) return;
+          event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (shouldAllowDialogFocusOutside(event)) return;
+          event.preventDefault();
+        }}
       >
         <DialogHeader>
           <DialogTitle className={eventoVinculo ? 'text-[#f0d28c]' : undefined}>
@@ -270,25 +284,15 @@ export function CreateTarefaPessoalDialog({
           <div>
             <Label>Titular *</Label>
             {canAssignTarefaToOthers ? (
-              <Select value={titularId} onValueChange={setTitularId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o titular" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users?.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" />
-                        {u.nome}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AgendaTitularCombobox
+                value={titularId}
+                onChange={setTitularId}
+                elevated={!!floatingLayer}
+              />
             ) : (
               <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm text-muted-foreground">
                 <User className="h-3.5 w-3.5" />
-                {users?.find((u) => u.id === titularId)?.nome || 'Você'}
+                {findTitularAgendaNome(titulares, titularId)}
               </div>
             )}
           </div>

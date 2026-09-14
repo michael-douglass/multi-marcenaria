@@ -8,6 +8,8 @@ interface AgendaHeaderCollapseProps {
   subtitle?: ReactNode
   expanded: boolean
   lockMode: AgendaHeaderLockMode
+  /** Quando false, o chip "Auto 5s" some (ciclo pausado nesta tela). */
+  autoCycleActive?: boolean
   onToggle: () => void
   onLockModeChange: (mode: AgendaHeaderLockMode) => void
   children: ReactNode
@@ -22,6 +24,7 @@ export function AgendaHeaderCollapse({
   subtitle,
   expanded,
   lockMode,
+  autoCycleActive = lockMode === 'auto',
   onToggle,
   onLockModeChange,
   children,
@@ -46,7 +49,7 @@ export function AgendaHeaderCollapse({
           {subtitle != null && (
             <span className="agenda-header-collapse__subtitle">{subtitle}</span>
           )}
-          {lockMode === 'auto' && (
+          {autoCycleActive && (
             <span className="agenda-header-collapse__mode-chip" title="Abre sozinho a cada 5 segundos">
               Auto 5s
             </span>
