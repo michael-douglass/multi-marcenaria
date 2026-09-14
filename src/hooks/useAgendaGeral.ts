@@ -108,7 +108,7 @@ export function buildAgendaGeralEvents({
 
       events.push({
         id: `${t.id}-${index}`,
-        title: `[Pessoal] ${t.titulo}`,
+        title: t.evento_id ? `[Evento] ${t.titulo}` : `[Pessoal] ${t.titulo}`,
         description: t.descricao,
         start,
         end: addHours(start, 1),

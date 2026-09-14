@@ -127,6 +127,7 @@ function capaHtml(board: EventoBoard, branding: EventoPdfBranding): FolhaDraft {
   const totais = totaisDoEvento(board.participantes.length, board.itens)
   const tarefasPendentes = board.tarefas.filter((t) => !t.concluida).length
   const folhas = board.paginas.length
+  const anexosGaleria = Array.isArray(board.galeria) ? board.galeria.length : 0
   const custoPessoa = totais.pessoas > 0 ? totais.total / totais.pessoas : 0
   const observacoes = evento.observacoes?.trim()
   return {
@@ -155,9 +156,13 @@ function capaHtml(board: EventoBoard, branding: EventoPdfBranding): FolhaDraft {
               <td><span>Folhas</span><strong>${folhas}</strong></td>
             </tr>
             <tr>
+              <td><span>Anexos</span><strong>${anexosGaleria}</strong></td>
               <td><span>Tarefas abertas</span><strong>${tarefasPendentes}</strong></td>
               <td><span>Total estimado</span><strong>${esc(formatarMoedaEvento(totais.total))}</strong></td>
+            </tr>
+            <tr>
               <td><span>Por pessoa</span><strong>${totais.pessoas > 0 ? esc(formatarMoedaEvento(custoPessoa)) : '—'}</strong></td>
+              <td colspan="2"></td>
             </tr>
           </table>
           <p class="gerado">Gerado em ${esc(geradoEmLabel())}</p>
@@ -266,25 +271,57 @@ function blocoItens(board: EventoBoard): FolhaDraft[] {
   })
 }
 
+function gridFotosHtml(
+  urls: string[],
+  options?: { captionPrefix?: string; startIndex?: number },
+): string {
+  const prefix = options?.captionPrefix ?? 'Foto'
+  const start = options?.startIndex ?? 0
+  return `<div class="folha-fotos-grid">${urls
+    .map(
+      (url, i) => `
+      <figure class="folha-foto">
+        <img src="${esc(url)}" alt="" />
+        <figcaption>${esc(prefix)} ${start + i + 1}</figcaption>
+      </figure>`,
+    )
+    .join('')}</div>`
+}
+
+function fatiasUrls(urls: string[], porPagina: number): string[][] {
+  if (urls.length === 0) return []
+  const out: string[][] = []
+  for (let i = 0; i < urls.length; i += porPagina) {
+    out.push(urls.slice(i, i + porPagina))
+  }
+  return out
+}
+
 function blocoCaderno(board: EventoBoard): FolhaDraft[] {
   const secoes: EventoSecao[] = ['detalhes', 'discurso', 'palestra']
   const drafts: FolhaDraft[] = []
+  const FOTOS_POR_FOLHA = 4
+
   for (const secao of secoes) {
     const folhas = board.paginas.filter((p) => p.secao === secao).sort((a, b) => a.ordem - b.ordem)
     const dica = EVENTO_SECAO_DICAS[secao]
     if (folhas.length === 0) continue
+
     folhas.forEach((folha, i) => {
       const { texto, imageUrls } = parseEventoCadernoCorpo(folha.corpo)
       const partes = partirLinhas(texto, FOLHA.cadernoCols, FOLHA.cadernoLinhas)
+
       partes.forEach((parte, p) => {
         const corpo = parte.trim()
         const parteLabel = partes.length > 1 ? ` · parte ${p + 1} de ${partes.length}` : ''
-        const anexosHtml =
-          p === partes.length - 1 && imageUrls.length > 0
-            ? `<div class="folha-anexos">${imageUrls
-                .map((url) => `<img src="${esc(url)}" alt="" />`)
-                .join('')}</div>`
+        const temAnexos = imageUrls.length > 0
+        const notaAnexos =
+          p === partes.length - 1 && temAnexos
+            ? `<p class="folha-anexos-nota">${imageUrls.length} ${
+                imageUrls.length === 1 ? 'foto anexada nesta folha — vê a seguir' : 'fotos anexadas nesta folha — vê a seguir'
+              }</p>`
             : ''
+
         drafts.push({
           secao: `${dica.aba} · folha ${i + 1}${parteLabel}`,
           variant: 'papel',
@@ -297,8 +334,8 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
                   <p class="folha-dica">${esc(dica.dica)}</p>
                 </td></tr>
                 <tr class="papel-miolo"><td>
-                  <pre>${corpo ? esc(parte) : imageUrls.length && p === 0 ? '' : '<span class="vazio">— em branco —</span>'}</pre>
-                  ${anexosHtml}
+                  <pre>${corpo ? esc(parte) : temAnexos && p === 0 ? '' : '<span class="vazio">— em branco —</span>'}</pre>
+                  ${notaAnexos}
                 </td></tr>
                 <tr class="papel-base"><td>
                   Atualizada em ${esc(formatarQuandoIso(folha.atualizado_em))}
@@ -307,8 +344,36 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
             </div>`,
         })
       })
+
+      if (imageUrls.length > 0) {
+        const grupos = fatiasUrls(imageUrls, FOTOS_POR_FOLHA)
+        grupos.forEach((grupo, g) => {
+          const parteLabel = grupos.length > 1 ? ` · fotos ${g + 1} de ${grupos.length}` : ''
+          drafts.push({
+            secao: `${dica.aba} · folha ${i + 1} · anexos${parteLabel}`,
+            variant: 'papel',
+            inner: `
+              <div class="folha-caderno">
+                <table class="papel-grade">
+                  <tr class="papel-topo"><td>
+                    <p class="folha-kicker">${esc(dica.aba)} · Folha ${i + 1} · fotos anexadas</p>
+                    <h4>${esc(folha.titulo.trim() || 'Sem título')}</h4>
+                    <p class="folha-dica">${imageUrls.length} ${
+                      imageUrls.length === 1 ? 'imagem colada nesta folha' : 'imagens coladas nesta folha'
+                    }${grupos.length > 1 ? ` · parte ${g + 1} de ${grupos.length}` : ''}</p>
+                  </td></tr>
+                  <tr class="papel-miolo"><td>
+                    ${gridFotosHtml(grupo, { captionPrefix: 'Anexo', startIndex: g * FOTOS_POR_FOLHA })}
+                  </td></tr>
+                  <tr class="papel-base"><td>Caderno · anexos da folha</td></tr>
+                </table>
+              </div>`,
+          })
+        })
+      }
     })
   }
+
   if (drafts.length === 0) {
     drafts.push({
       secao: 'Caderno',
@@ -330,6 +395,60 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
     })
   }
   return drafts
+}
+
+function blocoAnexos(board: EventoBoard): FolhaDraft[] {
+  const galeria = Array.isArray(board.galeria) ? board.galeria : []
+  const FOTOS_POR_FOLHA = 4
+
+  if (galeria.length === 0) {
+    return [
+      {
+        secao: 'Anexos',
+        variant: 'papel',
+        inner: `
+          <div class="folha-caderno">
+            <table class="papel-grade">
+              <tr class="papel-topo"><td>
+                <p class="folha-kicker">Anexos</p>
+                <h4>Galeria da pasta</h4>
+                <p class="folha-dica">Nenhuma imagem ou PDF convertido nesta pasta ainda.</p>
+              </td></tr>
+              <tr class="papel-miolo"><td>
+                <pre><span class="vazio">— sem anexos —</span></pre>
+              </td></tr>
+              <tr class="papel-base"><td></td></tr>
+            </table>
+          </div>`,
+      },
+    ]
+  }
+
+  const urls = galeria.map((m) => m.file_url).filter(Boolean)
+  const grupos = fatiasUrls(urls, FOTOS_POR_FOLHA)
+  return grupos.map((grupo, g) => {
+    const parteLabel = grupos.length > 1 ? ` · parte ${g + 1} de ${grupos.length}` : ''
+    return {
+      secao: `Anexos${parteLabel}`,
+      variant: 'papel' as const,
+      inner: `
+        <div class="folha-caderno">
+          <table class="papel-grade">
+            <tr class="papel-topo"><td>
+              <p class="folha-kicker">Anexos da pasta</p>
+              <h4>Imagens e PDF convertidos</h4>
+              <p class="folha-dica">${galeria.length} ${
+                galeria.length === 1 ? 'arquivo na galeria' : 'arquivos na galeria'
+              }${grupos.length > 1 ? ` · folha ${g + 1} de ${grupos.length}` : ''}</p>
+            </td></tr>
+            <tr class="papel-miolo"><td>
+              ${gridFotosHtml(grupo, { captionPrefix: 'Anexo', startIndex: g * FOTOS_POR_FOLHA })}
+            </td></tr>
+            <tr class="papel-base"><td>Botão Anexar · pasta do evento</td></tr>
+          </table>
+        </div>`,
+    }
+  })
 }
 
 function blocoTotais(board: EventoBoard): FolhaDraft[] {
@@ -709,6 +828,37 @@ const CSS = `
     border: 0.4pt solid #c9a07b;
     border-radius: 1.5mm;
   }
+  .folha-anexos-nota {
+    margin-top: 4mm;
+    font-size: 9.5pt;
+    color: #8a6a3a;
+    font-style: italic;
+  }
+  .folha-fotos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm;
+  }
+  .folha-foto {
+    margin: 0;
+    page-break-inside: avoid;
+  }
+  .folha-foto img {
+    display: block;
+    width: 100%;
+    height: 78mm;
+    object-fit: contain;
+    background: #f7f1e8;
+    border: 0.5pt solid #c9a07b;
+    border-radius: 1.5mm;
+  }
+  .folha-foto figcaption {
+    margin-top: 1.5mm;
+    font-size: 8.5pt;
+    color: #5c4030;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
   .vazio { color: #9a8170; font-style: italic; }
   .tarefas { list-style: none; padding: 0; margin: 0; }
   .tarefas li {
@@ -746,6 +896,7 @@ export function buildEventoPdfHtml(
   if (colunas.includes('participantes')) drafts.push(...blocoParticipantes(board))
   if (colunas.includes('itens')) drafts.push(...blocoItens(board))
   if (colunas.includes('caderno')) drafts.push(...blocoCaderno(board))
+  if (colunas.includes('anexos')) drafts.push(...blocoAnexos(board))
   if (colunas.includes('totais')) drafts.push(...blocoTotais(board))
   if (colunas.includes('tarefas')) drafts.push(...blocoTarefas(board))
   const folhas = montarFolhas(drafts, branding, board.evento.titulo)
@@ -764,10 +915,28 @@ function printWindowWhenReady(win: Window): void {
     win.focus()
     win.print()
   }
+
+  const waitImages = () =>
+    Promise.all(
+      Array.from(win.document.images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) {
+              resolve()
+              return
+            }
+            img.addEventListener('load', () => resolve(), { once: true })
+            img.addEventListener('error', () => resolve(), { once: true })
+          }),
+      ),
+    )
+
   const afterLayout = () => {
     const kick = () => {
-      win.requestAnimationFrame(() => {
-        win.requestAnimationFrame(run)
+      void waitImages().finally(() => {
+        win.requestAnimationFrame(() => {
+          win.requestAnimationFrame(run)
+        })
       })
     }
     const fonts = win.document.fonts

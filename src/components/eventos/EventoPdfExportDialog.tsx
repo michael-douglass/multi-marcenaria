@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EventoPdfExportAura } from '@/components/eventos/EventoPdfExportAura'
 import { EVENTO_PDF_COLUNAS, openEventoPdfPrint, type EventoPdfBranding } from '@/lib/evento-pdf-export'
 import type { EventoBoard, EventoPdfColunaId } from '@/lib/evento-types'
@@ -24,14 +24,20 @@ export function EventoPdfExportDialog({ open, onOpenChange, board, branding }: E
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             Exportar PDF
             <EventoPdfExportAura fill={fill} className="h-14 w-14" />
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Escolha quais partes do evento entram no dossiê em PDF.
+          </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-cream-muted">Marque o que entra no dossiê. Cada bloco vira a própria folha A4 — a capa vai sempre.</p>
+        <p className="text-sm text-cream-muted">
+          Marque o que entra no dossiê. A capa vai sempre. Caderno inclui texto e fotos coladas na folha;
+          Anexos traz a galeria do botão Anexar (imagem e PDF convertido).
+        </p>
         <ul className="space-y-2">
           {EVENTO_PDF_COLUNAS.map((coluna) => {
             const on = marcadas.includes(coluna.id)

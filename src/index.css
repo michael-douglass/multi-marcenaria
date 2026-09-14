@@ -7539,6 +7539,12 @@ body {
   border-top: 1px dashed rgba(201, 160, 123, 0.55);
   padding-top: 0.65rem;
 }
+.evento-caderno-anexos__toggle {
+  font-weight: 600;
+}
+.evento-caderno-anexos__mini:hover {
+  border-color: #c9a07b;
+}
 .evento-caderno-rodape {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 12px;

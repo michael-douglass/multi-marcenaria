@@ -142,6 +142,7 @@ export function parseEventoTarefa(raw: unknown): EventoTarefa | null {
     ordem: asNumber(row.ordem),
     criado_em: asText(row.criado_em),
     atualizado_em: asText(row.atualizado_em),
+    agenda_tarefa_id: typeof row.agenda_tarefa_id === 'string' ? row.agenda_tarefa_id : null,
   }
 }
 

@@ -10,7 +10,8 @@ export type EventoUnidade = (typeof EVENTO_UNIDADES)[number]
 export const EVENTO_PDF_COLUNAS = [
   { id: 'participantes', label: 'Participantes' },
   { id: 'itens', label: 'Itens e preços' },
-  { id: 'caderno', label: 'Caderno' },
+  { id: 'caderno', label: 'Caderno (texto e fotos da folha)' },
+  { id: 'anexos', label: 'Anexos (imagens e PDF convertidos)' },
   { id: 'totais', label: 'Totais' },
   { id: 'tarefas', label: 'Tarefas' },
 ] as const
@@ -114,6 +115,8 @@ export interface EventoTarefa {
   ordem: number
   criado_em: string
   atualizado_em: string
+  /** Espelho na agenda pessoal (crm_multiempresas_agenda_pessoal_tarefas). */
+  agenda_tarefa_id: string | null
 }
 
 export interface EventoBoard {

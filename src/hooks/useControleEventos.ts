@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { supabase } from '@/integrations/supabase/client'
+import { garantirTarefaEventoNaAgenda } from '@/lib/evento-agenda-sync'
 import { EVENTO_STORAGE_BUCKET, getEventosDb, resolveEventosTables } from '@/lib/evento-db'
 import {
   ordenarPastasEvento,
@@ -29,6 +31,7 @@ export function useControleEventos() {
   const tables = resolveEventosTables(schema)
   const db = getEventosDb(schema)
   const queryKey = ['controle-eventos', schema] as const
+  const backfillKeyRef = useRef<string | null>(null)
 
   const query = useQuery({
     queryKey,
@@ -44,7 +47,10 @@ export function useControleEventos() {
       const [{ data: participantes }, { data: itensRaw }, { data: tarefasRaw }] = await Promise.all([
         db.from(tables.participantes).select('id, evento_id').in('evento_id', ids),
         db.from(tables.itens).select('id, evento_id, quantidade, preco_unitario').in('evento_id', ids),
-        db.from(tables.tarefas).select('id, evento_id, concluida').in('evento_id', ids),
+        db
+          .from(tables.tarefas)
+          .select('id, evento_id, titulo, concluida, agenda_tarefa_id')
+          .in('evento_id', ids),
       ])
 
       const pessoasBy = new Map<string, number>()
@@ -83,10 +89,57 @@ export function useControleEventos() {
     },
   })
 
+  // Tarefas antigas sem espelho: ao abrir a lista, entram na Agenda.
+  useEffect(() => {
+    if (!user?.id || !schema || !query.isSuccess || !query.data?.length) return
+    const pastas = query.data
+    const key = `${schema}:${pastas.map((p) => `${p.id}:${p.tarefas_pendentes}`).join('|')}:${query.dataUpdatedAt}`
+    if (backfillKeyRef.current === key) return
+    backfillKeyRef.current = key
+
+    void (async () => {
+      try {
+        const ids = pastas.map((p) => p.id)
+        const { data: tarefasRaw, error } = await db
+          .from(tables.tarefas)
+          .select('id, evento_id, titulo, concluida, agenda_tarefa_id')
+          .in('evento_id', ids)
+          .is('agenda_tarefa_id', null)
+        if (error) throw error
+        const orphans = (tarefasRaw ?? [])
+          .map(parseEventoTarefa)
+          .filter((t): t is NonNullable<typeof t> => t != null && !t.agenda_tarefa_id)
+        if (orphans.length === 0) return
+
+        const pastaById = new Map(pastas.map((p) => [p.id, p]))
+        for (const tarefa of orphans) {
+          const pasta = pastaById.get(tarefa.evento_id)
+          if (!pasta?.data_evento) continue
+          await garantirTarefaEventoNaAgenda(db, tables, {
+            eventoId: pasta.id,
+            eventoTarefaId: tarefa.id,
+            titulo: tarefa.titulo,
+            concluida: tarefa.concluida,
+            dataEvento: pasta.data_evento,
+            tituloEvento: pasta.titulo,
+            userId: user.id,
+            agendaTarefaIdAtual: tarefa.agenda_tarefa_id,
+          })
+        }
+        void qc.invalidateQueries({ queryKey: ['agenda-pessoal'] })
+        void qc.invalidateQueries({ queryKey: ['evento-tarefas'] })
+      } catch (error) {
+        backfillKeyRef.current = null
+        console.warn('Não deu para espelhar tarefas de eventos na Agenda:', error)
+      }
+    })()
+  }, [user?.id, schema, query.isSuccess, query.data, query.dataUpdatedAt, db, tables, qc])
+
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey })
     void qc.invalidateQueries({ queryKey: ['evento-board'] })
     void qc.invalidateQueries({ queryKey: ['evento-tarefas'] })
+    void qc.invalidateQueries({ queryKey: ['agenda-pessoal'] })
   }
 
   const criar = useMutation({

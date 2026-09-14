@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { canAssignTitularToOthers, canViewAllTitularRecords } from '@/lib/titular-access';
+import { getEventosDb, resolveEventosTables } from '@/lib/evento-db';
 import { toast } from 'sonner';
 import {
   deleteAgendaItemAnexosFromStorage,
@@ -31,6 +33,10 @@ export interface TarefaPessoal {
   ocultar_de_outros_admins: boolean;
   /** Cor hex (#rrggbb) no calendário; null = cor padrão do tipo pessoal. */
   cor: string | null;
+  /** Pasta de Controle de Eventos (se a tarefa veio de lá). */
+  evento_id: string | null;
+  /** Checklist do evento espelhado nesta tarefa. */
+  evento_tarefa_id: string | null;
   criado_em: string;
   atualizado_em: string;
   anexos: AgendaItemAnexo[];
@@ -47,9 +53,32 @@ export interface AgendaPessoalAdminTitularFilter {
 
 export function useAgendaPessoal() {
   const { user, userRole, userRoles, isSuperAdmin } = useAuth();
+  const { empresa } = useEmpresa();
   const queryClient = useQueryClient();
   const isAdmin = canViewAllTitularRecords(userRole, isSuperAdmin);
   const canAssignToOthers = canAssignTitularToOthers(userRole, isSuperAdmin, userRoles);
+  const eventoSchema = empresa?.schema_nome ?? null;
+  const eventoTables = resolveEventosTables(eventoSchema);
+  const eventoDb = getEventosDb(eventoSchema);
+
+  const syncEventoTarefaConcluida = async (eventoTarefaId: string | null | undefined, concluida: boolean) => {
+    if (!eventoTarefaId) return;
+    const { error } = await eventoDb
+      .from(eventoTables.tarefas)
+      .update({ concluida, atualizado_em: new Date().toISOString() })
+      .eq('id', eventoTarefaId);
+    if (error) {
+      console.warn('Não deu para espelhar conclusão no Controle de Eventos:', error.message);
+    }
+  };
+
+  const syncEventoTarefaExcluir = async (eventoTarefaId: string | null | undefined) => {
+    if (!eventoTarefaId) return;
+    const { error } = await eventoDb.from(eventoTables.tarefas).delete().eq('id', eventoTarefaId);
+    if (error) {
+      console.warn('Não deu para remover a tarefa no Controle de Eventos:', error.message);
+    }
+  };
 
   const {
     data: adminTitularPref,
@@ -123,6 +152,8 @@ export function useAgendaPessoal() {
       return ((data || []) as unknown as TarefaPessoal[]).map((tarefa) => ({
         ...tarefa,
         cor: tarefa.cor ?? null,
+        evento_id: tarefa.evento_id ?? null,
+        evento_tarefa_id: tarefa.evento_tarefa_id ?? null,
         anexos: parseAgendaItemAnexos((tarefa as { anexos?: unknown }).anexos),
       }));
     },
@@ -177,6 +208,9 @@ export function useAgendaPessoal() {
       ocultar_de_outros_admins?: boolean;
       cor?: string | null;
       anexos?: AgendaItemAnexo[];
+      evento_id?: string | null;
+      evento_tarefa_id?: string | null;
+      concluida?: boolean;
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       // Admin e vendedor podem atribuir a outro titular (espelha a política RLS).
@@ -202,6 +236,9 @@ export function useAgendaPessoal() {
             ocultar_de_outros_admins: tarefa.ocultar_de_outros_admins ?? false,
             cor: tarefa.cor ?? null,
             anexos: tarefa.anexos ?? [],
+            evento_id: tarefa.evento_id ?? null,
+            evento_tarefa_id: tarefa.evento_tarefa_id ?? null,
+            concluida: tarefa.concluida ?? false,
           },
         ])
         .select()
@@ -235,10 +272,26 @@ export function useAgendaPessoal() {
         .single();
 
       if (error) throw error;
+      const row = data as TarefaPessoal;
+      if (typeof updates.concluida === 'boolean') {
+        await syncEventoTarefaConcluida(row.evento_tarefa_id, updates.concluida);
+      }
+      if (typeof updates.titulo === 'string' && row.evento_tarefa_id) {
+        const { error: eventoTituloError } = await eventoDb
+          .from(eventoTables.tarefas)
+          .update({ titulo: updates.titulo, atualizado_em: new Date().toISOString() })
+          .eq('id', row.evento_tarefa_id);
+        if (eventoTituloError) {
+          console.warn('Não deu para espelhar o título no Controle de Eventos:', eventoTituloError.message);
+        }
+      }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agenda-pessoal'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-tarefas'] });
+      queryClient.invalidateQueries({ queryKey: ['controle-eventos'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-board'] });
     },
     onError: (error) => {
       console.error('Erro ao atualizar tarefa:', error);
@@ -250,16 +303,22 @@ export function useAgendaPessoal() {
     mutationFn: async (id: string) => {
       const { data: row } = await supabase
         .from('crm_multiempresas_agenda_pessoal_tarefas')
-        .select('anexos')
+        .select('anexos, evento_tarefa_id')
         .eq('id', id)
         .maybeSingle();
       await deleteAgendaItemAnexosFromStorage(parseAgendaItemAnexos(row?.anexos));
       const { error } = await supabase.from('crm_multiempresas_agenda_pessoal_tarefas').delete().eq('id', id);
 
       if (error) throw error;
+      await syncEventoTarefaExcluir(
+        typeof row?.evento_tarefa_id === 'string' ? row.evento_tarefa_id : null,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agenda-pessoal'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-tarefas'] });
+      queryClient.invalidateQueries({ queryKey: ['controle-eventos'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-board'] });
       toast.success('Tarefa removida!');
     },
     onError: (error) => {
@@ -285,6 +344,7 @@ export function useAgendaPessoal() {
           .update({ concluida, atualizado_em: new Date().toISOString() })
           .eq('id', tarefa.id);
         if (error) throw error;
+        await syncEventoTarefaConcluida(tarefa.evento_tarefa_id, concluida);
       } else {
         const conclusoes = [...((tarefa.conclusoes_ocorrencias as string[]) || [])];
         if (concluida && !conclusoes.includes(dataOcorrencia)) {
@@ -305,6 +365,9 @@ export function useAgendaPessoal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agenda-pessoal'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-tarefas'] });
+      queryClient.invalidateQueries({ queryKey: ['controle-eventos'] });
+      queryClient.invalidateQueries({ queryKey: ['evento-board'] });
     },
     onError: (error) => {
       console.error('Erro ao concluir ocorrência:', error);

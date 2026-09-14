@@ -140,6 +140,7 @@ export function EventoDocumentoPanel({
   const [titulo, setTitulo] = useState('')
   const [corpo, setCorpo] = useState('')
   const [anexos, setAnexos] = useState<string[]>([])
+  const [anexosAbertos, setAnexosAbertos] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [saveHint, setSaveHint] = useState<SaveHint>('Salva sozinho')
   const [busca, setBusca] = useState('')
@@ -225,6 +226,7 @@ export function EventoDocumentoPanel({
     if (!url || anexos.includes(url)) return
     const next = [...anexos, url]
     setAnexos(next)
+    setAnexosAbertos(true)
     schedule(titulo, corpo, next)
   }, [anexos, titulo, corpo, schedule])
 
@@ -574,9 +576,31 @@ export function EventoDocumentoPanel({
 
           <div className="evento-caderno-anexos mt-3 shrink-0">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-[#5c4030]">
+              <button
+                type="button"
+                className="evento-caderno-anexos__toggle inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-[#5c4030] hover:text-[#2a1812]"
+                aria-expanded={anexosAbertos}
+                onClick={() => setAnexosAbertos((v) => !v)}
+              >
+                {anexosAbertos ? (
+                  <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                )}
                 Fotos nesta folha
-              </p>
+                {anexos.length > 0 ? (
+                  <span className="rounded-full bg-[#c9a07b]/25 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-[#5c4030]">
+                    {anexos.length}
+                  </span>
+                ) : null}
+                <span className="normal-case tracking-normal text-[#8a6a4a]">
+                  {anexos.length === 0
+                    ? ''
+                    : anexosAbertos
+                      ? '· minimizar'
+                      : '· expandir'}
+                </span>
+              </button>
               <button
                 type="button"
                 className="inline-flex items-center gap-1 rounded-full border border-[rgba(201,160,123,0.6)] bg-white/50 px-2.5 py-1 text-[11px] text-[#5c4030] hover:border-[#c9a07b] hover:text-[#2a1812]"
@@ -586,30 +610,56 @@ export function EventoDocumentoPanel({
                 Anexar imagem
               </button>
             </div>
-            {anexos.length === 0 ? (
-              <p className="text-[12px] leading-snug text-[#8a6a4a]">
-                Nenhuma foto ainda. Use o botão Anexar no topo (imagem ou PDF) e depois cole aqui.
-              </p>
-            ) : (
-              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {anexos.map((url) => (
-                  <li
-                    key={url}
-                    className="group relative overflow-hidden rounded-md border border-[rgba(201,160,123,0.5)] bg-white/70"
-                  >
-                    <img src={url} alt="" className="aspect-square w-full object-cover" />
-                    <button
-                      type="button"
-                      aria-label="Tirar imagem desta folha"
-                      className="absolute right-1 top-1 rounded-full bg-[rgba(42,24,18,0.8)] p-1 text-white opacity-90 hover:bg-red-700"
-                      onClick={() => removerAnexo(url)}
+
+            {!anexosAbertos && anexos.length > 0 ? (
+              <button
+                type="button"
+                className="evento-caderno-anexos__mini flex w-full items-center gap-2 rounded-md border border-[rgba(201,160,123,0.45)] bg-white/55 px-2 py-1.5 text-left"
+                onClick={() => setAnexosAbertos(true)}
+                aria-label={`Expandir ${anexos.length} fotos desta folha`}
+              >
+                <span className="flex -space-x-2">
+                  {anexos.slice(0, 4).map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt=""
+                      className="h-8 w-8 rounded border border-white object-cover shadow-sm"
+                    />
+                  ))}
+                </span>
+                <span className="text-[12px] text-[#5c4030]">
+                  {anexos.length} {anexos.length === 1 ? 'foto minimizada' : 'fotos minimizadas'} — toque para ver
+                </span>
+              </button>
+            ) : null}
+
+            {anexosAbertos ? (
+              anexos.length === 0 ? (
+                <p className="text-[12px] leading-snug text-[#8a6a4a]">
+                  Nenhuma foto ainda. Use o botão Anexar no topo (imagem ou PDF) e depois cole aqui.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {anexos.map((url) => (
+                    <li
+                      key={url}
+                      className="group relative overflow-hidden rounded-md border border-[rgba(201,160,123,0.5)] bg-white/70"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <img src={url} alt="" className="aspect-square w-full object-cover" />
+                      <button
+                        type="button"
+                        aria-label="Tirar imagem desta folha"
+                        className="absolute right-1 top-1 rounded-full bg-[rgba(42,24,18,0.8)] p-1 text-white opacity-90 hover:bg-red-700"
+                        onClick={() => removerAnexo(url)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : null}
           </div>
 
           <p className="evento-caderno-rodape mt-3">
