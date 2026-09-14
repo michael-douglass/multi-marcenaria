@@ -1,12 +1,17 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, CalendarDays, Maximize2, Minimize2, GripHorizontal, LayoutGrid, Calendar } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { X, CalendarDays, Maximize2, Minimize2, GripHorizontal, LayoutGrid, Calendar, ListOrdered } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgendaObras } from '@/pages/AgendaObras'
-import { CalendarioObras } from '@/pages/CalendarioObras'
 import { supabase } from '@/lib/supabase'
 import { useApp } from '@/context/AppContext'
 import { agendaObrasPopupClass } from '@/lib/overlay-z-index'
+import {
+  parseAgendaObraView,
+  setAgendaObraViewParam,
+  type AgendaObraView,
+} from '@/lib/obra-views'
 
 interface Position {
   x: number
@@ -22,7 +27,11 @@ const STORAGE_KEY = 'agenda-popup-position'
 
 export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
   const { userProfile } = useApp()
-  const [tab, setTab] = useState<'agenda' | 'calendario'>('agenda')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = parseAgendaObraView(searchParams.get('view'))
+  const setTab = (next: AgendaObraView) => {
+    setSearchParams(setAgendaObraViewParam(searchParams, next), { replace: true })
+  }
   const [position, setPosition] = useState<Position>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -196,22 +205,35 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
             <div>
               <h3 className="font-display text-sm tracking-widest text-[#f2d892] sm:text-base">AGENDA E CALENDÁRIO</h3>
               {!isMinimized && (
-                <div className="mt-1 flex gap-4">
-                  <button 
-                    onClick={() => setTab('agenda')}
+                <div className="mt-1 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTab('filas')}
                     className={cn(
-                      "flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors",
-                      tab === 'agenda' ? "text-[#f5e0a8]" : "text-[#edd9c4] hover:text-[#f5e0a8]"
+                      'flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors',
+                      tab === 'filas' ? 'text-[#f5e0a8]' : 'text-[#edd9c4] hover:text-[#f5e0a8]',
+                    )}
+                  >
+                    <ListOrdered size={12} />
+                    Filas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('kanban')}
+                    className={cn(
+                      'flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors',
+                      tab === 'kanban' ? 'text-[#f5e0a8]' : 'text-[#edd9c4] hover:text-[#f5e0a8]',
                     )}
                   >
                     <LayoutGrid size={12} />
                     Kanban
                   </button>
-                  <button 
+                  <button
+                    type="button"
                     onClick={() => setTab('calendario')}
                     className={cn(
-                      "flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors",
-                      tab === 'calendario' ? "text-[#f5e0a8]" : "text-[#edd9c4] hover:text-[#f5e0a8]"
+                      'flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-colors',
+                      tab === 'calendario' ? 'text-[#f5e0a8]' : 'text-[#edd9c4] hover:text-[#f5e0a8]',
                     )}
                   >
                     <Calendar size={12} />
@@ -247,7 +269,7 @@ export function AgendaPopup({ open, onClose }: AgendaPopupProps) {
         {!isMinimized && (
           <div className="relative flex-1 overflow-hidden bg-[rgba(52,34,26,0.4)]">
              <div className="absolute inset-0 overflow-auto p-2 sm:p-4">
-               {tab === 'agenda' ? <AgendaObras /> : <CalendarioObras />}
+               <AgendaObras />
              </div>
           </div>
         )}

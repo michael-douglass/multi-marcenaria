@@ -91,7 +91,7 @@ export function isFuncionarioCampo(roles: UserRole[]): boolean {
 
 export function defaultPathForRoles(roles: UserRole[]): string {
   if (isVisualizadorOnly(roles)) return '/visualizacao'
-  if (roles.includes('Montador') && roles.length === 1) return '/calendario-obras'
+  if (roles.includes('Montador') && roles.length === 1) return '/agenda-obras?view=calendario'
   if (
     (roles.includes('MontadorAdmin') || roles.includes('AdministradorObras'))
     && !roles.includes('Administrador')

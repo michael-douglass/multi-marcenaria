@@ -28,6 +28,7 @@ import {
   isFuncionariosSection,
   isLeafPathActive,
   isMarketingCrmSection,
+  isObrasNavItemActive,
   isObrasSection,
   navVisibilityFromProfiles,
   sectionFromPath,
@@ -50,6 +51,7 @@ interface NavChildTreeProps {
   child: NavChildItem
   activeSection: ActiveSection
   pathname: string
+  search: string
   depth: number
   sidebarOpen: boolean
   renderLeaf: (
@@ -63,9 +65,17 @@ interface NavChildTreeProps {
   ) => React.ReactNode
 }
 
-function isNavChildActive(item: NavChildItem, pathname: string, section: ActiveSection): boolean {
+function isNavChildActive(
+  item: NavChildItem,
+  pathname: string,
+  search: string,
+  section: ActiveSection,
+): boolean {
   if (item.children?.length) {
-    return item.children.some(child => isNavChildActive(child, pathname, section))
+    return item.children.some(child => isNavChildActive(child, pathname, search, section))
+  }
+  if (item.id === 'agendaObras' || item.id === 'calendarioObras') {
+    return isObrasNavItemActive(pathname, search, item.id, item.url)
   }
   if (item.url && isLeafPathActive(pathname, item.url)) return true
   return item.id === section
@@ -75,6 +85,7 @@ function NavChildTree({
   child,
   activeSection,
   pathname,
+  search,
   depth,
   sidebarOpen,
   renderLeaf,
@@ -82,8 +93,8 @@ function NavChildTree({
   const ChildIcon = child.icon
   const hasNested = Boolean(child.children?.length)
   const isActive = hasNested
-    ? child.children!.some(c => isNavChildActive(c, pathname, activeSection))
-    : isNavChildActive(child, pathname, activeSection)
+    ? child.children!.some(c => isNavChildActive(c, pathname, search, activeSection))
+    : isNavChildActive(child, pathname, search, activeSection)
   const [open, setOpen] = useState(isActive)
 
   useEffect(() => {
@@ -142,6 +153,7 @@ function NavChildTree({
                 child={sub}
                 activeSection={activeSection}
                 pathname={pathname}
+                search={search}
                 depth={depth + 1}
                 sidebarOpen={sidebarOpen}
                 renderLeaf={renderLeaf}
@@ -195,7 +207,7 @@ export function AppSidebar() {
   const location = useLocation()
   const { roles, userProfile, crmProfile } = useApp()
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
-  const activeSection = sectionFromPath(location.pathname)
+  const activeSection = sectionFromPath(location.pathname, location.search)
   const skipWebGL = isPontoLightPath(location.pathname)
   const { pages } = useKanbanConfig()
   const { count: manutencaoCount } = useManutencaoAttentionCount()
@@ -417,7 +429,9 @@ export function AppSidebar() {
       }
 
       if (item.children?.length) {
-        const childActive = item.children.some(c => isNavChildActive(c, location.pathname, activeSection))
+        const childActive = item.children.some(c =>
+          isNavChildActive(c, location.pathname, location.search, activeSection),
+        )
         const grupoAtivo = childActive || Boolean(grupoOpenState[item.id])
         const setGrupoOpen = (next: boolean) => setGrupoOpenById(item.id, next)
 
@@ -468,6 +482,7 @@ export function AppSidebar() {
                       child={child}
                       activeSection={activeSection}
                       pathname={location.pathname}
+                      search={location.search}
                       depth={0}
                       sidebarOpen={open}
                       renderLeaf={renderLeaf}

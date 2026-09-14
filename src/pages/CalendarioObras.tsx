@@ -1,6 +1,7 @@
 ﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, X, Search, Filter, CalendarDays, Settings, Monitor, Sun } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { Navigate } from 'react-router-dom'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
@@ -46,11 +47,12 @@ import {
   KanbanPageZoomControls,
   KanbanPageZoomShell,
   KanbanPageToolbar,
-  PageZoomProvider,
 } from '../components/page-zoom'
 import { VisualizacaoCalendarioSemanaContent } from '../components/visualizacao/VisualizacaoCalendarioSemanaContent'
 import { VisualizacaoFullscreenOverlay } from '../components/visualizacao/VisualizacaoFullscreenOverlay'
 import { VisualizacaoObrasDoDiaContent } from '../components/visualizacao/VisualizacaoObrasDoDiaContent'
+import { ObrasViewTabs } from '../components/obras/ObrasViewTabs'
+import type { AgendaObraView } from '@/lib/obra-views'
 
 type CalView = 'day' | 'week' | 'month'
 type CalVizOverlay = 'calendario' | 'obras_do_dia' | null
@@ -397,15 +399,20 @@ function DayPopup({
 }
 
 // ── Página ───────────────────────────────────────────────────
+/** Rota antiga: redireciona para a agenda unificada na aba Calendário. */
 export function CalendarioObras() {
-  return (
-    <PageZoomProvider pageKey="calendario_obras">
-      <CalendarioObrasContent />
-    </PageZoomProvider>
-  )
+  return <Navigate to="/agenda-obras?view=calendario" replace />
 }
 
-function CalendarioObrasContent() {
+export interface CalendarioObrasContentProps {
+  pageView?: AgendaObraView
+  onPageViewChange?: (view: AgendaObraView) => void
+}
+
+export function CalendarioObrasContent({
+  pageView = 'calendario',
+  onPageViewChange,
+}: CalendarioObrasContentProps = {}) {
   const { roles, userProfile } = useApp()
   const obrasHook  = useObras()
   const tiposHook  = useTiposObra()
@@ -780,6 +787,9 @@ function CalendarioObrasContent() {
           }
           actions={
             <div className="obra-page-header__actions-inner">
+              {onPageViewChange && (
+                <ObrasViewTabs value={pageView} onChange={onPageViewChange} />
+              )}
               <KanbanPageZoomControls className="obra-toolbar-zoom shrink-0" />
               <button
                 type="button"

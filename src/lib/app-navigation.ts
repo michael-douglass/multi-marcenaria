@@ -345,7 +345,7 @@ const OBRAS_CHILDREN: NavChildItem[] = [
   {
     id: 'calendarioObras',
     title: 'Calendário de Obras',
-    url: '/calendario-obras',
+    url: '/agenda-obras?view=calendario',
     icon: CalendarDays,
     radialColor: 'rgba(96,165,250,0.92)',
     roles: ['Administrador', 'AdministradorObras', 'Montador', 'MontadorAdmin'],
@@ -827,14 +827,33 @@ export function isChegadaMateriaisSection(section: ActiveSection): boolean {
 
 export function isLeafPathActive(pathname: string, url: string | undefined): boolean {
   if (!url) return false
-  if (url === '/pipeline') return pathname === '/pipeline'
-  if (url === '/admin') return pathname === '/admin'
-  if (pathname === url) return true
-  if (url !== '/' && pathname.startsWith(`${url}/`)) return true
+  const pathOnly = url.split('?')[0]
+  if (pathOnly === '/pipeline') return pathname === '/pipeline'
+  if (pathOnly === '/admin') return pathname === '/admin'
+  if (pathname === pathOnly) return true
+  if (pathOnly !== '/' && pathname.startsWith(`${pathOnly}/`)) return true
   return false
 }
 
-export function sectionFromPath(pathname: string): ActiveSection {
+/** Destaca item do menu de obras conforme `?view=` (Filas/Kanban vs Calendário). */
+export function isObrasNavItemActive(
+  pathname: string,
+  search: string,
+  itemId: string,
+  itemUrl: string | undefined,
+): boolean {
+  if (pathname !== '/agenda-obras' && pathname !== '/calendario-obras') {
+    return isLeafPathActive(pathname, itemUrl)
+  }
+  const view = new URLSearchParams(search).get('view')
+  const onCalendario =
+    pathname === '/calendario-obras' || view === 'calendario'
+  if (itemId === 'calendarioObras') return onCalendario
+  if (itemId === 'agendaObras') return !onCalendario
+  return isLeafPathActive(pathname, itemUrl)
+}
+
+export function sectionFromPath(pathname: string, search = ''): ActiveSection {
   if (pathname.startsWith('/funcionarios')) return 'funcionarios'
   if (pathname.startsWith('/pipeline/configuracoes')) return 'pipelineConfig'
   if (pathname.startsWith('/pipeline')) return 'pipeline'
@@ -855,6 +874,13 @@ export function sectionFromPath(pathname: string): ActiveSection {
   if (pathname.startsWith('/controle-eventos') || pathname.startsWith('/eventos-crm')) return 'controleEventos'
   if (pathname.startsWith('/portal-parceiro')) return 'portalParceiro'
 
+  if (pathname === '/agenda-obras' || pathname === '/calendario-obras') {
+    const raw = search.startsWith('?') ? search.slice(1) : search
+    const view = new URLSearchParams(raw).get('view')
+    if (pathname === '/calendario-obras' || view === 'calendario') return 'calendarioObras'
+    return 'agendaObras'
+  }
+
   const map: Record<string, ActiveSection> = {
     '/': 'dashboard',
     '/dashboard': 'dashboard',
@@ -866,11 +892,9 @@ export function sectionFromPath(pathname: string): ActiveSection {
     '/caixa-fornecedor': 'caixaFornecedor',
     '/biblioteca': 'biblioteca',
     '/caixa': 'caixa',
-    '/agenda-obras': 'agendaObras',
     '/projetos-producao': 'projetosProducao',
     '/pedidos-obras': 'pedidosObras',
     '/acompanhamento-obras': 'acompanhamentoObras',
-    '/calendario-obras': 'calendarioObras',
     '/chegada-materiais': 'calendarioChegadaMateriais',
     '/chegada-materiais/calendario': 'calendarioChegadaMateriais',
     '/calendario-chegada-materiais': 'calendarioChegadaMateriais',
@@ -906,7 +930,7 @@ export function sectionFromPath(pathname: string): ActiveSection {
 /** Rota inicial após login conforme o perfil do usuário. */
 export function defaultPathForRole(role: UserRole | null): string {
   if (role === 'Visualizador') return '/visualizacao'
-  if (role === 'Montador') return '/calendario-obras'
+  if (role === 'Montador') return '/agenda-obras?view=calendario'
   if (role === 'MontadorAdmin' || role === 'AdministradorObras') return '/agenda-obras'
   return '/dashboard'
 }

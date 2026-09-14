@@ -1,12 +1,11 @@
 ﻿import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Settings, Plus, X, Pencil, Loader2, Search, Camera, Trash2 } from 'lucide-react'
+import { Settings, Plus, X, Pencil, Search, CalendarDays } from 'lucide-react'
 import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
 import { useApp } from '../context/AppContext'
 import { Modal } from '../components/ui/Modal'
-import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
@@ -23,17 +22,11 @@ import {
 import { applyMontadorAdminObraDefaults, getObraMontadorIds } from '../lib/obra-montadores'
 import { parseObraComissaoItens } from '../lib/obra-comissao'
 import { ObraComissaoStrip } from '../components/obras/ObraComissaoStrip'
-import { ObraMontadorBadge } from '../components/obras/ObraMontadorBadge'
-import { ObraMontadoresAjudantesField } from '../components/obras/ObraMontadoresAjudantesField'
-import { ObraMontadoresConclusao } from '../components/obras/ObraMontadoresConclusao'
-import { ObraEquipeActionBar } from '../components/obras/ObraEquipeActionBar'
+import { ObraCard } from '../components/obras/ObraCard'
 import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
-import { ObraPedidoMaterialBadge } from '../components/obras/ObraPedidoMaterialBadge'
-import { ObraPedidoMaterialToggle } from '../components/obras/ObraPedidoMaterialToggle'
-import { ObraMarkupCustosBlock } from '../components/obras/ObraMarkupCustosBlock'
 import { ObraMarkupCustosToolbar } from '../components/obras/ObraMarkupCustosToolbar'
-import { ObraDataEntregaInput } from '../components/obras/ObraDataEntregaInput'
+import { ObrasViewTabs } from '../components/obras/ObrasViewTabs'
 import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import {
   getObraMarkupCustos,
@@ -44,7 +37,6 @@ import { useMarkupCustosPorLeads } from '../hooks/useMarkupCustosPorLeads'
 import { useMarkupCustosFiltrosPorObra } from '../hooks/useMarkupCustosFiltrosPorObra'
 import { useLeadMidiasPorObras } from '../hooks/useLeadMidiasPorObras'
 import { getObraLeadMidias } from '../lib/obra-lead-midias'
-import { ObraLeadMidiasStrip } from '../components/obras/ObraLeadMidiasStrip'
 import { canViewMarkupCustos as roleCanViewMarkupCustos } from '../lib/role-access'
 import { applyAgendaMesFiltro, describeAgendaMesFiltro } from '../lib/obra-mes-filtro'
 import {
@@ -52,7 +44,13 @@ import {
   writeAgendaMesFiltroPrefs,
   type AgendaMesFiltro,
 } from '../lib/agenda-mes-filtro-storage'
+import { filtrarObrasFila, groupObrasFilaPorData } from '../lib/obra-fila'
 import { groupObrasAgendaKanban } from '../lib/obra-progresso'
+import {
+  parseAgendaObraView,
+  setAgendaObraViewParam,
+  type AgendaObraView,
+} from '../lib/obra-views'
 import { ObraPageHeader } from '../components/obras/ObraPageHeader'
 import {
   KANBAN_COL_CLASS,
@@ -61,11 +59,10 @@ import {
   kanbanColHeaderStyle,
 } from '../components/obras/obra-kanban-layout'
 import type {
-  ObraFull, ObraInput, StatusKanbanObra, UserRole,
+  ObraFull, ObraInput, StatusKanbanObra,
   TipoObraInput, GrupoObraInput, TipoObra, GrupoObra,
-  MarkupCustosFiltro, MarkupOrcamentoCustos, LeadMidia,
+  MarkupCustosFiltro,
 } from '../types'
-import { fmtDate } from '../lib/utils'
 import {
   canConfigObrasTiposGrupos,
   canConfigBriefingTemplates,
@@ -94,6 +91,7 @@ import {
   summarizeAgendaEntrega,
   type AgendaEntregaDestaque,
 } from '../lib/agenda-entrega-resumo'
+import { CalendarioObrasContent } from '@/pages/CalendarioObras'
 
 // ── Colunas do Kanban ────────────────────────────────────────
 const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
@@ -104,25 +102,6 @@ const COLUNAS: { key: StatusKanbanObra; label: string; cor: string }[] = [
   { key: 'concluida',       label: 'Concluída',       cor: '#10b981' },
   { key: 'cancelada',       label: 'Cancelada',       cor: '#9ca3af' },
 ]
-
-const STATUS_LABELS: Record<StatusKanbanObra, string> = {
-  datas_em_aberto: 'Datas em Aberto',
-  datas_em_atraso: 'Datas em Atraso',
-  datas_definidas: 'Datas Definidas',
-  em_andamento:    'Em Andamento',
-  concluida:       'Concluída',
-  cancelada:       'Cancelada',
-}
-
-/** Rótulos curtos para caber no card do Kanban sem cortar. */
-const STATUS_SHORT: Record<StatusKanbanObra, string> = {
-  datas_em_aberto: 'Em aberto',
-  datas_em_atraso: 'Atraso',
-  datas_definidas: 'Definidas',
-  em_andamento:    'Andamento',
-  concluida:       'Concluída',
-  cancelada:       'Cancelada',
-}
 
 // ── Blank forms ──────────────────────────────────────────────
 const BLANK_OBRA: ObraInput = {
@@ -151,230 +130,6 @@ function computeKanbanKey(obra: ObraFull): StatusKanbanObra {
     obra.data_prevista_fim < today()
   ) return 'datas_em_atraso'
   return obra.status_kanban
-}
-
-function duracao(obra: ObraFull): string | null {
-  if (!obra.iniciado_em || !obra.finalizado_em) return null
-  const diff = new Date(obra.finalizado_em).getTime() - new Date(obra.iniciado_em).getTime()
-  const h = Math.round(diff / 3_600_000)
-  return `${h}h`
-}
-
-function CardInfoRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) return null
-  return (
-    <div className="obra-card-meta-row">
-      <span className="obra-card-meta-label">{label}</span>
-      <span className="obra-card-meta-value" title={value}>{value}</span>
-    </div>
-  )
-}
-
-// ── ObraCard ─────────────────────────────────────────────────
-interface ObraCardProps {
-  obra: ObraFull
-  canEdit: boolean
-  canDelete: boolean
-  isMontador: boolean
-  montadorUserId?: string | null
-  roles: UserRole[]
-  actioning: string | null
-  isDragging: boolean
-  onEdit: (obra: ObraFull) => void
-  onDetalhe: (obra: ObraFull) => void
-  onIniciar: (id: string) => void
-  onConcluir: (id: string) => void
-  onReabrir: (id: string) => void
-  onExcluir: (obra: ObraFull) => void
-  onDragStart: (e: React.DragEvent, id: string) => void
-  onDragEnd: () => void
-  onTogglePedidoMaterial: (obra: ObraFull, feito: boolean) => void
-  togglingPedidoMaterial: string | null
-  onUpdateDataEntrega: (obra: ObraFull, data: string | null) => void
-  updatingDataEntrega: string | null
-  canViewMontadoresConclusao: boolean
-  montadores: { id: string; nome?: string | null; email: string; perfil: string }[]
-  canEditMontador: boolean
-  onUpdateMontadores: (obra: ObraFull, montadorIds: string[]) => void
-  onUpdateMontadorAdmin: (obra: ObraFull, montadorAdminId: string | null) => void
-  updatingMontadores: string | null
-  showMarkupCustos?: boolean
-  markupCustos?: MarkupOrcamentoCustos | null
-  markupCustosFiltro?: MarkupCustosFiltro
-  onMarkupCustosFiltroChange?: (filtro: MarkupCustosFiltro) => void
-  leadMidias?: LeadMidia[]
-  loadingLeadMidias?: boolean
-}
-
-function ObraCard({ obra, canEdit, canDelete, isMontador, montadorUserId, roles, actioning, isDragging, onEdit, onDetalhe, onIniciar, onConcluir, onReabrir, onExcluir, onDragStart, onDragEnd, onTogglePedidoMaterial, togglingPedidoMaterial, onUpdateDataEntrega, updatingDataEntrega, canViewMontadoresConclusao, montadores, canEditMontador, onUpdateMontadores, onUpdateMontadorAdmin, updatingMontadores, showMarkupCustos = false, markupCustos = null, markupCustosFiltro, onMarkupCustosFiltroChange, leadMidias = [], loadingLeadMidias = false }: ObraCardProps) {
-  const loading = actioning === obra.id
-  const euSouMontadorNaObra = !!montadorUserId && getObraMontadorIds(obra).includes(montadorUserId)
-  const marcacaoIndividual = isMontador || euSouMontadorNaObra
-  const computedCol = computeKanbanKey(obra)
-  const colDef = COLUNAS.find(c => c.key === computedCol)
-
-  return (
-    <div
-      className="glass-card p-3 text-sm flex flex-col gap-2 transition-opacity cursor-pointer overflow-hidden w-full min-w-0 box-border"
-      draggable={canEdit}
-      onDragStart={canEdit ? e => onDragStart(e, obra.id) : undefined}
-      onDragEnd={canEdit ? onDragEnd : undefined}
-      onClick={() => onDetalhe(obra)}
-      style={{
-        opacity: isDragging ? 0.35 : 1,
-        cursor: isDragging ? 'grabbing' : 'pointer',
-      }}
-    >
-      {/* Nome + ações */}
-      <div className="flex items-start gap-1.5 min-w-0">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[var(--color-text-primary)] leading-tight break-words">{obra.cliente_nome}</p>
-          {obra.lousa && (
-            <p className="text-[0.7rem] text-[var(--color-text-muted)] leading-snug break-words mt-0.5">{obra.lousa}</p>
-          )}
-        </div>
-        {(canEdit || canDelete) && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            {canEdit && (
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); onEdit(obra) }}
-                className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-gold-muted)] transition-colors"
-                title="Editar"
-              >
-                <Pencil size={12} />
-              </button>
-            )}
-            {canDelete && (
-              <button
-                type="button"
-                disabled={loading}
-                onClick={e => { e.stopPropagation(); onExcluir(obra) }}
-                className="p-1 rounded text-[var(--color-text-muted)] hover:text-red-600 transition-colors disabled:opacity-50"
-                title="Excluir obra"
-              >
-                {loading ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Status + montador */}
-      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-        <span
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-wide leading-none shrink-0"
-          style={{ backgroundColor: `${colDef?.cor}22`, color: colDef?.cor, border: `1px solid ${colDef?.cor}44` }}
-          title={STATUS_LABELS[computedCol]}
-        >
-          {STATUS_SHORT[computedCol]}
-        </span>
-        <ObraMontadorBadge obra={obra} />
-        <ObraPedidoMaterialBadge obra={obra} />
-      </div>
-
-      <ObraMontadoresAjudantesField
-        obra={obra}
-        montadores={montadores}
-        canEdit={canEditMontador}
-        loading={updatingMontadores === obra.id}
-        onChange={ids => onUpdateMontadores(obra, ids)}
-        onChangeAdmin={adminId => onUpdateMontadorAdmin(obra, adminId)}
-        compact
-      />
-
-      <ObraMontadoresConclusao obra={obra} compact visible={canViewMontadoresConclusao} />
-
-      <ObraLeadMidiasStrip
-        midias={leadMidias}
-        loading={loadingLeadMidias}
-        variant="compact"
-      />
-
-      <div className="flex flex-col gap-1.5">
-        <ObraPedidoMaterialToggle
-          obra={obra}
-          canEdit={canEdit}
-          loading={togglingPedidoMaterial === obra.id}
-          onChange={feito => onTogglePedidoMaterial(obra, feito)}
-          compact
-        />
-
-        {showMarkupCustos && (
-          <ObraMarkupCustosBlock
-            custos={markupCustos}
-            filtro={markupCustosFiltro}
-            onFiltroChange={onMarkupCustosFiltroChange}
-            variant="compact"
-          />
-        )}
-
-        <ObraDataEntregaInput
-          obra={obra}
-          canEdit={canEdit}
-          loading={updatingDataEntrega === obra.id}
-          onChange={data => onUpdateDataEntrega(obra, data)}
-          compact
-        />
-      </div>
-
-      {/* Campos informativos */}
-      <div className="obra-card-meta">
-        <CardInfoRow label="Tipo" value={obra.tipo_obra_nome} />
-        <CardInfoRow label="Grupo" value={obra.grupo_obra_nome} />
-        <CardInfoRow label="Endereço" value={obra.endereco_obra} />
-        {obra.pedido_material_feito && obra.data_entrega_pedido && (
-          <CardInfoRow label="Entrega" value={fmtDate(obra.data_entrega_pedido)} />
-        )}
-        {obra.montador_admin_nome && obra.montador_admin_nome !== obra.montador_nome && (
-          <CardInfoRow label="Admin" value={obra.montador_admin_nome} />
-        )}
-        {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
-          <div className="obra-card-meta-row">
-            <span className="obra-card-meta-label">Datas</span>
-            <span className="obra-card-meta-value">
-              {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
-              {' → '}
-              {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
-            </span>
-          </div>
-        )}
-        {obra.tempo_maximo_horas != null && (
-          <CardInfoRow label="Prazo máx." value={`${Number(obra.tempo_maximo_horas)}h`} />
-        )}
-        {duracao(obra) && <CardInfoRow label="Duração" value={duracao(obra)} />}
-        {obra.concluido_em_atraso && (
-          <p className="text-[0.72rem] font-semibold text-red-600 m-0">Concluída em atraso</p>
-        )}
-      </div>
-
-      {/* Ações do montador / admin no card, sem abrir o detalhe */}
-      <div className="mt-0.5 flex flex-col gap-1.5 min-w-0">
-        <ObraEquipeActionBar
-          obra={obra}
-          roles={roles}
-          canEdit={canEdit}
-          isMontador={isMontador}
-          montadorUserId={montadorUserId}
-          loading={loading}
-          onIniciar={onIniciar}
-          onConcluir={onConcluir}
-          onReabrir={onReabrir}
-          compact
-        />
-        {(marcacaoIndividual || canEdit) && obra.status_kanban !== 'cancelada' && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onDetalhe(obra) }}
-            className="flex w-full min-w-0 items-center justify-center gap-1 rounded px-2 py-1.5 text-[0.68rem] font-semibold bg-[#f2d892]/20 text-[#f2d892] hover:bg-[#f2d892]/30 transition-colors"
-          >
-            <Camera size={10} className="shrink-0" />
-            <span className="truncate">Progresso</span>
-          </button>
-        )}
-      </div>
-    </div>
-  )
 }
 
 // ObraModal agora vive em src/components/obras/ObraFormModal.tsx
@@ -525,20 +280,45 @@ function ConfigModal({
 
 // ── Página principal ─────────────────────────────────────────
 export function AgendaObras() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = parseAgendaObraView(searchParams.get('view'))
+
+  const handleViewChange = useCallback((next: AgendaObraView) => {
+    setSearchParams(setAgendaObraViewParam(searchParams, next), { replace: true })
+  }, [searchParams, setSearchParams])
+
+  if (view === 'calendario') {
+    return (
+      <PageZoomProvider pageKey="calendario_obras">
+        <CalendarioObrasContent
+          pageView={view}
+          onPageViewChange={handleViewChange}
+        />
+      </PageZoomProvider>
+    )
+  }
+
   return (
-    <PageZoomProvider pageKey="agenda_obras">
-      <AgendaObrasContent />
+    <PageZoomProvider pageKey={view === 'filas' ? 'agenda_obras_filas' : 'agenda_obras'}>
+      <AgendaObrasContent view={view} onViewChange={handleViewChange} />
     </PageZoomProvider>
   )
 }
 
-function AgendaObrasContent() {
+function AgendaObrasContent({
+  view,
+  onViewChange,
+}: {
+  view: 'filas' | 'kanban'
+  onViewChange: (view: AgendaObraView) => void
+}) {
   const { roles, userProfile } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
   const gruposHook = useGruposObra()
   const briefingHook = useBriefingModelos()
+  const isFilas = view === 'filas'
 
   const isMontadorAdmin = roles.includes('MontadorAdmin')
   const isMontador = roles.includes('Montador') && !isMontadorAdmin
@@ -647,6 +427,7 @@ function AgendaObrasContent() {
   }
 
   const [busca, setBusca] = useState('')
+  const [dataDiaFiltro, setDataDiaFiltro] = useState('')
   const [somenteSemPedido, setSomenteSemPedido] = useState(false)
   const [entregaDestaque, setEntregaDestaque] = useState<AgendaEntregaDestaque | null>(null)
   const [mesFiltro, setMesFiltro] = useState<AgendaMesFiltro>(
@@ -786,17 +567,42 @@ function AgendaObrasContent() {
     })
   }, [obrasDoMes, busca, somenteSemPedido])
 
+  const obrasFila = useMemo(
+    () => filtrarObrasFila(obrasHook.data, {
+      busca,
+      mesFiltro,
+      dataDia: dataDiaFiltro,
+    }),
+    [obrasHook.data, busca, mesFiltro, dataDiaFiltro],
+  )
+
+  const obrasFilaColunas = useMemo(
+    () => groupObrasFilaPorData(obrasFila),
+    [obrasFila],
+  )
+
+  const listaAtiva = isFilas ? obrasFila : obrasFiltradas
   const filtroLabel = useMemo(
     () => (
-      entregaDestaque
-        ? describeAgendaEntregaDestaque(entregaDestaque)
-        : describeAgendaMesFiltro(mesFiltro)
+      isFilas
+        ? (
+            dataDiaFiltro
+              ? `Dia ${dataDiaFiltro.split('-').reverse().join('/')}`
+              : describeAgendaMesFiltro(mesFiltro)
+          )
+        : (
+            entregaDestaque
+              ? describeAgendaEntregaDestaque(entregaDestaque)
+              : describeAgendaMesFiltro(mesFiltro)
+          )
     ),
-    [entregaDestaque, mesFiltro],
+    [isFilas, dataDiaFiltro, entregaDestaque, mesFiltro],
   )
-  const totalBase = entregaDestaque || mesFiltro.mode === 'all'
+  const totalBase = isFilas
     ? obrasHook.data.length
-    : obrasDoMes.length
+    : (entregaDestaque || mesFiltro.mode === 'all'
+      ? obrasHook.data.length
+      : obrasDoMes.length)
 
   const obrasByCol = useMemo(
     () => groupObrasAgendaKanban(obrasFiltradas),
@@ -1088,45 +894,55 @@ function AgendaObrasContent() {
   }
 
   return (
-    <div className="obra-page-shell obra-page-shell--agenda fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden">
+    <div
+      className={[
+        'obra-page-shell obra-page-shell--agenda fade-in flex flex-none min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden',
+        isFilas ? 'obra-page-shell--filas' : '',
+      ].filter(Boolean).join(' ')}
+    >
       <KanbanPageToolbar className="agenda-kanban-toolbar">
-        <AgendaEntregaKpiStrip
-          resumo={entregaResumo}
-          active={entregaDestaque}
-          onSelect={handleEntregaDestaque}
-        />
+        {!isFilas && (
+          <AgendaEntregaKpiStrip
+            resumo={entregaResumo}
+            active={entregaDestaque}
+            onSelect={handleEntregaDestaque}
+          />
+        )}
         <ObraPageHeader
-          title="Agenda de Obras"
+          title={isFilas ? 'Filas de Obras' : 'Agenda de Obras'}
           subtitle={
             <>
-              {obrasFiltradas.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
+              {listaAtiva.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
               {' · '}
-              <span className={entregaDestaque ? 'text-[#f2d892]' : 'text-[#f2d892] capitalize'}>{filtroLabel}</span>
+              <span className={entregaDestaque && !isFilas ? 'text-[#f2d892]' : 'text-[#f2d892] capitalize'}>{filtroLabel}</span>
               {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
-              {somenteSemPedido && (
+              {!isFilas && somenteSemPedido && (
                 <span className="ml-1 text-[#fbbf24]">· só sem pedido</span>
               )}
             </>
           }
           actions={
             <div className="obra-page-header__actions-inner">
-              <div className="obra-page-header__badges flex flex-col items-start gap-1">
-                {canViewMarkupCustos && (
-                  <ObraMarkupCustosToolbar
-                    totalPedidoAFazer={totalPedidoAFazer}
-                    loading={loadingMarkupCustos || loadingMarkupFiltros}
-                    filtroPedidosAtivo={somenteSemPedido}
-                    onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
+              <ObrasViewTabs value={view} onChange={onViewChange} />
+              {!isFilas && (
+                <div className="obra-page-header__badges flex flex-col items-start gap-1">
+                  {canViewMarkupCustos && (
+                    <ObraMarkupCustosToolbar
+                      totalPedidoAFazer={totalPedidoAFazer}
+                      loading={loadingMarkupCustos || loadingMarkupFiltros}
+                      filtroPedidosAtivo={somenteSemPedido}
+                      onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
+                    />
+                  )}
+                  <ObraPedidoMaterialAlert
+                    count={semPedidoMaterialCount}
+                    compact
+                    active={somenteSemPedido}
+                    onClick={() => setSomenteSemPedido(v => !v)}
                   />
-                )}
-                <ObraPedidoMaterialAlert
-                  count={semPedidoMaterialCount}
-                  compact
-                  active={somenteSemPedido}
-                  onClick={() => setSomenteSemPedido(v => !v)}
-                />
-                <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
-              </div>
+                  <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
+                </div>
+              )}
               <div
                 className={
                   filtroMinimized
@@ -1140,6 +956,29 @@ function AgendaObrasContent() {
                   minimized={filtroMinimized}
                   onMinimizedChange={setFiltroMinimized}
                 />
+                {isFilas && (
+                  <div className="agenda-toolbar-day-filter flex min-w-0 items-center gap-1.5">
+                    <CalendarDays size={12} className="shrink-0 text-[#edd9c4]" aria-hidden />
+                    <input
+                      type="date"
+                      className="glass-input agenda-toolbar-search__input min-w-0 max-w-[10.5rem]"
+                      value={dataDiaFiltro}
+                      onChange={e => setDataDiaFiltro(e.target.value)}
+                      aria-label="Filtrar por dia"
+                      title="Filtrar por dia"
+                    />
+                    {dataDiaFiltro && (
+                      <button
+                        type="button"
+                        onClick={() => setDataDiaFiltro('')}
+                        className="text-[#edd9c4] hover:text-[#f2d892] transition-colors p-1"
+                        aria-label="Limpar filtro de dia"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
                   <Search
                     size={12}
@@ -1208,8 +1047,107 @@ function AgendaObrasContent() {
         <ErrorState message={obrasHook.error} />
       )}
 
+      {/* Filas — uma coluna por data de entrega; cards minimizados; sem obras sem data */}
+      {isFilas && (obrasHook.data.length > 0 || (!obrasHook.loading && !obrasHook.error)) && (
+        <KanbanPageZoomShell
+          showScrollArrows
+          horizontalScrollbar
+          verticalScrollbar
+          contentSignal={`${obrasFila.length}-${obrasFilaColunas.length}-${mesFiltro.mode}-${dataDiaFiltro}-${busca}`}
+          className="min-h-0 flex-1"
+        >
+          {obrasFilaColunas.length === 0 ? (
+            <div className="text-center py-12 text-sm text-[#d4bc9f]">
+              Nenhuma obra com datas nesta fila
+            </div>
+          ) : (
+            <div className="obras-fila-board obra-scroll-x-mobile flex h-full min-h-0 w-max min-w-full gap-3 pb-1">
+              {obrasFilaColunas.map(col => (
+                <div
+                  key={col.iso}
+                  className="obras-fila-col flex w-[220px] min-w-[220px] max-w-[240px] shrink-0 flex-col gap-2"
+                >
+                  <div
+                    className={kanbanColHeaderClass(false, col.cor)}
+                    style={kanbanColHeaderStyle(false, col.cor)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className="kanban-col-title block min-w-0"
+                        style={{ color: col.cor }}
+                        title={col.iso}
+                      >
+                        {col.label}
+                      </span>
+                      <span className="block text-[0.55rem] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                        {col.atrasada ? 'Atraso' : col.hoje ? 'Hoje' : 'Prazo'}
+                      </span>
+                    </div>
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold"
+                      style={{ backgroundColor: `${col.cor}33`, color: col.cor }}
+                    >
+                      {col.obras.length}
+                    </span>
+                  </div>
+                  <div
+                    className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg"
+                    style={{ minHeight: 80 }}
+                  >
+                    {col.obras.map(obra => (
+                      <div key={obra.id} className="flex flex-col gap-1 min-w-0">
+                        <ObraComissaoStrip
+                          obra={obra}
+                          prestadorId={userProfile?.id}
+                          showAll={!isMontador}
+                          variant="compact"
+                        />
+                        <ObraCard
+                          obra={obra}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                          isMontador={isMontador}
+                          montadorUserId={userProfile?.id}
+                          roles={roles}
+                          actioning={actioning}
+                          isDragging={false}
+                          draggable={false}
+                          startMinimized
+                          onDetalhe={o => setDetalheObra(o)}
+                          onEdit={openEdit}
+                          onIniciar={handleIniciar}
+                          onConcluir={handleConcluir}
+                          onReabrir={handleReabrir}
+                          onExcluir={handleExcluir}
+                          onTogglePedidoMaterial={handleTogglePedidoMaterial}
+                          togglingPedidoMaterial={togglingPedidoMaterial}
+                          onUpdateDataEntrega={handleUpdateDataEntrega}
+                          updatingDataEntrega={updatingDataEntrega}
+                          canViewMontadoresConclusao={canViewMontadoresConclusao}
+                          montadores={gruposHook.montadores}
+                          canEditMontador={canEditMontador}
+                          onUpdateMontadores={handleUpdateMontadores}
+                          onUpdateMontadorAdmin={handleUpdateMontadorAdmin}
+                          updatingMontadores={updatingMontadores}
+                          showMarkupCustos={canViewMarkupCustos}
+                          markupCustos={getObraMarkupCustos(obra, custosByLead)}
+                          markupCustosFiltro={getFiltroMarkupDaObra(markupCustosFiltrosPorObra, obra.id)}
+                          onMarkupCustosFiltroChange={filtro => handleMarkupCustosFiltroObra(obra.id, filtro)}
+                          leadMidias={getObraLeadMidias(obra, midiasByLead)}
+                          loadingLeadMidias={loadingLeadMidias}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </KanbanPageZoomShell>
+      )}
+
       {/* Kanban */}
-      {(obrasHook.data.length > 0 || (!obrasHook.loading && !obrasHook.error)) && (
+      {!isFilas && (obrasHook.data.length > 0 || (!obrasHook.loading && !obrasHook.error)) && (
         <KanbanPageZoomShell
           showScrollArrows
           horizontalScrollbar
