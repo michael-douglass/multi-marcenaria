@@ -27,10 +27,13 @@ import { getContasRelacionadas, getDetalhesExibicaoContaPagar, getModeloRecorren
 import { ContaPagarParcelasAbertasPanel } from '../components/contas-pagar/ContaPagarParcelasAbertasPanel'
 import { ContasPagarConfigButton } from '../components/contas-pagar/ContasPagarConfigModal'
 import { ContasPagarExportButton } from '../components/contas-pagar/ContasPagarExportButton'
+import { ContasPagarListaPdfExportButton } from '../components/contas-pagar/ContasPagarListaPdfExportButton'
 import { ContasPagarImportButton } from '../components/contas-pagar/ContasPagarImportButton'
 import { ContasPagarSelecaoPopup } from '../components/contas-pagar/ContasPagarSelecaoPopup'
 import { ContasPagarPageAura } from '../components/contas-pagar/ContasPagarPageAura'
 import { ContasPagarPanelStatusFilter } from '../components/contas-pagar/ContasPagarPanelStatusFilter'
+import { useEmpresa } from '@/contexts/EmpresaContext'
+import type { ContasPagarListaPdfExportInput } from '@/lib/contas-pagar-lista-pdf-export'
 import { useFormasPagamentoPagar } from '../hooks/useFormasPagamentoPagar'
 import {
   clearLancamentoPagarDraft,
@@ -246,6 +249,7 @@ function emptyForm(defaultFormaId = ''): LancamentoPagarDraftForm {
 }
 
 export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, estornarDebitosContaPagar, readOnly }: Props) {
+  const { empresa } = useEmpresa()
   // Usa o mesmo store do FinanceDataProvider — evita 2º useContasPagar()
   // (dois canais realtime com o mesmo nome quebram a página).
   const {
@@ -727,6 +731,21 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     restante: filtered.reduce((s, p) => s + Math.max(0, p.valor_parcela - getValorPagoConta(p)), 0),
   }
 
+  const filtrosStatusLabel = activeFilters.length > 0
+    ? activeFilters.join(' + ')
+    : (isDefaultView ? 'Em aberto (padrão)' : 'Todos')
+
+  const pdfExportInput: ContasPagarListaPdfExportInput = {
+    contas: filtered,
+    fornecedores,
+    getStatus,
+    periodFilter,
+    kpis: kpiCards.map(({ label, hint, value, tone }) => ({ label, hint, value, tone })),
+    empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+    filtrosStatusLabel,
+    busca: search,
+  }
+
   // Cards: padrão = mês atual + vencidas globais; com filtro = reflete a seleção
 
   const save = async () => {
@@ -1065,21 +1084,24 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               {hasLancamentoPagarDraft() && !open ? ' · rascunho salvo neste navegador' : ''}
             </p>
           </div>
-          {!readOnly && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <ContasPagarConfigButton readOnly={readOnly} formasHook={formasHook} />
-              <ContasPagarImportButton
-                fornecedores={fornecedores}
-                contasExistentes={data}
-                readOnly={readOnly}
-                onImport={importarCobrancasUnicas}
-              />
-              <button type="button" className="btn btn-gold btn-md gap-1.5" onClick={openManualLaunch}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Lançamento manual
-              </button>
-            </div>
-          )}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ContasPagarListaPdfExportButton input={pdfExportInput} disabled={loading} />
+            {!readOnly && (
+              <>
+                <ContasPagarConfigButton readOnly={readOnly} formasHook={formasHook} />
+                <ContasPagarImportButton
+                  fornecedores={fornecedores}
+                  contasExistentes={data}
+                  readOnly={readOnly}
+                  onImport={importarCobrancasUnicas}
+                />
+                <button type="button" className="btn btn-gold btn-md gap-1.5" onClick={openManualLaunch}>
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Lançamento manual
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

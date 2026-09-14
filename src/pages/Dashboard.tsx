@@ -22,6 +22,9 @@ import { DashboardCardShell, DashboardKpiCard } from '@/components/dashboard/Das
 import { FaturadoGastosAnotacoes } from '@/components/dashboard/FaturadoGastosAnotacoes'
 import { ReceitasMensaisAnotacoes, DespesasMensaisAnotacoes } from '@/components/dashboard/ReceitasMensaisAnotacoes'
 import { SimuladorCaixaCard } from '@/components/dashboard/SimuladorCaixaCard'
+import { DashboardPdfExportButton } from '@/components/dashboard/DashboardPdfExportButton'
+import { useEmpresa } from '@/contexts/EmpresaContext'
+import type { DashboardPdfExportInput } from '@/lib/dashboard-pdf-export'
 import {
   BarChart,
   Bar,
@@ -45,6 +48,7 @@ const CHART_TOOLTIP_STYLE = {
 const CHART_TICK = { fill: '#6b5244', fontSize: 10, fontFamily: 'Raleway' } as const
 
 export function Dashboard() {
+  const { empresa } = useEmpresa()
   const { data: stats, isLoading: statsLoading } = useFinanceiroStats()
   const [anoReceitas, setAnoReceitas] = useState(new Date().getFullYear())
   const [anoDespesas, setAnoDespesas] = useState(new Date().getFullYear())
@@ -95,6 +99,49 @@ export function Dashboard() {
     const atual = new Date().getFullYear()
     return [atual - 2, atual - 1, atual, atual + 1]
   }, [])
+
+  const pdfExportInput = useMemo((): DashboardPdfExportInput | null => {
+    if (!stats) return null
+    return {
+      stats,
+      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      anoReceitas,
+      receitasMensais: receitasMensais ?? [],
+      anoDespesas,
+      despesasMensais: despesasMensais ?? [],
+      anoComparativo,
+      comparativo: comparativoData,
+      anoSimulador,
+      simulador: simuladorDataOriginal.map(m => ({
+        mes: m.mes,
+        receitas: m.receitas,
+        despesas: m.despesas,
+      })),
+      previsaoProximoReceber:
+        previsaoProximoNoComparativo?.receitas
+        ?? previsaoProximoNoSimulador?.receitas
+        ?? stats.previsaoProximoMes
+        ?? 0,
+      previsaoProximoPagar:
+        previsaoProximoNoComparativo?.despesas
+        ?? previsaoProximoNoSimulador?.despesas
+        ?? stats.despesasProximoMes
+        ?? 0,
+    }
+  }, [
+    stats,
+    empresa?.nome,
+    anoReceitas,
+    receitasMensais,
+    anoDespesas,
+    despesasMensais,
+    anoComparativo,
+    comparativoData,
+    anoSimulador,
+    simuladorDataOriginal,
+    previsaoProximoNoComparativo,
+    previsaoProximoNoSimulador,
+  ])
 
   if (statsLoading) {
     return (
@@ -182,9 +229,12 @@ export function Dashboard() {
               Saldos do mês, indicadores e movimento de caixa da marcenaria.
             </p>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#8a7060]">
-            Movelaria Garbo
-          </p>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#8a7060]">
+              {empresa?.nome?.trim() || 'Movelaria Garbo'}
+            </p>
+            <DashboardPdfExportButton input={pdfExportInput} />
+          </div>
         </div>
       </header>
 

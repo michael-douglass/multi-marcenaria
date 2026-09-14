@@ -29,6 +29,9 @@ import { ClienteSearchSelect } from '../components/cobrancas/ClienteSearchSelect
 import { TemplatesConfigButton } from '../components/cobrancas/TemplatesConfigModal'
 import { ReciboPrintModal } from '../components/cobrancas/ReciboPrintModal'
 import { CobrancasPageAura } from '../components/cobrancas/CobrancasPageAura'
+import { CobrancasPdfExportButton } from '../components/cobrancas/CobrancasPdfExportButton'
+import { useEmpresa } from '@/contexts/EmpresaContext'
+import type { CobrancasPdfExportInput } from '@/lib/cobrancas-pdf-export'
 import { Modal } from '../components/ui/Modal'
 import { ModalFormFooter } from '../components/ui/ModalFormFooter'
 import { Field, FieldRow } from '../components/ui/Field'
@@ -115,6 +118,7 @@ const getStatus = (vencimento: string, status: string): string => {
 
 export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
   const { role, roles } = useApp()
+  const { empresa } = useEmpresa()
   const isAdmin = role === 'Administrador'
   const isFinanceiroOnly = roles.includes('Financeiro') && !roles.includes('Administrador')
   const {
@@ -1099,6 +1103,21 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
     icon: typeof Wallet
   }>
 
+  const filtrosStatusLabel = activeFilters.length > 0
+    ? activeFilters.join(' + ')
+    : (isDefaultView ? 'Em aberto (padrão)' : 'Todos')
+
+  const pdfExportInput: CobrancasPdfExportInput = {
+    contas: filtered,
+    getStatus,
+    inicioEntregaPorConta,
+    periodFilter,
+    kpis: kpiTiles.map(({ label, hint, value, tone }) => ({ label, hint, value, tone })),
+    empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+    filtrosStatusLabel,
+    busca: search,
+  }
+
   return (
     <div className="cobrancas-page-shell fade-in relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] px-2 pb-10 sm:-mx-3 sm:-mt-3 sm:px-3 md:px-4">
       <CobrancasPageAura />
@@ -1127,6 +1146,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <CobrancasPdfExportButton input={pdfExportInput} disabled={loading} />
             {isAdmin && (
               <TemplatesConfigButton templatesHook={templatesHook} pixHook={pixHook} />
             )}

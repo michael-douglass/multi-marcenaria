@@ -19,6 +19,7 @@ import { VisualizacaoObrasDoDiaContent } from '@/components/visualizacao/Visuali
 import { VisualizacaoObrasDoDiaButton } from '@/components/visualizacao/VisualizacaoObrasDoDiaButton'
 import { VisualizacaoSemanaDia } from '@/components/visualizacao/VisualizacaoSemanaDia'
 import { VisualizacaoToolbar } from '@/components/visualizacao/VisualizacaoToolbar'
+import { VisualizacaoPdfExportButton } from '@/components/visualizacao/VisualizacaoPdfExportButton'
 import { VisualizacaoPaineisConfigModal } from '@/components/visualizacao/VisualizacaoPaineisConfigModal'
 import { VisualizacaoPontoDiario } from '@/components/visualizacao/VisualizacaoPontoDiario'
 import {
@@ -44,7 +45,9 @@ import {
 import { ObraMontadoresConclusao } from '@/components/obras/ObraMontadoresConclusao'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
+import { useEmpresa } from '@/contexts/EmpresaContext'
 import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
+import type { VisualizacaoPdfExportInput } from '@/lib/visualizacao-pdf-export'
 import {
   KanbanPageZoomShell,
   KanbanPageToolbar,
@@ -100,6 +103,7 @@ export function Visualizacao() {
 
 function VisualizacaoContent() {
   const { roles } = useApp()
+  const { empresa } = useEmpresa()
   const obrasHook = useObras()
   const evolucaoHook = useEvolucaoPainel('hoje')
   const configHook = useVisualizacaoConfig()
@@ -270,6 +274,64 @@ function VisualizacaoContent() {
 
   const obrasDoDiaSubtitle = `${fmtDate(hoje)} · amanhã ${fmtDate(addDaysISO(hoje, 1))}`
 
+  const pdfExportInput = useMemo((): VisualizacaoPdfExportInput | null => {
+    if (!contentReady) return null
+    return {
+      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      rangeLabel,
+      dataLabel,
+      horaLabel,
+      hoje,
+      diasAtivos: DIAS_ATIVOS,
+      rangeDays: range.days,
+      obrasTodas: obrasHook.data,
+      obrasCalendario,
+      calendarioStats: calendarioMesStats,
+      mesAtual,
+      anoAtual,
+      acompanhamento: evolucaoHoje.map(g => ({
+        cliente_nome: g.obra_nome,
+        fotosCount: g.dias.reduce((sum, dia) => sum + dia.fotos.length, 0),
+      })),
+      obrasAtrasadas,
+      clientesAtrasados,
+      pontoRows: pontoHook.rows,
+      pontoResumo,
+      include: {
+        chegada: painelVisivel('chegada_materiais') && painelApareceNoGrid('chegada_materiais'),
+        calendario: painelVisivel('calendario_obras') && painelApareceNoGrid('calendario_obras'),
+        obrasDoDia: painelVisivel('obras_do_dia'),
+        acompanhamento: painelVisivel('acompanhamento_obras') && painelApareceNoGrid('acompanhamento_obras'),
+        obrasAtrasadas: painelVisivel('obras_atrasadas') && painelApareceNoGrid('obras_atrasadas'),
+        cobrancas: painelVisivel('cobrancas_atrasadas') && painelApareceNoGrid('cobrancas_atrasadas'),
+        ponto: canViewPontoPainel,
+      },
+    }
+  }, [
+    contentReady,
+    empresa?.nome,
+    rangeLabel,
+    dataLabel,
+    horaLabel,
+    hoje,
+    range.days,
+    obrasHook.data,
+    obrasCalendario,
+    calendarioMesStats,
+    mesAtual,
+    anoAtual,
+    evolucaoHoje,
+    obrasAtrasadas,
+    clientesAtrasados,
+    pontoHook.rows,
+    pontoResumo,
+    canViewPontoPainel,
+    roles,
+    filtrarPaineis,
+    configHook.loading,
+    configHook.paineisVisiveis,
+  ])
+
   const renderPainelContent = (id: PainelId) => {
     switch (id) {
       case 'chegada_materiais':
@@ -412,12 +474,16 @@ function VisualizacaoContent() {
                     <p className="viz-page__clock-time">{horaLabel}</p>
                     <p className="viz-page__clock-date capitalize">{dataLabel}</p>
                   </div>
-                  <VisualizacaoToolbar
-                    autoScroll={autoScroll}
-                    onToggleAutoScroll={handleToggleAutoScroll}
-                    canConfigPaineis={canConfigPaineis}
-                    onOpenPaineisConfig={() => setPaineisConfigOpen(true)}
-                  />                </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <VisualizacaoPdfExportButton input={pdfExportInput} disabled={!contentReady} />
+                    <VisualizacaoToolbar
+                      autoScroll={autoScroll}
+                      onToggleAutoScroll={handleToggleAutoScroll}
+                      canConfigPaineis={canConfigPaineis}
+                      onOpenPaineisConfig={() => setPaineisConfigOpen(true)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </KanbanPageToolbar>

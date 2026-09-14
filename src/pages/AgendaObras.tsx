@@ -5,6 +5,7 @@ import { useObras } from '@/hooks/useObras'
 import { useTiposObra } from '../hooks/useTiposObra'
 import { useGruposObra } from '../hooks/useGruposObra'
 import { useApp } from '../context/AppContext'
+import { useEmpresa } from '@/contexts/EmpresaContext'
 import { Modal } from '../components/ui/Modal'
 import { Field } from '../components/ui/Field'
 import { LoadingState, ErrorState } from '../components/ui/EmptyState'
@@ -26,6 +27,7 @@ import { ObraEmAbertoCount } from '../components/obras/ObraEmAbertoCount'
 import { ObraPedidoMaterialAlert } from '../components/obras/ObraPedidoMaterialAlert'
 import { ObraMarkupCustosToolbar } from '../components/obras/ObraMarkupCustosToolbar'
 import { ObrasViewTabs } from '../components/obras/ObrasViewTabs'
+import { ObraFilaPdfExportButton } from '../components/obras/ObraFilaPdfExportButton'
 import { countObrasEmAberto, countObrasSemPedidoMaterial, filterObrasSemPedidoMaterial } from '../lib/obra-pedido-material'
 import {
   getObraMarkupCustos,
@@ -306,6 +308,7 @@ function AgendaObrasContent({
   onViewChange: (view: AgendaObraView) => void
 }) {
   const { roles, userProfile } = useApp()
+  const { empresa } = useEmpresa()
   const [searchParams, setSearchParams] = useSearchParams()
   const obrasHook = useObras()
   const tiposHook = useTiposObra()
@@ -1023,6 +1026,15 @@ function AgendaObrasContent({
                 </div>
                 <KanbanPageZoomControls compact className="obra-toolbar-zoom shrink-0" />
                 <div className="obra-page-header__action-buttons">
+                  {isFilas && (
+                    <ObraFilaPdfExportButton
+                      colunas={obrasFilaColunas}
+                      filtroLabel={filtroLabel}
+                      showAllComissao={!isMontador}
+                      prestadorId={userProfile?.id}
+                      empresaNome={empresa?.nome}
+                    />
+                  )}
                   {canConfig && (
                     <button
                       type="button"
