@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreHorizontal, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { BibliotecaPinButton } from '@/components/biblioteca/BibliotecaPinButton'
@@ -25,6 +25,8 @@ interface EventoFolderCardProps {
   onOpen: () => void
   onPin: () => void
   onTarefas: () => void
+  /** Abre criação de tarefa na Agenda (dia + horário), vinculada à pasta. */
+  onAddTarefa: () => void
   onEdit: () => void
   onDelete: () => void
   onChangeDate: (iso: string) => void
@@ -35,6 +37,7 @@ export function EventoFolderCard({
   onOpen,
   onPin,
   onTarefas,
+  onAddTarefa,
   onEdit,
   onDelete,
   onChangeDate,
@@ -82,10 +85,23 @@ export function EventoFolderCard({
                   onTarefas()
                 }}
                 className="rounded-full bg-amber-500/25 px-2.5 py-1 text-[11px] font-semibold text-amber-200"
+                aria-label={`${pasta.tarefas_pendentes} ${pasta.tarefas_pendentes === 1 ? 'tarefa pendente' : 'tarefas pendentes'}`}
               >
                 {pasta.tarefas_pendentes} {pasta.tarefas_pendentes === 1 ? 'tarefa' : 'tarefas'}
               </button>
             )}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onAddTarefa()
+              }}
+              aria-label="Adicionar tarefa na Agenda"
+              title="Adicionar tarefa (dia e horário)"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-amber-200 transition-colors hover:border-amber-400/70 hover:bg-amber-500/25 hover:text-amber-100"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

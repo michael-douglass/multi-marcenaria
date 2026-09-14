@@ -249,6 +249,11 @@ export function useAgendaPessoal() {
     },
     onSuccess: (_data, tarefa) => {
       queryClient.invalidateQueries({ queryKey: ['agenda-pessoal'] });
+      if (tarefa.evento_id) {
+        queryClient.invalidateQueries({ queryKey: ['controle-eventos'] });
+        queryClient.invalidateQueries({ queryKey: ['evento-tarefas'] });
+        queryClient.invalidateQueries({ queryKey: ['evento-board'] });
+      }
       toast.success(
         tarefa.titular_id === user?.id || !tarefa.titular_nome
           ? 'Tarefa criada!'

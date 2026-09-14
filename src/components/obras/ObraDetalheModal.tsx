@@ -29,6 +29,7 @@ import { ObraMarkupCustosBlock } from '@/components/obras/ObraMarkupCustosBlock'
 import { ObraEquipeActionBar } from '@/components/obras/ObraEquipeActionBar'
 import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
 import { ObraDetalheLeadAura } from '@/components/obras/ObraDetalheLeadAura'
+import { ObraDatasHistoricoBlock } from '@/components/obras/ObraDatasHistoricoBlock'
 import { fmtDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import { canViewMontadoresConclusaoObra } from '@/lib/obra-permissions'
@@ -415,6 +416,9 @@ export function ObraDetalheModal({
               </p>
             </div>
           )}
+          <div className="col-span-2">
+            <ObraDatasHistoricoBlock obra={obra} />
+          </div>
           {obra.iniciado_em && (
             <Campo label="Iniciada em" value={fmtDate(obra.iniciado_em.slice(0, 10))} />
           )}

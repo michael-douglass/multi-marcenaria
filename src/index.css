@@ -7029,16 +7029,55 @@ body {
   }
 }
 
-/* Métricas — comparativo tempo por montador */
+/* Métricas — comparativo tempo por montador (tema papel / cartão claro) */
 .metricas-montador-tempo {
   position: relative;
-  border: 1px solid rgba(240, 210, 140, 0.18);
+  border: 1px solid var(--color-gold-border);
   background: linear-gradient(
     155deg,
-    rgba(24, 14, 10, 0.96) 0%,
-    rgba(14, 8, 5, 0.92) 55%,
-    rgba(240, 210, 140, 0.05) 100%
+    #fffcf8 0%,
+    #fff8f0 55%,
+    rgba(196, 150, 58, 0.06) 100%
   );
+  color: var(--color-text-body);
+}
+
+.metricas-montador-tempo__ink,
+.metricas-montador-tempo .text-cream {
+  color: var(--color-text-primary) !important;
+}
+
+.metricas-montador-tempo__muted {
+  color: var(--color-text-muted) !important;
+}
+
+.metricas-montador-tempo__eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary) !important;
+}
+
+.metricas-montador-tempo__title,
+.metricas-montador-tempo__accent {
+  color: var(--color-gold-muted) !important;
+}
+
+.metricas-montador-tempo__ok {
+  color: #047857 !important;
+}
+
+.metricas-montador-tempo [class*="text-[#d4bc9f]"],
+.metricas-montador-tempo [class*="text-[#edd9c4]"],
+.metricas-montador-tempo [class*="text-[#faf2ea]"] {
+  color: var(--color-text-muted) !important;
+}
+
+.metricas-montador-tempo [class*="text-[#f2d892]"],
+.metricas-montador-tempo .text-gold {
+  color: var(--color-gold-muted) !important;
 }
 
 .metricas-montador-tempo__glow {
@@ -7049,7 +7088,7 @@ body {
   width: 14rem;
   height: 14rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.14) 0%, transparent 68%);
+  background: radial-gradient(circle, rgba(4, 120, 87, 0.1) 0%, transparent 68%);
 }
 
 .metricas-montador-tempo__header {
@@ -7065,9 +7104,9 @@ body {
 .metricas-montador-tempo__destaque {
   padding: 0.65rem 0.85rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(242, 216, 146, 0.28);
-  background: rgba(242, 216, 146, 0.08);
-  box-shadow: 0 1px 0 rgba(255, 252, 248, 0.05) inset;
+  border: 1px solid rgba(141, 94, 34, 0.28);
+  background: rgba(196, 150, 58, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
 }
 
 .metricas-montador-tempo__chart {
@@ -7079,22 +7118,22 @@ body {
   max-width: min(92vw, 22rem);
   padding: 0.65rem 0.75rem;
   border-radius: 0.65rem;
-  border: 1px solid rgba(240, 210, 140, 0.25);
-  background: #2a1812;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(42, 24, 18, 0.16);
+  background: #fffcf8;
+  box-shadow: 0 12px 28px rgba(42, 24, 18, 0.14);
 }
 
 .metricas-montador-tooltip__title {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #f2d892;
+  color: var(--color-gold-muted);
 }
 
 .metricas-montador-tooltip__meta {
   margin: 0.25rem 0 0.55rem;
   font-size: 0.65rem;
-  color: #edd9c4;
+  color: var(--color-text-muted);
 }
 
 .metricas-montador-tooltip__list {
@@ -7111,23 +7150,23 @@ body {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.35rem 0;
-  border-top: 1px solid rgba(240, 210, 140, 0.08);
+  border-top: 1px solid rgba(42, 24, 18, 0.08);
   font-size: 0.68rem;
 }
 
 .metricas-montador-tooltip__cliente {
-  color: #edd9c4;
+  color: var(--color-text-secondary);
   min-width: 0;
 }
 
 .metricas-montador-tooltip__duracao {
-  color: #a7f3d0;
+  color: #047857;
   font-family: ui-monospace, monospace;
   white-space: nowrap;
 }
 
 .metricas-montador-tempo__detalhe {
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(42, 24, 18, 0.03);
 }
 
 .metricas-montador-tempo__grid {
@@ -7151,10 +7190,10 @@ body {
 
 .metricas-montador-tempo__card {
   border-radius: 0.75rem;
-  border: 1px solid rgba(240, 210, 140, 0.12);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(42, 24, 18, 0.1);
+  background: #fff;
   overflow: hidden;
-  border-left: 3px solid var(--rank-cor, #f2d892);
+  border-left: 3px solid var(--rank-cor, var(--color-gold-muted));
 }
 
 .metricas-montador-tempo__card-head {
@@ -7162,8 +7201,8 @@ body {
   align-items: flex-start;
   gap: 0.55rem;
   padding: 0.65rem 0.75rem;
-  border-bottom: 1px solid rgba(240, 210, 140, 0.08);
-  background: rgba(240, 210, 140, 0.04);
+  border-bottom: 1px solid rgba(42, 24, 18, 0.08);
+  background: rgba(196, 150, 58, 0.06);
 }
 
 .metricas-montador-tempo__rank {
@@ -7171,7 +7210,7 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--rank-cor, #f2d892);
+  color: var(--rank-cor, var(--color-gold-muted));
 }
 
 .metricas-montador-tempo__obras {
@@ -7190,13 +7229,13 @@ body {
 }
 
 .metricas-montador-tempo__obra:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(42, 24, 18, 0.03);
 }
 
 .metricas-montador-tempo__obra-horas {
   font-size: 0.68rem;
   font-family: ui-monospace, monospace;
-  color: #a7f3d0;
+  color: #047857;
   text-align: right;
   max-width: 46%;
 }
@@ -7215,27 +7254,27 @@ body {
 
 .metricas-montador-link:hover .font-semibold,
 .metricas-montador-link:focus-visible .font-semibold {
-  color: #f2d892;
+  color: var(--color-gold-muted);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .metricas-montador-link:focus-visible {
-  outline: 2px solid rgba(242, 216, 146, 0.45);
+  outline: 2px solid rgba(141, 94, 34, 0.45);
   outline-offset: 2px;
 }
 
 .metricas-comissao-modal__resumo {
   padding: 0.85rem 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(240, 210, 140, 0.18);
-  background: linear-gradient(135deg, rgba(242, 216, 146, 0.08), rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--color-gold-border);
+  background: linear-gradient(135deg, rgba(196, 150, 58, 0.1), rgba(42, 24, 18, 0.03));
 }
 
 .metricas-comissao-modal__secao {
   border-radius: 0.75rem;
-  border: 1px solid rgba(240, 210, 140, 0.1);
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(42, 24, 18, 0.1);
+  background: rgba(42, 24, 18, 0.03);
   overflow: hidden;
 }
 
@@ -7245,8 +7284,8 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid rgba(240, 210, 140, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(42, 24, 18, 0.08);
+  background: rgba(196, 150, 58, 0.06);
 }
 
 .metricas-comissao-modal__lista {
@@ -7265,7 +7304,26 @@ body {
 }
 
 .metricas-comissao-modal__item:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(42, 24, 18, 0.025);
+}
+
+/* Contraste de valores verdes/âmbar nas tabelas de métricas (cartão claro) */
+.obra-page-shell .text-emerald-400,
+.metricas-montador-tempo .text-emerald-400 {
+  color: #047857 !important;
+}
+.obra-page-shell .text-amber-400,
+.metricas-montador-tempo .text-amber-400 {
+  color: #b45309 !important;
+}
+.obra-page-shell .text-red-400 {
+  color: #b91c1c !important;
+}
+.obra-page-shell .text-emerald-300 {
+  color: #065f46 !important;
+}
+.obra-page-shell .text-amber-300 {
+  color: #92400e !important;
 }
 
 /* ── Contas a pagar: notificações do dia ─────────────────── */

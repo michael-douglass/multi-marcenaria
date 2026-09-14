@@ -37,7 +37,7 @@ interface ChartRow {
   cor: string
 }
 
-const CORES = ['#6ee7b7', '#34d399', '#f2d892', '#fbbf24', '#fb923c', '#f87171']
+const CORES = ['#047857', '#059669', '#8d5e22', '#b45309', '#c2410c', '#b91c1c']
 
 function truncateNome(nome: string, max = 18): string {
   if (nome.length <= max) return nome
@@ -102,7 +102,7 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
   if (ranking.length === 0) {
     return (
       <section className="metricas-montador-tempo glass-card mb-8 p-6">
-        <p className="text-sm text-[#edd9c4] text-center">
+        <p className="metricas-montador-tempo__muted text-center text-sm">
           Nenhuma obra finalizada por montador em {periodoLabel}.
         </p>
       </section>
@@ -115,16 +115,16 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
 
       <header className="metricas-montador-tempo__header">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Gauge size={15} className="text-[#f2d892]" />
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#edd9c4]">
+          <div className="mb-1 flex items-center gap-2">
+            <Gauge size={15} className="metricas-montador-tempo__accent" />
+            <p className="metricas-montador-tempo__eyebrow">
               Comparativo de execução
             </p>
           </div>
-          <h2 className="font-display text-xl sm:text-2xl tracking-wide text-[#f2d892]">
+          <h2 className="metricas-montador-tempo__title font-display text-xl tracking-wide sm:text-2xl">
             Tempo médio por montador
           </h2>
-          <p className="mt-1 text-xs text-[#edd9c4] max-w-2xl">
+          <p className="metricas-montador-tempo__muted mt-1 max-w-2xl text-xs">
             Obras finalizadas em {periodoLabel} — barras = tempo médio por obra;
             detalhes de cada cliente abaixo.
           </p>
@@ -132,12 +132,12 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
 
         {maisRapido && (
           <div className="metricas-montador-tempo__destaque shrink-0">
-            <div className="flex items-center gap-1.5 text-[#f2d892]">
+            <div className="metricas-montador-tempo__accent flex items-center gap-1.5">
               <Trophy size={14} />
               <span className="text-[0.62rem] font-bold uppercase tracking-wider">Menor média</span>
             </div>
-            <p className="font-display text-lg text-cream mt-0.5">{maisRapido.montador_nome}</p>
-            <p className="font-mono text-sm text-emerald-400">
+            <p className="metricas-montador-tempo__ink font-display mt-0.5 text-lg">{maisRapido.montador_nome}</p>
+            <p className="metricas-montador-tempo__ok font-mono text-sm">
               {fmtHorasChart(maisRapido.tempo_medio_horas)} / obra
             </p>
           </div>
@@ -145,7 +145,7 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
       </header>
 
       <div
-        className="metricas-montador-tempo__chart px-4 sm:px-5 pb-2"
+        className="metricas-montador-tempo__chart px-4 pb-2 sm:px-5"
         style={{ height: Math.max(200, chartData.length * 52 + 40) }}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -155,13 +155,13 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
             margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
             barCategoryGap="22%"
           >
-            <CartesianGrid strokeDasharray="4 4" stroke="rgba(240,210,140,0.07)" horizontal={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke="rgba(42,24,18,0.1)" horizontal={false} />
             <XAxis
               type="number"
               domain={[0, maxMedia * 1.12]}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#c4a882', fontSize: 10 }}
+              tick={{ fill: '#3d261c', fontSize: 11, fontWeight: 500 }}
               tickFormatter={v => fmtHorasChart(Number(v))}
             />
             <YAxis
@@ -170,22 +170,22 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
               width={108}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#edd9c4', fontSize: 11, fontWeight: 600 }}
+              tick={{ fill: '#2a1812', fontSize: 12, fontWeight: 700 }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(240,210,140,0.05)' }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(42,24,18,0.05)' }} />
             <Bar dataKey="media" radius={[0, 6, 6, 0]} barSize={22}>
               {chartData.map(entry => (
-                <Cell key={entry.id} fill={entry.cor} fillOpacity={0.9} />
+                <Cell key={entry.id} fill={entry.cor} fillOpacity={0.92} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="metricas-montador-tempo__detalhe border-t border-[rgba(240,210,140,0.1)]">
-        <div className="px-4 sm:px-5 py-3 flex items-center gap-2">
-          <Timer size={14} className="text-[#f2d892]" />
-          <h3 className="text-[0.7rem] font-bold uppercase tracking-wider text-[#edd9c4]">
+      <div className="metricas-montador-tempo__detalhe border-t border-[rgba(42,24,18,0.1)]">
+        <div className="flex items-center gap-2 px-4 py-3 sm:px-5">
+          <Timer size={14} className="metricas-montador-tempo__accent" />
+          <h3 className="metricas-montador-tempo__eyebrow">
             Detalhamento por obra
           </h3>
         </div>
@@ -200,8 +200,8 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
               <header className="metricas-montador-tempo__card-head">
                 <span className="metricas-montador-tempo__rank">#{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-cream truncate">{montador.montador_nome}</p>
-                  <p className="text-[0.65rem] text-[#d4bc9f]">
+                  <p className="metricas-montador-tempo__ink truncate font-semibold">{montador.montador_nome}</p>
+                  <p className="metricas-montador-tempo__muted text-[0.65rem]">
                     Média {fmtHorasChart(montador.tempo_medio_horas)}
                     {' · '}Total {fmtHorasChart(montador.tempo_total_horas)}
                     {' · '}{montador.obras_com_duracao} obra(s)
@@ -213,9 +213,9 @@ export function MetricasMontadorTempoChart({ porObra, periodo, periodoLabel }: P
                 {montador.obras.map(obra => (
                   <li key={obra.obra_id} className="metricas-montador-tempo__obra">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-cream truncate">{obra.cliente_nome}</p>
+                      <p className="metricas-montador-tempo__ink truncate text-sm">{obra.cliente_nome}</p>
                       {obra.tipo_obra_nome ? (
-                        <p className="text-[0.62rem] text-[#d4bc9f] truncate">{obra.tipo_obra_nome}</p>
+                        <p className="metricas-montador-tempo__muted truncate text-[0.62rem]">{obra.tipo_obra_nome}</p>
                       ) : null}
                     </div>
                     <p className="metricas-montador-tempo__obra-horas shrink-0">

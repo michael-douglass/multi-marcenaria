@@ -67,13 +67,19 @@ function hojeIsoLocal(ref: Date = new Date()): string {
 
 type ObraCalendarioDia = Pick<
   ObraFull,
-  'data_prevista_inicio' | 'data_prevista_fim' | 'dias_trabalho' | 'status_kanban' | 'finalizado_em'
+  | 'data_prevista_inicio'
+  | 'data_prevista_fim'
+  | 'dias_trabalho'
+  | 'status_kanban'
+  | 'finalizado_em'
+  | 'atraso_permanente'
 >
 
-/** Prazo já passou e a obra ainda não foi concluída nem cancelada. */
+/** Prazo já passou (ou atraso permanente) e a obra ainda não foi concluída nem cancelada. */
 export function obraEmAtrasoAberta(obra: ObraCalendarioDia, hojeIso: string): boolean {
   if (obra.status_kanban === 'concluida' || obra.status_kanban === 'cancelada') return false
   if (obra.finalizado_em) return false
+  if (obra.atraso_permanente) return true
   const fim = normalizeObraDate(obra.data_prevista_fim)
   return Boolean(fim && fim < hojeIso)
 }

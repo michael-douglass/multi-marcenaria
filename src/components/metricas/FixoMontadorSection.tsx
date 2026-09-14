@@ -14,9 +14,9 @@ const STATUS_LABEL: Record<MontadorFixoMensal['status_mes'], string> = {
 }
 
 const STATUS_COLOR: Record<MontadorFixoMensal['status_mes'], string> = {
-  pendente: '#f59e0b',
-  pago: '#10b981',
-  sem_fixo: '#d4bc9f',
+  pendente: '#b45309',
+  pago: '#047857',
+  sem_fixo: '#6b5244',
 }
 
 interface FixoMontadorSectionProps {

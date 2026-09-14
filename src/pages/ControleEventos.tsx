@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { CreateTarefaPessoalDialog } from '@/components/agenda/CreateTarefaPessoalDialog'
 import { EventoFolderCard } from '@/components/eventos/EventoFolderCard'
 import { EventoFolderDialog } from '@/components/eventos/EventoFolderDialog'
 import { EventoTarefasDialog } from '@/components/eventos/EventoTarefasDialog'
@@ -17,7 +18,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useControleEventos } from '@/hooks/useControleEventos'
-import { eventoCorrespondeBusca } from '@/lib/evento-helpers'
+import { eventoCorrespondeBusca, parseDataEventoLocal } from '@/lib/evento-helpers'
+import { getCurrentHora24h } from '@/lib/horarios-24h'
 import type { EventoPastaCard } from '@/lib/evento-types'
 
 export default function ControleEventos() {
@@ -27,6 +29,7 @@ export default function ControleEventos() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editando, setEditando] = useState<EventoPastaCard | null>(null)
   const [tarefasDe, setTarefasDe] = useState<EventoPastaCard | null>(null)
+  const [novaTarefaDe, setNovaTarefaDe] = useState<EventoPastaCard | null>(null)
   const [excluirDe, setExcluirDe] = useState<EventoPastaCard | null>(null)
 
   const filtradas = useMemo(
@@ -85,6 +88,7 @@ export default function ControleEventos() {
             onOpen={() => navigate(`/controle-eventos/${pasta.id}`)}
             onPin={() => fixar.mutate({ id: pasta.id, fixado: !pasta.fixado })}
             onTarefas={() => setTarefasDe(pasta)}
+            onAddTarefa={() => setNovaTarefaDe(pasta)}
             onEdit={() => { setEditando(pasta); setDialogOpen(true) }}
             onDelete={() => setExcluirDe(pasta)}
             onChangeDate={(iso) => atualizarData.mutate({ id: pasta.id, data_evento: iso })}
@@ -115,6 +119,18 @@ export default function ControleEventos() {
         eventoId={tarefasDe?.id ?? null}
         titulo={tarefasDe?.titulo ?? ''}
         dataEvento={tarefasDe?.data_evento ?? ''}
+      />
+
+      <CreateTarefaPessoalDialog
+        open={Boolean(novaTarefaDe)}
+        onOpenChange={(open) => { if (!open) setNovaTarefaDe(null) }}
+        initialDate={novaTarefaDe ? parseDataEventoLocal(novaTarefaDe.data_evento) : undefined}
+        initialHora={getCurrentHora24h()}
+        eventoVinculo={
+          novaTarefaDe
+            ? { eventoId: novaTarefaDe.id, tituloEvento: novaTarefaDe.titulo }
+            : null
+        }
       />
 
       <AlertDialog open={Boolean(excluirDe)} onOpenChange={(open) => { if (!open) setExcluirDe(null) }}>

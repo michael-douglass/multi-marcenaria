@@ -12,6 +12,7 @@ import { ObraDataEntregaInput } from '@/components/obras/ObraDataEntregaInput'
 import { ObraLeadMidiasStrip } from '@/components/obras/ObraLeadMidiasStrip'
 import { ObraWeekCardRoster } from '@/components/obras/ObraWeekCardRoster'
 import { ObraTempoBar } from '@/components/obras/ObraTempoBar'
+import { getStatusEfetivo } from '@/lib/obra-progresso'
 import { fmtDate } from '@/lib/utils'
 import type {
   ObraFull,
@@ -49,20 +50,8 @@ const STATUS_SHORT: Record<StatusKanbanObra, string> = {
   cancelada: 'Cancelada',
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 function computeKanbanKey(obra: ObraFull): StatusKanbanObra {
-  if (
-    obra.status_kanban !== 'concluida' &&
-    obra.status_kanban !== 'cancelada' &&
-    obra.data_prevista_fim &&
-    obra.data_prevista_fim < today()
-  ) {
-    return 'datas_em_atraso'
-  }
-  return obra.status_kanban
+  return getStatusEfetivo(obra)
 }
 
 function duracao(obra: ObraFull): string | null {
@@ -207,11 +196,26 @@ export function ObraCard({
         {(obra.data_prevista_inicio || obra.data_prevista_fim) && (
           <p
             className="m-0 text-[0.62rem] font-semibold tabular-nums text-[var(--color-text-secondary)]"
-            title="Datas previstas"
+            title="Datas previstas (atual)"
           >
             {obra.data_prevista_inicio ? fmtDate(obra.data_prevista_inicio) : '?'}
             {' → '}
             {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
+          </p>
+        )}
+        {(obra.data_prevista_inicio_original || obra.data_prevista_fim_original) && (
+          <p
+            className="m-0 text-[0.55rem] font-medium tabular-nums text-[var(--color-text-muted)]"
+            title="Data original (primeira definida)"
+          >
+            Original:{' '}
+            {obra.data_prevista_inicio_original
+              ? fmtDate(obra.data_prevista_inicio_original)
+              : '?'}
+            {' → '}
+            {obra.data_prevista_fim_original
+              ? fmtDate(obra.data_prevista_fim_original)
+              : '?'}
           </p>
         )}
         <ObraWeekCardRoster
@@ -368,6 +372,26 @@ export function ObraCard({
               {obra.data_prevista_fim ? fmtDate(obra.data_prevista_fim) : '?'}
             </span>
           </div>
+        )}
+        {(obra.data_prevista_inicio_original || obra.data_prevista_fim_original) && (
+          <div className="obra-card-meta-row">
+            <span className="obra-card-meta-label">Original</span>
+            <span
+              className="obra-card-meta-value text-[var(--color-text-muted)]"
+              title="Primeira data definida"
+            >
+              {obra.data_prevista_inicio_original
+                ? fmtDate(obra.data_prevista_inicio_original)
+                : '?'}
+              {' → '}
+              {obra.data_prevista_fim_original
+                ? fmtDate(obra.data_prevista_fim_original)
+                : '?'}
+            </span>
+          </div>
+        )}
+        {obra.atraso_permanente && obra.status_kanban !== 'concluida' && obra.status_kanban !== 'cancelada' && (
+          <p className="text-[0.72rem] font-semibold text-red-600 m-0">Atraso permanente</p>
         )}
         {obra.tempo_maximo_horas != null && (
           <CardInfoRow label="Prazo máx." value={`${Number(obra.tempo_maximo_horas)}h`} />

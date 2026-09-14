@@ -661,6 +661,13 @@ export interface ObraFull {
   montadores_execucao?: ObraMontadorExecucao[]
   data_prevista_inicio?: string | null
   data_prevista_fim?: string | null
+  /** Primeira data de início prevista; não muda após a 1ª definição. */
+  data_prevista_inicio_original?: string | null
+  /** Primeira data de fim prevista; não muda após a 1ª definição. */
+  data_prevista_fim_original?: string | null
+  /** Uma vez true, a obra permanece como atrasada mesmo após reagendar. */
+  atraso_permanente?: boolean
+  atraso_marcado_em?: string | null
   tempo_maximo_horas?: number | null
   status_kanban: StatusKanbanObra
   iniciado_em?: string | null
@@ -681,6 +688,18 @@ export interface ObraFull {
   comissao_ocultos?: boolean[]
   criado_em?: string
   atualizado_em?: string
+}
+
+/** Registro de reajuste de datas previstas da obra. */
+export interface ObraDatasHistoricoItem {
+  id: string
+  obra_id: string
+  data_inicio_anterior?: string | null
+  data_fim_anterior?: string | null
+  data_inicio_nova?: string | null
+  data_fim_nova?: string | null
+  alterado_em: string
+  alterado_por?: string | null
 }
 
 export interface ObraInput {

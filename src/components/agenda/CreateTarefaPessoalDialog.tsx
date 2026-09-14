@@ -25,14 +25,23 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { getCurrentHora24h } from '@/lib/horarios-24h';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useUsers } from '@/hooks/useUsers';
 import { useAgendaPessoal } from '@/hooks/useAgendaPessoal';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
 import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
+import { getEventosDb, resolveEventosTables } from '@/lib/evento-db';
 
 const DIAS_SEMANA_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const COR_EVENTO_PADRAO = '#f59e0b';
+
+export interface CreateTarefaEventoVinculo {
+  eventoId: string;
+  tituloEvento: string;
+}
 
 interface CreateTarefaPessoalDialogProps {
   open: boolean;
@@ -42,6 +51,8 @@ interface CreateTarefaPessoalDialogProps {
   initialHora?: string;
   /** Acima do painel flutuante da agenda (z-95). */
   floatingLayer?: boolean;
+  /** Se vier do Controle de Eventos: cria também no checklist da pasta. */
+  eventoVinculo?: CreateTarefaEventoVinculo | null;
 }
 
 export function CreateTarefaPessoalDialog({
@@ -50,10 +61,15 @@ export function CreateTarefaPessoalDialog({
   initialDate,
   initialHora,
   floatingLayer,
+  eventoVinculo,
 }: CreateTarefaPessoalDialogProps) {
   const { user } = useAuth();
+  const { empresa } = useEmpresa();
   const { users } = useUsers();
   const { createTarefa, isAdminAgendaPessoal, canAssignTarefaToOthers } = useAgendaPessoal();
+  const schema = empresa?.schema_nome ?? null;
+  const tables = resolveEventosTables(schema);
+  const eventoDb = getEventosDb(schema);
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -75,7 +91,11 @@ export function CreateTarefaPessoalDialog({
   useEffect(() => {
     if (!open) return;
     setTitulo('');
-    setDescricao('');
+    setDescricao(
+      eventoVinculo?.tituloEvento
+        ? `Controle de Eventos · ${eventoVinculo.tituloEvento}`
+        : '',
+    );
     // Clique na faixa do calendário → horário clicado; botão Criar → horário atual
     setHora(initialHora ?? getCurrentHora24h());
     setTitularId(user?.id || '');
@@ -83,11 +103,11 @@ export function CreateTarefaPessoalDialog({
     setRecorrenciaTipo('todo_dia');
     setRecorrenciaDias([]);
     setDataFimRecorrencia('');
-    // Dia visível na agenda (Hoje / setas); se não houver, usa hoje
+    // Dia do evento (ou dia visível na agenda); se não houver, usa hoje
     setData(initialDate || new Date());
     setOcultarDeOutrosAdmins(false);
-    setCor(null);
-  }, [open, initialDate, initialHora, user?.id]);
+    setCor(eventoVinculo ? COR_EVENTO_PADRAO : null);
+  }, [open, initialDate, initialHora, user?.id, eventoVinculo]);
 
   const toggleDiaSemana = (dia: number) => {
     setRecorrenciaDias((prev) =>
@@ -100,13 +120,44 @@ export function CreateTarefaPessoalDialog({
 
     const selectedUser = users?.find((u) => u.id === titularId);
     const dataStr = data ? format(data, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+    const nome = titulo.trim();
+    let eventoTarefaId: string | null = null;
+    let agendaAttempted = false;
 
     try {
       const entityId = crypto.randomUUID();
       const anexos = await anexosDraft.flush(entityId);
+
+      if (eventoVinculo?.eventoId) {
+        const { data: maxOrdemRows } = await eventoDb
+          .from(tables.tarefas)
+          .select('ordem')
+          .eq('evento_id', eventoVinculo.eventoId)
+          .order('ordem', { ascending: false })
+          .limit(1);
+        const ordem =
+          Array.isArray(maxOrdemRows) &&
+          maxOrdemRows[0] &&
+          typeof (maxOrdemRows[0] as { ordem?: unknown }).ordem === 'number'
+            ? ((maxOrdemRows[0] as { ordem: number }).ordem + 1)
+            : 0;
+
+        eventoTarefaId = crypto.randomUUID();
+        const { error: eventoError } = await eventoDb.from(tables.tarefas).insert({
+          id: eventoTarefaId,
+          evento_id: eventoVinculo.eventoId,
+          titulo: nome,
+          concluida: false,
+          ordem,
+          agenda_tarefa_id: entityId,
+        });
+        if (eventoError) throw eventoError;
+      }
+
+      agendaAttempted = true;
       await createTarefa.mutateAsync({
         id: entityId,
-        titulo: titulo.trim(),
+        titulo: nome,
         descricao: descricao.trim() || undefined,
         data: dataStr,
         hora: hora || undefined,
@@ -121,13 +172,22 @@ export function CreateTarefaPessoalDialog({
         data_fim_recorrencia:
           tipoAgendamento === 'recorrente' && dataFimRecorrencia ? dataFimRecorrencia : undefined,
         ocultar_de_outros_admins: isAdminAgendaPessoal ? ocultarDeOutrosAdmins : undefined,
-        cor,
+        cor: cor ?? (eventoVinculo ? COR_EVENTO_PADRAO : null),
         anexos,
+        evento_id: eventoVinculo?.eventoId ?? null,
+        evento_tarefa_id: eventoTarefaId,
       });
 
       onOpenChange(false);
-    } catch {
-      // Erro já tratado no onError da mutation (toast).
+    } catch (error) {
+      if (eventoTarefaId) {
+        await eventoDb.from(tables.tarefas).delete().eq('id', eventoTarefaId);
+      }
+      // createTarefa já mostra toast no próprio onError
+      if (!agendaAttempted) {
+        const message = error instanceof Error ? error.message : 'Não deu para criar a tarefa';
+        toast.error('Não deu para criar a tarefa', { description: message });
+      }
     }
   };
 
@@ -141,10 +201,19 @@ export function CreateTarefaPessoalDialog({
         onInteractOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Nova Tarefa Pessoal</DialogTitle>
+          <DialogTitle className={eventoVinculo ? 'text-[#f0d28c]' : undefined}>
+            {eventoVinculo ? 'Nova tarefa do evento' : 'Nova Tarefa Pessoal'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {eventoVinculo && (
+            <p className="rounded-lg border border-[rgba(240,210,140,0.35)] bg-[rgba(240,210,140,0.08)] px-3 py-2 text-xs leading-relaxed text-[#d4c4a8]">
+              Vai para a Agenda com dia e horário, e também entra no checklist da pasta{' '}
+              <span className="font-semibold text-[#f0d28c]">{eventoVinculo.tituloEvento}</span>.
+            </p>
+          )}
+
           <div>
             <Label>Título *</Label>
             <Input

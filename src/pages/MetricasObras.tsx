@@ -201,17 +201,17 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
             </div>
           )}
           <div className={`flex items-center gap-2 flex-wrap ${embedded ? 'w-full justify-between sm:justify-end' : ''}`}>
-            <div className="flex items-center gap-1 rounded-lg border border-[rgba(240,210,140,0.25)] bg-[rgba(10,4,2,0.5)] px-1 py-1">
+            <div className="flex items-center gap-1 rounded-lg border border-[rgba(42,24,18,0.14)] bg-[#fffcf8] px-1 py-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => navegarMes(-1)}
-                className="rounded p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f2d892]"
+                className="rounded p-1.5 text-[var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[var(--color-gold-muted)]"
                 aria-label="Mês anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <select
-                className="glass-input !h-8 !min-w-[9rem] !border-0 !bg-transparent !text-xs font-semibold text-[#f2d892]"
+                className="glass-input !h-8 !min-w-[9rem] !border-0 !bg-transparent !text-xs font-semibold text-[var(--color-gold-muted)]"
                 value={`${periodo.ano}-${periodo.mes}`}
                 onChange={e => {
                   const [ano, mes] = e.target.value.split('-').map(Number)
@@ -227,7 +227,7 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
               <button
                 type="button"
                 onClick={() => navegarMes(1)}
-                className="rounded p-1.5 text-[#edd9c4] hover:bg-[rgba(240,210,140,0.1)] hover:text-[#f2d892]"
+                className="rounded p-1.5 text-[var(--color-text-muted)] hover:bg-[rgba(42,24,18,0.06)] hover:text-[var(--color-gold-muted)]"
                 aria-label="Próximo mês"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -236,7 +236,7 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setPeriodo({ mes: hoje.getMonth() + 1, ano: hoje.getFullYear() })}
-                  className="ml-1 rounded px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-[#f2d892] hover:bg-[rgba(240,210,140,0.12)]"
+                  className="ml-1 rounded px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-[var(--color-gold-muted)] hover:bg-[rgba(42,24,18,0.06)]"
                 >
                   Hoje
                 </button>
@@ -269,13 +269,13 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
               <p className="text-xs uppercase tracking-wider text-[#edd9c4] mb-1">
                 Comissão a pagar em {periodoLabel}
               </p>
-              <p className="text-3xl font-bold font-display text-emerald-400">
+              <p className="text-3xl font-bold font-display text-emerald-700">
                 {fmtCur(resumo.comissao_a_pagar_mes)}
               </p>
               <p className="mt-2 text-xs text-[#edd9c4]">
                 Obras concluídas neste mês com comissão configurada
                 {resumo.obras_concluidas_mes > 0 && (
-                  <span className="text-emerald-400/80"> · {resumo.obras_concluidas_mes} obra(s)</span>
+                  <span className="text-emerald-700/90"> · {resumo.obras_concluidas_mes} obra(s)</span>
                 )}
               </p>
             </div>
@@ -410,25 +410,25 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
               {
                 label: `Obras a finalizar em ${periodoLabel}`,
                 value: totalObras,
-                color: '#f2d892',
+                color: '#8d5e22',
                 hint: 'Previstas para entrega neste mês (abertas, concluídas e em atraso)',
               },
               {
                 label: 'Obras concluídas',
                 value: `${totalConcluidas} (${pct(totalConcluidas, totalObras)})`,
-                color: '#10b981',
+                color: '#047857',
                 hint: 'Concluídas em relação ao total previsto para entrega no mês',
               },
               {
                 label: 'Concluídas em atraso',
                 value: `${totalAtraso}${totalConcluidas > 0 ? ` (${pct(totalAtraso, totalConcluidas)})` : ''}`,
-                color: '#ef4444',
+                color: '#b91c1c',
                 hint: 'Entre as concluídas do mês, as que passaram do prazo máximo de execução',
               },
               {
                 label: `Comissões geradas em ${periodoLabel}`,
                 value: fmtCur(resumo.comissoes_geradas_mes),
-                color: '#f2d892',
+                color: '#8d5e22',
                 hint: 'Lançamentos em Contas a Pagar',
               },
             ].map(({ label, value, color, hint }) => (
@@ -506,7 +506,7 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
                                     className="h-full rounded-full"
                                     style={{
                                       width: `${Math.min(100, onTimeRate)}%`,
-                                      backgroundColor: onTimeRate >= 80 ? '#10b981' : onTimeRate >= 50 ? '#f59e0b' : '#ef4444',
+                                      backgroundColor: onTimeRate >= 80 ? '#047857' : onTimeRate >= 50 ? '#b45309' : '#b91c1c',
                                     }}
                                   />
                                 </div>
@@ -620,11 +620,11 @@ function MetricasObrasContent({ embedded = false }: { embedded?: boolean }) {
                         </td>
                         <td className="px-4 py-3">
                           {o.finalizado_em ? (
-                            <span className="inline-flex items-center rounded-full border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-300">
+                            <span className="inline-flex items-center rounded-full border border-emerald-700/35 bg-emerald-700/10 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-800">
                               Concluiu
                             </span>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-300">
+                            <span className="inline-flex items-center rounded-full border border-amber-700/35 bg-amber-700/10 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-800">
                               Pendente
                             </span>
                           )}

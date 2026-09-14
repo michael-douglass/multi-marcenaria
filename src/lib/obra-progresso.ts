@@ -68,14 +68,18 @@ export function calcObraProgresso(
   const elapsedDays = Math.max(0, daysBetween(inicio, today))
   const percentElapsed = Math.min(100, Math.round((elapsedDays / totalDays) * 100))
   const daysRemaining = daysBetween(today, fim)
+  const fimOriginal = normalizeObraDate(obra.data_prevista_fim_original) ?? fim
 
-  if (daysRemaining < 0) {
-    const atraso = Math.abs(daysRemaining)
+  if (daysRemaining < 0 || obra.atraso_permanente) {
+    const atrasoRef = daysRemaining < 0 ? fim : fimOriginal
+    const atraso = Math.max(1, Math.abs(daysBetween(today, atrasoRef)))
     return {
       variant: 'overdue',
       percentElapsed: 100,
       label: `${atraso} dia${atraso !== 1 ? 's' : ''} de atraso`,
-      sublabel: `previsto até ${fmtDate(fim)}`,
+      sublabel: obra.atraso_permanente && daysRemaining >= 0
+        ? `reagendada até ${fmtDate(fim)} · original ${fmtDate(fimOriginal)}`
+        : `previsto até ${fmtDate(fim)}`,
       barColor: '#ef4444',
     }
   }
@@ -102,16 +106,17 @@ export function calcObraProgresso(
   }
 }
 
-/** Retorna o status efetivo da obra: se o prazo passou e não está concluída/cancelada, é atraso. */
+/** Retorna o status efetivo da obra: atraso permanente ou prazo vencido (se aberta). */
 export function getStatusEfetivo(obra: ObraFull, refDate: Date = new Date()): StatusKanbanObra {
+  if (obra.status_kanban === 'concluida' || obra.status_kanban === 'cancelada') {
+    return obra.status_kanban
+  }
+  if (obra.atraso_permanente) {
+    return 'datas_em_atraso'
+  }
   const fim = normalizeObraDate(obra.data_prevista_fim)
   const hoje = refDate.toISOString().slice(0, 10)
-  if (
-    obra.status_kanban !== 'concluida' &&
-    obra.status_kanban !== 'cancelada' &&
-    fim &&
-    fim < hoje
-  ) {
+  if (fim && fim < hoje) {
     return 'datas_em_atraso'
   }
   return obra.status_kanban

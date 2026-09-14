@@ -658,8 +658,10 @@ export function CalendarioObrasContent({
 
       if ((k === 'data_prevista_inicio' || k === 'data_prevista_fim') && !editObra?.iniciado_em) {
         const fim = k === 'data_prevista_fim' ? (v as string) : p.data_prevista_fim
-        if (fim) {
-          next.status_kanban = fim < todayISO ? 'datas_em_atraso' : 'datas_definidas'
+        if (editObra?.atraso_permanente || (fim && fim < todayISO)) {
+          next.status_kanban = 'datas_em_atraso'
+        } else if (fim) {
+          next.status_kanban = 'datas_definidas'
         } else if (!p.data_prevista_inicio && !p.data_prevista_fim) {
           next.status_kanban = 'datas_em_aberto'
         }

@@ -62,9 +62,15 @@ function obraMatchesBuscaFila(obra: ObraFull, q: string): boolean {
   return haystack.includes(q)
 }
 
-/** Dentro de uma data: nome do cliente. */
-function sortObrasDentroDoDia(obras: ObraFull[]): ObraFull[] {
+/**
+ * Dentro de uma data: atrasadas permanentes primeiro; depois início e nome.
+ */
+function sortObrasDentroDoDia(obras: ObraFull[], hojeIso: string): ObraFull[] {
   return [...obras].sort((a, b) => {
+    const atrA = obraEmAtrasoAberta(a, hojeIso) ? 0 : 1
+    const atrB = obraEmAtrasoAberta(b, hojeIso) ? 0 : 1
+    if (atrA !== atrB) return atrA - atrB
+
     const iniA = a.data_prevista_inicio ?? ''
     const iniB = b.data_prevista_inicio ?? ''
     if (iniA !== iniB) return iniA.localeCompare(iniB)
@@ -73,17 +79,21 @@ function sortObrasDentroDoDia(obras: ObraFull[]): ObraFull[] {
 }
 
 /**
- * Ordena a lista plana: data de entrega crescente (atrasadas / mais cedo primeiro);
- * desempate por início e nome.
+ * Ordena a lista plana: data de entrega crescente (colunas antigas à esquerda);
+ * dentro da mesma data, atrasadas primeiro; desempate por início e nome.
  */
 export function sortObrasFila(
   obras: ObraFull[],
-  _hojeIso: string = hojeIsoLocal(),
+  hojeIso: string = hojeIsoLocal(),
 ): ObraFull[] {
   return [...obras].sort((a, b) => {
     const fimA = a.data_prevista_fim ?? ''
     const fimB = b.data_prevista_fim ?? ''
     if (fimA !== fimB) return fimA.localeCompare(fimB)
+
+    const atrA = obraEmAtrasoAberta(a, hojeIso) ? 0 : 1
+    const atrB = obraEmAtrasoAberta(b, hojeIso) ? 0 : 1
+    if (atrA !== atrB) return atrA - atrB
 
     const iniA = a.data_prevista_inicio ?? ''
     const iniB = b.data_prevista_inicio ?? ''
@@ -119,7 +129,7 @@ export function filtrarObrasFila(
 
 /**
  * Uma coluna por data de entrega (`data_prevista_fim`), da mais cedo à mais tarde.
- * Assim as filas são só por data e cabem lado a lado (rolagem horizontal).
+ * Atraso permanente aparece no card; a coluna continua sendo a data atual.
  */
 export function groupObrasFilaPorData(
   obras: ObraFull[],
@@ -148,7 +158,7 @@ export function groupObrasFilaPorData(
       atrasada,
       hoje,
       cor,
-      obras: sortObrasDentroDoDia(byDate.get(iso) ?? []),
+      obras: sortObrasDentroDoDia(byDate.get(iso) ?? [], hojeIso),
     }
   })
 }

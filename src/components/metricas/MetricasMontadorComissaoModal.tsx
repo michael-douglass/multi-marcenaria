@@ -39,7 +39,7 @@ interface Props {
 function ResumoLinha({
   label,
   valor,
-  cor = '#edd9c4',
+  cor = '#6b5244',
   destaque = false,
 }: {
   label: string
@@ -243,25 +243,25 @@ export function MetricasMontadorComissaoModal({
       wide
       headerExtra={
         <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full border border-[rgba(240,210,140,0.2)] bg-black/20 px-2.5 py-1 text-[#edd9c4]">
+          <span className="rounded-full border border-[rgba(42,24,18,0.14)] bg-[rgba(42,24,18,0.04)] px-2.5 py-1 text-[var(--color-text-muted)]">
             Período: {periodoLabel}
           </span>
-          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-emerald-400">
+          <span className="rounded-full border border-emerald-700/30 bg-emerald-700/10 px-2.5 py-1 text-emerald-800">
             Concluídas: {fmtCur(totalConcluida)}
           </span>
-          <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-400">
+          <span className="rounded-full border border-amber-700/30 bg-amber-700/10 px-2.5 py-1 text-amber-800">
             Previsão: {fmtCur(totalPrevisao)}
           </span>
           {valorFixo > 0 && (
-            <span className="rounded-full border border-[#f2d892]/25 bg-[#f2d892]/10 px-2.5 py-1 text-[#f2d892]">
+            <span className="rounded-full border border-[rgba(141,94,34,0.3)] bg-[rgba(196,150,58,0.12)] px-2.5 py-1 text-[var(--color-gold-muted)]">
               Fixo: {fmtCur(valorFixo)}
             </span>
           )}
-          <span className="rounded-full border border-cream/20 bg-cream/10 px-2.5 py-1 text-cream">
+          <span className="rounded-full border border-[rgba(42,24,18,0.14)] bg-[rgba(42,24,18,0.05)] px-2.5 py-1 text-[var(--color-text-primary)]">
             Total previsto: {fmtCur(totalPrevisto)}
           </span>
           {montador.comissao_gerada > 0 && (
-            <span className="rounded-full border border-[#f2d892]/25 bg-[#f2d892]/10 px-2.5 py-1 text-[#f2d892]">
+            <span className="rounded-full border border-[rgba(141,94,34,0.3)] bg-[rgba(196,150,58,0.12)] px-2.5 py-1 text-[var(--color-gold-muted)]">
               Gerada no caixa: {fmtCur(montador.comissao_gerada)}
             </span>
           )}
@@ -286,10 +286,10 @@ export function MetricasMontadorComissaoModal({
             <p className="font-display text-2xl text-cream mt-1">{fmtCur(totalPrevisto)}</p>
 
             <div className="mt-3 space-y-2 border-t border-[rgba(240,210,140,0.12)] pt-3">
-              <ResumoLinha label="Comissão concluída (a pagar)" valor={totalConcluida} cor="#34d399" />
-              <ResumoLinha label="Previsão de comissão" valor={totalPrevisao} cor="#fbbf24" />
-              <ResumoLinha label="Subtotal comissões" valor={totalComissao} cor="#edd9c4" />
-              <ResumoLinha label="Fixo mensal" valor={valorFixo} cor="#f2d892" />
+              <ResumoLinha label="Comissão concluída (a pagar)" valor={totalConcluida} cor="#047857" />
+              <ResumoLinha label="Previsão de comissão" valor={totalPrevisao} cor="#b45309" />
+              <ResumoLinha label="Subtotal comissões" valor={totalComissao} cor="#3d261c" />
+              <ResumoLinha label="Fixo mensal" valor={valorFixo} cor="#8d5e22" />
               <div className="border-t border-[rgba(240,210,140,0.1)] pt-2">
                 <ResumoLinha label="Total previsto no mês" valor={totalPrevisto} destaque />
               </div>
@@ -323,7 +323,7 @@ export function MetricasMontadorComissaoModal({
 
           <ObraLista
             titulo="Obras concluídas neste mês"
-            cor="#34d399"
+            cor="#047857"
             obras={concluidas}
             vazio="Nenhuma obra concluída com comissão neste período."
             canManageComissao={canManageComissao}
@@ -333,7 +333,7 @@ export function MetricasMontadorComissaoModal({
 
           <ObraLista
             titulo="Previsão — obras em andamento"
-            cor="#fbbf24"
+            cor="#b45309"
             obras={emPrevisao}
             vazio="Nenhuma obra em andamento com comissão prevista para este mês."
             canManageComissao={canManageComissao}

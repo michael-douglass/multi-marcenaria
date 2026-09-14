@@ -8,6 +8,7 @@ import { TimeInput } from '@/components/ui/TimeInput'
 import { ObraMontadoresField } from '@/components/obras/ObraMontadoresField'
 import { ObraComissaoField } from '@/components/obras/ObraComissaoField'
 import { ObraLousa } from '@/components/obras/lousa/ObraLousa'
+import { ObraDatasHistoricoBlock } from '@/components/obras/ObraDatasHistoricoBlock'
 import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
 import { isAcceptedObraFile, type PendingObraArquivo } from '@/lib/obra-arquivos'
 import type { ObraComissaoItem, ObraFull, ObraInput, StatusKanbanObra } from '@/types'
@@ -177,6 +178,18 @@ export function ObraFormModal({
               onChange={v => onChange('data_prevista_fim', v)}
             />
           </Field>
+          {obra && (
+            <ObraDatasHistoricoBlock
+              obra={{
+                id: obra.id,
+                data_prevista_inicio_original: obra.data_prevista_inicio_original,
+                data_prevista_fim_original: obra.data_prevista_fim_original,
+                data_prevista_inicio: form.data_prevista_inicio,
+                data_prevista_fim: form.data_prevista_fim,
+                atraso_permanente: obra.atraso_permanente,
+              }}
+            />
+          )}
           <Field label="Prazo Máximo (horas)">
             <input
               type="number" min={0} className="glass-input"

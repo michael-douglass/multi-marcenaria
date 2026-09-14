@@ -11,7 +11,6 @@ import { LoadingState, ErrorState } from '../components/ui/EmptyState'
 import { ObraDetalheModal } from '../components/obras/ObraDetalheModal'
 import { ObraFormModal } from '../components/obras/ObraFormModal'
 import { BriefingModeloEditor } from '../components/obras/briefing/BriefingModeloEditor'
-import { ObraBriefingSection } from '../components/obras/briefing/ObraBriefingSection'
 import { useBriefingModelos } from '../hooks/useBriefingModelos'
 import {
   buildPendingObraArquivo,
@@ -45,7 +44,7 @@ import {
   type AgendaMesFiltro,
 } from '../lib/agenda-mes-filtro-storage'
 import { filtrarObrasFila, groupObrasFilaPorData } from '../lib/obra-fila'
-import { groupObrasAgendaKanban } from '../lib/obra-progresso'
+import { getStatusEfetivo, groupObrasAgendaKanban } from '../lib/obra-progresso'
 import {
   parseAgendaObraView,
   setAgendaObraViewParam,
@@ -68,8 +67,6 @@ import {
   canConfigBriefingTemplates,
   canDeleteBriefingTemplates,
   canOpenAgendaConfig,
-  canEditObraBriefing,
-  canViewObraBriefing,
   canDeleteObras,
   canEditObras,
   canManageAllObras,
@@ -123,13 +120,7 @@ const BLANK_GRUPO: GrupoObraInput = {
 function today() { return new Date().toISOString().slice(0, 10) }
 
 function computeKanbanKey(obra: ObraFull): StatusKanbanObra {
-  if (
-    obra.status_kanban !== 'concluida' &&
-    obra.status_kanban !== 'cancelada' &&
-    obra.data_prevista_fim &&
-    obra.data_prevista_fim < today()
-  ) return 'datas_em_atraso'
-  return obra.status_kanban
+  return getStatusEfetivo(obra)
 }
 
 // ObraModal agora vive em src/components/obras/ObraFormModal.tsx
@@ -328,8 +319,6 @@ function AgendaObrasContent({
   const canConfigTiposGrupos = canConfigObrasTiposGrupos(roles)
   const canConfigBriefings = canConfigBriefingTemplates(roles)
   const canConfig = canOpenAgendaConfig(roles)
-  const canEditBriefing = canEditObraBriefing(roles)
-  const canViewBriefing = canViewObraBriefing(roles)
   const canDeleteBriefingModelos = canDeleteBriefingTemplates(roles)
   const canDelete = canDeleteObras(roles)
   const isObrasAdmin = canManageAllObras(roles) || isMontadorAdmin
@@ -728,11 +717,13 @@ function AgendaObrasContent({
         }
       }
 
-      // Auto-compute status when dates change
+      // Auto-compute status when dates change (atraso permanente não volta a "definidas")
       if ((k === 'data_prevista_inicio' || k === 'data_prevista_fim') && !editObra?.iniciado_em) {
         const fim = k === 'data_prevista_fim' ? (v as string) : p.data_prevista_fim
-        if (fim) {
-          next.status_kanban = fim < today() ? 'datas_em_atraso' : 'datas_definidas'
+        if (editObra?.atraso_permanente || (fim && fim < today())) {
+          next.status_kanban = 'datas_em_atraso'
+        } else if (fim) {
+          next.status_kanban = 'datas_definidas'
         } else if (!p.data_prevista_inicio && !p.data_prevista_fim) {
           next.status_kanban = 'datas_em_aberto'
         }
@@ -1323,14 +1314,6 @@ function AgendaObrasContent({
         onRemoveFile={handleRemoveFile}
         isDraftRestored={draftRestored}
         onClearDraft={clearDraft}
-        obraBriefingSection={
-          canViewBriefing ? (
-            <ObraBriefingSection
-              obraId={editObra?.id ?? null}
-              canEdit={canEditBriefing}
-            />
-          ) : null
-        }
         canEditLousa={canEdit}
       />
 
