@@ -82,6 +82,8 @@ import {
 } from '../components/page-zoom'
 import { AgendaMesFilterBar } from '../components/obras/AgendaMesFilterBar'
 import { AgendaEntregaKpiStrip } from '../components/obras/AgendaEntregaKpiStrip'
+import { AgendaHeaderCollapse } from '../components/obras/AgendaHeaderCollapse'
+import { useAgendaHeaderCollapse } from '../hooks/useAgendaHeaderCollapse'
 import {
   describeAgendaEntregaDestaque,
   filterObrasPorEntregaDestaque,
@@ -425,6 +427,12 @@ function AgendaObrasContent({
   const [filtroMinimized, setFiltroMinimized] = useState(
     () => readAgendaMesFiltroPrefs().minimized,
   )
+  const {
+    lockMode: headerLockMode,
+    expanded: headerExpanded,
+    setLockMode: setHeaderLockMode,
+    toggleManual: toggleHeaderManual,
+  } = useAgendaHeaderCollapse(userProfile?.id)
   const [detalheObra, setDetalheObra] = useState<ObraFull | null>(null)
   const [applyingComissao, setApplyingComissao] = useState(false)
   const obraFromUrl = searchParams.get('obra')
@@ -892,144 +900,159 @@ function AgendaObrasContent({
       ].filter(Boolean).join(' ')}
     >
       <KanbanPageToolbar className="agenda-kanban-toolbar">
-        {!isFilas && (
-          <AgendaEntregaKpiStrip
-            resumo={entregaResumo}
-            active={entregaDestaque}
-            onSelect={handleEntregaDestaque}
-          />
-        )}
-        <ObraPageHeader
+        <AgendaHeaderCollapse
           title={isFilas ? 'Filas de Obras' : 'Agenda de Obras'}
           subtitle={
             <>
-              {listaAtiva.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
+              {listaAtiva.length}/{totalBase}
               {' · '}
-              <span className={entregaDestaque && !isFilas ? 'text-[#f2d892]' : 'text-[#f2d892] capitalize'}>{filtroLabel}</span>
-              {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
-              {!isFilas && somenteSemPedido && (
-                <span className="ml-1 text-[#fbbf24]">· só sem pedido</span>
-              )}
+              <span className="capitalize">{filtroLabel}</span>
             </>
           }
-          actions={
-            <div className="obra-page-header__actions-inner">
-              <ObrasViewTabs value={view} onChange={onViewChange} />
-              {!isFilas && (
-                <div className="obra-page-header__badges flex flex-col items-start gap-1">
-                  {canViewMarkupCustos && (
-                    <ObraMarkupCustosToolbar
-                      totalPedidoAFazer={totalPedidoAFazer}
-                      loading={loadingMarkupCustos || loadingMarkupFiltros}
-                      filtroPedidosAtivo={somenteSemPedido}
-                      onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
+          expanded={headerExpanded}
+          lockMode={headerLockMode}
+          onToggle={toggleHeaderManual}
+          onLockModeChange={setHeaderLockMode}
+        >
+          {!isFilas && (
+            <AgendaEntregaKpiStrip
+              resumo={entregaResumo}
+              active={entregaDestaque}
+              onSelect={handleEntregaDestaque}
+            />
+          )}
+          <ObraPageHeader
+            title={isFilas ? 'Filas de Obras' : 'Agenda de Obras'}
+            subtitle={
+              <>
+                {listaAtiva.length} de {totalBase} obra{totalBase !== 1 ? 's' : ''}
+                {' · '}
+                <span className={entregaDestaque && !isFilas ? 'text-[#f2d892]' : 'text-[#f2d892] capitalize'}>{filtroLabel}</span>
+                {busca && <span className="ml-1 text-[#f2d892]">· filtrado</span>}
+                {!isFilas && somenteSemPedido && (
+                  <span className="ml-1 text-[#fbbf24]">· só sem pedido</span>
+                )}
+              </>
+            }
+            actions={
+              <div className="obra-page-header__actions-inner">
+                <ObrasViewTabs value={view} onChange={onViewChange} />
+                {!isFilas && (
+                  <div className="obra-page-header__badges flex flex-col items-start gap-1">
+                    {canViewMarkupCustos && (
+                      <ObraMarkupCustosToolbar
+                        totalPedidoAFazer={totalPedidoAFazer}
+                        loading={loadingMarkupCustos || loadingMarkupFiltros}
+                        filtroPedidosAtivo={somenteSemPedido}
+                        onPedidoAFazerClick={() => setSomenteSemPedido(v => !v)}
+                      />
+                    )}
+                    <ObraPedidoMaterialAlert
+                      count={semPedidoMaterialCount}
+                      compact
+                      active={somenteSemPedido}
+                      onClick={() => setSomenteSemPedido(v => !v)}
                     />
-                  )}
-                  <ObraPedidoMaterialAlert
-                    count={semPedidoMaterialCount}
-                    compact
-                    active={somenteSemPedido}
-                    onClick={() => setSomenteSemPedido(v => !v)}
+                    <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
+                  </div>
+                )}
+                <div
+                  className={
+                    filtroMinimized
+                      ? 'agenda-toolbar-inline'
+                      : 'agenda-toolbar-inline agenda-toolbar-inline--expanded'
+                  }
+                >
+                  <AgendaMesFilterBar
+                    value={mesFiltro}
+                    onChange={handleMesFiltroChange}
+                    minimized={filtroMinimized}
+                    onMinimizedChange={setFiltroMinimized}
                   />
-                  <ObraEmAbertoCount count={obrasEmAbertoCount} compact />
-                </div>
-              )}
-              <div
-                className={
-                  filtroMinimized
-                    ? 'agenda-toolbar-inline'
-                    : 'agenda-toolbar-inline agenda-toolbar-inline--expanded'
-                }
-              >
-                <AgendaMesFilterBar
-                  value={mesFiltro}
-                  onChange={handleMesFiltroChange}
-                  minimized={filtroMinimized}
-                  onMinimizedChange={setFiltroMinimized}
-                />
-                {isFilas && (
-                  <div className="agenda-toolbar-day-filter flex min-w-0 items-center gap-1.5">
-                    <CalendarDays size={12} className="shrink-0 text-[#edd9c4]" aria-hidden />
-                    <input
-                      type="date"
-                      className="glass-input agenda-toolbar-search__input min-w-0 max-w-[10.5rem]"
-                      value={dataDiaFiltro}
-                      onChange={e => setDataDiaFiltro(e.target.value)}
-                      aria-label="Filtrar por dia"
-                      title="Filtrar por dia"
+                  {isFilas && (
+                    <div className="agenda-toolbar-day-filter flex min-w-0 items-center gap-1.5">
+                      <CalendarDays size={12} className="shrink-0 text-[#edd9c4]" aria-hidden />
+                      <input
+                        type="date"
+                        className="glass-input agenda-toolbar-search__input min-w-0 max-w-[10.5rem]"
+                        value={dataDiaFiltro}
+                        onChange={e => setDataDiaFiltro(e.target.value)}
+                        aria-label="Filtrar por dia"
+                        title="Filtrar por dia"
+                      />
+                      {dataDiaFiltro && (
+                        <button
+                          type="button"
+                          onClick={() => setDataDiaFiltro('')}
+                          className="text-[#edd9c4] hover:text-[#f2d892] transition-colors p-1"
+                          aria-label="Limpar filtro de dia"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
+                    <Search
+                      size={12}
+                      className="agenda-toolbar-search__icon absolute left-2.5 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
                     />
-                    {dataDiaFiltro && (
+                    <input
+                      className="glass-input agenda-toolbar-search__input w-full"
+                      placeholder="Buscar..."
+                      value={busca}
+                      onChange={e => setBusca(e.target.value)}
+                      aria-label="Buscar por cliente, montador, endereço ou tipo"
+                    />
+                    {busca && (
                       <button
                         type="button"
-                        onClick={() => setDataDiaFiltro('')}
-                        className="text-[#edd9c4] hover:text-[#f2d892] transition-colors p-1"
-                        aria-label="Limpar filtro de dia"
+                        onClick={() => setBusca('')}
+                        className="agenda-toolbar-search__clear absolute right-2 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
+                        aria-label="Limpar busca"
                       >
                         <X size={12} />
                       </button>
                     )}
                   </div>
-                )}
-                <div className="obra-page-search agenda-toolbar-search relative min-w-0 flex-1">
-                  <Search
-                    size={12}
-                    className="agenda-toolbar-search__icon absolute left-2.5 top-1/2 -translate-y-1/2 text-[#edd9c4] pointer-events-none"
-                  />
-                  <input
-                    className="glass-input agenda-toolbar-search__input w-full"
-                    placeholder="Buscar..."
-                    value={busca}
-                    onChange={e => setBusca(e.target.value)}
-                    aria-label="Buscar por cliente, montador, endereço ou tipo"
-                  />
-                  {busca && (
+                </div>
+                <KanbanPageZoomControls compact className="obra-toolbar-zoom shrink-0" />
+                <div className="obra-page-header__action-buttons">
+                  {canConfig && (
                     <button
                       type="button"
-                      onClick={() => setBusca('')}
-                      className="agenda-toolbar-search__clear absolute right-2 top-1/2 -translate-y-1/2 text-[#edd9c4] hover:text-[#f2d892] transition-colors"
-                      aria-label="Limpar busca"
+                      className="btn btn-outline btn-sm btn-toolbar-icon sm:btn-md"
+                      onClick={() => setConfigOpen(true)}
+                      aria-label="Configurações"
+                      title="Configurações"
                     >
-                      <X size={12} />
+                      <Settings size={14} className="shrink-0" />
+                      <span className="hidden sm:inline">Configurações</span>
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="btn btn-gold btn-sm sm:btn-md relative"
+                      onClick={openNew}
+                      aria-label="Nova obra"
+                    >
+                      <Plus size={14} className="shrink-0" />
+                      <span className="sm:hidden">Nova</span>
+                      <span className="hidden sm:inline">Nova Obra</span>
+                      {hasDraft && (
+                        <span
+                          className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[rgba(10,4,2,0.8)] bg-amber-400"
+                          title="Rascunho salvo"
+                        />
+                      )}
                     </button>
                   )}
                 </div>
               </div>
-              <KanbanPageZoomControls compact className="obra-toolbar-zoom shrink-0" />
-              <div className="obra-page-header__action-buttons">
-                {canConfig && (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-toolbar-icon sm:btn-md"
-                    onClick={() => setConfigOpen(true)}
-                    aria-label="Configurações"
-                    title="Configurações"
-                  >
-                    <Settings size={14} className="shrink-0" />
-                    <span className="hidden sm:inline">Configurações</span>
-                  </button>
-                )}
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="btn btn-gold btn-sm sm:btn-md relative"
-                    onClick={openNew}
-                    aria-label="Nova obra"
-                  >
-                    <Plus size={14} className="shrink-0" />
-                    <span className="sm:hidden">Nova</span>
-                    <span className="hidden sm:inline">Nova Obra</span>
-                    {hasDraft && (
-                      <span
-                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[rgba(10,4,2,0.8)] bg-amber-400"
-                        title="Rascunho salvo"
-                      />
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          }
-        />
+            }
+          />
+        </AgendaHeaderCollapse>
       </KanbanPageToolbar>
 
       {/* Estados de carregamento/erro */}
