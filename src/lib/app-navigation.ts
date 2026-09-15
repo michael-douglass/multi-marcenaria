@@ -625,7 +625,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     icon: LayoutDashboard,
     radialColor: 'rgba(240,210,140,0.92)',
     sector: 'casa',
-    roles: ['Administrador', 'Financeiro', 'Marceneiro'],
+    roles: ['Administrador', 'Financeiro'],
   },
   {
     id: 'financeiro',
@@ -931,8 +931,10 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
 export function defaultPathForRole(role: UserRole | null): string {
   if (role === 'Visualizador') return '/visualizacao'
   if (role === 'Montador') return '/agenda-obras?view=calendario'
+  if (role === 'Marceneiro') return '/meu-perfil'
   if (role === 'MontadorAdmin' || role === 'AdministradorObras') return '/agenda-obras'
-  return '/dashboard'
+  if (role === 'Financeiro' || role === 'Administrador') return '/dashboard'
+  return '/meu-perfil'
 }
 
 export { defaultPathForRoles, isVisualizadorOnly, canAccessSection, getAllowedSections } from './role-access'

@@ -27,9 +27,7 @@ const FinanceDataContext = createContext<FinanceDataStore | null>(null)
 
 /** Perfis que usam clientes/fornecedores/cobranças no App shell. */
 export function needsFinanceAppData(roles: UserRole[]): boolean {
-  return roles.some(
-    r => r === 'Administrador' || r === 'Financeiro' || r === 'Marceneiro',
-  )
+  return roles.some(r => r === 'Administrador' || r === 'Financeiro')
 }
 
 /**

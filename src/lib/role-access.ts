@@ -11,7 +11,8 @@ const OBRAS_SECTIONS: ActiveSection[] = [
 export const ROLE_SECTIONS: Record<UserRole, ActiveSection[]> = {
   Administrador: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'contasPagar', 'caixaFornecedor', 'biblioteca', 'caixa', ...OBRAS_SECTIONS, 'visualizacao', 'configuracoes', 'baterPonto', 'resumoPonto'],
   Financeiro: ['dashboard', 'clientes', 'cobranças', 'fornecedores', 'funcionarios', 'biblioteca', 'visualizacao', 'meuPerfil', 'baterPonto', 'resumoPonto', 'agendaObras', 'pedidosObras'],
-  Marceneiro: ['dashboard'],
+  /** Marceneiro não vê o Dashboard financeiro — só perfil (e o que vier de perfis extras, ex.: Montador). */
+  Marceneiro: ['meuPerfil'],
   MontadorAdmin: ['projetosProducao', ...OBRAS_SECTIONS, 'visualizacao', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto', 'resumoPonto', 'funcionarios'],
   AdministradorObras: [...OBRAS_SECTIONS, 'pedidosObras', 'visualizacao', 'meuPerfil', 'baterPonto', 'historicoPonto'],
   Montador: ['agendaObras', 'calendarioObras', 'visualizacao', 'meuFinanceiro', 'meuPerfil', 'baterPonto', 'historicoPonto'],
@@ -91,7 +92,8 @@ export function isFuncionarioCampo(roles: UserRole[]): boolean {
 
 export function defaultPathForRoles(roles: UserRole[]): string {
   if (isVisualizadorOnly(roles)) return '/visualizacao'
-  if (roles.includes('Montador') && roles.length === 1) return '/agenda-obras?view=calendario'
+  // Dashboard: Administrador e Financeiro.
+  if (canAccessSection(roles, 'dashboard')) return '/dashboard'
   if (
     (roles.includes('MontadorAdmin') || roles.includes('AdministradorObras'))
     && !roles.includes('Administrador')
@@ -99,5 +101,15 @@ export function defaultPathForRoles(roles: UserRole[]): string {
   ) {
     return '/agenda-obras'
   }
-  return '/dashboard'
+  // Montador puro ou com Marceneiro (sem admin/financeiro) → Agenda, nunca Dashboard.
+  if (
+    roles.includes('Montador')
+    && !roles.includes('Administrador')
+    && !roles.includes('Financeiro')
+  ) {
+    return '/agenda-obras?view=calendario'
+  }
+  if (canAccessSection(roles, 'meuPerfil')) return '/meu-perfil'
+  if (canAccessSection(roles, 'visualizacao')) return '/visualizacao'
+  return '/meu-perfil'
 }
