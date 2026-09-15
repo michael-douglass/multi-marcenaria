@@ -782,6 +782,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const [folderToDelete, setFolderToDelete] = useState<{ id: string; nome: string } | null>(null);
   const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [fullscreenView, setFullscreenView] = useState<{
     kind: 'pdf' | 'image' | 'video';
     cacheKey: string;
@@ -934,7 +936,16 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
     setSelectedImageIds(new Set());
+    setBulkDeleteOpen(false);
   }, []);
+
+  const deletableSelected = useMemo(
+    () =>
+      filesInView.filter(
+        (pdf) => selectedImageIds.has(pdf.id) && !isFormUploadAttachmentId(pdf.id),
+      ),
+    [filesInView, selectedImageIds],
+  );
 
   const openMovePicker = useCallback((ids: string[]) => {
     if (ids.length === 0) {
@@ -1271,6 +1282,60 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     setDeleteTarget(null);
   };
 
+  const handleConfirmBulkDelete = async () => {
+    if (deletableSelected.length === 0) {
+      setBulkDeleteOpen(false);
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    let removidos = 0;
+    let falhas = 0;
+
+    try {
+      for (const pdf of deletableSelected) {
+        try {
+          const renderId = resolveAiRenderIdFromAttachment({
+            id: pdf.id,
+            fileUrl: pdf.file_url,
+            fileName: pdf.file_name,
+          });
+          const linkedRender = renderId ? aiRenders.find((entry) => entry.id === renderId) : null;
+
+          if (linkedRender) {
+            await deleteRenderMutation.mutateAsync({ ...linkedRender, silent: true });
+          } else {
+            await deletePDF(pdf.id, pdf.file_url, { silent: true });
+          }
+          removidos += 1;
+        } catch (error) {
+          console.error('Erro ao excluir anexo em lote:', error);
+          falhas += 1;
+        }
+      }
+
+      if (removidos > 0) {
+        toast.success(
+          removidos === 1
+            ? '1 arquivo removido'
+            : `${removidos} arquivos removidos`,
+        );
+      }
+      if (falhas > 0) {
+        toast.error(
+          falhas === 1
+            ? '1 arquivo não pôde ser removido'
+            : `${falhas} arquivos não puderam ser removidos`,
+        );
+      }
+
+      setBulkDeleteOpen(false);
+      exitSelectionMode();
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const handleCreateNamedFolder = async () => {
     const nome = normalizeFolderName(newFolderDraft);
     if (!nome) return;
@@ -1403,7 +1468,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                 type="button"
                 size="sm"
                 variant="secondary"
-                disabled={selectedImageIds.size < 1 || isMoving}
+                disabled={selectedImageIds.size < 1 || isMoving || isBulkDeleting}
                 onClick={() => openMovePicker([...selectedImageIds])}
               >
                 {isMoving ? (
@@ -1420,7 +1485,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                 size="sm"
                 disabled={
                   selectableImages.filter((pdf) => selectedImageIds.has(pdf.id)).length < 2 ||
-                  isExportProcessing
+                  isExportProcessing ||
+                  isBulkDeleting
                 }
                 onClick={() => setExportDialogOpen(true)}
               >
@@ -1430,6 +1496,22 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   <FileText className="h-4 w-4 mr-2" />
                 )}
                 Exportar em PDF
+              </Button>
+            )}
+            {canDeletePdf && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={deletableSelected.length < 1 || isBulkDeleting || isMoving}
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                {isBulkDeleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Excluir{deletableSelected.length > 0 ? ` (${deletableSelected.length})` : ''}
               </Button>
             )}
           </div>
@@ -2045,6 +2127,39 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isBulkDeleting) setBulkDeleteOpen(open);
+        }}
+      >
+        <AlertDialogContent nested>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remover {deletableSelected.length} arquivo
+              {deletableSelected.length !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Os arquivos selecionados serão removidos permanentemente e não poderão ser
+              recuperados. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBulkDeleting || deletableSelected.length < 1}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmBulkDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting ? 'Removendo…' : 'Remover selecionados'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

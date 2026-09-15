@@ -29,7 +29,7 @@ export function LeadDuplicateButton({
       size={iconOnly ? 'icon' : 'sm'}
       disabled={disabled || isLoading}
       onClick={onClick}
-      title="Duplicar este lead com markup, orçamentos e fotos da biblioteca"
+      title="Duplicar este lead com markup, orçamentos e fotos — a cópia entra como lead novo"
       aria-label="Duplicar lead"
       className={cn(
         'group/dup relative overflow-hidden',

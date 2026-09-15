@@ -3,9 +3,11 @@ import { FUNCIONARIO_DOCS_BUCKET, getFuncionarioDocSignedUrl, getFuncionarioDocs
 import { createId } from '@/lib/utils'
 import { PONTO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import { requestGeolocation, type GeoPosition } from '@/lib/geolocation'
+import { ISODOW_TO_DIA_ADMISSAO } from '@/lib/funcionario-horarios'
 import type {
   FuncionarioJornada,
   FuncionarioTipo,
+  HorariosSemanaAdmissao,
   PontoControleFuncionarioRow,
   PontoMarcacao,
   PontoMarcacaoComUrls,
@@ -172,8 +174,17 @@ async function gerarComprovantePonto(payload: {
 
 export async function salvarJornada(
   funcionarioId: string,
-  jornada: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+  jornada: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'> & {
+    horarios_dias_ativos?: string[] | null
+  },
 ): Promise<FuncionarioJornada> {
+  const grade = jornada.horarios_semana
+    ? {
+        horarios_semana: jornada.horarios_semana,
+        horarios_dias_ativos: jornada.horarios_dias_ativos ?? null,
+      }
+    : null
+
   const { data, error } = await supabase.rpc('movelaria_ponto_salvar_jornada', {
     p_funcionario_id: funcionarioId,
     p_hora_entrada: jornada.hora_entrada,
@@ -183,6 +194,7 @@ export async function salvarJornada(
     p_tolerancia_minutos: jornada.tolerancia_minutos,
     p_dias_uteis: jornada.dias_uteis,
     p_ativo: jornada.ativo,
+    p_grade: grade,
   })
   if (error) throw new Error(error.message)
   return data as FuncionarioJornada
@@ -564,13 +576,50 @@ export function formatAtrasoMinutos(minutos: number): string {
 export type PontoJornadaHorarios = Pick<
   FuncionarioJornada,
   'hora_entrada' | 'hora_saida_intervalo' | 'hora_retorno_intervalo' | 'hora_saida'
->
+> & {
+  horarios_semana?: HorariosSemanaAdmissao | null
+}
+
+function isodowEmSaoPaulo(referencia: string | Date): number | null {
+  const date = typeof referencia === 'string'
+    ? (referencia.includes('T')
+      ? new Date(referencia)
+      : new Date(`${referencia}T12:00:00-03:00`))
+    : referencia
+  if (Number.isNaN(date.getTime())) return null
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: PONTO_TIMEZONE,
+    weekday: 'short',
+  }).format(date)
+  const map: Record<string, number> = {
+    Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7,
+  }
+  return map[weekday] ?? null
+}
 
 export function horaPrevistaPorTipo(
   tipo: PontoMarcacaoTipo,
   jornada?: PontoJornadaHorarios | null,
+  referencia?: string | Date | null,
 ): string | null {
   if (!jornada) return null
+
+  if (jornada.horarios_semana && referencia) {
+    const dow = isodowEmSaoPaulo(referencia)
+    const diaKey = dow != null ? ISODOW_TO_DIA_ADMISSAO[dow] : undefined
+    const dia = diaKey ? jornada.horarios_semana[diaKey] : undefined
+    if (dia) {
+      const porTipo: Record<PontoMarcacaoTipo, string | undefined> = {
+        entrada: dia.chegada,
+        saida_intervalo: dia.saida_almoco,
+        retorno_intervalo: dia.retorno_almoco,
+        saida: dia.saida_servico,
+      }
+      const horaDia = porTipo[tipo]?.trim()
+      if (horaDia) return horaDia
+    }
+  }
+
   switch (tipo) {
     case 'entrada':
       return jornada.hora_entrada ?? null

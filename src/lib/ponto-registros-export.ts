@@ -449,7 +449,7 @@ function buildPaginaBatida(
 ): string {
   const nome = escapeHtml(funcionarioNome)
   const tipo = escapeHtml(labelPontoTipo(m.tipo))
-  const previsto = horaPrevistaPorTipo(m.tipo, options.jornada)
+  const previsto = horaPrevistaPorTipo(m.tipo, options.jornada, m.registrado_em)
   const horaEfetiva = formatHoraPonto(marcacaoHoraEfetiva(m))
   const lat = m.latitude
   const lng = m.longitude
@@ -988,7 +988,7 @@ async function renderJpgPages(
       page.ctx.fillText(espelho.row.nome, JPG_W / 2, y + 48)
       y += 88
 
-      const previsto = horaPrevistaPorTipo(m.tipo, options.jornada)?.slice(0, 5) ?? '—'
+      const previsto = horaPrevistaPorTipo(m.tipo, options.jornada, m.registrado_em)?.slice(0, 5) ?? '—'
       const cells: Array<[string, string]> = [
         ['Tipo', labelPontoTipo(m.tipo)],
         ['NSR', String(m.nsr)],

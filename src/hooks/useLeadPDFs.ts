@@ -482,7 +482,11 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     return realIds.length + virtualAiItems.length;
   };
 
-  const deletePDF = async (mediaId: string, fileUrl: string): Promise<void> => {
+  const deletePDF = async (
+    mediaId: string,
+    fileUrl: string,
+    options?: { silent?: boolean },
+  ): Promise<void> => {
     try {
       const url = new URL(fileUrl);
       const pathMatch = url.pathname.match(
@@ -500,9 +504,15 @@ export function useLeadPDFs(leadId: number | null | undefined) {
       clearPdfCacheKey(pdfCacheKeyForMedia(mediaId));
 
       if (leadId) invalidateAttachmentQueries(leadId);
-      toast.success('Arquivo removido');
+      if (!options?.silent) {
+        toast.success('Arquivo removido');
+      }
     } catch (error) {
-      toast.error('Erro ao remover arquivo', { description: String(error) });
+      if (!options?.silent) {
+        toast.error('Erro ao remover arquivo', { description: String(error) });
+        return;
+      }
+      throw error;
     }
   };
 

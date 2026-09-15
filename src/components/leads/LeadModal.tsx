@@ -1134,13 +1134,16 @@ export function LeadModal({
         !hasRole('admin') &&
         (hasRole('projetista') || hasRole('projetista_admin'));
 
+      // Etapa do funil NÃO é copiada: a duplicata entra como lead novo (inbox).
+      const statusNovoLead = resolvedNewLeadDefaultStatus || 'Novo Lead';
+
       const newLead = await createLead.mutateAsync({
         nome: nomeDaCopia(formData.name ?? ''),
         email: formData.email || null,
         telefone: formatInternationalPhone(formData.phone || '') || null,
         empresa: formData.company || null,
         origem: formData.origin || null,
-        status: formData.status || resolvedNewLeadDefaultStatus || 'Novo Lead',
+        status: statusNovoLead,
         valor_negocio: formData.dealValue || 0,
         valor_orcamento: formData.budgetValue || 0,
         data_chegada: getTodaySaoPaulo(),
@@ -2320,7 +2323,8 @@ export function LeadModal({
               <span className="block text-xs leading-relaxed">
                 Vão junto: dados do card, campos personalizados, markups, orçamentos,
                 pastas e fotos da biblioteca (mesmos arquivos, sem reenviar) e a lousa.
-                Contratos e histórico do WhatsApp ficam só no lead original.
+                A cópia entra como lead novo (sem a etapa atual do funil). Contratos e
+                histórico do WhatsApp ficam só no lead original.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

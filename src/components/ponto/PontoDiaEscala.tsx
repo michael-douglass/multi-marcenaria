@@ -20,12 +20,13 @@ interface Props {
 
 export function PontoDiaEscala({ marcacoes, jornada, compact = false }: Props) {
   const porTipo = new Map(marcacoes.map(m => [m.tipo, m]))
+  const referenciaDia = marcacoes[0]?.registrado_em ?? null
 
   return (
     <ol className="ponto-escala space-y-0">
       {PONTO_TIPOS_ORDEM.map((tipo, index) => {
         const marcacao = porTipo.get(tipo)
-        const previsto = horaPrevistaPorTipo(tipo, jornada)
+        const previsto = horaPrevistaPorTipo(tipo, jornada, marcacao?.registrado_em ?? referenciaDia)
         const realizado = formatHoraPonto(marcacao ? marcacaoHoraEfetiva(marcacao) : null)
         const hasGeo = marcacao?.latitude != null && marcacao?.longitude != null
 

@@ -18,16 +18,19 @@ import { PontoHistoricoDia } from '@/components/ponto/PontoHistoricoDia'
 import { PontoComprovantesPanel } from '@/components/funcionarios/PontoComprovantesPanel'
 import { AdvertenciaDisciplinarPanel } from '@/components/funcionarios/AdvertenciaDisciplinarPanel'
 import { PontoRegistrosExportStudio } from '@/components/funcionarios/PontoRegistrosExportStudio'
+import { HorariosSemanaFields } from '@/components/funcionarios/HorariosSemanaFields'
 import { LoadingState } from '@/components/ui/EmptyState'
 import {
-  DIAS_SEMANA_LABEL,
   PONTO_OCORRENCIA_LABEL,
   PONTO_TIPO_LABEL,
 } from '@/lib/funcionario-constants'
 import {
   admissaoTemHorariosPreenchidos,
+  DIA_ADMISSAO_TO_ISODOW,
   horariosAdmissaoFromJornada,
+  ISODOW_TO_DIA_ADMISSAO,
   jornadaFromHorariosAdmissao,
+  resolveDiasAtivos,
 } from '@/lib/funcionario-horarios'
 import {
   getRepArquivoSignedUrl,
@@ -41,10 +44,12 @@ import { formatarCnpj, validarExportacaoRep } from '@/lib/rep/rep-validation'
 import { showToast } from '@/lib/toast'
 import { useFuncionarioPonto, filterPontoDocumentos } from '@/hooks/useFuncionarioPonto'
 import type {
+  DiaSemanaAdmissao,
   FuncionarioAdmissaoDados,
   FuncionarioDocumento,
   FuncionarioJornada,
   FuncionarioTipo,
+  HorariosSemanaAdmissao,
   PontoMarcacaoTipo,
   RepArquivo,
 } from '@/types'
@@ -69,22 +74,61 @@ interface Props {
   }) => Promise<void>
 }
 
-const DEFAULT_JORNADA: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'> = {
-  hora_entrada: '08:00',
-  hora_saida_intervalo: '12:00',
-  hora_retorno_intervalo: '13:00',
-  hora_saida: '17:00',
-  tolerancia_minutos: 5,
-  dias_uteis: [1, 2, 3, 4, 5],
-  ativo: true,
-}
-
 const JORNADA_SAVE_DEBOUNCE_MS = 450
 
-function serializeJornadaForm(
-  form: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
-): string {
+interface GradeForm {
+  horarios_semana: HorariosSemanaAdmissao
+  horarios_dias_ativos: DiaSemanaAdmissao[]
+  tolerancia_minutos: number
+  ativo: boolean
+}
+
+function serializeGradeForm(form: GradeForm): string {
   return JSON.stringify(form)
+}
+
+function gradeFromSources(
+  jornada: FuncionarioJornada | null,
+  admissaoDados?: FuncionarioAdmissaoDados | null,
+): GradeForm {
+  const fromAdmissao = admissaoDados?.horarios_semana
+    && Object.keys(admissaoDados.horarios_semana).length > 0
+      ? {
+          horarios_semana: admissaoDados.horarios_semana,
+          horarios_dias_ativos: resolveDiasAtivos(
+            admissaoDados.horarios_dias_ativos,
+            admissaoDados.horarios_semana,
+          ),
+        }
+      : null
+
+  const fromJornadaGrade = jornada?.horarios_semana
+    && Object.keys(jornada.horarios_semana).length > 0
+      ? {
+          horarios_semana: jornada.horarios_semana,
+          horarios_dias_ativos: resolveDiasAtivos(
+            (jornada.dias_uteis ?? [])
+              .map(n => ISODOW_TO_DIA_ADMISSAO[n])
+              .filter((d): d is DiaSemanaAdmissao => !!d),
+            jornada.horarios_semana,
+          ),
+        }
+      : null
+
+  const fromFlat = jornada
+    ? horariosAdmissaoFromJornada(jornada)
+    : null
+
+  const grade = fromAdmissao ?? fromJornadaGrade ?? fromFlat ?? {
+    horarios_semana: {},
+    horarios_dias_ativos: ['segunda', 'terca', 'quarta', 'quinta', 'sexta'] as DiaSemanaAdmissao[],
+  }
+
+  return {
+    ...grade,
+    tolerancia_minutos: jornada?.tolerancia_minutos ?? 5,
+    ativo: jornada?.ativo ?? true,
+  }
 }
 
 type SubTab = 'jornada' | 'registros' | 'ocorrencias' | 'documentos' | 'fiscal'
@@ -120,14 +164,14 @@ export function FuncionarioPontoPanel({
   const editarRegistros = podeEditarRegistros ?? !readOnly
 
   const [subTab, setSubTab] = useState<SubTab>(somenteRegistros ? 'registros' : 'jornada')
-  const [form, setForm] = useState(DEFAULT_JORNADA)
+  const [gradeForm, setGradeForm] = useState<GradeForm>(() => gradeFromSources(null, admissaoDados))
   const [saving, setSaving] = useState(false)
   const [jornadaAutoSave, setJornadaAutoSave] = useState<'idle' | 'pending' | 'saving' | 'saved'>('idle')
-  const formRef = useRef(form)
-  const lastSavedFormRef = useRef(serializeJornadaForm(DEFAULT_JORNADA))
+  const gradeFormRef = useRef(gradeForm)
+  const lastSavedGradeRef = useRef(serializeGradeForm(gradeForm))
   const jornadaSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const jornadaSavingRef = useRef(false)
-  formRef.current = form
+  gradeFormRef.current = gradeForm
   const [exportando, setExportando] = useState(false)
   const [baixandoId, setBaixandoId] = useState<string | null>(null)
   const [ocData, setOcData] = useState(pontoDataLocal())
@@ -181,7 +225,9 @@ export function FuncionarioPontoPanel({
 
   useEffect(() => {
     seededFromAdmissaoRef.current = false
-    lastSavedFormRef.current = serializeJornadaForm(DEFAULT_JORNADA)
+    const initial = gradeFromSources(null, admissaoDados)
+    setGradeForm(initial)
+    lastSavedGradeRef.current = serializeGradeForm(initial)
     setJornadaAutoSave('idle')
   }, [funcionarioId])
 
@@ -190,31 +236,77 @@ export function FuncionarioPontoPanel({
     void reload()
   }, [jornadaSyncToken, reload])
 
-  const applyFormFromSource = (
-    next: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
-  ) => {
-    setForm(next)
-    lastSavedFormRef.current = serializeJornadaForm(next)
+  const applyGradeFromSource = (next: GradeForm) => {
+    setGradeForm(next)
+    lastSavedGradeRef.current = serializeGradeForm(next)
     setJornadaAutoSave('idle')
   }
 
-  const flushJornadaSave = async (
-    nextForm: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
-  ) => {
-    if (readOnly || somenteRegistros || jornadaSavingRef.current) return
-    const serialized = serializeJornadaForm(nextForm)
-    if (serialized === lastSavedFormRef.current) return
+  const flushGradeSave = async (_form?: GradeForm) => {
+    if (readOnly || somenteRegistros) return
+    if (jornadaSavingRef.current) {
+      if (!jornadaSaveTimerRef.current) {
+        jornadaSaveTimerRef.current = setTimeout(() => {
+          jornadaSaveTimerRef.current = null
+          void flushGradeSave()
+        }, JORNADA_SAVE_DEBOUNCE_MS)
+      }
+      return
+    }
+
+    const nextForm = gradeFormRef.current
+    const serialized = serializeGradeForm(nextForm)
+    if (serialized === lastSavedGradeRef.current) return
+
+    const derived = jornadaFromHorariosAdmissao(
+      nextForm.horarios_semana,
+      nextForm.horarios_dias_ativos,
+      { toleranciaMinutos: nextForm.tolerancia_minutos, ativo: nextForm.ativo },
+    )
+    if (!derived) {
+      showToast('Preencha chegada e saída em pelo menos um dia marcado.', 'error')
+      return
+    }
 
     jornadaSavingRef.current = true
     setJornadaAutoSave('saving')
     try {
-      await saveJornada(nextForm)
-      if (onSyncAdmissaoHorarios) {
-        await onSyncAdmissaoHorarios(horariosAdmissaoFromJornada(nextForm))
-      }
-      lastSavedFormRef.current = serialized
-      setJornadaAutoSave('saved')
-      onReload?.()
+      do {
+        const current = gradeFormRef.current
+        const currentSerialized = serializeGradeForm(current)
+        const currentDerived = jornadaFromHorariosAdmissao(
+          current.horarios_semana,
+          current.horarios_dias_ativos,
+          { toleranciaMinutos: current.tolerancia_minutos, ativo: current.ativo },
+        )
+        if (!currentDerived) break
+
+        const payload = {
+          ...currentDerived,
+          tolerancia_minutos: current.tolerancia_minutos,
+          ativo: current.ativo,
+          horarios_semana: current.horarios_semana,
+          horarios_dias_ativos: current.horarios_dias_ativos,
+          dias_uteis: current.horarios_dias_ativos
+            .map(id => DIA_ADMISSAO_TO_ISODOW[id])
+            .filter(Boolean)
+            .sort((a, b) => a - b),
+        }
+        await saveJornada(payload)
+        if (onSyncAdmissaoHorarios) {
+          await onSyncAdmissaoHorarios({
+            horarios_semana: current.horarios_semana,
+            horarios_dias_ativos: current.horarios_dias_ativos,
+          })
+        }
+
+        if (serializeGradeForm(gradeFormRef.current) !== currentSerialized) continue
+
+        lastSavedGradeRef.current = currentSerialized
+        setJornadaAutoSave('saved')
+        onReload?.()
+        break
+      } while (true)
     } catch (e) {
       setJornadaAutoSave('idle')
       showToast(e instanceof Error ? e.message : 'Erro ao salvar jornada.', 'error')
@@ -223,12 +315,10 @@ export function FuncionarioPontoPanel({
     }
   }
 
-  const scheduleJornadaSave = (
-    nextForm: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
-  ) => {
+  const scheduleGradeSave = (_nextForm?: GradeForm) => {
     if (readOnly || somenteRegistros) return
-    const serialized = serializeJornadaForm(nextForm)
-    if (serialized === lastSavedFormRef.current) {
+    const serialized = serializeGradeForm(gradeFormRef.current)
+    if (serialized === lastSavedGradeRef.current) {
       setJornadaAutoSave('idle')
       return
     }
@@ -236,16 +326,15 @@ export function FuncionarioPontoPanel({
     if (jornadaSaveTimerRef.current) clearTimeout(jornadaSaveTimerRef.current)
     jornadaSaveTimerRef.current = setTimeout(() => {
       jornadaSaveTimerRef.current = null
-      void flushJornadaSave(nextForm)
+      void flushGradeSave()
     }, JORNADA_SAVE_DEBOUNCE_MS)
   }
 
-  const patchJornadaForm = (
-    patch: Partial<Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>>,
-  ) => {
-    setForm(prev => {
+  const patchGradeForm = (patch: Partial<GradeForm>) => {
+    setGradeForm(prev => {
       const next = { ...prev, ...patch }
-      scheduleJornadaSave(next)
+      gradeFormRef.current = next
+      scheduleGradeSave(next)
       return next
     })
   }
@@ -254,7 +343,7 @@ export function FuncionarioPontoPanel({
     return () => {
       if (jornadaSaveTimerRef.current) {
         clearTimeout(jornadaSaveTimerRef.current)
-        void flushJornadaSave(formRef.current)
+        void flushGradeSave(gradeFormRef.current)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flush no unmount
@@ -268,29 +357,15 @@ export function FuncionarioPontoPanel({
   }, [tiposDisponiveisManual, manualTipo])
 
   useEffect(() => {
-    const previsto = horaPrevistaPorTipo(manualTipo, jornada)?.slice(0, 5)
+    const previsto = horaPrevistaPorTipo(manualTipo, jornada, manualData)?.slice(0, 5)
     if (previsto) setManualHora(previsto)
   }, [manualTipo, jornada])
 
   useEffect(() => {
-    if (jornada) {
-      applyFormFromSource({
-        hora_entrada: jornada.hora_entrada?.slice(0, 5) ?? '08:00',
-        hora_saida_intervalo: jornada.hora_saida_intervalo?.slice(0, 5) ?? '12:00',
-        hora_retorno_intervalo: jornada.hora_retorno_intervalo?.slice(0, 5) ?? '13:00',
-        hora_saida: jornada.hora_saida?.slice(0, 5) ?? '17:00',
-        tolerancia_minutos: jornada.tolerancia_minutos ?? 5,
-        dias_uteis: jornada.dias_uteis ?? [1, 2, 3, 4, 5],
-        ativo: jornada.ativo ?? true,
-      })
-      return
-    }
-
-    const fromAdmissao = jornadaFromHorariosAdmissao(
-      admissaoDados?.horarios_semana,
-      admissaoDados?.horarios_dias_ativos,
-    )
-    if (fromAdmissao) applyFormFromSource(fromAdmissao)
+    // Não sobrescreve enquanto há alteração local ainda não salva.
+    if (jornadaSaveTimerRef.current || jornadaSavingRef.current) return
+    if (serializeGradeForm(gradeFormRef.current) !== lastSavedGradeRef.current) return
+    applyGradeFromSource(gradeFromSources(jornada, admissaoDados))
   }, [jornada, admissaoDados])
 
   // Se ainda não existe jornada no ponto, mas a admissão já tem horários, cria a jornada.
@@ -306,7 +381,11 @@ export function FuncionarioPontoPanel({
     seededFromAdmissaoRef.current = true
     void (async () => {
       try {
-        await saveJornada(fromAdmissao)
+        await saveJornada({
+          ...fromAdmissao,
+          horarios_semana: admissaoDados?.horarios_semana,
+          horarios_dias_ativos: admissaoDados?.horarios_dias_ativos,
+        })
         showToast('Jornada do ponto criada a partir dos horários da admissão.')
         onReload?.()
       } catch (e) {
@@ -451,94 +530,57 @@ export function FuncionarioPontoPanel({
             Horários de trabalho
           </h3>
           <p className="text-xs text-[#b8957f]">
-            Mesmos horários da aba Admissão. Alterações são salvas automaticamente e usadas na batida
-            de ponto, no cálculo de horas extras e faltas.
+            Mesma grade da aba Admissão: cada dia pode ter horários diferentes. Ao salvar,
+            a jornada do ponto e a admissão ficam sincronizadas.
           </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Entrada">
-              <TimeInput
-                value={form.hora_entrada}
-                debounceMs={400}
-                onChange={v => patchJornadaForm({ hora_entrada: v ?? '08:00' })}
-                disabled={readOnly}
-              />
-            </Field>
-            <Field label="Saída almoço">
-              <TimeInput
-                value={form.hora_saida_intervalo}
-                debounceMs={400}
-                onChange={v => patchJornadaForm({ hora_saida_intervalo: v ?? '12:00' })}
-                disabled={readOnly}
-              />
-            </Field>
-            <Field label="Retorno almoço">
-              <TimeInput
-                value={form.hora_retorno_intervalo}
-                debounceMs={400}
-                onChange={v => patchJornadaForm({ hora_retorno_intervalo: v ?? '13:00' })}
-                disabled={readOnly}
-              />
-            </Field>
-            <Field label="Saída">
-              <TimeInput
-                value={form.hora_saida}
-                debounceMs={400}
-                onChange={v => patchJornadaForm({ hora_saida: v ?? '17:00' })}
-                disabled={readOnly}
-              />
-            </Field>
-          </div>
+
+          <HorariosSemanaFields
+            value={gradeForm.horarios_semana}
+            diasAtivos={gradeForm.horarios_dias_ativos}
+            disabled={readOnly}
+            onChange={({ horarios_semana, horarios_dias_ativos }) =>
+              patchGradeForm({ horarios_semana, horarios_dias_ativos })
+            }
+          />
+
           <Field label="Tolerância (minutos)">
             <input
               type="number"
               min={0}
               max={60}
               className="glass-input w-24"
-              value={form.tolerancia_minutos}
+              value={gradeForm.tolerancia_minutos}
               disabled={readOnly}
-              onChange={e => patchJornadaForm({ tolerancia_minutos: Number(e.target.value) || 0 })}
+              onChange={e => patchGradeForm({ tolerancia_minutos: Number(e.target.value) || 0 })}
             />
           </Field>
-          <div>
-            <p className="section-label mb-2">Dias úteis</p>
-            <div className="flex flex-wrap gap-2">
-              {DIAS_SEMANA_LABEL.map((label, i) => {
-                const dow = i + 1
-                const active = form.dias_uteis.includes(dow)
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => setForm(prev => {
-                      const active = prev.dias_uteis.includes(dow)
-                      const next = {
-                        ...prev,
-                        dias_uteis: active
-                          ? prev.dias_uteis.filter(d => d !== dow)
-                          : [...prev.dias_uteis, dow].sort(),
-                      }
-                      scheduleJornadaSave(next)
-                      return next
-                    })}
-                    className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
-                      active
-                        ? 'border border-[#f2d892]/40 bg-[#f2d892]/10 text-[#f2d892]'
-                        : 'border border-[rgba(212,168,83,0.2)] text-[#b8957f]'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
+
+          {!readOnly && (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="btn btn-gold btn-md"
+                disabled={jornadaAutoSave === 'saving' || jornadaAutoSave === 'pending'}
+                onClick={() => {
+                  if (jornadaSaveTimerRef.current) {
+                    clearTimeout(jornadaSaveTimerRef.current)
+                    jornadaSaveTimerRef.current = null
+                  }
+                  void flushGradeSave(gradeFormRef.current)
+                }}
+              >
+                {jornadaAutoSave === 'saving' || jornadaAutoSave === 'pending'
+                  ? 'Salvando…'
+                  : 'Salvar horários e sincronizar com a admissão'}
+              </button>
+              {jornadaAutoSave !== 'idle' && (
+                <p className="text-xs text-[#b8957f]">
+                  {jornadaAutoSave === 'pending' && 'Salvando alterações…'}
+                  {jornadaAutoSave === 'saving' && 'Gravando jornada…'}
+                  {jornadaAutoSave === 'saved' && 'Jornada salva e sincronizada com a admissão.'}
+                </p>
+              )}
             </div>
-          </div>
-          {!readOnly && jornadaAutoSave !== 'idle' && (
-            <p className="text-xs text-[#b8957f]">
-              {jornadaAutoSave === 'pending' && 'Salvando alterações…'}
-              {jornadaAutoSave === 'saving' && 'Gravando jornada…'}
-              {jornadaAutoSave === 'saved' && 'Jornada salva e sincronizada com a admissão.'}
-            </p>
           )}
         </div>
       )}

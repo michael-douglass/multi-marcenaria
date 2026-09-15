@@ -171,7 +171,8 @@ export function useDeleteLeadAIRender(leadId: number | null | undefined) {
   const mediasConfig = resolveMarketingMediasConfig(schemaEmpresa);
 
   return useMutation({
-    mutationFn: async (render: LeadAIRender) => {
+    mutationFn: async (input: LeadAIRender & { silent?: boolean }) => {
+      const { silent: _silent, ...render } = input;
       if (render.outputStoragePath) {
         await supabase.storage.from('lead-ai-renders').remove([render.outputStoragePath]);
       }
@@ -186,8 +187,9 @@ export function useDeleteLeadAIRender(leadId: number | null | undefined) {
 
       const { error } = await client.from(table).delete().eq('id', render.id);
       if (error) throw error;
+      return { silent: Boolean(_silent) };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({
         queryKey: leadAIRendersQueryKey(schemaEmpresa, leadId),
       });
@@ -198,11 +200,14 @@ export function useDeleteLeadAIRender(leadId: number | null | undefined) {
         queryKey: ['lead-midias-para-orcamento', schemaEmpresa, leadId],
       });
       queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
-      toast.success('Renderização excluída', {
-        description: 'A imagem foi removida do histórico e dos anexos do lead.',
-      });
+      if (!result.silent) {
+        toast.success('Renderização excluída', {
+          description: 'A imagem foi removida do histórico e dos anexos do lead.',
+        });
+      }
     },
-    onError: (err: Error) => {
+    onError: (err: Error, variables) => {
+      if (variables.silent) return;
       toast.error('Não foi possível excluir a renderização', {
         description: err.message,
       });

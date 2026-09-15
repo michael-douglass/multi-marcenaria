@@ -62,6 +62,8 @@ export function FuncionarioAdmissaoForm({
   const lastSyncedSalarioRef = useRef<number | null>(null)
   const lastSavedSerializedRef = useRef(serializeAdmissao(funcionario.admissao_dados ?? {}))
   const dirtyRef = useRef(false)
+  const persistingRef = useRef(false)
+  const pendingSyncJornadaRef = useRef(false)
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
   const onSyncSalarioFixoRef = useRef(onSyncSalarioFixo)
@@ -109,7 +111,11 @@ export function FuncionarioAdmissaoForm({
     if (!jornada) return
     syncingJornadaRef.current = true
     try {
-      await salvarJornada(funcionario.id, jornada)
+      await salvarJornada(funcionario.id, {
+        ...jornada,
+        horarios_semana: dados.horarios_semana ?? null,
+        horarios_dias_ativos: dados.horarios_dias_ativos ?? null,
+      })
       onJornadaSyncedRef.current?.()
     } catch (e) {
       showToast(
@@ -122,17 +128,49 @@ export function FuncionarioAdmissaoForm({
     }
   }
 
-  const persistAdmissao = async (dados: FuncionarioAdmissaoDados, syncJornada: boolean) => {
-    setSaveStatus('saving')
-    try {
-      await onUpdateRef.current({ admissao_dados: dados })
-      if (syncJornada || admissaoTemHorariosPreenchidos(dados)) {
-        await syncJornadaFromAdmissao(dados)
+  const persistAdmissao = async (syncJornada: boolean) => {
+    if (readOnly) return false
+    if (syncJornada) pendingSyncJornadaRef.current = true
+
+    // Evita corrida: um salvamento antigo não pode sobrescrever o horário novo.
+    if (persistingRef.current) {
+      dirtyRef.current = true
+      if (!saveTimerRef.current) {
+        saveTimerRef.current = setTimeout(() => {
+          saveTimerRef.current = null
+          void persistAdmissao(false)
+        }, SAVE_DEBOUNCE_MS)
       }
-      lastSavedSerializedRef.current = serializeAdmissao(dados)
-      dirtyRef.current = false
-      setSaveStatus('saved')
-      return true
+      return false
+    }
+    persistingRef.current = true
+    setSaveStatus('saving')
+
+    try {
+      do {
+        const dados = draftRef.current
+        const wantSync = pendingSyncJornadaRef.current
+          || syncJornada
+          || admissaoTemHorariosPreenchidos(dados)
+        pendingSyncJornadaRef.current = false
+
+        await onUpdateRef.current({ admissao_dados: dados })
+        if (wantSync) {
+          await syncJornadaFromAdmissao(draftRef.current)
+        }
+
+        const serialized = serializeAdmissao(dados)
+        // Se o usuário alterou de novo enquanto salvava, grava de novo com o rascunho atual.
+        if (serializeAdmissao(draftRef.current) !== serialized) {
+          pendingSyncJornadaRef.current = true
+          continue
+        }
+
+        lastSavedSerializedRef.current = serializeAdmissao(draftRef.current)
+        dirtyRef.current = false
+        setSaveStatus('saved')
+        return true
+      } while (true)
     } catch (e) {
       setSaveStatus('error')
       showToast(
@@ -140,26 +178,29 @@ export function FuncionarioAdmissaoForm({
         'error',
       )
       return false
+    } finally {
+      persistingRef.current = false
     }
   }
 
-  const scheduleSave = (dados: FuncionarioAdmissaoDados, syncJornada = false) => {
+  const scheduleSave = (syncJornada = false) => {
     if (readOnly) return
     dirtyRef.current = true
+    if (syncJornada) pendingSyncJornadaRef.current = true
     setSaveStatus('pending')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null
-      void persistAdmissao(dados, syncJornada)
+      void persistAdmissao(syncJornada)
     }, SAVE_DEBOUNCE_MS)
   }
 
-  const flushSave = (dados: FuncionarioAdmissaoDados) => {
+  const flushSave = () => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
-    void persistAdmissao(dados, true)
+    void persistAdmissao(true)
   }
 
   // Se a admissão ainda não tem horários, copia da jornada do ponto (quando existir).
@@ -184,7 +225,7 @@ export function FuncionarioAdmissaoForm({
           const next = { ...prev, ...patch }
           draftRef.current = next
           dirtyRef.current = true
-          void persistAdmissao(next, false)
+          void persistAdmissao(false)
           return next
         })
       } catch {
@@ -232,7 +273,7 @@ export function FuncionarioAdmissaoForm({
     }
     setDraft(next)
     draftRef.current = next
-    scheduleSave(next, false)
+    scheduleSave(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só quando o fixo muda
   }, [readOnly, salarioFixoMensal, salarioFixoFormatado])
 
@@ -265,7 +306,7 @@ export function FuncionarioAdmissaoForm({
     setDraft(prev => {
       const next = { ...prev, [key]: value }
       draftRef.current = next
-      scheduleSave(next, false)
+      scheduleSave(false)
       if (key === 'salario') syncSalarioParaFixo(next)
       return next
     })
@@ -275,13 +316,13 @@ export function FuncionarioAdmissaoForm({
     setDraft(prev => {
       const next = { ...prev, ...patch }
       draftRef.current = next
-      scheduleSave(next, syncJornada)
+      scheduleSave(syncJornada)
       return next
     })
   }
 
   const marcarCompleto = async () => {
-    flushSave(draftRef.current)
+    flushSave()
     await onUpdate({ admissao_status: 'completo' })
   }
 
@@ -295,7 +336,7 @@ export function FuncionarioAdmissaoForm({
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
-    const ok = await persistAdmissao(draftRef.current, true)
+    const ok = await persistAdmissao(true)
     if (ok) {
       showToast('Horários salvos e sincronizados com o ponto.', 'success')
     }

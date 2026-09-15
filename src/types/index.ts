@@ -1015,6 +1015,8 @@ export interface FuncionarioJornada {
   hora_saida: string
   tolerancia_minutos: number
   dias_uteis: number[]
+  /** Grade por dia (quando preenchida, prevalece sobre hora_* único). */
+  horarios_semana?: HorariosSemanaAdmissao | null
   ativo: boolean
   criado_em?: string
   atualizado_em?: string

@@ -59,7 +59,9 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
   useEffect(() => { void load() }, [load])
 
   const saveJornada = useCallback(async (
-    input: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'>,
+    input: Omit<FuncionarioJornada, 'id' | 'funcionario_id' | 'criado_em' | 'atualizado_em'> & {
+      horarios_dias_ativos?: string[] | null
+    },
   ) => {
     if (!funcionarioId) return
     const saved = await salvarJornada(funcionarioId, input)

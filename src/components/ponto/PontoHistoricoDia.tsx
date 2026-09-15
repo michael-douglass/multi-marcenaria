@@ -220,7 +220,7 @@ function PontoRegistroItem({
   }, [marcacao])
 
   const m = enriched
-  const previsto = horaPrevistaPorTipo(m.tipo, jornada)
+  const previsto = horaPrevistaPorTipo(m.tipo, jornada, m.registrado_em)
   const efetivoIso = marcacaoHoraEfetiva(m)
   const realizado = formatHoraPonto(efetivoIso)
   const original = formatHoraPonto(m.registrado_em)
