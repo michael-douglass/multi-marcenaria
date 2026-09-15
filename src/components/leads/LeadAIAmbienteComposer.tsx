@@ -1992,11 +1992,13 @@ export function LeadAIAmbienteComposer({
   const zoomPercent = Math.round(hudScale * 100);
   const photoHudTarget = selectedShape
     ? null
-    : selectedOverlay
-      ? selectedOverlay
-      : background && (selectedId === 'background' || (!selectedId && !selectedObject))
-        ? background
-        : null;
+    : isDrawCreateTool(drawTool)
+      ? null
+      : selectedOverlay
+        ? selectedOverlay
+        : background && (selectedId === 'background' || (!selectedId && !selectedObject))
+          ? background
+          : null;
 
   const selectedKind =
     selectedOverlay || selectedId === 'background' || (photoHudTarget && !selectedObject && !selectedShape)
@@ -2187,6 +2189,7 @@ export function LeadAIAmbienteComposer({
                     ? 'absolute max-w-none origin-center'
                     : 'absolute inset-0 h-full w-full origin-center object-contain',
                   selectedId === 'background' && 'ring-1 ring-inset ring-gold/40',
+                  isDrawCreateTool(drawTool) && 'pointer-events-none',
                 )}
                 draggable={false}
                 style={{
@@ -2205,17 +2208,18 @@ export function LeadAIAmbienteComposer({
                     `scaleY(${background.flipV ? -1 : 1})`,
                     `scale(${background.scale})`,
                   ].join(' '),
-                  cursor: locked ? 'default' : 'grab',
+                  cursor: locked || isDrawCreateTool(drawTool) ? 'default' : 'grab',
                 }}
-                onPointerDown={(event) =>
+                onPointerDown={(event) => {
+                  if (isDrawCreateTool(drawTool)) return;
                   beginDrag(
                     'pan-background',
                     'background',
                     background.offsetX,
                     background.offsetY,
                     event,
-                  )
-                }
+                  );
+                }}
               />
             ) : objects.length > 0 || overlays.length > 0 || shapes.length > 0 ? null : (
               <div className="pointer-events-none absolute inset-0 z-[56] flex flex-col items-center justify-center gap-4 p-6 text-muted-foreground">
@@ -2286,7 +2290,7 @@ export function LeadAIAmbienteComposer({
             {isDrawCreateTool(drawTool) && !locked && (
               <div
                 data-ambiente-draw-surface="true"
-                className="absolute inset-0 z-[45] cursor-crosshair touch-none"
+                className="pointer-events-auto absolute inset-0 z-[45] cursor-crosshair touch-none"
                 onPointerDown={onDrawPointerDown}
                 onPointerMove={onDrawPointerMove}
                 onPointerUp={onDrawPointerUp}
@@ -2298,7 +2302,8 @@ export function LeadAIAmbienteComposer({
               <div
                 key={overlay.id}
                 className={cn(
-                  'absolute z-20 cursor-grab overflow-visible rounded-md border bg-transparent shadow-md pointer-events-auto active:cursor-grabbing',
+                  'absolute z-20 cursor-grab overflow-visible rounded-md border bg-transparent shadow-md active:cursor-grabbing',
+                  isDrawCreateTool(drawTool) ? 'pointer-events-none' : 'pointer-events-auto',
                   selectedId === overlay.id ? 'border-gold ring-2 ring-gold/40' : 'border-gold/30',
                 )}
                 style={{
@@ -2397,7 +2402,8 @@ export function LeadAIAmbienteComposer({
                 <div
                   key={object.id}
                   className={cn(
-                    'absolute z-30 cursor-grab overflow-visible pointer-events-auto active:cursor-grabbing',
+                    'absolute z-30 cursor-grab overflow-visible active:cursor-grabbing',
+                    isDrawCreateTool(drawTool) ? 'pointer-events-none' : 'pointer-events-auto',
                     selectedId === object.id && 'drop-shadow-[0_0_12px_rgba(242,216,146,0.55)]',
                   )}
                   style={{
@@ -2408,7 +2414,10 @@ export function LeadAIAmbienteComposer({
                     transform: `translate(-50%, -50%) rotate(${object.rotation ?? 0}deg)`,
                     perspective: isRealistic ? undefined : '32rem',
                   }}
-                  onPointerDown={(event) => beginDrag('object', object.id, object.x, object.y, event)}
+                  onPointerDown={(event) => {
+                    if (isDrawCreateTool(drawTool)) return;
+                    beginDrag('object', object.id, object.x, object.y, event);
+                  }}
                 >
                   {isRealistic ? (
                     <RealisticFurnitureObject
