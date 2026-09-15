@@ -14,8 +14,10 @@ import { FuncionarioVinculosPanel } from '@/components/funcionarios/FuncionarioV
 import { FuncionariosPageAura } from '@/components/funcionarios/FuncionariosPageAura'
 import { LoadingState, ErrorState } from '@/components/ui/EmptyState'
 import { buildAdmissaoSavePayload } from '@/lib/funcionario-admissao-api'
+import { atualizarFixoFuncionario } from '@/lib/fixo-montador'
 import { isAdministrador, isPastaPontoRegistrosRestrita, podeEditarPontoRegistrosTerceiro } from '@/lib/role-access'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
+import { showToast } from '@/lib/toast'
 import type { FuncionarioAdmissaoDados, FuncionarioInput, MeuFuncionarioPayload } from '@/types'
 
 type Tab = 'vinculos' | 'admissao' | 'documentos' | 'recibos' | 'ponto'
@@ -80,6 +82,20 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  /** Admissão → Métricas: altera o fixo e recarrega o valor exibido. */
+  const handleSyncSalarioFixo = async (valor: number) => {
+    if (!id || edicaoBloqueada || !isAdministrador(roles)) return
+    const vencimento = funcionario.fixo_primeiro_vencimento ?? null
+    await atualizarFixoFuncionario(id, valor, valor > 0 ? vencimento : null)
+    await reload({ silent: true })
+    showToast(
+      valor > 0
+        ? 'Fixo de Métricas atualizado com o salário da admissão.'
+        : 'Fixo de Métricas zerado junto com o salário.',
+      'success',
+    )
   }
 
   const handleDispensar = async () => {
@@ -224,6 +240,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
                 salarioFixoMensal={valorFixoMensal}
                 readOnly={edicaoBloqueada}
                 onUpdate={handleUpdate}
+                onSyncSalarioFixo={podeGerenciarAdmissao ? handleSyncSalarioFixo : undefined}
                 onJornadaSynced={() => setJornadaSyncToken(t => t + 1)}
                 saving={saving}
               />

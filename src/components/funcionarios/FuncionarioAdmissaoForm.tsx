@@ -11,7 +11,7 @@ import {
 } from '@/lib/funcionario-horarios'
 import { fetchJornada, salvarJornada } from '@/lib/funcionario-ponto'
 import { showToast } from '@/lib/toast'
-import { fmtCur } from '@/lib/utils'
+import { fmtCur, parseMoneyBr } from '@/lib/utils'
 import type { Funcionario, FuncionarioAdmissaoDados, FuncionarioInput } from '@/types'
 
 interface Props {
@@ -20,6 +20,11 @@ interface Props {
   salarioFixoMensal?: number | null
   readOnly?: boolean
   onUpdate: (input: Partial<FuncionarioInput>) => Promise<void>
+  /**
+   * Espelha o salário da admissão no fixo de Métricas / Contas a Pagar.
+   * Recebe o valor numérico já interpretado (0 = zerar fixo).
+   */
+  onSyncSalarioFixo?: (valor: number) => Promise<void>
   /** Chamado após sincronizar a jornada do ponto a partir dos horários da admissão. */
   onJornadaSynced?: () => void
   saving?: boolean
@@ -32,6 +37,7 @@ export function FuncionarioAdmissaoForm({
   salarioFixoMensal,
   readOnly,
   onUpdate,
+  onSyncSalarioFixo,
   onJornadaSynced,
   saving,
 }: Props) {
@@ -41,9 +47,12 @@ export function FuncionarioAdmissaoForm({
   const draftRef = useRef(draft)
   draftRef.current = draft
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fixoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seededSalarioRef = useRef(false)
   const seededHorariosRef = useRef(false)
   const syncingJornadaRef = useRef(false)
+  const syncingSalarioFixoRef = useRef(false)
+  const lastSyncedSalarioRef = useRef<number | null>(null)
 
   const salarioFixoFormatado =
     salarioFixoMensal != null && salarioFixoMensal > 0 ? fmtCur(salarioFixoMensal) : ''
@@ -54,6 +63,7 @@ export function FuncionarioAdmissaoForm({
     setDraft(funcionario.admissao_dados ?? {})
     seededSalarioRef.current = false
     seededHorariosRef.current = false
+    lastSyncedSalarioRef.current = null
   }, [funcionario.id])
 
   const syncJornadaFromAdmissao = async (dados: FuncionarioAdmissaoDados) => {
@@ -139,28 +149,66 @@ export function FuncionarioAdmissaoForm({
         void onUpdate({ admissao_dados: pending })
         void syncJornadaFromAdmissao(pending)
       }
+      if (fixoSyncTimerRef.current) {
+        clearTimeout(fixoSyncTimerRef.current)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só no unmount
   }, [])
 
-  // Preenche uma vez com o fixo vinculado quando o salário ainda está vazio.
+  // Preenche / atualiza o salário da admissão quando o fixo de Métricas muda.
   useEffect(() => {
-    if (readOnly || seededSalarioRef.current) return
-    if ((draft.salario ?? '').trim()) {
+    if (readOnly) return
+    if (salarioFixoMensal == null || salarioFixoMensal <= 0) return
+    const atual = parseMoneyBr((draftRef.current.salario ?? '').trim())
+    if (Math.abs(atual - salarioFixoMensal) < 0.009 && (draftRef.current.salario ?? '').trim()) {
+      seededSalarioRef.current = true
+      lastSyncedSalarioRef.current = salarioFixoMensal
+      return
+    }
+    // Evita sobrescrever digitação local ainda não salva com o mesmo valor.
+    if (lastSyncedSalarioRef.current === salarioFixoMensal && (draftRef.current.salario ?? '').trim()) {
       seededSalarioRef.current = true
       return
     }
-    if (!salarioFixoFormatado) return
     seededSalarioRef.current = true
-    const next = { ...draftRef.current, salario: salarioFixoFormatado }
+    lastSyncedSalarioRef.current = salarioFixoMensal
+    const next = { ...draftRef.current, salario: salarioFixoFormatado || String(salarioFixoMensal) }
     setDraft(next)
-    flushSave(next)
-  }, [readOnly, salarioFixoFormatado, draft.salario])
+    draftRef.current = next
+    void onUpdate({ admissao_dados: next })
+  }, [readOnly, salarioFixoMensal, salarioFixoFormatado, onUpdate])
+
+  const syncSalarioParaFixo = (dados: FuncionarioAdmissaoDados) => {
+    if (readOnly || !onSyncSalarioFixo) return
+    if (fixoSyncTimerRef.current) clearTimeout(fixoSyncTimerRef.current)
+    fixoSyncTimerRef.current = setTimeout(() => {
+      fixoSyncTimerRef.current = null
+      if (syncingSalarioFixoRef.current) return
+      const valor = parseMoneyBr((dados.salario ?? '').trim())
+      if (lastSyncedSalarioRef.current != null && Math.abs(lastSyncedSalarioRef.current - valor) < 0.009) {
+        return
+      }
+      syncingSalarioFixoRef.current = true
+      lastSyncedSalarioRef.current = valor
+      void onSyncSalarioFixo(valor)
+        .catch(e => {
+          showToast(
+            e instanceof Error ? e.message : 'Não foi possível sincronizar o fixo com o salário.',
+            'error',
+          )
+        })
+        .finally(() => {
+          syncingSalarioFixoRef.current = false
+        })
+    }, SAVE_DEBOUNCE_MS)
+  }
 
   const setDado = (key: keyof FuncionarioAdmissaoDados, value: string | boolean) => {
     setDraft(prev => {
       const next = { ...prev, [key]: value }
       scheduleSave(next)
+      if (key === 'salario') syncSalarioParaFixo(next)
       return next
     })
   }
@@ -223,11 +271,9 @@ export function FuncionarioAdmissaoForm({
               onChange={e => setDado('salario', e.target.value)}
               placeholder={salarioFixoFormatado || 'R$ 0,00'}
             />
-            {salarioFixoFormatado && (
-              <p className="mt-1 text-xs text-[#b8957f]">
-                Valor do fixo do usuário vinculado em Vínculos. Pode alterar.
-              </p>
-            )}
+            <p className="mt-1 text-xs text-[#b8957f]">
+              Este salário fica sincronizado com o fixo mensal em Métricas de Obras.
+            </p>
           </Field>
           <Field label="Função">
             <input
