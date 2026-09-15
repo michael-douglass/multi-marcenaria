@@ -36,14 +36,14 @@ export function LeadProjetoCanalDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         nested
-        className="lead-atelier-dialog pointer-events-auto flex max-h-[85vh] flex-col gap-3 border-gold/20 bg-[#120c09] sm:max-w-lg"
+        className="lead-atelier-dialog pointer-events-auto flex max-h-[85vh] flex-col gap-3 border-[#8d5e22]/20 bg-[#fffcf8] sm:max-w-lg"
         onClick={stopCardEvent}
         onPointerDown={stopCardEvent}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-gold">Canal do ateliê</DialogTitle>
+          <DialogTitle className="font-display text-[#8d5e22]">Canal do ateliê</DialogTitle>
           <DialogDescription>
             {leadNome
               ? `Titular e projetista no mesmo fio de ${leadNome}. Não é WhatsApp.`

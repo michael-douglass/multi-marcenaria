@@ -393,8 +393,8 @@ export default function Projetos() {
             </div>
             <DragOverlay>
               {activeProjeto ? (
-                <div className="w-[200px] rounded-lg border border-[#f2d892]/50 bg-[#1a100c] p-2.5 shadow-lg">
-                  <p className="truncate font-display text-[#f2d892]">{activeProjeto.lead_nome}</p>
+                <div className="w-[200px] rounded-lg border border-[#c9a35a]/60 bg-[#fffcf8] p-2.5 shadow-lg">
+                  <p className="truncate font-display text-[#8d5e22]">{activeProjeto.lead_nome}</p>
                 </div>
               ) : null}
             </DragOverlay>
@@ -427,9 +427,9 @@ export default function Projetos() {
       <ProjetoStagesConfigDialog open={colunasOpen} onOpenChange={setColunasOpen} />
 
       <AlertDialog open={Boolean(confirm)} onOpenChange={(open) => !open && setConfirm(null)}>
-        <AlertDialogContent className="border-gold/20 bg-[#120c09]">
+        <AlertDialogContent className="border-[#8d5e22]/20 bg-[#fffcf8]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-gold">
+            <AlertDialogTitle className="font-display text-[#8d5e22]">
               {confirm ? CONFIRM_COPY[confirm.kind].title : ''}
             </AlertDialogTitle>
             <AlertDialogDescription>

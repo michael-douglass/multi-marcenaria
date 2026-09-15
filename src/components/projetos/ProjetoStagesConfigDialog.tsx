@@ -35,9 +35,9 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-gold/20 bg-[#120c09]">
+      <DialogContent className="max-w-lg border-[#8d5e22]/20 bg-[#fffcf8]">
         <DialogHeader>
-          <DialogTitle className="font-display text-gold">Colunas do ateliê</DialogTitle>
+          <DialogTitle className="font-display text-[#8d5e22]">Colunas do ateliê</DialogTitle>
           <DialogDescription>
             A fila é a primeira com “aguardando” ou “fila”. Feitos é sempre a última.
           </DialogDescription>
@@ -64,7 +64,7 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
               type="button"
               className={cn(
                 'rounded-full border px-2 py-0.5 text-[11px]',
-                cor === preset.value ? 'border-gold text-gold' : 'border-white/10 text-cream-muted',
+                cor === preset.value ? 'border-[#8d5e22] text-[#8d5e22]' : 'border-[rgba(42,24,18,0.12)] text-[#6b5244]',
               )}
               onClick={() => setCor(preset.value)}
             >
@@ -76,7 +76,7 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
           {stages.map((stage, index) => (
             <li
               key={stage.id}
-              className="flex items-center gap-2 rounded-lg border border-gold/10 px-2 py-1.5"
+              className="flex items-center gap-2 rounded-lg border border-[rgba(42,24,18,0.1)] px-2 py-1.5 text-[#2a1812]"
             >
               {editingId === stage.id ? (
                 <>

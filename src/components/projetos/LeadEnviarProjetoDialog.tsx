@@ -141,7 +141,7 @@ export function LeadEnviarProjetoDialog({
         <DialogContent
           nested
           data-enviar-projeto-dialog=""
-          className="lead-atelier-dialog pointer-events-auto gap-0 overflow-hidden p-0 sm:max-w-md [&>button.absolute]:text-[#f2d892] [&>button.absolute]:hover:text-[#fff6ea] [&>button.absolute]:hover:bg-gold/10"
+          className="lead-atelier-dialog pointer-events-auto gap-0 overflow-hidden p-0 sm:max-w-md [&>button.absolute]:text-[#8d5e22] [&>button.absolute]:hover:text-[#2a1812] [&>button.absolute]:hover:bg-gold/10"
           onClick={stopCardEvent}
           onPointerDown={stopCardEvent}
           onPointerDownOutside={(event) => event.preventDefault()}
@@ -149,10 +149,10 @@ export function LeadEnviarProjetoDialog({
         >
           <DialogHeader className="relative space-y-2 overflow-hidden border-b border-[color:var(--lead-line)] bg-[color:var(--lead-panel)] px-5 py-4 pr-12 text-left">
             <LeadEnviarProjetoAura ready={canSend} />
-            <DialogTitle className="relative font-serif text-xl font-semibold tracking-tight text-[#fff6ea]">
+            <DialogTitle className="relative font-serif text-xl font-semibold tracking-tight text-[#2a1812]">
               Enviar ao setor de projetos
             </DialogTitle>
-            <DialogDescription className="relative text-sm leading-relaxed text-[#d4bc9f]">
+            <DialogDescription className="relative text-sm leading-relaxed text-[#6b5244]">
               Recado com no mínimo {MIN_CARACTERES_ENVIO_SETOR} caracteres ou pelo menos uma foto (até{' '}
               {MAX_IMAGENS_ENVIO_SETOR}). Esse recado abre o canal com o ateliê.
             </DialogDescription>
@@ -160,13 +160,13 @@ export function LeadEnviarProjetoDialog({
           <div className="space-y-4 px-5 py-4">
             <div className="space-y-1.5">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d4bc9f]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6b5244]">
                   Recado para o ateliê
                 </p>
                 <p
                   className={cn(
                     'text-[10px] font-medium tracking-wide',
-                    canSend ? 'text-[#f2d892]' : 'text-[#b89a78]',
+                    canSend ? 'text-[#8d5e22]' : 'text-[#8a7060]',
                   )}
                 >
                   {canSend
@@ -183,11 +183,11 @@ export function LeadEnviarProjetoDialog({
                 maxLength={2000}
                 onChange={(e) => setRecado(e.target.value)}
                 placeholder="O que o ateliê precisa desenhar?"
-                className="min-h-[120px] border-[rgba(196,150,58,0.4)] bg-[#120c09] text-[#fff6ea] placeholder:text-[#b89a78]"
+                className="min-h-[120px] border-[rgba(196,150,58,0.4)] bg-[#fffcf8] text-[#2a1812] placeholder:text-[#8a7060]"
               />
             </div>
             <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d4bc9f]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6b5244]">
                 Fotos (opcional)
               </p>
               <div className="flex flex-wrap gap-2">
@@ -199,7 +199,7 @@ export function LeadEnviarProjetoDialog({
                   />
                 ))}
                 {files.length < MAX_IMAGENS_ENVIO_SETOR ? (
-                  <label className="flex h-16 min-w-16 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-[rgba(242,216,146,0.45)] bg-[#120c09] px-2 text-[#f2d892] hover:bg-[#241810]">
+                  <label className="flex h-16 min-w-16 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-[rgba(196,150,58,0.45)] bg-[#fffcf8] px-2 text-[#8d5e22] hover:bg-[#f3ebe1]">
                     <ImagePlus className="h-4 w-4 shrink-0" />
                     <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">Foto</span>
                     <input
@@ -222,7 +222,7 @@ export function LeadEnviarProjetoDialog({
             <Button
               type="button"
               variant="outline"
-              className="border-[rgba(196,150,58,0.45)] bg-transparent text-[#fff6ea] hover:bg-gold/10 hover:text-[#fff6ea]"
+              className="border-[rgba(196,150,58,0.45)] bg-transparent text-[#2a1812] hover:bg-gold/10 hover:text-[#2a1812]"
               disabled={enviarAoSetor.isPending}
               onClick={() => handleOpenChange(false)}
             >

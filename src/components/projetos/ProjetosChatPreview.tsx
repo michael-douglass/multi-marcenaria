@@ -259,10 +259,10 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                             <span className="mt-2 h-1.5 w-1.5 shrink-0" />
                           )}
                           <span className="min-w-0">
-                            <span className="block line-clamp-2 text-[13px] font-medium leading-snug text-gold">
+                            <span className="block line-clamp-2 text-[13px] font-medium leading-snug text-[#8d5e22]">
                               {thread.lead_nome}
                             </span>
-                            <span className="mt-0.5 block line-clamp-2 text-[12px] leading-5 text-cream-secondary">
+                            <span className="mt-0.5 block line-clamp-2 text-[12px] leading-5 text-[#6b5244]">
                               {previewMensagem(thread)}
                             </span>
                           </span>
@@ -271,7 +271,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                     )
                   })}
                   {threads.length === 0 ? (
-                    <li className="px-1 py-2 text-xs leading-5 text-cream-secondary">
+                    <li className="px-1 py-2 text-xs leading-5 text-[#6b5244]">
                       Titular e projetista ainda não escreveram.
                     </li>
                   ) : null}
@@ -286,19 +286,19 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="flex h-full w-full flex-col border-gold/20 bg-[#120c09] p-0 sm:max-w-3xl">
-          <div className="relative overflow-hidden border-b border-gold/15">
+        <SheetContent className="flex h-full w-full flex-col border-[#8d5e22]/20 bg-[#f8f4ee] p-0 sm:max-w-3xl">
+          <div className="relative overflow-hidden border-b border-[rgba(42,24,18,0.1)]">
             <ProjetosChatSheetAura pulse={waveformMode === 'urgent' ? 1.2 : 0.85} />
             <SheetHeader className="relative space-y-2 px-5 py-4 pr-12 text-left">
-              <SheetTitle className="font-display text-xl tracking-wide text-gold">Rádio do ateliê</SheetTitle>
-              <p className="text-sm leading-5 text-cream-secondary">
+              <SheetTitle className="font-display text-xl tracking-wide text-[#8d5e22]">Rádio do ateliê</SheetTitle>
+              <p className="text-sm leading-5 text-[#6b5244]">
                 Titular e projetista no mesmo fio.
               </p>
               <ProjetosChatWaveform mode={waveformMode} className="h-6" />
             </SheetHeader>
           </div>
           <div className="grid min-h-0 flex-1 grid-rows-[minmax(12rem,34%)_minmax(0,1fr)] md:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] md:grid-rows-1">
-            <ul className="space-y-1 overflow-y-auto border-b border-gold/10 p-3 md:border-b-0 md:border-r">
+            <ul className="space-y-1 overflow-y-auto border-b border-[rgba(42,24,18,0.08)] p-3 md:border-b-0 md:border-r">
               {threads.map((thread) => {
                 const selected = thread.lead_id === active?.lead_id
                 const needs = thread.last.autor_id !== user?.id
@@ -308,35 +308,35 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                       type="button"
                       className={cn(
                         'flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left',
-                        selected ? 'bg-gold/12 ring-1 ring-gold/25' : 'hover:bg-white/5',
+                        selected ? 'bg-[#8d5e22]/10 ring-1 ring-[#8d5e22]/25' : 'hover:bg-[#2a1812]/5',
                       )}
                       onClick={() => setActiveLeadId(thread.lead_id)}
                     >
                       {needs ? (
                         <span className="mt-2 h-2 w-2 shrink-0 animate-pulse rounded-full bg-sky-400" />
                       ) : (
-                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-white/10" />
+                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#2a1812]/10" />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="flex items-start justify-between gap-2">
                           <span
                             className={cn(
                               'line-clamp-2 text-[15px] font-medium leading-snug [overflow-wrap:anywhere]',
-                              selected ? 'text-gold' : 'text-cream-secondary',
+                              selected ? 'text-[#8d5e22]' : 'text-[#2a1812]',
                             )}
                           >
                             {thread.lead_nome}
                           </span>
-                          <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-cream-muted">
+                          <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-[#8a7060]">
                             {previewHora(thread.last.criado_em)}
                           </span>
                         </span>
                         {thread.titular_nome ? (
-                          <span className="mt-0.5 block truncate text-xs text-gold/85">
+                          <span className="mt-0.5 block truncate text-xs text-[#8d5e22]/85">
                             {thread.titular_nome}
                           </span>
                         ) : null}
-                        <span className="mt-1 block line-clamp-2 text-[13px] leading-5 text-cream-secondary">
+                        <span className="mt-1 block line-clamp-2 text-[13px] leading-5 text-[#6b5244]">
                           {previewMensagem(thread)}
                         </span>
                       </span>
@@ -348,20 +348,20 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
             <div className="flex min-h-0 flex-col p-4">
               {active ? (
                 <>
-                  <div className="mb-3 flex items-start justify-between gap-3 border-b border-gold/10 pb-3">
+                  <div className="mb-3 flex items-start justify-between gap-3 border-b border-[rgba(42,24,18,0.08)] pb-3">
                     <div className="min-w-0">
-                      <p className="text-base font-medium leading-snug text-cream-secondary [overflow-wrap:anywhere]">
+                      <p className="text-base font-medium leading-snug text-[#2a1812] [overflow-wrap:anywhere]">
                         {active.lead_nome}
                       </p>
                       {active.titular_nome ? (
-                        <p className="mt-0.5 text-sm text-gold/90">{active.titular_nome}</p>
+                        <p className="mt-0.5 text-sm text-[#8d5e22]/90">{active.titular_nome}</p>
                       ) : null}
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0 border-gold/25 text-gold"
+                      className="shrink-0 border-[#8d5e22]/25 text-[#8d5e22]"
                       onClick={() => {
                         const leadId = active.lead_id
                         setOpen(false)
@@ -372,7 +372,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                     </Button>
                   </div>
                   {loadingNotas ? (
-                    <p className="p-6 text-center text-sm text-cream-secondary">Abrindo o canal…</p>
+                    <p className="p-6 text-center text-sm text-[#6b5244]">Abrindo o canal…</p>
                   ) : (
                     <ProjetoChatThread
                       notas={notas}
@@ -391,7 +391,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                   </div>
                 </>
               ) : (
-                <p className="p-6 text-center text-sm leading-6 text-cream-secondary">
+                <p className="p-6 text-center text-sm leading-6 text-[#6b5244]">
                   Titular e projetista ainda não escreveram. Quando alguém mandar, o aviso acende no card.
                 </p>
               )}

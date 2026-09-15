@@ -83,10 +83,10 @@ export function ProjetosAbertosCard({
           </p>
           <p
             className={cn(
-              'font-display leading-none text-gold',
+              'font-display leading-none text-[#c4963a]',
               compact ? 'text-[1.55rem]' : 'text-[2.35rem] sm:text-[2.75rem]',
             )}
-            style={{ textShadow: '0 0 18px rgba(242,216,146,0.45)' }}
+            style={{ textShadow: '0 0 18px rgba(196,150,58,0.25)' }}
           >
             {abertos}
           </p>

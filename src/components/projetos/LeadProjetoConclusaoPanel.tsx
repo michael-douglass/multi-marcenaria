@@ -120,9 +120,9 @@ export function LeadProjetoConclusaoPanel({ leadId }: LeadProjetoConclusaoPanelP
         </div>
       )}
       <AlertDialog open={Boolean(confirm)} onOpenChange={(open) => !open && setConfirm(null)}>
-        <AlertDialogContent className="border-gold/20 bg-[#120c09]">
+        <AlertDialogContent className="border-[#8d5e22]/20 bg-[#fffcf8]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-gold">
+            <AlertDialogTitle className="font-display text-[#8d5e22]">
               {confirm ? COPY[confirm.kind].title : ''}
             </AlertDialogTitle>
             <AlertDialogDescription>{confirm ? COPY[confirm.kind].body : ''}</AlertDialogDescription>

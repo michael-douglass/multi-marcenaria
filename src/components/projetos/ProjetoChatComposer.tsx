@@ -50,7 +50,7 @@ export function ProjetoChatComposer({ compact, disabled, onSend }: ProjetoChatCo
         disabled={disabled}
         placeholder="Escreva no canal do ateliê…"
         className={cn(
-          'resize-y border-gold/25 bg-[#1a120e]/70 text-[15px] leading-6 text-cream-secondary',
+          'resize-y border-[#8d5e22]/25 bg-[#fffcf8] text-[15px] leading-6 text-[#2a1812] placeholder:text-[#8a7060]',
           compact ? 'min-h-[72px]' : 'min-h-[88px]',
         )}
         onChange={(event) => setText(event.target.value)}
@@ -80,7 +80,7 @@ export function ProjetoChatComposer({ compact, disabled, onSend }: ProjetoChatCo
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 gap-1 border-gold/25 text-gold"
+            className="h-8 gap-1 border-[#8d5e22]/25 text-[#8d5e22]"
             onClick={() => inputRef.current?.click()}
             disabled={disabled}
           >
@@ -88,11 +88,11 @@ export function ProjetoChatComposer({ compact, disabled, onSend }: ProjetoChatCo
             Imagem
           </Button>
           {preview ? (
-            <span className="relative h-20 w-20 overflow-hidden rounded-md border border-gold/20">
+            <span className="relative h-20 w-20 overflow-hidden rounded-md border border-[#8d5e22]/20">
               <img src={preview} alt="" className="h-full w-full object-cover" />
               <button
                 type="button"
-                className="absolute right-0.5 top-0.5 rounded-full bg-[#120c09]/80 p-0.5 text-cream-secondary"
+                className="absolute right-0.5 top-0.5 rounded-full bg-[#2a1812]/70 p-0.5 text-[#fffcf8]"
                 onClick={() => setFile(null)}
                 aria-label="Tirar imagem"
               >

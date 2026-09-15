@@ -98,25 +98,25 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
       {typeof document !== 'undefined' && showPanel
         ? createPortal(
             <div
-              className="fixed z-[80] max-h-72 overflow-y-auto rounded-xl border border-gold/20 bg-[#120c09] p-1 shadow-xl"
+              className="fixed z-[80] max-h-72 overflow-y-auto rounded-xl border border-[#8d5e22]/20 bg-[#fffcf8] p-1 shadow-xl"
               style={{ top: coords.top, left: coords.left, width: Math.max(coords.width, 240) }}
             >
               {results.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-cream-muted">Nenhum lead encontrado.</p>
+                <p className="px-3 py-2 text-xs text-[#8a7060]">Nenhum lead encontrado.</p>
               ) : (
                 results.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    className="flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-gold/10"
+                    className="flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-[#8d5e22]/10"
                     onClick={() => {
                       if (item.onBoard) onOpenLead(item.id)
                       else onPuxarLead(item.id)
                       setValue('')
                     }}
                   >
-                    <span className="truncate text-sm text-gold">{item.nome}</span>
-                    <span className="truncate text-[11px] text-cream-muted">
+                    <span className="truncate text-sm text-[#2a1812]">{item.nome}</span>
+                    <span className="truncate text-[11px] text-[#8a7060]">
                       {item.onBoard ? 'Neste quadro' : 'Puxar para o ateliê'}
                       {item.extra ? ` · ${item.extra}` : ''}
                     </span>

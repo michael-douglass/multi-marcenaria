@@ -64,12 +64,12 @@ export function ProjetoKanbanCard({
         transform: CSS.Transform.toString(transform),
         transition,
         animationDelay: `${delay}ms`,
-        background: '#3a2418',
-        boxShadow: '0 8px 18px rgba(8, 4, 2, 0.55)',
+        background: '#fffcf8',
+        boxShadow: '0 8px 18px rgba(42, 24, 18, 0.1)',
       }}
       className={cn(
-        'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#f2d892]/70 text-left text-[#fff8ee] touch-manipulation',
-        'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#f2d892]',
+        'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#c9a35a]/50 text-left text-[#2a1812] touch-manipulation',
+        'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#c9a35a]',
         !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
         isDragging && 'z-50 scale-[1.03] rotate-1 ring-2 ring-sky-400/40',
         emDesenho && 'projeto-card-claimed',
@@ -78,12 +78,12 @@ export function ProjetoKanbanCard({
     >
       {emDesenho ? (
         <div
-          className="projeto-card-claimed-rim flex items-center gap-2 border-b border-sky-400/30 bg-sky-950/40 px-2 py-1.5"
+          className="projeto-card-claimed-rim flex items-center gap-2 border-b border-sky-400/30 bg-sky-50 px-2 py-1.5"
           role="status"
           aria-live="polite"
         >
           <ProjetoClaimedAura />
-          <p className="min-w-0 font-display text-sm tracking-wide text-[#f2d892]">
+          <p className="min-w-0 font-display text-sm tracking-wide text-[#8d5e22]">
             Em desenho · {projeto.arquiteto_nome ?? 'projetista'}
           </p>
         </div>
@@ -92,7 +92,7 @@ export function ProjetoKanbanCard({
       <div className="flex items-start gap-1.5 p-2.5 pl-3.5">
         <button
           type="button"
-          className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-[#f6ead8] hover:bg-white/10"
+          className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-[#8a7060] hover:bg-[#2a1812]/5"
           aria-label="Arrastar card"
           data-dnd-handle
           onClick={(event) => event.stopPropagation()}
@@ -102,9 +102,9 @@ export function ProjetoKanbanCard({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-base leading-snug text-[#f2d892]">{projeto.lead_nome}</p>
+          <p className="truncate font-display text-base leading-snug text-[#8d5e22]">{projeto.lead_nome}</p>
           {projeto.aguardando_resposta ? (
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
               <Hourglass className="h-2.5 w-2.5" />
               Aguardando projetista
             </span>
@@ -135,14 +135,14 @@ export function ProjetoKanbanCard({
             </LeadLembretesPopover>
           </div>
 
-          <div className="mt-2 space-y-0.5 text-[11px] text-[#f6ead8]">
+          <div className="mt-2 space-y-0.5 text-[11px] text-[#6b5244]">
             <p className="flex items-center gap-1 truncate">
-              <User className="h-3 w-3 text-[#f2d892]" />
+              <User className="h-3 w-3 text-[#8d5e22]" />
               Titular: {projeto.titular_nome ?? '—'}
             </p>
             {projeto.parceiro_nome ? (
               <p className="flex items-center gap-1 truncate">
-                <Lamp className="h-3 w-3 text-sky-300" />
+                <Lamp className="h-3 w-3 text-sky-600" />
                 Arquiteto: {projeto.parceiro_nome}
               </p>
             ) : null}

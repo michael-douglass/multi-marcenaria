@@ -30,7 +30,7 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
 
   if (notas.length === 0) {
     return (
-      <p className="px-2 py-8 text-center text-sm text-cream-muted">
+      <p className="px-2 py-8 text-center text-sm text-[#8a7060]">
         Titular e projetista ainda não escreveram. Quando alguém mandar, o aviso acende no card.
       </p>
     )
@@ -49,11 +49,11 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
               className={cn(
                 'lead-modal-bubble max-w-[min(100%,34rem)] rounded-2xl border px-3.5 py-2.5',
                 mine ? 'ml-auto' : 'mr-auto',
-                atelie && 'border-sky-400/30 bg-sky-950/40',
+                atelie && 'border-sky-400/40 bg-sky-50',
               )}
             >
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className={cn('font-semibold', atelie ? 'text-sky-200' : 'text-gold')}>
+                <span className={cn('font-semibold', atelie ? 'text-sky-700' : 'text-[#8d5e22]')}>
                   {nota.autor_nome}
                 </span>
                 <span className="lead-modal-kicker shrink-0 tabular-nums">
@@ -73,7 +73,7 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
                 </button>
               ) : null}
               {caption ? (
-                <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-6 text-cream-secondary [overflow-wrap:anywhere]">
+                <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-6 text-[#2a1812] [overflow-wrap:anywhere]">
                   {caption}
                 </p>
               ) : null}
@@ -82,7 +82,7 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
         })}
       </div>
       <Dialog open={Boolean(lightbox)} onOpenChange={() => setLightbox(null)}>
-        <DialogContent className="max-w-3xl border-gold/20 bg-[#120c09] p-2">
+        <DialogContent className="max-w-3xl border-[#8d5e22]/20 bg-[#fffcf8] p-2">
           {lightbox ? <img src={lightbox} alt="" className="max-h-[80vh] w-full object-contain" /> : null}
         </DialogContent>
       </Dialog>

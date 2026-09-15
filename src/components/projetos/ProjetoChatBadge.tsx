@@ -15,8 +15,8 @@ export function ProjetoChatBadge({ lastAutorId, currentUserId, className }: Proj
       className={cn(
         'relative inline-flex h-7 w-7 items-center justify-center rounded-full border',
         fromOther
-          ? 'border-sky-400/50 bg-sky-950/50'
-          : 'border-gold/40 bg-[#1a120e]',
+          ? 'border-sky-400/50 bg-sky-50'
+          : 'border-[#8d5e22]/35 bg-[#fff8ee]',
         className,
       )}
       title={fromOther ? 'Nova mensagem no canal' : 'Canal do ateliê'}
@@ -34,7 +34,7 @@ export function ProjetoChatBadge({ lastAutorId, currentUserId, className }: Proj
           <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-sky-400" />
         </>
       ) : null}
-      <MessageSquare className={cn('relative h-3.5 w-3.5', fromOther ? 'text-sky-200' : 'text-gold')} />
+      <MessageSquare className={cn('relative h-3.5 w-3.5', fromOther ? 'text-sky-700' : 'text-[#8d5e22]')} />
     </span>
   )
 }
