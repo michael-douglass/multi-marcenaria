@@ -26,6 +26,9 @@ import {
   PontuaSolicitantesSaqueDialog,
 } from '@/components/financeiro/PontuaSolicitantesSaque';
 import { calcularPontuaMetricas } from '@/lib/pontua-garbo-metricas';
+import { FinanceiroPontuaPdfExportButton } from '@/components/financeiro/FinanceiroPontuaPdfExportButton';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+import type { FinanceiroPontuaPdfExportInput } from '@/lib/financeiro-pontua-pdf-export';
 
 const PERIODOS = [
   { meses: 6, label: '6 meses' },
@@ -33,6 +36,7 @@ const PERIODOS = [
 ] as const;
 
 export default function Financeiro() {
+  const { empresa } = useEmpresa();
   const { userRole, userRoles, isSuperAdmin } = useAuth();
   const { prestadores, isLoading } = usePontuaGarboFinanceiro();
   const { pedidos, isLoading: saquesLoading } = useSaquePedidosAdmin();
@@ -69,6 +73,17 @@ export default function Financeiro() {
     if (comMovimento.length === 0) return 0;
     return comMovimento.reduce((s, b) => s + b.comissaoPaga, 0) / comMovimento.length;
   }, [metricas.serie]);
+
+  const pdfExportInput = useMemo((): FinanceiroPontuaPdfExportInput | null => {
+    if (isLoading || saquesLoading) return null;
+    return {
+      metricas,
+      meses,
+      arquitetos: arquitetosFiltrados,
+      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      busca,
+    };
+  }, [isLoading, saquesLoading, metricas, meses, arquitetosFiltrados, empresa?.nome, busca]);
 
   if (!canView) {
     return (
@@ -110,6 +125,10 @@ export default function Financeiro() {
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center gap-3">
+              <FinanceiroPontuaPdfExportButton
+                input={pdfExportInput}
+                disabled={carregando}
+              />
               <div
                 className="inline-flex rounded-lg border border-[rgba(26,16,12,0.16)] bg-white p-0.5"
                 role="group"
