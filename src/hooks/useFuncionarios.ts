@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { mergeAdmissaoDados } from '@/lib/funcionario-admissao-merge'
 import { dispensarFuncionario } from '@/lib/funcionario-dispensar'
 import { supabase } from '@/lib/supabase'
 import type { Funcionario, FuncionarioInput } from '@/types'
@@ -120,8 +121,19 @@ export function useFuncionarios(options?: UseFuncionariosOptions) {
     if (input.email !== undefined) payload.email = input.email?.trim() || null
     if (input.usuario_id !== undefined) payload.usuario_id = input.usuario_id || null
     if (input.ativo !== undefined) payload.ativo = input.ativo
-    if (input.admissao_dados !== undefined) payload.admissao_dados = input.admissao_dados
     if (input.admissao_status !== undefined) payload.admissao_status = input.admissao_status
+
+    // Mescla com o que já está no banco para não apagar horários/salário em salvamentos paralelos.
+    if (input.admissao_dados !== undefined) {
+      const { data: atualRow, error: atualErr } = await supabase
+        .from('movelaria_funcionarios')
+        .select('admissao_dados')
+        .eq('id', id)
+        .single()
+      if (atualErr) throw new Error(atualErr.message)
+      const atualDados = (atualRow?.admissao_dados ?? {}) as Funcionario['admissao_dados']
+      payload.admissao_dados = mergeAdmissaoDados(atualDados, input.admissao_dados)
+    }
 
     const { data: row, error: err } = await supabase
       .from('movelaria_funcionarios')

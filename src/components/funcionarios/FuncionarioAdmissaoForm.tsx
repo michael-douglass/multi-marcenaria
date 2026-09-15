@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Save } from 'lucide-react'
 import { Field } from '@/components/ui/Field'
 import { DateInput } from '@/components/ui/DateInput'
 import { HorariosSemanaFields } from '@/components/funcionarios/HorariosSemanaFields'
@@ -30,7 +31,13 @@ interface Props {
   saving?: boolean
 }
 
-const SAVE_DEBOUNCE_MS = 450
+const SAVE_DEBOUNCE_MS = 500
+
+type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+
+function serializeAdmissao(dados: FuncionarioAdmissaoDados): string {
+  return JSON.stringify(dados ?? {})
+}
 
 export function FuncionarioAdmissaoForm({
   funcionario,
@@ -44,15 +51,23 @@ export function FuncionarioAdmissaoForm({
   const [draft, setDraft] = useState<FuncionarioAdmissaoDados>(
     () => funcionario.admissao_dados ?? {},
   )
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const draftRef = useRef(draft)
   draftRef.current = draft
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fixoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const seededSalarioRef = useRef(false)
   const seededHorariosRef = useRef(false)
   const syncingJornadaRef = useRef(false)
   const syncingSalarioFixoRef = useRef(false)
   const lastSyncedSalarioRef = useRef<number | null>(null)
+  const lastSavedSerializedRef = useRef(serializeAdmissao(funcionario.admissao_dados ?? {}))
+  const dirtyRef = useRef(false)
+  const onUpdateRef = useRef(onUpdate)
+  onUpdateRef.current = onUpdate
+  const onSyncSalarioFixoRef = useRef(onSyncSalarioFixo)
+  onSyncSalarioFixoRef.current = onSyncSalarioFixo
+  const onJornadaSyncedRef = useRef(onJornadaSynced)
+  onJornadaSyncedRef.current = onJornadaSynced
 
   const salarioFixoFormatado =
     salarioFixoMensal != null && salarioFixoMensal > 0 ? fmtCur(salarioFixoMensal) : ''
@@ -60,11 +75,30 @@ export function FuncionarioAdmissaoForm({
 
   // Ao trocar de funcionário, recarrega o rascunho.
   useEffect(() => {
-    setDraft(funcionario.admissao_dados ?? {})
-    seededSalarioRef.current = false
+    const dados = funcionario.admissao_dados ?? {}
+    setDraft(dados)
+    draftRef.current = dados
+    lastSavedSerializedRef.current = serializeAdmissao(dados)
+    dirtyRef.current = false
     seededHorariosRef.current = false
     lastSyncedSalarioRef.current = null
+    setSaveStatus('idle')
   }, [funcionario.id])
+
+  // Se o banco atualizou (ex.: aba Ponto salvou a jornada), espelha na Admissão sem apagar digitação.
+  useEffect(() => {
+    if (dirtyRef.current || saveTimerRef.current) return
+    const incoming = funcionario.admissao_dados ?? {}
+    const serialized = serializeAdmissao(incoming)
+    if (serialized === lastSavedSerializedRef.current) return
+    if (serialized === serializeAdmissao(draftRef.current)) {
+      lastSavedSerializedRef.current = serialized
+      return
+    }
+    setDraft(incoming)
+    draftRef.current = incoming
+    lastSavedSerializedRef.current = serialized
+  }, [funcionario.admissao_dados])
 
   const syncJornadaFromAdmissao = async (dados: FuncionarioAdmissaoDados) => {
     if (readOnly || syncingJornadaRef.current) return
@@ -76,15 +110,48 @@ export function FuncionarioAdmissaoForm({
     syncingJornadaRef.current = true
     try {
       await salvarJornada(funcionario.id, jornada)
-      onJornadaSynced?.()
+      onJornadaSyncedRef.current?.()
     } catch (e) {
       showToast(
         e instanceof Error ? e.message : 'Não foi possível sincronizar a jornada do ponto.',
         'error',
       )
+      throw e
     } finally {
       syncingJornadaRef.current = false
     }
+  }
+
+  const persistAdmissao = async (dados: FuncionarioAdmissaoDados, syncJornada: boolean) => {
+    setSaveStatus('saving')
+    try {
+      await onUpdateRef.current({ admissao_dados: dados })
+      if (syncJornada || admissaoTemHorariosPreenchidos(dados)) {
+        await syncJornadaFromAdmissao(dados)
+      }
+      lastSavedSerializedRef.current = serializeAdmissao(dados)
+      dirtyRef.current = false
+      setSaveStatus('saved')
+      return true
+    } catch (e) {
+      setSaveStatus('error')
+      showToast(
+        e instanceof Error ? e.message : 'Não foi possível salvar a admissão.',
+        'error',
+      )
+      return false
+    }
+  }
+
+  const scheduleSave = (dados: FuncionarioAdmissaoDados, syncJornada = false) => {
+    if (readOnly) return
+    dirtyRef.current = true
+    setSaveStatus('pending')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null
+      void persistAdmissao(dados, syncJornada)
+    }, SAVE_DEBOUNCE_MS)
   }
 
   const flushSave = (dados: FuncionarioAdmissaoDados) => {
@@ -92,18 +159,7 @@ export function FuncionarioAdmissaoForm({
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
-    void onUpdate({ admissao_dados: dados })
-    void syncJornadaFromAdmissao(dados)
-  }
-
-  const scheduleSave = (dados: FuncionarioAdmissaoDados, syncJornada = false) => {
-    if (readOnly) return
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      saveTimerRef.current = null
-      void onUpdate({ admissao_dados: dados })
-      if (syncJornada) void syncJornadaFromAdmissao(dados)
-    }, SAVE_DEBOUNCE_MS)
+    void persistAdmissao(dados, true)
   }
 
   // Se a admissão ainda não tem horários, copia da jornada do ponto (quando existir).
@@ -127,7 +183,8 @@ export function FuncionarioAdmissaoForm({
           if (admissaoTemHorariosPreenchidos(prev)) return prev
           const next = { ...prev, ...patch }
           draftRef.current = next
-          void onUpdate({ admissao_dados: next })
+          dirtyRef.current = true
+          void persistAdmissao(next, false)
           return next
         })
       } catch {
@@ -146,7 +203,7 @@ export function FuncionarioAdmissaoForm({
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current)
         const pending = draftRef.current
-        void onUpdate({ admissao_dados: pending })
+        void onUpdateRef.current({ admissao_dados: pending })
         void syncJornadaFromAdmissao(pending)
       }
       if (fixoSyncTimerRef.current) {
@@ -162,25 +219,25 @@ export function FuncionarioAdmissaoForm({
     if (salarioFixoMensal == null || salarioFixoMensal <= 0) return
     const atual = parseMoneyBr((draftRef.current.salario ?? '').trim())
     if (Math.abs(atual - salarioFixoMensal) < 0.009 && (draftRef.current.salario ?? '').trim()) {
-      seededSalarioRef.current = true
       lastSyncedSalarioRef.current = salarioFixoMensal
       return
     }
-    // Evita sobrescrever digitação local ainda não salva com o mesmo valor.
     if (lastSyncedSalarioRef.current === salarioFixoMensal && (draftRef.current.salario ?? '').trim()) {
-      seededSalarioRef.current = true
       return
     }
-    seededSalarioRef.current = true
     lastSyncedSalarioRef.current = salarioFixoMensal
-    const next = { ...draftRef.current, salario: salarioFixoFormatado || String(salarioFixoMensal) }
+    const next = {
+      ...draftRef.current,
+      salario: salarioFixoFormatado || String(salarioFixoMensal),
+    }
     setDraft(next)
     draftRef.current = next
-    void onUpdate({ admissao_dados: next })
-  }, [readOnly, salarioFixoMensal, salarioFixoFormatado, onUpdate])
+    scheduleSave(next, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só quando o fixo muda
+  }, [readOnly, salarioFixoMensal, salarioFixoFormatado])
 
   const syncSalarioParaFixo = (dados: FuncionarioAdmissaoDados) => {
-    if (readOnly || !onSyncSalarioFixo) return
+    if (readOnly || !onSyncSalarioFixoRef.current) return
     if (fixoSyncTimerRef.current) clearTimeout(fixoSyncTimerRef.current)
     fixoSyncTimerRef.current = setTimeout(() => {
       fixoSyncTimerRef.current = null
@@ -191,7 +248,7 @@ export function FuncionarioAdmissaoForm({
       }
       syncingSalarioFixoRef.current = true
       lastSyncedSalarioRef.current = valor
-      void onSyncSalarioFixo(valor)
+      void onSyncSalarioFixoRef.current?.(valor)
         .catch(e => {
           showToast(
             e instanceof Error ? e.message : 'Não foi possível sincronizar o fixo com o salário.',
@@ -207,7 +264,8 @@ export function FuncionarioAdmissaoForm({
   const setDado = (key: keyof FuncionarioAdmissaoDados, value: string | boolean) => {
     setDraft(prev => {
       const next = { ...prev, [key]: value }
-      scheduleSave(next)
+      draftRef.current = next
+      scheduleSave(next, false)
       if (key === 'salario') syncSalarioParaFixo(next)
       return next
     })
@@ -216,6 +274,7 @@ export function FuncionarioAdmissaoForm({
   const patchDados = (patch: Partial<FuncionarioAdmissaoDados>, syncJornada = false) => {
     setDraft(prev => {
       const next = { ...prev, ...patch }
+      draftRef.current = next
       scheduleSave(next, syncJornada)
       return next
     })
@@ -226,8 +285,33 @@ export function FuncionarioAdmissaoForm({
     await onUpdate({ admissao_status: 'completo' })
   }
 
+  const salvarHorariosAgora = async () => {
+    if (readOnly) return
+    if (!admissaoTemHorariosPreenchidos(draftRef.current)) {
+      showToast('Preencha chegada e saída do serviço em pelo menos um dia marcado.', 'error')
+      return
+    }
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const ok = await persistAdmissao(draftRef.current, true)
+    if (ok) {
+      showToast('Horários salvos e sincronizados com o ponto.', 'success')
+    }
+  }
+
   const temDadosFuncionario =
     !!(draft.pis || draft.endereco || draft.usa_vale_transporte || draft.vt_quantidade_dia)
+
+  const isSavingHorarios = saveStatus === 'pending' || saveStatus === 'saving'
+
+  const saveStatusLabel =
+    saveStatus === 'pending' ? 'Aguardando salvar…'
+    : saveStatus === 'saving' ? 'Salvando e sincronizando com o ponto…'
+    : saveStatus === 'saved' ? 'Salvo e sincronizado com o ponto'
+    : saveStatus === 'error' ? 'Falha ao salvar — tente de novo'
+    : null
 
   return (
     <div className="space-y-6">
@@ -254,7 +338,9 @@ export function FuncionarioAdmissaoForm({
       </div>
 
       <div className="glass-card p-5">
-        <h3 className="mb-4 font-semibold text-[#f2d892]">Preenchimento da empresa contratante</h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-semibold text-[#f2d892]">Preenchimento da empresa contratante</h3>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Data de admissão">
             <DateInput
@@ -324,9 +410,35 @@ export function FuncionarioAdmissaoForm({
               patchDados({ horarios_semana, horarios_dias_ativos }, true)
             }
           />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {!readOnly && (
+              <button
+                type="button"
+                className="btn btn-gold btn-md inline-flex items-center gap-2"
+                disabled={isSavingHorarios || saving}
+                onClick={() => void salvarHorariosAgora()}
+              >
+                <Save size={16} />
+                {isSavingHorarios ? 'Salvando…' : 'Salvar horários e sincronizar com o ponto'}
+              </button>
+            )}
+            {saveStatusLabel && (
+              <p
+                className={[
+                  'text-xs',
+                  saveStatus === 'error' ? 'text-red-300'
+                  : saveStatus === 'saved' ? 'text-emerald-300'
+                  : 'text-[#b8957f]',
+                ].join(' ')}
+                role="status"
+              >
+                {saveStatusLabel}
+              </p>
+            )}
+          </div>
           <p className="mt-2 text-xs text-[#b8957f]">
-            Estes horários são os mesmos da aba Ponto. Ao salvar aqui, a jornada usada na batida
-            de ponto também é atualizada.
+            Clique no botão para gravar. Os mesmos horários passam a valer na aba Ponto
+            (jornada usada na batida).
           </p>
         </div>
 

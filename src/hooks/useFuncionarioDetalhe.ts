@@ -117,7 +117,12 @@ export function useFuncionarioDetalhe(funcionarioId: string | undefined) {
         ...(input.ativo !== undefined ? { ativo: input.ativo } : {}),
         ...(input.admissao_status !== undefined ? { admissao_status: input.admissao_status } : {}),
         ...(input.admissao_dados !== undefined
-          ? { admissao_dados: input.admissao_dados as Funcionario['admissao_dados'] }
+          ? {
+              admissao_dados: {
+                ...(prev.admissao_dados ?? {}),
+                ...(input.admissao_dados as Funcionario['admissao_dados']),
+              },
+            }
           : {}),
       }
     })
