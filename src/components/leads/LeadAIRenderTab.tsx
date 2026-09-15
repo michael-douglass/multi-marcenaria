@@ -52,7 +52,11 @@ import {
   type LeadAIAnalysisItemPayload,
   type ResolveItemForRenderOptions,
 } from '@/lib/lead-ai-media-sources';
-import { resolveAiRenderIdFromAttachment } from '@/lib/lead-ai-render-attachments';
+import {
+  aiRenderAttachmentId,
+  aiRenderAttachmentTitle,
+  resolveAiRenderIdFromAttachment,
+} from '@/lib/lead-ai-render-attachments';
 import {
   getCachedPdfThumbnail,
   prewarmPdfThumbnail,
@@ -83,6 +87,9 @@ interface LeadAIRenderTabProps {
 }
 
 function sourceMeta(item: LeadAIMediaItem) {
+  if (isAiRenderMediaItem(item)) {
+    return { label: 'Render IA', tone: 'bg-gold/15 text-gold border-gold/35' };
+  }
   if (item.kind === 'pdf') {
     return { label: 'PDF', tone: 'bg-amber-500/20 text-amber-100 border-amber-400/30' };
   }
@@ -163,19 +170,45 @@ function PdfSelectThumbnail({
 }
 
 function canDeleteSketchMediaItem(item: LeadAIMediaItem): boolean {
-  if (resolveAiRenderIdFromAttachment({ id: item.id, fileUrl: item.fileUrl, fileName: item.label })) {
+  if (isAiRenderMediaItem(item)) {
     return false;
   }
   return item.source === 'anexo' || item.source === 'whiteboard';
 }
 
-function isSketchSourceItem(item: LeadAIMediaItem): boolean {
-  if (item.label?.startsWith('Render IA')) return false;
-  return !resolveAiRenderIdFromAttachment({
-    id: item.id,
-    fileUrl: item.fileUrl,
-    fileName: item.label,
-  });
+/** Anexo / virtual vindo de uma renderização IA — pode ser escolhido de novo como esboço. */
+function isAiRenderMediaItem(item: LeadAIMediaItem): boolean {
+  if (item.label?.startsWith('Render IA')) return true;
+  return Boolean(
+    resolveAiRenderIdFromAttachment({
+      id: item.id,
+      fileUrl: item.fileUrl,
+      fileName: item.label,
+    }),
+  );
+}
+
+function normalizeMediaUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`.toLowerCase();
+  } catch {
+    return url.split('?')[0].toLowerCase();
+  }
+}
+
+function leadAIRenderToMediaItem(render: LeadAIRender): LeadAIMediaItem {
+  const id = aiRenderAttachmentId(render.id);
+  return {
+    key: `anexo:${id}`,
+    source: 'anexo',
+    id,
+    label: aiRenderAttachmentTitle(render.inputSnapshot.label),
+    thumbnailUrl: render.outputPublicUrl,
+    kind: 'image',
+    fileUrl: render.outputPublicUrl,
+  };
 }
 
 function MediaSelectCard({
@@ -352,6 +385,7 @@ function SavedRenderCard({
   onSelect,
   onExpand,
   onDelete,
+  onUseAsSketch,
   isDeleting,
 }: {
   render: LeadAIRender;
@@ -361,6 +395,7 @@ function SavedRenderCard({
   onSelect: () => void;
   onExpand: () => void;
   onDelete: () => void;
+  onUseAsSketch: () => void;
   isDeleting: boolean;
 }) {
   const meta = renderOriginMeta(render);
@@ -443,6 +478,26 @@ function SavedRenderCard({
             aria-label={`Ampliar ${title}`}
           >
             <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onUseAsSketch();
+            }}
+            className={cn(
+              'flex h-8 items-center gap-1.5 rounded-full px-2.5',
+              'border border-gold/40 bg-mahogany-panel/90 text-[10px] font-semibold uppercase tracking-wider text-gold',
+              'shadow-lg shadow-black/30 backdrop-blur-sm',
+              'transition-all duration-300 hover:scale-105 hover:bg-mahogany-panel',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
+            )}
+            aria-label={`Usar ${title} como esboço`}
+            title="Usar como esboço"
+          >
+            <Layers className="h-3.5 w-3.5" aria-hidden />
+            <span className="hidden sm:inline">Esboço</span>
           </button>
           <LeadAIRenderDownloadMenu
             outputUrl={render.outputPublicUrl}
@@ -616,7 +671,33 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   } | null>(null);
   const pendingAmbienteAfterPdfRef = useRef(false);
 
-  const sketchItems = useMemo(() => items.filter(isSketchSourceItem), [items]);
+  const sketchItems = useMemo(() => {
+    const coveredUrls = new Set<string>();
+    const coveredRenderIds = new Set<string>();
+
+    for (const item of items) {
+      const url = normalizeMediaUrl(item.fileUrl ?? item.thumbnailUrl);
+      if (url) coveredUrls.add(url);
+      const renderId = resolveAiRenderIdFromAttachment({
+        id: item.id,
+        fileUrl: item.fileUrl,
+        fileName: item.label,
+      });
+      if (renderId) coveredRenderIds.add(renderId);
+    }
+
+    const fromHistorico = historico
+      .filter((render) => {
+        if (coveredRenderIds.has(render.id)) return false;
+        const url = normalizeMediaUrl(render.outputPublicUrl);
+        return !url || !coveredUrls.has(url);
+      })
+      .map(leadAIRenderToMediaItem);
+
+    const combined = [...items, ...fromHistorico];
+    // Esboços originais primeiro; renders IA depois (ainda selecionáveis).
+    return combined.sort((a, b) => Number(isAiRenderMediaItem(a)) - Number(isAiRenderMediaItem(b)));
+  }, [historico, items]);
 
   const selectedItem = useMemo(
     () => sketchItems.find((item) => item.key === selectedKey) ?? items.find((item) => item.key === selectedKey) ?? null,
@@ -878,6 +959,37 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       setSketchPreviewItem(item);
     },
     [selectedKey, selectedPdfPage],
+  );
+
+  const handleUseRenderAsSketch = useCallback(
+    (render: LeadAIRender) => {
+      const existing =
+        sketchItems.find((item) => {
+          const renderId = resolveAiRenderIdFromAttachment({
+            id: item.id,
+            fileUrl: item.fileUrl,
+            fileName: item.label,
+          });
+          if (renderId === render.id) return true;
+          return (
+            normalizeMediaUrl(item.fileUrl ?? item.thumbnailUrl) ===
+            normalizeMediaUrl(render.outputPublicUrl)
+          );
+        }) ?? leadAIRenderToMediaItem(render);
+
+      setSelectedKey(existing.key);
+      setSelectedPdfPage(null);
+      toast.success('Render selecionado como esboço', {
+        description: 'Agora você pode renderizar de novo ou editar por pontos.',
+      });
+      requestAnimationFrame(() => {
+        document.getElementById('lead-ai-sketch-picker')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      });
+    },
+    [sketchItems],
   );
 
   const handleConfirmPdfPage = useCallback(
@@ -1201,7 +1313,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
 
       {/* Em telas largas: esboço + ambiente lado a lado para ver os dois cards sem rolar tanto */}
       <div className="grid gap-4 xl:grid-cols-2 xl:items-start xl:gap-5">
-      <section className="overflow-hidden rounded-xl border-2 border-[#f2d892]/45 bg-gradient-to-b from-[#2a1812] to-[#1a100c] shadow-[0_12px_32px_rgba(8,3,1,0.35)]">
+      <section
+        id="lead-ai-sketch-picker"
+        className="overflow-hidden rounded-xl border-2 border-[#f2d892]/45 bg-gradient-to-b from-[#2a1812] to-[#1a100c] shadow-[0_12px_32px_rgba(8,3,1,0.35)]"
+      >
         <div className="relative border-b border-[#f2d892]/28 bg-[#241610] px-4 py-3 sm:px-5">
           <AmbienteAtmosphereFoil variant="shader" intensity={0.95} />
           <div className="relative z-10 flex flex-wrap items-start justify-between gap-3">
@@ -1216,7 +1331,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 Selecione uma imagem para renderizar
               </Label>
               <p className="max-w-xl text-xs leading-relaxed text-[#e2c9a8]">
-                Clique na foto · <strong className="font-medium text-[#f2d892]">Renderizar com ambiente</strong> envia à lousa.
+                Clique na foto · renders salvos também entram aqui ·{' '}
+                <strong className="font-medium text-[#f2d892]">Renderizar com ambiente</strong> envia à lousa.
                 Em PDFs, escolha a página.
               </p>
             </div>
@@ -1352,6 +1468,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
             onSelectVersion={handleSelectVersion}
             onDeleteVersion={handleDeleteVersion}
             onRequestDelete={activeRender ? () => setDeleteTarget(activeRender) : undefined}
+            onUseAsSketch={activeRender ? () => handleUseRenderAsSketch(activeRender) : undefined}
           />
         </section>
       )}
@@ -1365,7 +1482,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
               Fotos renderizadas
             </Label>
             <p className="mt-0.5 text-xs text-[#e2c9a8]">
-              Cada render fica salvo neste lead. Amplie para baixar ou exclua se não gostar do resultado.
+              Cada render fica salvo neste lead. Use como esboço para renderizar de novo, amplie para baixar ou exclua.
             </p>
           </div>
         </div>
@@ -1406,6 +1523,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                   onSelect={() => handleSelectVersion(entry)}
                   onExpand={() => setHistoryFullscreenRender(entry)}
                   onDelete={() => setDeleteTarget(entry)}
+                  onUseAsSketch={() => handleUseRenderAsSketch(entry)}
                   isDeleting={deleteMutation.isPending && deleteTarget?.id === entry.id}
                 />
               );

@@ -18,7 +18,7 @@ import { LeadAIImageFullscreenDialog } from '@/components/leads/LeadAIImageFulls
 import { LeadAIRenderDownloadMenu } from '@/components/leads/LeadAIRenderDownloadMenu';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Pencil, ImageIcon, Link2, Link2Off, Maximize2, Minus, Plus, RotateCcw, Trash2, Wand2, X } from 'lucide-react';
+import { Pencil, ImageIcon, Layers, Link2, Link2Off, Maximize2, Minus, Plus, RotateCcw, Trash2, Wand2, X } from 'lucide-react';
 
 interface ComparePanelProps {
   src: string | null;
@@ -510,6 +510,7 @@ export function RenderImageFrame({
   onExpandSingle,
   onEdit,
   onDelete,
+  onUseAsSketch,
   headerAction,
   toolbarCompact = false,
   className,
@@ -522,13 +523,17 @@ export function RenderImageFrame({
   onExpandSingle?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Coloca esta renderização de volta na grade “Selecione uma imagem”. */
+  onUseAsSketch?: () => void;
   headerAction?: ReactNode;
   /** Ícones compactos na barra de ações (melhor em cards estreitos). */
   toolbarCompact?: boolean;
   className?: string;
 }) {
   const isAfter = variant === 'after';
-  const hasToolbar = Boolean((onExpandSingle && src) || onEdit || onDelete || headerAction);
+  const hasToolbar = Boolean(
+    (onExpandSingle && src) || onEdit || onDelete || (onUseAsSketch && src) || headerAction,
+  );
 
   return (
     <div
@@ -568,6 +573,14 @@ export function RenderImageFrame({
                 label="Tela cheia"
                 icon={<Maximize2 className="h-3.5 w-3.5" />}
                 onClick={onExpandSingle}
+                iconOnly={toolbarCompact}
+              />
+            )}
+            {onUseAsSketch && src && isAfter && (
+              <FrameToolbarButton
+                label="Usar como esboço"
+                icon={<Layers className="h-3.5 w-3.5" />}
+                onClick={onUseAsSketch}
                 iconOnly={toolbarCompact}
               />
             )}

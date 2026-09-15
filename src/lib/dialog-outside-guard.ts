@@ -95,6 +95,10 @@ export function subscribeLeadModalPassthrough(onStoreChange: () => void): () => 
  * Clique/foco numa janela por cima do card (tela cheia, confirmação).
  * Não use preventDefault nesses eventos: o Radix cancela o clique original
  * e a lousa / o texto ficam inacessíveis.
+ *
+ * Painéis flutuantes fora do card (IA em 2º plano, agenda) NÃO entram aqui —
+ * para eles use preventDefault em onPointerDownOutside / onInteractOutside
+ * (senão o card do lead fecha ao clicar no X / Minimizar).
  */
 export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boolean {
   const target = e.target as HTMLElement | null;
@@ -111,11 +115,19 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-markup-orcamento-simples]') ||
       target.closest('[data-lead-lembrete-dialog]') ||
       target.closest('[data-agenda-create-dialog]') ||
-      target.closest('[data-floating-agenda-panel]') ||
       target.closest('[data-radix-dialog-content][data-floating-agenda-root]') ||
-      target.closest('[data-saldo-mes-insight]') ||
-      target.closest('[data-floating-ui-root]') ||
       target.closest('[data-nested-dialog]'),
+  );
+}
+
+/** Painel flutuante fora do Dialog (IA em 2º plano, agenda, saldo). */
+export function isFloatingUiOutsideEvent(e: { target: EventTarget | null }): boolean {
+  const target = e.target as HTMLElement | null;
+  if (!target?.closest) return false;
+  return Boolean(
+    target.closest('[data-floating-ui-root]') ||
+      target.closest('[data-floating-agenda-panel]') ||
+      target.closest('[data-saldo-mes-insight]'),
   );
 }
 
@@ -128,7 +140,7 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
 export function shouldAllowDialogFocusOutside(e: { target: EventTarget | null }): boolean {
   const target = e.target as HTMLElement | null;
   if (!target?.closest) return false;
-  if (isLeadNestedLayerEvent(e)) return true;
+  if (isLeadNestedLayerEvent(e) || isFloatingUiOutsideEvent(e)) return true;
   return Boolean(
     target.closest('[data-radix-popover-content]') ||
       target.closest('[data-radix-select-content]') ||

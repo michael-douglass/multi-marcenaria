@@ -31,6 +31,8 @@ interface LeadAIRenderCompareProps {
   onSelectVersion?: (render: LeadAIRender) => void;
   onDeleteVersion?: (render: LeadAIRender) => void;
   onRequestDelete?: () => void;
+  /** Seleciona o resultado como nova imagem de entrada na grade de esboços. */
+  onUseAsSketch?: () => void;
 }
 
 export function LeadAIRenderCompare({
@@ -48,6 +50,7 @@ export function LeadAIRenderCompare({
   onSelectVersion,
   onDeleteVersion,
   onRequestDelete,
+  onUseAsSketch,
 }: LeadAIRenderCompareProps) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [renderSingleOpen, setRenderSingleOpen] = useState(false);
@@ -129,6 +132,7 @@ export function LeadAIRenderCompare({
             onExpandSingle={outputUrl ? () => setRenderSingleOpen(true) : undefined}
             onEdit={canEdit ? () => setEditOpen(true) : undefined}
             onDelete={onRequestDelete}
+            onUseAsSketch={outputUrl && onUseAsSketch ? onUseAsSketch : undefined}
             headerAction={
               <LeadAIRenderDownloadMenu
                 outputUrl={outputUrl}
