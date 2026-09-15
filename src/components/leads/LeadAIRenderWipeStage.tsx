@@ -232,8 +232,8 @@ export function LeadAIRenderWipeStage({
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-gold/20 px-3 py-2 sm:px-4">
-        <p className="font-display text-[11px] tracking-[0.22em] text-[#f2d892]">Fenda do ateliê</p>
+      <div className="flex items-center justify-between gap-3 border-b border-gold/20 px-3 py-1.5 sm:px-3.5">
+        <p className="font-display text-[10px] tracking-[0.22em] text-[#f2d892]">Fenda do ateliê</p>
         <div className="flex items-center gap-2">
           {onExport ? (
             <button
@@ -249,7 +249,7 @@ export function LeadAIRenderWipeStage({
         </div>
       </div>
 
-      <div className="relative aspect-[4/3] w-full bg-[#0e0806]">
+      <div className="relative mx-auto h-[min(240px,36vh)] w-full bg-[#0e0806]">
         {!webglOk && (
           <div className="absolute inset-0">
             <img src={afterUrl} alt={afterLabel} className="h-full w-full object-cover" />
@@ -275,7 +275,7 @@ export function LeadAIRenderWipeStage({
         </span>
       </div>
 
-      <div className="border-t border-gold/20 px-3 py-2.5 sm:px-4">
+      <div className="border-t border-gold/20 px-3 py-1.5 sm:px-3.5">
         <label htmlFor={sliderId} className="sr-only">
           Posição da comparação entre a montagem e o render
         </label>

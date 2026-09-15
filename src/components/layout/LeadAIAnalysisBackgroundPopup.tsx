@@ -265,7 +265,11 @@ export function LeadAIAnalysisBackgroundPopup({
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-[10px] text-cream-muted hover:text-foreground"
-              onClick={handleClearFinished}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearFinished();
+              }}
             >
               Limpar
             </Button>
@@ -327,7 +331,11 @@ export function LeadAIAnalysisBackgroundPopup({
                 <button
                   type="button"
                   className="absolute right-2 top-2 z-10 rounded-full p-1 text-muted-foreground hover:bg-muted/60"
-                  onClick={() => handleDismiss(entry)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDismiss(entry);
+                  }}
                   aria-label="Fechar aviso"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -394,7 +402,11 @@ export function LeadAIAnalysisBackgroundPopup({
                       type="button"
                       size="sm"
                       className="h-7 w-full gap-1.5 bg-gold/90 text-[11px] text-mahogany-base hover:bg-gold"
-                      onClick={() => handleViewResult(entry)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewResult(entry);
+                      }}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       {kind === 'analysis' ? 'Ver análise' : 'Ver resultado'}

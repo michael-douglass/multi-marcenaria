@@ -1452,7 +1452,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       </div>
 
       {(displayedOutputUrl || isBusy || sketchPreviewUrl) && (
-        <section className="space-y-3 rounded-xl border-2 border-[#f2d892]/40 bg-gradient-to-b from-[#2a1812] to-[#1a100c] p-3 shadow-[0_12px_32px_rgba(8,3,1,0.3)] sm:p-4">
+        <section className="space-y-2 rounded-xl border-2 border-[#f2d892]/40 bg-gradient-to-b from-[#2a1812] to-[#1a100c] p-2.5 shadow-[0_12px_32px_rgba(8,3,1,0.3)] sm:p-3">
           <Label className="text-sm font-semibold text-[#fff6ea]">Resultado da renderização</Label>
           <LeadAIRenderCompare
             sketchUrl={sketchPreviewUrl}

@@ -61,6 +61,7 @@ import {
   ORCAMENTO_VISUALIZAR_OPEN_ATTR,
   PROJECT_IMAGE_PICKER_OPEN_ATTR,
   WHITEBOARD_FULLSCREEN_ATTR,
+  isFloatingUiOutsideEvent,
   isLeadDismissBlocked,
   isLeadNestedLayerEvent,
   isOrcamentoVisualizarOpen,
@@ -1378,6 +1379,11 @@ export function LeadModal({
           requestClose();
         }}
         onPointerDownOutside={(e) => {
+          // Painel flutuante (IA / agenda): não fecha o card; o clique no X continua válido.
+          if (isFloatingUiOutsideEvent(e)) {
+            e.preventDefault();
+            return;
+          }
           // Tela cheia / janela interna: o preventDefault cancela o clique (lousa morta).
           if (isLeadNestedLayerEvent(e)) return;
           // Fecha só no clique do véu (onOverlayClick). No pointerdown o card some
@@ -1385,13 +1391,23 @@ export function LeadModal({
           e.preventDefault();
         }}
         onInteractOutside={(e) => {
+          if (isFloatingUiOutsideEvent(e)) {
+            e.preventDefault();
+            return;
+          }
           if (isLeadNestedLayerEvent(e)) return;
           if (nestedOverlayOpen) e.preventDefault();
           if (isPrimaryDialogBackdrop(e.target)) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}
         onFocusOutside={(e) => {
-          if (isLeadNestedLayerEvent(e) || shouldAllowDialogFocusOutside(e)) return;
+          if (
+            isLeadNestedLayerEvent(e) ||
+            isFloatingUiOutsideEvent(e) ||
+            shouldAllowDialogFocusOutside(e)
+          ) {
+            return;
+          }
           if (nestedOverlayOpen) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
         }}

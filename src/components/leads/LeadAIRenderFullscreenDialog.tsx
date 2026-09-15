@@ -513,6 +513,8 @@ export function RenderImageFrame({
   onUseAsSketch,
   headerAction,
   toolbarCompact = false,
+  /** Quadro menor para caber Antes/Depois na mesma vista. */
+  compact = false,
   className,
 }: {
   src: string | null;
@@ -528,6 +530,7 @@ export function RenderImageFrame({
   headerAction?: ReactNode;
   /** Ícones compactos na barra de ações (melhor em cards estreitos). */
   toolbarCompact?: boolean;
+  compact?: boolean;
   className?: string;
 }) {
   const isAfter = variant === 'after';
@@ -548,13 +551,15 @@ export function RenderImageFrame({
     >
       <div
         className={cn(
-          'border-b px-3 py-2.5 sm:px-4',
+          'border-b',
+          compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5 sm:px-4',
           isAfter ? 'border-gold/20 bg-mahogany-elevated/20' : 'border-gold-border-subtle/20',
         )}
       >
         <span
           className={cn(
-            'block truncate text-[11px] font-semibold uppercase tracking-[0.16em]',
+            'block truncate font-semibold uppercase tracking-[0.16em]',
+            compact ? 'text-[10px]' : 'text-[11px]',
             isAfter ? 'text-gold' : 'text-cream-muted',
           )}
           title={label}
@@ -564,7 +569,8 @@ export function RenderImageFrame({
         {hasToolbar && (
           <div
             className={cn(
-              'mt-2 flex flex-wrap items-center gap-1 rounded-lg p-1',
+              'flex flex-wrap items-center gap-1 rounded-lg p-1',
+              compact ? 'mt-1' : 'mt-2',
               isAfter && 'border border-gold/20 bg-mahogany-base/60',
             )}
           >
@@ -610,7 +616,10 @@ export function RenderImageFrame({
         onClick={onExpand}
         disabled={!src || !onExpand}
         className={cn(
-          'relative aspect-[4/3] w-full bg-mahogany-base',
+          'relative w-full bg-mahogany-base',
+          compact
+            ? 'h-[min(168px,28vh)]'
+            : 'aspect-[4/3]',
           onExpand && src && 'cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
           (!src || !onExpand) && 'cursor-default',
         )}

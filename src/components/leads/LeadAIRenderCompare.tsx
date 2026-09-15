@@ -76,15 +76,15 @@ export function LeadAIRenderCompare({
 
   return (
     <>
-      <div className={cn('space-y-4', className)}>
+      <div className={cn('space-y-2.5', className)}>
         {canExpand && (
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             {canExport && (
               <Button
                 type="button"
                 size="sm"
                 onClick={() => setExportOpen(true)}
-                className="h-9 bg-[#f2d892] text-xs font-semibold text-[#2a1812] hover:bg-[#e8d09a]"
+                className="h-8 bg-[#f2d892] px-2.5 text-[11px] font-semibold text-[#2a1812] hover:bg-[#e8d09a]"
               >
                 <FileDown className="mr-1.5 h-3.5 w-3.5" />
                 Exportar PDF e PNG
@@ -95,7 +95,7 @@ export function LeadAIRenderCompare({
               variant="outline"
               size="sm"
               onClick={() => setFullscreenOpen(true)}
-              className="h-9 border-gold-border-subtle/40 bg-mahogany-elevated/60 text-xs text-cream-secondary hover:border-gold/40 hover:bg-gold/10 hover:text-gold"
+              className="h-8 border-gold-border-subtle/40 bg-mahogany-elevated/60 px-2.5 text-[11px] text-cream-secondary hover:border-gold/40 hover:bg-gold/10 hover:text-gold"
             >
               <Maximize2 className="mr-1.5 h-3.5 w-3.5" />
               Comparar em tela cheia
@@ -113,12 +113,13 @@ export function LeadAIRenderCompare({
           />
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-2.5 md:grid-cols-2">
           <RenderImageFrame
             src={sketchUrl}
             alt={sketchLabel}
             label={`Antes — ${sketchLabel}`}
             variant="before"
+            compact
             onExpand={canExpand ? () => setFullscreenOpen(true) : undefined}
           />
 
@@ -127,6 +128,7 @@ export function LeadAIRenderCompare({
             alt="Render fotorrealista"
             label="Depois — Render fotorrealista"
             variant="after"
+            compact
             toolbarCompact
             onExpand={canExpand ? () => setFullscreenOpen(true) : undefined}
             onExpandSingle={outputUrl ? () => setRenderSingleOpen(true) : undefined}
@@ -149,12 +151,12 @@ export function LeadAIRenderCompare({
         </div>
 
         {analiseTexto?.trim() && (
-          <div className="rounded-xl border border-gold-border-subtle/25 bg-mahogany-panel/40 p-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-cream-muted">
+          <div className="rounded-lg border border-gold-border-subtle/25 bg-mahogany-panel/40 p-3">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cream-muted">
               Análise técnica do esboço
             </p>
-            <ScrollArea className="max-h-48">
-              <LeadAIFormattedContent content={analiseTexto} className="text-sm text-cream-secondary" />
+            <ScrollArea className="max-h-28">
+              <LeadAIFormattedContent content={analiseTexto} className="text-xs text-cream-secondary" />
             </ScrollArea>
           </div>
         )}
