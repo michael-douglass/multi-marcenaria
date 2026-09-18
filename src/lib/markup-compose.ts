@@ -4,7 +4,7 @@ import {
   recalcularModulos,
 } from '@/lib/markup-calculo';
 import { validarComposicaoContraSistema, type ValidacaoComposicaoIA } from '@/lib/markup-compose-validate';
-import { normalizarTextoCatalogo } from '@/lib/markup-cortecloud';
+import { casarProdutoNoCatalogo, confiancaEhSugerivel } from '@/lib/markup-match';
 import type { MarkupServicoTemplateEfetivo } from '@/lib/markup-servicos';
 import { sincronizarServicosComTemplates } from '@/lib/markup-servicos';
 import {
@@ -168,20 +168,19 @@ export function agregarLinhasPorProduto(
     }
   }
 
+  // Fallback: material que o projetista estimou por móvel (dimensões reais) mas que o
+  // Inventariante não achou de nenhuma forma (0 no scan real) — sem isso, um móvel inteiro
+  // podia ficar de fora do orçamento só porque a planilha Cortecloud não tinha QUANT pra ele.
+  // Nunca soma em cima de uma quantidade real já encontrada — só preenche o que está zerado.
   const levantamento = resultadoNormalizado.levantamento_projetista;
   if (levantamento) {
     for (const mat of levantamento.totais_consolidados ?? []) {
-      const produto = produtos.find(
-        (p) =>
-          normalizarTextoCatalogo(p.nome) === normalizarTextoCatalogo(mat.nome) &&
-          (p.variacao ?? '') === (mat.variacao ?? ''),
-      );
-      if (produto) {
-        origemPorProduto.set(
-          produto.id,
-          prioridadeOrigem(origemPorProduto.get(produto.id), 'projetista') ?? 'projetista',
-        );
-      }
+      const match = casarProdutoNoCatalogo(mat.nome, mat.variacao, produtos);
+      if (!match.produto || !confiancaEhSugerivel(match.confianca)) continue;
+      const jaEncontradoPeloScanReal = (qtdPorProduto.get(match.produto.id) ?? 0) > 0;
+      if (jaEncontradoPeloScanReal) continue;
+      qtdPorProduto.set(match.produto.id, Math.max(0, mat.quantidade));
+      origemPorProduto.set(match.produto.id, 'projetista');
     }
   }
 
