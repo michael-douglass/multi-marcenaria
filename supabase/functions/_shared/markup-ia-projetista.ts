@@ -21,6 +21,18 @@ export interface MarkupIAProjetistaComodo {
   observacoes?: string;
 }
 
+/**
+ * Onde o móvel aparece nas imagens enviadas — aproximado, não é bounding box exato
+ * (modelos multimodais não são precisos nisso). `imagem_indice` referencia o rótulo
+ * "[Imagem N]" injetado antes de cada image_url em buildImageParts — 1-based, na
+ * mesma ordem em que o cliente monta as imagens (ver markup-ia-imagens.ts).
+ */
+export interface MarkupIAProjetistaLocalizacao {
+  imagem_indice: number;
+  ponto_normalizado: { x: number; y: number };
+  confianca: 'alta' | 'media' | 'baixa';
+}
+
 export interface MarkupIAProjetistaMovel {
   id: string;
   nome: string;
@@ -32,6 +44,7 @@ export interface MarkupIAProjetistaMovel {
   observacoes?: string;
   medidas_padrao_aplicadas?: boolean;
   confianca?: 'alta' | 'media' | 'baixa';
+  localizacao?: MarkupIAProjetistaLocalizacao;
 }
 
 export interface MarkupIAProjetistaAuditoriaResult {
@@ -132,6 +145,26 @@ function inferirTipoMaterial(
 function parseConfianca(raw: unknown): 'alta' | 'media' | 'baixa' {
   const v = String(raw ?? 'media');
   return v === 'alta' || v === 'baixa' ? v : 'media';
+}
+
+/**
+ * Só aceita localizacao se todos os campos forem plausíveis — melhor omitir o
+ * marcador do que plantar um marcador em posição inválida/inventada.
+ */
+function normalizarLocalizacaoMovel(raw: unknown): MarkupIAProjetistaLocalizacao | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const indice = Number(obj.imagem_indice);
+  const ponto = obj.ponto_normalizado as Record<string, unknown> | undefined;
+  const x = ponto ? Number(ponto.x) : NaN;
+  const y = ponto ? Number(ponto.y) : NaN;
+  if (!Number.isInteger(indice) || indice < 1) return undefined;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1) return undefined;
+  return {
+    imagem_indice: indice,
+    ponto_normalizado: { x, y },
+    confianca: parseConfianca(obj.confianca),
+  };
 }
 
 function slugifyComodo(nome: string): string {
@@ -619,6 +652,7 @@ export function normalizarProjetistaResult(
         observacoes: movel.observacoes ? String(movel.observacoes) : undefined,
         medidas_padrao_aplicadas: movel.medidas_padrao_aplicadas === true,
         confianca: movel.confianca ? parseConfianca(movel.confianca) : undefined,
+        localizacao: normalizarLocalizacaoMovel(movel.localizacao),
       };
     })
     .filter((m) => m.nome);

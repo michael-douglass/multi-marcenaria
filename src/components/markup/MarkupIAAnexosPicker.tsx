@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, FileText, Image as ImageIcon, Paperclip } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, FileText, Image as ImageIcon, Loader2, Paperclip, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +18,8 @@ interface MarkupIAAnexosPickerProps {
   selectedKeys: Set<string>;
   onChange: (keys: Set<string>) => void;
   isLoading?: boolean;
+  /** Anexa um arquivo novo direto ao lead (reaproveita o upload já usado na ficha). Omitir esconde o botão. */
+  onUpload?: (file: File) => Promise<void>;
 }
 
 function PdfPageHint({ item }: { item: LeadAIMediaItem }) {
@@ -48,8 +50,13 @@ export function MarkupIAAnexosPicker({
   selectedKeys,
   onChange,
   isLoading,
+  onUpload,
 }: MarkupIAAnexosPickerProps) {
   const [aberto, setAberto] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoSelecionarProximaCargaRef = useRef(false);
+  const itemsCountAntesDoUploadRef = useRef(0);
   const selecionados = useMemo(
     () => items.filter((item) => selectedKeys.has(item.key)),
     [items, selectedKeys],
@@ -69,6 +76,33 @@ export function MarkupIAAnexosPicker({
   const selecionarAnexosDoLead = () => {
     const anexos = items.filter((item) => item.source === 'anexo');
     onChange(new Set((anexos.length > 0 ? anexos : items).map((item) => item.key)));
+  };
+
+  // Depois de anexar um arquivo novo, a lista de itens só atualiza quando a query
+  // do lead recarrega (assíncrono). Quando ela crescer, seleciona os anexos do lead
+  // de novo — assim o arquivo recém-enviado já entra marcado, sem o usuário procurar.
+  useEffect(() => {
+    if (!autoSelecionarProximaCargaRef.current) return;
+    if (items.length <= itemsCountAntesDoUploadRef.current) return;
+    autoSelecionarProximaCargaRef.current = false;
+    selecionarAnexosDoLead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  const handleFileSelected = async (file: File | undefined) => {
+    if (!file || !onUpload) return;
+    setEnviando(true);
+    itemsCountAntesDoUploadRef.current = items.length;
+    autoSelecionarProximaCargaRef.current = true;
+    try {
+      await onUpload(file);
+      setAberto(true);
+    } catch {
+      autoSelecionarProximaCargaRef.current = false;
+      // o próprio onUpload já mostra o toast de erro
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -148,6 +182,35 @@ export function MarkupIAAnexosPicker({
             arquivos e {PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas.
           </p>
           <div className="flex flex-wrap gap-1">
+            {onUpload && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void handleFileSelected(event.target.files?.[0]);
+                    event.target.value = '';
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-[11px]"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={enviando}
+                >
+                  {enviando ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Upload className="h-3 w-3" />
+                  )}
+                  Anexar novo
+                </Button>
+              </>
+            )}
             <Button
               type="button"
               variant="ghost"

@@ -12,9 +12,11 @@ import type {
   MarkupIAVerificacaoCategoriaResultado,
   MarkupIAVerificacaoItemStatus,
 } from '@/lib/markup-ia-verificacao';
+import type { LeadAIAnalysisItemPayload } from '@/lib/lead-ai-media-sources';
 import { MarkupIAFluxoVerificacao } from '@/components/markup/MarkupIAFluxoVerificacao';
 import { MarkupIAAgentesStrip } from '@/components/markup/MarkupIAAgentesStrip';
 import { MarkupIAProjetistaPanel } from '@/components/markup/MarkupIAProjetistaPanel';
+import { MarkupIAMoveisMarkers } from '@/components/markup/MarkupIAMoveisMarkers';
 import { MarkupIAFidelidadePanel } from '@/components/markup/MarkupIAFidelidadePanel';
 import { MarkupIAKitScene } from '@/components/markup/MarkupIAKitScene';
 import { agenteAtivoFromComposeEvents } from '@/lib/markup-ia-prompts';
@@ -43,6 +45,8 @@ interface MarkupIAComposeOverlayProps {
   categoriaNomes: Record<string, string>;
   onCancel?: () => void;
   error?: string | null;
+  /** Mesmos anexos enviados pra IA — usado só para desenhar os móveis marcados sobre a imagem/página. */
+  itens?: LeadAIAnalysisItemPayload[];
 }
 
 function etapaFromEvent(
@@ -113,6 +117,7 @@ export function MarkupIAComposeOverlay({
   categoriaNomes,
   onCancel,
   error,
+  itens,
 }: MarkupIAComposeOverlayProps) {
   const logEndRef = useRef<HTMLDivElement>(null);
   const [categorias, setCategorias] = useState<CategoriaUI[]>([]);
@@ -296,6 +301,11 @@ export function MarkupIAComposeOverlay({
           </div>
 
           <div className="flex min-h-0 flex-col gap-3 rounded-xl border border-amber-500/20 bg-slate-900/80 p-3">
+            {levantamentoProjetista && itens && itens.length > 0 && (
+              <div className="rounded-lg border border-violet-500/20 bg-slate-950/40 p-2">
+                <MarkupIAMoveisMarkers itens={itens} moveis={levantamentoProjetista.moveis} />
+              </div>
+            )}
             {(projetistaScanning || emReconcile || levantamentoProjetista) &&
               (!modoCortecloud || emReconcile || levantamentoProjetista) && (
               <MarkupIAProjetistaPanel

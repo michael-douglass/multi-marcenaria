@@ -35,6 +35,7 @@ import {
   flattenComposicaoLinhas,
   formatChecklistForCategoria,
   formatChecklistForPrompt,
+  getCaixariaGlossarioHint,
   mergeInventarioCategorias,
   normalizarChecklistVerificacao,
   parseInventarioCategoriaJson,
@@ -97,6 +98,8 @@ interface ComposeMarkupRequest {
   leadName?: string;
   itens?: AnalysisItem[];
   stream?: boolean;
+  /** Override do modelo principal só para esta composição — não altera markup_config.markup_ia_model. */
+  model?: string;
 }
 
 type EmitFn = (event: StreamEvent) => void;
@@ -189,7 +192,7 @@ function blocoTextoNativo(texto: string, maxChars?: number): string {
 }
 
 async function buildImageParts(itens: AnalysisItem[]): Promise<OpenAIContentPart[]> {
-  const parts: OpenAIContentPart[] = [];
+  const rawParts: OpenAIContentPart[] = [];
   let imageCount = 0;
   const pdfs = itens.filter((item) => (item.pagesBase64?.length ?? 0) > 0);
   const imagens = itens.filter((item) => !item.pagesBase64?.length && item.imageUrl);
@@ -202,7 +205,7 @@ async function buildImageParts(itens: AnalysisItem[]): Promise<OpenAIContentPart
       for (const page of item.pagesBase64) {
         if (imageCount >= MAX_IMAGES_TOTAL) break;
         const url = page.startsWith('data:') ? page : `data:image/jpeg;base64,${page}`;
-        parts.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
+        rawParts.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
         imageCount++;
       }
       continue;
@@ -215,12 +218,23 @@ async function buildImageParts(itens: AnalysisItem[]): Promise<OpenAIContentPart
         if (!converted) continue;
         url = converted;
       }
-      parts.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
+      rawParts.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
       imageCount++;
     }
   }
 
-  return deduplicateImageParts(parts);
+  // Dedup PRIMEIRO (por conteúdo da imagem), rótulo "[Imagem N]" DEPOIS — nessa ordem.
+  // Se rotulássemos antes, uma imagem duplicada removida deixaria o rótulo de texto
+  // orfão colado na imagem seguinte, desalinhando toda a numeração que o Projetista usa
+  // em localizacao.imagem_indice. O cliente numera na MESMA ordem (pdfs primeiro, por
+  // página, depois imagens soltas) mas SEM dedup — ver nota em markup-ia-imagens.ts.
+  const deduped = deduplicateImageParts(rawParts);
+  const labeled: OpenAIContentPart[] = [];
+  deduped.forEach((part, index) => {
+    labeled.push({ type: 'text', text: `[Imagem ${index + 1}]` });
+    labeled.push(part);
+  });
+  return labeled;
 }
 
 function deveRetentarComposicao(
@@ -572,6 +586,8 @@ async function runInventarioFase(
 
     try {
       const hintCortecloud = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
+      const hintGlossario = getCaixariaGlossarioHint(cat.id);
+      const hints = [hintCortecloud, hintGlossario].filter(Boolean).join('\n\n');
       const regraNomeComercial =
         'Leia TODAS as páginas do texto nativo. Transcreva o nome comercial do documento (ex.: Branco eucatex, Freijo puro Duratex). NÃO troque por apelidos MDF BRANCO/ULTRA/MADEIRA se o PDF tiver marca. QUANT > 0 entra; sem QUANT = referencia_apenas. Se o YAML de fidelidade disser chapas_especiais_solicitadas=false, não lance ULTRA/NEUTRO/ESPECIAL.';
       const userIntro = modoCortecloud
@@ -584,7 +600,7 @@ async function runInventarioFase(
           content: [
             {
               type: 'text',
-              text: `${hintCortecloud ? `${userIntro}\n\n${hintCortecloud}` : userIntro}${blocoTextoNativo(textoNativo)}`,
+              text: `${hints ? `${userIntro}\n\n${hints}` : userIntro}${blocoTextoNativo(textoNativo)}`,
             },
             ...imageParts,
           ],
@@ -741,7 +757,9 @@ async function runInventarioRetryPorLacunas(
       faltantesCriticos: faltantes.join('\n- '),
       yamlFidelidade: yamlFidelidade ? JSON.stringify(yamlFidelidade, null, 2) : 'null',
     });
-    const hint = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
+    const hintCortecloudRetry = modoCortecloud ? getCortecloudInventarioHint(cat.id) : '';
+    const hintGlossarioRetry = getCaixariaGlossarioHint(cat.id);
+    const hint = [hintCortecloudRetry, hintGlossarioRetry].filter(Boolean).join('\n\n');
 
     try {
       const raw = await callOpenAIChat(openAiKey, model, [
@@ -768,6 +786,10 @@ async function runInventarioRetryPorLacunas(
       });
     } catch (err) {
       console.warn(`Retry inventário ${catId} falhou:`, err);
+      emit?.({
+        type: 'log',
+        message: `⚠️ Nova tentativa de "${cat.nome}" também falhou — mantendo o resultado anterior dessa categoria.`,
+      });
     }
   }
 
@@ -822,6 +844,10 @@ async function runAuditoriaInventarioFase(
     };
   } catch (err) {
     console.warn('Auditoria inventário LLM falhou:', err);
+    emit?.({
+      type: 'log',
+      message: '⚠️ Auditor de inventário (IA) não respondeu — ficou só a checagem determinística, revise o inventário com atenção.',
+    });
     return { faltantes: det.faltantes, resumo_auditoria: '' };
   }
 }
@@ -992,6 +1018,10 @@ async function runProjetistaFase(
     }
   } catch (err) {
     console.warn('Projetista fase 0 falhou:', err);
+    emit?.({
+      type: 'log',
+      message: '⚠️ Projetista não conseguiu analisar as imagens — o levantamento vai ficar bem básico, revise com atenção antes de aplicar.',
+    });
   }
 
   if (!result || result.moveis.length === 0) {
@@ -1130,6 +1160,10 @@ async function runAuditoriaFase(
     };
   } catch (err) {
     console.warn('Auditoria fase 3 falhou:', err);
+    emit?.({
+      type: 'log',
+      message: '⚠️ Auditoria final (IA) não respondeu — o resumo não passou por uma segunda revisão.',
+    });
     return { resumo_texto: parsed.resumo_texto, itens_ausentes: [] };
   }
 }
@@ -1604,7 +1638,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Corpo da requisição inválido (JSON)' }, 400);
     }
 
-    const { leadId, empresaSchema, leadName, itens = [], stream: streamRequested } = body;
+    const { leadId, empresaSchema, leadName, itens = [], stream: streamRequested, model: modelOverride } = body;
 
     if (!leadId || typeof leadId !== 'number') {
       return jsonResponse({ error: 'leadId é obrigatório' }, 400);
@@ -1691,7 +1725,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const modelRaw = (markupConfig?.markup_ia_model as string | undefined)?.trim() || MARKUP_IA_DEFAULT_MODEL;
+    // Escolha de modelo no ponto de uso (popup) tem prioridade sobre o padrão configurado
+    // em Markup → Configurações → IA — mas nunca sai da allowlist, mesmo se o cliente mandar algo inválido.
+    const modelOverrideTrimmed = (modelOverride as string | undefined)?.trim();
+    const modelRaw =
+      (modelOverrideTrimmed && MARKUP_IA_ALLOWED_MODELS.has(modelOverrideTrimmed) ? modelOverrideTrimmed : undefined) ||
+      (markupConfig?.markup_ia_model as string | undefined)?.trim() ||
+      MARKUP_IA_DEFAULT_MODEL;
     const model = MARKUP_IA_ALLOWED_MODELS.has(modelRaw) ? modelRaw : MARKUP_IA_DEFAULT_MODEL;
 
     const promptBase = (markupConfig?.markup_ia_prompt as string | undefined)?.trim() ||

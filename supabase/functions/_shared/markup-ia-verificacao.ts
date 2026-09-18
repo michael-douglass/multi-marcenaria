@@ -113,9 +113,22 @@ export const MARKUP_IA_VERIFICACAO_PADRAO: MarkupIAVerificacaoCategoria[] = [
     ],
   },
   {
+    id: 'pedras_bancadas',
+    nome: 'Pedras e Bancadas',
+    ordem: 6,
+    ativo: true,
+    itens: [
+      { id: 'granito', nome: 'GRANITO', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'marmore', nome: 'MÁRMORE', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'quartzo', nome: 'QUARTZO', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'silestone', nome: 'SILESTONE', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'porcelanato_bancada', nome: 'PORCELANATO BANCADA', variacoes: [], ativo: true, prioridade: 'normal' },
+    ],
+  },
+  {
     id: 'servicos',
     nome: 'Serviços',
-    ordem: 6,
+    ordem: 7,
     ativo: true,
     itens: [
       {
@@ -535,6 +548,39 @@ Status: encontrado | ausente_documento | referencia_apenas
 
 --- CATEGORIA ---
 {{checklist_categoria}}`;
+
+/**
+ * Glossário injetado só na categoria chapas_mdf, em QUALQUER modo (com ou sem
+ * planilha Cortecloud) — cobre o caminho "sem planilha" da regra 2 do prompt
+ * acima, onde a IA precisa estimar chapa por área em vez de transcrever QUANT.
+ * Mesma fórmula do motor determinístico (src/lib/markup-motor-calculo.ts /
+ * _shared/markup-motor-calculo.ts) — ver docs/referencia-caixaria-mdf.md para
+ * as fontes usadas.
+ */
+export function getCaixariaGlossarioHint(categoriaId: string): string {
+  if (categoriaId !== 'chapas_mdf') return '';
+  return `### GLOSSÁRIO — CAIXARIA DE MDF (use isto pra estimar chapas quando NÃO houver planilha com QUANT)
+
+Caixaria = a estrutura de um módulo de marcenaria, montada com peças de chapa:
+- LATERAIS (2 por módulo): chapa 15mm; comprimento = altura do móvel; largura = profundidade do móvel.
+- BASE + TAMPO/PRATELEIRAS: chapa 15mm; comprimento = largura do móvel menos ~30mm (encaixa entre as 2 laterais).
+- FUNDO: chapa 6mm (mais fina — só fecha o móvel por trás, não é peça estrutural).
+- PORTAS/FRENTES/GAVETAS: chapa 18mm (mais espessa — folha visível, aguenta dobradiça e puxador).
+
+Cálculo de quantas chapas comprar (mesma fórmula do motor de cálculo do sistema):
+1. Some a ÁREA (m²) de todas as peças do projeto que usam a MESMA espessura (agrupe 15mm, 18mm e 6mm separado).
+2. Aplique 20% de perda: área_com_perda = área_bruta × 1,20 (recorte, veio da chapa, erro de corte).
+3. Divida pela área de 1 chapa padrão (2,75m × 1,84m = 5,06m²) e arredonde para cima (Math.ceil).
+
+Exemplo de referência (NÃO copie estes números — é só pra calibrar ordem de grandeza):
+Um armário inferior de 60×91×60cm com 2 portas consome só uma fração de chapa por móvel (bem menos de 1m²
+de cada espessura). Um projeto de cozinha inteiro com 6-8 módulos desse porte tipicamente soma de 2 a 4
+chapas inteiras de 15mm no total. NUNCA responda "1 chapa" para o projeto inteiro nem "1 chapa por móvel"
+sem somar a área real — sempre alguma soma de área por espessura, dividida pela chapa padrão.
+
+Se não houver cotas explícitas no material, use as medidas padrão já aplicadas pelo Projetista (Fase 0) e
+faça esta conta por área — não arredonde direto pra um número "redondo" de chapas.`;
+}
 
 const VARIACOES_FERRAGEM_NOME = [
   'S CURVA',

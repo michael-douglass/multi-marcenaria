@@ -22,6 +22,12 @@ REGRAS OBRIGATÓRIAS:
 8. NUNCA retorne JSON vazio. Em dúvida, use confianca "baixa" e liste suposições em defaults_aplicados.
 9. O array materiais[] de cada móvel pode ficar vazio ou com hints sem quantidade — o Inventariante quantifica na Fase 1.
 10. totais_consolidados[] deve ser omitido ou vazio.
+11. Cada imagem enviada vem rotulada "[Imagem N]" antes dela. Para cada móvel, se você conseguir apontar
+    aproximadamente onde ele aparece numa dessas imagens, preencha localizacao com o número dessa imagem
+    (imagem_indice) e um ponto aproximado dentro dela (ponto_normalizado: x e y de 0 a 1, sendo 0,0 o canto
+    superior esquerdo e 1,1 o canto inferior direito). NÃO é preciso ser exato — é só pra marcar
+    aproximadamente a região do móvel. Se não tiver certeza de qual imagem ou onde, OMITA localizacao
+    inteiramente (não invente um número ou ponto).
 
 Retorne APENAS JSON:
 {
@@ -48,7 +54,8 @@ Retorne APENAS JSON:
       "cor_mdf": "Itapuã",
       "cor_fita": "Madeira",
       "observacoes": "2 portas de giro, 1 gaveta",
-      "materiais": []
+      "materiais": [],
+      "localizacao": { "imagem_indice": 1, "ponto_normalizado": { "x": 0.42, "y": 0.63 }, "confianca": "media" }
     }
   ]
 }

@@ -13,6 +13,8 @@ export interface ComposeMarkupIAInput {
   itens: LeadAIAnalysisItemPayload[];
   stream?: boolean;
   signal?: AbortSignal;
+  /** Modelo escolhido no popup para esta composição — se ausente, usa o padrão de Markup → Configurações → IA. */
+  model?: string;
 }
 
 export type MarkupIAComposeEventType =
@@ -115,6 +117,7 @@ export async function invokeComposeMarkupIAStream(
         empresaSchema: input.empresaSchema,
         itens: input.itens,
         stream: true,
+        model: input.model,
       }),
       signal: input.signal,
     });

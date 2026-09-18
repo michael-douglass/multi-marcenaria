@@ -8185,3 +8185,16 @@ button.caixa-pill:hover {
   background-color: rgba(42, 24, 18, 0.06);
   box-shadow: inset 0 -1px 0 var(--caixa-line-strong);
 }
+
+/* Realce temporário ao clicar num marcador de móvel (MarkupIAMoveisMarkers → scroll até o card). */
+.markup-ia-movel-highlight {
+  animation: markup-ia-movel-pulse 1.6s ease-out;
+}
+@keyframes markup-ia-movel-pulse {
+  0%, 100% {
+    box-shadow: none;
+  }
+  15% {
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.55);
+  }
+}

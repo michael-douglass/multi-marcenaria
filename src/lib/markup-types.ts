@@ -64,6 +64,13 @@ export interface MarkupIAProjetistaComodo {
   observacoes?: string;
 }
 
+/** Posição aproximada do móvel nas imagens enviadas — ver buildImageParts/markup-ia-imagens.ts para o índice. */
+export interface MarkupIAProjetistaLocalizacao {
+  imagem_indice: number;
+  ponto_normalizado: { x: number; y: number };
+  confianca: 'alta' | 'media' | 'baixa';
+}
+
 export interface MarkupIAProjetistaMovel {
   id: string;
   nome: string;
@@ -75,6 +82,7 @@ export interface MarkupIAProjetistaMovel {
   observacoes?: string;
   medidas_padrao_aplicadas?: boolean;
   confianca?: 'alta' | 'media' | 'baixa';
+  localizacao?: MarkupIAProjetistaLocalizacao;
 }
 
 export interface MarkupIAProjetistaAuditoriaResult {

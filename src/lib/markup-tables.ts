@@ -8,6 +8,7 @@ export const MARKUP_PUBLIC_TABLES = {
   servicoTemplates: 'CRM-multi-empresas>markup_servico_templates<',
   orcamentos: 'CRM-multi-empresas>markup_orcamentos<',
   orcamentoLinhas: 'CRM-multi-empresas>markup_orcamento_linhas<',
+  regrasConstrutivas: 'CRM-multi-empresas>markup_regras_construtivas<',
 } as const;
 
 export type MarkupTableKey = keyof typeof MARKUP_PUBLIC_TABLES;
@@ -25,6 +26,7 @@ export function resolveMarkupTable(
       servicoTemplates: 'markup_servico_templates',
       orcamentos: 'markup_orcamentos',
       orcamentoLinhas: 'markup_orcamento_linhas',
+      regrasConstrutivas: 'markup_regras_construtivas',
     };
     return local[key];
   }
@@ -55,5 +57,8 @@ export const markupOrcamentosQueryKey = (schema: string | null | undefined, lead
 
 export const markupLeadResumoMapQueryKey = (schema: string | null | undefined) =>
   ['markup-lead-resumo-map', schema] as const;
+
+export const markupRegrasConstrutivasQueryKey = (schema: string | null | undefined) =>
+  ['markup-regras-construtivas', schema] as const;
 
 export const MARKUP_TIMBRADO_BUCKET = 'markup-timbrado';

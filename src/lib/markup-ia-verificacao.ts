@@ -114,9 +114,22 @@ export const MARKUP_IA_VERIFICACAO_PADRAO: MarkupIAVerificacaoCategoria[] = [
     ],
   },
   {
+    id: 'pedras_bancadas',
+    nome: 'Pedras e Bancadas',
+    ordem: 6,
+    ativo: true,
+    itens: [
+      { id: 'granito', nome: 'GRANITO', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'marmore', nome: 'MÁRMORE', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'quartzo', nome: 'QUARTZO', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'silestone', nome: 'SILESTONE', variacoes: ['20mm', '30mm'], ativo: true, prioridade: 'normal' },
+      { id: 'porcelanato_bancada', nome: 'PORCELANATO BANCADA', variacoes: [], ativo: true, prioridade: 'normal' },
+    ],
+  },
+  {
     id: 'servicos',
     nome: 'Serviços',
-    ordem: 6,
+    ordem: 7,
     ativo: true,
     itens: [
       {

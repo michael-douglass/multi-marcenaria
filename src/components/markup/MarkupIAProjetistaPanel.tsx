@@ -1,5 +1,6 @@
 import { Ruler, Package } from 'lucide-react';
 import type { MarkupIAProjetistaResult } from '@/lib/markup-types';
+import { markupIaMovelDomId } from '@/components/markup/MarkupIAMoveisMarkers';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -129,8 +130,9 @@ function ProjetistaConteudo({
               return (
                 <AccordionItem
                   key={movel.id}
+                  id={markupIaMovelDomId(movel.id)}
                   value={movel.id}
-                  className="rounded-lg border border-border/60 bg-background/80 px-2"
+                  className="rounded-lg border border-border/60 bg-background/80 px-2 scroll-mt-4"
                 >
                   <AccordionTrigger className="py-2 text-left text-xs hover:no-underline">
                     <div className="min-w-0 flex-1 pr-2">

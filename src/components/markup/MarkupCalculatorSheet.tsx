@@ -45,10 +45,12 @@ import { useMarkupConfig, useMarkupDespesaTemplates, useMarkupServicoTemplates }
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
 import { useLeadAIMediaItems } from '@/hooks/useLeadAIMediaItems';
+import { useLeadPDFs } from '@/hooks/useLeadPDFs';
 import { useLeadAIAnalyses } from '@/hooks/useLeadAIAnalyses';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
+import { PIPELINE_LEAD_AI_MODELS } from '@/lib/pipeline-lead-ai-config';
 import { useEmpresa } from '@/contexts/EmpresaContext';
-import { resolveSelectedForAPIDetailed } from '@/lib/lead-ai-media-sources';
+import { resolveSelectedForAPIDetailed, type LeadAIAnalysisItemPayload } from '@/lib/lead-ai-media-sources';
 import { invokeComposeMarkupIAStream, type MarkupIAComposeEvent } from '@/lib/markup-compose-api';
 import { MarkupIAComposeOverlay } from '@/components/markup/MarkupIAComposeOverlay';
 import { MarkupIAAnexosPicker } from '@/components/markup/MarkupIAAnexosPicker';
@@ -293,6 +295,7 @@ export function MarkupCalculatorSheet({
   const { data: despesaTemplates = [], isLoading: loadingDespesas } = useMarkupDespesaTemplates();
   const { data: servicoTemplates = [], isLoading: loadingServicos } = useMarkupServicoTemplates();
   const { items: leadMediaItems, isLoading: leadMediaLoading } = useLeadAIMediaItems(leadId);
+  const { uploadPDF: uploadAnexoIA } = useLeadPDFs(leadId);
   const { data: analises = [] } = useLeadAIAnalyses(leadId);
   const { orcamentos, salvarOrcamento, duplicarOrcamento, removerOrcamento, isLoading: loadingOrcamentos } =
     useMarkupOrcamentos(leadId);
@@ -307,6 +310,10 @@ export function MarkupCalculatorSheet({
   const [compondoIA, setCompondoIA] = useState(false);
   const [composeEvents, setComposeEvents] = useState<MarkupIAComposeEvent[]>([]);
   const [composeError, setComposeError] = useState<string | null>(null);
+  const [composeItens, setComposeItens] = useState<LeadAIAnalysisItemPayload[]>([]);
+  // Modelo escolhido no ponto de uso — começa vazio (usa o padrão de Markup → Configurações → IA);
+  // só existe enquanto o popup está aberto, não é persistido.
+  const [iaModelOverride, setIaModelOverride] = useState<string>('');
   const composeAbortRef = useRef<AbortController | null>(null);
   const [selectedMediaKeys, setSelectedMediaKeys] = useState<Set<string>>(new Set());
   const mediaSelectionInitRef = useRef(false);
@@ -1431,9 +1438,19 @@ export function MarkupCalculatorSheet({
       const detalhe = temMidia
         ? await resolveSelectedForAPIDetailed(selecionados)
         : { payload: [], limites: { arquivosSelecionados: 0, arquivosEnviados: 0, arquivosOmitidos: 0, paginasEnviadas: 0, paginasOmitidas: 0, avisos: [] } };
+      setComposeItens(detalhe.payload);
 
       for (const aviso of detalhe.limites.avisos) {
         toast.warning('Limite de leitura da IA', { description: aviso });
+      }
+      // Aviso de custo/tempo: o pipeline já dispara várias chamadas à IA por composição
+      // (fidelidade + projetista + 1 por categoria de inventário + auditores + precificador);
+      // com muitas páginas cada chamada fica mais cara e mais lenta, mesmo sem mudar a
+      // quantidade de chamadas. Só um alerta, não bloqueia — decisão continua do usuário.
+      if (detalhe.limites.paginasEnviadas > 15) {
+        toast.info('Documento grande', {
+          description: `${detalhe.limites.paginasEnviadas} páginas enviadas — a composição pode demorar mais e custar mais tokens de IA do que o normal.`,
+        });
       }
 
       const resultado = await invokeComposeMarkupIAStream(
@@ -1444,6 +1461,7 @@ export function MarkupCalculatorSheet({
           itens: detalhe.payload,
           stream: true,
           signal: abortController.signal,
+          model: iaModelOverride || undefined,
         },
         (event) => {
           setComposeEvents((prev) => [...prev, event]);
@@ -1710,6 +1728,7 @@ export function MarkupCalculatorSheet({
           categoriaIds={categoriaIds}
           categoriaNomes={categoriaNomes}
           error={composeError}
+          itens={composeItens}
           onCancel={() => composeAbortRef.current?.abort()}
         />
         <MarkupIAConferenciaDialog
@@ -1825,6 +1844,23 @@ export function MarkupCalculatorSheet({
                 </DropdownMenu>
               </div>
             )}
+            {config.markup_ia_ativo && (
+              <select
+                value={iaModelOverride}
+                onChange={(e) => setIaModelOverride(e.target.value)}
+                disabled={compondoIA || desfazendoComposicao || !formHydrated}
+                aria-label="Modelo de IA para esta composição"
+                title="Modelo de IA para esta composição (não altera a configuração padrão)"
+                className="h-9 rounded-md border bg-background px-2 text-xs md:text-sm"
+              >
+                <option value="">Recomendado ({config.markup_ia_model})</option>
+                {PIPELINE_LEAD_AI_MODELS.map((m) => (
+                  <option key={m.value} value={m.value} title={m.description}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -1879,6 +1915,7 @@ export function MarkupCalculatorSheet({
                 selectedKeys={selectedMediaKeys}
                 onChange={setSelectedMediaKeys}
                 isLoading={leadMediaLoading}
+                onUpload={uploadAnexoIA}
               />
             </div>
           )}

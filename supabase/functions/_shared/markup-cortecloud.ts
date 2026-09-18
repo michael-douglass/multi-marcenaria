@@ -340,6 +340,13 @@ Formato: {"nome":"MADEIRA","variacao":"22","status":"encontrado","quantidade":N}
 Transcreva o nome do documento com QUANT > 0. Não invente se não houver QUANT.`;
     case 'iluminacao':
       return `Seção iluminação: perfis de LED (RM-331, RM-330, RM-329) com QUANT > 0.`;
+    case 'pedras_bancadas':
+      return `Seção PEDRAS / BANCADAS: materiais NÃO são MDF (granito, mármore, quartzo, silestone, porcelanato de bancada).
+VARI aqui é espessura — normalize para mm (2cm = 20mm, 3cm = 30mm) se o documento usar cm.
+Transcreva o NOME COMERCIAL exato da pedra (ex.: Branco Siena, Preto São Gabriel, Nero Marquina).
+Formato: {"nome":"Granito Branco Siena","variacao":"20mm","status":"encontrado","quantidade":N} com N = QUANT EXATO do documento.
+IMPORTANTE: mesmo que o documento inteiro seja sobre pedra (orçamento de bancadas/tampos), essas linhas SÃO material
+e devem ser transcritas aqui — NÃO pertencem à categoria de chapas de MDF e NÃO devem ser ignoradas por "não ser MDF".`;
   }
   return '';
 }

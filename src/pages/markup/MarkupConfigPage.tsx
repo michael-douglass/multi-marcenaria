@@ -76,6 +76,7 @@ import { buildMarkupIAPromptPreview } from '@/lib/markup-ia-prompt-preview';
 import { MarkupIAFluxoVerificacao } from '@/components/markup/MarkupIAFluxoVerificacao';
 import { MarkupIAAgentesPanel } from '@/components/markup/MarkupIAAgentesPanel';
 import { MarkupIAVerificacaoChecklist } from '@/components/markup/MarkupIAVerificacaoChecklist';
+import { MarkupRegrasConstrutivasEditor } from '@/components/markup/MarkupRegrasConstrutivasEditor';
 import { PIPELINE_LEAD_AI_MODELS } from '@/lib/pipeline-lead-ai-config';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import { Loader2 } from 'lucide-react';
@@ -944,6 +945,13 @@ export default function MarkupConfigPage() {
                   ))}
                 </select>
               </div>
+
+              <MarkupRegrasConstrutivasEditor className="rounded-lg border p-3" />
+              <p className="text-xs text-muted-foreground -mt-2">
+                Estas regras ensinam a <strong>conta</strong> (quantas dobradiças, chapas, fita).
+                O editor abaixo ensina o <strong>texto</strong> que a IA lê — os dois trabalham
+                juntos, não são a mesma coisa.
+              </p>
 
               <MarkupIAAgentesPanel
                 prompts={configLocal.markup_ia_agent_prompts}
