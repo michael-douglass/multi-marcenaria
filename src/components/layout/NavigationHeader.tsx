@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { ContasPagarNotifBell } from '@/components/layout/ContasPagarNotifications'
 import { SaldoMesInsightHeaderDock } from '@/components/dashboard/SaldoMesInsightHeaderDock'
+import { AgendaDisponibilidadeHeaderDock } from '@/components/obras/AgendaDisponibilidadeHeaderDock'
 import { useApp } from '@/context/AppContext'
 import { useSaldoMesInsightOptional } from '@/context/SaldoMesInsightContext'
 import { defaultPathForRoles } from '@/lib/app-navigation'
@@ -113,11 +114,16 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
         </div>
       </div>
 
-      {saldoDockVisible ? (
-        <div className="flex min-w-0 flex-1 items-center justify-center px-0.5 sm:justify-start sm:px-1 md:max-w-[18rem]">
-          <SaldoMesInsightHeaderDock />
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-0.5 sm:justify-start sm:gap-2 sm:px-1">
+        {saldoDockVisible ? (
+          <div className="min-w-0 md:max-w-[18rem]">
+            <SaldoMesInsightHeaderDock />
+          </div>
+        ) : null}
+        <div className={cn('min-w-0', saldoDockVisible ? 'hidden md:block md:max-w-[22rem]' : 'max-w-[22rem]')}>
+          <AgendaDisponibilidadeHeaderDock />
         </div>
-      ) : null}
+      </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
         <ContasPagarNotifBell />
