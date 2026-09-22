@@ -44,6 +44,7 @@ export type ActiveSection =
   | 'automacoesMarketing'
   | 'markupCrm'
   | 'orcamentoSlides'
+  | 'orcamentosIa'
   | 'marketingConteudo'
   | 'bibliotecaCrm'
   | 'marcaCrm'

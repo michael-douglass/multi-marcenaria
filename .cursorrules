@@ -1,0 +1,33 @@
+# Diretrizes do Projeto — Módulo de Orçamento com IA (v8 - Planilha 4.0 Stack)
+
+## Referência Principal
+- Toda a arquitetura de banco de dados, regras de negócio de marcenaria e estrutura de agentes deve seguir estritamente o arquivo `@orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md`.
+- O plano de execução técnico está em `@EXECUTION_PLAN.md`.
+
+## Stacks Técnicas
+- Framework & Linguagem: **Vite + React + TypeScript** (SPA do repositório GARBO Movelaria; não Next.js).
+- UI: **Tailwind CSS**, **Lucide-React** e design responsivo moderno (mobile-first).
+- Banco de Dados & RAG: Supabase Client (`@supabase/supabase-js`), PostgreSQL com extensão **pgvector**.
+- Engine de IA: Vercel AI SDK (`ai`, `@ai-sdk/openai`) e LangGraph JS (`@langchain/langgraph`) — orquestração em `src/lib/orcamentos-ia/pipeline.ts`; visão/extração na Edge Function `orcamentos-ia-pipeline`.
+- Modelos OpenAI:
+  - Visão e Extração Multimodal: `gpt-4o`
+  - Classification/De-Para: `gpt-4o-mini`
+  - Supervisor e Auditor Construtivo: `o3-mini`
+  - Memória Vetorial (RAG): `text-embedding-3-small`
+
+## UI / Layout (obrigatório)
+1. Use **estritamente Tailwind CSS** para layout, espaçamento e estilos utilitários — sem CSS modules paralelos no módulo.
+2. Ícones apenas com **Lucide-React** (`lucide-react`), alinhados ao restante do app.
+3. Interface **responsiva e moderna**: mobile-first, legível em notebook e dual-monitor (Audit Workspace).
+4. Arquitetura de componentes **modularizada** em `src/components/orcamentos-ia/` (subpastas por caso de uso: upload, audit-workspace, pricing, standards, etc.).
+5. Páginas da rota `/orcamentos-ia` em `src/pages/orcamentos-ia/`; helpers tipados em `src/lib/orcamentos-ia/`.
+6. Reutilize primitivos de `src/components/ui` (Shadcn/Radix) quando existirem; não reinventar botões, dialogs ou inputs.
+
+## Diretrizes Estritas de Código e Engenharia
+1. Sempre consulte e use como fonte da verdade o PRD v8 (`prd_sistema_orcamento_gpt-v8.md`).
+2. Ferragens, conectores, parafusos e acessórios devem ser calculados **ESTRITAMENTE por unidade individual** (jamais por pacote/caixa).
+3. Todas as correções feitas na tela de auditoria com justificativa do usuário devem ser vetorizadas via OpenAI Embeddings e salvas na tabela `ai_memories`.
+4. Fallback de preço: `inventory_items` → senão `market_reference_prices` + confirmação do usuário na UI (`using_market_price`).
+5. Mantenha o suporte às **3 modalidades de precificação** (Margem MPC %, Multiplicador Material × N e R$/m²).
+6. Leitor de PDF a **200 DPI** com overlay SVG de bounding boxes; highlight sincronizado `#0066FF`.
+7. `company_id` nas tabelas do módulo mapeia o ID da empresa CRM já existente (sem tabela `companies` duplicada).

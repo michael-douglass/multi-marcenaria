@@ -40,9 +40,9 @@ export function SaldoMesInsightHeaderDock() {
       role="status"
       aria-labelledby={titleId}
       className={cn(
-        'saldo-mes-header-dock group relative flex h-9 w-full min-w-[10.5rem] max-w-[18rem] items-center gap-1.5 overflow-hidden sm:gap-2',
+        'saldo-mes-header-dock group relative flex h-9 w-full min-w-0 max-w-none items-center gap-1 overflow-hidden sm:gap-2 md:max-w-[18rem]',
         'rounded-lg border border-[rgba(240,210,140,0.34)]',
-        'bg-[rgba(28,16,12,0.72)] pl-2 pr-1 shadow-[0_0_0_1px_rgba(0,0,0,0.25),0_8px_24px_rgba(0,0,0,0.28)] sm:pl-2.5',
+        'bg-[rgba(28,16,12,0.72)] pl-1.5 pr-0.5 shadow-[0_0_0_1px_rgba(0,0,0,0.25),0_8px_24px_rgba(0,0,0,0.28)] sm:pl-2.5 sm:pr-1',
         'backdrop-blur-sm',
       )}
     >
@@ -60,13 +60,13 @@ export function SaldoMesInsightHeaderDock() {
         title="Abrir dashboard"
         onClick={() => navigate('/dashboard')}
       >
-        <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#c4a882] sm:text-[8px] sm:tracking-[0.18em]">
+        <span className="truncate text-[7px] font-bold uppercase tracking-[0.12em] text-[#c4a882] sm:text-[8px] sm:tracking-[0.18em]">
           Saldo · travado
         </span>
         <span
           className={cn(
-            'truncate font-display leading-none tracking-[0.03em] tabular-nums',
-            'text-[0.85rem] sm:text-[0.95rem]',
+            'w-full truncate font-display leading-none tracking-[0.03em] tabular-nums',
+            'text-[0.78rem] sm:text-[0.95rem]',
             TONE_VALUE[message.tone],
           )}
         >

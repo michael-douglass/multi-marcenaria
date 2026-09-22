@@ -116,6 +116,10 @@ export default defineConfig({
     headers: {
       'Permissions-Policy': 'geolocation=(self), camera=(self)',
     },
+    // Docs/PDF da Planilha 4.0 no Windows às vezes travam o file watcher (EBUSY).
+    watch: {
+      ignored: ['**/orcamento-com-IA/**', '**/dist/**'],
+    },
   },
   preview: {
     port: 3000,

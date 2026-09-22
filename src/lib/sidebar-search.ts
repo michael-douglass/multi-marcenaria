@@ -11,6 +11,8 @@ export interface SidebarSearchHit {
   sector: NavSector
   sectorLabel: string
   trail: string
+  /** Texto extra só para matching (aliases), não aparece no menu. */
+  searchText?: string
 }
 
 export interface SidebarLeadIndexRow {
@@ -115,6 +117,10 @@ function walkLeaves(
   if (!node.url) return
   if (seen.has(node.url)) return
   seen.add(node.url)
+  const aliases =
+    'searchAliases' in node && Array.isArray(node.searchAliases)
+      ? node.searchAliases.join(' ')
+      : ''
   hits.push({
     id: String(node.id),
     title: node.title,
@@ -123,6 +129,7 @@ function walkLeaves(
     sector,
     sectorLabel: sectorLabel(sector),
     trail: ancestors.filter(Boolean).join(' · '),
+    searchText: aliases || undefined,
   })
 }
 
@@ -140,7 +147,10 @@ export function matchSidebarPages(hits: SidebarSearchHit[], query: string): Side
   const termo = query.trim()
   if (!termo) return []
   return hits.filter(hit =>
-    paginaCorrespondeBusca([hit.title, hit.trail, hit.sectorLabel, hit.url].join(' '), termo),
+    paginaCorrespondeBusca(
+      [hit.title, hit.trail, hit.sectorLabel, hit.url, hit.searchText ?? ''].join(' '),
+      termo,
+    ),
   )
 }
 

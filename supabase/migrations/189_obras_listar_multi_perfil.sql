@@ -10,6 +10,18 @@
 -- ============================================================
 
 -- ── 1. Listagem de obras considera multi-perfil ───────────────
+-- Postgres não permite ALTER do RETURNS TABLE via CREATE OR REPLACE.
+-- DROP + CREATE (padrão das migrations anteriores).
+-- Colunas de atraso: IF NOT EXISTS para não quebrar se 20260914
+-- já tiver sido aplicada parcial, e para instalação limpa (189 < 20260914).
+ALTER TABLE movelaria_obras
+  ADD COLUMN IF NOT EXISTS atraso_permanente boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS atraso_marcado_em timestamptz,
+  ADD COLUMN IF NOT EXISTS data_prevista_inicio_original date,
+  ADD COLUMN IF NOT EXISTS data_prevista_fim_original date;
+
+DROP FUNCTION IF EXISTS movelaria_listar_obras();
+
 CREATE OR REPLACE FUNCTION movelaria_listar_obras()
 RETURNS TABLE (
   id                      UUID,
@@ -52,7 +64,11 @@ RETURNS TABLE (
   comissao_prestador_nomes TEXT[],
   comissao_valores        NUMERIC[],
   comissao_ocultos        BOOLEAN[],
-  montadores_execucao     JSONB
+  montadores_execucao     JSONB,
+  atraso_permanente       BOOLEAN,
+  atraso_marcado_em       TIMESTAMPTZ,
+  data_prevista_inicio_original DATE,
+  data_prevista_fim_original    DATE
 ) AS $$
 DECLARE
   v_uid                 UUID := auth.uid();
@@ -92,7 +108,11 @@ BEGIN
     COALESCE(com.nomes, ARRAY[]::TEXT[]),
     COALESCE(com.valores, ARRAY[]::NUMERIC[]),
     COALESCE(com.ocultos, ARRAY[]::BOOLEAN[]),
-    COALESCE(exec.data, '[]'::jsonb)
+    COALESCE(exec.data, '[]'::jsonb),
+    COALESCE(o.atraso_permanente, false),
+    o.atraso_marcado_em,
+    o.data_prevista_inicio_original,
+    o.data_prevista_fim_original
   FROM movelaria_obras o
   LEFT JOIN movelaria_tipos_obra t  ON t.id = o.tipo_obra_id
   LEFT JOIN movelaria_grupos_obra g ON g.id = o.grupo_obra_id

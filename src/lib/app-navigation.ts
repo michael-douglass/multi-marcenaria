@@ -39,6 +39,7 @@ import {
   Settings2,
   Ruler,
   FolderOpen,
+  BrainCircuit,
 } from 'lucide-react'
 import type { CrmProfile, CrmRole } from '@/lib/crm-identity'
 import {
@@ -77,6 +78,8 @@ export interface NavChildItem {
   url?: string
   icon: LucideIcon
   radialColor: string
+  /** Termos extras para a busca da sidebar (ex.: "ia", "planilha"). */
+  searchAliases?: string[]
   /** Se omitido, herda visibilidade do menu pai */
   roles?: UserRole[]
   crmRoles?: CrmRole[]
@@ -435,10 +438,31 @@ const COMERCIAL_CHILDREN: NavChildItem[] = [
     hideIfMarketingOnly: true,
   },
   {
+    id: 'orcamentosIa',
+    title: 'Orçamentos IA',
+    url: '/orcamentos-ia',
+    icon: BrainCircuit,
+    radialColor: 'rgba(0,102,255,0.88)',
+    roles: ['Administrador'],
+    crmRoles: ['admin', 'vendedor', 'projetista', 'projetista_admin'],
+    hideIfMarketingOnly: true,
+    searchAliases: [
+      'ia',
+      'orcamentosia',
+      'orcamento ia',
+      'planilha',
+      'planilha 4.0',
+      'gpt',
+      'inteligencia artificial',
+      'levantamento',
+    ],
+  },
+  {
     id: 'orcamentosGrupo',
     title: 'Orçamentos',
     icon: Presentation,
     radialColor: 'rgba(212,184,150,0.92)',
+    roles: ['Administrador'],
     crmRoles: ['admin', 'vendedor', 'projetista', 'projetista_admin'],
     hideIfMarketingOnly: true,
     children: [
@@ -457,6 +481,7 @@ const COMERCIAL_CHILDREN: NavChildItem[] = [
         url: '/markup',
         icon: Calculator,
         radialColor: 'rgba(240,210,140,0.92)',
+        roles: ['Administrador'],
         crmRoles: ['admin', 'projetista', 'projetista_admin'],
         hideIfMarketingOnly: true,
       },
@@ -592,7 +617,7 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     icon: Briefcase,
     radialColor: 'rgba(96,240,160,0.92)',
     sector: 'comercial',
-    roles: [],
+    roles: ['Administrador'],
     crmRoles: CRM_COMERCIAL_ROLES,
     hideIfMarketingOnly: true,
     children: COMERCIAL_CHILDREN,
@@ -869,6 +894,7 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
   if (pathname.startsWith('/projetos')) return 'projetos'
   if (pathname.startsWith('/contratos')) return 'contratosCrm'
   if (pathname.startsWith('/orcamento-slides')) return 'orcamentoSlides'
+  if (pathname.startsWith('/orcamentos-ia')) return 'orcamentosIa'
   if (pathname.startsWith('/markup')) return 'markupCrm'
   if (pathname.startsWith('/marketing-conteudo')) return 'marketingConteudo'
   if (pathname.startsWith('/controle-eventos') || pathname.startsWith('/eventos-crm')) return 'controleEventos'
@@ -912,6 +938,7 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
     '/contratos': 'contratosCrm',
     '/markup': 'markupCrm',
     '/orcamento-slides': 'orcamentoSlides',
+    '/orcamentos-ia': 'orcamentosIa',
     '/marketing-conteudo': 'marketingConteudo',
     '/biblioteca-crm': 'bibliotecaCrm',
     '/admin/marca': 'marcaCrm',

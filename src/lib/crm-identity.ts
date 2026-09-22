@@ -262,6 +262,7 @@ export const CRM_APP_PATHS = [
   '/automacoes',
   '/markup',
   '/orcamento-slides',
+  '/orcamentos-ia',
   '/marketing-conteudo',
   '/biblioteca-crm',
   '/marketing/apresentacao-interna',
@@ -300,6 +301,11 @@ export function canAccessCrmPath(
     if (movelaria?.perfil === 'montador_admin') return true
   }
 
+  // Orçamentos IA: admin da fábrica Movelaria também acessa (sem depender só do CRM).
+  if (pathname.startsWith('/orcamentos-ia') && movelaria?.perfil === 'administrador') {
+    return true
+  }
+
   const roles = colaboradorCrmRoles(crm)
   if (roles.length === 0) return false
 
@@ -322,6 +328,9 @@ export function canAccessCrmPath(
   if (pathname.startsWith('/automacoes')) return (vendedor || marketing) && !(marketingOnly && pathname === '/automacoes')
   if (pathname.startsWith('/markup')) return (admin || projetista) && !marketingOnly
   if (pathname.startsWith('/orcamento-slides')) return vendedor && !marketingOnly
+  if (pathname.startsWith('/orcamentos-ia')) {
+    return (admin || vendedor || projetista) && !marketingOnly
+  }
   if (pathname.startsWith('/marketing-conteudo')) return marketing
   if (pathname.startsWith('/biblioteca-crm')) return marketing
   if (pathname.startsWith('/marketing/apresentacao-interna')) return admin || vendedor || marketing

@@ -70,6 +70,7 @@ const ApresentarOrcamentoSlidePage = lazy(() => import('@/pages/orcamento-slides
 const OrcamentoSlidesConfigPage = lazy(() => import('@/pages/orcamento-slides/OrcamentoSlidesConfigPage'))
 const OrcamentoPublicoPage = lazy(() => import('@/pages/orcamento-slides/OrcamentoPublicoPage'))
 const IniciarOrcamentoPublicoPage = lazy(() => import('@/pages/orcamento-slides/IniciarOrcamentoPublicoPage'))
+const OrcamentosIaPage = lazy(() => import('@/pages/orcamentos-ia/index'))
 const MarketingConteudo = lazy(() => import('@/pages/MarketingConteudo'))
 const MarketingDisparos = lazy(() => import('@/pages/Marketing'))
 const AutomacoesSelletos = lazy(() => import('@/pages/Automacoes'))
@@ -532,6 +533,7 @@ function AuthenticatedRoutes() {
           <Route path="/orcamento-slides/novo" element={crmPage('/orcamento-slides', <NovoOrcamentoSlidePage />)} />
           <Route path="/orcamento-slides/:id/editar" element={crmPage('/orcamento-slides', <NovoOrcamentoSlidePage />)} />
           <Route path="/orcamento-slides" element={crmPage('/orcamento-slides', <OrcamentoSlidesListPage />)} />
+          <Route path="/orcamentos-ia" element={crmPage('/orcamentos-ia', <OrcamentosIaPage />)} />
           <Route path="/markup/configuracoes" element={crmPage('/markup', <MarkupConfigSelletosPage />)} />
           <Route path="/markup" element={crmPage('/markup', <MarkupListSelletosPage />)} />
           <Route path="/automacoes/marketing" element={crmPage('/automacoes/marketing', <MarketingDisparos />)} />

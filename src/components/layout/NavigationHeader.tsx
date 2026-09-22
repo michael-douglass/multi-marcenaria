@@ -49,12 +49,13 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-[rgba(240,210,140,0.28)]',
+        'sticky top-0 z-40 flex min-h-14 shrink-0 flex-wrap items-center border-b border-[rgba(240,210,140,0.28)]',
         'bg-[rgba(52,34,26,0.94)] backdrop-blur-md safe-area-top-offset',
-        saldoDockVisible ? 'gap-1.5 px-2 sm:gap-3 sm:px-4' : 'gap-2 px-3 sm:gap-3 sm:px-4',
+        saldoDockVisible ? 'gap-x-1.5 gap-y-0 px-2 sm:gap-x-3 sm:px-4' : 'gap-x-2 gap-y-0 px-3 sm:gap-x-3 sm:px-4',
       )}
     >
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+      {/* Linha 1 (esq.): menu, voltar, início… */}
+      <div className="order-1 flex h-14 shrink-0 items-center gap-0.5 sm:gap-2">
         <SidebarTrigger />
         <Button
           type="button"
@@ -114,18 +115,42 @@ export function NavigationHeader({ onOpenAgenda }: NavigationHeaderProps) {
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-0.5 sm:justify-start sm:gap-2 sm:px-1">
-        {saldoDockVisible ? (
-          <div className="min-w-0 md:max-w-[18rem]">
+      {/*
+        Cards (saldo + agenda):
+        - Com saldo travado no celular: segunda linha, os dois lado a lado.
+        - Sem saldo travado: agenda fica no meio da primeira linha.
+        - Em telas md+: os dois (ou só a agenda) na faixa central.
+      */}
+      {saldoDockVisible ? (
+        <div
+          className={cn(
+            'flex min-w-0 items-stretch gap-1.5',
+            'order-3 w-full basis-full pb-2',
+            'md:order-2 md:w-auto md:flex-1 md:basis-auto md:justify-start md:px-1 md:pb-0',
+          )}
+        >
+          <div className="min-w-0 flex-1 md:max-w-[18rem]">
             <SaldoMesInsightHeaderDock />
           </div>
-        ) : null}
-        <div className={cn('min-w-0', saldoDockVisible ? 'hidden md:block md:max-w-[22rem]' : 'max-w-[22rem]')}>
-          <AgendaDisponibilidadeHeaderDock />
+          <div className="min-w-0 flex-1 empty:hidden md:max-w-[22rem]">
+            <AgendaDisponibilidadeHeaderDock />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="order-2 flex min-w-0 flex-1 items-center px-0.5 md:px-1">
+          <div className="min-w-0 w-full max-w-[22rem]">
+            <AgendaDisponibilidadeHeaderDock />
+          </div>
+        </div>
+      )}
 
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
+      {/* Linha 1 (dir.): notificações, atualizar, usuário, sair */}
+      <div
+        className={cn(
+          'ml-auto flex h-14 shrink-0 items-center gap-1 sm:gap-3',
+          saldoDockVisible ? 'order-2 md:order-3' : 'order-3',
+        )}
+      >
         <ContasPagarNotifBell />
         <AppRefreshButton showLabel />
 
