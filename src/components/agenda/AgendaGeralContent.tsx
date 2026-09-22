@@ -92,11 +92,14 @@ export function AgendaGeralContent({
             onCompleteEvent={agenda.handleCompleteEvent}
             onDeleteEvent={agenda.handleDeleteEvent}
             onEventDrop={agenda.handleEventDrop}
+            onBulkReschedule={agenda.handleBulkReschedule}
+            onBulkComplete={agenda.handleBulkComplete}
             isRescheduling={agenda.isRescheduling}
             focusDate={agenda.calendarFocusDate}
             onFocusDateApplied={() => agenda.setCalendarFocusDate(null)}
             compact={compact}
             zoomPercent={zoomPercent}
+            floatingLayer={compact}
             onTimeSlotClick={
               compact
                 ? (dateTime) =>

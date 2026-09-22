@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   format, 
   addMonths, 
@@ -29,23 +29,29 @@ import {
   List,
   Columns,
   Clock,
+  CheckSquare,
+  CalendarRange,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   getEventColumnStyle,
   layoutOverlappingEvents,
   partitionTimedUntimedEvents,
 } from '@/lib/calendar-event-layout';
-import type { AgendaEvent } from '@/hooks/useAgendaGeral';
+import type { AgendaEvent, BulkRescheduleOptions } from '@/hooks/useAgendaGeral';
 import { floatingAgendaZoomToScale } from '@/lib/floating-agenda-zoom-preferences';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getDateTimeFromGridDrop } from '@/lib/agenda-calendar-drag';
 import { useAgendaTimedEventDrag } from '@/hooks/useAgendaTimedEventDrag';
 import { AgendaEventHoverPreview } from '@/components/agenda/AgendaEventHoverPreview';
+import { AgendaBulkMoveDialog } from '@/components/agenda/AgendaBulkMoveDialog';
 import { getAgendaEventChipStyle } from '@/lib/agenda-event-colors';
+import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 
 interface FullCalendarProps {
   events: AgendaEvent[];
@@ -55,6 +61,14 @@ interface FullCalendarProps {
   onCompleteEvent?: (event: AgendaEvent) => void;
   onDeleteEvent?: (event: AgendaEvent) => void;
   onEventDrop?: (event: AgendaEvent, newStart: Date, newEnd: Date) => void;
+  /** Mover várias tarefas selecionadas para outra data. */
+  onBulkReschedule?: (
+    events: AgendaEvent[],
+    targetDate: Date,
+    options: BulkRescheduleOptions,
+  ) => Promise<unknown> | unknown;
+  /** Concluir várias tarefas selecionadas. */
+  onBulkComplete?: (events: AgendaEvent[]) => Promise<unknown> | unknown;
   isRescheduling?: boolean;
   /** Ao selecionar um resultado da busca, o calendário navega para este dia. */
   focusDate?: Date | null;
@@ -65,6 +79,8 @@ interface FullCalendarProps {
   zoomPercent?: number;
   /** Clique em faixa horária vazia — ex.: criar tarefa no horário clicado. */
   onTimeSlotClick?: (dateTime: Date) => void;
+  /** Diálogo acima do painel flutuante da agenda. */
+  floatingLayer?: boolean;
 }
 
 type CalendarView = 'dia' | 'semana' | 'mes';
@@ -241,12 +257,15 @@ export function FullCalendar({
   onCompleteEvent,
   onDeleteEvent,
   onEventDrop,
+  onBulkReschedule,
+  onBulkComplete,
   isRescheduling = false,
   focusDate,
   onFocusDateApplied,
   compact = false,
   zoomPercent,
   onTimeSlotClick,
+  floatingLayer = false,
 }: FullCalendarProps) {
   const zoomScale =
     compact && zoomPercent != null ? floatingAgendaZoomToScale(zoomPercent) : 1;
@@ -254,6 +273,9 @@ export function FullCalendar({
   const now = useNow();
   const [view, setView] = useState<CalendarView>('dia');
   const [currentPivot, setCurrentPivot] = useState(selectedDate);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   useEffect(() => {
     if (!focusDate) return;
@@ -262,7 +284,9 @@ export function FullCalendar({
     onSelectDate(focusDate);
     onFocusDateApplied?.();
   }, [focusDate, onSelectDate, onFocusDateApplied]);
-  const canDrag = !!onEventDrop && !isRescheduling;
+
+  const canSelectBulk = !!onBulkReschedule || !!onBulkComplete;
+  const canDrag = !!onEventDrop && !isRescheduling && !selectionMode;
   const gridRefsMap = useRef(new Map<string, HTMLDivElement>());
   const weekDayColumnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const weekDaysForDragRef = useRef<Date[]>([]);
@@ -310,6 +334,116 @@ export function FullCalendar({
     resolveTargetDay: view === 'semana' ? resolveWeekTargetDay : undefined,
   });
 
+  const eligibleDayEvents = useMemo(
+    () =>
+      events.filter(
+        (event) => isSameDay(event.start, currentPivot) && isAgendaEventPostponable(event),
+      ),
+    [events, currentPivot],
+  );
+
+  const selectedEvents = useMemo(
+    () => events.filter((event) => selectedIds.has(event.id)),
+    [events, selectedIds],
+  );
+
+  const allEligibleSelected =
+    eligibleDayEvents.length > 0 &&
+    eligibleDayEvents.every((event) => selectedIds.has(event.id));
+
+  useEffect(() => {
+    if (!selectionMode) return;
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const eligibleIds = new Set(eligibleDayEvents.map((e) => e.id));
+      const next = new Set([...prev].filter((id) => eligibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [selectionMode, eligibleDayEvents]);
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        setSelectedIds(new Set());
+        setBulkMoveOpen(false);
+        return false;
+      }
+      return true;
+    });
+  };
+
+  const toggleEventSelected = (eventId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+
+  const selectAllEligible = () => {
+    setSelectedIds(new Set(eligibleDayEvents.map((event) => event.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkConfirm = async (targetDate: Date, options: BulkRescheduleOptions) => {
+    if (!onBulkReschedule || selectedEvents.length === 0) return;
+    await onBulkReschedule(selectedEvents, targetDate, options);
+    setBulkMoveOpen(false);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleBulkCompleteClick = async () => {
+    if (!onBulkComplete || selectedEvents.length === 0) return;
+    await onBulkComplete(selectedEvents);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const renderSelectionCheckbox = (event: AgendaEvent) => {
+    if (!selectionMode || !isAgendaEventPostponable(event)) return null;
+    const checked = selectedIds.has(event.id);
+    return (
+      <div
+        className={cn(
+          'absolute z-20 flex items-center justify-center rounded bg-background/90 shadow-sm',
+          compact ? 'right-0.5 top-0.5 p-0' : 'right-1 top-1 p-0.5',
+        )}
+        data-agenda-selection-checkbox
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+      >
+        <Checkbox
+          checked={checked}
+          onCheckedChange={() => toggleEventSelected(event.id)}
+          className={cn(compact ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+          aria-label={checked ? 'Desmarcar tarefa' : 'Marcar tarefa'}
+        />
+      </div>
+    );
+  };
+
+  const handleEventSelectInteraction = (event: AgendaEvent) => {
+    if (!isAgendaEventPostponable(event)) return;
+    if (!isSameDay(event.start, currentPivot)) {
+      setCurrentPivot(event.start);
+      onSelectDate(event.start);
+      setSelectedIds(new Set([event.id]));
+      return;
+    }
+    toggleEventSelected(event.id);
+  };
+
   const renderDragSnapIndicator = (dayKey: string) => {
     if (!dragState?.isActive || activeTargetDayKey !== dayKey) return null;
     return (
@@ -345,6 +479,11 @@ export function FullCalendar({
     hourHeight: number,
   ) => ({
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      if (selectionMode) {
+        e.stopPropagation();
+        handleEventSelectInteraction(event);
+        return;
+      }
       if (!canDrag) return;
       handlePointerDown(event, e, targetDay, hourHeight);
     },
@@ -401,6 +540,7 @@ export function FullCalendar({
     onPostpone: onEventDrop,
     isRescheduling,
   };
+  const hoverDisabled = selectionMode;
 
   const renderUntimedStrip = (untimedEvents: AgendaEvent[], dense = false) => {
     if (untimedEvents.length === 0) return null;
@@ -421,17 +561,26 @@ export function FullCalendar({
             <AgendaEventHoverPreview
               key={event.id}
               event={event}
+              disabled={hoverDisabled}
               {...eventPreviewProps}
             >
               <button
                 type="button"
                 className={cn(
                   getEventTypeClasses(event, true),
-                  'text-left max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'relative text-left max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
                 )}
                 style={getEventChipStyle(event)}
+                onClick={(e) => {
+                  if (!selectionMode) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleEventSelectInteraction(event);
+                }}
               >
-                <span className="block truncate font-medium">
+                {renderSelectionCheckbox(event)}
+                <span className="block truncate font-medium pr-4">
                   {format(event.start, 'HH:mm')} · {event.title}
                 </span>
               </button>
@@ -473,7 +622,7 @@ export function FullCalendar({
         )}
         <AgendaEventHoverPreview
           event={event}
-          disabled={isDragging}
+          disabled={isDragging || hoverDisabled}
           {...eventPreviewProps}
         >
           <div
@@ -484,6 +633,10 @@ export function FullCalendar({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                if (selectionMode) {
+                  handleEventSelectInteraction(event);
+                  return;
+                }
                 handleEditClick(event);
               }
             }}
@@ -491,11 +644,14 @@ export function FullCalendar({
               getEventTypeClasses(event, true),
               'absolute z-10 touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               canDrag && 'cursor-grab active:cursor-grabbing',
+              selectionMode && 'cursor-pointer',
               isDragging && 'cursor-grabbing ring-2 ring-primary shadow-lg scale-[1.02] opacity-95',
+              selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
             )}
             style={{ ...displayStyle, ...getEventChipStyle(event) }}
           >
-            <div className="font-bold truncate">
+            {renderSelectionCheckbox(event)}
+            <div className={cn('font-bold truncate', selectionMode && 'pr-3.5')}>
               {isDragging && dragState
                 ? format(dragState.previewStart, 'HH:mm')
                 : format(event.start, 'HH:mm')}{' '}
@@ -580,6 +736,7 @@ export function FullCalendar({
                     <AgendaEventHoverPreview
                       key={event.id}
                       event={event}
+                      disabled={hoverDisabled}
                       {...eventPreviewProps}
                     >
                       <div
@@ -587,23 +744,40 @@ export function FullCalendar({
                         tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (selectionMode) {
+                            handleEventSelectInteraction(event);
+                          }
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             e.stopPropagation();
+                            if (selectionMode) {
+                              handleEventSelectInteraction(event);
+                              return;
+                            }
                             handleEditClick(event);
                           }
                         }}
                         className={cn(
-                          'rounded border truncate flex items-center gap-0.5 cursor-pointer hover:brightness-95',
+                          'relative rounded border truncate flex items-center gap-0.5 cursor-pointer hover:brightness-95',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           compact ? 'text-[8px] px-1 py-px' : 'text-[10px] px-1.5 py-0.5',
                           event.status === 'concluido' && 'opacity-60 line-through',
+                          selectionMode && selectedIds.has(event.id) && 'ring-1 ring-primary',
                         )}
                         style={getEventChipStyle(event)}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                        {selectionMode && isAgendaEventPostponable(event) && (
+                          <Checkbox
+                            checked={selectedIds.has(event.id)}
+                            className="h-2.5 w-2.5 shrink-0"
+                            aria-hidden
+                          />
+                        )}
+                        {!selectionMode && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                        )}
                         {compact
                           ? `${format(event.start, 'HH:mm')} · ${event.title}`
                           : event.title}
@@ -876,7 +1050,7 @@ export function FullCalendar({
                       )}
                       <AgendaEventHoverPreview
                         event={event}
-                        disabled={isDragging}
+                        disabled={isDragging || hoverDisabled}
                         {...eventPreviewProps}
                       >
                         <div
@@ -887,6 +1061,10 @@ export function FullCalendar({
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
+                              if (selectionMode) {
+                                handleEventSelectInteraction(event);
+                                return;
+                              }
                               handleEditClick(event);
                             }
                           }}
@@ -897,16 +1075,20 @@ export function FullCalendar({
                             compact ? 'rounded border-l-2 p-0.5' : 'rounded-lg border-l-4 p-2 shadow-md',
                             canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                             isDragging && 'cursor-grabbing ring-2 ring-primary shadow-xl scale-[1.02] opacity-95',
+                            selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
                             getEventTypeClasses(event, compact),
                             event.status === 'concluido' && 'grayscale-[0.3]',
                           )}
                           style={{ ...displayStyle, ...getEventChipStyle(event) }}
                           title={
-                            canDrag
-                              ? 'Segure e arraste para alterar o horário, ou clique para editar'
-                              : 'Clique para editar'
+                            selectionMode
+                              ? 'Clique para marcar ou desmarcar'
+                              : canDrag
+                                ? 'Segure e arraste para alterar o horário, ou clique para editar'
+                                : 'Clique para editar'
                           }
                         >
+                          {renderSelectionCheckbox(event)}
                           <div className="flex justify-between items-start gap-0.5 mb-0.5">
                             <div
                               className={cn(
@@ -916,6 +1098,7 @@ export function FullCalendar({
                                     ? 'line-clamp-3 text-[9px]'
                                     : 'line-clamp-2 text-[8px]'
                                   : 'line-clamp-2 text-xs',
+                                selectionMode && 'pr-3.5',
                               )}
                             >
                               {compact
@@ -926,7 +1109,7 @@ export function FullCalendar({
                                   } · ${event.title}`
                                 : event.title}
                             </div>
-                            {!compact && (
+                            {!compact && !selectionMode && (
                               <Badge
                                 variant="outline"
                                 className="text-[9px] shrink-0 bg-white/50 dark:bg-black/20"
@@ -1026,17 +1209,31 @@ export function FullCalendar({
                 </TabsList>
               </Tabs>
             </div>
-            <div className="flex items-center justify-between gap-0.5 bg-muted/20 p-0.5 rounded-md">
-              <Button variant="ghost" size="icon" onClick={handlePrev} className="h-6 w-6">
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleToday} className="h-6 px-1.5 text-[9px]">
-                Hoje
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleNext} className="h-6 w-6">
-                <ChevronRight className="h-3 w-3" />
-              </Button>
+            <div className="flex items-center gap-1">
+              <div className="flex flex-1 items-center justify-between gap-0.5 bg-muted/20 p-0.5 rounded-md min-w-0">
+                <Button variant="ghost" size="icon" onClick={handlePrev} className="h-6 w-6">
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleToday} className="h-6 px-1.5 text-[9px]">
+                  Hoje
+                </Button>
+                <Button variant="ghost" size="icon" onClick={handleNext} className="h-6 w-6">
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
+            {canSelectBulk && (
+              <Button
+                variant={selectionMode ? 'default' : 'secondary'}
+                size="sm"
+                onClick={toggleSelectionMode}
+                className="h-8 w-full shrink-0 px-2 text-[11px] gap-1.5 font-semibold border border-primary/30"
+                title={selectionMode ? 'Sair da seleção' : 'Selecionar várias tarefas para mover'}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {selectionMode ? 'Sair da seleção' : 'Selecionar várias tarefas'}
+              </Button>
+            )}
           </>
         ) : (
           <>
@@ -1072,6 +1269,17 @@ export function FullCalendar({
               <Button variant="ghost" size="icon" onClick={handleNext} className="h-7 w-7">
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
+              {canSelectBulk && (
+                <Button
+                  variant={selectionMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={toggleSelectionMode}
+                  className="h-8 px-3 text-xs gap-1.5 font-semibold"
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  {selectionMode ? 'Cancelar seleção' : 'Selecionar tarefas'}
+                </Button>
+              )}
             </div>
           </>
         )}
@@ -1088,14 +1296,68 @@ export function FullCalendar({
         {view === 'dia' && renderDayView()}
       </div>
 
-      {canDrag && !compact && (
+      {selectionMode && canSelectBulk && (
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-1.5 border-t bg-muted/20 shrink-0',
+            compact ? 'px-1.5 py-1' : 'px-4 py-2',
+          )}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(compact ? 'h-6 px-1.5 text-[9px]' : 'h-8 text-xs')}
+            onClick={allEligibleSelected ? clearSelection : selectAllEligible}
+            disabled={eligibleDayEvents.length === 0}
+          >
+            {allEligibleSelected ? 'Desmarcar todos' : 'Marcar todos'}
+          </Button>
+          {onBulkComplete && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className={cn('gap-1', compact ? 'h-6 px-1.5 text-[9px]' : 'h-8 text-xs')}
+              disabled={selectedIds.size === 0 || isRescheduling}
+              onClick={handleBulkCompleteClick}
+            >
+              <CheckCircle2 className={cn(compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5')} />
+              Concluir {selectedIds.size > 0 ? selectedIds.size : ''}
+            </Button>
+          )}
+          {onBulkReschedule && (
+            <Button
+              type="button"
+              size="sm"
+              className={cn('gap-1', compact ? 'h-6 px-1.5 text-[9px]' : 'h-8 text-xs')}
+              disabled={selectedIds.size === 0 || isRescheduling}
+              onClick={() => setBulkMoveOpen(true)}
+            >
+              <CalendarRange className={cn(compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5')} />
+              Mover {selectedIds.size > 0 ? selectedIds.size : ''}
+            </Button>
+          )}
+          <span
+            className={cn(
+              'text-muted-foreground ml-auto',
+              compact ? 'text-[8px]' : 'text-[10px]',
+            )}
+          >
+            {selectedIds.size} selecionada{selectedIds.size === 1 ? '' : 's'}
+            {eligibleDayEvents.length > 0 && ` · ${eligibleDayEvents.length} no dia`}
+          </span>
+        </div>
+      )}
+
+      {canDrag && !compact && !selectionMode && (
         <p className="px-4 pt-2 text-[10px] text-muted-foreground border-t">
           Segure e arraste os cards para cima ou para baixo nas visões Dia ou Semana para alterar o horário (intervalos de 15 min).
           {isRescheduling && ' Salvando...'}
         </p>
       )}
 
-      {compact && canDrag && isRescheduling && (
+      {compact && canDrag && isRescheduling && !selectionMode && (
         <p className="px-2 py-1 text-[9px] text-muted-foreground border-t text-center">Salvando...</p>
       )}
 
@@ -1120,6 +1382,18 @@ export function FullCalendar({
           </div>
         ))}
       </div>
+
+      {canSelectBulk && (
+        <AgendaBulkMoveDialog
+          open={bulkMoveOpen}
+          onOpenChange={setBulkMoveOpen}
+          events={selectedEvents}
+          initialDate={addDays(currentPivot, 1)}
+          isSubmitting={isRescheduling}
+          floatingLayer={floatingLayer}
+          onConfirm={handleBulkConfirm}
+        />
+      )}
     </div>
   );
 }

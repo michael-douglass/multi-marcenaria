@@ -23,7 +23,21 @@ import { matchesAgendaGeralSearch } from '@/lib/agenda-geral-search';
 import { userIsTitularDaReuniao } from '@/lib/agenda-reuniao-titulares';
 import { toast } from 'sonner';
 import { getOcorrenciasNoIntervalo } from '@/lib/agenda-pessoal-recorrencia';
+import {
+  planBulkRescheduleEvent,
+  type BulkRescheduleTimeMode,
+} from '@/lib/agenda-postpone';
 import type { PessoalAgendaEventData } from '@/components/agenda/TarefaPessoalOcorrenciaDialog';
+
+export type BulkRescheduleOptions =
+  | { keepTime: true }
+  | { keepTime: false; time: string };
+
+export interface BulkRescheduleResult {
+  moved: number;
+  skipped: number;
+  failed: number;
+}
 
 export interface AgendaEvent {
   id: string;
@@ -341,62 +355,145 @@ export function useAgendaGeral() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
+  /** Grava a nova data/hora de um evento (sem toast). */
+  const persistEventReschedule = async (
+    event: AgendaEvent,
+    newStart: Date,
+    newEnd: Date,
+  ) => {
+    if (event.type === 'tarefa') {
+      const reuniao = event.originalData as AgendaReuniao;
+      const duracao = Math.max(1, differenceInMinutes(newEnd, newStart));
+      await updateReuniao.mutateAsync({
+        id: reuniao.id,
+        data_hora_inicio: newStart.toISOString(),
+        data_hora_fim: newEnd.toISOString(),
+        duracao_minutos: duracao,
+      });
+      return;
+    }
+
+    if (event.type === 'lembrete') {
+      const lembrete = event.originalData as LeadLembrete;
+      await updateLembrete.mutateAsync({
+        id: lembrete.id,
+        updates: { data_hora: newStart.toISOString() },
+      });
+      return;
+    }
+
+    if (event.type === 'conteudo') {
+      const task = event.originalData as MarketingTask;
+      await updateTask({
+        id: task.id,
+        data_agendada: format(newStart, 'yyyy-MM-dd'),
+        hora_agendada: format(newStart, 'HH:mm'),
+      });
+      return;
+    }
+
+    if (event.type === 'pessoal') {
+      const pessoal = event.originalData as PessoalAgendaEventData;
+      if (
+        pessoal.tipo_agendamento === 'recorrente' &&
+        !isSameDay(newStart, pessoal.dataOcorrencia)
+      ) {
+        const err = new Error('RECURRENT_DAY_CHANGE');
+        err.name = 'RECURRENT_DAY_CHANGE';
+        throw err;
+      }
+      const updates: Parameters<typeof updateTarefa.mutateAsync>[0] = {
+        id: pessoal.id,
+        hora: format(newStart, 'HH:mm'),
+      };
+      if (pessoal.tipo_agendamento === 'unica') {
+        updates.data = format(newStart, 'yyyy-MM-dd');
+      }
+      await updateTarefa.mutateAsync(updates);
+    }
+  };
+
   const handleEventDrop = async (event: AgendaEvent, newStart: Date, newEnd: Date) => {
     setIsRescheduling(true);
     try {
-      if (event.type === 'tarefa') {
-        const reuniao = event.originalData as AgendaReuniao;
-        const duracao = Math.max(1, differenceInMinutes(newEnd, newStart));
-        await updateReuniao.mutateAsync({
-          id: reuniao.id,
-          data_hora_inicio: newStart.toISOString(),
-          data_hora_fim: newEnd.toISOString(),
-          duracao_minutos: duracao,
-        });
-      } else if (event.type === 'lembrete') {
-        const lembrete = event.originalData as LeadLembrete;
-        await updateLembrete.mutateAsync({
-          id: lembrete.id,
-          updates: { data_hora: newStart.toISOString() },
-        });
-      } else if (event.type === 'conteudo') {
-        const task = event.originalData as MarketingTask;
-        await updateTask({
-          id: task.id,
-          data_agendada: format(newStart, 'yyyy-MM-dd'),
-          hora_agendada: format(newStart, 'HH:mm'),
-        });
-      } else if (event.type === 'pessoal') {
-        const pessoal = event.originalData as PessoalAgendaEventData;
-        if (
-          pessoal.tipo_agendamento === 'recorrente' &&
-          !isSameDay(newStart, pessoal.dataOcorrencia)
-        ) {
-          toast.error(
-            'Tarefas recorrentes só podem ter o horário alterado no mesmo dia. Edite a tarefa para mudar a data.',
-          );
-          return;
-        }
-        const updates: Parameters<typeof updateTarefa.mutateAsync>[0] = {
-          id: pessoal.id,
-          hora: format(newStart, 'HH:mm'),
-        };
-        if (pessoal.tipo_agendamento === 'unica') {
-          updates.data = format(newStart, 'yyyy-MM-dd');
-        }
-        await updateTarefa.mutateAsync(updates);
-      }
+      await persistEventReschedule(event, newStart, newEnd);
       // A página permanece no dia visível: o card muda de data, o calendário não acompanha.
       if (isSameDay(event.start, newStart)) {
         toast.success(`Horário atualizado para ${format(newStart, 'HH:mm')}`);
       } else {
         toast.success(`Tarefa adiada para ${format(newStart, 'dd/MM')} às ${format(newStart, 'HH:mm')}`);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === 'RECURRENT_DAY_CHANGE') {
+        toast.error(
+          'Tarefas recorrentes só podem ter o horário alterado no mesmo dia. Edite a tarefa para mudar a data.',
+        );
+        return;
+      }
       toast.error('Não foi possível atualizar o horário');
     } finally {
       setIsRescheduling(false);
     }
+  };
+
+  const handleBulkReschedule = async (
+    events: AgendaEvent[],
+    targetDate: Date,
+    options: BulkRescheduleOptions,
+  ): Promise<BulkRescheduleResult> => {
+    const timeMode: BulkRescheduleTimeMode = options.keepTime
+      ? { mode: 'keep-time' }
+      : { mode: 'set-time', time: options.time };
+
+    setIsRescheduling(true);
+    let moved = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    try {
+      for (const event of events) {
+        const plan = planBulkRescheduleEvent(event, targetDate, timeMode);
+        if (plan.skipped) {
+          skipped += 1;
+          continue;
+        }
+        try {
+          await persistEventReschedule(event, plan.start, plan.end);
+          moved += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const parts: string[] = [];
+      if (moved > 0) {
+        parts.push(
+          `${moved} ${moved === 1 ? 'tarefa movida' : 'tarefas movidas'} para ${format(targetDate, 'dd/MM')}`,
+        );
+      }
+      if (skipped > 0) {
+        parts.push(
+          `${skipped} ${skipped === 1 ? 'ignorada' : 'ignoradas'} (recorrente ou inválida)`,
+        );
+      }
+      if (failed > 0) {
+        parts.push(`${failed} ${failed === 1 ? 'falhou' : 'falharam'}`);
+      }
+
+      if (moved > 0 && failed === 0) {
+        toast.success(parts.join(' · '));
+      } else if (moved > 0) {
+        toast.warning(parts.join(' · '));
+      } else if (skipped > 0 && failed === 0) {
+        toast.warning(parts.join(' · ') || 'Nenhuma tarefa foi movida');
+      } else {
+        toast.error(parts.join(' · ') || 'Não foi possível mover as tarefas');
+      }
+    } finally {
+      setIsRescheduling(false);
+    }
+
+    return { moved, skipped, failed };
   };
 
   const handleEditEvent = (event: AgendaEvent) => {
@@ -411,31 +508,100 @@ export function useAgendaGeral() {
     }
   };
 
+  /** Conclui o item no banco (sem toast). */
+  const persistEventComplete = async (event: AgendaEvent) => {
+    if (event.status === 'concluido') return;
+
+    if (event.type === 'tarefa') {
+      const reuniao = event.originalData as AgendaReuniao;
+      await updateReuniao.mutateAsync({ id: reuniao.id, status: 'concluido' });
+      return;
+    }
+
+    if (event.type === 'lembrete') {
+      const lembrete = event.originalData as LeadLembrete;
+      await completeLembrete.mutateAsync(lembrete.id);
+      return;
+    }
+
+    if (event.type === 'conteudo') {
+      const task = event.originalData as MarketingTask;
+      await completeTask(task.id);
+      return;
+    }
+
+    if (event.type === 'pessoal') {
+      const pessoal = event.originalData as PessoalAgendaEventData;
+      await concluirOcorrencia.mutateAsync({
+        tarefa: pessoal,
+        dataOcorrencia: format(pessoal.dataOcorrencia, 'yyyy-MM-dd'),
+        concluida: true,
+      });
+    }
+  };
+
   /** Conclui o item direto da prévia em hover (sem abrir o modal). */
   const handleCompleteEvent = async (event: AgendaEvent) => {
     if (event.status === 'concluido') return;
     try {
-      if (event.type === 'tarefa') {
-        const reuniao = event.originalData as AgendaReuniao;
-        await updateReuniao.mutateAsync({ id: reuniao.id, status: 'concluido' });
-      } else if (event.type === 'lembrete') {
-        const lembrete = event.originalData as LeadLembrete;
-        await completeLembrete.mutateAsync(lembrete.id);
-      } else if (event.type === 'conteudo') {
-        const task = event.originalData as MarketingTask;
-        await completeTask(task.id);
-      } else if (event.type === 'pessoal') {
-        const pessoal = event.originalData as PessoalAgendaEventData;
-        await concluirOcorrencia.mutateAsync({
-          tarefa: pessoal,
-          dataOcorrencia: format(pessoal.dataOcorrencia, 'yyyy-MM-dd'),
-          concluida: true,
-        });
+      await persistEventComplete(event);
+      if (event.type === 'pessoal') {
         toast.success('Tarefa concluída!');
       }
     } catch {
       toast.error('Não foi possível concluir a tarefa');
     }
+  };
+
+  const handleBulkComplete = async (
+    events: AgendaEvent[],
+  ): Promise<{ completed: number; skipped: number; failed: number }> => {
+    setIsRescheduling(true);
+    let completed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    try {
+      for (const event of events) {
+        if (event.status === 'concluido') {
+          skipped += 1;
+          continue;
+        }
+        try {
+          await persistEventComplete(event);
+          completed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const parts: string[] = [];
+      if (completed > 0) {
+        parts.push(
+          `${completed} ${completed === 1 ? 'tarefa concluída' : 'tarefas concluídas'}`,
+        );
+      }
+      if (skipped > 0) {
+        parts.push(`${skipped} já estavam concluídas`);
+      }
+      if (failed > 0) {
+        parts.push(`${failed} ${failed === 1 ? 'falhou' : 'falharam'}`);
+      }
+
+      if (completed > 0 && failed === 0) {
+        toast.success(parts.join(' · '));
+      } else if (completed > 0) {
+        toast.warning(parts.join(' · '));
+      } else if (failed > 0) {
+        toast.error(parts.join(' · ') || 'Não foi possível concluir as tarefas');
+      } else {
+        toast.message(parts.join(' · ') || 'Nenhuma tarefa para concluir');
+      }
+    } finally {
+      setIsRescheduling(false);
+    }
+
+    return { completed, skipped, failed };
   };
 
   /** Exclui o item direto da prévia em hover (sem abrir o modal). */
@@ -518,6 +684,8 @@ export function useAgendaGeral() {
     users,
     updateReuniao,
     handleEventDrop,
+    handleBulkReschedule,
+    handleBulkComplete,
     handleEditEvent,
     handleCompleteEvent,
     handleDeleteEvent,
