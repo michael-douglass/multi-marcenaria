@@ -1,0 +1,20 @@
+# Diretrizes do Projeto — Módulo de Orçamento com IA (v8)
+
+## Referência Principal
+- Toda a arquitetura de banco de dados, regras de negócio de marcenaria e estrutura de agentes deve seguir estritamente o arquivo `@prd_sistema_orcamento_gpt-v8.md`.
+
+## Stacks Técnicas
+- Framework &amp; Linguagem: Next.js (App Router), TypeScript, Tailwind CSS.
+- Banco de Dados &amp; RAG: Supabase Client (@supabase/supabase-js), PostgreSQL com extensão pgvector.
+- Engine de IA: Vercel AI SDK v6 (@ai-sdk/openai) e LangGraph JS (@langchain/langgraph).
+- Modelos OpenAI: 
+  - Visão e Extração Multimodal: `gpt-4o`
+  - Classification/De-Para: `gpt-4o-mini`
+  - Supervisor e Auditor Construtivo: `o3-mini`
+  - Memória Vetorial (RAG): `text-embedding-3-small`
+
+## Diretrizes Estritas de Código e Engenharia
+1. Sempre consulte e use como fonte da verdade o arquivo `@prd_sistema_orcamento_gpt-v8.md`.
+2. Ferragens, conectores, parafusos e acessórios devem ser calculados ESTRITAMENTE por unidade individual (jamais por pacote/caixa).
+3. Todas as correções feitas na tela de auditoria com justificativa do usuário devem ser vetorizadas via OpenAI Embeddings e salvas na tabela `ai_memories`.
+4. Mantenha o suporte às 3 modalidades de precificação (Margem MPC %, Multiplicador Material x N e R\$/m²).
