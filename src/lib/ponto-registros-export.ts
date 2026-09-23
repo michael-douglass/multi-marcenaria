@@ -123,10 +123,27 @@ function buildTabelaBatidas(dias: Array<ResumoPontoDiaBatidas & { ehFalta?: bool
     </table>`
 }
 
-function buildChips(datas: string[], className: string, vazio: string): string {
-  if (datas.length === 0) return `<p class="ok">${escapeHtml(vazio)}</p>`
-  const chips = datas.map((d) => `<li>${escapeHtml(formatDataCurtaPonto(d))}</li>`).join('')
-  return `<ul class="${className}">${chips}</ul>`
+function buildFaltasLista(espelho: EspelhoPontoPeriodo): string {
+  const faltas = espelho.faltas
+  if (faltas.length === 0) return '<p class="ok">Nenhuma falta no período.</p>'
+  const chips = faltas
+    .map((o) => {
+      const motivo = o.observacao?.trim()
+        ? escapeHtml(o.observacao.trim())
+        : 'Sem justificativa'
+      const abate =
+        o.abater_banco_horas
+          ? ` · abatida no banco${
+              o.minutos_abatidos != null && o.minutos_abatidos > 0
+                ? ` (−${escapeHtml(formatMinutosSaldo(o.minutos_abatidos))})`
+                : ''
+            }`
+          : ''
+      const auto = o.automatica ? ' <em>(automática)</em>' : ''
+      return `<li><strong>${escapeHtml(formatDataCurtaPonto(o.data))}</strong> — ${motivo}${abate}${auto}</li>`
+    })
+    .join('')
+  return `<ul class="faltas">${chips}</ul>`
 }
 
 function buildOcorrenciaLista(
@@ -244,6 +261,7 @@ function sharedCss(): string {
       border: 1.5px solid #d4a853;
       background: #faf6ef;
     }
+    .balanco.balanco-4 { grid-template-columns: repeat(2, 1fr); }
     .balanco div { text-align: center; }
     .balanco span {
       display: block;
@@ -363,6 +381,11 @@ function buildPaginaResumo(
       ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}`
       : '0min',
   )
+  const faltasBancoTxt = escapeHtml(
+    balanco.faltas_banco_minutos > 0
+      ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}`
+      : '0min',
+  )
   const saldoTxt = escapeHtml(formatMinutosComSinal(balanco.saldo_minutos))
   const saldoClass =
     balanco.status === 'positivo' ? 'pos' : balanco.status === 'negativo' ? 'neg' : 'neutro'
@@ -398,7 +421,7 @@ function buildPaginaResumo(
         <div><span>Hora extra</span><strong>${he}</strong></div>
         <div><span>Faltas</span><strong>${row.faltas} dia${row.faltas === 1 ? '' : 's'}</strong></div>
       </div>
-      <div class="balanco" aria-label="Balanço de horas">
+      <div class="balanco balanco-4" aria-label="Balanço de horas">
         <div>
           <span>Horas positivas (HE)</span>
           <strong class="pos">${positivasTxt}</strong>
@@ -406,6 +429,10 @@ function buildPaginaResumo(
         <div>
           <span>Horas negativas (atrasos)</span>
           <strong class="neg">${negativasTxt}</strong>
+        </div>
+        <div>
+          <span>Faltas abatidas (banco)</span>
+          <strong class="neg">${faltasBancoTxt}</strong>
         </div>
         <div>
           <span>${saldoLabel}</span>
@@ -422,7 +449,7 @@ function buildPaginaResumo(
       </section>
       <section class="secao">
         <h3>Faltas</h3>
-        ${buildChips(row.faltas_datas, 'faltas', 'Nenhuma falta no período.')}
+        ${buildFaltasLista(espelho)}
       </section>
       <section class="secao">
         <h3>Folgas</h3>
@@ -435,7 +462,7 @@ function buildPaginaResumo(
       <footer class="doc-footer">
         <p>Documento gerado em ${escapeHtml(geradoEmLabel())} · Garbo Movelaria</p>
         <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
-        <p>Saldo = horas positivas (hora extra após a saída) − horas negativas (atrasos na entrada).</p>
+        <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas no banco de horas.</p>
       </footer>
     </section>`
 }
@@ -823,8 +850,8 @@ async function renderJpgPages(
   g().fillStyle = '#faf6ef'
   g().strokeStyle = '#d4a853'
   g().lineWidth = 2
-  g().fillRect(left, current.y, right - left, 70)
-  g().strokeRect(left, current.y, right - left, 70)
+  g().fillRect(left, current.y, right - left, 110)
+  g().strokeRect(left, current.y, right - left, 110)
   const balancoCols: Array<[string, string, string]> = [
     ['Horas positivas (HE)', formatMinutosHoraExtra(balanco.horas_positivas_minutos), '#166534'],
     [
@@ -832,19 +859,28 @@ async function renderJpgPages(
       balanco.horas_negativas_minutos > 0 ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}` : '0min',
       '#9f1239',
     ],
+    [
+      'Faltas abatidas (banco)',
+      balanco.faltas_banco_minutos > 0 ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}` : '0min',
+      '#9f1239',
+    ],
     ['Saldo', formatMinutosComSinal(balanco.saldo_minutos), balanco.saldo_minutos >= 0 ? '#166534' : '#9f1239'],
   ]
   balancoCols.forEach((col, i) => {
-    const x = left + ((right - left) / 3) * i + (right - left) / 6
+    const colW = (right - left) / 2
+    const row = Math.floor(i / 2)
+    const colIdx = i % 2
+    const x = left + colW * colIdx + colW / 2
+    const y = current.y + 28 + row * 48
     g().textAlign = 'center'
     g().fillStyle = '#6b5344'
     g().font = '11px Georgia, "Times New Roman", serif'
-    g().fillText(col[0].toUpperCase(), x, current.y + 24)
+    g().fillText(col[0].toUpperCase(), x, y)
     g().fillStyle = col[2]
     g().font = '700 20px Georgia, "Times New Roman", serif'
-    g().fillText(col[1], x, current.y + 52)
+    g().fillText(col[1], x, y + 24)
   })
-  current.y += 92
+  current.y += 126
 
   const ensureSpace = (need: number) => {
     if (current.y + need < bottom) return false
@@ -925,7 +961,17 @@ async function renderJpgPages(
   current.y = drawSectionTitle(current.ctx, 'Faltas', current.y + 8, left, right)
   current.y = drawChipRow(
     current.ctx,
-    espelho.faltas.map((f) => formatDataCurtaPonto(f.data)),
+    espelho.faltas.map((f) => {
+      const motivo = f.observacao?.trim() || 'Sem justificativa'
+      const abate = f.abater_banco_horas
+        ? ` · abatida${
+            f.minutos_abatidos != null && f.minutos_abatidos > 0
+              ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
+              : ''
+          }`
+        : ''
+      return `${formatDataCurtaPonto(f.data)} — ${motivo}${abate}`
+    }),
     current.y,
     left,
     right,

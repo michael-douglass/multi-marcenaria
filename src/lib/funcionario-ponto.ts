@@ -275,20 +275,51 @@ export async function fetchOcorrencias(funcionarioId: string): Promise<PontoOcor
   return (data ?? []) as PontoOcorrencia[]
 }
 
+export interface SalvarOcorrenciaOpts {
+  observacao?: string | null
+  abaterBancoHoras?: boolean
+}
+
 export async function salvarOcorrencia(
   funcionarioId: string,
   data: string,
   tipo: PontoOcorrencia['tipo'],
-  observacao?: string,
+  observacaoOrOpts?: string | SalvarOcorrenciaOpts,
 ): Promise<PontoOcorrencia> {
+  const opts: SalvarOcorrenciaOpts =
+    typeof observacaoOrOpts === 'string' || observacaoOrOpts == null
+      ? { observacao: observacaoOrOpts ?? null }
+      : observacaoOrOpts
   const { data: row, error } = await supabase.rpc('movelaria_ponto_salvar_ocorrencia', {
     p_funcionario_id: funcionarioId,
     p_data: data,
     p_tipo: tipo,
-    p_observacao: observacao ?? null,
+    p_observacao: opts.observacao ?? null,
+    p_abater_banco_horas: tipo === 'falta' ? Boolean(opts.abaterBancoHoras) : false,
   })
   if (error) throw new Error(error.message)
   return row as PontoOcorrencia
+}
+
+/**
+ * Carga líquida da jornada no dia (entrada→saída menos intervalo), em minutos.
+ * Usa grade por dia quando existir; senão os horários flat da jornada.
+ */
+export function minutosJornadaNoDia(
+  jornada: PontoJornadaHorarios | null | undefined,
+  dataIso: string,
+): number {
+  if (!jornada) return 0
+  const entrada = horaParaMinutosDoDia(horaPrevistaPorTipo('entrada', jornada, dataIso))
+  const saida = horaParaMinutosDoDia(horaPrevistaPorTipo('saida', jornada, dataIso))
+  if (entrada == null || saida == null) return 0
+  const saidaAlmoco = horaParaMinutosDoDia(horaPrevistaPorTipo('saida_intervalo', jornada, dataIso))
+  const retornoAlmoco = horaParaMinutosDoDia(horaPrevistaPorTipo('retorno_intervalo', jornada, dataIso))
+  let intervalo = 0
+  if (saidaAlmoco != null && retornoAlmoco != null && retornoAlmoco > saidaAlmoco) {
+    intervalo = retornoAlmoco - saidaAlmoco
+  }
+  return Math.max(0, saida - entrada - intervalo)
 }
 
 export async function removerOcorrencia(id: string): Promise<void> {

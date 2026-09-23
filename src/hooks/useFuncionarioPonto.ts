@@ -68,10 +68,15 @@ export function useFuncionarioPonto(funcionarioId: string | undefined) {
     setJornada(saved)
   }, [funcionarioId])
 
-  const addOcorrencia = async (data: string, tipo: PontoOcorrencia['tipo'], observacao?: string) => {
+  const addOcorrencia = async (
+    data: string,
+    tipo: PontoOcorrencia['tipo'],
+    observacaoOrOpts?: string | { observacao?: string | null; abaterBancoHoras?: boolean },
+  ) => {
     if (!funcionarioId) return
-    const row = await salvarOcorrencia(funcionarioId, data, tipo, observacao)
+    const row = await salvarOcorrencia(funcionarioId, data, tipo, observacaoOrOpts)
     setOcorrencias(prev => [row, ...prev.filter(o => !(o.data === data && o.tipo === tipo))])
+    return row
   }
 
   const deleteOcorrencia = async (id: string) => {

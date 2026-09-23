@@ -21,6 +21,8 @@ export interface EspelhoOcorrenciaResumo {
   data: string
   observacao?: string | null
   automatica: boolean
+  abater_banco_horas?: boolean
+  minutos_abatidos?: number | null
 }
 
 export interface EspelhoPontoPeriodo {
@@ -162,6 +164,8 @@ export function montarEspelhoPontoPeriodo(input: MontarEspelhoPontoInput): Espel
       data: o.data,
       observacao: o.observacao,
       automatica: o.automatica,
+      abater_banco_horas: Boolean(o.abater_banco_horas),
+      minutos_abatidos: o.minutos_abatidos ?? null,
     })
   }
 
@@ -171,12 +175,23 @@ export function montarEspelhoPontoPeriodo(input: MontarEspelhoPontoInput): Espel
       if (diasFolgaAbono.has(dia)) continue
       if (diasComBatida.has(dia)) continue
       if (!faltasMap.has(dia)) {
-        faltasMap.set(dia, { data: dia, observacao: null, automatica: true })
+        faltasMap.set(dia, {
+          data: dia,
+          observacao: null,
+          automatica: true,
+          abater_banco_horas: false,
+          minutos_abatidos: null,
+        })
       }
     }
   }
 
   const faltas = [...faltasMap.values()].sort((a, b) => a.data.localeCompare(b.data))
+  const faltasBancoMinutos = faltas.reduce(
+    (acc, f) =>
+      acc + (f.abater_banco_horas ? Math.max(0, Math.floor(Number(f.minutos_abatidos) || 0)) : 0),
+    0,
+  )
 
   const chegadas = marcacoes
     .filter((m) => m.tipo === 'entrada' || m.tipo === 'retorno_intervalo')
@@ -196,6 +211,13 @@ export function montarEspelhoPontoPeriodo(input: MontarEspelhoPontoInput): Espel
     hora_extra_minutos: horaExtraMinutos,
     faltas: faltas.length,
     faltas_datas: faltas.map((f) => f.data),
+    faltas_detalhe: faltas.map((f) => ({
+      data: f.data,
+      observacao: f.observacao,
+      abater_banco_horas: f.abater_banco_horas,
+      minutos_abatidos: f.minutos_abatidos,
+    })),
+    faltas_banco_minutos: faltasBancoMinutos,
     chegadas,
     saidas,
   }

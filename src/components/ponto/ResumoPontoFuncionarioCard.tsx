@@ -8,10 +8,10 @@ import {
   formatMinutosSaldo,
 } from '@/lib/funcionario-ponto'
 import {
-  formatDataCurtaPonto,
   imprimirResumoPontoPdf,
   montarDiasResumoPonto,
   calcularBalancoResumoPonto,
+  resolverFaltasDetalhe,
 } from '@/lib/resumo-ponto-pdf'
 import type { PontoResumoFuncionarioPeriodo } from '@/types'
 
@@ -92,6 +92,7 @@ export function ResumoPontoFuncionarioCard({
   const temFaltas = row.faltas_datas.length > 0
   const dias = montarDiasResumoPonto(row)
   const balanco = calcularBalancoResumoPonto(row)
+  const faltasDetalhe = resolverFaltasDetalhe(row)
   const pastaUrl = '/funcionarios/' + row.funcionario_id + '?tab=ponto'
 
   async function exportarPdf(e: MouseEvent) {
@@ -277,7 +278,7 @@ export function ResumoPontoFuncionarioCard({
             <h4 className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
               Balanço do período
             </h4>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="rounded-lg border border-[#146c38]/25 bg-[#edf8f1] px-2 py-2 text-center">
                 <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#146c38]/80">
                   Excedentes
@@ -296,6 +297,16 @@ export function ResumoPontoFuncionarioCard({
                     : '0min'}
                 </p>
               </div>
+              <div className="rounded-lg border border-[#9f1239]/25 bg-[#fff1f2] px-2 py-2 text-center">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#9f1239]/80">
+                  Faltas abatidas
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums text-[#9f1239]">
+                  {balanco.faltas_banco_minutos > 0
+                    ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}`
+                    : '0min'}
+                </p>
+              </div>
               <div
                 className={`rounded-lg border px-2 py-2 text-center ${saldoTone(balanco.status)}`}
               >
@@ -308,9 +319,8 @@ export function ResumoPontoFuncionarioCard({
               </div>
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
-              No dia: verde = excedente (saiu depois) · vermelho = atraso (entrou depois).
-              No período: Positivas = soma dos excedentes · Negativas = soma dos atrasos ·
-              Saldo = positivas − negativas.
+              No dia: verde = excedente · vermelho = atraso. No período: Saldo = HE − atrasos −
+              faltas abatidas no banco. Para justificar uma falta, abra a pasta do funcionário.
             </p>
           </section>
 
@@ -322,14 +332,26 @@ export function ResumoPontoFuncionarioCard({
               <p className="mt-2 text-sm font-medium text-[#146c38]">Nenhuma falta no período.</p>
             )}
             {temFaltas && (
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {row.faltas_datas.map((data) => (
+              <ul className="mt-2 space-y-2">
+                {faltasDetalhe.map((f) => (
                   <li
-                    key={data}
-                    className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-2.5 py-1 text-sm font-medium tabular-nums text-[#9f1239]"
-                    title={formatDataCurtaPonto(data)}
+                    key={f.data}
+                    className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-3 py-2 text-sm text-[#9f1239]"
                   >
-                    {formatDataCurta(data)}
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
+                      {f.abater_banco_horas && (
+                        <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                          Abatida no banco
+                          {f.minutos_abatidos != null && f.minutos_abatidos > 0
+                            ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
+                            : ''}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
+                      {f.observacao?.trim() || 'Sem justificativa'}
+                    </p>
                   </li>
                 ))}
               </ul>

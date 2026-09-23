@@ -8,6 +8,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  Pencil,
   PlusCircle,
   Trash2,
   XCircle,
@@ -35,6 +36,8 @@ import {
 import {
   getRepArquivoSignedUrl,
   horaPrevistaPorTipo,
+  minutosJornadaNoDia,
+  formatMinutosSaldo,
   PONTO_TIPOS_ORDEM,
   pontoDataLocal,
   PONTO_TIMEZONE,
@@ -177,6 +180,8 @@ export function FuncionarioPontoPanel({
   const [ocData, setOcData] = useState(pontoDataLocal())
   const [ocTipo, setOcTipo] = useState<'folga' | 'falta' | 'abono'>('folga')
   const [ocObs, setOcObs] = useState('')
+  const [ocAbaterBanco, setOcAbaterBanco] = useState(false)
+  const [ocEditandoId, setOcEditandoId] = useState<string | null>(null)
   const [manualData, setManualData] = useState(pontoDataLocal())
   const [manualTipo, setManualTipo] = useState<PontoMarcacaoTipo>('entrada')
   const [manualHora, setManualHora] = useState('08:00')
@@ -405,14 +410,50 @@ export function FuncionarioPontoPanel({
   if (loading) return <LoadingState message="Carregando ponto…" />
 
   const handleOcorrencia = async () => {
+    if (ocTipo === 'falta' && ocObs.trim().length < 3) {
+      showToast('Informe o motivo da falta (mínimo 3 caracteres).', 'error')
+      return
+    }
     setSaving(true)
     try {
-      await addOcorrencia(ocData, ocTipo, ocObs || undefined)
+      await addOcorrencia(ocData, ocTipo, {
+        observacao: ocObs.trim() || null,
+        abaterBancoHoras: ocTipo === 'falta' ? ocAbaterBanco : false,
+      })
       setOcObs('')
+      setOcAbaterBanco(false)
+      setOcEditandoId(null)
+      showToast(
+        ocTipo === 'falta'
+          ? ocAbaterBanco
+            ? 'Falta justificada e abatida no banco de horas.'
+            : 'Falta justificada com sucesso.'
+          : 'Ocorrência registrada.',
+      )
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar ocorrência.', 'error')
     } finally {
       setSaving(false)
     }
   }
+
+  const iniciarJustificarFalta = (o: {
+    id: string
+    data: string
+    tipo: 'folga' | 'falta' | 'abono'
+    observacao?: string | null
+    abater_banco_horas?: boolean
+  }) => {
+    setOcEditandoId(o.id)
+    setOcData(o.data)
+    setOcTipo(o.tipo)
+    setOcObs(o.observacao?.trim() || '')
+    setOcAbaterBanco(Boolean(o.abater_banco_horas))
+    showToast('Preencha o motivo e salve para justificar esta falta.')
+  }
+
+  const minutosAbaterPreview =
+    ocTipo === 'falta' && ocAbaterBanco ? minutosJornadaNoDia(jornada, ocData) : 0
 
   const handleRegistroManual = async () => {
     if (tiposDisponiveisManual.length === 0) {
@@ -722,42 +763,129 @@ export function FuncionarioPontoPanel({
             <div className="glass-card space-y-3 p-5">
               <h3 className="flex items-center gap-2 font-display text-lg text-[#f2d892]">
                 <CalendarOff size={18} />
-                Registrar folga / falta / abono
+                {ocEditandoId ? 'Justificar / editar ocorrência' : 'Registrar folga / falta / abono'}
               </h3>
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Data">
-                  <input type="date" className="glass-input" value={ocData} onChange={e => setOcData(e.target.value)} />
+                  <input
+                    type="date"
+                    className="glass-input"
+                    value={ocData}
+                    onChange={e => setOcData(e.target.value)}
+                    disabled={Boolean(ocEditandoId)}
+                  />
                 </Field>
                 <Field label="Tipo">
-                  <select className="glass-input" value={ocTipo} onChange={e => setOcTipo(e.target.value as typeof ocTipo)}>
+                  <select
+                    className="glass-input"
+                    value={ocTipo}
+                    onChange={e => {
+                      const next = e.target.value as typeof ocTipo
+                      setOcTipo(next)
+                      if (next !== 'falta') setOcAbaterBanco(false)
+                    }}
+                    disabled={Boolean(ocEditandoId)}
+                  >
                     <option value="folga">Folga</option>
                     <option value="falta">Falta</option>
                     <option value="abono">Abono</option>
                   </select>
                 </Field>
-                <Field label="Observação">
-                  <input className="glass-input" value={ocObs} onChange={e => setOcObs(e.target.value)} placeholder="Opcional" />
+                <Field label={ocTipo === 'falta' ? 'Motivo da falta' : 'Observação'}>
+                  <input
+                    className="glass-input"
+                    value={ocObs}
+                    onChange={e => setOcObs(e.target.value)}
+                    placeholder={ocTipo === 'falta' ? 'Obrigatório (ex.: atestado médico)' : 'Opcional'}
+                  />
                 </Field>
               </div>
-              <button type="button" className="btn btn-gold btn-sm" disabled={saving} onClick={() => void handleOcorrencia()}>
-                Registrar ocorrência
-              </button>
+              {ocTipo === 'falta' && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[rgba(242,216,146,0.25)] bg-[rgba(26,16,12,0.35)] px-3 py-3 text-sm text-[#edd9c4]">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={ocAbaterBanco}
+                    onChange={e => setOcAbaterBanco(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-semibold text-[#f2d892]">Abater falta no banco de horas</span>
+                    <span className="mt-0.5 block text-xs text-[#b8957f]">
+                      Desconta a jornada do dia das horas extras do período
+                      {minutosAbaterPreview > 0
+                        ? ` (cerca de ${formatMinutosSaldo(minutosAbaterPreview)}).`
+                        : '.'}
+                      {' '}Se as horas extras não cobrirem o dia, o saldo fica negativo.
+                    </span>
+                  </span>
+                </label>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn btn-gold btn-sm" disabled={saving} onClick={() => void handleOcorrencia()}>
+                  {ocEditandoId ? 'Salvar justificativa' : 'Registrar ocorrência'}
+                </button>
+                {ocEditandoId && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={saving}
+                    onClick={() => {
+                      setOcEditandoId(null)
+                      setOcObs('')
+                      setOcAbaterBanco(false)
+                      setOcTipo('folga')
+                      setOcData(pontoDataLocal())
+                    }}
+                  >
+                    Cancelar edição
+                  </button>
+                )}
+              </div>
             </div>
           )}
           <ul className="space-y-2">
             {ocorrencias.map(o => (
               <li key={o.id} className="glass-card flex items-center justify-between gap-3 p-4 text-sm">
-                <div>
+                <div className="min-w-0 flex-1">
                   <span className="text-[#f2d892]">{PONTO_OCORRENCIA_LABEL[o.tipo]}</span>
                   <span className="mx-2 text-[#b8957f]">·</span>
                   <span className="text-[#edd9c4]">{new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                   {o.observacao && <p className="mt-1 text-[#b8957f]">{o.observacao}</p>}
-                  {o.automatica && <span className="text-xs text-amber-400"> (automática)</span>}
+                  {!o.observacao && o.tipo === 'falta' && (
+                    <p className="mt-1 text-xs text-amber-400">Sem justificativa ainda</p>
+                  )}
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {o.automatica && (
+                      <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-amber-300">
+                        Automática
+                      </span>
+                    )}
+                    {o.tipo === 'falta' && o.abater_banco_horas && (
+                      <span className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-emerald-300">
+                        Abatida no banco
+                        {o.minutos_abatidos != null && o.minutos_abatidos > 0
+                          ? ` (−${formatMinutosSaldo(o.minutos_abatidos)})`
+                          : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {!readOnly && (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => void deleteOcorrencia(o.id)}>
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    {o.tipo === 'falta' && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        title="Justificar / editar"
+                        onClick={() => iniciarJustificarFalta(o)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => void deleteOcorrencia(o.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 )}
               </li>
             ))}

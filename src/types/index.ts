@@ -1063,8 +1063,20 @@ export interface PontoOcorrencia {
   tipo: PontoOcorrenciaTipo
   observacao?: string | null
   automatica: boolean
+  /** Se true, desconta a carga do dia no saldo HE − atrasos do período. */
+  abater_banco_horas?: boolean
+  /** Minutos da jornada gravados no abatimento (só quando abater_banco_horas). */
+  minutos_abatidos?: number | null
   registrado_por?: string | null
   criado_em?: string
+}
+
+/** Detalhe de falta no resumo/PDF (motivo + abatimento). */
+export interface PontoFaltaDetalhe {
+  data: string
+  observacao?: string | null
+  abater_banco_horas?: boolean
+  minutos_abatidos?: number | null
 }
 
 export interface PontoStatusDiaPayload {
@@ -1171,6 +1183,10 @@ export interface PontoResumoFuncionarioPeriodo {
   hora_extra_minutos: number
   faltas: number
   faltas_datas: string[]
+  /** Motivo e abatimento por data de falta (quando a RPC/espelho fornecer). */
+  faltas_detalhe?: PontoFaltaDetalhe[]
+  /** Soma dos minutos abatidos no banco de horas no período. */
+  faltas_banco_minutos?: number
   /** Entrada + retorno do almoço */
   chegadas: PontoResumoBatida[]
   /** Saída do almoço + saída do serviço */

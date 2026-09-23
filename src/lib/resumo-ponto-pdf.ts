@@ -6,7 +6,7 @@ import {
   formatMinutosSaldo,
 } from '@/lib/funcionario-ponto'
 import { formatarCnpj } from '@/lib/rep/rep-validation'
-import type { PontoResumoBatida, PontoResumoFuncionarioPeriodo } from '@/types'
+import type { PontoFaltaDetalhe, PontoResumoBatida, PontoResumoFuncionarioPeriodo } from '@/types'
 
 const NOME_EMPRESA = 'GARBO MOVELARIA'
 
@@ -24,29 +24,37 @@ export interface ResumoPontoDiaBatidas {
   saldo_minutos: number
 }
 
-/** Horas positivas (HE) vs negativas (atrasos) no período. */
+/** Horas positivas (HE) vs negativas (atrasos + faltas abatidas) no período. */
 export interface ResumoPontoBalanco {
   horas_positivas_minutos: number
   horas_negativas_minutos: number
-  /** positivas − negativas (pode ser negativo). */
+  /** Minutos de faltas abatidas no banco de horas. */
+  faltas_banco_minutos: number
+  /** positivas − atrasos − faltas abatidas (pode ser negativo). */
   saldo_minutos: number
   status: 'positivo' | 'negativo' | 'zerado'
 }
 
 export function calcularBalancoResumoPonto(
-  row: Pick<PontoResumoFuncionarioPeriodo, 'hora_extra_minutos' | 'chegadas'>,
+  row: Pick<
+    PontoResumoFuncionarioPeriodo,
+    'hora_extra_minutos' | 'chegadas' | 'faltas_banco_minutos'
+  >,
 ): ResumoPontoBalanco {
   const positivas = Math.max(0, Math.floor(Number(row.hora_extra_minutos) || 0))
-  const negativas = (row.chegadas ?? [])
+  const atrasos = (row.chegadas ?? [])
     .filter((b) => b.tipo === 'entrada')
     .reduce((acc, b) => acc + Math.max(0, Math.floor(Number(b.atraso_minutos) || 0)), 0)
+  const faltasBanco = Math.max(0, Math.floor(Number(row.faltas_banco_minutos) || 0))
+  const negativas = atrasos + faltasBanco
   const saldo = positivas - negativas
   let status: ResumoPontoBalanco['status'] = 'zerado'
   if (saldo > 0) status = 'positivo'
   else if (saldo < 0) status = 'negativo'
   return {
     horas_positivas_minutos: positivas,
-    horas_negativas_minutos: negativas,
+    horas_negativas_minutos: atrasos,
+    faltas_banco_minutos: faltasBanco,
     saldo_minutos: saldo,
     status,
   }
@@ -207,12 +215,45 @@ function buildTabelaBatidas(dias: Array<ResumoPontoDiaBatidas & { ehFalta?: bool
     </table>`
 }
 
-function buildFaltas(datas: string[]): string {
-  if (datas.length === 0) {
+/** Monta lista de faltas com motivo a partir de detalhe ou só das datas. */
+export function resolverFaltasDetalhe(
+  row: Pick<PontoResumoFuncionarioPeriodo, 'faltas_datas' | 'faltas_detalhe'>,
+): PontoFaltaDetalhe[] {
+  if (row.faltas_detalhe && row.faltas_detalhe.length > 0) {
+    const byData = new Map<string, PontoFaltaDetalhe>()
+    for (const f of row.faltas_detalhe) {
+      byData.set(f.data, f)
+    }
+    return [...byData.values()].sort((a, b) => a.data.localeCompare(b.data))
+  }
+  return (row.faltas_datas ?? []).map((data) => ({
+    data,
+    observacao: null,
+    abater_banco_horas: false,
+    minutos_abatidos: null,
+  }))
+}
+
+function buildFaltas(faltas: PontoFaltaDetalhe[]): string {
+  if (faltas.length === 0) {
     return '<p class="ok">Nenhuma falta no período.</p>'
   }
-  const chips = datas
-    .map((d) => `<li>${escapeHtml(formatDataCurtaPonto(d))}</li>`)
+  const chips = faltas
+    .map((f) => {
+      const data = escapeHtml(formatDataCurtaPonto(f.data))
+      const motivo = f.observacao?.trim()
+        ? escapeHtml(f.observacao.trim())
+        : 'Sem justificativa'
+      const abate =
+        f.abater_banco_horas
+          ? ` · abatida no banco${
+              f.minutos_abatidos != null && f.minutos_abatidos > 0
+                ? ` (−${escapeHtml(formatMinutosSaldo(f.minutos_abatidos))})`
+                : ''
+            }`
+          : ''
+      return `<li><strong>${data}</strong> — ${motivo}${abate}</li>`
+    })
     .join('')
   return `<ul class="faltas">${chips}</ul>`
 }
@@ -227,10 +268,16 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
   const he = escapeHtml(formatMinutosHoraExtra(row.hora_extra_minutos))
   const dias = montarDiasResumoPonto(row)
   const balanco = calcularBalancoResumoPonto(row)
+  const faltasDetalhe = resolverFaltasDetalhe(row)
   const positivasTxt = escapeHtml(formatMinutosHoraExtra(balanco.horas_positivas_minutos))
   const negativasTxt = escapeHtml(
     balanco.horas_negativas_minutos > 0
       ? `−${formatMinutosSaldo(balanco.horas_negativas_minutos)}`
+      : '0min',
+  )
+  const faltasBancoTxt = escapeHtml(
+    balanco.faltas_banco_minutos > 0
+      ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}`
       : '0min',
   )
   const saldoTxt = escapeHtml(formatMinutosComSinal(balanco.saldo_minutos))
@@ -332,7 +379,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     .meta-grid strong { font-size: 11pt; color: #1a1208; }
     .balanco {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 3mm;
       margin-bottom: 6mm;
       padding: 3.5mm;
@@ -396,9 +443,11 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       background: #fdf2f2;
       color: #7f1d1d;
       padding: 1.5mm 3mm;
-      font-size: 9pt;
-      font-variant-numeric: tabular-nums;
+      font-size: 8.5pt;
+      max-width: 100%;
+      line-height: 1.35;
     }
+    .faltas li strong { font-variant-numeric: tabular-nums; }
     .vazio { margin: 0; font-size: 9pt; color: #888; }
     .ok { margin: 0; font-size: 9pt; color: #166534; }
     .doc-footer {
@@ -465,6 +514,10 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
         <strong class="neg">${negativasTxt}</strong>
       </div>
       <div>
+        <span>Faltas abatidas (banco)</span>
+        <strong class="neg">${faltasBancoTxt}</strong>
+      </div>
+      <div>
         <span>${saldoLabel}</span>
         <strong class="${saldoClass}">${saldoTxt}</strong>
       </div>
@@ -477,13 +530,13 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
 
     <section class="secao">
       <h3>Faltas (dias sem ponto)</h3>
-      ${buildFaltas(row.faltas_datas)}
+      ${buildFaltas(faltasDetalhe)}
     </section>
 
     <footer class="doc-footer">
       <p>Documento gerado em ${escapeHtml(geradoEm)} · Garbo Movelaria</p>
       <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
-      <p>Saldo = horas positivas (hora extra após a saída) − horas negativas (atrasos na entrada).</p>
+      <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas no banco de horas.</p>
     </footer>
   </section>
 </body>
