@@ -177,8 +177,18 @@ export function isPortalVendaGanha(status: string | null | undefined): boolean {
   return /venda realizada/i.test(s) || /ganh/i.test(s)
 }
 
+/** Status canônico de orçamento perdido (coluna Orçamentos internos). */
+export const ORCAMENTOS_PERDIDOS_STATUS = 'Orçamentos Perdidos'
+
+/** Status legado — migrado para Orçamentos Perdidos; não deve mais aparecer na UI. */
+export const LEGACY_VENDA_PERDIDA_NAO_MATRICULADO = 'Venda Perdida (Não Matriculado)'
+
 export function isPortalVendaPerdida(status: string | null | undefined): boolean {
   return /perdid/i.test((status ?? '').trim())
+}
+
+export function isLegacyVendaPerdidaNaoMatriculado(status: string | null | undefined): boolean {
+  return (status ?? '').trim() === LEGACY_VENDA_PERDIDA_NAO_MATRICULADO
 }
 
 export function resolveValorBaseComissao(

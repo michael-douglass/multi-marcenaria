@@ -35,6 +35,7 @@ interface PipelineMetricsProps {
   customDateFilter?: Date;
   selectedOrigins?: string[];
   selectedRegioes?: string[];
+  onLeadClick?: (leadId: number) => void;
 }
 
 function IndicatorsToggle({
@@ -120,6 +121,7 @@ function PipelineMetricsContent({
   customDateFilter,
   selectedOrigins = [],
   selectedRegioes = [],
+  onLeadClick,
   isAdmin,
 }: PipelineMetricsProps & { isAdmin: boolean }) {
   const { getLabel } = usePipelineDashboardLabels();
@@ -365,6 +367,7 @@ function PipelineMetricsContent({
             allLeads={allLeads}
             isLoading={isLoading}
             visibleKeys={['sales_stats', 'orcamentos']}
+            onLeadClick={onLeadClick}
           />
         </div>
       </Card>
@@ -544,7 +547,11 @@ function PipelineMetricsContent({
           </CollapsibleContent>
         </Collapsible>
 
-        <PipelineIndicatorsSection allLeads={allLeads} isLoading={isLoading} />
+        <PipelineIndicatorsSection
+          allLeads={allLeads}
+          isLoading={isLoading}
+          onLeadClick={onLeadClick}
+        />
       </div>
     </Card>
   );

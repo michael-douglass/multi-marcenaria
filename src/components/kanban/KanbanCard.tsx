@@ -18,6 +18,7 @@ import { useRegioes } from '@/hooks/useRegioes';
 import { usePipelineTimeConfig } from '@/hooks/usePipelineTimeConfig';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { isLeadNegocioGanho } from '@/lib/vendas-ganhos';
+import { isPortalVendaPerdida } from '@/lib/crm-portal';
 import type { LeadLastMessagePreview } from '@/lib/lead-last-message-preview';
 import {
   DropdownMenu,
@@ -204,7 +205,7 @@ export function KanbanCard({
   const canMarkAsSale =
     onMarkAsSale &&
     !isLeadNegocioGanho(lead, vendasGanhosConfig) &&
-    lead.status !== 'Venda Perdida (Não Matriculado)' &&
+    !isPortalVendaPerdida(lead.status) &&
     lead.status !== 'Clientes Já Cadastrados';
 
   const handleMarkSale = (e: React.MouseEvent) => {

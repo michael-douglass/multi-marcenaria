@@ -20,7 +20,7 @@ function statusColor(status: string): string {
   if (status.includes('Venda Realizada'))      return '#22c55e';
   if (status.includes('Negociação'))            return '#3b82f6';
   if (status.includes('Experimental'))          return '#f59e0b';
-  if (status.includes('Venda Perdida'))         return '#ef4444';
+  if (/perdid/i.test(status))                   return '#ef4444';
   return '#94a3b8';
 }
 

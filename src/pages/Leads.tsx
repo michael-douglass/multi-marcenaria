@@ -246,7 +246,7 @@ export default function Leads() {
       return 'border-transparent';
     }
     if (status.includes('Venda Realizada')) return 'bg-success text-success-foreground';
-    if (status.includes('Venda Perdida')) return 'bg-muted text-muted-foreground';
+    if (/perdid/i.test(status)) return 'bg-muted text-muted-foreground';
     if (status.includes('Clientes Já Cadastrados')) return 'bg-secondary text-secondary-foreground';
     if (status.includes('Aula Realizada')) return 'bg-success/80 text-success-foreground';
     if (status.includes('Não Entrou')) return 'bg-destructive text-destructive-foreground';

@@ -16,7 +16,7 @@ export function LeadsListView({ leads, onLeadClick }: LeadsListViewProps) {
       'Não Entraram para Aula Experimental': 'bg-destructive/10 text-destructive',
       'Aula Realizada': 'bg-success/10 text-success',
       'Venda Realizada (Matriculado)': 'bg-success/10 text-success',
-      'Venda Perdida (Não Matriculado)': 'bg-muted text-muted-foreground',
+      'Orçamentos Perdidos': 'bg-muted text-muted-foreground',
       'Clientes Já Cadastrados': 'bg-secondary/10 text-secondary',
     };
     return colors[status] || 'bg-muted text-muted-foreground';

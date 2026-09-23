@@ -12,6 +12,7 @@ import {
   resolvePontuaPercentual,
   resolveValorBaseComissaoGarbo,
 } from '@/lib/pontua-garbo';
+import { isPortalVendaPerdida } from '@/lib/crm-portal';
 import { getStatusesContamComoGanho } from '@/lib/vendas-ganhos';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { validarValorSaquePontuaGarbo } from '@/lib/pontua-garbo-saque';
@@ -236,7 +237,7 @@ export function usePontuaGarboFinanceiro(options?: { enabled?: boolean }) {
         if (!prestador || prestador.comissao_ativa === false) continue;
         const lead = leadsMap.get(val.lead_id);
         if (!lead) continue;
-        if (lead.status === 'Venda Perdida (Não Matriculado)') continue;
+        if (isPortalVendaPerdida(lead.status)) continue;
         const def = activeDefs.find((d) => d.id === val.field_id);
         if (!isPontuaGarboFieldActive(def)) continue;
 
@@ -521,7 +522,7 @@ export function useMinhaPontuaGarbo(prestadorId: string | null | undefined) {
           leadOrigem: lead.origem,
           leadRegiao: lead.regiao,
         };
-        if (lead.status === 'Venda Perdida (Não Matriculado)') {
+        if (isPortalVendaPerdida(lead.status)) {
           churnedLeads.push({ ...item, churned: true });
         } else {
           leads.push(item);

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
+import { LEGACY_VENDA_PERDIDA_NAO_MATRICULADO } from '@/lib/crm-portal';
 
 const MASTER_TABLE = 'CRM-multi-empresas>pipeline_custom_stages<';
 const EMPRESA_TABLE = 'pipeline_custom_stages';
@@ -12,7 +13,6 @@ export const DEFAULT_PIPELINE_STAGES = [
   { nome: 'Não Entraram para Aula Experimental', is_default: true },
   { nome: 'Aula Realizada', is_default: true },
   { nome: 'Venda Realizada (Matriculado)', is_default: true },
-  { nome: 'Venda Perdida (Não Matriculado)', is_default: true },
   { nome: 'Clientes Já Cadastrados', is_default: true },
 ];
 
@@ -131,7 +131,9 @@ export function usePipelineCustomStages() {
 
   return {
     stages,
-    activeStages: stages.filter((s) => s.ativo),
+    activeStages: stages.filter(
+      (s) => s.ativo && s.nome.trim() !== LEGACY_VENDA_PERDIDA_NAO_MATRICULADO,
+    ),
     isLoading,
     createStage,
     updateStage,

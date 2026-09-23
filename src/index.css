@@ -4377,7 +4377,141 @@ html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   background: var(--lead-wood, #f3e8d8) !important;
   border-color: var(--lead-line, rgba(120, 90, 50, 0.22)) !important;
   color: var(--lead-soft, #3d2a1c);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.85);
 }
+
+/* Rodapé de ações do modal lead — hierarquia + “rim light” CSS (inspirado em fresnel). */
+.lead-modal-footer-banner {
+  background:
+    linear-gradient(135deg, rgba(242, 216, 146, 0.28) 0%, rgba(255, 250, 243, 0.55) 55%, transparent 100%),
+    var(--lead-inset, #efe4d4);
+  border: 1px solid var(--lead-line, rgba(80, 52, 24, 0.22));
+  box-shadow: inset 0 1px 0 rgba(255, 252, 246, 0.7);
+}
+
+.lead-modal-footer-btn {
+  border-color: var(--lead-line, rgba(80, 52, 24, 0.22)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 252, 246, 0.65),
+    0 1px 2px rgba(42, 24, 18, 0.06);
+}
+
+.lead-modal-footer-btn:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 252, 246, 0.85),
+    0 0 0 1px rgba(141, 94, 34, 0.12),
+    0 6px 16px -6px rgba(90, 58, 18, 0.28);
+}
+
+.lead-modal-footer-btn--tool {
+  background: rgba(255, 250, 243, 0.55) !important;
+  color: var(--lead-muted, #3d2a1c) !important;
+}
+
+.lead-modal-footer-btn--tool:hover:not(:disabled) {
+  background: rgba(255, 252, 248, 0.92) !important;
+  border-color: rgba(141, 94, 34, 0.35) !important;
+  color: var(--lead-soft, #1c120c) !important;
+}
+
+.lead-modal-footer-btn--amber {
+  background:
+    linear-gradient(165deg, rgba(251, 191, 36, 0.18) 0%, rgba(255, 250, 243, 0.7) 60%) !important;
+  border-color: rgba(180, 120, 40, 0.35) !important;
+  color: #7a4e12 !important;
+}
+
+.lead-modal-footer-btn--amber:hover:not(:disabled) {
+  background:
+    linear-gradient(165deg, rgba(251, 191, 36, 0.28) 0%, rgba(255, 252, 248, 0.95) 55%) !important;
+  border-color: rgba(180, 120, 40, 0.5) !important;
+}
+
+.lead-modal-footer-btn--lost {
+  background: rgba(255, 250, 243, 0.4) !important;
+  border-color: rgba(120, 90, 70, 0.28) !important;
+  color: var(--lead-faint, #5c4334) !important;
+}
+
+.lead-modal-footer-btn--lost:hover:not(:disabled) {
+  background: rgba(90, 58, 18, 0.06) !important;
+  border-color: rgba(90, 58, 18, 0.4) !important;
+  color: var(--lead-soft, #1c120c) !important;
+}
+
+.lead-modal-footer-btn--danger {
+  background: rgba(255, 250, 243, 0.35) !important;
+  border-color: rgba(180, 60, 40, 0.28) !important;
+  color: #9a3a28 !important;
+}
+
+.lead-modal-footer-btn--danger:hover:not(:disabled) {
+  background: rgba(180, 60, 40, 0.08) !important;
+  border-color: rgba(180, 60, 40, 0.45) !important;
+}
+
+/* CTA Ganho — ouro Bourbon com brilho de borda (rim). */
+.lead-modal-footer-btn--won {
+  background:
+    linear-gradient(165deg, #f7e4b0 0%, #f2d892 42%, #e4c06a 100%) !important;
+  border-color: rgba(141, 94, 34, 0.45) !important;
+  color: #1a120e !important;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 230, 0.9),
+    inset 0 -1px 0 rgba(141, 94, 34, 0.12),
+    0 2px 8px -2px rgba(141, 94, 34, 0.35) !important;
+}
+
+.lead-modal-footer-btn--won:hover:not(:disabled) {
+  background:
+    linear-gradient(165deg, #fbf0c8 0%, #f5de9a 45%, #e8c878 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 252, 240, 1),
+    0 0 0 1px rgba(196, 150, 58, 0.35),
+    0 8px 20px -6px rgba(141, 94, 34, 0.45) !important;
+}
+
+.lead-modal-footer-btn--ghost {
+  background: transparent !important;
+  color: var(--lead-muted, #3d2a1c) !important;
+  box-shadow: none !important;
+}
+
+.lead-modal-footer-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 250, 243, 0.7) !important;
+  border-color: var(--lead-line-strong, rgba(90, 58, 18, 0.4)) !important;
+}
+
+.lead-modal-footer-btn--save {
+  background:
+    linear-gradient(180deg, rgba(61, 42, 28, 0.92) 0%, rgba(42, 24, 18, 0.96) 100%) !important;
+  border-color: rgba(42, 24, 18, 0.55) !important;
+  color: #fff8ee !important;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 196, 0.18),
+    0 2px 8px -2px rgba(42, 24, 18, 0.35) !important;
+}
+
+.lead-modal-footer-btn--save:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgba(74, 52, 34, 0.95) 0%, rgba(52, 32, 24, 0.98) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 196, 0.28),
+    0 0 0 1px rgba(196, 150, 58, 0.25),
+    0 8px 18px -6px rgba(42, 24, 18, 0.4) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lead-modal-footer-btn {
+    transition: none !important;
+  }
+  .lead-modal-footer-btn:active {
+    transform: none !important;
+  }
+}
+
 
 /* Ficha do lead dentro de Detalhes da Obra — mogno laqueado, creme e ouro. */
 .obra-lead-card {

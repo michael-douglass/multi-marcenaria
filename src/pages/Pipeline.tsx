@@ -73,7 +73,6 @@ const DEFAULT_KANBAN_STAGES: string[] = [
   'Não Entraram para Aula Experimental',
   'Aula Realizada',
   'Venda Realizada (Matriculado)',
-  'Venda Perdida (Não Matriculado)',
   'Clientes Já Cadastrados',
 ];
 
@@ -869,6 +868,7 @@ export default function Pipeline() {
           customDateFilter={customDateFilter}
           selectedOrigins={selectedOrigins}
           selectedRegioes={selectedRegioes}
+          onLeadClick={(leadId) => openLeadModal(leadId, true)}
         />
       </div>
 

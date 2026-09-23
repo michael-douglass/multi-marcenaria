@@ -62,7 +62,6 @@ export const DEFAULT_PIPELINE_STAGES = [
   'Não Entraram para Aula Experimental',
   'Aula Realizada',
   'Venda Realizada (Matriculado)',
-  'Venda Perdida (Não Matriculado)',
   'Clientes Já Cadastrados',
 ] as const;
 

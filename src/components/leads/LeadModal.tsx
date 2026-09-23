@@ -98,6 +98,7 @@ import { useLeadMeeting } from '@/hooks/useLeadMeetings';
 import { z } from 'zod';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { buildMarkAsWonUpdates } from '@/lib/vendas-ganhos';
+import { ORCAMENTOS_PERDIDOS_STATUS } from '@/lib/crm-portal';
 import { buildChangedLeadUpdates, resolveVendorUserIdFromForm } from '@/lib/lead-form-auto-save';
 import {
   duplicarLeadRelacionados,
@@ -1285,7 +1286,7 @@ export function LeadModal({
         await updateLeadMutation.mutateAsync({
           id: leadId,
           updates: {
-            status: 'Orçamentos Perdidos',
+            status: ORCAMENTOS_PERDIDOS_STATUS,
             motivo_perda: formData.lossReason || null,
             vendedor_responsavel_id: vendorId,
           },

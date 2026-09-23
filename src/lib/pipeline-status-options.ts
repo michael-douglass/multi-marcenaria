@@ -4,6 +4,10 @@ import {
 } from '@/hooks/usePipelineCustomStages';
 import type { KanbanPageComplete } from '@/types/kanban-config';
 import { getTargetStatusForKanbanColumn } from '@/lib/kanban-status-options';
+import {
+  LEGACY_VENDA_PERDIDA_NAO_MATRICULADO,
+  ORCAMENTOS_PERDIDOS_STATUS,
+} from '@/lib/crm-portal';
 
 export interface PipelineStatusFilterOption {
   value: string;
@@ -130,6 +134,7 @@ export function buildPipelineStatusFilterOptions(
 
   for (const nome of stageNames) {
     if (!nome.trim() || seen.has(nome)) continue;
+    if (nome.trim() === LEGACY_VENDA_PERDIDA_NAO_MATRICULADO) continue;
     seen.add(nome);
     options.push({ value: nome, label: nome });
   }
@@ -137,6 +142,7 @@ export function buildPipelineStatusFilterOptions(
   for (const opt of extraOptions) {
     const value = opt.value?.trim();
     if (!value || seen.has(value)) continue;
+    if (value === LEGACY_VENDA_PERDIDA_NAO_MATRICULADO) continue;
     seen.add(value);
     const label = opt.label?.trim() || value;
     options.push({ value, label });
@@ -159,6 +165,8 @@ export function buildAllLeadModalStatusOptions(
 
   const pushUnique = (opt: LeadModalStatusOption) => {
     if (!opt.value || byValue.has(opt.value)) return;
+    // Status legado: não oferece mais "Não Matriculado" no select.
+    if (opt.value === LEGACY_VENDA_PERDIDA_NAO_MATRICULADO) return;
     byValue.set(opt.value, opt);
     ordered.push(opt);
   };
@@ -218,7 +226,7 @@ export function buildAllLeadModalStatusOptions(
   });
 
   const current = currentStatus?.trim();
-  if (current && !byValue.has(current)) {
+  if (current && current !== LEGACY_VENDA_PERDIDA_NAO_MATRICULADO && !byValue.has(current)) {
     ordered.push({
       value: current,
       label: current,
@@ -254,6 +262,8 @@ const PIPELINE_STATUS_ALIASES: Record<string, string> = {
   'reuniao marcada': 'Reunião marcada',
   'reunião feita': 'Reunião feita',
   'reuniao feita': 'Reunião feita',
+  [LEGACY_VENDA_PERDIDA_NAO_MATRICULADO.toLowerCase()]: ORCAMENTOS_PERDIDOS_STATUS,
+  'venda perdida (nao matriculado)': ORCAMENTOS_PERDIDOS_STATUS,
 };
 
 export function normalizeLeadStatusForPipeline(

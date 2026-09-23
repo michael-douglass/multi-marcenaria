@@ -19,12 +19,14 @@ interface PipelineIndicatorsSectionProps {
   isLoading: boolean;
   /** Quais cards exibir (admin vê todos por padrão). */
   visibleKeys?: PipelineIndicatorKey[];
+  onLeadClick?: (leadId: number) => void;
 }
 
 export function PipelineIndicatorsSection({
   allLeads,
   isLoading,
   visibleKeys = [...PIPELINE_INDICATOR_KEYS],
+  onLeadClick,
 }: PipelineIndicatorsSectionProps) {
   const { indicators, ready, setSectionOpen, setCardOpen } =
     usePipelineIndicatorsPreferencesContext();
@@ -95,6 +97,7 @@ export function PipelineIndicatorsSection({
                 isLoading={isLoading}
                 open={ready ? indicators.cards.orcamentos : false}
                 onOpenChange={(open) => setCardOpen('orcamentos', open)}
+                onLeadClick={onLeadClick}
               />
             )}
             {show('sales_by_origin') && (

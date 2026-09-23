@@ -10,7 +10,7 @@ export type LeadStatus =
   | 'Negociação'
   | 'Venda Realizada (Matriculado)'
   | 'Interesse Futuro'
-  | 'Venda Perdida (Não Matriculado)'
+  | 'Orçamentos Perdidos'
   | 'Clientes Já Cadastrados';
 
 export type LeadOrigin = string; // Dynamic origins
