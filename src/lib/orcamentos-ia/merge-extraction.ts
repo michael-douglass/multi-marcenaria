@@ -319,10 +319,18 @@ export function buildPageImagePath(
   companyId: string,
   analysisId: string,
   page: number | null | undefined,
+  existingPaths?: string[] | null,
 ): string | null {
   const n = Number(page)
   if (!Number.isFinite(n) || n < 1) return null
-  return `${companyId}/${analysisId}/pages/page-${String(Math.floor(n)).padStart(3, '0')}.png`
+  const stem = `page-${String(Math.floor(n)).padStart(3, '0')}.`
+  const fromExisting = (existingPaths || []).find((p) => {
+    const name = p.split('/').pop() || p
+    return name.toLowerCase().startsWith(stem)
+  })
+  if (fromExisting) return fromExisting
+  // Pipeline atual grava JPEG; análises antigas podem ter .png no Storage.
+  return `${companyId}/${analysisId}/pages/page-${String(Math.floor(n)).padStart(3, '0')}.jpg`
 }
 
 export function pageFromBoundingBox(bbox: unknown): number | null {

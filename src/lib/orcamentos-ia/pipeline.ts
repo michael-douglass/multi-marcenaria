@@ -1,6 +1,6 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 import { supabase } from '@/lib/supabase'
-import { pdfDataAllPagesToPngBlobs } from '@/lib/pdf-to-image'
+import { convertPdfPagesToJpegSequential } from '@/lib/pdf-to-image'
 import { ORCAMENTOS_IA_MODELS } from '@/lib/orcamentos-ia/openai-models'
 import {
   ORCAMENTOS_IA_BUCKET,
@@ -237,28 +237,33 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
         pipeline_stage: 'converting_pages',
         pipeline_detail: `Abrindo o PDF “${file.name}” e transformando cada folha em imagem…`,
       })
-      const blobs = await pdfDataAllPagesToPngBlobs(await file.arrayBuffer(), {
-        maxPages: MAX_PIPELINE_PAGES - pageIndex,
-      })
-      for (const blob of blobs) {
-        if (pageIndex >= MAX_PIPELINE_PAGES) break
-        pageIndex += 1
-        const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.png`
-        const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, blob, {
-          contentType: 'image/png',
-          upsert: true,
-          cacheControl: '3600',
-        })
-        if (error) throw new Error(`Falha ao enviar página ${pageIndex}: ${error.message}`)
-        pagePaths.push(path)
-        if (pageIndex === 1 || pageIndex % 3 === 0 || pageIndex === blobs.length) {
+
+      const remaining = MAX_PIPELINE_PAGES - pageIndex
+      await convertPdfPagesToJpegSequential(await file.arrayBuffer(), {
+        maxPages: remaining,
+        onPage: async ({ pageNumber, totalPages, blob }) => {
+          pageIndex += 1
+          const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.jpg`
+          const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, blob, {
+            contentType: 'image/jpeg',
+            upsert: true,
+            cacheControl: '3600',
+          })
+          if (error) throw new Error(`Falha ao enviar página ${pageIndex}: ${error.message}`)
+          pagePaths.push(path)
           await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
             pipeline_stage: 'converting_pages',
-            pipeline_detail: `Transformando página ${pageIndex} do PDF em imagem para a IA ler o desenho…`,
-            totals: { pages_processed: pageIndex },
+            pipeline_detail: `Transformando página ${pageIndex} de ${totalPages} do PDF em imagem…`,
+            totals: {
+              pages_processed: pageIndex,
+              pages_total: totalPages,
+              conversion_page: pageNumber,
+            },
+            // Evita spam no thought_log; só marcos 1, a cada 3 e a última
+            thought: pageIndex === 1 || pageIndex % 3 === 0 || pageIndex === totalPages,
           })
-        }
-      }
+        },
+      })
       continue
     }
 
@@ -521,7 +526,12 @@ async function nodeResolvePricesAndPersist(
       const modPage =
         pageFromBoundingBox(mod.bounding_box) ??
         (typeof mod.bounding_box?.page === 'number' ? mod.bounding_box.page : null)
-      const modPagePath = buildPageImagePath(state.companyId, state.analysisId, modPage)
+      const modPagePath = buildPageImagePath(
+        state.companyId,
+        state.analysisId,
+        modPage,
+        state.pagePaths,
+      )
 
       const { data: modRow, error: modError } = await supabase
         .from('quote_modules')
@@ -557,7 +567,12 @@ async function nodeResolvePricesAndPersist(
         return {
           ...row,
           bounding_box: inheritedBbox,
-          page_image_path: buildPageImagePath(state.companyId, state.analysisId, page),
+          page_image_path: buildPageImagePath(
+            state.companyId,
+            state.analysisId,
+            page,
+            state.pagePaths,
+          ),
         }
       }
 
@@ -907,7 +922,7 @@ export async function runOrcamentosIaPipeline(
 
 /**
  * Reprocessa um orçamento já existente.
- * Preferência: reusa PNGs em pages/; se não houver, baixa o arquivo fonte.
+ * Preferência: reusa páginas em pages/; se não houver, baixa o arquivo fonte.
  */
 export async function reprocessOrcamentosIaPipeline(params: {
   analysisId: string

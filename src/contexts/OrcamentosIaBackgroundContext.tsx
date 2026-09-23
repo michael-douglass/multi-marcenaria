@@ -28,6 +28,10 @@ import {
 } from '@/lib/orcamentos-ia/pipeline'
 
 const STORAGE_KEY = 'orcamentos-ia-bg-jobs'
+/** Sem progresso em CONVERTING_PAGES por este tempo → FAILED. */
+const CONVERTING_STALL_MS = 5 * 60 * 1000
+const STALL_MESSAGE =
+  'Travado na conversão de páginas (PDF→imagem) sem progresso. Reenvie o arquivo ou use Retomar.'
 
 export interface OrcamentosIaBackgroundJob {
   id: string
@@ -77,6 +81,57 @@ function isTerminal(status: QuoteAnalysisStatus): boolean {
 
 function isBusyStatus(status: QuoteAnalysisStatus): boolean {
   return !isTerminal(status)
+}
+
+function stallTimestampMs(row: {
+  updated_at?: string | null
+  totals?: Record<string, unknown> | null
+}): number {
+  const totals = row.totals && typeof row.totals === 'object' ? row.totals : null
+  const pipelineAt =
+    totals && typeof totals.pipeline_updated_at === 'string' ? totals.pipeline_updated_at : null
+  const raw = pipelineAt || row.updated_at
+  if (!raw) return 0
+  const t = Date.parse(raw)
+  return Number.isFinite(t) ? t : 0
+}
+
+function isConvertingStall(row: {
+  status?: string | null
+  updated_at?: string | null
+  totals?: Record<string, unknown> | null
+}): boolean {
+  if (row.status !== 'CONVERTING_PAGES') return false
+  const ts = stallTimestampMs(row)
+  if (!ts) return false
+  return Date.now() - ts >= CONVERTING_STALL_MS
+}
+
+async function failStalledConversion(analysisId: string): Promise<void> {
+  const { data: current } = await supabase
+    .from('quote_analyses')
+    .select('totals')
+    .eq('id', analysisId)
+    .maybeSingle()
+  const prev =
+    current?.totals && typeof current.totals === 'object'
+      ? (current.totals as Record<string, unknown>)
+      : {}
+  await supabase
+    .from('quote_analyses')
+    .update({
+      status: 'FAILED',
+      error_message: STALL_MESSAGE,
+      updated_at: new Date().toISOString(),
+      totals: {
+        ...prev,
+        pipeline_stage: 'failed',
+        pipeline_detail: STALL_MESSAGE,
+        pipeline_updated_at: new Date().toISOString(),
+      },
+    })
+    .eq('id', analysisId)
+    .eq('status', 'CONVERTING_PAGES')
 }
 
 type StoredJobMeta = {
@@ -207,10 +262,26 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       for (const meta of stored) {
         const { data } = await supabase
           .from('quote_analyses')
-          .select('id, company_id, mode, status, error_message, totals, source_pdf_path')
+          .select('id, company_id, mode, status, error_message, totals, source_pdf_path, updated_at')
           .eq('id', meta.analysisId)
           .maybeSingle()
         if (!data || cancelled) continue
+
+        if (isConvertingStall(data)) {
+          await failStalledConversion(meta.analysisId)
+          data.status = 'FAILED'
+          data.error_message = STALL_MESSAGE
+          const prevTotals =
+            data.totals && typeof data.totals === 'object'
+              ? (data.totals as Record<string, unknown>)
+              : {}
+          data.totals = {
+            ...prevTotals,
+            pipeline_stage: 'failed',
+            pipeline_detail: STALL_MESSAGE,
+          }
+        }
+
         const status = isQuoteAnalysisStatus(data.status) ? data.status : 'FAILED'
         const totals =
           data.totals && typeof data.totals === 'object'
@@ -285,10 +356,35 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       for (const job of active) {
         const { data } = await supabase
           .from('quote_analyses')
-          .select('status, error_message, totals')
+          .select('status, error_message, totals, updated_at')
           .eq('id', job.analysisId)
           .maybeSingle()
         if (cancelled || !data) continue
+
+        if (isConvertingStall(data)) {
+          await failStalledConversion(job.analysisId)
+          runnersRef.current.delete(job.analysisId)
+          setJobs((current) =>
+            current.map((j) =>
+              j.analysisId === job.analysisId
+                ? {
+                    ...j,
+                    status: 'FAILED' as QuoteAnalysisStatus,
+                    errorMessage: STALL_MESSAGE,
+                    runnerActive: false,
+                    needsResume: false,
+                    pipelineStage: 'failed',
+                    pipelineDetail: STALL_MESSAGE,
+                  }
+                : j,
+            ),
+          )
+          toast.error('Orçamento IA travou nas páginas', {
+            description: STALL_MESSAGE,
+          })
+          continue
+        }
+
         setJobs((current) =>
           current.map((j) =>
             j.analysisId === job.analysisId ? applyRowToJob(j, data) : j,

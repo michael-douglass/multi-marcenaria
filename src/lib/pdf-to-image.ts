@@ -1,5 +1,5 @@
 /**
- * Conversão de PDF → PNG via pdf.js.
+ * Conversão de PDF → imagem via pdf.js.
  * Usa o build `legacy` porque o build moderno exige Map.getOrInsertComputed
  * (Chrome 145+); sem isso o anexo falha com "getOrInsertComputed is not a function".
  */
@@ -15,6 +15,9 @@ const MAX_PDF_PAGES = 50
 /** JPEG de documentos (menor que PNG; fundo branco evita página preta). */
 const PDF_JPEG_QUALITY = 0.85
 const PDF_JPEG_MAX_EDGE = 2000
+/** Pipeline Orçamentos IA: JPEG mais leve para não travar PDFs grandes. */
+export const ORCAMENTOS_IA_JPEG_MAX_EDGE = 1600
+export const ORCAMENTOS_IA_JPEG_QUALITY = 0.82
 /** No card/lightbox: poucas páginas. 100 PNGs derrubavam o Safari no iPhone. */
 const MAX_LEAD_PDF_PAGES = 8
 
@@ -53,9 +56,17 @@ async function renderPdfPageToBlob(
 
   await page.render({ canvas, canvasContext: ctx, viewport }).promise
 
+  // Libera a página do worker o quanto antes (menos memória em PDFs longos).
+  page.cleanup()
+
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      blob => (blob ? resolve(blob) : reject(new Error('Falha ao gerar imagem do PDF.'))),
+      (blob) => {
+        canvas.width = 0
+        canvas.height = 0
+        if (blob) resolve(blob)
+        else reject(new Error('Falha ao gerar imagem do PDF.'))
+      },
       mime,
       quality,
     )
@@ -85,6 +96,81 @@ export async function pdfDataAllPagesToPngBlobs(
   return blobs
 }
 
+export interface PdfPageJpegResult {
+  pageNumber: number
+  totalPages: number
+  blob: Blob
+}
+
+/**
+ * Converte o PDF página a página em JPEG (sem acumular tudo na memória).
+ * Usado pelo pipeline de Orçamentos IA — progresso + menos risco de travar a aba.
+ */
+export async function convertPdfPagesToJpegSequential(
+  data: ArrayBuffer,
+  options: {
+    maxPages?: number
+    maxEdge?: number
+    quality?: number
+    /** Timeout por página (ms). Padrão 120s. */
+    pageTimeoutMs?: number
+    onPage: (page: PdfPageJpegResult) => void | Promise<void>
+  },
+): Promise<{ totalPages: number; converted: number }> {
+  const maxPages = options.maxPages ?? MAX_PDF_PAGES
+  let pdf: pdfjs.PDFDocumentProxy
+  try {
+    pdf = await pdfjs.getDocument({ data }).promise
+  } catch {
+    throw new Error(
+      'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.',
+    )
+  }
+
+  if (pdf.numPages < 1) {
+    await pdf.destroy()
+    throw new Error('PDF vazio.')
+  }
+
+  const totalPages = Math.min(pdf.numPages, maxPages)
+  let converted = 0
+
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(message)), ms)
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
+  try {
+    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+      const blob = await withTimeout(
+        renderPdfPageToBlob(pdf, pageNumber, {
+          mime: 'image/jpeg',
+          quality: options.quality ?? ORCAMENTOS_IA_JPEG_QUALITY,
+          maxEdge: options.maxEdge ?? ORCAMENTOS_IA_JPEG_MAX_EDGE,
+          fillWhite: true,
+        }),
+        options.pageTimeoutMs ?? 120_000,
+        `A conversão da página ${pageNumber} demorou demais e foi interrompida. Tente um PDF menor ou menos pesado.`,
+      )
+      converted += 1
+      await options.onPage({ pageNumber, totalPages, blob })
+    }
+  } finally {
+    await pdf.destroy()
+  }
+
+  return { totalPages, converted }
+}
+
 /**
  * Converte cada página do PDF em JPEG (uma imagem por página).
  * Se o PDF tiver mais páginas que o teto, avisa em vez de cortar em silêncio.
@@ -98,7 +184,9 @@ export async function pdfAllPagesToJpegBlobs(
   try {
     pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
   } catch {
-    throw new Error('Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.')
+    throw new Error(
+      'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.',
+    )
   }
   if (pdf.numPages < 1) throw new Error('PDF vazio.')
   if (pdf.numPages > maxPages) {
@@ -146,5 +234,5 @@ export async function pdfUrlAllPagesToObjectUrls(url: string): Promise<string[]>
   const blobs = await pdfDataAllPagesToPngBlobs(await res.arrayBuffer(), {
     maxPages: MAX_LEAD_PDF_PAGES,
   })
-  return blobs.map(blob => URL.createObjectURL(blob))
+  return blobs.map((blob) => URL.createObjectURL(blob))
 }

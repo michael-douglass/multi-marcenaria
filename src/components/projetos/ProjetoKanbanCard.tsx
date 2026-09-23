@@ -87,6 +87,15 @@ export function ProjetoKanbanCard({
             Em desenho · {projeto.arquiteto_nome ?? 'projetista'}
           </p>
         </div>
+      ) : kind === 'feito' ? (
+        <div
+          className="flex items-center gap-2 border-b border-emerald-500/25 bg-emerald-50/80 px-2 py-1.5"
+          role="status"
+        >
+          <p className="min-w-0 font-display text-sm tracking-wide text-emerald-800">
+            Feito por {projeto.concluido_por_nome ?? 'Equipe'}
+          </p>
+        </div>
       ) : null}
 
       <div className="flex items-start gap-1.5 p-2.5 pl-3.5">

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { useApp } from '@/context/AppContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase'
 import { useBuscaLeads, type LeadBuscaItem } from '@/hooks/useBuscaLeads'
@@ -41,11 +42,14 @@ export interface LeadProjeto {
   enviado_por: string | null
   enviado_em: string
   aguardando_resposta: boolean
+  concluido_por: string | null
+  concluido_em: string | null
   lead_nome: string
   lead_empresa: string | null
   titular_nome: string | null
   arquiteto_nome: string | null
   parceiro_nome: string | null
+  concluido_por_nome: string | null
 }
 
 export type LeadProjetoNotaTipo = 'envio' | 'reenvio' | 'conversa'
@@ -87,6 +91,19 @@ function firstName(nome: string | null | undefined): string | null {
   const trimmed = (nome ?? '').trim()
   if (!trimmed) return null
   return trimmed.split(/\s+/)[0] ?? trimmed
+}
+
+function nomeAssinaturaDoUsuario(input: {
+  crmNome?: string | null
+  meta?: Record<string, unknown> | null
+}): string {
+  const meta = input.meta ?? {}
+  const bruto =
+    input.crmNome ||
+    (typeof meta.name === 'string' ? meta.name : null) ||
+    (typeof meta.nome === 'string' ? meta.nome : null) ||
+    (typeof meta.full_name === 'string' ? meta.full_name : null)
+  return firstName(bruto) ?? 'Equipe'
 }
 
 function asAppRole(role: string): AppUserRole | null {
@@ -268,7 +285,9 @@ async function loadLeadProjetosBoard(
 ): Promise<LeadProjeto[]> {
   const { data: rows, error } = await db
     .from('lead_projetos')
-    .select('id, lead_id, stage_id, titular_id, arquiteto_id, enviado_por, enviado_em, aguardando_resposta')
+    .select(
+      'id, lead_id, stage_id, titular_id, arquiteto_id, enviado_por, enviado_em, aguardando_resposta, concluido_por, concluido_em, concluido_por_nome',
+    )
     .order('enviado_em', { ascending: false })
   if (error) throw error
 
@@ -277,7 +296,7 @@ async function loadLeadProjetosBoard(
   const userIds = [
     ...new Set(
       projetos
-        .flatMap((p) => [p.titular_id, p.arquiteto_id, p.enviado_por])
+        .flatMap((p) => [p.titular_id, p.arquiteto_id, p.enviado_por, p.concluido_por])
         .filter((id): id is string => Boolean(id))
         .map(String),
     ),
@@ -306,6 +325,10 @@ async function loadLeadProjetosBoard(
     const lead = leadsById.get(row.lead_id as number)
     const titularId = row.titular_id ? String(row.titular_id) : null
     const arquitetoId = row.arquiteto_id ? String(row.arquiteto_id) : null
+    const concluidoPorId = row.concluido_por ? String(row.concluido_por) : null
+    const concluidoNomeSnapshot = firstName(
+      row.concluido_por_nome ? String(row.concluido_por_nome) : null,
+    )
     return {
       id: String(row.id),
       lead_id: row.lead_id as number,
@@ -315,11 +338,17 @@ async function loadLeadProjetosBoard(
       enviado_por: row.enviado_por ? String(row.enviado_por) : null,
       enviado_em: String(row.enviado_em),
       aguardando_resposta: row.aguardando_resposta === true,
+      concluido_por: concluidoPorId,
+      concluido_em: row.concluido_em ? String(row.concluido_em) : null,
       lead_nome: lead?.nome ?? `Lead #${row.lead_id}`,
       lead_empresa: lead?.empresa ?? null,
       titular_nome: firstName(titularId ? usersById.get(titularId) : null),
       arquiteto_nome: firstName(arquitetoId ? usersById.get(arquitetoId) : null),
       parceiro_nome: firstName(lead?.parceiroId ? usersById.get(lead.parceiroId) : null),
+      concluido_por_nome:
+        concluidoNomeSnapshot ??
+        firstName(concluidoPorId ? usersById.get(concluidoPorId) : null) ??
+        firstName(arquitetoId ? usersById.get(arquitetoId) : null),
     }
   })
 }
@@ -511,6 +540,7 @@ export function useLeadProjetoMutations() {
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
   const { user, userRoles } = useAuth()
+  const { crmProfile } = useApp()
   const { schemaEmpresa } = useEmpresa()
   const { data: stages = [], isPending: stagesPending } = useProjetoStages()
 
@@ -574,6 +604,25 @@ export function useLeadProjetoMutations() {
     onError: (error: Error) => toast.error(error.message || 'Não foi possível pegar'),
   })
 
+  const assinaturaConclusao = () => {
+    if (!user?.id) throw new Error('Faça login para concluir o projeto.')
+    const nome = nomeAssinaturaDoUsuario({
+      crmNome: crmProfile?.nome,
+      meta: (user.user_metadata ?? null) as Record<string, unknown> | null,
+    })
+    return {
+      concluido_por: user.id,
+      concluido_em: new Date().toISOString(),
+      concluido_por_nome: nome,
+    }
+  }
+
+  const limparAssinaturaConclusao = () => ({
+    concluido_por: null,
+    concluido_em: null,
+    concluido_por_nome: null,
+  })
+
   const soltar = useMutation({
     mutationFn: async (projetoId: string) => {
       const fila = waitingId()
@@ -583,6 +632,7 @@ export function useLeadProjetoMutations() {
           arquiteto_id: null,
           aguardando_resposta: true,
           stage_id: fila,
+          ...limparAssinaturaConclusao(),
           atualizado_em: new Date().toISOString(),
         })
         .eq('id', projetoId)
@@ -607,8 +657,12 @@ export function useLeadProjetoMutations() {
       if (toWaiting) {
         payload.arquiteto_id = null
         payload.aguardando_resposta = true
+        Object.assign(payload, limparAssinaturaConclusao())
       } else if (toFeito) {
         payload.aguardando_resposta = false
+        Object.assign(payload, assinaturaConclusao())
+      } else {
+        Object.assign(payload, limparAssinaturaConclusao())
       }
       const { error } = await db.from('lead_projetos').update(payload).eq('id', projetoId)
       if (error) throw error
@@ -626,6 +680,7 @@ export function useLeadProjetoMutations() {
         .update({
           stage_id: last,
           aguardando_resposta: false,
+          ...assinaturaConclusao(),
           atualizado_em: new Date().toISOString(),
         })
         .eq('id', projetoId)
@@ -646,6 +701,7 @@ export function useLeadProjetoMutations() {
         .update({
           stage_id: fila,
           aguardando_resposta: true,
+          ...limparAssinaturaConclusao(),
           atualizado_em: new Date().toISOString(),
         })
         .eq('id', projetoId)
@@ -669,6 +725,7 @@ export function useLeadProjetoMutations() {
           aguardando_resposta: true,
           enviado_por: user?.id ?? null,
           enviado_em: new Date().toISOString(),
+          ...limparAssinaturaConclusao(),
           atualizado_em: new Date().toISOString(),
         })
         .eq('id', projetoId)
@@ -706,6 +763,22 @@ export function useLeadProjetoMutations() {
 
       if (existing?.id) {
         if (existing.stage_id !== destinoStageId) {
+          const toFeito = kind === 'feito'
+          const assinatura = toFeito
+            ? {
+                aguardando_resposta: false,
+                concluido_por: user?.id ?? null,
+                concluido_em: new Date().toISOString(),
+                concluido_por_nome: nomeAssinaturaDoUsuario({
+                  crmNome: crmProfile?.nome,
+                  meta: (user?.user_metadata ?? null) as Record<string, unknown> | null,
+                }),
+              }
+            : {
+                concluido_por: null,
+                concluido_em: null,
+                concluido_por_nome: null,
+              }
           const { error } = await db
             .from('lead_projetos')
             .update({
@@ -716,6 +789,7 @@ export function useLeadProjetoMutations() {
                     aguardando_resposta: false,
                   }
                 : {}),
+              ...assinatura,
               atualizado_em: new Date().toISOString(),
             })
             .eq('id', existing.id)
@@ -725,13 +799,22 @@ export function useLeadProjetoMutations() {
         return { already: true as const, moved: false as const, leadId }
       }
 
+      const toFeito = kind === 'feito'
       const { error } = await db.from('lead_projetos').insert({
         lead_id: leadId,
         stage_id: destinoStageId,
         enviado_por: user?.id ?? null,
         titular_id: claimNow ? null : user?.id ?? null,
         arquiteto_id: claimNow ? user?.id ?? null : null,
-        aguardando_resposta: !claimNow,
+        aguardando_resposta: toFeito ? false : !claimNow,
+        concluido_por: toFeito ? user?.id ?? null : null,
+        concluido_em: toFeito ? new Date().toISOString() : null,
+        concluido_por_nome: toFeito
+          ? nomeAssinaturaDoUsuario({
+              crmNome: crmProfile?.nome,
+              meta: (user?.user_metadata ?? null) as Record<string, unknown> | null,
+            })
+          : null,
       })
       if (error) {
         if (error.code === '23505') return { already: true as const, moved: false as const, leadId }
@@ -796,6 +879,9 @@ export function useLeadProjetoMutations() {
             aguardando_resposta: true,
             enviado_por: user.id,
             enviado_em: new Date().toISOString(),
+            concluido_por: null,
+            concluido_em: null,
+            concluido_por_nome: null,
             atualizado_em: new Date().toISOString(),
           })
           .eq('id', existing.id)

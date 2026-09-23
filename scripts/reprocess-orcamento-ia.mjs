@@ -78,7 +78,7 @@ async function main() {
   if (listErr) throw new Error(listErr.message)
 
   const pagePaths = (objects || [])
-    .filter((o) => o.name?.endsWith('.png'))
+    .filter((o) => /\.(png|jpe?g|webp)$/i.test(o.name || ''))
     .map((o) => `${prefix}${o.name}`)
     .sort()
 
@@ -153,7 +153,7 @@ async function main() {
       const analysisId = ANALYSIS_ID
       const pagePath = (page) =>
         page && Number(page) >= 1
-          ? `${companyId}/${analysisId}/pages/page-${String(Math.floor(Number(page))).padStart(3, '0')}.png`
+          ? `${companyId}/${analysisId}/pages/page-${String(Math.floor(Number(page))).padStart(3, '0')}.jpg`
           : null
       const modPage = mod.bounding_box?.page ?? null
 

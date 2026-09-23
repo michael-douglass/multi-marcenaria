@@ -80,6 +80,15 @@ export function LeadProjetoConclusaoPanel({ leadId }: LeadProjetoConclusaoPanelP
             {kind === 'feito' ? 'Projeto feito' : emDesenho ? 'Em desenho' : 'Na fila'}
           </p>
           <p className="text-xs text-cream-muted">{stage?.nome}</p>
+          {kind === 'feito' ? (
+            <p className="mt-1.5 font-display text-base tracking-wide text-gold">
+              — {projeto.concluido_por_nome ?? 'Equipe'}
+            </p>
+          ) : emDesenho && projeto.arquiteto_nome ? (
+            <p className="mt-1 text-xs text-cream-muted">
+              Em desenho · <span className="font-medium text-sky-200">{projeto.arquiteto_nome}</span>
+            </p>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {canPegar && !emDesenho && kind !== 'feito' ? (
               <Button type="button" size="sm" className="h-8" onClick={() => pegar.mutate(projeto.id)}>
