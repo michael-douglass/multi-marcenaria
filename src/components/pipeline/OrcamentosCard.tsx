@@ -28,6 +28,7 @@ import {
 } from '@/lib/orcamento-formula';
 import { computeKanbanColumnSums } from '@/lib/orcamento-kanban-sums';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
+import { isPortalVendaPerdida } from '@/lib/crm-portal';
 import { cn } from '@/lib/utils';
 
 interface OrcamentosCardProps {
@@ -65,7 +66,10 @@ export function OrcamentosCard({
   const [searchTerm, setSearchTerm] = useState('');
 
   const stats = useMemo(() => {
-    const comOrcamento = allLeads.filter((lead) => (lead.budgetValue || 0) > 0);
+    // Orçamentos perdidos ficam na coluna do Kanban, mas não entram nos indicadores.
+    const comOrcamento = allLeads.filter(
+      (lead) => (lead.budgetValue || 0) > 0 && !isPortalVendaPerdida(lead.status),
+    );
     const valorTotal = comOrcamento.reduce((sum, lead) => sum + (lead.budgetValue || 0), 0);
     const ticketMedio = comOrcamento.length > 0 ? valorTotal / comOrcamento.length : 0;
 

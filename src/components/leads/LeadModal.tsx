@@ -1280,14 +1280,15 @@ export function LeadModal({
       setIsSubmitting(true);
       try {
         const vendorId = dbLead?.vendedor_responsavel_id || authUser?.id;
-        
+
+        // Move o card para a coluna "Orçamentos Perdidos" do Kanban Orçamentos internos.
         await updateLeadMutation.mutateAsync({
           id: leadId,
-          updates: { 
-            status: 'Venda Perdida (Não Matriculado)',
+          updates: {
+            status: 'Orçamentos Perdidos',
             motivo_perda: formData.lossReason || null,
-            vendedor_responsavel_id: vendorId
-          }
+            vendedor_responsavel_id: vendorId,
+          },
         });
         onClose();
       } finally {
