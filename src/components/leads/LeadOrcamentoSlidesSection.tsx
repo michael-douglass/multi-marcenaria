@@ -47,6 +47,12 @@ interface LeadOrcamentoSlidesSectionProps {
   readOnly?: boolean;
   /** Modo prestador: filtra orçamentos liberados pelo admin */
   prestadorPerm?: LeadPrestadorPermissao | null;
+  /**
+   * Mantém a visualização se o card do lead remontar.
+   * Desligue quando a seção também aparece fora do card (ex.: tela de contrato),
+   * para não abrir duas apresentações ao mesmo tempo.
+   */
+  persistVisualizarAcrossRemount?: boolean;
 }
 
 /** Já estamos na tela de criar/editar — evita reabrir o mesmo fluxo pelo card. */
@@ -57,7 +63,12 @@ function isOrcamentoEditorPath(pathname: string): boolean {
 /** Sobrevive se o card do lead remontar ao soltar o travamento de foco. */
 let lastVisualizarOrcamentoId: string | null = null;
 
-export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestadorPerm = null }: LeadOrcamentoSlidesSectionProps) {
+export function LeadOrcamentoSlidesSection({
+  leadId,
+  readOnly = false,
+  prestadorPerm = null,
+  persistVisualizarAcrossRemount = true,
+}: LeadOrcamentoSlidesSectionProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { schemaEmpresa } = useEmpresa();
@@ -71,16 +82,18 @@ export function LeadOrcamentoSlidesSection({ leadId, readOnly = false, prestador
   const { excluirOrcamento, atualizarLinkPublico, duplicarOrcamento } = useOrcamentoSlides();
   const [excluirId, setExcluirId] = useState<string | null>(null);
   const [duplicandoId, setDuplicandoId] = useState<string | null>(null);
-  const [visualizarId, setVisualizarId] = useState<string | null>(() => lastVisualizarOrcamentoId);
+  const [visualizarId, setVisualizarId] = useState<string | null>(() =>
+    persistVisualizarAcrossRemount ? lastVisualizarOrcamentoId : null,
+  );
 
   const abrirVisualizacao = (id: string) => {
-    lastVisualizarOrcamentoId = id;
+    if (persistVisualizarAcrossRemount) lastVisualizarOrcamentoId = id;
     setOrcamentoVisualizarOpenFlag(true);
     setVisualizarId(id);
   };
 
   const fecharVisualizacao = () => {
-    lastVisualizarOrcamentoId = null;
+    if (persistVisualizarAcrossRemount) lastVisualizarOrcamentoId = null;
     setOrcamentoVisualizarOpenFlag(false);
     setVisualizarId(null);
   };

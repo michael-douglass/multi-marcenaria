@@ -38,6 +38,7 @@ import { ContratoDocumento } from '@/components/contratos/ContratoDocumento';
 import { DataBrInput } from '@/components/contratos/DataBrInput';
 import { VincularContratoLeadDialog } from '@/components/contratos/VincularContratoLeadDialog';
 import { ContratoAnexosSection } from '@/components/contratos/ContratoAnexosSection';
+import { LeadOrcamentoSlidesSection } from '@/components/leads/LeadOrcamentoSlidesSection';
 import { OrcamentoLeadCardDock } from '@/components/orcamento-slides/OrcamentoLeadCardDock';
 import { useContratoAnexos } from '@/hooks/useContratoAnexos';
 import { getContratosEmpresaFromContext } from '@/hooks/useContratosEmpresaConfig';
@@ -647,6 +648,16 @@ export default function NovoContratoPage() {
               </div>
             )}
           </div>
+
+          {/* Orçamentos do lead — visualizar a apresentação sem sair do contrato */}
+          {leadIdVinculado != null && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+              <LeadOrcamentoSlidesSection
+                leadId={leadIdVinculado}
+                persistVisualizarAcrossRemount={false}
+              />
+            </div>
+          )}
 
           {/* Seletor de modelo (quando há múltiplos) */}
           {!isLoading && (modelos.length > 1 || isModoEdicao) && modelos.length > 0 && (
