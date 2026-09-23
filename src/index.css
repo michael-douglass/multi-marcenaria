@@ -4260,13 +4260,14 @@ body::before {
 }
 
 /*
- * Com o card do lead aberto: o corpo da agenda não “come” cliques do lead,
- * mas o ícone e o chrome (fechar/minimizar) continuam clicáveis.
+ * Com o card do lead aberto: a Agenda Geral flutuante precisa continuar
+ * clicável (arrastar tarefas, abrir eventos, zoom). Antes o corpo ficava
+ * com pointer-events:none e só o chrome (X) respondia.
  */
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root],
-body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] * {
-  pointer-events: none !important;
-}
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-root] *,
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-panel],
+body:has([data-lead-card][data-state="open"]) [data-floating-agenda-panel] *,
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-chrome],
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-chrome] *,
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-icon],
@@ -4274,7 +4275,7 @@ body:has([data-lead-card][data-state="open"]) [data-floating-agenda-icon] * {
   pointer-events: auto !important;
 }
 
-/* Com o lead aberto: só um respiro no topo para o X ficar alcançável — altura quase normal */
+/* Com o lead aberto: agenda um pouco abaixo do topo (não cobre o chrome do lead) */
 body:has([data-lead-card][data-state="open"]) [data-floating-agenda-panel] {
   top: max(0.5rem, env(safe-area-inset-top)) !important;
   bottom: 0 !important;

@@ -7,6 +7,9 @@ export const ENVIAR_PROJETO_DIALOG_OPEN_ATTR = 'data-enviar-projeto-dialog-open'
 /** Painel da agenda flutuante (não o ícone). */
 export const FLOATING_AGENDA_PANEL_ATTR = 'data-floating-agenda-panel';
 
+/** Agenda Geral flutuante aberta — o card do lead vira não-modal para arrastar tarefas. */
+export const FLOATING_AGENDA_OPEN_ATTR = 'data-floating-agenda-open';
+
 export const AMBIENTE_FULLSCREEN_ATTR = 'data-ambiente-fullscreen';
 
 /** Lousa digital em tela cheia, por cima do card do lead. */
@@ -73,15 +76,42 @@ export function subscribeOrcamentoVisualizarOpen(onStoreChange: () => void): () 
   };
 }
 
-/** Orçamento em slides, lousa ou composição em tela cheia — o card passa a ser não-modal. */
+/** Agenda flutuante aberta — mesma regra da tela cheia (card não-modal). */
+export function setFloatingAgendaOpenFlag(open: boolean) {
+  if (typeof document === 'undefined') return;
+  if (open) {
+    document.documentElement.setAttribute(FLOATING_AGENDA_OPEN_ATTR, 'true');
+  } else {
+    document.documentElement.removeAttribute(FLOATING_AGENDA_OPEN_ATTR);
+  }
+  notifyLeadModalPassthrough();
+}
+
+/** Orçamento em slides, lousa, composição ou agenda flutuante — o card passa a ser não-modal. */
 export function isLeadModalPassthroughOpen(): boolean {
   if (typeof document === 'undefined') return false;
   const root = document.documentElement;
   return (
     root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
     root.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
-    root.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR)
+    root.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR) ||
+    root.hasAttribute(FLOATING_AGENDA_OPEN_ATTR)
   );
+}
+
+/**
+ * Clique na agenda / IA flutuante com painel ativo: NÃO chamar preventDefault
+ * no pointerdown — o Radix cancela o evento original e arrastar tarefas morre.
+ * O card permanece aberto via open controlado + isLeadDismissBlocked.
+ */
+export function shouldCancelFloatingUiOutsideEvent(e?: { target: EventTarget | null }): boolean {
+  if (typeof document === 'undefined') return true;
+  if (isLeadModalPassthroughOpen()) return false;
+  const target = e?.target as HTMLElement | null;
+  // Painel já no DOM (mesmo antes do flag reagir): libera arrasto/edição.
+  if (target?.closest?.('[data-floating-agenda-panel]')) return false;
+  if (target?.closest?.('[data-floating-agenda-root][data-state="open"]')) return false;
+  return true;
 }
 
 export function subscribeLeadModalPassthrough(onStoreChange: () => void): () => void {
@@ -96,9 +126,9 @@ export function subscribeLeadModalPassthrough(onStoreChange: () => void): () => 
  * Não use preventDefault nesses eventos: o Radix cancela o clique original
  * e a lousa / o texto ficam inacessíveis.
  *
- * Painéis flutuantes fora do card (IA em 2º plano, agenda) NÃO entram aqui —
- * para eles use preventDefault em onPointerDownOutside / onInteractOutside
- * (senão o card do lead fecha ao clicar no X / Minimizar).
+ * Painéis flutuantes fora do card (IA em 2º plano, agenda): com a agenda aberta
+ * NÃO use preventDefault (arrastar tarefas precisa do pointer original).
+ * Sem a agenda aberta, use preventDefault para o card não fechar no ícone/X.
  */
 export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boolean {
   const target = e.target as HTMLElement | null;
@@ -127,6 +157,8 @@ export function isFloatingUiOutsideEvent(e: { target: EventTarget | null }): boo
   return Boolean(
     target.closest('[data-floating-ui-root]') ||
       target.closest('[data-floating-agenda-panel]') ||
+      target.closest('[data-floating-agenda-icon]') ||
+      target.closest('[data-floating-agenda-root]') ||
       target.closest('[data-saldo-mes-insight]'),
   );
 }
@@ -176,6 +208,7 @@ export function isLeadDismissBlocked(options?: { filePickerActive?: boolean }): 
       document.querySelector('[data-agenda-create-dialog][data-state="open"]') ||
       document.querySelector('[data-floating-agenda-root][data-state="open"]') ||
       document.querySelector('[data-floating-agenda-panel]') ||
+      document.documentElement.hasAttribute(FLOATING_AGENDA_OPEN_ATTR) ||
       document.querySelector('[data-ambiente-composer-fullscreen]') ||
       document.querySelector('[data-whiteboard-fullscreen]') ||
       document.querySelector('[data-lead-ai-image-fullscreen]') ||
@@ -237,6 +270,7 @@ export function shouldBlockLeadModalBackdropClose(options?: { filePickerActive?:
     root.hasAttribute(AMBIENTE_FULLSCREEN_ATTR) ||
     root.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR) ||
     root.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
+    root.hasAttribute(FLOATING_AGENDA_OPEN_ATTR) ||
     root.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR) ||
     root.hasAttribute(FILE_PICKER_OPEN_ATTR)
   )

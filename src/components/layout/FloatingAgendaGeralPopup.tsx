@@ -9,6 +9,7 @@ import { useHorizontalSnapDrag } from '@/hooks/useHorizontalSnapDrag';
 import { useFloatingAgendaZoom } from '@/hooks/useFloatingAgendaZoom';
 import { floatingAgendaPanelWidthPx } from '@/lib/floating-agenda-zoom-preferences';
 import { floatingAgendaPanelClass } from '@/lib/overlay-z-index';
+import { setFloatingAgendaOpenFlag } from '@/lib/dialog-outside-guard';
 import type { FloatingAgendaSide } from '@/hooks/useUiPreferences';
 
 interface FloatingAgendaGeralPopupProps {
@@ -42,6 +43,16 @@ export function FloatingAgendaGeralPopup({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Avisa o card do lead: com a agenda aberta ele para de “travar” cliques/arrastos.
+  useEffect(() => {
+    if (!isOpen) {
+      setFloatingAgendaOpenFlag(false);
+      return;
+    }
+    setFloatingAgendaOpenFlag(true);
+    return () => setFloatingAgendaOpenFlag(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

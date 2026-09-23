@@ -63,13 +63,14 @@ import {
   WHITEBOARD_FULLSCREEN_ATTR,
   isFloatingUiOutsideEvent,
   isLeadDismissBlocked,
+  isLeadModalPassthroughOpen,
   isLeadNestedLayerEvent,
-  isOrcamentoVisualizarOpen,
   isPrimaryDialogBackdrop,
   shouldAllowDialogFocusOutside,
   shouldBlockLeadModalBackdropClose,
+  shouldCancelFloatingUiOutsideEvent,
   shouldPreventDialogOutsideClose,
-  subscribeOrcamentoVisualizarOpen,
+  subscribeLeadModalPassthrough,
   swallowClickThroughAfterDialogClose,
 } from '@/lib/dialog-outside-guard';
 const LeadWhiteboard = lazy(() =>
@@ -1337,9 +1338,11 @@ export function LeadModal({
     showScheduleMeetingDialog ||
     showLembreteDialog;
 
-  const orcamentoVisualizarOpen = useSyncExternalStore(
-    subscribeOrcamentoVisualizarOpen,
-    isOrcamentoVisualizarOpen,
+  // Agenda flutuante / orçamento / lousa: card deixa de ser “modal” para
+  // arrastar tarefas e digitar na agenda com o lead ainda aberto.
+  const leadPassthroughOpen = useSyncExternalStore(
+    subscribeLeadModalPassthrough,
+    isLeadModalPassthroughOpen,
     () => false,
   );
 
@@ -1347,7 +1350,7 @@ export function LeadModal({
     <>
     <Dialog
       open={isOpen}
-      modal={!orcamentoVisualizarOpen}
+      modal={!leadPassthroughOpen}
       onOpenChange={(open) => {
         if (!open && filePickerActive) return;
         // Clique na confirmação “Duplicar” não pode fechar o card no meio do caminho.
@@ -1378,12 +1381,14 @@ export function LeadModal({
         onOverlayClick={() => {
           if (nestedOverlayOpen) return;
           if (shouldBlockLeadModalBackdropClose({ filePickerActive })) return;
+          if (leadPassthroughOpen) return;
           requestClose();
         }}
         onPointerDownOutside={(e) => {
-          // Painel flutuante (IA / agenda): não fecha o card; o clique no X continua válido.
+          // Agenda / IA flutuante: com painel aberto NÃO cancelar o pointer
+          // (senão arrastar reunião/tarefa na agenda não funciona).
           if (isFloatingUiOutsideEvent(e)) {
-            e.preventDefault();
+            if (shouldCancelFloatingUiOutsideEvent(e)) e.preventDefault();
             return;
           }
           // Tela cheia / janela interna: o preventDefault cancela o clique (lousa morta).
@@ -1394,7 +1399,7 @@ export function LeadModal({
         }}
         onInteractOutside={(e) => {
           if (isFloatingUiOutsideEvent(e)) {
-            e.preventDefault();
+            if (shouldCancelFloatingUiOutsideEvent(e)) e.preventDefault();
             return;
           }
           if (isLeadNestedLayerEvent(e)) return;
