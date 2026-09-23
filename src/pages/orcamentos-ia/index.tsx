@@ -270,7 +270,11 @@ export default function OrcamentosIaPage() {
                 <PdfUploadArea
                   companyId={companyId}
                   userId={user?.id}
-                  onAnalysisCompleted={openAudit}
+                  onAnalysisCreated={() => void refreshList()}
+                  onAnalysisCompleted={(id) => {
+                    void refreshList()
+                    openAudit(id)
+                  }}
                 />
               </section>
             )}

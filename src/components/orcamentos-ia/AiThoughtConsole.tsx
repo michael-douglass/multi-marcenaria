@@ -28,6 +28,8 @@ export interface AiThoughtConsoleProps {
   errorMessage?: string | null
   /** Páginas já processadas (totals.pages_processed) — dispara refresh das thumbs. */
   pagesProcessed?: number | null
+  /** Layout reduzido para popup flutuante. */
+  compact?: boolean
 }
 
 function stepState(
@@ -106,6 +108,7 @@ export function AiThoughtConsole({
   companyId,
   errorMessage,
   pagesProcessed,
+  compact = false,
 }: AiThoughtConsoleProps) {
   const current = uploading && !status
     ? ('upload' as PipelineStageId)
@@ -181,15 +184,25 @@ export function AiThoughtConsole({
 
   return (
     <div
-      className="max-h-[min(92vh,920px)] overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-sm"
+      className={cn(
+        'overflow-x-hidden overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-sm',
+        compact ? 'max-h-[min(55vh,480px)]' : 'max-h-[min(92vh,920px)]',
+      )}
       style={
         {
           '--oi-accent': '#0066FF',
         } as CSSProperties
       }
     >
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)] lg:items-stretch">
-        <div className="flex min-w-0 flex-col gap-3 p-3 sm:gap-4 sm:p-5">
+      <div
+        className={cn(
+          'grid gap-0',
+          compact
+            ? 'grid-cols-1'
+            : 'lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)] lg:items-stretch',
+        )}
+      >
+        <div className={cn('flex min-w-0 flex-col gap-3', compact ? 'p-3' : 'p-3 sm:gap-4 sm:p-5')}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <p
@@ -199,7 +212,10 @@ export function AiThoughtConsole({
                 Pensamento da IA · ao vivo
               </p>
               <h3
-                className="text-2xl leading-none tracking-wide text-[#1a2332] sm:text-3xl md:text-4xl"
+                className={cn(
+                  'leading-none tracking-wide text-[#1a2332]',
+                  compact ? 'text-xl' : 'text-2xl sm:text-3xl md:text-4xl',
+                )}
                 style={{ fontFamily: "'Bebas Neue', sans-serif" }}
               >
                 {stepIndex} · {activeStep?.shortLabel ?? 'Processando'}
@@ -233,7 +249,15 @@ export function AiThoughtConsole({
             </p>
           )}
 
-          <div className="grid min-h-0 gap-3 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+          <div
+            className={cn(
+              'grid min-h-0 gap-3',
+              compact
+                ? 'grid-cols-1'
+                : 'sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-4 md:grid-cols-[140px_minmax(0,1fr)]',
+            )}
+          >
+            {!compact && (
             <ol className="flex gap-1 overflow-x-auto pb-1 sm:flex-col sm:space-y-1 sm:overflow-visible sm:pb-0">
               {PIPELINE_VISUAL_STEPS.map((step) => {
                 const state = stepState(step.id, current, failed)
@@ -261,10 +285,14 @@ export function AiThoughtConsole({
                 )
               })}
             </ol>
+            )}
 
             <div
               ref={logRef}
-              className="max-h-[min(40vh,280px)] min-h-[140px] overflow-y-auto rounded-xl border border-slate-200 bg-[#f7f4ef]/80 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-[#1a2332] sm:max-h-[min(36vh,300px)]"
+              className={cn(
+                'min-h-[120px] overflow-y-auto rounded-xl border border-slate-200 bg-[#f7f4ef]/80 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-[#1a2332]',
+                compact ? 'max-h-[180px]' : 'max-h-[min(40vh,280px)] sm:max-h-[min(36vh,300px)]',
+              )}
               role="log"
               aria-live="polite"
               aria-relevant="additions"
@@ -317,6 +345,7 @@ export function AiThoughtConsole({
         </div>
 
         {/* Quadro de demonstração: páginas do PDF */}
+        {!compact && (
         <div className="relative flex min-h-[220px] flex-col border-t border-slate-200 lg:min-h-[320px] lg:border-l lg:border-t-0">
           <ThoughtShaderCanvas
             className="pointer-events-none absolute inset-0 h-full w-full opacity-40"
@@ -400,6 +429,7 @@ export function AiThoughtConsole({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )

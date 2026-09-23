@@ -32,6 +32,35 @@ function contingencyPrice(name, category) {
   return { unitPrice: 25, unit: 'un', market: true }
 }
 
+/** Remove medidas ≤0 do módulo (mesmo critério do pipeline cliente / Zod). */
+function sanitizeExtraction(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  const environments = (raw.environments || [])
+    .map((env) => {
+      if (!env || typeof env !== 'object') return null
+      const modules = (env.modules || [])
+        .map((mod) => {
+          if (!mod || typeof mod !== 'object') return null
+          const m = { ...mod }
+          if (m.dimensions && typeof m.dimensions === 'object') {
+            const d = { ...m.dimensions }
+            for (const key of ['width_mm', 'height_mm', 'depth_mm']) {
+              const n = Number(d[key])
+              if (!Number.isFinite(n) || n <= 0) delete d[key]
+            }
+            m.dimensions =
+              'width_mm' in d || 'height_mm' in d || 'depth_mm' in d ? d : undefined
+          }
+          return m
+        })
+        .filter(Boolean)
+      if (!modules.length) return null
+      return { ...env, modules }
+    })
+    .filter(Boolean)
+  return { ...raw, environments }
+}
+
 async function main() {
   console.log('Reprocessando análise', ANALYSIS_ID)
 
@@ -82,7 +111,7 @@ async function main() {
     throw new Error(payload?.error || `Edge HTTP ${edgeRes.status}`)
   }
 
-  const extraction = payload.extraction
+  const extraction = sanitizeExtraction(payload.extraction)
   const inventory = payload.inventory || []
   const coverage = payload.coverage || null
   console.log('Inventário:', JSON.stringify(inventory, null, 2))
@@ -91,7 +120,10 @@ async function main() {
     'Ambientes extraídos:',
     (extraction?.environments || []).map((e) => ({
       name: e.name,
-      modules: (e.modules || []).map((m) => m.name),
+      modules: (e.modules || []).map((m) => ({
+        name: m.name,
+        dimensions: m.dimensions ?? null,
+      })),
     })),
   )
 

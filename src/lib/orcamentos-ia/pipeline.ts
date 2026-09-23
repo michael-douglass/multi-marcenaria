@@ -427,6 +427,18 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
           ])
           m.ferragens = coercePositiveList(m.ferragens, ['exact_quantity', 'full_units_quantity'])
           m.fitas_borda_m = coercePositiveList(m.fitas_borda_m, ['meters'])
+
+          // Dimensões do módulo: 0 ou inválido → remove (Zod exige > 0 se presente)
+          if (m.dimensions && typeof m.dimensions === 'object') {
+            const d = { ...(m.dimensions as Record<string, unknown>) }
+            for (const key of ['width_mm', 'height_mm', 'depth_mm'] as const) {
+              const n = Number(d[key])
+              if (!Number.isFinite(n) || n <= 0) delete d[key]
+            }
+            m.dimensions =
+              'width_mm' in d || 'height_mm' in d || 'depth_mm' in d ? d : undefined
+          }
+
           m = ensureModulePlaceholder(m)
           return m
         })

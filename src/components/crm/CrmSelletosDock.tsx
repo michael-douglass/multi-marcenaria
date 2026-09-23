@@ -15,6 +15,7 @@ import { useLeadNotifications } from '@/hooks/useLeadNotifications'
 import { useLeadSinalizacoes } from '@/hooks/useLeadSinalizacoes'
 import { LeadSinalizacoesPopup } from '@/components/layout/LeadSinalizacoesPopup'
 import { LeadAIAnalysisBackgroundPopup } from '@/components/layout/LeadAIAnalysisBackgroundPopup'
+import { OrcamentosIaBackgroundPopup } from '@/components/layout/OrcamentosIaBackgroundPopup'
 import { FloatingLeadAIBackgroundIcon } from '@/components/layout/FloatingLeadAIBackgroundIcon'
 import { FloatingLeadSinalizacoesIcon } from '@/components/layout/FloatingLeadSinalizacoesIcon'
 import { useMessageNotifications } from '@/hooks/useMessageNotifications'
@@ -282,6 +283,7 @@ export function CrmSelletosDock() {
               })
             }}
           />
+          <OrcamentosIaBackgroundPopup />
         </>
       )}
 

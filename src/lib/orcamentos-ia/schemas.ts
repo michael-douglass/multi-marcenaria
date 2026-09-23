@@ -80,16 +80,35 @@ export const ferragemItemSchema = z.object({
   bounding_box: boundingBoxSchema.optional(),
 })
 
+function optionalPositiveMm(value: unknown): number | undefined {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  return n
+}
+
 export const moduleExtractionSchema = z
   .object({
     name: z.string().min(1),
     description: z.string().optional(),
     dimensions: z
-      .object({
-        width_mm: z.number().positive().optional(),
-        height_mm: z.number().positive().optional(),
-        depth_mm: z.number().positive().optional(),
-      })
+      .preprocess(
+        (raw) => {
+          if (!raw || typeof raw !== 'object') return undefined
+          const d = raw as Record<string, unknown>
+          const width_mm = optionalPositiveMm(d.width_mm)
+          const height_mm = optionalPositiveMm(d.height_mm)
+          const depth_mm = optionalPositiveMm(d.depth_mm)
+          if (width_mm == null && height_mm == null && depth_mm == null) return undefined
+          return { width_mm, height_mm, depth_mm }
+        },
+        z
+          .object({
+            width_mm: z.number().positive().optional(),
+            height_mm: z.number().positive().optional(),
+            depth_mm: z.number().positive().optional(),
+          })
+          .optional(),
+      )
       .optional(),
     bounding_box: boundingBoxSchema.optional(),
     caixaria: z.array(caixariaPieceSchema).default([]),

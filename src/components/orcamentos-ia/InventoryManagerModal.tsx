@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -289,9 +288,9 @@ export function InventoryManagerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden border-slate-200 bg-[#f7f4ef] p-0 text-slate-900 sm:max-w-5xl">
+      <DialogContent className="flex h-[min(92vh,920px)] max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden border-slate-200 bg-[#f7f4ef] p-0 text-slate-900 sm:max-w-5xl">
         <div
-          className="relative overflow-hidden border-b border-slate-200"
+          className="relative shrink-0 overflow-hidden border-b border-slate-200"
           style={{
             background:
               'radial-gradient(ellipse 70% 120% at 0% 0%, rgba(0,102,255,0.18), transparent 55%), linear-gradient(120deg, #1a2233 0%, #0d2847 100%)',
@@ -315,7 +314,7 @@ export function InventoryManagerModal({
           </DialogHeader>
         </div>
 
-        <div className="space-y-3 border-b border-slate-200 bg-white px-6 py-3">
+        <div className="shrink-0 space-y-3 border-b border-slate-200 bg-white px-6 py-3">
           <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
             <button
               type="button"
@@ -378,7 +377,7 @@ export function InventoryManagerModal({
         </div>
 
         {mainTab === 'apelidos' ? (
-          <ScrollArea className="min-h-0 flex-1 bg-[#f7f4ef] px-4 py-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f4ef] px-4 py-3">
             <div className="mb-4 space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-sm text-slate-600">
                 Quando o PDF vier com um nome diferente do cadastro (ex.: &quot;CHAPA-MDF15 BRANCO&quot;),
@@ -466,9 +465,9 @@ export function InventoryManagerModal({
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
         ) : (
-        <ScrollArea className="min-h-0 flex-1 bg-[#f7f4ef] px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f4ef] px-4 py-3">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin text-[#0066FF]" />
@@ -601,11 +600,11 @@ export function InventoryManagerModal({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
         )}
 
         {showNew && mainTab === 'estoque' && (
-          <div className="space-y-3 border-t border-slate-200 bg-[#0066FF]/8 px-6 py-4">
+          <div className="shrink-0 space-y-3 border-t border-slate-200 bg-[#0066FF]/8 px-6 py-4">
             <p
               className="text-lg tracking-wide text-slate-900"
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
@@ -703,7 +702,7 @@ export function InventoryManagerModal({
           </div>
         )}
 
-        <DialogFooter className="gap-2 border-t border-slate-200 bg-white px-6 py-4 sm:justify-between">
+        <DialogFooter className="shrink-0 gap-2 border-t border-slate-200 bg-white px-6 py-4 sm:justify-between">
           {mainTab === 'estoque' ? (
             <Button type="button" variant="outline" onClick={() => setShowNew((v) => !v)}>
               <Plus className="mr-2 h-4 w-4" />

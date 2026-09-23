@@ -1,22 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { FileUp, Loader2, Sparkles, Zap } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
 import { AiThoughtConsole } from '@/components/orcamentos-ia/AiThoughtConsole'
+import { useOrcamentosIaBackground } from '@/contexts/OrcamentosIaBackgroundContext'
 import {
-  createPendingQuoteAnalysis,
   isAllowedQuoteSourceFile,
-  isQuoteAnalysisStatus,
-  parseThoughtLog,
-  updateQuoteAnalysisPdfPath,
-  uploadQuoteSource,
   type QuoteAnalysisMode,
-  type QuoteAnalysisStatus,
-  type ThoughtLogEntry,
 } from '@/lib/orcamentos-ia/storage'
-import { runOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
 
 interface PdfUploadAreaProps {
   companyId: string
@@ -35,89 +28,19 @@ export function PdfUploadArea({
   const inputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<QuoteAnalysisMode>('max')
   const [dragging, setDragging] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [analysisId, setAnalysisId] = useState<string | null>(null)
-  const [status, setStatus] = useState<QuoteAnalysisStatus | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [pipelineStage, setPipelineStage] = useState<string | null>(null)
-  const [pipelineDetail, setPipelineDetail] = useState<string | null>(null)
-  const [thoughtLog, setThoughtLog] = useState<ThoughtLogEntry[]>([])
-  const [pagesProcessed, setPagesProcessed] = useState<number | null>(null)
+  const [starting, setStarting] = useState(false)
+  const bg = useOrcamentosIaBackground()
+  const completedNotified = useRef<Set<string>>(new Set())
 
-  const busy = uploading || (status != null && status !== 'COMPLETED' && status !== 'FAILED')
-
-  const applyAnalysisRow = useCallback(
-    (row: {
-      status?: string
-      error_message?: string | null
-      totals?: Record<string, unknown> | null
-    }) => {
-      if (row.status && isQuoteAnalysisStatus(row.status)) {
-        setStatus(row.status)
-      }
-      if (row.error_message) setErrorMessage(row.error_message)
-      const totals = row.totals && typeof row.totals === 'object' ? row.totals : null
-      if (totals) {
-        const stage = totals.pipeline_stage
-        const detail = totals.pipeline_detail
-        setPipelineStage(typeof stage === 'string' ? stage : null)
-        setPipelineDetail(typeof detail === 'string' ? detail : null)
-        setThoughtLog(parseThoughtLog(totals))
-        const pp = totals.pages_processed
-        setPagesProcessed(typeof pp === 'number' ? pp : null)
-      }
-    },
-    [],
-  )
+  const activeJob = bg.getActiveJobForCompany(companyId)
+  const busy = starting || bg.isRunningForCompany(companyId)
 
   useEffect(() => {
-    if (!analysisId) return
-
-    const channel = supabase
-      .channel(`quote-analyses-${analysisId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'quote_analyses',
-          filter: `id=eq.${analysisId}`,
-        },
-        (payload) => {
-          applyAnalysisRow(payload.new as {
-            status?: string
-            error_message?: string | null
-            totals?: Record<string, unknown> | null
-          })
-        },
-      )
-      .subscribe()
-
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [analysisId, applyAnalysisRow])
-
-  // Fallback: se o Realtime atrasar, busca o status a cada 2,5s enquanto estiver ocupado
-  useEffect(() => {
-    if (!analysisId || !busy) return
-    let cancelled = false
-    const tick = async () => {
-      const { data } = await supabase
-        .from('quote_analyses')
-        .select('status, error_message, totals')
-        .eq('id', analysisId)
-        .maybeSingle()
-      if (!cancelled && data) applyAnalysisRow(data)
-    }
-    void tick()
-    const timer = window.setInterval(() => void tick(), 2500)
-    return () => {
-      cancelled = true
-      window.clearInterval(timer)
-    }
-  }, [analysisId, busy, applyAnalysisRow])
+    if (!activeJob || activeJob.status !== 'COMPLETED') return
+    if (completedNotified.current.has(activeJob.analysisId)) return
+    completedNotified.current.add(activeJob.analysisId)
+    onAnalysisCompleted?.(activeJob.analysisId)
+  }, [activeJob, onAnalysisCompleted])
 
   const processFiles = useCallback(
     async (filesInput: FileList | File[]) => {
@@ -131,100 +54,22 @@ export function PdfUploadArea({
         return
       }
 
-      setUploading(true)
-      setFileName(files.map((f) => f.name).join(', '))
-      setErrorMessage(null)
-      setStatus(null)
-      setPipelineStage('upload')
-      setPipelineDetail('Enviando o arquivo para o sistema…')
-      setThoughtLog([
-        {
-          at: new Date().toISOString(),
-          stage: 'upload',
-          kind: 'info',
-          message: 'Enviando o arquivo para o sistema…',
-        },
-      ])
-      setPagesProcessed(null)
-      setAnalysisId(null)
-
+      setStarting(true)
       try {
-        const { data: analysis, error: createError } = await createPendingQuoteAnalysis({
+        const analysisId = await bg.startQuoteAnalysis({
           companyId,
+          userId,
           mode,
-          createdBy: userId,
+          files,
         })
-        if (createError || !analysis) {
-          throw new Error(createError || 'Não foi possível criar a análise.')
+        if (analysisId) {
+          onAnalysisCreated?.(analysisId)
         }
-
-        setAnalysisId(analysis.id)
-        setStatus('PENDING')
-        onAnalysisCreated?.(analysis.id)
-
-        // Upload do primeiro arquivo como “fonte” principal; demais entram só no pipeline
-        const firstUpload = await uploadQuoteSource({
-          companyId,
-          analysisId: analysis.id,
-          file: files[0],
-        })
-        if (firstUpload.error || !firstUpload.path) {
-          throw new Error(firstUpload.error || 'Falha no upload.')
-        }
-
-        const pathUpdate = await updateQuoteAnalysisPdfPath(analysis.id, firstUpload.path)
-        if (pathUpdate.error) {
-          throw new Error(pathUpdate.error)
-        }
-
-        // Demais fontes opcionais no Storage (manifest)
-        for (let i = 1; i < files.length; i++) {
-          const up = await uploadQuoteSource({
-            companyId,
-            analysisId: analysis.id,
-            file: files[i],
-          })
-          if (up.error) {
-            console.warn('[upload] arquivo extra:', up.error)
-          }
-        }
-
-        toast.success(
-          files.length > 1
-            ? `${files.length} arquivos enviados. Iniciando pipeline…`
-            : 'Arquivo enviado. Iniciando pipeline de IA…',
-        )
-        setUploading(false)
-        setStatus('PROCESSING')
-
-        const pipelineResult = await runOrcamentosIaPipeline({
-          analysisId: analysis.id,
-          companyId,
-          mode,
-          sourceFiles: files,
-        })
-
-        if (!pipelineResult.ok) {
-          throw new Error(pipelineResult.error || 'Pipeline de IA falhou.')
-        }
-
-        setStatus('COMPLETED')
-        onAnalysisCompleted?.(analysis.id)
-        toast.success(
-          pipelineResult.materialsSaved
-            ? `Análise concluída (${pipelineResult.materialsSaved} insumos).`
-            : 'Análise concluída.',
-        )
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro ao enviar os arquivos.'
-        setErrorMessage(message)
-        setStatus('FAILED')
-        toast.error(message)
       } finally {
-        setUploading(false)
+        setStarting(false)
       }
     },
-    [companyId, mode, onAnalysisCompleted, onAnalysisCreated, userId],
+    [bg, companyId, mode, onAnalysisCreated, userId],
   )
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -330,29 +175,57 @@ export function PdfUploadArea({
           Arraste PDF ou fotos do projeto (pode enviar várias) ou clique para selecionar
         </p>
         <p className="mt-1 max-w-md text-xs text-muted-foreground">
-          PDF técnico e/ou imagens PNG/JPG/WebP. A IA extrai módulos, cota chapas/ferragens e liga
-          cada item à página de origem.
+          A análise roda em segundo plano: você pode sair desta página. Um ícone flutuante
+          acompanha o progresso.
         </p>
-        {fileName && (
-          <p className="mt-3 text-xs font-medium text-foreground/80">Arquivo(s): {fileName}</p>
+        {activeJob?.fileName && (
+          <p className="mt-3 text-xs font-medium text-foreground/80">
+            Arquivo(s): {activeJob.fileName}
+          </p>
         )}
       </div>
 
-      {(status || uploading) && (
-        <AiThoughtConsole
-          status={status}
-          pipelineStage={pipelineStage}
-          pipelineDetail={
-            pipelineDetail ||
-            (uploading && !status ? 'Enviando o arquivo para o sistema…' : null)
-          }
-          thoughtLog={thoughtLog}
-          uploading={uploading && !status}
-          analysisId={analysisId}
-          companyId={companyId}
-          pagesProcessed={pagesProcessed}
-          errorMessage={errorMessage}
-        />
+      {activeJob && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#0066FF]/25 bg-[#0066FF]/5 px-3 py-2.5">
+            <p className="text-sm text-[#1a2332]">
+              {activeJob.needsResume
+                ? 'Análise pausada (aba foi recarregada). Retome no painel flutuante.'
+                : 'Rodando em segundo plano — pode navegar livremente.'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => bg.requestExpand()}
+              >
+                Acompanhar
+              </Button>
+              {activeJob.needsResume && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 bg-[#0066FF] text-white hover:bg-[#0052cc]"
+                  onClick={() => void bg.resumeQuoteAnalysis(activeJob.analysisId)}
+                >
+                  Retomar
+                </Button>
+              )}
+            </div>
+          </div>
+          <AiThoughtConsole
+            status={activeJob.status}
+            pipelineStage={activeJob.pipelineStage}
+            pipelineDetail={activeJob.pipelineDetail}
+            thoughtLog={activeJob.thoughtLog}
+            analysisId={activeJob.analysisId}
+            companyId={activeJob.companyId}
+            pagesProcessed={activeJob.pagesProcessed}
+            errorMessage={activeJob.errorMessage}
+          />
+        </div>
       )}
     </div>
   )

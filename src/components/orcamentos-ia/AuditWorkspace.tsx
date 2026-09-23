@@ -62,6 +62,28 @@ const PDF_SCALE = PDF_DPI / 72
 const HIGHLIGHT = '#0066FF'
 const POPOUT_CHANNEL = 'orcamentos-ia-audit-sync'
 
+/** Extrai o nº da página de paths como `…/pages/page-009.png`. */
+function pageNumberFromImagePath(path: string | null | undefined): number | null {
+  if (!path) return null
+  const match = path.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
+  if (!match) return null
+  const n = Number(match[1])
+  return Number.isFinite(n) && n >= 1 ? n : null
+}
+
+function resolveSelectionPage(
+  module: QuoteModuleRow,
+  material?: QuoteMaterialRow | null,
+): number | null {
+  const fromBox =
+    material?.bounding_box?.page ?? module.bounding_box?.page ?? module.page_number ?? null
+  if (fromBox && fromBox >= 1) return fromBox
+  return (
+    pageNumberFromImagePath(material?.page_image_path) ??
+    pageNumberFromImagePath(module.page_image_path)
+  )
+}
+
 let pdfWorker: Worker | null = null
 function ensurePdfWorker() {
   if (pdfWorker) return
@@ -100,7 +122,9 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [reprocessing, setReprocessing] = useState(false)
   const [showCoverage, setShowCoverage] = useState(true)
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
-
+  /** true = tela grande mostra a PNG da página (miniatura ampliada); false = PDF. */
+  const [preferPageImage, setPreferPageImage] = useState(false)
+  const mainViewerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<PDFDocumentProxy | null>(null)
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
@@ -263,15 +287,45 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   useEffect(() => {
     let cancelled = false
     setPageThumbUrl(null)
-    if (!selectedPageImagePath) return
+    if (!selectedPageImagePath) {
+      setPreferPageImage(false)
+      return
+    }
     void (async () => {
       const { url } = await getSignedPageImageUrl(selectedPageImagePath)
-      if (!cancelled && url) setPageThumbUrl(url)
+      if (!cancelled && url) {
+        setPageThumbUrl(url)
+        // Ao selecionar item com página, já abre na tela grande
+        setPreferPageImage(true)
+        const page = pageNumberFromImagePath(selectedPageImagePath)
+        if (page) {
+          setPageNumber(page)
+          broadcast({ type: 'page', page })
+        }
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [selectedPageImagePath])
+  }, [selectedPageImagePath, broadcast])
+
+  const showPageOnMainViewer = useCallback(() => {
+    if (!pageThumbUrl) return
+    setPreferPageImage(true)
+    setPan({ x: 0, y: 0 })
+    setZoom(1)
+    const page =
+      (selection?.kind === 'material'
+        ? resolveSelectionPage(selection.module, selection.material)
+        : selection?.kind === 'module'
+          ? resolveSelectionPage(selection.module)
+          : null) ?? pageNumberFromImagePath(selectedPageImagePath)
+    if (page) {
+      setPageNumber(page)
+      broadcast({ type: 'page', page })
+    }
+    mainViewerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [pageThumbUrl, selection, selectedPageImagePath, broadcast])
 
   const pricing = useMemo(
     () => (tree ? calculateQuotePricing(tree, pricingParams) : null),
@@ -342,21 +396,23 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
   const onSelectModule = (module: QuoteModuleRow) => {
     setSelection({ kind: 'module', module })
-    const page = module.bounding_box?.page ?? module.page_number
+    const page = resolveSelectionPage(module)
     if (page) {
       setPageNumber(page)
       broadcast({ type: 'page', page })
     }
+    if (module.page_image_path) setPreferPageImage(true)
     broadcast({ type: 'select', selectionId: module.id })
   }
 
   const onSelectMaterial = (material: QuoteMaterialRow, module: QuoteModuleRow) => {
     setSelection({ kind: 'material', material, module })
-    const page = material.bounding_box?.page ?? module.bounding_box?.page ?? module.page_number
+    const page = resolveSelectionPage(module, material)
     if (page) {
       setPageNumber(page)
       broadcast({ type: 'page', page })
     }
+    if (material.page_image_path || module.page_image_path) setPreferPageImage(true)
     broadcast({ type: 'select', selectionId: material.id })
   }
 
@@ -637,6 +693,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               onClick={() => {
                 const p = Math.max(1, pageNumber - 1)
                 setPageNumber(p)
+                setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
             >
@@ -653,6 +710,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               onClick={() => {
                 const p = Math.min(pageCount, pageNumber + 1)
                 setPageNumber(p)
+                setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
             >
@@ -688,6 +746,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           </div>
 
           <div
+            ref={mainViewerRef}
             className="relative min-h-0 flex-1 cursor-grab overflow-hidden bg-[#eef1f5] active:cursor-grabbing"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -698,8 +757,24 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               className="absolute left-1/2 top-1/2"
               style={{ transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))` }}
             >
-              <div className="relative inline-block shadow-2xl">
-                <canvas ref={canvasRef} className="block max-w-none" />
+              <div
+                className="relative inline-block shadow-2xl"
+                style={
+                  preferPageImage && pageThumbUrl
+                    ? { transform: `scale(${zoom})`, transformOrigin: 'center center' }
+                    : undefined
+                }
+              >
+                {preferPageImage && pageThumbUrl ? (
+                  <img
+                    src={pageThumbUrl}
+                    alt={`Página ${pageNumber} do orçamento`}
+                    className="block max-h-[min(78vh,1100px)] w-auto max-w-[min(92vw,900px)] object-contain"
+                    draggable={false}
+                  />
+                ) : (
+                  <canvas ref={canvasRef} className="block max-w-none" />
+                )}
                 {activeBbox && (activeBbox.page ?? pageNumber) === pageNumber && (
                   <svg
                     className="pointer-events-none absolute inset-0 h-full w-full"
@@ -728,16 +803,27 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           <div className="border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold">Insumos extraídos</h3>
             {pageThumbUrl && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-[#0066FF]/30 bg-slate-50">
+              <button
+                type="button"
+                onClick={showPageOnMainViewer}
+                className={cn(
+                  'mt-2 w-full overflow-hidden rounded-lg border bg-slate-50 text-left transition',
+                  preferPageImage
+                    ? 'border-[#0066FF] ring-2 ring-[#0066FF]/25'
+                    : 'border-[#0066FF]/30 hover:border-[#0066FF]/60',
+                )}
+                title="Abrir esta página na tela grande"
+              >
                 <p className="px-2 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#0066FF]">
-                  Página de origem do item
+                  Página de origem · clique para ampliar
                 </p>
                 <img
                   src={pageThumbUrl}
                   alt="Página do orçamento"
                   className="max-h-36 w-full object-contain object-top"
+                  draggable={false}
                 />
-              </div>
+              </button>
             )}
             {coverage && (
               <button
