@@ -69,8 +69,9 @@ export function MarkupLeadSection({
     }
   };
 
-  // Preenche Orçamentos com o markup só se o lead ainda não tiver valor próprio.
-  // Edição manual (ou valor já salvo diferente) não é sobrescrita ao abrir o card.
+  // Ao abrir o card: preenche Orçamentos só se o lead ainda estiver sem valor.
+  // Quando o markup é salvo (manual ou automático), a calculadora força o sync
+  // via onPrecoFinalChange — aqui não sobrescrevemos edição manual.
   // syncValorLead fica num ref: a mutation do React Query muda de objeto a cada
   // render e, se entrar nas deps, dispara PATCH em loop até o navegador travar.
   useEffect(() => {

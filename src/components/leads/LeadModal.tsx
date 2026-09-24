@@ -357,21 +357,27 @@ export function LeadModal({
         if (atual > 0 && Math.abs(atual - valor) >= 0.005) return false;
       }
 
-      let mudou = false;
-      setFormData((prev) => {
-        if (Math.abs((prev.budgetValue ?? 0) - valor) < 0.005) return prev;
-        mudou = true;
-        return { ...prev, budgetValue: valor };
-      });
-      if (!mudou) return true;
+      const atualForm = Number(formDataRef.current.budgetValue ?? 0);
+      if (Math.abs(atualForm - valor) < 0.005) return true;
+
+      // Ref na hora: o auto-save do lead lê formDataRef e não pode gravar o valor antigo
+      // por cima do sync que o markup acabou de fazer no banco.
+      const nextForm = { ...formDataRef.current, budgetValue: valor };
+      formDataRef.current = nextForm;
+      setFormData(nextForm);
       // Evita o efeito de hidratação sobrescrever com valor_orcamento antigo do lead.
       persistRetryCountRef.current = 0;
+      formDirtyRef.current = true;
       setFormDirty(true);
       setBudgetDisplay(
         valor > 0
           ? valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           : '',
       );
+      // Grava o card em seguida (além do PATCH feito pelo sync do markup).
+      queueMicrotask(() => {
+        void persistLeadChangesRef.current();
+      });
       return true;
     },
     [],

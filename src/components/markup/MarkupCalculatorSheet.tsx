@@ -1031,11 +1031,14 @@ export function MarkupCalculatorSheet({
       }
 
       if (preco > 0) {
+        // Atualiza o campo Orçamento no card do lead (UI) e grava no banco.
+        // Vale para Salvar manual e auto-save: o debounce de preço sozinho falhava
+        // quando o preço já estava na calculadora ao abrir (skip da hidratação).
         onPrecoFinalChangeRef.current?.(preco);
-        // Auto-save silencioso não sincroniza lead aqui — há debounce próprio.
-        // Isso evita corrida com o botão fechar e loop de updates no pipeline.
-        if (!silent) {
+        try {
           await syncValorLeadRef.current(leadId, preco);
+        } catch {
+          // O markup já foi salvo; o sync do lead tenta de novo no próximo save.
         }
       }
       return result;
