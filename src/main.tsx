@@ -1,3 +1,5 @@
+// Primeiro import: garante crypto.randomUUID antes de qualquer módulo do app
+import './lib/crypto-polyfill'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient } from '@tanstack/react-query'

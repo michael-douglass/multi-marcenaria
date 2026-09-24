@@ -7,11 +7,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
-  AlertTriangle,
   ArrowLeft,
   Ban,
   Brain,
-  Check,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -44,14 +42,22 @@ import {
 import { ExplainCorrectionModal } from '@/components/orcamentos-ia/ExplainCorrectionModal'
 import { AuditChatWidget } from '@/components/orcamentos-ia/AuditChatWidget'
 import { CompanyMemoriesModal } from '@/components/orcamentos-ia/CompanyMemoriesModal'
+import {
+  CoverageSummary,
+  MaterialRow,
+  PriceReviewBanner,
+  describeMaterial,
+  formatQuantity,
+  perUnitLabel,
+} from '@/components/orcamentos-ia/audit-display'
 import { reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
 import {
   buildShoppingList,
   calculateQuotePricing,
-  CONTINGENCY_PRICE_WARNING,
   DEFAULT_PRICING_PARAMS,
   formatBRL,
+  PRICING_MODALITY_HINT,
   PRICING_MODALITY_LABEL,
   repriceZeroMaterials,
   type PricingModality,
@@ -123,7 +129,6 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [pricingParams, setPricingParams] = useState<PricingParams>(DEFAULT_PRICING_PARAMS)
   const [showShoppingList, setShowShoppingList] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
-  const [showCoverage, setShowCoverage] = useState(true)
   const [showOutOfScope, setShowOutOfScope] = useState(false)
   const [memoriesOpen, setMemoriesOpen] = useState(false)
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
@@ -532,9 +537,9 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     <div className="flex h-[calc(100vh-7rem)] min-h-[520px] flex-col gap-3 rounded-2xl bg-[#f7f4ef] p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
         <div className="space-y-0.5">
-          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Audit Workspace</h2>
-          <p className="text-xs text-slate-600">
-            PDF a {PDF_DPI} DPI · highlight {HIGHLIGHT} · sync lista ↔ planta
+          <h2 className="text-lg font-semibold tracking-tight text-[#2a1812]">Conferência do orçamento</h2>
+          <p className="text-xs text-[#6b5244]">
+            Confira os materiais que a IA encontrou e ajuste preços antes de enviar ao cliente.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -544,6 +549,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               <button
                 key={key}
                 type="button"
+                title={PRICING_MODALITY_HINT[key]}
                 onClick={() => setModality(key)}
                 className={cn(
                   'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
@@ -557,8 +563,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             ))}
           </div>
           {pricingParams.modality === 'mpc_margin' && (
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              MPC
+            <label
+              className="flex items-center gap-1 text-[11px] text-muted-foreground"
+              title="Parte do preço de venda que cobre impostos, comissões, taxas e lucro"
+            >
+              Margem
               <Input
                 type="number"
                 className="h-7 w-14 text-xs"
@@ -575,7 +584,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           )}
           {pricingParams.modality === 'material_multiplier' && (
             <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              N
+              Custo ×
               <Input
                 type="number"
                 step="0.1"
@@ -592,7 +601,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           )}
           {pricingParams.modality === 'per_sqm' && (
             <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              R$/m²
+              R$ por m²
               <Input
                 type="number"
                 className="h-7 w-20 text-xs"
@@ -607,13 +616,16 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             </label>
           )}
           {pricing && (
-            <div className="hidden rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/5 px-3 py-1 text-right sm:block">
-              <p className="text-[10px] text-muted-foreground">{pricing.formulaLabel}</p>
-              <p className="text-sm font-semibold tabular-nums text-[#0066FF]">
+            <div
+              className="hidden rounded-lg border border-[#8d5e22]/25 bg-[#fffcf8] px-3 py-1 text-right sm:block"
+              title={`Cálculo: ${pricing.formulaLabel}`}
+            >
+              <p className="text-[10px] text-[#8a7060]">Preço de venda</p>
+              <p className="text-sm font-semibold tabular-nums text-[#2a1812]">
                 {formatBRL(pricing.salePrice)}
               </p>
-              <p className="text-[10px] text-muted-foreground">
-                Custo {formatBRL(pricing.materialsCost)}
+              <p className="text-[10px] text-[#8a7060]">
+                Materiais {formatBRL(pricing.materialsCost)}
               </p>
             </div>
           )}
@@ -662,7 +674,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           </Button>
           <Button type="button" size="sm" onClick={openPopout}>
             <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            Dual Monitor
+            Abrir em outra tela
           </Button>
         </div>
       </div>
@@ -825,7 +837,10 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         {/* Direita: árvore */}
         <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
           <div className="border-b border-border px-4 py-3">
-            <h3 className="text-sm font-semibold">Insumos extraídos</h3>
+            <h3 className="text-sm font-semibold text-[#2a1812]">Materiais do orçamento</h3>
+            <p className="mt-0.5 text-xs text-[#8a7060]">
+              Clique em um item para ver onde ele aparece na planta.
+            </p>
             {pageThumbUrl && (
               <button
                 type="button"
@@ -849,54 +864,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 />
               </button>
             )}
-            {coverage && (
-              <button
-                type="button"
-                className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left text-xs"
-                onClick={() => setShowCoverage((v) => !v)}
-              >
-                <span className="font-medium text-slate-800">
-                  Cobertura {coverage.coveredCount}/{coverage.expectedCount || coverage.extracted.length}
-                </span>
-                {showCoverage ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
-                )}
-              </button>
-            )}
-            {coverage && showCoverage && (
-              <div className="mt-2 space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-2 text-[11px]">
-                {coverage.missing?.length ? (
-                  <>
-                    <p className="flex items-center gap-1 font-semibold text-amber-900">
-                      <AlertTriangle className="h-3 w-3" />
-                      Faltando no inventário
-                    </p>
-                    {coverage.missing.map((m, i) => (
-                      <p key={`miss-${i}`} className="text-amber-800">
-                        {m.environment} → {m.module}
-                      </p>
-                    ))}
-                  </>
-                ) : (
-                  <p className="flex items-center gap-1 font-medium text-emerald-800">
-                    <Check className="h-3 w-3" />
-                    Todos os módulos do inventário estão na árvore
-                  </p>
-                )}
-                {coverage.extracted?.length > 0 && (
-                  <div className="border-t border-amber-200/80 pt-1.5">
-                    <p className="mb-1 font-semibold text-slate-700">Extraídos</p>
-                    {coverage.extracted.map((m, i) => (
-                      <p key={`ext-${i}`} className="text-slate-600">
-                        {m.environment} → {m.module}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {coverage && <CoverageSummary coverage={coverage} />}
             {outOfScopeModules.length > 0 && (
               <>
                 <button
@@ -906,7 +874,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 >
                   <span className="flex items-center gap-1.5 font-medium text-slate-800">
                     <Ban className="h-3.5 w-3.5 text-slate-500" />
-                    Fora do Escopo ({outOfScopeModules.length}) · sem custo
+                    Fora do orçamento de marcenaria ({outOfScopeModules.length})
                   </span>
                   {showOutOfScope ? (
                     <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
@@ -917,7 +885,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 {showOutOfScope && (
                   <div className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-white p-2 text-[11px]">
                     <p className="text-slate-500">
-                      Marmoraria, obra civil e decoração — cotados por terceiros.
+                      Pedras, obra e decoração comprada pronta — não entram no valor.
                     </p>
                     {outOfScopeModules.map(({ env, module }) => (
                       <button
@@ -931,19 +899,25 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                             'bg-[#0066FF]/10 ring-1 ring-[#0066FF]/35',
                         )}
                       >
-                        {env} → {module.name}
+                        {module.name}
+                        {new Set(outOfScopeModules.map((o) => o.env)).size > 1 && (
+                          <span className="text-slate-400"> · {env}</span>
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
               </>
             )}
-            <p className="text-xs text-muted-foreground">
-              Ambientes → Módulos → Materiais (consumo exato × compras inteiras)
-            </p>
           </div>
           <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-2 p-3">
+            {/* pb-28: espaço para os botões flutuantes (chat do Max / atalhos) */}
+            <div className="space-y-2 p-3 pb-28">
+              <PriceReviewBanner
+                materials={tree.environments.flatMap((e) =>
+                  e.modules.filter((m) => !m.out_of_scope).flatMap((m) => m.materials),
+                )}
+              />
               {tree.environments.length === 0 && (
                 <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                   Nenhum ambiente nesta análise.
@@ -974,7 +948,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                       )}
                       {env.name}
                       <Badge variant="secondary" className="ml-auto text-[10px]">
-                        {scopedModules.length} mód.
+                        {scopedModules.length} {scopedModules.length === 1 ? 'móvel' : 'móveis'}
                       </Badge>
                     </button>
                     {envOpen && (
@@ -1011,79 +985,51 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                                 </button>
                                 <button
                                   type="button"
-                                  className="flex-1 truncate text-left text-sm font-medium"
+                                  className="min-w-0 flex-1 text-left"
                                   onClick={() => onSelectModule(mod)}
                                 >
-                                  {mod.name}
+                                  <span className="block truncate text-sm font-semibold text-[#2a1812]">
+                                    {mod.name}
+                                  </span>
+                                  <span className="block text-[11px] text-[#8a7060]">
+                                    {mod.materials.length}{' '}
+                                    {mod.materials.length === 1 ? 'item' : 'itens'}
+                                    {(() => {
+                                      const pending = mod.materials.filter(
+                                        (m) => describeMaterial(m).priceStatus !== 'ok',
+                                      ).length
+                                      return pending ? (
+                                        <span className="ml-1.5 font-medium text-[#a8741f]">
+                                          · {pending} {pending === 1 ? 'preço' : 'preços'} para conferir
+                                        </span>
+                                      ) : null
+                                    })()}
+                                  </span>
                                 </button>
+                                <span className="shrink-0 text-sm font-semibold tabular-nums text-[#2a1812]">
+                                  {formatBRL(
+                                    mod.materials.reduce((a, m) => a + describeMaterial(m).total, 0),
+                                  )}
+                                </span>
                               </div>
                               {modOpen && (
-                                <div className="ml-4 space-y-1 border-l border-border/50 pl-2 py-1">
-                                  <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                    <span>Material</span>
-                                    <span>Exato</span>
-                                    <span>Compra</span>
-                                  </div>
-                                  {mod.materials.map((mat) => {
-                                    const matSelected =
-                                      selection?.kind === 'material' &&
-                                      selection.material.id === mat.id
-                                    return (
-                                      <div key={mat.id} className="space-y-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => onSelectMaterial(mat, mod)}
-                                          onDoubleClick={() => openEdit(mat)}
-                                          className={cn(
-                                            'grid w-full grid-cols-[1fr_auto_auto] gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/50',
-                                            matSelected &&
-                                              'bg-[#0066FF]/10 ring-1 ring-[#0066FF]/35',
-                                          )}
-                                        >
-                                          <span className="truncate font-medium">{mat.raw_name}</span>
-                                          <span className="tabular-nums text-muted-foreground">
-                                            {mat.exact_quantity} {mat.unit_measure}
-                                          </span>
-                                          <span className="tabular-nums font-medium">
-                                            {mat.full_units_quantity}
-                                          </span>
-                                        </button>
-                                        {mat.using_market_price && !mat.market_price_confirmed && (
-                                          <div className="mx-1 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
-                                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                            <span className="flex-1">
-                                              {mat.notes?.includes(CONTINGENCY_PRICE_WARNING)
-                                                ? CONTINGENCY_PRICE_WARNING
-                                                : 'Preço de mercado'}{' '}
-                                              R$ {Number(mat.unit_price).toFixed(2)} — confirme ou
-                                              edite (duplo clique).
-                                            </span>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-7 gap-1 text-[11px]"
-                                              onClick={() => void confirmMarketPrice(mat)}
-                                            >
-                                              <Check className="h-3 w-3" />
-                                              Confirmar
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              className="h-7 text-[11px]"
-                                              onClick={() => openEdit(mat)}
-                                            >
-                                              Informar custo
-                                            </Button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
+                                <div className="ml-4 space-y-0.5 border-l border-[#8d5e22]/15 py-1 pl-2">
+                                  {mod.materials.map((mat) => (
+                                    <MaterialRow
+                                      key={mat.id}
+                                      mat={mat}
+                                      selected={
+                                        selection?.kind === 'material' &&
+                                        selection.material.id === mat.id
+                                      }
+                                      onSelect={() => onSelectMaterial(mat, mod)}
+                                      onEdit={() => openEdit(mat)}
+                                      onConfirmPrice={() => void confirmMarketPrice(mat)}
+                                    />
+                                  ))}
                                   {!mod.materials.length && (
                                     <p className="px-2 py-1 text-[11px] text-muted-foreground">
-                                      Sem materiais neste módulo.
+                                      Nenhum material listado para este móvel.
                                     </p>
                                   )}
                                 </div>
@@ -1105,25 +1051,25 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       {editingMaterial && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
           <div className="w-full max-w-md rounded-2xl border border-border bg-background p-4 shadow-xl">
-            <h4 className="text-sm font-semibold">Editar insumo</h4>
-            <p className="mt-1 truncate text-xs text-muted-foreground">{editingMaterial.raw_name}</p>
+            <h4 className="text-sm font-semibold text-[#2a1812]">Editar material</h4>
+            <p className="mt-1 truncate text-xs text-[#6b5244]">{editingMaterial.raw_name}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <label className="space-y-1 text-xs">
-                Consumo exato
+                Quantidade usada ({formatQuantity(1, editingMaterial.unit_measure).replace(/^1 /, '')})
                 <Input
                   value={editDraft.exact}
                   onChange={(e) => setEditDraft((d) => ({ ...d, exact: e.target.value }))}
                 />
               </label>
               <label className="space-y-1 text-xs">
-                Compra inteira
+                Quantidade a comprar
                 <Input
                   value={editDraft.full}
                   onChange={(e) => setEditDraft((d) => ({ ...d, full: e.target.value }))}
                 />
               </label>
               <label className="space-y-1 text-xs">
-                Preço unitário
+                Preço {perUnitLabel(editingMaterial.unit_measure)}
                 <Input
                   value={editDraft.price}
                   onChange={(e) => setEditDraft((d) => ({ ...d, price: e.target.value }))}
@@ -1139,7 +1085,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 variant="secondary"
                 onClick={() => void saveEdit({ confirmMarket: true })}
               >
-                Salvar e confirmar preço
+                Salvar e marcar como conferido
               </Button>
               <Button type="button" onClick={() => void saveEdit()}>
                 Salvar

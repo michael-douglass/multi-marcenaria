@@ -2,8 +2,22 @@ import { supabase } from '@/lib/supabase'
 import type { MaterialCategory } from '@/lib/orcamentos-ia/schemas'
 import type { QuoteAnalysisDetail, QuoteMaterialRow } from '@/lib/orcamentos-ia/quote-tree'
 
+/**
+ * Aviso gravado em `notes` quando o material não está no estoque nem na tabela de mercado
+ * e o preço veio da tabela padrão (preço médio por tipo de material).
+ */
 export const CONTINGENCY_PRICE_WARNING =
-  'Preço estimado via tabela padrão de contingência'
+  'Preço médio sugerido (material não encontrado no estoque) — confira'
+
+/** Reconhece o aviso atual e o texto antigo ("tabela padrão de contingência"). */
+export function isSuggestedPriceNote(notes: string | null | undefined): boolean {
+  const n = notes ?? ''
+  return (
+    n.includes(CONTINGENCY_PRICE_WARNING) ||
+    n.includes('tabela padrão de contingência') ||
+    n.includes('contingência=')
+  )
+}
 
 export interface ResolvedMaterialPrice {
   unitPrice: number
@@ -569,9 +583,16 @@ export function endCapsForHandleBars(bars: number): number {
 export type PricingModality = 'mpc_margin' | 'material_multiplier' | 'per_sqm'
 
 export const PRICING_MODALITY_LABEL: Record<PricingModality, string> = {
-  mpc_margin: 'Margem MPC %',
-  material_multiplier: 'Material × N',
-  per_sqm: 'R$/m²',
+  mpc_margin: 'Margem %',
+  material_multiplier: 'Multiplicar custo',
+  per_sqm: 'Preço por m²',
+}
+
+/** Explicação curta de cada forma de calcular o preço (tooltip). */
+export const PRICING_MODALITY_HINT: Record<PricingModality, string> = {
+  mpc_margin: 'Preço = custo dos materiais ÷ (1 − margem). Ex.: margem 45% sobre R$ 1.000 → R$ 1.818',
+  material_multiplier: 'Preço = custo dos materiais × fator. Ex.: × 2,5 sobre R$ 1.000 → R$ 2.500',
+  per_sqm: 'Preço = área total dos móveis (m²) × valor por m²',
 }
 
 /** Chapa padrão Planilha 4.0: 2,75 m × 1,85 m. */
@@ -646,16 +667,22 @@ export function sumMaterialsCost(
   materials: QuoteMaterialRow[],
   sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
 ): number {
+  return materials.reduce((acc, m) => acc + materialLineCost(m, sheetLossPct), 0)
+}
+
+/** Custo de uma linha de insumo (mesma regra do total do orçamento). */
+export function materialLineCost(
+  m: Pick<QuoteMaterialRow, 'unit_measure' | 'full_units_quantity' | 'exact_quantity' | 'unit_price'>,
+  sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
+): number {
   const lossFactor = 1 + Math.max(0, sheetLossPct) / 100
-  return materials.reduce((acc, m) => {
-    const qty =
-      m.unit_measure === 'chapa' || m.unit_measure === 'barra'
-        ? Number(m.full_units_quantity) || Number(m.exact_quantity) || 0
-        : isAreaUnit(m.unit_measure)
-          ? (Number(m.exact_quantity) || 0) * lossFactor
-          : Number(m.exact_quantity) || 0
-    return acc + qty * (Number(m.unit_price) || 0)
-  }, 0)
+  const qty =
+    m.unit_measure === 'chapa' || m.unit_measure === 'barra'
+      ? Number(m.full_units_quantity) || Number(m.exact_quantity) || 0
+      : isAreaUnit(m.unit_measure)
+        ? (Number(m.exact_quantity) || 0) * lossFactor
+        : Number(m.exact_quantity) || 0
+  return qty * (Number(m.unit_price) || 0)
 }
 
 /**

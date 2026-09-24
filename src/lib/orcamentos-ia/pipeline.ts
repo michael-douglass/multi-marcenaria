@@ -163,7 +163,7 @@ function priceNotes(price: ResolvedMaterialPrice, base?: string | null): string 
     base?.trim() || null,
     price.warning,
     price.source === 'contingency' ? CONTINGENCY_PRICE_WARNING : null,
-    price.contingencyKey ? `contingência=${price.contingencyKey}` : null,
+    price.source === 'contingency' ? `preço base: ${price.matchedName}` : null,
   ]
   const unique = [...new Set(parts.filter(Boolean))]
   return unique.length ? unique.join(' · ') : null
