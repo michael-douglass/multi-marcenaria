@@ -235,8 +235,8 @@ flowchart LR
 - [x] Pedra, alvenaria, gesso, eletros e decoração → `out_of_scope` (sem ferragem placeholder de R$ 8)
 - [x] Migration `20260924_orcamentos_ia_out_of_scope.sql` (`quote_modules.out_of_scope`)
 - [x] Seção "Fora do Escopo" no Audit Workspace, excluída do custo
-- [ ] Deploy da Edge `orcamentos-ia-pipeline` + `orcamentos-ia-chat`
-- [ ] `pnpm migrate` (migration acima) — **antes** de publicar o frontend
+- [x] Deploy da Edge `orcamentos-ia-pipeline` + `orcamentos-ia-chat`
+- [x] `pnpm migrate` (migration acima)
 
 **Épico 4 — CalcmeX (Max)**
 - [x] `AuditChatWidget` e `CompanyMemoriesModal` (já estavam)
@@ -247,7 +247,8 @@ flowchart LR
 **Épico 5 — Validação**
 - [x] `pnpm build` ok
 - [x] Rota `/orcamentos-ia` via `crmPage` + gates em `crm-identity.ts` (inalterados)
-- [ ] Reprocessar PDF real (`orcamento-com-IA/A4_ARQ_DET_QUARTO SUÍTE_CO_REV01.pdf`) e conferir: sem `unit_price ≤ 0`, chapas em m², mesa fatiada, pedras em "Fora do Escopo"
+- [x] E2E real (`node --env-file=.env scripts/test-orcamentos-ia-e2e.mjs <pasta-jpgs> [pdf]`) com `A4_ARQ_DET_QUARTO SUÍTE_CO_REV01.pdf` (13 págs): COMPLETED, 0 preço zerado, chapas em m², decoração em "Fora do Escopo"
+- [x] Correções achadas no E2E: medidas 0 em módulo fora de escopo quebravam o Zod; `bounding_box` fora de 0–1; Auditor **somava** quantidades (merge agora usa o maior valor); ambientes duplicados ("Quarto" × "Quarto Suíte…"); chave de caixaria só pelo material; fita duplicada (por peça + total do módulo / nomes variantes); fuzzy casando só por "fita"/"mdf"; fallback entre categorias (pé metálico → puxador); peças maiores que a chapa sinalizadas; móveis de loja (Westwing, Nordecor…) fora do escopo
 
 ---
 

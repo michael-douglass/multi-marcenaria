@@ -208,6 +208,7 @@ export function buildCoverageReport(
  * Bancada de MDF sob granito (com caixaria/frentes) continua no escopo.
  */
 export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
+  if (isStoreBoughtModule(mod)) return { ...mod, out_of_scope: true }
   const mdfPieces = asArray(mod.caixaria).length + asArray(mod.frentes_portas).length
   if (mdfPieces > 0) {
     return mod.out_of_scope === true ? { ...mod, out_of_scope: false } : mod
@@ -249,6 +250,14 @@ const OUT_OF_SCOPE_HINTS = [
   'gesso',
   'drywall',
 ]
+
+/** Móveis/decoração comprados prontos em loja — nunca são marcenaria, mesmo com "peças". */
+const STORE_BRAND_HINTS = ['westwing', 'nordecor', 'portofino', 'tok stok', 'tokstok', 'mobly', 'etna', 'desk design', 'oppa']
+
+export function isStoreBoughtModule(mod: AnyRec): boolean {
+  const name = normalizeExtractionKey(typeof mod.name === 'string' ? mod.name : '')
+  return STORE_BRAND_HINTS.some((h) => name.includes(normalizeExtractionKey(h)))
+}
 
 export function isOutOfScopeModule(mod: AnyRec): boolean {
   if (mod.out_of_scope === true) return true

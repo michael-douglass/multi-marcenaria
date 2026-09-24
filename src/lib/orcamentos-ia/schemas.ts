@@ -18,13 +18,33 @@ export const materialCategorySchema = z.enum([
   'outro',
 ])
 
-export const boundingBoxSchema = z.object({
-  page: z.number().int().min(1).describe('Número da página do PDF (1-based)'),
-  x: z.number().min(0).max(1).describe('X relativo 0–1'),
-  y: z.number().min(0).max(1).describe('Y relativo 0–1'),
-  width: z.number().min(0).max(1),
-  height: z.number().min(0).max(1),
-})
+const clamp01 = (value: unknown) => Math.min(1, Math.max(0, Number(value) || 0))
+
+/** Referência visual; valores fora de 0–1 são limitados e página inválida descarta a caixa. */
+export const boundingBoxSchema = z.preprocess(
+  (raw) => {
+    if (!raw || typeof raw !== 'object') return undefined
+    const b = raw as Record<string, unknown>
+    const page = Math.round(Number(b.page))
+    if (!Number.isFinite(page) || page < 1) return undefined
+    return {
+      page,
+      x: clamp01(b.x),
+      y: clamp01(b.y),
+      width: clamp01(b.width),
+      height: clamp01(b.height),
+    }
+  },
+  z
+    .object({
+      page: z.number().int().min(1).describe('Número da página do PDF (1-based)'),
+      x: z.number().min(0).max(1).describe('X relativo 0–1'),
+      y: z.number().min(0).max(1).describe('Y relativo 0–1'),
+      width: z.number().min(0).max(1),
+      height: z.number().min(0).max(1),
+    })
+    .optional(),
+)
 
 /** Completa medidas ≤ 0 / nulas com o padrão do tipo; marca `dimensions_estimated`. */
 function fillPieceMm(raw: unknown, defaults: (row: Record<string, unknown>) => {
@@ -121,12 +141,24 @@ export const moduleExtractionSchema = z
     (raw) => {
       if (!raw || typeof raw !== 'object') return raw
       const m = { ...(raw as Record<string, unknown>) }
-      // Fora de escopo (pedra/decoração) não precisa de medidas
-      if (m.out_of_scope === true) return m
       const d =
         m.dimensions && typeof m.dimensions === 'object'
           ? (m.dimensions as Record<string, unknown>)
           : {}
+      // Fora de escopo (pedra/decoração): mantém medidas só se todas forem válidas
+      if (m.out_of_scope === true) {
+        const valid = (['width_mm', 'height_mm', 'depth_mm'] as const).every(
+          (k) => positiveOrNull(d[k]) != null,
+        )
+        m.dimensions = valid
+          ? {
+              width_mm: positiveOrNull(d.width_mm),
+              height_mm: positiveOrNull(d.height_mm),
+              depth_mm: positiveOrNull(d.depth_mm),
+            }
+          : undefined
+        return m
+      }
       const est = estimateModuleDimensions(m.name)
       let estimated = d.estimated === true
       const dims: Record<string, unknown> = {}

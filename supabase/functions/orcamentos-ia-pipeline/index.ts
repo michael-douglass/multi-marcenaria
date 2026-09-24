@@ -39,20 +39,36 @@ function asObjArray(value: unknown): AnyRec[] {
   return value.filter((x) => x && typeof x === 'object') as AnyRec[]
 }
 
+/**
+ * Mesma peça (mesmo módulo + mesmo nome) vista em dois lotes ou devolvida pelo Auditor
+ * (que reenvia a árvore completa) é a MESMA peça — usa o maior valor, nunca a soma.
+ */
 function mergeNumeric(a: unknown, b: unknown): number {
   const va = Number.isFinite(Number(a)) ? Number(a) : 0
   const vb = Number.isFinite(Number(b)) ? Number(b) : 0
-  return va + vb
+  return Math.max(va, vb)
+}
+
+/** Palavras de família/marca: não diferenciam fitas ("Fita de Borda Arauco Lino" = "Fita Lino"). */
+const GENERIC_TAPE_WORDS = new Set(['fita', 'de', 'borda', 'arauco', 'duratex', 'guararapes', 'eucatex', 'berneck', 'mdf', 'pvc', 'mm'])
+
+function tapeIdentityKey(name: string): string {
+  const key = normalizeKey(name)
+    .split(' ')
+    .filter((t) => t && !GENERIC_TAPE_WORDS.has(t) && !/^\d+(mm)?$/.test(t))
+    .join(' ')
+  return key || normalizeKey(name)
 }
 
 function materialKey(item: AnyRec, kind: string): string {
-  const name =
-    (typeof item.raw_name === 'string' && item.raw_name) ||
-    (typeof item.material_name === 'string' && item.material_name) ||
-    (typeof item.tape_name === 'string' && item.tape_name) ||
-    (typeof item.name === 'string' && item.name) ||
-    ''
-  const cat = typeof item.category === 'string' ? item.category : kind
+  const str = (v: unknown) => (typeof v === 'string' ? v : '')
+  // Peça = nome + material (Lateral ≠ Prateleira, mesmo com o mesmo MDF)
+  if (kind === 'caixaria' || kind === 'frente') {
+    return `${kind}|${normalizeKey(str(item.name))}|${normalizeKey(str(item.material_name))}`
+  }
+  if (kind === 'fita') return `fita|${tapeIdentityKey(str(item.tape_name))}`
+  const name = str(item.raw_name) || str(item.name)
+  const cat = str(item.category) || kind
   return `${kind}|${cat}|${normalizeKey(name)}`
 }
 
@@ -106,6 +122,24 @@ function mergeEnvironment(a: AnyRec, b: AnyRec): AnyRec {
   }
 }
 
+/**
+ * Lotes/Auditor às vezes nomeiam o mesmo ambiente de formas diferentes
+ * ("Quarto" vs "Quarto Suíte Camila e Otávio"): une quando as palavras de um contêm as do outro.
+ */
+function sameEnvironmentKey(existingKeys: string[], key: string): string {
+  if (existingKeys.includes(key)) return key
+  const tokens = (k: string) => k.split(' ').filter((t) => t.length >= 3)
+  const mine = tokens(key)
+  if (!mine.length) return key
+  for (const other of existingKeys) {
+    const theirs = tokens(other)
+    if (!theirs.length) continue
+    const [small, big] = mine.length <= theirs.length ? [mine, theirs] : [theirs, mine]
+    if (small.every((t) => big.includes(t))) return other
+  }
+  return key
+}
+
 function mergeExtractions(parts: unknown[]): AnyRec {
   const environments = new Map<string, AnyRec>()
   const auditorNotes: string[] = []
@@ -126,9 +160,17 @@ function mergeExtractions(parts: unknown[]): AnyRec {
     }
     for (const env of asObjArray(root.environments)) {
       const name = typeof env.name === 'string' ? env.name : 'Ambiente'
-      const key = normalizeKey(name)
+      const key = sameEnvironmentKey([...environments.keys()], normalizeKey(name))
       const prev = environments.get(key)
-      environments.set(key, prev ? mergeEnvironment(prev, env) : { ...env })
+      if (!prev) {
+        environments.set(key, { ...env })
+        continue
+      }
+      // Mantém o nome mais completo ("Quarto Suíte Camila" > "Quarto")
+      const merged = mergeEnvironment(prev, env)
+      const prevName = typeof prev.name === 'string' ? prev.name : ''
+      merged.name = name.length > prevName.length ? name : prevName
+      environments.set(key, merged)
     }
   }
 
@@ -170,12 +212,18 @@ const OUT_OF_SCOPE_HINTS = [
   'drywall',
 ]
 
+/** Móveis/decoração comprados prontos em loja — fora do escopo mesmo com "peças". */
+const STORE_BRAND_HINTS = ['westwing', 'nordecor', 'portofino', 'tok stok', 'tokstok', 'mobly', 'etna', 'desk design', 'oppa']
+
 function ensurePlaceholders(extraction: AnyRec): AnyRec {
   const environments = asObjArray(extraction.environments).map((env) => {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
       const hinted = mod.out_of_scope === true || OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
+      if (STORE_BRAND_HINTS.some((h) => nameKey.includes(h))) {
+        return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
+      }
       const mdfPieces = asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
       // Com chapa MDF (ex.: bancada sob granito) continua no escopo
       if (mdfPieces > 0) return { ...mod, out_of_scope: undefined }

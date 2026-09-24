@@ -176,6 +176,16 @@ function assertPriced(price: ResolvedMaterialPrice, label: string): ResolvedMate
   return price
 }
 
+/** Material que não é chapa de madeira (pé metálico, vidro, espelho…). */
+function isNonSheetMaterial(material: string): boolean {
+  const n = material
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+  if (/\b(mdf|mdp|compensado|osb|madeira|laminado|chapa)\b/.test(n)) return false
+  return /\b(metal|metalico|aco|ferro|inox|aluminio|vidro|espelho|acrilico)\b/.test(n)
+}
+
 function isPdfFile(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
@@ -389,6 +399,22 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     .flatMap((e) => e.modules)
     .flatMap((mod) => [...mod.caixaria, ...mod.frentes_portas])
     .filter((p) => p.dimensions_estimated).length
+  // Peça maior que a chapa padrão (2750×1850) nas duas orientações: IA agregou o móvel inteiro
+  const oversized = parsed.data.environments
+    .flatMap((e) => e.modules.map((mod) => ({ mod, pieces: [...mod.caixaria, ...mod.frentes_portas] })))
+    .flatMap(({ mod, pieces }) =>
+      pieces
+        .filter((p) => {
+          const [a, b] = [p.width_mm, p.height_mm].sort((x, y) => y - x)
+          return a > 2750 || b > 1850
+        })
+        .map((p) => `${mod.name} → ${p.name} (${p.width_mm}×${p.height_mm} mm)`),
+    )
+  if (oversized.length) {
+    parsed.data.warnings.push(
+      `Peça(s) maiores que a chapa 2750×1850 — confira se a IA agrupou o móvel: ${oversized.slice(0, 5).join('; ')}`,
+    )
+  }
   if (estimatedPieces > 0) {
     parsed.data.warnings.push(
       `${estimatedPieces} peça(s) sem cota no projeto — medidas estimadas pelo tipo (confira na auditoria).`,
@@ -611,7 +637,36 @@ async function nodeResolvePricesAndPersist(
         }
       }
 
+      // Total de fita do módulo é autoritativo: não somar de novo a fita por peça
+      const moduleHasTapeTotals = mod.fitas_borda_m.length > 0
+
       for (const piece of mod.caixaria) {
+        // Pé metálico, vidro etc. listados como peça: cotar por unidade, não como chapa
+        if (isNonSheetMaterial(piece.material_name)) {
+          const label = `${piece.name} — ${piece.material_name}`
+          const unitPrice = price(label, 'ferragem')
+          if (unitPrice.usingMarketPrice) marketFlags += 1
+          materialRows.push(
+            withPage(
+              {
+                module_id: modRow.id,
+                raw_name: label,
+                category: 'ferragem',
+                system_material_id: unitPrice.inventoryItemId,
+                using_market_price: unitPrice.usingMarketPrice,
+                market_price_confirmed: false,
+                unit_price: unitPrice.unitPrice,
+                exact_quantity: piece.quantity,
+                full_units_quantity: Math.ceil(piece.quantity),
+                unit_measure: 'un',
+                notes: priceNotes(unitPrice, `Peça não-MDF (${piece.width_mm}x${piece.height_mm}mm)`),
+              },
+              piece.bounding_box,
+            ),
+          )
+          continue
+        }
+
         const piecePrice = price(piece.material_name, 'chapa')
         if (piecePrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
@@ -632,7 +687,9 @@ async function nodeResolvePricesAndPersist(
             piece.bounding_box,
           ),
         )
-        if (piece.edge_banding && piece.edge_banding.meters > 0) {
+        if (!moduleHasTapeTotals && piece.edge_banding && piece.edge_banding.meters > 0) {
+          // `meters` vem por unidade da peça
+          const tapeMeters = Math.round(piece.edge_banding.meters * piece.quantity * 100) / 100
           const tapeName = piece.edge_banding.tape_name || 'Fita de Borda'
           const tapePrice = price(tapeName, 'fita_borda')
           if (tapePrice.usingMarketPrice) marketFlags += 1
@@ -646,10 +703,13 @@ async function nodeResolvePricesAndPersist(
                 using_market_price: tapePrice.usingMarketPrice,
                 market_price_confirmed: false,
                 unit_price: tapePrice.unitPrice,
-                exact_quantity: piece.edge_banding.meters,
-                full_units_quantity: Math.ceil(piece.edge_banding.meters),
+                exact_quantity: tapeMeters,
+                full_units_quantity: Math.ceil(tapeMeters),
                 unit_measure: 'm',
-                notes: priceNotes(tapePrice, 'Fita de borda (metros lineares)'),
+                notes: priceNotes(
+                  tapePrice,
+                  `Fita de borda: ${piece.edge_banding.meters} m × ${piece.quantity} peça(s)`,
+                ),
               },
               piece.bounding_box,
             ),

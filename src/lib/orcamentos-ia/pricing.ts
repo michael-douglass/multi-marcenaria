@@ -63,12 +63,26 @@ export function normalizeName(value: string): string {
     .trim()
 }
 
+/**
+ * Palavras de família/tipo: presentes em quase todo item da categoria, não identificam
+ * o material ("Fita Amendoeira" ≠ "Fita de Borda Branco TX").
+ */
+const GENERIC_TOKENS = new Set([
+  'fita', 'borda', 'mdf', 'mdp', 'chapa', 'painel', 'ferragem', 'puxador', 'perfil',
+  'tx', 'arauco', 'duratex', 'guararapes', 'eucatex', 'berneck', 'mm', 'metro',
+])
+
 /** Tokens úteis para fuzzy (remove palavras muito curtas e genéricas). */
 function significantTokens(value: string): string[] {
   const stop = new Set(['de', 'da', 'do', 'com', 'para', 'em', 'mm', 'cm', 'un', 'und'])
   return normalizeName(value)
     .split(' ')
     .filter((t) => t.length >= 2 && !stop.has(t))
+}
+
+/** Tokens que identificam o material (cor/padrão/modelo), sem família nem números. */
+function identityTokens(value: string): string[] {
+  return significantTokens(value).filter((t) => !GENERIC_TOKENS.has(t) && !/^\d+$/.test(t))
 }
 
 /**
@@ -83,6 +97,16 @@ function scoreMatch(candidate: string, query: string): number {
   if (!a || !b) return 0
   if (a === b) return 100
   if (a.includes(b) || b.includes(a)) return 88
+
+  // Precisa casar ao menos uma palavra de identidade (cor/padrão/modelo) quando a busca tem
+  const idQuery = identityTokens(query)
+  const idCandidate = identityTokens(candidate)
+  if (idQuery.length && idCandidate.length) {
+    const sharesIdentity = idQuery.some((t) =>
+      idCandidate.some((c) => c === t || (t.length >= 4 && (c.includes(t) || t.includes(c)))),
+    )
+    if (!sharesIdentity) return 0
+  }
 
   const tokensA = new Set(significantTokens(candidate))
   const tokensB = significantTokens(query)
@@ -411,9 +435,10 @@ export async function createPriceResolver(companyId: string): Promise<PriceResol
     const invByCat = preferredCategory
       ? inventory.filter((r) => r.category === preferredCategory)
       : inventory
+    // Outra categoria só com casamento forte ("Pé Metal Preto" ≠ "Puxador Perfil Preto")
     const bestInv =
       bestScored(invByCat, name, (r) => r.name, 28) ??
-      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 28) : null)
+      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 75) : null)
     const invPrice = bestInv ? fromInventory(bestInv.row) : null
     if (invPrice) return invPrice
 
@@ -423,7 +448,7 @@ export async function createPriceResolver(companyId: string): Promise<PriceResol
       : market
     const bestMarket =
       bestScored(marketByCat, name, (r) => r.item_pattern, 28) ??
-      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 28) : null)
+      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 75) : null)
     const marketPrice = Number(bestMarket?.row.estimated_market_price) || 0
     if (bestMarket && marketPrice > 0) {
       const unit = bestMarket.row.unit || 'un'
