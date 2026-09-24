@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { ResumoPontoAura } from '@/components/ponto/ResumoPontoAura'
 import { ResumoPontoEmpresaHero } from '@/components/ponto/ResumoPontoEmpresaHero'
+import { ResumoPontoFaltaDialog } from '@/components/ponto/ResumoPontoFaltaDialog'
 import { ResumoPontoFuncionarioCard } from '@/components/ponto/ResumoPontoFuncionarioCard'
+import { useApp } from '@/context/AppContext'
 import { useResumoPonto } from '@/hooks/useResumoPonto'
 import { pontoDataLocal } from '@/lib/funcionario-ponto'
 import { fetchRepConfig } from '@/lib/rep-config'
-import type { PontoResumoPeriodo } from '@/types'
+import type { PontoResumoFuncionarioPeriodo, PontoResumoPeriodo } from '@/types'
 
 /** Primeiro mês em que o ponto da empresa começou a registrar. */
 const MES_INICIO_PONTO = '2026-07'
@@ -72,6 +74,7 @@ const CHIP_ON = 'bg-[#f4e4c4] text-[#6b3f12] shadow-sm'
 const CHIP_OFF = 'text-[#6b5244] hover:bg-white hover:text-[#1a100c]'
 
 export function ResumoPonto() {
+  const { roles } = useApp()
   const {
     periodo,
     setPeriodo,
@@ -84,6 +87,13 @@ export function ResumoPonto() {
   } = useResumoPonto('mes')
   const [filtroFaltas, setFiltroFaltas] = useState(false)
   const [repCnpj, setRepCnpj] = useState<string | null>(null)
+  const [faltaSelecionada, setFaltaSelecionada] = useState<{
+    row: PontoResumoFuncionarioPeriodo
+    data: string
+  } | null>(null)
+
+  const canEditFalta =
+    roles.includes('Administrador') || roles.includes('Financeiro')
 
   const meses = useMemo(() => listarMesesAteHoje(), [])
 
@@ -252,6 +262,7 @@ export function ResumoPonto() {
                       periodoLabel={periodoLabel}
                       intervaloLabel={intervaloLabel}
                       repCnpj={repCnpj}
+                      onFaltaClick={(data) => setFaltaSelecionada({ row, data })}
                     />
                   ))}
                 </div>
@@ -260,6 +271,22 @@ export function ResumoPonto() {
           </>
         )}
       </div>
+
+      {faltaSelecionada && (
+        <ResumoPontoFaltaDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setFaltaSelecionada(null)
+          }}
+          row={faltaSelecionada.row}
+          data={faltaSelecionada.data}
+          canEdit={canEditFalta}
+          onSuccess={() => {
+            setFaltaSelecionada(null)
+            void reload()
+          }}
+        />
+      )}
 
       <style>{`
         .resumo-ponto-hero {

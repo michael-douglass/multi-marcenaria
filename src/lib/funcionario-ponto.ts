@@ -265,6 +265,40 @@ export async function registrarPontoManual(input: {
   return data as PontoMarcacao
 }
 
+export interface DesconsiderarFaltaResult {
+  funcionario_id: string
+  data: string
+  motivo: string
+  marcacoes: PontoMarcacao[]
+  nsr_ultimo: number
+}
+
+/**
+ * Remove a falta do dia e lança batidas oficiais pontuais
+ * (entrada, almoço, retorno, saída) nos horários da jornada.
+ */
+export async function desconsiderarFalta(input: {
+  funcionarioId: string
+  data: string
+  motivo: string
+}): Promise<DesconsiderarFaltaResult> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_desconsiderar_falta', {
+    p_funcionario_id: input.funcionarioId,
+    p_data: input.data,
+    p_motivo: input.motivo,
+  })
+  if (error) throw new Error(error.message)
+  const row = (data ?? {}) as Record<string, unknown>
+  const marcacoesRaw = Array.isArray(row.marcacoes) ? row.marcacoes : []
+  return {
+    funcionario_id: String(row.funcionario_id ?? input.funcionarioId),
+    data: String(row.data ?? input.data),
+    motivo: String(row.motivo ?? input.motivo),
+    marcacoes: marcacoesRaw as PontoMarcacao[],
+    nsr_ultimo: Number(row.nsr_ultimo) || 0,
+  }
+}
+
 export async function fetchOcorrencias(funcionarioId: string): Promise<PontoOcorrencia[]> {
   const { data, error } = await supabase
     .from('movelaria_funcionario_ponto_ocorrencias')
@@ -454,6 +488,7 @@ function normalizeResumoPeriodo(
       const chegadasRaw = Array.isArray(f.chegadas) ? f.chegadas : []
       const saidasRaw = Array.isArray(f.saidas) ? f.saidas : []
       const faltasDatasRaw = Array.isArray(f.faltas_datas) ? f.faltas_datas : []
+      const faltasDetalheRaw = Array.isArray(f.faltas_detalhe) ? f.faltas_detalhe : []
       return {
         funcionario_id: String(f.funcionario_id ?? ''),
         nome: String(f.nome ?? ''),
@@ -461,10 +496,36 @@ function normalizeResumoPeriodo(
         hora_extra_minutos: Number(f.hora_extra_minutos) || 0,
         faltas: Number(f.faltas) || 0,
         faltas_datas: faltasDatasRaw.map(d => String(d)),
+        faltas_detalhe: faltasDetalheRaw.map(normalizeFaltaDetalhe).filter(
+          (d): d is NonNullable<typeof d> => d != null,
+        ),
+        faltas_banco_minutos: Number(f.faltas_banco_minutos) || 0,
         chegadas: chegadasRaw.map(c => normalizeResumoBatida(c, 'entrada')),
         saidas: saidasRaw.map(s => normalizeResumoBatida(s, 'saida')),
       }
     }),
+  }
+}
+
+function normalizeFaltaDetalhe(raw: unknown): {
+  data: string
+  observacao: string | null
+  abater_banco_horas: boolean
+  minutos_abatidos: number | null
+} | null {
+  if (!raw || typeof raw !== 'object') return null
+  const f = raw as Record<string, unknown>
+  const data = String(f.data ?? '').trim()
+  if (!data) return null
+  const minutosRaw = f.minutos_abatidos
+  return {
+    data,
+    observacao: typeof f.observacao === 'string' ? f.observacao : null,
+    abater_banco_horas: Boolean(f.abater_banco_horas),
+    minutos_abatidos:
+      minutosRaw == null || minutosRaw === ''
+        ? null
+        : Number(minutosRaw) || 0,
   }
 }
 

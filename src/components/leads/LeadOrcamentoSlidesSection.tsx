@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { OrcamentoSlideExportByIdButton } from '@/components/orcamento-slides/OrcamentoSlideExportByIdButton';
 import { useOrcamentosPorLead, useOrcamentoSlides } from '@/hooks/useOrcamentoSlides';
 import type { OrcamentoSlideStatus } from '@/lib/orcamento-slide-types';
 import { buildLeadCardReturnTo, withOrcamentoReturnTo } from '@/lib/orcamento-slide-navigation';
@@ -281,6 +282,12 @@ export function LeadOrcamentoSlidesSection({
                       <Eye className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Ver</span>
                     </Button>
+                    {/* Exportar PDF/imagem sempre disponível — inclusive com orçamento só leitura (fechado). */}
+                    <OrcamentoSlideExportByIdButton
+                      orcamentoId={o.id}
+                      titulo={o.cliente_nome || o.identificador}
+                      compact
+                    />
                     {!readOnly && !isPrestadorView && (
                       <>
                         {!insideOrcamentoEditor && (

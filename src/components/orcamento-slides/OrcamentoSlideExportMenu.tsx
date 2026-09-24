@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { orcamentoVisualizarNestedClass } from '@/lib/overlay-z-index';
+import { leadNestedMenuClass, orcamentoVisualizarNestedClass } from '@/lib/overlay-z-index';
 import type { OrcamentoExportFormat } from '@/lib/orcamento-slide-export';
 
 export type OrcamentoExportViewport = 'desktop' | 'mobile';
@@ -28,6 +28,11 @@ interface OrcamentoSlideExportMenuProps {
   isExporting?: boolean;
   label?: string;
   className?: string;
+  /**
+   * `visualizar` = menu dentro da apresentação fullscreen (portal no overlay).
+   * `inline` = card do lead / lista — sem véu modal (senão o Dialog engole o clique).
+   */
+  portalMode?: 'visualizar' | 'inline';
 }
 
 const VIEWPORT_OPCOES: {
@@ -59,15 +64,24 @@ export function OrcamentoSlideExportMenu({
   isExporting = false,
   label = 'Exportar',
   className,
+  portalMode = 'visualizar',
 }: OrcamentoSlideExportMenuProps) {
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const nestedInVisualizar = portalMode === 'visualizar';
 
   useLayoutEffect(() => {
+    if (!nestedInVisualizar) {
+      setPortalContainer(null);
+      return;
+    }
     setPortalContainer(document.querySelector<HTMLElement>('[data-orcamento-visualizar]'));
-  }, []);
+  }, [nestedInVisualizar]);
 
   return (
-    <DropdownMenu modal>
+    <DropdownMenu
+      // Dentro do Dialog do lead, modal=true cria um véu que engole cliques (mesmo padrão do LeadAIRenderDownloadMenu).
+      modal={nestedInVisualizar}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
@@ -94,18 +108,25 @@ export function OrcamentoSlideExportMenu({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        container={portalContainer}
+        container={portalContainer ?? undefined}
         data-orcamento-export-menu=""
-        onCloseAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => {
+          if (nestedInVisualizar) event.preventDefault();
+        }}
         onPointerDown={(event) => event.stopPropagation()}
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onFocusOutside={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => {
+          if (nestedInVisualizar) event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (nestedInVisualizar) event.preventDefault();
+        }}
         onInteractOutside={(event) => {
+          if (!nestedInVisualizar) return;
           const target = event.target as HTMLElement | null;
           if (target?.closest('[data-orcamento-visualizar]')) event.preventDefault();
         }}
         className={cn(
-          orcamentoVisualizarNestedClass,
+          nestedInVisualizar ? orcamentoVisualizarNestedClass : leadNestedMenuClass,
           'w-80 p-2 rounded-xl border border-white/10',
           '!bg-[#2a1812] !text-white pointer-events-auto shadow-2xl shadow-black/50',
         )}

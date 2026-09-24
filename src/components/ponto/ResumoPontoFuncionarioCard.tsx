@@ -21,6 +21,7 @@ interface ResumoPontoFuncionarioCardProps {
   periodoLabel: string
   intervaloLabel: string
   repCnpj?: string | null
+  onFaltaClick?: (data: string) => void
 }
 
 const CARD_CLASS =
@@ -50,6 +51,11 @@ const TH =
   'px-2 py-2 text-center font-semibold text-[0.6rem] uppercase tracking-wider text-[#6b5244]'
 
 const TD_HORA = 'px-2 py-1.5 text-center tabular-nums text-[#1a100c]'
+
+const FALTA_ITEM_CLASS =
+  'w-full rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-3 py-2 text-left text-sm ' +
+  'text-[#9f1239] transition-colors hover:border-[#9f1239]/55 hover:bg-[#ffe4e8] ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9f1239]/40'
 
 function formatDataCurta(iso: string): string {
   if (!iso) return '-'
@@ -87,6 +93,7 @@ export function ResumoPontoFuncionarioCard({
   periodoLabel,
   intervaloLabel,
   repCnpj,
+  onFaltaClick,
 }: ResumoPontoFuncionarioCardProps) {
   const [exportando, setExportando] = useState(false)
   const temFaltas = row.faltas_datas.length > 0
@@ -112,6 +119,12 @@ export function ResumoPontoFuncionarioCard({
     } finally {
       window.setTimeout(() => setExportando(false), 800)
     }
+  }
+
+  function abrirFalta(e: MouseEvent, data: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    onFaltaClick?.(data)
   }
 
   return (
@@ -146,11 +159,7 @@ export function ResumoPontoFuncionarioCard({
         </button>
       </div>
 
-      <Link
-        to={pastaUrl}
-        aria-label={'Abrir pasta de ' + row.nome}
-        className={CARD_CLASS}
-      >
+      <div className={CARD_CLASS}>
         <div
           className="absolute inset-x-0 top-0 h-1 opacity-80"
           style={{
@@ -158,7 +167,15 @@ export function ResumoPontoFuncionarioCard({
           }}
         />
 
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(26,16,12,0.1)] px-5 py-4">
+        <Link
+          to={pastaUrl}
+          aria-label={'Abrir pasta de ' + row.nome}
+          className={
+            'flex flex-wrap items-start justify-between gap-3 border-b border-[rgba(26,16,12,0.1)] ' +
+            'px-5 py-4 transition-colors hover:bg-[#faf6f0]/80 focus-visible:outline-none ' +
+            'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(107,63,18,0.35)]'
+          }
+        >
           <div>
             <h3 className="font-display text-xl tracking-wide text-[#1a100c] group-hover:underline group-hover:underline-offset-4">
               {row.nome}
@@ -181,7 +198,7 @@ export function ResumoPontoFuncionarioCard({
               {row.faltas} falta{row.faltas === 1 ? '' : 's'}
             </span>
           </div>
-        </header>
+        </Link>
 
         <div className="space-y-5 p-5">
           <section>
@@ -222,11 +239,31 @@ export function ResumoPontoFuncionarioCard({
                         }
                       >
                         <td className="px-2 py-1.5 text-left tabular-nums font-medium text-[#1a100c]">
-                          {formatDataCurta(dia.data)}
-                          {dia.ehFalta && (
-                            <span className="ml-1 text-[0.6rem] font-semibold uppercase tracking-wider text-[#9f1239]">
-                              falta
-                            </span>
+                          {dia.ehFalta && onFaltaClick ? (
+                            <button
+                              type="button"
+                              onClick={(e) => abrirFalta(e, dia.data)}
+                              className={
+                                'inline-flex items-center gap-1 rounded-md px-1 py-0.5 ' +
+                                'hover:bg-[#ffe4e8] focus-visible:outline-none ' +
+                                'focus-visible:ring-2 focus-visible:ring-[#9f1239]/40'
+                              }
+                              title="Clique para tratar esta falta"
+                            >
+                              {formatDataCurta(dia.data)}
+                              <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-[#9f1239]">
+                                falta
+                              </span>
+                            </button>
+                          ) : (
+                            <>
+                              {formatDataCurta(dia.data)}
+                              {dia.ehFalta && (
+                                <span className="ml-1 text-[0.6rem] font-semibold uppercase tracking-wider text-[#9f1239]">
+                                  falta
+                                </span>
+                              )}
+                            </>
                           )}
                         </td>
                         <CellHora valor={dia.inicio} />
@@ -235,7 +272,21 @@ export function ResumoPontoFuncionarioCard({
                         <CellHora valor={dia.saida} />
                         <td className="px-2 py-1.5 text-center tabular-nums">
                           {dia.ehFalta ? (
-                            <span className="font-semibold text-[#9f1239]">Falta</span>
+                            onFaltaClick ? (
+                              <button
+                                type="button"
+                                onClick={(e) => abrirFalta(e, dia.data)}
+                                className={
+                                  'font-semibold text-[#9f1239] underline-offset-2 hover:underline ' +
+                                  'focus-visible:outline-none focus-visible:ring-2 ' +
+                                  'focus-visible:ring-[#9f1239]/40'
+                                }
+                              >
+                                Falta
+                              </button>
+                            ) : (
+                              <span className="font-semibold text-[#9f1239]">Falta</span>
+                            )
                           ) : dia.excedente_minutos === 0 && dia.atraso_minutos === 0 ? (
                             <span className="text-[#9a8170]">—</span>
                           ) : (
@@ -320,7 +371,7 @@ export function ResumoPontoFuncionarioCard({
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
               No dia: verde = excedente · vermelho = atraso. No período: Saldo = HE − atrasos −
-              faltas abatidas no banco. Para justificar uma falta, abra a pasta do funcionário.
+              faltas abatidas no banco. Clique numa falta para desconsiderar ou abater em horas.
             </p>
           </section>
 
@@ -334,31 +385,54 @@ export function ResumoPontoFuncionarioCard({
             {temFaltas && (
               <ul className="mt-2 space-y-2">
                 {faltasDetalhe.map((f) => (
-                  <li
-                    key={f.data}
-                    className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-3 py-2 text-sm text-[#9f1239]"
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                      <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
-                      {f.abater_banco_horas && (
-                        <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
-                          Abatida no banco
-                          {f.minutos_abatidos != null && f.minutos_abatidos > 0
-                            ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
-                            : ''}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
-                      {f.observacao?.trim() || 'Sem justificativa'}
-                    </p>
+                  <li key={f.data}>
+                    {onFaltaClick ? (
+                      <button
+                        type="button"
+                        onClick={(e) => abrirFalta(e, f.data)}
+                        className={FALTA_ITEM_CLASS}
+                        title="Clique para desconsiderar ou abater esta falta"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
+                          {f.abater_banco_horas && (
+                            <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              Abatida no banco
+                              {f.minutos_abatidos != null && f.minutos_abatidos > 0
+                                ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
+                                : ''}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
+                          {f.observacao?.trim() || 'Sem justificativa'}
+                        </p>
+                      </button>
+                    ) : (
+                      <div className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-3 py-2 text-sm text-[#9f1239]">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
+                          {f.abater_banco_horas && (
+                            <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              Abatida no banco
+                              {f.minutos_abatidos != null && f.minutos_abatidos > 0
+                                ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
+                                : ''}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
+                          {f.observacao?.trim() || 'Sem justificativa'}
+                        </p>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
           </section>
         </div>
-      </Link>
+      </div>
     </article>
   )
 }
