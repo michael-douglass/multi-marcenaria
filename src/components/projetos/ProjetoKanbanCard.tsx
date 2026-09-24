@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import {
   classifyProjetoStage,
   isProjetoEmDesenho,
+  shouldPulseFeitoAwaitingOrcamento,
 } from '@/lib/projetos-atelie'
 import type { LeadProjeto, LeadProjetoChatThread, ProjetoStage } from '@/hooks/useLeadProjetos'
 import { ProjetoClaimedAura } from '@/components/projetos/ProjetoClaimedAura'
@@ -55,6 +56,8 @@ export function ProjetoKanbanCard({
   const stage = stages.find((item) => item.id === projeto.stage_id)
   const kind = stage ? classifyProjetoStage(stage, stages) : 'other'
   const emDesenho = isProjetoEmDesenho(projeto) && kind !== 'feito'
+  const devePulsarFeito =
+    kind === 'feito' && shouldPulseFeitoAwaitingOrcamento(projeto.lead_status)
   const delay = Math.min(appearIndex, 8) * 40
 
   return (
@@ -65,7 +68,9 @@ export function ProjetoKanbanCard({
         transition,
         animationDelay: `${delay}ms`,
         background: '#fffcf8',
-        boxShadow: '0 8px 18px rgba(42, 24, 18, 0.1)',
+        // Glow animado controla a sombra quando em desenho / pulso de Feitos.
+        boxShadow:
+          emDesenho || devePulsarFeito ? undefined : '0 8px 18px rgba(42, 24, 18, 0.1)',
       }}
       className={cn(
         'relative w-full cursor-pointer overflow-hidden rounded-lg border-2 border-[#c9a35a]/50 text-left text-[#2a1812] touch-manipulation',
@@ -73,6 +78,7 @@ export function ProjetoKanbanCard({
         !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
         isDragging && 'z-50 scale-[1.03] rotate-1 ring-2 ring-sky-400/40',
         emDesenho && 'projeto-card-claimed',
+        devePulsarFeito && 'projeto-card-feito-pulse',
       )}
       onClick={() => onOpen(projeto.lead_id)}
     >
@@ -89,7 +95,10 @@ export function ProjetoKanbanCard({
         </div>
       ) : kind === 'feito' ? (
         <div
-          className="flex items-center gap-2 border-b border-emerald-500/25 bg-emerald-50/80 px-2 py-1.5"
+          className={cn(
+            'flex items-center gap-2 border-b border-emerald-500/25 bg-emerald-50/80 px-2 py-1.5',
+            devePulsarFeito && 'projeto-card-feito-pulse-rim',
+          )}
           role="status"
         >
           <p className="min-w-0 font-display text-sm tracking-wide text-emerald-800">

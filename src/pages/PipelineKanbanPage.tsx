@@ -18,7 +18,8 @@ import { FloatingHorizontalScrollbar } from '@/components/kanban/FloatingHorizon
 import { KanbanPageZoomShell } from '@/components/kanban/KanbanPageZoomShell';
 import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomControls';
 import { LeadModal } from '@/components/leads/LeadModal';
-import { useLeadProjetos } from '@/hooks/useLeadProjetos';
+import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
+import { collectFeitoPulseLeadIds } from '@/lib/projetos-atelie';
 import { adaptLeadFromDatabase } from '@/lib/adapters';
 import { leadMatchesSearchQuery } from '@/lib/lead-search';
 import { resolveKanbanColumns } from '@/lib/kanban-resolver';
@@ -66,7 +67,8 @@ export default function PipelineKanbanPage() {
   const { regioesDisponiveis } = useRegioes();
   const { pages, isLoading: isLoadingKanban } = useKanbanConfig();
   const { activeStages: pipelineStages } = usePipelineCustomStages();
-  useLeadProjetos({ realtime: true });
+  const { data: leadProjetos = [] } = useLeadProjetos({ realtime: true });
+  const { data: projetoStages = [] } = useProjetoStages();
   const [periodFilter, setPeriodFilter] = useState<KanbanMonthPeriodFilter>(initialMonthPeriod);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrigins, setSelectedOrigins] = useState<string[]>([]);
@@ -187,10 +189,17 @@ export default function PipelineKanbanPage() {
     return result;
   }, [adaptedLeads, isGlobalSearchActive, searchQuery, selectedOrigins, selectedRegioes]);
 
+  const feitoPulseLeadIds = useMemo(() => {
+    const statusById = new Map(
+      filteredLeads.map((lead) => [lead.id, lead.status] as const),
+    );
+    return collectFeitoPulseLeadIds(leadProjetos, projetoStages, statusById);
+  }, [filteredLeads, leadProjetos, projetoStages]);
+
   const columns = useMemo(() => {
     if (!page) return [];
-    return resolveKanbanColumns({ page, leads: filteredLeads });
-  }, [page, filteredLeads]);
+    return resolveKanbanColumns({ page, leads: filteredLeads, elevateLeadIds: feitoPulseLeadIds });
+  }, [page, filteredLeads, feitoPulseLeadIds]);
 
   useEffect(() => {
     updateKanbanScrollEdges();

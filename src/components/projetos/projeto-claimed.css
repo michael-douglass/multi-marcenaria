@@ -33,6 +33,47 @@
   }
 }
 
+/* Feitos aguardando “Enviou orçamento” — brilho esmeralda/âmbar aceso */
+.projeto-card-feito-pulse {
+  animation: projeto-feito-glow 1.6s ease-in-out infinite;
+}
+
+.projeto-card-feito-pulse-rim {
+  animation: projeto-feito-rim 1.6s ease-in-out infinite;
+}
+
+@keyframes projeto-feito-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(52, 211, 153, 0.45),
+      0 8px 18px rgba(42, 24, 18, 0.1);
+    filter: brightness(1.04);
+    border-color: rgba(52, 211, 153, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(16, 185, 129, 0.75),
+      0 0 28px rgba(52, 211, 153, 0.45),
+      0 0 12px rgba(251, 191, 36, 0.35),
+      0 8px 18px rgba(42, 24, 18, 0.12);
+    filter: brightness(1.18);
+    border-color: rgba(251, 191, 36, 0.7);
+  }
+}
+
+@keyframes projeto-feito-rim {
+  0%,
+  100% {
+    opacity: 0.7;
+    background-color: rgba(209, 250, 229, 0.8);
+  }
+  50% {
+    opacity: 1;
+    background-color: rgba(167, 243, 208, 0.95);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .projeto-card-claimed {
     animation: none;
@@ -44,5 +85,19 @@
   .projeto-card-claimed-rim {
     animation: none;
     opacity: 1;
+  }
+
+  .projeto-card-feito-pulse {
+    animation: none;
+    box-shadow:
+      0 0 0 2px rgba(16, 185, 129, 0.7),
+      0 0 18px rgba(52, 211, 153, 0.4);
+    filter: none;
+    border-color: rgba(16, 185, 129, 0.65);
+  }
+  .projeto-card-feito-pulse-rim {
+    animation: none;
+    opacity: 1;
+    background-color: rgba(167, 243, 208, 0.95);
   }
 }

@@ -46,6 +46,8 @@ export interface LeadProjeto {
   concluido_em: string | null
   lead_nome: string
   lead_empresa: string | null
+  /** Status comercial do funil (`leads.status`) — usado p.ex. no pulso de Feitos. */
+  lead_status: string | null
   titular_nome: string | null
   arquiteto_nome: string | null
   parceiro_nome: string | null
@@ -302,17 +304,21 @@ async function loadLeadProjetosBoard(
     ),
   ]
 
-  const leadsById = new Map<number, { nome: string; empresa: string | null; parceiroId: string | null }>()
+  const leadsById = new Map<
+    number,
+    { nome: string; empresa: string | null; status: string | null; parceiroId: string | null }
+  >()
   if (leadIds.length > 0) {
     const { data: leads, error: leadsError } = await db
       .from('leads')
-      .select('id, nome, empresa, pontua_garbo_usuario_id')
+      .select('id, nome, empresa, status, pontua_garbo_usuario_id')
       .in('id', leadIds)
     if (leadsError) throw leadsError
     for (const lead of leads ?? []) {
       leadsById.set(lead.id as number, {
         nome: String(lead.nome ?? 'Lead'),
         empresa: lead.empresa ? String(lead.empresa) : null,
+        status: lead.status != null && String(lead.status).trim() ? String(lead.status) : null,
         parceiroId: lead.pontua_garbo_usuario_id ? String(lead.pontua_garbo_usuario_id) : null,
       })
     }
@@ -342,6 +348,7 @@ async function loadLeadProjetosBoard(
       concluido_em: row.concluido_em ? String(row.concluido_em) : null,
       lead_nome: lead?.nome ?? `Lead #${row.lead_id}`,
       lead_empresa: lead?.empresa ?? null,
+      lead_status: lead?.status ?? null,
       titular_nome: firstName(titularId ? usersById.get(titularId) : null),
       arquiteto_nome: firstName(arquitetoId ? usersById.get(arquitetoId) : null),
       parceiro_nome: firstName(lead?.parceiroId ? usersById.get(lead.parceiroId) : null),
@@ -368,14 +375,21 @@ export function useLeadProjetos(options?: { realtime?: boolean }) {
 
   useEffect(() => {
     if (!realtime || !schemaEmpresa) return
+    const invalidateBoard = () => {
+      void queryClient.invalidateQueries({ queryKey: ['lead-projetos', schemaEmpresa] })
+    }
     const channel = supabase
       .channel(`lead-projetos-${schemaEmpresa}`)
       .on(
         'postgres_changes',
         { event: '*', schema: schemaEmpresa, table: 'lead_projetos' },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ['lead-projetos', schemaEmpresa] })
-        },
+        invalidateBoard,
+      )
+      // Status do funil (`leads.status`) controla o pulso dos cards em Feitos.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: schemaEmpresa, table: 'leads' },
+        invalidateBoard,
       )
       .subscribe()
     return () => {

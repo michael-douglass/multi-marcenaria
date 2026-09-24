@@ -53,6 +53,7 @@ import {
   canSoltarOuReabrir,
   classifyProjetoStage,
   isProjetoEmDesenho,
+  shouldPulseFeitoAwaitingOrcamento,
 } from '@/lib/projetos-atelie'
 import { isProjetistaAdminRole, isProjetistaOnly } from '@/lib/app-roles'
 
@@ -185,10 +186,21 @@ export default function Projetos() {
 
   const columns = useMemo(
     () =>
-      stages.map((stage) => ({
-        stage,
-        items: projetos.filter((projeto) => projeto.stage_id === stage.id),
-      })),
+      stages.map((stage) => {
+        const kind = classifyProjetoStage(stage, stages)
+        const items = projetos.filter((projeto) => projeto.stage_id === stage.id)
+        if (kind !== 'feito') {
+          return { stage, items }
+        }
+        // Na coluna Feitos, cards que ainda aguardam “Enviou orçamento” sobem ao topo.
+        const sorted = [...items].sort((a, b) => {
+          const aPulse = shouldPulseFeitoAwaitingOrcamento(a.lead_status) ? 0 : 1
+          const bPulse = shouldPulseFeitoAwaitingOrcamento(b.lead_status) ? 0 : 1
+          if (aPulse !== bPulse) return aPulse - bPulse
+          return 0
+        })
+        return { stage, items: sorted }
+      }),
     [projetos, stages],
   )
 

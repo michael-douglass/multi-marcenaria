@@ -40,9 +40,15 @@ import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
 import { KanbanProjetoSignal } from '@/components/kanban/KanbanProjetoSignal';
 import { LeadProjetoCardActions } from '@/components/projetos/LeadProjetoCardActions';
 import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
-import { kanbanCardProjetoRingClass, projetoSignalTone } from '@/lib/projetos-atelie';
+import {
+  kanbanCardProjetoFeitoPulseRingClass,
+  kanbanCardProjetoRingClass,
+  projetoSignalTone,
+  shouldPulseFeitoAwaitingOrcamento,
+} from '@/lib/projetos-atelie';
 import { kanbanStageSkin, kanbanStageTintHex } from '@/lib/kanban-stage-skin';
 import { KanbanLeadCardFoil } from '@/components/kanban/KanbanLeadCardFoil';
+import '@/components/projetos/projeto-claimed.css';
 
 interface KanbanCardProps {
   lead: Lead;
@@ -125,6 +131,9 @@ export function KanbanCard({
     leadProjetos.find((item) => item.lead_id === lead.id) ?? null,
     projetoStages,
   );
+  /** Projeto concluído no ateliê + funil ainda antes de “Enviou orçamento” → pulsa. */
+  const devePulsarProjetoFeito =
+    projetoTone === 'done' && shouldPulseFeitoAwaitingOrcamento(lead.status);
 
   const vendorOptions = useMemo(
     () =>
@@ -298,7 +307,10 @@ export function KanbanCard({
           !isDragging && 'animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-backwards',
           isDragging && 'z-50 scale-[1.03] rotate-1 opacity-95 ring-2 ring-gold/40',
           justDropped && !isDragging && 'animate-in zoom-in-95 duration-300 ring-2 ring-gold/50',
-          kanbanCardProjetoRingClass(projetoTone),
+          devePulsarProjetoFeito
+            ? kanbanCardProjetoFeitoPulseRingClass(true)
+            : kanbanCardProjetoRingClass(projetoTone),
+          devePulsarProjetoFeito && 'projeto-card-feito-pulse',
         )}
         onClick={onClick}
         onMouseEnter={() => setFoilActive(true)}
@@ -459,7 +471,9 @@ export function KanbanCard({
 
           {/* Sinais / badges */}
           <div className="flex flex-wrap items-center gap-1 min-w-0 pl-0.5">
-            {projetoTone ? <KanbanProjetoSignal tone={projetoTone} /> : null}
+            {projetoTone ? (
+              <KanbanProjetoSignal tone={projetoTone} pulse={devePulsarProjetoFeito} />
+            ) : null}
             {lead.needsAttention && (
               <Badge
                 variant="destructive"

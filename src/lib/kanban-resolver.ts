@@ -6,6 +6,8 @@ import { sortLeadsWithAttentionPriority } from '@/lib/lead-sort';
 interface ResolveArgs {
   page: KanbanPageComplete;
   leads: Lead[];
+  /** Leads com projeto feito pulsando — sobem ao topo da coluna. */
+  elevateLeadIds?: ReadonlySet<number>;
 }
 
 const matchesSource = (lead: Lead, source: KanbanColumnSource): boolean => {
@@ -38,7 +40,7 @@ const applyOverrides = (baseLeadIds: Set<number>, overrides: KanbanCardOverride[
   return result;
 };
 
-export function resolveKanbanColumns({ page, leads }: ResolveArgs) {
+export function resolveKanbanColumns({ page, leads, elevateLeadIds }: ResolveArgs) {
   return page.columns
     .filter((column) => column.ativo)
     .sort((a, b) => a.ordem - b.ordem)
@@ -62,6 +64,7 @@ export function resolveKanbanColumns({ page, leads }: ResolveArgs) {
         leads.filter((lead) => finalLeadIds.has(lead.id)),
         (a, b) =>
           new Date(b.dateArrived).getTime() - new Date(a.dateArrived).getTime(),
+        elevateLeadIds,
       );
 
       return {

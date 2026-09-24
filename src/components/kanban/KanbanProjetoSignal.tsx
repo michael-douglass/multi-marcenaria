@@ -4,6 +4,8 @@ import type { ProjetoSignalTone } from '@/lib/projetos-atelie'
 
 interface KanbanProjetoSignalProps {
   tone: ProjetoSignalTone
+  /** Brilho aceso enquanto o funil ainda não chegou em “Enviou orçamento”. */
+  pulse?: boolean
 }
 
 const COPY: Record<ProjetoSignalTone, string> = {
@@ -12,14 +14,17 @@ const COPY: Record<ProjetoSignalTone, string> = {
   done: 'Projeto feito',
 }
 
-export function KanbanProjetoSignal({ tone }: KanbanProjetoSignalProps) {
+export function KanbanProjetoSignal({ tone, pulse = false }: KanbanProjetoSignalProps) {
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
         tone === 'waiting' && 'animate-pulse border-amber-400/40 bg-amber-400/10 text-amber-300',
         tone === 'active' && 'border-sky-400/40 bg-sky-950/40 text-sky-200',
-        tone === 'done' && 'border-gold/40 bg-gold/10 text-gold',
+        tone === 'done' && !pulse && 'border-gold/40 bg-gold/10 text-gold',
+        tone === 'done' &&
+          pulse &&
+          'animate-pulse border-emerald-400/70 bg-emerald-500/25 text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.55)]',
       )}
     >
       <span className="relative flex h-4 w-4 items-center justify-center">
@@ -28,7 +33,8 @@ export function KanbanProjetoSignal({ tone }: KanbanProjetoSignalProps) {
             'absolute inset-0 rounded-full',
             tone === 'waiting' && 'bg-amber-400/30',
             tone === 'active' && 'animate-[spin_9s_linear_infinite]',
-            tone === 'done' && 'bg-gold/25',
+            tone === 'done' && !pulse && 'bg-gold/25',
+            tone === 'done' && pulse && 'bg-emerald-400/50',
           )}
           style={
             tone === 'active'

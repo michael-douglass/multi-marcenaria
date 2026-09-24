@@ -65,7 +65,8 @@ import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { buildMarkAsWonUpdates } from '@/lib/vendas-ganhos';
 import { useSyncPontuaGarboLiberacaoAposVenda } from '@/hooks/usePontuaGarboComissaoLiberacao';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
-import { useLeadProjetos } from '@/hooks/useLeadProjetos';
+import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
+import { collectFeitoPulseLeadIds } from '@/lib/projetos-atelie';
 
 const DEFAULT_KANBAN_STAGES: string[] = [
   'Novo Lead',
@@ -87,7 +88,8 @@ export default function Pipeline() {
   const { configs: timeConfigs } = usePipelineTimeConfig();
   const { activeStages: customStages } = usePipelineCustomStages();
   const { config: vendasGanhosConfig, isLoading: isLoadingVendasGanhosConfig } = useVendasGanhosConfig();
-  useLeadProjetos({ realtime: true });
+  const { data: leadProjetos = [] } = useLeadProjetos({ realtime: true });
+  const { data: projetoStages = [] } = useProjetoStages();
   const liberacaoAposVenda = useSyncPontuaGarboLiberacaoAposVenda();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [selectedVendor, setSelectedVendor] = useState<string>('all');
@@ -383,9 +385,17 @@ export default function Pipeline() {
     [sortBy, manualOrder, lastInteractionMap],
   );
 
+  const feitoPulseLeadIds = useMemo(() => {
+    const statusById = new Map(
+      allAdaptedLeads.map((lead) => [lead.id, lead.status] as const),
+    );
+    return collectFeitoPulseLeadIds(leadProjetos, projetoStages, statusById);
+  }, [allAdaptedLeads, leadProjetos, projetoStages]);
+
   const sortLeadsForColumn = useCallback(
-    (columnLeads: Lead[]) => sortLeadsWithAttentionPriority(columnLeads, compareLeadsInColumn),
-    [compareLeadsInColumn],
+    (columnLeads: Lead[]) =>
+      sortLeadsWithAttentionPriority(columnLeads, compareLeadsInColumn, feitoPulseLeadIds),
+    [compareLeadsInColumn, feitoPulseLeadIds],
   );
 
   const isGlobalSearchActive = searchQuery.trim().length > 0;
@@ -397,7 +407,7 @@ export default function Pipeline() {
       const matched = allAdaptedLeads.filter((lead) =>
         leadMatchesSearchQuery(lead, searchQuery),
       );
-      return sortLeadsWithAttentionPriority(matched, compareLeadsInColumn);
+      return sortLeadsWithAttentionPriority(matched, compareLeadsInColumn, feitoPulseLeadIds);
     }
 
     let filtered = allAdaptedLeads;
@@ -514,7 +524,7 @@ export default function Pipeline() {
     }
 
     // Ordenação global (lista); no Kanban cada coluna reordena de novo com sortLeadsForColumn.
-    filtered = sortLeadsWithAttentionPriority(filtered, compareLeadsInColumn);
+    filtered = sortLeadsWithAttentionPriority(filtered, compareLeadsInColumn, feitoPulseLeadIds);
 
     return filtered;
   }, [
@@ -537,6 +547,7 @@ export default function Pipeline() {
     selectedTimeFilter,
     timeConfigs,
     compareLeadsInColumn,
+    feitoPulseLeadIds,
   ]);
 
   /** No Kanban, só leads com status de coluna cadastrada no Pipeline (demais ficam nas páginas Kanban). */
