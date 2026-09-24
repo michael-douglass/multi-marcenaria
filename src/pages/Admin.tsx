@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   Shield, Users as UsersIcon, UserPlus, Plus, Trash2,
   Tag, Pencil, KeyRound, Clock, Unlock, Palette, Briefcase,
-  UserCheck, Star, Trophy, Loader2, Link, ExternalLink, Copy,
+  UserCheck, Star, Trophy, Loader2, Link, ExternalLink, Copy, Search,
 } from 'lucide-react';
 import { EmpresaBrandingForm } from '@/components/admin/EmpresaBrandingForm';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -168,14 +168,37 @@ export default function Admin() {
 
   const canAccessAdmin = userRole === 'admin' || isSuperAdmin;
 
-  // ── Filtro por tipo ──────────────────────────────────────────────────────────
+  // ── Filtro por tipo + busca ──────────────────────────────────────────────────
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
+  const [buscaUsuario, setBuscaUsuario] = useState('');
 
   const filteredUsers = useMemo(() => {
     if (!dbUsers) return [];
-    if (tipoFiltro === 'todos') return dbUsers;
-    return dbUsers.filter(u => (u.tipo_usuario ?? 'colaborador') === tipoFiltro);
-  }, [dbUsers, tipoFiltro]);
+    const q = buscaUsuario.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
+
+    return dbUsers.filter((u) => {
+      if (tipoFiltro !== 'todos' && (u.tipo_usuario ?? 'colaborador') !== tipoFiltro) {
+        return false;
+      }
+      if (!q) return true;
+
+      const nome = (u.nome ?? '').toLowerCase();
+      const email = (u.email ?? '').toLowerCase();
+      const telefone = (u.telefone ?? '').toLowerCase();
+      const telefoneDigits = (u.telefone ?? '').replace(/\D/g, '');
+      const titulo = (u.titulo ?? '').toLowerCase();
+
+      if (nome.includes(q) || email.includes(q) || telefone.includes(q) || titulo.includes(q)) {
+        return true;
+      }
+      // Busca por telefone também funciona só com números (ex.: 319999)
+      if (qDigits.length >= 3 && telefoneDigits.includes(qDigits)) {
+        return true;
+      }
+      return false;
+    });
+  }, [dbUsers, tipoFiltro, buscaUsuario]);
 
   const contagens = useMemo(() => {
     if (!dbUsers) return { todos: 0, colaborador: 0, lead: 0, prestador_servico: 0 };
@@ -690,34 +713,47 @@ export default function Admin() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* ── Filtros por tipo ──────────────────────────────────────── */}
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { key: 'todos', label: 'Todos', icon: UsersIcon },
-                    { key: 'colaborador', label: 'Colaboradores', icon: UserCheck },
-                    { key: 'lead', label: 'Leads', icon: Star },
-                    { key: 'prestador_servico', label: 'Prestadores', icon: Briefcase },
-                  ] as const
-                ).map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setTipoFiltro(key)}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium border transition-colors
-                      ${tipoFiltro === key
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                      }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                    <span className={`ml-0.5 rounded-full px-1.5 text-xs
-                      ${tipoFiltro === key ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                      {contagens[key]}
-                    </span>
-                  </button>
-                ))}
+              {/* ── Busca + filtros por tipo ─────────────────────────────── */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <label className="relative block min-w-[220px] flex-1 sm:max-w-sm">
+                  <span className="sr-only">Buscar usuários</span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Buscar por nome, e-mail ou telefone…"
+                    value={buscaUsuario}
+                    onChange={(e) => setBuscaUsuario(e.target.value)}
+                    aria-label="Buscar usuários por nome, e-mail ou telefone"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { key: 'todos', label: 'Todos', icon: UsersIcon },
+                      { key: 'colaborador', label: 'Colaboradores', icon: UserCheck },
+                      { key: 'lead', label: 'Leads', icon: Star },
+                      { key: 'prestador_servico', label: 'Prestadores', icon: Briefcase },
+                    ] as const
+                  ).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setTipoFiltro(key)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium border transition-colors
+                        ${tipoFiltro === key
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                        }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                      <span className={`ml-0.5 rounded-full px-1.5 text-xs
+                        ${tipoFiltro === key ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                        {contagens[key]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="rounded-md border">
@@ -742,9 +778,11 @@ export default function Admin() {
                     ) : filteredUsers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          {tipoFiltro === 'todos'
-                            ? 'Nenhum usuário encontrado'
-                            : `Nenhum ${getTipoLabel(tipoFiltro as TipoUsuario).toLowerCase()} encontrado`}
+                          {buscaUsuario.trim()
+                            ? 'Nenhum usuário corresponde à busca'
+                            : tipoFiltro === 'todos'
+                              ? 'Nenhum usuário encontrado'
+                              : `Nenhum ${getTipoLabel(tipoFiltro as TipoUsuario).toLowerCase()} encontrado`}
                         </TableCell>
                       </TableRow>
                     ) : (
