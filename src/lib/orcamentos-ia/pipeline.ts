@@ -16,8 +16,10 @@ import {
 import {
   barsOf3mFromMeters,
   CONTINGENCY_PRICE_WARNING,
+  createPriceResolver,
+  DEFAULT_SHEET_LOSS_PCT,
   endCapsForHandleBars,
-  resolveMaterialPrice,
+  sheetsFromAreaM2,
   type ResolvedMaterialPrice,
 } from '@/lib/orcamentos-ia/pricing'
 import {
@@ -40,7 +42,7 @@ import {
  * - Orquestração: LangGraph no cliente (status + páginas + persistência).
  * - Visão/extração/auditoria: Edge Function `orcamentos-ia-pipeline`
  *   (OpenAI gpt-4o + o3-mini; chave só no servidor).
- * - Preços: `resolveMaterialPrice` (inventory → market → contingência; nunca R$ 0).
+ * - Preços: `createPriceResolver` (alias → inventory → market → contingência; nunca R$ 0).
  */
 
 const MAX_PIPELINE_PAGES = 40
@@ -157,7 +159,12 @@ const PipelineState = Annotation.Root({
 type PipelineStateType = typeof PipelineState.State
 
 function priceNotes(price: ResolvedMaterialPrice, base?: string | null): string | null {
-  const parts = [base?.trim() || null, price.warning, price.source === 'contingency' ? CONTINGENCY_PRICE_WARNING : null]
+  const parts = [
+    base?.trim() || null,
+    price.warning,
+    price.source === 'contingency' ? CONTINGENCY_PRICE_WARNING : null,
+    price.contingencyKey ? `contingência=${price.contingencyKey}` : null,
+  ]
   const unique = [...new Set(parts.filter(Boolean))]
   return unique.length ? unique.join(' · ') : null
 }
@@ -378,6 +385,16 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     )
   }
 
+  const estimatedPieces = parsed.data.environments
+    .flatMap((e) => e.modules)
+    .flatMap((mod) => [...mod.caixaria, ...mod.frentes_portas])
+    .filter((p) => p.dimensions_estimated).length
+  if (estimatedPieces > 0) {
+    parsed.data.warnings.push(
+      `${estimatedPieces} peça(s) sem cota no projeto — medidas estimadas pelo tipo (confira na auditoria).`,
+    )
+  }
+
   const inventory = Array.isArray(payload.inventory) ? payload.inventory : []
   const coverage =
     payload.coverage ?? buildCoverageReport(inventory, parsed.data)
@@ -406,7 +423,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   return { extraction: parsed.data }
 }
 
-/** Corrige zeros óbvios; módulos nomeados sem peças ganham placeholder (não são apagados). */
+/** Corrige quantidades zeradas; marca fora de escopo (pedra/decoração). Dimensões → schema. */
 function sanitizeExtractionPayload(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') return raw
   const root = raw as Record<string, unknown>
@@ -423,26 +440,11 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
           const modName = typeof m.name === 'string' ? m.name.trim() : ''
           if (!modName) return null
 
-          m.caixaria = coercePositiveList(m.caixaria, ['quantity', 'width_mm', 'height_mm', 'thickness_mm'])
-          m.frentes_portas = coercePositiveList(m.frentes_portas, [
-            'quantity',
-            'width_mm',
-            'height_mm',
-            'thickness_mm',
-          ])
+          // Medidas (mm) ≤ 0 são estimadas por tipo no schema (dimension-defaults)
+          m.caixaria = coercePositiveList(m.caixaria, ['quantity'])
+          m.frentes_portas = coercePositiveList(m.frentes_portas, ['quantity'])
           m.ferragens = coercePositiveList(m.ferragens, ['exact_quantity', 'full_units_quantity'])
           m.fitas_borda_m = coercePositiveList(m.fitas_borda_m, ['meters'])
-
-          // Dimensões do módulo: 0 ou inválido → remove (Zod exige > 0 se presente)
-          if (m.dimensions && typeof m.dimensions === 'object') {
-            const d = { ...(m.dimensions as Record<string, unknown>) }
-            for (const key of ['width_mm', 'height_mm', 'depth_mm'] as const) {
-              const n = Number(d[key])
-              if (!Number.isFinite(n) || n <= 0) delete d[key]
-            }
-            m.dimensions =
-              'width_mm' in d || 'height_mm' in d || 'depth_mm' in d ? d : undefined
-          }
 
           m = ensureModulePlaceholder(m)
           return m
@@ -464,9 +466,7 @@ function coercePositiveList(value: unknown, numericKeys: string[]): unknown[] {
       const row = { ...(item as Record<string, unknown>) }
       for (const key of numericKeys) {
         const n = Number(row[key])
-        if (!Number.isFinite(n) || n <= 0) {
-          row[key] = key.includes('mm') ? 15 : 1
-        }
+        if (!Number.isFinite(n) || n <= 0) row[key] = 1
       }
       if (typeof row.material_name === 'string' && !row.material_name.trim()) {
         row.material_name = 'MDF Branco TX 15mm'
@@ -509,6 +509,34 @@ async function nodeResolvePricesAndPersist(
 
   let materialsSaved = 0
   let marketFlags = 0
+  let outOfScopeCount = 0
+  const resolver = await createPriceResolver(state.companyId)
+  const price = (name: string, category: string) => assertPriced(resolver.resolve(name, category), name)
+
+  /** Chapa em m²: área real × R$/m² (perda aplicada no custo e na lista de compras). */
+  const areaRow = (
+    p: ResolvedMaterialPrice,
+    widthMm: number,
+    heightMm: number,
+    qty: number,
+  ) => {
+    const areaM2 = Math.round(((widthMm * heightMm * qty) / 1_000_000) * 1000) / 1000
+    const perM2 = p.pricePerM2 && p.pricePerM2 > 0 ? p.pricePerM2 : null
+    return perM2
+      ? {
+          unit_price: perM2,
+          exact_quantity: areaM2,
+          full_units_quantity: sheetsFromAreaM2(areaM2, DEFAULT_SHEET_LOSS_PCT),
+          unit_measure: 'm2',
+        }
+      : {
+          // Sem preço por m² derivável → mantém unidade do cadastro
+          unit_price: p.unitPrice,
+          exact_quantity: qty,
+          full_units_quantity: Math.ceil(qty),
+          unit_measure: p.unit || 'un',
+        }
+  }
 
   for (const [envIndex, env] of state.extraction.environments.entries()) {
     const { data: envRow, error: envError } = await supabase
@@ -544,10 +572,17 @@ async function nodeResolvePricesAndPersist(
           page_number: modPage,
           page_image_path: modPagePath,
           sort_order: modIndex,
+          out_of_scope: mod.out_of_scope === true,
         })
         .select('id')
         .single()
       if (modError || !modRow) throw new Error(modError?.message || 'Erro ao salvar módulo.')
+
+      // Pedra / alvenaria / decoração: só registra o módulo, sem insumos nem custo
+      if (mod.out_of_scope) {
+        outOfScopeCount += 1
+        continue
+      }
 
       const materialRows: Array<Record<string, unknown>> = []
 
@@ -577,27 +612,21 @@ async function nodeResolvePricesAndPersist(
       }
 
       for (const piece of mod.caixaria) {
-        const price = assertPriced(
-          await resolveMaterialPrice(state.companyId, piece.material_name, 'chapa'),
-          piece.material_name,
-        )
-        if (price.usingMarketPrice) marketFlags += 1
+        const piecePrice = price(piece.material_name, 'chapa')
+        if (piecePrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
           withPage(
             {
               module_id: modRow.id,
               raw_name: `${piece.name} — ${piece.material_name}`,
               category: 'chapa',
-              system_material_id: price.inventoryItemId,
-              using_market_price: price.usingMarketPrice,
+              system_material_id: piecePrice.inventoryItemId,
+              using_market_price: piecePrice.usingMarketPrice,
               market_price_confirmed: false,
-              unit_price: price.unitPrice,
-              exact_quantity: piece.quantity,
-              full_units_quantity: Math.ceil(piece.quantity),
-              unit_measure: price.unit || 'un',
+              ...areaRow(piecePrice, piece.width_mm, piece.height_mm, piece.quantity),
               notes: priceNotes(
-                price,
-                `função=${piece.function}; ${piece.width_mm}x${piece.height_mm}x${piece.thickness_mm}mm`,
+                piecePrice,
+                `função=${piece.function}; ${piece.width_mm}x${piece.height_mm}x${piece.thickness_mm}mm × ${piece.quantity}${piece.dimensions_estimated ? ' (medida estimada)' : ''}`,
               ),
             },
             piece.bounding_box,
@@ -605,10 +634,7 @@ async function nodeResolvePricesAndPersist(
         )
         if (piece.edge_banding && piece.edge_banding.meters > 0) {
           const tapeName = piece.edge_banding.tape_name || 'Fita de Borda'
-          const tapePrice = assertPriced(
-            await resolveMaterialPrice(state.companyId, tapeName, 'fita_borda'),
-            tapeName,
-          )
+          const tapePrice = price(tapeName, 'fita_borda')
           if (tapePrice.usingMarketPrice) marketFlags += 1
           materialRows.push(
             withPage(
@@ -632,25 +658,22 @@ async function nodeResolvePricesAndPersist(
       }
 
       for (const frente of mod.frentes_portas) {
-        const price = assertPriced(
-          await resolveMaterialPrice(state.companyId, frente.material_name, 'chapa'),
-          frente.material_name,
-        )
-        if (price.usingMarketPrice) marketFlags += 1
+        const frentePrice = price(frente.material_name, 'chapa')
+        if (frentePrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
           withPage(
             {
               module_id: modRow.id,
               raw_name: `${frente.name} — ${frente.material_name}`,
               category: 'chapa',
-              system_material_id: price.inventoryItemId,
-              using_market_price: price.usingMarketPrice,
+              system_material_id: frentePrice.inventoryItemId,
+              using_market_price: frentePrice.usingMarketPrice,
               market_price_confirmed: false,
-              unit_price: price.unitPrice,
-              exact_quantity: frente.quantity,
-              full_units_quantity: Math.ceil(frente.quantity),
-              unit_measure: price.unit || 'un',
-              notes: priceNotes(price, `tipo=${frente.kind}`),
+              ...areaRow(frentePrice, frente.width_mm, frente.height_mm, frente.quantity),
+              notes: priceNotes(
+                frentePrice,
+                `tipo=${frente.kind}; ${frente.width_mm}x${frente.height_mm}x${frente.thickness_mm}mm × ${frente.quantity}${frente.dimensions_estimated ? ' (medida estimada)' : ''}`,
+              ),
             },
             frente.bounding_box,
           ),
@@ -658,25 +681,22 @@ async function nodeResolvePricesAndPersist(
       }
 
       for (const fita of mod.fitas_borda_m) {
-        const price = assertPriced(
-          await resolveMaterialPrice(state.companyId, fita.tape_name, 'fita_borda'),
-          fita.tape_name,
-        )
-        if (price.usingMarketPrice) marketFlags += 1
+        const fitaPrice = price(fita.tape_name, 'fita_borda')
+        if (fitaPrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
           withPage(
             {
               module_id: modRow.id,
               raw_name: fita.tape_name,
               category: 'fita_borda',
-              system_material_id: price.inventoryItemId,
-              using_market_price: price.usingMarketPrice,
+              system_material_id: fitaPrice.inventoryItemId,
+              using_market_price: fitaPrice.usingMarketPrice,
               market_price_confirmed: false,
-              unit_price: price.unitPrice,
+              unit_price: fitaPrice.unitPrice,
               exact_quantity: fita.meters,
               full_units_quantity: Math.ceil(fita.meters),
               unit_measure: 'm',
-              notes: priceNotes(price),
+              notes: priceNotes(fitaPrice),
             },
             fita.bounding_box,
           ),
@@ -688,11 +708,8 @@ async function nodeResolvePricesAndPersist(
           ferr.category === 'puxador' &&
           (ferr.unit_measure === 'barra' || /perfil|regua|régua/i.test(ferr.raw_name))
         const category = ferr.category
-        const price = assertPriced(
-          await resolveMaterialPrice(state.companyId, ferr.raw_name, category),
-          ferr.raw_name,
-        )
-        if (price.usingMarketPrice) marketFlags += 1
+        const ferrPrice = price(ferr.raw_name, category)
+        if (ferrPrice.usingMarketPrice) marketFlags += 1
 
         let exact = ferr.exact_quantity
         let fullUnits = ferr.full_units_quantity
@@ -716,14 +733,14 @@ async function nodeResolvePricesAndPersist(
             module_id: modRow.id,
             raw_name: ferr.raw_name,
             category,
-            system_material_id: price.inventoryItemId,
-            using_market_price: price.usingMarketPrice,
+            system_material_id: ferrPrice.inventoryItemId,
+            using_market_price: ferrPrice.usingMarketPrice,
             market_price_confirmed: false,
-            unit_price: price.unitPrice,
+            unit_price: ferrPrice.unitPrice,
             exact_quantity: exact,
             full_units_quantity: fullUnits,
             unit_measure: unitMeasure,
-            notes: priceNotes(price, notes),
+            notes: priceNotes(ferrPrice, notes),
           },
           ferr.bounding_box,
         )
@@ -731,14 +748,7 @@ async function nodeResolvePricesAndPersist(
 
         if (isHandleBar && fullUnits > 0) {
           const caps = endCapsForHandleBars(fullUnits)
-          const capPrice = assertPriced(
-            await resolveMaterialPrice(
-              state.companyId,
-              'Tampinha lateral puxador perfil',
-              'puxador',
-            ),
-            'Tampinha lateral puxador perfil',
-          )
+          const capPrice = price('Tampinha lateral puxador perfil', 'puxador')
           if (capPrice.usingMarketPrice) marketFlags += 1
           materialRows.push({
             ...ferrRow,
@@ -814,6 +824,7 @@ async function nodeResolvePricesAndPersist(
       ...prevTotals,
       materials_count: materialsSaved,
       market_price_flags: marketFlags,
+      out_of_scope_modules: outOfScopeCount,
       environments: state.extraction.environments.length,
       modules: state.extraction.environments.reduce((n, e) => n + e.modules.length, 0),
       auditor_notes: state.extraction.auditor_notes,

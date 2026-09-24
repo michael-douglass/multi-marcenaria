@@ -14,6 +14,10 @@ export interface ResolvedMaterialPrice {
   source: 'inventory' | 'market' | 'contingency'
   /** Aviso exibido na UI quando o preço não veio do estoque cadastrado. */
   warning: string | null
+  /** Preço por m² (chapas): `price_per_m2` ou preço da chapa ÷ área padrão. */
+  pricePerM2: number | null
+  /** Chave de `CONTINGENCY_PRICES` usada (auditoria). */
+  contingencyKey: ContingencyKey | null
 }
 
 /** Tabela de contingência — NUNCA devolver R$ 0 quando não houver match. */
@@ -31,6 +35,9 @@ export const CONTINGENCY_PRICES = {
   fita_borda_m: { unitPrice: 2.5, unit: 'm', label: 'Fita de Borda (metro)' },
   dobradica: { unitPrice: 15, unit: 'un', label: 'Dobradiça Soft Close' },
   corredica: { unitPrice: 45, unit: 'par', label: 'Corrediça Telescópica/Oculta (par)' },
+  pe_mesa: { unitPrice: 60, unit: 'un', label: 'Pé de mesa metálico (un)' },
+  passa_cabo: { unitPrice: 12, unit: 'un', label: 'Passa-cabo (un)' },
+  cantoneira: { unitPrice: 2.5, unit: 'un', label: 'Cantoneira / suporte (un)' },
   puxador_barra_3m: { unitPrice: 85, unit: 'barra', label: 'Puxador Perfil (barra 3m)' },
   tampinha: { unitPrice: 1.5, unit: 'un', label: 'Tampinha lateral puxador' },
   cola: { unitPrice: 35, unit: 'un', label: 'Cola / adesivo' },
@@ -40,6 +47,8 @@ export const CONTINGENCY_PRICES = {
   servico_generico: { unitPrice: 80, unit: 'un', label: 'Serviço / mão de obra genérico' },
   outro: { unitPrice: 25, unit: 'un', label: 'Insumo genérico (contingência)' },
 } as const
+
+export type ContingencyKey = keyof typeof CONTINGENCY_PRICES
 
 /** Normaliza nome do PDF: acentos, códigos CHAPA-…, ruído. */
 export function normalizeName(value: string): string {
@@ -127,13 +136,16 @@ function pickInventoryUnitPrice(row: {
 function inferContingency(
   rawName: string,
   preferredCategory?: MaterialCategory | string,
-): { unitPrice: number; unit: string; matchedName: string } {
+): { unitPrice: number; unit: string; matchedName: string; key: ContingencyKey } {
   const n = normalizeName(rawName)
+  const pick = (key: ContingencyKey) => {
+    const c = CONTINGENCY_PRICES[key]
+    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label, key }
+  }
   const cat = (preferredCategory || '').toLowerCase()
 
   if (n.includes('tampinha') || n.includes('tampa lateral')) {
-    const c = CONTINGENCY_PRICES.tampinha
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('tampinha')
   }
 
   if (
@@ -142,8 +154,7 @@ function inferContingency(
     n.includes('dekton') ||
     n.includes('compac')
   ) {
-    const c = CONTINGENCY_PRICES.pedra_quartzo
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('pedra_quartzo')
   }
 
   if (
@@ -152,13 +163,11 @@ function inferContingency(
     n.includes('porcelanato') ||
     n.includes('pedra')
   ) {
-    const c = CONTINGENCY_PRICES.pedra_granito
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('pedra_granito')
   }
 
   if (n.includes('cola') || n.includes('adesivo') || n.includes('pva') || n.includes('contato')) {
-    const c = CONTINGENCY_PRICES.cola
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('cola')
   }
 
   if (
@@ -167,8 +176,7 @@ function inferContingency(
     n.includes('confirmat') ||
     n.includes('europarafuso')
   ) {
-    const c = CONTINGENCY_PRICES.parafuso
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('parafuso')
   }
 
   if (
@@ -178,13 +186,11 @@ function inferContingency(
     n.includes('excentrico') ||
     n.includes('conector')
   ) {
-    const c = CONTINGENCY_PRICES.minifix
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('minifix')
   }
 
   if (cat === 'fita_borda' || n.includes('fita') || n.includes('borda')) {
-    const c = CONTINGENCY_PRICES.fita_borda_m
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('fita_borda_m')
   }
 
   if (
@@ -193,18 +199,27 @@ function inferContingency(
     n.includes('perfil') ||
     (n.includes('barra') && n.includes('3'))
   ) {
-    const c = CONTINGENCY_PRICES.puxador_barra_3m
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('puxador_barra_3m')
+  }
+
+  if (n.includes('pe de mesa') || n.includes('pes de mesa') || /\bpes?\b.*\b(metal|ferro|aco)\b/.test(n)) {
+    return pick('pe_mesa')
+  }
+
+  if (n.includes('passa cabo') || n.includes('passacabo')) {
+    return pick('passa_cabo')
+  }
+
+  if (n.includes('cantoneira') || n.includes('suporte prateleira') || n.includes('pino prateleira')) {
+    return pick('cantoneira')
   }
 
   if (n.includes('dobradica') || n.includes('soft close') || n.includes('amortecedor')) {
-    const c = CONTINGENCY_PRICES.dobradica
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('dobradica')
   }
 
   if (n.includes('corredica') || n.includes('telescop') || n.includes('oculta')) {
-    const c = CONTINGENCY_PRICES.corredica
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('corredica')
   }
 
   const isChapa =
@@ -216,12 +231,10 @@ function inferContingency(
     n.includes('osb')
   if (isChapa) {
     if (/\b6\b/.test(n) || n.includes('fundo')) {
-      const c = CONTINGENCY_PRICES.chapa_mdf_6mm
-      return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+      return pick('chapa_mdf_6mm')
     }
-    if (/\b18\b/.test(n) || /\b25\b/.test(n)) {
-      const c = CONTINGENCY_PRICES.chapa_mdf_18mm
-      return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    if (/\b18\b/.test(n) || /\b25\b/.test(n) || n.includes('engross')) {
+      return pick('chapa_mdf_18mm')
     }
     const amadeirado =
       n.includes('freijo') ||
@@ -231,24 +244,18 @@ function inferContingency(
       n.includes('amadeir') ||
       n.includes('corten') ||
       n.includes('nogueira')
-    const c = amadeirado
-      ? CONTINGENCY_PRICES.chapa_mdf_15mm_amadeirado
-      : CONTINGENCY_PRICES.chapa_mdf_15mm_branco
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick(amadeirado ? 'chapa_mdf_15mm_amadeirado' : 'chapa_mdf_15mm_branco')
   }
 
   if (cat === 'ferragem' || cat === 'consumivel') {
-    const c = CONTINGENCY_PRICES.ferragem_generica
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('ferragem_generica')
   }
 
   if (cat === 'servico' || cat === 'mao_obra') {
-    const c = CONTINGENCY_PRICES.servico_generico
-    return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+    return pick('servico_generico')
   }
 
-  const c = CONTINGENCY_PRICES.outro
-  return { unitPrice: c.unitPrice, unit: c.unit, matchedName: c.label }
+  return pick('outro')
 }
 
 function contingencyResult(
@@ -264,6 +271,8 @@ function contingencyResult(
     matchedName: c.matchedName,
     source: 'contingency',
     warning: CONTINGENCY_PRICE_WARNING,
+    pricePerM2: perM2FromUnit(c.unitPrice, c.unit),
+    contingencyKey: c.key,
   }
 }
 
@@ -287,49 +296,22 @@ type MarketRow = {
   estimated_market_price: number
 }
 
-async function fetchInventoryCandidates(
-  companyId: string,
-  preferredCategory?: MaterialCategory | string,
-): Promise<InventoryRow[]> {
-  let query = supabase
-    .from('inventory_items')
-    .select(
-      'id, name, category, unit, unit_price, price_per_m2, price_per_sheet, company_id, active',
-    )
-    .eq('active', true)
-    .or(`company_id.eq.${companyId},company_id.is.null`)
-    .limit(200)
-
-  if (preferredCategory) {
-    query = query.eq('category', preferredCategory)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    console.warn('[resolveMaterialPrice] inventory_items:', error.message)
-    return []
-  }
-  return (data ?? []) as InventoryRow[]
+/** Converte preço em unidade de chapa/m² para R$/m²; demais unidades → null. */
+function perM2FromUnit(unitPrice: number, unit: string | null | undefined): number | null {
+  const u = (unit || '').toLowerCase()
+  if (!(unitPrice > 0)) return null
+  if (u === 'm2' || u === 'm²') return unitPrice
+  if (u === 'chapa') return roundMoney(unitPrice / STANDARD_SHEET_AREA_M2)
+  return null
 }
 
-async function fetchMarketCandidates(
-  preferredCategory?: MaterialCategory | string,
-): Promise<MarketRow[]> {
-  let query = supabase
-    .from('market_reference_prices')
-    .select('id, category, item_pattern, unit, estimated_market_price')
-    .limit(200)
-
-  if (preferredCategory) {
-    query = query.eq('category', preferredCategory)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    console.warn('[resolveMaterialPrice] market_reference_prices:', error.message)
-    return []
-  }
-  return (data ?? []) as MarketRow[]
+function inventoryPerM2(row: InventoryRow): number | null {
+  const direct = Number(row.price_per_m2)
+  if (direct > 0) return direct
+  const isChapa = row.category === 'chapa' || (row.unit || '').toLowerCase() === 'chapa'
+  if (!isChapa) return perM2FromUnit(pickInventoryUnitPrice(row), row.unit)
+  const sheet = Number(row.price_per_sheet) || Number(row.unit_price) || 0
+  return sheet > 0 ? roundMoney(sheet / STANDARD_SHEET_AREA_M2) : null
 }
 
 function bestScored<T>(
@@ -347,132 +329,132 @@ function bestScored<T>(
   return best
 }
 
-async function fetchAliasMatch(
-  companyId: string,
-  rawName: string,
-): Promise<InventoryRow | null> {
-  const normalized = normalizeName(rawName)
-  if (!normalized || !companyId) return null
-
-  const { data: aliasRows, error: aliasError } = await supabase
-    .from('inventory_aliases')
-    .select('inventory_item_id, alias_normalized')
-    .eq('company_id', companyId)
-    .limit(300)
-
-  if (aliasError) {
-    console.warn('[resolveMaterialPrice] inventory_aliases:', aliasError.message)
-    return null
-  }
-
-  const aliases = (aliasRows ?? []) as Array<{
-    inventory_item_id: string
-    alias_normalized: string
-  }>
-  if (!aliases.length) return null
-
-  let best: { score: number; itemId: string } | null = null
-  for (const a of aliases) {
-    const score = scoreMatch(a.alias_normalized, normalized)
-    if (score < 55) continue
-    if (!best || score > best.score) best = { score, itemId: a.inventory_item_id }
-  }
-  if (!best) return null
-
-  const { data: item, error: itemError } = await supabase
-    .from('inventory_items')
-    .select(
-      'id, name, category, unit, unit_price, price_per_m2, price_per_sheet, company_id, active',
-    )
-    .eq('id', best.itemId)
-    .maybeSingle()
-
-  if (itemError || !item || item.active === false) return null
-  return item as InventoryRow
+export interface PriceResolver {
+  resolve(rawMaterialName: string, preferredCategory?: MaterialCategory | string): ResolvedMaterialPrice
 }
 
 /**
- * Resolve preço do insumo (NUNCA retorna 0):
+ * Carrega estoque, mercado e apelidos UMA vez e resolve preços em memória
+ * (evita 2–5 queries por insumo em PDFs longos).
+ *
+ * Ordem (NUNCA retorna 0):
  * 1) apelido De-Para (`inventory_aliases`) → item do estoque
  * 2) fuzzy em `inventory_items` (empresa + global)
  * 3) fuzzy em `market_reference_prices`
  * 4) contingência por família/categoria → using_market_price = true
  */
-export async function resolveMaterialPrice(
-  companyId: string,
-  rawMaterialName: string,
-  preferredCategory?: MaterialCategory | string,
-): Promise<ResolvedMaterialPrice> {
-  const name = rawMaterialName.trim()
-  if (!name) {
-    return contingencyResult('Insumo sem nome', preferredCategory || 'outro')
+export async function createPriceResolver(companyId: string): Promise<PriceResolver> {
+  const [invRes, marketRes, aliasRes] = await Promise.all([
+    supabase
+      .from('inventory_items')
+      .select(
+        'id, name, category, unit, unit_price, price_per_m2, price_per_sheet, company_id, active',
+      )
+      .eq('active', true)
+      .or(`company_id.eq.${companyId},company_id.is.null`)
+      .limit(2000),
+    supabase
+      .from('market_reference_prices')
+      .select('id, category, item_pattern, unit, estimated_market_price')
+      .limit(2000),
+    supabase
+      .from('inventory_aliases')
+      .select('inventory_item_id, alias_normalized')
+      .eq('company_id', companyId)
+      .limit(2000),
+  ])
+  if (invRes.error) console.warn('[priceResolver] inventory_items:', invRes.error.message)
+  if (marketRes.error) {
+    console.warn('[priceResolver] market_reference_prices:', marketRes.error.message)
   }
+  if (aliasRes.error) console.warn('[priceResolver] inventory_aliases:', aliasRes.error.message)
 
-  // 1) Apelido De-Para
-  const aliasItem = await fetchAliasMatch(companyId, name)
-  if (aliasItem) {
-    const unitPrice = pickInventoryUnitPrice(aliasItem)
-    if (unitPrice > 0) {
-      return {
-        unitPrice,
-        unit: aliasItem.unit || 'un',
-        usingMarketPrice: false,
-        inventoryItemId: aliasItem.id,
-        matchedName: aliasItem.name,
-        source: 'inventory',
-        warning: null,
-      }
+  const inventory = (invRes.data ?? []) as InventoryRow[]
+  const market = (marketRes.data ?? []) as MarketRow[]
+  const aliases = (aliasRes.data ?? []) as Array<{
+    inventory_item_id: string
+    alias_normalized: string
+  }>
+  const inventoryById = new Map(inventory.map((r) => [r.id, r]))
+
+  const fromInventory = (row: InventoryRow): ResolvedMaterialPrice | null => {
+    const unitPrice = pickInventoryUnitPrice(row)
+    if (!(unitPrice > 0)) return null
+    return {
+      unitPrice,
+      unit: row.unit || 'un',
+      usingMarketPrice: false,
+      inventoryItemId: row.id,
+      matchedName: row.name,
+      source: 'inventory',
+      warning: null,
+      pricePerM2: inventoryPerM2(row),
+      contingencyKey: null,
     }
   }
 
-  // 2) Estoque — com categoria preferida; se fraco, tenta sem filtro
-  let inventoryRows = await fetchInventoryCandidates(companyId, preferredCategory)
-  let bestInv = bestScored(inventoryRows, name, (r) => r.name, 28)
-  if (!bestInv && preferredCategory) {
-    inventoryRows = await fetchInventoryCandidates(companyId)
-    bestInv = bestScored(inventoryRows, name, (r) => r.name, 28)
-  }
+  const resolve = (
+    rawMaterialName: string,
+    preferredCategory?: MaterialCategory | string,
+  ): ResolvedMaterialPrice => {
+    const name = rawMaterialName.trim()
+    if (!name) return contingencyResult('Insumo sem nome', preferredCategory || 'outro')
 
-  if (bestInv) {
-    const unitPrice = pickInventoryUnitPrice(bestInv.row)
-    if (unitPrice > 0) {
+    // 1) Apelido De-Para
+    const normalized = normalizeName(name)
+    const alias = bestScored(aliases, normalized, (a) => a.alias_normalized, 55)
+    const aliasItem = alias ? inventoryById.get(alias.row.inventory_item_id) : undefined
+    const aliasPrice = aliasItem ? fromInventory(aliasItem) : null
+    if (aliasPrice) return aliasPrice
+
+    // 2) Estoque — categoria preferida; se fraco, todas
+    const invByCat = preferredCategory
+      ? inventory.filter((r) => r.category === preferredCategory)
+      : inventory
+    const bestInv =
+      bestScored(invByCat, name, (r) => r.name, 28) ??
+      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 28) : null)
+    const invPrice = bestInv ? fromInventory(bestInv.row) : null
+    if (invPrice) return invPrice
+
+    // 3) Mercado
+    const marketByCat = preferredCategory
+      ? market.filter((r) => r.category === preferredCategory)
+      : market
+    const bestMarket =
+      bestScored(marketByCat, name, (r) => r.item_pattern, 28) ??
+      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 28) : null)
+    const marketPrice = Number(bestMarket?.row.estimated_market_price) || 0
+    if (bestMarket && marketPrice > 0) {
+      const unit = bestMarket.row.unit || 'un'
       return {
-        unitPrice,
-        unit: bestInv.row.unit || 'un',
-        usingMarketPrice: false,
-        inventoryItemId: bestInv.row.id,
-        matchedName: bestInv.row.name,
-        source: 'inventory',
-        warning: null,
-      }
-    }
-  }
-
-  // 3) Mercado
-  let marketRows = await fetchMarketCandidates(preferredCategory)
-  let bestMarket = bestScored(marketRows, name, (r) => r.item_pattern, 28)
-  if (!bestMarket && preferredCategory) {
-    marketRows = await fetchMarketCandidates()
-    bestMarket = bestScored(marketRows, name, (r) => r.item_pattern, 28)
-  }
-
-  if (bestMarket) {
-    const unitPrice = Number(bestMarket.row.estimated_market_price) || 0
-    if (unitPrice > 0) {
-      return {
-        unitPrice,
-        unit: bestMarket.row.unit || 'un',
+        unitPrice: marketPrice,
+        unit,
         usingMarketPrice: true,
         inventoryItemId: null,
         matchedName: bestMarket.row.item_pattern,
         source: 'market',
         warning: 'Preço de referência de mercado — confirme ou informe o custo real.',
+        pricePerM2: perM2FromUnit(marketPrice, unit),
+        contingencyKey: null,
       }
     }
+
+    // 4) Contingência obrigatória (preços diferenciados por família)
+    return contingencyResult(name, preferredCategory)
   }
 
-  // 4) Contingência obrigatória (preços diferenciados por família)
-  return contingencyResult(name, preferredCategory)
+  return { resolve }
+}
+
+/** Resolve um único insumo. Para lotes, prefira `createPriceResolver`. */
+export async function resolveMaterialPrice(
+  companyId: string,
+  rawMaterialName: string,
+  preferredCategory?: MaterialCategory | string,
+): Promise<ResolvedMaterialPrice> {
+  const resolver = await createPriceResolver(companyId)
+  return resolver.resolve(rawMaterialName, preferredCategory)
 }
 
 /**
@@ -490,12 +472,19 @@ export async function repriceZeroMaterials(params: {
 
   const next = params.materials.map((m) => ({ ...m }))
   let updated = 0
+  const resolver = await createPriceResolver(params.companyId)
 
   for (const mat of zeros) {
     const priceName = mat.raw_name.includes('—')
       ? mat.raw_name.split('—').pop()?.trim() || mat.raw_name
       : mat.raw_name
-    const price = await resolveMaterialPrice(params.companyId, priceName, mat.category)
+    const resolved = resolver.resolve(priceName, mat.category)
+    // Linhas de chapa em m² precisam de preço por m², não por chapa
+    const isAreaRow = mat.unit_measure === 'm2' || mat.unit_measure === 'm²'
+    const price =
+      isAreaRow && resolved.pricePerM2
+        ? { ...resolved, unitPrice: resolved.pricePerM2, unit: 'm2' }
+        : resolved
     const notesExtra =
       price.source === 'contingency'
         ? CONTINGENCY_PRICE_WARNING
@@ -611,20 +600,35 @@ export interface ShoppingListItem {
 }
 
 function flattenMaterials(tree: QuoteAnalysisDetail): QuoteMaterialRow[] {
-  return tree.environments.flatMap((e) => e.modules.flatMap((m) => m.materials))
+  return tree.environments.flatMap((e) =>
+    e.modules.filter((m) => !m.out_of_scope).flatMap((m) => m.materials),
+  )
 }
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** Soma custo dos insumos. */
-export function sumMaterialsCost(materials: QuoteMaterialRow[]): number {
+function isAreaUnit(unit: string | null | undefined): boolean {
+  return unit === 'm2' || unit === 'm²'
+}
+
+/**
+ * Soma custo dos insumos.
+ * Linhas em m² (chapas) recebem a perda de corte (%), como na Lista de Compras.
+ */
+export function sumMaterialsCost(
+  materials: QuoteMaterialRow[],
+  sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
+): number {
+  const lossFactor = 1 + Math.max(0, sheetLossPct) / 100
   return materials.reduce((acc, m) => {
     const qty =
       m.unit_measure === 'chapa' || m.unit_measure === 'barra'
         ? Number(m.full_units_quantity) || Number(m.exact_quantity) || 0
-        : Number(m.exact_quantity) || 0
+        : isAreaUnit(m.unit_measure)
+          ? (Number(m.exact_quantity) || 0) * lossFactor
+          : Number(m.exact_quantity) || 0
     return acc + qty * (Number(m.unit_price) || 0)
   }, 0)
 }
@@ -641,15 +645,21 @@ export function estimateTotalAreaSqm(
   let area = 0
   for (const env of tree.environments) {
     for (const mod of env.modules) {
+      if (mod.out_of_scope) continue
       const d = mod.dimensions ?? {}
       const w = Number(d.width_mm) || 0
       const h = Number(d.height_mm) || 0
-      if (w > 0 && h > 0) {
+      // Medidas estimadas pelo tipo não entram no R$/m² — usa as peças
+      if (w > 0 && h > 0 && d.estimated !== true) {
         area += (w / 1000) * (h / 1000)
         continue
       }
       for (const mat of mod.materials) {
         if (mat.category !== 'chapa') continue
+        if (isAreaUnit(mat.unit_measure)) {
+          area += Number(mat.exact_quantity) || 0
+          continue
+        }
         const match = mat.notes?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x/i)
         if (match) {
           const mw = Number(match[1])
@@ -715,7 +725,7 @@ export function calculateQuotePricing(
   params: PricingParams = DEFAULT_PRICING_PARAMS,
 ): PricingResult {
   const materials = flattenMaterials(tree)
-  const cost = sumMaterialsCost(materials)
+  const cost = sumMaterialsCost(materials, params.sheetLossPct)
   const area = estimateTotalAreaSqm(tree, params.totalAreaSqm)
   return calculateSalePrice(cost, params, area)
 }
@@ -793,7 +803,10 @@ export function buildShoppingList(
 
   for (const mat of materials) {
     if (mat.category === 'chapa') {
-      const key = mat.raw_name
+      // "Lateral — MDF Branco TX 15mm" → agrupa pelo material, não pela peça
+      const key = mat.raw_name.includes('—')
+        ? mat.raw_name.split('—').pop()?.trim() || mat.raw_name
+        : mat.raw_name
       const entry = chapaMap.get(key) ?? {
         m2: 0,
         unitPrice: Number(mat.unit_price) || 0,

@@ -9,6 +9,8 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  Ban,
+  Brain,
   Check,
   ChevronDown,
   ChevronRight,
@@ -41,6 +43,7 @@ import {
 } from '@/lib/orcamentos-ia/quote-tree'
 import { ExplainCorrectionModal } from '@/components/orcamentos-ia/ExplainCorrectionModal'
 import { AuditChatWidget } from '@/components/orcamentos-ia/AuditChatWidget'
+import { CompanyMemoriesModal } from '@/components/orcamentos-ia/CompanyMemoriesModal'
 import { reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
 import {
@@ -121,6 +124,8 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [showShoppingList, setShowShoppingList] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
   const [showCoverage, setShowCoverage] = useState(true)
+  const [showOutOfScope, setShowOutOfScope] = useState(false)
+  const [memoriesOpen, setMemoriesOpen] = useState(false)
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
   /** true = tela grande mostra a PNG da página (miniatura ampliada); false = PDF. */
   const [preferPageImage, setPreferPageImage] = useState(false)
@@ -343,6 +348,15 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const setModality = (modality: PricingModality) => {
     setPricingParams((p) => ({ ...p, modality }))
   }
+
+  /** Pedra / alvenaria / decoração — listados à parte, fora do custo. */
+  const outOfScopeModules = useMemo(
+    () =>
+      (tree?.environments ?? []).flatMap((env) =>
+        env.modules.filter((m) => m.out_of_scope).map((m) => ({ env: env.name, module: m })),
+      ),
+    [tree],
+  )
 
   const coverage = useMemo((): CoverageReport | null => {
     const raw = tree?.totals?.coverage
@@ -603,6 +617,16 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               </p>
             </div>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setMemoriesOpen(true)}
+          >
+            <Brain className="h-3.5 w-3.5" />
+            Memórias do Max
+          </Button>
           <Button
             type="button"
             variant={showShoppingList ? 'default' : 'outline'}
@@ -873,6 +897,47 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 )}
               </div>
             )}
+            {outOfScopeModules.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left text-xs"
+                  onClick={() => setShowOutOfScope((v) => !v)}
+                >
+                  <span className="flex items-center gap-1.5 font-medium text-slate-800">
+                    <Ban className="h-3.5 w-3.5 text-slate-500" />
+                    Fora do Escopo ({outOfScopeModules.length}) · sem custo
+                  </span>
+                  {showOutOfScope ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                </button>
+                {showOutOfScope && (
+                  <div className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-white p-2 text-[11px]">
+                    <p className="text-slate-500">
+                      Marmoraria, obra civil e decoração — cotados por terceiros.
+                    </p>
+                    {outOfScopeModules.map(({ env, module }) => (
+                      <button
+                        key={module.id}
+                        type="button"
+                        onClick={() => onSelectModule(module)}
+                        className={cn(
+                          'block w-full truncate rounded px-1.5 py-1 text-left text-slate-700 hover:bg-slate-100',
+                          selection?.kind === 'module' &&
+                            selection.module.id === module.id &&
+                            'bg-[#0066FF]/10 ring-1 ring-[#0066FF]/35',
+                        )}
+                      >
+                        {env} → {module.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
             <p className="text-xs text-muted-foreground">
               Ambientes → Módulos → Materiais (consumo exato × compras inteiras)
             </p>
@@ -886,6 +951,8 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               )}
               {tree.environments.map((env) => {
                 const envOpen = expandedEnvs.has(env.id)
+                const scopedModules = env.modules.filter((m) => !m.out_of_scope)
+                if (!scopedModules.length) return null
                 return (
                   <div key={env.id} className="rounded-xl border border-border/80">
                     <button
@@ -907,12 +974,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                       )}
                       {env.name}
                       <Badge variant="secondary" className="ml-auto text-[10px]">
-                        {env.modules.length} mód.
+                        {scopedModules.length} mód.
                       </Badge>
                     </button>
                     {envOpen && (
                       <div className="space-y-1 border-t border-border/60 px-2 py-2">
-                        {env.modules.map((mod) => {
+                        {scopedModules.map((mod) => {
                           const modOpen = expandedMods.has(mod.id)
                           const selected =
                             selection?.kind === 'module' && selection.module.id === mod.id
@@ -1087,6 +1154,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         onOpenChange={setExplainOpen}
         companyId={companyId}
         contextLabel={explainContext}
+      />
+
+      <CompanyMemoriesModal
+        open={memoriesOpen}
+        onOpenChange={setMemoriesOpen}
+        companyId={companyId}
       />
 
       <AuditChatWidget

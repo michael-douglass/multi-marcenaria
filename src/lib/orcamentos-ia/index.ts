@@ -27,11 +27,12 @@ export {
 } from '@/lib/orcamentos-ia/pricing'
 export type { PricingModality, PricingParams, PricingResult, ShoppingListItem } from '@/lib/orcamentos-ia/pricing'
 export { runOrcamentosIaPipeline, reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
+export { quoteExtractionSchema } from '@/lib/orcamentos-ia/schemas'
 export {
-  quoteExtractionSchema,
-  EXTRACTOR_SYSTEM_PROMPT,
-  AUDITOR_SYSTEM_PROMPT,
-} from '@/lib/orcamentos-ia/schemas'
+  estimateModuleDimensions,
+  defaultPieceMm,
+  defaultFrenteMm,
+} from '@/lib/orcamentos-ia/dimension-defaults'
 export {
   getCompanyMemories,
   listCompanyMemories,

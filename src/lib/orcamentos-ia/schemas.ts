@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import {
+  defaultFrenteMm,
+  defaultPieceMm,
+  estimateModuleDimensions,
+  positiveOrNull,
+} from '@/lib/orcamentos-ia/dimension-defaults'
 
 /** Categorias alinhadas à Planilha 4.0 / inventory_items. */
 export const materialCategorySchema = z.enum([
@@ -20,46 +26,76 @@ export const boundingBoxSchema = z.object({
   height: z.number().min(0).max(1),
 })
 
-export const caixariaPieceSchema = z.object({
-  name: z.string().min(1).describe('Ex.: Base, Lateral esquerda, Divisória, Fundo, Sarrafo'),
-  function: z.enum([
-    'base',
-    'lateral',
-    'divisoria',
-    'prateleira',
-    'fundo',
-    'sarrafo',
-    'tampo',
-    'outro',
-  ]),
-  width_mm: z.number().positive(),
-  height_mm: z.number().positive(),
-  thickness_mm: z.number().positive().default(15),
-  material_name: z.string().min(2).describe('Ex.: MDF Branco TX 15mm'),
-  edge_banding: z
-    .object({
-      C1: z.boolean().default(false),
-      C2: z.boolean().default(false),
-      L1: z.boolean().default(false),
-      L2: z.boolean().default(false),
-      tape_name: z.string().optional(),
-      meters: z.number().nonnegative().default(0),
-    })
-    .optional(),
-  quantity: z.number().positive().default(1),
-  bounding_box: boundingBoxSchema.optional(),
-})
+/** Completa medidas ≤ 0 / nulas com o padrão do tipo; marca `dimensions_estimated`. */
+function fillPieceMm(raw: unknown, defaults: (row: Record<string, unknown>) => {
+  width_mm: number
+  height_mm: number
+  thickness_mm: number
+}): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+  const row = { ...(raw as Record<string, unknown>) }
+  const d = defaults(row)
+  let estimated = row.dimensions_estimated === true
+  for (const key of ['width_mm', 'height_mm'] as const) {
+    const n = positiveOrNull(row[key])
+    if (n == null) {
+      row[key] = d[key]
+      estimated = true
+    } else row[key] = n
+  }
+  row.thickness_mm = positiveOrNull(row.thickness_mm) ?? d.thickness_mm
+  if (estimated) row.dimensions_estimated = true
+  return row
+}
 
-export const frentePortaSchema = z.object({
-  name: z.string().min(1),
-  kind: z.enum(['porta_giro', 'porta_correr', 'frente_gaveta', 'frente_falsa', 'basculante', 'tamponamento']),
-  width_mm: z.number().positive(),
-  height_mm: z.number().positive(),
-  thickness_mm: z.number().positive().default(15),
-  material_name: z.string().min(2),
-  quantity: z.number().positive().default(1),
-  bounding_box: boundingBoxSchema.optional(),
-})
+export const caixariaPieceSchema = z.preprocess(
+  (raw) => fillPieceMm(raw, (row) => defaultPieceMm(row.function)),
+  z.object({
+    name: z.string().min(1).describe('Ex.: Base, Lateral esquerda, Divisória, Fundo, Sarrafo'),
+    function: z.enum([
+      'base',
+      'lateral',
+      'divisoria',
+      'prateleira',
+      'fundo',
+      'sarrafo',
+      'tampo',
+      'outro',
+    ]),
+    width_mm: z.number().positive(),
+    height_mm: z.number().positive(),
+    thickness_mm: z.number().positive().default(15),
+    material_name: z.string().min(2).describe('Ex.: MDF Branco TX 15mm'),
+    edge_banding: z
+      .object({
+        C1: z.boolean().default(false),
+        C2: z.boolean().default(false),
+        L1: z.boolean().default(false),
+        L2: z.boolean().default(false),
+        tape_name: z.string().optional(),
+        meters: z.number().nonnegative().default(0),
+      })
+      .optional(),
+    quantity: z.number().positive().default(1),
+    dimensions_estimated: z.boolean().optional(),
+    bounding_box: boundingBoxSchema.optional(),
+  }),
+)
+
+export const frentePortaSchema = z.preprocess(
+  (raw) => fillPieceMm(raw, (row) => defaultFrenteMm(row.kind)),
+  z.object({
+    name: z.string().min(1),
+    kind: z.enum(['porta_giro', 'porta_correr', 'frente_gaveta', 'frente_falsa', 'basculante', 'tamponamento']),
+    width_mm: z.number().positive(),
+    height_mm: z.number().positive(),
+    thickness_mm: z.number().positive().default(15),
+    material_name: z.string().min(2),
+    quantity: z.number().positive().default(1),
+    dimensions_estimated: z.boolean().optional(),
+    bounding_box: boundingBoxSchema.optional(),
+  }),
+)
 
 /**
  * Ferragens e acessórios — SEMPRE unidade individual (nunca caixa/pacote).
@@ -80,51 +116,60 @@ export const ferragemItemSchema = z.object({
   bounding_box: boundingBoxSchema.optional(),
 })
 
-function optionalPositiveMm(value: unknown): number | undefined {
-  const n = Number(value)
-  if (!Number.isFinite(n) || n <= 0) return undefined
-  return n
-}
-
 export const moduleExtractionSchema = z
-  .object({
-    name: z.string().min(1),
-    description: z.string().optional(),
-    dimensions: z
-      .preprocess(
-        (raw) => {
-          if (!raw || typeof raw !== 'object') return undefined
-          const d = raw as Record<string, unknown>
-          const width_mm = optionalPositiveMm(d.width_mm)
-          const height_mm = optionalPositiveMm(d.height_mm)
-          const depth_mm = optionalPositiveMm(d.depth_mm)
-          if (width_mm == null && height_mm == null && depth_mm == null) return undefined
-          return { width_mm, height_mm, depth_mm }
-        },
-        z
-          .object({
-            width_mm: z.number().positive().optional(),
-            height_mm: z.number().positive().optional(),
-            depth_mm: z.number().positive().optional(),
-          })
-          .optional(),
-      )
-      .optional(),
-    bounding_box: boundingBoxSchema.optional(),
-    caixaria: z.array(caixariaPieceSchema).default([]),
-    frentes_portas: z.array(frentePortaSchema).default([]),
-    ferragens: z.array(ferragemItemSchema).default([]),
-    fitas_borda_m: z
-      .array(
-        z.object({
-          tape_name: z.string().min(2),
-          meters: z.number().positive(),
-          bounding_box: boundingBoxSchema.optional(),
-        }),
-      )
-      .default([]),
-  })
+  .preprocess(
+    (raw) => {
+      if (!raw || typeof raw !== 'object') return raw
+      const m = { ...(raw as Record<string, unknown>) }
+      // Fora de escopo (pedra/decoração) não precisa de medidas
+      if (m.out_of_scope === true) return m
+      const d =
+        m.dimensions && typeof m.dimensions === 'object'
+          ? (m.dimensions as Record<string, unknown>)
+          : {}
+      const est = estimateModuleDimensions(m.name)
+      let estimated = d.estimated === true
+      const dims: Record<string, unknown> = {}
+      for (const key of ['width_mm', 'height_mm', 'depth_mm'] as const) {
+        const n = positiveOrNull(d[key])
+        if (n == null) estimated = true
+        dims[key] = n ?? est[key]
+      }
+      if (estimated) dims.estimated = true
+      m.dimensions = dims
+      return m
+    },
+    z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      /** Pedra, alvenaria, decoração — listado à parte, sem custo. */
+      out_of_scope: z.boolean().optional(),
+      dimensions: z
+        .object({
+          width_mm: z.number().positive(),
+          height_mm: z.number().positive(),
+          depth_mm: z.number().positive(),
+          /** true quando alguma medida foi estimada pelo tipo do módulo. */
+          estimated: z.boolean().optional(),
+        })
+        .optional(),
+      bounding_box: boundingBoxSchema.optional(),
+      caixaria: z.array(caixariaPieceSchema).default([]),
+      frentes_portas: z.array(frentePortaSchema).default([]),
+      ferragens: z.array(ferragemItemSchema).default([]),
+      fitas_borda_m: z
+        .array(
+          z.object({
+            tape_name: z.string().min(2),
+            meters: z.number().positive(),
+            bounding_box: boundingBoxSchema.optional(),
+          }),
+        )
+        .default([]),
+    }),
+  )
   .superRefine((mod, ctx) => {
+    if (mod.out_of_scope) return
     const total =
       mod.caixaria.length +
       mod.frentes_portas.length +
@@ -155,47 +200,3 @@ export type QuoteExtraction = z.infer<typeof quoteExtractionSchema>
 export type ModuleExtraction = z.infer<typeof moduleExtractionSchema>
 export type FerragemItem = z.infer<typeof ferragemItemSchema>
 export type MaterialCategory = z.infer<typeof materialCategorySchema>
-
-export const EXTRACTOR_SYSTEM_PROMPT = `Você é o Extrator técnico da Planilha 4.0 Premium (marcenaria).
-Extraia ABSOLUTAMENTE TUDO do projeto em PDF/imagens:
-
-OBRIGATÓRIO — NUNCA devolva módulos vazios nem materiais sem dados:
-- Todo módulo DEVE ter ao menos um item em caixaria, frentes_portas, ferragens ou fitas_borda_m.
-- Toda peça de caixaria/frente DEVE ter material_name preenchido, dimensões mm > 0 e quantity > 0.
-- Toda ferragem/fita DEVE ter exact_quantity > 0 e categoria coerente (ferragem|puxador|consumivel|fita).
-- PROIBIDO retornar arrays de materiais vazios em todos os módulos, ou quantities/dimensões nulas/zeradas.
-- Sugira nomes de material realistas (ex.: "MDF Branco TX 15mm", "Dobradiça com amortecedor") para o de-para de preços.
-
-INVENTÁRIO DE MÓDULOS — NÃO OMITIR (um módulo por peça nomeada no projeto):
-- Guarda-roupa / closet / roupeiro
-- Painel, cabeceira, painel ripado, home theater
-- Nicho, nicho divisor de ambiente, estante vazada
-- Torre, aéreo, basculante, inferior/superior de cozinha
-- Mesa com Saia, escrivaninha, bancada, ilha
-- Ferragens listadas nas pranchas (sempre como itens do módulo correspondente)
-- Nomear o módulo de forma explícita (ex.: "Painel e Cabeceira", "Nicho Divisor de Ambiente")
-
-MÓDULOS ESPECIAIS (mesas/bancadas):
-- Tampos engrossados (30/45 mm), saias, passa-cabos, pés.
-- Tampos: frentes_portas.kind = "tamponamento" ou caixaria função tampo.
-
-CAIXARIA: bases, laterais, divisórias, prateleiras, fundos, sarrafos — mm, material, fitas C1/C2/L1/L2.
-FRENTES/PORTAS/TAMPONAMENTOS: tipo, medidas e material.
-FITAS DE BORDA: metros lineares (> 0).
-FERRAGENS: SEMPRE por UNIDADE INDIVIDUAL (nunca caixa/pacote).
-PUXADORES PERFIL: barras de 3 m + tampinhas laterais (2 por barra).
-
-REFERÊNCIA VISUAL: preencha bounding_box (page 1-based + x,y,width,height 0–1) em caixaria, frentes, ferragens e fitas quando visível.
-
-Bounding boxes 0–1 quando visíveis. Responda só no schema JSON.`
-
-export const AUDITOR_SYSTEM_PROMPT = `Você é o Auditor construtivo (o3-mini) da Planilha 4.0.
-Valide física de montagem: dobradiças por altura, folgas, furações, barras 3m + tampinhas, unidades individuais.
-Compare com o INVENTÁRIO ESPERADO: se faltar guarda-roupa, painel, cabeceira, nicho, bancada/mesa ou ferragens, COMPLETE a extração.
-PROIBIDO deixar módulos sem materiais ou quantidades zeradas — corrija/complete.
-Devolva o JSON completo + auditor_notes e warnings objetivos.`
-
-export const INVENTORY_SYSTEM_PROMPT = `Você lista o inventário de ambientes e módulos de um projeto de marcenaria (capa, sumário, plantas).
-NÃO detalhe peças ainda — só nomes.
-Inclua TODOS: guarda-roupa, painel, cabeceira, nicho divisor, torre, bancada, mesa, ferragens como módulo se houver prancha própria.
-Responda só no JSON schema.`

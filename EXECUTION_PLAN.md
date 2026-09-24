@@ -215,11 +215,50 @@ flowchart LR
 
 ---
 
+## Fase v9 — Paridade CalcmeX (resiliência, preço coerente, fora do escopo)
+
+**Épico 1 — Pipeline & schemas**
+- [x] `MAX_PIPELINE_PAGES = 40` (já estava)
+- [x] Medidas ≤ 0/nulas estimadas por tipo de peça/frente/módulo (`dimension-defaults.ts` + `.preprocess()` em `schemas.ts`), com flag `dimensions_estimated` / `dimensions.estimated`
+- [x] Fim do `15 mm` hardcoded em `coercePositiveList`; aviso em `warnings` quando há medidas estimadas
+- [x] Teste ad-hoc: `node scripts/test-orcamentos-ia-schemas.mjs`
+
+**Épico 2 — Precificação**
+- [x] Fuzzy match + De-Para + contingência (já estava) → agora via `createPriceResolver` (1 carga de estoque/mercado/apelidos por execução)
+- [x] Chapas precificadas por **m²** (área × R$/m²; perda aplicada em `sumMaterialsCost` e na Lista de Compras) — antes cada peça custava uma chapa inteira
+- [x] Lista de Compras agrupa chapas pelo material (não pela peça)
+- [x] Contingência nova: pé de mesa, passa-cabo, cantoneira; chave de contingência registrada em `notes`
+- [x] Aba "Apelidos / De-Para" no `InventoryManagerModal` (já estava)
+
+**Épico 3 — Prompts, mesas e fora do escopo**
+- [x] Regras "Mesa com Saia" (tampo/engrosso, saias, pés, fitas, ferragens) no `SYSTEM_EXTRACTOR`/`SYSTEM_AUDITOR` da Edge Function (prompts mortos removidos de `schemas.ts`)
+- [x] Pedra, alvenaria, gesso, eletros e decoração → `out_of_scope` (sem ferragem placeholder de R$ 8)
+- [x] Migration `20260924_orcamentos_ia_out_of_scope.sql` (`quote_modules.out_of_scope`)
+- [x] Seção "Fora do Escopo" no Audit Workspace, excluída do custo
+- [ ] Deploy da Edge `orcamentos-ia-pipeline` + `orcamentos-ia-chat`
+- [ ] `pnpm migrate` (migration acima) — **antes** de publicar o frontend
+
+**Épico 4 — CalcmeX (Max)**
+- [x] `AuditChatWidget` e `CompanyMemoriesModal` (já estavam)
+- [x] Botão "Memórias do Max" dentro do Audit Workspace
+- [x] Chat recebe fora de escopo, unidade e flag de preço estimado no contexto
+- [ ] Chat/memória: validar vínculo do usuário com `companyId` na Edge (hoje só autentica)
+
+**Épico 5 — Validação**
+- [x] `pnpm build` ok
+- [x] Rota `/orcamentos-ia` via `crmPage` + gates em `crm-identity.ts` (inalterados)
+- [ ] Reprocessar PDF real (`orcamento-com-IA/A4_ARQ_DET_QUARTO SUÍTE_CO_REV01.pdf`) e conferir: sem `unit_price ≤ 0`, chapas em m², mesa fatiada, pedras em "Fora do Escopo"
+
+---
+
 ## Referências rápidas
 
 | Item | Local |
 |------|--------|
 | PRD v8 (visão) | `orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md` |
+| Relatório CalcmeX | `orcamento-com-IA/relatorio-implementacao-e-correcoes-calcmex.md` |
+| Medidas padrão | `src/lib/orcamentos-ia/dimension-defaults.ts` |
+| Migration fora do escopo | `supabase/migrations/20260924_orcamentos_ia_out_of_scope.sql` |
 | PRD das alterações implementadas | `orcamento-com-IA/PRD_ALTERACOES_IMPLEMENTADAS_GARBO.md` |
 | Diretrizes Cursor | `.cursorrules` / `.cursorrule` |
 | Migration Fase 1 (DDL) | `supabase/migrations/20260921_init_orcamentos_ia.sql` |

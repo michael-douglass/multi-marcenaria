@@ -139,53 +139,54 @@ function mergeExtractions(parts: unknown[]): AnyRec {
   }
 }
 
+/** Decoração, iluminação, marmoraria e obra civil — fora do escopo de marcenaria. */
+const OUT_OF_SCOPE_HINTS = [
+  'tapete',
+  'quadro',
+  'puff',
+  'pendente',
+  'arandela',
+  'led',
+  'luminaria',
+  'westwing',
+  'nordecor',
+  'pendurador',
+  'espelho',
+  'almofada',
+  'cortina',
+  'vaso',
+  'planta',
+  'decoracao',
+  'decoração',
+  'granito',
+  'marmore',
+  'mármore',
+  'quartzo',
+  'silestone',
+  'dekton',
+  'porcelanato',
+  'alvenaria',
+  'gesso',
+  'drywall',
+]
+
 function ensurePlaceholders(extraction: AnyRec): AnyRec {
-  const OUT = [
-    'tapete',
-    'quadro',
-    'puff',
-    'pendente',
-    'arandela',
-    'led',
-    'luminaria',
-    'westwing',
-    'nordecor',
-    'pendurador',
-    'espelho',
-    'almofada',
-    'cortina',
-    'vaso',
-    'planta',
-    'decoracao',
-    'decoração',
-  ]
   const environments = asObjArray(extraction.environments).map((env) => {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
-      const outOfScope = mod.out_of_scope === true || OUT.some((h) => nameKey.includes(h))
-      const total =
-        asObjArray(mod.caixaria).length +
-        asObjArray(mod.frentes_portas).length +
-        asObjArray(mod.ferragens).length +
-        asObjArray(mod.fitas_borda_m).length
-      if (total > 0) return { ...mod, out_of_scope: outOfScope || undefined }
-      // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
-      if (!outOfScope) return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
-      return {
-        ...mod,
-        out_of_scope: true,
-        ferragens: [
-          {
-            raw_name: `Fora de escopo — ${name}`,
-            category: 'consumivel',
-            unit_measure: 'un',
-            exact_quantity: 1,
-            full_units_quantity: 1,
-            notes: 'Decoração/iluminação — não bloqueia marcenaria.',
-          },
-        ],
+      const hinted = mod.out_of_scope === true || OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
+      const mdfPieces = asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
+      // Com chapa MDF (ex.: bancada sob granito) continua no escopo
+      if (mdfPieces > 0) return { ...mod, out_of_scope: undefined }
+      if (hinted) {
+        // Fora de escopo: listado à parte no cliente, sem insumos nem custo
+        return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
+      const total = asObjArray(mod.ferragens).length + asObjArray(mod.fitas_borda_m).length
+      if (total > 0) return { ...mod, out_of_scope: undefined }
+      // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
+      return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
     })
     return { ...env, modules }
   })
@@ -200,11 +201,8 @@ function findBomGaps(extraction: AnyRec): Array<{ environment: string; module: s
       if (mod.out_of_scope === true) continue
       const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(modName)
-      if (
-        ['tapete', 'quadro', 'puff', 'pendente', 'arandela', 'led', 'pendurador', 'espelho', 'almofada', 'cortina', 'vaso', 'planta'].some((h) =>
-          nameKey.includes(h),
-        )
-      ) {
+      const mdfPieces = asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
+      if (mdfPieces === 0 && OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))) {
         continue
       }
       const caixaria = asObjArray(mod.caixaria)
@@ -302,6 +300,7 @@ const EXTRACTOR_SCHEMA = {
               properties: {
                 name: { type: 'string' },
                 description: { type: 'string' },
+                out_of_scope: { type: 'boolean' },
                 dimensions: {
                   type: 'object',
                   properties: {
@@ -491,7 +490,22 @@ Para cada móvel (guarda-roupa, painel, cabeceira, nicho, mesa, aparador, divis�
 - Cotar fitas de borda em metros
 - Preencher bounding_box com page (1-based) + x,y,width,height 0–1 quando visível; senão page do módulo
 
-Decoração/iluminação (tapete, quadro, LED, puff): pode marcar só o item sem caixaria.
+MEDIDAS: use as cotas do desenho. Sem cota impressa, estime pela escala/proporção da planta (nunca 0).
+
+MESA COM SAIA / ESCRIVANINHA (Planilha 4.0 Premium) — fatie SEMPRE em:
+- caixaria função "tampo": tampo (L × P). Tampo engrossado 30/45 mm = tampo 15/18 mm + tiras de engrosso (caixaria "outro", largura 70–100 mm) no perímetro.
+- caixaria função "outro": saia frontal e saias laterais (altura típica 80–120 mm), travessa/reforço.
+- caixaria função "lateral": pés/laterais em MDF (altura ≈ 735 mm) quando o pé for de madeira; pé metálico → ferragem "Pé de mesa metálico" (un).
+- fitas_borda_m: perímetro do tampo + bordas visíveis das saias/pés.
+- ferragens: cantoneiras, Minifix/parafusos por unidade, passa-cabo se houver.
+Gaveteiro sob a mesa = módulo próprio (caixaria + frentes + corrediças).
+
+FORA DO ESCOPO (out_of_scope = true, SEM caixaria/frentes/ferragens):
+- Marmoraria: granito, mármore, quartzo, Silestone, Dekton, porcelanato (tampos/soleiras/nichos de pedra).
+- Obra civil: alvenaria, gesso/drywall, sancas, pintura, revestimento.
+- Eletros, metais sanitários, decoração e iluminação (tapete, quadro, LED, pendente, espelho avulso, puff).
+- Bancada de MDF com tampo de pedra: o móvel de MDF é marcenaria normal; crie um módulo separado "Tampo em granito/quartzo" com out_of_scope = true.
+
 PROIBIDO usar "A confirmar" em módulos de marcenaria.
 Responda só no JSON schema.`
 
@@ -500,8 +514,10 @@ FORCE a cotação completa de marcenaria: todo guarda-roupa/painel/cabeceira/nic
 - chapas MDF (caixaria ou frentes) com medidas e material
 - ferragens/puxadores por unidade (sem placeholder "A confirmar")
 - bounding_box.page em cada peça quando possível
+Mesa com saia/escrivaninha: exija tampo, saias, pés (MDF ou metálico), fitas no perímetro e ferragens.
+Pedra (granito/mármore/quartzo), alvenaria, gesso, eletros e decoração: out_of_scope = true, sem peças de MDF.
 Compare com INVENTÁRIO e LISTA DE FALHAS. Complete lacunas olhando as imagens.
-Itens decorativos podem ficar como estão. Devolva o JSON completo.`
+Devolva o JSON completo.`
 
 const SYSTEM_INVENTORY = `Liste ambientes e módulos do projeto (capa/sumário/plantas). Só nomes, sem pecas.
 Inclua guarda-roupa, painel, cabeceira, nicho divisor, torre, bancada, mesa, ferragens se houver.
@@ -838,7 +854,7 @@ ${
     : '(nenhum)'
 }
 
-Itens decorativos (espelho, tapete, luminária, quadro, puff) → marque out_of_scope=true.
+Pedra (granito/mármore/quartzo), alvenaria, gesso e decoração (espelho, tapete, luminária, quadro, puff) → out_of_scope=true, sem peças.
 Complete chapas MDF, ferragens e puxadores. Preencha bounding_box.page.
 ÁRVORE ATUAL:
 ${JSON.stringify(extraction).slice(0, 50000)}`,

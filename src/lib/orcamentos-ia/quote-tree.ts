@@ -36,6 +36,8 @@ export interface QuoteModuleRow {
   page_number: number | null
   page_image_path: string | null
   sort_order: number
+  /** Pedra, alvenaria, decoração — listado à parte, fora do custo. */
+  out_of_scope: boolean
   materials: QuoteMaterialRow[]
 }
 
@@ -86,7 +88,7 @@ export async function loadQuoteAnalysisTree(
 
   const { data: modules, error: mErr } = await supabase
     .from('quote_modules')
-    .select('id, environment_id, name, description, dimensions, bounding_box, page_number, page_image_path, sort_order')
+    .select('id, environment_id, name, description, dimensions, bounding_box, page_number, page_image_path, sort_order, out_of_scope')
     .in('environment_id', envIds)
     .order('sort_order', { ascending: true })
   if (mErr) return { data: null, error: mErr.message }

@@ -73,11 +73,17 @@ Deno.serve(async (req) => {
       .order('sort_order', { ascending: true })
 
     const envIds = (environments ?? []).map((e) => e.id)
-    let modules: Array<{ id: string; name: string; environment_id: string; description: string | null }> = []
+    let modules: Array<{
+      id: string
+      name: string
+      environment_id: string
+      description: string | null
+      out_of_scope: boolean | null
+    }> = []
     if (envIds.length) {
       const { data: mods } = await admin
         .from('quote_modules')
-        .select('id, name, environment_id, description')
+        .select('id, name, environment_id, description, out_of_scope')
         .in('environment_id', envIds)
         .order('sort_order', { ascending: true })
       modules = (mods ?? []) as typeof modules
@@ -89,14 +95,19 @@ Deno.serve(async (req) => {
       category: string
       exact_quantity: number | null
       unit_price: number | null
+      unit_measure: string | null
+      using_market_price: boolean | null
+      market_price_confirmed: boolean | null
       module_id: string
     }> = []
     if (modIds.length) {
       const { data: mats } = await admin
         .from('quote_materials')
-        .select('raw_name, category, exact_quantity, unit_price, module_id')
+        .select(
+          'raw_name, category, exact_quantity, unit_price, unit_measure, using_market_price, market_price_confirmed, module_id',
+        )
         .in('module_id', modIds)
-        .limit(200)
+        .limit(400)
       materials = (mats ?? []) as typeof materials
     }
 
@@ -111,11 +122,17 @@ Deno.serve(async (req) => {
     for (const env of environments ?? []) {
       treeLines.push(`Ambiente: ${env.name}`)
       for (const mod of modules.filter((m) => m.environment_id === env.id)) {
+        if (mod.out_of_scope) {
+          treeLines.push(`  - FORA DO ESCOPO (sem custo): ${mod.name}`)
+          continue
+        }
         treeLines.push(`  - Módulo: ${mod.name}${mod.description ? ` (${mod.description})` : ''}`)
         const mats = materials.filter((m) => m.module_id === mod.id).slice(0, 12)
         for (const mat of mats) {
+          const estimate =
+            mat.using_market_price && !mat.market_price_confirmed ? ' (preço estimado — não confirmado)' : ''
           treeLines.push(
-            `      · ${mat.raw_name} [${mat.category}] qtd=${mat.exact_quantity ?? '?'} preço=${mat.unit_price ?? '?'}`,
+            `      · ${mat.raw_name} [${mat.category}] qtd=${mat.exact_quantity ?? '?'} ${mat.unit_measure ?? ''} preço=${mat.unit_price ?? '?'}${estimate}`,
           )
         }
       }
@@ -128,7 +145,9 @@ Deno.serve(async (req) => {
     const system = `Você é o Max, assistente técnico de orçamento de marcenaria (Planilha 4.0 / GARBO).
 Responda em português, de forma clara e objetiva (como para um profissional de marcenaria).
 Use o contexto do orçamento e das memórias da oficina. Se algo não estiver no contexto, diga que não sabe.
-Não invente preços fora do que aparece no contexto.`
+Não invente preços fora do que aparece no contexto.
+Chapas em "m2" têm preço por m² (a perda de corte entra na lista de compras).
+Itens "FORA DO ESCOPO" (pedra, alvenaria, decoração) não entram no custo de marcenaria.`
 
     const userPrompt = [
       `Status do orçamento: ${analysis.status} | modo: ${analysis.mode}`,

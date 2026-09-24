@@ -202,31 +202,18 @@ export function buildCoverageReport(
   }
 }
 
-/** Garante ferragem placeholder em modulo nomeado sem materiais. */
+/**
+ * Marca `out_of_scope` em pedra/alvenaria/decoração sem MDF.
+ * Não cria mais ferragem placeholder — esses módulos ficam fora do custo.
+ * Bancada de MDF sob granito (com caixaria/frentes) continua no escopo.
+ */
 export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
-  const caixaria = asArray(mod.caixaria)
-  const frentes = asArray(mod.frentes_portas)
-  const ferragens = asArray(mod.ferragens)
-  const fitas = asArray(mod.fitas_borda_m)
-  const total = caixaria.length + frentes.length + ferragens.length + fitas.length
-  if (total > 0) return mod
-  // Só para itens fora de escopo de marcenaria (decoração/iluminação)
-  if (!isOutOfScopeModule(mod)) return mod
-  const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
-  return {
-    ...mod,
-    out_of_scope: true,
-    ferragens: [
-      {
-        raw_name: `Fora de escopo — ${name}`,
-        category: 'consumivel',
-        unit_measure: 'un',
-        exact_quantity: 1,
-        full_units_quantity: 1,
-        notes: 'Item decorativo/iluminação — não bloqueia fechamento de marcenaria.',
-      },
-    ],
+  const mdfPieces = asArray(mod.caixaria).length + asArray(mod.frentes_portas).length
+  if (mdfPieces > 0) {
+    return mod.out_of_scope === true ? { ...mod, out_of_scope: false } : mod
   }
+  if (!isOutOfScopeModule(mod)) return mod
+  return { ...mod, out_of_scope: true }
 }
 
 const OUT_OF_SCOPE_HINTS = [
@@ -250,6 +237,17 @@ const OUT_OF_SCOPE_HINTS = [
   'objeto decor',
   'decoracao',
   'decoração',
+  // Marmoraria / obra civil — cotados por terceiros
+  'granito',
+  'marmore',
+  'mármore',
+  'quartzo',
+  'silestone',
+  'dekton',
+  'porcelanato',
+  'alvenaria',
+  'gesso',
+  'drywall',
 ]
 
 export function isOutOfScopeModule(mod: AnyRec): boolean {
