@@ -218,6 +218,7 @@ export function montarEspelhoPontoPeriodo(input: MontarEspelhoPontoInput): Espel
       minutos_abatidos: f.minutos_abatidos,
     })),
     faltas_banco_minutos: faltasBancoMinutos,
+    he_pagas_minutos: 0,
     chegadas,
     saidas,
   }

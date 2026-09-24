@@ -1,12 +1,16 @@
 import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { FileDown, Loader2 } from 'lucide-react'
+import { FileDown, Loader2, Wallet } from 'lucide-react'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import {
   formatMinutosComSinal,
   formatMinutosHoraExtra,
   formatMinutosSaldo,
 } from '@/lib/funcionario-ponto'
+import {
+  formatDiasEquivalentes,
+  minutosParaDiasEquivalentes,
+} from '@/lib/ponto-valor-hora'
 import {
   imprimirResumoPontoPdf,
   montarDiasResumoPonto,
@@ -22,6 +26,10 @@ interface ResumoPontoFuncionarioCardProps {
   intervaloLabel: string
   repCnpj?: string | null
   onFaltaClick?: (data: string) => void
+  /** Abre o dialog de saldo acumulado / pagar HE. */
+  onBancoClick?: () => void
+  /** Minutos de um dia típico de jornada (para ≈ dias). */
+  minutosJornadaRef?: number
 }
 
 const CARD_CLASS =
@@ -94,12 +102,15 @@ export function ResumoPontoFuncionarioCard({
   intervaloLabel,
   repCnpj,
   onFaltaClick,
+  onBancoClick,
+  minutosJornadaRef = 480,
 }: ResumoPontoFuncionarioCardProps) {
   const [exportando, setExportando] = useState(false)
   const temFaltas = row.faltas_datas.length > 0
   const dias = montarDiasResumoPonto(row)
   const balanco = calcularBalancoResumoPonto(row)
   const faltasDetalhe = resolverFaltasDetalhe(row)
+  const diasEquiv = minutosParaDiasEquivalentes(balanco.saldo_minutos, minutosJornadaRef)
   const pastaUrl = '/funcionarios/' + row.funcionario_id + '?tab=ponto'
 
   async function exportarPdf(e: MouseEvent) {
@@ -329,7 +340,7 @@ export function ResumoPontoFuncionarioCard({
             <h4 className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
               Balanço do período
             </h4>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <div className="rounded-lg border border-[#146c38]/25 bg-[#edf8f1] px-2 py-2 text-center">
                 <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#146c38]/80">
                   Excedentes
@@ -358,6 +369,16 @@ export function ResumoPontoFuncionarioCard({
                     : '0min'}
                 </p>
               </div>
+              <div className="rounded-lg border border-[#9f1239]/25 bg-[#fff1f2] px-2 py-2 text-center">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#9f1239]/80">
+                  HE pagas
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums text-[#9f1239]">
+                  {balanco.he_pagas_minutos > 0
+                    ? `−${formatMinutosSaldo(balanco.he_pagas_minutos)}`
+                    : '0min'}
+                </p>
+              </div>
               <div
                 className={`rounded-lg border px-2 py-2 text-center ${saldoTone(balanco.status)}`}
               >
@@ -368,11 +389,39 @@ export function ResumoPontoFuncionarioCard({
                   {formatMinutosComSinal(balanco.saldo_minutos)}
                 </p>
               </div>
+              <div className="rounded-lg border border-[rgba(26,16,12,0.14)] bg-[#f7efe4] px-2 py-2 text-center text-[#6b3f12]">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-wider opacity-80">
+                  Equivale a
+                </p>
+                <p className="mt-1 font-display text-sm tabular-nums">
+                  {formatDiasEquivalentes(diasEquiv)}
+                </p>
+              </div>
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
               No dia: verde = excedente · vermelho = atraso. No período: Saldo = HE − atrasos −
-              faltas abatidas no banco. Clique numa falta para desconsiderar ou abater em horas.
+              faltas abatidas − HE pagas. Clique numa falta para desconsiderar, abater ou reverter.
             </p>
+            {onBancoClick && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onBancoClick()
+                }}
+                className={
+                  'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl ' +
+                  'border border-[rgba(107,63,18,0.35)] bg-[#f4e4c4] px-3 py-2.5 text-sm ' +
+                  'font-semibold text-[#6b3f12] transition-colors hover:bg-[#edd9a8] ' +
+                  'focus-visible:outline-none focus-visible:ring-2 ' +
+                  'focus-visible:ring-[rgba(107,63,18,0.35)]'
+                }
+              >
+                <Wallet className="h-4 w-4 shrink-0" aria-hidden />
+                Ver saldo na casa / pagar HE
+              </button>
+            )}
           </section>
 
           <section>

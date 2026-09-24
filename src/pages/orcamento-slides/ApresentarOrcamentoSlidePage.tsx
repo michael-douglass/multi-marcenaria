@@ -27,7 +27,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { patchTextosAnaliseIa } from '@/lib/orcamento-slide-analise-ia';
-import { useOrcamentoSlideExport } from '@/hooks/useOrcamentoSlideExport';
+import { useOrcamentoSlideExportBackground } from '@/contexts/OrcamentoSlideExportBackgroundContext';
 import { resolverMidiasApresentacao } from '@/lib/orcamento-slide-bloco-imagens';
 import type {
   OrcamentoFormaPagamento,
@@ -112,10 +112,8 @@ function ApresentarOrcamentoSlideConteudo({
     ],
   );
 
-  const { exportar, isExporting, exportPortal } = useOrcamentoSlideExport({
-    titulo: orcamento.cliente_nome || orcamento.identificador,
-    presentationProps,
-  });
+  const { startBackgroundExport, isExportingOrcamento } = useOrcamentoSlideExportBackground();
+  const isExporting = isExportingOrcamento(orcamento.id);
 
   const salvarTextosAnalise = useCallback(
     async (blocoId: string, values: { etiqueta: string; titulo: string; corpo: string }) => {
@@ -197,7 +195,15 @@ function ApresentarOrcamentoSlideConteudo({
             </Button>
           )}
           <OrcamentoSlideExportMenu
-            onExport={(viewport, format) => void exportar(viewport, format)}
+            onExport={(viewport, format) => {
+              startBackgroundExport({
+                orcamentoId: orcamento.id,
+                titulo: orcamento.cliente_nome || orcamento.identificador,
+                viewport,
+                format,
+                presentationProps,
+              });
+            }}
             isExporting={isExporting}
           />
         </div>
@@ -221,8 +227,6 @@ function ApresentarOrcamentoSlideConteudo({
           />
         </div>
       </div>
-
-      {exportPortal}
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
         <SheetContent

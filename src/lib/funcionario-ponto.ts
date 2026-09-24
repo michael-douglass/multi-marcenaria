@@ -13,9 +13,11 @@ import type {
   PontoMarcacaoComUrls,
   PontoMarcacaoTipo,
   PontoOcorrencia,
+  PontoPagarHoraExtraResult,
   PontoResumoBatida,
   PontoResumoPeriodo,
   PontoResumoPeriodoPayload,
+  PontoSaldoAcumulado,
   PontoStatusDiaPayload,
   RepArquivo,
 } from '@/types'
@@ -451,6 +453,82 @@ export async function fetchResumoPontoPeriodo(
   return normalizeResumoPeriodo(data, periodo)
 }
 
+export async function fetchSaldoAcumuladoPonto(
+  funcionarioId: string,
+): Promise<PontoSaldoAcumulado> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_saldo_acumulado', {
+    p_funcionario_id: funcionarioId,
+  })
+  if (error) throw new Error(error.message)
+  return normalizeSaldoAcumulado(data, funcionarioId)
+}
+
+export async function pagarHoraExtraPonto(opts: {
+  funcionarioId: string
+  minutos: number
+  valorHora: number
+  dataVencimento: string
+  observacao?: string | null
+}): Promise<PontoPagarHoraExtraResult> {
+  const { data, error } = await supabase.rpc('movelaria_ponto_pagar_hora_extra', {
+    p_funcionario_id: opts.funcionarioId,
+    p_minutos: Math.floor(opts.minutos),
+    p_valor_hora: opts.valorHora,
+    p_data_vencimento: opts.dataVencimento,
+    p_observacao: opts.observacao ?? null,
+  })
+  if (error) throw new Error(error.message)
+  const raw = (data ?? {}) as Record<string, unknown>
+  return {
+    movimento_id: String(raw.movimento_id ?? ''),
+    conta_pagar_id: String(raw.conta_pagar_id ?? ''),
+    minutos: Number(raw.minutos) || 0,
+    valor_hora: Number(raw.valor_hora) || 0,
+    valor_total: Number(raw.valor_total) || 0,
+    saldo_restante_minutos: Number(raw.saldo_restante_minutos) || 0,
+    descricao: String(raw.descricao ?? ''),
+  }
+}
+
+function normalizeSaldoAcumulado(
+  raw: unknown,
+  fallbackId: string,
+): PontoSaldoAcumulado {
+  const empty: PontoSaldoAcumulado = {
+    funcionario_id: fallbackId,
+    nome: '',
+    usuario_id: null,
+    valor_fixo_mensal: 0,
+    inicio: '2026-07-01',
+    fim: pontoDataLocal(),
+    hora_extra_minutos: 0,
+    atrasos_minutos: 0,
+    faltas_banco_minutos: 0,
+    he_pagas_minutos: 0,
+    saldo_minutos: 0,
+    minutos_jornada_ref: 480,
+    dias_uteis: [1, 2, 3, 4, 5],
+  }
+  if (!raw || typeof raw !== 'object') return empty
+  const o = raw as Record<string, unknown>
+  const diasRaw = Array.isArray(o.dias_uteis) ? o.dias_uteis : []
+  return {
+    funcionario_id: String(o.funcionario_id ?? fallbackId),
+    nome: String(o.nome ?? ''),
+    usuario_id: o.usuario_id ? String(o.usuario_id) : null,
+    valor_fixo_mensal: Number(o.valor_fixo_mensal) || 0,
+    inicio: typeof o.inicio === 'string' ? o.inicio : empty.inicio,
+    fim: typeof o.fim === 'string' ? o.fim : empty.fim,
+    hora_extra_minutos: Number(o.hora_extra_minutos) || 0,
+    atrasos_minutos: Number(o.atrasos_minutos) || 0,
+    faltas_banco_minutos: Number(o.faltas_banco_minutos) || 0,
+    he_pagas_minutos: Number(o.he_pagas_minutos) || 0,
+    saldo_minutos: Number(o.saldo_minutos) || 0,
+    minutos_jornada_ref: Math.max(1, Number(o.minutos_jornada_ref) || 480),
+    dias_uteis: diasRaw.map((d) => Number(d)).filter((n) => n >= 1 && n <= 7),
+  }
+}
+
 function normalizeResumoPeriodo(
   raw: unknown,
   fallbackPeriodo: PontoResumoPeriodo,
@@ -500,6 +578,7 @@ function normalizeResumoPeriodo(
           (d): d is NonNullable<typeof d> => d != null,
         ),
         faltas_banco_minutos: Number(f.faltas_banco_minutos) || 0,
+        he_pagas_minutos: Number(f.he_pagas_minutos) || 0,
         chegadas: chegadasRaw.map(c => normalizeResumoBatida(c, 'entrada')),
         saidas: saidasRaw.map(s => normalizeResumoBatida(s, 'saida')),
       }

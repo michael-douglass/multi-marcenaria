@@ -70,11 +70,13 @@ export function OrcamentoSlideExportMenu({
   const nestedInVisualizar = portalMode === 'visualizar';
 
   useLayoutEffect(() => {
-    if (!nestedInVisualizar) {
-      setPortalContainer(null);
+    if (nestedInVisualizar) {
+      setPortalContainer(document.querySelector<HTMLElement>('[data-orcamento-visualizar]'));
       return;
     }
-    setPortalContainer(document.querySelector<HTMLElement>('[data-orcamento-visualizar]'));
+    // No card do lead: portal dentro do Dialog para o FocusScope não “roubar” o foco
+    // e fechar o menu na hora (fallback: body, com onFocusOutside abaixo).
+    setPortalContainer(document.querySelector<HTMLElement>('[data-lead-card]'));
   }, [nestedInVisualizar]);
 
   return (
@@ -110,14 +112,12 @@ export function OrcamentoSlideExportMenu({
         sideOffset={8}
         container={portalContainer ?? undefined}
         data-orcamento-export-menu=""
-        onCloseAutoFocus={(event) => {
-          if (nestedInVisualizar) event.preventDefault();
-        }}
+        // Dentro do Dialog do lead o FocusScope puxa o foco de volta para o card;
+        // sem preventDefault o menu abre e fecha na hora (mesmo padrão do LeadAIRenderDownloadMenu).
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onFocusOutside={(event) => event.preventDefault()}
         onPointerDown={(event) => event.stopPropagation()}
         onPointerDownOutside={(event) => {
-          if (nestedInVisualizar) event.preventDefault();
-        }}
-        onFocusOutside={(event) => {
           if (nestedInVisualizar) event.preventDefault();
         }}
         onInteractOutside={(event) => {

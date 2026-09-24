@@ -4342,11 +4342,16 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 }
 
 /*
- * Menu Exportar: o Radix coloca o painel num wrapper no body (z-auto).
- * A apresentação está em z-240 — sem z-index no wrapper o menu some atrás.
+ * Menu Exportar: o Radix coloca o painel num wrapper (z-auto).
+ * Na apresentação (z-240) o wrapper precisa de z alto; no card do lead (z-50)
+ * o mesmo z cobre o Dialog. pointer-events garante clique nas opções.
  */
 [data-radix-popper-content-wrapper]:has([data-orcamento-export-menu]) {
   z-index: 260 !important;
+  pointer-events: auto !important;
+}
+[data-orcamento-export-menu],
+[data-orcamento-export-menu] * {
   pointer-events: auto !important;
 }
 
@@ -4361,10 +4366,6 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 }
 [data-lead-ai-render-download-menu],
 [data-lead-ai-render-download-menu] * {
-  pointer-events: auto !important;
-}
-html[data-orcamento-visualizar-open] [data-orcamento-export-menu],
-html[data-orcamento-visualizar-open] [data-orcamento-export-menu] * {
   pointer-events: auto !important;
 }
 

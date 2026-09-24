@@ -182,12 +182,18 @@ interface EditContaForm {
   recorrenciaValorMensal: string
   recorrenciaDiaMensal: string
   recorrenciaEncerramento: string
-  aplicarValorFuturas: boolean
+}
+
+interface ParcelaRascunhoValor {
+  valorParcela: string
+  vencimento: string
 }
 
 interface RecorrenciaEdicaoSnapshot {
   encerramento: string
   diaMensal: string
+  valorMensal: string
+  primeiroVencimentoParcelado: string
 }
 
 function diaFromIso(iso: string): string {
@@ -218,8 +224,24 @@ function editFormFromConta(conta: ContaPagar, todasContas?: ContaPagar[]): EditC
     recorrenciaValorMensal: String(conta.recorrencia_valor_base ?? conta.valor_parcela ?? ''),
     recorrenciaDiaMensal: diaFromIso(vencimento),
     recorrenciaEncerramento: normalizeObraDate(conta.recorrencia_encerramento) ?? '',
-    aplicarValorFuturas: true,
   }
+}
+
+function rascunhoParcelaDiferente(
+  conta: ContaPagar,
+  draft: ParcelaRascunhoValor | undefined,
+): boolean {
+  if (!draft) return false
+  const valor = parseMoneyBr(draft.valorParcela)
+  const valorMudou =
+    draft.valorParcela !== '' &&
+    Number.isFinite(valor) &&
+    valor > 0 &&
+    Math.abs(valor - conta.valor_parcela) > 0.005
+  const vencOrig = conta.data_vencimento?.slice(0, 10) ?? ''
+  const vencDraft = (normalizeObraDate(draft.vencimento) ?? draft.vencimento)?.slice(0, 10) ?? ''
+  const vencMudou = !!vencDraft && vencDraft !== vencOrig
+  return valorMudou || vencMudou
 }
 
 const getStatus = (vencimento: string, status: string): string => {
@@ -303,6 +325,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   const recorrenciaEdicaoRef = useRef<RecorrenciaEdicaoSnapshot>({
     encerramento: '',
     diaMensal: '1',
+    valorMensal: '',
+    primeiroVencimentoParcelado: '',
   })
   const [editOpen, setEditOpen] = useState(false)
   const [editingConta, setEditingConta] = useState<ContaPagar | null>(null)
@@ -314,6 +338,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     data_vencimento: todayISO(),
     status: 'pendente',
   }))
+  const [parcelasRascunho, setParcelasRascunho] = useState<Record<string, ParcelaRascunhoValor>>({})
   const [editAnexos, setEditAnexos] = useState<PendingContaPagarAnexo[]>([])
   const [caixaOpen, setCaixaOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
@@ -362,6 +387,42 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setEditForm(p => ({ ...p, [k]: e.target.value }))
 
+  /** Atualiza valor/vencimento da parcela atual e o rascunho (preview na tabela). */
+  const setParcelaCampoAtual = useCallback(
+    (campo: 'valorParcela' | 'vencimento', value: string) => {
+      setEditForm(p => ({ ...p, [campo]: value }))
+      if (!editingConta) return
+      setParcelasRascunho(prev => {
+        const atual = prev[editingConta.id]
+        return {
+          ...prev,
+          [editingConta.id]: {
+            valorParcela:
+              campo === 'valorParcela'
+                ? value
+                : (atual?.valorParcela ?? editForm.valorParcela),
+            vencimento:
+              campo === 'vencimento'
+                ? value
+                : (atual?.vencimento ?? editForm.vencimento),
+          },
+        }
+      })
+    },
+    [editingConta, editForm.valorParcela, editForm.vencimento],
+  )
+
+  const getRascunhoEfetivo = useCallback((): Record<string, ParcelaRascunhoValor> => {
+    const merged = { ...parcelasRascunho }
+    if (editingConta) {
+      merged[editingConta.id] = {
+        valorParcela: editForm.valorParcela,
+        vencimento: editForm.vencimento,
+      }
+    }
+    return merged
+  }, [parcelasRascunho, editingConta, editForm.valorParcela, editForm.vencimento])
+
   const persistDraft = useCallback((nextForm: LancamentoPagarDraftForm) => {
     saveLancamentoPagarDraft(nextForm)
     setDraftHint(true)
@@ -401,32 +462,71 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     setEditError(null)
     setEditOpen(false)
     setEditingConta(null)
+    setParcelasRascunho({})
     setScopePromptOpen(false)
   }, [editAnexos])
 
-  const bindRecorrenciaSnapshot = useCallback((conta: ContaPagar) => {
-    const vencimento = normalizeObraDate(conta.data_vencimento) ?? todayISO()
+  const bindRecorrenciaSnapshot = useCallback((conta: ContaPagar, formSnap?: EditContaForm) => {
+    const form = formSnap ?? editFormFromConta(conta, data)
     recorrenciaEdicaoRef.current = {
-      encerramento: normalizeObraDate(conta.recorrencia_encerramento) ?? '',
-      diaMensal: diaFromIso(vencimento),
+      encerramento: form.recorrenciaEncerramento,
+      diaMensal: form.recorrenciaDiaMensal,
+      valorMensal: form.recorrenciaValorMensal,
+      primeiroVencimentoParcelado: form.primeiroVencimentoParcelado,
     }
-  }, [])
+  }, [data])
 
   const openEditModal = useCallback((conta: ContaPagar) => {
-    bindRecorrenciaSnapshot(conta)
+    const form = editFormFromConta(conta, data)
+    bindRecorrenciaSnapshot(conta, form)
     setEditingConta(conta)
-    setEditForm(editFormFromConta(conta, data))
+    setEditForm(form)
+    setParcelasRascunho({})
     setEditAnexos([])
     setEditError(null)
     setEditOpen(true)
   }, [bindRecorrenciaSnapshot, data])
 
   const selecionarParcelaParaEdicao = useCallback((conta: ContaPagar) => {
-    bindRecorrenciaSnapshot(conta)
+    if (!editingConta) {
+      openEditModal(conta)
+      return
+    }
+
+    const nextRascunho: Record<string, ParcelaRascunhoValor> = {
+      ...parcelasRascunho,
+      [editingConta.id]: {
+        valorParcela: editForm.valorParcela,
+        vencimento: editForm.vencimento,
+      },
+    }
+    setParcelasRascunho(nextRascunho)
+
+    const base = editFormFromConta(conta, data)
+    const draft = nextRascunho[conta.id]
     setEditingConta(conta)
-    setEditForm(editFormFromConta(conta, data))
+    setEditForm({
+      ...base,
+      valorParcela: draft?.valorParcela ?? base.valorParcela,
+      vencimento: draft?.vencimento ?? base.vencimento,
+      // Mantém configuração compartilhada da série / lançamento
+      supplierId: editForm.supplierId,
+      desc: editForm.desc,
+      observacao: editForm.observacao,
+      formaPagamentoId: editForm.formaPagamentoId,
+      primeiroVencimentoParcelado: editForm.primeiroVencimentoParcelado,
+      recorrenciaValorMensal: editForm.recorrenciaValorMensal,
+      recorrenciaDiaMensal: editForm.recorrenciaDiaMensal,
+      recorrenciaEncerramento: editForm.recorrenciaEncerramento,
+    })
     setEditError(null)
-  }, [bindRecorrenciaSnapshot, data])
+  }, [
+    editingConta,
+    parcelasRascunho,
+    editForm,
+    data,
+    openEditModal,
+  ])
 
   /** Fecha o card mas mantém rascunho no navegador */
   const closeModalKeepDraft = useCallback(() => {
@@ -817,17 +917,20 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     }
   }
 
-  const persistEdit = async (scope: 'single' | 'group') => {
+  const persistEdit = async () => {
     if (!editingConta) return
 
-    const valorParcela = parseMoneyBr(editForm.valorParcela)
-    if (!valorParcela || valorParcela <= 0) {
+    const rascunhoEfetivo = getRascunhoEfetivo()
+    const valorParcelaAtual = parseMoneyBr(
+      rascunhoEfetivo[editingConta.id]?.valorParcela ?? editForm.valorParcela,
+    )
+    if (!valorParcelaAtual || valorParcelaAtual <= 0) {
       setEditError('Informe um valor de parcela válido.')
       return
     }
 
     const isRecorrente = !!(editingConta.recorrente && editingConta.recorrencia_id)
-    let recorrenciaValorMensal = valorParcela
+    let recorrenciaValorMensal = valorParcelaAtual
 
     if (isRecorrente) {
       recorrenciaValorMensal = parseMoneyBr(editForm.recorrenciaValorMensal)
@@ -840,12 +943,23 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     setEditSaving(true)
     setEditError(null)
     try {
-      const vencimentoAtual = normalizeObraDate(editForm.vencimento) ?? editForm.vencimento
+      const vencimentoAtual =
+        normalizeObraDate(
+          rascunhoEfetivo[editingConta.id]?.vencimento ?? editForm.vencimento,
+        ) ?? editForm.vencimento
       const encerramentoAtual = normalizeObraDate(editForm.recorrenciaEncerramento) ?? ''
       const encerramentoAlterado =
         encerramentoAtual !== recorrenciaEdicaoRef.current.encerramento
       const diaMensal = Number.parseInt(editForm.recorrenciaDiaMensal, 10)
       const diaAlterado = editForm.recorrenciaDiaMensal !== recorrenciaEdicaoRef.current.diaMensal
+      const valorMensalAlterado =
+        Math.abs(
+          parseMoneyBr(editForm.recorrenciaValorMensal) -
+            parseMoneyBr(recorrenciaEdicaoRef.current.valorMensal),
+        ) > 0.005
+      const primeiroVencAlterado =
+        (normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? '') !==
+        (normalizeObraDate(recorrenciaEdicaoRef.current.primeiroVencimentoParcelado) ?? '')
 
       if (isRecorrente && (diaAlterado && (diaMensal < 1 || diaMensal > 31))) {
         setEditError('Informe um dia de vencimento mensal válido (1 a 31).')
@@ -868,17 +982,14 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
         forma_pagamento_id: editForm.formaPagamentoId || null,
       }
 
-      if (isRecorrente && editingConta.recorrencia_id) {
-        await editarContaPagar(
-          editingConta,
-          {
-            valor_parcela: valorParcela,
-            valor_total: valorParcela,
-            data_vencimento: vencimentoAtual,
-          },
-          'single',
-        )
+      const relacionadas = getContasRelacionadas(editingConta, data)
+      const porId = new Map(relacionadas.map(c => [c.id, c]))
+      const draftsAlterados = Object.entries(rascunhoEfetivo).filter(([id, draft]) => {
+        const original = porId.get(id) ?? (id === editingConta.id ? editingConta : null)
+        return original ? rascunhoParcelaDiferente(original, draft) : false
+      })
 
+      if (isRecorrente && editingConta.recorrencia_id) {
         await atualizarRecorrencia({
           recorrencia_id: editingConta.recorrencia_id,
           conta_referencia_vencimento: vencimentoAtual,
@@ -887,32 +998,85 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
           encerramento_alterado: encerramentoAlterado,
           dia_vencimento_alterado: diaAlterado,
           novo_dia_vencimento: diaAlterado ? diaMensal : null,
-          aplicar_valor_futuras_pendentes: editForm.aplicarValorFuturas,
+          // Só aplica valor em massa se o usuário mudou o "Valor mensal recorrente"
+          aplicar_valor_futuras_pendentes: valorMensalAlterado,
           metadados,
         })
-      } else {
-        const isParcelado = lancamentoTemParcelamento(editingConta, data)
-        const relacionadas = isParcelado ? getContasRelacionadas(editingConta, data) : []
-        const primeiroVenc =
-          normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? vencimentoAtual
 
-        const updatePayload: Parameters<typeof editarContaPagar>[1] = {
-          ...metadados,
-          valor_parcela: valorParcela,
-          data_vencimento: scope === 'single' ? vencimentoAtual : undefined,
-          primeiro_vencimento_grupo:
-            scope === 'group' && isParcelado ? primeiroVenc : undefined,
-        }
-
-        if (!isParcelado) {
-          updatePayload.valor_total = valorParcela
-        } else if (scope === 'group') {
-          updatePayload.valor_total = parseFloat(
-            (valorParcela * relacionadas.length).toFixed(2),
+        // Individuais por cima do valor em massa (prioridade do que foi configurado)
+        for (const [id, draft] of draftsAlterados) {
+          const contaAlvo = porId.get(id)
+          if (!contaAlvo) continue
+          const valor = parseMoneyBr(draft.valorParcela)
+          if (!valor || valor <= 0) continue
+          const vencOrig = contaAlvo.data_vencimento?.slice(0, 10) ?? ''
+          const vencDraft =
+            (normalizeObraDate(draft.vencimento) ?? draft.vencimento)?.slice(0, 10) ?? ''
+          const vencMudou = !!vencDraft && vencDraft !== vencOrig
+          const valorMudou = Math.abs(valor - contaAlvo.valor_parcela) > 0.005
+          if (!valorMudou && !vencMudou) continue
+          await editarContaPagar(
+            contaAlvo,
+            {
+              ...(valorMudou
+                ? { valor_parcela: valor, valor_total: valor }
+                : {}),
+              ...(vencMudou ? { data_vencimento: vencDraft } : {}),
+            },
+            'single',
           )
         }
+      } else {
+        const isParcelado = lancamentoTemParcelamento(editingConta, data)
 
-        await editarContaPagar(editingConta, updatePayload, scope)
+        if (isParcelado) {
+          const primeiroVenc =
+            normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? vencimentoAtual
+          await editarContaPagar(
+            editingConta,
+            {
+              ...metadados,
+              ...(primeiroVencAlterado
+                ? { primeiro_vencimento_grupo: primeiroVenc }
+                : {}),
+            },
+            'group',
+          )
+
+          for (const [id, draft] of draftsAlterados) {
+            const contaAlvo = porId.get(id)
+            if (!contaAlvo) continue
+            const valor = parseMoneyBr(draft.valorParcela)
+            if (!valor || valor <= 0) continue
+            const vencOrig = contaAlvo.data_vencimento?.slice(0, 10) ?? ''
+            const vencDraft =
+              (normalizeObraDate(draft.vencimento) ?? draft.vencimento)?.slice(0, 10) ?? ''
+            const vencMudou = !!vencDraft && vencDraft !== vencOrig
+            const valorMudou = Math.abs(valor - contaAlvo.valor_parcela) > 0.005
+            if (!valorMudou && !vencMudou) continue
+            await editarContaPagar(
+              contaAlvo,
+              {
+                ...(valorMudou ? { valor_parcela: valor } : {}),
+                // Só reaplica vencimento se o usuário mudou o desta parcela
+                // (não desfaz o recálculo a partir da 1ª data)
+                ...(vencMudou ? { data_vencimento: vencDraft } : {}),
+              },
+              'single',
+            )
+          }
+        } else {
+          await editarContaPagar(
+            editingConta,
+            {
+              ...metadados,
+              valor_parcela: valorParcelaAtual,
+              valor_total: valorParcelaAtual,
+              data_vencimento: vencimentoAtual,
+            },
+            'single',
+          )
+        }
       }
 
       if (editAnexos.length > 0) {
@@ -932,11 +1096,26 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   }
 
   const askEditScopeIfNeeded = () => {
-    if (editingConta && lancamentoTemParcelamento(editingConta, data)) {
+    if (!editingConta) return
+
+    // Garante a parcela atual no rascunho antes de confirmar / salvar
+    setParcelasRascunho(prev => ({
+      ...prev,
+      [editingConta.id]: {
+        valorParcela: editForm.valorParcela,
+        vencimento: editForm.vencimento,
+      },
+    }))
+
+    const isGrupo =
+      lancamentoTemParcelamento(editingConta, data) ||
+      !!(editingConta.recorrente && editingConta.recorrencia_id)
+
+    if (isGrupo) {
       setScopePromptOpen(true)
       return
     }
-    void persistEdit('single')
+    void persistEdit()
   }
 
   const askDeleteScope = (conta: ContaPagar) => {
@@ -1348,6 +1527,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             contaAtual={editingConta}
             todasContas={data}
             onSelecionarParcela={selecionarParcelaParaEdicao}
+            valoresRascunho={getRascunhoEfetivo()}
           />
         )}
 
@@ -1402,12 +1582,16 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
             label={editingConta?.recorrente ? 'Valor desta cobrança (R$)' : 'Valor da Parcela (R$)'}
             half
           >
-            <input className="glass-input" value={editForm.valorParcela} onChange={ef('valorParcela')} />
+            <input
+              className="glass-input"
+              value={editForm.valorParcela}
+              onChange={e => setParcelaCampoAtual('valorParcela', e.target.value)}
+            />
           </Field>
           <Field label="Vencimento desta cobrança — dia / mês / ano" half>
             <DateInput
               value={editForm.vencimento}
-              onChange={iso => setEditForm(p => ({ ...p, vencimento: iso ?? todayISO() }))}
+              onChange={iso => setParcelaCampoAtual('vencimento', iso ?? todayISO())}
             />
           </Field>
         </FieldRow>
@@ -1429,8 +1613,9 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
               />
             </Field>
             <p className="mt-2 text-xs text-[#edd9c4]">
-              Ao salvar em &quot;Editar todas as parcelas&quot;, os vencimentos serão recalculados
-              mês a mês a partir desta data.
+              Ao salvar, se esta data da 1ª parcela for alterada, os vencimentos serão
+              recalculados mês a mês. Os valores de cada parcela que você editou
+              individualmente são mantidos.
             </p>
             {editForm.primeiroVencimentoParcelado && editingConta.total_parcelas > 1 ? (
               <div className="mt-3 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
@@ -1483,19 +1668,11 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
                 />
               </Field>
             </FieldRow>
-            <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-[#edd9c4]">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={editForm.aplicarValorFuturas}
-                onChange={e => setEditForm(p => ({ ...p, aplicarValorFuturas: e.target.checked }))}
-              />
-              <span>
-                Atualizar parcelas futuras pendentes com o novo valor mensal
-                {' '}
-                <span className="text-[#d4bc9f]">(a partir do próximo vencimento)</span>
-              </span>
-            </label>
+            <p className="mt-2 text-xs text-[#edd9c4]">
+              Se você alterar o valor mensal recorrente acima, as parcelas futuras
+              pendentes passam a usar esse valor. Parcelas que você editou uma a uma
+              nesta tela mantêm o valor configurado.
+            </p>
             {parseMoneyBr(editForm.recorrenciaValorMensal) > 0 && (
               <div className="mt-3 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
                 {fmtCur(parseMoneyBr(editForm.recorrenciaValorMensal))}/mês
@@ -1530,31 +1707,85 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
       <Modal
         open={scopePromptOpen}
         onClose={() => setScopePromptOpen(false)}
-        title="APLICAR EM PARCELAS"
+        title="SALVAR ALTERAÇÕES"
         closeOnBackdrop={false}
       >
-        <p className="mb-4 text-sm text-[#fffaf4]">
-          Esta conta faz parte de um lançamento parcelado. Deseja editar apenas esta parcela ou
-          também as outras parcelas do mesmo lançamento?
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => void persistEdit('single')}
-            disabled={editSaving}
-          >
-            Apenas esta parcela
-          </button>
-          <button
-            type="button"
-            className="btn btn-gold btn-sm"
-            onClick={() => void persistEdit('group')}
-            disabled={editSaving}
-          >
-            Editar todas as parcelas
-          </button>
-        </div>
+        {(() => {
+          const rascunho = getRascunhoEfetivo()
+          const relacionadas = editingConta
+            ? getContasRelacionadas(editingConta, data)
+            : []
+          const porId = new Map(relacionadas.map(c => [c.id, c]))
+          const qtdAlteradas = Object.entries(rascunho).filter(([id, draft]) => {
+            const original = porId.get(id)
+            return original ? rascunhoParcelaDiferente(original, draft) : false
+          }).length
+          const valorMensalMudou =
+            !!editingConta?.recorrente &&
+            Math.abs(
+              parseMoneyBr(editForm.recorrenciaValorMensal) -
+                parseMoneyBr(recorrenciaEdicaoRef.current.valorMensal),
+            ) > 0.005
+          const primeiroVencMudou =
+            !!editingConta &&
+            lancamentoTemParcelamento(editingConta, data) &&
+            (normalizeObraDate(editForm.primeiroVencimentoParcelado) ?? '') !==
+              (normalizeObraDate(recorrenciaEdicaoRef.current.primeiroVencimentoParcelado) ?? '')
+
+          return (
+            <>
+              <p className="mb-3 text-sm text-[#fffaf4]">
+                Salvar da forma que foi configurado?
+              </p>
+              <ul className="mb-4 list-disc space-y-1.5 pl-5 text-sm text-[#edd9c4]">
+                <li>
+                  {qtdAlteradas === 0
+                    ? 'Nenhuma parcela com valor/vencimento alterado individualmente.'
+                    : `${qtdAlteradas} parcela${qtdAlteradas !== 1 ? 's' : ''} com valor ou vencimento alterado será${qtdAlteradas !== 1 ? 'ão' : ''} gravada${qtdAlteradas !== 1 ? 's' : ''}.`}
+                </li>
+                {valorMensalMudou ? (
+                  <li>
+                    O valor mensal recorrente mudou — as futuras pendentes (sem edição
+                    individual) serão atualizadas para{' '}
+                    <span className="text-[#f2d892] font-semibold">
+                      {fmtCur(parseMoneyBr(editForm.recorrenciaValorMensal))}
+                    </span>
+                    .
+                  </li>
+                ) : editingConta?.recorrente ? (
+                  <li>
+                    Valor mensal recorrente sem alteração — as demais parcelas
+                    permanecem como estão.
+                  </li>
+                ) : null}
+                {primeiroVencMudou ? (
+                  <li>
+                    A data da 1ª parcela mudou — os vencimentos do parcelamento serão
+                    recalculados mês a mês.
+                  </li>
+                ) : null}
+              </ul>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setScopePromptOpen(false)}
+                  disabled={editSaving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-gold btn-sm"
+                  onClick={() => void persistEdit()}
+                  disabled={editSaving}
+                >
+                  {editSaving ? 'Salvando...' : 'Confirmar e salvar'}
+                </button>
+              </div>
+            </>
+          )
+        })()}
       </Modal>
 
       <Modal

@@ -24,13 +24,15 @@ export interface ResumoPontoDiaBatidas {
   saldo_minutos: number
 }
 
-/** Horas positivas (HE) vs negativas (atrasos + faltas abatidas) no período. */
+/** Horas positivas (HE) vs negativas (atrasos + faltas abatidas + HE pagas) no período. */
 export interface ResumoPontoBalanco {
   horas_positivas_minutos: number
   horas_negativas_minutos: number
   /** Minutos de faltas abatidas no banco de horas. */
   faltas_banco_minutos: number
-  /** positivas − atrasos − faltas abatidas (pode ser negativo). */
+  /** Minutos de HE já convertidos em pagamento. */
+  he_pagas_minutos: number
+  /** positivas − atrasos − faltas abatidas − HE pagas (pode ser negativo). */
   saldo_minutos: number
   status: 'positivo' | 'negativo' | 'zerado'
 }
@@ -38,7 +40,7 @@ export interface ResumoPontoBalanco {
 export function calcularBalancoResumoPonto(
   row: Pick<
     PontoResumoFuncionarioPeriodo,
-    'hora_extra_minutos' | 'chegadas' | 'faltas_banco_minutos'
+    'hora_extra_minutos' | 'chegadas' | 'faltas_banco_minutos' | 'he_pagas_minutos'
   >,
 ): ResumoPontoBalanco {
   const positivas = Math.max(0, Math.floor(Number(row.hora_extra_minutos) || 0))
@@ -46,7 +48,8 @@ export function calcularBalancoResumoPonto(
     .filter((b) => b.tipo === 'entrada')
     .reduce((acc, b) => acc + Math.max(0, Math.floor(Number(b.atraso_minutos) || 0)), 0)
   const faltasBanco = Math.max(0, Math.floor(Number(row.faltas_banco_minutos) || 0))
-  const negativas = atrasos + faltasBanco
+  const hePagas = Math.max(0, Math.floor(Number(row.he_pagas_minutos) || 0))
+  const negativas = atrasos + faltasBanco + hePagas
   const saldo = positivas - negativas
   let status: ResumoPontoBalanco['status'] = 'zerado'
   if (saldo > 0) status = 'positivo'
@@ -55,6 +58,7 @@ export function calcularBalancoResumoPonto(
     horas_positivas_minutos: positivas,
     horas_negativas_minutos: atrasos,
     faltas_banco_minutos: faltasBanco,
+    he_pagas_minutos: hePagas,
     saldo_minutos: saldo,
     status,
   }
@@ -278,6 +282,11 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
   const faltasBancoTxt = escapeHtml(
     balanco.faltas_banco_minutos > 0
       ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}`
+      : '0min',
+  )
+  const hePagasTxt = escapeHtml(
+    balanco.he_pagas_minutos > 0
+      ? `−${formatMinutosSaldo(balanco.he_pagas_minutos)}`
       : '0min',
   )
   const saldoTxt = escapeHtml(formatMinutosComSinal(balanco.saldo_minutos))
@@ -504,7 +513,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       </div>
     </div>
 
-    <div class="balanco" aria-label="Balanço de horas">
+    <div class="balanco" aria-label="Balanço de horas" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
       <div>
         <span>Horas positivas (HE)</span>
         <strong class="pos">${positivasTxt}</strong>
@@ -516,6 +525,10 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       <div>
         <span>Faltas abatidas (banco)</span>
         <strong class="neg">${faltasBancoTxt}</strong>
+      </div>
+      <div>
+        <span>HE pagas</span>
+        <strong class="neg">${hePagasTxt}</strong>
       </div>
       <div>
         <span>${saldoLabel}</span>
@@ -536,7 +549,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     <footer class="doc-footer">
       <p>Documento gerado em ${escapeHtml(geradoEm)} · Garbo Movelaria</p>
       <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
-      <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas no banco de horas.</p>
+      <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas − HE convertidas em pagamento.</p>
     </footer>
   </section>
 </body>

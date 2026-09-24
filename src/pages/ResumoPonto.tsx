@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { ResumoPontoAura } from '@/components/ponto/ResumoPontoAura'
+import { ResumoPontoBancoDialog } from '@/components/ponto/ResumoPontoBancoDialog'
 import { ResumoPontoEmpresaHero } from '@/components/ponto/ResumoPontoEmpresaHero'
 import { ResumoPontoFaltaDialog } from '@/components/ponto/ResumoPontoFaltaDialog'
 import { ResumoPontoFuncionarioCard } from '@/components/ponto/ResumoPontoFuncionarioCard'
@@ -91,6 +92,9 @@ export function ResumoPonto() {
     row: PontoResumoFuncionarioPeriodo
     data: string
   } | null>(null)
+  const [bancoSelecionado, setBancoSelecionado] = useState<PontoResumoFuncionarioPeriodo | null>(
+    null,
+  )
 
   const canEditFalta =
     roles.includes('Administrador') || roles.includes('Financeiro')
@@ -263,6 +267,7 @@ export function ResumoPonto() {
                       intervaloLabel={intervaloLabel}
                       repCnpj={repCnpj}
                       onFaltaClick={(data) => setFaltaSelecionada({ row, data })}
+                      onBancoClick={() => setBancoSelecionado(row)}
                     />
                   ))}
                 </div>
@@ -283,6 +288,22 @@ export function ResumoPonto() {
           canEdit={canEditFalta}
           onSuccess={() => {
             setFaltaSelecionada(null)
+            void reload()
+          }}
+        />
+      )}
+
+      {bancoSelecionado && (
+        <ResumoPontoBancoDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setBancoSelecionado(null)
+          }}
+          funcionarioId={bancoSelecionado.funcionario_id}
+          funcionarioNome={bancoSelecionado.nome}
+          canEdit={canEditFalta}
+          onSuccess={() => {
+            setBancoSelecionado(null)
             void reload()
           }}
         />

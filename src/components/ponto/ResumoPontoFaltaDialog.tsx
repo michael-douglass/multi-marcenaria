@@ -52,7 +52,7 @@ export function ResumoPontoFaltaDialog({
   onSuccess,
 }: ResumoPontoFaltaDialogProps) {
   const [motivo, setMotivo] = useState('')
-  const [saving, setSaving] = useState<'desconsiderar' | 'abater' | null>(null)
+  const [saving, setSaving] = useState<'desconsiderar' | 'abater' | 'reverter' | null>(null)
   const [minutosDia, setMinutosDia] = useState(0)
   const [loadingJornada, setLoadingJornada] = useState(false)
 
@@ -117,7 +117,7 @@ export function ResumoPontoFaltaDialog({
   }
 
   async function handleAbater() {
-    if (!canEdit || saving) return
+    if (!canEdit || saving || jaAbatida) return
     if (motivo.trim().length < 3) {
       showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
       return
@@ -137,6 +137,35 @@ export function ResumoPontoFaltaDialog({
       onSuccess()
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Não foi possível abater a falta.', 'error')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function handleReverterAbatimento() {
+    if (!canEdit || saving || !jaAbatida) return
+    if (motivo.trim().length < 3) {
+      showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
+      return
+    }
+    setSaving('reverter')
+    try {
+      await salvarOcorrencia(row.funcionario_id, data, 'falta', {
+        observacao: motivo.trim(),
+        abaterBancoHoras: false,
+      })
+      showToast(
+        minutosAbater > 0
+          ? `Abatimento revertido (+${formatMinutosSaldo(minutosAbater)} de volta ao banco).`
+          : 'Abatimento revertido. A falta permanece registrada.',
+      )
+      onOpenChange(false)
+      onSuccess()
+    } catch (e) {
+      showToast(
+        e instanceof Error ? e.message : 'Não foi possível reverter o abatimento.',
+        'error',
+      )
     } finally {
       setSaving(null)
     }
@@ -267,30 +296,53 @@ export function ResumoPontoFaltaDialog({
             </span>
           </Button>
 
-          <Button
-            type="button"
-            disabled={!canEdit || saving != null || jaAbatida}
-            onClick={() => void handleAbater()}
-            className={
-              'h-auto w-full justify-start gap-3 rounded-xl border border-[#146c38]/35 ' +
-              'bg-[#edf8f1] px-4 py-3 text-left text-[#146c38] hover:bg-[#dff3e8] ' +
-              'disabled:opacity-60'
-            }
-          >
-            {saving === 'abater' ? (
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-            ) : (
-              <Scale className="h-4 w-4 shrink-0" aria-hidden />
-            )}
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">
-                {jaAbatida ? 'Já abatida em horas' : 'Abater em horas'}
+          {jaAbatida ? (
+            <Button
+              type="button"
+              disabled={!canEdit || saving != null}
+              onClick={() => void handleReverterAbatimento()}
+              className={
+                'h-auto w-full justify-start gap-3 rounded-xl border border-[#92400e]/35 ' +
+                'bg-[#fff7ed] px-4 py-3 text-left text-[#92400e] hover:bg-[#ffedd5] ' +
+                'disabled:opacity-60'
+              }
+            >
+              {saving === 'reverter' ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Undo2 className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Reverter abatimento</span>
+                <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
+                  Devolve as horas ao banco. A falta continua listada (só tira o desconto).
+                </span>
               </span>
-              <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
-                Mantém a falta e desconta a carga do dia do saldo positivo.
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled={!canEdit || saving != null}
+              onClick={() => void handleAbater()}
+              className={
+                'h-auto w-full justify-start gap-3 rounded-xl border border-[#146c38]/35 ' +
+                'bg-[#edf8f1] px-4 py-3 text-left text-[#146c38] hover:bg-[#dff3e8] ' +
+                'disabled:opacity-60'
+              }
+            >
+              {saving === 'abater' ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Scale className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Abater em horas</span>
+                <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
+                  Mantém a falta e desconta a carga do dia do saldo positivo.
+                </span>
               </span>
-            </span>
-          </Button>
+            </Button>
+          )}
 
           <Button
             type="button"

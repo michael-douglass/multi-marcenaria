@@ -1187,10 +1187,39 @@ export interface PontoResumoFuncionarioPeriodo {
   faltas_detalhe?: PontoFaltaDetalhe[]
   /** Soma dos minutos abatidos no banco de horas no período. */
   faltas_banco_minutos?: number
+  /** Minutos de HE já convertidos em pagamento no período. */
+  he_pagas_minutos?: number
   /** Entrada + retorno do almoço */
   chegadas: PontoResumoBatida[]
   /** Saída do almoço + saída do serviço */
   saidas: PontoResumoBatida[]
+}
+
+/** Saldo acumulado do banco de horas (desde o início do ponto). */
+export interface PontoSaldoAcumulado {
+  funcionario_id: string
+  nome: string
+  usuario_id: string | null
+  valor_fixo_mensal: number
+  inicio: string
+  fim: string
+  hora_extra_minutos: number
+  atrasos_minutos: number
+  faltas_banco_minutos: number
+  he_pagas_minutos: number
+  saldo_minutos: number
+  minutos_jornada_ref: number
+  dias_uteis: number[]
+}
+
+export interface PontoPagarHoraExtraResult {
+  movimento_id: string
+  conta_pagar_id: string
+  minutos: number
+  valor_hora: number
+  valor_total: number
+  saldo_restante_minutos: number
+  descricao: string
 }
 
 export interface PontoResumoEmpresa {

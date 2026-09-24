@@ -3,33 +3,81 @@ import {
   getContasRelacionadas,
   getTituloLancamento,
 } from '@/lib/contas-pagar-grupo'
-import { fmtCur, fmtDate, isOverdue } from '@/lib/utils'
+import { fmtCur, fmtDate, isOverdue, parseMoneyBr } from '@/lib/utils'
 import type { ContaPagar } from '@/types'
+
+export interface ParcelaRascunhoValor {
+  valorParcela: string
+  vencimento: string
+}
 
 interface ContaPagarParcelasAbertasPanelProps {
   contaAtual: ContaPagar
   todasContas: ContaPagar[]
   onSelecionarParcela?: (conta: ContaPagar) => void
+  /** Valores digitados nesta sessão (ainda não salvos). */
+  valoresRascunho?: Record<string, ParcelaRascunhoValor>
 }
 
-function statusParcela(conta: ContaPagar): string {
+function statusParcela(conta: ContaPagar, vencimentoExibido: string): string {
   if (conta.status === 'pago') return 'pago'
-  if (isOverdue(conta.data_vencimento)) return 'vencido'
+  if (isOverdue(vencimentoExibido)) return 'vencido'
   return 'pendente'
+}
+
+function valorExibido(
+  conta: ContaPagar,
+  rascunho?: ParcelaRascunhoValor,
+): number {
+  if (rascunho?.valorParcela != null && rascunho.valorParcela !== '') {
+    const parsed = parseMoneyBr(rascunho.valorParcela)
+    if (parsed > 0) return parsed
+  }
+  return conta.valor_parcela
+}
+
+function vencimentoExibido(
+  conta: ContaPagar,
+  rascunho?: ParcelaRascunhoValor,
+): string {
+  return rascunho?.vencimento || conta.data_vencimento
+}
+
+function rascunhoAlterou(
+  conta: ContaPagar,
+  rascunho?: ParcelaRascunhoValor,
+): boolean {
+  if (!rascunho) return false
+  const valor = parseMoneyBr(rascunho.valorParcela)
+  const valorMudou =
+    rascunho.valorParcela !== '' &&
+    Number.isFinite(valor) &&
+    Math.abs(valor - conta.valor_parcela) > 0.005
+  const vencMudou =
+    !!rascunho.vencimento &&
+    rascunho.vencimento !== (conta.data_vencimento?.slice(0, 10) ?? '')
+  return valorMudou || vencMudou
 }
 
 export function ContaPagarParcelasAbertasPanel({
   contaAtual,
   todasContas,
   onSelecionarParcela,
+  valoresRascunho = {},
 }: ContaPagarParcelasAbertasPanelProps) {
   const parcelas = getContasRelacionadas(contaAtual, todasContas)
   const parcelasAbertas = parcelas.filter(c => c.status !== 'pago')
-  const totalAberto = parcelasAbertas.reduce((s, p) => s + p.valor_parcela, 0)
+  const totalAberto = parcelasAbertas.reduce(
+    (s, p) => s + valorExibido(p, valoresRascunho[p.id]),
+    0,
+  )
   const nome =
     contaAtual.fornecedor_nome ?? contaAtual.descricao ?? 'Sem nome'
   const valorMensalRecorrente =
     contaAtual.recorrencia_valor_base ?? contaAtual.valor_parcela
+  const rascunhoAtual = valoresRascunho[contaAtual.id]
+  const vencAtual = vencimentoExibido(contaAtual, rascunhoAtual)
+  const valorAtual = valorExibido(contaAtual, rascunhoAtual)
 
   return (
     <div
@@ -47,9 +95,9 @@ export function ContaPagarParcelasAbertasPanel({
               {contaAtual.numero_parcela}/{contaAtual.total_parcelas}
             </span>
             {' · '}
-            Venc. {fmtDate(contaAtual.data_vencimento)}
+            Venc. {fmtDate(vencAtual)}
             {' · '}
-            {fmtCur(contaAtual.valor_parcela)}
+            {fmtCur(valorAtual)}
           </p>
           {contaAtual.recorrente && contaAtual.recorrencia_id ? (
             <p className="mt-1 text-xs text-[#d4bc9f]">
@@ -93,14 +141,20 @@ export function ContaPagarParcelasAbertasPanel({
             <tbody className="divide-y divide-white/5">
               {parcelas.map(p => {
                 const isAtual = p.id === contaAtual.id
-                const s = statusParcela(p)
+                const draft = valoresRascunho[p.id]
+                const alterado = rascunhoAlterou(p, draft)
+                const venc = vencimentoExibido(p, draft)
+                const valor = valorExibido(p, draft)
+                const s = statusParcela(p, venc)
                 return (
                   <tr
                     key={p.id}
                     className={
                       isAtual
                         ? 'bg-[rgba(240,210,140,.12)]'
-                        : 'hover:bg-white/[0.02]'
+                        : alterado
+                          ? 'bg-amber-500/10'
+                          : 'hover:bg-white/[0.02]'
                     }
                   >
                     <td className="px-3 py-2 font-medium text-[#fffaf4]">
@@ -110,15 +164,30 @@ export function ContaPagarParcelasAbertasPanel({
                           (editando)
                         </span>
                       ) : null}
+                      {alterado && !isAtual ? (
+                        <span className="ml-1.5 text-[0.65rem] text-amber-300">
+                          (alterado)
+                        </span>
+                      ) : null}
                     </td>
                     <td
                       className="px-3 py-2"
-                      style={{ color: s === 'vencido' ? '#f87171' : '#edd9c4' }}
+                      style={{
+                        color: s === 'vencido'
+                          ? '#f87171'
+                          : alterado
+                            ? '#fbbf24'
+                            : '#edd9c4',
+                      }}
                     >
-                      {fmtDate(p.data_vencimento)}
+                      {fmtDate(venc)}
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold text-[#f2d892]">
-                      {fmtCur(p.valor_parcela)}
+                    <td
+                      className={`px-3 py-2 text-right font-semibold ${
+                        alterado ? 'text-amber-300' : 'text-[#f2d892]'
+                      }`}
+                    >
+                      {fmtCur(valor)}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <Badge status={s} />

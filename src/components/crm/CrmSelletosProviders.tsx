@@ -4,6 +4,7 @@ import { EmpresaProvider } from '@/contexts/EmpresaContext'
 import { PageZoomProvider } from '@/contexts/PageZoomContext'
 import { LeadAIAnalysisBackgroundProvider } from '@/contexts/LeadAIAnalysisBackgroundContext'
 import { LeadAIRenderBackgroundProvider } from '@/contexts/LeadAIRenderBackgroundContext'
+import { OrcamentoSlideExportBackgroundProvider } from '@/contexts/OrcamentoSlideExportBackgroundContext'
 import { OrcamentosIaBackgroundProvider } from '@/contexts/OrcamentosIaBackgroundContext'
 import { AppProvider as CrmUiProvider } from '@/contexts/AppContext'
 import { Toaster } from '@/components/ui/toaster'
@@ -19,13 +20,15 @@ export function CrmSelletosProviders({ children }: { children: ReactNode }) {
           <PageZoomProvider>
             <LeadAIAnalysisBackgroundProvider>
               <LeadAIRenderBackgroundProvider>
-                <OrcamentosIaBackgroundProvider>
-                  <CrmUiProvider>
-                    {children}
-                    <Toaster />
-                    <Sonner />
-                  </CrmUiProvider>
-                </OrcamentosIaBackgroundProvider>
+                <OrcamentoSlideExportBackgroundProvider>
+                  <OrcamentosIaBackgroundProvider>
+                    <CrmUiProvider>
+                      {children}
+                      <Toaster />
+                      <Sonner />
+                    </CrmUiProvider>
+                  </OrcamentosIaBackgroundProvider>
+                </OrcamentoSlideExportBackgroundProvider>
               </LeadAIRenderBackgroundProvider>
             </LeadAIAnalysisBackgroundProvider>
           </PageZoomProvider>

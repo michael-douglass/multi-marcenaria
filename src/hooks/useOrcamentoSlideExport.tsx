@@ -64,8 +64,8 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
       const isImagens = format === 'imagens';
       const toastId = toast.loading(isImagens ? 'Gerando imagens…' : 'Gerando PDF…', {
         description: isImagens
-          ? 'Baixando um slide por página.'
-          : 'Preparando um slide por página.',
+          ? 'Em segundo plano — um slide por página.'
+          : 'Em segundo plano — um slide por página.',
       });
 
       try {

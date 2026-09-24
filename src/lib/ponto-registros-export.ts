@@ -386,6 +386,11 @@ function buildPaginaResumo(
       ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}`
       : '0min',
   )
+  const hePagasTxt = escapeHtml(
+    balanco.he_pagas_minutos > 0
+      ? `−${formatMinutosSaldo(balanco.he_pagas_minutos)}`
+      : '0min',
+  )
   const saldoTxt = escapeHtml(formatMinutosComSinal(balanco.saldo_minutos))
   const saldoClass =
     balanco.status === 'positivo' ? 'pos' : balanco.status === 'negativo' ? 'neg' : 'neutro'
@@ -433,6 +438,10 @@ function buildPaginaResumo(
         <div>
           <span>Faltas abatidas (banco)</span>
           <strong class="neg">${faltasBancoTxt}</strong>
+        </div>
+        <div>
+          <span>HE pagas</span>
+          <strong class="neg">${hePagasTxt}</strong>
         </div>
         <div>
           <span>${saldoLabel}</span>
