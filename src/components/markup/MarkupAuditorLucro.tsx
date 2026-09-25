@@ -15,10 +15,12 @@ import {
   formatarVezesMaterialAuditor,
   normalizarPercentualAuditorLucro,
   podeVerAuditorLucro,
+  resolverPercentualAuditorLucro,
   rotuloAuditorFaixa,
   type AuditorLucroResultado,
   type AuditorLucroStatus,
 } from '@/lib/markup-auditor-lucro';
+import type { MarkupAuditorLucroFonte, MarkupAuditorLucroMeta } from '@/lib/markup-types';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 import { cn } from '@/lib/utils';
@@ -26,11 +28,15 @@ import { cn } from '@/lib/utils';
 interface MarkupAuditorLucroProps {
   custoMateriais: number;
   precoFinal: number;
+  /** Meta deste orçamento (fonte geral vs específico + %). */
+  auditorMeta?: MarkupAuditorLucroMeta | null;
+  /** Persiste escolha/percentual específico no `modulos.meta` do orçamento. */
+  onAuditorMetaChange?: (meta: MarkupAuditorLucroMeta) => void;
   className?: string;
 }
 
 const ICON_SIZE = 36;
-const PANEL_WIDTH = 280;
+const PANEL_WIDTH = 300;
 
 function sortearDestinoNaPista(pista: HTMLElement, icon: number): { x: number; y: number } {
   const maxX = Math.max(0, pista.clientWidth - icon);
@@ -265,6 +271,8 @@ function AuditorIndiceMaterial({ auditor }: { auditor: AuditorLucroResultado }) 
 export function MarkupAuditorLucro({
   custoMateriais,
   precoFinal,
+  auditorMeta = null,
+  onAuditorMetaChange,
   className,
 }: MarkupAuditorLucroProps) {
   const { userRole, isSuperAdmin } = useAuth();
@@ -279,10 +287,15 @@ export function MarkupAuditorLucro({
   const [ajustesAberto, setAjustesAberto] = useState(false);
   const [pausado, setPausado] = useState(false);
   const [abreEsquerda, setAbreEsquerda] = useState(true);
+  const [fonteDraft, setFonteDraft] = useState<MarkupAuditorLucroFonte>(
+    auditorMeta?.fonte === 'especifico' ? 'especifico' : 'geral',
+  );
   const [percentualDraft, setPercentualDraft] = useState(String(AUDITOR_LUCRO_PERCENTUAL_PADRAO));
+  const [salvandoLead, setSalvandoLead] = useState(false);
 
   const visivel = podeVerAuditorLucro(userRole, isSuperAdmin);
-  const percentualAlvo = normalizarPercentualAuditorLucro(config.auditor_lucro_percentual);
+  const percentualGeral = normalizarPercentualAuditorLucro(config.auditor_lucro_percentual);
+  const percentualAlvo = resolverPercentualAuditorLucro(config.auditor_lucro_percentual, auditorMeta);
   const auditor = useMemo(
     () =>
       calcularAuditorLucro({
@@ -295,10 +308,21 @@ export function MarkupAuditorLucro({
   const rotuloFaixa = rotuloAuditorFaixa(auditor.status, auditor.percentualDiferenca);
   const sinal = auditor.status === 'acima' ? '+' : auditor.status === 'baixo' ? '−' : null;
   const foraDoAlvo = auditor.status === 'baixo' || auditor.status === 'acima';
+  const salvando = salvarConfig.isPending || salvandoLead;
 
   useEffect(() => {
-    setPercentualDraft(String(percentualAlvo));
-  }, [percentualAlvo]);
+    const fonte: MarkupAuditorLucroFonte =
+      auditorMeta?.fonte === 'especifico' ? 'especifico' : 'geral';
+    setFonteDraft(fonte);
+    const valorEditavel =
+      fonte === 'especifico'
+        ? resolverPercentualAuditorLucro(percentualGeral, {
+            fonte: 'especifico',
+            percentual: auditorMeta?.percentual,
+          })
+        : percentualGeral;
+    setPercentualDraft(String(valorEditavel));
+  }, [auditorMeta?.fonte, auditorMeta?.percentual, percentualGeral]);
 
   useEffect(() => {
     if (!visivel) return;
@@ -402,12 +426,56 @@ export function MarkupAuditorLucro({
 
   if (!visivel) return null;
 
+  const aplicarFonte = (proxima: MarkupAuditorLucroFonte) => {
+    setFonteDraft(proxima);
+    if (proxima === 'geral') {
+      setPercentualDraft(String(percentualGeral));
+      onAuditorMetaChange?.({
+        fonte: 'geral',
+        percentual: auditorMeta?.percentual,
+      });
+      return;
+    }
+    const seed =
+      auditorMeta?.percentual != null && Number(auditorMeta.percentual) > 0
+        ? normalizarPercentualAuditorLucro(auditorMeta.percentual)
+        : percentualGeral;
+    setPercentualDraft(String(seed));
+    onAuditorMetaChange?.({
+      fonte: 'especifico',
+      percentual: seed,
+    });
+  };
+
   const handleSalvarMargem = () => {
     const proximo = normalizarPercentualAuditorLucro(
       percentualDraft.replace(',', '.') || AUDITOR_LUCRO_PERCENTUAL_PADRAO,
     );
-    salvarConfig.mutate({ auditor_lucro_percentual: proximo });
-    setAjustesAberto(false);
+    if (fonteDraft === 'especifico') {
+      setSalvandoLead(true);
+      try {
+        onAuditorMetaChange?.({
+          fonte: 'especifico',
+          percentual: proximo,
+        });
+        setAjustesAberto(false);
+      } finally {
+        setSalvandoLead(false);
+      }
+      return;
+    }
+    salvarConfig.mutate(
+      { auditor_lucro_percentual: proximo },
+      {
+        onSuccess: () => {
+          onAuditorMetaChange?.({
+            fonte: 'geral',
+            percentual: auditorMeta?.percentual,
+          });
+          setAjustesAberto(false);
+        },
+      },
+    );
   };
 
   const abrirPainel = () => {
@@ -541,6 +609,9 @@ export function MarkupAuditorLucro({
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-200/85">
                     Auditor de lucro
                   </p>
+                  <p className="mt-0.5 text-[10px] text-amber-100/55">
+                    {auditorMeta?.fonte === 'especifico' ? 'Meta deste lead' : 'Meta geral'}
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -622,8 +693,48 @@ export function MarkupAuditorLucro({
                     className="relative overflow-hidden"
                   >
                     <div className="mt-3 space-y-2.5 border-t border-amber-200/15 pt-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/75">
+                        Qual markup usar?
+                      </p>
+                      <div
+                        role="group"
+                        aria-label="Escolher markup geral ou deste lead"
+                        className="flex rounded-lg border border-amber-200/20 bg-[#2a1812]/80 p-0.5"
+                      >
+                        <button
+                          type="button"
+                          data-markup-auditor-fonte="geral"
+                          className={cn(
+                            'flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors',
+                            fonteDraft === 'geral'
+                              ? 'bg-amber-200/20 text-amber-50 shadow-[inset_0_1px_0_rgba(242,216,146,0.12)]'
+                              : 'text-amber-100/55 hover:text-amber-100/85',
+                          )}
+                          onClick={() => aplicarFonte('geral')}
+                        >
+                          Geral
+                        </button>
+                        <button
+                          type="button"
+                          data-markup-auditor-fonte="especifico"
+                          className={cn(
+                            'flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors',
+                            fonteDraft === 'especifico'
+                              ? 'bg-amber-200/20 text-amber-50 shadow-[inset_0_1px_0_rgba(242,216,146,0.12)]'
+                              : 'text-amber-100/55 hover:text-amber-100/85',
+                          )}
+                          onClick={() => aplicarFonte('especifico')}
+                        >
+                          Este lead
+                        </button>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-amber-100/50">
+                        Geral vale para todos os leads. Este lead só neste orçamento.
+                      </p>
                       <Label htmlFor="auditor-lucro-percentual" className="text-amber-100/80">
-                        Percentual alvo (%)
+                        {fonteDraft === 'especifico'
+                          ? 'Percentual alvo deste lead (%)'
+                          : 'Percentual alvo geral (%)'}
                       </Label>
                       <Input
                         id="auditor-lucro-percentual"
@@ -640,12 +751,14 @@ export function MarkupAuditorLucro({
                         size="sm"
                         className="w-full"
                         onClick={handleSalvarMargem}
-                        disabled={salvarConfig.isPending}
+                        disabled={salvando || (fonteDraft === 'especifico' && !onAuditorMetaChange)}
                       >
-                        {salvarConfig.isPending ? (
+                        {salvando ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : fonteDraft === 'especifico' ? (
+                          'Salvar neste lead'
                         ) : (
-                          'Salvar margem'
+                          'Salvar margem geral'
                         )}
                       </Button>
                     </div>

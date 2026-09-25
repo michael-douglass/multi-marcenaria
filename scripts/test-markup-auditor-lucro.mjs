@@ -199,3 +199,38 @@ describe('Épico 3 e 4 — presença viva e engrenagem no card', () => {
     assert.match(crm, /totais\.custo_materiais/)
   })
 })
+
+describe('Épico 5 — markup geral vs lead + sugestão de lucro', () => {
+  function resolverPercentual(percentualGeral, meta) {
+    const geral = normalizarPercentual(percentualGeral)
+    if (meta?.fonte !== 'especifico') return geral
+    if (meta.percentual == null || !Number.isFinite(Number(meta.percentual)) || Number(meta.percentual) <= 0) {
+      return geral
+    }
+    return normalizarPercentual(meta.percentual)
+  }
+
+  it('usa percentual específico do lead quando a fonte é especifico', () => {
+    assert.equal(resolverPercentual(400, { fonte: 'especifico', percentual: 350 }), 350)
+    assert.equal(resolverPercentual(400, { fonte: 'geral', percentual: 350 }), 400)
+    assert.equal(resolverPercentual(400, { fonte: 'especifico' }), 400)
+  })
+
+  it('engrenagem tem Geral/Este lead e o Resumo tem sugestão de lucro', () => {
+    const types = readSrc('src/lib/markup-types.ts')
+    const lib = readSrc('src/lib/markup-auditor-lucro.ts')
+    const ui = readSrc('src/components/markup/MarkupAuditorLucro.tsx')
+    const sheet = readSrc('src/components/markup/MarkupCalculatorSheet.tsx')
+    assert.match(types, /auditor_lucro\?:/)
+    assert.match(types, /MarkupAuditorLucroFonte = 'geral' \| 'especifico'/)
+    assert.match(types, /fonte: MarkupAuditorLucroFonte/)
+    assert.match(lib, /export function resolverPercentualAuditorLucro/)
+    assert.match(ui, /Este lead/)
+    assert.match(ui, /Salvar neste lead/)
+    assert.match(ui, /onAuditorMetaChange/)
+    assert.match(sheet, /onAuditorMetaChange=\{handleAuditorMetaChange\}/)
+    assert.match(sheet, /data-markup-sugestao-lucro/)
+    assert.match(sheet, /Sugestão de lucro/)
+    assert.match(sheet, /confirmarLucroReaisEditado\(auditorLucroResumo\.diferenca\)/)
+  })
+})

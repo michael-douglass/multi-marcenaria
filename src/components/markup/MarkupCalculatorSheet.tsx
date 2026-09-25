@@ -66,7 +66,7 @@ import {
   resolverComposicaoAnterior,
   sincronizarResumoIADosModulos,
 } from '@/lib/markup-compose';
-import type { MarkupComposicaoAnterior, MarkupComposeIAResult, MarkupLinhaOrigemIA } from '@/lib/markup-types';
+import type { MarkupComposicaoAnterior, MarkupComposeIAResult, MarkupLinhaOrigemIA, MarkupAuditorLucroMeta } from '@/lib/markup-types';
 import { aplicarRevisaoNaComposicao, sintetizarItensExtraidos } from '@/lib/markup-extracao';
 import type { MarkupItemExtraido } from '@/lib/markup-match';
 import { MarkupIAResumoPanel } from '@/components/markup/MarkupIAResumoPanel';
@@ -93,7 +93,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isTouchOrCompactViewport } from '@/lib/viewport-ui';
-import { podeVerMarkupResumo } from '@/lib/markup-auditor-lucro';
+import { calcularAuditorLucro, podeVerMarkupResumo, resolverPercentualAuditorLucro } from '@/lib/markup-auditor-lucro';
 
 interface MarkupCalculatorSheetProps {
   open: boolean;
@@ -987,6 +987,37 @@ export function MarkupCalculatorSheet({
       }));
     },
     [modulosSeguros.totais.custo_com_impostos, atualizarModulos],
+  );
+
+  const handleAuditorMetaChange = useCallback(
+    (meta: MarkupAuditorLucroMeta) => {
+      atualizarModulos((prev) => ({
+        ...prev,
+        meta: {
+          ...(prev.meta ?? {}),
+          auditor_lucro: meta,
+        },
+      }));
+    },
+    [atualizarModulos],
+  );
+
+  const auditorLucroResumo = useMemo(
+    () =>
+      calcularAuditorLucro({
+        custoMateriais: modulosSeguros.totais.custo_materiais,
+        precoFinal: modulosSeguros.totais.preco_final,
+        percentualAlvo: resolverPercentualAuditorLucro(
+          config.auditor_lucro_percentual,
+          modulosSeguros.meta?.auditor_lucro,
+        ),
+      }),
+    [
+      modulosSeguros.totais.custo_materiais,
+      modulosSeguros.totais.preco_final,
+      modulosSeguros.meta?.auditor_lucro,
+      config.auditor_lucro_percentual,
+    ],
   );
 
   const persistirMarkup = useCallback(
@@ -2494,6 +2525,29 @@ export function MarkupCalculatorSheet({
                     }}
                     className="h-8 md:text-sm tabular-nums"
                   />
+                  {auditorLucroResumo.status === 'baixo' && auditorLucroResumo.diferenca > 0 && (
+                    <div
+                      data-markup-sugestao-lucro=""
+                      className="flex items-center justify-between gap-2 rounded-md border border-amber-500/25 bg-gradient-to-r from-[#2a1812]/90 to-mahogany/50 px-2 py-1.5 text-[11px] text-amber-50/90 shadow-[inset_0_1px_0_rgba(242,216,146,0.08)]"
+                    >
+                      <span className="min-w-0 leading-snug">
+                        Sugestão de lucro{' '}
+                        <strong className="tabular-nums text-amber-100">
+                          {formatarMoedaMarkup(auditorLucroResumo.diferenca)}
+                        </strong>
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 shrink-0 px-2 text-[11px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-100/10 hover:text-amber-50"
+                        disabled={!(t.custo_com_impostos > 0)}
+                        onClick={() => confirmarLucroReaisEditado(auditorLucroResumo.diferenca)}
+                      >
+                        Usar
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <ParamLabel
@@ -2685,6 +2739,8 @@ export function MarkupCalculatorSheet({
           <MarkupAuditorLucro
             custoMateriais={modulosSeguros.totais.custo_materiais}
             precoFinal={modulosSeguros.totais.preco_final}
+            auditorMeta={modulosSeguros.meta?.auditor_lucro}
+            onAuditorMetaChange={handleAuditorMetaChange}
           />
           <span className={cn('ml-auto text-lg font-bold text-primary')}>
             {formatarMoedaMarkup(modulosSeguros.totais.preco_final)}

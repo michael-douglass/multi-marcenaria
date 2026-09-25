@@ -289,6 +289,15 @@ export interface MarkupOrcamentoSimples {
   observacoes: string;
 }
 
+/** Meta do auditor de lucro neste orçamento (geral da empresa vs específico do lead). */
+export type MarkupAuditorLucroFonte = 'geral' | 'especifico';
+
+export interface MarkupAuditorLucroMeta {
+  fonte: MarkupAuditorLucroFonte;
+  /** Usado só quando fonte === 'especifico'. */
+  percentual?: number;
+}
+
 export interface MarkupModulosMeta {
   /**
    * Folha comercial (orçamento simples). Não altera o preco_final do caderno.
@@ -300,6 +309,10 @@ export interface MarkupModulosMeta {
    * Persistido no orçamento do lead — cada lead mantém a própria memória.
    */
   catalogo_ordem_por_categoria?: Record<string, string[]>;
+  /**
+   * Percentual alvo do auditor neste orçamento e se usa o geral da empresa ou o deste lead.
+   */
+  auditor_lucro?: MarkupAuditorLucroMeta;
   composicao_anterior?: MarkupComposicaoAnterior;
   resumo_ia?: {
     gerado_em: string;

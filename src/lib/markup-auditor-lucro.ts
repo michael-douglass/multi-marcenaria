@@ -1,7 +1,10 @@
 import { arredondar } from '@/lib/markup-calculo';
+import type { MarkupAuditorLucroMeta } from '@/lib/markup-types';
 
 /** Preço final alvo = custo de material × (percentual / 100). 400% em R$ 10.000 = R$ 40.000. */
 export const AUDITOR_LUCRO_PERCENTUAL_PADRAO = 400;
+
+export type { MarkupAuditorLucroFonte, MarkupAuditorLucroMeta } from '@/lib/markup-types';
 
 export type AuditorLucroStatus = 'ok' | 'baixo' | 'acima' | 'sem_material';
 
@@ -27,6 +30,22 @@ export function normalizarPercentualAuditorLucro(valor: unknown): number {
   const n = Number(valor);
   if (!Number.isFinite(n) || n <= 0) return AUDITOR_LUCRO_PERCENTUAL_PADRAO;
   return arredondar(Math.min(9999, Math.max(1, n)));
+}
+
+/**
+ * Resolve o % alvo do auditor: específico do lead (neste orçamento) ou geral da empresa.
+ * Se a fonte for "especifico" sem percentual válido, cai no geral.
+ */
+export function resolverPercentualAuditorLucro(
+  percentualGeral: unknown,
+  meta?: MarkupAuditorLucroMeta | null,
+): number {
+  const geral = normalizarPercentualAuditorLucro(percentualGeral);
+  if (meta?.fonte !== 'especifico') return geral;
+  if (meta.percentual == null || !Number.isFinite(Number(meta.percentual)) || Number(meta.percentual) <= 0) {
+    return geral;
+  }
+  return normalizarPercentualAuditorLucro(meta.percentual);
 }
 
 /** Administrador do CRM (ou super admin). */
