@@ -608,6 +608,9 @@ export function LeadModal({
   const handleLeadNavJump = useCallback((item: LeadNavJumpItem) => {
     setLeadModalTab(item.tab);
     if (item.iaSubtab) setIaSubtab(item.iaSubtab);
+    // Ao trocar de página no mobile, reabre o cabeçalho para a nova tela não “sumir”.
+    headerPinnedCollapsedRef.current = false;
+    setHeaderCollapsed(false);
     waitAndScrollLeadModalToSection(item.id);
   }, []);
 
@@ -1644,6 +1647,8 @@ export function LeadModal({
             onJump={handleLeadNavJump}
             onOpenMenu={(menu) => {
               setLeadModalTab(leadNavMenuToTab(menu));
+              headerPinnedCollapsedRef.current = false;
+              setHeaderCollapsed(false);
             }}
             showIa
             hideContratos={modoProjeto}

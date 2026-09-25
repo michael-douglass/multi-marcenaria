@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronDown, FileText, IdCard, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -6,6 +6,7 @@ import {
   filterLeadDetailsNav,
   filterLeadInfoNav,
   LEAD_IA_NAV,
+  leadNavMenuToTab,
   type LeadIaSubtab,
   type LeadModalTabId,
   type LeadNavJumpItem,
@@ -21,11 +22,25 @@ interface LeadModalNavProps extends LeadNavVisibility {
 }
 
 const unrollEase = [0.22, 1, 0.36, 1] as const;
+/** Celular + tablet: menu compacto para a troca de página não “pular”. */
+const COMPACT_NAV_MQ = '(max-width: 1024px)';
 
 const MENU_PANEL_LABEL: Record<LeadNavMenu, string> = {
   info: 'Ir para a ficha',
   detalhes: 'Ir para a seção',
   ia: 'Escolha o estúdio',
+};
+
+const MENU_SHORT_LABEL: Record<LeadNavMenu, string> = {
+  info: 'Informações',
+  detalhes: 'Detalhes',
+  ia: 'IA',
+};
+
+const MENU_FULL_LABEL: Record<LeadNavMenu, string> = {
+  info: 'Informações do lead',
+  detalhes: 'Detalhes',
+  ia: 'IA',
 };
 
 export function LeadModalNav({
@@ -41,6 +56,9 @@ export function LeadModalNav({
   hidePontuaGarbo,
 }: LeadModalNavProps) {
   const [openMenu, setOpenMenu] = useState<LeadNavMenu | null>(null);
+  const [compact, setCompact] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(COMPACT_NAV_MQ).matches : false,
+  );
   const reduceMotion = useReducedMotion();
   const rootRef = useRef<HTMLElement>(null);
   const panelId = useId();
@@ -62,6 +80,14 @@ export function LeadModalNav({
           : [];
 
   useEffect(() => {
+    const mql = window.matchMedia(COMPACT_NAV_MQ);
+    const onChange = () => setCompact(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       const root = rootRef.current;
       if (!root || !(event.target instanceof Node)) return;
@@ -78,7 +104,11 @@ export function LeadModalNav({
     };
   }, []);
 
-  const toggleMenu = (menu: LeadNavMenu) => {
+  const goToPage = (menu: LeadNavMenu) => {
+    onOpenMenu?.(menu);
+  };
+
+  const toggleSectionList = (menu: LeadNavMenu) => {
     setOpenMenu((current) => {
       const next = current === menu ? null : menu;
       if (next) onOpenMenu?.(next);
@@ -86,50 +116,88 @@ export function LeadModalNav({
     });
   };
 
+  /** Celular/tablet: toque na aba só troca a página. Desktop: abre a lista junto. */
+  const handlePageClick = (menu: LeadNavMenu) => {
+    const targetTab = leadNavMenuToTab(menu);
+    const alreadyOnPage = activeTab === targetTab;
+
+    if (compact) {
+      if (!alreadyOnPage) {
+        setOpenMenu(null);
+        goToPage(menu);
+        return;
+      }
+      toggleSectionList(menu);
+      return;
+    }
+
+    if (!alreadyOnPage) goToPage(menu);
+    toggleSectionList(menu);
+  };
+
+  const handleChevronClick = (menu: LeadNavMenu, event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const targetTab = leadNavMenuToTab(menu);
+    if (activeTab !== targetTab) goToPage(menu);
+    toggleSectionList(menu);
+  };
+
   const handleJump = (item: LeadNavJumpItem) => {
     setOpenMenu(null);
     onJump(item);
   };
 
-  const infoActive = activeTab === 'info';
-  const detailsActive = activeTab === 'detalhes';
+  const menus: LeadNavMenu[] = showIa ? ['info', 'detalhes', 'ia'] : ['info', 'detalhes'];
+  const icons = { info: IdCard, detalhes: FileText, ia: Sparkles } as const;
 
   return (
     <nav
       ref={rootRef}
-      className="lead-modal-nav relative z-[3] shrink-0 border-b px-3 sm:px-5 py-2 sm:py-2.5"
+      className={cn(
+        'lead-modal-nav relative z-[3] shrink-0 border-b px-2.5 sm:px-5 py-2 sm:py-2.5',
+        compact && 'lead-modal-nav--compact',
+      )}
       aria-label="Índice do card do lead"
+      data-compact={compact ? 'true' : 'false'}
     >
-      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-        <NavTrigger
-          label="Informações do lead"
-          srLabel="Informações do lead — Contato, Negócio, Equipe e Pontua Garbo"
-          icon={IdCard}
-          open={openMenu === 'info'}
-          active={infoActive}
-          controls={`${panelId}-panel`}
-          emphasis
-          onClick={() => toggleMenu('info')}
-        />
-        <NavTrigger
-          label="Detalhes"
-          icon={FileText}
-          open={openMenu === 'detalhes'}
-          active={detailsActive}
-          controls={`${panelId}-panel`}
-          onClick={() => toggleMenu('detalhes')}
-        />
-        {showIa && (
-          <NavTrigger
-            label="IA"
-            srLabel="Análise IA"
-            icon={Sparkles}
-            open={openMenu === 'ia'}
-            active={activeTab === 'analise-ia'}
-            controls={`${panelId}-panel`}
-            onClick={() => toggleMenu('ia')}
-          />
+      <div
+        className={cn(
+          compact
+            ? 'lead-modal-nav__tabs grid gap-1'
+            : 'flex flex-wrap items-center gap-2 sm:gap-2.5',
         )}
+        style={compact ? { gridTemplateColumns: `repeat(${menus.length}, minmax(0, 1fr))` } : undefined}
+        role={compact ? 'tablist' : undefined}
+        aria-label={compact ? 'Páginas do card' : undefined}
+      >
+        {menus.map((menu) => {
+          const tab = leadNavMenuToTab(menu);
+          const active = activeTab === tab;
+          const open = openMenu === menu;
+          return (
+            <NavTrigger
+              key={menu}
+              label={compact ? MENU_SHORT_LABEL[menu] : MENU_FULL_LABEL[menu]}
+              srLabel={
+                menu === 'info'
+                  ? 'Informações do lead — Contato, Negócio, Equipe e Pontua Garbo'
+                  : menu === 'ia'
+                    ? 'Análise IA'
+                    : 'Detalhes'
+              }
+              icon={icons[menu]}
+              open={open}
+              active={active}
+              controls={`${panelId}-panel`}
+              emphasis={menu === 'info'}
+              compact={compact}
+              role={compact ? 'tab' : undefined}
+              ariaSelected={compact ? active : undefined}
+              onClick={() => handlePageClick(menu)}
+              onChevronClick={compact ? (event) => handleChevronClick(menu, event) : undefined}
+            />
+          );
+        })}
       </div>
 
       <AnimatePresence initial={false}>
@@ -140,15 +208,20 @@ export function LeadModalNav({
             role="listbox"
             aria-label={MENU_PANEL_LABEL[openMenu]}
             className={cn(
-              'lead-modal-nav__panel mt-3 overflow-hidden rounded-xl border',
+              'lead-modal-nav__panel mt-2 sm:mt-3 overflow-hidden rounded-xl border',
               openMenu === 'info' && 'lead-modal-nav__panel--info',
             )}
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.32, ease: unrollEase }}
+            transition={{ duration: reduceMotion ? 0 : compact ? 0.2 : 0.32, ease: unrollEase }}
           >
-            <div className="lead-modal-nav__list max-h-[min(22rem,42vh)] overflow-y-auto p-1.5 [scrollbar-width:thin]">
+            <div
+              className={cn(
+                'lead-modal-nav__list overflow-y-auto p-1.5 [scrollbar-width:thin]',
+                compact ? 'max-h-[min(14rem,32vh)]' : 'max-h-[min(22rem,42vh)]',
+              )}
+            >
               <p className="lead-modal-nav__menu-label px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
                 {MENU_PANEL_LABEL[openMenu]}
               </p>
@@ -164,13 +237,14 @@ export function LeadModalNav({
                     aria-selected={isCurrent}
                     className={cn(
                       'lead-modal-nav__item flex w-full items-start gap-2 rounded-lg px-2.5 py-2.5 text-left transition-colors',
+                      compact && 'min-h-11 py-3',
                       isCurrent && 'is-current',
                     )}
                     initial={reduceMotion ? false : { opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: reduceMotion ? 0 : 0.22,
-                      delay: reduceMotion ? 0 : 0.03 * index,
+                      duration: reduceMotion ? 0 : 0.2,
+                      delay: reduceMotion ? 0 : 0.025 * index,
                       ease: unrollEase,
                     }}
                     onClick={() => handleJump(item)}
@@ -207,7 +281,11 @@ function NavTrigger({
   active,
   controls,
   onClick,
+  onChevronClick,
   emphasis = false,
+  compact = false,
+  role,
+  ariaSelected,
 }: {
   label: string;
   srLabel?: string;
@@ -216,8 +294,52 @@ function NavTrigger({
   active: boolean;
   controls: string;
   onClick: () => void;
+  onChevronClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   emphasis?: boolean;
+  compact?: boolean;
+  role?: string;
+  ariaSelected?: boolean;
 }) {
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          'lead-modal-nav__trigger lead-modal-nav__trigger--compact inline-flex h-11 min-w-0 items-stretch overflow-hidden rounded-lg border transition-colors',
+          emphasis && 'lead-modal-nav__trigger--info',
+        )}
+        data-active={active ? 'true' : 'false'}
+        data-state={open ? 'open' : 'closed'}
+      >
+        <button
+          type="button"
+          role={role}
+          aria-selected={ariaSelected}
+          aria-label={srLabel}
+          aria-expanded={open}
+          aria-controls={controls}
+          className="flex min-w-0 flex-1 items-center justify-center gap-1.5 px-1.5 text-[12px] font-semibold tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--lead-gold)]/40"
+          onClick={onClick}
+        >
+          <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{label}</span>
+        </button>
+        <button
+          type="button"
+          aria-label={`Abrir seções de ${label}`}
+          aria-expanded={open}
+          aria-controls={controls}
+          className="inline-flex w-9 shrink-0 items-center justify-center border-l border-[color:var(--lead-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--lead-gold)]/40"
+          onClick={onChevronClick}
+        >
+          <ChevronDown
+            className={cn('h-3.5 w-3.5 opacity-70 transition-transform duration-300', open && 'rotate-180')}
+            aria-hidden
+          />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
