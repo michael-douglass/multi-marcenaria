@@ -93,7 +93,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isTouchOrCompactViewport } from '@/lib/viewport-ui';
-import { calcularAuditorLucro, podeVerMarkupResumo, resolverPercentualAuditorLucro } from '@/lib/markup-auditor-lucro';
+import { calcularAuditorLucro, comAuditorLucroNaMeta, extrairAuditorLucroPadraoDoLead, podeVerMarkupResumo, resolverPercentualAuditorLucro } from '@/lib/markup-auditor-lucro';
 
 interface MarkupCalculatorSheetProps {
   open: boolean;
@@ -298,7 +298,7 @@ export function MarkupCalculatorSheet({
   const { items: leadMediaItems, isLoading: leadMediaLoading } = useLeadAIMediaItems(leadId);
   const { uploadPDF: uploadAnexoIA } = useLeadPDFs(leadId);
   const { data: analises = [] } = useLeadAIAnalyses(leadId);
-  const { orcamentos, salvarOrcamento, duplicarOrcamento, removerOrcamento, isLoading: loadingOrcamentos } =
+  const { orcamentos, salvarOrcamento, duplicarOrcamento, removerOrcamento, aplicarAuditorLucroNoLead, isLoading: loadingOrcamentos } =
     useMarkupOrcamentos(leadId);
 
   const [orcamentoId, setOrcamentoId] = useState<string | null>(orcamentoIdProp ?? null);
@@ -453,15 +453,20 @@ export function MarkupCalculatorSheet({
 
       if (alvo) {
         const modulosSalvos = garantirEstruturaModulos(alvo.modulos, config);
+        const padraoAuditorLead = extrairAuditorLucroPadraoDoLead(orcamentos);
+        const modulosComAuditorLead =
+          padraoAuditorLead != null
+            ? (comAuditorLucroNaMeta(modulosSalvos, padraoAuditorLead) as typeof modulosSalvos)
+            : modulosSalvos;
         const servicosBase = normalizarServicosModulos(
-          modulosSalvos.servicos,
+          modulosComAuditorLead.servicos,
           servicoTemplates,
           valorHoraFallback,
         );
         const modulosSincronizados = sincronizarResumoIADosModulos(
           recalcularModulos(
             aplicarConfiguracaoFixaNosModulos(config, {
-              ...modulosSalvos,
+              ...modulosComAuditorLead,
               servicos: {
                 ...servicosBase,
                 linhas: sincronizarServicosComTemplates(
@@ -470,7 +475,10 @@ export function MarkupCalculatorSheet({
                   opcoesServicos,
                 ),
               },
-              despesas: sincronizarDespesasComTemplates(despesaTemplates, modulosSalvos.despesas),
+              despesas: sincronizarDespesasComTemplates(
+                despesaTemplates,
+                modulosComAuditorLead.despesas,
+              ),
             }),
           ),
         );
@@ -507,6 +515,13 @@ export function MarkupCalculatorSheet({
           [],
           opcoesServicos,
         );
+        const padraoAuditorLead = extrairAuditorLucroPadraoDoLead(orcamentos);
+        if (padraoAuditorLead) {
+          base.meta = {
+            ...(base.meta ?? {}),
+            auditor_lucro: padraoAuditorLead,
+          };
+        }
         modulosFinais = recalcularModulos(aplicarConfiguracaoFixaNosModulos(config, base));
         tituloFinal = tituloPadraoMarkup(leadNome);
         obsFinal = config.rodape_observacoes_padrao;
@@ -588,7 +603,7 @@ export function MarkupCalculatorSheet({
       setAutoSaveState(precisaPersistir ? 'pending' : 'idle');
       setFormHydrated(true);
     },
-    [config, despesaTemplates, servicoTemplates, servicoTemplatesEfetivos, leadId, leadNome],
+    [config, despesaTemplates, servicoTemplates, servicoTemplatesEfetivos, leadId, leadNome, orcamentos],
   );
 
   useEffect(() => {
@@ -989,17 +1004,23 @@ export function MarkupCalculatorSheet({
     [modulosSeguros.totais.custo_com_impostos, atualizarModulos],
   );
 
+  const auditorMetaEfetiva = useMemo(
+    () =>
+      modulosSeguros.meta?.auditor_lucro ??
+      extrairAuditorLucroPadraoDoLead(orcamentos) ??
+      null,
+    [modulosSeguros.meta?.auditor_lucro, orcamentos],
+  );
+
   const handleAuditorMetaChange = useCallback(
     (meta: MarkupAuditorLucroMeta) => {
-      atualizarModulos((prev) => ({
-        ...prev,
-        meta: {
-          ...(prev.meta ?? {}),
-          auditor_lucro: meta,
-        },
-      }));
+      atualizarModulos((prev) => comAuditorLucroNaMeta(prev, meta));
+      // Padrão do lead: todos os markups deste lead passam a usar o mesmo alvo.
+      void aplicarAuditorLucroNoLead.mutateAsync({ leadId, meta }).catch(() => {
+        // Toast já vem da mutation; o form local já ficou atualizado.
+      });
     },
-    [atualizarModulos],
+    [atualizarModulos, aplicarAuditorLucroNoLead, leadId],
   );
 
   const auditorLucroResumo = useMemo(
@@ -1009,13 +1030,13 @@ export function MarkupCalculatorSheet({
         precoFinal: modulosSeguros.totais.preco_final,
         percentualAlvo: resolverPercentualAuditorLucro(
           config.auditor_lucro_percentual,
-          modulosSeguros.meta?.auditor_lucro,
+          auditorMetaEfetiva,
         ),
       }),
     [
       modulosSeguros.totais.custo_materiais,
       modulosSeguros.totais.preco_final,
-      modulosSeguros.meta?.auditor_lucro,
+      auditorMetaEfetiva,
       config.auditor_lucro_percentual,
     ],
   );
@@ -2745,7 +2766,7 @@ export function MarkupCalculatorSheet({
           <MarkupAuditorLucro
             custoMateriais={modulosSeguros.totais.custo_materiais}
             precoFinal={modulosSeguros.totais.preco_final}
-            auditorMeta={modulosSeguros.meta?.auditor_lucro}
+            auditorMeta={auditorMetaEfetiva}
             onAuditorMetaChange={handleAuditorMetaChange}
           />
           <span className={cn('ml-auto text-lg font-bold text-primary')}>

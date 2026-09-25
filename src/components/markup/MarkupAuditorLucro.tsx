@@ -808,7 +808,8 @@ export function MarkupAuditorLucro({
                         </button>
                       </div>
                       <p className="text-[10px] leading-relaxed text-amber-100/50">
-                        Geral vale para todos os leads. Este lead só neste orçamento.
+                        Geral vale para todos os leads. Este lead vale em todos os markups deste
+                        cliente.
                       </p>
                       <Label htmlFor="auditor-lucro-percentual" className="text-amber-100/80">
                         {fonteDraft === 'especifico'

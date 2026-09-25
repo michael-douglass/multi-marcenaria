@@ -4,7 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase';
 import { recalcularModulos } from '@/lib/markup-calculo';
-import type { MarkupLeadResumo, MarkupModulos, MarkupOrcamento } from '@/lib/markup-types';
+import { comAuditorLucroNaMeta } from '@/lib/markup-auditor-lucro';
+import type {
+  MarkupAuditorLucroMeta,
+  MarkupLeadResumo,
+  MarkupModulos,
+  MarkupOrcamento,
+} from '@/lib/markup-types';
 import { criarModulosVazios } from '@/lib/markup-types';
 import { normalizarModulosServicos } from '@/lib/markup-servicos';
 import {
@@ -204,12 +210,76 @@ export function useMarkupOrcamentos(leadId?: number | null) {
     onError: (e: Error) => toast.error('Erro ao duplicar', { description: e.message }),
   });
 
+  /**
+   * Propaga o padrão do auditor (geral vs este lead) para TODOS os markups do lead.
+   * Assim o percentual fixo do lead vale em qualquer orçamento aberto.
+   */
+  const aplicarAuditorLucroNoLead = useMutation({
+    mutationFn: async ({
+      leadId: alvoLeadId,
+      meta,
+    }: {
+      leadId: number;
+      meta: MarkupAuditorLucroMeta;
+    }): Promise<MarkupOrcamento[]> => {
+      const cached =
+        qc.getQueryData<MarkupOrcamento[]>(markupOrcamentosQueryKey(schemaEmpresa, alvoLeadId)) ??
+        [];
+      let lista = cached.filter((o) => o.lead_id === alvoLeadId);
+      if (lista.length === 0) {
+        const { data, error } = await db
+          .from(table as 'markup_orcamentos')
+          .select('*')
+          .eq('lead_id', alvoLeadId)
+          .order('atualizado_em', { ascending: false });
+        if (error) throw error;
+        lista = (data ?? []).map((r) => parseOrcamento(r as Record<string, unknown>));
+      }
+
+      if (lista.length === 0) return [];
+
+      const agora = new Date().toISOString();
+      const atualizados = await Promise.all(
+        lista.map(async (orcamento) => {
+          const modulos = comAuditorLucroNaMeta(orcamento.modulos, meta) as MarkupModulos;
+          const { data, error } = await db
+            .from(table as 'markup_orcamentos')
+            .update({
+              modulos,
+              atualizado_em: agora,
+              ...markupSchemaExtra(schemaEmpresa),
+            })
+            .eq('id', orcamento.id)
+            .select()
+            .single();
+          if (error) throw error;
+          return parseOrcamento(data as Record<string, unknown>);
+        }),
+      );
+      return atualizados;
+    },
+    onSuccess: (atualizados, variables) => {
+      for (const orcamento of atualizados) {
+        patchOrcamentoInCache(orcamento);
+      }
+      qc.invalidateQueries({
+        queryKey: markupOrcamentosQueryKey(schemaEmpresa, variables.leadId),
+      });
+    },
+    onError: (e: Error) => {
+      toast.error('Não foi possível aplicar o markup em todos os orçamentos do lead', {
+        description: e.message,
+      });
+    },
+  });
+
   return {
     ...query,
     orcamentos: query.data ?? [],
     salvarOrcamento,
     removerOrcamento,
     duplicarOrcamento,
+    aplicarAuditorLucroNoLead,
   };
 }
 

@@ -216,6 +216,19 @@ describe('Épico 5 — markup geral vs lead + sugestão de lucro', () => {
     assert.equal(resolverPercentual(400, { fonte: 'especifico' }), 400)
   })
 
+  it('propaga o padrão do lead para todos os markups do lead', () => {
+    const lib = readSrc('src/lib/markup-auditor-lucro.ts')
+    const hook = readSrc('src/hooks/useMarkupOrcamentos.ts')
+    const sheet = readSrc('src/components/markup/MarkupCalculatorSheet.tsx')
+    const ui = readSrc('src/components/markup/MarkupAuditorLucro.tsx')
+    assert.match(lib, /export function extrairAuditorLucroPadraoDoLead/)
+    assert.match(lib, /export function comAuditorLucroNaMeta/)
+    assert.match(hook, /aplicarAuditorLucroNoLead/)
+    assert.match(sheet, /aplicarAuditorLucroNoLead\.mutateAsync/)
+    assert.match(sheet, /extrairAuditorLucroPadraoDoLead\(orcamentos\)/)
+    assert.match(ui, /todos os markups deste/)
+  })
+
   it('engrenagem tem Geral/Este lead e o Resumo tem sugestão de lucro', () => {
     const types = readSrc('src/lib/markup-types.ts')
     const lib = readSrc('src/lib/markup-auditor-lucro.ts')

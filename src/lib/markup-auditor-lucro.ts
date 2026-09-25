@@ -48,6 +48,63 @@ export function resolverPercentualAuditorLucro(
   return normalizarPercentualAuditorLucro(meta.percentual);
 }
 
+/**
+ * Padrão de auditor do lead: prioriza o mais recente com "Este lead" (específico),
+ * senão qualquer meta já gravada em algum orçamento do lead.
+ */
+export function extrairAuditorLucroPadraoDoLead(
+  orcamentos: Array<{
+    modulos?: { meta?: { auditor_lucro?: MarkupAuditorLucroMeta | null } | null } | null;
+    atualizado_em?: string | null;
+  }>,
+): MarkupAuditorLucroMeta | null {
+  if (!orcamentos.length) return null;
+  const ordenados = [...orcamentos].sort((a, b) =>
+    (b.atualizado_em ?? '').localeCompare(a.atualizado_em ?? ''),
+  );
+
+  for (const o of ordenados) {
+    const meta = o.modulos?.meta?.auditor_lucro;
+    if (meta?.fonte === 'especifico' && meta.percentual != null && Number(meta.percentual) > 0) {
+      return {
+        fonte: 'especifico',
+        percentual: normalizarPercentualAuditorLucro(meta.percentual),
+      };
+    }
+  }
+
+  for (const o of ordenados) {
+    const meta = o.modulos?.meta?.auditor_lucro;
+    if (meta?.fonte === 'geral' || meta?.fonte === 'especifico') {
+      return {
+        fonte: meta.fonte,
+        percentual:
+          meta.percentual != null && Number(meta.percentual) > 0
+            ? normalizarPercentualAuditorLucro(meta.percentual)
+            : undefined,
+      };
+    }
+  }
+
+  return null;
+}
+
+/** Grava o bloco auditor_lucro na meta do orçamento sem apagar o restante. */
+export function comAuditorLucroNaMeta<T extends { meta?: object | null }>(
+  modulos: T,
+  meta: MarkupAuditorLucroMeta,
+): T & { meta: (T['meta'] extends object ? T['meta'] : object) & { auditor_lucro: MarkupAuditorLucroMeta } } {
+  return {
+    ...modulos,
+    meta: {
+      ...(modulos.meta ?? {}),
+      auditor_lucro: meta,
+    },
+  } as T & {
+    meta: (T['meta'] extends object ? T['meta'] : object) & { auditor_lucro: MarkupAuditorLucroMeta };
+  };
+}
+
 /** Administrador do CRM (ou super admin). */
 export function isMarkupAdmin(
   userRole: string | null | undefined,
