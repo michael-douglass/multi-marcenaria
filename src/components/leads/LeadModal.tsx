@@ -1699,6 +1699,13 @@ export function LeadModal({
         >
           {(!leadId || leadModalTab === 'info') && (
             <LeadModalScrollBody onScrollTop={handleLeadBodyScroll}>
+            {/* Lembretes em aberto ficam na ficha de Informações — avisos urgentes à vista. */}
+            {leadId ? (
+              <LeadLembretesSection
+                leadId={leadId}
+                leadName={formData.name || 'Lead'}
+              />
+            ) : null}
             <LeadModalSection title="Contato" icon={UserIcon} sectionId="contato">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
             <LeadEditableField
@@ -2244,10 +2251,6 @@ export function LeadModal({
               <div className="space-y-3">
                 {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
                 <LeadSinalizacoesSection leadId={leadId} />
-                <LeadLembretesSection
-                  leadId={leadId}
-                  leadName={formData.name || 'Lead'}
-                />
                 <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
               </div>
             )}
