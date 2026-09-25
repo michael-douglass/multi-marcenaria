@@ -1381,8 +1381,11 @@ export function LeadModal({
         data-lead-resizing={isLeadCardResizing ? 'true' : undefined}
         data-lead-window-mode={leadWindowMode}
         style={leadModalSizeToCssVars(leadCardSize)}
+        overlayClassName="lead-modal-overlay z-50"
         className={cn(
           'lead-modal-shell w-full flex flex-col overflow-hidden p-0 gap-0 rounded-none sm:rounded-xl border-gold-border-subtle/30 shadow-2xl shadow-black/40 [&>button.absolute]:hidden',
+          // Animações de zoom/slide do Dialog brigam com position fixed → pisca no mobile.
+          'duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none',
           (isLeadCardResizing || isLeadCardDragging) && 'select-none',
           isLeadCardResizing && 'cursor-nwse-resize',
           isLeadCardDragging && 'cursor-grabbing',

@@ -1722,7 +1722,7 @@ export function MarkupCalculatorSheet({
         data-markup-calculator=""
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
-        className="w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden"
+        className="w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden max-lg:data-[state=open]:duration-150 max-lg:data-[state=closed]:duration-100"
       >
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
         <MarkupIAComposeOverlay

@@ -119,9 +119,26 @@ export function useLeadModalSize(open: boolean) {
   }, [open, user?.id, persistLayout])
 
   useEffect(() => {
+    let lastWidth = typeof window !== 'undefined' ? window.innerWidth : 0
+
     const onViewportResize = () => {
+      const vw = window.innerWidth
+      const widthChanged = Math.abs(vw - lastWidth) >= 2
+      lastWidth = vw
+
       setLayout((prev) => {
         if (prev.mode === 'maximized') {
+          // No celular/tablet a barra do navegador muda só a altura e faz o card “piscar”.
+          // Só recalcula o maximizado quando a largura muda (rotação / split view).
+          if (isLeadModalMobileViewport(vw) && !widthChanged) {
+            return prev
+          }
+          if (!widthChanged && vw <= 1024) {
+            const nextProbe = maximizedLeadModalSize()
+            if (Math.abs(nextProbe.h - prev.h) < 64 && Math.abs(nextProbe.w - prev.w) < 2) {
+              return prev
+            }
+          }
           const next = { ...maximizedLeadModalSize(), mode: 'maximized' as const }
           localStorage.setItem(LEAD_MODAL_SIZE_STORAGE_KEY, JSON.stringify(next))
           return next

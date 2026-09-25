@@ -211,10 +211,10 @@ export function LeadModalNav({
               'lead-modal-nav__panel mt-2 sm:mt-3 overflow-hidden rounded-xl border',
               openMenu === 'info' && 'lead-modal-nav__panel--info',
             )}
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            initial={reduceMotion || compact ? false : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : compact ? 0.2 : 0.32, ease: unrollEase }}
+            exit={reduceMotion || compact ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: reduceMotion || compact ? 0 : 0.32, ease: unrollEase }}
           >
             <div
               className={cn(
@@ -240,11 +240,11 @@ export function LeadModalNav({
                       compact && 'min-h-11 py-3',
                       isCurrent && 'is-current',
                     )}
-                    initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                    initial={reduceMotion || compact ? false : { opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: reduceMotion ? 0 : 0.2,
-                      delay: reduceMotion ? 0 : 0.025 * index,
+                      duration: reduceMotion || compact ? 0 : 0.2,
+                      delay: reduceMotion || compact ? 0 : 0.025 * index,
                       ease: unrollEase,
                     }}
                     onClick={() => handleJump(item)}

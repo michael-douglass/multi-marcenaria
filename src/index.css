@@ -4041,6 +4041,9 @@ body::before {
   max-height: calc(100dvh - 16px) !important;
   margin: 0 !important;
   transform: none !important;
+  /* Sem zoom/slide: no tablet/celular a animação do Dialog + transform:none = pisca. */
+  animation: none !important;
+  transition: none !important;
   background:
     linear-gradient(180deg, rgba(255, 250, 243, 0.98) 0%, rgba(245, 236, 223, 0.99) 100%) !important;
   color: var(--lead-soft) !important;
@@ -4050,6 +4053,30 @@ body::before {
     inset 0 1px 0 rgba(255, 252, 246, 0.9) !important;
   /* Nested Sheet/AlertDialog (markup, confirmar duplicar) não podem congelar o card. */
   pointer-events: auto !important;
+}
+.glass-dialog.lead-modal-shell[data-state='open'],
+.glass-dialog.lead-modal-shell[data-state='closed'] {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+@media (max-width: 1024px) {
+  /* Overlay também sem fade longo — evita “pisca” do véu no Safari/Chrome mobile. */
+  .lead-modal-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Calculadora de markup: slide mais curto / sem “pisca” no tablet-celular. */
+  [data-markup-calculator] {
+    transition-duration: 150ms !important;
+  }
+  [data-markup-calculator][data-state='open'] {
+    animation-duration: 150ms !important;
+  }
+  [data-markup-calculator][data-state='closed'] {
+    animation-duration: 100ms !important;
+  }
 }
 .glass-dialog.lead-modal-shell[data-lead-window-mode='minimized'] {
   height: var(--lead-card-h, 52px) !important;

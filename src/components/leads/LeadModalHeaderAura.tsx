@@ -53,6 +53,10 @@ export function LeadModalHeaderAura({ className }: { className?: string }) {
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    // WebGL no celular/tablet costuma “piscar” ao montar o canvas — usa só CSS nesses aparelhos.
+    const isCompactViewport = window.matchMedia('(max-width: 1024px)').matches
+    if (prefersReduced || isCompactViewport) return
+
     const renderer = tryCreateWebGLRenderer(
       () =>
         new THREE.WebGLRenderer({

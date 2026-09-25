@@ -52,6 +52,9 @@ export function LeadModalSearchAura({
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isCompactViewport = window.matchMedia('(max-width: 1024px)').matches
+    if (prefersReduced || isCompactViewport) return
+
     const renderer = tryCreateWebGLRenderer(
       () =>
         new THREE.WebGLRenderer({
