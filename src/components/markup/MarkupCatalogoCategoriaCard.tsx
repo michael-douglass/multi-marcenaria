@@ -81,7 +81,8 @@ function SortableProdutoRow({
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
+        // Sem transição no idle: no tablet a linha “pisca” ao abrir o catálogo.
+        transition: isDragging ? transition : undefined,
       }}
       className={cn(
         selecionado && 'bg-primary/5',

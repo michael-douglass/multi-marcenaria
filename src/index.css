@@ -4067,15 +4067,21 @@ body::before {
     animation: none !important;
     transition: none !important;
   }
-  /* Calculadora de markup: slide mais curto / sem “pisca” no tablet-celular. */
-  [data-markup-calculator] {
-    transition-duration: 150ms !important;
-  }
-  [data-markup-calculator][data-state='open'] {
-    animation-duration: 150ms !important;
-  }
+  /*
+   * Calculadora de markup no tablet/celular:
+   * o slide do Sheet + render do catálogo (Materiais) faz a aba piscar.
+   * Abre parado, sem animação de entrada/saída.
+   */
+  [data-markup-calculator],
+  [data-markup-calculator][data-state='open'],
   [data-markup-calculator][data-state='closed'] {
-    animation-duration: 100ms !important;
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .markup-calculator-overlay {
+    animation: none !important;
+    transition: none !important;
   }
 }
 .glass-dialog.lead-modal-shell[data-lead-window-mode='minimized'] {

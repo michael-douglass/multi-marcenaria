@@ -1709,7 +1709,7 @@ export function MarkupCalculatorSheet({
     : linhasNaComposicao;
 
   const tabPanelBase =
-    'mt-0 min-h-0 flex-1 basis-0 overflow-x-hidden px-6 pb-6 focus-visible:outline-none data-[state=inactive]:hidden';
+    'mt-0 min-h-0 flex-1 basis-0 overflow-x-hidden px-6 pb-6 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=inactive]:hidden';
   const tabPanelScroll = `${tabPanelBase} overflow-y-auto overscroll-contain`;
   const tabPanelMateriais = `${tabPanelBase} flex flex-col overflow-hidden pt-3`;
 
@@ -1718,11 +1718,21 @@ export function MarkupCalculatorSheet({
     <Sheet open={open} onOpenChange={handleOpenChange} modal={modal}>
       <SheetContent
         side="right"
-        overlayClassName={modal ? undefined : 'pointer-events-none bg-black/40'}
+        overlayClassName={cn(
+          'markup-calculator-overlay',
+          !modal && 'pointer-events-none bg-black/40',
+        )}
         data-markup-calculator=""
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
-        className="w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden max-lg:data-[state=open]:duration-150 max-lg:data-[state=closed]:duration-100"
+        onOpenAutoFocus={(event) => {
+          // Evita o foco cair na aba Materiais e “piscar” o painel no tablet.
+          event.preventDefault();
+        }}
+        className={cn(
+          'w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden',
+          'max-lg:data-[state=open]:animate-none max-lg:data-[state=closed]:animate-none max-lg:transition-none max-lg:duration-0',
+        )}
       >
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
         <MarkupIAComposeOverlay
@@ -1966,10 +1976,10 @@ export function MarkupCalculatorSheet({
             </div>
             <div
               data-markup-catalog-scroll
-              className="min-h-0 flex-1 basis-0 overflow-x-auto overflow-y-auto overscroll-contain"
+              className="min-h-0 flex-1 basis-0 overflow-x-auto overflow-y-auto overscroll-contain [contain:layout]"
             >
               {loadingProdutos ? (
-                <div className="flex justify-center py-12">
+                <div className="flex min-h-[12rem] items-center justify-center py-12" aria-busy="true">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
