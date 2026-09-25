@@ -326,6 +326,7 @@ export function MarkupCalculatorSheet({
   const [desfazendoComposicao, setDesfazendoComposicao] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('materiais');
   const [composicaoExpandida, setComposicaoExpandida] = useState(false);
+  const [descricaoHeaderAberta, setDescricaoHeaderAberta] = useState(true);
   const [formHydrated, setFormHydrated] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<MarkupAutoSaveState>('idle');
@@ -1814,15 +1815,41 @@ export function MarkupCalculatorSheet({
           }}
         />
         <SheetHeader className="shrink-0 min-w-0 space-y-3 border-b px-6 pb-4 pt-6 pr-12">
-          <SheetTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
-            <span className="shrink-0">Calculadora de Markup</span>
-            {leadNome && (
-              <Badge variant="secondary" className="max-w-full truncate font-normal text-xs">
-                {leadNome}
-              </Badge>
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <SheetTitle className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-base sm:text-lg">
+              <span className="shrink-0">Calculadora de Markup</span>
+              {leadNome && (
+                <Badge variant="secondary" className="max-w-full truncate font-normal text-xs">
+                  {leadNome}
+                </Badge>
+              )}
+            </SheetTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setDescricaoHeaderAberta((aberta) => !aberta)}
+              aria-expanded={descricaoHeaderAberta}
+              aria-controls="markup-sheet-descricao"
+            >
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 transition-transform duration-200',
+                  descricaoHeaderAberta && 'rotate-180',
+                )}
+                aria-hidden
+              />
+              {descricaoHeaderAberta ? 'Recolher' : 'Explicação'}
+            </Button>
+          </div>
+          <SheetDescription
+            id="markup-sheet-descricao"
+            className={cn(
+              'text-left text-xs sm:text-sm',
+              !descricaoHeaderAberta && 'sr-only',
             )}
-          </SheetTitle>
-          <SheetDescription className="text-left text-xs sm:text-sm">
+          >
             Composição de custo: materiais + serviços + despesas + margem. Tudo que você digita
             salva sozinho — na nuvem e neste computador — para continuar de onde parou.
           </SheetDescription>
