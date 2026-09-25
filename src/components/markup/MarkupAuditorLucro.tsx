@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -37,6 +37,61 @@ interface MarkupAuditorLucroProps {
 
 const ICON_SIZE = 36;
 const PANEL_WIDTH = 300;
+/** Respeita o padding lateral da calculadora (`px-6` ≈ 24px). */
+const PANEL_EDGE_PAD = 24;
+const PANEL_GAP = 10;
+const PANEL_MIN_WIDTH = 220;
+const PANEL_MIN_HEIGHT = 140;
+
+interface AuditorPainelLayout {
+  left: number;
+  bottom: number;
+  width: number;
+  maxHeight: number;
+  originX: 'left' | 'right';
+}
+
+/**
+ * Posiciona o card do auditor dentro das margens da calculadora de markup,
+ * sem estourar laterais nem o topo do painel.
+ */
+function medirPainelNoCalculador(trigger: HTMLElement): AuditorPainelLayout {
+  const shell =
+    (trigger.closest('[data-markup-calculator]') as HTMLElement | null) ??
+    (trigger.closest('[role="dialog"]') as HTMLElement | null);
+  const shellRect = shell?.getBoundingClientRect() ?? {
+    left: 0,
+    top: 0,
+    right: window.innerWidth,
+    bottom: window.innerHeight,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+  const triggerRect = trigger.getBoundingClientRect();
+  const availWidth = Math.max(PANEL_MIN_WIDTH, shellRect.width - PANEL_EDGE_PAD * 2);
+  const width = Math.min(PANEL_WIDTH, availWidth);
+
+  const triggerCenterX = triggerRect.left + triggerRect.width / 2;
+  const shellCenterX = shellRect.left + shellRect.width / 2;
+  const preferRightAlign = triggerCenterX >= shellCenterX;
+
+  let left = preferRightAlign ? triggerRect.right - width : triggerRect.left;
+  const minLeft = shellRect.left + PANEL_EDGE_PAD;
+  const maxLeft = shellRect.right - PANEL_EDGE_PAD - width;
+  left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
+
+  const spaceAbove = Math.max(0, triggerRect.top - shellRect.top - PANEL_EDGE_PAD);
+  const maxHeight = Math.max(PANEL_MIN_HEIGHT, Math.floor(spaceAbove - PANEL_GAP));
+  const bottom = Math.max(PANEL_EDGE_PAD, window.innerHeight - triggerRect.top + PANEL_GAP);
+
+  return {
+    left,
+    bottom,
+    width,
+    maxHeight,
+    originX: preferRightAlign ? 'right' : 'left',
+  };
+}
 
 function sortearDestinoNaPista(pista: HTMLElement, icon: number): { x: number; y: number } {
   const maxX = Math.max(0, pista.clientWidth - icon);
@@ -286,7 +341,7 @@ export function MarkupAuditorLucro({
   const [painelAberto, setPainelAberto] = useState(false);
   const [ajustesAberto, setAjustesAberto] = useState(false);
   const [pausado, setPausado] = useState(false);
-  const [abreEsquerda, setAbreEsquerda] = useState(true);
+  const [painelLayout, setPainelLayout] = useState<AuditorPainelLayout | null>(null);
   const [fonteDraft, setFonteDraft] = useState<MarkupAuditorLucroFonte>(
     auditorMeta?.fonte === 'especifico' ? 'especifico' : 'geral',
   );
@@ -309,6 +364,26 @@ export function MarkupAuditorLucro({
   const sinal = auditor.status === 'acima' ? '+' : auditor.status === 'baixo' ? '−' : null;
   const foraDoAlvo = auditor.status === 'baixo' || auditor.status === 'acima';
   const salvando = salvarConfig.isPending || salvandoLead;
+
+  const atualizarLayoutPainel = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    setPainelLayout(medirPainelNoCalculador(trigger));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!painelAberto) return;
+    atualizarLayoutPainel();
+    const onResize = () => atualizarLayoutPainel();
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('scroll', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('scroll', onResize);
+    };
+  }, [painelAberto, ajustesAberto, atualizarLayoutPainel]);
 
   useEffect(() => {
     const fonte: MarkupAuditorLucroFonte =
@@ -479,12 +554,7 @@ export function MarkupAuditorLucro({
   };
 
   const abrirPainel = () => {
-    const pista = pistaRef.current;
-    const el = clusterRef.current;
-    if (pista && el) {
-      const x = Number(gsap.getProperty(el, 'x')) || 0;
-      setAbreEsquerda(x > pista.clientWidth * 0.45);
-    }
+    atualizarLayoutPainel();
     setPainelAberto(true);
     setPausado(true);
   };
@@ -492,6 +562,7 @@ export function MarkupAuditorLucro({
   const fecharPainel = () => {
     setPainelAberto(false);
     setAjustesAberto(false);
+    setPainelLayout(null);
     setPausado(false);
   };
 
@@ -568,7 +639,7 @@ export function MarkupAuditorLucro({
             ref={textoRef}
             data-markup-auditor-texto=""
             className={cn(
-              'w-max max-w-[240px] origin-bottom rounded-lg border px-2.5 py-1 text-center font-display text-[11px] font-normal uppercase leading-snug tracking-[0.08em] opacity-0',
+              'w-max max-w-[min(240px,70vw)] origin-bottom rounded-lg border px-2.5 py-1 text-center font-display text-[11px] font-normal uppercase leading-snug tracking-[0.08em] opacity-0',
               auditor.status === 'baixo'
                 ? 'border-orange-300/35 bg-[#2a120c]/95 text-orange-50 shadow-[0_12px_28px_rgba(80,24,8,0.45)]'
                 : 'border-emerald-300/35 bg-[#102016]/95 text-emerald-50 shadow-[0_12px_28px_rgba(16,40,20,0.45)]',
@@ -578,9 +649,10 @@ export function MarkupAuditorLucro({
           </p>
         </div>
       )}
+      </div>
 
       <AnimatePresence>
-        {painelAberto && (
+        {painelAberto && painelLayout && (
           <motion.div
             key="auditor-popup"
             role="dialog"
@@ -589,13 +661,19 @@ export function MarkupAuditorLucro({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(
-              'absolute bottom-full z-20 mb-2 overflow-hidden rounded-xl border border-amber-200/20 bg-[#1c110d] text-[#fff6ea] shadow-[0_28px_70px_rgba(12,6,3,0.62)]',
-              abreEsquerda ? 'right-0' : 'left-0',
-            )}
-            style={{ width: PANEL_WIDTH }}
+            data-markup-auditor-painel=""
+            className="fixed z-[60] overflow-hidden rounded-xl border border-amber-200/20 bg-[#1c110d] text-[#fff6ea] shadow-[0_28px_70px_rgba(12,6,3,0.62)]"
+            style={{
+              left: painelLayout.left,
+              bottom: painelLayout.bottom,
+              width: painelLayout.width,
+              maxHeight: painelLayout.maxHeight,
+              maxWidth: `calc(100vw - ${PANEL_EDGE_PAD * 2}px)`,
+              transformOrigin:
+                painelLayout.originX === 'right' ? 'bottom right' : 'bottom left',
+            }}
           >
-            <div className="relative overflow-hidden px-3.5 pb-3.5 pt-3">
+            <div className="relative max-h-[inherit] overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 pb-3.5 pt-3">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 opacity-40"
@@ -691,6 +769,7 @@ export function MarkupAuditorLucro({
                     exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
                     transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     className="relative overflow-hidden"
+                    onAnimationComplete={atualizarLayoutPainel}
                   >
                     <div className="mt-3 space-y-2.5 border-t border-amber-200/15 pt-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/75">
@@ -769,7 +848,6 @@ export function MarkupAuditorLucro({
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </div>
   );
 }
