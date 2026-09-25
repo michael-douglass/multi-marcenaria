@@ -154,6 +154,25 @@ export async function prepareWhiteboardImageForUpload(file: File): Promise<File>
   }
 }
 
+/** Folha em branco (JPEG branco) para desenhar sem anexar foto. */
+export async function createBlankWhiteboardFile(
+  width = 1280,
+  height = 720,
+): Promise<File> {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(320, Math.round(width));
+  canvas.height = Math.max(240, Math.round(height));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Não foi possível criar o quadro branco');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const blob = await canvasToJpegBlob(canvas, 0.92);
+  return new File([blob], 'quadro-branco.jpg', {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  });
+}
+
 export function loadImageDimensionsFromFile(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

@@ -25,7 +25,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { resolveChatContatosQueryConfig } from '@/lib/empresa-tables';
 import { cn, formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils';
-import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, User as UserIcon, Building2, Users, StickyNote, FolderOpen } from 'lucide-react';
+import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, Sparkles, User as UserIcon, Building2, Users, StickyNote, FolderOpen } from 'lucide-react';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
 import { LeadModalHeaderAura } from '@/components/leads/LeadModalHeaderAura';
 import { LeadModalResizeHandles } from '@/components/leads/LeadModalResizeHandles';
@@ -54,7 +54,6 @@ import { LeadProjetoPanel } from '@/components/projetos/LeadProjetoPanel';
 import { LeadProjetoConclusaoPanel } from '@/components/projetos/LeadProjetoConclusaoPanel';
 import { LeadProjetoNotasSection } from '@/components/projetos/LeadProjetoNotasSection';
 import { LeadProjetoComposicaoSection } from '@/components/projetos/LeadProjetoComposicaoSection';
-import { LeadKnowledgeMemoryCard } from './LeadKnowledgeMemoryCard';
 import {
   AMBIENTE_FULLSCREEN_ATTR,
   ENVIAR_PROJETO_DIALOG_OPEN_ATTR,
@@ -82,11 +81,13 @@ import { LeadModalSection, LeadModalScrollBody } from './LeadModalSection';
 import { LeadModalNav } from './LeadModalNav';
 import { LeadModalSearch } from './LeadModalSearch';
 import type { LeadIaSubtab, LeadModalTabId, LeadNavJumpItem } from './lead-modal-nav';
+import { leadNavMenuToTab } from './lead-modal-nav';
 import type { LeadSearchHit } from '@/lib/lead-modal-search';
 import { waitAndScrollLeadModalToSection, waitAndScrollLeadModalToSelector } from '@/lib/lead-modal-scroll';
 import { LeadPontuaGarboContactPanel } from './LeadPontuaGarboContactPanel';
 import { LeadPontuaGarboPartnerBadge } from './LeadPontuaGarboPartnerBadge';
 import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
+import { canManagePontuaGarboFinanceiro } from '@/lib/pontua-garbo-access';
 import { LeadEditableField } from './LeadEditableField';
 import {
   LeadNameAutocomplete,
@@ -156,7 +157,7 @@ interface LeadModalProps {
   /** Status inicial ao criar lead (ex.: primeira coluna do funil atual) */
   newLeadDefaultStatus?: string;
   /** Aba inicial ao abrir o card (ex.: vinda de notificação de análise IA) */
-  initialTab?: 'detalhes' | 'analise-ia';
+  initialTab?: LeadModalTabId;
   /** Subaba dentro de Análise IA (visual ou renderização) */
   initialIaSubtab?: 'visual' | 'render';
   /** Após duplicar, o pai abre o card do novo lead (mesmo modal). */
@@ -196,7 +197,7 @@ export function LeadModal({
   statusChangeOnSelect = true,
   allStatusValues,
   newLeadDefaultStatus,
-  initialTab = 'detalhes',
+  initialTab = 'info',
   initialIaSubtab = 'visual',
   onLeadDuplicated,
   onLeadCreated,
@@ -256,7 +257,7 @@ export function LeadModal({
   const [showSaleValueDialog, setShowSaleValueDialog] = useState(false);
   const [showScheduleMeetingDialog, setShowScheduleMeetingDialog] = useState(false);
   const [showLembreteDialog, setShowLembreteDialog] = useState(false);
-  const [leadModalTab, setLeadModalTab] = useState<LeadModalTabId>('detalhes');
+  const [leadModalTab, setLeadModalTab] = useState<LeadModalTabId>('info');
   const [iaSubtab, setIaSubtab] = useState<LeadIaSubtab>(initialIaSubtab);
   const lembretesCountMap = useLeadLembretesCountMap();
   const lembretesAbertosCount = leadId ? lembretesCountMap.get(leadId) ?? 0 : 0;
@@ -284,6 +285,8 @@ export function LeadModal({
   const syncComissaoLiberacao = useSyncPontuaGarboLiberacaoAposVenda();
   const { data: pontuaGarboSale } = useLeadPontuaGarboSaleInfo(leadId ?? undefined);
   const pontuaGarboPartnerBadge = usePontuaGarboPartnerBadge(leadId ?? undefined);
+  const canRegisterPontuaGarbo = canManagePontuaGarboFinanceiro(authUserRole, isSuperAdminAuth);
+  const showPontuaGarboSection = Boolean(leadId && (pontuaGarboPartnerBadge || canRegisterPontuaGarbo));
   const [pontuaGarboLive, setPontuaGarboLive] = useState<LeadPontuaGarboSaleInfo | null>(null);
 
   useEffect(() => {
@@ -522,7 +525,7 @@ export function LeadModal({
       setEditingFields(new Set());
       setSelectedWebhookId('');
       setAutoSaveState('idle');
-      setLeadModalTab('detalhes');
+      setLeadModalTab('info');
       setIaSubtab(initialIaSubtab);
       setShowDuplicateAlert(false);
       setIsDuplicating(false);
@@ -555,6 +558,8 @@ export function LeadModal({
 
     if (leadId && initialTab === 'analise-ia') {
       setLeadModalTab('analise-ia');
+    } else if (leadId && (initialTab === 'detalhes' || initialTab === 'info')) {
+      setLeadModalTab(initialTab);
     }
 
     if (initialized) return;
@@ -594,6 +599,8 @@ export function LeadModal({
     if (!isOpen || !leadId) return;
     if (initialTab === 'analise-ia') {
       setLeadModalTab('analise-ia');
+    } else if (initialTab === 'detalhes' || initialTab === 'info') {
+      setLeadModalTab(initialTab);
     }
     setIaSubtab(initialIaSubtab);
   }, [isOpen, leadId, initialTab, initialIaSubtab]);
@@ -1560,6 +1567,7 @@ export function LeadModal({
                     hideOrcamentos={contextoProjeto}
                     hideMarkup={contextoProjeto}
                     hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
+                    hidePontuaGarbo={!showPontuaGarboSection}
                   />
                 )}
                 {!headerCollapsed && leadId && leadWindowMode !== 'minimized' && (
@@ -1635,13 +1643,14 @@ export function LeadModal({
             iaSubtab={iaSubtab}
             onJump={handleLeadNavJump}
             onOpenMenu={(menu) => {
-              setLeadModalTab(menu === 'ia' ? 'analise-ia' : 'detalhes');
+              setLeadModalTab(leadNavMenuToTab(menu));
             }}
             showIa
             hideContratos={modoProjeto}
             hideOrcamentos={contextoProjeto}
             hideMarkup={contextoProjeto}
             hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
+            hidePontuaGarbo={!showPontuaGarboSection}
           />
         ) : null}
 
@@ -1654,7 +1663,7 @@ export function LeadModal({
           }}
           className="relative z-[1] flex-1 min-h-0 flex flex-col"
         >
-          {(!leadId || leadModalTab === 'detalhes') && (
+          {(!leadId || leadModalTab === 'info') && (
             <LeadModalScrollBody onScrollTop={handleLeadBodyScroll}>
             <LeadModalSection title="Contato" icon={UserIcon} sectionId="contato">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
@@ -1805,37 +1814,7 @@ export function LeadModal({
               </div>
             </LeadEditableField>
                 </div>
-            <LeadPontuaGarboContactPanel
-              leadId={leadId}
-              nome={formData.name ?? ''}
-              email={formData.email ?? ''}
-              telefone={formData.phone ?? ''}
-            />
             </LeadModalSection>
-
-            {contextoProjeto && leadId ? (
-              <div className="space-y-3">
-                <LeadProjetoConclusaoPanel leadId={leadId} />
-                <LeadProjetoComposicaoSection
-                  leadId={leadId}
-                  leadNome={formData.name || ''}
-                  onOrcamentoSync={handleMarkupOrcamentoSync}
-                />
-                <LeadProjetoNotasSection leadId={leadId} />
-              </div>
-            ) : null}
-
-            {leadId && (
-              <div className="space-y-3">
-                {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
-                <LeadSinalizacoesSection leadId={leadId} />
-                <LeadLembretesSection
-                  leadId={leadId}
-                  leadName={formData.name || 'Lead'}
-                />
-                <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
-              </div>
-            )}
 
             <LeadModalSection title="Negócio" icon={Building2} sectionId="negocio">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
@@ -2145,6 +2124,99 @@ export function LeadModal({
                 </div>
             </LeadModalSection>
 
+            {showPontuaGarboSection ? (
+              <LeadModalSection
+                title="Pontua Garbo"
+                icon={Sparkles}
+                sectionId="pontua-garbo"
+                description="Cadastro ou união deste lead ao programa de parceiros."
+                variant="accent"
+              >
+                <LeadPontuaGarboContactPanel
+                  leadId={leadId}
+                  nome={formData.name ?? ''}
+                  email={formData.email ?? ''}
+                  telefone={formData.phone ?? ''}
+                />
+              </LeadModalSection>
+            ) : null}
+
+            {/* No cadastro novo ainda não há menu de páginas — Observações fica aqui na ficha. */}
+            {!leadId ? (
+              <LeadModalSection title="Observações" icon={StickyNote} sectionId="observacoes" className="[&>div:last-child]:pt-3">
+                <LeadEditableField
+                  fieldId="observations"
+                  label="Notas internas"
+                  htmlFor="observations"
+                  isNewLead={isNewLead}
+                  canView={hasPermission('lead_observations', 'view')}
+                  canEdit={isEditable && hasPermission('lead_observations', 'edit')}
+                  isEditing={isFieldEditing('observations')}
+                  onToggleEdit={toggleFieldEdit}
+                  multilineView
+                  viewHeight={180}
+                  viewMinHeight={120}
+                  viewMaxHeight={360}
+                  displayValue={
+                    formData.observations?.trim() ? formData.observations : '—'
+                  }
+                  maskedView={
+                    <div
+                      className="flex items-start px-3 py-2 border rounded-md bg-muted overflow-auto resize-y"
+                      style={{ height: 180, minHeight: 120, maxHeight: 360 }}
+                    >
+                      <span className="text-sm text-muted-foreground break-words">•••••</span>
+                    </div>
+                  }
+                  className="w-full"
+                >
+                  <Textarea
+                    id="observations"
+                    value={formData.observations || ''}
+                    onChange={(e) => {
+                      markFormDirty();
+                      setFormData((prev) => ({ ...prev, observations: e.target.value }));
+                    }}
+                    placeholder="Digite observações sobre este lead..."
+                    className="h-[180px] min-h-[120px] max-h-[360px] resize-y overflow-y-auto break-words w-full max-w-full"
+                    maxLength={2000}
+                  />
+                  {formData.observations && (
+                    <p className="text-xs text-muted-foreground text-right mt-1">
+                      {formData.observations.length}/2000 caracteres
+                    </p>
+                  )}
+                </LeadEditableField>
+              </LeadModalSection>
+            ) : null}
+            </LeadModalScrollBody>
+          )}
+
+          {leadId && leadModalTab === 'detalhes' && (
+            <LeadModalScrollBody onScrollTop={handleLeadBodyScroll}>
+            {contextoProjeto && leadId ? (
+              <div className="space-y-3">
+                <LeadProjetoConclusaoPanel leadId={leadId} />
+                <LeadProjetoComposicaoSection
+                  leadId={leadId}
+                  leadNome={formData.name || ''}
+                  onOrcamentoSync={handleMarkupOrcamentoSync}
+                />
+                <LeadProjetoNotasSection leadId={leadId} />
+              </div>
+            ) : null}
+
+            {leadId && (
+              <div className="space-y-3">
+                {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
+                <LeadSinalizacoesSection leadId={leadId} />
+                <LeadLembretesSection
+                  leadId={leadId}
+                  leadName={formData.name || 'Lead'}
+                />
+                <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
+              </div>
+            )}
 
           <LeadModalSection title="Observações" icon={StickyNote} sectionId="observacoes" className="[&>div:last-child]:pt-3">
           <LeadEditableField
@@ -2234,14 +2306,6 @@ export function LeadModal({
               onFilePickerActiveChange={setFilePickerActive}
             />
           </div>
-
-          {leadId && (
-            <LeadKnowledgeMemoryCard
-              leadId={leadId}
-              leadRevision={lead?.updatedAt ?? dbLead?.atualizado_em}
-              indexingActive={isOpen && !isNewLead}
-            />
-          )}
 
           {/* Campos Personalizados */}
           <LeadCustomFieldsSection

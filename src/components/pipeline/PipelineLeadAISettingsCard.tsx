@@ -572,9 +572,9 @@ export function PipelineLeadAISettingsCard() {
                   </p>
 
                   <p className="rounded-lg border border-border/60 bg-background/50 px-4 py-3 text-xs text-muted-foreground">
-                    A indexação automática é controlada <strong className="font-medium text-foreground">lead a lead</strong>, no card
-                    &quot;Memória da Íris&quot;. Por padrão vem desligada — ligue a chave só nos leads em que
-                    quiser atualizar a memória ao abrir o card ou ao anexar arquivos.
+                    A indexação automática é controlada <strong className="font-medium text-foreground">lead a lead</strong>, no botão
+                    discreto &quot;Memória&quot; dentro do chat da Análise visual (Íris Sky). Por padrão vem desligada —
+                    ligue a chave só nos leads em que quiser atualizar a memória ao abrir a análise ou ao anexar arquivos.
                   </p>
 
                   <div className="grid gap-4 sm:grid-cols-2">

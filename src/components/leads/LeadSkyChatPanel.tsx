@@ -28,7 +28,6 @@ import {
   type LeadSkyChatMessage,
 } from '@/hooks/useLeadSkyChat';
 import { cn } from '@/lib/utils';
-import { LeadKnowledgeMemoryCard } from '@/components/leads/LeadKnowledgeMemoryCard';
 import type { IrisActiveSpot } from '@/lib/iris-spot-session';
 import { Crosshair, X } from 'lucide-react';
 
@@ -275,12 +274,6 @@ export function LeadSkyChatPanel({
           </Button>
         )}
       </div>
-      )}
-
-      {chatEnabled && aiConfig.irisSkyKnowledgeAtivo && (
-        <div className="shrink-0 px-3 pt-2 sm:px-4">
-          <LeadKnowledgeMemoryCard leadId={leadId} variant="compact" indexingActive={false} />
-        </div>
       )}
 
       <ScrollArea className="min-h-0 flex-1">

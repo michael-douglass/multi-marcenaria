@@ -2,10 +2,8 @@ import { cn } from '@/lib/utils';
 import type { WhiteboardMeasurePayload } from '@/lib/whiteboard-annotations';
 import {
   measurePathD,
-  midpoint,
-  quadraticMidpoint,
-  perpendicularOffset,
   measureZoneRect,
+  measureLabelPosition,
 } from '@/lib/photo-measure-style';
 
 interface MeasureAnnotationGfxProps {
@@ -28,10 +26,7 @@ export function MeasureAnnotationGfx({
   const color = payload.colorHex ?? strokeColor;
   const { a, b, via } = payload;
   const pathD = measurePathD(a, b, via);
-  const labelAnchor = via ? quadraticMidpoint(a, via, b) : midpoint(a, b);
-  const offset = perpendicularOffset(a, b, via ? 0 : 22);
-  const labelX = labelAnchor.x + offset.x;
-  const labelY = labelAnchor.y + offset.y;
+  const { anchor: labelAnchor, x: labelX, y: labelY } = measureLabelPosition(a, b, via);
   const zone = payload.showZone ? measureZoneRect(a, b) : null;
   const startMarker = payload.bidirectional ? `url(#${markerId}-start)` : undefined;
   const endMarker = `url(#${markerId}-end)`;
@@ -93,15 +88,16 @@ export function MeasureAnnotationGfx({
         />
       )}
 
-      {/* Etiqueta renderizada no layer HTML; aqui só o conector opcional */}
+      {/* Guia discreta até a placa do número (fora do traço principal) */}
       <line
         x1={labelAnchor.x}
         y1={labelAnchor.y}
         x2={labelX}
         y2={labelY}
         stroke={color}
-        strokeWidth={1}
-        strokeOpacity={0.35}
+        strokeWidth={1.25}
+        strokeOpacity={0.28}
+        strokeDasharray="3 3"
         vectorEffect="non-scaling-stroke"
       />
     </g>
@@ -118,20 +114,22 @@ interface MeasureLabelProps {
   onBlur?: () => void;
 }
 
-/** Halo branco + preto: separa o número dos traços da lousa. */
+/** Halo forte: número não se mistura com traços da foto/lousa. */
 const MEASURE_LABEL_BOX_SHADOW = [
-  '0 0 0 2px rgba(255,255,255,0.98)',
-  '0 0 0 5px rgba(0,0,0,0.55)',
-  '0 3px 8px rgba(0,0,0,0.65)',
-  '0 10px 22px rgba(0,0,0,0.45)',
+  '0 0 0 3px rgba(255,255,255,1)',
+  '0 0 0 6px rgba(0,0,0,0.72)',
+  '0 4px 10px rgba(0,0,0,0.75)',
+  '0 12px 28px rgba(0,0,0,0.5)',
 ].join(', ');
 
 const MEASURE_LABEL_TEXT_SHADOW = [
-  '0 0 3px rgba(0,0,0,1)',
-  '0 1px 3px rgba(0,0,0,0.95)',
-  '0 0 10px rgba(0,0,0,0.7)',
-  '1px 1px 0 rgba(0,0,0,0.85)',
-  '-1px -1px 0 rgba(0,0,0,0.85)',
+  '0 0 2px rgba(0,0,0,1)',
+  '0 0 6px rgba(0,0,0,1)',
+  '0 2px 4px rgba(0,0,0,0.95)',
+  '1px 1px 0 rgba(0,0,0,1)',
+  '-1px -1px 0 rgba(0,0,0,1)',
+  '1px -1px 0 rgba(0,0,0,1)',
+  '-1px 1px 0 rgba(0,0,0,1)',
 ].join(', ');
 
 export function MeasureLabel({
@@ -145,10 +143,7 @@ export function MeasureLabel({
 }: MeasureLabelProps) {
   const color = payload.colorHex ?? strokeColor;
   const { a, b, via } = payload;
-  const labelAnchor = via ? quadraticMidpoint(a, via, b) : midpoint(a, b);
-  const offset = perpendicularOffset(a, b, via ? 0 : 22);
-  const labelX = labelAnchor.x + offset.x;
-  const labelY = labelAnchor.y + offset.y;
+  const { x: labelX, y: labelY } = measureLabelPosition(a, b, via);
   const display = value ?? payload.label;
 
   return (
@@ -156,8 +151,8 @@ export function MeasureLabel({
       data-whiteboard-measure-label
       className={cn(
         'absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2',
-        'rounded-md border-[2.5px] px-3 py-1.5',
-        'font-extrabold tabular-nums tracking-tight text-white',
+        'rounded-lg border-[3px] px-3.5 py-2',
+        'font-black tabular-nums tracking-tight text-white',
         'transition-transform duration-150',
         selected && 'scale-105',
         editable ? 'cursor-text' : 'cursor-default',
@@ -165,33 +160,34 @@ export function MeasureLabel({
       style={{
         left: labelX,
         top: labelY,
-        // Placa escura opaca: não deixa traços “furarem” o número
-        backgroundColor: 'rgba(18, 14, 10, 0.94)',
+        // Placa opaca + anel branco: traços não “furam” o número
+        backgroundColor: 'rgba(8, 6, 4, 0.97)',
         borderColor: color,
-        outline: '2px solid rgba(255,255,255,0.95)',
-        outlineOffset: 1,
+        outline: '3px solid rgba(255,255,255,1)',
+        outlineOffset: 2,
         boxShadow: MEASURE_LABEL_BOX_SHADOW,
         textShadow: MEASURE_LABEL_TEXT_SHADOW,
-        fontSize: Math.max(15, Math.min(20, 14 + display.length * 0.3)),
-        letterSpacing: '0.02em',
-        minWidth: 44,
+        fontSize: Math.max(16, Math.min(22, 15 + display.length * 0.35)),
+        letterSpacing: '0.03em',
+        minWidth: 52,
         textAlign: 'center',
-        zIndex: 9350,
+        zIndex: 9450,
         isolation: 'isolate',
+        WebkitFontSmoothing: 'antialiased',
       }}
       onPointerDown={(e) => editable && e.stopPropagation()}
     >
       {/* Faixa da cor da régua — liga o número à medição sem perder contraste */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-1 rounded-t-[4px]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-[5px]"
         style={{ backgroundColor: color }}
       />
       {editable && selected ? (
         <input
           type="text"
           inputMode="decimal"
-          className="relative z-[1] w-full min-w-[2.75rem] bg-transparent text-center font-extrabold text-white outline-none placeholder:text-white/70"
+          className="relative z-[1] w-full min-w-[3rem] bg-transparent text-center font-black text-white outline-none placeholder:text-white/70"
           style={{ textShadow: MEASURE_LABEL_TEXT_SHADOW }}
           value={display}
           onChange={(e) => onChange?.(e.target.value)}
@@ -202,7 +198,7 @@ export function MeasureLabel({
           autoFocus
         />
       ) : (
-        <span className="relative z-[1]">{display}</span>
+        <span className="relative z-[1] drop-shadow-sm">{display}</span>
       )}
     </div>
   );

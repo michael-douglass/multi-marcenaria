@@ -90,8 +90,10 @@ export function DraftingHint({ children }: { children: ReactNode }) {
 }
 
 const LOUSA_TIPS: { title: string; body: string }[] = [
+  { title: 'Quadro branco', body: 'Sem foto? Abra um quadro em branco e desenhe direto na folha.' },
+  { title: 'Notas da foto', body: 'Escreva observações no painel ao lado da imagem — ficam salvas com aquela foto.' },
   { title: 'Inserir foto', body: 'Ícone de câmera — galeria, câmera ou arquivo do projeto.' },
-  { title: 'Disquete', body: 'Salva a foto com os riscos nos anexos e limpa a lousa.' },
+  { title: 'Disquete', body: 'Salva a foto (ou o quadro) com os riscos nos anexos e limpa a lousa.' },
   { title: 'Medição', body: 'Dois pontos na reta, três no arco. Toque no número para editar.' },
   { title: 'Zoom', body: 'Dois cliques na foto ajustam. No celular, pinça com dois dedos.' },
   { title: 'Linha reta', body: 'Clique e arraste. Recolha a barra se precisar de mais espaço.' },

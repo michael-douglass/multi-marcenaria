@@ -34,6 +34,8 @@ export interface LeadWhiteboardImage {
   height: number;
   z_index: number;
   criado_em: string;
+  /** Nota textual da foto — exibida ao lado da imagem na lousa. */
+  observacao?: string | null;
   isOffline?: boolean; // Indica se é uma imagem salva localmente aguardando sync
 }
 
@@ -459,6 +461,7 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
       width?: number;
       height?: number;
       z_index?: number;
+      observacao?: string | null;
     }) => {
       const { id, ...updates } = payload;
       const { error } = await db
@@ -467,14 +470,52 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: invalidate,
-    onError: (error) => {
+    onMutate: async (variables) => {
+      if (variables.observacao === undefined) return;
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<{
+        images: LeadWhiteboardImage[];
+        drawings: LeadWhiteboardDrawing[];
+      }>(queryKey);
+      if (previous) {
+        queryClient.setQueryData(queryKey, {
+          ...previous,
+          images: previous.images.map((img) =>
+            img.id === variables.id
+              ? { ...img, observacao: variables.observacao ?? null }
+              : img,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onSuccess: (_data, variables) => {
+      invalidate();
+      if (variables.observacao !== undefined) {
+        toast.success('Nota da foto salva');
+      }
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
       if (isOnline) {
-        toast.error('Erro ao mover imagem', { description: formatWhiteboardError(error) });
+        toast.error(
+          variables.observacao !== undefined ? 'Erro ao salvar nota' : 'Erro ao mover imagem',
+          { description: formatWhiteboardError(error) },
+        );
       }
     },
     retry: 3,
   });
+
+  const saveImageNote = useCallback(
+    async (imageId: string, observacao: string) => {
+      const value = observacao.trim() || null;
+      await updateImageMutation.mutateAsync({ id: imageId, observacao: value });
+    },
+    [updateImageMutation],
+  );
 
   const deleteImageMutation = useMutation({
     mutationFn: async ({ id, fileUrl }: { id: string; fileUrl: string }) => {
@@ -513,10 +554,10 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
       boardWidth: number,
       placementIndex = 0,
       isSyncing = false,
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       if (!leadId) {
         toast.error('Salve o lead antes de adicionar fotos');
-        return;
+        return false;
       }
 
       let prepared: File;
@@ -526,18 +567,18 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
         const message = formatWhiteboardError(prepError);
         if (!isSyncing) {
           toast.error('Não foi possível usar esta foto', { description: message });
-          return;
+          return false;
         }
         throw prepError;
       }
 
       if (!isLikelyImageFile(prepared)) {
         toast.error('Envie apenas imagens (foto, print, etc.)');
-        return;
+        return false;
       }
       if (prepared.size > MAX_IMAGE_BYTES) {
         toast.error('Imagem muito grande (máx. 15MB)');
-        return;
+        return false;
       }
 
       if (!isOnline && !isSyncing) {
@@ -553,7 +594,7 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
         });
         invalidate();
         toast.success('Imagem salva localmente (sem internet). Será enviada quando você estiver online.');
-        return;
+        return true;
       }
 
       try {
@@ -600,15 +641,17 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
 
         if (!isSyncing) {
           invalidate();
-          toast.success('Foto adicionada');
+          const isBlankBoard = /quadro-branco/i.test(prepared.name);
+          toast.success(isBlankBoard ? 'Quadro branco pronto para desenhar' : 'Foto adicionada');
         }
+        return true;
       } catch (error) {
         const message = formatWhiteboardError(error);
         if (!isSyncing) {
           toast.error('Erro ao enviar imagem', { description: message });
-        } else {
-          throw error;
+          return false;
         }
+        throw error;
       }
     },
     [leadId, isOnline, query.data?.images.length, db, imagesTable, queryClient, queryKey],
@@ -772,6 +815,7 @@ export function useLeadWhiteboard(leadId: number | null | undefined) {
     clearDrawings: clearDrawingsMutation.mutateAsync,
     clearWhiteboard,
     updateImage: updateImageMutation.mutateAsync,
+    saveImageNote,
     deleteImage: deleteImageMutation.mutateAsync,
     uploadImage,
     importImageFromUrl,

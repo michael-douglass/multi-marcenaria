@@ -40,7 +40,7 @@ export function LeadPontuaGarboContactPanel({
 
   if (badge) {
     return (
-      <div className={cn('sm:col-span-2', className)}>
+      <div className={cn('w-full min-w-0', className)}>
         <LeadPontuaGarboPartnerBadge badge={badge} variant="modal" />
       </div>
     );
@@ -75,7 +75,7 @@ export function LeadPontuaGarboContactPanel({
   };
 
   return (
-    <div className={cn('sm:col-span-2 space-y-2', className)}>
+    <div className={cn('w-full min-w-0 space-y-2', className)}>
       {!confirmOpen ? (
         <button
           type="button"

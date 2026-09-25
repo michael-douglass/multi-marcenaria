@@ -60,6 +60,7 @@ import {
   ChevronDown,
   ChevronUp,
   HelpCircle,
+  PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -79,7 +80,7 @@ import { buildWhiteboardAttachmentFile } from '@/lib/lead-whiteboard-save';
 import { WhiteboardProjectImagePicker } from '@/components/leads/whiteboard/WhiteboardProjectImagePicker';
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { WhiteboardCameraCapture, type WhiteboardCameraCaptureHandle } from '@/components/leads/whiteboard/WhiteboardCameraCapture';
-import { isLikelyImageFile } from '@/lib/whiteboard-image-upload';
+import { createBlankWhiteboardFile, isLikelyImageFile } from '@/lib/whiteboard-image-upload';
 import type { LeadMidiaDisponivel } from '@/lib/orcamento-slide-types';
 import { sanitizeVisitFileBaseName } from '@/lib/lead-photo-checklist-catalog';
 import {
@@ -95,6 +96,7 @@ import { useWhiteboardViewport } from '@/hooks/useWhiteboardViewport';
 import { WhiteboardAnnotationsLayer } from '@/components/leads/whiteboard/WhiteboardAnnotationsLayer';
 import { FurnitureModuleThumb } from '@/components/leads/whiteboard/FurnitureModuleGfx';
 import { WhiteboardWoodFoil } from '@/components/leads/whiteboard/WhiteboardWoodFoil';
+import { WhiteboardImageNotes } from '@/components/leads/whiteboard/WhiteboardImageNotes';
 import {
   DraftingDivider,
   DraftingGroup,
@@ -173,6 +175,8 @@ interface BoardInnerProps extends LeadWhiteboardProps {
   minHeight?: number;
   variant?: 'inline' | 'fullscreen';
   onClose?: () => void;
+  /** Pedir tela cheia (ex.: após criar quadro branco). */
+  onRequestFullscreen?: () => void;
   onSaveStateChange?: (state: {
     canSave: boolean;
     isSaving: boolean;
@@ -182,6 +186,8 @@ interface BoardInnerProps extends LeadWhiteboardProps {
 
 export interface BoardInnerHandle {
   saveToAttachments: () => Promise<void>;
+  /** Cria uma folha branca se a lousa estiver vazia. */
+  ensureBlankBoard: () => Promise<void>;
 }
 
 const WORLD_MIN_W = 640;
@@ -210,7 +216,16 @@ function screenPointsToWorldPath(
 }
 
 const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardInner(
-  { leadId, disabled, className, minHeight = 360, variant = 'inline', onClose, onSaveStateChange },
+  {
+    leadId,
+    disabled,
+    className,
+    minHeight = 360,
+    variant = 'inline',
+    onClose,
+    onRequestFullscreen,
+    onSaveStateChange,
+  },
   ref,
 ) {
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
@@ -249,6 +264,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     deleteImage,
     uploadImage,
     importImageFromUrl,
+    saveImageNote,
     isOnline,
     isSaving,
   } = useLeadWhiteboard(leadId);
@@ -992,7 +1008,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     if (disabled) return 'Edição desabilitada';
     if (!canUploadAttachment) return 'Sem permissão para anexar arquivos';
     if (!isOnline) return 'Conecte-se à internet para salvar nos anexos';
-    if (!activeImage) return 'Insira uma foto na lousa antes de salvar';
+    if (!activeImage) return 'Abra um quadro branco ou insira uma foto antes de salvar';
     if (isSavingAttachment) return 'Salvando…';
     return undefined;
   }, [
@@ -1073,7 +1089,43 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     legacyFallbackImageId,
   ]);
 
-  useImperativeHandle(ref, () => ({ saveToAttachments }), [saveToAttachments]);
+  const ensureBlankBoard = useCallback(async () => {
+    if (!leadId || disabled) {
+      toast.error('Salve o lead antes de usar a lousa');
+      throw new Error('Lead não disponível');
+    }
+    if (images.length > 0) return;
+    setUploadingCount(1);
+    try {
+      const file = await createBlankWhiteboardFile(1280, 720);
+      const boardWidth = boardAreaRef.current?.clientWidth ?? viewportRef.current?.clientWidth ?? 1280;
+      const ok = await uploadImage(file, boardWidth, 0);
+      if (!ok) throw new Error('Falha ao criar quadro branco');
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'Falha ao criar quadro branco')) {
+        toast.error('Não foi possível abrir o quadro branco', {
+          description: error instanceof Error ? error.message : undefined,
+        });
+      }
+      throw error;
+    } finally {
+      setUploadingCount(0);
+    }
+  }, [leadId, disabled, images.length, uploadImage]);
+
+  const startBlankBoard = useCallback(async () => {
+    await ensureBlankBoard();
+    onRequestFullscreen?.();
+  }, [ensureBlankBoard, onRequestFullscreen]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      saveToAttachments,
+      ensureBlankBoard,
+    }),
+    [saveToAttachments, ensureBlankBoard],
+  );
 
   const handleImportFromProject = useCallback(
     async (midia: LeadMidiaDisponivel) => {
@@ -1929,6 +1981,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           : cn('flex flex-col space-y-2', className),
       )}
     >
+      {/* Foto + notas ao lado (desktop) / abaixo (celular) */}
+      <div
+        className={cn(
+          isFullscreenLayout
+            ? 'absolute inset-0 flex flex-col gap-2 p-2 pb-[5.75rem] sm:flex-row sm:pb-24'
+            : 'order-1 flex flex-col gap-2 lg:flex-row lg:items-stretch',
+        )}
+      >
       {/* Área da foto */}
       <div
         ref={bindBoardAreaRef}
@@ -1936,8 +1996,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         className={cn(
           'min-w-0 select-none overscroll-none',
           isFullscreenLayout
-            ? 'absolute inset-0'
-            : 'relative w-full max-h-[min(48vh,380px)] order-1 overflow-hidden rounded-xl border border-gold/30 shadow-[inset_0_1px_0_rgba(242,216,146,0.1),0_10px_28px_rgba(0,0,0,0.28)]',
+            ? 'relative min-h-0 flex-1 overflow-hidden rounded-xl border border-gold/25'
+            : 'relative w-full max-h-[min(48vh,380px)] overflow-hidden rounded-xl border border-gold/30 shadow-[inset_0_1px_0_rgba(242,216,146,0.1),0_10px_28px_rgba(0,0,0,0.28)] lg:min-h-[280px] lg:flex-1',
         )}
         style={isFullscreenLayout ? undefined : { minHeight: Math.min(minHeight, 280) }}
       >
@@ -1977,7 +2037,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         )}
 
         {canUploadAttachment && isFullscreenLayout && (
-          <div className="absolute z-[9600] pointer-events-auto top-3 right-3">
+          <div className="absolute z-[9600] pointer-events-auto bottom-3 left-3">
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2146,7 +2206,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               <ImageIcon className="h-10 w-10 text-gold/80" />
             </div>
             <p className="text-sm text-center max-w-xs font-medium text-[#fff6ea]">
-              Insira uma foto para medir, anotar e desenhar como no PhotoMeasure.
+              Abra um quadro branco para desenhar sem foto, ou insira uma imagem para medir e anotar.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2 pointer-events-auto">
               <Button
@@ -2155,13 +2215,26 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
                 size="sm"
                 className="gap-2"
                 disabled={disabled || uploadingCount > 0}
-                onClick={() => openGalleryPicker()}
+                onClick={() => {
+                  void startBlankBoard();
+                }}
               >
                 {uploadingCount > 0 ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <ImagePlus className="h-4 w-4" />
+                  <PenLine className="h-4 w-4" />
                 )}
+                Quadro branco
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={disabled || uploadingCount > 0}
+                onClick={() => openGalleryPicker()}
+              >
+                <ImagePlus className="h-4 w-4" />
                 Inserir foto
               </Button>
               <Button
@@ -2210,6 +2283,33 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           onPointerLeave={(e) => void handleDrawPointerUp(e)}
           onPointerCancel={(e) => void handleDrawPointerUp(e)}
         />
+
+        {activeImage?.observacao?.trim() && (
+          <div className="pointer-events-none absolute inset-x-2 bottom-2 z-[9200] rounded-lg border border-[#f2d892]/80 bg-[#f2d892]/95 px-3 py-2 shadow-lg sm:max-w-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#3d2b1f]">
+              Nota desta foto
+            </p>
+            <p className="line-clamp-2 text-sm font-semibold leading-snug text-[#1a120b]">
+              {activeImage.observacao.trim()}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {activeImage && (
+        <WhiteboardImageNotes
+          imageId={activeImage.id}
+          initialNote={activeImage.observacao}
+          disabled={disabled}
+          compact
+          className={cn(
+            isFullscreenLayout
+              ? 'max-h-[38%] shrink-0 overflow-y-auto sm:max-h-none sm:h-full sm:w-72 xl:w-80'
+              : 'lg:self-stretch',
+          )}
+          onSave={saveImageNote}
+        />
+      )}
       </div>
 
       {/* Barra de ferramentas — mesa de desenho, abaixo da foto */}
@@ -2299,7 +2399,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
           <div className="relative z-10 flex flex-col gap-2.5 p-2.5 sm:p-3">
           {!activeImage && (
             <p className="font-display text-[11px] uppercase tracking-[0.16em] text-gold/80">
-              Insira uma foto para usar as ferramentas
+              Abra um quadro branco ou insira uma foto para usar as ferramentas
             </p>
           )}
           <DraftingRail>
@@ -2911,6 +3011,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             <button
               key={img.id}
               type="button"
+              title={img.observacao?.trim() || img.file_name}
               onClick={() => setActiveImageId(img.id)}
               className={cn(
                 'relative shrink-0 h-14 w-14 rounded-lg overflow-hidden border-2 transition-all',
@@ -2920,6 +3021,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               )}
             >
               <img src={img.file_url} alt={img.file_name} className="h-full w-full object-cover" />
+              {img.observacao?.trim() && (
+                <span
+                  className="absolute bottom-0 inset-x-0 truncate px-0.5 py-0.5 text-[0.55rem] font-bold leading-tight"
+                  style={{ backgroundColor: 'rgba(242,216,146,0.95)', color: '#1a120b' }}
+                >
+                  {img.observacao.trim()}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -3018,12 +3127,26 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       userRole === 'vendedor' ||
       hasPermission('leads', 'edit'));
 
+  const [openingFullscreen, setOpeningFullscreen] = useState(false);
+
   const updateFullscreen = useCallback((open: boolean) => {
     setWhiteboardFullscreenOpenFlag(open);
     setFullscreen(open);
   }, []);
 
-  const openFullscreen = () => updateFullscreen(true);
+  const openFullscreen = useCallback(async () => {
+    if (openingFullscreen) return;
+    setOpeningFullscreen(true);
+    try {
+      // Sem foto: cria quadro branco primeiro para já poder desenhar na tela cheia.
+      await boardRef.current?.ensureBlankBoard();
+      updateFullscreen(true);
+    } catch {
+      /* toast já exibido em ensureBlankBoard */
+    } finally {
+      setOpeningFullscreen(false);
+    }
+  }, [openingFullscreen, updateFullscreen]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -3069,7 +3192,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       className="relative w-full space-y-2 overflow-hidden rounded-xl border border-gold/25 bg-[#1a100c]/40 p-3 sm:border-0 sm:bg-transparent sm:p-0 sm:rounded-none"
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2.5">
         <Label className="flex items-center gap-2 text-sm sm:text-base font-semibold tracking-tight text-[#fff6ea]">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-gold/30 bg-gold/15">
             <ImageIcon className="h-4 w-4 text-gold" />
@@ -3081,40 +3204,56 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
             Fotos do lead
           </span>
         </Label>
-        <div className="flex items-center gap-1.5">
-          {canUploadAttachment && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9"
-                    disabled={!saveState.canSave || fullscreen}
-                    aria-label="Salvar nos anexos"
-                    onClick={handleHeaderSave}
-                  >
-                    {saveState.isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {saveState.disabledReason ?? 'Salvar nos anexos'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {leadId && (
-            <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={openFullscreen}>
-              <Maximize2 className="h-3.5 w-3.5" />
-              {isMobile ? 'Abrir' : 'Tela cheia'}
-            </Button>
-          )}
-        </div>
+        {/* Botões mais abaixo do título — longe do cabeçalho do card */}
+        {!fullscreen && (
+          <div className="flex items-center justify-end gap-1.5 pt-0.5">
+            {canUploadAttachment && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      disabled={!saveState.canSave || openingFullscreen}
+                      aria-label="Salvar nos anexos"
+                      onClick={handleHeaderSave}
+                    >
+                      {saveState.isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {saveState.disabledReason ?? 'Salvar nos anexos'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {leadId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                disabled={openingFullscreen}
+                onClick={() => {
+                  void openFullscreen();
+                }}
+              >
+                {openingFullscreen ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Maximize2 className="h-3.5 w-3.5" />
+                )}
+                {isMobile ? 'Abrir' : 'Tela cheia'}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {!fullscreen && (
@@ -3123,6 +3262,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
           leadId={leadId}
           disabled={disabled}
           minHeight={isMobile ? 300 : 380}
+          onRequestFullscreen={() => updateFullscreen(true)}
           onSaveStateChange={setSaveState}
         />
       )}
@@ -3156,10 +3296,12 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
           {fullscreen && (
             <BoardInner
               key="whiteboard-fullscreen"
+              ref={boardRef}
               leadId={leadId}
               disabled={disabled}
               variant="fullscreen"
               onClose={() => updateFullscreen(false)}
+              onSaveStateChange={setSaveState}
               className="flex-1 min-h-0 h-full w-full"
             />
           )}

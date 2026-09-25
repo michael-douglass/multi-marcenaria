@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/resizable';
 import { LeadAIFormattedContent } from '@/lib/lead-ai-formatted-content';
 import { LeadSkyChatPanel } from '@/components/leads/LeadSkyChatPanel';
+import { LeadKnowledgeMemoryCard } from '@/components/leads/LeadKnowledgeMemoryCard';
 import { IRIS_SKY_AGENT } from '@/lib/iris-sky-agent';
 import type { LeadAIMediaItem } from '@/lib/lead-ai-media-sources';
 import {
@@ -593,40 +594,47 @@ function TextPanel({
             </button>
           </div>
 
-          {mode === 'report' && (
-            <div className="flex flex-wrap items-center gap-2">
-              {isLoading ? (
-                <>
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold/60 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-gold" />
-                  </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold animate-pulse">
-                    IA pensando…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
-                    Relatório da IA
-                  </span>
-                  {canExportPdf && onExportPdf && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={onExportPdf}
-                      className="h-7 border-gold-border-subtle/40 px-2 text-[10px] uppercase tracking-wide text-cream-muted hover:text-gold"
-                    >
-                      <FileDown className="mr-1 h-3 w-3" />
-                      PDF
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <LeadKnowledgeMemoryCard
+              leadId={leadId}
+              variant="button"
+              indexingActive
+            />
+            {mode === 'report' && (
+              <div className="flex flex-wrap items-center gap-2">
+                {isLoading ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold/60 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-gold" />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold animate-pulse">
+                      IA pensando…
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5 text-gold" aria-hidden />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
+                      Relatório da IA
+                    </span>
+                    {canExportPdf && onExportPdf && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onExportPdf}
+                        className="h-7 border-gold-border-subtle/40 px-2 text-[10px] uppercase tracking-wide text-cream-muted hover:text-gold"
+                      >
+                        <FileDown className="mr-1 h-3 w-3" />
+                        PDF
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

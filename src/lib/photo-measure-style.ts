@@ -109,3 +109,22 @@ export function measureDistance(
   if (via) return quadraticArcLength(a, via, b);
   return distanceBetween(a, b);
 }
+
+/**
+ * Posição da etiqueta numérica — afastada do traço para não misturar com a linha.
+ * Arco usa distância menor (já há curvatura); reta usa folga maior.
+ */
+export function measureLabelPosition(
+  a: WhiteboardPoint,
+  b: WhiteboardPoint,
+  via?: WhiteboardPoint | null,
+): { anchor: WhiteboardPoint; x: number; y: number } {
+  const anchor = via ? quadraticMidpoint(a, via, b) : midpoint(a, b);
+  const offsetDist = via ? 32 : 44;
+  const offset = perpendicularOffset(a, b, offsetDist);
+  return {
+    anchor,
+    x: anchor.x + offset.x,
+    y: anchor.y + offset.y,
+  };
+}

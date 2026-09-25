@@ -9,6 +9,7 @@ import {
   type DecodedWhiteboardAnnotation,
   type WhiteboardAnnotationPayload,
 } from '@/lib/whiteboard-annotations';
+import { measureLabelPosition } from '@/lib/photo-measure-style';
 import { loadImageForRender } from '@/lib/render-image-normalize';
 import { furnitureFrame } from '@/lib/furniture-modules';
 
@@ -138,15 +139,44 @@ function drawTextPayload(
   ctx.save();
   ctx.translate(payload.x + payload.w / 2, payload.y + payload.h / 2);
   ctx.rotate((payload.rotation * Math.PI) / 180);
-  ctx.fillStyle = ann.cor || '#111111';
+
+  // Fundo suave da caixa (como na lousa)
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const hw = payload.w / 2;
+  const hh = payload.h / 2;
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(-hw, -hh, payload.w, payload.h, 6);
+  } else {
+    ctx.rect(-hw, -hh, payload.w, payload.h);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  const fill = ann.cor || '#111111';
   ctx.font = `${payload.fontSize}px system-ui, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   const lineHeight = payload.fontSize * 1.25;
-  const startY = -payload.h / 2;
-  const startX = -payload.w / 2;
+  const startY = -payload.h / 2 + 4;
+  const startX = -payload.w / 2 + 6;
   lines.forEach((line, index) => {
-    ctx.fillText(line, startX, startY + index * lineHeight);
+    const y = startY + index * lineHeight;
+    // Sombra / halo para destacar a escrita
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = Math.max(2, payload.fontSize * 0.08);
+    ctx.lineJoin = 'round';
+    ctx.strokeText(line, startX, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(line, startX, y);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
   });
   ctx.restore();
 }
@@ -169,18 +199,54 @@ function drawMeasurePayload(
   }
   ctx.stroke();
 
-  if (payload.label?.trim()) {
-    const mx = payload.via
-      ? (payload.a.x + payload.b.x + payload.via.x) / 3
-      : (payload.a.x + payload.b.x) / 2;
-    const my = payload.via
-      ? (payload.a.y + payload.b.y + payload.via.y) / 3
-      : (payload.a.y + payload.b.y) / 2;
+  // Pontos A/B
+  for (const pt of [payload.a, payload.b]) {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
     ctx.fillStyle = color;
-    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  if (payload.label?.trim()) {
+    const { x: mx, y: my } = measureLabelPosition(payload.a, payload.b, payload.via);
+    const label = payload.label;
+    ctx.font = 'bold 16px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(payload.label, mx, my - 12);
+    const metrics = ctx.measureText(label);
+    const padX = 12;
+    const boxW = Math.max(52, metrics.width + padX * 2);
+    const boxH = 28;
+
+    // Placa opaca (igual à lousa)
+    ctx.fillStyle = 'rgba(8, 6, 4, 0.97)';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(mx - boxW / 2, my - boxH / 2, boxW, boxH, 8);
+    } else {
+      ctx.rect(mx - boxW / 2, my - boxH / 2, boxW, boxH);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Faixa colorida no topo
+    ctx.fillStyle = color;
+    ctx.fillRect(mx - boxW / 2 + 2, my - boxH / 2 + 2, boxW - 4, 4);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(label, mx, my + 2);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
   }
 }
 

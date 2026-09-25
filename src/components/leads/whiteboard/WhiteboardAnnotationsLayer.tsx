@@ -1048,7 +1048,7 @@ export function WhiteboardAnnotationsLayer({
   return (
     <div
       className="absolute inset-0 pointer-events-none"
-      style={{ zIndex: 9100, width: worldWidth, height: worldHeight }}
+      style={{ zIndex: 9400, width: worldWidth, height: worldHeight }}
     >
       <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
         {annotations.map((ann) => {
@@ -1265,13 +1265,23 @@ export function WhiteboardAnnotationsLayer({
                 textAreaRefs.current[ann.id] = node;
               }}
               className={cn(
-                'block h-[calc(100%-2px)] w-[calc(100%-2px)] resize-none rounded-md border border-border/80 bg-white/95 px-2 py-1 text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/40',
+                'block h-[calc(100%-2px)] w-[calc(100%-2px)] resize-none rounded-md border border-white/70 bg-white/92 px-2 py-1 outline-none focus:ring-2 focus:ring-primary/40',
+                'shadow-[0_2px_10px_rgba(0,0,0,0.35),0_0_0_1px_rgba(0,0,0,0.12)]',
                 canDragText && 'cursor-grab active:cursor-grabbing',
               )}
               style={{
                 fontFamily: textFontFamily,
                 fontSize: isMobile ? Math.max(p.fontSize, 16) : p.fontSize,
                 color: textColorHex,
+                // Halo escuro nas letras — destaca a escrita sobre a foto/traços
+                textShadow: [
+                  '0 0 2px rgba(255,255,255,0.95)',
+                  '0 0 4px rgba(255,255,255,0.85)',
+                  '0 1px 2px rgba(0,0,0,0.55)',
+                  '0 2px 6px rgba(0,0,0,0.45)',
+                  '1px 1px 0 rgba(0,0,0,0.35)',
+                  '-1px -1px 0 rgba(255,255,255,0.4)',
+                ].join(', '),
               }}
               value={p.text}
               readOnly={!canEditText || isDragging}

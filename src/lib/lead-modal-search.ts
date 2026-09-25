@@ -1,5 +1,6 @@
 import {
-  filterLeadDetailsNav,
+  filterLeadAllSectionsNav,
+  leadTabForSection,
   LEAD_IA_NAV,
   type LeadIaSubtab,
   type LeadModalTabId,
@@ -70,9 +71,9 @@ export function searchLeadModalCatalog(
   query: string,
   visibility: LeadNavVisibility = {},
 ): LeadSearchHit[] {
-  const details = filterLeadDetailsNav(visibility);
+  const sections = filterLeadAllSectionsNav(visibility);
   const ia = visibility.showIa === false ? [] : LEAD_IA_NAV;
-  return [...ia, ...details]
+  return [...ia, ...sections]
     .map((item) => catalogHit(item, query))
     .filter((hit): hit is LeadSearchHit => hit != null);
 }
@@ -99,7 +100,7 @@ export function collectLeadModalLiveHits(root: ParentNode, query: string): LeadS
       label,
       hint: value && value !== label ? value.slice(0, 72) : 'Campo do card',
       kind: 'field',
-      tab: 'detalhes',
+      tab: leadTabForSection(sectionId),
       sectionId,
       fieldId,
       score: score + 8,
@@ -118,7 +119,7 @@ export function collectLeadModalLiveHits(root: ParentNode, query: string): LeadS
       label: title,
       hint: 'Seção do card',
       kind: 'section',
-      tab: 'detalhes',
+      tab: leadTabForSection(sectionId),
       sectionId,
       score,
     });

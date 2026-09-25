@@ -26,7 +26,7 @@ export function GarboApresentacaoHero() {
         alt=""
         width={1920}
         height={1080}
-        fetchPriority="high"
+        fetchpriority="high"
         decoding="async"
         className={cn(
           'absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out motion-reduce:transition-none',

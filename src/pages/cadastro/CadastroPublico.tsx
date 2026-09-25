@@ -3,8 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, User, Mail, Phone, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { zodFormResolver } from '@/lib/zod-form-resolver';
 
 const carboLogo = '/logo-carbo.jpeg';
 
@@ -97,7 +97,7 @@ export default function CadastroPublico() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({ resolver: zodFormResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
     setServerError('');

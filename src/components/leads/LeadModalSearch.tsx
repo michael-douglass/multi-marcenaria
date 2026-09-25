@@ -30,7 +30,7 @@ export function LeadModalSearch({ onJump, ...visibility }: LeadModalSearchProps)
     const liveRoot = document.querySelector('[data-lead-modal-scroll="true"]');
     const live = liveRoot ? collectLeadModalLiveHits(liveRoot, trimmed) : [];
     return mergeLeadSearchHits([...catalog, ...live]);
-  }, [query, visibility.hideContratos, visibility.hideMarkup, visibility.hideOrcamentos, visibility.hideWhatsapp, visibility.showIa]);
+  }, [query, visibility.hideContratos, visibility.hideMarkup, visibility.hideOrcamentos, visibility.hidePontuaGarbo, visibility.hideWhatsapp, visibility.showIa]);
 
   useEffect(() => {
     setActiveIndex(0);

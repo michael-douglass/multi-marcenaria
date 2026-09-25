@@ -1,9 +1,9 @@
 import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowRight, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { zodFormResolver } from '@/lib/zod-form-resolver';
 import {
   GARBO_APRESENTACAO_EMPRESA_ID,
   GARBO_APRESENTACAO_IMAGES,
@@ -47,7 +47,7 @@ export function GarboParceriaFormOverlay({ open, onClose }: GarboParceriaFormOve
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({ resolver: zodFormResolver(schema) });
 
   useEffect(() => {
     if (!open) return;

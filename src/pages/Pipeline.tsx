@@ -102,7 +102,7 @@ export default function Pipeline() {
   const [droppedLeadId, setDroppedLeadId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
-  const [leadModalInitialTab, setLeadModalInitialTab] = useState<'detalhes' | 'analise-ia'>('detalhes');
+  const [leadModalInitialTab, setLeadModalInitialTab] = useState<'info' | 'detalhes' | 'analise-ia'>('info');
   const [leadModalIaSubtab, setLeadModalIaSubtab] = useState<'visual' | 'render'>('visual');
   const [isEditMode, setIsEditMode] = useState(true);
 
@@ -137,7 +137,7 @@ export default function Pipeline() {
     setIsModalOpen(false);
     setSelectedLeadId(null);
     setIsEditMode(true);
-    setLeadModalInitialTab('detalhes');
+    setLeadModalInitialTab('info');
     setLeadModalIaSubtab('visual');
   }, [syncLeadIdInUrl]);
   const [showSaleValueDialog, setShowSaleValueDialog] = useState(false);
@@ -230,7 +230,7 @@ export default function Pipeline() {
     setIsEditMode(true);
     setIsModalOpen(true);
 
-    if (tabFromUrl === 'analise-ia' || tabFromUrl === 'detalhes') {
+    if (tabFromUrl === 'analise-ia' || tabFromUrl === 'detalhes' || tabFromUrl === 'info') {
       setLeadModalInitialTab(tabFromUrl);
     }
     if (iaSubtabFromUrl === 'render' || iaSubtabFromUrl === 'visual') {

@@ -1,6 +1,6 @@
-export type LeadModalTabId = 'detalhes' | 'analise-ia';
+export type LeadModalTabId = 'info' | 'detalhes' | 'analise-ia';
 export type LeadIaSubtab = 'visual' | 'render';
-export type LeadNavMenu = 'detalhes' | 'ia';
+export type LeadNavMenu = 'info' | 'detalhes' | 'ia';
 
 export interface LeadNavJumpItem {
   id: string;
@@ -12,28 +12,46 @@ export interface LeadNavJumpItem {
   keywords?: string[];
 }
 
-export const LEAD_DETAILS_NAV: LeadNavJumpItem[] = [
+const INFO_SECTION_IDS = new Set(['contato', 'negocio', 'equipe', 'pontua-garbo']);
+
+export function leadTabForSection(sectionId: string): LeadModalTabId {
+  return INFO_SECTION_IDS.has(sectionId) ? 'info' : 'detalhes';
+}
+
+/** Ficha principal: quem é, o negócio, a equipe e o Pontua Garbo. */
+export const LEAD_INFO_NAV: LeadNavJumpItem[] = [
   {
     id: 'contato',
     label: 'Contato',
     hint: 'Nome, telefone e e-mail',
-    tab: 'detalhes',
-    keywords: ['nome', 'telefone', 'email', 'e-mail', 'fone', 'whats'],
+    tab: 'info',
+    keywords: ['nome', 'telefone', 'email', 'e-mail', 'fone', 'whats', 'informacoes', 'informações'],
   },
   {
     id: 'negocio',
     label: 'Negócio',
     hint: 'Empresa, origem e valor',
-    tab: 'detalhes',
-    keywords: ['empresa', 'origem', 'valor', 'orcamento', 'orçamento', 'regiao', 'região'],
+    tab: 'info',
+    keywords: ['empresa', 'origem', 'valor', 'orcamento', 'orçamento', 'regiao', 'região', 'informacoes', 'informações'],
   },
   {
     id: 'equipe',
     label: 'Equipe e status',
     hint: 'Vendedor e coluna do funil',
-    tab: 'detalhes',
-    keywords: ['vendedor', 'status', 'coluna', 'funil', 'equipe'],
+    tab: 'info',
+    keywords: ['vendedor', 'status', 'coluna', 'funil', 'equipe', 'informacoes', 'informações'],
   },
+  {
+    id: 'pontua-garbo',
+    label: 'Pontua Garbo',
+    hint: 'Cadastrar ou unir parceiro',
+    tab: 'info',
+    keywords: ['pontua', 'garbo', 'arquiteto', 'parceiro', 'estrelinha', 'comissao', 'comissão'],
+  },
+];
+
+/** Demais seções do card (documentos, mídia, conversa…). */
+export const LEAD_DETAILS_NAV: LeadNavJumpItem[] = [
   {
     id: 'observacoes',
     label: 'Observações',
@@ -110,6 +128,14 @@ export interface LeadNavVisibility {
   hideOrcamentos?: boolean;
   hideMarkup?: boolean;
   hideWhatsapp?: boolean;
+  hidePontuaGarbo?: boolean;
+}
+
+export function filterLeadInfoNav(visibility: LeadNavVisibility = {}): LeadNavJumpItem[] {
+  return LEAD_INFO_NAV.filter((item) => {
+    if (item.id === 'pontua-garbo' && visibility.hidePontuaGarbo) return false;
+    return true;
+  });
 }
 
 export function filterLeadDetailsNav(visibility: LeadNavVisibility): LeadNavJumpItem[] {
@@ -120,4 +146,15 @@ export function filterLeadDetailsNav(visibility: LeadNavVisibility): LeadNavJump
     if (item.id === 'whatsapp' && visibility.hideWhatsapp) return false;
     return true;
   });
+}
+
+/** Catálogo completo de seções do card (ficha + detalhes), para busca. */
+export function filterLeadAllSectionsNav(visibility: LeadNavVisibility): LeadNavJumpItem[] {
+  return [...filterLeadInfoNav(visibility), ...filterLeadDetailsNav(visibility)];
+}
+
+export function leadNavMenuToTab(menu: LeadNavMenu): LeadModalTabId {
+  if (menu === 'ia') return 'analise-ia';
+  if (menu === 'info') return 'info';
+  return 'detalhes';
 }
