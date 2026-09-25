@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Save, FileDown, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2 } from 'lucide-react';
+import { Loader2, Save, FileDown, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2, X } from 'lucide-react';
 import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -350,6 +350,9 @@ export function MarkupCalculatorSheet({
   const autoSaveInFlightRef = useRef(false);
   const autoSaveQueuedRef = useRef(false);
   const sheetAbertoRef = useRef(open);
+  /** Só fecha no toque quando o usuário pediu (X / Fechar) — ignora dismiss automático. */
+  const explicitCloseRef = useRef(false);
+  const openedAtRef = useRef(0);
   /** Timestamp até o qual abertura/hidratação não dispara auto-save/sync. */
   const hydrationGraceUntilRef = useRef(0);
   const skipNextLeadPriceSyncRef = useRef(false);
@@ -358,6 +361,7 @@ export function MarkupCalculatorSheet({
     // Antes do paint: evita o card do lead fechar/brigar com o foco no tablet (Tab S9 Ultra).
     setMarkupCalculatorOpenFlag(open);
     sheetAbertoRef.current = open;
+    if (open) openedAtRef.current = Date.now();
     return () => setMarkupCalculatorOpenFlag(false);
   }, [open]);
 
@@ -1171,6 +1175,13 @@ export function MarkupCalculatorSheet({
         return;
       }
 
+      // Dentro do card do lead (modal={false}) o Radix dispara “fechar” sozinho na briga de foco
+      // (Galaxy Tab S9 Ultra etc.). Só fecha se o usuário pediu (X / Escape / excluir).
+      if (!modal && !explicitCloseRef.current) {
+        return;
+      }
+      explicitCloseRef.current = false;
+
       gravarRascunhoLocalAgora();
       const live = formLiveRef.current;
       const precisaSalvarNuvem =
@@ -1189,6 +1200,11 @@ export function MarkupCalculatorSheet({
     },
     [onOpenChange, gravarRascunhoLocalAgora],
   );
+
+  const solicitarFechamento = useCallback(() => {
+    explicitCloseRef.current = true;
+    handleOpenChange(false);
+  }, [handleOpenChange]);
 
   useEffect(() => {
     if (!open || !formHydrated || precoFinal <= 0) return;
@@ -1278,6 +1294,7 @@ export function MarkupCalculatorSheet({
       if (restantes.length > 0) {
         aplicarOrcamentoNoFormulario(restantes[0]);
       } else {
+        explicitCloseRef.current = true;
         onOpenChange(false);
       }
     } catch {
@@ -1724,24 +1741,49 @@ export function MarkupCalculatorSheet({
         overlayClassName={cn(
           'markup-calculator-overlay',
           !modal && 'pointer-events-none bg-black/40',
+          quietOpen && 'data-[state=open]:animate-none',
         )}
         data-markup-calculator=""
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
         onOpenAutoFocus={(event) => {
-          // Evita o foco cair na aba Materiais e “piscar” o painel no tablet.
           event.preventDefault();
         }}
         onCloseAutoFocus={(event) => {
-          // Devolve o foco ao card sem animação/pisca no tablet.
           event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          // Nested no card do lead: bloqueia dismiss automático (pisca/fecha sozinho).
+          if (!modal) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (!modal) event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (!modal) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (!modal) {
+            event.preventDefault();
+            solicitarFechamento();
+          }
         }}
         className={cn(
           'w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden',
+          // Esconde o X padrão do Sheet — usamos o nosso (fecha de verdade no tablet).
+          '[&>button.absolute]:hidden',
           quietOpen &&
             'data-[state=open]:animate-none data-[state=closed]:animate-none transition-none duration-0',
         )}
       >
+        <button
+          type="button"
+          onClick={solicitarFechamento}
+          className="absolute right-4 top-4 z-20 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label="Fechar calculadora de markup"
+        >
+          <X className="h-4 w-4" />
+        </button>
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
         <MarkupIAComposeOverlay
           open={compondoIA}
