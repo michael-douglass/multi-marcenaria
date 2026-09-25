@@ -14,7 +14,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { MarkupCardPreview } from './MarkupCardPreview';
-import { MarkupCalculatorSheet } from './MarkupCalculatorSheet';
 import {
   MarkupOrcamentoSimplesDialog,
   MarkupOrcamentoSimplesTrigger,
@@ -22,10 +21,14 @@ import {
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
+import {
+  closeMarkupSheetSession,
+  getMarkupSheetSession,
+  openMarkupSheetSession,
+} from '@/lib/markup-sheet-session';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { setMarkupCalculatorOpenFlag } from '@/lib/markup-ui';
 
 interface MarkupLeadSectionProps {
   leadId: number;
@@ -49,10 +52,7 @@ export function MarkupLeadSection({
 }: MarkupLeadSectionProps) {
   const { orcamentos, isLoading, removerOrcamento, salvarOrcamento } = useMarkupOrcamentos(leadId);
   const { syncValorLead } = useSyncLeadMarkupValor();
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [folhaOpen, setFolhaOpen] = useState(false);
-  const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
-  const [forceNovo, setForceNovo] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
 
   const maisRecente = orcamentos[0] ?? null;
@@ -64,9 +64,9 @@ export function MarkupLeadSection({
     const id = deleteTarget.id;
     setDeleteTarget(null);
     await removerOrcamento.mutateAsync(id);
-    if (orcamentoId === id) {
-      setSheetOpen(false);
-      setOrcamentoId(null);
+    const session = getMarkupSheetSession();
+    if (session?.leadId === leadId && session.orcamentoId === id) {
+      closeMarkupSheetSession();
     }
   };
 
@@ -87,18 +87,22 @@ export function MarkupLeadSection({
 
   const abrirNovoMarkup = () => {
     if (readOnly) return;
-    setMarkupCalculatorOpenFlag(true);
-    setOrcamentoId(null);
-    setForceNovo(true);
-    setSheetOpen(true);
+    openMarkupSheetSession({
+      leadId,
+      leadNome,
+      orcamentoId: null,
+      forceNovo: true,
+    });
   };
 
   const abrirMarkupExistente = (id: string) => {
     if (readOnly) return;
-    setMarkupCalculatorOpenFlag(true);
-    setOrcamentoId(id);
-    setForceNovo(false);
-    setSheetOpen(true);
+    openMarkupSheetSession({
+      leadId,
+      leadNome,
+      orcamentoId: id,
+      forceNovo: false,
+    });
   };
 
   return (
@@ -317,27 +321,6 @@ export function MarkupLeadSection({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-
-          <MarkupCalculatorSheet
-            key={`markup-sheet-${leadId}`}
-            open={sheetOpen}
-            modal={false}
-            onOpenChange={(open) => {
-              setSheetOpen(open);
-              if (!open) {
-                setMarkupCalculatorOpenFlag(false);
-                setForceNovo(false);
-                setOrcamentoId(null);
-              }
-            }}
-            leadId={leadId}
-            leadNome={leadNome}
-            orcamentoId={orcamentoId}
-            forceNovo={forceNovo}
-            onPrecoFinalChange={(valor) => {
-              onOrcamentoSync?.(valor, { force: true });
-            }}
-          />
         </>
       )}
     </>

@@ -50,6 +50,8 @@ import { LeadPDFAttachments, type LeadPDFAttachmentsHandle } from './LeadPDFAtta
 import { LeadContratosSection } from './LeadContratosSection';
 import { LeadOrcamentoSlidesSection } from './LeadOrcamentoSlidesSection';
 import { MarkupLeadSection } from '@/components/markup/MarkupLeadSection';
+import { MarkupSheetHost } from '@/components/markup/MarkupSheetHost';
+import { closeMarkupSheetSession } from '@/lib/markup-sheet-session';
 import { LeadProjetoPanel } from '@/components/projetos/LeadProjetoPanel';
 import { LeadProjetoConclusaoPanel } from '@/components/projetos/LeadProjetoConclusaoPanel';
 import { LeadProjetoNotasSection } from '@/components/projetos/LeadProjetoNotasSection';
@@ -556,11 +558,9 @@ export function LeadModal({
       return;
     }
 
-    if (leadId && initialTab === 'analise-ia') {
-      setLeadModalTab('analise-ia');
-    } else if (leadId && (initialTab === 'detalhes' || initialTab === 'info')) {
-      setLeadModalTab(initialTab);
-    }
+    // Aba inicial: só no efeito [isOpen, leadId, initialTab].
+    // Aqui NÃO chamar setLeadModalTab — lead/dbLead mudam no auto-save e
+    // jogavam o usuário de Detalhes → Informações ao digitar Observações.
 
     if (initialized) return;
 
@@ -593,8 +593,9 @@ export function LeadModal({
       setBudgetDisplay('');
       setInitialized(true);
     }
-  }, [isOpen, initialized, leadId, lead, dbLead, currentUserData?.name, resolvedNewLeadDefaultStatus, initialTab]);
+  }, [isOpen, initialized, leadId, lead, dbLead, currentUserData?.name, resolvedNewLeadDefaultStatus, initialIaSubtab]);
 
+  // Aplica a aba pedida na URL / abertura — sem reagir a refetch do lead.
   useEffect(() => {
     if (!isOpen || !leadId) return;
     if (initialTab === 'analise-ia') {
@@ -840,6 +841,7 @@ export function LeadModal({
   const requestClose = useCallback(() => {
     // Dispara o save com os refs atuais e fecha na hora — evita overlay preso
     // (Radix tenta fechar enquanto isOpen ainda está true durante o await).
+    closeMarkupSheetSession();
     if (!skipPersistOnCloseRef.current) {
       void flushAutoSave();
     }
@@ -852,6 +854,10 @@ export function LeadModal({
     if (lastSavedSnapshotRef.current !== null) return;
     lastSavedSnapshotRef.current = getFormSnapshot();
   }, [initialized, leadId, dbLead, getFormSnapshot]);
+
+  useEffect(() => {
+    if (!isOpen) closeMarkupSheetSession();
+  }, [isOpen]);
 
   useEffect(() => {
     if (!autoSaveEnabled || !dbLeadRef.current || isSubmitting || !formDirty) return;
@@ -2508,6 +2514,16 @@ export function LeadModal({
           nested
         />
       )}
+
+      {/* Markup fora da aba Detalhes: sobrevive a re-render ao editar valores */}
+      {leadId ? (
+        <MarkupSheetHost
+          leadId={leadId}
+          leadNome={formData.name}
+          onOrcamentoSync={handleMarkupOrcamentoSync}
+          readOnly={authUserRole === 'vendedor'}
+        />
+      ) : null}
     </>
   );
 }

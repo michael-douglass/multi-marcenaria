@@ -362,7 +362,10 @@ export function MarkupCalculatorSheet({
     setMarkupCalculatorOpenFlag(open);
     sheetAbertoRef.current = open;
     if (open) openedAtRef.current = Date.now();
-    return () => setMarkupCalculatorOpenFlag(false);
+    return () => {
+      // Só limpa a flag se este efeito tinha o Sheet aberto — evita race no remount.
+      if (open) setMarkupCalculatorOpenFlag(false);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -1206,13 +1209,15 @@ export function MarkupCalculatorSheet({
     handleOpenChange(false);
   }, [handleOpenChange]);
 
+  // Só grava no banco (debounce). NÃO atualiza o card do lead a cada tecla:
+  // onPrecoFinalChange marca o form dirty → re-render → no tablet o Sheet fechava.
+  // O campo Orçamentos do card atualiza no persistirMarkup (após auto-save / Salvar).
   useEffect(() => {
     if (!open || !formHydrated || precoFinal <= 0) return;
     if (skipNextLeadPriceSyncRef.current) {
       skipNextLeadPriceSyncRef.current = false;
       return;
     }
-    onPrecoFinalChangeRef.current?.(precoFinal);
     const timer = window.setTimeout(() => {
       void syncValorLeadRef.current(leadId, precoFinal);
     }, MARKUP_LEAD_SYNC_DEBOUNCE_MS);
