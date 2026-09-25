@@ -2533,7 +2533,9 @@ export function MarkupCalculatorSheet({
                       <span className="min-w-0 leading-snug">
                         Sugestão de lucro{' '}
                         <strong className="tabular-nums text-amber-100">
-                          {formatarMoedaMarkup(auditorLucroResumo.diferenca)}
+                          {formatarMoedaMarkup(
+                            arredondar(somaMargem + auditorLucroResumo.diferenca),
+                          )}
                         </strong>
                       </span>
                       <Button
@@ -2542,7 +2544,11 @@ export function MarkupCalculatorSheet({
                         variant="ghost"
                         className="h-6 shrink-0 px-2 text-[11px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-100/10 hover:text-amber-50"
                         disabled={!(t.custo_com_impostos > 0)}
-                        onClick={() => confirmarLucroReaisEditado(auditorLucroResumo.diferenca)}
+                        onClick={() =>
+                          confirmarLucroReaisEditado(
+                            arredondar(somaMargem + auditorLucroResumo.diferenca),
+                          )
+                        }
                       >
                         Usar
                       </Button>

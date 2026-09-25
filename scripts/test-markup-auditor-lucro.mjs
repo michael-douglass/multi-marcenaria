@@ -231,6 +231,6 @@ describe('Épico 5 — markup geral vs lead + sugestão de lucro', () => {
     assert.match(sheet, /onAuditorMetaChange=\{handleAuditorMetaChange\}/)
     assert.match(sheet, /data-markup-sugestao-lucro/)
     assert.match(sheet, /Sugestão de lucro/)
-    assert.match(sheet, /confirmarLucroReaisEditado\(auditorLucroResumo\.diferenca\)/)
+    assert.match(sheet, /somaMargem \+ auditorLucroResumo\.diferenca/)
   })
 })
