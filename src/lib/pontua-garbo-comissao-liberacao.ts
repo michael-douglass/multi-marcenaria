@@ -18,6 +18,8 @@ export interface ComissaoLiberacaoRow {
   percentual: number;
   valor_base: number;
   status: ComissaoLiberacaoStatus;
+  /** Conta a pagar gerada no financeiro quando entra em aguardando liberação. */
+  conta_pagar_id?: string | null;
   criado_em: string;
   liberado_em: string | null;
   liberado_por: string | null;
