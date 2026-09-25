@@ -555,6 +555,16 @@ function encaixarConteudoNosSlides(
   slides.forEach((slide) => {
     if (slide.querySelector('[data-orcamento-print-fit]')) return;
 
+    // Libera overflow interno (ex.: lista de valores) para medir a altura real.
+    const overflowRestores: Array<{ el: HTMLElement; overflow: string }> = [];
+    slide.querySelectorAll<HTMLElement>('*').forEach((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.overflow === 'hidden' || cs.overflowY === 'hidden') {
+        overflowRestores.push({ el, overflow: el.style.overflow });
+        el.style.overflow = 'visible';
+      }
+    });
+
     slide.style.width = `${slideWidth}px`;
     slide.style.maxWidth = `${slideWidth}px`;
     slide.style.height = 'auto';
@@ -563,9 +573,18 @@ function encaixarConteudoNosSlides(
     slide.style.overflow = 'visible';
     slide.style.transform = 'none';
 
+    // Valores separados: tipografia um pouco mais densa antes de escalar.
+    if (slide.getAttribute('data-bloco-tipo') === 'precos_fracionados') {
+      compactarSlidePrecosFracionadosParaPrint(slide);
+    }
+
     const contentHeight = Math.ceil(
       Math.max(slide.scrollHeight, slide.offsetHeight, slide.getBoundingClientRect().height),
     );
+
+    overflowRestores.forEach(({ el, overflow }) => {
+      el.style.overflow = overflow;
+    });
 
     slide.style.height = `${slideHeight}px`;
     slide.style.minHeight = `${slideHeight}px`;
@@ -589,6 +608,26 @@ function encaixarConteudoNosSlides(
       fit.appendChild(slide.firstChild);
     }
     slide.appendChild(fit);
+  });
+}
+
+/** Aperta espaçamento do bloco “Valores separados” só na captura/impressão. */
+function compactarSlidePrecosFracionadosParaPrint(slide: HTMLElement): void {
+  const root = slide.querySelector<HTMLElement>('[data-orcamento-precos-fracionados]');
+  if (!root) return;
+
+  root.style.paddingTop = '28px';
+  root.style.paddingBottom = '28px';
+  root.style.gap = '16px';
+  root.style.justifyContent = 'flex-start';
+
+  root.querySelectorAll<HTMLElement>('.flex.w-full.flex-col').forEach((col) => {
+    col.style.gap = '12px';
+  });
+
+  root.querySelectorAll<HTMLElement>('.flex.items-baseline.justify-between').forEach((row) => {
+    row.style.paddingTop = '10px';
+    row.style.paddingBottom = '10px';
   });
 }
 

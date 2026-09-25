@@ -1,4 +1,4 @@
-import { forwardRef, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type {
   BlocoEscalaVisual,
@@ -94,6 +94,10 @@ import {
 } from '@/lib/orcamento-slide-midias-helpers';
 import { BlocoAnaliseIASlides } from '@/components/orcamento-slides/BlocoAnaliseIA';
 import { isAnaliseIaOcultaNoOrcamento } from '@/lib/orcamento-slide-analise-ia';
+import {
+  paginarGruposPrecosFracionados,
+  type GrupoFracionadoPagina,
+} from '@/lib/orcamento-slide-precos-fracionados-paginacao';
 import {
   alturaCardFerragem,
   resolveSectionMinHeight,
@@ -1858,14 +1862,31 @@ function BlocoPrecificacao({
 }
 
 // ── Bloco: PREÇOS FRACIONADOS ───────────────────────────────────────────────────
-function BlocoPrecosFracionados({
-  bloco, orcamento, template, viewport, previewMode,
+function BlocoPrecosFracionadosPagina({
+  bloco,
+  template,
+  viewport,
+  previewMode,
+  etiqueta,
+  titulo,
+  gruposPagina,
+  pageIndex,
+  totalPages,
+  showFullHeader,
+  densificar,
 }: {
   bloco: OrcamentoSlideBloco;
-  orcamento: OrcamentoSlide;
   template: OrcamentoSlideTemplate | null;
   viewport?: ViewportMode;
   previewMode?: boolean;
+  etiqueta: string;
+  titulo: string;
+  gruposPagina: GrupoFracionadoPagina[];
+  pageIndex: number;
+  totalPages: number;
+  showFullHeader: boolean;
+  /** PDF / prévia fiel: linhas mais compactas para caber sem cortar. */
+  densificar: boolean;
 }) {
   const p = usePaleta(template);
   const leg = useEstilosLegibilidadeFundo(p);
@@ -1876,82 +1897,136 @@ function BlocoPrecosFracionados({
   const px = slidePaddingX(layout, mobile);
   const textAlign = alinhamentoFlexClasses(layout.alinhamento);
   const fator = layout.escala_visual === 'maxima' ? 1.38 : layout.escala_visual === 'grande' ? 1.18 : 1;
+  const paginaLabel = String(pageIndex + 1).padStart(2, '0');
+  const totalLabel = String(totalPages).padStart(2, '0');
 
-  const { faithfulPreview } = useSlideLayoutContext();
-  const modoExemplo = slidePrecosFracionadosModoExemplo({ previewMode, faithfulPreview });
-  const prec = normalizarPrecificacao(orcamento.dados?.precificacao);
-  const fracionarAtivo = precificacaoFracionadaAtiva(prec);
+  const itemPadY = densificar
+    ? mobile
+      ? 'px-4 py-2.5'
+      : 'px-5 py-3'
+    : 'px-5 py-4 sm:px-6 sm:py-5';
+  const listaGap = densificar ? 'gap-4' : 'gap-6';
+  const sectionPad = densificar ? 'py-6 gap-4' : 'py-10 gap-7';
+  const labelSize = (mobile ? 15 : 17) * fator * (densificar ? 0.94 : 1);
+  const valorSize = (mobile ? 16 : 19) * fator * (densificar ? 0.94 : 1);
 
-  if (!fracionarAtivo && !modoExemplo) return null;
-
-  const grupos = resolverGruposFracionadosApresentacao({
-    precificacao: prec,
-    itensTemplate: itensFracionadosDoConfig(bloco.config),
-    permitirItensTemplate: modoExemplo,
-  });
-
-  if (!grupos.length && !modoExemplo) return null;
-
-  const etiqueta = textoDoConfig(bloco.config, 'etiqueta', 'precos_fracionados') || 'Detalhamento';
-  const titulo = textoDoConfig(bloco.config, 'titulo', 'precos_fracionados') || 'Valores separados';
-
-  const gruposExibir = grupos.length > 0
-    ? grupos
-    : modoExemplo
-      ? [
-          {
-            id: 'exemplo',
-            itens: [
-              { label: 'Cozinha', valor: 7807 },
-              { label: 'Quarto — roupeiro, escrivaninha e painel', valor: 11900 },
-              { label: 'Banheiro (sem espelho)', valor: 500 },
-              { label: 'Lavanderia', valor: 4230 },
-              { label: 'Cristaleira', valor: 4000 },
-            ],
-            exibir_total: true,
-          },
-        ]
-      : [];
-
-  let revealOffset = 160;
+  let revealOffset = showFullHeader ? 160 : 40;
 
   return (
     <section
-      className={cn('w-full max-w-full flex flex-col justify-safe-center py-10 gap-7', textAlign.items, minH)}
-      style={{ background: leg.fundoSecao, scrollSnapAlign: 'start', paddingLeft: px, paddingRight: px, ...SLIDE_CONTAINER_STYLE }}
+      data-orcamento-precos-fracionados=""
+      className={cn(
+        'w-full max-w-full flex flex-col justify-safe-center',
+        sectionPad,
+        textAlign.items,
+        minH,
+      )}
+      style={{
+        background: leg.fundoSecao,
+        scrollSnapAlign: 'start',
+        paddingLeft: px,
+        paddingRight: px,
+        ...SLIDE_CONTAINER_STYLE,
+      }}
     >
-      <p
-        style={{ color: `${p.secundaria}80`, fontFamily: `'${p.corpoFont}', sans-serif`, ...typo.etiqueta, ...leg.sombraTexto, ...reveal(0, previewMode) }}
-        data-reveal={!previewMode || undefined}
-      >
-        {etiqueta}
-      </p>
-      <h2
-        className={cn('font-serif font-bold text-white max-w-full', textAlign.text)}
-        style={{ fontFamily: `'${p.tituloFont}', serif`, ...typo.blocoTitulo, ...leg.sombraTexto, ...reveal(80, previewMode) }}
-        data-reveal={!previewMode || undefined}
-      >
-        {titulo}
-      </h2>
+      {showFullHeader ? (
+        <>
+          <p
+            style={{
+              color: `${p.secundaria}80`,
+              fontFamily: `'${p.corpoFont}', sans-serif`,
+              ...typo.etiqueta,
+              ...leg.sombraTexto,
+              ...reveal(0, previewMode),
+            }}
+            data-reveal={!previewMode || undefined}
+          >
+            {etiqueta}
+          </p>
+          <div className={cn('flex w-full max-w-2xl items-end justify-between gap-3', textAlign.items)}>
+            <h2
+              className={cn('font-serif font-bold text-white max-w-full min-w-0', textAlign.text)}
+              style={{
+                fontFamily: `'${p.tituloFont}', serif`,
+                ...typo.blocoTitulo,
+                ...leg.sombraTexto,
+                ...reveal(80, previewMode),
+              }}
+              data-reveal={!previewMode || undefined}
+            >
+              {titulo}
+            </h2>
+            {totalPages > 1 && (
+              <p
+                aria-label={`Página ${pageIndex + 1} de ${totalPages}`}
+                className="shrink-0 tabular-nums"
+                style={{
+                  fontFamily: `'${p.corpoFont}', sans-serif`,
+                  fontSize: (mobile ? 11 : 12) * fator,
+                  letterSpacing: '0.14em',
+                  color: `${p.secundaria}88`,
+                  ...reveal(100, previewMode),
+                }}
+                data-reveal={!previewMode || undefined}
+              >
+                {paginaLabel} / {totalLabel}
+              </p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div
+          className={cn(
+            'flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 border-b pb-2',
+            textAlign.items,
+          )}
+          style={{ borderColor: `${p.secundaria}28`, ...reveal(0, previewMode) }}
+          data-reveal={!previewMode || undefined}
+        >
+          <p
+            style={{
+              color: `${p.secundaria}aa`,
+              fontFamily: `'${p.corpoFont}', sans-serif`,
+              fontSize: mobile ? '0.62rem' : '0.7rem',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {titulo} · continuação
+          </p>
+          <p
+            aria-label={`Página ${pageIndex + 1} de ${totalPages}`}
+            className="tabular-nums"
+            style={{
+              fontFamily: `'${p.corpoFont}', sans-serif`,
+              fontSize: mobile ? '0.65rem' : '0.72rem',
+              letterSpacing: '0.12em',
+              color: `${p.secundaria}88`,
+            }}
+          >
+            {paginaLabel} / {totalLabel}
+          </p>
+        </div>
+      )}
 
-      <div className={cn('flex w-full max-w-2xl flex-col gap-6', textAlign.items)}>
-        {gruposExibir.map((grupo) => {
+      <div className={cn('flex w-full max-w-2xl flex-col', listaGap, textAlign.items)}>
+        {gruposPagina.map((grupo) => {
           const itensExibir = grupo.itens;
-          const total = somaItensFracionados(itensExibir);
-          const mostrarTotal = modoExemplo ? true : grupo.exibir_total !== false;
+          const total = grupo.total_grupo > 0 ? grupo.total_grupo : somaItensFracionados(itensExibir);
+          const mostrarTotal = grupo.exibir_total && total > 0;
           const grupoStart = revealOffset;
-          revealOffset += itensExibir.length * 70 + (mostrarTotal ? 80 : 40);
+          revealOffset += itensExibir.length * (densificar ? 48 : 70) + (mostrarTotal ? 70 : 30);
 
           return (
-            <div key={grupo.id} className="flex w-full flex-col gap-3">
+            <div key={`${grupo.id}-p${pageIndex}-${grupo.continuacao ? 'c' : 'a'}`} className="flex w-full flex-col gap-2.5">
               {grupo.titulo && (
                 <p
                   className={cn('font-serif font-semibold text-white/90', textAlign.text)}
                   style={{
                     fontFamily: `'${p.tituloFont}', serif`,
-                    fontSize: (mobile ? 16 : 18) * fator,
+                    fontSize: (mobile ? 15 : 17) * fator * (densificar ? 0.95 : 1),
                     ...leg.sombraTexto,
-                    ...reveal(grupoStart - 40, previewMode),
+                    ...reveal(grupoStart - 30, previewMode),
                   }}
                   data-reveal={!previewMode || undefined}
                 >
@@ -1959,17 +2034,18 @@ function BlocoPrecosFracionados({
                 </p>
               )}
               <div
-                className="w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-sm"
+                className="w-full rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-sm"
                 style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 48px rgba(0,0,0,0.35)' }}
               >
                 {itensExibir.map((item, i) => (
                   <div
                     key={`${grupo.id}-${item.label}-${i}`}
                     className={cn(
-                      'flex items-baseline justify-between gap-4 px-5 py-4 sm:px-6 sm:py-5',
+                      'flex items-baseline justify-between gap-4',
+                      itemPadY,
                       i < itensExibir.length - 1 && 'border-b border-white/[0.07]',
                     )}
-                    style={reveal(grupoStart + i * 70, previewMode)}
+                    style={reveal(grupoStart + i * (densificar ? 48 : 70), previewMode)}
                     data-reveal={!previewMode || undefined}
                   >
                     <span
@@ -1977,7 +2053,7 @@ function BlocoPrecosFracionados({
                       style={{
                         color: 'rgba(255,255,255,0.88)',
                         fontFamily: `'${p.corpoFont}', sans-serif`,
-                        fontSize: (mobile ? 15 : 17) * fator,
+                        fontSize: labelSize,
                         fontWeight: 500,
                         ...leg.sombraTexto,
                       }}
@@ -1989,7 +2065,7 @@ function BlocoPrecosFracionados({
                       style={{
                         color: p.secundaria,
                         fontFamily: `'${p.tituloFont}', serif`,
-                        fontSize: (mobile ? 16 : 19) * fator,
+                        fontSize: valorSize,
                         ...leg.sombraTexto,
                       }}
                     >
@@ -1999,10 +2075,13 @@ function BlocoPrecosFracionados({
                 ))}
               </div>
 
-              {mostrarTotal && total > 0 && (
+              {mostrarTotal && (
                 <div
-                  className={cn('flex w-full items-center justify-between gap-4 pt-1', textAlign.text === 'text-center' && 'justify-center')}
-                  style={reveal(grupoStart + itensExibir.length * 70 + 40, previewMode)}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-4 pt-1',
+                    textAlign.text === 'text-center' && 'justify-center',
+                  )}
+                  style={reveal(grupoStart + itensExibir.length * (densificar ? 48 : 70) + 30, previewMode)}
                   data-reveal={!previewMode || undefined}
                 >
                   <span
@@ -2021,7 +2100,7 @@ function BlocoPrecosFracionados({
                     style={{
                       color: '#FFFFFF',
                       fontFamily: `'${p.tituloFont}', serif`,
-                      fontSize: (mobile ? 20 : 24) * fator,
+                      fontSize: (mobile ? 18 : 22) * fator * (densificar ? 0.95 : 1),
                       ...leg.sombraTexto,
                     }}
                   >
@@ -2034,9 +2113,102 @@ function BlocoPrecosFracionados({
         })}
       </div>
 
-      <div className="w-16 h-0.5" style={{ background: `${p.secundaria}60`, ...reveal(500, previewMode) }} data-reveal={!previewMode || undefined} />
-      <ImagensExtrasDoBloco bloco={bloco} mobile={mobile} previewMode={previewMode} px={0} />
+      {pageIndex === totalPages - 1 && (
+        <>
+          <div
+            className="w-16 h-0.5"
+            style={{ background: `${p.secundaria}60`, ...reveal(500, previewMode) }}
+            data-reveal={!previewMode || undefined}
+          />
+          <ImagensExtrasDoBloco bloco={bloco} mobile={mobile} previewMode={previewMode} px={0} />
+        </>
+      )}
     </section>
+  );
+}
+
+/** Um slide por página de itens — lista longa não corta no PDF. */
+function BlocoPrecosFracionadosSlides({
+  bloco,
+  orcamento,
+  template,
+  viewport,
+  previewMode,
+}: {
+  bloco: OrcamentoSlideBloco;
+  orcamento: OrcamentoSlide;
+  template: OrcamentoSlideTemplate | null;
+  viewport?: ViewportMode;
+  previewMode?: boolean;
+}) {
+  const mobile = isMobileViewport(viewport);
+  const { faithfulPreview } = useSlideLayoutContext();
+  const modoExemplo = slidePrecosFracionadosModoExemplo({ previewMode, faithfulPreview });
+  const precRaw = orcamento.dados?.precificacao;
+  // PDF e prévia fiel usam altura fixa — densificar + paginar evita corte.
+  const densificar = !!faithfulPreview || !!previewMode;
+
+  const gruposBase = useMemo(() => {
+    const prec = normalizarPrecificacao(precRaw);
+    const fracionarAtivo = precificacaoFracionadaAtiva(prec);
+    if (!fracionarAtivo && !modoExemplo) return [];
+    const grupos = resolverGruposFracionadosApresentacao({
+      precificacao: prec,
+      itensTemplate: itensFracionadosDoConfig(bloco.config),
+      permitirItensTemplate: modoExemplo,
+    });
+    if (grupos.length > 0) return grupos;
+    if (!modoExemplo) return [];
+    return [
+      {
+        id: 'exemplo',
+        itens: [
+          { label: 'Cozinha', valor: 7807 },
+          { label: 'Quarto — roupeiro, escrivaninha e painel', valor: 11900 },
+          { label: 'Banheiro (sem espelho)', valor: 500 },
+          { label: 'Lavanderia', valor: 4230 },
+          { label: 'Cristaleira', valor: 4000 },
+        ],
+        exibir_total: true,
+      },
+    ];
+  }, [precRaw, modoExemplo, bloco.config]);
+
+  const paginas = useMemo(
+    () => paginarGruposPrecosFracionados(gruposBase, mobile, { densificar }),
+    [gruposBase, mobile, densificar],
+  );
+
+  if (gruposBase.length === 0 || paginas.length === 0) return null;
+
+  const etiqueta = textoDoConfig(bloco.config, 'etiqueta', 'precos_fracionados') || 'Detalhamento';
+  const titulo = textoDoConfig(bloco.config, 'titulo', 'precos_fracionados') || 'Valores separados';
+
+  return (
+    <>
+      {paginas.map((pagina, pageIndex) => (
+        <OrcamentoSlideShell
+          key={`${bloco.id}-frac-${pageIndex}`}
+          bloco={bloco}
+          slidePageIndex={pageIndex + 1}
+          slidePageTotal={paginas.length}
+        >
+          <BlocoPrecosFracionadosPagina
+            bloco={bloco}
+            template={template}
+            viewport={viewport}
+            previewMode={previewMode}
+            etiqueta={etiqueta}
+            titulo={titulo}
+            gruposPagina={pagina.grupos}
+            pageIndex={pageIndex}
+            totalPages={paginas.length}
+            showFullHeader={pageIndex === 0}
+            densificar={densificar}
+          />
+        </OrcamentoSlideShell>
+      ))}
+    </>
   );
 }
 
@@ -2409,14 +2581,13 @@ function RenderBloco({
         />,
       );
     case 'precos_fracionados':
-      return withImagemFundo(
-        bloco,
-        <BlocoPrecosFracionados
+      return (
+        <BlocoPrecosFracionadosSlides
           bloco={bloco}
           orcamento={orcamento}
           template={template}
           {...shared}
-        />,
+        />
       );
     case 'prazos':
       return withImagemFundo(bloco, <BlocoPrazos bloco={bloco} orcamento={orcamento} template={template} viewport={viewport} previewMode={previewMode} />);
