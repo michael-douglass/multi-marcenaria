@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -52,8 +53,7 @@ export function LeadModalSearchAura({
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const isCompactViewport = window.matchMedia('(max-width: 1024px)').matches
-    if (prefersReduced || isCompactViewport) return
+    if (prefersReduced || isTouchOrCompactViewport()) return
 
     const renderer = tryCreateWebGLRenderer(
       () =>

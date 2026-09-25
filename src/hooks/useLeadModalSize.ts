@@ -13,6 +13,7 @@ import {
   type LeadModalLayout,
   type LeadResizeEdge,
 } from '@/lib/lead-modal-size'
+import { isTouchUiViewport } from '@/lib/viewport-ui'
 
 /** No celular o card abre maximizado; no computador, tamanho médio (restored). */
 function openingLeadModalLayout(): LeadModalLayout {
@@ -128,12 +129,12 @@ export function useLeadModalSize(open: boolean) {
 
       setLayout((prev) => {
         if (prev.mode === 'maximized') {
-          // No celular/tablet a barra do navegador muda só a altura e faz o card “piscar”.
+          // Celular/tablet toque (Tab S9 Ultra incluso): barra do navegador muda só a altura.
           // Só recalcula o maximizado quando a largura muda (rotação / split view).
-          if (isLeadModalMobileViewport(vw) && !widthChanged) {
+          if ((isLeadModalMobileViewport(vw) || isTouchUiViewport()) && !widthChanged) {
             return prev
           }
-          if (!widthChanged && vw <= 1024) {
+          if (!widthChanged && (vw <= 1024 || isTouchUiViewport())) {
             const nextProbe = maximizedLeadModalSize()
             if (Math.abs(nextProbe.h - prev.h) < 64 && Math.abs(nextProbe.w - prev.w) < 2) {
               return prev

@@ -1410,8 +1410,18 @@ export function LeadModal({
             if (shouldCancelFloatingUiOutsideEvent(e)) e.preventDefault();
             return;
           }
-          // Tela cheia / janela interna: o preventDefault cancela o clique (lousa morta).
-          if (isLeadNestedLayerEvent(e)) return;
+          // Markup em portal: impede o card de tentar fechar (loop de pisca no Tab S9 Ultra).
+          // Lousa/ambiente em tela cheia: não use preventDefault (mata o clique).
+          if (isLeadNestedLayerEvent(e)) {
+            const target = e.target as HTMLElement | null;
+            if (
+              target?.closest?.('[data-markup-calculator]') ||
+              target?.closest?.('[data-markup-orcamento-simples]')
+            ) {
+              e.preventDefault();
+            }
+            return;
+          }
           // Fecha só no clique do véu (onOverlayClick). No pointerdown o card some
           // cedo e o clique cai no Kanban — abre “Novo lead” sem querer.
           e.preventDefault();
@@ -1421,7 +1431,16 @@ export function LeadModal({
             if (shouldCancelFloatingUiOutsideEvent(e)) e.preventDefault();
             return;
           }
-          if (isLeadNestedLayerEvent(e)) return;
+          if (isLeadNestedLayerEvent(e)) {
+            const target = e.target as HTMLElement | null;
+            if (
+              target?.closest?.('[data-markup-calculator]') ||
+              target?.closest?.('[data-markup-orcamento-simples]')
+            ) {
+              e.preventDefault();
+            }
+            return;
+          }
           if (nestedOverlayOpen) e.preventDefault();
           if (isPrimaryDialogBackdrop(e.target)) e.preventDefault();
           if (shouldPreventDialogOutsideClose(e, { filePickerActive })) e.preventDefault();
@@ -1444,7 +1463,8 @@ export function LeadModal({
               document.documentElement.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR) ||
               document.documentElement.hasAttribute(ENVIAR_PROJETO_DIALOG_OPEN_ATTR) ||
               document.documentElement.hasAttribute(ORCAMENTO_VISUALIZAR_OPEN_ATTR) ||
-              document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR))
+              document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR) ||
+              shouldBlockLeadModalBackdropClose({ filePickerActive }))
           ) {
             e.preventDefault();
           }

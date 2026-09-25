@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -92,6 +92,7 @@ import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui';
 import { podeVerMarkupResumo } from '@/lib/markup-auditor-lucro';
 
 interface MarkupCalculatorSheetProps {
@@ -353,7 +354,8 @@ export function MarkupCalculatorSheet({
   const hydrationGraceUntilRef = useRef(0);
   const skipNextLeadPriceSyncRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Antes do paint: evita o card do lead fechar/brigar com o foco no tablet (Tab S9 Ultra).
     setMarkupCalculatorOpenFlag(open);
     sheetAbertoRef.current = open;
     return () => setMarkupCalculatorOpenFlag(false);
@@ -1712,6 +1714,7 @@ export function MarkupCalculatorSheet({
     'mt-0 min-h-0 flex-1 basis-0 overflow-x-hidden px-6 pb-6 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=inactive]:hidden';
   const tabPanelScroll = `${tabPanelBase} overflow-y-auto overscroll-contain`;
   const tabPanelMateriais = `${tabPanelBase} flex flex-col overflow-hidden pt-3`;
+  const quietOpen = isTouchOrCompactViewport();
 
   return (
     <>
@@ -1729,9 +1732,14 @@ export function MarkupCalculatorSheet({
           // Evita o foco cair na aba Materiais e “piscar” o painel no tablet.
           event.preventDefault();
         }}
+        onCloseAutoFocus={(event) => {
+          // Devolve o foco ao card sem animação/pisca no tablet.
+          event.preventDefault();
+        }}
         className={cn(
           'w-full max-w-[min(100vw,56rem)] gap-0 p-0 sm:max-w-2xl lg:max-w-4xl flex h-full max-h-dvh flex-col overflow-hidden',
-          'max-lg:data-[state=open]:animate-none max-lg:data-[state=closed]:animate-none max-lg:transition-none max-lg:duration-0',
+          quietOpen &&
+            'data-[state=open]:animate-none data-[state=closed]:animate-none transition-none duration-0',
         )}
       >
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">

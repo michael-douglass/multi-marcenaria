@@ -25,6 +25,8 @@ import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { setMarkupCalculatorOpenFlag } from '@/lib/markup-ui';
+import { isTouchOrCompactViewport, TOUCH_OR_COMPACT_MQ } from '@/lib/viewport-ui';
 
 interface MarkupLeadSectionProps {
   leadId: number;
@@ -53,6 +55,16 @@ export function MarkupLeadSection({
   const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
   const [forceNovo, setForceNovo] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
+  /** Tab S9 Ultra etc.: Sheet modal evita briga de foco com o card do lead. */
+  const [touchUi, setTouchUi] = useState(() => isTouchOrCompactViewport());
+
+  useEffect(() => {
+    const mql = window.matchMedia(TOUCH_OR_COMPACT_MQ);
+    const sync = () => setTouchUi(mql.matches);
+    sync();
+    mql.addEventListener('change', sync);
+    return () => mql.removeEventListener('change', sync);
+  }, []);
 
   const maisRecente = orcamentos[0] ?? null;
   const syncValorLeadRef = useRef(syncValorLead);
@@ -86,6 +98,7 @@ export function MarkupLeadSection({
 
   const abrirNovoMarkup = () => {
     if (readOnly) return;
+    setMarkupCalculatorOpenFlag(true);
     setOrcamentoId(null);
     setForceNovo(true);
     setSheetOpen(true);
@@ -93,6 +106,7 @@ export function MarkupLeadSection({
 
   const abrirMarkupExistente = (id: string) => {
     if (readOnly) return;
+    setMarkupCalculatorOpenFlag(true);
     setOrcamentoId(id);
     setForceNovo(false);
     setSheetOpen(true);
@@ -318,10 +332,11 @@ export function MarkupLeadSection({
           <MarkupCalculatorSheet
             key={`${leadId}-${orcamentoId ?? 'sem-id'}-${forceNovo ? 'novo' : 'edit'}`}
             open={sheetOpen}
-            modal={false}
+            modal={touchUi}
             onOpenChange={(open) => {
               setSheetOpen(open);
               if (!open) {
+                setMarkupCalculatorOpenFlag(false);
                 setForceNovo(false);
                 setOrcamentoId(null);
               }

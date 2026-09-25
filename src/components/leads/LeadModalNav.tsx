@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronDown, FileText, IdCard, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TOUCH_OR_COMPACT_MQ } from '@/lib/viewport-ui';
 import {
   filterLeadDetailsNav,
   filterLeadInfoNav,
@@ -22,8 +23,8 @@ interface LeadModalNavProps extends LeadNavVisibility {
 }
 
 const unrollEase = [0.22, 1, 0.36, 1] as const;
-/** Celular + tablet: menu compacto para a troca de página não “pular”. */
-const COMPACT_NAV_MQ = '(max-width: 1024px)';
+/** Celular + tablet (inclui Galaxy Tab S9 Ultra em landscape). */
+const COMPACT_NAV_MQ = TOUCH_OR_COMPACT_MQ;
 
 const MENU_PANEL_LABEL: Record<LeadNavMenu, string> = {
   info: 'Ir para a ficha',

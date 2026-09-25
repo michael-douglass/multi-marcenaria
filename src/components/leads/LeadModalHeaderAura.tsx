@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { cn } from '@/lib/utils'
 import { GARBO_LOGO_SRC } from '@/lib/garbo-brand'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -53,9 +54,8 @@ export function LeadModalHeaderAura({ className }: { className?: string }) {
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    // WebGL no celular/tablet costuma “piscar” ao montar o canvas — usa só CSS nesses aparelhos.
-    const isCompactViewport = window.matchMedia('(max-width: 1024px)').matches
-    if (prefersReduced || isCompactViewport) return
+    // WebGL no toque (Tab S9 Ultra incluso) costuma “piscar” ao montar o canvas.
+    if (prefersReduced || isTouchOrCompactViewport()) return
 
     const renderer = tryCreateWebGLRenderer(
       () =>

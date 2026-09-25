@@ -142,6 +142,7 @@ export function isLeadNestedLayerEvent(e: { target: EventTarget | null }): boole
       target.closest('[data-ambiente-photo-studio]') ||
       target.closest('[data-lead-folder-picker]') ||
       target.closest('[data-enviar-projeto-dialog]') ||
+      target.closest('[data-markup-calculator]') ||
       target.closest('[data-markup-orcamento-simples]') ||
       target.closest('[data-lead-lembrete-dialog]') ||
       target.closest('[data-agenda-create-dialog]') ||
@@ -184,7 +185,9 @@ export function shouldAllowDialogFocusOutside(e: { target: EventTarget | null })
       target.closest('[data-agenda-titular-picker]') ||
       target.closest('[data-lead-name-autocomplete]') ||
       target.closest('[data-lead-origem-picker]') ||
-      target.closest('[data-date-picker-root]'),
+      target.closest('[data-date-picker-root]') ||
+      target.closest('[data-markup-calculator]') ||
+      target.closest('[data-markup-orcamento-simples]'),
   );
 }
 
@@ -203,6 +206,7 @@ export function isLeadDismissBlocked(options?: { filePickerActive?: boolean }): 
   if (typeof document === 'undefined') return false;
   return Boolean(
     document.querySelector('[data-nested-dialog][data-state="open"]') ||
+      document.querySelector('[data-markup-calculator][data-state="open"]') ||
       document.querySelector('[data-markup-orcamento-simples][data-state="open"]') ||
       document.querySelector('[data-lead-lembrete-dialog][data-state="open"]') ||
       document.querySelector('[data-agenda-create-dialog][data-state="open"]') ||

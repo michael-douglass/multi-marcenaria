@@ -4061,15 +4061,15 @@ body::before {
   transform: none !important;
   opacity: 1 !important;
 }
-@media (max-width: 1024px) {
+@media (max-width: 1024px), (hover: none) and (pointer: coarse) {
   /* Overlay também sem fade longo — evita “pisca” do véu no Safari/Chrome mobile. */
   .lead-modal-overlay {
     animation: none !important;
     transition: none !important;
   }
   /*
-   * Calculadora de markup no tablet/celular:
-   * o slide do Sheet + render do catálogo (Materiais) faz a aba piscar.
+   * Calculadora de markup no tablet/celular (inclui Galaxy Tab S9 Ultra em landscape):
+   * o slide do Sheet + disputa de foco com o card do lead faz a aba piscar até fechar.
    * Abre parado, sem animação de entrada/saída.
    */
   [data-markup-calculator],
@@ -4205,7 +4205,7 @@ body::before {
     0 0 0 1px color-mix(in srgb, var(--lead-gold) 22%, transparent);
   color: var(--lead-cream);
 }
-@media (max-width: 1024px) {
+@media (max-width: 1024px), (hover: none) and (pointer: coarse) {
   .lead-modal-nav__panel {
     /* Lista mais baixa no tablet/celular para não cobrir quase a tela toda. */
     max-height: min(14rem, 32vh);
