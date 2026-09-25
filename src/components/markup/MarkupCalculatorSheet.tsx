@@ -326,7 +326,6 @@ export function MarkupCalculatorSheet({
   const [desfazendoComposicao, setDesfazendoComposicao] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('materiais');
   const [composicaoExpandida, setComposicaoExpandida] = useState(false);
-  const [descricaoHeaderAberta, setDescricaoHeaderAberta] = useState(true);
   const [formHydrated, setFormHydrated] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<MarkupAutoSaveState>('idle');
@@ -1210,6 +1209,17 @@ export function MarkupCalculatorSheet({
     handleOpenChange(false);
   }, [handleOpenChange]);
 
+  /** Fecha a calculadora e devolve o foco visual ao bloco Markup no card do lead. */
+  const recolherParaCardDoLead = useCallback(() => {
+    solicitarFechamento();
+    window.setTimeout(() => {
+      document.getElementById('lead-sec-markup')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
+  }, [solicitarFechamento]);
+
   // Só grava no banco (debounce). NÃO atualiza o card do lead a cada tecla:
   // onPrecoFinalChange marca o form dirty → re-render → no tablet o Sheet fechava.
   // O campo Orçamentos do card atualiza no persistirMarkup (após auto-save / Salvar).
@@ -1829,27 +1839,14 @@ export function MarkupCalculatorSheet({
               variant="ghost"
               size="sm"
               className="h-8 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setDescricaoHeaderAberta((aberta) => !aberta)}
-              aria-expanded={descricaoHeaderAberta}
-              aria-controls="markup-sheet-descricao"
+              onClick={recolherParaCardDoLead}
+              aria-label="Recolher calculadora e voltar ao card do lead"
             >
-              <ChevronDown
-                className={cn(
-                  'h-3.5 w-3.5 transition-transform duration-200',
-                  descricaoHeaderAberta && 'rotate-180',
-                )}
-                aria-hidden
-              />
-              {descricaoHeaderAberta ? 'Recolher' : 'Explicação'}
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+              Recolher
             </Button>
           </div>
-          <SheetDescription
-            id="markup-sheet-descricao"
-            className={cn(
-              'text-left text-xs sm:text-sm',
-              !descricaoHeaderAberta && 'sr-only',
-            )}
-          >
+          <SheetDescription className="text-left text-xs sm:text-sm">
             Composição de custo: materiais + serviços + despesas + margem. Tudo que você digita
             salva sozinho — na nuvem e neste computador — para continuar de onde parou.
           </SheetDescription>
