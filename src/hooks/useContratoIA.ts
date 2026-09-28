@@ -39,17 +39,47 @@ function parseInvokeData(data: unknown): Partial<ContratoIAResponse> {
   return {};
 }
 
+async function obterAccessToken(): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  let token = sessionData.session?.access_token?.trim() ?? '';
+
+  // Se a sessão sumiu ou o token parece curto/inválido, tenta renovar.
+  if (!token) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed.session?.access_token) {
+      throw new Error('Sessão expirada. Faça login novamente e tente a autocorreção.');
+    }
+    token = refreshed.session.access_token;
+  }
+
+  return token;
+}
+
 async function invokeComposeContratoIA(
   body: ContratoIARequest & { forcarEdicaoDocumento?: boolean },
 ): Promise<ContratoIAResponse> {
+  const accessToken = await obterAccessToken();
+
   const { data, error } = await supabase.functions.invoke('compose-contrato-ia', {
     body,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
 
   const raw = parseInvokeData(data);
 
   if (error || (typeof raw.error === 'string' && raw.error.trim())) {
     const message = await parseSupabaseFunctionError(error, data);
+    const lower = message.toLowerCase();
+    if (
+      lower.includes('não autenticado') ||
+      lower.includes('nao autenticado') ||
+      lower.includes('jwt') ||
+      lower.includes('unauthorized')
+    ) {
+      throw new Error('Sessão expirada. Faça login novamente e tente a autocorreção.');
+    }
     throw new Error(message);
   }
 

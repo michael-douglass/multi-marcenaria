@@ -384,16 +384,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Configuração do servidor incompleta' }, 500);
     }
 
-    const userClient = createClient(supabaseUrl, anonKey || serviceKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    // Anon/publishable key também é um JWT — rejeita para não confundir com usuário logado.
+    if (!token || (anonKey && token === anonKey) || token === serviceKey) {
+      return jsonResponse(
+        { error: 'Sessão inválida. Faça login novamente.' },
+        401,
+      );
+    }
+
+    // Mesmo padrão de compose-markup-ia: valida o JWT do usuário com service role.
+    const authClient = createClient(supabaseUrl, serviceKey);
     const {
       data: { user },
       error: userError,
-    } = await userClient.auth.getUser(token);
+    } = await authClient.auth.getUser(token);
 
     if (userError || !user) {
+      console.error('compose-contrato-ia auth failed', userError?.message ?? 'no user');
       return jsonResponse({ error: 'Usuário não autenticado' }, 401);
     }
 
