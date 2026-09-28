@@ -1,0 +1,1 @@
+../_shared/valor-monetario-extenso.ts

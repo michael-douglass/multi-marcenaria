@@ -161,12 +161,14 @@ export function PrestadorSolicitarSaqueDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border-white/10 bg-[#141414] text-white">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display tracking-wide">Solicitar saque</DialogTitle>
-          <DialogDescription className="text-white/50">
+          <DialogTitle className="font-display tracking-wide text-foreground">
+            Solicitar saque
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Disponível para sacar agora:{' '}
-            <span className="font-semibold text-[#4ade80]">{BRL(saldoDisponivel)}</span>. O
+            <span className="font-semibold text-emerald-700">{BRL(saldoDisponivel)}</span>. O
             administrador precisa liberar o pagamento; até lá o valor fica reservado e some dos
             cards.
           </DialogDescription>
@@ -174,7 +176,7 @@ export function PrestadorSolicitarSaqueDialog({
 
         <div className="space-y-4 py-1">
           <div className="space-y-2">
-            <Label className="text-white/70">Valor (R$)</Label>
+            <Label className="text-foreground/80">Valor (R$)</Label>
             <Input
               type="number"
               min={0}
@@ -182,13 +184,12 @@ export function PrestadorSolicitarSaqueDialog({
               placeholder={`Até ${BRL(saldoDisponivel)}`}
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              className="bg-white/5 border-white/15 text-white"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white/70">Chave PIX</Label>
-            <p className="text-[11px] text-white/40 leading-snug">
+            <Label className="text-foreground/80">Chave PIX</Label>
+            <p className="text-[11px] text-muted-foreground leading-snug">
               Ao digitar, salvamos no seu perfil para reutilizar nos próximos saques.
             </p>
             <div className="flex gap-2">
@@ -199,7 +200,7 @@ export function PrestadorSolicitarSaqueDialog({
                   setPixSalvaNoPerfil(false);
                 }}
               >
-                <SelectTrigger className="w-[130px] bg-white/5 border-white/15 text-white">
+                <SelectTrigger className="w-[130px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,12 +219,12 @@ export function PrestadorSolicitarSaqueDialog({
                 }}
                 onBlur={handleChavePixBlur}
                 placeholder="Sua chave PIX"
-                className="flex-1 bg-white/5 border-white/15 text-white"
+                className="flex-1"
                 required
               />
             </div>
             {(salvarChavePix.isPending || pixSalvaNoPerfil) && chavePix.trim() && (
-              <p className="text-[11px] flex items-center gap-1 text-white/45">
+              <p className="text-[11px] flex items-center gap-1 text-muted-foreground">
                 {salvarChavePix.isPending ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -231,7 +232,7 @@ export function PrestadorSolicitarSaqueDialog({
                   </>
                 ) : (
                   <>
-                    <Check className="h-3 w-3 text-[#4ade80]" />
+                    <Check className="h-3 w-3 text-emerald-600" />
                     Chave salva no perfil
                   </>
                 )}
@@ -241,19 +242,14 @@ export function PrestadorSolicitarSaqueDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-white/15 text-white/70 hover:bg-white/5"
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button
             type="button"
             onClick={handleConfirm}
             disabled={isPending || salvarChavePix.isPending || saldoDisponivel <= 0}
-            className="bg-[#4ade80]/20 text-[#4ade80] border border-[#4ade80]/40 hover:bg-[#4ade80]/30"
+            className="bg-emerald-700 text-white hover:bg-emerald-800"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Confirmar saque

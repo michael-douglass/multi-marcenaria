@@ -9,6 +9,7 @@ import {
   FileSignature,
   Minus,
   Pencil,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   CONTRATO_IA_SUGESTOES_ETAPA_1,
   CONTRATO_IA_SUGESTOES_ETAPA_2,
   CONTRATO_IA_EDITAR_PREVIEW,
+  CONTRATO_IA_AUTOCORRECAO,
   contarAlteracoesPendentes,
   temAlteracoesPendentes,
   temEdicaoDeDocumento,
@@ -58,6 +60,7 @@ const CHIP_LABELS: Record<string, string> = {
   'Gerar valores por extenso a partir do valor do serviço': 'Por extenso',
   'Corrigir ortografia dos campos de texto (sem mudar fatos)': 'Ortografia',
   [CONTRATO_IA_EDITAR_PREVIEW]: 'Editar pré-visualização',
+  [CONTRATO_IA_AUTOCORRECAO]: 'Autocorreção',
   'Corrigir ortografia do texto do contrato (sem mudar fatos nem valores)': 'Revisar texto',
   'Adaptar este contrato para pessoa jurídica (PJ) — só com dados já preenchidos': 'Adaptar PJ',
   'Revisar clareza das cláusulas sem inventar informações': 'Clareza',
@@ -81,7 +84,7 @@ export function ContratoIAAssistPanel({
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá — use “Editar pré-visualização” para eu ler o corpo do contrato. Depois um auditor confere se a alteração ficou coesa antes de aplicar. Datas usam sempre o dia de hoje.',
+        'Olá — posso ler o contrato, corrigir e verificar. Em “Autocorreção” ou “Editar pré-visualização”, eu envio sugestões para você aplicar (nada muda sozinho no corpo). Datas usam sempre o dia de hoje.',
     },
   ]);
   const [pendingPatch, setPendingPatch] = useState<ContratoIAPendingPatch | null>(null);
@@ -138,7 +141,7 @@ export function ContratoIAAssistPanel({
         id: newId(),
         role: 'assistant',
         content:
-          'Modo edição da pré-visualização ativo. Já li o corpo completo do contrato. Diga o que adaptar (ex.: PJ, representante, endereço, data). Faço só essas mudanças, sem reescrever o resto.',
+          'Modo edição ativo. Já li o corpo completo. Diga o que adaptar. Eu leio → corrijo → verifico e envio sugestões para você aplicar.',
       },
     ]);
     window.setTimeout(() => textareaRef.current?.focus(), 120);
@@ -154,12 +157,17 @@ export function ContratoIAAssistPanel({
         return;
       }
 
+      const pedeAutocorrecao = message === CONTRATO_IA_AUTOCORRECAO;
+
       setDraft('');
       setPendingPatch(null);
       setTurns((prev) => [...prev, { id: newId(), role: 'user', content: message }]);
 
       const forcarCorpo =
-        etapa === 2 && (modoEdicaoCorpo || Boolean(conteudoContrato.trim()));
+        etapa === 2 &&
+        (modoEdicaoCorpo ||
+          pedeAutocorrecao ||
+          Boolean(conteudoContrato.trim()));
 
       if (forcarCorpo) {
         onEnterCorpoEditMode?.();
@@ -169,8 +177,11 @@ export function ContratoIAAssistPanel({
       const messageParaApi = forcarCorpo
         ? [
             '[MODO EDIÇÃO DO CORPO DO CONTRATO]',
-            'Leia TODO o conteudoContrato e aplique SOMENTE as adaptações pedidas abaixo, via documentReplacements (trechos exatos).',
+            pedeAutocorrecao
+              ? 'AUTOCORREÇÃO: leia o contrato inteiro, corrija o que estiver errado ou incoerente e envie sugestões de correção já verificadas.'
+              : 'Leia TODO o conteudoContrato e aplique SOMENTE as adaptações pedidas abaixo, via documentReplacements (trechos exatos).',
             'Não reescreva o documento inteiro. Use dataAtualExtenso para datas.',
+            'Devolva sugestoesCorrecao para o usuário aplicar (não assuma aplicação automática).',
             '',
             'Pedido do usuário:',
             message,
@@ -197,30 +208,43 @@ export function ContratoIAAssistPanel({
           extras.push(`Não preenchido: ${result.skipped.join(' · ')}`);
         }
 
-        if (n > 0) {
-          onApplyPatches(result);
-          if (temEdicaoDeDocumento(result)) {
-            onEnterCorpoEditMode?.();
-            extras.push(
-              result.documentReplacements?.length
-                ? `Auditor revisou a coesão. Apliquei ${result.documentReplacements.length} adaptação(ões) na pré-visualização.`
-                : 'Corpo do contrato atualizado na pré-visualização (após auditoria).',
-            );
-            toast.success('Pré-visualização atualizada (auditada)');
-          } else {
-            extras.push(
-              `${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`,
-            );
-            toast.success('Campos atualizados pela IA');
-          }
+        const temDoc = temEdicaoDeDocumento(result);
+        const temCampos = Object.keys(result.fieldPatches).length > 0;
+
+        if (n > 0 && temDoc) {
+          // Corpo: só envia sugestões — usuário confirma com Aplicar
+          setPendingPatch(result);
+          onEnterCorpoEditMode?.();
+          const qtdSug =
+            result.sugestoesCorrecao?.length ||
+            result.documentReplacements?.length ||
+            0;
+          extras.push(
+            `Li, corrigi e verifiquei o contrato. ${qtdSug} sugestão(ões) prontas — revise e clique em Aplicar.`,
+          );
+          toast.message('Sugestões de correção prontas', {
+            description: 'Nada foi alterado ainda. Confira e aplique se concordar.',
+          });
+        } else if (n > 0 && temCampos) {
+          // Campos da etapa 1: aplica direto (não é corpo do contrato)
+          onApplyPatches({
+            ...result,
+            documentPatch: null,
+            documentReplacements: [],
+            sugestoesCorrecao: [],
+          });
+          extras.push(
+            `${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`,
+          );
+          toast.success('Campos atualizados pela IA');
           setPendingPatch(null);
         } else {
           extras.push(
-            'Nenhuma alteração foi aplicada no texto. Descreva de novo o que mudar no corpo.',
+            'Nenhuma sugestão de correção foi encontrada. Descreva de novo o que revisar no corpo.',
           );
-          toast.message('Sem mudanças no texto', {
+          toast.message('Sem sugestões', {
             description:
-              'A IA respondeu, mas não trouxe trechos para alterar a pré-visualização.',
+              'A IA leu o contrato, mas não trouxe correções para aplicar.',
           });
           setPendingPatch(null);
         }
@@ -259,17 +283,23 @@ export function ContratoIAAssistPanel({
     if (!pendingPatch || !temAlteracoesPendentes(pendingPatch)) return;
     onApplyPatches(pendingPatch);
     onEnterCorpoEditMode?.();
+    const qtd =
+      pendingPatch.sugestoesCorrecao?.length ||
+      pendingPatch.documentReplacements?.length ||
+      0;
     setTurns((prev) => [
       ...prev,
       {
         id: newId(),
         role: 'assistant',
         content:
-          'Alterações aplicadas. Confira o corpo do contrato na pré-visualização.',
+          qtd > 0
+            ? `Apliquei ${qtd} correção(ões) na pré-visualização. Confira o texto.`
+            : 'Alterações aplicadas. Confira o corpo do contrato na pré-visualização.',
       },
     ]);
     setPendingPatch(null);
-    toast.success('Sugestões da IA aplicadas');
+    toast.success('Correções aplicadas na pré-visualização');
   }, [pendingPatch, onApplyPatches, onEnterCorpoEditMode]);
 
   const descartar = useCallback(() => {
@@ -289,6 +319,8 @@ export function ContratoIAAssistPanel({
   const floatingRootProps = {
     [FLOATING_UI_ROOT_ATTR]: '' as const,
   };
+
+  const sugestoesLista = pendingPatch?.sugestoesCorrecao ?? [];
 
   return createPortal(
     <div
@@ -342,7 +374,7 @@ export function ContratoIAAssistPanel({
                   </p>
                   <p className="mt-0.5 text-[11px] leading-snug text-[#cbb892]/85">
                     {modoEdicaoCorpo
-                      ? 'Modo: editando corpo da pré-visualização'
+                      ? 'Lê → corrige → verifica → sugere'
                       : 'Só usa dados desta página · não inventa'}
                   </p>
                 </div>
@@ -403,7 +435,7 @@ export function ContratoIAAssistPanel({
                 <div className="flex items-center gap-2 pl-8 text-xs text-[#cbb892]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d4a828]" />
                   {modoEdicaoCorpo || etapa === 2
-                    ? 'Editando o corpo… auditor revisando coesão…'
+                    ? 'Lendo → corrigindo → verificando…'
                     : 'Analisando…'}
                 </div>
               )}
@@ -413,10 +445,11 @@ export function ContratoIAAssistPanel({
 
           {pendingPatch && patchCount > 0 && (
             <div className="shrink-0 space-y-2 border-t border-[#c9a227]/25 bg-[#d4a828]/10 px-3.5 py-3">
-              <p className="text-[11px] font-semibold tracking-wide text-[#f0d78c]">
-                Pronto para aplicar · {patchCount}
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[#f0d78c]">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Sugestões verificadas · {patchCount}
               </p>
-              <ul className="max-h-24 space-y-1 overflow-y-auto text-[11px] text-[#cbb892]">
+              <ul className="max-h-36 space-y-2 overflow-y-auto text-[11px] text-[#cbb892]">
                 {Object.entries(pendingPatch.fieldPatches).map(([nome, valor]) => (
                   <li key={nome} className="truncate">
                     <span className="text-[#f7efd9]/90">
@@ -425,15 +458,38 @@ export function ContratoIAAssistPanel({
                     {valor}
                   </li>
                 ))}
-                {(pendingPatch.documentReplacements?.length ?? 0) > 0 ? (
-                  <li>
-                    {pendingPatch.documentReplacements.length} troca(s) no corpo do
-                    contrato
-                  </li>
-                ) : null}
-                {pendingPatch.documentPatch ? (
-                  <li>Texto completo do contrato será atualizado</li>
-                ) : null}
+                {sugestoesLista.length > 0
+                  ? sugestoesLista.map((s) => (
+                      <li
+                        key={s.id}
+                        className="rounded-lg border border-[#c9a227]/20 bg-[#1a120c]/40 px-2.5 py-2"
+                      >
+                        <p className="font-semibold text-[#f7efd9]">{s.titulo}</p>
+                        {s.descricao ? (
+                          <p className="mt-0.5 leading-snug text-[#cbb892]/90">
+                            {s.descricao}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 line-clamp-2 text-[10px] text-[#cbb892]/70">
+                          <span className="text-red-300/80">− </span>
+                          {s.find.slice(0, 80)}
+                          {s.find.length > 80 ? '…' : ''}
+                        </p>
+                        <p className="line-clamp-2 text-[10px] text-[#cbb892]/70">
+                          <span className="text-emerald-300/80">+ </span>
+                          {s.replace.slice(0, 80)}
+                          {s.replace.length > 80 ? '…' : ''}
+                        </p>
+                      </li>
+                    ))
+                  : (pendingPatch.documentReplacements?.length ?? 0) > 0
+                    ? (
+                        <li>
+                          {pendingPatch.documentReplacements.length} troca(s) no
+                          corpo do contrato
+                        </li>
+                      )
+                    : null}
               </ul>
               <div className="flex gap-2">
                 <Button
@@ -459,23 +515,36 @@ export function ContratoIAAssistPanel({
 
           <div className="shrink-0 space-y-2 border-t border-[#c9a227]/20 bg-[#140e0a]/55 px-3.5 py-3">
             {etapa === 2 && (
-              <button
-                type="button"
-                disabled={compose.isPending || disabled}
-                onClick={ativarEdicaoPreview}
-                className={cn(
-                  'flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition',
-                  modoEdicaoCorpo
-                    ? 'border-[#d4a828]/70 bg-[#d4a828]/20 text-[#f0d78c]'
-                    : 'border-[#c9a227]/40 bg-[#2a1c14]/90 text-[#e8d5a3] hover:border-[#d4a828]/55 hover:bg-[#d4a828]/15',
-                  'disabled:pointer-events-none disabled:opacity-40',
-                )}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                {modoEdicaoCorpo
-                  ? 'Editando pré-visualização (ativo)'
-                  : 'Editar pré-visualização'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={compose.isPending || disabled}
+                  onClick={ativarEdicaoPreview}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition',
+                    modoEdicaoCorpo
+                      ? 'border-[#d4a828]/70 bg-[#d4a828]/20 text-[#f0d78c]'
+                      : 'border-[#c9a227]/40 bg-[#2a1c14]/90 text-[#e8d5a3] hover:border-[#d4a828]/55 hover:bg-[#d4a828]/15',
+                    'disabled:pointer-events-none disabled:opacity-40',
+                  )}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {modoEdicaoCorpo ? 'Editando (ativo)' : 'Editar preview'}
+                </button>
+                <button
+                  type="button"
+                  disabled={compose.isPending || disabled || !conteudoContrato.trim()}
+                  onClick={() => void enviar(CONTRATO_IA_AUTOCORRECAO)}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition',
+                    'border-[#c9a227]/40 bg-[#2a1c14]/90 text-[#e8d5a3] hover:border-[#d4a828]/55 hover:bg-[#d4a828]/15',
+                    'disabled:pointer-events-none disabled:opacity-40',
+                  )}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Autocorreção
+                </button>
+              </div>
             )}
             <div className="flex flex-wrap gap-1.5">
               {sugestoes.map((s) => (
@@ -505,7 +574,7 @@ export function ContratoIAAssistPanel({
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={
                   modoEdicaoCorpo
-                    ? 'Descreva a adaptação no corpo do contrato…'
+                    ? 'Descreva a adaptação… a IA sugere, você aplica'
                     : 'O que você quer que eu faça?'
                 }
                 className={cn(

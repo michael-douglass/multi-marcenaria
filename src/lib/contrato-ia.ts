@@ -12,6 +12,14 @@ export interface ContratoIADocumentReplacement {
   replace: string;
 }
 
+export interface ContratoIASugestaoCorrecao {
+  id: string;
+  titulo: string;
+  descricao: string;
+  find: string;
+  replace: string;
+}
+
 export interface ContratoIARequest {
   message: string;
   etapa: 1 | 2;
@@ -28,19 +36,23 @@ export interface ContratoIAResponse {
   fieldPatches: Record<string, string>;
   documentPatch: string | null;
   documentReplacements: ContratoIADocumentReplacement[];
+  sugestoesCorrecao: ContratoIASugestaoCorrecao[];
   warnings: string[];
   skipped: string[];
   modelo?: string;
   error?: string;
+  aguardandoAplicacao?: boolean;
 }
 
 export interface ContratoIAPendingPatch {
   fieldPatches: Record<string, string>;
   documentPatch: string | null;
   documentReplacements: ContratoIADocumentReplacement[];
+  sugestoesCorrecao: ContratoIASugestaoCorrecao[];
   warnings: string[];
   skipped: string[];
   reply: string;
+  aguardandoAplicacao?: boolean;
 }
 
 const META_KEYS = new Set(['__modelo_id', '__etapa', '__texto_editado']);
@@ -89,7 +101,10 @@ export function sanitizeDocumentReplacements(
 /** Aplica documentPatch ou replacements sobre o texto atual da pré-visualização. */
 export function aplicarEdicoesNoDocumento(
   textoAtual: string,
-  patch: Pick<ContratoIAPendingPatch, 'documentPatch' | 'documentReplacements'>,
+  patch: Pick<
+    ContratoIAPendingPatch,
+    'documentPatch' | 'documentReplacements' | 'sugestoesCorrecao'
+  >,
 ): { texto: string; alterou: boolean; aplicadas: number } {
   if (patch.documentPatch?.trim()) {
     const next = patch.documentPatch;
@@ -100,9 +115,14 @@ export function aplicarEdicoesNoDocumento(
     };
   }
 
+  const replacements =
+    (patch.documentReplacements?.length ?? 0) > 0
+      ? patch.documentReplacements
+      : sugestoesParaReplacements(patch.sugestoesCorrecao ?? []);
+
   let texto = textoAtual;
   let aplicadas = 0;
-  for (const { find, replace } of patch.documentReplacements ?? []) {
+  for (const { find, replace } of replacements ?? []) {
     if (!find || !texto.includes(find)) continue;
     texto = texto.split(find).join(replace);
     aplicadas += 1;
@@ -116,6 +136,8 @@ export function aplicarEdicoesNoDocumento(
 
 export function contarAlteracoesPendentes(patch: ContratoIAPendingPatch | null): number {
   if (!patch) return 0;
+  const sug = patch.sugestoesCorrecao?.length ?? 0;
+  if (sug > 0) return sug + Object.keys(patch.fieldPatches).length;
   return (
     Object.keys(patch.fieldPatches).length +
     (patch.documentPatch ? 1 : 0) +
@@ -129,7 +151,67 @@ export function temAlteracoesPendentes(patch: ContratoIAPendingPatch | null): bo
 
 export function temEdicaoDeDocumento(patch: ContratoIAPendingPatch | null): boolean {
   if (!patch) return false;
-  return Boolean(patch.documentPatch?.trim()) || (patch.documentReplacements?.length ?? 0) > 0;
+  return (
+    Boolean(patch.documentPatch?.trim()) ||
+    (patch.documentReplacements?.length ?? 0) > 0 ||
+    (patch.sugestoesCorrecao?.length ?? 0) > 0
+  );
+}
+
+export function sanitizeSugestoesCorrecao(
+  raw: unknown,
+  fallbackReplacements: ContratoIADocumentReplacement[] = [],
+): ContratoIASugestaoCorrecao[] {
+  const out: ContratoIASugestaoCorrecao[] = [];
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < raw.length; i++) {
+      const item = raw[i];
+      if (!item || typeof item !== 'object') continue;
+      const find =
+        typeof (item as { find?: unknown }).find === 'string'
+          ? (item as { find: string }).find
+          : '';
+      const replace =
+        typeof (item as { replace?: unknown }).replace === 'string'
+          ? (item as { replace: string }).replace
+          : '';
+      if (!find.trim() || find === replace) continue;
+      const titulo =
+        typeof (item as { titulo?: unknown }).titulo === 'string'
+          ? (item as { titulo: string }).titulo.trim()
+          : `Correção ${i + 1}`;
+      const descricao =
+        typeof (item as { descricao?: unknown }).descricao === 'string'
+          ? (item as { descricao: string }).descricao.trim()
+          : 'Sugestão de correção no corpo do contrato.';
+      out.push({
+        id: `sug-${i + 1}-${find.slice(0, 12)}`,
+        titulo: titulo || `Correção ${i + 1}`,
+        descricao,
+        find,
+        replace,
+      });
+      if (out.length >= 40) break;
+    }
+  }
+  if (out.length === 0 && fallbackReplacements.length > 0) {
+    return fallbackReplacements.map((r, i) => ({
+      id: `sug-auto-${i + 1}`,
+      titulo: `Alteração ${i + 1}`,
+      descricao: 'Sugestão gerada após leitura e verificação do contrato.',
+      find: r.find,
+      replace: r.replace,
+    }));
+  }
+  return out;
+}
+
+export function sugestoesParaReplacements(
+  sugestoes: ContratoIASugestaoCorrecao[],
+): ContratoIADocumentReplacement[] {
+  return sugestoes
+    .filter((s) => s.find.trim() && s.find !== s.replace)
+    .map((s) => ({ find: s.find, replace: s.replace }));
 }
 
 /** Atalhos locais (sem OpenAI) para por-extenso. */
@@ -150,8 +232,13 @@ export const CONTRATO_IA_SUGESTOES_ETAPA_1 = [
 export const CONTRATO_IA_EDITAR_PREVIEW =
   'Editar pré-visualização: leia o corpo inteiro do contrato e aplique só as adaptações que eu pedir a seguir';
 
+/** Lê o contrato, encontra problemas e envia sugestões de correção verificadas. */
+export const CONTRATO_IA_AUTOCORRECAO =
+  'Autocorreção: leia o corpo inteiro do contrato, corrija o que estiver errado ou incoerente e envie sugestões de correção já verificadas';
+
 export const CONTRATO_IA_SUGESTOES_ETAPA_2 = [
   CONTRATO_IA_EDITAR_PREVIEW,
+  CONTRATO_IA_AUTOCORRECAO,
   'Corrigir ortografia do texto do contrato (sem mudar fatos nem valores)',
   'Adaptar este contrato para pessoa jurídica (PJ) — só com dados já preenchidos',
   'Revisar clareza das cláusulas sem inventar informações',

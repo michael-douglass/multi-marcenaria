@@ -69,6 +69,9 @@ Responda SÓ JSON:
   "aprovado": true,
   "reply": "resumo curto do que foi aceito/corrigido",
   "documentReplacements": [{ "find": "trecho EXATO do contrato original", "replace": "..." }],
+  "sugestoesCorrecao": [
+    { "titulo": "título curto", "descricao": "por que corrigir", "find": "...", "replace": "..." }
+  ],
   "warnings": ["avisos"],
   "rejeitadas": ["motivo das trocas descartadas"]
 }
@@ -77,6 +80,36 @@ Regras do auditor:
 - Cada "find" DEVE existir literalmente no contrato original.
 - Prefira poucas trocas grandes e corretas (ex.: substituir o bloco inteiro de pagamento) a várias trocas soltas.
 - Se nenhuma troca for segura, devolva documentReplacements: [] e explique em warnings.`;
+
+const VERIFICADOR_PROMPT = `Você é o VERIFICADOR / AUTOCORREÇÃO de contratos da GARBO Movelaria.
+
+Fluxo obrigatório:
+1) LEIA o contrato original.
+2) LEIA o texto após as trocas propostas.
+3) VERIFIQUE se está correto, completo e coeso em relação ao pedido.
+4) Se houver qualquer problema, CORRIJA e envie novas sugestões (não aplique no silêncio: devolva sugestões claras).
+
+Responda SÓ JSON:
+{
+  "correto": true,
+  "reply": "o que foi verificado / o que ainda precisa corrigir",
+  "sugestoesCorrecao": [
+    {
+      "titulo": "ex.: Formas de pagamento",
+      "descricao": "o que estava errado e o que a sugestão corrige",
+      "find": "trecho EXATO do contrato ORIGINAL",
+      "replace": "texto corrigido"
+    }
+  ],
+  "documentReplacements": [{ "find": "...", "replace": "..." }],
+  "warnings": []
+}
+
+Regras:
+- find sempre no contrato ORIGINAL (não no texto já modificado).
+- Se estiver tudo certo, correto=true e mantenha/refine as sugestões finais.
+- Se estiver errado, correto=false e devolva sugestõesCorrecao corrigidas.
+- Em autocorreção sem pedido específico: aponte ortografia, cláusulas quebradas, datas inconsistentes e incoerências internas — sem inventar fatos novos.`;
 
 function formatDataAtualBrasil(now = new Date()): {
   dataAtualIso: string;
@@ -172,6 +205,50 @@ function sanitizeReplacements(raw: unknown): Array<{ find: string; replace: stri
     if (!find.trim() || find === replace) continue;
     out.push({ find, replace });
     if (out.length >= 40) break;
+  }
+  return out;
+}
+
+function sanitizeSugestoes(
+  raw: unknown,
+  fallback: Array<{ find: string; replace: string }> = [],
+): Array<{ titulo: string; descricao: string; find: string; replace: string }> {
+  const out: Array<{ titulo: string; descricao: string; find: string; replace: string }> = [];
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < raw.length; i++) {
+      const item = raw[i];
+      if (!item || typeof item !== 'object') continue;
+      const find = typeof (item as { find?: unknown }).find === 'string'
+        ? (item as { find: string }).find
+        : '';
+      const replace = typeof (item as { replace?: unknown }).replace === 'string'
+        ? (item as { replace: string }).replace
+        : '';
+      if (!find.trim() || find === replace) continue;
+      out.push({
+        titulo:
+          typeof (item as { titulo?: unknown }).titulo === 'string' &&
+          (item as { titulo: string }).titulo.trim()
+            ? (item as { titulo: string }).titulo.trim()
+            : `Correção ${i + 1}`,
+        descricao:
+          typeof (item as { descricao?: unknown }).descricao === 'string' &&
+          (item as { descricao: string }).descricao.trim()
+            ? (item as { descricao: string }).descricao.trim()
+            : 'Sugestão de correção verificada no corpo do contrato.',
+        find,
+        replace,
+      });
+      if (out.length >= 40) break;
+    }
+  }
+  if (out.length === 0 && fallback.length > 0) {
+    return fallback.map((r, i) => ({
+      titulo: `Alteração ${i + 1}`,
+      descricao: 'Sugestão gerada após leitura, correção e verificação.',
+      find: r.find,
+      replace: r.replace,
+    }));
   }
   return out;
 }
@@ -523,6 +600,12 @@ Deno.serve(async (req) => {
     const skipped = asStringArray(aiJson.skipped);
     let auditorAprovado: boolean | null = null;
     let auditorRejeitadas: string[] = [];
+    let sugestoesCorrecao: Array<{
+      titulo: string;
+      descricao: string;
+      find: string;
+      replace: string;
+    }> = [];
 
     // Fluxo AUDITOR: revisa coesão das trocas com o corpo original
     if (editaDocumento && conteudoAtual && documentReplacements.length > 0) {
@@ -576,17 +659,138 @@ Deno.serve(async (req) => {
         if (typeof auditorJson.reply === 'string' && auditorJson.reply.trim()) {
           aiJson.reply = auditorJson.reply.trim();
         }
+        const auditorSug = sanitizeSugestoes(
+          auditorJson.sugestoesCorrecao,
+          documentReplacements,
+        ).filter((s) => conteudoAtual.includes(s.find));
+        if (auditorSug.length > 0) {
+          sugestoesCorrecao = auditorSug;
+          documentReplacements = auditorSug.map((s) => ({
+            find: s.find,
+            replace: s.replace,
+          }));
+        }
         if (!auditorAprovado && documentReplacements.length === 0) {
           warnings.push(
-            'O auditor não aprovou as alterações por falta de coesão com o corpo do contrato. Reformule o pedido citando a cláusula (ex.: “na cláusula de pagamento…”).',
+            'O auditor não aprovou as alterações por falta de coesão. Reformule o pedido citando a cláusula.',
           );
         }
       } catch (auditorErr) {
         console.error('compose-contrato-ia auditor failed', auditorErr);
         warnings.push(
-          'Auditoria automática falhou; as trocas do editor foram mantidas com cautela. Revise o texto na pré-visualização.',
+          'Auditoria automática falhou; as trocas do editor foram mantidas com cautela.',
         );
       }
+    }
+
+    // VERIFICADOR / AUTOCORREÇÃO: lê de novo e, se precisar, envia sugestões corrigidas
+    if (editaDocumento && conteudoAtual && documentReplacements.length > 0) {
+      const preview2 = applyReplacementsPreview(conteudoAtual, documentReplacements);
+      try {
+        const verRaw = await callOpenAIChat(
+          openAiKey,
+          model,
+          [
+            { role: 'system', content: VERIFICADOR_PROMPT },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                pedidoUsuario: message,
+                dataAtualExtenso,
+                contratoOriginal: conteudoAtual.slice(0, 22000),
+                textoAposEdicao: preview2.slice(0, 22000),
+                trocasAtuais: documentReplacements,
+                tarefa:
+                  'Verifique se está correto. Se houver erro, corrija e devolva sugestoesCorrecao finais para o usuário aplicar.',
+              }),
+            },
+          ],
+          3500,
+        );
+        const verJson = extractJsonObject(verRaw) as Record<string, unknown>;
+        const verSug = sanitizeSugestoes(
+          verJson.sugestoesCorrecao,
+          sanitizeReplacements(verJson.documentReplacements),
+        ).filter((s) => conteudoAtual.includes(s.find));
+        if (verSug.length > 0) {
+          sugestoesCorrecao = verSug;
+          documentReplacements = verSug.map((s) => ({
+            find: s.find,
+            replace: s.replace,
+          }));
+        }
+        if (typeof verJson.reply === 'string' && verJson.reply.trim()) {
+          aiJson.reply = verJson.reply.trim();
+        }
+        for (const w of asStringArray(verJson.warnings)) {
+          if (!warnings.includes(w)) warnings.push(w);
+        }
+        if (verJson.correto === false) {
+          warnings.push(
+            'Verificador encontrou problemas e enviou sugestões de correção revisadas.',
+          );
+        }
+      } catch (verErr) {
+        console.error('compose-contrato-ia verificador failed', verErr);
+        warnings.push('Verificação final falhou; revise as sugestões com atenção.');
+      }
+    }
+
+    // Autocorreção “do zero”: se pediu revisar o contrato e ainda não há sugestões
+    const pedeAutocorrecao =
+      message.toLowerCase().includes('autocorre') ||
+      message.toLowerCase().includes('verifique') ||
+      message.toLowerCase().includes('sugestões de correção') ||
+      message.toLowerCase().includes('sugestoes de correcao');
+    if (
+      editaDocumento &&
+      conteudoAtual &&
+      documentReplacements.length === 0 &&
+      (pedeAutocorrecao || message.toLowerCase().includes('[modo edição'))
+    ) {
+      try {
+        const autoRaw = await callOpenAIChat(
+          openAiKey,
+          model,
+          [
+            { role: 'system', content: VERIFICADOR_PROMPT },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                pedidoUsuario: message,
+                dataAtualExtenso,
+                contratoOriginal: conteudoAtual.slice(0, 24000),
+                textoAposEdicao: conteudoAtual.slice(0, 24000),
+                trocasAtuais: [],
+                tarefa:
+                  'Leia o contrato. Se houver erros, incoerências ou trechos a melhorar sem inventar fatos, envie sugestoesCorrecao.',
+              }),
+            },
+          ],
+          3500,
+        );
+        const autoJson = extractJsonObject(autoRaw) as Record<string, unknown>;
+        const autoSug = sanitizeSugestoes(
+          autoJson.sugestoesCorrecao,
+          sanitizeReplacements(autoJson.documentReplacements),
+        ).filter((s) => conteudoAtual.includes(s.find));
+        if (autoSug.length > 0) {
+          sugestoesCorrecao = autoSug;
+          documentReplacements = autoSug.map((s) => ({
+            find: s.find,
+            replace: s.replace,
+          }));
+        }
+        if (typeof autoJson.reply === 'string' && autoJson.reply.trim()) {
+          aiJson.reply = autoJson.reply.trim();
+        }
+      } catch (autoErr) {
+        console.error('compose-contrato-ia autocorrecao failed', autoErr);
+      }
+    }
+
+    if (sugestoesCorrecao.length === 0 && documentReplacements.length > 0) {
+      sugestoesCorrecao = sanitizeSugestoes(null, documentReplacements);
     }
 
     const msgLower = message.toLowerCase();
@@ -603,28 +807,29 @@ Deno.serve(async (req) => {
 
     if (editaDocumento && documentReplacements.length === 0) {
       warnings.push(
-        'Não há alterações coesas para aplicar no corpo. Tente de novo com mais detalhe sobre a cláusula a mudar.',
+        'Não há sugestões de correção coesas para enviar. Tente de novo com mais detalhe sobre a cláusula.',
       );
     }
 
     const replyBase =
       typeof aiJson.reply === 'string' && aiJson.reply.trim()
         ? aiJson.reply.trim()
-        : documentReplacements.length
-          ? 'Atualizei o texto da pré-visualização após auditoria de coesão.'
+        : sugestoesCorrecao.length
+          ? `Encontrei ${sugestoesCorrecao.length} sugestão(ões) de correção após ler e verificar o contrato.`
           : 'Pronto.';
 
     const reply =
-      editaDocumento && documentReplacements.length > 0
-        ? `${replyBase}\n\n(Auditoria de coesão: ${auditorAprovado === false ? 'corrigiu/rejeitou trechos' : 'ok'})`
+      editaDocumento && sugestoesCorrecao.length > 0
+        ? `${replyBase}\n\nRevise as sugestões abaixo e clique em Aplicar se concordar.`
         : replyBase;
 
     return jsonResponse({
       ok: true,
       reply,
-      fieldPatches,
+      fieldPatches: etapa === 2 ? {} : fieldPatches,
       documentPatch: null,
       documentReplacements: etapa === 1 ? [] : documentReplacements,
+      sugestoesCorrecao: etapa === 1 ? [] : sugestoesCorrecao,
       warnings,
       skipped,
       modelo: model,
@@ -634,7 +839,8 @@ Deno.serve(async (req) => {
             rejeitadas: auditorRejeitadas,
           }
         : null,
-      appliedDirectly: true,
+      aguardandoAplicacao: editaDocumento && sugestoesCorrecao.length > 0,
+      appliedDirectly: false,
     });
   } catch (err) {
     console.error('compose-contrato-ia error', err);

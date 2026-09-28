@@ -5,6 +5,8 @@ import { parseSupabaseFunctionError } from '@/lib/parse-supabase-function-error'
 import {
   filtrarFieldPatches,
   sanitizeDocumentReplacements,
+  sanitizeSugestoesCorrecao,
+  sugestoesParaReplacements,
   type ContratoIARequest,
   type ContratoIAResponse,
   type ContratoIAPendingPatch,
@@ -52,6 +54,12 @@ async function invokeComposeContratoIA(
   }
 
   const allowed = body.variaveis.map((v) => v.nome);
+  const documentReplacements = sanitizeDocumentReplacements(raw.documentReplacements);
+  const sugestoesCorrecao = sanitizeSugestoesCorrecao(
+    raw.sugestoesCorrecao,
+    documentReplacements,
+  );
+  const replacementsFromSugestoes = sugestoesParaReplacements(sugestoesCorrecao);
 
   return {
     ok: raw.ok !== false,
@@ -61,7 +69,11 @@ async function invokeComposeContratoIA(
       typeof raw.documentPatch === 'string' && raw.documentPatch.trim()
         ? raw.documentPatch
         : null,
-    documentReplacements: sanitizeDocumentReplacements(raw.documentReplacements),
+    documentReplacements:
+      replacementsFromSugestoes.length > 0
+        ? replacementsFromSugestoes
+        : documentReplacements,
+    sugestoesCorrecao,
     warnings: Array.isArray(raw.warnings)
       ? raw.warnings.filter((w): w is string => typeof w === 'string')
       : [],
@@ -69,6 +81,7 @@ async function invokeComposeContratoIA(
       ? raw.skipped.filter((w): w is string => typeof w === 'string')
       : [],
     modelo: typeof raw.modelo === 'string' ? raw.modelo : undefined,
+    aguardandoAplicacao: raw.aguardandoAplicacao === true,
   };
 }
 
@@ -94,8 +107,10 @@ export function useComposeContratoIA() {
         documentPatch: input.etapa === 1 ? null : response.documentPatch,
         documentReplacements:
           input.etapa === 1 ? [] : response.documentReplacements,
+        sugestoesCorrecao: input.etapa === 1 ? [] : response.sugestoesCorrecao,
         warnings: response.warnings,
         skipped: response.skipped,
+        aguardandoAplicacao: response.aguardandoAplicacao,
       };
     },
   });
