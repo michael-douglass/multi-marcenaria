@@ -33,6 +33,8 @@ import {
   ExternalLink,
   FileText,
   CheckCircle2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { DateInput } from '@/components/ui/DateInput';
 import { getCurrentHora24h } from '@/lib/horarios-24h';
@@ -46,6 +48,8 @@ import { LeadLembreteTitularesPicker } from '@/components/agenda/LeadLembreteTit
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
 import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
+import { cn } from '@/lib/utils';
+import { floatingNestedOverlayClass } from '@/lib/overlay-z-index';
 
 interface Props {
   open: boolean;
@@ -97,6 +101,8 @@ export function LeadLembreteDialog({
   const [cor, setCor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
+  /** Popup central para ler/editar a descrição com mais espaço. */
+  const [descricaoExpandidaOpen, setDescricaoExpandidaOpen] = useState(false);
   const anexosDraft = useAgendaItemAnexosDraft({
     accept: 'images',
     scope: 'lembretes',
@@ -132,7 +138,10 @@ export function LeadLembreteDialog({
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setDescricaoExpandidaOpen(false);
+      return;
+    }
     if (lembrete) {
       setTitulo(lembrete.titulo);
       setDescricao(lembrete.descricao || '');
@@ -226,6 +235,7 @@ export function LeadLembreteDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         nested={Boolean(nested) && !floatingLayer}
@@ -234,13 +244,25 @@ export function LeadLembreteDialog({
         floatingLayer={floatingLayer}
         onPointerDownOutside={(event) => {
           const target = event.target as HTMLElement | null;
+          if (descricaoExpandidaOpen) {
+            event.preventDefault();
+            return;
+          }
           if (target?.closest('[data-date-picker-root]')) event.preventDefault();
         }}
         onFocusOutside={(event) => {
           const target = event.target as HTMLElement | null;
+          if (descricaoExpandidaOpen) {
+            event.preventDefault();
+            return;
+          }
           if (target?.closest('[data-date-picker-root]')) event.preventDefault();
         }}
         onInteractOutside={(event) => {
+          if (descricaoExpandidaOpen) {
+            event.preventDefault();
+            return;
+          }
           if (!floatingLayer) event.preventDefault();
         }}
       >
@@ -388,14 +410,40 @@ export function LeadLembreteDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="descricao">Detalhes</Label>
-            <Textarea
-              id="descricao"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              placeholder="Anotações sobre o que conversar..."
-              rows={3}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="descricao">Detalhes</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setDescricaoExpandidaOpen(true)}
+                title="Abrir detalhes em tela ampla"
+                aria-label="Abrir detalhes em tela ampla"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Ampliar</span>
+              </Button>
+            </div>
+            <div className="relative group">
+              <Textarea
+                id="descricao"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder="Anotações sobre o que conversar..."
+                rows={3}
+                className="pr-10 max-h-40 overflow-y-auto resize-y"
+              />
+              <button
+                type="button"
+                onClick={() => setDescricaoExpandidaOpen(true)}
+                className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-background/90 text-muted-foreground opacity-80 shadow-sm transition-all hover:opacity-100 hover:text-foreground hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
+                title="Abrir em tela ampla"
+                aria-label="Abrir detalhes em tela ampla"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           <AgendaColorPicker
@@ -457,5 +505,62 @@ export function LeadLembreteDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Popup central: descrição em tela ampla e rolável */}
+    <Dialog open={descricaoExpandidaOpen} onOpenChange={setDescricaoExpandidaOpen}>
+      <DialogContent
+        nested={!floatingLayer}
+        floatingLayer={floatingLayer}
+        overlayClassName={floatingLayer ? floatingNestedOverlayClass : undefined}
+        data-descricao-expandida-dialog=""
+        className={cn(
+          'flex w-[min(96vw,52rem)] max-w-[52rem] flex-col gap-0 overflow-hidden p-0',
+          'h-[min(92dvh,42rem)] max-h-[92dvh]',
+          'border-[#2a1812]/12 bg-[#fffcf8] text-[#2a1812] shadow-2xl sm:rounded-2xl',
+          floatingLayer && floatingNestedOverlayClass,
+        )}
+      >
+        <DialogHeader className="shrink-0 space-y-1 border-b border-[#2a1812]/10 px-5 pb-3 pt-5 pr-12 text-left">
+          <DialogTitle className="flex items-center gap-2 text-base text-[#2a1812]">
+            <FileText className="h-4 w-4 text-[#8b5e3c]" />
+            Detalhes do lembrete
+          </DialogTitle>
+          <DialogDescription className="text-sm text-[#2a1812]/65">
+            Leitura ampla para <strong className="font-medium text-[#2a1812]">{leadName}</strong>.
+            Role a página se o texto for longo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative min-h-0 flex-1">
+          <Textarea
+            id="descricao-expandida"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder="Anotações sobre o que conversar..."
+            disabled={isConcluido}
+            className={cn(
+              'absolute inset-5 min-h-0 resize-none overflow-y-auto overscroll-contain',
+              'border-[#2a1812]/12 bg-[#fffaf3] px-4 py-3 md:text-base',
+              'text-base leading-relaxed text-[#2a1812]',
+              'placeholder:text-[#2a1812]/40 focus-visible:ring-[#8b5e3c]/40',
+            )}
+            autoFocus
+          />
+        </div>
+
+        <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t border-[#2a1812]/10 bg-[#fffaf3]/80 px-5 py-3 sm:space-x-0">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-1.5 border-[#2a1812]/15 bg-white text-[#2a1812] hover:bg-[#fff6ec]"
+            onClick={() => setDescricaoExpandidaOpen(false)}
+          >
+            <Minimize2 className="h-4 w-4" />
+            Voltar ao formulário
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
