@@ -28,6 +28,7 @@ import {
   Pencil,
   Maximize2,
   Sofa,
+  Search,
 } from 'lucide-react';
 import {
   Dialog,
@@ -35,8 +36,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useLeadAIMediaItems } from '@/hooks/useLeadAIMediaItems';
+import { useLeadAIMediaFolderBrowse } from '@/hooks/useLeadAIMediaFolderBrowse';
 import { useLeadPDFs } from '@/hooks/useLeadPDFs';
 import { useLeadWhiteboard } from '@/hooks/useLeadWhiteboard';
+import { LeadAIMediaFolderShelf } from '@/components/leads/LeadAIMediaFolderShelf';
 import {
   useLeadAIRenders,
   useDeleteLeadAIRender,
@@ -699,6 +702,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
     return combined.sort((a, b) => Number(isAiRenderMediaItem(a)) - Number(isAiRenderMediaItem(b)));
   }, [historico, items]);
 
+  const folderBrowse = useLeadAIMediaFolderBrowse(leadId, sketchItems);
+  const sketchItemsVisible = folderBrowse.visibleItems;
+
   const selectedItem = useMemo(
     () => sketchItems.find((item) => item.key === selectedKey) ?? items.find((item) => item.key === selectedKey) ?? null,
     [items, selectedKey, sketchItems],
@@ -1331,7 +1337,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 Selecione uma imagem para renderizar
               </Label>
               <p className="max-w-xl text-xs leading-relaxed text-[#e2c9a8]">
-                Clique na foto · renders salvos também entram aqui ·{' '}
+                Pastas salvas do lead · busque pelo nome · renders também entram aqui ·{' '}
                 <strong className="font-medium text-[#f2d892]">Renderizar com ambiente</strong> envia à lousa.
                 Em PDFs, escolha a página.
               </p>
@@ -1396,7 +1402,25 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
           </div>
         </div>
 
-        <div className="p-3 sm:p-4">
+        <div className="space-y-3 p-3 sm:p-4">
+          {sketchItems.length > 0 && (
+            <LeadAIMediaFolderShelf
+              folders={folderBrowse.folders}
+              coverSource={folderBrowse.coverSource}
+              folderCounts={folderBrowse.folderCounts}
+              unfiledCount={folderBrowse.unfiledCount}
+              showFolderShelf={folderBrowse.showFolderShelf}
+              viewingRoot={folderBrowse.viewingRoot}
+              folderLabel={folderBrowse.folderLabel}
+              searchQuery={folderBrowse.searchQuery}
+              onSearchChange={folderBrowse.setSearchQuery}
+              onOpenFolder={folderBrowse.openFolder}
+              onOpenUnfiled={folderBrowse.openUnfiled}
+              onGoRoot={folderBrowse.goRoot}
+              searchPlaceholder="Buscar esboço, anexo ou render…"
+            />
+          )}
+
           {loading ? (
             <SketchMediaGrid itemCount={4}>
               {Array.from({ length: 4 }).map((_, i) => (
@@ -1413,9 +1437,23 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
                 Adicione um esboço na lousa ou anexe uma foto do projeto.
               </p>
             </div>
+          ) : folderBrowse.showFolderShelf ? (
+            <p className="text-center text-[11px] text-[#e2c9a8]/80">
+              Abra uma pasta acima — ou use a busca para achar pelo nome.
+            </p>
+          ) : sketchItemsVisible.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#f2d892]/40 bg-[#1c100c]/70 px-4 py-5 text-center">
+              <Search className="mx-auto mb-2 h-5 w-5 text-[#f2d892]/80" />
+              <p className="text-sm font-semibold text-[#fff6ea]">Nenhum resultado</p>
+              <p className="mt-1 text-xs text-[#e2c9a8]">
+                {folderBrowse.isSearching
+                  ? 'Tente outro termo ou limpe a busca.'
+                  : 'Esta pasta está vazia para renderização.'}
+              </p>
+            </div>
           ) : (
-            <SketchMediaGrid itemCount={sketchItems.length}>
-              {sketchItems.map((item, index) => (
+            <SketchMediaGrid itemCount={sketchItemsVisible.length}>
+              {sketchItemsVisible.map((item, index) => (
                 <MediaSelectCard
                   key={item.key}
                   item={item}

@@ -1216,7 +1216,7 @@ export function LeadModal({
         }
       }
 
-      // Markup, orçamentos, pastas/fotos (mesma biblioteca) e lousa.
+      // Markup, orçamentos, pastas/fotos (arquivos duplicados) e lousa.
       const relacionados = await duplicarLeadRelacionados({
         db: empresaDb,
         schemaEmpresa,
@@ -2452,7 +2452,7 @@ export function LeadModal({
               </span>
               <span className="block text-xs leading-relaxed">
                 Vão junto: dados do card, campos personalizados, markups, orçamentos,
-                pastas e fotos da biblioteca (mesmos arquivos, sem reenviar) e a lousa.
+                pastas e fotos da biblioteca (arquivos duplicados) e a lousa.
                 A cópia entra como lead novo (sem a etapa atual do funil). Contratos e
                 histórico do WhatsApp ficam só no lead original.
               </span>

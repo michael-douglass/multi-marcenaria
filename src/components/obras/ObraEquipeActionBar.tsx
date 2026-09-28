@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { CheckCircle, Loader2, Play, RotateCcw, Users } from 'lucide-react'
 import { ObraEquipeConfirmBackdrop } from '@/components/obras/ObraEquipeConfirmBackdrop'
 import {
@@ -43,6 +43,7 @@ export function ObraEquipeActionBar({
   className,
 }: ObraEquipeActionBarProps) {
   const [confirm, setConfirm] = useState<EquipeConfirmKind | null>(null)
+  const confirmRef = useRef<HTMLDivElement>(null)
   const comandaEquipe = podeComandarEquipeObra(roles)
   const mostrarIniciar = podeExibirBotaoIniciarObra({
     obra,
@@ -59,6 +60,32 @@ export function ObraEquipeActionBar({
     montadorUserId,
   })
   const mostrarReabrir = !!onReabrir && podeExibirBotaoReabrirObra({ obra, roles })
+
+  // No popup da Agenda o card fica no fim da área rolável; o painel de
+  // confirmação cresce para baixo e o botão "Confirmar" ficava cortado.
+  useLayoutEffect(() => {
+    if (!confirm) return
+    const el = confirmRef.current
+    if (!el) return
+
+    const pad = 10
+    let parent: HTMLElement | null = el.parentElement
+    while (parent) {
+      const { overflowY } = getComputedStyle(parent)
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+        const parentRect = parent.getBoundingClientRect()
+        const elRect = el.getBoundingClientRect()
+        if (elRect.bottom > parentRect.bottom - pad) {
+          parent.scrollTop += elRect.bottom - parentRect.bottom + pad
+        }
+        const elRectAfter = el.getBoundingClientRect()
+        if (elRectAfter.top < parentRect.top + pad) {
+          parent.scrollTop -= parentRect.top + pad - elRectAfter.top
+        }
+      }
+      parent = parent.parentElement
+    }
+  }, [confirm])
 
   if (!mostrarIniciar && !mostrarConcluir && !mostrarReabrir) return null
 
@@ -85,6 +112,7 @@ export function ObraEquipeActionBar({
     >
       {confirm ? (
         <div
+          ref={confirmRef}
           className={cn(
             'obra-equipe-confirm',
             confirm === 'concluir' && 'obra-equipe-confirm--done',

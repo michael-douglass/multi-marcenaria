@@ -31,6 +31,8 @@ export interface LeadAIMediaItem {
   fileUrl?: string;
   pdfCacheKey?: string;
   orcamentoId?: string;
+  /** Pasta de anexos do lead (só anexos organizados). */
+  folderId?: string | null;
 }
 
 export interface LeadAIAnalysisItemPayload {
@@ -99,6 +101,7 @@ export function buildSelectableLeadMediaItems(input: {
         thumbnailUrl: anexo.file_url,
         kind: 'image',
         fileUrl: anexo.file_url,
+        folderId: anexo.folder_id ?? null,
       });
       continue;
     }
@@ -112,6 +115,7 @@ export function buildSelectableLeadMediaItems(input: {
       kind: 'pdf',
       fileUrl: anexo.file_url,
       pdfCacheKey: pdfCacheKeyForMedia(anexo.id),
+      folderId: anexo.folder_id ?? null,
     });
   }
 

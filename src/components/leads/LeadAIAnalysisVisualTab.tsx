@@ -37,12 +37,15 @@ import {
   Layers,
   Trash2,
   FileDown,
+  Search,
 } from 'lucide-react';
 import { useLeadAIMediaItems } from '@/hooks/useLeadAIMediaItems';
+import { useLeadAIMediaFolderBrowse } from '@/hooks/useLeadAIMediaFolderBrowse';
 import {
   useLeadAIAnalyses,
   useDeleteLeadAIAnalysis,
 } from '@/hooks/useLeadAIAnalyses';
+import { LeadAIMediaFolderShelf } from '@/components/leads/LeadAIMediaFolderShelf';
 import { useLeadAIAnalysisBackground } from '@/contexts/LeadAIAnalysisBackgroundContext';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import {
@@ -319,6 +322,8 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
   const location = useLocation();
   const returnToLeadCard = buildLeadCardReturnTo(location.pathname, location.search, leadId);
   const { items, isLoading: mediaLoading, isRefreshing: mediaRefreshing } = useLeadAIMediaItems(leadId);
+  const folderBrowse = useLeadAIMediaFolderBrowse(leadId, items);
+  const visibleGalleryItems = folderBrowse.visibleItems;
   const { config: aiConfig, isLoading: configLoading } = usePipelineLeadAIConfig();
   const { data: historico = [], isLoading: historicoLoading } = useLeadAIAnalyses(leadId);
   const { data: renderHistorico = [] } = useLeadAIRenders(leadId);
@@ -449,7 +454,8 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
     void runAnalysis(selectedItems);
   };
 
-  const selectAll = () => setSelectedKeys(new Set(items.map((i) => i.key)));
+  const selectAll = () =>
+    setSelectedKeys(new Set((visibleGalleryItems.length > 0 ? visibleGalleryItems : items).map((i) => i.key)));
   const clearSelection = () => setSelectedKeys(new Set());
 
   const handleCopy = async () => {
@@ -546,9 +552,12 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
     }
   }, [deleteRenderMutation, renderDeleteTarget, renderHistorico]);
 
-  const renderMediaGalleryGrid = (gridClassName?: string) => (
+  const renderMediaGalleryGrid = (
+    gridItems: LeadAIMediaItem[] = visibleGalleryItems,
+    gridClassName?: string,
+  ) => (
     <div className={cn(galleryGridClassName, gridClassName)}>
-      {items.map((item, index) => (
+      {gridItems.map((item, index) => (
         <MediaSelectCard
           key={item.key}
           item={item}
@@ -560,6 +569,45 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
           isDeleting={deleteRenderMutation.isPending && renderDeleteTarget?.key === item.key}
         />
       ))}
+    </div>
+  );
+
+  const renderGalleryBrowser = (gridClassName?: string) => (
+    <div className="space-y-3">
+      {items.length > 0 && (
+        <LeadAIMediaFolderShelf
+          folders={folderBrowse.folders}
+          coverSource={folderBrowse.coverSource}
+          folderCounts={folderBrowse.folderCounts}
+          unfiledCount={folderBrowse.unfiledCount}
+          showFolderShelf={folderBrowse.showFolderShelf}
+          viewingRoot={folderBrowse.viewingRoot}
+          folderLabel={folderBrowse.folderLabel}
+          searchQuery={folderBrowse.searchQuery}
+          onSearchChange={folderBrowse.setSearchQuery}
+          onOpenFolder={folderBrowse.openFolder}
+          onOpenUnfiled={folderBrowse.openUnfiled}
+          onGoRoot={folderBrowse.goRoot}
+          searchPlaceholder="Buscar foto ou PDF do lead…"
+        />
+      )}
+
+      {folderBrowse.showFolderShelf ? (
+        <p className="px-1 text-center text-[11px] text-cream-muted">
+          Abra uma pasta — ou busque pelo nome do arquivo.
+        </p>
+      ) : visibleGalleryItems.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gold-border-subtle/30 bg-mahogany-muted/30 px-4 py-8 text-center">
+          <Search className="mx-auto mb-2 h-5 w-5 text-cream-faint opacity-70" />
+          <p className="text-sm text-cream-muted">
+            {folderBrowse.isSearching
+              ? 'Nenhum arquivo com esse nome.'
+              : 'Esta pasta não tem imagens ou PDFs para análise.'}
+          </p>
+        </div>
+      ) : (
+        renderMediaGalleryGrid(visibleGalleryItems, gridClassName)
+      )}
     </div>
   );
 
@@ -609,8 +657,9 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
                 Selecione fotos e PDFs para análise
               </Label>
               <p className="text-xs text-cream-muted">
-                {selectedKeys.size} selecionado(s) · até {PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS}{' '}
-                arquivos · até {PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas/imagens por análise
+                Pastas do lead · {selectedKeys.size} selecionado(s) · até{' '}
+                {PIPELINE_LEAD_AI_MAX_ITEMS_PER_ANALYSIS} arquivos · até{' '}
+                {PIPELINE_LEAD_AI_MAX_IMAGES_PER_ANALYSIS} páginas/imagens por análise
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -679,7 +728,7 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
                   Atualizando mais imagens do lead…
                 </div>
               )}
-              {renderMediaGalleryGrid('p-1 pr-3')}
+              <div className="p-3 pr-3 sm:p-4">{renderGalleryBrowser()}</div>
             </ScrollArea>
           )}
 
@@ -933,7 +982,7 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
         analyzeLabel={analyzeButtonLabel}
         itemsEmpty={items.length === 0}
       >
-        {renderMediaGalleryGrid()}
+        {renderGalleryBrowser()}
       </LeadAIMediaGalleryFullscreenDialog>
 
       <LeadAIAnalysisFullscreenDialog

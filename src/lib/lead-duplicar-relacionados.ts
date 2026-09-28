@@ -25,6 +25,7 @@ import type {
 type EmpresaDb = { from: (table: string) => any }
 
 const ORCAMENTO_STORAGE_BUCKET = 'orcamento-slides'
+const MARKETING_STORAGE_BUCKET = 'marketing-medias'
 
 export interface DuplicarLeadRelacionadosInput {
   db: EmpresaDb
@@ -84,9 +85,88 @@ function remapMarkupIdNosDados(
   return clone
 }
 
+/** Extrai o path interno do bucket marketing-medias a partir da URL pública. */
+function pathStorageMarketingMidia(fileUrl: string): string | null {
+  try {
+    const url = new URL(fileUrl)
+    const marker = `/${MARKETING_STORAGE_BUCKET}/`
+    const idx = url.pathname.indexOf(marker)
+    if (idx < 0) return null
+    return decodeURIComponent(url.pathname.slice(idx + marker.length))
+  } catch {
+    return null
+  }
+}
+
+function extensaoArquivo(fileName: string | null | undefined, fallback = 'bin'): string {
+  const raw = (fileName || '').split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '')
+  return raw && raw.length > 0 ? raw.toLowerCase() : fallback
+}
+
+function pathDestinoAnexoLead(params: {
+  schema: string | null | undefined
+  fileName: string | null | undefined
+}): string {
+  const prefix = params.schema ?? 'master'
+  const ext = extensaoArquivo(params.fileName, 'bin')
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  return `${prefix}/${stamp}.${ext}`
+}
+
+function pathDestinoLousaLead(params: {
+  leadId: number
+  fileName: string | null | undefined
+}): string {
+  const ext = extensaoArquivo(params.fileName, 'jpg')
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  return `leads/${params.leadId}/${stamp}.${ext}`
+}
+
+/**
+ * Copia o arquivo no Storage para o lead duplicado.
+ * Se a cópia falhar, tenta baixar + reenviar; se ainda falhar, mantém a URL original.
+ */
+async function copiarArquivoMarketingMidia(params: {
+  fileUrl: string
+  pathDestino: string
+}): Promise<string> {
+  const pathOrigem = pathStorageMarketingMidia(params.fileUrl)
+  if (!pathOrigem) return params.fileUrl
+  if (pathOrigem === params.pathDestino) return params.fileUrl
+
+  const { error: copyErr } = await supabase.storage
+    .from(MARKETING_STORAGE_BUCKET)
+    .copy(pathOrigem, params.pathDestino)
+
+  if (!copyErr) {
+    const { data } = supabase.storage.from(MARKETING_STORAGE_BUCKET).getPublicUrl(params.pathDestino)
+    return data.publicUrl
+  }
+
+  const { data: blob, error: downErr } = await supabase.storage
+    .from(MARKETING_STORAGE_BUCKET)
+    .download(pathOrigem)
+  if (downErr || !blob) {
+    console.warn('Duplicar lead — não foi possível baixar mídia:', pathOrigem, downErr)
+    return params.fileUrl
+  }
+
+  const { error: upErr } = await supabase.storage
+    .from(MARKETING_STORAGE_BUCKET)
+    .upload(params.pathDestino, blob, { upsert: true })
+  if (upErr) {
+    console.warn('Duplicar lead — não foi possível reenviar mídia:', params.pathDestino, upErr)
+    return params.fileUrl
+  }
+
+  const { data } = supabase.storage.from(MARKETING_STORAGE_BUCKET).getPublicUrl(params.pathDestino)
+  return data.publicUrl
+}
+
 /**
  * Uploads do orçamento: copia o arquivo no Storage.
- * Fotos da biblioteca / anexos do lead: reutiliza a mesma URL (mesma biblioteca).
+ * Fotos da biblioteca / anexos do lead: já foram duplicadas em marketing-medias;
+ * aqui só reutiliza a URL remapeada via source_id.
  */
 async function resolverUrlMidiaNoLeadDuplicado(
   midia: OrcamentoSlideMidia,
@@ -139,7 +219,7 @@ function remapSourceId(
 
 /**
  * Copia o que fica “dentro” do lead após o card base já ter sido criado:
- * pastas + fotos (mesma URL da biblioteca), markups, orçamentos e lousa.
+ * pastas + fotos (arquivo duplicado no Storage), markups, orçamentos e lousa.
  */
 export async function duplicarLeadRelacionados(
   input: DuplicarLeadRelacionadosInput,
@@ -159,78 +239,119 @@ export async function duplicarLeadRelacionados(
   const mediasConfig = resolveMarketingMediasConfig(schemaEmpresa)
   const folderMap = new Map<string, string>()
   const mediaMap = new Map<string, string>()
+  /** URL nova do arquivo (após cópia no Storage), indexada pelo id antigo. */
+  const mediaUrlMap = new Map<string, string>()
   const markupIdMap = new Map<string, string>()
   const whiteboardImageMap = new Map<string, string>()
+  const whiteboardUrlMap = new Map<string, string>()
 
   // ── 1) Pastas da biblioteca do lead ──────────────────────────────────────
   try {
     const { data: pastas, error } = await db
       .from(mediasConfig.foldersTable)
-      .select('id, nome, descricao')
+      .select('id, nome, descricao, fixado, ordem_topo')
       .eq('lead_id', origemLeadId)
       .order('nome', { ascending: true })
     if (error) throw error
 
+    let pastasFalharam = 0
     for (const pasta of pastas ?? []) {
-      const { data: criada, error: createErr } = await db
-        .from(mediasConfig.foldersTable)
-        .insert({
-          nome: pasta.nome,
-          descricao: pasta.descricao ?? null,
-          lead_id: novoLeadId,
-        })
-        .select('id')
-        .single()
-      if (createErr) throw createErr
-      if (criada?.id) {
-        folderMap.set(pasta.id as string, criada.id as string)
-        result.pastas += 1
+      try {
+        const { data: criada, error: createErr } = await db
+          .from(mediasConfig.foldersTable)
+          .insert({
+            nome: pasta.nome,
+            descricao: pasta.descricao ?? null,
+            lead_id: novoLeadId,
+            fixado: pasta.fixado ?? false,
+            ordem_topo: pasta.ordem_topo ?? 0,
+          })
+          .select('id')
+          .single()
+        if (createErr) throw createErr
+        if (criada?.id) {
+          folderMap.set(pasta.id as string, criada.id as string)
+          result.pastas += 1
+        }
+      } catch (pastaErr) {
+        pastasFalharam += 1
+        console.error('Duplicar lead — pasta individual:', pastaErr)
       }
+    }
+    if (pastasFalharam > 0) {
+      avisos.push(`${pastasFalharam} pasta(s) não puderam ser copiadas.`)
     }
   } catch (err) {
     console.error('Duplicar lead — pastas:', err)
     avisos.push('Pastas da biblioteca não foram copiadas.')
   }
 
-  // ── 2) Mídias: mesma file_url (não reenvia arquivo) ──────────────────────
+  // ── 2) Mídias: copia o arquivo no Storage + novo registro ─────────────────
   try {
     const { data: midias, error } = await db
       .from(mediasConfig.mediasTable)
-      .select('id, titulo, tipo, file_url, file_name, file_size, mime_type, folder_id')
+      .select(
+        'id, titulo, tipo, file_url, file_name, file_size, mime_type, folder_id, fixado, ordem_topo',
+      )
       .eq('lead_id', origemLeadId)
       .order('criado_em', { ascending: true })
     if (error) throw error
 
-    for (const midia of midias ?? []) {
-      const folderAntigo = (midia.folder_id as string | null) ?? null
-      const folderNovo =
-        folderAntigo && folderMap.has(folderAntigo)
-          ? folderMap.get(folderAntigo)!
-          : null
+    const totalOrigem = (midias ?? []).length
+    let midiasFalharam = 0
 
-      const { data: criada, error: createErr } = await db
-        .from(mediasConfig.mediasTable)
-        .insert({
-          titulo: midia.titulo,
-          tipo: midia.tipo,
-          file_url: midia.file_url,
-          file_name: midia.file_name,
-          file_size: midia.file_size ?? null,
-          mime_type: midia.mime_type ?? null,
-          folder_id: folderNovo,
-          lead_id: novoLeadId,
+    for (const midia of midias ?? []) {
+      try {
+        const folderAntigo = (midia.folder_id as string | null) ?? null
+        const folderNovo =
+          folderAntigo && folderMap.has(folderAntigo)
+            ? folderMap.get(folderAntigo)!
+            : null
+
+        const fileUrlNova = await copiarArquivoMarketingMidia({
+          fileUrl: midia.file_url as string,
+          pathDestino: pathDestinoAnexoLead({
+            schema: mediasConfig.schema ?? schemaEmpresa,
+            fileName: midia.file_name as string,
+          }),
         })
-        .select('id')
-        .single()
-      if (createErr) throw createErr
-      if (criada?.id) {
-        mediaMap.set(midia.id as string, criada.id as string)
-        result.midias += 1
+
+        const { data: criada, error: createErr } = await db
+          .from(mediasConfig.mediasTable)
+          .insert({
+            titulo: midia.titulo || midia.file_name || 'Arquivo',
+            tipo: midia.tipo,
+            file_url: fileUrlNova,
+            file_name: midia.file_name,
+            file_size: midia.file_size ?? null,
+            mime_type: midia.mime_type ?? null,
+            folder_id: folderNovo,
+            lead_id: novoLeadId,
+            fixado: midia.fixado ?? false,
+            ordem_topo: midia.ordem_topo ?? 0,
+          })
+          .select('id')
+          .single()
+        if (createErr) throw createErr
+        if (criada?.id) {
+          mediaMap.set(midia.id as string, criada.id as string)
+          mediaUrlMap.set(midia.id as string, fileUrlNova)
+          result.midias += 1
+        }
+      } catch (midiaErr) {
+        midiasFalharam += 1
+        console.error('Duplicar lead — mídia individual:', midiaErr)
       }
+    }
+
+    if (midiasFalharam > 0) {
+      avisos.push(
+        `${midiasFalharam} de ${totalOrigem} foto(s)/anexo(s) não puderam ser duplicados.`,
+      )
     }
   } catch (err) {
     console.error('Duplicar lead — mídias:', err)
-    avisos.push('Fotos/anexos da biblioteca não foram vinculados à cópia.')
+    avisos.push('Fotos/anexos da biblioteca não foram duplicados.')
   }
 
   // ── 3) Markups ───────────────────────────────────────────────────────────
@@ -269,36 +390,58 @@ export async function duplicarLeadRelacionados(
     avisos.push('Markups não foram copiados.')
   }
 
-  // ── 4) Lousa (mesmas URLs de imagem) — antes dos orçamentos p/ remapar source_id
+  // ── 4) Lousa — arquivos duplicados no Storage ────────────────────────────
   try {
     const wb = resolveWhiteboardTables(schemaEmpresa)
     const { data: imagens, error: imgErr } = await db
       .from(wb.images)
-      .select('id, file_url, file_name, position_x, position_y, width, height, z_index')
+      .select('id, file_url, file_name, position_x, position_y, width, height, z_index, observacao')
       .eq('lead_id', origemLeadId)
       .order('z_index', { ascending: true })
     if (imgErr) throw imgErr
 
+    const totalLousa = (imagens ?? []).length
+    let lousaFalharam = 0
+
     for (const img of imagens ?? []) {
-      const { data: criada, error: createErr } = await db
-        .from(wb.images)
-        .insert({
-          lead_id: novoLeadId,
-          file_url: img.file_url,
-          file_name: img.file_name,
-          position_x: img.position_x,
-          position_y: img.position_y,
-          width: img.width,
-          height: img.height,
-          z_index: img.z_index,
+      try {
+        const fileUrlNova = await copiarArquivoMarketingMidia({
+          fileUrl: img.file_url as string,
+          pathDestino: pathDestinoLousaLead({
+            leadId: novoLeadId,
+            fileName: img.file_name as string,
+          }),
         })
-        .select('id')
-        .single()
-      if (createErr) throw createErr
-      if (criada?.id) {
-        whiteboardImageMap.set(img.id as string, criada.id as string)
-        result.lousaImagens += 1
+
+        const { data: criada, error: createErr } = await db
+          .from(wb.images)
+          .insert({
+            lead_id: novoLeadId,
+            file_url: fileUrlNova,
+            file_name: img.file_name,
+            position_x: img.position_x,
+            position_y: img.position_y,
+            width: img.width,
+            height: img.height,
+            z_index: img.z_index,
+            observacao: img.observacao ?? null,
+          })
+          .select('id')
+          .single()
+        if (createErr) throw createErr
+        if (criada?.id) {
+          whiteboardImageMap.set(img.id as string, criada.id as string)
+          whiteboardUrlMap.set(img.id as string, fileUrlNova)
+          result.lousaImagens += 1
+        }
+      } catch (imgItemErr) {
+        lousaFalharam += 1
+        console.error('Duplicar lead — imagem da lousa:', imgItemErr)
       }
+    }
+
+    if (lousaFalharam > 0) {
+      avisos.push(`${lousaFalharam} de ${totalLousa} foto(s) da lousa não puderam ser duplicadas.`)
     }
 
     const { data: desenhos, error: drawErr } = await db
@@ -367,9 +510,16 @@ export async function duplicarLeadRelacionados(
 
       const midias = (midiasOrigem ?? []) as OrcamentoSlideMidia[]
       if (midias.length > 0) {
-        const linhas = await montarMidiasDuplicadas(midias, novo.id, (m) =>
-          resolverUrlMidiaNoLeadDuplicado(m, novo.id, schema),
-        )
+        const linhas = await montarMidiasDuplicadas(midias, novo.id, async (m) => {
+          // Anexos/lousa já copiados: usa a URL nova do arquivo do lead duplicado.
+          if (m.source_id && mediaUrlMap.has(m.source_id)) {
+            return mediaUrlMap.get(m.source_id)!
+          }
+          if (m.source_id && whiteboardUrlMap.has(m.source_id)) {
+            return whiteboardUrlMap.get(m.source_id)!
+          }
+          return resolverUrlMidiaNoLeadDuplicado(m, novo.id, schema)
+        })
 
         const { error: insertMidiasErr } = await db.from(midiasTable).insert(
           linhas.map((linha) => ({
@@ -402,5 +552,5 @@ export function resumirDuplicacaoLead(r: DuplicarLeadRelacionadosResult): string
   if (r.orcamentos > 0) partes.push(`${r.orcamentos} orçamento(s)`)
   if (r.lousaImagens > 0 || r.lousaDesenhos > 0) partes.push('lousa')
   if (partes.length === 0) return 'Dados básicos copiados.'
-  return `Também copiados: ${partes.join(', ')}. Fotos usam a mesma biblioteca (sem reenviar arquivo).`
+  return `Também copiados: ${partes.join(', ')}. As fotos foram duplicadas (arquivos próprios na cópia).`
 }
