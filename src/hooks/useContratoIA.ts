@@ -4,6 +4,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { parseSupabaseFunctionError } from '@/lib/parse-supabase-function-error';
 import {
   filtrarFieldPatches,
+  sanitizeDocumentReplacements,
   type ContratoIARequest,
   type ContratoIAResponse,
   type ContratoIAPendingPatch,
@@ -20,6 +21,21 @@ export interface ComposeContratoIAInput {
   modeloConteudo?: string | null;
 }
 
+function parseInvokeData(data: unknown): Partial<ContratoIAResponse> {
+  if (data == null) return {};
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data) as Partial<ContratoIAResponse>;
+    } catch {
+      return {};
+    }
+  }
+  if (typeof data === 'object') {
+    return data as Partial<ContratoIAResponse>;
+  }
+  return {};
+}
+
 async function invokeComposeContratoIA(
   body: ContratoIARequest,
 ): Promise<ContratoIAResponse> {
@@ -27,12 +43,13 @@ async function invokeComposeContratoIA(
     body,
   });
 
-  if (error || (data && typeof data === 'object' && 'error' in data && (data as { error?: unknown }).error)) {
+  const raw = parseInvokeData(data);
+
+  if (error || (typeof raw.error === 'string' && raw.error.trim())) {
     const message = await parseSupabaseFunctionError(error, data);
     throw new Error(message);
   }
 
-  const raw = (data ?? {}) as Partial<ContratoIAResponse>;
   const allowed = body.variaveis.map((v) => v.nome);
 
   return {
@@ -43,6 +60,7 @@ async function invokeComposeContratoIA(
       typeof raw.documentPatch === 'string' && raw.documentPatch.trim()
         ? raw.documentPatch
         : null,
+    documentReplacements: sanitizeDocumentReplacements(raw.documentReplacements),
     warnings: Array.isArray(raw.warnings)
       ? raw.warnings.filter((w): w is string => typeof w === 'string')
       : [],
@@ -60,6 +78,11 @@ export function useComposeContratoIA() {
     mutationFn: async (input: ComposeContratoIAInput): Promise<ContratoIAPendingPatch> => {
       const response = await invokeComposeContratoIA({
         ...input,
+        // Evita mandar modelo + texto completo (reduz falha / truncamento)
+        modeloConteudo:
+          input.etapa === 2 && input.conteudoContrato?.trim()
+            ? null
+            : input.modeloConteudo ?? null,
         empresaSchema: schemaEmpresa ?? null,
       });
 
@@ -67,6 +90,8 @@ export function useComposeContratoIA() {
         reply: response.reply,
         fieldPatches: response.fieldPatches,
         documentPatch: input.etapa === 1 ? null : response.documentPatch,
+        documentReplacements:
+          input.etapa === 1 ? [] : response.documentReplacements,
         warnings: response.warnings,
         skipped: response.skipped,
       };

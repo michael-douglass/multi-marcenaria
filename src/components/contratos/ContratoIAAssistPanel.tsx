@@ -19,6 +19,7 @@ import {
   CONTRATO_IA_SUGESTOES_ETAPA_2,
   contarAlteracoesPendentes,
   temAlteracoesPendentes,
+  temEdicaoDeDocumento,
   type ContratoIAVariavelInput,
   type ContratoIAPendingPatch,
 } from '@/lib/contrato-ia';
@@ -74,7 +75,7 @@ export function ContratoIAAssistPanel({
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá — sou a assistente de contratos. Leio só o que já está nesta página. Peça: preencher vazios, valor por extenso, ortografia ou adaptar o texto. Não invento dados.',
+        'Olá — sou a assistente de contratos. Na pré-visualização, diga o que mudar (ex.: contrato PJ, representante, endereço) e eu atualizo o texto na hora. Uso só o que você informar + o que já está na página.',
     },
   ]);
   const [pendingPatch, setPendingPatch] = useState<ContratoIAPendingPatch | null>(null);
@@ -134,17 +135,33 @@ export function ContratoIAAssistPanel({
         if (result.skipped.length) {
           extras.push(`Não preenchido: ${result.skipped.join(' · ')}`);
         }
+
         if (n > 0) {
+          onApplyPatches(result);
+          if (temEdicaoDeDocumento(result)) {
+            extras.push(
+              result.documentReplacements?.length
+                ? `Apliquei ${result.documentReplacements.length} alteração(ões) direto no texto da pré-visualização.`
+                : 'Texto do contrato na pré-visualização já foi atualizado.',
+            );
+            toast.success('Pré-visualização atualizada');
+          } else {
+            extras.push(`${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`);
+            toast.success('Campos atualizados pela IA');
+          }
+          setPendingPatch(null);
+        } else {
           extras.push(
-            `${n} alteração(ões) pronta(s). Revise abaixo e clique em Aplicar.`,
+            'Nenhuma alteração foi aplicada no texto. Se estiver na pré-visualização, peça de novo citando “PJ”, “representante” e o endereço.',
           );
+          toast.message('Sem mudanças no texto', {
+            description: 'A IA respondeu, mas não trouxe trechos para alterar a pré-visualização.',
+          });
+          setPendingPatch(null);
         }
 
         const content = [result.reply, ...extras].filter(Boolean).join('\n\n');
         setTurns((prev) => [...prev, { id: newId(), role: 'assistant', content }]);
-        if (temAlteracoesPendentes(result)) {
-          setPendingPatch(result);
-        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Falha ao falar com a IA';
         setTurns((prev) => [
@@ -166,6 +183,7 @@ export function ContratoIAAssistPanel({
       conteudoContrato,
       modeloConteudo,
       disabled,
+      onApplyPatches,
     ],
   );
 

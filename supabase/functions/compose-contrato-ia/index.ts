@@ -4,7 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { sugerirCamposPorExtenso } from '../_shared/valor-monetario-extenso.ts';
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
-const MAX_MESSAGE_LENGTH = 4000;
+const MAX_MESSAGE_LENGTH = 8000;
 const MAX_DOCUMENT_CHARS = 80_000;
 
 const VariavelSchema = z.object({
@@ -26,26 +26,29 @@ const RequestSchema = z.object({
 
 const SYSTEM_PROMPT = `Você é o assistente de contratos da GARBO Movelaria.
 
-Seu trabalho é ajudar a preencher e revisar contratos a partir SOMENTE do contexto enviado (campos preenchidos, modelo e texto atual).
+Fontes permitidas de fato (nesta ordem):
+1) O pedido do usuário (pedidoUsuario) — tudo que ELE informar conta como dado válido.
+2) Campos já preenchidos (campos).
+3) Texto atual do contrato (conteudoContrato).
 
 REGRAS INVIOLÁVEIS:
-- NUNCA invente nomes, CPF, CNPJ, endereços, telefones, datas, valores ou qualquer fato que não esteja no contexto.
-- Se faltar um dado (ex.: adaptar para PJ sem CNPJ/razão social no contexto), explique o que falta em "warnings" e NÃO invente.
-- Preencher vazios: só derive o que for claramente calculável a partir dos dados (ex.: usar "sugestoesPorExtensoSeguras") ou copie de outro campo equivalente já preenchido.
-- Ortografia: corrija gramática, acentuação e typos SEM alterar fatos, números, percentuais, valores em R$ ou cláusulas de valor.
-- Na etapa 1: documentPatch DEVE ser null — altere apenas fieldPatches.
-- Na etapa 2: se o pedido for sobre o texto do contrato, retorne documentPatch com o texto COMPLETO revisado; se for só campos, documentPatch = null.
-- Prefira as "sugestoesPorExtensoSeguras" para campos por extenso — não recalcule por conta própria.
-- Responda SEMPRE em JSON válido (sem markdown), no formato:
+- NUNCA invente fatos que NÃO estejam no pedido do usuário nem nos campos/texto.
+- Se o usuário informar representante, endereço, CEP, município, UF, empresa etc., USE esses dados.
+- Etapa 1: documentPatch null, documentReplacements []. Só fieldPatches.
+- Etapa 2 (editar/adaptar/PJ/ortografia do texto): PREFIRA "documentReplacements" — lista de trocas com trechos EXATOS copiados de conteudoContrato no campo "find".
+  Exemplo: { "find": "o CONTRATANTE, pessoa física", "replace": "o CONTRATANTE, pessoa jurídica, representada por Fábio Rosa" }
+- Faça várias trocas pequenas (qualificação, endereço, CPF→CNPJ se houver dado, etc.). NÃO devolva o contrato inteiro em documentPatch, a menos que seja impossível com trocas.
+- documentPatch só se for estritamente necessário (raro). Preferir null.
+- Se faltar CNPJ e o usuário não informou, avise em warnings e use "a informar" só nesse ponto.
+- Responda SEMPRE em JSON válido:
 {
-  "reply": "mensagem curta em português para o usuário",
-  "fieldPatches": { "nome_do_campo": "novo valor" },
+  "reply": "mensagem curta",
+  "fieldPatches": {},
+  "documentReplacements": [{ "find": "...", "replace": "..." }],
   "documentPatch": null,
-  "warnings": ["avisos"],
-  "skipped": ["campos que não preencheu e por quê"]
-}
-- fieldPatches só pode conter chaves que existem em "variaveis".
-- Se não houver nada a alterar, fieldPatches = {} e documentPatch = null, com reply explicando.`;
+  "warnings": [],
+  "skipped": []
+}`;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -92,6 +95,61 @@ function extractJsonObject(raw: string): unknown {
     return JSON.parse(trimmed.slice(start, end + 1));
   }
   throw new Error('A IA não retornou JSON válido');
+}
+
+function sanitizeReplacements(raw: unknown): Array<{ find: string; replace: string }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ find: string; replace: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const find =
+      typeof (item as { find?: unknown }).find === 'string'
+        ? (item as { find: string }).find
+        : typeof (item as { from?: unknown }).from === 'string'
+          ? (item as { from: string }).from
+          : '';
+    const replace =
+      typeof (item as { replace?: unknown }).replace === 'string'
+        ? (item as { replace: string }).replace
+        : typeof (item as { to?: unknown }).to === 'string'
+          ? (item as { to: string }).to
+          : '';
+    if (!find.trim() || find === replace) continue;
+    out.push({ find, replace });
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
+function filterReplacementsAgainstDoc(
+  replacements: Array<{ find: string; replace: string }>,
+  doc: string | null | undefined,
+): Array<{ find: string; replace: string }> {
+  if (!doc) return replacements;
+  return replacements.filter((r) => doc.includes(r.find));
+}
+
+function pedidoEditaDocumento(message: string): boolean {
+  const m = message
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return (
+    m.includes('pj') ||
+    m.includes('pessoa juridica') ||
+    m.includes('adapt') ||
+    m.includes('reescrev') ||
+    m.includes('alter') ||
+    m.includes('contrato') ||
+    m.includes('clausula') ||
+    m.includes('representante') ||
+    m.includes('razao social') ||
+    m.includes('cnpj') ||
+    m.includes('empresa') ||
+    m.includes('revis') ||
+    m.includes('corrig') ||
+    m.includes('ortograf')
+  );
 }
 
 async function callOpenAIChat(
@@ -275,25 +333,48 @@ Deno.serve(async (req) => {
       vazio: !(valoresLimpos[v.nome] ?? '').trim(),
     }));
 
+    const editaDocumento = etapa === 2 && pedidoEditaDocumento(message);
+    const conteudoAtual =
+      etapa === 2 ? (conteudoContrato?.trim() || modeloConteudo?.trim() || null) : null;
+
     const userPayload = {
       pedidoUsuario: message,
       etapa,
+      deveEditarDocumento: editaDocumento,
+      instrucaoExtra: editaDocumento
+        ? 'OBRIGATÓRIO: devolva documentReplacements com trocas reais. Cada "find" deve ser um trecho LITERAL que existe em conteudoContrato. Inclua representante/endereço do pedidoUsuario. documentPatch = null.'
+        : null,
       campos: camposResumo,
       sugestoesPorExtensoSeguras,
-      conteudoContrato:
-        etapa === 2 ? (conteudoContrato?.trim() || null) : null,
-      modeloConteudo: modeloConteudo?.trim() || null,
+      conteudoContrato: conteudoAtual
+        ? conteudoAtual.slice(0, 28000)
+        : null,
     };
+
+    if (editaDocumento && !conteudoAtual) {
+      return jsonResponse(
+        {
+          error:
+            'Não há texto do contrato na pré-visualização para editar. Abra a etapa 2 com o modelo gerado.',
+        },
+        400,
+      );
+    }
 
     let rawContent: string;
     try {
-      rawContent = await callOpenAIChat(openAiKey, model, [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Contexto do contrato (JSON):\n${JSON.stringify(userPayload, null, 2)}`,
-        },
-      ]);
+      rawContent = await callOpenAIChat(
+        openAiKey,
+        model,
+        [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `Contexto do contrato (JSON):\n${JSON.stringify(userPayload, null, 2)}`,
+          },
+        ],
+        editaDocumento ? 3500 : 2500,
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Falha ao chamar OpenAI';
       return jsonResponse({ error: msg }, 502);
@@ -308,6 +389,10 @@ Deno.serve(async (req) => {
     }
 
     let fieldPatches = sanitizeFieldPatches(aiJson.fieldPatches, allowedNames);
+    let documentReplacements = filterReplacementsAgainstDoc(
+      sanitizeReplacements(aiJson.documentReplacements),
+      conteudoAtual,
+    );
     let documentPatch: string | null =
       typeof aiJson.documentPatch === 'string' && aiJson.documentPatch.trim()
         ? aiJson.documentPatch
@@ -315,9 +400,53 @@ Deno.serve(async (req) => {
 
     if (etapa === 1) {
       documentPatch = null;
+      documentReplacements = [];
     }
 
-    // Se o pedido parece ser só por-extenso / preencher vazios e a IA omitiu, completa com sugestões seguras
+    // Retry focado se pediu editar documento e não veio troca útil
+    if (editaDocumento && !documentPatch && documentReplacements.length === 0 && conteudoAtual) {
+      try {
+        const retryRaw = await callOpenAIChat(
+          openAiKey,
+          model,
+          [
+            {
+              role: 'system',
+              content:
+                'Você edita contratos jurídicos em PT-BR. Responda só JSON. Gere documentReplacements: array de {find, replace}. find = trecho EXATO do contrato. Use só fatos do pedido do usuário. documentPatch=null.',
+            },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                pedidoUsuario: message,
+                conteudoContrato: conteudoAtual.slice(0, 24000),
+                tarefa:
+                  'Adapte o contratante para PJ com os dados do pedido (representante, endereço etc.). Devolva no mínimo 2 trocas.',
+              }),
+            },
+          ],
+          3000,
+        );
+        const retryJson = extractJsonObject(retryRaw) as Record<string, unknown>;
+        documentReplacements = filterReplacementsAgainstDoc(
+          sanitizeReplacements(retryJson.documentReplacements),
+          conteudoAtual,
+        );
+        if (
+          typeof retryJson.documentPatch === 'string' &&
+          retryJson.documentPatch.trim() &&
+          documentReplacements.length === 0
+        ) {
+          documentPatch = retryJson.documentPatch;
+        }
+      } catch (retryErr) {
+        console.error('compose-contrato-ia retry failed', retryErr);
+      }
+    }
+
+    const warnings = asStringArray(aiJson.warnings);
+    const skipped = asStringArray(aiJson.skipped);
+
     const msgLower = message.toLowerCase();
     const pedeExtenso =
       msgLower.includes('extenso') ||
@@ -330,19 +459,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (editaDocumento && !documentPatch && documentReplacements.length === 0) {
+      warnings.push(
+        'Não consegui localizar trechos do contrato para trocar. Tente novamente com: “troque a qualificação do contratante para PJ com o representante e o endereço que enviei”.',
+      );
+    }
+
     const reply =
       typeof aiJson.reply === 'string' && aiJson.reply.trim()
         ? aiJson.reply.trim()
-        : 'Pronto. Revise as alterações sugeridas antes de aplicar.';
+        : documentReplacements.length || documentPatch
+          ? 'Atualizei o texto da pré-visualização.'
+          : 'Pronto.';
 
     return jsonResponse({
       ok: true,
       reply,
       fieldPatches,
-      documentPatch,
-      warnings: asStringArray(aiJson.warnings),
-      skipped: asStringArray(aiJson.skipped),
+      documentPatch: etapa === 1 ? null : documentPatch,
+      documentReplacements: etapa === 1 ? [] : documentReplacements,
+      warnings,
+      skipped,
       modelo: model,
+      appliedDirectly: true,
     });
   } catch (err) {
     console.error('compose-contrato-ia error', err);

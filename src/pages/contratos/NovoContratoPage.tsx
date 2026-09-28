@@ -54,7 +54,8 @@ import {
   snapshotContratoForm,
   type ContratoEtapaRascunho,
 } from '@/lib/contrato-rascunho';
-import { filtrarFieldPatches, type ContratoIAPendingPatch } from '@/lib/contrato-ia';
+import { filtrarFieldPatches, aplicarEdicoesNoDocumento, type ContratoIAPendingPatch } from '@/lib/contrato-ia';
+import { flushSync } from 'react-dom';
 
 type Etapa = 1 | 2 | 3;
 
@@ -275,17 +276,28 @@ export default function NovoContratoPage() {
     (patch: ContratoIAPendingPatch) => {
       const nomes = variaveis.map((v) => v.nome);
       const fields = filtrarFieldPatches(patch.fieldPatches, nomes);
-      if (Object.keys(fields).length > 0) {
-        setValores((prev) => ({ ...prev, ...fields }));
+      const baseTexto = (conteudoEditavel || conteudoSubstituido || '').trim()
+        ? (conteudoEditavel || conteudoSubstituido)
+        : conteudoSubstituido;
+      const docEdit = aplicarEdicoesNoDocumento(baseTexto, patch);
+
+      flushSync(() => {
+        if (Object.keys(fields).length > 0) {
+          setValores((prev) => ({ ...prev, ...fields }));
+        }
+        if (docEdit.alterou) {
+          setTextoDetachadoModelo(true);
+          setConteudoEditavel(docEdit.texto);
+        }
+      });
+
+      if (Object.keys(fields).length > 0 || docEdit.alterou) {
         setFormDirty(true);
       }
-      if (patch.documentPatch?.trim()) {
-        setConteudoEditavel(patch.documentPatch);
-        setTextoDetachadoModelo(true);
-        setFormDirty(true);
-      }
+
+      return docEdit;
     },
-    [variaveis],
+    [variaveis, conteudoEditavel, conteudoSubstituido],
   );
 
   const irParaEtapa = useCallback((nova: Etapa) => {
