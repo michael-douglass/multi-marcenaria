@@ -51,7 +51,16 @@ export interface AgendaPessoalAdminTitularFilter {
   filter_titular_id: string | null;
 }
 
-export function useAgendaPessoal() {
+export interface UseAgendaPessoalOptions {
+  /**
+   * Força filtrar só as tarefas do usuário logado (ex.: painel flutuante),
+   * ignorando a preferência de admin salva na agenda-comercial.
+   */
+  forceOwnTitular?: boolean;
+}
+
+export function useAgendaPessoal(options?: UseAgendaPessoalOptions) {
+  const forceOwnTitular = options?.forceOwnTitular === true;
   const { user, userRole, userRoles, isSuperAdmin } = useAuth();
   const { empresa } = useEmpresa();
   const queryClient = useQueryClient();
@@ -110,17 +119,20 @@ export function useAgendaPessoal() {
 
   const titularQueryKey = useMemo(() => {
     if (!user?.id) return 'no-user';
+    if (forceOwnTitular) return `self:${user.id}`;
     if (!isAdmin) return 'non-admin';
     if (!adminTitularPrefFetched) return 'pending';
-    if (!adminTitularPref) return 'all';
+    // Padrão nativo: só as próprias (sem preferência salva = self).
+    if (!adminTitularPref) return `self:${user.id}`;
     if (adminTitularPref.filter_mode === 'provider' && adminTitularPref.filter_titular_id) {
       return `provider:${adminTitularPref.filter_titular_id}`;
     }
     if (adminTitularPref.filter_mode === 'self') return `self:${user.id}`;
     return 'all';
-  }, [user?.id, isAdmin, adminTitularPrefFetched, adminTitularPref]);
+  }, [user?.id, forceOwnTitular, isAdmin, adminTitularPrefFetched, adminTitularPref]);
 
-  const tasksQueryEnabled = !!user?.id && titularQueryKey !== 'pending';
+  const tasksQueryEnabled =
+    !!user?.id && (forceOwnTitular || titularQueryKey !== 'pending');
 
   const { data: tarefas = [], isLoading: isLoadingTarefas } = useQuery({
     queryKey: ['agenda-pessoal', user?.id, titularQueryKey],
@@ -129,18 +141,19 @@ export function useAgendaPessoal() {
 
       let q = supabase.from('crm_multiempresas_agenda_pessoal_tarefas').select('*').order('data', { ascending: true });
 
-      if (!isAdmin) {
+      if (forceOwnTitular) {
+        q = q.eq('titular_id', user.id);
+      } else if (!isAdmin) {
         // Próprias + as que o vendedor criou para outra pessoa.
         q = q.or(`titular_id.eq.${user.id},criado_por.eq.${user.id}`);
       } else if (adminTitularPrefFetched) {
-        if (adminTitularPref?.filter_mode === 'self') {
+        const mode = adminTitularPref?.filter_mode ?? 'self';
+        if (mode === 'self') {
           q = q.eq('titular_id', user.id);
-        } else if (
-          adminTitularPref?.filter_mode === 'provider' &&
-          adminTitularPref.filter_titular_id
-        ) {
+        } else if (mode === 'provider' && adminTitularPref?.filter_titular_id) {
           q = q.eq('titular_id', adminTitularPref.filter_titular_id);
         }
+        // mode === 'all': sem filtro de titular
       }
 
       const { data, error } = await q;
@@ -491,7 +504,8 @@ export function useAgendaPessoal() {
 
   const adminTitularFilterResolved: AgendaPessoalAdminTitularFilter | null = useMemo(() => {
     if (!isAdmin || !adminTitularPrefFetched) return null;
-    if (!adminTitularPref) return { filter_mode: 'all', filter_titular_id: null };
+    // Padrão nativo: cada titular vê só as próprias.
+    if (!adminTitularPref) return { filter_mode: 'self', filter_titular_id: null };
     return {
       filter_mode: adminTitularPref.filter_mode,
       filter_titular_id: adminTitularPref.filter_titular_id,
@@ -500,7 +514,7 @@ export function useAgendaPessoal() {
 
   const loading =
     isLoadingTarefas ||
-    (isAdmin && (!adminTitularPrefFetched || isLoadingAdminTitularPref));
+    (!forceOwnTitular && isAdmin && (!adminTitularPrefFetched || isLoadingAdminTitularPref));
 
   return {
     tarefas,

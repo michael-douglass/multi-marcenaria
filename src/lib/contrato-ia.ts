@@ -1,0 +1,85 @@
+import { sugerirCamposPorExtenso } from '@/lib/valor-monetario-extenso';
+
+export interface ContratoIAVariavelInput {
+  nome: string;
+  label: string;
+  tipo: 'texto' | 'data' | 'valor' | 'cpf';
+  obrigatorio: boolean;
+}
+
+export interface ContratoIARequest {
+  message: string;
+  etapa: 1 | 2;
+  variaveis: ContratoIAVariavelInput[];
+  valores: Record<string, string>;
+  conteudoContrato?: string | null;
+  modeloConteudo?: string | null;
+  empresaSchema?: string | null;
+}
+
+export interface ContratoIAResponse {
+  ok: boolean;
+  reply: string;
+  fieldPatches: Record<string, string>;
+  documentPatch: string | null;
+  warnings: string[];
+  skipped: string[];
+  modelo?: string;
+  error?: string;
+}
+
+export interface ContratoIAPendingPatch {
+  fieldPatches: Record<string, string>;
+  documentPatch: string | null;
+  warnings: string[];
+  skipped: string[];
+  reply: string;
+}
+
+const META_KEYS = new Set(['__modelo_id', '__etapa', '__texto_editado']);
+
+/** Mantém só chaves de variáveis conhecidas (ignora meta do rascunho). */
+export function filtrarFieldPatches(
+  patches: Record<string, string> | null | undefined,
+  nomesPermitidos: Iterable<string>,
+): Record<string, string> {
+  if (!patches) return {};
+  const allowed = new Set(nomesPermitidos);
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(patches)) {
+    if (META_KEYS.has(key)) continue;
+    if (!allowed.has(key)) continue;
+    if (typeof value !== 'string' || !value.trim()) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+export function contarAlteracoesPendentes(patch: ContratoIAPendingPatch | null): number {
+  if (!patch) return 0;
+  return Object.keys(patch.fieldPatches).length + (patch.documentPatch ? 1 : 0);
+}
+
+export function temAlteracoesPendentes(patch: ContratoIAPendingPatch | null): boolean {
+  return contarAlteracoesPendentes(patch) > 0;
+}
+
+/** Atalhos locais (sem OpenAI) para por-extenso — usados se a Edge falhar ou como pré-visualização. */
+export function patchesLocaisPorExtenso(
+  variaveis: ContratoIAVariavelInput[],
+  valores: Record<string, string>,
+): Record<string, string> {
+  return sugerirCamposPorExtenso(variaveis, valores);
+}
+
+export const CONTRATO_IA_SUGESTOES_ETAPA_1 = [
+  'Preencher campos vazios com o que já dá para calcular (sem inventar)',
+  'Gerar valores por extenso a partir do valor do serviço',
+  'Corrigir ortografia dos campos de texto (sem mudar fatos)',
+] as const;
+
+export const CONTRATO_IA_SUGESTOES_ETAPA_2 = [
+  'Corrigir ortografia do texto do contrato (sem mudar fatos nem valores)',
+  'Adaptar este contrato para pessoa jurídica (PJ) — só com dados já preenchidos',
+  'Revisar clareza das cláusulas sem inventar informações',
+] as const;

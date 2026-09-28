@@ -30,7 +30,9 @@ export function AgendaGeralContent({
   zoomPercent,
   onSelectedDateChange,
 }: AgendaGeralContentProps) {
-  const agenda = useAgendaGeral();
+  // Painel flutuante: sempre só as tarefas do próprio titular.
+  // Na página agenda-comercial o admin pode ampliar o filtro na UI.
+  const agenda = useAgendaGeral({ forceOwnTitular: compact });
   const [createTarefaSlot, setCreateTarefaSlot] = useState<{
     date: Date;
     hora: string;

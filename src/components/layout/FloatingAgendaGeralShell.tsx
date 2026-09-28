@@ -30,7 +30,8 @@ export function FloatingAgendaGeralShell({
   side,
   onSideChange,
 }: FloatingAgendaGeralShellProps) {
-  const { pendingTodayCount } = useAgendaGeral();
+  // Contador do ícone flutuante = só pendências da própria titularidade.
+  const { pendingTodayCount } = useAgendaGeral({ forceOwnTitular: true });
 
   if (typeof document === 'undefined') return null;
 

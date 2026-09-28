@@ -38,6 +38,7 @@ import { ContratoDocumento } from '@/components/contratos/ContratoDocumento';
 import { DataBrInput } from '@/components/contratos/DataBrInput';
 import { VincularContratoLeadDialog } from '@/components/contratos/VincularContratoLeadDialog';
 import { ContratoAnexosSection } from '@/components/contratos/ContratoAnexosSection';
+import { ContratoIAAssistPanel } from '@/components/contratos/ContratoIAAssistPanel';
 import { LeadOrcamentoSlidesSection } from '@/components/leads/LeadOrcamentoSlidesSection';
 import { OrcamentoLeadCardDock } from '@/components/orcamento-slides/OrcamentoLeadCardDock';
 import { useContratoAnexos } from '@/hooks/useContratoAnexos';
@@ -53,6 +54,7 @@ import {
   snapshotContratoForm,
   type ContratoEtapaRascunho,
 } from '@/lib/contrato-rascunho';
+import { filtrarFieldPatches, type ContratoIAPendingPatch } from '@/lib/contrato-ia';
 
 type Etapa = 1 | 2 | 3;
 
@@ -268,6 +270,23 @@ export default function NovoContratoPage() {
     setValores((prev) => ({ ...prev, [nome]: val }));
     setFormDirty(true);
   }, []);
+
+  const aplicarPatchesIA = useCallback(
+    (patch: ContratoIAPendingPatch) => {
+      const nomes = variaveis.map((v) => v.nome);
+      const fields = filtrarFieldPatches(patch.fieldPatches, nomes);
+      if (Object.keys(fields).length > 0) {
+        setValores((prev) => ({ ...prev, ...fields }));
+        setFormDirty(true);
+      }
+      if (patch.documentPatch?.trim()) {
+        setConteudoEditavel(patch.documentPatch);
+        setTextoDetachadoModelo(true);
+        setFormDirty(true);
+      }
+    },
+    [variaveis],
+  );
 
   const irParaEtapa = useCallback((nova: Etapa) => {
     setEtapa(nova);
@@ -593,7 +612,7 @@ export default function NovoContratoPage() {
             <p className="text-sm text-muted-foreground mt-1">
               {isModoEdicao
                 ? 'Altere os campos e o modelo do contrato. Ao confirmar, as mudanças substituem o contrato atual.'
-                : 'Preencha os campos abaixo para gerar o contrato. O sistema salva automaticamente enquanto você digita.'}
+                : 'Preencha os campos abaixo para gerar o contrato. O sistema salva automaticamente enquanto você digita. Use o ícone dourado no canto para a assistente IA.'}
             </p>
             {formHydrated && autoSaveState !== 'idle' && (
               <p
@@ -760,7 +779,7 @@ export default function NovoContratoPage() {
             <div>
               <h2 className="text-xl font-bold">Revisar e editar contrato</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Edite os campos ou clique diretamente no texto do contrato para alterações livres.
+                Edite os campos ou o texto do contrato. A assistente IA fica no ícone dourado no canto da tela.
               </p>
             </div>
           </div>
@@ -933,6 +952,23 @@ export default function NovoContratoPage() {
           leadId={leadIdVinculado}
           leadNome={leadOrigem?.nome ?? clienteNome}
           position="fixed"
+        />
+      )}
+
+      {(etapa === 1 || etapa === 2) && (
+        <ContratoIAAssistPanel
+          etapa={etapa}
+          variaveis={variaveis.map((v) => ({
+            nome: v.nome,
+            label: v.label,
+            tipo: v.tipo,
+            obrigatorio: v.obrigatorio,
+          }))}
+          valores={valores}
+          conteudoContrato={conteudoEditavel || conteudoSubstituido}
+          modeloConteudo={modelo?.conteudo ?? ''}
+          onApplyPatches={aplicarPatchesIA}
+          disabled={variaveis.length === 0 || !modelo?.conteudo}
         />
       )}
     </div>

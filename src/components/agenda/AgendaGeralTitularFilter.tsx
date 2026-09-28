@@ -64,6 +64,10 @@ export function AgendaGeralTitularFilter({
           className="min-w-[220px] flex-1 sm:max-w-md"
         />
       )}
+
+      <span className="text-[11px] text-muted-foreground w-full sm:w-auto sm:ml-1">
+        Vale só nesta página; o painel flutuante fica sempre com as suas.
+      </span>
     </div>
   );
 }

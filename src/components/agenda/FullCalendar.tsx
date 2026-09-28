@@ -38,9 +38,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
+  EVENT_COMPACT_STACK_THRESHOLD,
+  EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
+  EVENT_STACK_CHIP_HEIGHT_PX,
   getEventColumnStyle,
-  layoutOverlappingEvents,
+  layoutTimedClusters,
   partitionTimedUntimedEvents,
+  type TimedClusterLayout,
 } from '@/lib/calendar-event-layout';
 import type { AgendaEvent, BulkRescheduleOptions } from '@/hooks/useAgendaGeral';
 import { floatingAgendaZoomToScale } from '@/lib/floating-agenda-zoom-preferences';
@@ -50,6 +54,7 @@ import { getDateTimeFromGridDrop } from '@/lib/agenda-calendar-drag';
 import { useAgendaTimedEventDrag } from '@/hooks/useAgendaTimedEventDrag';
 import { AgendaEventHoverPreview } from '@/components/agenda/AgendaEventHoverPreview';
 import { AgendaBulkMoveDialog } from '@/components/agenda/AgendaBulkMoveDialog';
+import { AgendaHourClusterBox } from '@/components/agenda/AgendaHourClusterBox';
 import { getAgendaEventChipStyle } from '@/lib/agenda-event-colors';
 import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 
@@ -172,6 +177,20 @@ function getTimedEventPosition(
   };
 }
 
+function getOverflowChipPosition(
+  clusterStart: Date,
+  hourHeight: number,
+  visibleColumnCount: number,
+  minHeight: number,
+) {
+  const startHour = clusterStart.getHours() + clusterStart.getMinutes() / 60;
+  return {
+    top: `${startHour * hourHeight}px`,
+    height: `${Math.max(minHeight, 18)}px`,
+    ...getEventColumnStyle(Math.max(0, visibleColumnCount - 1), Math.max(1, visibleColumnCount)),
+  };
+}
+
 function getCurrentTimeOffsetPx(now: Date, hourHeight: number) {
   return (now.getHours() + now.getMinutes() / 60) * hourHeight;
 }
@@ -275,6 +294,8 @@ export function FullCalendar({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  /** Chave do horário aberto no popup central (ISO do início do cluster). */
+  const [expandedClusterKey, setExpandedClusterKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!focusDate) return;
@@ -371,6 +392,16 @@ export function FullCalendar({
     });
   };
 
+  const enterSelectionMode = () => {
+    setSelectionMode(true);
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkMoveOpen(false);
+  };
+
   const toggleEventSelected = (eventId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -382,6 +413,14 @@ export function FullCalendar({
 
   const selectAllEligible = () => {
     setSelectedIds(new Set(eligibleDayEvents.map((event) => event.id)));
+  };
+
+  /** Marca só a lista recebida (ex.: todas as tarefas daquele horário no popup). */
+  const selectSpecificEvents = (list: AgendaEvent[]) => {
+    setSelectionMode(true);
+    setSelectedIds(
+      new Set(list.filter(isAgendaEventPostponable).map((event) => event.id)),
+    );
   };
 
   const clearSelection = () => {
@@ -402,6 +441,20 @@ export function FullCalendar({
     setSelectedIds(new Set());
     setSelectionMode(false);
   };
+
+  const hourClusterBulkActions = canSelectBulk
+    ? {
+        enabled: true as const,
+        selectionMode,
+        selectedIds,
+        isBusy: isRescheduling,
+        onEnterSelectionMode: enterSelectionMode,
+        onExitSelectionMode: exitSelectionMode,
+        onSelectEvents: selectSpecificEvents,
+        onClearSelection: clearSelection,
+        onCompleteSelected: onBulkComplete ? handleBulkCompleteClick : undefined,
+      }
+    : undefined;
 
   const renderSelectionCheckbox = (event: AgendaEvent) => {
     if (!selectionMode || !isAgendaEventPostponable(event)) return null;
@@ -541,6 +594,273 @@ export function FullCalendar({
   };
   const hoverDisabled = selectionMode;
 
+  const clusterLayoutOptions = compact
+    ? { stackThreshold: EVENT_COMPACT_STACK_THRESHOLD, maxSideBySideColumns: 2 }
+    : {
+        stackThreshold: Number.POSITIVE_INFINITY,
+        maxSideBySideColumns: EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
+      };
+
+  const renderEventListRow = (event: AgendaEvent, dense = false) => (
+    <AgendaEventHoverPreview
+      key={event.id}
+      event={event}
+      disabled={hoverDisabled}
+      {...eventPreviewProps}
+    >
+      <button
+        type="button"
+        data-agenda-event
+        className={cn(
+          getEventTypeClasses(event, true),
+          'relative w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          dense ? 'rounded border-l-2 px-1 py-0.5 text-[9px] leading-tight' : 'rounded-md border-l-4 px-2 py-1 text-[11px]',
+          selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
+        )}
+        style={getEventChipStyle(event)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (selectionMode) {
+            handleEventSelectInteraction(event);
+            return;
+          }
+          handleEditClick(event);
+        }}
+      >
+        {renderSelectionCheckbox(event)}
+        <span className={cn('block truncate font-medium', selectionMode && 'pr-3.5')}>
+          {format(event.start, 'HH:mm')} · {event.title}
+        </span>
+      </button>
+    </AgendaEventHoverPreview>
+  );
+
+  const renderOverflowMoreChip = (
+    cluster: TimedClusterLayout<AgendaEvent>,
+    hourHeight: number,
+    minHeight: number,
+  ) => {
+    if (cluster.overflow.length === 0) return null;
+    const visibleCols = Math.max(1, cluster.layouted[0]?.totalColumns ?? 1);
+    const position = getOverflowChipPosition(cluster.start, hourHeight, visibleCols + 1, minHeight);
+    const chipStyle = getEventColumnStyle(visibleCols, visibleCols + 1);
+    const clusterKey = `overflow:${cluster.start.toISOString()}`;
+
+    return (
+      <AgendaHourClusterBox
+        key={clusterKey}
+        variant="overflow-chip"
+        clusterStart={cluster.start}
+        events={cluster.allEvents}
+        hourHeight={hourHeight}
+        compact={compact}
+        floatingLayer={floatingLayer}
+        overflowCount={cluster.overflow.length}
+        overflowChipStyle={{
+          top: position.top,
+          height: position.height,
+          left: chipStyle.left,
+          width: chipStyle.width,
+        }}
+        expanded={expandedClusterKey === clusterKey}
+        onExpandedChange={(open) => setExpandedClusterKey(open ? clusterKey : null)}
+        renderEventRow={renderEventListRow}
+        bulkActions={hourClusterBulkActions}
+      />
+    );
+  };
+
+  const renderStackedCluster = (
+    cluster: TimedClusterLayout<AgendaEvent>,
+    hourHeight: number,
+  ) => {
+    const clusterKey = `stack:${cluster.start.toISOString()}`;
+    return (
+      <AgendaHourClusterBox
+        key={clusterKey}
+        clusterStart={cluster.start}
+        events={cluster.allEvents}
+        hourHeight={hourHeight}
+        chipHeightPx={EVENT_STACK_CHIP_HEIGHT_PX * (compact ? Math.min(zoomScale, 1.15) : 1)}
+        compact={compact}
+        floatingLayer={floatingLayer}
+        expanded={expandedClusterKey === clusterKey}
+        onExpandedChange={(open) => setExpandedClusterKey(open ? clusterKey : null)}
+        renderEventRow={renderEventListRow}
+        bulkActions={hourClusterBulkActions}
+      />
+    );
+  };
+
+  const renderColumnClusterEvent = (
+    layouted: TimedClusterLayout<AgendaEvent>['layouted'][number],
+    targetDay: Date,
+    hourHeight: number,
+    minHeight: number,
+    weekMode = false,
+  ) => {
+    const { event, column, totalColumns } = layouted;
+    const position = getTimedEventPosition(
+      event,
+      hourHeight,
+      column,
+      totalColumns,
+      minHeight,
+    );
+    const isDragging = isDraggingEvent(event.id);
+    const displayStyle =
+      isDragging && dragState
+        ? { ...position, top: `${dragState.previewTopPx}px`, zIndex: 50 }
+        : position;
+
+    return (
+      <div key={event.id}>
+        {isDragging && (
+          <div
+            className={cn(
+              getEventTypeClasses(event, true),
+              'absolute z-[5] opacity-35 border-dashed pointer-events-none',
+              !weekMode && (compact ? 'rounded border-l-2' : 'rounded-lg border-l-4'),
+            )}
+            style={{ ...position, ...getEventChipStyle(event) }}
+            aria-hidden
+          />
+        )}
+        <AgendaEventHoverPreview
+          event={event}
+          disabled={isDragging || hoverDisabled}
+          {...eventPreviewProps}
+        >
+          <div
+            data-agenda-event
+            role="button"
+            tabIndex={0}
+            {...getTimedEventPointerHandlers(event, targetDay, hourHeight)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (selectionMode) {
+                  handleEventSelectInteraction(event);
+                  return;
+                }
+                handleEditClick(event);
+              }
+            }}
+            className={cn(
+              'absolute z-10 touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              weekMode
+                ? getEventTypeClasses(event, true)
+                : cn(
+                    'shadow-sm hover:z-30 hover:brightness-[0.97]',
+                    !isDragging && 'transition-all active:scale-[0.99]',
+                    compact ? 'rounded border-l-2 p-0.5' : 'rounded-lg border-l-4 p-2 shadow-md',
+                    getEventTypeClasses(event, compact),
+                    event.status === 'concluido' && 'grayscale-[0.3]',
+                  ),
+              canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+              isDragging && 'cursor-grabbing ring-2 ring-primary shadow-xl scale-[1.02] opacity-95',
+              selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
+            )}
+            style={{ ...displayStyle, ...getEventChipStyle(event) }}
+            title={
+              selectionMode
+                ? 'Clique para marcar ou desmarcar'
+                : canDrag
+                  ? 'Segure e arraste para alterar o horário, ou clique para editar'
+                  : 'Clique para editar'
+            }
+          >
+            {renderSelectionCheckbox(event)}
+            {weekMode ? (
+              <div className={cn('font-bold truncate', selectionMode && 'pr-3.5')}>
+                {isDragging && dragState
+                  ? format(dragState.previewStart, 'HH:mm')
+                  : format(event.start, 'HH:mm')}{' '}
+                · {event.title}
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start gap-0.5 mb-0.5">
+                  <div
+                    className={cn(
+                      'font-bold leading-tight',
+                      compact
+                        ? zoomScale >= 1.2
+                          ? 'line-clamp-3 text-[9px]'
+                          : 'line-clamp-2 text-[8px]'
+                        : 'line-clamp-2 text-xs',
+                      selectionMode && 'pr-3.5',
+                    )}
+                  >
+                    {compact
+                      ? `${
+                          isDragging && dragState
+                            ? format(dragState.previewStart, 'HH:mm')
+                            : format(event.start, 'HH:mm')
+                        } · ${event.title}`
+                      : event.title}
+                  </div>
+                  {!compact && !selectionMode && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] shrink-0 bg-white/50 dark:bg-black/20"
+                    >
+                      {event.type}
+                    </Badge>
+                  )}
+                </div>
+                {!compact && (
+                  <div className="opacity-90 flex items-center gap-0.5 text-[10px]">
+                    <Clock className="shrink-0 h-3 w-3" />
+                    {isDragging && dragState
+                      ? format(dragState.previewStart, 'HH:mm')
+                      : format(event.start, 'HH:mm')}
+                    {` - ${format(event.end, 'HH:mm')}`}
+                  </div>
+                )}
+                {event.description &&
+                  parseFloat(position.height) > (compact ? 32 * zoomScale : 72) && (
+                    <div
+                      className={cn(
+                        'opacity-80 line-clamp-2 mt-0.5',
+                        compact ? 'text-[8px]' : 'text-[10px]',
+                      )}
+                    >
+                      {event.description}
+                    </div>
+                  )}
+              </>
+            )}
+          </div>
+        </AgendaEventHoverPreview>
+      </div>
+    );
+  };
+
+  const renderTimedClustersForDay = (
+    dayEvents: AgendaEvent[],
+    targetDay: Date,
+    hourHeight: number,
+    minHeight: number,
+    weekMode = false,
+  ) => {
+    const { timed } = partitionTimedUntimedEvents(dayEvents);
+    const clusters = layoutTimedClusters(timed, clusterLayoutOptions);
+
+    return clusters.flatMap((cluster) => {
+      if (cluster.useStack) {
+        return [renderStackedCluster(cluster, hourHeight)];
+      }
+      return [
+        ...cluster.layouted.map((item) =>
+          renderColumnClusterEvent(item, targetDay, hourHeight, minHeight, weekMode),
+        ),
+        renderOverflowMoreChip(cluster, hourHeight, minHeight),
+      ];
+    });
+  };
+
   const renderUntimedStrip = (untimedEvents: AgendaEvent[], dense = false) => {
     if (untimedEvents.length === 0) return null;
 
@@ -586,78 +906,6 @@ export function FullCalendar({
             </AgendaEventHoverPreview>
           ))}
         </div>
-      </div>
-    );
-  };
-
-  const renderWeekTimedEvent = (
-    layouted: ReturnType<typeof layoutOverlappingEvents<AgendaEvent>>[number],
-    targetDay: Date,
-  ) => {
-    const { event, column, totalColumns } = layouted;
-    const position = getTimedEventPosition(
-      event,
-      layout.hourHeightWeek,
-      column,
-      totalColumns,
-      layout.weekEventMinHeight,
-    );
-    const isDragging = isDraggingEvent(event.id);
-    const displayStyle = isDragging && dragState
-      ? { ...position, top: `${dragState.previewTopPx}px`, zIndex: 50 }
-      : position;
-
-    return (
-      <div key={event.id}>
-        {isDragging && (
-          <div
-            className={cn(
-              getEventTypeClasses(event, true),
-              'absolute z-[5] opacity-35 border-dashed pointer-events-none',
-            )}
-            style={{ ...position, ...getEventChipStyle(event) }}
-            aria-hidden
-          />
-        )}
-        <AgendaEventHoverPreview
-          event={event}
-          disabled={isDragging || hoverDisabled}
-          {...eventPreviewProps}
-        >
-          <div
-            data-agenda-event
-            role="button"
-            tabIndex={0}
-            {...getTimedEventPointerHandlers(event, targetDay, layout.hourHeightWeek)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (selectionMode) {
-                  handleEventSelectInteraction(event);
-                  return;
-                }
-                handleEditClick(event);
-              }
-            }}
-            className={cn(
-              getEventTypeClasses(event, true),
-              'absolute z-10 touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              canDrag && 'cursor-grab active:cursor-grabbing',
-              selectionMode && 'cursor-pointer',
-              isDragging && 'cursor-grabbing ring-2 ring-primary shadow-lg scale-[1.02] opacity-95',
-              selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
-            )}
-            style={{ ...displayStyle, ...getEventChipStyle(event) }}
-          >
-            {renderSelectionCheckbox(event)}
-            <div className={cn('font-bold truncate', selectionMode && 'pr-3.5')}>
-              {isDragging && dragState
-                ? format(dragState.previewStart, 'HH:mm')
-                : format(event.start, 'HH:mm')}{' '}
-              · {event.title}
-            </div>
-          </div>
-        </AgendaEventHoverPreview>
       </div>
     );
   };
@@ -864,8 +1112,6 @@ export function FullCalendar({
             <div className="grid grid-cols-7">
               {weekDays.map((day, dayIndex) => {
                 const dayEvents = events.filter((e) => isSameDay(e.start, day));
-                const { timed: timedDayEvents } = partitionTimedUntimedEvents(dayEvents);
-                const layoutedTimed = layoutOverlappingEvents(timedDayEvents);
                 const dayKey = day.toISOString();
                 const isDragTarget = activeTargetDayKey === dayKey;
 
@@ -898,7 +1144,13 @@ export function FullCalendar({
                         <CurrentTimeLine now={now} hourHeight={layout.hourHeightWeek} compact={compact} />
                       )}
                       {renderDragSnapIndicator(dayKey)}
-                      {layoutedTimed.map((layouted) => renderWeekTimedEvent(layouted, day))}
+                      {renderTimedClustersForDay(
+                        dayEvents,
+                        day,
+                        layout.hourHeightWeek,
+                        layout.weekEventMinHeight,
+                        true,
+                      )}
                     </div>
                   </div>
                 );
@@ -913,8 +1165,7 @@ export function FullCalendar({
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayEvents = events.filter((e) => isSameDay(e.start, currentPivot));
-    const { timed, untimed } = partitionTimedUntimedEvents(dayEvents);
-    const layoutedTimed = layoutOverlappingEvents(timed);
+    const { untimed } = partitionTimedUntimedEvents(dayEvents);
     const hasUntimedStrip = untimed.length > 0;
 
     return (
@@ -1021,132 +1272,13 @@ export function FullCalendar({
 
                 {renderDragSnapIndicator(currentPivot.toISOString())}
 
-                {layoutedTimed.map(({ event, column, totalColumns }) => {
-                  const position = getTimedEventPosition(
-                    event,
-                    layout.hourHeightDay,
-                    column,
-                    totalColumns,
-                    layout.dayEventMinHeight,
-                  );
-                  const heightPx = parseFloat(position.height);
-                  const isDragging = isDraggingEvent(event.id);
-                  const displayStyle =
-                    isDragging && dragState
-                      ? { ...position, top: `${dragState.previewTopPx}px`, zIndex: 50 }
-                      : position;
-
-                  return (
-                    <div key={event.id}>
-                      {isDragging && (
-                        <div
-                          className={cn(
-                            'absolute z-[5] rounded-lg border-2 border-dashed border-primary/40 bg-muted/20 pointer-events-none',
-                            compact ? 'rounded border-l-2' : 'rounded-lg border-l-4',
-                          )}
-                          style={position}
-                          aria-hidden
-                        />
-                      )}
-                      <AgendaEventHoverPreview
-                        event={event}
-                        disabled={isDragging || hoverDisabled}
-                        {...eventPreviewProps}
-                      >
-                        <div
-                          data-agenda-event
-                          role="button"
-                          tabIndex={0}
-                          {...getTimedEventPointerHandlers(event, currentPivot, layout.hourHeightDay)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              if (selectionMode) {
-                                handleEventSelectInteraction(event);
-                                return;
-                              }
-                              handleEditClick(event);
-                            }
-                          }}
-                          className={cn(
-                            'absolute z-10 shadow-sm hover:z-30 hover:brightness-[0.97] touch-none',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            !isDragging && 'transition-all active:scale-[0.99]',
-                            compact ? 'rounded border-l-2 p-0.5' : 'rounded-lg border-l-4 p-2 shadow-md',
-                            canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-                            isDragging && 'cursor-grabbing ring-2 ring-primary shadow-xl scale-[1.02] opacity-95',
-                            selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
-                            getEventTypeClasses(event, compact),
-                            event.status === 'concluido' && 'grayscale-[0.3]',
-                          )}
-                          style={{ ...displayStyle, ...getEventChipStyle(event) }}
-                          title={
-                            selectionMode
-                              ? 'Clique para marcar ou desmarcar'
-                              : canDrag
-                                ? 'Segure e arraste para alterar o horário, ou clique para editar'
-                                : 'Clique para editar'
-                          }
-                        >
-                          {renderSelectionCheckbox(event)}
-                          <div className="flex justify-between items-start gap-0.5 mb-0.5">
-                            <div
-                              className={cn(
-                                'font-bold leading-tight',
-                                compact
-                                  ? zoomScale >= 1.2
-                                    ? 'line-clamp-3 text-[9px]'
-                                    : 'line-clamp-2 text-[8px]'
-                                  : 'line-clamp-2 text-xs',
-                                selectionMode && 'pr-3.5',
-                              )}
-                            >
-                              {compact
-                                ? `${
-                                    isDragging && dragState
-                                      ? format(dragState.previewStart, 'HH:mm')
-                                      : format(event.start, 'HH:mm')
-                                  } · ${event.title}`
-                                : event.title}
-                            </div>
-                            {!compact && !selectionMode && (
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] shrink-0 bg-white/50 dark:bg-black/20"
-                              >
-                                {event.type}
-                              </Badge>
-                            )}
-                          </div>
-                          {!compact && (
-                            <div
-                              className={cn(
-                                'opacity-90 flex items-center gap-0.5',
-                                'text-[10px]',
-                              )}
-                            >
-                              <Clock className="shrink-0 h-3 w-3" />
-                              {isDragging && dragState
-                                ? format(dragState.previewStart, 'HH:mm')
-                                : format(event.start, 'HH:mm')}
-                              {` - ${format(event.end, 'HH:mm')}`}
-                            </div>
-                          )}
-                          {event.description && heightPx > (compact ? 32 * zoomScale : 72) && (
-                            <div
-                              className={cn(
-                                'line-clamp-1 opacity-80 border-t pt-0.5 mt-0.5',
-                                compact ? 'text-[8px]' : 'text-[10px]',
-                              )}
-                            >
-                              {event.description}
-                            </div>
-                          )}
-                        </div>
-                      </AgendaEventHoverPreview>
-                    </div>
-                  );
-                })}
+                {renderTimedClustersForDay(
+                  dayEvents,
+                  currentPivot,
+                  layout.hourHeightDay,
+                  layout.dayEventMinHeight,
+                  false,
+                )}
               </div>
             </div>
           </div>

@@ -327,7 +327,8 @@ export function AgendaPessoalTab() {
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-sm font-medium">Filtro por titularidade (administrador)</CardTitle>
             <p className="text-xs text-muted-foreground font-normal">
-              Escolha quais tarefas ver. A opção é salva automaticamente e reaparece quando você abrir o app de novo.
+              Escolha quais tarefas ver nesta página. No painel flutuante da agenda, cada um continua vendo só as próprias.
+              A opção é salva automaticamente e reaparece quando você abrir o app de novo.
             </p>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row gap-3 pt-0 pb-4 px-4">

@@ -195,7 +195,17 @@ function eventMatchesTitularUser(event: AgendaEvent, userId: string | null | und
   return getEventUserId(event) === userId;
 }
 
-export function useAgendaGeral() {
+export interface UseAgendaGeralOptions {
+  /**
+   * Quando true (painel flutuante), ignora a preferência do admin e mostra
+   * apenas eventos da própria titularidade. Em agenda-comercial o admin
+   * continua podendo escolher ver outros via filtro na tela.
+   */
+  forceOwnTitular?: boolean;
+}
+
+export function useAgendaGeral(options?: UseAgendaGeralOptions) {
+  const forceOwnTitular = options?.forceOwnTitular === true;
   const { user, userRole, isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = canViewAllTitularRecords(userRole, isSuperAdmin);
@@ -215,7 +225,7 @@ export function useAgendaGeral() {
     concluirOcorrencia,
     excluirOcorrencia,
     loading: loadingPessoal,
-  } = useAgendaPessoal();
+  } = useAgendaPessoal({ forceOwnTitular });
   const {
     tasks,
     updateTask,
@@ -300,7 +310,8 @@ export function useAgendaGeral() {
 
   const adminGeralTitularFilter = useMemo((): AgendaGeralAdminTitularFilter | null => {
     if (!isAdmin || !adminGeralPrefFetched) return null;
-    if (!adminGeralPref) return { filter_mode: 'all', filter_titular_id: null };
+    // Padrão nativo: cada titular vê só os próprios (não “todos”).
+    if (!adminGeralPref) return { filter_mode: 'self', filter_titular_id: null };
     return {
       filter_mode: adminGeralPref.filter_mode,
       filter_titular_id: adminGeralPref.filter_titular_id,
@@ -314,9 +325,16 @@ export function useAgendaGeral() {
     [reunioes, lembretes, tarefas, tasks],
   );
 
-  /** Eventos após aplicar o filtro de titularidade do admin. */
+  /** Eventos após aplicar o filtro de titularidade do admin (ou forçar só os meus). */
   const titularFilteredEvents = useMemo(() => {
-    if (!isAdmin || !adminGeralPrefFetched || !adminGeralTitularFilter) return allEvents;
+    if (forceOwnTitular) {
+      return allEvents.filter((e) => eventMatchesTitularUser(e, user?.id));
+    }
+    if (!isAdmin) return allEvents;
+    // Enquanto a preferência não carrega: só os meus (evita flash com tarefas de outros).
+    if (!adminGeralPrefFetched || !adminGeralTitularFilter) {
+      return allEvents.filter((e) => eventMatchesTitularUser(e, user?.id));
+    }
     const { filter_mode, filter_titular_id } = adminGeralTitularFilter;
     if (filter_mode === 'all') return allEvents;
     if (filter_mode === 'self') {
@@ -325,8 +343,15 @@ export function useAgendaGeral() {
     if (filter_mode === 'provider' && filter_titular_id) {
       return allEvents.filter((e) => eventMatchesTitularUser(e, filter_titular_id));
     }
-    return allEvents;
-  }, [allEvents, isAdmin, adminGeralPrefFetched, adminGeralTitularFilter, user?.id]);
+    return allEvents.filter((e) => eventMatchesTitularUser(e, user?.id));
+  }, [
+    allEvents,
+    forceOwnTitular,
+    isAdmin,
+    adminGeralPrefFetched,
+    adminGeralTitularFilter,
+    user?.id,
+  ]);
 
   const filteredEvents = useMemo(
     () => titularFilteredEvents.filter((event) => matchesAgendaGeralSearch(event, searchTerm)),
