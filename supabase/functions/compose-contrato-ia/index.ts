@@ -25,25 +25,25 @@ const RequestSchema = z.object({
   forcarEdicaoDocumento: z.boolean().optional().default(false),
 });
 
-const SYSTEM_PROMPT = `Você é o assistente de contratos da GARBO Movelaria.
+const SYSTEM_PROMPT = `Você é o EDITOR de contratos da GARBO Movelaria (não o auditor).
 
-MISSÃO: LER o contrato atual (conteudoContrato) e fazer SOMENTE as adaptações pedidas. Nunca reescreva o documento do zero. Preserve cláusulas, numeração, valores e formatação que não precisam mudar.
+MISSÃO: LER o contrato atual (conteudoContrato) e propor SOMENTE adaptações pedidas. Nunca reescreva o documento do zero. Preserve cláusulas, numeração e formatação que não precisam mudar.
 
-Fontes permitidas de fato (nesta ordem):
-1) O pedido do usuário (pedidoUsuario) — o que ELE informar é dado válido.
-2) Campos já preenchidos (campos).
-3) Texto atual do contrato (conteudoContrato) — base obrigatória para qualquer edição.
-4) dataAtual / dataAtualExtenso — SEMPRE use estas datas do sistema quando o pedido envolver data de assinatura, data do contrato, "hoje", local e data, ou quando precisar atualizar datas no texto. NÃO invente outra data.
+Fontes permitidas:
+1) pedidoUsuario
+2) campos preenchidos
+3) conteudoContrato (base obrigatória)
+4) dataAtual / dataAtualExtenso — use sempre estas datas do sistema
 
-REGRAS INVIOLÁVEIS:
-- Sempre leia conteudoContrato antes de alterar. Só mude o que o pedido exigir (ex.: PF→PJ, representante, endereço).
-- NUNCA invente fatos que NÃO estejam no pedido, nos campos ou no texto.
-- Datas: use exclusivamente dataAtual (ISO/BR) e dataAtualExtenso do contexto. Se o contrato tiver data antiga de assinatura/local e o usuário pedir adaptação/atualização, substitua pela dataAtualExtenso.
-- Etapa 1: documentPatch null, documentReplacements []. Só fieldPatches.
-- Etapa 2: PREFIRA documentReplacements — trocas pequenas com "find" = trecho EXATO de conteudoContrato.
-- NÃO use documentPatch (deixe null), salvo se for impossível com trocas. Preferir várias trocas mínimas.
-- Se faltar CNPJ e o usuário não informou, avise em warnings; use "a informar" só nesse ponto.
-- Responda SEMPRE em JSON válido:
+REGRAS:
+- Antes de cada troca, localize a cláusula correta no corpo (ex.: pagamento, contratante, endereço).
+- "find" deve ser um trecho LITERAL e CONTÍGUO de conteudoContrato (copie e cole).
+- "replace" deve caber no mesmo contexto jurídico: mesma cláusula, mesma voz, coerente com o restante.
+- Formas de pagamento: se o pedido listar percentuais/prazos, SUBSTITUA a cláusula de pagamento existente (ou o trecho que descreve pagamento) por um texto que contenha TODAS as formas pedidas, sem omitir nenhuma e sem inventar condições extras.
+- Não espalhe pedaços sem nexo em cláusulas erradas.
+- Etapa 1: só fieldPatches; documentReplacements [].
+- Etapa 2: só documentReplacements; documentPatch = null.
+- JSON:
 {
   "reply": "mensagem curta",
   "fieldPatches": {},
@@ -52,6 +52,31 @@ REGRAS INVIOLÁVEIS:
   "warnings": [],
   "skipped": []
 }`;
+
+const AUDITOR_PROMPT = `Você é o AUDITOR de coesão de contratos da GARBO Movelaria.
+
+Recebe: pedido do usuário, contrato ORIGINAL e as trocas propostas pelo editor (documentReplacements).
+
+Sua tarefa:
+1) Simular mentalmente cada troca no texto.
+2) Rejeitar trocas sem nexo (find errado, replace que quebra frase, pagamento incompleto, trecho inserido na cláusula errada).
+3) Corrigir ou reescrever trocas para ficarem coesas com o corpo.
+4) Garantir que o pedido foi atendido por completo (ex.: se pediu 40% + 30% + 30%, as três formas devem aparecer na cláusula de pagamento resultante).
+5) Não inventar fatos fora do pedido/contrato. Datas: use dataAtualExtenso.
+
+Responda SÓ JSON:
+{
+  "aprovado": true,
+  "reply": "resumo curto do que foi aceito/corrigido",
+  "documentReplacements": [{ "find": "trecho EXATO do contrato original", "replace": "..." }],
+  "warnings": ["avisos"],
+  "rejeitadas": ["motivo das trocas descartadas"]
+}
+
+Regras do auditor:
+- Cada "find" DEVE existir literalmente no contrato original.
+- Prefira poucas trocas grandes e corretas (ex.: substituir o bloco inteiro de pagamento) a várias trocas soltas.
+- Se nenhuma troca for segura, devolva documentReplacements: [] e explique em warnings.`;
 
 function formatDataAtualBrasil(now = new Date()): {
   dataAtualIso: string;
@@ -157,6 +182,18 @@ function filterReplacementsAgainstDoc(
 ): Array<{ find: string; replace: string }> {
   if (!doc) return replacements;
   return replacements.filter((r) => doc.includes(r.find));
+}
+
+function applyReplacementsPreview(
+  doc: string,
+  replacements: Array<{ find: string; replace: string }>,
+): string {
+  let out = doc;
+  for (const { find, replace } of replacements) {
+    if (!find || !out.includes(find)) continue;
+    out = out.split(find).join(replace);
+  }
+  return out;
 }
 
 function pedidoEditaDocumento(message: string): boolean {
@@ -444,7 +481,7 @@ Deno.serve(async (req) => {
     }
 
     // Retry focado se pediu editar documento e não veio troca útil
-    if (editaDocumento && !documentPatch && documentReplacements.length === 0 && conteudoAtual) {
+    if (editaDocumento && documentReplacements.length === 0 && conteudoAtual) {
       try {
         const retryRaw = await callOpenAIChat(
           openAiKey,
@@ -453,7 +490,7 @@ Deno.serve(async (req) => {
             {
               role: 'system',
               content:
-                'Você SÓ adapta contratos existentes em PT-BR. Nunca reescreva o documento inteiro. Responda só JSON com documentReplacements: [{find, replace}]. find = trecho EXATO de conteudoContrato. Use fatos do pedidoUsuario. Para datas use dataAtualExtenso. documentPatch=null.',
+                'Você SÓ adapta contratos existentes em PT-BR. Nunca reescreva o documento inteiro. Responda só JSON com documentReplacements: [{find, replace}]. find = trecho EXATO de conteudoContrato. Use fatos do pedidoUsuario. Para datas use dataAtualExtenso. documentPatch=null. Se o pedido for formas de pagamento, substitua a cláusula de pagamento inteira incluindo TODAS as formas pedidas.',
             },
             {
               role: 'user',
@@ -463,7 +500,7 @@ Deno.serve(async (req) => {
                 dataAtualBr,
                 conteudoContrato: conteudoAtual.slice(0, 24000),
                 tarefa:
-                  'Leia o contrato e faça somente as adaptações pedidas (mínimo 2 trocas). Preserve o restante do texto.',
+                  'Leia o contrato e faça somente as adaptações pedidas. Preserve o restante do texto.',
               }),
             },
           ],
@@ -480,12 +517,77 @@ Deno.serve(async (req) => {
     }
 
     // Força modo adaptação: não aceita reescrita integral do contrato
-    if (etapa === 2) {
-      documentPatch = null;
-    }
+    documentPatch = null;
 
     const warnings = asStringArray(aiJson.warnings);
     const skipped = asStringArray(aiJson.skipped);
+    let auditorAprovado: boolean | null = null;
+    let auditorRejeitadas: string[] = [];
+
+    // Fluxo AUDITOR: revisa coesão das trocas com o corpo original
+    if (editaDocumento && conteudoAtual && documentReplacements.length > 0) {
+      const preview = applyReplacementsPreview(conteudoAtual, documentReplacements);
+      try {
+        const auditorRaw = await callOpenAIChat(
+          openAiKey,
+          model,
+          [
+            { role: 'system', content: AUDITOR_PROMPT },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                pedidoUsuario: message,
+                dataAtualExtenso,
+                dataAtualBr,
+                contratoOriginal: conteudoAtual.slice(0, 24000),
+                trocasPropostas: documentReplacements,
+                textoAposTrocasPropostas: preview.slice(0, 24000),
+                checklist: [
+                  'As trocas fazem sentido no contexto das cláusulas?',
+                  'O pedido foi atendido por completo (ex.: todas as formas de pagamento)?',
+                  'Há frases quebradas, duplicadas ou sem nexo?',
+                  'find existe literalmente no contrato original?',
+                ],
+              }),
+            },
+          ],
+          3500,
+        );
+        const auditorJson = extractJsonObject(auditorRaw) as Record<string, unknown>;
+        auditorAprovado = auditorJson.aprovado === true;
+        const audited = filterReplacementsAgainstDoc(
+          sanitizeReplacements(auditorJson.documentReplacements),
+          conteudoAtual,
+        );
+        if (audited.length > 0) {
+          documentReplacements = audited;
+        } else if (auditorJson.aprovado === false) {
+          documentReplacements = [];
+        }
+        auditorRejeitadas = asStringArray(auditorJson.rejeitadas);
+        const auditorWarnings = asStringArray(auditorJson.warnings);
+        for (const w of auditorWarnings) {
+          if (!warnings.includes(w)) warnings.push(w);
+        }
+        for (const r of auditorRejeitadas) {
+          const line = `Auditor rejeitou: ${r}`;
+          if (!warnings.includes(line)) warnings.push(line);
+        }
+        if (typeof auditorJson.reply === 'string' && auditorJson.reply.trim()) {
+          aiJson.reply = auditorJson.reply.trim();
+        }
+        if (!auditorAprovado && documentReplacements.length === 0) {
+          warnings.push(
+            'O auditor não aprovou as alterações por falta de coesão com o corpo do contrato. Reformule o pedido citando a cláusula (ex.: “na cláusula de pagamento…”).',
+          );
+        }
+      } catch (auditorErr) {
+        console.error('compose-contrato-ia auditor failed', auditorErr);
+        warnings.push(
+          'Auditoria automática falhou; as trocas do editor foram mantidas com cautela. Revise o texto na pré-visualização.',
+        );
+      }
+    }
 
     const msgLower = message.toLowerCase();
     const pedeExtenso =
@@ -499,28 +601,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (editaDocumento && !documentPatch && documentReplacements.length === 0) {
+    if (editaDocumento && documentReplacements.length === 0) {
       warnings.push(
-        'Não consegui localizar trechos do contrato para trocar. Tente novamente com: “troque a qualificação do contratante para PJ com o representante e o endereço que enviei”.',
+        'Não há alterações coesas para aplicar no corpo. Tente de novo com mais detalhe sobre a cláusula a mudar.',
       );
     }
 
-    const reply =
+    const replyBase =
       typeof aiJson.reply === 'string' && aiJson.reply.trim()
         ? aiJson.reply.trim()
-        : documentReplacements.length || documentPatch
-          ? 'Atualizei o texto da pré-visualização.'
+        : documentReplacements.length
+          ? 'Atualizei o texto da pré-visualização após auditoria de coesão.'
           : 'Pronto.';
+
+    const reply =
+      editaDocumento && documentReplacements.length > 0
+        ? `${replyBase}\n\n(Auditoria de coesão: ${auditorAprovado === false ? 'corrigiu/rejeitou trechos' : 'ok'})`
+        : replyBase;
 
     return jsonResponse({
       ok: true,
       reply,
       fieldPatches,
-      documentPatch: etapa === 1 ? null : documentPatch,
+      documentPatch: null,
       documentReplacements: etapa === 1 ? [] : documentReplacements,
       warnings,
       skipped,
       modelo: model,
+      auditor: editaDocumento
+        ? {
+            aprovado: auditorAprovado,
+            rejeitadas: auditorRejeitadas,
+          }
+        : null,
       appliedDirectly: true,
     });
   } catch (err) {

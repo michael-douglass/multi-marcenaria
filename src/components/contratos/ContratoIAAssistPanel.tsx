@@ -81,7 +81,7 @@ export function ContratoIAAssistPanel({
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá — use “Editar pré-visualização” para eu ler o corpo inteiro do contrato e aplicar só o que você pedir. Datas usam sempre o dia de hoje.',
+        'Olá — use “Editar pré-visualização” para eu ler o corpo do contrato. Depois um auditor confere se a alteração ficou coesa antes de aplicar. Datas usam sempre o dia de hoje.',
     },
   ]);
   const [pendingPatch, setPendingPatch] = useState<ContratoIAPendingPatch | null>(null);
@@ -203,10 +203,10 @@ export function ContratoIAAssistPanel({
             onEnterCorpoEditMode?.();
             extras.push(
               result.documentReplacements?.length
-                ? `Li o corpo e apliquei ${result.documentReplacements.length} adaptação(ões) na pré-visualização.`
-                : 'Corpo do contrato atualizado na pré-visualização.',
+                ? `Auditor revisou a coesão. Apliquei ${result.documentReplacements.length} adaptação(ões) na pré-visualização.`
+                : 'Corpo do contrato atualizado na pré-visualização (após auditoria).',
             );
-            toast.success('Pré-visualização atualizada');
+            toast.success('Pré-visualização atualizada (auditada)');
           } else {
             extras.push(
               `${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`,
@@ -402,7 +402,9 @@ export function ContratoIAAssistPanel({
               {compose.isPending && (
                 <div className="flex items-center gap-2 pl-8 text-xs text-[#cbb892]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d4a828]" />
-                  Lendo o corpo do contrato…
+                  {modoEdicaoCorpo || etapa === 2
+                    ? 'Editando o corpo… auditor revisando coesão…'
+                    : 'Analisando…'}
                 </div>
               )}
               <div ref={bottomRef} />
