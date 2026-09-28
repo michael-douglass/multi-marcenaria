@@ -22,24 +22,27 @@ const RequestSchema = z.object({
   conteudoContrato: z.string().max(MAX_DOCUMENT_CHARS).optional().nullable(),
   modeloConteudo: z.string().max(MAX_DOCUMENT_CHARS).optional().nullable(),
   empresaSchema: z.string().optional().nullable(),
+  forcarEdicaoDocumento: z.boolean().optional().default(false),
 });
 
 const SYSTEM_PROMPT = `Você é o assistente de contratos da GARBO Movelaria.
 
+MISSÃO: LER o contrato atual (conteudoContrato) e fazer SOMENTE as adaptações pedidas. Nunca reescreva o documento do zero. Preserve cláusulas, numeração, valores e formatação que não precisam mudar.
+
 Fontes permitidas de fato (nesta ordem):
-1) O pedido do usuário (pedidoUsuario) — tudo que ELE informar conta como dado válido.
+1) O pedido do usuário (pedidoUsuario) — o que ELE informar é dado válido.
 2) Campos já preenchidos (campos).
-3) Texto atual do contrato (conteudoContrato).
+3) Texto atual do contrato (conteudoContrato) — base obrigatória para qualquer edição.
+4) dataAtual / dataAtualExtenso — SEMPRE use estas datas do sistema quando o pedido envolver data de assinatura, data do contrato, "hoje", local e data, ou quando precisar atualizar datas no texto. NÃO invente outra data.
 
 REGRAS INVIOLÁVEIS:
-- NUNCA invente fatos que NÃO estejam no pedido do usuário nem nos campos/texto.
-- Se o usuário informar representante, endereço, CEP, município, UF, empresa etc., USE esses dados.
+- Sempre leia conteudoContrato antes de alterar. Só mude o que o pedido exigir (ex.: PF→PJ, representante, endereço).
+- NUNCA invente fatos que NÃO estejam no pedido, nos campos ou no texto.
+- Datas: use exclusivamente dataAtual (ISO/BR) e dataAtualExtenso do contexto. Se o contrato tiver data antiga de assinatura/local e o usuário pedir adaptação/atualização, substitua pela dataAtualExtenso.
 - Etapa 1: documentPatch null, documentReplacements []. Só fieldPatches.
-- Etapa 2 (editar/adaptar/PJ/ortografia do texto): PREFIRA "documentReplacements" — lista de trocas com trechos EXATOS copiados de conteudoContrato no campo "find".
-  Exemplo: { "find": "o CONTRATANTE, pessoa física", "replace": "o CONTRATANTE, pessoa jurídica, representada por Fábio Rosa" }
-- Faça várias trocas pequenas (qualificação, endereço, CPF→CNPJ se houver dado, etc.). NÃO devolva o contrato inteiro em documentPatch, a menos que seja impossível com trocas.
-- documentPatch só se for estritamente necessário (raro). Preferir null.
-- Se faltar CNPJ e o usuário não informou, avise em warnings e use "a informar" só nesse ponto.
+- Etapa 2: PREFIRA documentReplacements — trocas pequenas com "find" = trecho EXATO de conteudoContrato.
+- NÃO use documentPatch (deixe null), salvo se for impossível com trocas. Preferir várias trocas mínimas.
+- Se faltar CNPJ e o usuário não informou, avise em warnings; use "a informar" só nesse ponto.
 - Responda SEMPRE em JSON válido:
 {
   "reply": "mensagem curta",
@@ -49,6 +52,33 @@ REGRAS INVIOLÁVEIS:
   "warnings": [],
   "skipped": []
 }`;
+
+function formatDataAtualBrasil(now = new Date()): {
+  dataAtualIso: string;
+  dataAtualBr: string;
+  dataAtualExtenso: string;
+} {
+  const fmt = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const extensoFmt = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const parts = fmt.formatToParts(now);
+  const day = parts.find((p) => p.type === 'day')?.value ?? '';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '';
+  const year = parts.find((p) => p.type === 'year')?.value ?? '';
+  const dataAtualBr = `${day}/${month}/${year}`;
+  const dataAtualIso = `${year}-${month}-${day}`;
+  const dataAtualExtenso = extensoFmt.format(now);
+  return { dataAtualIso, dataAtualBr, dataAtualExtenso };
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -279,6 +309,7 @@ Deno.serve(async (req) => {
       conteudoContrato,
       modeloConteudo,
       empresaSchema,
+      forcarEdicaoDocumento,
     } = parsed.data;
 
     const admin = createClient(supabaseUrl, serviceKey);
@@ -333,17 +364,26 @@ Deno.serve(async (req) => {
       vazio: !(valoresLimpos[v.nome] ?? '').trim(),
     }));
 
-    const editaDocumento = etapa === 2 && pedidoEditaDocumento(message);
     const conteudoAtual =
       etapa === 2 ? (conteudoContrato?.trim() || modeloConteudo?.trim() || null) : null;
+    // Na etapa 2, qualquer pedido com texto do contrato = ler o corpo e adaptar
+    const editaDocumento = etapa === 2 && Boolean(conteudoAtual);
+    const { dataAtualIso, dataAtualBr, dataAtualExtenso } = formatDataAtualBrasil();
 
     const userPayload = {
       pedidoUsuario: message,
       etapa,
+      dataAtual: {
+        iso: dataAtualIso,
+        br: dataAtualBr,
+        extenso: dataAtualExtenso,
+        fuso: 'America/Sao_Paulo',
+      },
+      dataAtualExtenso,
       deveEditarDocumento: editaDocumento,
       instrucaoExtra: editaDocumento
-        ? 'OBRIGATÓRIO: devolva documentReplacements com trocas reais. Cada "find" deve ser um trecho LITERAL que existe em conteudoContrato. Inclua representante/endereço do pedidoUsuario. documentPatch = null.'
-        : null,
+        ? 'Leia conteudoContrato e faça SOMENTE adaptações pedidas via documentReplacements (find = trecho literal do contrato). Não reescreva o documento inteiro. Para datas de assinatura/local, use dataAtualExtenso. documentPatch = null.'
+        : 'Se preencher datas nos campos, use dataAtual.br ou dataAtualExtenso.',
       campos: camposResumo,
       sugestoesPorExtensoSeguras,
       conteudoContrato: conteudoAtual
@@ -413,15 +453,17 @@ Deno.serve(async (req) => {
             {
               role: 'system',
               content:
-                'Você edita contratos jurídicos em PT-BR. Responda só JSON. Gere documentReplacements: array de {find, replace}. find = trecho EXATO do contrato. Use só fatos do pedido do usuário. documentPatch=null.',
+                'Você SÓ adapta contratos existentes em PT-BR. Nunca reescreva o documento inteiro. Responda só JSON com documentReplacements: [{find, replace}]. find = trecho EXATO de conteudoContrato. Use fatos do pedidoUsuario. Para datas use dataAtualExtenso. documentPatch=null.',
             },
             {
               role: 'user',
               content: JSON.stringify({
                 pedidoUsuario: message,
+                dataAtualExtenso,
+                dataAtualBr,
                 conteudoContrato: conteudoAtual.slice(0, 24000),
                 tarefa:
-                  'Adapte o contratante para PJ com os dados do pedido (representante, endereço etc.). Devolva no mínimo 2 trocas.',
+                  'Leia o contrato e faça somente as adaptações pedidas (mínimo 2 trocas). Preserve o restante do texto.',
               }),
             },
           ],
@@ -432,16 +474,14 @@ Deno.serve(async (req) => {
           sanitizeReplacements(retryJson.documentReplacements),
           conteudoAtual,
         );
-        if (
-          typeof retryJson.documentPatch === 'string' &&
-          retryJson.documentPatch.trim() &&
-          documentReplacements.length === 0
-        ) {
-          documentPatch = retryJson.documentPatch;
-        }
       } catch (retryErr) {
         console.error('compose-contrato-ia retry failed', retryErr);
       }
+    }
+
+    // Força modo adaptação: não aceita reescrita integral do contrato
+    if (etapa === 2) {
+      documentPatch = null;
     }
 
     const warnings = asStringArray(aiJson.warnings);

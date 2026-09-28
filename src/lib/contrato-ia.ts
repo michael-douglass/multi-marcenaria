@@ -146,7 +146,12 @@ export const CONTRATO_IA_SUGESTOES_ETAPA_1 = [
   'Corrigir ortografia dos campos de texto (sem mudar fatos)',
 ] as const;
 
+/** Ativa edição do corpo completo na pré-visualização via IA. */
+export const CONTRATO_IA_EDITAR_PREVIEW =
+  'Editar pré-visualização: leia o corpo inteiro do contrato e aplique só as adaptações que eu pedir a seguir';
+
 export const CONTRATO_IA_SUGESTOES_ETAPA_2 = [
+  CONTRATO_IA_EDITAR_PREVIEW,
   'Corrigir ortografia do texto do contrato (sem mudar fatos nem valores)',
   'Adaptar este contrato para pessoa jurídica (PJ) — só com dados já preenchidos',
   'Revisar clareza das cláusulas sem inventar informações',

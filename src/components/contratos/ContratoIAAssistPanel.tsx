@@ -8,6 +8,7 @@ import {
   X,
   FileSignature,
   Minus,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 import {
   CONTRATO_IA_SUGESTOES_ETAPA_1,
   CONTRATO_IA_SUGESTOES_ETAPA_2,
+  CONTRATO_IA_EDITAR_PREVIEW,
   contarAlteracoesPendentes,
   temAlteracoesPendentes,
   temEdicaoDeDocumento,
@@ -42,7 +44,8 @@ interface ContratoIAAssistPanelProps {
   conteudoContrato: string;
   modeloConteudo: string;
   onApplyPatches: (patch: ContratoIAPendingPatch) => void;
-  /** Desativa o botão flutuante (ex.: sem modelo/campos). */
+  /** Abre o modo de edição do corpo na página (pré-visualização). */
+  onEnterCorpoEditMode?: () => void;
   disabled?: boolean;
 }
 
@@ -54,6 +57,7 @@ const CHIP_LABELS: Record<string, string> = {
   'Preencher campos vazios com o que já dá para calcular (sem inventar)': 'Preencher vazios',
   'Gerar valores por extenso a partir do valor do serviço': 'Por extenso',
   'Corrigir ortografia dos campos de texto (sem mudar fatos)': 'Ortografia',
+  [CONTRATO_IA_EDITAR_PREVIEW]: 'Editar pré-visualização',
   'Corrigir ortografia do texto do contrato (sem mudar fatos nem valores)': 'Revisar texto',
   'Adaptar este contrato para pessoa jurídica (PJ) — só com dados já preenchidos': 'Adaptar PJ',
   'Revisar clareza das cláusulas sem inventar informações': 'Clareza',
@@ -66,16 +70,18 @@ export function ContratoIAAssistPanel({
   conteudoContrato,
   modeloConteudo,
   onApplyPatches,
+  onEnterCorpoEditMode,
   disabled = false,
 }: ContratoIAAssistPanelProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [modoEdicaoCorpo, setModoEdicaoCorpo] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>(() => [
     {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá — sou a assistente de contratos. Na pré-visualização, diga o que mudar (ex.: contrato PJ, representante, endereço) e eu atualizo o texto na hora. Uso só o que você informar + o que já está na página.',
+        'Olá — use “Editar pré-visualização” para eu ler o corpo inteiro do contrato e aplicar só o que você pedir. Datas usam sempre o dia de hoje.',
     },
   ]);
   const [pendingPatch, setPendingPatch] = useState<ContratoIAPendingPatch | null>(null);
@@ -87,9 +93,13 @@ export function ContratoIAAssistPanel({
     () =>
       etapa === 1
         ? [...CONTRATO_IA_SUGESTOES_ETAPA_1]
-        : [...CONTRATO_IA_SUGESTOES_ETAPA_1, ...CONTRATO_IA_SUGESTOES_ETAPA_2],
+        : [...CONTRATO_IA_SUGESTOES_ETAPA_2, ...CONTRATO_IA_SUGESTOES_ETAPA_1],
     [etapa],
   );
+
+  useEffect(() => {
+    if (etapa !== 2) setModoEdicaoCorpo(false);
+  }, [etapa]);
 
   const patchCount = contarAlteracoesPendentes(pendingPatch);
   const fieldLabels = useMemo(() => {
@@ -108,23 +118,74 @@ export function ContratoIAAssistPanel({
     return () => window.clearTimeout(t);
   }, [open]);
 
+  const ativarEdicaoPreview = useCallback(() => {
+    if (etapa !== 2) {
+      toast.message('Abra a pré-visualização (etapa 2)', {
+        description: 'Depois use “Editar pré-visualização” aqui no assistente.',
+      });
+      return;
+    }
+    if (!conteudoContrato.trim()) {
+      toast.error('Não há texto do contrato para editar');
+      return;
+    }
+    setModoEdicaoCorpo(true);
+    onEnterCorpoEditMode?.();
+    setOpen(true);
+    setTurns((prev) => [
+      ...prev,
+      {
+        id: newId(),
+        role: 'assistant',
+        content:
+          'Modo edição da pré-visualização ativo. Já li o corpo completo do contrato. Diga o que adaptar (ex.: PJ, representante, endereço, data). Faço só essas mudanças, sem reescrever o resto.',
+      },
+    ]);
+    window.setTimeout(() => textareaRef.current?.focus(), 120);
+  }, [etapa, conteudoContrato, onEnterCorpoEditMode]);
+
   const enviar = useCallback(
     async (texto: string) => {
       const message = texto.trim();
       if (!message || compose.isPending || disabled) return;
 
+      if (message === CONTRATO_IA_EDITAR_PREVIEW) {
+        ativarEdicaoPreview();
+        return;
+      }
+
       setDraft('');
       setPendingPatch(null);
       setTurns((prev) => [...prev, { id: newId(), role: 'user', content: message }]);
 
+      const forcarCorpo =
+        etapa === 2 && (modoEdicaoCorpo || Boolean(conteudoContrato.trim()));
+
+      if (forcarCorpo) {
+        onEnterCorpoEditMode?.();
+        setModoEdicaoCorpo(true);
+      }
+
+      const messageParaApi = forcarCorpo
+        ? [
+            '[MODO EDIÇÃO DO CORPO DO CONTRATO]',
+            'Leia TODO o conteudoContrato e aplique SOMENTE as adaptações pedidas abaixo, via documentReplacements (trechos exatos).',
+            'Não reescreva o documento inteiro. Use dataAtualExtenso para datas.',
+            '',
+            'Pedido do usuário:',
+            message,
+          ].join('\n')
+        : message;
+
       try {
         const result = await compose.mutateAsync({
-          message,
-          etapa,
+          message: messageParaApi,
+          etapa: forcarCorpo ? 2 : etapa,
           variaveis,
           valores,
-          conteudoContrato: etapa === 2 ? conteudoContrato : null,
+          conteudoContrato: forcarCorpo || etapa === 2 ? conteudoContrato : null,
           modeloConteudo: modeloConteudo || null,
+          forcarEdicaoDocumento: forcarCorpo,
         });
 
         const n = contarAlteracoesPendentes(result);
@@ -139,23 +200,27 @@ export function ContratoIAAssistPanel({
         if (n > 0) {
           onApplyPatches(result);
           if (temEdicaoDeDocumento(result)) {
+            onEnterCorpoEditMode?.();
             extras.push(
               result.documentReplacements?.length
-                ? `Apliquei ${result.documentReplacements.length} alteração(ões) direto no texto da pré-visualização.`
-                : 'Texto do contrato na pré-visualização já foi atualizado.',
+                ? `Li o corpo e apliquei ${result.documentReplacements.length} adaptação(ões) na pré-visualização.`
+                : 'Corpo do contrato atualizado na pré-visualização.',
             );
             toast.success('Pré-visualização atualizada');
           } else {
-            extras.push(`${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`);
+            extras.push(
+              `${Object.keys(result.fieldPatches).length} campo(s) atualizado(s).`,
+            );
             toast.success('Campos atualizados pela IA');
           }
           setPendingPatch(null);
         } else {
           extras.push(
-            'Nenhuma alteração foi aplicada no texto. Se estiver na pré-visualização, peça de novo citando “PJ”, “representante” e o endereço.',
+            'Nenhuma alteração foi aplicada no texto. Descreva de novo o que mudar no corpo.',
           );
           toast.message('Sem mudanças no texto', {
-            description: 'A IA respondeu, mas não trouxe trechos para alterar a pré-visualização.',
+            description:
+              'A IA respondeu, mas não trouxe trechos para alterar a pré-visualização.',
           });
           setPendingPatch(null);
         }
@@ -184,24 +249,28 @@ export function ContratoIAAssistPanel({
       modeloConteudo,
       disabled,
       onApplyPatches,
+      onEnterCorpoEditMode,
+      modoEdicaoCorpo,
+      ativarEdicaoPreview,
     ],
   );
 
   const aplicar = useCallback(() => {
     if (!pendingPatch || !temAlteracoesPendentes(pendingPatch)) return;
     onApplyPatches(pendingPatch);
+    onEnterCorpoEditMode?.();
     setTurns((prev) => [
       ...prev,
       {
         id: newId(),
         role: 'assistant',
         content:
-          'Alterações aplicadas. Confira os campos (e o texto, se houver) antes de continuar.',
+          'Alterações aplicadas. Confira o corpo do contrato na pré-visualização.',
       },
     ]);
     setPendingPatch(null);
     toast.success('Sugestões da IA aplicadas');
-  }, [pendingPatch, onApplyPatches]);
+  }, [pendingPatch, onApplyPatches, onEnterCorpoEditMode]);
 
   const descartar = useCallback(() => {
     setPendingPatch(null);
@@ -229,7 +298,6 @@ export function ContratoIAAssistPanel({
         floatingAiBackgroundClass,
       )}
     >
-      {/* Painel flutuante */}
       {open && (
         <div
           className={cn(
@@ -243,7 +311,6 @@ export function ContratoIAAssistPanel({
           role="dialog"
           aria-label="Assistente de contratos"
         >
-          {/* Header */}
           <div className="relative shrink-0 overflow-hidden border-b border-[#c9a227]/25 px-4 pb-3 pt-3.5">
             <div
               className="pointer-events-none absolute inset-0 opacity-40"
@@ -274,7 +341,9 @@ export function ContratoIAAssistPanel({
                     Assistente de contratos
                   </p>
                   <p className="mt-0.5 text-[11px] leading-snug text-[#cbb892]/85">
-                    Só usa dados desta página · não inventa
+                    {modoEdicaoCorpo
+                      ? 'Modo: editando corpo da pré-visualização'
+                      : 'Só usa dados desta página · não inventa'}
                   </p>
                 </div>
               </div>
@@ -300,7 +369,6 @@ export function ContratoIAAssistPanel({
             </div>
           </div>
 
-          {/* Mensagens */}
           <ScrollArea className="min-h-0 flex-1 px-3.5">
             <div className="space-y-3 py-3.5">
               {turns.map((turn) => {
@@ -334,14 +402,13 @@ export function ContratoIAAssistPanel({
               {compose.isPending && (
                 <div className="flex items-center gap-2 pl-8 text-xs text-[#cbb892]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d4a828]" />
-                  Analisando o contrato…
+                  Lendo o corpo do contrato…
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
           </ScrollArea>
 
-          {/* Patch preview */}
           {pendingPatch && patchCount > 0 && (
             <div className="shrink-0 space-y-2 border-t border-[#c9a227]/25 bg-[#d4a828]/10 px-3.5 py-3">
               <p className="text-[11px] font-semibold tracking-wide text-[#f0d78c]">
@@ -356,6 +423,12 @@ export function ContratoIAAssistPanel({
                     {valor}
                   </li>
                 ))}
+                {(pendingPatch.documentReplacements?.length ?? 0) > 0 ? (
+                  <li>
+                    {pendingPatch.documentReplacements.length} troca(s) no corpo do
+                    contrato
+                  </li>
+                ) : null}
                 {pendingPatch.documentPatch ? (
                   <li>Texto completo do contrato será atualizado</li>
                 ) : null}
@@ -382,8 +455,26 @@ export function ContratoIAAssistPanel({
             </div>
           )}
 
-          {/* Composer */}
           <div className="shrink-0 space-y-2 border-t border-[#c9a227]/20 bg-[#140e0a]/55 px-3.5 py-3">
+            {etapa === 2 && (
+              <button
+                type="button"
+                disabled={compose.isPending || disabled}
+                onClick={ativarEdicaoPreview}
+                className={cn(
+                  'flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition',
+                  modoEdicaoCorpo
+                    ? 'border-[#d4a828]/70 bg-[#d4a828]/20 text-[#f0d78c]'
+                    : 'border-[#c9a227]/40 bg-[#2a1c14]/90 text-[#e8d5a3] hover:border-[#d4a828]/55 hover:bg-[#d4a828]/15',
+                  'disabled:pointer-events-none disabled:opacity-40',
+                )}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {modoEdicaoCorpo
+                  ? 'Editando pré-visualização (ativo)'
+                  : 'Editar pré-visualização'}
+              </button>
+            )}
             <div className="flex flex-wrap gap-1.5">
               {sugestoes.map((s) => (
                 <button
@@ -396,6 +487,9 @@ export function ContratoIAAssistPanel({
                     'text-[10px] font-medium text-[#e8d5a3] transition',
                     'hover:border-[#d4a828]/55 hover:bg-[#d4a828]/15 hover:text-[#f7efd9]',
                     'disabled:pointer-events-none disabled:opacity-40',
+                    s === CONTRATO_IA_EDITAR_PREVIEW &&
+                      modoEdicaoCorpo &&
+                      'border-[#d4a828]/70 bg-[#d4a828]/20 text-[#f0d78c]',
                   )}
                 >
                   {CHIP_LABELS[s] ?? (s.length > 28 ? `${s.slice(0, 26)}…` : s)}
@@ -407,7 +501,11 @@ export function ContratoIAAssistPanel({
                 ref={textareaRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="O que você quer que eu faça?"
+                placeholder={
+                  modoEdicaoCorpo
+                    ? 'Descreva a adaptação no corpo do contrato…'
+                    : 'O que você quer que eu faça?'
+                }
                 className={cn(
                   'min-h-[64px] max-h-28 resize-none rounded-xl border-[#c9a227]/25',
                   'bg-[#1a120c]/80 text-sm text-[#f7efd9] placeholder:text-[#cbb892]/55',
@@ -444,7 +542,6 @@ export function ContratoIAAssistPanel({
         </div>
       )}
 
-      {/* FAB flutuante */}
       <button
         type="button"
         disabled={disabled}
@@ -465,7 +562,6 @@ export function ContratoIAAssistPanel({
           open && 'rotate-0 scale-95 ring-2 ring-[#f0d78c]/40',
         )}
       >
-        {/* Halo suave */}
         <span
           className={cn(
             'pointer-events-none absolute inset-[-3px] rounded-full bg-[#d4a828]/25 blur-md transition-opacity',

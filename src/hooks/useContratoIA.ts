@@ -19,6 +19,7 @@ export interface ComposeContratoIAInput {
   valores: Record<string, string>;
   conteudoContrato?: string | null;
   modeloConteudo?: string | null;
+  forcarEdicaoDocumento?: boolean;
 }
 
 function parseInvokeData(data: unknown): Partial<ContratoIAResponse> {
@@ -37,7 +38,7 @@ function parseInvokeData(data: unknown): Partial<ContratoIAResponse> {
 }
 
 async function invokeComposeContratoIA(
-  body: ContratoIARequest,
+  body: ContratoIARequest & { forcarEdicaoDocumento?: boolean },
 ): Promise<ContratoIAResponse> {
   const { data, error } = await supabase.functions.invoke('compose-contrato-ia', {
     body,
@@ -76,14 +77,15 @@ export function useComposeContratoIA() {
 
   return useMutation({
     mutationFn: async (input: ComposeContratoIAInput): Promise<ContratoIAPendingPatch> => {
+      const forcar = Boolean(input.forcarEdicaoDocumento) || input.etapa === 2;
       const response = await invokeComposeContratoIA({
         ...input,
-        // Evita mandar modelo + texto completo (reduz falha / truncamento)
         modeloConteudo:
           input.etapa === 2 && input.conteudoContrato?.trim()
             ? null
             : input.modeloConteudo ?? null,
         empresaSchema: schemaEmpresa ?? null,
+        forcarEdicaoDocumento: forcar,
       });
 
       return {

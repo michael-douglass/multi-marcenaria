@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {   Link, useSearchParams } from 'react-router-dom';
 import {
   FileText, Eye, CheckCircle2, ChevronRight, ArrowLeft,
-  Download, Loader2, AlertCircle, BookOpen, Cloud, Link2, Sparkles,
+  Download, Loader2, AlertCircle, BookOpen, Cloud, Link2, Sparkles, Pencil, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -221,6 +221,9 @@ export default function NovoContratoPage() {
   // conteúdo editável livremente na etapa 2
   const [conteudoEditavel, setConteudoEditavel] = useState('');
   const [textoDetachadoModelo, setTextoDetachadoModelo] = useState(false);
+  /** Modo dedicado para editar o corpo inteiro na pré-visualização */
+  const [editandoCorpoPreview, setEditandoCorpoPreview] = useState(false);
+  const previewTextareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSnapshotRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -303,6 +306,7 @@ export default function NovoContratoPage() {
   const irParaEtapa = useCallback((nova: Etapa) => {
     setEtapa(nova);
     setFormDirty(true);
+    if (nova !== 2) setEditandoCorpoPreview(false);
   }, []);
 
   // Sincroniza o conteúdo editável com o template enquanto o usuário não editar manualmente
@@ -316,6 +320,23 @@ export default function NovoContratoPage() {
     setConteudoEditavel(val);
     setTextoDetachadoModelo(true);
     setFormDirty(true);
+  }, []);
+
+  const iniciarEdicaoCorpoPreview = useCallback(() => {
+    setEditandoCorpoPreview(true);
+    // Garante que o texto atual está no estado editável
+    setConteudoEditavel((prev) => prev || conteudoSubstituido);
+    window.setTimeout(() => {
+      const el = previewTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }, 60);
+  }, [conteudoSubstituido]);
+
+  const concluirEdicaoCorpoPreview = useCallback(() => {
+    setEditandoCorpoPreview(false);
+    toast.success('Edição do corpo salva na pré-visualização');
   }, []);
 
   const restaurarDoModelo = useCallback(() => {
@@ -787,13 +808,26 @@ export default function NovoContratoPage() {
       {/* ── Etapa 2: Edição completa + preview ────────── */}
       {etapa === 2 && (
         <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold">Revisar e editar contrato</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Edite os campos ou o texto do contrato. A assistente IA fica no ícone dourado no canto da tela.
+                {editandoCorpoPreview
+                  ? 'Modo edição do corpo ativo. Use a IA (ícone dourado) para adaptar o texto, ou edite manualmente abaixo.'
+                  : 'Revise os campos e o texto. Para a IA editar o corpo inteiro, abra o ícone dourado e toque em “Editar pré-visualização”.'}
               </p>
             </div>
+            {editandoCorpoPreview && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5 bg-amber-500 text-black hover:bg-amber-600 font-semibold shrink-0"
+                onClick={concluirEdicaoCorpoPreview}
+              >
+                <Check className="h-3.5 w-3.5" />
+                Concluir edição
+              </Button>
+            )}
           </div>
 
           {/* Banner: texto desvinculado do modelo */}
@@ -808,65 +842,95 @@ export default function NovoContratoPage() {
                 variant="ghost"
                 className="h-7 text-xs gap-1 text-amber-300 hover:text-amber-100 hover:bg-amber-500/20 shrink-0"
                 onClick={restaurarDoModelo}
+                disabled={editandoCorpoPreview}
               >
                 Restaurar do modelo
               </Button>
             </div>
           )}
 
+          {editandoCorpoPreview && (
+            <div className="flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
+              <Pencil className="h-4 w-4 shrink-0 text-sky-300" />
+              <span className="flex-1 text-sm text-sky-100">
+                Editando o corpo completo do contrato. Digite livremente no documento à direita.
+              </span>
+            </div>
+          )}
+
           {/* Layout split: campos | textarea editável */}
           <div className="flex gap-4" style={{ minHeight: '640px' }}>
-            {/* Painel de campos */}
-            <div className="w-72 shrink-0 flex flex-col rounded-lg border bg-card overflow-hidden">
-              <div className="px-4 py-3 border-b bg-muted/20">
-                <p className="text-sm font-semibold">Campos do contrato</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {textoDetachadoModelo
-                    ? 'Valores salvos com o contrato'
-                    : 'Alterações refletem no texto ao lado'}
-                </p>
-              </div>
-              <ScrollArea className="flex-1">
-                <div className="px-4 py-4 space-y-4">
-                  {variaveis.map((v) => (
-                    <div key={v.id} className="space-y-1.5">
-                      <Label className="text-xs font-medium">
-                        {v.label}
-                        {v.nome === VARIAVEL_CPF_FIXO && (
-                          <span className="text-amber-500/90 ml-1 text-xs font-normal">
-                            (fixo)
-                          </span>
-                        )}
-                        {v.obrigatorio && (
-                          <span className="text-red-400 ml-0.5">*</span>
-                        )}
-                      </Label>
-                      <CampoInput
-                        variavel={v}
-                        valor={valores[v.nome] ?? ''}
-                        onChange={(val) => atualizarValor(v.nome, val)}
-                      />
-                    </div>
-                  ))}
+            {/* Painel de campos — oculto no modo edição do corpo para dar foco ao texto */}
+            {!editandoCorpoPreview && (
+              <div className="w-72 shrink-0 flex flex-col rounded-lg border bg-card overflow-hidden">
+                <div className="px-4 py-3 border-b bg-muted/20">
+                  <p className="text-sm font-semibold">Campos do contrato</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {textoDetachadoModelo
+                      ? 'Valores salvos com o contrato'
+                      : 'Alterações refletem no texto ao lado'}
+                  </p>
                 </div>
-              </ScrollArea>
-            </div>
+                <ScrollArea className="flex-1">
+                  <div className="px-4 py-4 space-y-4">
+                    {variaveis.map((v) => (
+                      <div key={v.id} className="space-y-1.5">
+                        <Label className="text-xs font-medium">
+                          {v.label}
+                          {v.nome === VARIAVEL_CPF_FIXO && (
+                            <span className="text-amber-500/90 ml-1 text-xs font-normal">
+                              (fixo)
+                            </span>
+                          )}
+                          {v.obrigatorio && (
+                            <span className="text-red-400 ml-0.5">*</span>
+                          )}
+                        </Label>
+                        <CampoInput
+                          variavel={v}
+                          valor={valores[v.nome] ?? ''}
+                          onChange={(val) => atualizarValor(v.nome, val)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
 
-            {/* Texto do contrato editável */}
+            {/* Texto do contrato */}
             <div className="flex-1 overflow-auto rounded-xl bg-muted/20 flex justify-center p-4 md:p-6">
               <textarea
+                ref={previewTextareaRef}
                 value={conteudoEditavel}
+                readOnly={!editandoCorpoPreview}
                 onChange={(e) => handleEditarTextoLivre(e.target.value)}
-                className="w-full bg-white text-black shadow-md rounded-sm outline-none focus:ring-2 focus:ring-amber-400/50 resize-none"
+                onFocus={() => {
+                  if (!editandoCorpoPreview) {
+                    // Clique no documento também entra no modo edição
+                    iniciarEdicaoCorpoPreview();
+                  }
+                }}
+                aria-label={
+                  editandoCorpoPreview
+                    ? 'Editando corpo do contrato'
+                    : 'Pré-visualização do contrato — clique ou use Editar pré-visualização'
+                }
+                className={`w-full bg-white text-black shadow-md rounded-sm outline-none resize-none ${
+                  editandoCorpoPreview
+                    ? 'ring-2 ring-amber-400/60 cursor-text'
+                    : 'cursor-pointer hover:ring-1 hover:ring-amber-400/30'
+                }`}
                 style={{
                   fontFamily: '"Times New Roman", Times, serif',
                   fontSize: '12pt',
                   lineHeight: '1.8',
                   padding: '25mm 20mm',
                   minHeight: '297mm',
-                  maxWidth: '210mm',
+                  maxWidth: editandoCorpoPreview ? '210mm' : '210mm',
+                  width: '100%',
                 }}
-                spellCheck={false}
+                spellCheck={editandoCorpoPreview}
               />
             </div>
           </div>
@@ -874,22 +938,47 @@ export default function NovoContratoPage() {
           <ContratoAnexosSection contratoId={contratoIdAtivo} />
 
           <div className="flex items-center justify-between pt-2">
-            <Button variant="outline" className="gap-2" onClick={handleVoltar}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => {
+                setEditandoCorpoPreview(false);
+                handleVoltar();
+              }}
+            >
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </Button>
-            <Button
-              className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-              onClick={handleConfirmar}
-              disabled={isSalvando || !todosPreenchidos}
-            >
-              {isSalvando ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
+            <div className="flex items-center gap-2">
+              {editandoCorpoPreview && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={concluirEdicaoCorpoPreview}
+                >
+                  <Check className="h-4 w-4" />
+                  Concluir edição
+                </Button>
               )}
-              {isModoEdicao ? 'Salvar alterações' : 'Confirmar e salvar'}
-            </Button>
+              <Button
+                className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                onClick={handleConfirmar}
+                disabled={isSalvando || !todosPreenchidos || editandoCorpoPreview}
+                title={
+                  editandoCorpoPreview
+                    ? 'Conclua a edição do corpo antes de salvar'
+                    : undefined
+                }
+              >
+                {isSalvando ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                {isModoEdicao ? 'Salvar alterações' : 'Confirmar e salvar'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -980,6 +1069,7 @@ export default function NovoContratoPage() {
           conteudoContrato={conteudoEditavel || conteudoSubstituido}
           modeloConteudo={modelo?.conteudo ?? ''}
           onApplyPatches={aplicarPatchesIA}
+          onEnterCorpoEditMode={iniciarEdicaoCorpoPreview}
           disabled={variaveis.length === 0 || !modelo?.conteudo}
         />
       )}
