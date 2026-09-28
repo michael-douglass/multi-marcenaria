@@ -10,6 +10,17 @@ export interface LayoutedCalendarEvent<T> {
   totalColumns: number;
 }
 
+/** Espaço interno da grade: evita tarefas coladas nas bordas da agenda. */
+const EVENT_SIDE_INSET_PERCENT = 1.5;
+/** Faixa à direita para clicar em horário vazio (estilo Google Calendar). */
+const EVENT_RIGHT_GUTTER_PERCENT = 6;
+const EVENT_COLUMN_GAP_PERCENT = 1;
+/**
+ * Com muitas tarefas no mesmo horário, limita colunas para não virar
+ * “fio de cabelo” sem largura útil — as extras se empilham com z-index.
+ */
+const EVENT_MAX_VISIBLE_COLUMNS = 5;
+
 /** Tarefas criadas sem hora ficam à meia-noite com duração padrão de 1h. */
 export function isUntimedCalendarBlock(event: CalendarTimeRange): boolean {
   return (
@@ -91,15 +102,33 @@ export function layoutOverlappingEvents<T extends CalendarTimeRange>(
   return getOverlapClusters(events).flatMap(assignColumnsInCluster);
 }
 
+/**
+ * Posição horizontal da tarefa dentro da grade do dia.
+ * Sempre respeita margem esquerda/direita — nunca cola nas bordas nem ultrapassa 100%.
+ */
 export function getEventColumnStyle(column: number, totalColumns: number): {
   left: string;
   width: string;
 } {
-  const gap = 1.5;
-  const width = (100 - gap * (totalColumns - 1)) / totalColumns;
-  const left = column * (width + gap);
+  const requested = Math.max(1, totalColumns);
+  const cols = Math.min(requested, EVENT_MAX_VISIBLE_COLUMNS);
+  const col =
+    requested <= EVENT_MAX_VISIBLE_COLUMNS
+      ? Math.max(0, Math.min(column, cols - 1))
+      : Math.min(
+          cols - 1,
+          Math.floor((Math.max(0, column) / requested) * cols),
+        );
+
+  const usable = 100 - EVENT_SIDE_INSET_PERCENT - EVENT_RIGHT_GUTTER_PERCENT;
+  const gapTotal = EVENT_COLUMN_GAP_PERCENT * (cols - 1);
+  const width = Math.max((usable - gapTotal) / cols, 2);
+  const left = EVENT_SIDE_INSET_PERCENT + col * (width + EVENT_COLUMN_GAP_PERCENT);
+  const maxLeft = Math.max(EVENT_SIDE_INSET_PERCENT, 100 - EVENT_RIGHT_GUTTER_PERCENT - width);
+  const safeLeft = Math.min(Math.max(left, EVENT_SIDE_INSET_PERCENT), maxLeft);
+
   return {
-    left: `${left}%`,
+    left: `${safeLeft}%`,
     width: `${width}%`,
   };
 }

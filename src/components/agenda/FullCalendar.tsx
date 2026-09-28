@@ -75,7 +75,7 @@ interface FullCalendarProps {
   onFocusDateApplied?: () => void;
   /** Layout reduzido para painel lateral flutuante */
   compact?: boolean;
-  /** Zoom do painel flutuante (80–140%) — escala layout compacto sem CSS zoom */
+  /** Zoom do painel flutuante (80–200%) — escala layout compacto sem CSS zoom */
   zoomPercent?: number;
   /** Clique em faixa horária vazia — ex.: criar tarefa no horário clicado. */
   onTimeSlotClick?: (dateTime: Date) => void;
@@ -144,8 +144,7 @@ function scaleCalendarLayout(layout: CalendarLayout, scale: number): CalendarLay
 function getEventTypeClasses(event: AgendaEvent, compact = false) {
   return cn(
     compact ? 'text-[10px] px-1.5 py-0.5' : 'text-[10px] p-1',
-    'rounded border shadow-sm cursor-pointer transition-all hover:z-30 hover:brightness-95',
-    compact ? 'overflow-visible' : 'overflow-hidden',
+    'rounded border shadow-sm cursor-pointer transition-all hover:z-30 hover:brightness-95 overflow-hidden',
     event.status === 'concluido' && 'opacity-60 line-through',
   );
 }
@@ -865,7 +864,8 @@ export function FullCalendar({
             <div className="grid grid-cols-7">
               {weekDays.map((day, dayIndex) => {
                 const dayEvents = events.filter((e) => isSameDay(e.start, day));
-                const layoutedTimed = layoutOverlappingEvents(dayEvents);
+                const { timed: timedDayEvents } = partitionTimedUntimedEvents(dayEvents);
+                const layoutedTimed = layoutOverlappingEvents(timedDayEvents);
                 const dayKey = day.toISOString();
                 const isDragTarget = activeTargetDayKey === dayKey;
 
@@ -881,7 +881,7 @@ export function FullCalendar({
                     <div
                       ref={(el) => registerGridRef(day, el)}
                       className={cn(
-                        'absolute inset-0',
+                        'absolute inset-0 overflow-hidden',
                         isDragTarget && 'bg-primary/5 ring-1 ring-inset ring-primary/40',
                         onTimeSlotClick && 'cursor-pointer',
                       )}
@@ -999,7 +999,7 @@ export function FullCalendar({
               <div
                 ref={(el) => registerGridRef(currentPivot, el)}
                 className={cn(
-                  'relative flex-1',
+                  'relative flex-1 overflow-hidden',
                   activeTargetDayKey === currentPivot.toISOString() &&
                     'bg-primary/5 ring-1 ring-inset ring-primary/40',
                   onTimeSlotClick && 'cursor-pointer',
