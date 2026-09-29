@@ -530,8 +530,8 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="overflow-hidden">
-        <ScrollArea className="h-full sidebar-scroll">
+      <SidebarContent className="overflow-hidden group-data-[collapsible=icon]:overflow-x-visible">
+        <ScrollArea className={cn('h-full sidebar-scroll', !open && !isMobile && 'sidebar-scroll--icon')}>
           {isSearching ? (
             <div className="px-1 pb-3">
               {searchEmpty ? <SidebarSearchEmpty query={searchQuery} /> : null}

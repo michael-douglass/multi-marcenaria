@@ -3259,6 +3259,25 @@ body::before {
     background: rgba(242, 216, 146, 0.48);
   }
 
+  /* Trilho de ícones (tablet/desktop recolhido): centraliza e evita cortar cantos. */
+  .sidebar-scroll--icon [data-radix-scroll-area-scrollbar] {
+    display: none;
+  }
+
+  .sidebar-scroll--icon [data-radix-scroll-area-viewport] {
+    overflow-x: hidden !important;
+  }
+
+  .sidebar-scroll--icon [data-radix-scroll-area-viewport] > div {
+    display: flex !important;
+    min-width: 0 !important;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    padding-inline: 0.125rem;
+  }
+
   .sidebar-search {
     position: relative;
     isolation: isolate;

@@ -145,12 +145,12 @@ export function MainLayout() {
           'paper-workspace relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
           boardOnPage
             ? cn(
-                'overflow-x-hidden overflow-y-auto touch-pan-y px-2 py-2 sm:px-3 sm:py-3',
+                'overflow-x-hidden overflow-y-auto touch-pan-y px-3 py-3 sm:px-4 sm:py-3.5 md:px-5 md:py-4 lg:px-6',
                 showFactoryFabs ? 'pb-24 sm:pb-24' : 'pb-10 sm:pb-10',
               )
             : 'overflow-x-hidden overflow-y-auto touch-pan-y',
           !boardOnPage && isCrmArea
-            ? 'px-2 py-2 pb-24 sm:px-3 sm:py-3 sm:pb-24'
+            ? 'px-3 py-3 pb-24 sm:px-4 sm:py-3.5 sm:pb-24 md:px-5 md:py-4 lg:px-6'
             : !boardOnPage && hideFabsOnPonto
               ? 'obra-layout-scroll px-4 py-4 pb-8 sm:px-6 sm:py-7 sm:pb-7 md:px-8'
               : !boardOnPage

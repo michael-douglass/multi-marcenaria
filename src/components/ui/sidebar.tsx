@@ -6,7 +6,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 const SIDEBAR_WIDTH = '18.5rem'
-const SIDEBAR_WIDTH_ICON = '3.5rem'
+/** Trilho de ícones: folga extra no tablet para não cortar cantos/sombras. */
+const SIDEBAR_WIDTH_ICON = '4rem'
 const SIDEBAR_COOKIE_NAME = 'sidebar:state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
@@ -250,7 +251,15 @@ SidebarContent.displayName = 'SidebarContent'
 
 const SidebarGroup = React.forwardRef<HTMLDivElement, React.ComponentProps<'div'>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('relative flex w-full min-w-0 flex-col p-2', className)} {...props} />
+    <div
+      ref={ref}
+      className={cn(
+        'relative flex w-full min-w-0 flex-col p-2',
+        'group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5',
+        className,
+      )}
+      {...props}
+    />
   ),
 )
 SidebarGroup.displayName = 'SidebarGroup'
@@ -271,7 +280,15 @@ SidebarGroupLabel.displayName = 'SidebarGroupLabel'
 
 const SidebarMenu = React.forwardRef<HTMLUListElement, React.ComponentProps<'ul'>>(
   ({ className, ...props }, ref) => (
-    <ul ref={ref} className={cn('flex w-full min-w-0 flex-col gap-1', className)} {...props} />
+    <ul
+      ref={ref}
+      className={cn(
+        'flex w-full min-w-0 flex-col gap-1',
+        'group-data-[collapsible=icon]:items-center',
+        className,
+      )}
+      {...props}
+    />
   ),
 )
 SidebarMenu.displayName = 'SidebarMenu'
@@ -295,7 +312,7 @@ const SidebarMenuButton = React.forwardRef<
     data-active={isActive}
     className={cn(
       'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none transition-[width,height,padding] hover:text-sidebar-accent-foreground focus-visible:ring-2',
-      'h-8 text-sm group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+      'h-8 text-sm group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:mx-auto [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
       isActive ? 'sidebar-item-active' : 'sidebar-item-hover text-[#d4bc9f]',
       className,
     )}
