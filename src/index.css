@@ -5114,7 +5114,7 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 @media (min-width: 640px) {
   .lead-markup-totais {
     grid-template-columns: 1fr 1fr;
-    align-items: end;
+    align-items: start;
     gap: 1rem;
   }
 }
@@ -5139,10 +5139,100 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 .lead-markup-totais__valor--selecionado {
   color: #8d5e22;
 }
+.lead-markup-totais__valor--metrica {
+  font-size: 0.98rem;
+}
 .lead-markup-totais__meta {
   margin-top: 0.15rem;
   font-size: 0.65rem;
   color: #8a7060;
+}
+.lead-markup-totais__metricas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed rgba(42, 24, 18, 0.12);
+}
+@media (min-width: 640px) {
+  .lead-markup-totais__metricas {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.lead-markup-totais__metricas-nota {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+.lead-markup-totais__busca {
+  position: relative;
+}
+@media (min-width: 640px) {
+  .lead-markup-totais__busca {
+    grid-column: 1 / -1;
+  }
+}
+.lead-markup-totais__busca-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  transform: translateY(-50%);
+  color: #8a7060;
+  pointer-events: none;
+}
+.lead-markup-totais__por-servico {
+  padding-top: 0.35rem;
+}
+@media (min-width: 640px) {
+  .lead-markup-totais__por-servico {
+    grid-column: 1 / -1;
+  }
+}
+.lead-markup-totais__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+}
+.lead-markup-totais__chip {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.45rem;
+  max-width: 100%;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(141, 94, 34, 0.22);
+  background: rgba(255, 252, 248, 0.85);
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: #2a1812;
+}
+.lead-markup-totais__chip-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b5244;
+  max-width: 12rem;
+}
+.lead-markup-totais__chip-qtd {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #8d5e22;
+}
+.lead-markup-totais__chip-valor {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #2a1812;
 }
 .lead-markup-totais__acoes {
   display: flex;

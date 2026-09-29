@@ -316,6 +316,7 @@ export function MarkupCalculatorSheet({
   const [obsRodape, setObsRodape] = useState('');
   const [modulos, setModulos] = useState<MarkupModulos>(() => criarModulosVazios(config));
   const [busca, setBusca] = useState('');
+  const [buscaServicos, setBuscaServicos] = useState('');
   const [exportando, setExportando] = useState(false);
   const [confirmExcluirAberto, setConfirmExcluirAberto] = useState(false);
   const [compondoIA, setCompondoIA] = useState(false);
@@ -2286,8 +2287,25 @@ export function MarkupCalculatorSheet({
               cobrar por <strong>hora</strong> ou por <strong>dia</strong>. Fórmula:{' '}
               <strong>quantidade × valor unitário = custo</strong>.
             </p>
+            {modulosSeguros.servicos.linhas.length > 0 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={buscaServicos}
+                  onChange={(e) => setBuscaServicos(e.target.value)}
+                  placeholder="Buscar serviço, JR, equipe…"
+                  className="pl-9 h-9"
+                  aria-label="Buscar campos de mão de obra"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {modulosSeguros.servicos.linhas.map((linha, i) => {
+              {modulosSeguros.servicos.linhas
+                .map((linha, i) => ({ linha, i }))
+                .filter(({ linha }) =>
+                  correspondeBuscaFlexivel(linha.descricao, buscaServicos),
+                )
+                .map(({ linha, i }) => {
                 const ativo = linha.ativo !== false;
                 const unidade = normalizarUnidadeCobranca(linha.unidade);
                 const rotulos = rotuloUnidadeCobranca(unidade);
@@ -2367,6 +2385,14 @@ export function MarkupCalculatorSheet({
                 );
               })}
             </div>
+            {buscaServicos.trim() &&
+              modulosSeguros.servicos.linhas.every(
+                (l) => !correspondeBuscaFlexivel(l.descricao, buscaServicos),
+              ) && (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  Nenhum serviço encontrado para “{buscaServicos.trim()}”.
+                </p>
+              )}
             <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-1">
               {calcularHorasTotaisServicos(modulosSeguros.servicos.linhas) > 0 && (
                 <div className="flex justify-between gap-2">

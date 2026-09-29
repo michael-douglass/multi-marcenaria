@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Calculator, Plus, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
+import { Calculator, Plus, ExternalLink, Sparkles, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -22,6 +23,11 @@ import {
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
+import {
+  agregarMetricasServicosOrcamentos,
+  formatarMetricaServico,
+} from '@/lib/markup-servicos';
+import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import {
   closeMarkupSheetSession,
   getMarkupSheetSession,
@@ -66,6 +72,8 @@ export function MarkupLeadSection({
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
   /** IDs marcados para a soma do “total selecionado”. */
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
+  /** Busca por título do markup ou nome do serviço (JR, equipe…). */
+  const [busca, setBusca] = useState('');
   /** IDs já vistos neste lead — para saber o que é “novo” e marcar automaticamente. */
   const idsVistosRef = useRef<Set<string>>(new Set());
   const leadSelecaoRef = useRef(leadId);
@@ -80,12 +88,13 @@ export function MarkupLeadSection({
     [idsKey],
   );
 
-  // Troca de lead: zera seleção e memória de IDs.
+  // Troca de lead: zera seleção, busca e memória de IDs.
   useEffect(() => {
     if (leadSelecaoRef.current === leadId) return;
     leadSelecaoRef.current = leadId;
     idsVistosRef.current = new Set();
     setSelecionados(new Set());
+    setBusca('');
   }, [leadId]);
 
   // Mantém a seleção alinhada à lista: novos entram marcados; removidos saem.
@@ -119,6 +128,38 @@ export function MarkupLeadSection({
   );
   const qtdSelecionada = orcamentosSelecionados.length;
   const todosSelecionados = orcamentos.length > 0 && qtdSelecionada === orcamentos.length;
+
+  /** Base das métricas: seleção marcada; se ninguém marcado, usa todos. */
+  const baseMetricas = useMemo(
+    () => (qtdSelecionada > 0 ? orcamentosSelecionados : orcamentos),
+    [qtdSelecionada, orcamentosSelecionados, orcamentos],
+  );
+  const metricas = useMemo(
+    () => agregarMetricasServicosOrcamentos(baseMetricas),
+    [baseMetricas],
+  );
+  const metricasFiltradas = useMemo(() => {
+    const termo = busca.trim();
+    if (!termo) return metricas.porServico;
+    return metricas.porServico.filter((item) =>
+      correspondeBuscaFlexivel(item.descricao, termo),
+    );
+  }, [metricas.porServico, busca]);
+
+  const orcamentosFiltrados = useMemo(() => {
+    const termo = busca.trim();
+    if (!termo) return orcamentos;
+    return orcamentos.filter((o) => {
+      if (correspondeBuscaFlexivel(o.titulo, termo)) return true;
+      const linhas = o.modulos?.servicos?.linhas ?? [];
+      return linhas.some(
+        (l) =>
+          (l.ativo !== false) &&
+          Math.max(0, Number(l.horas) || 0) > 0 &&
+          correspondeBuscaFlexivel(l.descricao, termo),
+      );
+    });
+  }, [orcamentos, busca]);
 
   const confirmarExclusao = async () => {
     if (!deleteTarget || readOnly) return;
@@ -240,6 +281,75 @@ export function MarkupLeadSection({
                         : `${qtdSelecionada} de ${orcamentos.length} marcado${qtdSelecionada === 1 ? '' : 's'}`}
                     </div>
                   </div>
+
+                  <div className="lead-markup-totais__busca">
+                    <Search className="lead-markup-totais__busca-icon" aria-hidden />
+                    <Input
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      placeholder="Buscar JR, esquadria, projeto, markup…"
+                      className="h-8 pl-8 text-sm border-[#8d5e22]/25 bg-[#fffcf8]"
+                      aria-label="Buscar markups e serviços"
+                    />
+                  </div>
+
+                  <div className="lead-markup-totais__metricas" aria-label="Totais de mão de obra">
+                    <div className="lead-markup-totais__metrica">
+                      <div className="lead-markup-totais__kicker">Total horas</div>
+                      <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica">
+                        {metricas.totalHoras.toLocaleString('pt-BR', {
+                          maximumFractionDigits: 1,
+                        })}
+                        h
+                      </div>
+                    </div>
+                    <div className="lead-markup-totais__metrica">
+                      <div className="lead-markup-totais__kicker">Total dias</div>
+                      <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica">
+                        {metricas.totalDias.toLocaleString('pt-BR', {
+                          maximumFractionDigits: 1,
+                        })}
+                        d
+                      </div>
+                    </div>
+                    <div className="lead-markup-totais__metrica">
+                      <div className="lead-markup-totais__kicker">Total mão de obra</div>
+                      <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica lead-markup-totais__valor--selecionado">
+                        {formatarMoedaMarkup(metricas.totalValor)}
+                      </div>
+                    </div>
+                    <div className="lead-markup-totais__meta lead-markup-totais__metricas-nota">
+                      {qtdSelecionada > 0
+                        ? `Métricas dos ${qtdSelecionada} markup${qtdSelecionada === 1 ? '' : 's'} marcados`
+                        : 'Métricas de todos os markups'}
+                    </div>
+                  </div>
+
+                  {(metricas.porServico.length > 0 || busca.trim().length > 0) && (
+                    <div className="lead-markup-totais__por-servico">
+                      <div className="lead-markup-totais__kicker">Por serviço / equipe</div>
+                      {metricasFiltradas.length === 0 ? (
+                        <p className="lead-markup-totais__meta mt-1">
+                          Nenhum serviço encontrado para “{busca.trim()}”.
+                        </p>
+                      ) : (
+                        <ul className="lead-markup-totais__chips">
+                          {metricasFiltradas.map((item) => (
+                            <li key={item.chave} className="lead-markup-totais__chip">
+                              <span className="lead-markup-totais__chip-nome">{item.descricao}</span>
+                              <span className="lead-markup-totais__chip-qtd">
+                                {formatarMetricaServico(item)}
+                              </span>
+                              <span className="lead-markup-totais__chip-valor">
+                                {formatarMoedaMarkup(item.valor)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
                   {orcamentos.length > 1 && (
                     <div className="lead-markup-totais__acoes">
                       <Button
@@ -298,8 +408,14 @@ export function MarkupLeadSection({
             </div>
           ) : (
             <>
+              {orcamentosFiltrados.length === 0 ? (
+                <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                  Nenhum markup encontrado para “{busca.trim()}”.
+                </p>
+              ) : (
               <ul className="space-y-2">
-                {orcamentos.map((o, index) => {
+                {orcamentosFiltrados.map((o) => {
+                  const index = orcamentos.findIndex((x) => x.id === o.id);
                   const marcado = selecionados.has(o.id);
                   const isMaisRecente = index === 0;
                   const podeChip = Number(o.preco_final) > 0;
@@ -398,6 +514,13 @@ export function MarkupLeadSection({
                   );
                 })}
               </ul>
+              )}
+              {busca.trim() && orcamentosFiltrados.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Mostrando {orcamentosFiltrados.length} de {orcamentos.length} markup
+                  {orcamentos.length === 1 ? '' : 's'}
+                </p>
+              )}
               {maisRecente?.atualizado_em && (
                 <p className="text-[10px] text-muted-foreground">
                   Mais recente atualizado em{' '}

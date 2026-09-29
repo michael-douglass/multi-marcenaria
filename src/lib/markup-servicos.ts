@@ -258,6 +258,133 @@ export function calcularDiasTotaisServicos(linhas: MarkupLinhaServico[]): number
   }, 0);
 }
 
+export interface MarkupServicoMetricaItem {
+  /** Chave estável (template_id ou descrição normalizada). */
+  chave: string;
+  descricao: string;
+  unidade: MarkupServicoUnidade;
+  /** Soma de horas ou dias. */
+  quantidade: number;
+  /** Soma em R$ (quantidade × valor unitário de cada linha). */
+  valor: number;
+}
+
+export interface MarkupServicosMetricasAgregadas {
+  totalHoras: number;
+  totalDias: number;
+  /** Custo total de mão de obra em R$. */
+  totalValor: number;
+  porServico: MarkupServicoMetricaItem[];
+}
+
+/** Soma horas/dias/valores por campo de mão de obra a partir das linhas. */
+export function agregarMetricasServicosLinhas(
+  linhas: MarkupLinhaServico[],
+  valorUnitarioFallback = 0,
+): MarkupServicosMetricasAgregadas {
+  const porChave = new Map<string, MarkupServicoMetricaItem>();
+  let totalValor = 0;
+
+  for (const linha of linhas) {
+    if (linha.ativo === false) continue;
+    const quantidade = Math.max(0, Number(linha.horas) || 0);
+    if (quantidade <= 0) continue;
+
+    const unidade = normalizarUnidadeCobranca(linha.unidade);
+    const valorUnitario = resolverValorHoraLinhaServico(linha, valorUnitarioFallback);
+    const valorLinha = calcularCustoServicoHoras(quantidade, valorUnitario);
+    totalValor += valorLinha;
+
+    const descricao = String(linha.descricao ?? '').trim() || 'Serviço';
+    const chave = `${linha.template_id ?? descricao.toLowerCase()}|${unidade}`;
+    const atual = porChave.get(chave);
+    if (atual) {
+      atual.quantidade += quantidade;
+      atual.valor += valorLinha;
+    } else {
+      porChave.set(chave, { chave, descricao, unidade, quantidade, valor: valorLinha });
+    }
+  }
+
+  const porServico = [...porChave.values()].sort((a, b) => {
+    if (a.unidade !== b.unidade) return a.unidade === 'dia' ? -1 : 1;
+    return b.valor - a.valor || b.quantidade - a.quantidade || a.descricao.localeCompare(b.descricao, 'pt-BR');
+  });
+
+  return {
+    totalHoras: calcularHorasTotaisServicos(linhas),
+    totalDias: calcularDiasTotaisServicos(linhas),
+    totalValor: arredondarServico(totalValor),
+    porServico: porServico.map((item) => ({
+      ...item,
+      valor: arredondarServico(item.valor),
+    })),
+  };
+}
+
+/** Agrega métricas de mão de obra de vários markups (usa linhas ativas de cada um). */
+export function agregarMetricasServicosOrcamentos(
+  orcamentos: Array<{
+    modulos?: {
+      servicos?: { linhas?: MarkupLinhaServico[]; valor_hora?: number };
+    };
+  }>,
+): MarkupServicosMetricasAgregadas {
+  // Agrega linha a linha preservando o fallback de valor/hora de cada orçamento.
+  const porChave = new Map<string, MarkupServicoMetricaItem>();
+  let totalHoras = 0;
+  let totalDias = 0;
+  let totalValor = 0;
+
+  for (const orc of orcamentos) {
+    const fallback = Math.max(0, Number(orc.modulos?.servicos?.valor_hora) || 0);
+    const parcial = agregarMetricasServicosLinhas(
+      orc.modulos?.servicos?.linhas ?? [],
+      fallback,
+    );
+    totalHoras += parcial.totalHoras;
+    totalDias += parcial.totalDias;
+    totalValor += parcial.totalValor;
+    for (const item of parcial.porServico) {
+      const atual = porChave.get(item.chave);
+      if (atual) {
+        atual.quantidade += item.quantidade;
+        atual.valor += item.valor;
+      } else {
+        porChave.set(item.chave, { ...item });
+      }
+    }
+  }
+
+  const porServico = [...porChave.values()]
+    .map((item) => ({ ...item, valor: arredondarServico(item.valor) }))
+    .sort((a, b) => {
+      if (a.unidade !== b.unidade) return a.unidade === 'dia' ? -1 : 1;
+      return b.valor - a.valor || b.quantidade - a.quantidade || a.descricao.localeCompare(b.descricao, 'pt-BR');
+    });
+
+  return {
+    totalHoras,
+    totalDias,
+    totalValor: arredondarServico(totalValor),
+    porServico,
+  };
+}
+
+function formatarQuantidadeMetrica(valor: number): string {
+  return valor.toLocaleString('pt-BR', {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  });
+}
+
+export function formatarMetricaServico(
+  item: Pick<MarkupServicoMetricaItem, 'quantidade' | 'unidade'>,
+): string {
+  const sufixo = item.unidade === 'dia' ? 'd' : 'h';
+  return `${formatarQuantidadeMetrica(item.quantidade)}${sufixo}`;
+}
+
 export function calcularCustoServicoHoras(horas: number, valorHora: number): number {
   return arredondarServico(Math.max(0, horas) * Math.max(0, valorHora));
 }
