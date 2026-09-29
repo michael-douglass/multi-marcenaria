@@ -8097,21 +8097,52 @@ body {
   color: #5c4030;
 }
 
-.evento-pdf-folio {
-  background: linear-gradient(165deg, rgba(92, 64, 48, 0.95), #2a1812);
-  border: 1px solid rgba(240, 210, 140, 0.28);
-  border-radius: 0.85rem;
-  transition: border-color 180ms ease, transform 180ms ease;
+/* Popup Exportar PDF (evento) — fundo claro glass-dialog + fichas legíveis */
+.glass-dialog.evento-pdf-export-dialog {
+  color: var(--color-text-body);
 }
-.evento-pdf-folio:hover {
-  border-color: var(--color-gold);
+.glass-dialog.evento-pdf-export-dialog [class*='text-cream'] {
+  color: var(--color-text-muted);
+}
+.evento-pdf-export-dialog .evento-pdf-folio {
+  background: linear-gradient(165deg, #fffaf4 0%, #f3e8da 100%);
+  border: 1px solid var(--color-gold-border-subtle);
+  border-radius: 0.85rem;
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+.evento-pdf-export-dialog .evento-pdf-folio:hover {
+  border-color: var(--color-gold-border);
   transform: translateY(-1px);
 }
-.evento-pdf-folio.is-on {
+.evento-pdf-export-dialog .evento-pdf-folio.is-on {
   border-color: var(--color-gold);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(201, 160, 123, 0.25);
+}
+.evento-pdf-export-dialog .evento-pdf-cadernos {
+  border-left: 2px solid var(--color-gold-border-subtle);
+}
+.evento-pdf-export-dialog .evento-pdf-caderno-row {
+  border-radius: 0.65rem;
+  border: 1px solid transparent;
+  background: rgba(42, 24, 18, 0.04);
+  color: var(--color-text-body);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.evento-pdf-export-dialog .evento-pdf-caderno-row:hover {
+  background: rgba(42, 24, 18, 0.07);
+  border-color: var(--color-gold-border-subtle);
+}
+.evento-pdf-export-dialog .evento-pdf-caderno-row.is-on {
+  background: rgba(201, 160, 123, 0.12);
+  border-color: var(--color-gold-border);
 }
 @media (prefers-reduced-motion: reduce) {
-  .evento-pdf-folio {
+  .evento-pdf-export-dialog .evento-pdf-folio,
+  .evento-pdf-export-dialog .evento-pdf-caderno-row {
     transition: none;
   }
 }

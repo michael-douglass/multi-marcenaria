@@ -297,10 +297,13 @@ function fatiasUrls(urls: string[], porPagina: number): string[][] {
   return out
 }
 
-function blocoCaderno(board: EventoBoard): FolhaDraft[] {
+function blocoCaderno(board: EventoBoard, cadernoIds?: string[] | null): FolhaDraft[] {
   const drafts: FolhaDraft[] = []
   const FOTOS_POR_FOLHA = 4
-  const cadernos = [...(board.cadernos ?? [])].sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em))
+  const permitidos = cadernoIds?.length ? new Set(cadernoIds) : null
+  const cadernos = [...(board.cadernos ?? [])]
+    .filter((c) => !permitidos || permitidos.has(c.id))
+    .sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em))
 
   for (const caderno of cadernos) {
     const folhas = board.paginas.filter((p) => p.caderno_id === caderno.id).sort((a, b) => a.ordem - b.ordem)
@@ -892,11 +895,12 @@ export function buildEventoPdfHtml(
   board: EventoBoard,
   branding: EventoPdfBranding,
   colunas: EventoPdfColunaId[],
+  cadernoIds?: string[] | null,
 ): string {
   const drafts: FolhaDraft[] = [capaHtml(board, branding)]
   if (colunas.includes('participantes')) drafts.push(...blocoParticipantes(board))
   if (colunas.includes('itens')) drafts.push(...blocoItens(board))
-  if (colunas.includes('caderno')) drafts.push(...blocoCaderno(board))
+  if (colunas.includes('caderno')) drafts.push(...blocoCaderno(board, cadernoIds))
   if (colunas.includes('anexos')) drafts.push(...blocoAnexos(board))
   if (colunas.includes('totais')) drafts.push(...blocoTotais(board))
   if (colunas.includes('tarefas')) drafts.push(...blocoTarefas(board))
@@ -955,9 +959,13 @@ export function openEventoPdfPrint(
   board: EventoBoard,
   branding: EventoPdfBranding,
   colunas: EventoPdfColunaId[],
+  cadernoIds?: string[] | null,
 ): void {
-  if (colunas.length === 0) throw new Error('Marque pelo menos uma coluna')
-  const html = buildEventoPdfHtml(board, branding, colunas)
+  if (colunas.length === 0) throw new Error('Marque pelo menos uma seção')
+  if (colunas.includes('caderno') && cadernoIds != null && cadernoIds.length === 0) {
+    throw new Error('Marque pelo menos um caderno')
+  }
+  const html = buildEventoPdfHtml(board, branding, colunas, cadernoIds)
   const win = window.open('', '_blank')
   if (!win) throw new Error('Permita pop-ups para gerar o PDF')
   win.document.write(html)
