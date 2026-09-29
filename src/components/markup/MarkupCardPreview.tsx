@@ -12,6 +12,8 @@ interface MarkupCardPreviewProps {
   onDelete?: (e: React.MouseEvent) => void;
   /** Só exibe valores — sem abrir calculadora nem exclusão. */
   readOnly?: boolean;
+  /** Destaque quando o chip entra na soma. `undefined` = sem modo de seleção. */
+  selected?: boolean;
   className?: string;
 }
 
@@ -21,20 +23,25 @@ export function MarkupCardPreview({
   onClick,
   onDelete,
   readOnly = false,
+  selected,
   className,
 }: MarkupCardPreviewProps) {
   if (!resumo || resumo.preco_final <= 0) return null;
 
   const isInteractive = !readOnly && !!onClick;
+  const selectionActive = typeof selected === 'boolean';
 
   return (
     <div
       className={cn(
         'lead-markup-chip w-full rounded-md border pointer-events-auto',
         isInteractive && 'transition-colors',
+        selectionActive && selected && 'lead-markup-chip--selected',
+        selectionActive && !selected && 'lead-markup-chip--dimmed',
         compact ? 'px-2 py-1.5' : 'px-3 py-2',
         className,
       )}
+      data-selected={selectionActive ? (selected ? 'true' : 'false') : undefined}
     >
       <div className="flex items-start gap-1">
         {isInteractive ? (

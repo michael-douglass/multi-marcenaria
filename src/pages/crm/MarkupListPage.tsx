@@ -290,7 +290,10 @@ export function MarkupConfigPage() {
               {api.data.servicos.map(s => (
                 <div key={s.id} className="flex justify-between text-[#edd9c4]">
                   <span>{s.nome}</span>
-                  <span>{formatarMoedaMarkup(Number(s.valor_hora_padrao))}/h</span>
+                  <span>
+                    {formatarMoedaMarkup(Number(s.valor_hora_padrao))}
+                    /{s.unidade_cobranca === 'dia' ? 'dia' : 'h'}
+                  </span>
                 </div>
               ))}
             </div>

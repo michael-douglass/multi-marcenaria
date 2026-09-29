@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Calculator, Plus, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -29,6 +30,8 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import type { MarkupOrcamento } from '@/lib/markup-types';
 
 interface MarkupLeadSectionProps {
   leadId: number;
@@ -44,6 +47,13 @@ interface MarkupLeadSectionProps {
   readOnly?: boolean;
 }
 
+function somaPrecos(lista: MarkupOrcamento[]): number {
+  return lista.reduce((acc, o) => {
+    const v = Number(o.preco_final);
+    return acc + (Number.isFinite(v) && v > 0 ? v : 0);
+  }, 0);
+}
+
 export function MarkupLeadSection({
   leadId,
   leadNome,
@@ -54,10 +64,61 @@ export function MarkupLeadSection({
   const { syncValorLead } = useSyncLeadMarkupValor();
   const [folhaOpen, setFolhaOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; titulo: string } | null>(null);
+  /** IDs marcados para a soma do “total selecionado”. */
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
+  /** IDs já vistos neste lead — para saber o que é “novo” e marcar automaticamente. */
+  const idsVistosRef = useRef<Set<string>>(new Set());
+  const leadSelecaoRef = useRef(leadId);
 
   const maisRecente = orcamentos[0] ?? null;
   const syncValorLeadRef = useRef(syncValorLead);
   syncValorLeadRef.current = syncValorLead;
+
+  const idsKey = orcamentos.map((o) => o.id).join('|');
+  const idsOrcamentos = useMemo(
+    () => (idsKey.length > 0 ? idsKey.split('|') : []),
+    [idsKey],
+  );
+
+  // Troca de lead: zera seleção e memória de IDs.
+  useEffect(() => {
+    if (leadSelecaoRef.current === leadId) return;
+    leadSelecaoRef.current = leadId;
+    idsVistosRef.current = new Set();
+    setSelecionados(new Set());
+  }, [leadId]);
+
+  // Mantém a seleção alinhada à lista: novos entram marcados; removidos saem.
+  useEffect(() => {
+    const vistos = idsVistosRef.current;
+    setSelecionados((prev) => {
+      const next = new Set<string>();
+      for (const id of idsOrcamentos) {
+        if (!vistos.has(id) || prev.has(id)) {
+          next.add(id);
+        }
+      }
+      if (next.size === prev.size && [...next].every((id) => prev.has(id))) {
+        return prev;
+      }
+      return next;
+    });
+    idsVistosRef.current = new Set(idsOrcamentos);
+  }, [idsOrcamentos]);
+
+
+
+  const totalGeral = useMemo(() => somaPrecos(orcamentos), [orcamentos]);
+  const orcamentosSelecionados = useMemo(
+    () => orcamentos.filter((o) => selecionados.has(o.id)),
+    [orcamentos, selecionados],
+  );
+  const totalSelecionado = useMemo(
+    () => somaPrecos(orcamentosSelecionados),
+    [orcamentosSelecionados],
+  );
+  const qtdSelecionada = orcamentosSelecionados.length;
+  const todosSelecionados = orcamentos.length > 0 && qtdSelecionada === orcamentos.length;
 
   const confirmarExclusao = async () => {
     if (!deleteTarget || readOnly) return;
@@ -105,14 +166,31 @@ export function MarkupLeadSection({
     });
   };
 
+  const toggleSelecionado = (id: string, marcado: boolean) => {
+    setSelecionados((prev) => {
+      const next = new Set(prev);
+      if (marcado) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const selecionarTodos = () => {
+    setSelecionados(new Set(orcamentos.map((o) => o.id)));
+  };
+
+  const limparSelecao = () => {
+    setSelecionados(new Set());
+  };
+
   return (
     <>
       <Card className="lead-modal-panel">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2 flex-wrap">
-            <div>
+            <div className="min-w-0 flex-1">
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-                <Calculator className="h-4 w-4 text-emerald-500" />
+                <Calculator className="h-4 w-4 text-[#8d5e22]" />
                 Markup (custo interno)
                 {orcamentos.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] font-normal">
@@ -122,7 +200,7 @@ export function MarkupLeadSection({
                 {!readOnly && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-normal border-amber-500/30 text-amber-700 dark:text-amber-400"
+                    className="text-[10px] font-normal border-[#c4963a]/40 text-[#8d5e22]"
                   >
                     <Sparkles className="h-3 w-3 mr-1 inline" />
                     Íris multi-agente
@@ -134,6 +212,60 @@ export function MarkupLeadSection({
                   ? 'Valores de referência do markup. A calculadora fica disponível só para a gestão.'
                   : 'Anexe PDF ou foto na ficha do lead e, na calculadora, marque “Usar estes anexos para precificar”. A IA extrai, você confere, e só então o preço pinta o card.'}
               </CardDescription>
+
+              {orcamentos.length > 0 && (
+                <div className="lead-markup-totais" aria-live="polite">
+                  <div>
+                    <div className="lead-markup-totais__kicker">Total geral</div>
+                    <div className="lead-markup-totais__valor">
+                      {formatarMoedaMarkup(totalGeral)}
+                    </div>
+                    <div className="lead-markup-totais__meta">
+                      Soma de {orcamentos.length} markup{orcamentos.length === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="lead-markup-totais__kicker">Total selecionado</div>
+                    <div
+                      className={cn(
+                        'lead-markup-totais__valor',
+                        qtdSelecionada > 0 && 'lead-markup-totais__valor--selecionado',
+                      )}
+                    >
+                      {formatarMoedaMarkup(totalSelecionado)}
+                    </div>
+                    <div className="lead-markup-totais__meta">
+                      {qtdSelecionada === 0
+                        ? 'Nenhum marcado — use as caixinhas abaixo'
+                        : `${qtdSelecionada} de ${orcamentos.length} marcado${qtdSelecionada === 1 ? '' : 's'}`}
+                    </div>
+                  </div>
+                  {orcamentos.length > 1 && (
+                    <div className="lead-markup-totais__acoes">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] border-[#8d5e22]/25 text-[#2a1812]"
+                        disabled={todosSelecionados}
+                        onClick={selecionarTodos}
+                      >
+                        Selecionar todos
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px] text-[#6b5244]"
+                        disabled={qtdSelecionada === 0}
+                        onClick={limparSelecao}
+                      >
+                        Limpar seleção
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <MarkupOrcamentoSimplesTrigger
@@ -166,100 +298,106 @@ export function MarkupLeadSection({
             </div>
           ) : (
             <>
-              {maisRecente && (
-                <MarkupCardPreview
-                  resumo={{
-                    lead_id: leadId,
-                    orcamento_id: maisRecente.id,
-                    preco_final: maisRecente.preco_final,
-                    titulo: maisRecente.titulo,
-                    atualizado_em: maisRecente.atualizado_em ?? '',
-                  }}
-                  readOnly={readOnly}
-                  onClick={readOnly ? undefined : () => abrirMarkupExistente(maisRecente.id)}
-                  onDelete={
-                    readOnly
-                      ? undefined
-                      : (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setDeleteTarget({ id: maisRecente.id, titulo: maisRecente.titulo });
-                        }
-                  }
-                />
-              )}
-              {orcamentos.length > 1 && (
-                <ul className="space-y-1.5 pt-2 border-t">
-                  {orcamentos.slice(1).map((o) => (
-                    <li key={o.id} className="flex items-center gap-1">
-                      {readOnly ? (
-                        <div className="min-w-0 flex-1 flex items-center justify-between gap-2 text-sm px-2 py-1.5">
-                          <span className="min-w-0 truncate text-left">
-                            <span className="text-muted-foreground">{o.titulo}</span>
-                            {o.status === 'rascunho' && (
-                              <span className="ml-1.5 text-[10px] text-amber-600/80 dark:text-amber-400/80">
-                                rascunho
-                              </span>
+              <ul className="space-y-2">
+                {orcamentos.map((o, index) => {
+                  const marcado = selecionados.has(o.id);
+                  const isMaisRecente = index === 0;
+                  const podeChip = Number(o.preco_final) > 0;
+                  return (
+                    <li key={o.id} className="flex items-start gap-2">
+                      <label
+                        className={cn(
+                          'mt-3 flex shrink-0 cursor-pointer items-center',
+                          'rounded-sm focus-within:outline-none focus-within:ring-2 focus-within:ring-[#c4963a]/50',
+                        )}
+                        title={marcado ? 'Remover da soma' : 'Incluir na soma'}
+                      >
+                        <Checkbox
+                          checked={marcado}
+                          onCheckedChange={(v) => toggleSelecionado(o.id, v === true)}
+                          aria-label={`Incluir “${o.titulo}” na soma selecionada`}
+                          className="border-[#8d5e22]/50 data-[state=checked]:border-[#8d5e22] data-[state=checked]:bg-[#c4963a] data-[state=checked]:text-[#1a120e]"
+                        />
+                        <span className="sr-only">Selecionar para soma</span>
+                      </label>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        {isMaisRecente && podeChip ? (
+                          <MarkupCardPreview
+                            resumo={{
+                              lead_id: leadId,
+                              orcamento_id: o.id,
+                              preco_final: o.preco_final,
+                              titulo: o.titulo,
+                              atualizado_em: o.atualizado_em ?? '',
+                            }}
+                            selected={marcado}
+                            readOnly={readOnly}
+                            onClick={readOnly ? undefined : () => abrirMarkupExistente(o.id)}
+                            onDelete={
+                              readOnly
+                                ? undefined
+                                : (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setDeleteTarget({ id: o.id, titulo: o.titulo });
+                                  }
+                            }
+                          />
+                        ) : readOnly ? (
+                          <div
+                            className={cn(
+                              'flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-opacity',
+                              marcado
+                                ? 'border-[#c4963a]/35 bg-[#fffcf8]'
+                                : 'border-[rgba(42,24,18,0.10)] bg-[#fffcf8]/70 opacity-55',
                             )}
-                            {o.atualizado_em && (
-                              <span className="block text-[10px] text-muted-foreground/80">
-                                {format(new Date(o.atualizado_em), 'dd/MM/yyyy HH:mm', {
-                                  locale: ptBR,
-                                })}
-                              </span>
-                            )}
-                          </span>
-                          <span className="font-medium shrink-0">
-                            {formatarMoedaMarkup(o.preco_final)}
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => abrirMarkupExistente(o.id)}
-                            className="min-w-0 flex-1 flex items-center justify-between gap-2 text-sm hover:bg-muted/50 rounded px-2 py-1.5"
                           >
-                            <span className="min-w-0 truncate text-left">
-                              <span className="text-muted-foreground">{o.titulo}</span>
-                              {o.status === 'rascunho' && (
-                                <span className="ml-1.5 text-[10px] text-amber-600/80 dark:text-amber-400/80">
-                                  rascunho
-                                </span>
-                              )}
-                              {o.atualizado_em && (
-                                <span className="block text-[10px] text-muted-foreground/80">
-                                  {format(new Date(o.atualizado_em), 'dd/MM/yyyy HH:mm', {
-                                    locale: ptBR,
-                                  })}
-                                </span>
-                              )}
-                            </span>
-                            <span className="font-medium shrink-0">
+                            <MarkupLinhaMeta orcamento={o} />
+                            <span className="shrink-0 font-semibold tabular-nums text-[#2a1812]">
                               {formatarMoedaMarkup(o.preco_final)}
                             </span>
-                          </button>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                            aria-label={`Excluir ${o.titulo}`}
-                            title="Excluir markup"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDeleteTarget({ id: o.id, titulo: o.titulo });
-                            }}
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              'flex items-center gap-1 rounded-md border transition-opacity',
+                              marcado
+                                ? 'border-[#c4963a]/35 bg-[#fffcf8]'
+                                : 'border-[rgba(42,24,18,0.10)] bg-[#fffcf8]/70 opacity-55',
+                            )}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      )}
+                            <button
+                              type="button"
+                              onClick={() => abrirMarkupExistente(o.id)}
+                              className="min-w-0 flex-1 flex items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-[#f2d892]/15 rounded-md"
+                            >
+                              <MarkupLinhaMeta orcamento={o} />
+                              <span className="shrink-0 font-semibold tabular-nums text-[#2a1812]">
+                                {formatarMoedaMarkup(o.preco_final)}
+                              </span>
+                            </button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0 mr-1 text-[#6b5244] hover:text-destructive"
+                              aria-label={`Excluir ${o.titulo}`}
+                              title="Excluir markup"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteTarget({ id: o.id, titulo: o.titulo });
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </li>
-                  ))}
-                </ul>
-              )}
+                  );
+                })}
+              </ul>
               {maisRecente?.atualizado_em && (
                 <p className="text-[10px] text-muted-foreground">
                   Mais recente atualizado em{' '}
@@ -291,38 +429,54 @@ export function MarkupLeadSection({
       />
 
       {!readOnly && (
-        <>
-          <AlertDialog
-            open={!!deleteTarget}
-            onOpenChange={(open) => {
-              if (!open) setDeleteTarget(null);
-            }}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Excluir markup?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {deleteTarget
-                    ? `“${deleteTarget.titulo}” será removido permanentemente. Essa ação não pode ser desfeita.`
-                    : 'O markup será removido permanentemente.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={removerOrcamento.isPending}
-                  onClick={() => {
-                    void confirmarExclusao();
-                  }}
-                >
-                  Excluir
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
+        <AlertDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir markup?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget
+                  ? `“${deleteTarget.titulo}” será removido permanentemente. Essa ação não pode ser desfeita.`
+                  : 'O markup será removido permanentemente.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={removerOrcamento.isPending}
+                onClick={() => {
+                  void confirmarExclusao();
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </>
+  );
+}
+
+function MarkupLinhaMeta({ orcamento }: { orcamento: MarkupOrcamento }) {
+  return (
+    <span className="min-w-0 truncate text-left">
+      <span className="text-[#6b5244]">{orcamento.titulo}</span>
+      {orcamento.status === 'rascunho' && (
+        <span className="ml-1.5 text-[10px] text-amber-700/80">rascunho</span>
+      )}
+      {orcamento.atualizado_em && (
+        <span className="block text-[10px] text-[#8a7060]">
+          {format(new Date(orcamento.atualizado_em), 'dd/MM/yyyy HH:mm', {
+            locale: ptBR,
+          })}
+        </span>
+      )}
+    </span>
   );
 }

@@ -586,6 +586,9 @@ export interface MarkupCatalogServico {
 
   valor_hora_padrao: number;
 
+  /** 'hora' | 'dia' — quantidade no orçamento multiplica este valor. */
+  unidade_cobranca?: 'hora' | 'dia';
+
   ordem: number;
 
 }
@@ -595,6 +598,8 @@ export interface MarkupCatalogServico {
 export interface MarkupCatalogParametros {
 
   valor_hora_marcenaria: number;
+
+  valor_dia_marcenaria?: number;
 
   fator_sobras: number;
 

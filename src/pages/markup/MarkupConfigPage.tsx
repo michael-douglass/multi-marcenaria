@@ -63,7 +63,7 @@ import { useMarkupConfig, useMarkupDespesaTemplates, useMarkupServicoTemplates }
 import { useMarkupCategorias } from '@/hooks/useMarkupProdutos';
 import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
-import type { MarkupDespesaTemplate, MarkupServicoTemplate, MarkupIAAgentPrompts } from '@/lib/markup-types';
+import type { MarkupDespesaTemplate, MarkupServicoTemplate, MarkupIAAgentPrompts, MarkupServicoUnidade } from '@/lib/markup-types';
 import { MARKUP_IA_DEFAULT_PROMPT } from '@/lib/markup-types';
 import {
   MARKUP_IA_AGENT_PROMPTS_DEFAULT,
@@ -82,6 +82,7 @@ import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { normalizarUnidadeCobranca, rotuloUnidadeCobranca } from '@/lib/markup-servicos';
 
 interface ProdutoForm {
   id?: string;
@@ -281,7 +282,13 @@ function DespesaTemplateEditor({
 
 interface ServicoTemplateEditorProps {
   template: MarkupServicoTemplate;
-  onSave: (input: { id: string; nome: string; valor_hora_padrao: number; silent?: boolean }) => void;
+  onSave: (input: {
+    id: string;
+    nome: string;
+    valor_hora_padrao: number;
+    unidade_cobranca: MarkupServicoUnidade;
+    silent?: boolean;
+  }) => void;
   onRemove: (id: string) => void;
   isSaving: boolean;
   isReordering?: boolean;
@@ -295,28 +302,49 @@ function ServicoTemplateEditor({
   isReordering = false,
 }: ServicoTemplateEditorProps) {
   const [nome, setNome] = useState(template.nome);
-  const [valorHora, setValorHora] = useState(String(template.valor_hora_padrao ?? 0));
+  const [valorUnitario, setValorUnitario] = useState(String(template.valor_hora_padrao ?? 0));
+  const [unidade, setUnidade] = useState<MarkupServicoUnidade>(
+    normalizarUnidadeCobranca(template.unidade_cobranca),
+  );
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: template.id,
     disabled: isSaving || isReordering,
   });
+  const rotulos = rotuloUnidadeCobranca(unidade);
 
   useEffect(() => {
     setNome(template.nome);
-    setValorHora(String(template.valor_hora_padrao ?? 0));
-  }, [template.id, template.nome, template.valor_hora_padrao]);
+    setValorUnitario(String(template.valor_hora_padrao ?? 0));
+    setUnidade(normalizarUnidadeCobranca(template.unidade_cobranca));
+  }, [template.id, template.nome, template.valor_hora_padrao, template.unidade_cobranca]);
 
-  const persistir = (silent = true) => {
-    const nomeLimpo = nome.trim();
+  const persistir = (silent = true, overrides?: {
+    nome?: string;
+    valor?: string;
+    unidade?: MarkupServicoUnidade;
+  }) => {
+    const nomeLimpo = (overrides?.nome ?? nome).trim();
     if (!nomeLimpo) return;
 
-    const valorNum = Math.max(0, parseFloat(valorHora.replace(',', '.')) || 0);
-    if (nomeLimpo === template.nome && valorNum === template.valor_hora_padrao) return;
+    const unidadeFinal = overrides?.unidade ?? unidade;
+    const valorNum = Math.max(
+      0,
+      parseFloat((overrides?.valor ?? valorUnitario).replace(',', '.')) || 0,
+    );
+    const unidadeAtual = normalizarUnidadeCobranca(template.unidade_cobranca);
+    if (
+      nomeLimpo === template.nome &&
+      valorNum === template.valor_hora_padrao &&
+      unidadeFinal === unidadeAtual
+    ) {
+      return;
+    }
 
     onSave({
       id: template.id,
       nome: nomeLimpo,
       valor_hora_padrao: valorNum,
+      unidade_cobranca: unidadeFinal,
       silent,
     });
   };
@@ -351,20 +379,34 @@ function ServicoTemplateEditor({
         className="flex-1"
         disabled={isSaving || isReordering}
       />
+      <select
+        className="h-10 w-full sm:w-28 shrink-0 rounded-md border bg-background px-2 text-sm"
+        value={unidade}
+        disabled={isSaving || isReordering}
+        onChange={(e) => {
+          const next = normalizarUnidadeCobranca(e.target.value);
+          setUnidade(next);
+          persistir(true, { unidade: next });
+        }}
+        aria-label="Cobrado por"
+      >
+        <option value="hora">Por hora</option>
+        <option value="dia">Por dia</option>
+      </select>
       <div className="relative w-full sm:w-36 shrink-0">
         <span className="absolute left-2.5 top-2.5 text-muted-foreground text-sm">R$</span>
         <Input
           type="number"
           min={0}
           step={0.01}
-          value={valorHora}
-          onChange={(e) => setValorHora(e.target.value)}
+          value={valorUnitario}
+          onChange={(e) => setValorUnitario(e.target.value)}
           onBlur={() => persistir()}
           className="pl-9 text-right"
           disabled={isSaving || isReordering}
         />
         <span className="absolute -top-5 right-0 text-[10px] text-muted-foreground">
-          valor/hora padrão
+          {rotulos.valor.toLowerCase()}
         </span>
       </div>
       <Button
@@ -430,11 +472,17 @@ export default function MarkupConfigPage() {
     unidade: 'un',
   });
   const [servicoDialogOpen, setServicoDialogOpen] = useState(false);
-  const [novoServico, setNovoServico] = useState({ nome: '', valor_hora: '0' });
+  const [novoServico, setNovoServico] = useState({
+    nome: '',
+    valor_hora: '0',
+    unidade_cobranca: 'hora' as MarkupServicoUnidade,
+  });
   const [despesaDialogOpen, setDespesaDialogOpen] = useState(false);
   const [novaDespesa, setNovaDespesa] = useState({ nome: '', valor: '0' });
 
   const [configLocal, setConfigLocal] = useState({
+    valor_hora_marcenaria: '80',
+    valor_dia_marcenaria: '640',
     fator_sobras: '5',
     margem_lucro: '30',
     percentual_imposto: '0',
@@ -452,6 +500,8 @@ export default function MarkupConfigPage() {
   useEffect(() => {
     if (!loadingConfig) {
       setConfigLocal({
+        valor_hora_marcenaria: String(config.valor_hora_marcenaria),
+        valor_dia_marcenaria: String(config.valor_dia_marcenaria),
         fator_sobras: String(config.fator_sobras),
         margem_lucro: String(config.margem_lucro),
         percentual_imposto: String(config.percentual_imposto),
@@ -566,6 +616,8 @@ export default function MarkupConfigPage() {
 
   const salvarParametros = async () => {
     await salvarConfig.mutateAsync({
+      valor_hora_marcenaria: parseFloat(configLocal.valor_hora_marcenaria) || 0,
+      valor_dia_marcenaria: parseFloat(configLocal.valor_dia_marcenaria) || 0,
       fator_sobras: parseFloat(configLocal.fator_sobras) || 0,
       margem_lucro: parseFloat(configLocal.margem_lucro) || 0,
       percentual_imposto: parseFloat(configLocal.percentual_imposto) || 0,
@@ -714,11 +766,63 @@ export default function MarkupConfigPage() {
             <CardHeader>
               <CardTitle className="text-base">Parâmetros de cálculo</CardTitle>
               <CardDescription>
-                Valores padrão da calculadora: margem, impostos, taxas e frete aplicados uma vez
-                sobre o total do orçamento. O valor/hora fica nos campos de mão de obra abaixo.
+                Valores padrão da calculadora: preço da hora/dia, margem, impostos, taxas e frete.
+                Cada campo de mão de obra abaixo escolhe se cobra por hora ou por dia.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                <div>
+                  <h3 className="text-sm font-medium">Precificação de tempo</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Defina quanto vale <strong>1 hora</strong> e quanto vale <strong>1 dia</strong>{' '}
+                    de mão de obra. Esses valores servem de referência ao criar campos novos.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="config-valor-hora">Valor da hora (R$)</Label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-2.5 top-2.5 text-muted-foreground text-sm">R$</span>
+                      <Input
+                        id="config-valor-hora"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="pl-9"
+                        value={configLocal.valor_hora_marcenaria}
+                        onChange={(e) =>
+                          setConfigLocal((prev) => ({
+                            ...prev,
+                            valor_hora_marcenaria: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="config-valor-dia">Valor do dia (R$)</Label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-2.5 top-2.5 text-muted-foreground text-sm">R$</span>
+                      <Input
+                        id="config-valor-dia"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="pl-9"
+                        value={configLocal.valor_dia_marcenaria}
+                        onChange={(e) =>
+                          setConfigLocal((prev) => ({
+                            ...prev,
+                            valor_dia_marcenaria: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
               {(
                 [
@@ -748,10 +852,11 @@ export default function MarkupConfigPage() {
                 <div>
                   <h3 className="text-sm font-medium">Mão de obra — campos da calculadora</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Estes campos aparecem na aba Serviços da calculadora. Cada um define o{' '}
-                    <strong>valor/hora padrão (R$)</strong> multiplicado pelas horas do orçamento.
-                    Arraste pelo ícone <GripVertical className="inline h-3 w-3 align-text-bottom" />{' '}
-                    para mudar a posição.
+                    Estes campos aparecem na aba Serviços da calculadora. Escolha se cada um cobra{' '}
+                    <strong>por hora</strong> ou <strong>por dia</strong> e informe o valor
+                    unitário. Arraste pelo ícone{' '}
+                    <GripVertical className="inline h-3 w-3 align-text-bottom" /> para mudar a
+                    posição.
                   </p>
                 </div>
                 <DndContext
@@ -786,7 +891,11 @@ export default function MarkupConfigPage() {
                   variant="outline"
                   className="w-full sm:w-auto"
                   onClick={() => {
-                    setNovoServico({ nome: '', valor_hora: '0' });
+                    setNovoServico({
+                      nome: '',
+                      valor_hora: configLocal.valor_hora_marcenaria || '0',
+                      unidade_cobranca: 'hora',
+                    });
                     setServicoDialogOpen(true);
                   }}
                 >
@@ -1136,7 +1245,34 @@ export default function MarkupConfigPage() {
               />
             </div>
             <div>
-              <Label htmlFor="novo-servico-valor">Valor/hora padrão (R$)</Label>
+              <Label htmlFor="novo-servico-unidade">Cobrado por</Label>
+              <select
+                id="novo-servico-unidade"
+                className="w-full h-10 rounded-md border bg-background px-3 text-base md:text-sm"
+                value={novoServico.unidade_cobranca}
+                onChange={(e) => {
+                  const unidade = normalizarUnidadeCobranca(e.target.value);
+                  const sugestao =
+                    unidade === 'dia'
+                      ? configLocal.valor_dia_marcenaria
+                      : configLocal.valor_hora_marcenaria;
+                  setNovoServico((prev) => ({
+                    ...prev,
+                    unidade_cobranca: unidade,
+                    valor_hora: sugestao || prev.valor_hora,
+                  }));
+                }}
+              >
+                <option value="hora">Hora</option>
+                <option value="dia">Dia</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="novo-servico-valor">
+                {novoServico.unidade_cobranca === 'dia'
+                  ? 'Valor/dia padrão (R$)'
+                  : 'Valor/hora padrão (R$)'}
+              </Label>
               <Input
                 id="novo-servico-valor"
                 type="number"
@@ -1166,12 +1302,17 @@ export default function MarkupConfigPage() {
                   {
                     nome,
                     valor_hora_padrao: valor,
+                    unidade_cobranca: novoServico.unidade_cobranca,
                     ordem: servicoTemplates.length + 1,
                   },
                   {
                     onSuccess: () => {
                       setServicoDialogOpen(false);
-                      setNovoServico({ nome: '', valor_hora: '0' });
+                      setNovoServico({
+                        nome: '',
+                        valor_hora: '0',
+                        unidade_cobranca: 'hora',
+                      });
                     },
                   },
                 );

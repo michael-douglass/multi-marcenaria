@@ -79,7 +79,17 @@ import {
   setMarkupCalculatorOpenFlag,
 } from '@/lib/markup-ui';
 import { calcularCustoServicoHoras } from '@/lib/markup-servicos';
-import { normalizarServicosModulos, sincronizarServicosComTemplates, calcularHorasTotaisServicos, resolverServicoTemplatesEfetivos, parseAssinaturaServicoTemplates, resolverValorHoraLinhaServico } from '@/lib/markup-servicos';
+import {
+  normalizarServicosModulos,
+  sincronizarServicosComTemplates,
+  calcularHorasTotaisServicos,
+  calcularDiasTotaisServicos,
+  resolverServicoTemplatesEfetivos,
+  parseAssinaturaServicoTemplates,
+  resolverValorHoraLinhaServico,
+  normalizarUnidadeCobranca,
+  rotuloUnidadeCobranca,
+} from '@/lib/markup-servicos';
 import {
   criarModulosVazios,
   type MarkupLinhaDespesa,
@@ -596,7 +606,7 @@ export function MarkupCalculatorSheet({
       lastSnapshotRef.current = precisaPersistir ? null : snapshotFinal;
       if (servicoTemplatesEfetivos.length > 0) {
         lastServicoSyncRef.current = servicoTemplatesEfetivos
-          .map((t) => `${t.id}:${t.nome}:${t.valor_hora_padrao}`)
+          .map((t) => `${t.id}:${t.nome}:${t.valor_hora_padrao}:${t.unidade_cobranca}`)
           .join('|');
       }
       setFormDirty(precisaPersistir);
@@ -669,7 +679,7 @@ export function MarkupCalculatorSheet({
     if (!open || !formHydrated || !queriesReady) return;
 
     const assinaturaTemplates = servicoTemplatesEfetivos
-      .map((t) => `${t.id}:${t.nome}:${t.valor_hora_padrao}`)
+      .map((t) => `${t.id}:${t.nome}:${t.valor_hora_padrao}:${t.unidade_cobranca}`)
       .join('|');
     if (lastServicoSyncRef.current === assinaturaTemplates) return;
 
@@ -2272,18 +2282,20 @@ export function MarkupCalculatorSheet({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Campos definidos em <strong>Configurações → Parâmetros</strong>. O{' '}
-              <strong>valor/hora</strong> pode ser ajustado no Resumo deste orçamento; as{' '}
-              <strong>horas</strong> são do orçamento. Fórmula:{' '}
-              <strong>horas × valor/hora = custo</strong>.
+              Campos definidos em <strong>Configurações → Parâmetros</strong>. Cada campo pode
+              cobrar por <strong>hora</strong> ou por <strong>dia</strong>. Fórmula:{' '}
+              <strong>quantidade × valor unitário = custo</strong>.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {modulosSeguros.servicos.linhas.map((linha, i) => {
                 const ativo = linha.ativo !== false;
-                const valorHoraLinha = resolverValorHoraLinhaServico(
-                  linha,
-                  modulosSeguros.servicos.valor_hora || config.valor_hora_marcenaria || 0,
-                );
+                const unidade = normalizarUnidadeCobranca(linha.unidade);
+                const rotulos = rotuloUnidadeCobranca(unidade);
+                const valorFallback =
+                  unidade === 'dia'
+                    ? config.valor_dia_marcenaria || 0
+                    : modulosSeguros.servicos.valor_hora || config.valor_hora_marcenaria || 0;
+                const valorHoraLinha = resolverValorHoraLinhaServico(linha, valorFallback);
                 const custoLinha = ativo
                   ? calcularCustoServicoHoras(linha.horas, valorHoraLinha)
                   : 0;
@@ -2302,10 +2314,15 @@ export function MarkupCalculatorSheet({
                         aria-label={`Incluir ${linha.descricao}`}
                       />
                       <Label>{linha.descricao}</Label>
+                      <span className="text-[10px] text-muted-foreground rounded border px-1.5 py-0.5">
+                        {unidade === 'dia' ? 'dia' : 'hora'}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Horas</Label>
+                        <Label className="text-[10px] text-muted-foreground">
+                          {rotulos.quantidade}
+                        </Label>
                         <Input
                           type="number"
                           min={0}
@@ -2328,7 +2345,9 @@ export function MarkupCalculatorSheet({
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Valor/hora</Label>
+                        <Label className="text-[10px] text-muted-foreground">
+                          {rotulos.valor}
+                        </Label>
                         <Input
                           value={formatarMoedaMarkup(valorHoraLinha)}
                           readOnly
@@ -2338,7 +2357,8 @@ export function MarkupCalculatorSheet({
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {linha.horas}h × {formatarMoedaMarkup(valorHoraLinha)} ={' '}
+                      {linha.horas}
+                      {rotulos.sufixo} × {formatarMoedaMarkup(valorHoraLinha)} ={' '}
                       <span className="font-medium text-foreground">
                         {formatarMoedaMarkup(custoLinha)}
                       </span>
@@ -2348,15 +2368,30 @@ export function MarkupCalculatorSheet({
               })}
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-1">
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Total de horas</span>
-                <span className="font-medium">
-                  {calcularHorasTotaisServicos(modulosSeguros.servicos.linhas).toLocaleString('pt-BR', {
-                    maximumFractionDigits: 1,
-                  })}
-                  h
-                </span>
-              </div>
+              {calcularHorasTotaisServicos(modulosSeguros.servicos.linhas) > 0 && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Total de horas</span>
+                  <span className="font-medium">
+                    {calcularHorasTotaisServicos(modulosSeguros.servicos.linhas).toLocaleString(
+                      'pt-BR',
+                      { maximumFractionDigits: 1 },
+                    )}
+                    h
+                  </span>
+                </div>
+              )}
+              {calcularDiasTotaisServicos(modulosSeguros.servicos.linhas) > 0 && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Total de dias</span>
+                  <span className="font-medium">
+                    {calcularDiasTotaisServicos(modulosSeguros.servicos.linhas).toLocaleString(
+                      'pt-BR',
+                      { maximumFractionDigits: 1 },
+                    )}
+                    d
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Custo mão de obra</span>
                 <span className="font-semibold">

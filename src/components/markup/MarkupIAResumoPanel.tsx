@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { MarkupIAVerificacaoItemStatus } from '@/lib/markup-ia-verificacao';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
-import { calcularHorasTotaisServicos, normalizarResumoIAServicos } from '@/lib/markup-servicos';
+import { calcularHorasTotaisServicos, calcularDiasTotaisServicos, normalizarResumoIAServicos, normalizarUnidadeCobranca } from '@/lib/markup-servicos';
 import type { MarkupModulos, MarkupModulosMeta } from '@/lib/markup-types';
 import { MarkupIAProjetistaPanel } from '@/components/markup/MarkupIAProjetistaPanel';
 import { cn } from '@/lib/utils';
@@ -356,7 +356,14 @@ export function MarkupIAResumoPanel({
                 <Clock className="h-3.5 w-3.5 shrink-0 text-violet-500/70" />
                 <span className="truncate">Mão de obra</span>
                 <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                  ({calcularHorasTotaisServicos(servicosResumo.linhas).toLocaleString('pt-BR')}h)
+                  {(() => {
+                    const horas = calcularHorasTotaisServicos(servicosResumo.linhas);
+                    const dias = calcularDiasTotaisServicos(servicosResumo.linhas);
+                    const partes: string[] = [];
+                    if (horas > 0) partes.push(`${horas.toLocaleString('pt-BR')}h`);
+                    if (dias > 0) partes.push(`${dias.toLocaleString('pt-BR')}d`);
+                    return partes.length > 0 ? `(${partes.join(' · ')})` : '';
+                  })()}
                 </span>
               </span>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-violet-600 dark:text-violet-400">
@@ -387,7 +394,10 @@ export function MarkupIAResumoPanel({
                       <span className="min-w-0 flex-1 break-words text-muted-foreground">
                         {linha.descricao}
                       </span>
-                      <span className="shrink-0 tabular-nums">{linha.horas}h</span>
+                      <span className="shrink-0 tabular-nums">
+                        {linha.horas}
+                        {normalizarUnidadeCobranca(linha.unidade) === 'dia' ? 'd' : 'h'}
+                      </span>
                     </div>
                   );
                 })}

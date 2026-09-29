@@ -17,7 +17,7 @@ import {
   markupSchemaExtra,
   resolveMarkupTable,
 } from '@/lib/markup-tables';
-import { isTabelaMarkupInexistente } from '@/lib/markup-servicos';
+import { isTabelaMarkupInexistente, normalizarUnidadeCobranca } from '@/lib/markup-servicos';
 
 function normalizeConfig(row: MarkupConfig | null): MarkupConfig {
   if (!row) {
@@ -26,6 +26,9 @@ function normalizeConfig(row: MarkupConfig | null): MarkupConfig {
   return {
     ...row,
     valor_hora_marcenaria: Number(row.valor_hora_marcenaria),
+    valor_dia_marcenaria: Number(
+      (row as MarkupConfig).valor_dia_marcenaria ?? MARKUP_DEFAULT_CONFIG.valor_dia_marcenaria,
+    ),
     fator_sobras: Number(row.fator_sobras),
     margem_lucro: Number(row.margem_lucro),
     percentual_imposto: Number(row.percentual_imposto),
@@ -215,6 +218,9 @@ export function useMarkupServicoTemplates() {
             (s as MarkupServicoTemplate & { horas_padrao?: number }).horas_padrao ??
             0,
         ),
+        unidade_cobranca: normalizarUnidadeCobranca(
+          (s as MarkupServicoTemplate).unidade_cobranca,
+        ),
       }));
     },
   });
@@ -228,11 +234,13 @@ export function useMarkupServicoTemplates() {
         const payload: {
           nome: string;
           valor_hora_padrao: number;
+          unidade_cobranca: 'hora' | 'dia';
           ativo: boolean;
           ordem?: number;
         } = {
           nome: data.nome,
           valor_hora_padrao: data.valor_hora_padrao ?? 0,
+          unidade_cobranca: normalizarUnidadeCobranca(data.unidade_cobranca),
           ativo: data.ativo ?? true,
         };
         if (typeof data.ordem === 'number') {
@@ -247,6 +255,7 @@ export function useMarkupServicoTemplates() {
         const { error } = await db.from(table as 'markup_servico_templates').insert({
           nome: data.nome,
           valor_hora_padrao: data.valor_hora_padrao ?? 0,
+          unidade_cobranca: normalizarUnidadeCobranca(data.unidade_cobranca),
           ordem: data.ordem ?? 0,
           ativo: true,
           ...markupSchemaExtra(schemaEmpresa),

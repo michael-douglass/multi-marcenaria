@@ -6,6 +6,7 @@ import {
 import { validarComposicaoContraSistema, type ValidacaoComposicaoIA } from '@/lib/markup-compose-validate';
 import { casarProdutoNoCatalogo, confiancaEhSugerivel } from '@/lib/markup-match';
 import type { MarkupServicoTemplateEfetivo } from '@/lib/markup-servicos';
+import { normalizarUnidadeCobranca } from '@/lib/markup-servicos';
 import { sincronizarServicosComTemplates } from '@/lib/markup-servicos';
 import {
   estimarHorasServicosPorComposicao,
@@ -247,6 +248,9 @@ function aplicarServicosIA(
       descricao: t.nome,
       horas: Math.max(0, horas),
       valor_hora: Math.max(0, Number(t.valor_hora_padrao) || 0),
+      unidade: normalizarUnidadeCobranca(
+        'unidade_cobranca' in t ? t.unidade_cobranca : 'hora',
+      ),
       ativo: existente?.ativo !== false,
     };
   });

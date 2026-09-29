@@ -5064,9 +5064,24 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
   background: linear-gradient(180deg, #1a3d2c 0%, #102418 100%);
   border-color: #3d7a58;
   box-shadow: inset 0 1px 0 rgba(232, 248, 238, 0.08);
+  transition:
+    opacity 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease;
 }
 .lead-markup-chip:hover {
   background: linear-gradient(180deg, #214a36 0%, #14301f 100%);
+}
+.lead-markup-chip--selected {
+  border-color: #c4963a;
+  box-shadow:
+    inset 0 1px 0 rgba(232, 248, 238, 0.1),
+    0 0 0 1px rgba(196, 150, 58, 0.45);
+}
+.lead-markup-chip--dimmed {
+  opacity: 0.55;
+  filter: saturate(0.85);
 }
 .lead-markup-chip__label {
   color: #cfe9d9;
@@ -5080,6 +5095,65 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 }
 .lead-markup-chip__icon {
   color: #7dcaa0;
+}
+
+/* Faixa de totais no cabeçalho Markup (custo interno). */
+.lead-markup-totais {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(42, 24, 18, 0.12);
+  background:
+    linear-gradient(135deg, rgba(242, 216, 146, 0.18) 0%, transparent 42%),
+    linear-gradient(180deg, #fff9f2 0%, #f7f0e6 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 248, 0.8);
+}
+@media (min-width: 640px) {
+  .lead-markup-totais {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+    gap: 1rem;
+  }
+}
+.lead-markup-totais__kicker {
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: #8a7060;
+  text-transform: uppercase;
+}
+.lead-markup-totais__valor {
+  margin-top: 0.2rem;
+  font-family: Raleway, sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: #2a1812;
+  transition: color 160ms ease;
+}
+.lead-markup-totais__valor--selecionado {
+  color: #8d5e22;
+}
+.lead-markup-totais__meta {
+  margin-top: 0.15rem;
+  font-size: 0.65rem;
+  color: #8a7060;
+}
+.lead-markup-totais__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+@media (min-width: 640px) {
+  .lead-markup-totais__acoes {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ── Keyframes ── */

@@ -4,10 +4,37 @@ import type {
   MarkupModulos,
   MarkupModulosServicos,
   MarkupServicoTemplate,
+  MarkupServicoUnidade,
 } from './markup-types';
 
 function arredondarServico(valor: number): number {
   return Math.round(valor * 100) / 100;
+}
+
+export function normalizarUnidadeCobranca(raw: unknown): MarkupServicoUnidade {
+  return raw === 'dia' ? 'dia' : 'hora';
+}
+
+export function rotuloUnidadeCobranca(unidade: MarkupServicoUnidade | undefined): {
+  quantidade: string;
+  valor: string;
+  sufixo: string;
+  formula: string;
+} {
+  if (unidade === 'dia') {
+    return {
+      quantidade: 'Dias',
+      valor: 'Valor/dia',
+      sufixo: 'd',
+      formula: 'dias × valor/dia = custo',
+    };
+  }
+  return {
+    quantidade: 'Horas',
+    valor: 'Valor/hora',
+    sufixo: 'h',
+    formula: 'horas × valor/hora = custo',
+  };
 }
 
 const LEGACY_SERVICO_CAMPOS: Array<{ key: string; descricao: string }> = [
@@ -31,7 +58,7 @@ const LEGACY_SERVICO_PADRAO: Array<{
 
 export type MarkupServicoTemplateEfetivo = Pick<
   MarkupServicoTemplate,
-  'id' | 'nome' | 'valor_hora_padrao' | 'ordem'
+  'id' | 'nome' | 'valor_hora_padrao' | 'unidade_cobranca' | 'ordem'
 >;
 
 /** Templates do banco ou, se vazio, campos legados da markup_config. */
@@ -46,6 +73,7 @@ export function resolverServicoTemplatesEfetivos(
         id: t.id,
         nome: t.nome,
         valor_hora_padrao: t.valor_hora_padrao,
+        unidade_cobranca: normalizarUnidadeCobranca(t.unidade_cobranca),
         ordem: t.ordem,
       }));
   }
@@ -58,6 +86,7 @@ export function resolverServicoTemplatesEfetivos(
     id: `legacy-${configKey}`,
     nome: descricao,
     valor_hora_padrao: valorHoraFallback,
+    unidade_cobranca: 'hora' as const,
     ordem,
   }));
 }
@@ -112,7 +141,11 @@ export function resolverValorHoraLinhaServico(
 /** Converte formato antigo (horas_projeto etc.) para linhas dinâmicas. */
 export function normalizarServicosModulos(
   servicos: unknown,
-  templates: MarkupServicoTemplate[] = [],
+  templates: Array<
+    Pick<MarkupServicoTemplate, 'id' | 'nome' | 'valor_hora_padrao'> & {
+      unidade_cobranca?: MarkupServicoUnidade;
+    }
+  > = [],
   valorHoraFallback = 0,
 ): MarkupModulosServicos {
   const raw = (servicos ?? {}) as Record<string, unknown>;
@@ -126,6 +159,7 @@ export function normalizarServicosModulos(
         descricao: String(l.descricao ?? '').trim() || 'Serviço',
         horas: Math.max(0, Number(l.horas) || 0),
         valor_hora: resolverValorHoraLinhaServico(l, fallback),
+        unidade: normalizarUnidadeCobranca(l.unidade),
         ativo: l.ativo !== false,
       })),
     };
@@ -138,6 +172,7 @@ export function normalizarServicosModulos(
       descricao: template?.nome ?? descricao,
       horas: Math.max(0, Number(raw[key]) || 0),
       valor_hora: Math.max(0, Number(template?.valor_hora_padrao) || fallback),
+      unidade: normalizarUnidadeCobranca(template?.unidade_cobranca),
       ativo: true,
     };
   }).filter((l) => l.horas > 0 || templates.some((t) => t.id === l.template_id));
@@ -201,6 +236,7 @@ export function sincronizarServicosComTemplates(
       descricao: t.nome,
       horas: Math.max(0, Number(existente?.horas) || 0),
       valor_hora: valorHora,
+      unidade: normalizarUnidadeCobranca(t.unidade_cobranca),
       ativo: existente?.ativo !== false,
     };
   });
@@ -209,6 +245,15 @@ export function sincronizarServicosComTemplates(
 export function calcularHorasTotaisServicos(linhas: MarkupLinhaServico[]): number {
   return linhas.reduce((acc, l) => {
     if (l.ativo === false) return acc;
+    if (normalizarUnidadeCobranca(l.unidade) !== 'hora') return acc;
+    return acc + Math.max(0, l.horas);
+  }, 0);
+}
+
+export function calcularDiasTotaisServicos(linhas: MarkupLinhaServico[]): number {
+  return linhas.reduce((acc, l) => {
+    if (l.ativo === false) return acc;
+    if (normalizarUnidadeCobranca(l.unidade) !== 'dia') return acc;
     return acc + Math.max(0, l.horas);
   }, 0);
 }
@@ -258,6 +303,7 @@ export function normalizarModulosServicos(modulos: MarkupModulos): MarkupModulos
       linhas: (modulos.servicos?.linhas ?? []).map((l) => ({
         ...l,
         valor_hora: resolverValorHoraLinhaServico(l, valorHoraFallback),
+        unidade: normalizarUnidadeCobranca(l.unidade),
         ativo: l.ativo !== false,
       })),
     },
@@ -291,6 +337,7 @@ export function normalizarResumoIAServicos(servicos: unknown): MarkupResumoIASer
       descricao: String(l.descricao ?? '').trim() || 'Serviço',
       horas: Math.max(0, Number(l.horas) || 0),
       valor_hora: Math.max(0, Number(l.valor_hora) || 0),
+      unidade: normalizarUnidadeCobranca(l.unidade),
       ativo: l.ativo !== false,
     }));
     if (linhas.length === 0) return null;

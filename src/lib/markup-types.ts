@@ -103,9 +103,14 @@ export interface MarkupIAProjetistaResult {
   auditoria_projetista?: MarkupIAProjetistaAuditoriaResult;
 }
 
+/** Unidade de cobrança da mão de obra (hora ou dia). */
+export type MarkupServicoUnidade = 'hora' | 'dia';
+
 export interface MarkupConfig {
   id: string;
   valor_hora_marcenaria: number;
+  /** Valor padrão de 1 dia de mão de obra (R$). */
+  valor_dia_marcenaria: number;
   fator_sobras: number;
   margem_lucro: number;
   percentual_imposto: number;
@@ -140,7 +145,10 @@ export interface MarkupDespesaTemplate {
 export interface MarkupServicoTemplate {
   id: string;
   nome: string;
+  /** Valor unitário padrão (R$ por hora ou por dia, conforme unidade_cobranca). */
   valor_hora_padrao: number;
+  /** Cobra por hora ou por dia. Padrão: hora. */
+  unidade_cobranca: MarkupServicoUnidade;
   ordem: number;
   ativo: boolean;
   criado_em?: string;
@@ -179,9 +187,12 @@ export interface MarkupLinhaDespesa {
 export interface MarkupLinhaServico {
   template_id?: string | null;
   descricao: string;
+  /** Quantidade: horas ou dias, conforme unidade. */
   horas: number;
-  /** Valor/hora (R$) espelhado do template de configuração. */
+  /** Valor unitário (R$ por hora ou por dia). */
   valor_hora?: number;
+  /** Unidade de cobrança desta linha. Ausente = hora (legado). */
+  unidade?: MarkupServicoUnidade;
   /** Quando false, a linha permanece visível mas não entra no cálculo. */
   ativo?: boolean;
 }
@@ -529,6 +540,7 @@ Lead: {{nome_lead}}
 
 export const MARKUP_DEFAULT_CONFIG: Omit<MarkupConfig, 'id'> = {
   valor_hora_marcenaria: 80,
+  valor_dia_marcenaria: 640,
   fator_sobras: 5,
   margem_lucro: 30,
   percentual_imposto: 0,

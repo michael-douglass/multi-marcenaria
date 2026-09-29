@@ -339,7 +339,7 @@ async function loadServicoTemplates(
 ): Promise<MarkupCatalogServico[]> {
   const { data, error } = await db
     .from(servicoTemplatesTable(empresaSchema))
-    .select('id, nome, valor_hora_padrao, ordem')
+    .select('id, nome, valor_hora_padrao, unidade_cobranca, ordem')
     .eq('ativo', true)
     .order('ordem', { ascending: true });
 
@@ -349,11 +349,13 @@ async function loadServicoTemplates(
     id: string;
     nome: string;
     valor_hora_padrao?: number | string;
+    unidade_cobranca?: string;
     ordem: number;
   }) => ({
     id: s.id,
     nome: s.nome,
     valor_hora_padrao: Number(s.valor_hora_padrao) || 0,
+    unidade_cobranca: s.unidade_cobranca === 'dia' ? 'dia' : 'hora',
     ordem: s.ordem ?? 0,
   }));
 }
@@ -389,7 +391,7 @@ async function loadMarkupParametros(
 ): Promise<MarkupCatalogParametros> {
   const { data, error } = await db
     .from(markupConfigTable(empresaSchema))
-    .select('valor_hora_marcenaria, fator_sobras, margem_lucro, percentual_imposto, taxas_financeiras')
+    .select('valor_hora_marcenaria, valor_dia_marcenaria, fator_sobras, margem_lucro, percentual_imposto, taxas_financeiras')
     .limit(1)
     .maybeSingle();
 
@@ -397,6 +399,7 @@ async function loadMarkupParametros(
 
   return {
     valor_hora_marcenaria: Number(data?.valor_hora_marcenaria ?? 80),
+    valor_dia_marcenaria: Number(data?.valor_dia_marcenaria ?? 640),
     fator_sobras: Number(data?.fator_sobras ?? 5),
     margem_lucro: Number(data?.margem_lucro ?? 30),
     percentual_imposto: Number(data?.percentual_imposto ?? 0),
