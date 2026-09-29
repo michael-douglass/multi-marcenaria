@@ -7722,6 +7722,188 @@ body {
     linear-gradient(165deg, #3a2418 0%, #1a100c 58%, #120b08 100%);
 }
 
+/* Pilha de cadernos: abas de pasta + capas empilhadas atrás */
+.evento-caderno-stack {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.evento-caderno-tabs {
+  display: flex;
+  max-width: 100%;
+  align-items: flex-end;
+  gap: 0.2rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 210, 140, 0.35) transparent;
+}
+
+.evento-caderno-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  max-width: 9.5rem;
+  min-width: 4.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: -1px;
+  padding: 0.42rem 0.78rem 0.5rem;
+  border: 1px solid rgba(201, 160, 123, 0.38);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background:
+    linear-gradient(180deg, rgba(72, 46, 30, 0.95) 0%, rgba(42, 24, 18, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 140, 0.12),
+    0 -2px 8px rgba(0, 0, 0, 0.18);
+  color: rgba(242, 216, 146, 0.62);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    z-index 0ms;
+}
+
+.evento-caderno-tab:hover {
+  z-index: 3;
+  color: #f2d892;
+  transform: translateY(-2px);
+  background:
+    linear-gradient(180deg, rgba(92, 58, 36, 0.98) 0%, rgba(52, 30, 20, 0.95) 100%);
+}
+
+.evento-caderno-tab--ativo {
+  z-index: 5;
+  border-color: rgba(240, 210, 140, 0.55);
+  background:
+    linear-gradient(180deg, #5c3a24 0%, #3a2418 55%, #2a1812 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 190, 0.28),
+    0 -4px 14px rgba(0, 0, 0, 0.28);
+  color: #f2d892;
+  transform: translateY(-1px);
+}
+
+.evento-caderno-tab--hit:not(.evento-caderno-tab--ativo) {
+  color: #f2d892;
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 210, 140, 0.35),
+    0 -2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.evento-caderno-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evento-caderno-tab--add {
+  min-width: auto;
+  max-width: none;
+  gap: 0.25rem;
+  border-style: dashed;
+  border-color: rgba(240, 210, 140, 0.42);
+  background: rgba(26, 16, 12, 0.55);
+  color: rgba(242, 216, 146, 0.85);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.evento-caderno-tab--add:hover {
+  background: rgba(92, 64, 48, 0.45);
+  color: #f2d892;
+}
+
+/* O padding reserva a folga onde as capas de trás aparecem (direita/baixo). */
+.evento-caderno-deck {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding-right: 11px;
+  padding-bottom: 11px;
+  isolation: isolate;
+}
+
+.evento-caderno-deck__shadow {
+  pointer-events: none;
+  position: absolute;
+  border-radius: 0 12px 12px 12px;
+  border: 1px solid rgba(201, 160, 123, 0.3);
+  background: linear-gradient(165deg, #3f2819 0%, #241410 55%, #170d09 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Capa mais ao fundo: ocupa toda a folga. */
+.evento-caderno-deck__shadow--1 {
+  z-index: 0;
+  inset: 0;
+  opacity: 0.66;
+}
+
+/* Capa do meio: metade da folga. */
+.evento-caderno-deck__shadow--2 {
+  z-index: 1;
+  inset: 0 5.5px 5.5px 0;
+  opacity: 0.86;
+}
+
+.evento-caderno-deck__face {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0 12px 12px 12px;
+  border: 1px solid rgba(240, 210, 140, 0.42);
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(240, 210, 140, 0.14), transparent 48%),
+    linear-gradient(165deg, #4a3020 0%, #2a1812 52%, #1a100c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 140, 0.18),
+    0 14px 32px rgba(0, 0, 0, 0.42);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.evento-caderno-deck__face-pad {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 0.7rem 0.75rem 0.8rem;
+}
+
+@media (min-width: 640px) {
+  .evento-caderno-deck__face-pad {
+    padding: 0.85rem 0.95rem 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evento-caderno-tab,
+  .evento-caderno-tab:hover,
+  .evento-caderno-tab--ativo,
+  .evento-caderno-deck__face {
+    transition: none;
+    transform: none;
+  }
+}
+
 .evento-caderno-selo {
   width: 1.65rem;
   height: 1.65rem;

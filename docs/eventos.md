@@ -184,19 +184,27 @@ Card: capa `h-24`, unitário + total ouro. Fotos no item (recibo, produto).
 
 Empty: “Adicione o que precisa comprar. O preço fica salvo para a próxima vez.”
 
-### 5.4 Coluna 3 — Caderno (o “documento vivo”)
+### 5.4 Coluna 3 — Cadernos (o “documento vivo”)
 
 **Isto substitui o chat** como lugar de texto longo.
 
-Três **seções** (abas):
+Cada pasta tem **vários cadernos** (livros separados). Cada caderno = um tipo de conteúdo.
 
-| Aba | Dica na UI |
-|-----|------------|
+Ao criar a pasta, vêm 3 cadernos padrão:
+
+| Caderno | Dica na UI |
+|---------|------------|
 | Detalhes | Roteiro, horários e observações do dia |
 | Discursos | Textos para quem vai falar |
 | Palestras | Pauta e anotações de palco |
 
-Cada seção tem **várias folhas**. Setas ← → + botão **Folha**. Só dá para apagar folha se houver mais de uma naquela seção.
+Botão **+ Caderno** cria outro (nome + dica opcional). Dá para renomear e apagar (fica pelo menos 1).
+
+**Visual de pilha:** cada caderno é uma **aba de pasta** (`.evento-caderno-tab`, `role="tablist"`) colada na capa. A capa ativa (`.evento-caderno-deck__face`) fica na frente e até duas capas de trás (`.evento-caderno-deck__shadow--1/--2`) espiam pela direita e por baixo — a folga vem do `padding` do `.evento-caderno-deck`. Setas ← → no teclado trocam de caderno.
+
+**Como localizar um caderno:** o botão **“N cadernos”** (ao lado do título da coluna) abre a lista completa com nome inteiro e nº de folhas — é o caminho garantido quando a fila de abas tem mais cadernos do que cabe na largura. A aba ativa é sempre rolada para dentro da fila, e o caderno recém-criado já entra selecionado (a seleção espera o board recarregar em vez de voltar para o primeiro).
+
+Cada caderno tem **várias folhas**. Setas ← → + botão **Folha**. Só dá para apagar folha se houver mais de uma naquele caderno.
 
 **Autosave:** 400 ms depois de parar de digitar; também no blur, ao mudar de aba/folha, ao sair da página (`beforeunload` / `visibilitychange`). Estados: “Salva sozinho” · “Salvando…” · “Salvo” · “Não salvou — continue digitando”.
 
@@ -357,7 +365,8 @@ Master: `crm_multiempresas_*`. Empresa (`emp_*`): nomes curtos `eventos`, `event
 | `evento_item_midias` | Foto do item + traços |
 | `evento_catalogo_itens` | Memória de preço **da empresa** (unique `nome_normalizado`) |
 | `evento_tarefas` | Checklist |
-| `evento_paginas` | Folhas do caderno (`secao`: detalhes / discurso / palestra) |
+| `evento_cadernos` | Cadernos da pasta (título, dica, ordem) |
+| `evento_paginas` | Folhas de cada caderno (`caderno_id`; `secao` legado) |
 
 Delete da pasta = cascade em filhos. Mídia: apaga storage se houver `storage_path`.
 

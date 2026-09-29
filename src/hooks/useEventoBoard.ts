@@ -13,6 +13,7 @@ import {
 } from '@/lib/evento-db'
 import { arredondarEvento, normalizarNomeCatalogo } from '@/lib/evento-helpers'
 import {
+  parseEventoCaderno,
   parseEventoCatalogo,
   parseEventoItem,
   parseEventoMidia,
@@ -25,7 +26,6 @@ import type {
   EventoBoard,
   EventoCatalogoItem,
   EventoDesenho,
-  EventoSecao,
   EventoUnidade,
 } from '@/lib/evento-types'
 import { formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils'
@@ -91,7 +91,7 @@ export function useEventoBoard(eventoId: string | undefined) {
   const schema = empresa?.schema_nome ?? null
   const tables = resolveEventosTables(schema)
   const db = getEventosDb(schema)
-  const queryKey = ['evento-board', schema, eventoId] as const
+  const queryKey = ['evento-board', 'v2-cadernos', schema, eventoId] as const
 
   const query = useQuery({
     queryKey,
@@ -106,9 +106,10 @@ export function useEventoBoard(eventoId: string | undefined) {
       const evento = parseEventoPasta(eventoRaw)
       if (!evento) throw new Error('Pasta não encontrada')
 
-      const [partRes, itemRes, pagRes, tarRes] = await Promise.all([
+      const [partRes, itemRes, cadRes, pagRes, tarRes] = await Promise.all([
         db.from(tables.participantes).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
         db.from(tables.itens).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
+        db.from(tables.cadernos).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
         db.from(tables.paginas).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
         db.from(tables.tarefas).select('*').eq('evento_id', eventoId).order('ordem').order('criado_em'),
       ])
@@ -116,6 +117,8 @@ export function useEventoBoard(eventoId: string | undefined) {
       if (itemRes.error) throw itemRes.error
       if (pagRes.error) throw pagRes.error
       if (tarRes.error) throw tarRes.error
+      // Cadernos é tabela nova: se a API ainda não enxergar, segue vazio (não derruba o board).
+      const cadernosRows = cadRes.error ? [] : (cadRes.data ?? [])
 
       const participantes = (partRes.data ?? [])
         .map(parseEventoParticipante)
@@ -181,6 +184,7 @@ export function useEventoBoard(eventoId: string | undefined) {
           ...p,
           midias: (midiasItem.get(p.id) ?? []).filter((m): m is NonNullable<typeof m> => m != null),
         })),
+        cadernos: cadernosRows.map(parseEventoCaderno).filter((p): p is NonNullable<typeof p> => p != null),
         paginas: (pagRes.data ?? []).map(parseEventoPagina).filter((p): p is NonNullable<typeof p> => p != null),
         tarefas: (tarRes.data ?? []).map(parseEventoTarefa).filter((p): p is NonNullable<typeof p> => p != null),
         galeria: galeriaRows
@@ -367,13 +371,14 @@ export function useEventoBoard(eventoId: string | undefined) {
   })
 
   const criarFolha = useMutation({
-    mutationFn: async (secao: EventoSecao) => {
+    mutationFn: async (cadernoId: string) => {
       if (!eventoId) throw new Error('Pasta não encontrada')
-      const folhas = (query.data?.paginas ?? []).filter((p) => p.secao === secao)
+      const folhas = (query.data?.paginas ?? []).filter((p) => p.caderno_id === cadernoId)
       const ordem = folhas.reduce((acc, p) => Math.max(acc, p.ordem), -1) + 1
       const { error } = await db.from(tables.paginas).insert({
         evento_id: eventoId,
-        secao,
+        caderno_id: cadernoId,
+        secao: 'livre',
         titulo: '',
         corpo: '',
         ordem,
@@ -385,14 +390,85 @@ export function useEventoBoard(eventoId: string | undefined) {
   })
 
   const excluirFolha = useMutation({
-    mutationFn: async ({ id, secao }: { id: string; secao: EventoSecao }) => {
-      const folhas = (query.data?.paginas ?? []).filter((p) => p.secao === secao)
-      if (folhas.length <= 1) throw new Error('Deixe pelo menos uma folha nesta seção')
+    mutationFn: async ({ id, cadernoId }: { id: string; cadernoId: string }) => {
+      const folhas = (query.data?.paginas ?? []).filter((p) => p.caderno_id === cadernoId)
+      if (folhas.length <= 1) throw new Error('Deixe pelo menos uma folha neste caderno')
       const { error } = await db.from(tables.paginas).delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: invalidate,
     onError: (error: Error) => toast.error('Não deu para apagar a folha', { description: error.message }),
+  })
+
+  const criarCaderno = useMutation({
+    mutationFn: async (input: { titulo: string; dica?: string | null }) => {
+      if (!eventoId) throw new Error('Pasta não encontrada')
+      const titulo = input.titulo.trim()
+      if (!titulo) throw new Error('Dê um nome ao caderno')
+      const ordem = (query.data?.cadernos ?? []).reduce((acc, c) => Math.max(acc, c.ordem), -1) + 1
+      const { data, error } = await db
+        .from(tables.cadernos)
+        .insert({
+          evento_id: eventoId,
+          titulo,
+          dica: input.dica?.trim() || null,
+          ordem,
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      const caderno = parseEventoCaderno(data)
+      if (!caderno) throw new Error('Não foi possível criar o caderno')
+      const { error: paginaError } = await db.from(tables.paginas).insert({
+        evento_id: eventoId,
+        caderno_id: caderno.id,
+        secao: 'livre',
+        titulo: '',
+        corpo: '',
+        ordem: 0,
+      })
+      if (paginaError) throw paginaError
+      return caderno
+    },
+    // Espera o board recarregar antes de resolver, senão a UI seleciona um caderno que ainda não está na lista.
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['evento-board'] })
+      invalidate()
+      toast.success('Caderno criado')
+    },
+    onError: (error: Error) => toast.error('Não deu para criar o caderno', { description: error.message }),
+  })
+
+  const salvarCaderno = useMutation({
+    mutationFn: async ({ id, titulo, dica }: { id: string; titulo: string; dica?: string | null }) => {
+      const nome = titulo.trim()
+      if (!nome) throw new Error('Dê um nome ao caderno')
+      const { error } = await db
+        .from(tables.cadernos)
+        .update({
+          titulo: nome,
+          dica: dica?.trim() || null,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+    onError: (error: Error) => toast.error('Não deu para renomear o caderno', { description: error.message }),
+  })
+
+  const excluirCaderno = useMutation({
+    mutationFn: async (id: string) => {
+      const lista = query.data?.cadernos ?? []
+      if (lista.length <= 1) throw new Error('Deixe pelo menos um caderno nesta pasta')
+      const { error } = await db.from(tables.cadernos).delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      invalidate()
+      toast.success('Caderno apagado')
+    },
+    onError: (error: Error) => toast.error('Não deu para apagar o caderno', { description: error.message }),
   })
 
   const uploadFoto = useMutation({
@@ -495,6 +571,8 @@ export function useEventoBoard(eventoId: string | undefined) {
     board: query.data
       ? {
           ...query.data,
+          cadernos: Array.isArray(query.data.cadernos) ? query.data.cadernos : [],
+          paginas: Array.isArray(query.data.paginas) ? query.data.paginas : [],
           galeria: Array.isArray(query.data.galeria) ? query.data.galeria : [],
         }
       : null,
@@ -508,6 +586,9 @@ export function useEventoBoard(eventoId: string | undefined) {
     salvarPagina,
     criarFolha,
     excluirFolha,
+    criarCaderno,
+    salvarCaderno,
+    excluirCaderno,
     uploadFoto,
     salvarAnotacoes,
     excluirFoto,

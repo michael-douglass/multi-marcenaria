@@ -10,8 +10,8 @@ import {
   totalLinhaItem,
   totaisDoEvento,
 } from '@/lib/evento-helpers'
-import type { EventoBoard, EventoMidia, EventoPdfColunaId, EventoSecao } from '@/lib/evento-types'
-import { EVENTO_PDF_COLUNAS, EVENTO_SECAO_DICAS } from '@/lib/evento-types'
+import type { EventoBoard, EventoMidia, EventoPdfColunaId } from '@/lib/evento-types'
+import { EVENTO_PDF_COLUNAS, dicaDoCaderno } from '@/lib/evento-types'
 
 function esc(text: string): string {
   return text
@@ -298,13 +298,14 @@ function fatiasUrls(urls: string[], porPagina: number): string[][] {
 }
 
 function blocoCaderno(board: EventoBoard): FolhaDraft[] {
-  const secoes: EventoSecao[] = ['detalhes', 'discurso', 'palestra']
   const drafts: FolhaDraft[] = []
   const FOTOS_POR_FOLHA = 4
+  const cadernos = [...(board.cadernos ?? [])].sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em))
 
-  for (const secao of secoes) {
-    const folhas = board.paginas.filter((p) => p.secao === secao).sort((a, b) => a.ordem - b.ordem)
-    const dica = EVENTO_SECAO_DICAS[secao]
+  for (const caderno of cadernos) {
+    const folhas = board.paginas.filter((p) => p.caderno_id === caderno.id).sort((a, b) => a.ordem - b.ordem)
+    const nome = caderno.titulo.trim() || 'Caderno'
+    const dica = dicaDoCaderno(caderno)
     if (folhas.length === 0) continue
 
     folhas.forEach((folha, i) => {
@@ -323,15 +324,15 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
             : ''
 
         drafts.push({
-          secao: `${dica.aba} · folha ${i + 1}${parteLabel}`,
+          secao: `${nome} · folha ${i + 1}${parteLabel}`,
           variant: 'papel',
           inner: `
             <div class="folha-caderno">
               <table class="papel-grade">
                 <tr class="papel-topo"><td>
-                  <p class="folha-kicker">${esc(dica.aba)} · Folha ${i + 1} de ${folhas.length}${esc(parteLabel)}</p>
+                  <p class="folha-kicker">${esc(nome)} · Folha ${i + 1} de ${folhas.length}${esc(parteLabel)}</p>
                   <h4>${esc(folha.titulo.trim() || 'Sem título')}</h4>
-                  <p class="folha-dica">${esc(dica.dica)}</p>
+                  <p class="folha-dica">${esc(dica)}</p>
                 </td></tr>
                 <tr class="papel-miolo"><td>
                   <pre>${corpo ? esc(parte) : temAnexos && p === 0 ? '' : '<span class="vazio">— em branco —</span>'}</pre>
@@ -350,13 +351,13 @@ function blocoCaderno(board: EventoBoard): FolhaDraft[] {
         grupos.forEach((grupo, g) => {
           const parteLabel = grupos.length > 1 ? ` · fotos ${g + 1} de ${grupos.length}` : ''
           drafts.push({
-            secao: `${dica.aba} · folha ${i + 1} · anexos${parteLabel}`,
+            secao: `${nome} · folha ${i + 1} · anexos${parteLabel}`,
             variant: 'papel',
             inner: `
               <div class="folha-caderno">
                 <table class="papel-grade">
                   <tr class="papel-topo"><td>
-                    <p class="folha-kicker">${esc(dica.aba)} · Folha ${i + 1} · fotos anexadas</p>
+                    <p class="folha-kicker">${esc(nome)} · Folha ${i + 1} · fotos anexadas</p>
                     <h4>${esc(folha.titulo.trim() || 'Sem título')}</h4>
                     <p class="folha-dica">${imageUrls.length} ${
                       imageUrls.length === 1 ? 'imagem colada nesta folha' : 'imagens coladas nesta folha'

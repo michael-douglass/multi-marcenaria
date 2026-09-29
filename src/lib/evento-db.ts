@@ -12,6 +12,7 @@ export interface EventosTableNames {
   eventoMidias: string
   catalogo: string
   tarefas: string
+  cadernos: string
   paginas: string
 }
 
@@ -27,6 +28,7 @@ export function resolveEventosTables(schemaNome: string | null | undefined): Eve
       eventoMidias: 'evento_midias',
       catalogo: 'evento_catalogo_itens',
       tarefas: 'evento_tarefas',
+      cadernos: 'evento_cadernos',
       paginas: 'evento_paginas',
     }
   }
@@ -40,6 +42,7 @@ export function resolveEventosTables(schemaNome: string | null | undefined): Eve
     eventoMidias: 'crm_multiempresas_evento_midias',
     catalogo: 'crm_multiempresas_evento_catalogo_itens',
     tarefas: 'crm_multiempresas_evento_tarefas',
+    cadernos: 'crm_multiempresas_evento_cadernos',
     paginas: 'crm_multiempresas_evento_paginas',
   }
 }

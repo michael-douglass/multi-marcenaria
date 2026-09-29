@@ -1,31 +1,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
+  BookPlus,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ImagePlus,
+  Library,
+  Pencil,
   Plus,
   Search,
   Trash2,
   X,
 } from 'lucide-react'
 import { EventoDocumentoAura } from '@/components/eventos/EventoDocumentoAura'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import {
   parseEventoCadernoCorpo,
   serializeEventoCadernoCorpo,
   textoEventoCadernoSemAnexos,
 } from '@/lib/evento-caderno-anexos'
-import type { EventoPagina, EventoSecao } from '@/lib/evento-types'
-import { EVENTO_SECOES, EVENTO_SECAO_DICAS } from '@/lib/evento-types'
+import type { EventoCaderno, EventoPagina } from '@/lib/evento-types'
+import { dicaDoCaderno } from '@/lib/evento-types'
 import { cn } from '@/lib/utils'
 
 type SaveHint = 'Salva sozinho' | 'Salvando...' | 'Salvo' | 'Não salvou — continue digitando'
 
 interface CadernoHit {
   paginaId: string
-  secao: EventoSecao
+  cadernoId: string
   field: 'titulo' | 'corpo'
   start: number
   end: number
@@ -39,11 +63,15 @@ export interface EventoCadernoMidiaOption {
 }
 
 interface EventoDocumentoPanelProps {
+  cadernos: EventoCaderno[]
   paginas: EventoPagina[]
   midiasDisponiveis?: EventoCadernoMidiaOption[]
   onSave: (input: { id: string; titulo: string; corpo: string }) => Promise<unknown>
-  onNovaFolha: (secao: EventoSecao) => Promise<unknown>
-  onExcluirFolha: (input: { id: string; secao: EventoSecao }) => Promise<unknown>
+  onNovaFolha: (cadernoId: string) => Promise<unknown>
+  onExcluirFolha: (input: { id: string; cadernoId: string }) => Promise<unknown>
+  onNovoCaderno: (input: { titulo: string; dica?: string | null }) => Promise<EventoCaderno>
+  onSalvarCaderno: (input: { id: string; titulo: string; dica?: string | null }) => Promise<unknown>
+  onExcluirCaderno: (id: string) => Promise<unknown>
   className?: string
 }
 
@@ -74,7 +102,7 @@ function buildFoldMap(text: string): { folded: string; map: number[] } {
 
 function findHitsInField(
   paginaId: string,
-  secao: EventoSecao,
+  cadernoId: string,
   field: 'titulo' | 'corpo',
   text: string,
   queryFolded: string,
@@ -90,23 +118,25 @@ function findHitsInField(
     const last = at + queryFolded.length - 1
     const start = map[at] ?? 0
     const end = (map[last] ?? start) + 1
-    hits.push({ paginaId, secao, field, start, end })
+    hits.push({ paginaId, cadernoId, field, start, end })
     from = at + Math.max(queryFolded.length, 1)
   }
   return hits
 }
 
 function collectCadernoHits(
+  cadernos: EventoCaderno[],
   paginas: EventoPagina[],
   query: string,
   draft?: { id: string; titulo: string; corpo: string } | null,
 ): CadernoHit[] {
   const q = foldQuery(query)
   if (!q) return []
+  const ordemCaderno = new Map(cadernos.map((c, i) => [c.id, i]))
   const ordered = [...paginas].sort((a, b) => {
-    const sa = EVENTO_SECOES.indexOf(a.secao)
-    const sb = EVENTO_SECOES.indexOf(b.secao)
-    if (sa !== sb) return sa - sb
+    const ca = ordemCaderno.get(a.caderno_id) ?? 999
+    const cb = ordemCaderno.get(b.caderno_id) ?? 999
+    if (ca !== cb) return ca - cb
     return a.ordem - b.ordem
   })
   const hits: CadernoHit[] = []
@@ -114,28 +144,82 @@ function collectCadernoHits(
     const titulo = draft && draft.id === page.id ? draft.titulo : page.titulo
     const corpo =
       draft && draft.id === page.id ? draft.corpo : textoEventoCadernoSemAnexos(page.corpo)
-    hits.push(...findHitsInField(page.id, page.secao, 'titulo', titulo, q))
-    hits.push(...findHitsInField(page.id, page.secao, 'corpo', corpo, q))
+    hits.push(...findHitsInField(page.id, page.caderno_id, 'titulo', titulo, q))
+    hits.push(...findHitsInField(page.id, page.caderno_id, 'corpo', corpo, q))
   }
   return hits
 }
 
-function folhasDaSecao(paginas: EventoPagina[], secao: EventoSecao) {
-  return paginas.filter((p) => p.secao === secao).sort((a, b) => a.ordem - b.ordem)
+function folhasDoCaderno(paginas: EventoPagina[], cadernoId: string) {
+  return paginas.filter((p) => p.caderno_id === cadernoId).sort((a, b) => a.ordem - b.ordem)
+}
+
+function tituloCaderno(cadernos: EventoCaderno[], cadernoId: string) {
+  return cadernos.find((c) => c.id === cadernoId)?.titulo.trim() || 'Caderno'
 }
 
 export function EventoDocumentoPanel({
-  paginas,
+  cadernos = [],
+  paginas = [],
   midiasDisponiveis = [],
   onSave,
   onNovaFolha,
   onExcluirFolha,
+  onNovoCaderno,
+  onSalvarCaderno,
+  onExcluirCaderno,
   className,
 }: EventoDocumentoPanelProps) {
-  const [secao, setSecao] = useState<EventoSecao>('detalhes')
-  const folhas = useMemo(() => folhasDaSecao(paginas, secao), [paginas, secao])
+  const cadernosOrdenados = useMemo(
+    () => [...(Array.isArray(cadernos) ? cadernos : [])].sort(
+      (a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em),
+    ),
+    [cadernos],
+  )
+
+  const [cadernoId, setCadernoId] = useState<string | null>(cadernosOrdenados[0]?.id ?? null)
+  const cadernoAtivo =
+    cadernosOrdenados.find((c) => c.id === cadernoId) ?? cadernosOrdenados[0] ?? null
+
+  /** Caderno recém-criado: segura a seleção até ele aparecer na lista recarregada. */
+  const cadernoDesejadoRef = useRef<string | null>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!cadernosOrdenados.length) {
+      setCadernoId(null)
+      return
+    }
+    if (cadernoId && cadernosOrdenados.some((c) => c.id === cadernoId)) {
+      cadernoDesejadoRef.current = null
+      return
+    }
+    if (cadernoDesejadoRef.current && cadernoDesejadoRef.current === cadernoId) return
+    setCadernoId(cadernosOrdenados[0].id)
+  }, [cadernosOrdenados, cadernoId])
+
+  /** Traz a aba ativa para dentro da fila visível (sem mexer no scroll da página). */
+  useEffect(() => {
+    const strip = tabsRef.current
+    if (!strip || !cadernoAtivo) return
+    const alvo = strip.querySelector<HTMLElement>(`[data-caderno-id="${cadernoAtivo.id}"]`)
+    if (!alvo) return
+    const fila = strip.getBoundingClientRect()
+    const aba = alvo.getBoundingClientRect()
+    if (aba.left < fila.left) strip.scrollLeft += aba.left - fila.left - 8
+    else if (aba.right > fila.right) strip.scrollLeft += aba.right - fila.right + 8
+  }, [cadernoAtivo?.id, cadernosOrdenados.length])
+
+  const folhas = useMemo(
+    () => (cadernoAtivo ? folhasDoCaderno(Array.isArray(paginas) ? paginas : [], cadernoAtivo.id) : []),
+    [paginas, cadernoAtivo],
+  )
   const [index, setIndex] = useState(0)
   const atual = folhas[Math.min(index, Math.max(folhas.length - 1, 0))] ?? null
+
+  useEffect(() => {
+    setIndex(0)
+  }, [cadernoAtivo?.id])
 
   const [titulo, setTitulo] = useState('')
   const [corpo, setCorpo] = useState('')
@@ -146,9 +230,15 @@ export function EventoDocumentoPanel({
   const [busca, setBusca] = useState('')
   const [hitIdx, setHitIdx] = useState(0)
 
+  const [cadernoDialog, setCadernoDialog] = useState<'novo' | 'editar' | null>(null)
+  const [cadernoTituloDraft, setCadernoTituloDraft] = useState('')
+  const [cadernoDicaDraft, setCadernoDicaDraft] = useState('')
+  const [cadernoBusy, setCadernoBusy] = useState(false)
+  const [excluirCadernoOpen, setExcluirCadernoOpen] = useState(false)
+
   const dirtyRef = useRef(false)
   const savingRef = useRef(false)
-  const timerRef = useRef<number>(0)
+  const timerRef = useRef(0)
   const snapshotRef = useRef({ id: '', titulo: '', corpo: '' })
   const tituloRef = useRef<HTMLInputElement>(null)
   const corpoRef = useRef<HTMLTextAreaElement>(null)
@@ -159,8 +249,8 @@ export function EventoDocumentoPanel({
 
   const draft = atual ? { id: atual.id, titulo, corpo } : null
   const hitsLive = useMemo(
-    () => collectCadernoHits(paginas, busca, draft),
-    [paginas, busca, draft],
+    () => collectCadernoHits(cadernosOrdenados, paginas, busca, draft),
+    [cadernosOrdenados, paginas, busca, draft],
   )
   const activeHit = hitsLive[hitIdx] ?? null
 
@@ -262,7 +352,7 @@ export function EventoDocumentoPanel({
 
   const pendingPageRef = useRef<string | null>(null)
 
-  /** Abre a aba/folha do trecho. Com `mark`, seleciona a palavra na folha. */
+  /** Abre o caderno/folha do trecho. Com `mark`, seleciona a palavra na folha. */
   const goToHit = useCallback((hit: CadernoHit, nextIdx: number, mark = true) => {
     void flush()
     setHitIdx(nextIdx)
@@ -274,8 +364,8 @@ export function EventoDocumentoPanel({
       pendingPageRef.current = hit.paginaId
     }
 
-    if (secao !== hit.secao) {
-      setSecao(hit.secao)
+    if (cadernoAtivo?.id !== hit.cadernoId) {
+      setCadernoId(hit.cadernoId)
       return
     }
 
@@ -288,13 +378,12 @@ export function EventoDocumentoPanel({
       applyHitSelection(hit)
       pendingHitRef.current = null
     }
-  }, [flush, secao, folhas, index, atual?.id, applyHitSelection])
+  }, [flush, cadernoAtivo?.id, folhas, index, atual?.id, applyHitSelection])
 
-  // Navega até a folha (sem marcar) quando só há troca de página pela digitação
   useEffect(() => {
     const pageId = pendingPageRef.current
-    if (!pageId) return
-    const lista = folhasDaSecao(paginas, secao)
+    if (!pageId || !cadernoAtivo) return
+    const lista = folhasDoCaderno(paginas, cadernoAtivo.id)
     const i = lista.findIndex((f) => f.id === pageId)
     if (i < 0) {
       pendingPageRef.current = null
@@ -305,15 +394,14 @@ export function EventoDocumentoPanel({
       return
     }
     pendingPageRef.current = null
-  }, [secao, index, paginas])
+  }, [cadernoAtivo, index, paginas])
 
-  // Depois de trocar aba/folha, posiciona e marca o texto
   useEffect(() => {
     const hit = pendingHitRef.current
-    if (!hit) return
-    if (secao !== hit.secao) return
+    if (!hit || !cadernoAtivo) return
+    if (cadernoAtivo.id !== hit.cadernoId) return
 
-    const lista = folhasDaSecao(paginas, hit.secao)
+    const lista = folhasDoCaderno(paginas, hit.cadernoId)
     const i = lista.findIndex((f) => f.id === hit.paginaId)
     if (i < 0) {
       pendingHitRef.current = null
@@ -326,7 +414,7 @@ export function EventoDocumentoPanel({
     if (atual?.id !== hit.paginaId) return
     applyHitSelection(hit)
     pendingHitRef.current = null
-  }, [secao, index, atual?.id, paginas, applyHitSelection, titulo, corpo, hitIdx])
+  }, [cadernoAtivo, index, atual?.id, paginas, applyHitSelection, titulo, corpo, hitIdx])
 
   useEffect(() => {
     const onHide = () => {
@@ -350,45 +438,139 @@ export function EventoDocumentoPanel({
 
   const onBuscaChange = (value: string) => {
     setBusca(value)
-    const nextHits = collectCadernoHits(paginas, value, draft)
+    const nextHits = collectCadernoHits(cadernosOrdenados, paginas, value, draft)
     if (nextHits.length === 0) {
       pendingHitRef.current = null
       pendingPageRef.current = null
       setHitIdx(0)
       return
     }
-    // Digitando: já abre a folha certa em qualquer aba; ↑↓ / Enter marca a palavra
     goToHit(nextHits[0], 0, false)
   }
 
-  const trocarAba = (id: EventoSecao) => {
+  const trocarCaderno = (id: string) => {
     void flush()
     pendingHitRef.current = null
-    setSecao(id)
+    setCadernoId(id)
     setIndex(0)
+  }
+
+  /** Setas ← → trocam de caderno como numa pilha de fichas. */
+  const onTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, id: string) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const pos = cadernosOrdenados.findIndex((c) => c.id === id)
+    if (pos < 0) return
+    const dir = event.key === 'ArrowRight' ? 1 : -1
+    const alvo = cadernosOrdenados[(pos + dir + cadernosOrdenados.length) % cadernosOrdenados.length]
+    if (!alvo) return
+    trocarCaderno(alvo.id)
+    document.getElementById(`caderno-tab-${alvo.id}`)?.focus()
+  }
+
+  const abrirNovoCaderno = () => {
+    setCadernoTituloDraft('')
+    setCadernoDicaDraft('')
+    setCadernoDialog('novo')
+  }
+
+  const abrirEditarCaderno = () => {
+    if (!cadernoAtivo) return
+    setCadernoTituloDraft(cadernoAtivo.titulo)
+    setCadernoDicaDraft(cadernoAtivo.dica ?? '')
+    setCadernoDialog('editar')
+  }
+
+  const confirmarCadernoDialog = async () => {
+    const tituloNovo = cadernoTituloDraft.trim()
+    if (!tituloNovo || cadernoBusy) return
+    setCadernoBusy(true)
+    try {
+      if (cadernoDialog === 'novo') {
+        const criado = await onNovoCaderno({
+          titulo: tituloNovo,
+          dica: cadernoDicaDraft.trim() || null,
+        })
+        cadernoDesejadoRef.current = criado.id
+        setCadernoId(criado.id)
+        setIndex(0)
+        setCadernoDialog(null)
+        return
+      }
+      if (cadernoDialog === 'editar' && cadernoAtivo) {
+        await onSalvarCaderno({
+          id: cadernoAtivo.id,
+          titulo: tituloNovo,
+          dica: cadernoDicaDraft.trim() || null,
+        })
+        setCadernoDialog(null)
+      }
+    } finally {
+      setCadernoBusy(false)
+    }
+  }
+
+  const confirmarExcluirCaderno = async () => {
+    if (!cadernoAtivo || cadernosOrdenados.length <= 1 || cadernoBusy) return
+    setCadernoBusy(true)
+    try {
+      const id = cadernoAtivo.id
+      await onExcluirCaderno(id)
+      setExcluirCadernoOpen(false)
+      const restante = cadernosOrdenados.filter((c) => c.id !== id)
+      setCadernoId(restante[0]?.id ?? null)
+    } finally {
+      setCadernoBusy(false)
+    }
+  }
+
+  if (!cadernoAtivo) {
+    return (
+      <div className={cn('flex h-full min-h-[520px] flex-col items-center justify-center gap-3 rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-4', className)}>
+        <p className="text-sm text-cream-faint">Nenhum caderno nesta pasta.</p>
+        <button type="button" className="btn btn-proforco btn-md" onClick={abrirNovoCaderno}>
+          <BookPlus className="h-4 w-4" />
+          Novo caderno
+        </button>
+      </div>
+    )
   }
 
   if (!atual) {
     return (
       <div className={cn('flex h-full min-h-[520px] flex-col items-center justify-center gap-3 rounded-xl border border-gold-border bg-[var(--color-surface-card)] p-4', className)}>
-        <div className="flex flex-wrap justify-center gap-2">
-          {EVENTO_SECOES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              title={EVENTO_SECAO_DICAS[id].dica}
-              onClick={() => trocarAba(id)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs',
-                secao === id ? 'bg-gold/20 text-gold' : 'text-cream-faint hover:text-gold',
-              )}
-            >
-              {EVENTO_SECAO_DICAS[id].aba}
-            </button>
-          ))}
+        <div ref={tabsRef} role="tablist" aria-label="Cadernos desta pasta" className="evento-caderno-tabs justify-center">
+          {cadernosOrdenados.map((c) => {
+            const ativo = cadernoAtivo.id === c.id
+            return (
+              <button
+                key={c.id}
+                id={`caderno-tab-${c.id}`}
+                data-caderno-id={c.id}
+                type="button"
+                role="tab"
+                aria-selected={ativo}
+                tabIndex={ativo ? 0 : -1}
+                title={dicaDoCaderno(c)}
+                onClick={() => trocarCaderno(c.id)}
+                onKeyDown={(e) => onTabKeyDown(e, c.id)}
+                className={cn('evento-caderno-tab', ativo && 'evento-caderno-tab--ativo')}
+              >
+                <span className="evento-caderno-tab__label">{c.titulo.trim() || 'Sem nome'}</span>
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            className="evento-caderno-tab evento-caderno-tab--add"
+            onClick={abrirNovoCaderno}
+          >
+            <Plus className="h-3 w-3" aria-hidden />
+            Caderno
+          </button>
         </div>
-        <p className="text-sm text-cream-faint">Nenhuma folha nesta seção.</p>
-        <button type="button" className="btn btn-proforco btn-md" onClick={() => void onNovaFolha(secao)}>
+        <p className="text-sm text-cream-faint">Nenhuma folha neste caderno.</p>
+        <button type="button" className="btn btn-proforco btn-md" onClick={() => void onNovaFolha(cadernoAtivo.id)}>
           Folha
         </button>
       </div>
@@ -399,30 +581,77 @@ export function EventoDocumentoPanel({
     <div className={cn('evento-caderno-cover relative flex h-full min-h-[560px] flex-1 flex-col overflow-hidden rounded-xl border border-gold-border xl:min-h-0', className)}>
       <EventoDocumentoAura className="absolute inset-0 h-full w-full" />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col p-3 sm:p-4">
-        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-gold/80">3 · Caderno</p>
+        <div className="mb-1.5 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gold/80">3 · Cadernos</p>
             <span className="evento-caderno-selo hidden sm:inline-block" aria-hidden />
-            {EVENTO_SECOES.map((id) => (
-              <button
-                key={id}
-                type="button"
-                title={EVENTO_SECAO_DICAS[id].dica}
-                onClick={() => trocarAba(id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs',
-                  secao === id
-                    ? 'bg-gold/20 text-gold'
-                    : activeHit && activeHit.secao === id
-                      ? 'text-gold ring-1 ring-gold/40'
-                      : 'text-cream-faint hover:text-gold',
-                )}
-              >
-                {EVENTO_SECAO_DICAS[id].aba}
-              </button>
-            ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title="Ver e trocar entre todos os cadernos desta pasta"
+                  className="inline-flex items-center gap-1 rounded-full border border-gold/35 px-2 py-0.5 text-[11px] text-cream-faint hover:border-gold hover:text-gold"
+                >
+                  <Library className="h-3 w-3" aria-hidden />
+                  {cadernosOrdenados.length} cadernos
+                  <ChevronDown className="h-3 w-3" aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-[60vh] w-64 overflow-y-auto">
+                <DropdownMenuLabel>Cadernos desta pasta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {cadernosOrdenados.map((c) => {
+                  const total = folhasDoCaderno(Array.isArray(paginas) ? paginas : [], c.id).length
+                  return (
+                    <DropdownMenuItem
+                      key={c.id}
+                      onSelect={() => trocarCaderno(c.id)}
+                      className="flex items-start gap-2"
+                    >
+                      <Check
+                        className={cn(
+                          'mt-0.5 h-3.5 w-3.5 shrink-0',
+                          cadernoAtivo.id === c.id ? 'opacity-100 text-gold' : 'opacity-0',
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate">{c.titulo.trim() || 'Sem nome'}</span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {total} {total === 1 ? 'folha' : 'folhas'}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  )
+                })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={abrirNovoCaderno} className="gap-2">
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Novo caderno
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Renomear caderno"
+              title="Renomear este caderno"
+              className="rounded-full p-1 text-cream-faint hover:text-gold"
+              onClick={abrirEditarCaderno}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Apagar caderno"
+              title="Apagar este caderno"
+              className="rounded-full p-1 text-cream-faint hover:text-red-400 disabled:opacity-30"
+              disabled={cadernosOrdenados.length <= 1}
+              onClick={() => setExcluirCadernoOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
             <button
               type="button"
               aria-label="Folha anterior"
@@ -454,7 +683,7 @@ export function EventoDocumentoPanel({
               className="btn btn-outline btn-sm"
               onClick={() => {
                 void flush()
-                void onNovaFolha(secao)
+                void onNovaFolha(cadernoAtivo.id)
               }}
             >
               <Plus className="h-3 w-3" />
@@ -465,13 +694,65 @@ export function EventoDocumentoPanel({
               aria-label="Apagar folha"
               className="p-1 text-cream-faint hover:text-red-400 disabled:opacity-30"
               disabled={folhas.length <= 1}
-              onClick={() => void onExcluirFolha({ id: atual.id, secao })}
+              onClick={() => void onExcluirFolha({ id: atual.id, cadernoId: cadernoAtivo.id })}
             >
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
 
+        <div className="evento-caderno-stack">
+          <div ref={tabsRef} role="tablist" aria-label="Cadernos desta pasta" className="evento-caderno-tabs">
+            {cadernosOrdenados.map((c) => {
+              const ativo = cadernoAtivo.id === c.id
+              return (
+                <button
+                  key={c.id}
+                  id={`caderno-tab-${c.id}`}
+                  data-caderno-id={c.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativo}
+                  aria-controls="evento-caderno-painel"
+                  tabIndex={ativo ? 0 : -1}
+                  title={dicaDoCaderno(c)}
+                  onClick={() => trocarCaderno(c.id)}
+                  onKeyDown={(e) => onTabKeyDown(e, c.id)}
+                  className={cn(
+                    'evento-caderno-tab',
+                    ativo && 'evento-caderno-tab--ativo',
+                    !ativo && activeHit?.cadernoId === c.id && 'evento-caderno-tab--hit',
+                  )}
+                >
+                  <span className="evento-caderno-tab__label">{c.titulo.trim() || 'Sem nome'}</span>
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              title="Criar outro caderno para um tipo de conteúdo"
+              className="evento-caderno-tab evento-caderno-tab--add"
+              onClick={abrirNovoCaderno}
+            >
+              <Plus className="h-3 w-3" aria-hidden />
+              Caderno
+            </button>
+          </div>
+
+          <div className="evento-caderno-deck">
+            {cadernosOrdenados.length > 2 ? (
+              <div className="evento-caderno-deck__shadow evento-caderno-deck__shadow--1" aria-hidden />
+            ) : null}
+            {cadernosOrdenados.length > 1 ? (
+              <div className="evento-caderno-deck__shadow evento-caderno-deck__shadow--2" aria-hidden />
+            ) : null}
+            <div
+              id="evento-caderno-painel"
+              role="tabpanel"
+              aria-labelledby={`caderno-tab-${cadernoAtivo.id}`}
+              className="evento-caderno-deck__face"
+            >
+              <div className="evento-caderno-deck__face-pad">
         <div className="evento-caderno-busca mb-2 shrink-0">
           <Search className="evento-caderno-busca__icon" aria-hidden />
           <input
@@ -491,8 +772,8 @@ export function EventoDocumentoPanel({
                 setHitIdx(0)
               }
             }}
-            placeholder="Buscar em Detalhes, Discursos e Palestras…"
-            aria-label="Buscar texto em todas as páginas do caderno"
+            placeholder="Buscar em todos os cadernos…"
+            aria-label="Buscar texto em todas as páginas dos cadernos"
             autoComplete="off"
             spellCheck={false}
           />
@@ -537,10 +818,10 @@ export function EventoDocumentoPanel({
         </div>
         <p className="mb-2 truncate text-[11px] text-cream-faint">
           {foldQuery(busca) && hitsLive.length === 0
-            ? `Nada encontrado para “${busca.trim()}” em todo o caderno.`
+            ? `Nada encontrado para “${busca.trim()}” em todos os cadernos.`
             : activeHit
-              ? `Achado em ${EVENTO_SECAO_DICAS[activeHit.secao].aba} · ${activeHit.field === 'titulo' ? 'título' : 'texto'} · use ↑ ↓ para trocar`
-              : EVENTO_SECAO_DICAS[secao].dica}
+              ? `Achado em ${tituloCaderno(cadernosOrdenados, activeHit.cadernoId)} · ${activeHit.field === 'titulo' ? 'título' : 'texto'} · use ↑ ↓ para trocar`
+              : dicaDoCaderno(cadernoAtivo)}
         </p>
 
         <div
@@ -565,7 +846,7 @@ export function EventoDocumentoPanel({
             ref={corpoRef}
             aria-label="Páginas do caderno"
             className="evento-caderno-corpo min-h-[220px] w-full flex-1 resize-none bg-transparent outline-none xl:min-h-0"
-            placeholder="Escreva o roteiro do dia…"
+            placeholder="Escreva o conteúdo deste caderno…"
             value={corpo}
             onChange={(e) => {
               setCorpo(e.target.value)
@@ -663,8 +944,12 @@ export function EventoDocumentoPanel({
           </div>
 
           <p className="evento-caderno-rodape mt-3">
-            Folha {Math.min(index, folhas.length - 1) + 1} de {folhas.length} · {saveHint}
+            {cadernoAtivo.titulo.trim() || 'Caderno'} · Folha {Math.min(index, folhas.length - 1) + 1} de {folhas.length} · {saveHint}
           </p>
+        </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -704,6 +989,85 @@ export function EventoDocumentoPanel({
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={cadernoDialog != null} onOpenChange={(open) => !open && setCadernoDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{cadernoDialog === 'editar' ? 'Renomear caderno' : 'Novo caderno'}</DialogTitle>
+            <DialogDescription>
+              Cada caderno guarda um tipo de conteúdo (ex.: Buffet, Montagem, Contrato).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label htmlFor="evento-caderno-titulo" className="text-xs uppercase tracking-[0.14em] text-cream-faint">
+                Nome
+              </label>
+              <Input
+                id="evento-caderno-titulo"
+                value={cadernoTituloDraft}
+                onChange={(e) => setCadernoTituloDraft(e.target.value)}
+                placeholder="Ex.: Buffet"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void confirmarCadernoDialog()
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="evento-caderno-dica" className="text-xs uppercase tracking-[0.14em] text-cream-faint">
+                Para que serve (opcional)
+              </label>
+              <Input
+                id="evento-caderno-dica"
+                value={cadernoDicaDraft}
+                onChange={(e) => setCadernoDicaDraft(e.target.value)}
+                placeholder="Ex.: Cardápio e fornecedores do dia"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCadernoDialog(null)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-proforco btn-sm"
+              disabled={!cadernoTituloDraft.trim() || cadernoBusy}
+              onClick={() => void confirmarCadernoDialog()}
+            >
+              {cadernoDialog === 'editar' ? 'Salvar' : 'Criar'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={excluirCadernoOpen} onOpenChange={setExcluirCadernoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar o caderno “{cadernoAtivo.titulo.trim() || 'Sem nome'}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as folhas deste caderno serão apagadas. Não dá para desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-700 hover:bg-red-800"
+              disabled={cadernoBusy}
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmarExcluirCaderno()
+              }}
+            >
+              Apagar caderno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 import {
   EVENT_STACK_CHIP_HEIGHT_PX,
   EVENT_STACK_MAX_HEIGHT_PX,
+  getClusterTimeSpanPx,
   getStackClusterStyle,
 } from '@/lib/calendar-event-layout';
 import { cn } from '@/lib/utils';
@@ -22,8 +23,12 @@ import { Input } from '@/components/ui/input';
 
 interface AgendaHourClusterBoxProps {
   clusterStart: Date;
+  /** Fim do intervalo do grupo na grade — limita a altura para não cobrir outros horários. */
+  clusterEnd: Date;
   events: AgendaEvent[];
   hourHeight: number;
+  /** Altura mínima de um evento na grade (mesma regra dos chips soltos). */
+  minTimeSpanPx?: number;
   chipHeightPx?: number;
   compact?: boolean;
   floatingLayer?: boolean;
@@ -60,8 +65,10 @@ interface AgendaHourClusterBoxProps {
  */
 export function AgendaHourClusterBox({
   clusterStart,
+  clusterEnd,
   events,
   hourHeight,
+  minTimeSpanPx = EVENT_STACK_CHIP_HEIGHT_PX,
   chipHeightPx = EVENT_STACK_CHIP_HEIGHT_PX,
   compact = false,
   floatingLayer = false,
@@ -101,6 +108,12 @@ export function AgendaHourClusterBox({
     eligibleInView.length > 0 && selectedInViewCount === eligibleInView.length;
 
   const chromePx = compact ? 54 : 62;
+  const timeSpanPx = getClusterTimeSpanPx(
+    clusterStart,
+    clusterEnd,
+    hourHeight,
+    minTimeSpanPx,
+  );
   const stackStyle = getStackClusterStyle(
     clusterStart,
     hourHeight,
@@ -108,10 +121,12 @@ export function AgendaHourClusterBox({
     chipHeightPx,
     EVENT_STACK_MAX_HEIGHT_PX,
   );
-  const boxHeight = Math.min(
+  const desiredHeight = Math.min(
     chromePx + Math.max(miniFiltered.length, 1) * chipHeightPx,
     EVENT_STACK_MAX_HEIGHT_PX + chromePx,
   );
+  /** Nunca ultrapassa o slot de tempo do cluster — evita tapar tarefas de outras horas. */
+  const boxHeight = Math.min(desiredHeight, timeSpanPx);
 
   const openExpanded = (e: MouseEvent) => {
     e.preventDefault();
@@ -311,7 +326,7 @@ export function AgendaHourClusterBox({
           type="button"
           data-agenda-event
           className={cn(
-            'absolute z-20 rounded border border-dashed border-[#c4a574]/80 bg-[#fffcf8]/95 px-1 text-left font-semibold text-[#6b3f1f] shadow-sm',
+            'absolute z-[8] rounded border border-dashed border-[#c4a574]/80 bg-[#fffcf8]/95 px-1 text-left font-semibold text-[#6b3f1f] shadow-sm',
             'hover:bg-[#f7f0e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4a574]/55',
             compact ? 'text-[8px] leading-tight' : 'text-[10px]',
           )}
@@ -331,7 +346,7 @@ export function AgendaHourClusterBox({
       <div
         data-agenda-event
         className={cn(
-          'absolute z-20 flex flex-col overflow-hidden rounded-lg border shadow-md',
+          'absolute z-[8] flex flex-col overflow-hidden rounded-lg border shadow-md',
           'border-[rgba(42,24,18,0.14)] bg-[#fffcf8]/95 text-[#2a1812]',
           'ring-1 ring-[rgba(42,24,18,0.04)]',
         )}

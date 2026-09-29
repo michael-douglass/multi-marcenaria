@@ -1,8 +1,16 @@
 export const EVENTO_TIPOS = ['festa_fim_ano', 'arquitetos', 'outro'] as const
 export type EventoTipo = (typeof EVENTO_TIPOS)[number]
 
+/** Slug legado nas folhas (antes dos cadernos separados). Ainda gravado em `secao` por compatibilidade. */
 export const EVENTO_SECOES = ['detalhes', 'discurso', 'palestra'] as const
 export type EventoSecao = (typeof EVENTO_SECOES)[number]
+
+/** Cadernos padrão ao criar uma pasta nova (cada um = um tipo de conteúdo). */
+export const EVENTO_CADERNOS_PADRAO = [
+  { titulo: 'Detalhes', dica: 'Roteiro, horários e observações do dia', secao: 'detalhes' as const },
+  { titulo: 'Discursos', dica: 'Textos para quem vai falar', secao: 'discurso' as const },
+  { titulo: 'Palestras', dica: 'Pauta e anotações de palco', secao: 'palestra' as const },
+] as const
 
 export const EVENTO_UNIDADES = ['un', 'L', 'kg', 'g'] as const
 export type EventoUnidade = (typeof EVENTO_UNIDADES)[number]
@@ -96,10 +104,22 @@ export interface EventoCatalogoItem {
   telefone_fornecedor: string | null
 }
 
+export interface EventoCaderno {
+  id: string
+  evento_id: string
+  titulo: string
+  dica: string | null
+  ordem: number
+  criado_em: string
+  atualizado_em: string
+}
+
 export interface EventoPagina {
   id: string
   evento_id: string
-  secao: EventoSecao
+  caderno_id: string
+  /** Legado: detalhes | discurso | palestra | livre (cadernos novos). */
+  secao: EventoSecao | 'livre'
   titulo: string
   corpo: string
   ordem: number
@@ -123,6 +143,7 @@ export interface EventoBoard {
   evento: EventoPasta
   participantes: EventoParticipante[]
   itens: EventoItem[]
+  cadernos: EventoCaderno[]
   paginas: EventoPagina[]
   tarefas: EventoTarefa[]
   /** Fotos/PDF convertidos anexados na pasta (não ligados a pessoa/item). */
@@ -139,4 +160,10 @@ export const EVENTO_SECAO_DICAS: Record<EventoSecao, { aba: string; dica: string
   detalhes: { aba: 'Detalhes', dica: 'Roteiro, horários e observações do dia' },
   discurso: { aba: 'Discursos', dica: 'Textos para quem vai falar' },
   palestra: { aba: 'Palestras', dica: 'Pauta e anotações de palco' },
+}
+
+export function dicaDoCaderno(caderno: Pick<EventoCaderno, 'titulo' | 'dica'>): string {
+  const dica = caderno.dica?.trim()
+  if (dica) return dica
+  return `Conteúdo do caderno “${caderno.titulo.trim() || 'Sem nome'}”`
 }

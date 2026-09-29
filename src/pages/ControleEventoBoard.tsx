@@ -24,7 +24,8 @@ export default function ControleEventoBoard() {
   const {
     board, loading, error, catalogo,
     salvarParticipante, excluirParticipante, salvarItem, excluirItem,
-    salvarPagina, criarFolha, excluirFolha, uploadFoto, salvarAnotacoes, excluirFoto,
+    salvarPagina, criarFolha, excluirFolha, criarCaderno, salvarCaderno, excluirCaderno,
+    uploadFoto, salvarAnotacoes, excluirFoto,
   } = boardApi
 
   const [pessoaOpen, setPessoaOpen] = useState(false)
@@ -196,11 +197,15 @@ export default function ControleEventoBoard() {
 
         <EventoDocumentoPanel
           className="min-h-[520px] lg:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:min-h-0"
-          paginas={board.paginas}
+          cadernos={board.cadernos ?? []}
+          paginas={board.paginas ?? []}
           midiasDisponiveis={midiasCaderno}
           onSave={(input) => salvarPagina.mutateAsync(input)}
-          onNovaFolha={(secao) => criarFolha.mutateAsync(secao)}
+          onNovaFolha={(cadernoId) => criarFolha.mutateAsync(cadernoId)}
           onExcluirFolha={(input) => excluirFolha.mutateAsync(input)}
+          onNovoCaderno={(input) => criarCaderno.mutateAsync(input)}
+          onSalvarCaderno={(input) => salvarCaderno.mutateAsync(input)}
+          onExcluirCaderno={(id) => excluirCaderno.mutateAsync(id)}
         />
 
         <EventoTotaisPanel className="overflow-hidden xl:col-span-2 xl:col-start-1 xl:row-start-2 xl:min-h-0" totais={totais} itens={board.itens} />

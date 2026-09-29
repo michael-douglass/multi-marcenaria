@@ -224,6 +224,18 @@ export function getEventColumnStyle(column: number, totalColumns: number): {
   };
 }
 
+/** Altura vertical (px) que o cluster ocupa na grade, a partir do início/fim no tempo. */
+export function getClusterTimeSpanPx(
+  clusterStart: Date,
+  clusterEnd: Date,
+  hourHeight: number,
+  minHeightPx: number,
+): number {
+  const durationMs = clusterEnd.getTime() - clusterStart.getTime();
+  const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);
+  return Math.max(durationHours * hourHeight, minHeightPx);
+}
+
 /** Caixa da lista empilhada (todas as tarefas do grupo, com scroll se precisar). */
 export function getStackClusterStyle(
   clusterStart: Date,

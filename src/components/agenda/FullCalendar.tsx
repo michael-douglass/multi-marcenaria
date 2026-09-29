@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { 
   format, 
   addMonths, 
@@ -652,6 +652,8 @@ export function FullCalendar({
         key={clusterKey}
         variant="overflow-chip"
         clusterStart={cluster.start}
+        clusterEnd={cluster.end}
+        minTimeSpanPx={minHeight}
         events={cluster.allEvents}
         hourHeight={hourHeight}
         compact={compact}
@@ -674,12 +676,15 @@ export function FullCalendar({
   const renderStackedCluster = (
     cluster: TimedClusterLayout<AgendaEvent>,
     hourHeight: number,
+    minHeight: number,
   ) => {
     const clusterKey = `stack:${cluster.start.toISOString()}`;
     return (
       <AgendaHourClusterBox
         key={clusterKey}
         clusterStart={cluster.start}
+        clusterEnd={cluster.end}
+        minTimeSpanPx={minHeight}
         events={cluster.allEvents}
         hourHeight={hourHeight}
         chipHeightPx={EVENT_STACK_CHIP_HEIGHT_PX * (compact ? Math.min(zoomScale, 1.15) : 1)}
@@ -848,17 +853,25 @@ export function FullCalendar({
     const { timed } = partitionTimedUntimedEvents(dayEvents);
     const clusters = layoutTimedClusters(timed, clusterLayoutOptions);
 
-    return clusters.flatMap((cluster) => {
+    const columnNodes: ReactNode[] = [];
+    const overlayNodes: ReactNode[] = [];
+
+    for (const cluster of clusters) {
       if (cluster.useStack) {
-        return [renderStackedCluster(cluster, hourHeight)];
+        overlayNodes.push(renderStackedCluster(cluster, hourHeight, minHeight));
+        continue;
       }
-      return [
+      columnNodes.push(
         ...cluster.layouted.map((item) =>
           renderColumnClusterEvent(item, targetDay, hourHeight, minHeight, weekMode),
         ),
-        renderOverflowMoreChip(cluster, hourHeight, minHeight),
-      ];
-    });
+      );
+      const overflow = renderOverflowMoreChip(cluster, hourHeight, minHeight);
+      if (overflow) overlayNodes.push(overflow);
+    }
+
+    /** Tarefas soltas por cima das caixas de fila (z-10 vs z-[8]) para não sumirem atrás. */
+    return [...columnNodes, ...overlayNodes];
   };
 
   const renderUntimedStrip = (untimedEvents: AgendaEvent[], dense = false) => {

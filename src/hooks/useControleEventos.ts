@@ -12,7 +12,7 @@ import {
   totalLinhaItem,
 } from '@/lib/evento-helpers'
 import { parseEventoItem, parseEventoPasta, parseEventoTarefa } from '@/lib/evento-parse'
-import { EVENTO_SECOES } from '@/lib/evento-types'
+import { EVENTO_CADERNOS_PADRAO } from '@/lib/evento-types'
 import type { EventoPastaCard, EventoTipo } from '@/lib/evento-types'
 
 export interface EventoPastaInput {
@@ -162,14 +162,36 @@ export function useControleEventos() {
       const pasta = parseEventoPasta(data)
       if (!pasta) throw new Error('Não foi possível criar a pasta')
 
+      const { data: cadernosRaw, error: cadernosError } = await db
+        .from(tables.cadernos)
+        .insert(
+          EVENTO_CADERNOS_PADRAO.map((c, ordem) => ({
+            evento_id: pasta.id,
+            titulo: c.titulo,
+            dica: c.dica,
+            ordem,
+          })),
+        )
+        .select('*')
+      if (cadernosError) throw cadernosError
+
+      const cadernos = [...(cadernosRaw ?? [])].sort(
+        (a, b) => Number((a as { ordem?: number }).ordem ?? 0) - Number((b as { ordem?: number }).ordem ?? 0),
+      )
+      if (cadernos.length === 0) throw new Error('Não foi possível criar os cadernos')
+
       const { error: paginasError } = await db.from(tables.paginas).insert(
-        EVENTO_SECOES.map((secao) => ({
-          evento_id: pasta.id,
-          secao,
-          titulo: '',
-          corpo: '',
-          ordem: 0,
-        })),
+        cadernos.map((row, i) => {
+          const padrao = EVENTO_CADERNOS_PADRAO[i] ?? EVENTO_CADERNOS_PADRAO[0]
+          return {
+            evento_id: pasta.id,
+            caderno_id: String((row as { id: string }).id),
+            secao: padrao.secao,
+            titulo: '',
+            corpo: '',
+            ordem: 0,
+          }
+        }),
       )
       if (paginasError) throw paginasError
       return pasta

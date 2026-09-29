@@ -1,6 +1,7 @@
 import { parseAnotacoes } from '@/lib/evento-helpers'
 import { isEventoUnidade } from '@/lib/evento-helpers'
 import type {
+  EventoCaderno,
   EventoCatalogoItem,
   EventoItem,
   EventoMidia,
@@ -28,9 +29,10 @@ function asTipo(value: unknown): EventoTipo {
   return (EVENTO_TIPOS as readonly string[]).includes(t) ? (t as EventoTipo) : 'outro'
 }
 
-function asSecao(value: unknown): EventoSecao {
+function asSecao(value: unknown): EventoSecao | 'livre' {
   const t = asText(value)
-  return (EVENTO_SECOES as readonly string[]).includes(t) ? (t as EventoSecao) : 'detalhes'
+  if ((EVENTO_SECOES as readonly string[]).includes(t)) return t as EventoSecao
+  return 'livre'
 }
 
 function asUnidade(value: unknown): EventoUnidade {
@@ -116,12 +118,29 @@ export function parseEventoItem(raw: unknown): EventoItem | null {
   }
 }
 
-export function parseEventoPagina(raw: unknown): EventoPagina | null {
+export function parseEventoCaderno(raw: unknown): EventoCaderno | null {
   const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   if (!row || typeof row.id !== 'string') return null
   return {
     id: row.id,
     evento_id: asText(row.evento_id),
+    titulo: asText(row.titulo),
+    dica: typeof row.dica === 'string' ? row.dica : null,
+    ordem: asNumber(row.ordem),
+    criado_em: asText(row.criado_em),
+    atualizado_em: asText(row.atualizado_em),
+  }
+}
+
+export function parseEventoPagina(raw: unknown): EventoPagina | null {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  if (!row || typeof row.id !== 'string') return null
+  const cadernoId = asText(row.caderno_id)
+  if (!cadernoId) return null
+  return {
+    id: row.id,
+    evento_id: asText(row.evento_id),
+    caderno_id: cadernoId,
     secao: asSecao(row.secao),
     titulo: asText(row.titulo),
     corpo: asText(row.corpo),
