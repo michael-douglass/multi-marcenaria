@@ -10,7 +10,7 @@
 - Página `/agenda-comercial` (aba Agenda Geral)
 - Arquivos principais: `useAgendaGeral.ts`, `useAgendaPessoal.ts`, `FullCalendar.tsx`, `AgendaHourClusterBox.tsx`, `calendar-event-layout.ts`
 
-**Relacionado:** [agenda-proximo.md](agenda-proximo.md) (cards, adiar, hover)
+**Relacionado:** [prd-agenda-popup-configuracoes.md](prd-agenda-popup-configuracoes.md) (tamanhos, agrupamento, prévia/adiar) · [agenda-proximo.md](agenda-proximo.md) (cards, adiar, hover)
 
 ---
 

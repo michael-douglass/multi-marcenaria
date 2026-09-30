@@ -7,6 +7,7 @@ import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 import {
   EVENT_STACK_CHIP_HEIGHT_PX,
   EVENT_STACK_MAX_HEIGHT_PX,
+  EVENT_STACK_MIN_VISIBLE_ROWS,
   getClusterTimeSpanPx,
   getStackClusterStyle,
 } from '@/lib/calendar-event-layout';
@@ -125,8 +126,15 @@ export function AgendaHourClusterBox({
     chromePx + Math.max(miniFiltered.length, 1) * chipHeightPx,
     EVENT_STACK_MAX_HEIGHT_PX + chromePx,
   );
-  /** Nunca ultrapassa o slot de tempo do cluster — evita tapar tarefas de outras horas. */
-  const boxHeight = Math.min(desiredHeight, timeSpanPx);
+  /**
+   * Preferimos caber no intervalo do horário para não tapar a hora seguinte.
+   * Mas no painel estreito 1h ≈ 40px e só o cabeçalho+busca já passa disso —
+   * aí a lista sumia (contador dizia “10 tarefas”, chips invisíveis).
+   * Nesse caso permitimos ultrapassar o slot até caber um mínimo de linhas.
+   */
+  const minUsableHeight = chromePx + EVENT_STACK_MIN_VISIBLE_ROWS * chipHeightPx;
+  const heightCap = Math.max(timeSpanPx, minUsableHeight);
+  const boxHeight = Math.min(desiredHeight, heightCap);
 
   const openExpanded = (e: MouseEvent) => {
     e.preventDefault();

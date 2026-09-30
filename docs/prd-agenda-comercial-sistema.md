@@ -14,6 +14,7 @@
 
 | Documento | O que cobre |
 |-----------|-------------|
+| [prd-agenda-popup-configuracoes.md](prd-agenda-popup-configuracoes.md) | Tamanho do painel/cards, agrupamento por horário, prévia e adiamento |
 | [prd-agenda-layout-titularidade-caixas.md](prd-agenda-layout-titularidade-caixas.md) | Titularidade no painel flutuante + caixas de horário lotado |
 | [agenda-proximo.md](agenda-proximo.md) | Cards coloridos, balão de prévia, adiar, arrastar |
 | [menusidebar.md](menusidebar.md) | Onde a Agenda aparece no menu Comercial |

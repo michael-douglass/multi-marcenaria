@@ -41,6 +41,11 @@ export const EVENT_COMPACT_STACK_THRESHOLD = 3;
 export const EVENT_STACK_CHIP_HEIGHT_PX = 22;
 /** Altura máxima da caixa rolável de um grupo empilhado (px). */
 export const EVENT_STACK_MAX_HEIGHT_PX = 220;
+/**
+ * Quantas linhas de tarefa precisam caber na caixa além do cabeçalho/busca.
+ * No painel estreito a hora tem ~40px — sem este mínimo a lista some por completo.
+ */
+export const EVENT_STACK_MIN_VISIBLE_ROWS = 3;
 
 /** Tarefas criadas sem hora ficam à meia-noite com duração padrão de 1h. */
 export function isUntimedCalendarBlock(event: CalendarTimeRange): boolean {
