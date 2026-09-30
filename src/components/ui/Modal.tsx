@@ -100,7 +100,7 @@ export function Modal({
             <span
               id="modal-title"
               className={cn(
-                'min-w-0 flex-1 truncate font-display text-lg tracking-widest text-primary sm:text-xl',
+                'min-w-0 flex-1 truncate font-display text-lg tracking-widest text-[var(--color-gold-muted)] sm:text-xl',
                 tall && 'uppercase',
               )}
             >

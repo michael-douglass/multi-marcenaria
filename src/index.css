@@ -3987,6 +3987,61 @@ body::before {
   color: var(--color-gold-muted);
 }
 
+/* Inline styles do tema mogno (ex.: Dar Entrada) — o Modal vai para
+   document.body e não herda o remapeamento de .cobrancas-page-shell. */
+.modal-panel [style*="#fffaf4"],
+.modal-panel [style*="255, 250, 244"],
+.modal-panel [style*="#faf2ea"],
+.modal-panel [style*="250, 242, 234"],
+.modal-panel [style*="#e8d8ca"],
+.modal-panel [style*="232, 216, 202"],
+.modal-panel [style*="#edd9c4"],
+.modal-panel [style*="237, 217, 196"],
+.modal-panel [style*="#d4bc9f"],
+.modal-panel [style*="212, 188, 159"] {
+  color: var(--color-text-primary) !important;
+}
+.modal-panel [style*="#b8957f"],
+.modal-panel [style*="184, 149, 127"] {
+  color: var(--color-text-muted) !important;
+}
+.modal-panel [style*="#f2d892"],
+.modal-panel [style*="242, 216, 146"],
+.modal-panel [style*="#f6dc9a"],
+.modal-panel [style*="246, 220, 154"] {
+  color: var(--color-gold-muted) !important;
+}
+.modal-panel [style*="#4ade80"],
+.modal-panel [style*="74, 222, 128"] {
+  color: #146c38 !important;
+}
+.modal-panel [style*="#f87171"],
+.modal-panel [style*="248, 113, 113"] {
+  color: #9f1239 !important;
+}
+.modal-panel #modal-title {
+  color: var(--color-gold-muted);
+}
+
+/* Ficha escura do lead: mantém creme mesmo com remapeamento acima */
+.modal-panel .obra-lead-card [style*="#fffaf4"],
+.modal-panel .obra-lead-card [style*="#faf2ea"],
+.modal-panel .obra-lead-card [style*="#e8d8ca"],
+.modal-panel .obra-lead-card [style*="#edd9c4"],
+.modal-panel .obra-lead-card [style*="#d4bc9f"] {
+  color: #f3e2cc !important;
+}
+.modal-panel .obra-lead-card [style*="#f2d892"],
+.modal-panel .obra-lead-card [style*="#f6dc9a"] {
+  color: #f6dc9a !important;
+}
+.modal-panel .obra-lead-card [style*="#4ade80"] {
+  color: #4ade80 !important;
+}
+.modal-panel .obra-lead-card [style*="#f87171"] {
+  color: #f87171 !important;
+}
+
 .modal-panel [class*="bg-[rgba(16,8,6"],
 .modal-panel [class*="bg-[#100806"],
 .glass-card [class*="bg-[rgba(16,8,6"],

@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Save, FileDown, ClipboardList, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2, X } from 'lucide-react';
+import { Loader2, Save, FileDown, ClipboardList, Copy, Plus, Search, ChevronDown, Trash2, X } from 'lucide-react';
 import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -40,36 +40,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useMarkupCategorias, useMarkupProdutos } from '@/hooks/useMarkupProdutos';
+import { useMarkupProdutos } from '@/hooks/useMarkupProdutos';
 import { useMarkupConfig, useMarkupDespesaTemplates, useMarkupServicoTemplates } from '@/hooks/useMarkupConfig';
 import { useMarkupOrcamentos } from '@/hooks/useMarkupOrcamentos';
 import { useSyncLeadMarkupValor } from '@/hooks/useSyncLeadMarkupValor';
-import { useLeadAIMediaItems } from '@/hooks/useLeadAIMediaItems';
-import { useLeadPDFs } from '@/hooks/useLeadPDFs';
-import { useLeadAIAnalyses } from '@/hooks/useLeadAIAnalyses';
-import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
-import { PIPELINE_LEAD_AI_MODELS } from '@/lib/pipeline-lead-ai-config';
 import { useEmpresa } from '@/contexts/EmpresaContext';
-import { resolveSelectedForAPIDetailed, type LeadAIAnalysisItemPayload } from '@/lib/lead-ai-media-sources';
-import { invokeComposeMarkupIAStream, type MarkupIAComposeEvent } from '@/lib/markup-compose-api';
-import { MarkupIAComposeOverlay } from '@/components/markup/MarkupIAComposeOverlay';
-import { MarkupIAAnexosPicker } from '@/components/markup/MarkupIAAnexosPicker';
-import { MarkupIAConferenciaDialog } from '@/components/markup/MarkupIAConferenciaDialog';
 import { MarkupCatalogoCategoriaCard } from '@/components/markup/MarkupCatalogoCategoriaCard';
-import { normalizarChecklistVerificacao } from '@/lib/markup-ia-verificacao';
-import {
-  aplicarComposicaoIA,
-  criarModulosBaseParaComposicaoIA,
-  criarSnapshotComposicaoAnterior,
-  orcamentoTemComposicao,
-  podeDesfazerComposicaoIA,
-  resolverComposicaoAnterior,
-  sincronizarResumoIADosModulos,
-} from '@/lib/markup-compose';
-import type { MarkupComposicaoAnterior, MarkupComposeIAResult, MarkupLinhaOrigemIA, MarkupAuditorLucroMeta } from '@/lib/markup-types';
-import { aplicarRevisaoNaComposicao, sintetizarItensExtraidos } from '@/lib/markup-extracao';
-import type { MarkupItemExtraido } from '@/lib/markup-match';
-import { MarkupIAResumoPanel } from '@/components/markup/MarkupIAResumoPanel';
+import { sincronizarResumoIADosModulos } from '@/lib/markup-compose';
+import type { MarkupComposicaoAnterior, MarkupLinhaOrigemIA, MarkupAuditorLucroMeta } from '@/lib/markup-types';
 import { MarkupLucroReaisInput } from '@/components/markup/MarkupLucroReaisInput';
 import { recalcularModulos, formatarMoedaMarkup, aplicarConfiguracaoFixaNosModulos, garantirEstruturaModulos, arredondar, calcularDescontoPercentFromPrecoAlvo, calcularMargemPercentFromLucroAlvo } from '@/lib/markup-calculo';
 import {
@@ -303,15 +281,10 @@ export function MarkupCalculatorSheet({
   const podeVerResumo = podeVerMarkupResumo(userRole, isSuperAdmin);
   const { empresa, schemaEmpresa, queriesReady } = useEmpresa();
   const { config, isLoading: loadingConfig } = useMarkupConfig();
-  const { config: pipelineAiConfig } = usePipelineLeadAIConfig();
   const { syncValorLead } = useSyncLeadMarkupValor();
-  const { data: produtos = [], isLoading: loadingProdutos, criarProduto } = useMarkupProdutos();
-  const { data: categorias = [] } = useMarkupCategorias();
+  const { data: produtos = [], isLoading: loadingProdutos } = useMarkupProdutos();
   const { data: despesaTemplates = [], isLoading: loadingDespesas } = useMarkupDespesaTemplates();
   const { data: servicoTemplates = [], isLoading: loadingServicos } = useMarkupServicoTemplates();
-  const { items: leadMediaItems, isLoading: leadMediaLoading } = useLeadAIMediaItems(leadId);
-  const { uploadPDF: uploadAnexoIA } = useLeadPDFs(leadId);
-  const { data: analises = [] } = useLeadAIAnalyses(leadId);
   const { orcamentos, salvarOrcamento, duplicarOrcamento, removerOrcamento, aplicarAuditorLucroNoLead, isLoading: loadingOrcamentos } =
     useMarkupOrcamentos(leadId);
 
@@ -324,22 +297,6 @@ export function MarkupCalculatorSheet({
   const [exportando, setExportando] = useState(false);
   const [exportandoListaMateriais, setExportandoListaMateriais] = useState(false);
   const [confirmExcluirAberto, setConfirmExcluirAberto] = useState(false);
-  const [compondoIA, setCompondoIA] = useState(false);
-  const [composeEvents, setComposeEvents] = useState<MarkupIAComposeEvent[]>([]);
-  const [composeError, setComposeError] = useState<string | null>(null);
-  const [composeItens, setComposeItens] = useState<LeadAIAnalysisItemPayload[]>([]);
-  // Modelo escolhido no ponto de uso — começa vazio (usa o padrão de Markup → Configurações → IA);
-  // só existe enquanto o popup está aberto, não é persistido.
-  const [iaModelOverride, setIaModelOverride] = useState<string>('');
-  const composeAbortRef = useRef<AbortController | null>(null);
-  const [selectedMediaKeys, setSelectedMediaKeys] = useState<Set<string>>(new Set());
-  const mediaSelectionInitRef = useRef(false);
-  const [conferenciaAberta, setConferenciaAberta] = useState(false);
-  const [itensConferencia, setItensConferencia] = useState<MarkupItemExtraido[]>([]);
-  const [limitesConferencia, setLimitesConferencia] = useState<MarkupComposeIAResult['limites_anexos']>(null);
-  const pendingComposeRef = useRef<MarkupComposeIAResult | null>(null);
-  const lastComposeResultRef = useRef<MarkupComposeIAResult | null>(null);
-  const [desfazendoComposicao, setDesfazendoComposicao] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('materiais');
   const [composicaoExpandida, setComposicaoExpandida] = useState(false);
   const [formHydrated, setFormHydrated] = useState(false);
@@ -383,14 +340,6 @@ export function MarkupCalculatorSheet({
       if (open) setMarkupCalculatorOpenFlag(false);
     };
   }, [open]);
-
-  useEffect(() => {
-    if (mediaSelectionInitRef.current || leadMediaItems.length === 0) return;
-    mediaSelectionInitRef.current = true;
-    const anexos = leadMediaItems.filter((item) => item.source === 'anexo');
-    const padrao = anexos.length > 0 ? anexos : leadMediaItems;
-    setSelectedMediaKeys(new Set(padrao.map((item) => item.key)));
-  }, [leadMediaItems]);
 
   const servicoTemplatesEfetivos = useMemo(
     () => resolverServicoTemplatesEfetivos(servicoTemplates, config),
@@ -858,21 +807,6 @@ export function MarkupCalculatorSheet({
     [config],
   );
 
-  const onEditarTextoResumo = useCallback(
-    (texto: string) => {
-      atualizarModulos((prev) => ({
-        ...prev,
-        meta: {
-          ...prev.meta,
-          resumo_ia: prev.meta?.resumo_ia
-            ? { ...prev.meta.resumo_ia, texto_resumo: texto }
-            : undefined,
-        },
-      }));
-    },
-    [atualizarModulos],
-  );
-
   const onToggleMaterial = useCallback(
     (produtoId: string, ativo: boolean) => {
       atualizarModulos((prev) => ({
@@ -901,18 +835,6 @@ export function MarkupCalculatorSheet({
           ),
         },
       }));
-    },
-    [atualizarModulos],
-  );
-
-  const onToggleDespesaResumo = useCallback(
-    (index: number, ativo: boolean) => {
-      atualizarModulos((prev) => {
-        const despesas = [...prev.despesas];
-        if (!despesas[index]) return prev;
-        despesas[index] = { ...despesas[index], ativo };
-        return { ...prev, despesas };
-      });
     },
     [atualizarModulos],
   );
@@ -1424,398 +1346,6 @@ export function MarkupCalculatorSheet({
     }
   };
 
-  const aplicarResultadoComposicao = async (resultado: MarkupComposeIAResult) => {
-    const modulosAtuais = garantirEstruturaModulos(modulos, config);
-    const tinhaComposicao = orcamentoTemComposicao(modulosAtuais);
-    const composicaoAnterior = tinhaComposicao
-      ? criarSnapshotComposicaoAnterior(modulosAtuais, titulo, obsRodape)
-      : null;
-    composicaoAnteriorRef.current = composicaoAnterior;
-
-    const templatesServico =
-      servicoTemplates.length > 0 ? servicoTemplates : servicoTemplatesEfetivos;
-    const modulosBase = criarModulosBaseParaComposicaoIA(
-      config,
-      despesaTemplates,
-      templatesServico,
-    );
-
-    const { modulos: modulosComposicao, validacao } = aplicarComposicaoIA(
-      modulosBase,
-      resultado,
-      produtos,
-      despesaTemplates,
-      templatesServico,
-      config,
-    );
-
-    if (validacao.bloquearSave) {
-      composicaoAnteriorRef.current = modulos.meta?.composicao_anterior ?? null;
-      toast.error('Composição com IDs inválidos', {
-        description: validacao.erros.slice(0, 3).join(' · '),
-      });
-      return;
-    }
-
-    const modulosAtualizados = recalcularModulos(
-      aplicarConfiguracaoFixaNosModulos(config, modulosComposicao),
-    );
-    const modulosComResumo = sincronizarResumoIADosModulos(modulosAtualizados);
-    const modulosComMeta: MarkupModulos = garantirEstruturaModulos(
-      {
-        ...modulosComResumo,
-        meta: {
-          ...modulosComResumo.meta,
-          ...(composicaoAnterior ? { composicao_anterior: composicaoAnterior } : {}),
-        },
-      },
-      config,
-    );
-    setModulos(modulosComMeta);
-    setFormDirty(true);
-    if (podeVerResumo) setAbaAtiva('resumo');
-
-    const preco = modulosComMeta.totais.preco_final;
-    const itensDespesa = resultado.despesas?.filter((d) => d.ativo).length ?? 0;
-    const avisosTexto = [
-      validacao.subtotalMateriais > 0
-        ? `Materiais: ${formatarMoedaMarkup(validacao.subtotalMateriais)}`
-        : null,
-      ...validacao.avisos.slice(0, 2),
-    ]
-      .filter(Boolean)
-      .join(' · ');
-
-    if (resultado.bloqueado || (resultado.faltantes_criticos?.length ?? 0) > 0) {
-      toast.warning('Composição incompleta', {
-        description:
-          resultado.faltantes_criticos?.slice(0, 3).join(' · ') ||
-          'Faltam dobradiças, corrediças ou fitas — revise antes de enviar ao cliente.',
-      });
-    } else {
-      toast.success(
-        tinhaComposicao ? 'Nova composição com IA aplicada!' : 'Composição com IA concluída!',
-        {
-          description:
-            avisosTexto ||
-            (tinhaComposicao
-              ? 'A precificação anterior foi substituída pela nova análise.'
-              : `${resultado.itens_processados ?? 0} materiais · mão de obra · ${itensDespesa} despesas`),
-        },
-      );
-    }
-    const saved = await salvarOrcamento.mutateAsync({
-      id: orcamentoId ?? undefined,
-      lead_id: leadId,
-      titulo: resolverTituloMarkup(leadNome, titulo),
-      modulos: modulosComMeta,
-      preco_final: preco,
-      observacoes_rodape: obsRodape,
-      status: 'rascunho',
-      silent: true,
-    });
-    setOrcamentoId(saved.id);
-    const tituloSalvo = resolverTituloMarkup(leadNome, titulo);
-    if (tituloSalvo !== titulo) {
-      setTitulo(tituloSalvo);
-    }
-    lastSnapshotRef.current = snapshotMarkupForm({
-      leadId,
-      orcamentoId: saved.id,
-      titulo: tituloSalvo,
-      obsRodape,
-      modulos: modulosComMeta,
-    });
-    if (preco > 0) {
-      onPrecoFinalChangeRef.current?.(preco);
-      await syncValorLead(leadId, preco);
-    }
-  };
-
-  const handleComporComIA = async () => {
-    if (!config.markup_ia_ativo) {
-      toast.error('Composição com IA desativada', {
-        description: 'Ative em Markup → Configurações → IA.',
-      });
-      return;
-    }
-
-    if (!pipelineAiConfig?.apiKeyConfigured) {
-      toast.error('Chave OpenAI não configurada', {
-        description: 'Configure em Pipeline → Configurações → IA do Lead.',
-      });
-      return;
-    }
-
-    if (!pipelineAiConfig.ativo) {
-      toast.error('IA do pipeline desativada', {
-        description: 'Ative a IA do lead nas configurações do pipeline.',
-      });
-      return;
-    }
-
-    const selecionados = leadMediaItems.filter((item) => selectedMediaKeys.has(item.key));
-    const temMidia = selecionados.length > 0;
-    const temAnalise = analises.length > 0;
-
-    if (!temMidia && !temAnalise) {
-      toast.error('Nenhum material para analisar', {
-        description: 'Marque PDFs ou fotos do lead acima, ou execute a análise visual da Íris.',
-      });
-      return;
-    }
-
-    if (leadMediaItems.length > 0 && selecionados.length === 0) {
-      toast.error('Selecione os anexos', {
-        description: 'Marque pelo menos um PDF ou foto já anexado no lead.',
-      });
-      return;
-    }
-
-    setCompondoIA(true);
-    setComposeEvents([]);
-    setComposeError(null);
-    composeAbortRef.current?.abort();
-    const abortController = new AbortController();
-    composeAbortRef.current = abortController;
-    try {
-      const detalhe = temMidia
-        ? await resolveSelectedForAPIDetailed(selecionados)
-        : { payload: [], limites: { arquivosSelecionados: 0, arquivosEnviados: 0, arquivosOmitidos: 0, paginasEnviadas: 0, paginasOmitidas: 0, avisos: [] } };
-      setComposeItens(detalhe.payload);
-
-      for (const aviso of detalhe.limites.avisos) {
-        toast.warning('Limite de leitura da IA', { description: aviso });
-      }
-      // Aviso de custo/tempo: o pipeline já dispara várias chamadas à IA por composição
-      // (fidelidade + projetista + 1 por categoria de inventário + auditores + precificador);
-      // com muitas páginas cada chamada fica mais cara e mais lenta, mesmo sem mudar a
-      // quantidade de chamadas. Só um alerta, não bloqueia — decisão continua do usuário.
-      if (detalhe.limites.paginasEnviadas > 15) {
-        toast.info('Documento grande', {
-          description: `${detalhe.limites.paginasEnviadas} páginas enviadas — a composição pode demorar mais e custar mais tokens de IA do que o normal.`,
-        });
-      }
-
-      const resultado = await invokeComposeMarkupIAStream(
-        {
-          leadId,
-          leadName: leadNome,
-          empresaSchema: schemaEmpresa,
-          itens: detalhe.payload,
-          stream: true,
-          signal: abortController.signal,
-          model: iaModelOverride || undefined,
-        },
-        (event) => {
-          setComposeEvents((prev) => [...prev, event]);
-        },
-      );
-
-      const resultadoComLimites: MarkupComposeIAResult = {
-        ...resultado,
-        limites_anexos: detalhe.limites,
-      };
-      const extraidos = sintetizarItensExtraidos(resultadoComLimites, produtos);
-      pendingComposeRef.current = resultadoComLimites;
-      lastComposeResultRef.current = resultadoComLimites;
-      setItensConferencia(extraidos);
-      setLimitesConferencia(detalhe.limites);
-      setConferenciaAberta(true);
-      if (extraidos.length === 0) {
-        toast.warning('Nenhum material extraído dos anexos', {
-          description: 'Você ainda pode aplicar serviços e despesas, ou cancelar a conferência.',
-        });
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setComposeError('Composição cancelada pelo usuário.');
-        toast.info('Composição com IA cancelada');
-        return;
-      }
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'string'
-            ? err
-            : 'Erro ao compor markup com IA';
-      setComposeError(message);
-      console.error('[Markup] Falha na composição com IA:', err);
-      toast.error('Falha na composição com IA', { description: message });
-    } finally {
-      composeAbortRef.current = null;
-      setCompondoIA(false);
-    }
-  };
-
-  const handleCadastrarProdutoConferencia = async (payload: {
-    nome: string;
-    variacao: string | null;
-    unidade: string;
-    preco_unitario: number | null;
-    categoria_id: string;
-  }) => {
-    const maxOrdem = produtos.reduce((acc, p) => Math.max(acc, p.ordem ?? 0), 0);
-    const criado = await criarProduto.mutateAsync({
-      categoria_id: payload.categoria_id,
-      nome: payload.nome,
-      variacao: payload.variacao,
-      preco_unitario: payload.preco_unitario,
-      unidade: payload.unidade,
-      quantidade_padrao: 0,
-      ativo: true,
-      ordem: maxOrdem + 1,
-    });
-    if (!criado || typeof criado !== 'object' || !('id' in criado)) return null;
-    const registro = criado as { id: unknown; unidade?: unknown };
-    return {
-      id: String(registro.id),
-      unidade: typeof registro.unidade === 'string' ? registro.unidade : payload.unidade,
-    };
-  };
-
-  const handleConfirmarConferencia = async () => {
-    const pendente = pendingComposeRef.current;
-    if (!pendente) {
-      setConferenciaAberta(false);
-      return;
-    }
-    const revisado = aplicarRevisaoNaComposicao(pendente, itensConferencia);
-    setConferenciaAberta(false);
-    lastComposeResultRef.current = revisado;
-    pendingComposeRef.current = null;
-    try {
-      await aplicarResultadoComposicao(revisado);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao aplicar conferência';
-      toast.error('Falha ao aplicar conferência', { description: message });
-    }
-  };
-
-  const handleReabrirConferencia = () => {
-    const extraidos = modulos.meta?.resumo_ia?.itens_extraidos;
-    if (!extraidos?.length) {
-      toast.info('Não há extração para reconferir neste markup.');
-      return;
-    }
-    const fallback = lastComposeResultRef.current;
-    pendingComposeRef.current = {
-      comodos: fallback?.comodos ?? [],
-      servicos:
-        fallback?.servicos ??
-        (modulos.servicos?.linhas ?? [])
-          .filter((linha) => Boolean(linha.template_id))
-          .map((linha) => ({ template_id: linha.template_id as string, horas: linha.horas })),
-      despesas:
-        fallback?.despesas ??
-        (modulos.despesas ?? [])
-          .filter((linha) => Boolean(linha.template_id))
-          .map((linha) => ({
-            template_id: linha.template_id as string,
-            ativo: linha.ativo,
-            valor: linha.valor,
-          })),
-      resumo_texto: fallback?.resumo_texto ?? modulos.meta?.resumo_ia?.texto_resumo ?? '',
-      itens_nao_catalogados: fallback?.itens_nao_catalogados ?? modulos.meta?.resumo_ia?.itens_nao_catalogados,
-      itens_extraidos: extraidos,
-      limites_anexos: fallback?.limites_anexos ?? modulos.meta?.resumo_ia?.limites_anexos,
-      verificacao_categorias: fallback?.verificacao_categorias ?? modulos.meta?.resumo_ia?.verificacao_categorias,
-      levantamento_projetista:
-        fallback?.levantamento_projetista ?? modulos.meta?.resumo_ia?.levantamento_projetista,
-      produtos_origem_projetista:
-        fallback?.produtos_origem_projetista ?? modulos.meta?.resumo_ia?.produtos_origem_projetista,
-      bloqueado: fallback?.bloqueado ?? modulos.meta?.resumo_ia?.bloqueado,
-      faltantes_criticos: fallback?.faltantes_criticos ?? modulos.meta?.resumo_ia?.faltantes_criticos,
-    };
-    setItensConferencia(extraidos);
-    setLimitesConferencia(pendingComposeRef.current.limites_anexos ?? null);
-    setConferenciaAberta(true);
-  };
-
-  const checklistAtivo = useMemo(() => {
-    const checklist = normalizarChecklistVerificacao(config.markup_ia_verificacao);
-    return checklist.filter((c) => c.ativo);
-  }, [config.markup_ia_verificacao]);
-
-  const categoriaIds = useMemo(
-    () => checklistAtivo.map((c) => c.id),
-    [checklistAtivo],
-  );
-
-  const categoriaNomes = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const c of checklistAtivo) map[c.id] = c.nome;
-    return map;
-  }, [checklistAtivo]);
-
-  const temComposicaoIA = podeDesfazerComposicaoIA(modulosSeguros);
-  const temBackupComposicao = Boolean(
-    resolverComposicaoAnterior(modulosSeguros, composicaoAnteriorRef.current),
-  );
-
-  const handleDesfazerComposicaoIA = async () => {
-    if (!temComposicaoIA) {
-      toast.error('Não há composição da IA para desfazer');
-      return;
-    }
-
-    const anterior = resolverComposicaoAnterior(modulos, composicaoAnteriorRef.current);
-    if (!anterior) {
-      toast.error('Backup indisponível', {
-        description:
-          'Este orçamento foi composto antes desta atualização. Componha novamente com IA para habilitar o desfazer.',
-      });
-      return;
-    }
-
-    setDesfazendoComposicao(true);
-    try {
-      const modulosRestaurados = recalcularModulos(
-        aplicarConfiguracaoFixaNosModulos(config, anterior.modulos),
-      );
-      const tituloRestaurado = resolverTituloMarkup(leadNome, anterior.titulo);
-      setTitulo(tituloRestaurado);
-      setObsRodape(anterior.observacoes_rodape);
-      setModulos(modulosRestaurados);
-      composicaoAnteriorRef.current = null;
-      setFormDirty(false);
-      setAbaAtiva('materiais');
-
-      const preco = modulosRestaurados.totais.preco_final;
-      const saved = await salvarOrcamento.mutateAsync({
-        id: orcamentoId ?? undefined,
-        lead_id: leadId,
-        titulo: tituloRestaurado,
-        modulos: modulosRestaurados,
-        preco_final: preco,
-        observacoes_rodape: anterior.observacoes_rodape,
-        status: 'rascunho',
-        silent: true,
-      });
-      setOrcamentoId(saved.id);
-      lastSnapshotRef.current = snapshotMarkupForm({
-        leadId,
-        orcamentoId: saved.id,
-        titulo: tituloRestaurado,
-        obsRodape: anterior.observacoes_rodape,
-        modulos: modulosRestaurados,
-      });
-      onPrecoFinalChangeRef.current?.(preco);
-      await syncValorLead(leadId, preco);
-      toast.success('Composição da IA desfeita', {
-        description:
-          preco > 0
-            ? `Preço restaurado: ${formatarMoedaMarkup(preco)}`
-            : 'Orçamento restaurado ao estado anterior à composição',
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao desfazer composição';
-      toast.error('Falha ao desfazer composição', { description: message });
-    } finally {
-      setDesfazendoComposicao(false);
-    }
-  };
-
   const termoBusca = busca.trim();
 
   const textoBuscaProduto = (p: (typeof produtos)[0]) =>
@@ -1907,29 +1437,6 @@ export function MarkupCalculatorSheet({
           <X className="h-4 w-4" />
         </button>
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-        <MarkupIAComposeOverlay
-          open={compondoIA}
-          events={composeEvents}
-          categoriaIds={categoriaIds}
-          categoriaNomes={categoriaNomes}
-          error={composeError}
-          itens={composeItens}
-          onCancel={() => composeAbortRef.current?.abort()}
-        />
-        <MarkupIAConferenciaDialog
-          open={conferenciaAberta}
-          itens={itensConferencia}
-          produtos={produtos}
-          categorias={categorias}
-          limites={limitesConferencia}
-          onChange={setItensConferencia}
-          onConfirm={() => void handleConfirmarConferencia()}
-          onCadastrarProduto={handleCadastrarProdutoConferencia}
-          onCancel={() => {
-            setConferenciaAberta(false);
-            pendingComposeRef.current = null;
-          }}
-        />
         <SheetHeader className="shrink-0 min-w-0 space-y-3 border-b px-6 pb-4 pt-6 pr-12">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <SheetTitle className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-base sm:text-lg">
@@ -1989,76 +1496,6 @@ export function MarkupCalculatorSheet({
               )}
               Salvar
             </Button>
-            {config.markup_ia_ativo && (
-              <div className="inline-flex">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleComporComIA}
-                  disabled={compondoIA || desfazendoComposicao || !formHydrated}
-                  className="rounded-r-none border-r border-secondary-foreground/10"
-                >
-                  {compondoIA ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 mr-1" />
-                  )}
-                  Compor com IA
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={compondoIA || desfazendoComposicao || !formHydrated}
-                      className="rounded-l-none px-2"
-                      aria-label="Mais opções de composição com IA"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={handleComporComIA}
-                      disabled={compondoIA || desfazendoComposicao || !formHydrated}
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Compor com IA
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={handleDesfazerComposicaoIA}
-                      disabled={
-                        !temComposicaoIA || !temBackupComposicao || compondoIA || desfazendoComposicao
-                      }
-                    >
-                      {desfazendoComposicao ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Undo2 className="h-4 w-4 mr-2" />
-                      )}
-                      Desfazer composição
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
-            {config.markup_ia_ativo && (
-              <select
-                value={iaModelOverride}
-                onChange={(e) => setIaModelOverride(e.target.value)}
-                disabled={compondoIA || desfazendoComposicao || !formHydrated}
-                aria-label="Modelo de IA para esta composição"
-                title="Modelo de IA para esta composição (não altera a configuração padrão)"
-                className="h-9 rounded-md border bg-background px-2 text-xs md:text-sm"
-              >
-                <option value="">Recomendado ({config.markup_ia_model})</option>
-                {PIPELINE_LEAD_AI_MODELS.map((m) => (
-                  <option key={m.value} value={m.value} title={m.description}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            )}
             <Button
               size="sm"
               variant="outline"
@@ -2136,17 +1573,6 @@ export function MarkupCalculatorSheet({
                   {o.titulo}
                 </Button>
               ))}
-            </div>
-          )}
-          {config.markup_ia_ativo && (
-            <div className="pt-2">
-              <MarkupIAAnexosPicker
-                items={leadMediaItems}
-                selectedKeys={selectedMediaKeys}
-                onChange={setSelectedMediaKeys}
-                isLoading={leadMediaLoading}
-                onUpload={uploadAnexoIA}
-              />
             </div>
           )}
         </SheetHeader>
@@ -2287,19 +1713,7 @@ export function MarkupCalculatorSheet({
                                 <span className="line-clamp-2">{categoria}</span>
                               </TableCell>
                               <TableCell className="max-w-[180px]">
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="truncate text-sm font-medium">{linha.descricao}</span>
-                                  {linha.origem_ia === 'projetista_complemento' && (
-                                    <Badge variant="outline" className="w-fit border-sky-500/40 bg-sky-500/10 text-sky-600 text-[9px]">
-                                      Complemento
-                                    </Badge>
-                                  )}
-                                  {linha.origem_ia === 'projetista' && (
-                                    <Badge variant="outline" className="w-fit border-violet-500/40 bg-violet-500/10 text-violet-600 text-[9px]">
-                                      Projetista
-                                    </Badge>
-                                  )}
-                                </div>
+                                <span className="truncate text-sm font-medium">{linha.descricao}</span>
                               </TableCell>
                               <TableCell className="text-muted-foreground text-xs">
                                 {linha.variacao ?? '—'}
@@ -2558,15 +1972,6 @@ export function MarkupCalculatorSheet({
           {podeVerResumo && (
           <TabsContent value="resumo" className={cn(tabPanelScroll, 'pt-4')}>
               <div className="min-w-0 space-y-4">
-            <MarkupIAResumoPanel
-              meta={modulosSeguros.meta}
-              modulos={modulosSeguros}
-              onEditarTextoResumo={onEditarTextoResumo}
-              onToggleMaterial={onToggleMaterial}
-              onToggleServico={onToggleServico}
-              onToggleDespesa={onToggleDespesaResumo}
-              onReabrirConferencia={handleReabrirConferencia}
-            />
             <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-3">
               <div>
                 <p className="font-medium">Parâmetros deste orçamento</p>

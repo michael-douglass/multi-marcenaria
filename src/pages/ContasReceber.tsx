@@ -1222,12 +1222,16 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                 style={{
                   padding: '.65rem .4rem',
                   borderRadius: 8,
-                  border: form.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
-                  background: form.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
-                  color: form.tipo === t ? '#f2d892' : '#edd9c4',
+                  border: form.tipo === t
+                    ? '1.5px solid rgba(107, 63, 18, 0.45)'
+                    : '1px solid rgba(42, 24, 18, 0.16)',
+                  background: form.tipo === t
+                    ? 'rgba(242, 216, 146, 0.28)'
+                    : 'rgba(42, 24, 18, 0.03)',
+                  color: form.tipo === t ? '#6b3f12' : '#2a1812',
                   cursor: 'pointer',
                   fontSize: '.7rem',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textAlign: 'center',
                   fontFamily: 'Raleway, sans-serif',
                   lineHeight: 1.4,
@@ -1243,7 +1247,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
 
         {/* Opção de Entrada */}
         <div className="mb-4">
-          <label className="flex items-center gap-2 cursor-pointer section-label" style={{ color: '#f2d892' }}>
+          <label className="flex items-center gap-2 cursor-pointer section-label" style={{ color: '#6b3f12' }}>
             <input
               type="checkbox"
               checked={form.entradaAtiva}
@@ -1717,18 +1721,22 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
               width: '100%',
               padding: '.5rem .85rem',
               borderRadius: 8,
-              border: bulkPlan.temEntrada ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.25)',
-              background: bulkPlan.temEntrada ? 'rgba(240,210,140,.1)' : 'transparent',
-              color: bulkPlan.temEntrada ? '#f2d892' : '#edd9c4',
+              border: bulkPlan.temEntrada
+                ? '1.5px solid rgba(107, 63, 18, 0.45)'
+                : '1px solid rgba(42, 24, 18, 0.18)',
+              background: bulkPlan.temEntrada
+                ? 'rgba(242, 216, 146, 0.28)'
+                : 'rgba(42, 24, 18, 0.04)',
+              color: bulkPlan.temEntrada ? '#6b3f12' : '#2a1812',
               cursor: 'pointer',
               fontSize: '.78rem',
-              fontWeight: 600,
+              fontWeight: 700,
               fontFamily: 'Raleway, sans-serif',
               transition: 'all .15s',
             }}
           >
             <span>Dar Entrada Parcial</span>
-            <span style={{ fontSize: '.75rem', opacity: 0.7 }}>
+            <span style={{ fontSize: '.75rem', opacity: 0.75, color: '#6b5244' }}>
               {bulkPlan.temEntrada ? '▲ ocultar' : '▼ configurar'}
             </span>
           </button>
@@ -1738,8 +1746,8 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
               style={{
                 marginTop: '.4rem',
                 padding: '.65rem .85rem',
-                background: 'rgba(240,210,140,.04)',
-                border: '1px solid rgba(240,210,140,.15)',
+                background: 'rgba(242, 216, 146, 0.12)',
+                border: '1px solid rgba(107, 63, 18, 0.2)',
                 borderRadius: 8,
               }}
             >
@@ -1794,11 +1802,11 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                   }}
                 >
                   <span className="section-label">Valor a reestruturar</span>
-                  <span style={{ color: '#fffaf4', textAlign: 'right' }}>
+                  <span style={{ color: '#2a1812', textAlign: 'right', fontWeight: 600 }}>
                     {fmtCur(bulkValorDisponivel)}
                   </span>
                   <span className="section-label">Entrada</span>
-                  <span style={{ color: '#f2d892', textAlign: 'right' }}>
+                  <span style={{ color: '#6b3f12', textAlign: 'right', fontWeight: 600 }}>
                     − {fmtCur(bulkEntradaVal)}
                   </span>
                   <span
@@ -1848,12 +1856,16 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
                 style={{
                   padding: '.65rem .4rem',
                   borderRadius: 8,
-                  border: bulkPlan.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
-                  background: bulkPlan.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
-                  color: bulkPlan.tipo === t ? '#f2d892' : '#edd9c4',
+                  border: bulkPlan.tipo === t
+                    ? '1.5px solid rgba(107, 63, 18, 0.45)'
+                    : '1px solid rgba(42, 24, 18, 0.16)',
+                  background: bulkPlan.tipo === t
+                    ? 'rgba(242, 216, 146, 0.28)'
+                    : 'rgba(42, 24, 18, 0.03)',
+                  color: bulkPlan.tipo === t ? '#6b3f12' : '#2a1812',
                   cursor: 'pointer',
                   fontSize: '.7rem',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textAlign: 'center',
                   fontFamily: 'Raleway, sans-serif',
                   lineHeight: 1.4,

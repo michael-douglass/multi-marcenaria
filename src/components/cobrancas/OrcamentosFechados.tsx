@@ -819,8 +819,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
           {/* Histórico */}
           <div
             style={{
-              background: 'rgba(240,210,140,.06)',
-              border: '1px solid rgba(240,210,140,.2)',
+              background: 'rgba(242, 216, 146, 0.14)',
+              border: '1px solid rgba(107, 63, 18, 0.2)',
               borderRadius: 8,
               padding: '.65rem .85rem',
               marginBottom: '.75rem',
@@ -889,18 +889,24 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 width: '100%',
                 padding: '.5rem .85rem',
                 borderRadius: 8,
-                border: form.temEntrada ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.25)',
-                background: form.temEntrada ? 'rgba(240,210,140,.1)' : 'transparent',
-                color: form.temEntrada ? '#f2d892' : '#edd9c4',
+                border: form.temEntrada
+                  ? '1.5px solid rgba(107, 63, 18, 0.45)'
+                  : '1px solid rgba(42, 24, 18, 0.18)',
+                background: form.temEntrada
+                  ? 'rgba(242, 216, 146, 0.28)'
+                  : 'rgba(42, 24, 18, 0.04)',
+                color: form.temEntrada ? '#6b3f12' : '#2a1812',
                 cursor: 'pointer',
                 fontSize: '.78rem',
-                fontWeight: 600,
+                fontWeight: 700,
                 fontFamily: 'Raleway, sans-serif',
                 transition: 'all .15s',
               }}
             >
               <span>Dar Entrada Parcial</span>
-              <span style={{ fontSize: '.75rem', opacity: .7 }}>{form.temEntrada ? '▲ ocultar' : '▼ configurar'}</span>
+              <span style={{ fontSize: '.75rem', opacity: 0.75, color: '#6b5244' }}>
+                {form.temEntrada ? '▲ ocultar' : '▼ configurar'}
+              </span>
             </button>
 
             {form.temEntrada && (
@@ -908,8 +914,8 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 style={{
                   marginTop: '.4rem',
                   padding: '.65rem .85rem',
-                  background: 'rgba(240,210,140,.04)',
-                  border: '1px solid rgba(240,210,140,.15)',
+                  background: 'rgba(242, 216, 146, 0.12)',
+                  border: '1px solid rgba(107, 63, 18, 0.2)',
                   borderRadius: 8,
                 }}
               >
@@ -955,9 +961,9 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                     }}
                   >
                     <span className="section-label">Total da venda</span>
-                    <span style={{ color: '#fffaf4', textAlign: 'right' }}>{fmtCur(val)}</span>
+                    <span style={{ color: '#2a1812', textAlign: 'right', fontWeight: 600 }}>{fmtCur(val)}</span>
                     <span className="section-label">Entrada</span>
-                    <span style={{ color: '#f2d892', textAlign: 'right' }}>− {fmtCur(entradaVal)}</span>
+                    <span style={{ color: '#6b3f12', textAlign: 'right', fontWeight: 600 }}>− {fmtCur(entradaVal)}</span>
                     <span
                       className="section-label"
                       style={{ borderTop: '1px solid rgba(240,210,140,.18)', paddingTop: '.28rem', fontWeight: 600 }}
@@ -992,12 +998,16 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   style={{
                     padding: '.65rem .4rem',
                     borderRadius: 8,
-                    border: form.tipo === t ? '1.5px solid #f2d892' : '1px solid rgba(240,210,140,.2)',
-                    background: form.tipo === t ? 'rgba(240,210,140,.12)' : 'transparent',
-                    color: form.tipo === t ? '#f2d892' : '#edd9c4',
+                    border: form.tipo === t
+                      ? '1.5px solid rgba(107, 63, 18, 0.45)'
+                      : '1px solid rgba(42, 24, 18, 0.16)',
+                    background: form.tipo === t
+                      ? 'rgba(242, 216, 146, 0.28)'
+                      : 'rgba(42, 24, 18, 0.03)',
+                    color: form.tipo === t ? '#6b3f12' : '#2a1812',
                     cursor: 'pointer',
                     fontSize: '.7rem',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     textAlign: 'center',
                     fontFamily: 'Raleway, sans-serif',
                     lineHeight: 1.4,
