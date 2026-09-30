@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FileDown, ImagePlus, Plus, Printer, Trash2 } from 'lucide-react';
+import { FileDown, ImagePlus, ListPlus, Plus, Printer, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -38,6 +44,8 @@ import {
   criarItemOrcamentoSimples,
   criarOrcamentoSimplesPadrao,
   documentoPersistivelOrcamentoSimples,
+  itensComerciaisDeOrcamentos,
+  mesclarItensImportadosOrcamentoSimples,
   normalizarOrcamentoSimples,
   parseMoedaBrParaCentavos,
 } from '@/lib/markup-orcamento-simples';
@@ -102,6 +110,8 @@ export function MarkupOrcamentoSimplesDialog({
   const [logoEmbutida, setLogoEmbutida] = useState<string>('');
   const [exportando, setExportando] = useState<'pdf' | 'jpg' | null>(null);
   const [filePickerActive, setFilePickerActive] = useState(false);
+  const [importarOpen, setImportarOpen] = useState(false);
+  const [importarIds, setImportarIds] = useState<string[]>([]);
   const folhaRef = useRef<HTMLDivElement>(null);
   const origemCarregadaRef = useRef<string | null>(null);
   const docRef = useRef(doc);
@@ -139,10 +149,23 @@ export function MarkupOrcamentoSimplesDialog({
     if (!open) {
       origemCarregadaRef.current = null;
       setOrigemId(null);
+      setImportarOpen(false);
+      setImportarIds([]);
       return;
     }
     setOrigemId((atual) => atual ?? orcamentos[0]?.id ?? null);
   }, [open, orcamentos]);
+
+  useEffect(() => {
+    if (!importarOpen) return;
+    setImportarIds((atual) => {
+      const validos = new Set(orcamentos.map((item) => item.id));
+      const filtrados = atual.filter((id) => validos.has(id));
+      if (filtrados.length > 0) return filtrados;
+      if (origemId && validos.has(origemId)) return [origemId];
+      return orcamentos.map((item) => item.id);
+    });
+  }, [importarOpen, orcamentos, origemId]);
 
   useEffect(() => {
     if (!open || !origem) return;
@@ -218,6 +241,41 @@ export function MarkupOrcamentoSimplesDialog({
       ...atual,
       itens: [...atual.itens, criarItemOrcamentoSimples('Novo item', 0, 1)],
     }));
+  };
+
+  const aplicarItensDoMarkup = (selecionados: MarkupOrcamento[]) => {
+    if (selecionados.length === 0) {
+      toast.error('Marque pelo menos um markup.');
+      return;
+    }
+    const importados = itensComerciaisDeOrcamentos(selecionados);
+    const tinhaSoUmaLinha = docRef.current.itens.length <= 1;
+    setDoc((atual) => ({
+      ...atual,
+      itens: mesclarItensImportadosOrcamentoSimples(atual.itens, importados),
+    }));
+    toast.success(
+      tinhaSoUmaLinha
+        ? `${importados.length} item${importados.length === 1 ? '' : 's'} do markup na lista.`
+        : `${importados.length} item${importados.length === 1 ? '' : 's'} adicionados do markup.`,
+    );
+    setImportarOpen(false);
+  };
+
+  const importarItensMarkupRapido = () => {
+    if (orcamentos.length === 0) return;
+    if (orcamentos.length === 1) {
+      aplicarItensDoMarkup(orcamentos);
+      return;
+    }
+    setImportarOpen(true);
+  };
+
+  const toggleImportarId = (id: string, marcado: boolean) => {
+    setImportarIds((atual) => {
+      if (marcado) return atual.includes(id) ? atual : [...atual, id];
+      return atual.filter((item) => item !== id);
+    });
   };
 
   const removerItem = (id: string) => {
@@ -385,12 +443,112 @@ export function MarkupOrcamentoSimplesDialog({
             </div>
 
             <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label>Itens</Label>
-                <Button size="sm" variant="ghost" type="button" onClick={adicionarItem}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Linha
-                </Button>
+                <div className="flex flex-wrap items-center gap-1">
+                  {orcamentos.length <= 1 ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      disabled={orcamentos.length === 0}
+                      title="Trazer todos os itens do markup para esta lista"
+                      onClick={importarItensMarkupRapido}
+                    >
+                      <ListPlus className="h-3.5 w-3.5" />
+                      Do markup
+                    </Button>
+                  ) : (
+                    <Popover open={importarOpen} onOpenChange={setImportarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          type="button"
+                          title="Escolher markups e trazer os itens para esta lista"
+                        >
+                          <ListPlus className="h-3.5 w-3.5" />
+                          Do markup
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-[min(100vw-2rem,22rem)] space-y-3 p-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Trazer itens do markup</p>
+                          <p className="text-xs text-muted-foreground">
+                            Marque os cadernos. Entram móveis da composição (quando houver) ou o
+                            título com o preço final.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={importarIds.length === orcamentos.length}
+                            onClick={() => setImportarIds(orcamentos.map((item) => item.id))}
+                          >
+                            Selecionar todos
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            disabled={importarIds.length === 0}
+                            onClick={() => setImportarIds([])}
+                          >
+                            Limpar
+                          </Button>
+                        </div>
+                        <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                          {orcamentos.map((item) => {
+                            const marcado = importarIds.includes(item.id);
+                            return (
+                              <li key={item.id}>
+                                <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border/50 px-2 py-2 hover:bg-accent/40">
+                                  <Checkbox
+                                    checked={marcado}
+                                    onCheckedChange={(value) =>
+                                      toggleImportarId(item.id, value === true)
+                                    }
+                                    className="mt-0.5"
+                                    aria-label={`Incluir ${item.titulo}`}
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium leading-snug">
+                                      {item.titulo}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground tabular-nums">
+                                      {formatarMoedaMarkup(item.preco_final)}
+                                    </span>
+                                  </span>
+                                </label>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="w-full"
+                          disabled={importarIds.length === 0}
+                          onClick={() =>
+                            aplicarItensDoMarkup(
+                              orcamentos.filter((item) => importarIds.includes(item.id)),
+                            )
+                          }
+                        >
+                          Adicionar itens ({importarIds.length})
+                        </Button>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                  <Button size="sm" variant="ghost" type="button" onClick={adicionarItem}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Linha
+                  </Button>
+                </div>
               </div>
               <ul className="space-y-2">
                 {doc.itens.map((item) => (

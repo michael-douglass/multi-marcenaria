@@ -87,6 +87,118 @@ export function criarOrcamentoSimplesPadrao(orcamento: Pick<MarkupOrcamento, 'ti
   };
 }
 
+interface ParteComercialOrcamento {
+  descricao: string;
+  /** Peso para ratear o preço de venda (em geral o subtotal de custo do móvel/cômodo). */
+  peso: number;
+}
+
+/**
+ * Partes comerciais de um caderno: móveis da composição IA, senão cômodos,
+ * senão uma linha com o título + preço final.
+ */
+export function partesComerciaisDoOrcamento(
+  orcamento: Pick<MarkupOrcamento, 'titulo' | 'preco_final' | 'modulos'>,
+): ParteComercialOrcamento[] {
+  const comodos = orcamento.modulos?.meta?.resumo_ia?.comodos ?? [];
+  const moveis = comodos.flatMap((comodo) =>
+    (comodo.moveis ?? [])
+      .map((movel) => {
+        const nomeComodo = comodo.nome?.trim() || '';
+        const nomeMovel = movel.nome?.trim() || '';
+        if (!nomeComodo && !nomeMovel) return null;
+        const descricao =
+          nomeComodo && nomeMovel && nomeComodo !== nomeMovel
+            ? `${nomeComodo} — ${nomeMovel}`
+            : nomeMovel || nomeComodo;
+        return {
+          descricao,
+          peso: Math.max(0, Number(movel.subtotal) || 0),
+        };
+      })
+      .filter((parte): parte is ParteComercialOrcamento => parte != null),
+  );
+  if (moveis.length > 0) return moveis;
+
+  const soComodos = comodos
+    .map((comodo) => {
+      const nome = comodo.nome?.trim() || '';
+      if (!nome) return null;
+      return {
+        descricao: nome,
+        peso: Math.max(0, Number(comodo.subtotal) || 0),
+      };
+    })
+    .filter((parte): parte is ParteComercialOrcamento => parte != null);
+  if (soComodos.length > 0) return soComodos;
+
+  return [
+    {
+      descricao: orcamento.titulo.trim() || 'Orçamento',
+      peso: Math.max(0, Number(orcamento.preco_final) || 0),
+    },
+  ];
+}
+
+/** Rateia o preço de venda do caderno entre as partes comerciais (centavos). */
+export function ratearPrecoFinalEmItens(
+  partes: ParteComercialOrcamento[],
+  precoFinalReais: number,
+): MarkupOrcamentoSimplesItem[] {
+  if (partes.length === 0) {
+    return [criarItemOrcamentoSimples('Item', reaisParaCentavos(precoFinalReais), 1)];
+  }
+  const totalCentavos = reaisParaCentavos(precoFinalReais);
+  if (partes.length === 1) {
+    return [criarItemOrcamentoSimples(partes[0].descricao, totalCentavos, 1)];
+  }
+
+  const pesoTotal = partes.reduce((acc, parte) => acc + parte.peso, 0);
+  let restante = totalCentavos;
+  return partes.map((parte, index) => {
+    const ultimo = index === partes.length - 1;
+    let centavos: number;
+    if (pesoTotal <= 0) {
+      centavos = ultimo ? restante : Math.floor(totalCentavos / partes.length);
+    } else {
+      centavos = ultimo
+        ? restante
+        : Math.round((parte.peso / pesoTotal) * totalCentavos);
+    }
+    if (!ultimo) {
+      restante -= centavos;
+      if (restante < 0) {
+        centavos += restante;
+        restante = 0;
+      }
+    }
+    return criarItemOrcamentoSimples(parte.descricao, Math.max(0, centavos), 1);
+  });
+}
+
+/** Monta a lista comercial a partir de um ou mais markups selecionados. */
+export function itensComerciaisDeOrcamentos(
+  orcamentos: Array<Pick<MarkupOrcamento, 'titulo' | 'preco_final' | 'modulos'>>,
+): MarkupOrcamentoSimplesItem[] {
+  const itens = orcamentos.flatMap((orcamento) =>
+    ratearPrecoFinalEmItens(partesComerciaisDoOrcamento(orcamento), orcamento.preco_final),
+  );
+  return itens.length > 0 ? itens : [criarItemOrcamentoSimples('Item', 0, 1)];
+}
+
+/**
+ * Junta itens importados à lista atual.
+ * Se só havia a linha padrão (1 item), troca pela importação; senão acrescenta no fim.
+ */
+export function mesclarItensImportadosOrcamentoSimples(
+  atuais: MarkupOrcamentoSimplesItem[],
+  importados: MarkupOrcamentoSimplesItem[],
+): MarkupOrcamentoSimplesItem[] {
+  if (importados.length === 0) return atuais;
+  if (atuais.length <= 1) return importados;
+  return [...atuais, ...importados];
+}
+
 function lerItem(raw: unknown): MarkupOrcamentoSimplesItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;

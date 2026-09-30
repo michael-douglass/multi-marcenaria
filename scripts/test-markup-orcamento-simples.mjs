@@ -132,7 +132,18 @@ describe('Folha comercial — encaixe no markup existente', () => {
     assert.match(dialog, /Folha comercial/)
     assert.match(dialog, /data-markup-orcamento-simples/)
     assert.match(dialog, /silent: true/)
+    assert.match(dialog, /Do markup/)
+    assert.match(dialog, /Selecionar todos/)
+    assert.match(dialog, /itensComerciaisDeOrcamentos/)
     assert.doesNotMatch(chip, /MarkupOrcamentoSimples/)
+  })
+
+  it('importa itens comerciais a partir dos markups (móveis ou preço final)', () => {
+    const modelo = readSrc('src/lib/markup-orcamento-simples.ts')
+    assert.match(modelo, /partesComerciaisDoOrcamento/)
+    assert.match(modelo, /itensComerciaisDeOrcamentos/)
+    assert.match(modelo, /mesclarItensImportadosOrcamentoSimples/)
+    assert.match(modelo, /ratearPrecoFinalEmItens/)
   })
 
   it('exporta PDF/JPG fatiado e embute foto em JPEG', () => {

@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Save, FileDown, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2, X } from 'lucide-react';
+import { Loader2, Save, FileDown, ClipboardList, Copy, Plus, Search, Sparkles, ChevronDown, Undo2, Trash2, X } from 'lucide-react';
 import { MarkupAuditorLucro } from '@/components/markup/MarkupAuditorLucro';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -98,6 +98,10 @@ import {
   type MarkupOrcamento,
 } from '@/lib/markup-types';
 import { exportarMarkupPdf } from '@/lib/markup-pdf-export';
+import {
+  copiarListaMateriaisTexto,
+  exportarListaMateriaisPdf,
+} from '@/lib/markup-lista-materiais';
 import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -318,6 +322,7 @@ export function MarkupCalculatorSheet({
   const [busca, setBusca] = useState('');
   const [buscaServicos, setBuscaServicos] = useState('');
   const [exportando, setExportando] = useState(false);
+  const [exportandoListaMateriais, setExportandoListaMateriais] = useState(false);
   const [confirmExcluirAberto, setConfirmExcluirAberto] = useState(false);
   const [compondoIA, setCompondoIA] = useState(false);
   const [composeEvents, setComposeEvents] = useState<MarkupIAComposeEvent[]>([]);
@@ -1347,6 +1352,44 @@ export function MarkupCalculatorSheet({
     }
   };
 
+  const handleExportarListaMateriaisPdf = async () => {
+    setExportandoListaMateriais(true);
+    try {
+      await exportarListaMateriaisPdf(
+        {
+          titulo: resolverTituloMarkup(leadNome, titulo),
+          modulos,
+        },
+        {
+          empresaNome: empresa?.nome ?? 'Empresa',
+          clienteNome: leadNome,
+        },
+      );
+      toast.success('Lista de materiais baixada.');
+    } catch (e) {
+      toast.error('Não foi possível gerar a lista', {
+        description: e instanceof Error ? e.message : 'Erro desconhecido',
+      });
+    } finally {
+      setExportandoListaMateriais(false);
+    }
+  };
+
+  const handleCopiarListaMateriais = async () => {
+    try {
+      await copiarListaMateriaisTexto({
+        titulo: resolverTituloMarkup(leadNome, titulo),
+        clienteNome: leadNome,
+        modulos,
+      });
+      toast.success('Lista copiada. Pode colar no WhatsApp ou e-mail.');
+    } catch (e) {
+      toast.error('Não foi possível copiar a lista', {
+        description: e instanceof Error ? e.message : 'Erro desconhecido',
+      });
+    }
+  };
+
   const handleDuplicar = async () => {
     if (!orcamentoAtual) return;
     const copia = await duplicarOrcamento.mutateAsync(orcamentoAtual);
@@ -2020,7 +2063,7 @@ export function MarkupCalculatorSheet({
               size="sm"
               variant="outline"
               onClick={handleExportarPdf}
-              disabled={exportando}
+              disabled={exportando || exportandoListaMateriais}
             >
               {exportando ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -2029,6 +2072,38 @@ export function MarkupCalculatorSheet({
               )}
               PDF
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  disabled={exportando || exportandoListaMateriais}
+                  title="Extrair lista de MDF, ferragens, dobradiças e demais materiais com quantidades"
+                >
+                  {exportandoListaMateriais ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ClipboardList className="h-4 w-4 mr-1" />
+                  )}
+                  Materiais
+                  <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  disabled={exportandoListaMateriais}
+                  onClick={() => void handleExportarListaMateriaisPdf()}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Baixar PDF da lista
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void handleCopiarListaMateriais()}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar texto
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {orcamentoAtual && (
               <Button size="sm" variant="ghost" onClick={handleDuplicar}>
                 <Copy className="h-4 w-4 mr-1" />
