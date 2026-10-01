@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase';
+import { useLeads } from '@/hooks/useLeads';
+import { leadDetailQueryKey } from '@/lib/leads-cache';
 import {
   leadNegociacoesQueryKey,
   markupSchemaExtra,
@@ -95,6 +97,7 @@ export function useLeadNegociacoes(leadId?: number | null) {
   const { schemaEmpresa, queriesReady } = useEmpresa();
   const db = useEmpresaSupabase();
   const qc = useQueryClient();
+  const { updateLead } = useLeads({ fetchLeads: false });
   const table = resolveMarkupTable(schemaEmpresa, 'leadNegociacoes');
 
   const query = useQuery({
@@ -134,6 +137,7 @@ export function useLeadNegociacoes(leadId?: number | null) {
         ...markupSchemaExtra(schemaEmpresa),
       };
 
+      let negociacao: LeadNegociacao;
       if (input.id) {
         const { data, error } = await db
           .from(table as 'lead_negociacoes')
@@ -142,21 +146,35 @@ export function useLeadNegociacoes(leadId?: number | null) {
           .select('*')
           .single();
         if (error) throw error;
-        return parseNegociacao(data as Record<string, unknown>);
+        negociacao = parseNegociacao(data as Record<string, unknown>);
+      } else {
+        const { data, error } = await db
+          .from(table as 'lead_negociacoes')
+          .insert(payload)
+          .select('*')
+          .single();
+        if (error) throw error;
+        negociacao = parseNegociacao(data as Record<string, unknown>);
       }
 
-      const { data, error } = await db
-        .from(table as 'lead_negociacoes')
-        .insert(payload)
-        .select('*')
-        .single();
-      if (error) throw error;
-      return parseNegociacao(data as Record<string, unknown>);
+      // O valor fechado no Negociador vira o "Valor do orçamento" do lead.
+      const valorOrcamento = asNumber(negociacao.valor_negociado);
+      if (valorOrcamento > 0) {
+        await updateLead.mutateAsync({
+          id: negociacao.lead_id,
+          updates: { valor_orcamento: valorOrcamento },
+          silent: true,
+        });
+      }
+
+      return negociacao;
     },
-    onSuccess: () => {
+    onSuccess: (negociacao) => {
       qc.invalidateQueries({ queryKey: leadNegociacoesQueryKey(schemaEmpresa, leadId) });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: leadDetailQueryKey(negociacao.lead_id, schemaEmpresa) });
       toast.success('Negociação salva!', {
-        description: 'O valor fechado com o cliente ficou registrado neste lead.',
+        description: 'O valor negociado foi aplicado no Valor do orçamento deste lead.',
       });
     },
     onError: (e: Error) =>

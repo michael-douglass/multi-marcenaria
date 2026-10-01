@@ -9,12 +9,14 @@ interface LeadNegociadorContactPanelProps {
   leadId: number | null | undefined;
   leadNome?: string;
   className?: string;
+  onValorNegociadoSalvo?: (valor: number) => void;
 }
 
 export function LeadNegociadorContactPanel({
   leadId,
   leadNome,
   className,
+  onValorNegociadoSalvo,
 }: LeadNegociadorContactPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { negociacaoFechada, isLoading } = useLeadNegociacoes(leadId);
@@ -50,10 +52,10 @@ export function LeadNegociadorContactPanel({
                 <span className="font-semibold text-cream tabular-nums">
                   {formatarMoedaMarkup(negociacaoFechada.valor_negociado)}
                 </span>
-                {' · '}piso {formatarMoedaMarkup(negociacaoFechada.piso)}
+                {' · '}custo ref. {formatarMoedaMarkup(negociacaoFechada.piso)}
                 {negociacaoFechada.status === 'aplicada_markup'
                   ? ' · já aplicada no markup'
-                  : ' · pronta para o markup'}
+                  : ' · no valor do orçamento'}
               </p>
             </div>
             <span className="shrink-0 rounded-md bg-gold/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-gold">
@@ -90,8 +92,8 @@ export function LeadNegociadorContactPanel({
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm tracking-wide text-gold">Abrir Negociador</p>
               <p className="text-xs text-cream-muted leading-relaxed">
-                Escolha os markups, desça até o piso da margem mínima e salve o valor fechado com o
-                cliente.
+                Ajuste o preço com o cliente e, ao salvar, o valor vai para o orçamento deste
+                lead.
               </p>
             </div>
           </div>
@@ -103,6 +105,7 @@ export function LeadNegociadorContactPanel({
         onOpenChange={setDialogOpen}
         leadId={leadId}
         leadNome={leadNome}
+        onValorNegociadoSalvo={onValorNegociadoSalvo}
       />
     </div>
   );

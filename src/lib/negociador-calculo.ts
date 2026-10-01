@@ -170,15 +170,13 @@ export function dividirValorNegociado(
 
 /**
  * Ajusta uma fatia em R$ sem redistribuir: as outras ficam iguais e o total
- * passa a ser a soma (limitado ao intervalo [piso, preço atual]).
+ * passa a ser a soma. Sem trava de piso/teto — só fatia ≥ 0.
  */
 export function ajustarFatiaSemRedistribuir(
   campo: NegociadorSplitCampo,
   novoValorReais: number,
   atuais: NegociadorDivisao,
-  piso: number,
-  precoOriginal: number,
-): { fatias: NegociadorDivisao; total: number; bateuPiso: boolean; bateuTeto: boolean } {
+): { fatias: NegociadorDivisao; total: number } {
   const chave =
     campo === 'material'
       ? 'valorMaterial'
@@ -193,30 +191,8 @@ export function ajustarFatiaSemRedistribuir(
   };
   next[chave] = arredondar(Math.max(0, Number(novoValorReais) || 0));
 
-  const somaOutros = arredondar(
-    (campo === 'material' ? 0 : next.valorMaterial) +
-      (campo === 'maoObra' ? 0 : next.valorMaoObra) +
-      (campo === 'lucro' ? 0 : next.valorLucro),
-  );
-
-  let total = arredondar(somaOutros + next[chave]);
-  const totalPedido = total;
-  const limitado = limitarValorNegociado(total, piso, precoOriginal);
-  const bateuPiso = limitado > totalPedido + 0.009;
-  const bateuTeto = limitado < totalPedido - 0.009;
-
-  if (Math.abs(limitado - total) > 0.009) {
-    // Mantém as outras fatias; só a editada absorve o limite do total.
-    next[chave] = arredondar(Math.max(0, limitado - somaOutros));
-    total = limitado;
-  }
-
-  return {
-    fatias: next,
-    total,
-    bateuPiso,
-    bateuTeto,
-  };
+  const total = arredondar(next.valorMaterial + next.valorMaoObra + next.valorLucro);
+  return { fatias: next, total };
 }
 
 /**

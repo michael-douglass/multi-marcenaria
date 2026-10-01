@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FileDown, Handshake, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
@@ -29,7 +29,6 @@ import {
   ajustarFatiaSemRedistribuir,
   calcularPisoNegociador,
   dividirValorNegociado,
-  limitarValorNegociado,
   percentuaisFromFatias,
   reaisFromPercentualFatia,
   somarCustosEPrecos,
@@ -43,6 +42,8 @@ interface LeadNegociadorDialogProps {
   onOpenChange: (open: boolean) => void;
   leadId: number;
   leadNome?: string;
+  /** Atualiza o campo "Valor do orçamento" no card do lead após salvar. */
+  onValorNegociadoSalvo?: (valor: number) => void;
 }
 
 function sanitizeMoneyDraft(raw: string): string {
@@ -158,6 +159,7 @@ export function LeadNegociadorDialog({
   onOpenChange,
   leadId,
   leadNome,
+  onValorNegociadoSalvo,
 }: LeadNegociadorDialogProps) {
   const { efetiva } = useLeadNegociadorConfig(leadId);
   const { config: markupConfig } = useMarkupConfig();
@@ -208,7 +210,8 @@ export function LeadNegociadorDialog({
   );
 
   const aplicarTotal = (total: number, splits = splitsConfig) => {
-    const limitado = limitarValorNegociado(total, piso, somas.precoOriginal);
+    // Sem trava de piso: só impede valor negativo.
+    const limitado = arredondar(Math.max(0, Number(total) || 0));
     const next = dividirValorNegociado(limitado, splits);
     syncDraftsFromFatias(limitado, next);
   };
@@ -246,14 +249,9 @@ export function LeadNegociadorDialog({
     setSelecionados(next);
 
     const somaInicial = somarCustosEPrecos(orcamentos.filter((o) => next.has(o.id)));
-    const pisoInicial = calcularPisoNegociador(somaInicial.custoMaterial, margemMinima);
 
     if (negociacaoFechada && idsIniciais.length > 0) {
-      const total = limitarValorNegociado(
-        negociacaoFechada.valor_negociado,
-        pisoInicial,
-        somaInicial.precoOriginal,
-      );
+      const total = arredondar(Math.max(0, Number(negociacaoFechada.valor_negociado) || 0));
       const loaded: NegociadorDivisao = {
         valorMaterial: Number(negociacaoFechada.valor_material) || 0,
         valorMaoObra: Number(negociacaoFechada.valor_mao_obra) || 0,
@@ -263,7 +261,7 @@ export function LeadNegociadorDialog({
         loaded.valorMaterial + loaded.valorMaoObra + loaded.valorLucro,
       );
       if (somaFatias > 0) {
-        // Mantém proporção salva no total limitado.
+        // Mantém proporção salva no total.
         const fator = total / somaFatias;
         const scaled: NegociadorDivisao = {
           valorMaterial: arredondar(loaded.valorMaterial * fator),
@@ -281,11 +279,7 @@ export function LeadNegociadorDialog({
         syncDraftsFromFatias(total, div);
       }
     } else {
-      const total = limitarValorNegociado(
-        somaInicial.precoOriginal,
-        pisoInicial,
-        somaInicial.precoOriginal,
-      );
+      const total = arredondar(Math.max(0, somaInicial.precoOriginal));
       const div = dividirValorNegociado(total, splitsConfig);
       syncDraftsFromFatias(total, div);
     }
@@ -295,15 +289,40 @@ export function LeadNegociadorDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só na abertura
   }, [open, loadingOrcamentos, initialized, orcamentos, negociacaoFechada, margemMinima]);
 
-  // Seleção de markups muda piso/teto → recalibra total e fatias.
+  // Ao marcar/desmarcar markup: total e fatias voltam ao preço da seleção atual.
+  const selectionKey = useMemo(
+    () => Array.from(selecionados).sort().join(','),
+    [selecionados],
+  );
+  const prevSelectionKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!open || !initialized) return;
-    const limitado = limitarValorNegociado(valorNegociado, piso, somas.precoOriginal);
-    if (Math.abs(limitado - valorNegociado) > 0.009) {
-      aplicarTotal(limitado, splitsAtuais);
+    if (!open) {
+      prevSelectionKeyRef.current = null;
+      return;
     }
+    if (!initialized) return;
+
+    // Na 1ª vez após abrir, só registra a seleção (não sobrescreve valor já carregado).
+    if (prevSelectionKeyRef.current === null) {
+      prevSelectionKeyRef.current = selectionKey;
+      return;
+    }
+    if (prevSelectionKeyRef.current === selectionKey) return;
+    prevSelectionKeyRef.current = selectionKey;
+
+    if (selecionados.size === 0 || somas.precoOriginal <= 0) {
+      syncDraftsFromFatias(0, {
+        valorMaterial: 0,
+        valorMaoObra: 0,
+        valorLucro: 0,
+      });
+      return;
+    }
+
+    aplicarTotal(somas.precoOriginal, splitsConfig);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialized, piso, somas.precoOriginal]);
+  }, [open, initialized, selectionKey, somas.precoOriginal]);
 
   const toggleOrcamento = (id: string) => {
     setSelecionados((prev) => {
@@ -316,11 +335,6 @@ export function LeadNegociadorDialog({
 
   const handleSlider = (values: number[]) => {
     const raw = values[0] ?? valorNegociado;
-    if (raw < piso - 0.005) {
-      toast.error('Abaixo do custo da obra com impostos', {
-        description: `O custo da obra com impostos é ${formatarMoedaMarkup(piso)}.`,
-      });
-    }
     aplicarTotal(raw, splitsAtuais);
   };
 
@@ -329,11 +343,6 @@ export function LeadNegociadorDialog({
     if (n == null) {
       setDraftTotal(String(valorNegociado));
       return;
-    }
-    if (n < piso) {
-      toast.error('Abaixo do custo da obra com impostos', {
-        description: `O custo da obra com impostos é ${formatarMoedaMarkup(piso)}.`,
-      });
     }
     aplicarTotal(n, splitsAtuais);
   };
@@ -344,22 +353,7 @@ export function LeadNegociadorDialog({
       syncDraftsFromFatias(valorNegociado, fatias);
       return;
     }
-    const resultado = ajustarFatiaSemRedistribuir(
-      campo,
-      n,
-      fatias,
-      piso,
-      somas.precoOriginal,
-    );
-    if (resultado.bateuPiso) {
-      toast.error('Abaixo do custo da obra com impostos', {
-        description: `O total não pode ficar abaixo do custo da obra com impostos: ${formatarMoedaMarkup(piso)}.`,
-      });
-    } else if (resultado.bateuTeto) {
-      toast.error('Acima do preço atual', {
-        description: `O máximo é ${formatarMoedaMarkup(somas.precoOriginal)}.`,
-      });
-    }
+    const resultado = ajustarFatiaSemRedistribuir(campo, n, fatias);
     syncDraftsFromFatias(resultado.total, resultado.fatias);
   };
 
@@ -392,12 +386,6 @@ export function LeadNegociadorDialog({
       });
       return;
     }
-    if (valorNegociado < piso) {
-      toast.error('Valor abaixo do custo da obra com impostos', {
-        description: `O custo da obra com impostos é ${formatarMoedaMarkup(piso)}.`,
-      });
-      return;
-    }
 
     const pct = percentuaisFromFatias(fatias, valorNegociado);
     await salvarNegociacao.mutateAsync({
@@ -418,6 +406,7 @@ export function LeadNegociadorDialog({
       status: 'fechada',
       observacao: observacao.trim() || null,
     });
+    onValorNegociadoSalvo?.(valorNegociado);
     onOpenChange(false);
   };
 
@@ -468,16 +457,19 @@ export function LeadNegociadorDialog({
     }
   };
 
-  const sliderMin = piso;
-  const sliderMax = Math.max(piso, somas.precoOriginal);
-  const sliderDisabled = selecionados.size === 0 || sliderMax <= 0;
+  // Barra: do zero (livre) até o preço atual — o custo da obra é só referência visual.
+  const sliderMin = 0;
+  const sliderMax = Math.max(somas.precoOriginal, valorNegociado, piso, 1);
+  const sliderDisabled = selecionados.size === 0 || somas.precoOriginal <= 0;
   const jaNoPrecoAtual =
     selecionados.size > 0 &&
     somas.precoOriginal > 0 &&
     Math.abs(valorNegociado - somas.precoOriginal) < 0.02;
 
-  const folga = folgaAtePiso(valorNegociado, piso, sliderMax);
-  const tom = selecionados.size === 0 ? 'folga' : tomPorFolga(folga);
+  const folga = folgaAtePiso(valorNegociado, piso, Math.max(piso, somas.precoOriginal));
+  const abaixoDoCusto = valorNegociado < piso - 0.005;
+  const tom =
+    selecionados.size === 0 ? 'folga' : abaixoDoCusto ? 'piso' : tomPorFolga(folga);
   const tomUi = TOM_UI[tom];
   const descontoVsAtual =
     somas.precoOriginal > 0
@@ -618,9 +610,11 @@ export function LeadNegociadorDialog({
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   ) : null}
                   <span>
-                    {tom === 'piso' && folga <= 0.005
-                      ? 'No custo da obra com impostos — não dá para descer mais.'
-                      : tomUi.hintLabel}
+                    {abaixoDoCusto
+                      ? 'Abaixo do custo da obra com impostos — referência, sem trava.'
+                      : tom === 'piso' && folga <= 0.005
+                        ? 'No custo da obra com impostos — referência do limite.'
+                        : tomUi.hintLabel}
                   </span>
                 </p>
               ) : null}
@@ -629,8 +623,8 @@ export function LeadNegociadorDialog({
                 <div className="flex items-start gap-2 rounded-md border border-amber-600/35 bg-amber-50 px-3 py-2 text-xs text-amber-950">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
                   <span>
-                    O preço atual já está abaixo do custo da obra com impostos. O Negociador não
-                    permite descer mais — só manter ou subir.
+                    O preço atual já está abaixo do custo da obra com impostos. Você ainda
+                    pode negociar livremente — o custo serve só como referência.
                   </span>
                 </div>
               ) : null}
@@ -658,10 +652,10 @@ export function LeadNegociadorDialog({
                     min={sliderMin}
                     max={sliderMax || 1}
                     step={0.01}
-                    value={[limitarValorNegociado(valorNegociado, piso, somas.precoOriginal)]}
+                    value={[Math.max(0, Math.min(sliderMax, valorNegociado))]}
                     onValueChange={handleSlider}
                     disabled={sliderDisabled}
-                    aria-label="Barra do custo da obra com impostos até o preço atual"
+                    aria-label="Barra do valor negociado até o preço atual"
                     className={cn(
                       'py-1 transition-colors duration-300',
                       '[&_[data-orientation=horizontal]>span:first-child]:h-2.5',
@@ -683,6 +677,7 @@ export function LeadNegociadorDialog({
                       <p className="font-bold tabular-nums text-[#8d5e22]">
                         {formatarMoedaMarkup(piso)}
                       </p>
+                      <p className="text-[10px] text-[#6b5344]/80">referência (sem trava)</p>
                     </div>
                     <div className="min-w-0 text-right">
                       <p className="font-semibold uppercase tracking-wide text-[#6b5344]">
@@ -808,9 +803,9 @@ export function LeadNegociadorDialog({
                   )}
                 </div>
                 <p className="text-[11px] text-[#6b5344]">
-                  A barra vai do custo da obra com impostos até o preço atual. Ao mover, as
-                  fatias redistribuem na proporção atual; editar uma fatia abaixo subtrai só
-                  dela no total.
+                  Sem trava de preço: ajuste o total ou as fatias até o valor que quiser. O custo
+                  da obra com impostos é só referência visual. Editar uma fatia subtrai (ou
+                  soma) só dela no total.
                 </p>
               </div>
 

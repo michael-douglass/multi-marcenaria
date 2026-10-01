@@ -2196,13 +2196,16 @@ export function LeadModal({
                     title="Negociador"
                     icon={Handshake}
                     sectionId="negociador"
-                    description="Negocie o preço com o cliente até o piso da margem mínima."
+                    description="Negocie o preço com o cliente. Ao salvar, o valor vai para o orçamento do lead."
                     variant="accent"
                     actions={<LeadNegociadorHeaderConfig leadId={leadId} />}
                   >
                     <LeadNegociadorContactPanel
                       leadId={leadId}
                       leadNome={formData.name ?? ''}
+                      onValorNegociadoSalvo={(valor) => {
+                        handleMarkupOrcamentoSync(valor, { force: true });
+                      }}
                     />
                   </LeadModalSection>
                 ) : null}
