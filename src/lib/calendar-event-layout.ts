@@ -35,8 +35,13 @@ const EVENT_COLUMN_GAP_PERCENT = 1;
 
 /** Colunas lado a lado no calendário “cheio” antes de ir para “+N mais”. */
 export const EVENT_MAX_SIDE_BY_SIDE_COLUMNS = 5;
-/** No painel flutuante, acima disso vira lista vertical com todas as tarefas. */
-export const EVENT_COMPACT_STACK_THRESHOLD = 3;
+/**
+ * No painel flutuante: só vira lista se tiver **mais** deste nº de tarefas
+ * consecutivas na mesma faixa (ex.: 4 → lista a partir da 5ª).
+ */
+export const EVENT_COMPACT_STACK_THRESHOLD = 4;
+/** Janela de tempo da “faixa de horário” no painel (1 hora). */
+export const EVENT_COMPACT_STACK_WINDOW_MS = 60 * 60 * 1000;
 /** Altura de cada chip na lista empilhada (px). */
 export const EVENT_STACK_CHIP_HEIGHT_PX = 22;
 /** Altura máxima da caixa rolável de um grupo empilhado (px). */
@@ -71,22 +76,38 @@ export function partitionTimedUntimedEvents<T extends CalendarTimeRange>(
   return { timed, untimed };
 }
 
-function getOverlapClusters<T extends CalendarTimeRange>(events: T[]): T[][] {
+/**
+ * Agrupa eventos que se sobrepõem no tempo.
+ * Se `windowMs` for informado, não “puxa” para o mesmo grupo tarefas que
+ * começam depois dessa janela a partir do início do grupo (ex.: 1 hora).
+ * Assim a caixa “09:15 · N tarefas” não mistura a tarde inteira.
+ */
+function getOverlapClusters<T extends CalendarTimeRange>(
+  events: T[],
+  windowMs?: number,
+): T[][] {
   if (events.length === 0) return [];
 
   const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
   const clusters: T[][] = [];
   let current: T[] = [sorted[0]];
+  let clusterStart = sorted[0].start.getTime();
   let clusterEnd = sorted[0].end.getTime();
 
   for (let i = 1; i < sorted.length; i++) {
     const event = sorted[i];
-    if (event.start.getTime() < clusterEnd) {
+    const startMs = event.start.getTime();
+    const overlaps = startMs < clusterEnd;
+    const withinWindow =
+      windowMs == null || startMs < clusterStart + windowMs;
+
+    if (overlaps && withinWindow) {
       current.push(event);
       clusterEnd = Math.max(clusterEnd, event.end.getTime());
     } else {
       clusters.push(current);
       current = [event];
+      clusterStart = startMs;
       clusterEnd = event.end.getTime();
     }
   }
@@ -133,6 +154,11 @@ export interface LayoutTimedClustersOptions {
   stackThreshold?: number;
   /** Máximo de colunas lado a lado; o resto vai para overflow (+N). */
   maxSideBySideColumns?: number;
+  /**
+   * Se definido, o grupo só inclui tarefas que começam dentro desta
+   * janela a partir do início do cluster (painel: 1 hora).
+   */
+  stackWindowMs?: number;
 }
 
 /**
@@ -146,8 +172,9 @@ export function layoutTimedClusters<T extends CalendarTimeRange>(
   const stackThreshold = options?.stackThreshold ?? EVENT_COMPACT_STACK_THRESHOLD;
   const maxSideBySide =
     options?.maxSideBySideColumns ?? EVENT_MAX_SIDE_BY_SIDE_COLUMNS;
+  const stackWindowMs = options?.stackWindowMs;
 
-  return getOverlapClusters(events).map((cluster) => {
+  return getOverlapClusters(events, stackWindowMs).map((cluster) => {
     const sorted = [...cluster].sort((a, b) => a.start.getTime() - b.start.getTime());
     const start = sorted.reduce(
       (min, e) => (e.start.getTime() < min.getTime() ? e.start : min),
@@ -161,9 +188,14 @@ export function layoutTimedClusters<T extends CalendarTimeRange>(
     const useStack = sorted.length > stackThreshold;
 
     if (useStack) {
+      /** Na lista, a caixa ocupa só a faixa (ex.: 1h) — não o fim real de cada tarefa. */
+      const stackEnd =
+        stackWindowMs != null
+          ? new Date(Math.min(end.getTime(), start.getTime() + stackWindowMs))
+          : end;
       return {
         start,
-        end,
+        end: stackEnd,
         layouted: [],
         overflow: [],
         allEvents: sorted,

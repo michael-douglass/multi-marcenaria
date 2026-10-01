@@ -7,7 +7,6 @@ import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 import {
   EVENT_STACK_CHIP_HEIGHT_PX,
   EVENT_STACK_MAX_HEIGHT_PX,
-  EVENT_STACK_MIN_VISIBLE_ROWS,
   getClusterTimeSpanPx,
   getStackClusterStyle,
 } from '@/lib/calendar-event-layout';
@@ -127,14 +126,11 @@ export function AgendaHourClusterBox({
     EVENT_STACK_MAX_HEIGHT_PX + chromePx,
   );
   /**
-   * Preferimos caber no intervalo do horário para não tapar a hora seguinte.
-   * Mas no painel estreito 1h ≈ 40px e só o cabeçalho+busca já passa disso —
-   * aí a lista sumia (contador dizia “10 tarefas”, chips invisíveis).
-   * Nesse caso permitimos ultrapassar o slot até caber um mínimo de linhas.
+   * Limite duro = duração do cluster na grade (em geral ~1h).
+   * Assim a lista não invade 10:45 / 11:00 — essas tarefas ficam abaixo
+   * e o ScrollArea do dia deixa rolar para vê-las.
    */
-  const minUsableHeight = chromePx + EVENT_STACK_MIN_VISIBLE_ROWS * chipHeightPx;
-  const heightCap = Math.max(timeSpanPx, minUsableHeight);
-  const boxHeight = Math.min(desiredHeight, heightCap);
+  const boxHeight = Math.min(desiredHeight, Math.max(timeSpanPx, minTimeSpanPx));
 
   const openExpanded = (e: MouseEvent) => {
     e.preventDefault();

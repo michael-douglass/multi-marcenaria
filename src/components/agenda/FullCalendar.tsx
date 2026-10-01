@@ -39,6 +39,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   EVENT_COMPACT_STACK_THRESHOLD,
+  EVENT_COMPACT_STACK_WINDOW_MS,
   EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
   EVENT_STACK_CHIP_HEIGHT_PX,
   getEventColumnStyle,
@@ -117,15 +118,19 @@ function getCalendarLayout(compact: boolean): CalendarLayout {
     };
   }
 
+  /**
+   * Painel flutuante: horas um pouco mais altas que o mínimo antigo (~40px)
+   * para a caixa-lista caber na faixa sem tapar o horário seguinte.
+   */
   return {
-    hourHeightWeek: 32,
-    hourHeightDay: 40,
+    hourHeightWeek: 48,
+    hourHeightDay: 88,
     untimedStripMaxHeight: 64,
-    timeColWeek: 32,
-    timeColDay: 36,
-    monthCellMinH: 52,
-    dayEventMinHeight: 24,
-    weekEventMinHeight: 16,
+    timeColWeek: 34,
+    timeColDay: 40,
+    monthCellMinH: 54,
+    dayEventMinHeight: 26,
+    weekEventMinHeight: 18,
     fixedViewHeight: null,
   };
 }
@@ -595,7 +600,12 @@ export function FullCalendar({
   const hoverDisabled = selectionMode;
 
   const clusterLayoutOptions = compact
-    ? { stackThreshold: EVENT_COMPACT_STACK_THRESHOLD, maxSideBySideColumns: 2 }
+    ? {
+        /** Lista só com mais de 4 tarefas na mesma faixa de 1 hora. */
+        stackThreshold: EVENT_COMPACT_STACK_THRESHOLD,
+        stackWindowMs: EVENT_COMPACT_STACK_WINDOW_MS,
+        maxSideBySideColumns: 2,
+      }
     : {
         stackThreshold: Number.POSITIVE_INFINITY,
         maxSideBySideColumns: EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
