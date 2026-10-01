@@ -74,6 +74,193 @@ async function syncContaPagarPontuaGarbo(
   }
 }
 
+async function ensureContaPagarParaLiberacao(input: {
+  liberacaoId: string;
+  contaPagarId: string | null;
+  prestadorId: string;
+  prestadorNome: string;
+  leadId: number;
+  valorComissao: number;
+  libTable: string;
+  db: ReturnType<typeof useEmpresaSupabase>;
+}): Promise<string | null> {
+  const {
+    liberacaoId,
+    contaPagarId,
+    prestadorId,
+    prestadorNome,
+    leadId,
+    valorComissao,
+    libTable,
+    db,
+  } = input;
+
+  if (contaPagarId) {
+    await syncContaPagarPontuaGarbo(contaPagarId, prestadorNome, valorComissao);
+    return contaPagarId;
+  }
+
+  const { data: rpcContaId, error: rpcErr } = await supabase.rpc(
+    'movelaria_criar_conta_pagar_pontua_garbo',
+    {
+      p_liberacao_id: liberacaoId,
+      p_prestador_id: prestadorId,
+      p_lead_id: leadId,
+      p_valor_comissao: valorComissao,
+    },
+  );
+
+  if (rpcErr) {
+    console.warn('[pontua-garbo] RPC conta a pagar:', rpcErr.message);
+    return null;
+  }
+
+  if (rpcContaId) {
+    await db
+      .from(libTable)
+      .update({ conta_pagar_id: rpcContaId })
+      .eq('id', liberacaoId)
+      .is('conta_pagar_id', null);
+    return String(rpcContaId);
+  }
+
+  return null;
+}
+
+export interface PontuaGarboLiberacaoPontuacaoInput {
+  leadId: number;
+  fieldId: string;
+  prestadorId: string;
+  percentual: number;
+  /** Quando true, cria mesmo se o status no banco ainda não bater com ganho (UI já confirmou). */
+  forcarAguardando?: boolean;
+}
+
+/**
+ * Após pontuar parceiro em lead já ganho: cria/atualiza liberação em
+ * "aguardando_liberacao" e garante Contas a Pagar (Nome — Pontua Garbo).
+ */
+export async function ensurePontuaGarboLiberacaoAposPontuacao(
+  db: ReturnType<typeof useEmpresaSupabase>,
+  table: ReturnType<typeof useTableName>,
+  ganhoStatuses: string[],
+  input: PontuaGarboLiberacaoPontuacaoInput,
+): Promise<{ criouOuAtualizou: boolean; valorComissao: number }> {
+  const libTable = table('pontua_garbo_comissao_liberacoes', PUBLIC_LIB);
+  const leadsTable = table('leads', PUBLIC_LEADS);
+  const usersTable = table('usuarios', PUBLIC_USERS);
+
+  const percentual = Math.max(0, Math.min(100, Number(input.percentual) || 0));
+  if (percentual <= 0) {
+    throw new Error('Informe um percentual de pontuação maior que zero.');
+  }
+
+  const { data: lead, error: leadErr } = await db
+    .from(leadsTable)
+    .select('id, status, valor_orcamento, valor_negocio')
+    .eq('id', input.leadId)
+    .maybeSingle();
+  if (leadErr) throw leadErr;
+  if (!lead) throw new Error('Lead não encontrado para registrar a pontuação.');
+
+  const vendaGanha = isLeadVendaGanha(lead.status, ganhoStatuses);
+  if (!vendaGanha && !input.forcarAguardando) {
+    return { criouOuAtualizou: false, valorComissao: 0 };
+  }
+
+  const { data: prestador, error: userErr } = await db
+    .from(usersTable)
+    .select('id, nome, titulo, comissao_ativa, tipo_usuario')
+    .eq('id', input.prestadorId)
+    .maybeSingle();
+  if (userErr) throw userErr;
+  if (!prestador?.id) throw new Error('Parceiro não encontrado.');
+  if (prestador.tipo_usuario === 'prestador_servico' && prestador.comissao_ativa === false) {
+    throw new Error('Este parceiro está com comissão Pontua Garbo desativada.');
+  }
+
+  const valorBase = resolveValorBaseComissaoGarbo(
+    lead.status,
+    Number(lead.valor_orcamento ?? 0),
+    Number(lead.valor_negocio ?? 0),
+    ganhoStatuses,
+  );
+  const valorComissao = Math.round(((valorBase * percentual) / 100) * 100) / 100;
+
+  const { data: existing, error: existErr } = await db
+    .from(libTable)
+    .select('id, status, conta_pagar_id')
+    .eq('lead_id', input.leadId)
+    .eq('field_id', input.fieldId)
+    .maybeSingle();
+  if (existErr) throw existErr;
+
+  if (existing?.status === COMISSAO_LIBERACAO_LIBERADA) {
+    throw new Error(
+      'Esta comissão já foi liberada para o prestador. Reverta a liberação no Financeiro se precisar alterar.',
+    );
+  }
+
+  const payload = {
+    lead_id: input.leadId,
+    field_id: input.fieldId,
+    prestador_id: input.prestadorId,
+    valor_comissao: valorComissao,
+    percentual,
+    valor_base: valorBase,
+    status: COMISSAO_LIBERACAO_AGUARDANDO,
+  };
+
+  let liberacaoId: string;
+  let contaPagarId: string | null = existing?.conta_pagar_id ?? null;
+
+  if (existing?.id) {
+    const { data: updated, error: upErr } = await db
+      .from(libTable)
+      .update({
+        prestador_id: payload.prestador_id,
+        valor_comissao: payload.valor_comissao,
+        percentual: payload.percentual,
+        valor_base: payload.valor_base,
+        status: payload.status,
+      })
+      .eq('id', existing.id)
+      .select('id, conta_pagar_id')
+      .maybeSingle();
+    if (upErr) throw upErr;
+    liberacaoId = updated?.id ?? existing.id;
+    contaPagarId = updated?.conta_pagar_id ?? existing.conta_pagar_id ?? null;
+  } else {
+    const { data: inserted, error: insErr } = await db
+      .from(libTable)
+      .insert(payload)
+      .select('id, conta_pagar_id')
+      .maybeSingle();
+    if (insErr) throw insErr;
+    if (!inserted?.id) throw new Error('Não foi possível criar a liberação da comissão.');
+    liberacaoId = inserted.id;
+    contaPagarId = inserted.conta_pagar_id ?? null;
+  }
+
+  const nomeArquiteto =
+    (prestador.nome as string | null)?.trim() ||
+    (prestador.titulo as string | null)?.trim() ||
+    'Arquiteto';
+
+  await ensureContaPagarParaLiberacao({
+    liberacaoId,
+    contaPagarId,
+    prestadorId: input.prestadorId,
+    prestadorNome: nomeArquiteto,
+    leadId: input.leadId,
+    valorComissao,
+    libTable,
+    db,
+  });
+
+  return { criouOuAtualizou: true, valorComissao };
+}
+
 /** Após marcar venda como ganha: cria registro aguardando liberação (se houver comissão). */
 export async function syncPontuaGarboLiberacaoAposVenda(
   db: ReturnType<typeof useEmpresaSupabase>,
@@ -192,33 +379,22 @@ export async function syncPontuaGarboLiberacaoAposVenda(
 
     criouOuAtualizou = true;
 
-    // Trigger do banco cria a conta no INSERT; se já existia, alinhamos valor/descrição.
-    if (contaPagarId) {
-      const nomeArquiteto =
-        (prestador.titulo as string | null)?.trim() ||
-        (prestador.nome as string | null)?.trim() ||
-        'Arquiteto';
-      await syncContaPagarPontuaGarbo(contaPagarId, nomeArquiteto, valorComissao);
-    } else if (liberacaoId) {
-      // Fallback: trigger pode não ter rodado (ex.: grant) — tenta via RPC se existir.
-      const { data: rpcContaId, error: rpcErr } = await supabase.rpc(
-        'movelaria_criar_conta_pagar_pontua_garbo',
-        {
-          p_liberacao_id: liberacaoId,
-          p_prestador_id: prestadorId,
-          p_lead_id: leadId,
-          p_valor_comissao: valorComissao,
-        },
-      );
-      if (!rpcErr && rpcContaId) {
-        await db
-          .from(libTable)
-          .update({ conta_pagar_id: rpcContaId })
-          .eq('id', liberacaoId)
-          .is('conta_pagar_id', null);
-      } else if (rpcErr) {
-        console.warn('[pontua-garbo] RPC conta a pagar:', rpcErr.message);
-      }
+    const nomeArquiteto =
+      (prestador.nome as string | null)?.trim() ||
+      (prestador.titulo as string | null)?.trim() ||
+      'Arquiteto';
+
+    if (liberacaoId) {
+      await ensureContaPagarParaLiberacao({
+        liberacaoId,
+        contaPagarId,
+        prestadorId,
+        prestadorNome: nomeArquiteto,
+        leadId,
+        valorComissao,
+        libTable,
+        db,
+      });
     }
   }
 
@@ -374,7 +550,28 @@ export function useSyncPontuaGarboLiberacaoAposVenda() {
       qc.invalidateQueries({ queryKey: liberacaoQueryKey(schemaEmpresa) });
       qc.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
       qc.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
-      // Contas a pagar (hook local + eventuais caches)
+      qc.invalidateQueries({ queryKey: ['contas-pagar'] });
+      qc.invalidateQueries({ queryKey: ['contasPagar'] });
+    },
+  });
+}
+
+/** Pontuação em lead já ganho: libera fila de aprovação + Contas a Pagar. */
+export function useEnsurePontuaGarboLiberacaoAposPontuacao() {
+  const db = useEmpresaSupabase();
+  const tableFn = useTableName();
+  const { config: vendasGanhosConfig } = useVendasGanhosConfig();
+  const ganhoStatuses = getStatusesContamComoGanho(vendasGanhosConfig);
+  const qc = useQueryClient();
+  const { schemaEmpresa } = useEmpresa();
+
+  return useMutation({
+    mutationFn: (input: PontuaGarboLiberacaoPontuacaoInput) =>
+      ensurePontuaGarboLiberacaoAposPontuacao(db, tableFn, ganhoStatuses, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: liberacaoQueryKey(schemaEmpresa) });
+      qc.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
       qc.invalidateQueries({ queryKey: ['contas-pagar'] });
       qc.invalidateQueries({ queryKey: ['contasPagar'] });
     },

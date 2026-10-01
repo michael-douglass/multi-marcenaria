@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Pencil, Trash2, Check, X, Trophy, Eye, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FileText, Image, Presentation, Loader2 } from 'lucide-react';
 import { LeadUsuarioSistemaCombobox } from '@/components/leads/LeadUsuarioSistemaCombobox';
 import { PontuaGarboAposGanhoDialog } from '@/components/leads/PontuaGarboAposGanhoDialog';
-import { useSyncPontuaGarboLiberacaoAposVenda } from '@/hooks/usePontuaGarboComissaoLiberacao';
+import { useEnsurePontuaGarboLiberacaoAposPontuacao } from '@/hooks/usePontuaGarboComissaoLiberacao';
 import { toast } from 'sonner';
 
 interface LeadCustomFieldsSectionProps {
@@ -572,7 +572,7 @@ export function LeadCustomFieldsSection({
     dealValue,
     ganhoStatuses,
   );
-  const syncLiberacaoAposVenda = useSyncPontuaGarboLiberacaoAposVenda();
+  const ensureLiberacaoAposPontuacao = useEnsurePontuaGarboLiberacaoAposPontuacao();
 
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
   const [localPercentuais, setLocalPercentuais] = useState<Record<string, string>>({});
@@ -582,6 +582,10 @@ export function LeadCustomFieldsSection({
     partnerName: string;
     suggestedPercentual: number;
   } | null>(null);
+  /** Evita re-sincronizar liberação a cada re-render do mesmo lead ganho. */
+  const liberacaoRepairKeyRef = useRef<string | null>(null);
+  const ensureLiberacaoMutateRef = useRef(ensureLiberacaoAposPontuacao.mutateAsync);
+  ensureLiberacaoMutateRef.current = ensureLiberacaoAposPontuacao.mutateAsync;
 
   const isSameRecord = (a: Record<string, string>, b: Record<string, string>) => {
     const aKeys = Object.keys(a);
@@ -605,6 +609,7 @@ export function LeadCustomFieldsSection({
     if (!leadId) {
       setLocalValues({});
       setLocalPercentuais({});
+      liberacaoRepairKeyRef.current = null;
       return;
     }
     const map: Record<string, string> = {};
@@ -617,6 +622,50 @@ export function LeadCustomFieldsSection({
     setLocalValues((prev) => (isSameRecord(prev, map) ? prev : map));
     setLocalPercentuais((prev) => (isSameRecord(prev, pctMap) ? prev : pctMap));
   }, [leadId, valuesFingerprint, fields]);
+
+  // Lead já ganho com parceiro pontuado: garante fila "aguardando liberação" + Contas a Pagar
+  // (corrige pontuações feitas antes do sync completo).
+  useEffect(() => {
+    if (!leadId || !vendaGanha || !isEditable) return;
+    if (Object.keys(localValues).length === 0) return;
+
+    const targets = fields.filter((field) => {
+      if (!isPontuaGarboFieldActive(field)) return false;
+      const userId = (localValues[field.id] ?? '').trim();
+      if (!userId) return false;
+      const pct = parsePontuaPercentualInput(
+        localPercentuais[field.id] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO),
+      );
+      return pct > 0;
+    });
+    if (targets.length === 0) return;
+
+    const repairKey = `${leadId}:${targets
+      .map((f) => `${f.id}:${localValues[f.id]}:${localPercentuais[f.id] ?? ''}`)
+      .join('|')}`;
+    if (liberacaoRepairKeyRef.current === repairKey) return;
+    liberacaoRepairKeyRef.current = repairKey;
+
+    void (async () => {
+      for (const field of targets) {
+        const userId = localValues[field.id];
+        const pct = parsePontuaPercentualInput(
+          localPercentuais[field.id] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO),
+        );
+        try {
+          await ensureLiberacaoMutateRef.current({
+            leadId,
+            fieldId: field.id,
+            prestadorId: userId,
+            percentual: pct,
+            forcarAguardando: true,
+          });
+        } catch {
+          // Comissão já liberada ou falha pontual — não bloqueia o card.
+        }
+      }
+    })();
+  }, [leadId, vendaGanha, isEditable, fields, localValues, localPercentuais]);
 
   const findUser = useMemo(
     () => (id: string) => systemUsers.find((u) => u.id === id),
@@ -787,11 +836,17 @@ export function LeadCustomFieldsSection({
 
     try {
       await persistFieldValue(fieldId, userId, percentual);
-      const result = await syncLiberacaoAposVenda.mutateAsync(leadId);
+      const result = await ensureLiberacaoAposPontuacao.mutateAsync({
+        leadId,
+        fieldId,
+        prestadorId: userId,
+        percentual,
+        forcarAguardando: true,
+      });
 
       if (result.criouOuAtualizou) {
-        toast.success('Pontuação confirmada', {
-          description: `Custo de ${comissaoPreview} adicionado em Contas a Pagar (${partnerName} — Pontua Garbo).`,
+        toast.success('Pontuação confirmada · aguardando liberação', {
+          description: `Custo de ${comissaoPreview} em Contas a Pagar (${partnerName} — Pontua Garbo). Libere no Financeiro quando quiser.`,
         });
       } else {
         toast.success('Pontuação salva', {
@@ -825,6 +880,22 @@ export function LeadCustomFieldsSection({
       valor,
       percentual: pct,
     });
+
+    // Lead já ganho: % alterada também precisa entrar/atualizar a fila de liberação + Contas a Pagar
+    if (vendaGanha && pct > 0) {
+      try {
+        await ensureLiberacaoAposPontuacao.mutateAsync({
+          leadId,
+          fieldId,
+          prestadorId: valor,
+          percentual: pct,
+          forcarAguardando: true,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao sincronizar liberação';
+        toast.error('Comissão salva, mas a liberação falhou', { description: message });
+      }
+    }
   };
 
   return (

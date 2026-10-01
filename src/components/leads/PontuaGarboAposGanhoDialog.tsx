@@ -144,7 +144,9 @@ export function PontuaGarboAposGanhoDialog({
                 <strong>{formatComissaoPontuaGarbo(baseValue, percentual)}</strong>
               </p>
               <p className="text-amber-800/90">
-                Ao confirmar, esse valor entra em <strong>Contas a Pagar</strong> como{' '}
+                Ao confirmar, a comissão entra em{' '}
+                <strong>aguardando liberação</strong> no Financeiro e o custo vai para{' '}
+                <strong>Contas a Pagar</strong> como{' '}
                 <strong>{partnerName} — Pontua Garbo</strong>.
               </p>
             </div>
