@@ -10,6 +10,14 @@ import { normalizarPercentualAuditorLucro } from '@/lib/markup-auditor-lucro';
 import { MARKUP_IA_AGENT_PROMPTS_DEFAULT, MARKUP_IA_DEFAULT_AUDITOR_MODEL, normalizarAgentPromptsFromRow } from '@/lib/markup-ia-prompts';
 import { normalizarChecklistVerificacao } from '@/lib/markup-ia-verificacao';
 import {
+  NEGOCIADOR_MARGEM_MINIMA_PADRAO,
+  NEGOCIADOR_PCT_LUCRO_PADRAO,
+  NEGOCIADOR_PCT_MAO_OBRA_PADRAO,
+  NEGOCIADOR_PCT_MATERIAL_PADRAO,
+  normalizarMargemMinimaPercent,
+  normalizarSplits,
+} from '@/lib/negociador-calculo';
+import {
   MARKUP_TIMBRADO_BUCKET,
   markupConfigQueryKey,
   markupDespesaTemplatesQueryKey,
@@ -23,6 +31,11 @@ function normalizeConfig(row: MarkupConfig | null): MarkupConfig {
   if (!row) {
     return { id: '', ...MARKUP_DEFAULT_CONFIG };
   }
+  const negociadorSplits = normalizarSplits({
+    material: Number(row.negociador_pct_material ?? NEGOCIADOR_PCT_MATERIAL_PADRAO),
+    maoObra: Number(row.negociador_pct_mao_obra ?? NEGOCIADOR_PCT_MAO_OBRA_PADRAO),
+    lucro: Number(row.negociador_pct_lucro ?? NEGOCIADOR_PCT_LUCRO_PADRAO),
+  });
   return {
     ...row,
     valor_hora_marcenaria: Number(row.valor_hora_marcenaria),
@@ -45,6 +58,12 @@ function normalizeConfig(row: MarkupConfig | null): MarkupConfig {
       row.markup_ia_auditor_model?.trim() || MARKUP_IA_DEFAULT_AUDITOR_MODEL,
     markup_ia_agent_prompts: normalizarAgentPromptsFromRow(row.markup_ia_agent_prompts),
     auditor_lucro_percentual: normalizarPercentualAuditorLucro(row.auditor_lucro_percentual),
+    negociador_margem_minima_percent: normalizarMargemMinimaPercent(
+      row.negociador_margem_minima_percent ?? NEGOCIADOR_MARGEM_MINIMA_PADRAO,
+    ),
+    negociador_pct_material: negociadorSplits.material,
+    negociador_pct_mao_obra: negociadorSplits.maoObra,
+    negociador_pct_lucro: negociadorSplits.lucro,
   };
 }
 
@@ -70,12 +89,13 @@ export function useMarkupConfig() {
   });
 
   const salvarConfig = useMutation({
-    mutationFn: async (input: Partial<Omit<MarkupConfig, 'id'>>) => {
+    mutationFn: async (input: Partial<Omit<MarkupConfig, 'id'>> & { silent?: boolean }) => {
+      const { silent, ...rest } = input;
       const atual = query.data;
       const payload = {
         ...MARKUP_DEFAULT_CONFIG,
         ...atual,
-        ...input,
+        ...rest,
         atualizado_em: new Date().toISOString(),
         ...markupSchemaExtra(schemaEmpresa),
       };
@@ -90,10 +110,11 @@ export function useMarkupConfig() {
         const { error } = await db.from(table as 'markup_config').insert(payload);
         if (error) throw error;
       }
+      return { silent: !!silent };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: markupConfigQueryKey(schemaEmpresa) });
-      toast.success('Configurações salvas!');
+      if (!result?.silent) toast.success('Configurações salvas!');
     },
     onError: (e: Error) => toast.error('Erro ao salvar configurações', { description: e.message }),
   });

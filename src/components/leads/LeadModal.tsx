@@ -25,7 +25,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { resolveChatContatosQueryConfig } from '@/lib/empresa-tables';
 import { cn, formatInternationalPhone, getTodaySaoPaulo } from '@/lib/utils';
-import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, Sparkles, User as UserIcon, Building2, Users, StickyNote, FolderOpen } from 'lucide-react';
+import { Bell, Copy, Share2, Webhook, Ban, FileText, Star, Sparkles, Handshake, User as UserIcon, Building2, Users, StickyNote, FolderOpen } from 'lucide-react';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
 import { LeadModalHeaderAura } from '@/components/leads/LeadModalHeaderAura';
 import { LeadModalResizeHandles } from '@/components/leads/LeadModalResizeHandles';
@@ -87,6 +87,8 @@ import { leadNavMenuToTab } from './lead-modal-nav';
 import type { LeadSearchHit } from '@/lib/lead-modal-search';
 import { waitAndScrollLeadModalToSection, waitAndScrollLeadModalToSelector } from '@/lib/lead-modal-scroll';
 import { LeadPontuaGarboContactPanel } from './LeadPontuaGarboContactPanel';
+import { LeadNegociadorContactPanel } from './LeadNegociadorContactPanel';
+import { LeadNegociadorHeaderConfig } from './LeadNegociadorHeaderConfig';
 import { LeadPontuaGarboPartnerBadge } from './LeadPontuaGarboPartnerBadge';
 import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
 import { canManagePontuaGarboFinanceiro } from '@/lib/pontua-garbo-access';
@@ -2165,21 +2167,46 @@ export function LeadModal({
                 </div>
             </LeadModalSection>
 
-            {showPontuaGarboSection ? (
-              <LeadModalSection
-                title="Pontua Garbo"
-                icon={Sparkles}
-                sectionId="pontua-garbo"
-                description="Cadastro ou união deste lead ao programa de parceiros."
-                variant="accent"
+            {(showPontuaGarboSection || leadId) ? (
+              <div
+                className={cn(
+                  'grid grid-cols-1 gap-3',
+                  showPontuaGarboSection && leadId ? 'lg:grid-cols-2' : null,
+                )}
               >
-                <LeadPontuaGarboContactPanel
-                  leadId={leadId}
-                  nome={formData.name ?? ''}
-                  email={formData.email ?? ''}
-                  telefone={formData.phone ?? ''}
-                />
-              </LeadModalSection>
+                {showPontuaGarboSection ? (
+                  <LeadModalSection
+                    title="Pontua Garbo"
+                    icon={Sparkles}
+                    sectionId="pontua-garbo"
+                    description="Cadastro ou união deste lead ao programa de parceiros."
+                    variant="accent"
+                  >
+                    <LeadPontuaGarboContactPanel
+                      leadId={leadId}
+                      nome={formData.name ?? ''}
+                      email={formData.email ?? ''}
+                      telefone={formData.phone ?? ''}
+                    />
+                  </LeadModalSection>
+                ) : null}
+
+                {leadId ? (
+                  <LeadModalSection
+                    title="Negociador"
+                    icon={Handshake}
+                    sectionId="negociador"
+                    description="Negocie o preço com o cliente até o piso da margem mínima."
+                    variant="accent"
+                    actions={<LeadNegociadorHeaderConfig leadId={leadId} />}
+                  >
+                    <LeadNegociadorContactPanel
+                      leadId={leadId}
+                      leadNome={formData.name ?? ''}
+                    />
+                  </LeadModalSection>
+                ) : null}
+              </div>
             ) : null}
 
             {/* No cadastro novo ainda não há menu de páginas — Observações fica aqui na ficha. */}

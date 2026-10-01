@@ -129,6 +129,17 @@ export interface MarkupConfig {
   markup_ia_agent_prompts: MarkupIAAgentPrompts;
   /** Preço final alvo = custo de material × (este % / 100). Padrão 400. */
   auditor_lucro_percentual: number;
+  /**
+   * Negociador: margem mínima aceitável (% sobre o custo de material).
+   * Piso = custo × (1 + este%/100). Padrão 100.
+   */
+  negociador_margem_minima_percent: number;
+  /** % do valor negociado atribuído a Material. */
+  negociador_pct_material: number;
+  /** % do valor negociado atribuído a Mão de obra. */
+  negociador_pct_mao_obra: number;
+  /** % do valor negociado atribuído a Lucro. */
+  negociador_pct_lucro: number;
   criado_em?: string;
   atualizado_em?: string;
 }
@@ -558,6 +569,10 @@ export const MARKUP_DEFAULT_CONFIG: Omit<MarkupConfig, 'id'> = {
   markup_ia_auditor_model: 'gpt-4o-mini',
   markup_ia_agent_prompts: { ...MARKUP_IA_AGENT_PROMPTS_DEFAULT },
   auditor_lucro_percentual: 400,
+  negociador_margem_minima_percent: 100,
+  negociador_pct_material: 33.34,
+  negociador_pct_mao_obra: 33.33,
+  negociador_pct_lucro: 33.33,
 };
 
 export function criarModulosVazios(config?: Partial<MarkupConfig>): MarkupModulos {

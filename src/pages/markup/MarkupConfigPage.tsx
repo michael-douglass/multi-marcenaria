@@ -10,6 +10,7 @@ import {
   RotateCcw,
   GripVertical,
   ArrowDownAZ,
+  Handshake,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -63,7 +64,14 @@ import { useMarkupConfig, useMarkupDespesaTemplates, useMarkupServicoTemplates }
 import { useMarkupCategorias } from '@/hooks/useMarkupProdutos';
 import { correspondeBuscaFlexivel } from '@/lib/markup-busca';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
+import {
+  calcularPisoNegociador,
+  redistribuirSplits,
+  type NegociadorSplitCampo,
+  validarSplits,
+} from '@/lib/negociador-calculo';
 import type { MarkupDespesaTemplate, MarkupServicoTemplate, MarkupIAAgentPrompts, MarkupServicoUnidade } from '@/lib/markup-types';
+import { toast } from 'sonner';
 import { MARKUP_IA_DEFAULT_PROMPT } from '@/lib/markup-types';
 import {
   MARKUP_IA_AGENT_PROMPTS_DEFAULT,
@@ -495,6 +503,10 @@ export default function MarkupConfigPage() {
     markup_ia_ativo: true,
     markup_ia_verificacao: MARKUP_IA_VERIFICACAO_PADRAO as MarkupIAVerificacaoCategoria[],
     markup_ia_agent_prompts: { ...MARKUP_IA_AGENT_PROMPTS_DEFAULT } as MarkupIAAgentPrompts,
+    negociador_margem_minima_percent: '100',
+    negociador_pct_material: '33.34',
+    negociador_pct_mao_obra: '33.33',
+    negociador_pct_lucro: '33.33',
   });
 
   useEffect(() => {
@@ -514,6 +526,10 @@ export default function MarkupConfigPage() {
         markup_ia_ativo: config.markup_ia_ativo,
         markup_ia_verificacao: config.markup_ia_verificacao ?? MARKUP_IA_VERIFICACAO_PADRAO,
         markup_ia_agent_prompts: resolverPromptsAgentes(config.markup_ia_agent_prompts),
+        negociador_margem_minima_percent: String(config.negociador_margem_minima_percent ?? 100),
+        negociador_pct_material: String(config.negociador_pct_material ?? 33.34),
+        negociador_pct_mao_obra: String(config.negociador_pct_mao_obra ?? 33.33),
+        negociador_pct_lucro: String(config.negociador_pct_lucro ?? 33.33),
       });
     }
   }, [loadingConfig, config]);
@@ -627,6 +643,38 @@ export default function MarkupConfigPage() {
     });
   };
 
+  const salvarNegociador = async () => {
+    const margem = parseFloat(configLocal.negociador_margem_minima_percent);
+    const splits = {
+      material: parseFloat(configLocal.negociador_pct_material) || 0,
+      maoObra: parseFloat(configLocal.negociador_pct_mao_obra) || 0,
+      lucro: parseFloat(configLocal.negociador_pct_lucro) || 0,
+    };
+    if (!Number.isFinite(margem) || margem < 0) {
+      toast.error('Margem mínima inválida', {
+        description: 'Informe um percentual maior ou igual a zero.',
+      });
+      return;
+    }
+    if (!validarSplits(splits)) {
+      toast.error('Os percentuais precisam somar 100%', {
+        description: `Soma atual: ${(splits.material + splits.maoObra + splits.lucro).toFixed(2)}%`,
+      });
+      return;
+    }
+    await salvarConfig.mutateAsync({
+      negociador_margem_minima_percent: margem,
+      negociador_pct_material: splits.material,
+      negociador_pct_mao_obra: splits.maoObra,
+      negociador_pct_lucro: splits.lucro,
+    });
+  };
+
+  const negociadorPreviewPiso = calcularPisoNegociador(
+    10,
+    parseFloat(configLocal.negociador_margem_minima_percent) || 0,
+  );
+
   const salvarConfigIA = async () => {
     await salvarConfig.mutateAsync({
       markup_ia_prompt: configLocal.markup_ia_prompt,
@@ -662,6 +710,7 @@ export default function MarkupConfigPage() {
         <TabsList>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="parametros">Parâmetros</TabsTrigger>
+          <TabsTrigger value="negociador">Negociador</TabsTrigger>
           <TabsTrigger value="despesas">Despesas padrão</TabsTrigger>
           <TabsTrigger value="ia">IA</TabsTrigger>
         </TabsList>
@@ -943,6 +992,138 @@ export default function MarkupConfigPage() {
                   Salvar parâmetros
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="negociador" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Handshake className="h-4 w-4 text-amber-700" aria-hidden />
+                Negociador com o cliente
+              </CardTitle>
+              <CardDescription>
+                Defina até onde o vendedor pode baixar o preço (margem mínima sobre o custo de
+                material) e como o valor negociado se divide entre Material, Mão de obra e Lucro.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                <div>
+                  <Label htmlFor="negociador-margem-minima">
+                    Margem mínima aceitável (% sobre o custo)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-2">
+                    Exemplo: material R$ 10 e mínimo 100% → o preço não pode descer abaixo de{' '}
+                    <strong>{formatarMoedaMarkup(negociadorPreviewPiso)}</strong>.
+                  </p>
+                  <Input
+                    id="negociador-margem-minima"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={configLocal.negociador_margem_minima_percent}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(',', '.');
+                      let out = '';
+                      let seenDot = false;
+                      for (const ch of raw) {
+                        if (ch >= '0' && ch <= '9') out += ch;
+                        else if (ch === '.' && !seenDot) {
+                          out += '.';
+                          seenDot = true;
+                        }
+                      }
+                      setConfigLocal((prev) => ({
+                        ...prev,
+                        negociador_margem_minima_percent: out,
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="rounded-md border border-amber-700/20 bg-amber-50/60 px-3 py-2 text-sm text-[#2a1812]">
+                  Se o material for <strong>R$ 10</strong> e o mínimo{' '}
+                  <strong>{configLocal.negociador_margem_minima_percent || '0'}%</strong>, o piso é{' '}
+                  <strong>{formatarMoedaMarkup(negociadorPreviewPiso)}</strong>.
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-medium">Divisão do valor negociado</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Digite um percentual: os outros dois se ajustam sozinhos para somar{' '}
+                    <strong>100%</strong>.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {(
+                    [
+                      ['negociador_pct_material', 'Material (%)', 'material'],
+                      ['negociador_pct_mao_obra', 'Mão de obra (%)', 'maoObra'],
+                      ['negociador_pct_lucro', 'Lucro (%)', 'lucro'],
+                    ] as const
+                  ).map(([key, label, campo]) => (
+                    <div key={key}>
+                      <Label htmlFor={key}>{label}</Label>
+                      <Input
+                        id={key}
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        className="mt-1"
+                        value={configLocal[key]}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(',', '.');
+                          let out = '';
+                          let seenDot = false;
+                          for (const ch of raw) {
+                            if (ch >= '0' && ch <= '9') out += ch;
+                            else if (ch === '.' && !seenDot) {
+                              out += '.';
+                              seenDot = true;
+                            }
+                          }
+                          setConfigLocal((prev) => ({ ...prev, [key]: out }));
+                        }}
+                        onBlur={(e) => {
+                          const n = Number(e.target.value.replace(',', '.'));
+                          if (!Number.isFinite(n)) return;
+                          const next = redistribuirSplits(
+                            campo as NegociadorSplitCampo,
+                            n,
+                            {
+                              material: parseFloat(configLocal.negociador_pct_material) || 0,
+                              maoObra: parseFloat(configLocal.negociador_pct_mao_obra) || 0,
+                              lucro: parseFloat(configLocal.negociador_pct_lucro) || 0,
+                            },
+                          );
+                          setConfigLocal((prev) => ({
+                            ...prev,
+                            negociador_pct_material: String(next.material),
+                            negociador_pct_mao_obra: String(next.maoObra),
+                            negociador_pct_lucro: String(next.lucro),
+                          }));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return;
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Digite o % e saia do campo (ou Enter): os outros dois se ajustam para somar 100%.
+                </p>
+              </div>
+
+              <Button onClick={salvarNegociador} disabled={salvarConfig.isPending}>
+                {salvarConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Salvar Negociador
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

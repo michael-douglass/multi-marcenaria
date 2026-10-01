@@ -12,13 +12,13 @@ export interface LeadNavJumpItem {
   keywords?: string[];
 }
 
-const INFO_SECTION_IDS = new Set(['contato', 'negocio', 'equipe', 'pontua-garbo']);
+const INFO_SECTION_IDS = new Set(['contato', 'negocio', 'equipe', 'pontua-garbo', 'negociador']);
 
 export function leadTabForSection(sectionId: string): LeadModalTabId {
   return INFO_SECTION_IDS.has(sectionId) ? 'info' : 'detalhes';
 }
 
-/** Ficha principal: quem é, o negócio, a equipe e o Pontua Garbo. */
+/** Ficha principal: quem é, o negócio, a equipe, Pontua Garbo e Negociador. */
 export const LEAD_INFO_NAV: LeadNavJumpItem[] = [
   {
     id: 'contato',
@@ -47,6 +47,23 @@ export const LEAD_INFO_NAV: LeadNavJumpItem[] = [
     hint: 'Cadastrar ou unir parceiro',
     tab: 'info',
     keywords: ['pontua', 'garbo', 'arquiteto', 'parceiro', 'estrelinha', 'comissao', 'comissão'],
+  },
+  {
+    id: 'negociador',
+    label: 'Negociador',
+    hint: 'Negociar preço com o cliente',
+    tab: 'info',
+    keywords: [
+      'negociador',
+      'negociacao',
+      'negociação',
+      'desconto',
+      'piso',
+      'margem',
+      'markup',
+      'preco',
+      'preço',
+    ],
   },
 ];
 
