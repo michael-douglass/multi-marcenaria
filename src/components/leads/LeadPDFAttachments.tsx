@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, FolderInput, Pencil } from 'lucide-react';
+import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, FolderInput, Pencil, Minus, Plus, RotateCcw } from 'lucide-react';
 import {
   useLeadPDFs,
   getLeadAttachmentViewKind,
@@ -71,6 +71,10 @@ import {
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { LeadAttachmentFolderCard } from '@/components/leads/LeadAttachmentFolderCard';
 import { requestLeadWhiteboardImport } from '@/lib/lead-whiteboard-import';
+import {
+  useInlineImageZoom,
+  useZoomContainerBinding,
+} from '@/components/leads/use-inline-image-zoom';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   buildLeadFotosPdfFile,
@@ -289,6 +293,7 @@ function FullscreenAttachmentShell({
           )}
         />
         <DialogPrimitive.Content
+          data-lead-attachment-fullscreen=""
           className={cn(
             FULLSCREEN_CONTENT_Z,
             'fixed inset-0 flex flex-col gap-0 border-0 p-0 shadow-2xl',
@@ -298,7 +303,7 @@ function FullscreenAttachmentShell({
           )}
           onEscapeKeyDown={onClose}
         >
-          <header className="flex shrink-0 flex-row items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <header className="relative z-20 flex h-14 shrink-0 flex-row items-center justify-between gap-3 border-b border-white/10 bg-neutral-950 px-4">
             <DialogPrimitive.Title className="flex min-w-0 items-center gap-2 text-base font-medium truncate pr-2">
               <TitleIcon className="h-4 w-4 shrink-0" aria-hidden />
               <span className="truncate">{title}</span>
@@ -312,6 +317,7 @@ function FullscreenAttachmentShell({
                   variant="default"
                   size="sm"
                   disabled={isDownloading}
+                  className="h-10 px-4"
                   onClick={() => void onDownload()}
                 >
                   {isDownloading ? (
@@ -322,13 +328,21 @@ function FullscreenAttachmentShell({
                   {downloadLabel}
                 </Button>
               )}
-              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="relative z-30 h-10 border-white/25 bg-black/40 px-4 text-white hover:bg-white/10 hover:text-white"
+                onClick={onClose}
+              >
                 <X className="h-4 w-4 mr-1" />
                 Fechar
               </Button>
             </div>
           </header>
-          {children}
+          <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+            {children}
+          </div>
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>
@@ -534,6 +548,23 @@ function ImageFullscreenViewer({
   const total = images.length;
   const hasGallery = total > 1;
   const current = images[index] ?? images[0];
+  const zoomKey = open && current ? `${current.key}:${current.fileUrl}` : null;
+  const {
+    scale,
+    position,
+    resetView,
+    zoomIn,
+    zoomOut,
+    toggleZoom,
+    bindZoomContainer,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    isZoomed,
+    canZoomIn,
+    canZoomOut,
+  } = useInlineImageZoom(zoomKey);
+  const containerRef = useZoomContainerBinding(bindZoomContainer, open && !!current);
 
   const goPrev = useCallback(() => {
     if (total <= 1) return;
@@ -548,26 +579,24 @@ function ImageFullscreenViewer({
   useEffect(() => {
     if (!open || !hasGallery) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        goPrev();
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        goNext();
-      }
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      // Captura antes do card do lead, que usa ← → para rolar a página
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'ArrowLeft') goPrev();
+      else goNext();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [open, hasGallery, goPrev, goNext]);
 
   const handleTouchStart = (e: TouchEvent) => {
-    if (!hasGallery) return;
+    if (!hasGallery || isZoomed) return;
     touchStartXRef.current = e.changedTouches[0]?.clientX ?? null;
   };
 
   const handleTouchEnd = (e: TouchEvent) => {
-    if (!hasGallery || touchStartXRef.current == null) return;
+    if (!hasGallery || isZoomed || touchStartXRef.current == null) return;
     const endX = e.changedTouches[0]?.clientX;
     if (endX == null) {
       touchStartXRef.current = null;
@@ -585,18 +614,68 @@ function ImageFullscreenViewer({
   return (
     <FullscreenAttachmentShell
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        resetView();
+        onClose();
+      }}
       title={current.fileName}
       titleIcon={Image}
       canDownload={canDownload}
       isDownloading={false}
       onDownload={() => {}}
       meta={
-        hasGallery ? (
-          <span className="text-xs text-white/50 tabular-nums">
-            {index + 1} / {total}
-          </span>
-        ) : undefined
+          <div className="flex h-10 items-center gap-2">
+          {hasGallery && (
+            <span className="text-xs text-white/50 tabular-nums">
+              {index + 1} / {total}
+            </span>
+          )}
+          <div className="flex h-10 shrink-0 items-center gap-0.5 rounded-lg border border-white/20 bg-black/50 p-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={zoomOut}
+              disabled={!canZoomOut}
+              className="h-9 w-9 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40"
+              aria-label="Diminuir zoom"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <button
+              type="button"
+              onClick={resetView}
+              className="min-w-[3.5rem] px-1 text-center text-xs tabular-nums text-white/80 hover:text-white"
+              aria-label="Restaurar zoom"
+              title="Restaurar zoom"
+            >
+              {Math.round(scale * 100)}%
+            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={zoomIn}
+              disabled={!canZoomIn}
+              className="h-9 w-9 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40"
+              aria-label="Aumentar zoom"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            {isZoomed && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={resetView}
+                className="h-9 w-9 text-white/80 hover:bg-white/10 hover:text-white"
+                aria-label="Restaurar visualização"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
       }
       downloadSlot={
         canDownload ? (
@@ -608,17 +687,17 @@ function ImageFullscreenViewer({
             leadId={leadId}
             triggerLabel="Baixar"
             menuModal
-            triggerClassName="h-8 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+            triggerClassName="h-10 px-4 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
           />
         ) : undefined
       }
     >
       <div
-        className="relative flex flex-1 min-h-0 items-center justify-center bg-neutral-950 select-none"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-neutral-950 select-none"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {hasGallery && (
+        {hasGallery && !isZoomed && (
           <Button
             type="button"
             variant="outline"
@@ -631,20 +710,34 @@ function ImageFullscreenViewer({
           </Button>
         )}
 
-        <ScrollArea className="h-full w-full">
-          <div className="flex min-h-[50vh] items-center justify-center p-4 sm:px-16">
+        <div
+          ref={containerRef}
+          className={cn(
+            'relative h-full w-full overflow-hidden touch-none',
+            isZoomed ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in',
+          )}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onDoubleClick={toggleZoom}
+        >
+          <div className="flex h-full w-full min-h-[50vh] items-center justify-center p-4 sm:px-16">
             <img
               key={current.key}
               src={current.fileUrl}
               alt={current.fileName}
-              className="max-h-[85vh] max-w-full rounded-md border border-white/10 bg-white object-contain shadow-lg"
+              className="max-h-[85vh] max-w-full select-none rounded-md border border-white/10 bg-white object-contain shadow-lg will-change-transform motion-reduce:transition-none"
               loading="eager"
               draggable={false}
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+              }}
             />
           </div>
-        </ScrollArea>
+        </div>
 
-        {hasGallery && (
+        {hasGallery && !isZoomed && (
           <Button
             type="button"
             variant="outline"
@@ -657,11 +750,13 @@ function ImageFullscreenViewer({
           </Button>
         )}
 
-        {hasGallery && (
-          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] text-white/70">
-            Deslize ou use ← → para ver as outras fotos
-          </p>
-        )}
+        <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] text-white/70">
+          {isZoomed
+            ? 'Arraste para mover · scroll ou − para diminuir'
+            : hasGallery
+              ? 'Scroll ou + / − para zoom · deslize ou ← → para outras fotos'
+              : 'Scroll do mouse ou + / − para zoom · duplo clique'}
+        </p>
       </div>
     </FullscreenAttachmentShell>
   );
@@ -926,11 +1021,6 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     [filesInView],
   );
 
-  const canUseSelectionMode =
-    (viewingRoot && canUploadPdf && folders.length >= 1) ||
-    (!viewingRoot && movableFiles.length >= 1) ||
-    selectableImages.length >= 2;
-
   const toggleImageSelection = useCallback((id: string) => {
     setSelectedImageIds((prev) => {
       const next = new Set(prev);
@@ -1102,6 +1192,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     userRole,
     userRoles,
   });
+
+  const canUseSelectionMode =
+    (viewingRoot && canUploadPdf && folders.length >= 1) ||
+    (!viewingRoot && movableFiles.length >= 1) ||
+    selectableImages.length >= 2;
 
   const handleDownloadPdf = useCallback(async (pdf: LeadPDF) => {
     setDownloadingId(pdf.id);

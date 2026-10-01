@@ -2350,7 +2350,9 @@ export function LeadModal({
             isEditable={isEditable}
             isAdmin={canManageCustomFields}
             canManagePrestadorVisibilidade={canManagePrestadorVisibilidade}
-            budgetValue={formData.budgetValue}
+            budgetValue={formData.budgetValue || Number(dbLead?.valor_orcamento ?? 0)}
+            dealValue={formData.dealValue || Number(dbLead?.valor_negocio ?? 0)}
+            leadStatus={formData.status || dbLead?.status}
             onPontuaGarboSaleInfoChange={setPontuaGarboLive}
           />
 

@@ -52,6 +52,11 @@ function hasOpenDropdown(): boolean {
   );
 }
 
+/** Anexo / foto / PDF em tela cheia — as setas devem navegar a galeria, não o card. */
+function hasOpenAttachmentFullscreen(): boolean {
+  return Boolean(document.querySelector('[data-lead-attachment-fullscreen]'));
+}
+
 /**
  * True quando as setas devem mover a rolagem do card.
  * Só abre mão se a pessoa estiver digitando ou com um menu aberto.
@@ -71,6 +76,7 @@ export function shouldLeadModalHandleArrowScroll(
   }
 
   if (hasOpenDropdown()) return false;
+  if (hasOpenAttachmentFullscreen()) return false;
 
   return true;
 }
