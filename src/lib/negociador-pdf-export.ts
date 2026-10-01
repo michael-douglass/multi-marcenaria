@@ -77,7 +77,7 @@ function buildNegociadorPdfHtml(
   .meta { font-size: 12px; color: #6b5344; margin-bottom: 16px; line-height: 1.45; }
   .cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin-bottom: 18px;
   }
@@ -90,10 +90,6 @@ function buildNegociadorPdfHtml(
   .card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #6b5344; }
   .card .val { font-size: 14px; font-weight: 700; margin-top: 4px; color: #2a1812; }
   .card.accent .val { color: #8d5e22; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { padding: 8px 10px; border-bottom: 1px solid #efe6d8; font-size: 12px; text-align: left; }
-  th { background: #fffaf3; color: #8d5e22; font-size: 11px; text-transform: uppercase; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .obs {
     margin-top: 16px;
     padding: 12px;
@@ -121,28 +117,13 @@ function buildNegociadorPdfHtml(
   <h2>Negociação comercial</h2>
   <p class="meta">
     ${branding.clienteNome ? `Cliente: <strong>${esc(branding.clienteNome)}</strong><br/>` : ''}
-    Margem mínima: ${data.margemMinimaPercent}% sobre o custo de material · Piso ${formatarMoedaMarkup(data.piso)}
+    Documento com o valor fechado com o cliente.
   </p>
 
   <div class="cards">
-    <div class="card"><div class="lbl">Custo material</div><div class="val">${formatarMoedaMarkup(data.custoMaterial)}</div></div>
     <div class="card"><div class="lbl">Preço original</div><div class="val">${formatarMoedaMarkup(data.precoOriginal)}</div></div>
-    <div class="card"><div class="lbl">Piso</div><div class="val">${formatarMoedaMarkup(data.piso)}</div></div>
     <div class="card accent"><div class="lbl">Valor negociado</div><div class="val">${formatarMoedaMarkup(data.valorNegociado)}</div></div>
   </div>
-
-  <h2>Divisão do valor</h2>
-  <table>
-    <thead>
-      <tr><th>Composição</th><th class="num">%</th><th class="num">Valor</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Material</td><td class="num">${data.pctMaterial.toFixed(2)}%</td><td class="num"><strong>${formatarMoedaMarkup(data.valorMaterial)}</strong></td></tr>
-      <tr><td>Mão de obra</td><td class="num">${data.pctMaoObra.toFixed(2)}%</td><td class="num"><strong>${formatarMoedaMarkup(data.valorMaoObra)}</strong></td></tr>
-      <tr><td>Lucro</td><td class="num">${data.pctLucro.toFixed(2)}%</td><td class="num"><strong>${formatarMoedaMarkup(data.valorLucro)}</strong></td></tr>
-      <tr><td><strong>Total</strong></td><td class="num">100%</td><td class="num"><strong>${formatarMoedaMarkup(data.valorNegociado)}</strong></td></tr>
-    </tbody>
-  </table>
 
   <h2 style="margin-top:18px">Markups incluídos</h2>
   <ul>${markups}</ul>
