@@ -124,30 +124,39 @@ export function useLeadMediaFolders(leadId: number | null | undefined) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, silent }: { id: string; silent?: boolean }) => {
       const { error } = await db
         .from(mediasConfig.foldersTable as 'marketing_media_folders')
         .delete()
         .eq('id', id);
       if (error) throw error;
+      return { silent: Boolean(silent) };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidate();
       queryClient.invalidateQueries({ queryKey: ['lead-pdfs'] });
       queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
-      toast.success('Pasta removida. Os arquivos ficaram sem pasta.');
+      if (!result.silent) {
+        toast.success('Pasta removida. Os arquivos ficaram sem pasta.');
+      }
     },
-    onError: (error: Error) => {
-      toast.error('Não foi possível remover a pasta', { description: error.message });
+    onError: (error: Error, variables) => {
+      if (!variables.silent) {
+        toast.error('Não foi possível remover a pasta', { description: error.message });
+      }
     },
   });
+
+  const deleteFolder = async (id: string, options?: { silent?: boolean }) => {
+    await deleteMutation.mutateAsync({ id, silent: options?.silent });
+  };
 
   return {
     folders: query.data ?? [],
     isLoading: query.isLoading,
     createFolder: createMutation.mutateAsync,
     updateFolder: updateMutation.mutateAsync,
-    deleteFolder: deleteMutation.mutateAsync,
+    deleteFolder,
     isCreating: createMutation.isPending,
   };
 }

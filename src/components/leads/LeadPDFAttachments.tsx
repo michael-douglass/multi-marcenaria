@@ -783,7 +783,9 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const [forcedGallery, setForcedGallery] = useState<GalleryImageItem[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileUrl: string; fileName?: string } | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkFolderDeleteOpen, setBulkFolderDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkDeletingFolders, setIsBulkDeletingFolders] = useState(false);
   const [fullscreenView, setFullscreenView] = useState<{
     kind: 'pdf' | 'image' | 'video';
     cacheKey: string;
@@ -797,6 +799,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
+  const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(() => new Set());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [isExportProcessing, setIsExportProcessing] = useState(false);
   const [insideRename, setInsideRename] = useState(false);
@@ -874,6 +877,8 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     setInsideRenameDraft('');
     setIsSelectionMode(false);
     setSelectedImageIds(new Set());
+    setSelectedFolderIds(new Set());
+    setBulkFolderDeleteOpen(false);
   }, [currentFolderId]);
 
   useEffect(() => {
@@ -922,7 +927,9 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   );
 
   const canUseSelectionMode =
-    (!viewingRoot && movableFiles.length >= 1) || selectableImages.length >= 2;
+    (viewingRoot && canUploadPdf && folders.length >= 1) ||
+    (!viewingRoot && movableFiles.length >= 1) ||
+    selectableImages.length >= 2;
 
   const toggleImageSelection = useCallback((id: string) => {
     setSelectedImageIds((prev) => {
@@ -933,10 +940,21 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     });
   }, []);
 
+  const toggleFolderSelection = useCallback((id: string) => {
+    setSelectedFolderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
     setSelectedImageIds(new Set());
+    setSelectedFolderIds(new Set());
     setBulkDeleteOpen(false);
+    setBulkFolderDeleteOpen(false);
   }, []);
 
   const deletableSelected = useMemo(
@@ -945,6 +963,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         (pdf) => selectedImageIds.has(pdf.id) && !isFormUploadAttachmentId(pdf.id),
       ),
     [filesInView, selectedImageIds],
+  );
+
+  const deletableFoldersSelected = useMemo(
+    () => folders.filter((folder) => selectedFolderIds.has(folder.id)),
+    [folders, selectedFolderIds],
   );
 
   const openMovePicker = useCallback((ids: string[]) => {
@@ -1336,6 +1359,49 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     }
   };
 
+  const handleConfirmBulkFolderDelete = async () => {
+    if (deletableFoldersSelected.length === 0) {
+      setBulkFolderDeleteOpen(false);
+      return;
+    }
+
+    setIsBulkDeletingFolders(true);
+    let removidas = 0;
+    let falhas = 0;
+
+    try {
+      for (const folder of deletableFoldersSelected) {
+        try {
+          await deleteFolder(folder.id, { silent: true });
+          removidas += 1;
+        } catch (error) {
+          console.error('Erro ao excluir pasta em lote:', error);
+          falhas += 1;
+        }
+      }
+
+      if (removidas > 0) {
+        toast.success(
+          removidas === 1
+            ? '1 pasta removida. Os arquivos ficaram sem pasta.'
+            : `${removidas} pastas removidas. Os arquivos ficaram sem pasta.`,
+        );
+      }
+      if (falhas > 0) {
+        toast.error(
+          falhas === 1
+            ? '1 pasta não pôde ser removida'
+            : `${falhas} pastas não puderam ser removidas`,
+        );
+      }
+
+      setBulkFolderDeleteOpen(false);
+      exitSelectionMode();
+    } finally {
+      setIsBulkDeletingFolders(false);
+    }
+  };
+
   const handleCreateNamedFolder = async () => {
     const nome = normalizeFolderName(newFolderDraft);
     if (!nome) return;
@@ -1448,7 +1514,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
             ) : (
               <>
                 <CheckSquare className="h-4 w-4 mr-2" />
-                {selectableImages.length >= 2 ? 'Selecionar' : 'Selecionar para mover'}
+                {viewingRoot
+                  ? 'Selecionar pastas'
+                  : selectableImages.length >= 2
+                    ? 'Selecionar'
+                    : 'Selecionar para mover'}
               </>
             )}
           </Button>
@@ -1456,7 +1526,37 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         </div>
       </div>
 
-      {isSelectionMode && (
+      {isSelectionMode && viewingRoot && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            {selectedFolderIds.size} pasta{selectedFolderIds.size !== 1 ? 's' : ''} selecionada
+            {selectedFolderIds.size !== 1 ? 's' : ''}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {canUploadPdf && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={deletableFoldersSelected.length < 1 || isBulkDeletingFolders}
+                onClick={() => setBulkFolderDeleteOpen(true)}
+              >
+                {isBulkDeletingFolders ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Excluir
+                {deletableFoldersSelected.length > 0
+                  ? ` (${deletableFoldersSelected.length})`
+                  : ''}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isSelectionMode && !viewingRoot && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
           <p className="text-sm text-muted-foreground">
             {selectedImageIds.size} arquivo{selectedImageIds.size !== 1 ? 's' : ''} selecionado
@@ -1714,6 +1814,9 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               covers={getFolderCoverUrls(coverSource, folder.id)}
               index={index}
               canManage={canUploadPdf}
+              selectionMode={isSelectionMode}
+              selected={selectedFolderIds.has(folder.id)}
+              onToggleSelect={() => toggleFolderSelection(folder.id)}
               onOpen={() => setCurrentFolderId(folder.id)}
               onRename={(nome) => void updateFolder({ id: folder.id, nome })}
               onDelete={() => setFolderToDelete({ id: folder.id, nome: folder.nome })}
@@ -1728,6 +1831,7 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               covers={getFolderCoverUrls(coverSource, null)}
               index={folders.length}
               canManage={canUploadPdf}
+              selectionMode={isSelectionMode}
               onOpen={() => setCurrentFolderId(LEAD_UNFILED_FOLDER_ID)}
               onRename={(nome) => void handleBaptizeUnfiled(nome)}
               onPlay={() => openFolderSlideshow(null)}
@@ -2160,6 +2264,38 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isBulkDeleting ? 'Removendo…' : 'Remover selecionados'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={bulkFolderDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isBulkDeletingFolders) setBulkFolderDeleteOpen(open);
+        }}
+      >
+        <AlertDialogContent nested>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir {deletableFoldersSelected.length} pasta
+              {deletableFoldersSelected.length !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Os arquivos não são apagados — voltam para Sem pasta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeletingFolders}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBulkDeletingFolders || deletableFoldersSelected.length < 1}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmBulkFolderDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeletingFolders ? 'Excluindo…' : 'Excluir pastas'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

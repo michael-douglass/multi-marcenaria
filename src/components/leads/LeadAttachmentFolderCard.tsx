@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Folder, FolderOpen, Images, MoreVertical, Pencil, Play, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -17,6 +18,9 @@ interface LeadAttachmentFolderCardProps {
   index: number;
   variant?: 'folder' | 'unfiled';
   canManage: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onOpen: () => void;
   onRename?: (nome: string) => void;
   onDelete?: () => void;
@@ -30,6 +34,9 @@ export function LeadAttachmentFolderCard({
   index,
   variant = 'folder',
   canManage,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
   onOpen,
   onRename,
   onDelete,
@@ -39,6 +46,7 @@ export function LeadAttachmentFolderCard({
   const [draft, setDraft] = useState(nome);
   const isUnfiled = variant === 'unfiled';
   const stack = covers.slice(0, 3);
+  const canSelect = selectionMode && !isUnfiled && Boolean(onToggleSelect);
 
   const commitRename = () => {
     const next = draft.trim();
@@ -51,6 +59,14 @@ export function LeadAttachmentFolderCard({
     setEditing(false);
   };
 
+  const handleActivate = () => {
+    if (canSelect) {
+      onToggleSelect?.();
+      return;
+    }
+    onOpen();
+  };
+
   return (
     <article
       className={cn(
@@ -59,6 +75,8 @@ export function LeadAttachmentFolderCard({
         isUnfiled
           ? 'border-dashed border-[rgba(26,16,12,0.28)] bg-[rgba(26,16,12,0.03)]'
           : 'border-[rgba(26,16,12,0.14)] bg-[#fffaf4] shadow-[0_8px_20px_rgba(42,24,18,0.08)] hover:-translate-y-0.5 hover:border-[#6b3f12]/40 hover:shadow-[0_12px_28px_rgba(42,24,18,0.12)]',
+        canSelect && selected && 'ring-2 ring-primary border-primary',
+        selectionMode && isUnfiled && 'opacity-60',
       )}
       style={{ animationDelay: `${Math.min(index * 40, 280)}ms` }}
     >
@@ -73,7 +91,21 @@ export function LeadAttachmentFolderCard({
         />
       )}
 
-      {canManage && onRename && (
+      {canSelect && (
+        <div
+          className="absolute left-1.5 top-1.5 z-20"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect?.()}
+            aria-label={`Selecionar pasta ${nome}`}
+            className="h-5 w-5 border-[rgba(26,16,12,0.35)] bg-white/90 data-[state=checked]:bg-primary"
+          />
+        </div>
+      )}
+
+      {canManage && onRename && !selectionMode && (
         <Button
           type="button"
           variant="ghost"
@@ -90,7 +122,7 @@ export function LeadAttachmentFolderCard({
         </Button>
       )}
 
-      {canManage && !isUnfiled && onDelete && (
+      {canManage && !isUnfiled && onDelete && !selectionMode && (
         <div className="absolute right-1.5 top-1.5 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -123,7 +155,7 @@ export function LeadAttachmentFolderCard({
         </div>
       )}
 
-      {canManage && onPlay && stack.length > 0 && (
+      {canManage && onPlay && stack.length > 0 && !selectionMode && (
         <Button
           type="button"
           variant="ghost"
@@ -139,7 +171,18 @@ export function LeadAttachmentFolderCard({
         </Button>
       )}
 
-      <button type="button" onClick={onOpen} className="relative flex w-full flex-col items-center pt-5">
+      <button
+        type="button"
+        onClick={handleActivate}
+        className="relative flex w-full flex-col items-center pt-5"
+        title={
+          canSelect
+            ? selected
+              ? 'Clique para desmarcar'
+              : 'Clique para selecionar'
+            : undefined
+        }
+      >
         <div className="relative mb-2 h-16 w-[4.75rem]">
           {stack.length === 0 ? (
             <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[#efe4d4] ring-1 ring-[rgba(107,63,18,0.28)]">
