@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { WhiteboardMeasurePayload } from '@/lib/whiteboard-annotations';
 import {
@@ -117,9 +118,9 @@ interface MeasureLabelProps {
 /** Halo forte: número não se mistura com traços da foto/lousa. */
 const MEASURE_LABEL_BOX_SHADOW = [
   '0 0 0 3px rgba(255,255,255,1)',
-  '0 0 0 6px rgba(0,0,0,0.72)',
-  '0 4px 10px rgba(0,0,0,0.75)',
-  '0 12px 28px rgba(0,0,0,0.5)',
+  '0 0 0 7px rgba(0,0,0,0.78)',
+  '0 4px 12px rgba(0,0,0,0.8)',
+  '0 14px 32px rgba(0,0,0,0.55)',
 ].join(', ');
 
 const MEASURE_LABEL_TEXT_SHADOW = [
@@ -144,7 +145,38 @@ export function MeasureLabel({
   const color = payload.colorHex ?? strokeColor;
   const { a, b, via } = payload;
   const { x: labelX, y: labelY } = measureLabelPosition(a, b, via);
-  const display = value ?? payload.label;
+  const external = value ?? payload.label;
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** Rascunho local: o que você digita fica exatamente assim até salvar. */
+  const [draft, setDraft] = useState(external);
+  const editing = editable && selected;
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(external);
+    }
+  }, [external, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(external);
+      const id = window.requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+      return () => window.cancelAnimationFrame(id);
+    }
+    return undefined;
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao entrar no modo edição
+
+  const display = editing ? draft : external;
+
+  const flushDraft = (raw: string) => {
+    // Mantém exatamente o que foi digitado (sem arredondar nem trocar vírgula/ponto)
+    const exact = raw;
+    setDraft(exact);
+    onChange?.(exact);
+  };
 
   return (
     <div
@@ -154,22 +186,21 @@ export function MeasureLabel({
         'rounded-lg border-[3px] px-3.5 py-2',
         'font-black tabular-nums tracking-tight text-white',
         'transition-transform duration-150',
-        selected && 'scale-105',
+        selected && 'scale-110',
         editable ? 'cursor-text' : 'cursor-default',
       )}
       style={{
         left: labelX,
         top: labelY,
-        // Placa opaca + anel branco: traços não “furam” o número
-        backgroundColor: 'rgba(8, 6, 4, 0.97)',
+        backgroundColor: 'rgba(8, 6, 4, 0.98)',
         borderColor: color,
         outline: '3px solid rgba(255,255,255,1)',
         outlineOffset: 2,
         boxShadow: MEASURE_LABEL_BOX_SHADOW,
         textShadow: MEASURE_LABEL_TEXT_SHADOW,
-        fontSize: Math.max(16, Math.min(22, 15 + display.length * 0.35)),
-        letterSpacing: '0.03em',
-        minWidth: 52,
+        fontSize: Math.max(18, Math.min(26, 16 + display.length * 0.4)),
+        letterSpacing: '0.04em',
+        minWidth: 56,
         textAlign: 'center',
         zIndex: 9450,
         isolation: 'isolate',
@@ -183,19 +214,26 @@ export function MeasureLabel({
         className="pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-[5px]"
         style={{ backgroundColor: color }}
       />
-      {editable && selected ? (
+      {editing ? (
         <input
+          ref={inputRef}
           type="text"
           inputMode="decimal"
-          className="relative z-[1] w-full min-w-[3rem] bg-transparent text-center font-black text-white outline-none placeholder:text-white/70"
+          className="relative z-[1] w-full min-w-[3.25rem] bg-transparent text-center font-black text-white outline-none placeholder:text-white/70"
           style={{ textShadow: MEASURE_LABEL_TEXT_SHADOW }}
-          value={display}
-          onChange={(e) => onChange?.(e.target.value)}
-          onBlur={onBlur}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          value={draft}
+          onChange={(e) => flushDraft(e.target.value)}
+          onBlur={() => {
+            const exact = inputRef.current?.value ?? draft;
+            flushDraft(exact);
+            onBlur?.();
           }}
-          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
         />
       ) : (
         <span className="relative z-[1] drop-shadow-sm">{display}</span>

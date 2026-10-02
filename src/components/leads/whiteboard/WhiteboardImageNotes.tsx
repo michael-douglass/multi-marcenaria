@@ -11,6 +11,8 @@ interface WhiteboardImageNotesProps {
   compact?: boolean;
   className?: string;
   onSave: (imageId: string, note: string) => Promise<void>;
+  /** Espelha o texto digitado para o pai (ex.: salvar foto + nota juntos). */
+  onDraftChange?: (imageId: string, note: string) => void;
 }
 
 /**
@@ -24,6 +26,7 @@ export function WhiteboardImageNotes({
   compact = false,
   className,
   onSave,
+  onDraftChange,
 }: WhiteboardImageNotesProps) {
   const [draft, setDraft] = useState(initialNote ?? '');
   const [saving, setSaving] = useState(false);
@@ -32,7 +35,8 @@ export function WhiteboardImageNotes({
   useEffect(() => {
     setDraft(initialNote ?? '');
     setDirty(false);
-  }, [imageId, initialNote]);
+    if (imageId) onDraftChange?.(imageId, initialNote ?? '');
+  }, [imageId, initialNote, onDraftChange]);
 
   if (!imageId) return null;
 
@@ -66,7 +70,9 @@ export function WhiteboardImageNotes({
           <p className="font-display text-[10px] uppercase tracking-[0.18em] text-gold/80">
             Notas da foto
           </p>
-          <p className="truncate text-xs text-[#d4bc9f]">Ficam salvas com esta imagem</p>
+          <p className="truncate text-xs text-[#d4bc9f]">
+            Vai junto na pasta ao salvar a foto (arquivo separado com miniatura)
+          </p>
         </div>
       </div>
 
@@ -79,8 +85,10 @@ export function WhiteboardImageNotes({
           <textarea
             value={draft}
             onChange={(e) => {
-              setDraft(e.target.value);
+              const next = e.target.value;
+              setDraft(next);
               setDirty(true);
+              onDraftChange?.(imageId, next);
             }}
             rows={compact ? 8 : 4}
             placeholder="Ex.: porta de correr · 2,40 m · lado esquerdo · cliente pediu puxador preto"

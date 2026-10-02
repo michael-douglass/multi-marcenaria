@@ -8,6 +8,12 @@ import {
   type OrcamentoExportFormat,
   type OrcamentoExportViewport,
 } from '@/lib/orcamento-slide-export';
+import {
+  buildExportFingerprint,
+  saveCachedPdfExport,
+  type OrcamentoSlideExportCacheInput,
+} from '@/lib/orcamento-slide-export-cache';
+import type { OrcamentoExportProgress } from '@/lib/orcamento-slide-print';
 
 type PresentationProps = Omit<
   OrcamentoSlideApresentacaoProps,
@@ -23,6 +29,11 @@ type PresentationProps = Omit<
 interface UseOrcamentoSlideExportOptions {
   titulo: string;
   presentationProps: PresentationProps;
+  /** Quando informado, grava o PDF no Storage após gerar (próxima vez só baixa). */
+  cacheContext?: {
+    empresaSchema: string;
+    orcamentoId: string;
+  } | null;
 }
 
 async function aguardarRenderOffscreen(): Promise<void> {
@@ -48,8 +59,23 @@ async function aguardarRefMontado(
   return ref.current;
 }
 
+function descricaoProgresso(progress: OrcamentoExportProgress, isImagens: boolean): string {
+  if (progress.phase === 'preparando' || progress.total === 0) {
+    return 'Preparando slides e imagens…';
+  }
+  if (progress.phase === 'concluido') {
+    return isImagens ? 'Finalizando downloads…' : 'Finalizando PDF…';
+  }
+  const verbo = progress.phase === 'montando' ? 'Montando' : 'Capturando';
+  return `${verbo} slide ${progress.current} de ${progress.total}`;
+}
+
 /** Exportação PDF ou imagens — baixa direto ao escolher computador ou celular. */
-export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcamentoSlideExportOptions) {
+export function useOrcamentoSlideExport({
+  titulo,
+  presentationProps,
+  cacheContext = null,
+}: UseOrcamentoSlideExportOptions) {
   const offscreenRef = useRef<HTMLDivElement>(null);
   const [exportViewport, setExportViewport] = useState<OrcamentoExportViewport | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -63,21 +89,51 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
 
       const isImagens = format === 'imagens';
       const toastId = toast.loading(isImagens ? 'Gerando imagens…' : 'Gerando PDF…', {
-        description: isImagens
-          ? 'Em segundo plano — um slide por página.'
-          : 'Em segundo plano — um slide por página.',
+        description: 'Em segundo plano — um slide por página.',
       });
 
       try {
         const root = await aguardarRefMontado(offscreenRef);
         await aguardarRenderOffscreen();
 
-        await abrirOrcamentoExport({
+        const result = await abrirOrcamentoExport({
           rootElement: root,
           titulo,
           viewport,
           format,
+          onProgress: (progress) => {
+            toast.loading(isImagens ? 'Gerando imagens…' : 'Gerando PDF…', {
+              id: toastId,
+              description: descricaoProgresso(progress, isImagens),
+            });
+          },
         });
+
+        // Cache só para PDF (imagens são vários arquivos).
+        if (
+          format === 'pdf' &&
+          result instanceof Blob &&
+          cacheContext?.empresaSchema &&
+          cacheContext.orcamentoId
+        ) {
+          const midias = presentationProps.midiasOrcamento ?? [];
+          const fingerprint = await buildExportFingerprint({
+            orcamento: presentationProps.orcamento,
+            midias,
+            viewport,
+            format: 'pdf',
+          });
+          const cacheInput: OrcamentoSlideExportCacheInput = {
+            empresaSchema: cacheContext.empresaSchema,
+            orcamentoId: cacheContext.orcamentoId,
+            viewport,
+            format: 'pdf',
+            fingerprint,
+            titulo,
+          };
+          // Não bloqueia o sucesso do download se o upload falhar.
+          void saveCachedPdfExport(cacheInput, result).catch(() => undefined);
+        }
 
         const modo =
           viewport === 'desktop' ? 'computador (1920×1080)' : 'celular (1080×1920)';
@@ -102,7 +158,7 @@ export function useOrcamentoSlideExport({ titulo, presentationProps }: UseOrcame
         setExportViewport(null);
       }
     },
-    [isExporting, titulo],
+    [isExporting, titulo, cacheContext, presentationProps.orcamento, presentationProps.midiasOrcamento],
   );
 
   const pageSize = exportViewport ? resolveExportPageSize(exportViewport) : null;

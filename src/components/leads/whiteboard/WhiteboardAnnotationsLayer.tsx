@@ -26,7 +26,6 @@ import {
   MeasureLabel,
 } from '@/components/leads/whiteboard/MeasureAnnotationGfx';
 import { FurnitureModuleGfx } from '@/components/leads/whiteboard/FurnitureModuleGfx';
-import { formatMeasureValue, measureDistance } from '@/lib/photo-measure-style';
 import {
   furnitureFrame,
   furnitureRotationDeg,
@@ -78,6 +77,8 @@ interface WhiteboardAnnotationsLayerProps {
   remapTextPayloadIds?: { from: string; to: string } | null;
   onRemapTextPayloadIdsDone?: () => void;
   onTextPayloadLiveChange?: (id: string, payload: WhiteboardTextPayload) => void;
+  /** Espelha o número digitado na régua para o pai gravar ao clicar fora. */
+  onMeasurePayloadLiveChange?: (id: string, payload: WhiteboardMeasurePayload) => void;
   pendingPolyline: WhiteboardPoint[] | null;
   polylinePreview: WhiteboardPoint | null;
   shapePreview: WhiteboardAnnotationPayload | null;
@@ -106,6 +107,7 @@ export function WhiteboardAnnotationsLayer({
   remapTextPayloadIds = null,
   onRemapTextPayloadIdsDone,
   onTextPayloadLiveChange,
+  onMeasurePayloadLiveChange,
   pendingPolyline,
   polylinePreview,
   shapePreview,
@@ -891,13 +893,14 @@ export function WhiteboardAnnotationsLayer({
       } else if (drag.kind === 'adjust_via' && drag.origPayload.kind === 'measure') {
         const orig = drag.origPayload;
         const via = world;
+        // Mantém o número que o usuário digitou — não recalcula por pixels
         const next: WhiteboardMeasurePayload = {
           ...orig,
           via,
-          label: formatMeasureValue(measureDistance(orig.a, orig.b, via)),
         };
         setLivePayloads((prev) => ({ ...prev, [drag.id]: next }));
         livePayloadsRef.current[drag.id] = next;
+        onMeasurePayloadLiveChange?.(drag.id, next);
       }
     },
     [
@@ -908,6 +911,7 @@ export function WhiteboardAnnotationsLayer({
       applyResize,
       applyFurnitureEdit,
       onTextPayloadLiveChange,
+      onMeasurePayloadLiveChange,
     ],
   );
 
@@ -1351,13 +1355,19 @@ export function WhiteboardAnnotationsLayer({
             editable={selected && tool === 'select' && !contentLocked}
             value={label}
             onChange={(next) => {
-              const updated: WhiteboardMeasurePayload = { ...payload, label: next };
+              const base =
+                livePayloadsRef.current[ann.id]?.kind === 'measure'
+                  ? (livePayloadsRef.current[ann.id] as WhiteboardMeasurePayload)
+                  : payload;
+              const updated: WhiteboardMeasurePayload = { ...base, label: next };
               setLivePayloads((prev) => ({ ...prev, [ann.id]: updated }));
               livePayloadsRef.current[ann.id] = updated;
+              onMeasurePayloadLiveChange?.(ann.id, updated);
             }}
             onBlur={() => {
               const current = livePayloadsRef.current[ann.id];
               if (current?.kind === 'measure') {
+                onMeasurePayloadLiveChange?.(ann.id, current);
                 void onCommitAnnotation(ann.id, current);
               }
             }}

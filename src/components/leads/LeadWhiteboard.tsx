@@ -77,6 +77,7 @@ import { useWhiteboardHistory } from '@/hooks/useWhiteboardHistory';
 import { useWhiteboardTextConfig } from '@/hooks/useWhiteboardTextConfig';
 import { usePermissions } from '@/hooks/usePermissions';
 import { buildWhiteboardAttachmentFile } from '@/lib/lead-whiteboard-save';
+import { buildWhiteboardNoteAttachmentFiles } from '@/lib/lead-whiteboard-note-export';
 import { WhiteboardProjectImagePicker } from '@/components/leads/whiteboard/WhiteboardProjectImagePicker';
 import { LeadFolderPickDialog } from '@/components/leads/LeadFolderPickDialog';
 import { WhiteboardCameraCapture, type WhiteboardCameraCaptureHandle } from '@/components/leads/whiteboard/WhiteboardCameraCapture';
@@ -274,6 +275,9 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
   const suggestedFolderNameRef = useRef<string>('');
   const pendingSaveFileRef = useRef<File | null>(null);
   const savePreviewUrlRef = useRef<string | null>(null);
+  /** Texto da nota digitado (mesmo sem clicar em “Salvar nota”). */
+  const noteDraftRef = useRef('');
+  const [noteDraftHasText, setNoteDraftHasText] = useState(false);
   const [savePickerOpen, setSavePickerOpen] = useState(false);
   const [savePreviewUrl, setSavePreviewUrl] = useState<string | null>(null);
   const [saveDefaultFileName, setSaveDefaultFileName] = useState('');
@@ -396,6 +400,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     null,
   );
   const textLivePayloadsRef = useRef<Record<string, WhiteboardTextPayload>>({});
+  /** Espelho das medições em edição — o commit ao deselecionar só enxerga texto sem isso. */
+  const measureLivePayloadsRef = useRef<Record<string, WhiteboardMeasurePayload>>({});
 
   const annotationsWithOptimistic = useMemo(() => {
     if (optimisticAnnotations.length === 0) return annotations;
@@ -452,6 +458,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
       if (id.startsWith('tmp-')) {
         setOptimisticAnnotations((prev) => prev.filter((a) => a.id !== id));
         delete textLivePayloadsRef.current[id];
+        delete measureLivePayloadsRef.current[id];
         delete pendingTextCommitRef.current[id];
         setSelectedAnnotationId((curr) => (curr === id ? null : curr));
         return;
@@ -793,9 +800,14 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
       const resolved =
         payload ??
         textLivePayloadsRef.current[id] ??
+        measureLivePayloadsRef.current[id] ??
         (() => {
           const ann = annotationsWithOptimistic.find((a) => a.id === id);
-          return ann?.payload.kind === 'text' ? ann.payload : null;
+          if (!ann) return null;
+          if (ann.payload.kind === 'text' || ann.payload.kind === 'measure') {
+            return ann.payload;
+          }
+          return null;
         })();
       if (!resolved) return false;
 
@@ -830,6 +842,9 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         if (resolved.kind === 'text') {
           textLivePayloadsRef.current[id] = resolved;
         }
+        if (resolved.kind === 'measure') {
+          measureLivePayloadsRef.current[id] = resolved;
+        }
         setTimeout(() => {
           if (lastCommitTimestampRef.current[id] === commitTimestamp) {
             setOptimisticAnnotations((prev) => prev.filter((a) => a.id !== id));
@@ -843,13 +858,18 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     [annotationsWithOptimistic, updateDrawing, drawings],
   );
 
-  const commitActiveText = useCallback(async () => {
+  /** Grava texto ou medição em edição antes de trocar a seleção / clicar fora. */
+  const commitActiveAnnotation = useCallback(async () => {
     const id = selectedAnnotationIdRef.current;
     if (!id) return;
-    await commitAnnotation(id);
-    if (document.activeElement instanceof HTMLTextAreaElement) {
+    // Sai do campo primeiro: o onBlur/onChange espelha o valor exato no ref
+    if (
+      document.activeElement instanceof HTMLTextAreaElement ||
+      document.activeElement instanceof HTMLInputElement
+    ) {
       document.activeElement.blur();
     }
+    await commitAnnotation(id);
   }, [commitAnnotation]);
 
   const handleSelectAnnotation = useCallback(
@@ -964,6 +984,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     setTextPlacementPending(false);
     setTextPlacementPreview(null);
     textLivePayloadsRef.current = {};
+    measureLivePayloadsRef.current = {};
     pendingTextCommitRef.current = {};
     isDrawingRef.current = false;
     clearStrokePreview();
@@ -1151,6 +1172,12 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     [leadId, disabled, importImageFromUrl],
   );
 
+  const handleNoteDraftChange = useCallback((imageId: string, note: string) => {
+    if (imageId !== activeImageId) return;
+    noteDraftRef.current = note;
+    setNoteDraftHasText(note.trim().length > 0);
+  }, [activeImageId]);
+
   const confirmSaveToFolder = useCallback(
     async (
       folderId: string | null,
@@ -1159,16 +1186,44 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
       const file = pendingSaveFileRef.current;
       if (!file || !leadId) return;
       const base = options?.fileName?.trim();
-      const named = base
-        ? new File([file], `${sanitizeVisitFileBaseName(base)}.jpg`, {
-            type: file.type || 'image/jpeg',
-          })
-        : file;
+      const safeBase = sanitizeVisitFileBaseName(base || 'foto-lousa');
+      const named = new File([file], `${safeBase}.jpg`, {
+        type: file.type || 'image/jpeg',
+      });
+      const noteText =
+        noteDraftRef.current.trim() || activeImage?.observacao?.trim() || '';
+      const shouldIncludeNotes = Boolean(options?.includeNotes && noteText);
+
       try {
+        // Garante a nota no banco antes de limpar a lousa
+        if (noteText && activeImage?.id) {
+          await saveImageNote(activeImage.id, noteText);
+        }
+
         await uploadPDF(named, {
           folderId,
           folderName: options?.folderName,
         });
+
+        if (shouldIncludeNotes) {
+          const noteFiles = await buildWhiteboardNoteAttachmentFiles({
+            photoFile: named,
+            noteText,
+            photoFileName: named.name,
+            baseName: safeBase,
+            leadId,
+          });
+          // Mesma pasta: imagem da nota (abre com miniatura) + PDF para imprimir
+          await uploadPDF(noteFiles.imageFile, {
+            folderId,
+            folderName: options?.folderName,
+          });
+          await uploadPDF(noteFiles.pdfFile, {
+            folderId,
+            folderName: options?.folderName,
+          });
+        }
+
         await clearWhiteboard();
         setActiveImageId(null);
         setOptimisticAnnotations([]);
@@ -1176,15 +1231,22 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         setAutoFocusTextId(null);
         setRemapTextPayloadIds(null);
         textLivePayloadsRef.current = {};
+        measureLivePayloadsRef.current = {};
         pendingTextCommitRef.current = {};
         resetHistory();
         pendingSaveFileRef.current = null;
+        noteDraftRef.current = '';
+        setNoteDraftHasText(false);
         if (savePreviewUrlRef.current) {
           URL.revokeObjectURL(savePreviewUrlRef.current);
           savePreviewUrlRef.current = null;
         }
         setSavePreviewUrl(null);
-        toast.success('Foto com desenhos salva nos anexos. A lousa foi limpa para um novo trabalho.');
+        toast.success(
+          shouldIncludeNotes
+            ? 'Foto e nota salvas na mesma pasta. A lousa foi limpa para um novo trabalho.'
+            : 'Foto com desenhos salva nos anexos. A lousa foi limpa para um novo trabalho.',
+        );
       } catch (error) {
         toast.error('Não foi possível salvar a lousa', {
           description: error instanceof Error ? error.message : undefined,
@@ -1194,7 +1256,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         setIsSavingAttachment(false);
       }
     },
-    [leadId, uploadPDF, clearWhiteboard, resetHistory],
+    [leadId, activeImage?.id, activeImage?.observacao, uploadPDF, clearWhiteboard, resetHistory, saveImageNote],
   );
 
   useEffect(() => {
@@ -1720,11 +1782,16 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     if (suppressCanvasPointerRef.current) return;
 
     const clickedText = (e.target as HTMLElement).closest('[data-whiteboard-text]');
-    const clickedMeasure = (e.target as HTMLElement).closest('[data-whiteboard-measure]');
+    const clickedMeasure = (e.target as HTMLElement).closest(
+      '[data-whiteboard-measure], [data-whiteboard-measure-label]',
+    );
     const clickedFurniture = (e.target as HTMLElement).closest('[data-whiteboard-furniture]');
     if (!clickedText && !clickedMeasure && !clickedFurniture && tool === 'select') {
-      void commitActiveText();
-      if (selectedAnnotationIdRef.current) setSelectedAnnotationId(null);
+      // Grava texto E número da régua digitado antes de limpar a seleção
+      void commitActiveAnnotation();
+      if (selectedAnnotationIdRef.current) {
+        setSelectedAnnotationId(null);
+      }
     }
 
     if (toolsDisabled) return;
@@ -2187,6 +2254,9 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             onTextPayloadLiveChange={(id, textPayload) => {
               textLivePayloadsRef.current[id] = textPayload;
             }}
+            onMeasurePayloadLiveChange={(id, measurePayload) => {
+              measureLivePayloadsRef.current[id] = measurePayload;
+            }}
             pendingPolyline={pendingPolyline}
             polylinePreview={polylinePreview}
             shapePreview={shapePreview}
@@ -2308,6 +2378,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
               : 'lg:self-stretch',
           )}
           onSave={saveImageNote}
+          onDraftChange={handleNoteDraftChange}
         />
       )}
       </div>
@@ -3082,7 +3153,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         }}
         leadId={typeof leadId === 'number' ? leadId : null}
         title="Onde guardar esta foto?"
-        description="A foto da lousa entra na gaveta escolhida. A lousa é limpa depois de salvar."
+        description="A foto da lousa entra na pasta escolhida. Se houver nota, ela vai junto como arquivo separado (com miniatura da foto)."
         confirmLabel="Salvar nesta pasta"
         previewUrl={savePreviewUrl}
         allowUnfiled={false}
@@ -3092,6 +3163,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
         defaultFileName={saveDefaultFileName}
         defaultFolderId={suggestedFolderIdRef.current}
         defaultFolderName={suggestedFolderNameRef.current}
+        notesToggle
+        notesCount={noteDraftHasText || activeImage?.observacao?.trim() ? 1 : 0}
         onConfirm={(folderId, options) => confirmSaveToFolder(folderId, options)}
       />
 

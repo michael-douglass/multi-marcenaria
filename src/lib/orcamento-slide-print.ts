@@ -1004,7 +1004,7 @@ async function injetarHtmlNoIframe(
   return { iframe, janela };
 }
 
-function triggerBlobDownload(blob: Blob, downloadName: string): void {
+export function triggerBlobDownload(blob: Blob, downloadName: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = objectUrl;
@@ -1028,11 +1028,28 @@ function slugTituloExport(titulo: string): string {
   );
 }
 
-function buildPdfFileName(titulo: string): string {
+export function buildPdfFileName(titulo: string): string {
   return `proposta-${slugTituloExport(titulo)}.pdf`;
 }
 
-async function canvasToJpegBlob(canvas: HTMLCanvasElement, quality = 0.92): Promise<Blob> {
+/** Qualidade JPEG da captura — não reduzir (nitidez da proposta). */
+const JPEG_QUALITY_EXPORT = 0.92;
+
+export type OrcamentoExportProgressPhase =
+  | 'preparando'
+  | 'capturando'
+  | 'montando'
+  | 'concluido';
+
+export interface OrcamentoExportProgress {
+  current: number;
+  total: number;
+  phase: OrcamentoExportProgressPhase;
+}
+
+export type OrcamentoExportProgressCallback = (progress: OrcamentoExportProgress) => void;
+
+async function canvasToJpegBlob(canvas: HTMLCanvasElement, quality = JPEG_QUALITY_EXPORT): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('Falha ao converter slide em imagem.'))),
@@ -1042,15 +1059,49 @@ async function canvasToJpegBlob(canvas: HTMLCanvasElement, quality = 0.92): Prom
   });
 }
 
+async function canvasToJpegUint8(
+  canvas: HTMLCanvasElement,
+  quality = JPEG_QUALITY_EXPORT,
+): Promise<Uint8Array> {
+  const blob = await canvasToJpegBlob(canvas, quality);
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
 function aguardarMs(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function capturarSlidesComoCanvas(
+/** Libera a thread principal entre slides para a UI não “congelar”. */
+async function cederVezAInterface(): Promise<void> {
+  const sched = (
+    window as Window & { scheduler?: { yield?: () => Promise<void> } }
+  ).scheduler;
+  if (typeof sched?.yield === 'function') {
+    await sched.yield();
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      window.setTimeout(resolve, 0);
+    });
+  });
+}
+
+interface SlidesProntosParaCaptura {
+  slides: HTMLElement[];
+  slideWidth: number;
+  slideHeight: number;
+  scale: number;
+}
+
+async function prepararSlidesParaExportacao(
   rootElement: HTMLElement,
   viewport: OrcamentoExportViewport,
-): Promise<{ canvases: HTMLCanvasElement[]; slideWidth: number; slideHeight: number }> {
+  onProgress?: OrcamentoExportProgressCallback,
+): Promise<SlidesProntosParaCaptura> {
   const slideSize = resolveExportPageSize(viewport);
+
+  onProgress?.({ current: 0, total: 0, phase: 'preparando' });
 
   excluirVideosEPrepararImagensParaExport(rootElement);
   await prepararConteudoParaCaptura(rootElement);
@@ -1066,70 +1117,77 @@ async function capturarSlidesComoCanvas(
   }
 
   // Primeiro mede/encaixa o conteúdo; depois trava cada slide numa página fixa.
+  // prepararConteudoParaCaptura já aguardou imagens/fontes — sem segunda espera.
   encaixarConteudoNosSlides(slides, slideSize.width, slideSize.height);
   prepararSlidesParaCaptura(slides, slideSize.width, slideSize.height);
-  await aguardarRecursosNoRoot(rootElement);
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-  const scale = escalaCapturaPdf(viewport);
-  const canvases: HTMLCanvasElement[] = [];
-
-  for (let i = 0; i < slides.length; i++) {
-    // Garante que o slide está “na tela” do container (evita captura vazia por overflow).
-    slides[i].scrollIntoView({ block: 'start', inline: 'nearest' });
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-    let canvas: HTMLCanvasElement;
-    try {
-      canvas = await html2canvas(slides[i], {
-        scale,
-        useCORS: true,
-        // allowTaint:true + toDataURL quebra com SecurityError em imagens cross-origin.
-        allowTaint: false,
-        backgroundColor: '#2a1812',
-        logging: false,
-        width: slideSize.width,
-        height: slideSize.height,
-        windowWidth: slideSize.width,
-        windowHeight: slideSize.height,
-        // Ignora qualquer vídeo remanescente (html2canvas não renderiza <video> bem).
-        ignoreElements: (el) =>
-          el instanceof HTMLElement &&
-          (el.tagName === 'VIDEO' ||
-            el.tagName === 'CANVAS' ||
-            el.hasAttribute('data-orcamento-video') ||
-            el.hasAttribute('data-orcamento-video-slide') ||
-            el.hasAttribute('data-capa-atmosphere') ||
-            el.hasAttribute('data-cubo-magico')),
-      });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : 'erro desconhecido';
-      throw new Error(`Falha ao capturar o slide ${i + 1}: ${detail}`);
-    }
-
-    if (canvas.width === 0 || canvas.height === 0) {
-      throw new Error(`Falha ao capturar o slide ${i + 1}. Tente novamente.`);
-    }
-    canvases.push(canvas);
-  }
-
   return {
-    canvases,
+    slides,
     slideWidth: slideSize.width,
     slideHeight: slideSize.height,
+    scale: escalaCapturaPdf(viewport),
   };
 }
 
+async function capturarSlideComoCanvas(
+  slide: HTMLElement,
+  slideWidth: number,
+  slideHeight: number,
+  scale: number,
+  slideIndex: number,
+): Promise<HTMLCanvasElement> {
+  slide.scrollIntoView({ block: 'start', inline: 'nearest' });
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(slide, {
+      scale,
+      useCORS: true,
+      // allowTaint:true + toDataURL/toBlob quebra com SecurityError em imagens cross-origin.
+      allowTaint: false,
+      backgroundColor: '#2a1812',
+      logging: false,
+      width: slideWidth,
+      height: slideHeight,
+      windowWidth: slideWidth,
+      windowHeight: slideHeight,
+      ignoreElements: (el) =>
+        el instanceof HTMLElement &&
+        (el.tagName === 'VIDEO' ||
+          el.tagName === 'CANVAS' ||
+          el.hasAttribute('data-orcamento-video') ||
+          el.hasAttribute('data-orcamento-video-slide') ||
+          el.hasAttribute('data-capa-atmosphere') ||
+          el.hasAttribute('data-cubo-magico')),
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'erro desconhecido';
+    throw new Error(`Falha ao capturar o slide ${slideIndex + 1}: ${detail}`);
+  }
+
+  if (canvas.width === 0 || canvas.height === 0) {
+    throw new Error(`Falha ao capturar o slide ${slideIndex + 1}. Tente novamente.`);
+  }
+  return canvas;
+}
+
 /**
- * Gera e baixa o PDF diretamente — captura cada slide no DOM (sem iframe, mais rápido).
+ * Gera o PDF em memória — captura slide a slide, grava no PDF e libera o canvas na hora.
+ * Qualidade mantida (escala 1.2–1.75 + JPEG 0.92).
  */
-export async function baixarOrcamentoApresentacaoPdf(
+export async function gerarOrcamentoApresentacaoPdf(
   rootElement: HTMLElement,
-  titulo: string,
   viewport: OrcamentoExportViewport,
-): Promise<void> {
+  onProgress?: OrcamentoExportProgressCallback,
+): Promise<Blob> {
   const orientation = resolvePrintOrientation(viewport);
-  const { canvases, slideWidth, slideHeight } = await capturarSlidesComoCanvas(rootElement, viewport);
+  const { slides, slideWidth, slideHeight, scale } = await prepararSlidesParaExportacao(
+    rootElement,
+    viewport,
+    onProgress,
+  );
 
   const pageMm = slideSizeToMm({ width: slideWidth, height: slideHeight });
   const pdfOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
@@ -1141,28 +1199,58 @@ export async function baixarOrcamentoApresentacaoPdf(
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const PDF_BG = { r: 16, g: 10, b: 8 };
+  const total = slides.length;
 
-  for (let i = 0; i < canvases.length; i++) {
+  for (let i = 0; i < slides.length; i++) {
+    onProgress?.({ current: i + 1, total, phase: 'capturando' });
+
+    const canvas = await capturarSlideComoCanvas(
+      slides[i],
+      slideWidth,
+      slideHeight,
+      scale,
+      i,
+    );
+
+    onProgress?.({ current: i + 1, total, phase: 'montando' });
+
     if (i > 0) pdf.addPage([pageMm.width, pageMm.height], pdfOrientation);
 
     pdf.setFillColor(PDF_BG.r, PDF_BG.g, PDF_BG.b);
     pdf.rect(0, 0, pageW, pageH, 'F');
 
-    let imgData: string;
     try {
-      imgData = canvases[i].toDataURL('image/jpeg', 0.92);
+      // toBlob + Uint8Array evita string base64 gigante na thread principal.
+      const jpegBytes = await canvasToJpegUint8(canvas);
+      pdf.addImage(jpegBytes, 'JPEG', 0, 0, pageW, pageH);
     } catch {
       throw new Error(
         'Não foi possível converter os slides em PDF (imagem bloqueada pelo navegador). Tente novamente.',
       );
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
     }
-    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
-    // Libera memória do canvas assim que a página for gravada.
-    canvases[i].width = 0;
-    canvases[i].height = 0;
+
+    await cederVezAInterface();
   }
 
-  triggerBlobDownload(pdf.output('blob'), buildPdfFileName(titulo));
+  onProgress?.({ current: total, total, phase: 'concluido' });
+  return pdf.output('blob');
+}
+
+/**
+ * Gera e baixa o PDF diretamente — captura cada slide no DOM (sem iframe, mais rápido).
+ */
+export async function baixarOrcamentoApresentacaoPdf(
+  rootElement: HTMLElement,
+  titulo: string,
+  viewport: OrcamentoExportViewport,
+  onProgress?: OrcamentoExportProgressCallback,
+): Promise<Blob> {
+  const blob = await gerarOrcamentoApresentacaoPdf(rootElement, viewport, onProgress);
+  triggerBlobDownload(blob, buildPdfFileName(titulo));
+  return blob;
 }
 
 /**
@@ -1172,20 +1260,43 @@ export async function baixarOrcamentoApresentacaoImagens(
   rootElement: HTMLElement,
   titulo: string,
   viewport: OrcamentoExportViewport,
+  onProgress?: OrcamentoExportProgressCallback,
 ): Promise<void> {
-  const { canvases } = await capturarSlidesComoCanvas(rootElement, viewport);
+  const { slides, slideWidth, slideHeight, scale } = await prepararSlidesParaExportacao(
+    rootElement,
+    viewport,
+    onProgress,
+  );
   const slug = slugTituloExport(titulo);
-  const pad = String(canvases.length).length;
+  const pad = String(slides.length).length;
+  const total = slides.length;
 
-  for (let i = 0; i < canvases.length; i++) {
+  for (let i = 0; i < slides.length; i++) {
+    onProgress?.({ current: i + 1, total, phase: 'capturando' });
+
+    const canvas = await capturarSlideComoCanvas(
+      slides[i],
+      slideWidth,
+      slideHeight,
+      scale,
+      i,
+    );
+
     const page = String(i + 1).padStart(Math.max(pad, 2), '0');
-    const blob = await canvasToJpegBlob(canvases[i]);
+    const blob = await canvasToJpegBlob(canvas);
+    canvas.width = 0;
+    canvas.height = 0;
+
     triggerBlobDownload(blob, `${slug}-pagina-${page}.jpg`);
+    await cederVezAInterface();
+
     // Pequena pausa para o navegador não bloquear vários downloads seguidos.
-    if (i < canvases.length - 1) {
+    if (i < slides.length - 1) {
       await aguardarMs(350);
     }
   }
+
+  onProgress?.({ current: total, total, phase: 'concluido' });
 }
 
 /**

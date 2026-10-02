@@ -981,6 +981,45 @@ export interface PendingFuncionarioDocumento {
   previewBlobs?: Blob[]
 }
 
+/** Pasta compartilhada de Contabilidade / Escritório (aba em /funcionarios). */
+export interface EscritorioPasta {
+  id: string
+  nome: string
+  descricao?: string | null
+  ordem: number
+  criado_por?: string | null
+  criado_em?: string
+  atualizado_em?: string
+  /** Contagem opcional preenchida no cliente. */
+  qtd_arquivos?: number
+}
+
+export interface EscritorioArquivo {
+  id: string
+  pasta_id: string
+  nome_arquivo: string
+  tipo_mime: string
+  storage_path: string
+  preview_path?: string | null
+  preview_paths?: string[] | null
+  kind: 'image' | 'pdf'
+  criado_por?: string | null
+  criado_em?: string
+  previewUrl?: string
+  previewUrls?: string[]
+}
+
+export interface PendingEscritorioArquivo {
+  localId: string
+  file: File
+  nome: string
+  tipoMime: string
+  kind: 'image' | 'pdf'
+  previewUrl: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
+}
+
 export interface FuncionarioRecibo {
   id: string
   funcionario_id: string

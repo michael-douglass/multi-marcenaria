@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Clock, Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Users } from 'lucide-react'
+import { Clock, Pencil, Trash2, KeyRound, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Users, Search } from 'lucide-react'
 import { useUsuarios, type UsuarioAdmin, type FichaCrmInput } from '../hooks/useUsuarios'
 import { useApp } from '../context/AppContext'
 import { RepConfigPanel } from '@/components/configuracoes/RepConfigPanel'
@@ -487,6 +487,7 @@ export function Configuracoes() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<UsuarioAdmin | null>(null)
   const [savingDelete, setSavingDelete] = useState(false)
+  const [busca, setBusca] = useState('')
 
   const openNovo = () => { setEditUser(null); setUserModalOpen(true) }
   const openEditar = (u: UsuarioAdmin) => { setEditUser(u); setUserModalOpen(true) }
@@ -560,6 +561,15 @@ export function Configuracoes() {
   const ativos = hook.data.filter(u => u.ativo)
   const inativos = hook.data.filter(u => !u.ativo)
 
+  const termoBusca = busca.trim().toLowerCase()
+  const usuariosFiltrados = termoBusca
+    ? hook.data.filter(u => {
+        const nome = (u.nome ?? '').toLowerCase()
+        const email = u.email.toLowerCase()
+        return nome.includes(termoBusca) || email.includes(termoBusca)
+      })
+    : hook.data
+
   return (
     <div className="fade-in">
       {/* Abas de configuração */}
@@ -616,6 +626,21 @@ export function Configuracoes() {
       )}
 
       {!hook.loading && !hook.error && hook.data.length > 0 && (
+        <>
+      <div className="relative mb-4" style={{ maxWidth: 380 }}>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#edd9c4]" aria-hidden />
+        <input
+          className="glass-input pl-9"
+          placeholder="Buscar por nome ou e-mail..."
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+          aria-label="Buscar usuários"
+        />
+      </div>
+
+      {usuariosFiltrados.length === 0 ? (
+        <EmptyState message="Nenhum usuário corresponde à busca." />
+      ) : (
         <div className="glass-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -628,7 +653,7 @@ export function Configuracoes() {
               </tr>
             </thead>
             <tbody>
-              {hook.data.map((u, i) => {
+              {usuariosFiltrados.map((u, i) => {
                 const isMe = u.id === userProfile?.id
                 return (
                   <tr
@@ -727,6 +752,8 @@ export function Configuracoes() {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
 
       {/* Legenda de perfis */}

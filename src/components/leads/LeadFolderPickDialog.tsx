@@ -230,7 +230,7 @@ export function LeadFolderPickDialog({
                 autoFocus
               />
               <p className="text-[11px] text-[#4a3428]">
-                A foto e o PDF das observações usam este mesmo nome, na pasta escolhida.
+                A foto e o arquivo da nota (se houver) usam este nome, na mesma pasta.
               </p>
             </div>
           )}
@@ -244,11 +244,11 @@ export function LeadFolderPickDialog({
                 className="mt-0.5 border-[#6b3f12]/70 data-[state=checked]:bg-[#6b3f12] data-[state=checked]:text-[#fffaf4]"
               />
               <span className="min-w-0 text-sm text-[#1a100c]">
-                Incluir observações no papel timbrado
+                Incluir nota da foto na mesma pasta
                 <span className="mt-0.5 block text-[11px] text-[#4a3428]">
                   {notesCount === 0
-                    ? 'Ainda não há anotações desta visita.'
-                    : `Gera um PDF (e uma imagem) com ${notesCount} ${notesCount === 1 ? 'observação' : 'observações'}, para baixar ou imprimir.`}
+                    ? 'Escreva uma nota ao lado da foto na lousa para incluir aqui.'
+                    : `Gera um arquivo de nota (imagem + PDF) com miniatura da foto e o texto — separado, na mesma pasta.`}
                 </span>
               </span>
             </label>
