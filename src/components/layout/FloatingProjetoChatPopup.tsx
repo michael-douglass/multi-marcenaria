@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, MessageSquare, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -39,6 +40,7 @@ export function FloatingProjetoChatPopup({
   onClose,
   threads,
 }: FloatingProjetoChatPopupProps) {
+  const navigate = useNavigate()
   const { user, userRoles } = useAuth()
   const { markLeadChatRead, markLeadChatUnread, isMarkingUnread, lastReadByLead } =
     useMarkLeadProjetoChatRead()
@@ -76,6 +78,12 @@ export function FloatingProjetoChatPopup({
     setActiveLeadNome(thread.lead_nome)
   }
 
+  const openLeadCard = () => {
+    if (activeLeadId == null) return
+    onClose()
+    navigate(`/pipeline?id=${activeLeadId}`)
+  }
+
   return (
     <div
       {...{ [FLOATING_UI_ROOT_ATTR]: '' }}
@@ -89,6 +97,7 @@ export function FloatingProjetoChatPopup({
         'shadow-[0_16px_40px_rgba(42,24,18,0.22)]',
         'animate-in fade-in zoom-in-95 duration-200',
         'max-h-[min(calc(100vh-5rem),34rem)]',
+        showThread && 'h-[min(calc(100vh-5rem),34rem)]',
       )}
       style={{
         backgroundColor: '#fffcf8',
@@ -128,9 +137,21 @@ export function FloatingProjetoChatPopup({
           <p className="font-display text-[10px] tracking-[0.28em]" style={{ color: '#0e7490' }}>
             ATELIÊ
           </p>
-          <p className="truncate text-sm font-semibold" style={{ color: '#2a1812' }}>
-            {showThread && activeLeadNome ? activeLeadNome : 'Mensagens não lidas'}
-          </p>
+          {showThread && activeLeadNome ? (
+            <button
+              type="button"
+              onClick={openLeadCard}
+              className="block w-full truncate text-left text-sm font-semibold hover:underline"
+              style={{ color: '#2a1812' }}
+              title="Abrir card do lead"
+            >
+              {activeLeadNome}
+            </button>
+          ) : (
+            <p className="truncate text-sm font-semibold" style={{ color: '#2a1812' }}>
+              Mensagens não lidas
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -189,7 +210,10 @@ export function FloatingProjetoChatPopup({
           )}
         </ul>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col" style={{ backgroundColor: '#fffcf8' }}>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={{ backgroundColor: '#fffcf8' }}
+        >
           <div
             className="flex shrink-0 items-center justify-end px-3 py-1.5"
             style={{ borderBottom: '1px solid rgba(42, 24, 18, 0.1)' }}
@@ -207,26 +231,24 @@ export function FloatingProjetoChatPopup({
               Marcar não lida
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3 pt-3">
-            {loadingNotas ? (
-              <p className="py-8 text-center text-sm" style={{ color: '#5c4638' }}>
-                Carregando conversa…
-              </p>
-            ) : (
-              <ProjetoChatThread
-                notas={notas}
-                currentUserId={user?.id}
-                currentUserRoles={userRoles}
-                lastReadAt={activeLastRead}
-                className="max-h-[min(18rem,42vh)]"
-                markUnreadPending={isMarkingUnread}
-                onMarkUnread={(nota) => {
-                  if (activeLeadId == null) return
-                  markLeadChatUnread(activeLeadId, nota.criado_em)
-                }}
-              />
-            )}
-          </div>
+          {loadingNotas ? (
+            <p className="min-h-0 flex-1 px-3 py-8 text-center text-sm" style={{ color: '#5c4638' }}>
+              Carregando conversa…
+            </p>
+          ) : (
+            <ProjetoChatThread
+              notas={notas}
+              currentUserId={user?.id}
+              currentUserRoles={userRoles}
+              lastReadAt={activeLastRead}
+              className="min-h-0 flex-1 px-3 pt-3"
+              markUnreadPending={isMarkingUnread}
+              onMarkUnread={(nota) => {
+                if (activeLeadId == null) return
+                markLeadChatUnread(activeLeadId, nota.criado_em)
+              }}
+            />
+          )}
           <div className="shrink-0 p-3" style={{ borderTop: '1px solid rgba(42, 24, 18, 0.1)' }}>
             <ProjetoChatComposer
               compact

@@ -54,7 +54,14 @@ export function ProjetoChatThread({
 
   return (
     <>
-      <div ref={scrollerRef} className={cn('space-y-3 overflow-y-auto pr-1', className)}>
+      <div
+        ref={scrollerRef}
+        className={cn(
+          'min-h-0 space-y-3 overflow-y-auto overscroll-contain touch-pan-y pr-1 [-webkit-overflow-scrolling:touch]',
+          className,
+        )}
+        onWheel={(event) => event.stopPropagation()}
+      >
         {notas.map((nota) => {
           const mine = nota.autor_id === currentUserId
           const atelie = isBolhaDoAtelie(nota.autor_roles)
