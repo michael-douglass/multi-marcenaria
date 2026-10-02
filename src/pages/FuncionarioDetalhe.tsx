@@ -101,7 +101,7 @@ export function FuncionarioDetalhe({ readOnly }: Props) {
   const handleDispensar = async () => {
     if (!id || !funcionario.ativo || !isAdministrador(roles)) return
     const ok = window.confirm(
-      `Dispensar ${funcionario.nome}?\n\nEle sairá do ponto e das listagens ativas, mas documentos, recibos e batidas antigas serão mantidos no histórico.`,
+      `Dispensar ${funcionario.nome}?\n\nEle sairá do ponto e das listagens ativas, mas documentos, recibos e batidas antigas serão mantidos no histórico.\n\nSe houver salário fixo, as cobranças a partir do próximo mês serão canceladas (o mês atual permanece).`,
     )
     if (!ok) return
     setDispensando(true)
