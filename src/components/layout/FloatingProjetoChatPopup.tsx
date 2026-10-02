@@ -86,39 +86,57 @@ export function FloatingProjetoChatPopup({
         FLOATING_PROJETO_CHAT_ICON_RIGHT,
         floatingAgendaPanelClass,
         'flex w-[min(calc(100vw-1.25rem),22rem)] flex-col overflow-hidden rounded-2xl',
-        'border border-[rgba(125,211,252,0.28)] bg-[#120c09]/96 shadow-[0_16px_48px_rgba(0,0,0,0.55)]',
-        'backdrop-blur-md animate-in fade-in zoom-in-95 duration-200',
+        'shadow-[0_16px_40px_rgba(42,24,18,0.22)]',
+        'animate-in fade-in zoom-in-95 duration-200',
         'max-h-[min(calc(100vh-5rem),34rem)]',
       )}
+      style={{
+        backgroundColor: '#fffcf8',
+        color: '#2a1812',
+        border: '1px solid rgba(14, 116, 144, 0.35)',
+      }}
       role="dialog"
       aria-modal="false"
       aria-label="Chat do ateliê"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5">
+      <header
+        className="flex shrink-0 items-center gap-2 px-3 py-2.5"
+        style={{
+          backgroundColor: '#fff8ee',
+          borderBottom: '1px solid rgba(42, 24, 18, 0.12)',
+        }}
+      >
         {showThread ? (
           <button
             type="button"
             onClick={() => setActiveLeadId(null)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sky-200/90 hover:bg-white/10"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-100"
+            style={{ color: '#0e7490' }}
             aria-label="Voltar para lista"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         ) : (
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-400/30 bg-sky-950/40">
-            <MessageSquare className="h-3.5 w-3.5 text-sky-200" />
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+            style={{ border: '1px solid rgba(14, 116, 144, 0.35)', backgroundColor: '#e0f2fe', color: '#0e7490' }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-display text-[10px] tracking-[0.28em] text-sky-300/90">ATELIÊ</p>
-          <p className="truncate text-sm font-medium text-[#f5e6c8]">
+          <p className="font-display text-[10px] tracking-[0.28em]" style={{ color: '#0e7490' }}>
+            ATELIÊ
+          </p>
+          <p className="truncate text-sm font-semibold" style={{ color: '#2a1812' }}>
             {showThread && activeLeadNome ? activeLeadNome : 'Mensagens não lidas'}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#c4b09a] hover:bg-white/10 hover:text-white"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-black/5"
+          style={{ color: '#5c4638' }}
           aria-label="Fechar"
         >
           <X className="h-4 w-4" />
@@ -126,9 +144,12 @@ export function FloatingProjetoChatPopup({
       </header>
 
       {!showThread ? (
-        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2">
+        <ul
+          className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2"
+          style={{ backgroundColor: '#fffcf8' }}
+        >
           {threads.length === 0 ? (
-            <li className="px-3 py-8 text-center text-sm text-[#a89078]">
+            <li className="px-3 py-8 text-center text-sm" style={{ color: '#5c4638' }}>
               Nenhuma mensagem nova no momento.
             </li>
           ) : (
@@ -137,23 +158,29 @@ export function FloatingProjetoChatPopup({
                 <button
                   type="button"
                   onClick={() => openThread(thread)}
-                  className="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06]"
+                  className="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-sky-50"
                 >
-                  <span className="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-sky-400" />
+                  <span
+                    className="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full"
+                    style={{ backgroundColor: '#0284c7' }}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="truncate text-[14px] font-medium text-[#f5e6c8]">
+                      <span className="truncate text-[14px] font-semibold" style={{ color: '#1a100c' }}>
                         {thread.lead_nome}
                       </span>
-                      <span className="shrink-0 text-[10px] tabular-nums text-[#8a7060]">
+                      <span className="shrink-0 text-[10px] tabular-nums" style={{ color: '#5c4638' }}>
                         {previewHora(thread.lastAt)}
                       </span>
                     </span>
-                    <span className="mt-0.5 block truncate text-[12px] text-[#a89078]">
+                    <span className="mt-0.5 block truncate text-[12px]" style={{ color: '#3d2c22' }}>
                       {thread.lastPreview}
                     </span>
                   </span>
-                  <span className="mt-0.5 inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-sky-400/90 px-1.5 py-0.5 text-[10px] font-bold text-[#0c2a36]">
+                  <span
+                    className="mt-0.5 inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                    style={{ backgroundColor: '#0284c7', color: '#ffffff' }}
+                  >
                     {thread.unreadCount > 99 ? '99+' : thread.unreadCount}
                   </span>
                 </button>
@@ -162,11 +189,15 @@ export function FloatingProjetoChatPopup({
           )}
         </ul>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col bg-[#fffcf8]">
-          <div className="flex shrink-0 items-center justify-end border-b border-[rgba(42,24,18,0.08)] px-3 py-1.5">
+        <div className="flex min-h-0 flex-1 flex-col" style={{ backgroundColor: '#fffcf8' }}>
+          <div
+            className="flex shrink-0 items-center justify-end px-3 py-1.5"
+            style={{ borderBottom: '1px solid rgba(42, 24, 18, 0.1)' }}
+          >
             <button
               type="button"
-              className="text-[11px] text-[#8a7060] hover:text-[#8d5e22] disabled:opacity-50"
+              className="text-[11px] font-medium disabled:opacity-50"
+              style={{ color: '#0e7490' }}
               disabled={isMarkingUnread || activeLeadId == null}
               onClick={() => {
                 if (activeLeadId == null) return
@@ -178,7 +209,9 @@ export function FloatingProjetoChatPopup({
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-3 pt-3">
             {loadingNotas ? (
-              <p className="py-8 text-center text-sm text-[#8a7060]">Carregando conversa…</p>
+              <p className="py-8 text-center text-sm" style={{ color: '#5c4638' }}>
+                Carregando conversa…
+              </p>
             ) : (
               <ProjetoChatThread
                 notas={notas}
@@ -194,7 +227,7 @@ export function FloatingProjetoChatPopup({
               />
             )}
           </div>
-          <div className="shrink-0 border-t border-[rgba(42,24,18,0.1)] p-3">
+          <div className="shrink-0 p-3" style={{ borderTop: '1px solid rgba(42, 24, 18, 0.1)' }}>
             <ProjetoChatComposer
               compact
               disabled={adicionarNota.isPending || activeLeadId == null}

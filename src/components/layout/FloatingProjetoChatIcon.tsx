@@ -43,7 +43,7 @@ export function FloatingProjetoChatIcon({
         isActive
           ? 'Fechar chat do ateliê'
           : hasUnread
-            ? `${count} mensagem${count > 1 ? 'ns' : ''} não lida${count > 1 ? 's' : ''}`
+            ? `${count} ${count === 1 ? 'mensagem' : 'mensagens'} não lida${count === 1 ? '' : 's'}`
             : 'Abrir chat do ateliê'
       }
       aria-label={isActive ? 'Fechar chat do ateliê' : 'Abrir chat do ateliê'}

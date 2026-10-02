@@ -6,8 +6,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase'
 import { isSchemaApiExposed } from '@/lib/empresa-tables'
-import { podeVerTodasNotasDoAtelie } from '@/lib/lead-projeto-chat'
-import { isProjetistaRole } from '@/lib/app-roles'
 
 export interface ProjetoChatUnreadThread {
   lead_id: number
@@ -31,22 +29,21 @@ function previewFromNota(mensagem: string | null | undefined, hasImage: boolean)
 }
 
 /**
- * Não lidas do canal do ateliê.
- * Conta só mensagens endereçadas a mim (ou fila do ateliê, para projetista),
- * depois do last_read_at. Admin vê todas as conversas no rádio, mas o badge
- * de não lida continua sendo o que chegou para ele.
+ * Não lidas do canal do ateliê (estilo WhatsApp).
+ * Só leads em que o usuário é titular ou projetista (arquiteto_id),
+ * mais leads onde é destinatário explícito.
+ * Contagem = msgs de outra pessoa depois do last_read_at.
+ * Mensagens sem destinatario_id (legado) contam no fio do participante.
  */
 export function useProjetoChatUnread(options?: { realtime?: boolean }) {
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
-  const { user, userRoles, isSuperAdmin } = useAuth()
+  const { user } = useAuth()
   const { schemaEmpresa, queriesReady } = useEmpresa()
   const realtime = options?.realtime !== false
   const userId = user?.id ?? null
-  const canSeeAll = podeVerTodasNotasDoAtelie(userRoles, isSuperAdmin)
-  const isProjetista = isProjetistaRole(userRoles)
 
-  const queryKey = ['lead-projeto-chat-unread', schemaEmpresa, userId, canSeeAll] as const
+  const queryKey = ['lead-projeto-chat-unread', schemaEmpresa, userId] as const
 
   const query = useQuery({
     queryKey,
@@ -55,32 +52,19 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
     queryFn: async (): Promise<ProjetoChatUnreadResult> => {
       if (!userId) return { totalUnread: 0, threads: [], lastReadByLead: {} }
 
-      let leadIds: number[] = []
+      const { data: projetos, error: projetosError } = await db
+        .from('lead_projetos')
+        .select('lead_id, titular_id, arquiteto_id')
+        .or(`titular_id.eq.${userId},arquiteto_id.eq.${userId}`)
+      if (projetosError) throw projetosError
 
-      if (canSeeAll) {
-        const { data: allProjetos, error } = await db.from('lead_projetos').select('lead_id')
-        if (error) throw error
-        leadIds = [
-          ...new Set(
-            (allProjetos ?? [])
-              .map((p) => Number(p.lead_id))
-              .filter((id) => Number.isFinite(id) && id > 0),
-          ),
-        ]
-      } else {
-        const { data: projetos, error: projetosError } = await db
-          .from('lead_projetos')
-          .select('lead_id, titular_id, arquiteto_id')
-          .or(`titular_id.eq.${userId},arquiteto_id.eq.${userId}`)
-        if (projetosError) throw projetosError
-        leadIds = [
-          ...new Set(
-            (projetos ?? [])
-              .map((p) => Number(p.lead_id))
-              .filter((id) => Number.isFinite(id) && id > 0),
-          ),
-        ]
-      }
+      const leadIds: number[] = [
+        ...new Set(
+          (projetos ?? [])
+            .map((p) => Number(p.lead_id))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      ]
 
       // Também inclui leads onde sou destinatário explícito (mesmo sem ser titular/arquiteto).
       const { data: paraMim, error: paraMimError } = await db
@@ -138,9 +122,8 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
 
       for (const nota of notas ?? []) {
         const destinatarioId = nota.destinatario_id ? String(nota.destinatario_id) : null
-        // Badge: só o que chegou para mim (fila sem destinatário conta para projetista).
-        const countsForBadge =
-          destinatarioId === userId || (!destinatarioId && isProjetista)
+        // Endereçada a mim, ou legado sem destinatário (conta no fio do participante).
+        const countsForBadge = destinatarioId == null || destinatarioId === userId
         if (!countsForBadge) continue
 
         const leadId = Number(nota.lead_id)
@@ -291,7 +274,9 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
       if (!userId || !leadId) return
       markLeadChatRead.mutate(leadId)
     },
-    [markLeadChatRead, userId],
+    // mutate é estável no React Query v5
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [markLeadChatRead.mutate, userId],
   )
 
   const markUnread = useCallback(
@@ -299,7 +284,8 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
       if (!userId || !leadId) return
       markLeadChatUnread.mutate({ leadId, beforeIso })
     },
-    [markLeadChatUnread, userId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [markLeadChatUnread.mutate, userId],
   )
 
   const unreadLeadIds = new Set((query.data?.threads ?? []).map((t) => t.lead_id))
