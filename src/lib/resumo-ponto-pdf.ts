@@ -69,6 +69,8 @@ export interface ResumoPontoPdfInput {
   periodoLabel: string
   intervaloLabel: string
   repCnpj?: string | null
+  /** Atestados com páginas em data URL (carregados antes da impressão). */
+  atestados?: ResumoPontoAtestadoPdf[]
 }
 
 function escapeHtml(value: string): string {
@@ -235,6 +237,7 @@ export function resolverFaltasDetalhe(
     observacao: null,
     abater_banco_horas: false,
     minutos_abatidos: null,
+    atestados_count: 0,
   }))
 }
 
@@ -256,14 +259,59 @@ function buildFaltas(faltas: PontoFaltaDetalhe[]): string {
                 : ''
             }`
           : ''
-      return `<li><strong>${data}</strong> — ${motivo}${abate}</li>`
+      const atestados =
+        f.atestados_count && f.atestados_count > 0
+          ? ` · ${f.atestados_count} atestado${f.atestados_count === 1 ? '' : 's'}`
+          : ''
+      return `<li><strong>${data}</strong> — ${motivo}${abate}${atestados}</li>`
     })
     .join('')
   return `<ul class="faltas">${chips}</ul>`
 }
 
+export interface ResumoPontoAtestadoPdf {
+  data: string
+  nome_arquivo: string
+  /** Data URLs das páginas/imagens do atestado. */
+  pages: string[]
+}
+
+function buildAtestadosAnexo(atestados: ResumoPontoAtestadoPdf[]): string {
+  if (atestados.length === 0) return ''
+
+  const blocos = atestados
+    .map((a, idx) => {
+      const dataLabel = escapeHtml(formatDataCurtaPonto(a.data))
+      const nome = escapeHtml(a.nome_arquivo)
+      const imgs = a.pages
+        .map(
+          (src, pageIdx) =>
+            `<figure class="atestado-fig">
+              <img src="${src}" alt="Atestado ${escapeHtml(String(idx + 1))} — página ${pageIdx + 1}" />
+              ${a.pages.length > 1 ? `<figcaption>Pág. ${pageIdx + 1} de ${a.pages.length}</figcaption>` : ''}
+            </figure>`,
+        )
+        .join('')
+      return `<article class="atestado-bloco" style="page-break-before: always;">
+        <header class="atestado-cabecalho">
+          <p class="atestado-ref">Anexo — Atestado referente ao dia <strong>${dataLabel}</strong></p>
+          <p class="atestado-nome">${nome}</p>
+        </header>
+        <div class="atestado-paginas">${imgs || '<p class="vazio">Pré-visualização indisponível.</p>'}</div>
+      </article>`
+    })
+    .join('')
+
+  return `
+    <section class="secao atestados-secao">
+      <h3>Anexos — Atestados e comprovantes</h3>
+      <p class="atestado-intro">Documentos anexados às faltas do período. Cada um indica o dia a que se refere.</p>
+    </section>
+    ${blocos}`
+}
+
 export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
-  const { row, periodoLabel, intervaloLabel, repCnpj } = input
+  const { row, periodoLabel, intervaloLabel, repCnpj, atestados = [] } = input
   const logoUrl = new URL(garboBrandLogo, window.location.origin).href
   const cnpjRaw = repCnpj?.trim() || ''
   const cnpj = escapeHtml(cnpjRaw ? formatarCnpj(cnpjRaw) : '—')
@@ -305,6 +353,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+  const atestadosHtml = buildAtestadosAnexo(atestados)
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -467,6 +516,52 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       color: #666;
       text-align: center;
     }
+    .atestado-intro {
+      margin: 0 0 3mm;
+      font-size: 8.5pt;
+      color: #6b5344;
+    }
+    .atestado-bloco {
+      margin: 0 0 6mm;
+      padding: 4mm;
+      border: 1px solid #d4a853;
+      background: #fffdf9;
+    }
+    .atestado-cabecalho { margin-bottom: 3mm; }
+    .atestado-ref {
+      margin: 0;
+      font-size: 9pt;
+      color: #1a1208;
+    }
+    .atestado-ref strong { font-variant-numeric: tabular-nums; color: #8b6914; }
+    .atestado-nome {
+      margin: 1mm 0 0;
+      font-size: 8pt;
+      color: #6b5344;
+    }
+    .atestado-paginas {
+      display: flex;
+      flex-direction: column;
+      gap: 3mm;
+      align-items: center;
+    }
+    .atestado-fig {
+      margin: 0;
+      width: 100%;
+      text-align: center;
+    }
+    .atestado-fig img {
+      max-width: 100%;
+      max-height: 220mm;
+      height: auto;
+      border: 1px solid #e0d5c8;
+      background: #fff;
+    }
+    .atestado-fig figcaption {
+      margin-top: 1mm;
+      font-size: 7.5pt;
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -552,13 +647,42 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
       <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas − HE convertidas em pagamento.</p>
     </footer>
   </section>
+  ${atestadosHtml}
 </body>
 </html>`
 }
 
-/** Abre impressão / “Salvar como PDF” com resumo timbrado. */
-export function imprimirResumoPontoPdf(input: ResumoPontoPdfInput): void {
-  const html = buildResumoPontoHtml(input)
+/** Abre impressão / “Salvar como PDF” com resumo timbrado (e atestados no final). */
+export async function imprimirResumoPontoPdf(input: ResumoPontoPdfInput): Promise<void> {
+  let atestados = input.atestados
+  if (!atestados) {
+    const { listPontoAtestadosPeriodo, pontoAtestadoToDataUrls } = await import('@/lib/ponto-atestados')
+    const dates = [
+      ...input.row.faltas_datas,
+      ...input.row.chegadas.map((c) => c.data),
+      ...input.row.saidas.map((s) => s.data),
+    ]
+      .filter(Boolean)
+      .sort()
+    const inicio = dates[0]
+    const fim = dates.at(-1)
+    if (inicio && fim) {
+      const rows = await listPontoAtestadosPeriodo(input.row.funcionario_id, inicio, fim)
+      atestados = []
+      for (const a of rows) {
+        const pages = await pontoAtestadoToDataUrls(a)
+        atestados.push({
+          data: a.data,
+          nome_arquivo: a.nome_arquivo,
+          pages,
+        })
+      }
+    } else {
+      atestados = []
+    }
+  }
+
+  const html = buildResumoPontoHtml({ ...input, atestados })
   const win = window.open('', '_blank')
   if (!win) {
     throw new Error('Permita pop-ups para exportar o PDF.')

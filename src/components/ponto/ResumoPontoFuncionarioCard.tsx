@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { FileDown, Loader2, Wallet } from 'lucide-react'
+import { FileDown, Loader2, Paperclip, Wallet } from 'lucide-react'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import {
   formatMinutosComSinal,
@@ -119,7 +119,7 @@ export function ResumoPontoFuncionarioCard({
     if (exportando) return
     setExportando(true)
     try {
-      imprimirResumoPontoPdf({
+      await imprimirResumoPontoPdf({
         row,
         periodoLabel,
         intervaloLabel,
@@ -444,6 +444,12 @@ export function ResumoPontoFuncionarioCard({
                       >
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                           <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
+                          {(f.atestados_count ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              <Paperclip className="h-3 w-3" aria-hidden />
+                              {f.atestados_count} atestado{f.atestados_count === 1 ? '' : 's'}
+                            </span>
+                          )}
                           {f.abater_banco_horas && (
                             <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
                               Abatida no banco
@@ -461,6 +467,12 @@ export function ResumoPontoFuncionarioCard({
                       <div className="rounded-lg border border-[#9f1239]/30 bg-[#fff1f2] px-3 py-2 text-sm text-[#9f1239]">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                           <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
+                          {(f.atestados_count ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              <Paperclip className="h-3 w-3" aria-hidden />
+                              {f.atestados_count} atestado{f.atestados_count === 1 ? '' : 's'}
+                            </span>
+                          )}
                           {f.abater_banco_horas && (
                             <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
                               Abatida no banco

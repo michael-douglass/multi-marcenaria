@@ -1116,6 +1116,36 @@ export interface PontoFaltaDetalhe {
   observacao?: string | null
   abater_banco_horas?: boolean
   minutos_abatidos?: number | null
+  /** Quantidade de atestados anexados a este dia. */
+  atestados_count?: number
+}
+
+/** Atestado/comprovante anexado a um dia de falta. */
+export interface PontoAtestado {
+  id: string
+  funcionario_id: string
+  data: string
+  nome_arquivo: string
+  tipo_mime: string
+  storage_path: string
+  preview_path?: string | null
+  preview_paths?: string[] | null
+  kind: 'image' | 'pdf'
+  criado_por?: string | null
+  criado_em?: string
+  previewUrl?: string
+  previewUrls?: string[]
+}
+
+export interface PendingPontoAtestado {
+  localId: string
+  file: File
+  nome: string
+  tipoMime: string
+  kind: 'image' | 'pdf'
+  previewUrl: string
+  previewUrls?: string[]
+  previewBlobs?: Blob[]
 }
 
 export interface PontoStatusDiaPayload {

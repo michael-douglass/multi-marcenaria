@@ -15,6 +15,7 @@ import type {
   PontoOcorrencia,
   PontoPagarHoraExtraResult,
   PontoResumoBatida,
+  PontoResumoFuncionarioPeriodo,
   PontoResumoPeriodo,
   PontoResumoPeriodoPayload,
   PontoSaldoAcumulado,
@@ -450,7 +451,40 @@ export async function fetchResumoPontoPeriodo(
     p_referencia: periodo === 'mes' && referencia ? referencia : null,
   })
   if (error) throw new Error(error.message)
-  return normalizeResumoPeriodo(data, periodo)
+  const payload = normalizeResumoPeriodo(data, periodo)
+  try {
+    const { countPontoAtestadosPorDia } = await import('@/lib/ponto-atestados')
+    const ids = payload.funcionarios.map(f => f.funcionario_id).filter(Boolean)
+    const counts = await countPontoAtestadosPorDia(ids, payload.inicio, payload.fim)
+    for (const func of payload.funcionarios) {
+      const detalhe = resolverFaltasDetalheLocal(func)
+      for (const f of detalhe) {
+        f.atestados_count = counts.get(`${func.funcionario_id}|${f.data}`) ?? 0
+      }
+      func.faltas_detalhe = detalhe
+    }
+  } catch {
+    /* atestados opcionais — resumo continua sem contagem */
+  }
+  return payload
+}
+
+/** Espelho local de resolverFaltasDetalhe (evita ciclo com resumo-ponto-pdf). */
+function resolverFaltasDetalheLocal(
+  row: Pick<PontoResumoFuncionarioPeriodo, 'faltas_datas' | 'faltas_detalhe'>,
+): NonNullable<PontoResumoFuncionarioPeriodo['faltas_detalhe']> {
+  if (row.faltas_detalhe && row.faltas_detalhe.length > 0) {
+    const byData = new Map<string, NonNullable<typeof row.faltas_detalhe>[number]>()
+    for (const f of row.faltas_detalhe) byData.set(f.data, { ...f })
+    return [...byData.values()].sort((a, b) => a.data.localeCompare(b.data))
+  }
+  return (row.faltas_datas ?? []).map(data => ({
+    data,
+    observacao: null,
+    abater_banco_horas: false,
+    minutos_abatidos: null,
+    atestados_count: 0,
+  }))
 }
 
 export async function fetchSaldoAcumuladoPonto(
@@ -591,6 +625,7 @@ function normalizeFaltaDetalhe(raw: unknown): {
   observacao: string | null
   abater_banco_horas: boolean
   minutos_abatidos: number | null
+  atestados_count: number
 } | null {
   if (!raw || typeof raw !== 'object') return null
   const f = raw as Record<string, unknown>
@@ -605,6 +640,7 @@ function normalizeFaltaDetalhe(raw: unknown): {
       minutosRaw == null || minutosRaw === ''
         ? null
         : Number(minutosRaw) || 0,
+    atestados_count: Math.max(0, Number(f.atestados_count) || 0),
   }
 }
 

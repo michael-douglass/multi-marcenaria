@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Clock, Loader2, Scale, Undo2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Clock, FilePlus2, Loader2, Paperclip, Scale, Undo2, Upload } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
 import {
   calcularBalancoResumoPonto,
   resolverFaltasDetalhe,
@@ -21,8 +22,16 @@ import {
   minutosJornadaNoDia,
   salvarOcorrencia,
 } from '@/lib/funcionario-ponto'
+import {
+  buildPendingPontoAtestado,
+  deletePontoAtestado,
+  getPontoAtestadoPreviewUrls,
+  listPontoAtestadosDia,
+  revokePendingPontoAtestadoUrls,
+  uploadPontoAtestado,
+} from '@/lib/ponto-atestados'
 import { showToast } from '@/lib/toast'
-import type { PontoFaltaDetalhe, PontoResumoFuncionarioPeriodo } from '@/types'
+import type { PontoAtestado, PontoFaltaDetalhe, PontoResumoFuncionarioPeriodo } from '@/types'
 
 export interface ResumoPontoFaltaDialogProps {
   open: boolean
@@ -31,6 +40,11 @@ export interface ResumoPontoFaltaDialogProps {
   data: string
   canEdit: boolean
   onSuccess: () => void
+}
+
+interface AtestadoView extends PontoAtestado {
+  previewUrl: string
+  previewUrls: string[]
 }
 
 function formatDataLonga(iso: string): string {
@@ -51,10 +65,15 @@ export function ResumoPontoFaltaDialog({
   canEdit,
   onSuccess,
 }: ResumoPontoFaltaDialogProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const [motivo, setMotivo] = useState('')
-  const [saving, setSaving] = useState<'desconsiderar' | 'abater' | 'reverter' | null>(null)
+  const [saving, setSaving] = useState<'desconsiderar' | 'abater' | 'reverter' | 'justificar' | null>(null)
   const [minutosDia, setMinutosDia] = useState(0)
   const [loadingJornada, setLoadingJornada] = useState(false)
+  const [atestados, setAtestados] = useState<AtestadoView[]>([])
+  const [loadingAtestados, setLoadingAtestados] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [lightbox, setLightbox] = useState<AtestadoView | null>(null)
 
   const balanco = calcularBalancoResumoPonto(row)
   const faltaDetalhe: PontoFaltaDetalhe | undefined = resolverFaltasDetalhe(row).find(
@@ -67,10 +86,30 @@ export function ResumoPontoFaltaDialog({
       : minutosDia
   const saldoDepois = balanco.saldo_minutos - (jaAbatida ? 0 : minutosAbater)
 
+  async function carregarAtestados() {
+    setLoadingAtestados(true)
+    try {
+      const rows = await listPontoAtestadosDia(row.funcionario_id, data)
+      const views: AtestadoView[] = await Promise.all(
+        rows.map(async (rowA) => {
+          const previewUrls = await getPontoAtestadoPreviewUrls(rowA)
+          return { ...rowA, previewUrl: previewUrls[0] ?? '', previewUrls }
+        }),
+      )
+      setAtestados(views)
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar atestados.', 'error')
+      setAtestados([])
+    } finally {
+      setLoadingAtestados(false)
+    }
+  }
+
   useEffect(() => {
     if (!open) return
     setMotivo(faltaDetalhe?.observacao?.trim() || '')
     setSaving(null)
+    setLightbox(null)
     let ativo = true
     setLoadingJornada(true)
     void fetchJornada(row.funcionario_id)
@@ -84,10 +123,77 @@ export function ResumoPontoFaltaDialog({
       .finally(() => {
         if (ativo) setLoadingJornada(false)
       })
+    void carregarAtestados()
     return () => {
       ativo = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega ao abrir o dia
   }, [open, row.funcionario_id, data, faltaDetalhe?.observacao])
+
+  async function handleFiles(files: FileList | null) {
+    if (!files?.length || !canEdit || uploading) return
+    setUploading(true)
+    const pending: Awaited<ReturnType<typeof buildPendingPontoAtestado>>[] = []
+    try {
+      for (const file of Array.from(files)) {
+        pending.push(await buildPendingPontoAtestado(file))
+      }
+      for (const anexo of pending) {
+        await uploadPontoAtestado(row.funcionario_id, data, anexo)
+      }
+      showToast(
+        pending.length === 1 ? 'Atestado anexado.' : `${pending.length} atestados anexados.`,
+        'success',
+      )
+      await carregarAtestados()
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível anexar o atestado.', 'error')
+    } finally {
+      revokePendingPontoAtestadoUrls(pending)
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteAtestado(atestado: AtestadoView) {
+    if (!canEdit) return
+    if (!confirm(`Excluir o atestado "${atestado.nome_arquivo}"?`)) return
+    try {
+      await deletePontoAtestado(atestado)
+      setAtestados((prev) => prev.filter((a) => a.id !== atestado.id))
+      if (lightbox?.id === atestado.id) setLightbox(null)
+      showToast('Atestado excluído.', 'success')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao excluir atestado.', 'error')
+    }
+  }
+
+  async function handleSalvarJustificativa() {
+    if (!canEdit || saving) return
+    if (motivo.trim().length < 3) {
+      showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
+      return
+    }
+    setSaving('justificar')
+    try {
+      await salvarOcorrencia(row.funcionario_id, data, 'falta', {
+        observacao: motivo.trim(),
+        abaterBancoHoras: jaAbatida,
+      })
+      showToast(
+        atestados.length > 0
+          ? 'Justificativa salva com atestado(s) anexado(s).'
+          : 'Justificativa salva.',
+        'success',
+      )
+      onOpenChange(false)
+      onSuccess()
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível salvar a justificativa.', 'error')
+    } finally {
+      setSaving(null)
+    }
+  }
 
   async function handleDesconsiderar() {
     if (!canEdit || saving) return
@@ -190,7 +296,7 @@ export function ResumoPontoFaltaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="max-h-[min(70vh,560px)] space-y-4 overflow-y-auto px-5 py-4">
           {!canEdit && (
             <p className="rounded-lg border border-[#92400e]/25 bg-[#fff7ed] px-3 py-2 text-sm text-[#92400e]">
               Só administrador ou financeiro pode desconsiderar ou abater. Você pode ver o detalhe,
@@ -259,7 +365,7 @@ export function ResumoPontoFaltaDialog({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               disabled={!canEdit || saving != null}
-              placeholder="Ex.: erro no sistema, atestado, ajuste de RH…"
+              placeholder="Ex.: atestado médico, consulta, ajuste de RH…"
               className={
                 'mt-1.5 w-full resize-none rounded-xl border border-[rgba(26,16,12,0.16)] ' +
                 'bg-white px-3 py-2.5 text-sm text-[#1a100c] placeholder:text-[#9a8170] ' +
@@ -269,9 +375,96 @@ export function ResumoPontoFaltaDialog({
             />
             <p className="mt-1 text-[0.7rem] text-[#9a8170]">Mínimo 3 caracteres (registro oficial).</p>
           </div>
+
+          <div className="rounded-xl border border-[rgba(26,16,12,0.12)] bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]">
+                  <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                  Atestado / comprovante
+                </p>
+                <p className="mt-0.5 text-[0.7rem] text-[#9a8170]">
+                  PDF ou imagem. Sai no final do PDF do resumo, com a data desta falta.
+                </p>
+              </div>
+              {canEdit && (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(e) => void handleFiles(e.target.files)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={uploading || saving != null}
+                    onClick={() => inputRef.current?.click()}
+                    className="h-8 gap-1.5 bg-[#f4e4c4] text-[#6b3f12] hover:bg-[#edd9a8]"
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" aria-hidden />
+                    )}
+                    {uploading ? 'Enviando…' : 'Anexar'}
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {loadingAtestados && (
+              <p className="mt-3 text-xs text-[#9a8170]">Carregando anexos…</p>
+            )}
+            {!loadingAtestados && atestados.length === 0 && (
+              <p className="mt-3 text-xs text-[#9a8170]">Nenhum atestado anexado ainda.</p>
+            )}
+            {!loadingAtestados && atestados.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {atestados.map((a) => (
+                  <AnexoThumb
+                    key={a.id}
+                    previewUrl={a.previewUrl}
+                    nome={a.nome_arquivo}
+                    kind={a.kind}
+                    onOpenFullscreen={() => setLightbox(a)}
+                    onDelete={
+                      canEdit
+                        ? () => void handleDeleteAtestado(a)
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="flex-col gap-2 border-t border-[rgba(26,16,12,0.1)] bg-[#faf6f0] px-5 py-4 sm:flex-col sm:space-x-0">
+          <Button
+            type="button"
+            disabled={!canEdit || saving != null}
+            onClick={() => void handleSalvarJustificativa()}
+            className={
+              'h-auto w-full justify-start gap-3 rounded-xl border border-[rgba(26,16,12,0.16)] ' +
+              'bg-white px-4 py-3 text-left text-[#1a100c] hover:bg-[#fffaf4] disabled:opacity-60'
+            }
+          >
+            {saving === 'justificar' ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <FilePlus2 className="h-4 w-4 shrink-0 text-[#6b3f12]" aria-hidden />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">Salvar justificativa</span>
+              <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
+                Grava o motivo e mantém a falta (com os atestados já anexados).
+              </span>
+            </span>
+          </Button>
+
           <Button
             type="button"
             disabled={!canEdit || saving != null}
@@ -354,6 +547,21 @@ export function ResumoPontoFaltaDialog({
             Cancelar
           </Button>
         </DialogFooter>
+
+        <AnexoLightbox
+          open={!!lightbox}
+          imageUrl={lightbox?.previewUrl ?? ''}
+          pages={lightbox?.previewUrls}
+          title={lightbox?.nome_arquivo ?? ''}
+          kind={lightbox?.kind}
+          description={lightbox ? `Referente ao dia ${formatDataLonga(lightbox.data)}` : null}
+          onClose={() => setLightbox(null)}
+          onDelete={
+            lightbox && canEdit
+              ? () => void handleDeleteAtestado(lightbox)
+              : undefined
+          }
+        />
       </DialogContent>
     </Dialog>
   )
