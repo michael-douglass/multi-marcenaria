@@ -20,9 +20,17 @@ import {
   MIN_CARACTERES_BUSCA_PROJETOS,
   MIN_CARACTERES_ENVIO_SETOR,
 } from '@/lib/projetos-atelie'
-import { uploadLeadProjetoChatImage } from '@/lib/lead-projeto-chat'
+import {
+  notaVisivelNoAtelie,
+  podeVerTodasNotasDoAtelie,
+  resolverDestinatarioNota,
+  uploadLeadProjetoChatImage,
+} from '@/lib/lead-projeto-chat'
 import { DEFAULT_PIPELINE_STAGES } from '@/hooks/usePipelineCustomStages'
 import type { AppUserRole } from '@/lib/app-roles'
+
+const NOTA_SELECT =
+  'id, lead_id, autor_id, destinatario_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type'
 
 export interface ProjetoStage {
   id: string
@@ -60,6 +68,8 @@ export interface LeadProjetoNota {
   id: string
   lead_id: number
   autor_id: string
+  /** Quem deve receber / ver como inbox. NULL = fila do ateliê. */
+  destinatario_id: string | null
   mensagem: string
   tipo: LeadProjetoNotaTipo
   criado_em: string
@@ -68,6 +78,7 @@ export interface LeadProjetoNota {
   mime_type: string | null
   autor_nome: string | null
   autor_roles: AppUserRole[]
+  destinatario_nome: string | null
 }
 
 export interface LeadProjetoChatThread {
@@ -159,6 +170,7 @@ function mapNota(
   roles: Map<string, AppUserRole[]>,
 ): LeadProjetoNota {
   const autorId = String(row.autor_id)
+  const destinatarioId = row.destinatario_id ? String(row.destinatario_id) : null
   const tipoRaw = String(row.tipo ?? 'conversa')
   const tipo: LeadProjetoNotaTipo =
     tipoRaw === 'envio' || tipoRaw === 'reenvio' ? tipoRaw : 'conversa'
@@ -166,6 +178,7 @@ function mapNota(
     id: String(row.id),
     lead_id: row.lead_id as number,
     autor_id: autorId,
+    destinatario_id: destinatarioId,
     mensagem: String(row.mensagem ?? ''),
     tipo,
     criado_em: String(row.criado_em),
@@ -174,7 +187,27 @@ function mapNota(
     mime_type: row.mime_type ? String(row.mime_type) : null,
     autor_nome: firstName(names.get(autorId)) ?? 'Equipe',
     autor_roles: roles.get(autorId) ?? [],
+    destinatario_nome: destinatarioId ? firstName(names.get(destinatarioId)) : null,
   }
+}
+
+function filtrarNotasVisiveis(
+  notas: LeadProjetoNota[],
+  input: {
+    currentUserId: string | null | undefined
+    roles: readonly AppUserRole[] | null | undefined
+    isSuperAdmin?: boolean
+  },
+): LeadProjetoNota[] {
+  return notas.filter((nota) =>
+    notaVisivelNoAtelie({
+      autorId: nota.autor_id,
+      destinatarioId: nota.destinatario_id,
+      currentUserId: input.currentUserId,
+      roles: input.roles,
+      isSuperAdmin: input.isSuperAdmin,
+    }),
+  )
 }
 
 export function useProjetoStages() {
@@ -414,22 +447,37 @@ export function useLeadProjetoNotas(leadId: number | null | undefined, options?:
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
   const { schemaEmpresa, queriesReady } = useEmpresa()
+  const { user, userRoles, isSuperAdmin } = useAuth()
   const realtime = options?.realtime !== false
+  const userId = user?.id ?? null
+  const canSeeAll = podeVerTodasNotasDoAtelie(userRoles, isSuperAdmin)
 
   const query = useQuery({
-    queryKey: ['lead-projeto-notas', schemaEmpresa, leadId],
+    queryKey: ['lead-projeto-notas', schemaEmpresa, leadId, userId, canSeeAll],
     enabled: queriesReady && Boolean(leadId),
     queryFn: async (): Promise<LeadProjetoNota[]> => {
       const { data: rows, error } = await db
         .from('lead_projeto_notas')
-        .select('id, lead_id, autor_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type')
+        .select(NOTA_SELECT)
         .eq('lead_id', leadId)
         .order('criado_em', { ascending: true })
       if (error) throw error
       const autorIds = [...new Set((rows ?? []).map((r) => String(r.autor_id)))]
-      const names = await fetchNomes(db, autorIds)
+      const destIds = [
+        ...new Set(
+          (rows ?? [])
+            .map((r) => (r.destinatario_id ? String(r.destinatario_id) : null))
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ]
+      const names = await fetchNomes(db, [...new Set([...autorIds, ...destIds])])
       const roles = await fetchRolesByUser(db, autorIds)
-      return (rows ?? []).map((row) => mapNota(row as Record<string, unknown>, names, roles))
+      const mapped = (rows ?? []).map((row) => mapNota(row as Record<string, unknown>, names, roles))
+      return filtrarNotasVisiveis(mapped, {
+        currentUserId: userId,
+        roles: userRoles,
+        isSuperAdmin,
+      })
     },
   })
 
@@ -440,7 +488,7 @@ export function useLeadProjetoNotas(leadId: number | null | undefined, options?:
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: schemaEmpresa,
           table: 'lead_projeto_notas',
           filter: `lead_id=eq.${leadId}`,
@@ -468,31 +516,44 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
   const { schemaEmpresa, queriesReady } = useEmpresa()
+  const { user, userRoles, isSuperAdmin } = useAuth()
   const realtime = options?.realtime !== false
+  const userId = user?.id ?? null
+  const canSeeAll = podeVerTodasNotasDoAtelie(userRoles, isSuperAdmin)
 
   const query = useQuery({
-    queryKey: ['lead-projeto-chat-board', schemaEmpresa],
+    queryKey: ['lead-projeto-chat-board', schemaEmpresa, userId, canSeeAll],
     enabled: queriesReady,
     staleTime: 15_000,
     queryFn: async (): Promise<LeadProjetoChatThread[]> => {
       const { data: rows, error } = await db
         .from('lead_projeto_notas')
-        .select('id, lead_id, autor_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type')
+        .select(NOTA_SELECT)
         .order('criado_em', { ascending: false })
-        .limit(500)
+        .limit(800)
       if (error) throw error
 
-      const lastByLead = new Map<number, Record<string, unknown>>()
-      for (const row of rows ?? []) {
-        const leadId = row.lead_id as number
-        if (!lastByLead.has(leadId)) lastByLead.set(leadId, row as Record<string, unknown>)
+      const autorIds = [...new Set((rows ?? []).map((r) => String(r.autor_id)))]
+      const destIds = [
+        ...new Set(
+          (rows ?? [])
+            .map((r) => (r.destinatario_id ? String(r.destinatario_id) : null))
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ]
+      const names = await fetchNomes(db, [...new Set([...autorIds, ...destIds])])
+      const roles = await fetchRolesByUser(db, autorIds)
+      const mapped = filtrarNotasVisiveis(
+        (rows ?? []).map((row) => mapNota(row as Record<string, unknown>, names, roles)),
+        { currentUserId: userId, roles: userRoles, isSuperAdmin },
+      )
+
+      const lastByLead = new Map<number, LeadProjetoNota>()
+      for (const nota of mapped) {
+        if (!lastByLead.has(nota.lead_id)) lastByLead.set(nota.lead_id, nota)
       }
 
       const leadIds = [...lastByLead.keys()]
-      const autorIds = [...new Set([...lastByLead.values()].map((r) => String(r.autor_id)))]
-      const names = await fetchNomes(db, autorIds)
-      const roles = await fetchRolesByUser(db, autorIds)
-
       const leadNames = new Map<number, { nome: string; titular: string | null }>()
       if (leadIds.length > 0) {
         const { data: leads } = await db.from('leads').select('id, nome, vendedor_responsavel_id').in('id', leadIds)
@@ -514,13 +575,13 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
         }
       }
 
-      return [...lastByLead.entries()].map(([leadId, row]) => {
+      return [...lastByLead.entries()].map(([leadId, last]) => {
         const meta = leadNames.get(leadId)
         return {
           lead_id: leadId,
           lead_nome: meta?.nome ?? `Lead #${leadId}`,
           titular_nome: meta?.titular ?? null,
-          last: mapNota(row, names, roles),
+          last,
         }
       })
     },
@@ -532,7 +593,7 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
       .channel(`lead-projeto-chat-board-${schemaEmpresa}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: schemaEmpresa, table: 'lead_projeto_notas' },
+        { event: '*', schema: schemaEmpresa, table: 'lead_projeto_notas' },
         () => {
           void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-board', schemaEmpresa] })
         },
@@ -562,6 +623,7 @@ export function useLeadProjetoMutations() {
     void queryClient.invalidateQueries({ queryKey: ['lead-projetos'] })
     void queryClient.invalidateQueries({ queryKey: ['lead-projeto-notas'] })
     void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-board'] })
+    void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread'] })
     if (leadId) bumpLeadKnowledgeReindex(queryClient, schemaEmpresa, leadId)
   }
 
@@ -584,11 +646,28 @@ export function useLeadProjetoMutations() {
     mensagem: string
     tipo: LeadProjetoNotaTipo
     imagem?: { url: string; fileName: string; mimeType: string } | null
+    destinatarioId?: string | null
   }) => {
     if (!user?.id) throw new Error('Faça login para escrever no canal.')
+
+    let destinatarioId = input.destinatarioId
+    if (destinatarioId === undefined) {
+      const { data: projeto } = await db
+        .from('lead_projetos')
+        .select('titular_id, arquiteto_id')
+        .eq('lead_id', input.leadId)
+        .maybeSingle()
+      destinatarioId = resolverDestinatarioNota({
+        autorId: user.id,
+        titularId: projeto?.titular_id ? String(projeto.titular_id) : null,
+        arquitetoId: projeto?.arquiteto_id ? String(projeto.arquiteto_id) : null,
+      })
+    }
+
     const { error } = await db.from('lead_projeto_notas').insert({
       lead_id: input.leadId,
       autor_id: user.id,
+      destinatario_id: destinatarioId,
       mensagem: input.mensagem,
       tipo: input.tipo,
       imagem_url: input.imagem?.url ?? null,

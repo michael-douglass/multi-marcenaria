@@ -9,6 +9,7 @@ export function invalidateEmpresaScopedQueries(queryClient: QueryClient) {
     'regioes',
     'pipeline-custom-stages',
     'unread-messages',
+    'lead-projeto-chat-unread',
     'leads-meetings',
     'lead-single-enriched',
     'users',

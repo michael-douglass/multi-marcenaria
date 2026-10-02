@@ -5,7 +5,12 @@ import {
   resolveMarketingMediasConfig,
 } from '@/lib/empresa-tables';
 import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex';
-import { isAutorDoAtelie, type AppUserRole } from '@/lib/app-roles';
+import {
+  isAutorDoAtelie,
+  isProjetistaAdminRole,
+  isProjetistaRole,
+  type AppUserRole,
+} from '@/lib/app-roles';
 import {
   LEAD_CHAT_FOLDER_NAME,
   MAX_CHAT_MENSAGEM,
@@ -16,6 +21,76 @@ const STORAGE_BUCKET = 'marketing-medias';
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 export { LEAD_CHAT_FOLDER_NAME };
+
+/** Admin / projetista admin vê o rádio inteiro. */
+export function podeVerTodasNotasDoAtelie(
+  roles: readonly AppUserRole[] | null | undefined,
+  isSuperAdmin = false,
+): boolean {
+  return isProjetistaAdminRole(roles, isSuperAdmin);
+}
+
+/**
+ * Resolve para quem a mensagem vai:
+ * titular → arquiteto (ou fila do ateliê se ainda não pegaram);
+ * projetista → titular.
+ */
+export function resolverDestinatarioNota(input: {
+  autorId: string;
+  titularId: string | null | undefined;
+  arquitetoId: string | null | undefined;
+}): string | null {
+  const titular = input.titularId?.trim() || null;
+  const arquiteto = input.arquitetoId?.trim() || null;
+  const autor = input.autorId;
+
+  if (titular && autor === titular) {
+    return arquiteto;
+  }
+  if (arquiteto && autor === arquiteto) {
+    return titular;
+  }
+  if (titular && autor !== titular) {
+    return titular;
+  }
+  return null;
+}
+
+/** Mensagem visível para o usuário logado (ou para admin). */
+export function notaVisivelNoAtelie(input: {
+  autorId: string;
+  destinatarioId: string | null | undefined;
+  currentUserId: string | null | undefined;
+  roles: readonly AppUserRole[] | null | undefined;
+  isSuperAdmin?: boolean;
+}): boolean {
+  if (podeVerTodasNotasDoAtelie(input.roles, input.isSuperAdmin)) return true;
+  const me = input.currentUserId;
+  if (!me) return false;
+  if (input.autorId === me) return true;
+  if (input.destinatarioId === me) return true;
+  // Fila do ateliê (sem destinatário): projetistas veem o pedido.
+  if (!input.destinatarioId && isProjetistaRole(input.roles)) return true;
+  return false;
+}
+
+/** Mensagem ainda não vista (depois do last_read_at da conversa). */
+export function notaAindaNaoLida(input: {
+  autorId: string;
+  destinatarioId: string | null | undefined;
+  criadoEm: string;
+  currentUserId: string | null | undefined;
+  lastReadAt: string | null | undefined;
+  isProjetista?: boolean;
+}): boolean {
+  const me = input.currentUserId;
+  if (!me || input.autorId === me) return false;
+  const forMe =
+    input.destinatarioId === me || (!input.destinatarioId && Boolean(input.isProjetista));
+  if (!forMe) return false;
+  if (!input.lastReadAt) return true;
+  return new Date(input.criadoEm).getTime() > new Date(input.lastReadAt).getTime();
+}
 
 export interface LeadProjetoChatUpload {
   url: string;

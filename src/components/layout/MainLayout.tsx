@@ -7,6 +7,7 @@ import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
 import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
+import { FloatingProjetoChatShell } from '@/components/layout/FloatingProjetoChatShell'
 import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly, isAdministrador } from '@/lib/role-access'
@@ -181,6 +182,12 @@ export function MainLayout() {
             void updatePreferences({ floatingAgendaSide: side })
           }}
         />
+      ) : null}
+
+      {showAgendaGeral && !hideFabsOnPonto ? (
+        <AppErrorBoundary>
+          <FloatingProjetoChatShell />
+        </AppErrorBoundary>
       ) : null}
 
       {isCrmArea && (

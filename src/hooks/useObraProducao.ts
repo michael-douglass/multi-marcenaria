@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase'
 import { useBuscaLeads } from '@/hooks/useBuscaLeads'
-import { uploadLeadProjetoChatImage } from '@/lib/lead-projeto-chat'
+import { uploadLeadProjetoChatImage, resolverDestinatarioNota, notaVisivelNoAtelie, podeVerTodasNotasDoAtelie } from '@/lib/lead-projeto-chat'
 import {
   getFeitoProducaoStageId,
   getIniciadoProducaoStageId,
@@ -564,16 +564,19 @@ export function useProducaoVendasNotas(leadId: number | null, options?: { realti
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
   const { schemaEmpresa, queriesReady } = useEmpresa()
+  const { user, userRoles, isSuperAdmin } = useAuth()
   const realtime = options?.realtime ?? true
+  const userId = user?.id ?? null
+  const canSeeAll = podeVerTodasNotasDoAtelie(userRoles, isSuperAdmin)
 
   const query = useQuery({
-    queryKey: ['producao-vendas-notas', schemaEmpresa, leadId],
+    queryKey: ['producao-vendas-notas', schemaEmpresa, leadId, userId, canSeeAll],
     enabled: queriesReady && leadId != null,
     queryFn: async (): Promise<ObraProducaoNota[]> => {
       if (leadId == null) return []
       const { data, error } = await db
         .from('lead_projeto_notas')
-        .select('id, lead_id, autor_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type')
+        .select('id, lead_id, autor_id, destinatario_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type')
         .eq('lead_id', leadId)
         .order('criado_em', { ascending: true })
       if (error) throw error
@@ -581,17 +584,27 @@ export function useProducaoVendasNotas(leadId: number | null, options?: { realti
       const autorIds = [...new Set(rows.map((r) => String(r.autor_id)))]
       const names = await fetchNomes(db, autorIds)
       const roles = await fetchRolesByUser(db, autorIds)
-      return rows.map((row) =>
-        mapNota(
-          {
-            ...row,
-            obra_producao_id: '',
-            canal: 'vendas',
-          },
-          names,
-          roles,
-        ),
-      )
+      return rows
+        .filter((row) =>
+          notaVisivelNoAtelie({
+            autorId: String(row.autor_id),
+            destinatarioId: row.destinatario_id ? String(row.destinatario_id) : null,
+            currentUserId: userId,
+            roles: userRoles,
+            isSuperAdmin,
+          }),
+        )
+        .map((row) =>
+          mapNota(
+            {
+              ...row,
+              obra_producao_id: '',
+              canal: 'vendas',
+            },
+            names,
+            roles,
+          ),
+        )
     },
   })
 
@@ -737,12 +750,28 @@ export function useObraProducaoChatMutations() {
       if (!user?.id) throw new Error('Faça login para escrever no canal.')
       let imagem: { url: string; fileName: string; mimeType: string } | null = null
       if (input.file) {
-        imagem = await uploadLeadProjetoChatImage(input.leadId, input.file)
+        imagem = await uploadLeadProjetoChatImage({
+          file: input.file,
+          leadId: input.leadId,
+          schemaEmpresa,
+          queryClient,
+        })
       }
+      const { data: projeto } = await db
+        .from('lead_projetos')
+        .select('titular_id, arquiteto_id')
+        .eq('lead_id', input.leadId)
+        .maybeSingle()
+      const destinatarioId = resolverDestinatarioNota({
+        autorId: user.id,
+        titularId: projeto?.titular_id ? String(projeto.titular_id) : null,
+        arquitetoId: projeto?.arquiteto_id ? String(projeto.arquiteto_id) : null,
+      })
       const mensagem = input.mensagem.trim() || (imagem ? '📷 Imagem' : '')
       const { error } = await db.from('lead_projeto_notas').insert({
         lead_id: input.leadId,
         autor_id: user.id,
+        destinatario_id: destinatarioId,
         mensagem,
         tipo: 'conversa',
         imagem_url: imagem?.url ?? null,
@@ -757,6 +786,7 @@ export function useObraProducaoChatMutations() {
       })
       void queryClient.invalidateQueries({ queryKey: ['lead-projeto-notas'] })
       void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-board'] })
+      void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread'] })
     },
     onError: (err: Error) => toast.error(err.message),
   })

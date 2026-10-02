@@ -18,11 +18,17 @@ export const FLOATING_AGENDA_ICON_RIGHT =
   'right-[max(0.75rem,env(safe-area-inset-right))] sm:right-4';
 
 /**
- * Saldo do mês: à esquerda do ícone da agenda (h-14 + gap),
- * para os dois caberem no topo sem um cobrir o outro.
+ * Chat do ateliê: imediatamente à esquerda da Agenda (h-14 + gap ~0.25rem).
+ */
+export const FLOATING_PROJETO_CHAT_ICON_RIGHT =
+  'right-[calc(max(0.75rem,env(safe-area-inset-right))+4.25rem)] sm:right-[calc(1rem+4.25rem)]';
+
+/**
+ * Saldo do mês: à esquerda da Agenda + slot do chat do ateliê,
+ * para os três caberem no topo sem um cobrir o outro.
  */
 export const FLOATING_SALDO_RIGHT =
-  'right-[calc(max(0.75rem,env(safe-area-inset-right))+4rem)] sm:right-[calc(1rem+4rem)]';
+  'right-[calc(max(0.75rem,env(safe-area-inset-right))+8.5rem)] sm:right-[calc(1rem+8.5rem)]';
 
 /** Faixa de ícones (~3rem) abaixo do header */
 export const FLOATING_POPUP_TOP = 'top-[7.25rem]';

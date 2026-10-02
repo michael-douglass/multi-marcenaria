@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { MailOpen } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { isBolhaDoAtelie } from '@/lib/lead-projeto-chat'
+import { isBolhaDoAtelie, notaAindaNaoLida } from '@/lib/lead-projeto-chat'
+import { isProjetistaRole, type AppUserRole } from '@/lib/app-roles'
 import type { LeadProjetoNota } from '@/hooks/useLeadProjetos'
 
 interface ProjetoChatThreadProps {
   notas: LeadProjetoNota[]
   currentUserId?: string | null
+  currentUserRoles?: readonly AppUserRole[] | null
+  lastReadAt?: string | null
   className?: string
+  onMarkUnread?: (nota: LeadProjetoNota) => void
+  markUnreadPending?: boolean
 }
 
 function tipoLabel(tipo: LeadProjetoNota['tipo']): string {
@@ -18,9 +25,18 @@ function tipoLabel(tipo: LeadProjetoNota['tipo']): string {
   return 'Conversa'
 }
 
-export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoChatThreadProps) {
+export function ProjetoChatThread({
+  notas,
+  currentUserId,
+  currentUserRoles,
+  lastReadAt,
+  className,
+  onMarkUnread,
+  markUnreadPending,
+}: ProjetoChatThreadProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const isProjetista = isProjetistaRole(currentUserRoles)
 
   useEffect(() => {
     const el = scrollerRef.current
@@ -43,6 +59,18 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
           const mine = nota.autor_id === currentUserId
           const atelie = isBolhaDoAtelie(nota.autor_roles)
           const caption = nota.mensagem.trim() === '📷 Imagem' ? '' : nota.mensagem
+          const pending = notaAindaNaoLida({
+            autorId: nota.autor_id,
+            destinatarioId: nota.destinatario_id,
+            criadoEm: nota.criado_em,
+            currentUserId,
+            lastReadAt,
+            isProjetista,
+          })
+          const forMe =
+            nota.destinatario_id === currentUserId ||
+            (!nota.destinatario_id && isProjetista && !mine)
+          const showMarkUnread = Boolean(onMarkUnread) && forMe && !pending
           return (
             <article
               key={nota.id}
@@ -50,6 +78,7 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
                 'lead-modal-bubble max-w-[min(100%,34rem)] rounded-2xl border px-3.5 py-2.5',
                 mine ? 'ml-auto' : 'mr-auto',
                 atelie && 'border-sky-400/40 bg-sky-50',
+                pending && 'ring-1 ring-sky-400/50',
               )}
             >
               <div className="flex items-center justify-between gap-3 text-xs">
@@ -62,6 +91,12 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
               </div>
               <p className="lead-modal-kicker mt-0.5 text-[11px] uppercase tracking-wide">
                 {tipoLabel(nota.tipo)}
+                {nota.destinatario_nome && mine ? (
+                  <span className="normal-case tracking-normal text-[#8a7060]">
+                    {' '}
+                    · para {nota.destinatario_nome}
+                  </span>
+                ) : null}
               </p>
               {nota.imagem_url ? (
                 <button
@@ -76,6 +111,21 @@ export function ProjetoChatThread({ notas, currentUserId, className }: ProjetoCh
                 <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-6 text-[#2a1812] [overflow-wrap:anywhere]">
                   {caption}
                 </p>
+              ) : null}
+              {showMarkUnread ? (
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px] text-[#8a7060] hover:text-[#8d5e22]"
+                    disabled={markUnreadPending}
+                    onClick={() => onMarkUnread?.(nota)}
+                  >
+                    <MailOpen className="h-3 w-3" />
+                    Marcar não lida
+                  </Button>
+                </div>
               ) : null}
             </article>
           )

@@ -295,6 +295,7 @@ Há **quatro superfícies**, o mesmo fio:
 | **Seção no LeadModal** | `LeadProjetoPanel` / `LeadProjetoNotasSection` | Pipeline: topo da ficha. Ateliê: se já tem projeto **ou** notas |
 | **Selo no card do ateliê** | `ProjetoChatBadge` | Se existe pelo menos uma nota |
 | **Card da Pipeline** | `LeadProjetoCanalDialog` | Se o lead já está no ateliê; abre também após enviar |
+| **Popup flutuante global** | `FloatingProjetoChatShell` | Em todas as páginas (MainLayout), se há não lidas para o participante |
 
 Abrir o rádio **não** substitui o modal. O botão **Abrir card** fecha o sheet e, 180 ms depois, abre o LeadModal.
 
@@ -358,7 +359,17 @@ Empty: “Titular e projetista ainda não escreveram. Quando alguém mandar, o a
 - Sem pendência: círculo ouro, ícone mensagem.
 - **O outro lado mandou** (`last.autor_id !== eu`): `animate-ping` ciano + anel cônico girando 2.8 s + ponto no canto.
 
-`chatFromOtherSide` é só “última mensagem não é minha” — não há tabela de “lido”.
+`chatFromOtherSide` no card continua sendo “última mensagem não é minha” (sinal visual rápido).
+
+### 7.6.1 Contagem real de não lidas + popup flutuante
+
+Tabela `lead_projeto_chat_leituras` (`user_id`, `lead_id`, `last_read_at`):
+
+- **Quem vê o ícone:** só titular (`titular_id`) ou projetista que pegou (`arquiteto_id`) do lead.
+- **Não lida:** mensagem com `autor_id ≠ eu` e `criado_em > last_read_at` (ou todas as do outro se nunca abriu).
+- **Marcar lido:** ao abrir o fio no popup flutuante, no rádio, no `LeadProjetoCanalDialog` ou na seção do LeadModal (`useMarkLeadProjetoChatRead`).
+- **UI global:** `FloatingProjetoChatShell` no `MainLayout` (ao lado da Agenda). Ícone só aparece com `totalUnread > 0` (ou painel aberto). Badge numérico; clique abre lista estilo WhatsApp + thread + composer.
+- Hook: `useProjetoChatUnread` (query + realtime). Aura WebGL só no ícone (`FloatingProjetoChatAura`).
 
 ### 7.7 Upload de imagem
 
@@ -377,6 +388,7 @@ URL pública. Reindex de conhecimento do lead (`bumpLeadKnowledgeReindex`) depoi
 |---------|------|--------|
 | Thread aberta | `useLeadProjetoNotas` | `INSERT` filtrado por `lead_id` |
 | Lista do rádio | `useLeadProjetoChatBoard` **sem** `realtime: false` | `INSERT` na tabela de notas |
+| Popup flutuante (não lidas) | `useProjetoChatUnread` | `INSERT` em notas → invalidate |
 | Badges dos cards no quadro | `useLeadProjetoChatBoard(..., { realtime: false })` | **Não** escuta ao vivo — atualiza no refetch (15 s stale / invalidate do rádio) |
 
 A página busca no máximo **500** notas recentes para montar “última por lead”.
@@ -498,6 +510,10 @@ Tabelas por empresa (`emp_*`) e equivalentes master `CRM-multi-empresas>*<`.
 
 `lead_id`, `autor_id`, `mensagem`, `tipo` (`envio` \| `reenvio` \| `conversa`), `imagem_url`, `file_name`, `mime_type`, `criado_em`.
 
+### `lead_projeto_chat_leituras`
+
+`user_id`, `lead_id`, `last_read_at` — PK `(user_id, lead_id)`. RLS: só a própria linha.
+
 Realtime nas duas tabelas de movimento (`lead_projetos` e notas).
 
 **Não misturar** `leads.status` com `lead_projetos.stage_id`.
@@ -547,6 +563,7 @@ Realtime nas duas tabelas de movimento (`lead_projetos` e notas).
 | Card Pipeline: envio + canal | `LeadProjetoCardActions`, `LeadProjetoCanalDialog` |
 | Busca / novo / colunas | `ProjetosLeadSearch`, `CriarLeadProjetoDialog`, `ProjetoStagesConfigDialog` |
 | Selo Pipeline | `src/components/kanban/KanbanProjetoSignal.tsx` |
-| Hooks | `useLeadProjetos`, `useProjetoStages`, `useLeadProjetoNotas`, `useLeadProjetoChatBoard`, `useProjetosBuscaLeads` |
+| Hooks | `useLeadProjetos`, `useProjetoStages`, `useLeadProjetoNotas`, `useLeadProjetoChatBoard`, `useProjetoChatUnread`, `useMarkLeadProjetoChatRead`, `useProjetosBuscaLeads` |
+| Popup flutuante global | `FloatingProjetoChatShell`, `FloatingProjetoChatIcon`, `FloatingProjetoChatPopup`, `FloatingProjetoChatAura` |
 | Upload / tintas do chat | `src/lib/lead-projeto-chat.ts` |
-| Migrations | `20260825180100_*`, `25190000_*`, `25200000_*`, `25210000_*`, `26120000_*`, `26170000_*` |
+| Migrations | `20260825180100_*`, `25190000_*`, `25200000_*`, `25210000_*`, `26120000_*`, `26170000_*`, `214_lead_projeto_chat_leituras` |

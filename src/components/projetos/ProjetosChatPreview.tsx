@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Radio } from 'lucide-react'
+import { MailOpen, Radio } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ import {
   useLeadProjetoNotas,
   type LeadProjetoChatThread,
 } from '@/hooks/useLeadProjetos'
+import { useProjetoChatUnread } from '@/hooks/useProjetoChatUnread'
 import { useAuth } from '@/contexts/AuthContext'
 import { ProjetoNotasAura } from '@/components/projetos/ProjetoNotasAura'
 import { ProjetosChatWaveform } from '@/components/projetos/ProjetosChatWaveform'
@@ -44,22 +45,32 @@ function previewHora(iso: string): string {
 }
 
 export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosChatPreviewProps) {
-  const { user } = useAuth()
+  const { user, userRoles } = useAuth()
   const isMobile = useIsMobile()
   const { data: threads = [] } = useLeadProjetoChatBoard({ realtime: true })
   const { adicionarNota } = useLeadProjetoMutations()
+  const {
+    unreadLeadIds,
+    lastReadByLead,
+    markLeadChatRead,
+    markLeadChatUnread,
+    isMarkingUnread,
+  } = useProjetoChatUnread({ realtime: true })
   const [open, setOpen] = useState(false)
   const [activeLeadId, setActiveLeadId] = useState<number | null>(null)
   const { data: notas = [], isLoading: loadingNotas } = useLeadProjetoNotas(open ? activeLeadId : null)
 
-  const pending = useMemo(
-    () => threads.filter((thread) => thread.last.autor_id !== user?.id).length,
-    [threads, user?.id],
-  )
+  useEffect(() => {
+    if (!open || activeLeadId == null) return
+    markLeadChatRead(activeLeadId)
+  }, [activeLeadId, markLeadChatRead, open])
+
+  const pending = unreadLeadIds.size
   const waveformMode = pending > 0 ? 'urgent' : threads.length > 0 ? 'active' : 'idle'
   const active = threads.find((thread) => thread.lead_id === activeLeadId) ?? threads[0] ?? null
   const showMobileStrip = isMobile
   const showDock = compact && !isMobile
+  const activeLastRead = activeLeadId != null ? lastReadByLead[activeLeadId] ?? null : null
 
   const openSheet = (thread?: LeadProjetoChatThread) => {
     setActiveLeadId(thread?.lead_id ?? threads[0]?.lead_id ?? null)
@@ -164,7 +175,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                   </li>
                 ) : (
                   threads.slice(0, 12).map((thread) => {
-                    const needs = thread.last.autor_id !== user?.id
+                    const needs = unreadLeadIds.has(thread.lead_id)
                     return (
                       <li key={thread.lead_id} className="shrink-0">
                         <button
@@ -245,7 +256,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                 </div>
                 <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto touch-pan-y">
                   {threads.slice(0, 4).map((thread) => {
-                    const needs = thread.last.autor_id !== user?.id
+                    const needs = unreadLeadIds.has(thread.lead_id)
                     return (
                       <li key={thread.lead_id}>
                         <button
@@ -292,7 +303,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
             <SheetHeader className="relative space-y-2 px-5 py-4 pr-12 text-left">
               <SheetTitle className="font-display text-xl tracking-wide text-[#8d5e22]">Rádio do ateliê</SheetTitle>
               <p className="text-sm leading-5 text-[#6b5244]">
-                Titular e projetista no mesmo fio.
+                Cada um vê só o que foi enviado para ele. Administradores veem tudo.
               </p>
               <ProjetosChatWaveform mode={waveformMode} className="h-6" />
             </SheetHeader>
@@ -301,7 +312,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
             <ul className="space-y-1 overflow-y-auto border-b border-[rgba(42,24,18,0.08)] p-3 md:border-b-0 md:border-r">
               {threads.map((thread) => {
                 const selected = thread.lead_id === active?.lead_id
-                const needs = thread.last.autor_id !== user?.id
+                const needs = unreadLeadIds.has(thread.lead_id)
                 return (
                   <li key={thread.lead_id}>
                     <button
@@ -357,19 +368,32 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                         <p className="mt-0.5 text-sm text-[#8d5e22]/90">{active.titular_nome}</p>
                       ) : null}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 border-[#8d5e22]/25 text-[#8d5e22]"
-                      onClick={() => {
-                        const leadId = active.lead_id
-                        setOpen(false)
-                        window.setTimeout(() => onOpenLead(leadId), 180)
-                      }}
-                    >
-                      Abrir card
-                    </Button>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 px-2 text-[11px] text-[#8a7060] hover:text-[#8d5e22]"
+                        disabled={isMarkingUnread}
+                        onClick={() => markLeadChatUnread(active.lead_id)}
+                      >
+                        <MailOpen className="h-3.5 w-3.5" />
+                        Não lida
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-[#8d5e22]/25 text-[#8d5e22]"
+                        onClick={() => {
+                          const leadId = active.lead_id
+                          setOpen(false)
+                          window.setTimeout(() => onOpenLead(leadId), 180)
+                        }}
+                      >
+                        Abrir card
+                      </Button>
+                    </div>
                   </div>
                   {loadingNotas ? (
                     <p className="p-6 text-center text-sm text-[#6b5244]">Abrindo o canal…</p>
@@ -377,7 +401,13 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                     <ProjetoChatThread
                       notas={notas}
                       currentUserId={user?.id}
+                      currentUserRoles={userRoles}
+                      lastReadAt={activeLastRead}
                       className="min-h-0 flex-1"
+                      markUnreadPending={isMarkingUnread}
+                      onMarkUnread={(nota) =>
+                        markLeadChatUnread(active.lead_id, nota.criado_em)
+                      }
                     />
                   )}
                   <div className="mt-3">
