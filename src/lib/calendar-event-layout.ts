@@ -2,6 +2,11 @@
 export interface CalendarTimeRange {
   start: Date;
   end: Date;
+  /**
+   * Sem horário marcado (faixa no topo).
+   * Preferir este flag: 00:00 com hora explícita NÃO é “sem horário”.
+   */
+  untimed?: boolean;
 }
 
 export interface LayoutedCalendarEvent<T> {
@@ -52,13 +57,39 @@ export const EVENT_STACK_MAX_HEIGHT_PX = 220;
  */
 export const EVENT_STACK_MIN_VISIBLE_ROWS = 3;
 
-/** Tarefas criadas sem hora ficam à meia-noite com duração padrão de 1h. */
+/**
+ * Tarefas sem hora ficam à meia-noite com duração de 1h — mas 00:00
+ * com horário explícito deve aparecer na grade (não na faixa “Sem horário”).
+ */
 export function isUntimedCalendarBlock(event: CalendarTimeRange): boolean {
+  if (event.untimed === true) return true;
+  if (event.untimed === false) return false;
+  /** Fallback legado para eventos sem o flag. */
   return (
     event.start.getHours() === 0 &&
     event.start.getMinutes() === 0 &&
     event.end.getTime() - event.start.getTime() === 60 * 60 * 1000
   );
+}
+
+/** Altura total da grade de um dia (00:00 → 24:00). */
+export function getDayGridHeightPx(hourHeight: number, hourCount = 24): number {
+  return hourCount * hourHeight;
+}
+
+/**
+ * Garante que um bloco absoluto caiba dentro do dia.
+ * Perto de 23h/24h, empurra o bloco para cima em vez de cortar com overflow.
+ */
+export function clampTopWithinDay(
+  topPx: number,
+  heightPx: number,
+  dayHeightPx: number,
+): number {
+  if (dayHeightPx <= 0) return Math.max(0, topPx);
+  const safeHeight = Math.min(Math.max(heightPx, 0), dayHeightPx);
+  const maxTop = Math.max(0, dayHeightPx - safeHeight);
+  return Math.min(Math.max(0, topPx), maxTop);
 }
 
 export function partitionTimedUntimedEvents<T extends CalendarTimeRange>(
@@ -270,7 +301,11 @@ export function getClusterTimeSpanPx(
 ): number {
   const durationMs = clusterEnd.getTime() - clusterStart.getTime();
   const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);
-  return Math.max(durationHours * hourHeight, minHeightPx);
+  /** Não conta tempo que “passa” da meia-noite — a grade do dia termina às 24:00. */
+  const startHour = clusterStart.getHours() + clusterStart.getMinutes() / 60;
+  const remainingHours = Math.max(24 - startHour, 0);
+  const cappedHours = Math.min(durationHours, remainingHours);
+  return Math.max(cappedHours * hourHeight, minHeightPx);
 }
 
 /** Caixa da lista empilhada (todas as tarefas do grupo, com scroll se precisar). */
@@ -280,12 +315,16 @@ export function getStackClusterStyle(
   eventCount: number,
   chipHeightPx = EVENT_STACK_CHIP_HEIGHT_PX,
   maxHeightPx = EVENT_STACK_MAX_HEIGHT_PX,
+  boxHeightPx?: number,
 ): { top: string; height: string; left: string; width: string } {
   const startHour = clusterStart.getHours() + clusterStart.getMinutes() / 60;
   const contentHeight = Math.max(eventCount, 1) * chipHeightPx;
-  const height = Math.min(contentHeight, maxHeightPx);
+  const height = boxHeightPx ?? Math.min(contentHeight, maxHeightPx);
+  const dayHeightPx = getDayGridHeightPx(hourHeight);
+  const rawTop = startHour * hourHeight;
+  const top = clampTopWithinDay(rawTop, height, dayHeightPx);
   return {
-    top: `${startHour * hourHeight}px`,
+    top: `${top}px`,
     height: `${height}px`,
     left: `${EVENT_SIDE_INSET_PERCENT}%`,
     width: `${100 - EVENT_SIDE_INSET_PERCENT - EVENT_RIGHT_GUTTER_PERCENT}%`,

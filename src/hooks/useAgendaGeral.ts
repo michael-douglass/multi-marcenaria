@@ -49,6 +49,11 @@ export interface AgendaEvent {
   type: 'tarefa' | 'lembrete' | 'pessoal' | 'conteudo';
   /** Cor hex (#rrggbb) escolhida no item; null/undefined = cor padrão do tipo. */
   color?: string | null;
+  /**
+   * Sem horário marcado → faixa “Sem horário” no topo.
+   * false = aparece na grade mesmo às 00:00.
+   */
+  untimed?: boolean;
   originalData: unknown;
 }
 
@@ -86,6 +91,7 @@ export function buildAgendaGeralEvents({
       status: r.status,
       type: 'tarefa',
       color: r.cor ?? null,
+      untimed: false,
       originalData: r,
     });
   });
@@ -101,6 +107,7 @@ export function buildAgendaGeralEvents({
       status: l.status,
       type: 'lembrete',
       color: l.cor ?? null,
+      untimed: false,
       originalData: l,
     });
   });
@@ -112,8 +119,9 @@ export function buildAgendaGeralEvents({
     const ocorrencias = getOcorrenciasNoIntervalo(t, intervalStart, intervalEnd);
     ocorrencias.forEach((o, index) => {
       let start = o.dataOcorrencia;
-      if (t.hora) {
-        const [h, m] = t.hora.split(':').map(Number);
+      const hasHora = Boolean(t.hora);
+      if (hasHora) {
+        const [h, m] = t.hora!.split(':').map(Number);
         start = new Date(start);
         start.setHours(h, m, 0, 0);
       } else {
@@ -129,13 +137,15 @@ export function buildAgendaGeralEvents({
         status: o.concluida ? 'concluido' : 'pendente',
         type: 'pessoal',
         color: t.cor ?? null,
+        untimed: !hasHora,
         originalData: { ...t, dataOcorrencia: o.dataOcorrencia },
       });
     });
   });
 
   tasks.forEach((t) => {
-    const start = t.hora_agendada
+    const hasHora = Boolean(t.hora_agendada);
+    const start = hasHora
       ? parseISO(`${t.data_agendada}T${t.hora_agendada}`)
       : startOfDay(parseISO(t.data_agendada));
     events.push({
@@ -147,6 +157,7 @@ export function buildAgendaGeralEvents({
       status: t.status,
       type: 'conteudo',
       color: null,
+      untimed: !hasHora,
       originalData: t,
     });
   });

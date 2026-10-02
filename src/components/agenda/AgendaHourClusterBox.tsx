@@ -7,7 +7,9 @@ import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
 import {
   EVENT_STACK_CHIP_HEIGHT_PX,
   EVENT_STACK_MAX_HEIGHT_PX,
+  EVENT_STACK_MIN_VISIBLE_ROWS,
   getClusterTimeSpanPx,
+  getDayGridHeightPx,
   getStackClusterStyle,
 } from '@/lib/calendar-event-layout';
 import { cn } from '@/lib/utils';
@@ -108,11 +110,35 @@ export function AgendaHourClusterBox({
     eligibleInView.length > 0 && selectedInViewCount === eligibleInView.length;
 
   const chromePx = compact ? 54 : 62;
+  const dayHeightPx = getDayGridHeightPx(hourHeight);
+  const startHour = clusterStart.getHours() + clusterStart.getMinutes() / 60;
+  const rawTop = startHour * hourHeight;
   const timeSpanPx = getClusterTimeSpanPx(
     clusterStart,
     clusterEnd,
     hourHeight,
     minTimeSpanPx,
+  );
+  const desiredHeight = Math.min(
+    chromePx + Math.max(miniFiltered.length, 1) * chipHeightPx,
+    EVENT_STACK_MAX_HEIGHT_PX + chromePx,
+  );
+  /**
+   * Limite duro = duração do cluster na grade (em geral ~1h), para não
+   * invadir o horário seguinte no meio do dia.
+   */
+  const baseHeight = Math.min(desiredHeight, Math.max(timeSpanPx, minTimeSpanPx));
+  /**
+   * Perto de 23h/24h o espaço abaixo some: amplia até um mínimo legível
+   * e o clamp empurra a caixa para cima (em vez de cortar a lista).
+   */
+  const minVisibleHeight = chromePx + EVENT_STACK_MIN_VISIBLE_ROWS * chipHeightPx;
+  const fitsBelow = rawTop + baseHeight <= dayHeightPx + 0.5;
+  const boxHeight = Math.min(
+    dayHeightPx,
+    fitsBelow
+      ? baseHeight
+      : Math.max(baseHeight, Math.min(minVisibleHeight, desiredHeight)),
   );
   const stackStyle = getStackClusterStyle(
     clusterStart,
@@ -120,17 +146,8 @@ export function AgendaHourClusterBox({
     Math.max(miniFiltered.length, 1),
     chipHeightPx,
     EVENT_STACK_MAX_HEIGHT_PX,
+    boxHeight,
   );
-  const desiredHeight = Math.min(
-    chromePx + Math.max(miniFiltered.length, 1) * chipHeightPx,
-    EVENT_STACK_MAX_HEIGHT_PX + chromePx,
-  );
-  /**
-   * Limite duro = duração do cluster na grade (em geral ~1h).
-   * Assim a lista não invade 10:45 / 11:00 — essas tarefas ficam abaixo
-   * e o ScrollArea do dia deixa rolar para vê-las.
-   */
-  const boxHeight = Math.min(desiredHeight, Math.max(timeSpanPx, minTimeSpanPx));
 
   const openExpanded = (e: MouseEvent) => {
     e.preventDefault();

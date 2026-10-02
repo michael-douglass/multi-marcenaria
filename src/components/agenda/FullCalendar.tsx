@@ -42,6 +42,8 @@ import {
   EVENT_COMPACT_STACK_WINDOW_MS,
   EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
   EVENT_STACK_CHIP_HEIGHT_PX,
+  clampTopWithinDay,
+  getDayGridHeightPx,
   getEventColumnStyle,
   layoutTimedClusters,
   partitionTimedUntimedEvents,
@@ -173,8 +175,11 @@ function getTimedEventPosition(
   const startHour = event.start.getHours();
   const startMin = event.start.getMinutes();
   const durationHours = (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
-  const top = (startHour + startMin / 60) * hourHeight;
-  const height = Math.max(durationHours * hourHeight, minHeight);
+  const dayHeightPx = getDayGridHeightPx(hourHeight);
+  const rawTop = (startHour + startMin / 60) * hourHeight;
+  const remainingPx = Math.max(dayHeightPx - rawTop, minHeight);
+  const height = Math.min(Math.max(durationHours * hourHeight, minHeight), remainingPx);
+  const top = clampTopWithinDay(rawTop, height, dayHeightPx);
   return {
     top: `${top}px`,
     height: `${height}px`,
@@ -189,9 +194,13 @@ function getOverflowChipPosition(
   minHeight: number,
 ) {
   const startHour = clusterStart.getHours() + clusterStart.getMinutes() / 60;
+  const dayHeightPx = getDayGridHeightPx(hourHeight);
+  const height = Math.max(minHeight, 18);
+  const rawTop = startHour * hourHeight;
+  const top = clampTopWithinDay(rawTop, height, dayHeightPx);
   return {
-    top: `${startHour * hourHeight}px`,
-    height: `${Math.max(minHeight, 18)}px`,
+    top: `${top}px`,
+    height: `${height}px`,
     ...getEventColumnStyle(Math.max(0, visibleColumnCount - 1), Math.max(1, visibleColumnCount)),
   };
 }
