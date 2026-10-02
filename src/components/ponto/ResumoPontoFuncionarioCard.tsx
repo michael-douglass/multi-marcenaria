@@ -26,6 +26,8 @@ interface ResumoPontoFuncionarioCardProps {
   intervaloLabel: string
   repCnpj?: string | null
   onFaltaClick?: (data: string) => void
+  /** Abre o dialog de batida oficial / ajuste do dia. */
+  onDiaClick?: (data: string) => void
   /** Abre o dialog de saldo acumulado / pagar HE. */
   onBancoClick?: () => void
   /** Minutos de um dia típico de jornada (para ≈ dias). */
@@ -102,6 +104,7 @@ export function ResumoPontoFuncionarioCard({
   intervaloLabel,
   repCnpj,
   onFaltaClick,
+  onDiaClick,
   onBancoClick,
   minutosJornadaRef = 480,
 }: ResumoPontoFuncionarioCardProps) {
@@ -136,6 +139,12 @@ export function ResumoPontoFuncionarioCard({
     e.preventDefault()
     e.stopPropagation()
     onFaltaClick?.(data)
+  }
+
+  function abrirDia(e: MouseEvent, data: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    onDiaClick?.(data)
   }
 
   return (
@@ -235,11 +244,32 @@ export function ResumoPontoFuncionarioCard({
                     </tr>
                   </thead>
                   <tbody>
-                    {dias.map((dia) => (
+                    {dias.map((dia) => {
+                      const rowClickable = Boolean(onDiaClick)
+                      return (
                       <tr
                         key={dia.data}
+                        role={rowClickable ? 'button' : undefined}
+                        tabIndex={rowClickable ? 0 : undefined}
+                        title={rowClickable ? 'Clique para lançar ou ajustar batidas deste dia' : undefined}
+                        onClick={rowClickable ? (e) => abrirDia(e, dia.data) : undefined}
+                        onKeyDown={
+                          rowClickable
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  onDiaClick?.(dia.data)
+                                }
+                              }
+                            : undefined
+                        }
                         className={
                           'border-t border-[rgba(26,16,12,0.08)] ' +
+                          (rowClickable
+                            ? 'cursor-pointer transition-colors hover:bg-[#f4e4c4]/55 ' +
+                              'focus-visible:outline-none focus-visible:ring-2 ' +
+                              'focus-visible:ring-inset focus-visible:ring-[rgba(107,63,18,0.35)] '
+                            : '') +
                           (dia.ehFalta
                             ? 'bg-[#fff1f2]'
                             : dia.atraso_minutos > 0 && dia.excedente_minutos === 0
@@ -326,7 +356,8 @@ export function ResumoPontoFuncionarioCard({
                           )}
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -400,7 +431,8 @@ export function ResumoPontoFuncionarioCard({
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
               No dia: verde = excedente · vermelho = atraso. No período: Saldo = HE − atrasos −
-              faltas abatidas − HE pagas. Clique numa falta para desconsiderar, abater ou reverter.
+              faltas abatidas − HE pagas. Clique numa linha do dia para lançar ou ajustar batida
+              oficial · numa falta para desconsiderar, abater ou reverter.
             </p>
             {onBancoClick && (
               <button

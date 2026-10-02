@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ErrorState, LoadingState } from '@/components/ui/EmptyState'
 import { ResumoPontoAura } from '@/components/ponto/ResumoPontoAura'
 import { ResumoPontoBancoDialog } from '@/components/ponto/ResumoPontoBancoDialog'
+import { ResumoPontoBatidaDialog } from '@/components/ponto/ResumoPontoBatidaDialog'
 import { ResumoPontoEmpresaHero } from '@/components/ponto/ResumoPontoEmpresaHero'
 import { ResumoPontoFaltaDialog } from '@/components/ponto/ResumoPontoFaltaDialog'
 import { ResumoPontoFuncionarioCard } from '@/components/ponto/ResumoPontoFuncionarioCard'
@@ -92,11 +93,15 @@ export function ResumoPonto() {
     row: PontoResumoFuncionarioPeriodo
     data: string
   } | null>(null)
+  const [batidaSelecionada, setBatidaSelecionada] = useState<{
+    row: PontoResumoFuncionarioPeriodo
+    data: string
+  } | null>(null)
   const [bancoSelecionado, setBancoSelecionado] = useState<PontoResumoFuncionarioPeriodo | null>(
     null,
   )
 
-  const canEditFalta =
+  const canEditPonto =
     roles.includes('Administrador') || roles.includes('Financeiro')
 
   const meses = useMemo(() => listarMesesAteHoje(), [])
@@ -267,6 +272,7 @@ export function ResumoPonto() {
                       intervaloLabel={intervaloLabel}
                       repCnpj={repCnpj}
                       onFaltaClick={(data) => setFaltaSelecionada({ row, data })}
+                      onDiaClick={(data) => setBatidaSelecionada({ row, data })}
                       onBancoClick={() => setBancoSelecionado(row)}
                     />
                   ))}
@@ -285,9 +291,25 @@ export function ResumoPonto() {
           }}
           row={faltaSelecionada.row}
           data={faltaSelecionada.data}
-          canEdit={canEditFalta}
+          canEdit={canEditPonto}
           onSuccess={() => {
             setFaltaSelecionada(null)
+            void reload()
+          }}
+        />
+      )}
+
+      {batidaSelecionada && (
+        <ResumoPontoBatidaDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setBatidaSelecionada(null)
+          }}
+          row={batidaSelecionada.row}
+          data={batidaSelecionada.data}
+          canEdit={canEditPonto}
+          onSuccess={() => {
+            setBatidaSelecionada(null)
             void reload()
           }}
         />
@@ -301,7 +323,7 @@ export function ResumoPonto() {
           }}
           funcionarioId={bancoSelecionado.funcionario_id}
           funcionarioNome={bancoSelecionado.nome}
-          canEdit={canEditFalta}
+          canEdit={canEditPonto}
           onSuccess={() => {
             setBancoSelecionado(null)
             void reload()
