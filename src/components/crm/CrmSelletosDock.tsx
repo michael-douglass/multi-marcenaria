@@ -12,12 +12,9 @@ import { PresencePopup } from '@/components/layout/PresencePopup'
 import { InactivityCheckDialog } from '@/components/layout/InactivityCheckDialog'
 import { MarketingApprovalPopup } from '@/components/marketing-conteudo/MarketingApprovalPopup'
 import { useLeadNotifications } from '@/hooks/useLeadNotifications'
-import { useLeadSinalizacoes } from '@/hooks/useLeadSinalizacoes'
-import { LeadSinalizacoesPopup } from '@/components/layout/LeadSinalizacoesPopup'
 import { LeadAIAnalysisBackgroundPopup } from '@/components/layout/LeadAIAnalysisBackgroundPopup'
 import { OrcamentosIaBackgroundPopup } from '@/components/layout/OrcamentosIaBackgroundPopup'
 import { FloatingLeadAIBackgroundIcon } from '@/components/layout/FloatingLeadAIBackgroundIcon'
-import { FloatingLeadSinalizacoesIcon } from '@/components/layout/FloatingLeadSinalizacoesIcon'
 import { useMessageNotifications } from '@/hooks/useMessageNotifications'
 import { useMarketingTasks } from '@/hooks/useMarketingTasks'
 import { useMarketingApprovalNotifications } from '@/hooks/useMarketingApprovalNotifications'
@@ -37,15 +34,7 @@ import { FloatingSaquePedidosIcon } from '@/components/layout/FloatingSaquePedid
 /** Dock flutuante do CRM Selletos — só nas rotas comerciais, nunca no Caixa/Obras. */
 export function CrmSelletosDock() {
   useLeadNotifications()
-  const { preferences, updatePreferences, loading: uiPreferencesLoading } = useUiPreferences()
-  const isLeadSinalizacoesMinimized = preferences.minimizeLeadSinalizacoesPopup
-  const leadSinalizacoes = useLeadSinalizacoes({
-    isMinimizedPreference: isLeadSinalizacoesMinimized,
-    preferencesReady: !uiPreferencesLoading,
-    onNewSinalizacaoOpen: () => {
-      void updatePreferences({ minimizeLeadSinalizacoesPopup: false })
-    },
-  })
+  const { preferences } = useUiPreferences()
   const navigate = useNavigate()
   const { isSuperAdmin, userRoles, hasRole } = useAuth()
 
@@ -190,17 +179,6 @@ export function CrmSelletosDock() {
                 />
               )}
               {!isMarketingUser &&
-                !leadSinalizacoes.isPopupOpen &&
-                leadSinalizacoes.unreadCount > 0 && (
-                  <FloatingLeadSinalizacoesIcon
-                    count={leadSinalizacoes.unreadCount}
-                    onClick={() => {
-                      void updatePreferences({ minimizeLeadSinalizacoesPopup: false })
-                      leadSinalizacoes.openPopup()
-                    }}
-                  />
-                )}
-              {!isMarketingUser &&
                 aiBackgroundMinimized.minimized &&
                 aiBackgroundMinimized.count > 0 && (
                   <FloatingLeadAIBackgroundIcon
@@ -257,17 +235,6 @@ export function CrmSelletosDock() {
 
       {!isMarketingUser && (
         <>
-          <LeadSinalizacoesPopup
-            sinalizacoes={leadSinalizacoes.pendentes}
-            isOpen={leadSinalizacoes.isPopupOpen}
-            onMinimize={() => {
-              leadSinalizacoes.closePopup()
-              void updatePreferences({ minimizeLeadSinalizacoesPopup: true })
-            }}
-            onFechar={(id) => void leadSinalizacoes.fecharSinalizacao.mutate(id)}
-            onFecharTodas={() => void leadSinalizacoes.fecharTodas.mutate()}
-            onAbrirLead={(leadId) => navigate(`/pipeline?id=${leadId}`)}
-          />
           <LeadAIAnalysisBackgroundPopup
             onOpenLeadAnalysis={(leadId) => navigate(`/pipeline?id=${leadId}&tab=analise-ia`)}
             onOpenLeadRender={(leadId) =>

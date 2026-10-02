@@ -30,7 +30,6 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { EditOrigemNomeDialog } from '@/components/leads/EditOrigemNomeDialog';
-import { LeadSinalizarButton } from '@/components/leads/LeadSinalizarButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CadastroTabContent } from '@/components/cadastro/CadastroTabContent';
 
@@ -487,11 +486,6 @@ export default function Leads() {
                       </TableCell>
                       <TableCell className="py-3 text-right">
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
-                          <LeadSinalizarButton
-                            leadId={lead.id}
-                            leadNome={lead.name}
-                            leadStatus={lead.status}
-                          />
                           <Button
                             variant="ghost"
                             size="icon"

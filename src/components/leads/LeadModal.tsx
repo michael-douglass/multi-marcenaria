@@ -36,7 +36,6 @@ import { LeadLembreteDialog } from '@/components/agenda/LeadLembreteDialog';
 import { LeadLembretesPopover } from '@/components/agenda/LeadLembretesPopover';
 import { LeadLembretesSection } from '@/components/leads/LeadLembretesSection';
 import { LeadFormResponseSection } from '@/components/leads/LeadFormResponseSection';
-import { LeadSinalizacoesSection } from '@/components/leads/LeadSinalizacoesSection';
 import { useLeadLembretesCountMap } from '@/hooks/useLeadLembretes';
 import { toast } from 'sonner';
 import { SaleValueDialog } from './SaleValueDialog';
@@ -2280,7 +2279,6 @@ export function LeadModal({
             {leadId && (
               <div className="space-y-3">
                 {!contextoProjeto && <LeadProjetoPanel leadId={leadId} />}
-                <LeadSinalizacoesSection leadId={leadId} />
                 <LeadFormResponseSection leadId={leadId} readOnly={!isEditable} />
               </div>
             )}
@@ -2444,6 +2442,10 @@ export function LeadModal({
               onScheduleMeeting={() => setShowScheduleMeetingDialog(true)}
               onLembrete={() => setShowLembreteDialog(true)}
               onShare={handleShareLead}
+              onMovedToEnviouOrcamento={(status) => {
+                markFormDirty();
+                setFormData((prev) => ({ ...prev, status: status as LeadStatus }));
+              }}
               isNewLead={isNewLead}
               showSaveButton={showSaveButton}
               hideDelete={modoProjeto}

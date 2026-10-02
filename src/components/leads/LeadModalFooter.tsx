@@ -19,7 +19,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
-import { LeadSinalizarButton } from '@/components/leads/LeadSinalizarButton';
+import { LeadMoveToEnviouOrcamentoButton } from '@/components/leads/LeadMoveToEnviouOrcamentoButton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,8 @@ interface LeadModalFooterProps {
   onScheduleMeeting: () => void;
   onLembrete: () => void;
   onShare: () => void;
+  /** Sincroniza o status do formulário após o atalho "Orçamento enviado". */
+  onMovedToEnviouOrcamento?: (status: string) => void;
   isNewLead: boolean;
   /** Exibe botão Salvar (ex.: lead existente só após clicar no lápis de algum campo) */
   showSaveButton?: boolean;
@@ -137,6 +139,7 @@ export function LeadModalFooter({
   onScheduleMeeting,
   onLembrete,
   onShare,
+  onMovedToEnviouOrcamento,
   isNewLead,
   showSaveButton = isEditable,
   hideDelete = false,
@@ -147,8 +150,13 @@ export function LeadModalFooter({
   const canEditSales =
     Boolean(leadId) && isEditable && (currentUserRole === 'ADMIN' || currentUserRole === 'VENDEDOR');
   const canDelete = Boolean(leadId) && isEditable && currentUserRole === 'ADMIN' && !hideDelete;
+  const canMoveToEnviouOrcamento = Boolean(leadId) && isEditable;
   const hasSecondaryActions =
-    canEditSales || canDelete || (leadId && !leadMeeting) || Boolean(leadId);
+    canEditSales ||
+    canDelete ||
+    canMoveToEnviouOrcamento ||
+    (leadId && !leadMeeting) ||
+    Boolean(leadId);
 
   const closeActions = (fn: () => void) => () => {
     setActionsOpen(false);
@@ -193,13 +201,13 @@ export function LeadModalFooter({
             Lembrete
           </Button>
         )}
-        {leadId && (
-          <LeadSinalizarButton
+        {canMoveToEnviouOrcamento && leadId && (
+          <LeadMoveToEnviouOrcamentoButton
             leadId={leadId}
-            leadNome={leadName || 'Lead'}
-            leadStatus={leadStatus}
-            size="default"
-            className={cn(footerBtnBase, 'lead-modal-footer-btn--tool px-3')}
+            currentStatus={leadStatus}
+            disabled={isSubmitting}
+            onMoved={onMovedToEnviouOrcamento}
+            className={cn(footerBtnBase, 'lead-modal-footer-btn--orcamento')}
           />
         )}
       </FooterCluster>
@@ -357,12 +365,13 @@ export function LeadModalFooter({
                     Marcar lembrete
                   </ActionRow>
                 )}
-                {leadId && (
+                {canMoveToEnviouOrcamento && leadId && (
                   <div className="w-full" onClick={() => setActionsOpen(false)}>
-                    <LeadSinalizarButton
+                    <LeadMoveToEnviouOrcamentoButton
                       leadId={leadId}
-                      leadNome={leadName || 'Lead'}
-                      leadStatus={leadStatus}
+                      currentStatus={leadStatus}
+                      disabled={isSubmitting}
+                      onMoved={onMovedToEnviouOrcamento}
                       className="w-full h-11 text-sm justify-center"
                     />
                   </div>
@@ -387,7 +396,7 @@ export function LeadModalFooter({
 
       {hasSecondaryActions && (
         <p className="text-[10px] text-center text-[var(--lead-faint,#5c4334)] mt-2 opacity-80">
-          Toque em <span className="font-medium">⋯</span> para ganho, perda, reunião e mais
+          Toque em <span className="font-medium">⋯</span> para ganho, perda, orçamento enviado e mais
         </p>
       )}
     </div>

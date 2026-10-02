@@ -8,8 +8,6 @@ interface UiPreferences {
   disableMessageNotificationsPopup: boolean;
   hideFloatingPopups: boolean;
   floatingAgendaSide: FloatingAgendaSide;
-  /** Painel de sinalizações oculto; nova sinalização força a reabertura. */
-  minimizeLeadSinalizacoesPopup: boolean;
   minimizeLeadWhatsappHistory: boolean;
 }
 
@@ -17,7 +15,6 @@ const defaultPreferences: UiPreferences = {
   disableMessageNotificationsPopup: false,
   hideFloatingPopups: false,
   floatingAgendaSide: 'right',
-  minimizeLeadSinalizacoesPopup: false,
   minimizeLeadWhatsappHistory: true,
 };
 
@@ -39,7 +36,7 @@ export function useUiPreferences() {
       const { data, error } = await supabase
         .from('crm_multiempresas_ui_preferences')
         .select(
-          'disable_message_notifications_popup, hide_floating_popups, floating_agenda_side, minimize_lead_sinalizacoes_popup, minimize_lead_whatsapp_history',
+          'disable_message_notifications_popup, hide_floating_popups, floating_agenda_side, minimize_lead_whatsapp_history',
         )
         .eq('user_id', user.id)
         .maybeSingle();
@@ -62,7 +59,6 @@ export function useUiPreferences() {
         hideFloatingPopups: data.hide_floating_popups,
         floatingAgendaSide:
           data.floating_agenda_side === 'left' ? 'left' : 'right',
-        minimizeLeadSinalizacoesPopup: Boolean(data.minimize_lead_sinalizacoes_popup),
         minimizeLeadWhatsappHistory: data.minimize_lead_whatsapp_history ?? true,
       });
       setLoading(false);
@@ -82,8 +78,6 @@ export function useUiPreferences() {
           updates.disableMessageNotificationsPopup ?? preferences.disableMessageNotificationsPopup,
         hide_floating_popups: updates.hideFloatingPopups ?? preferences.hideFloatingPopups,
         floating_agenda_side: updates.floatingAgendaSide ?? preferences.floatingAgendaSide,
-        minimize_lead_sinalizacoes_popup:
-          updates.minimizeLeadSinalizacoesPopup ?? preferences.minimizeLeadSinalizacoesPopup,
         minimize_lead_whatsapp_history:
           updates.minimizeLeadWhatsappHistory ?? preferences.minimizeLeadWhatsappHistory,
       };
@@ -106,7 +100,6 @@ export function useUiPreferences() {
       preferences.disableMessageNotificationsPopup,
       preferences.hideFloatingPopups,
       preferences.floatingAgendaSide,
-      preferences.minimizeLeadSinalizacoesPopup,
       preferences.minimizeLeadWhatsappHistory,
     ]
   );

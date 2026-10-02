@@ -18,7 +18,6 @@ export const MASTER_TABLES = {
   usuario_empresa: 'CRM-multi-empresas>usuario_empresa<',
   leads: 'CRM-multi-empresas>leads<',
   lead_lembretes: 'CRM-multi-empresas>lead_lembretes<',
-  lead_sinalizacoes: 'CRM-multi-empresas>lead_sinalizacoes<',
   webhooks_api: 'CRM-multi-empresas>webhooks_api<',
   presence_sessions: 'CRM-multi-empresas>presence_sessions<',
   ponto_registros: 'CRM-multi-empresas>ponto_registros<',
@@ -114,27 +113,6 @@ export interface LeadLembretesQueryConfig {
   lembretesTable: string;
   leadsTable: string;
   usuariosTable: string;
-}
-
-export interface LeadSinalizacoesQueryConfig {
-  schema: string | null;
-  sinalizacoesTable: string;
-}
-
-/** Sinalizações de lead por titular (popup global). */
-export function resolveLeadSinalizacoesQueryConfig(
-  schemaNome: string | null | undefined,
-): LeadSinalizacoesQueryConfig {
-  if (isSchemaApiExposed(schemaNome)) {
-    return {
-      schema: schemaNome,
-      sinalizacoesTable: 'lead_sinalizacoes',
-    };
-  }
-  return {
-    schema: null,
-    sinalizacoesTable: MASTER_TABLES.lead_sinalizacoes,
-  };
 }
 
 /** Lembretes de lead: schema emp_* (FK com leads da empresa) ou master public. */

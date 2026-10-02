@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Lead } from '@/types/selletos';
 import { cn, formatYMDToBR } from '@/lib/utils';
 import { Calendar, DollarSign, MapPin, ChevronDown, Clock, MessageSquare, MessageCircle, AlertTriangle, CalendarCheck, Bell, FileText, Presentation, Calculator, GripVertical, Star } from 'lucide-react';
-import { LeadSinalizarButton } from '@/components/leads/LeadSinalizarButton';
+import { LeadMoveToEnviouOrcamentoButton } from '@/components/leads/LeadMoveToEnviouOrcamentoButton';
 import { LeadLembretesPopover } from '@/components/agenda/LeadLembretesPopover';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -658,11 +658,12 @@ export function KanbanCard({
           >
             <LeadProjetoCardActions leadId={lead.id} leadNome={lead.name}>
               <div className="flex flex-wrap gap-1.5">
-                <LeadSinalizarButton
+                <LeadMoveToEnviouOrcamentoButton
                   leadId={lead.id}
-                  leadNome={lead.name}
-                  leadStatus={lead.status}
-                  className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px]"
+                  currentStatus={lead.status}
+                  size="sm"
+                  compact
+                  className="h-8 min-w-[46%] flex-1 justify-center px-2.5 text-[11px] border-sky-500/35 text-sky-100 hover:bg-sky-500/15"
                 />
                 {canMarkAsSale && (
                   <Button

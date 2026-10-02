@@ -4576,6 +4576,19 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
   border-color: rgba(180, 120, 40, 0.5) !important;
 }
 
+.lead-modal-footer-btn--orcamento {
+  background:
+    linear-gradient(165deg, rgba(56, 189, 248, 0.16) 0%, rgba(255, 250, 243, 0.72) 60%) !important;
+  border-color: rgba(14, 116, 144, 0.32) !important;
+  color: #0e4f66 !important;
+}
+
+.lead-modal-footer-btn--orcamento:hover:not(:disabled) {
+  background:
+    linear-gradient(165deg, rgba(56, 189, 248, 0.26) 0%, rgba(255, 252, 248, 0.95) 55%) !important;
+  border-color: rgba(14, 116, 144, 0.48) !important;
+}
+
 .lead-modal-footer-btn--lost {
   background: rgba(255, 250, 243, 0.4) !important;
   border-color: rgba(120, 90, 70, 0.28) !important;

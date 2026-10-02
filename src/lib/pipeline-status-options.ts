@@ -251,13 +251,19 @@ export function getPipelineInboxStageName(pipelineStages: string[]): string {
   return pipelineStages[0]?.trim() || DEFAULT_PIPELINE_STAGES[0].nome;
 }
 
+/** Nome canônico da coluna do Pipeline para orçamento já enviado ao cliente. */
+export const PIPELINE_STATUS_ENVIOU_ORCAMENTO = 'Enviou orçamento';
+
 /**
  * Corrige variações de texto (Kanban antigo, digitação, maiúsculas) para o nome da coluna do Pipeline.
  */
 const PIPELINE_STATUS_ALIASES: Record<string, string> = {
-  'orçamentos ja enviados': 'Enviou orçamento',
-  'orcamentos ja enviados': 'Enviou orçamento',
-  'orçamento ja enviado': 'Enviou orçamento',
+  'orçamentos ja enviados': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
+  'orcamentos ja enviados': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
+  'orçamento ja enviado': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
+  'orcamento ja enviado': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
+  'orçamento enviado': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
+  'orcamento enviado': PIPELINE_STATUS_ENVIOU_ORCAMENTO,
   'reunião marcada': 'Reunião marcada',
   'reuniao marcada': 'Reunião marcada',
   'reunião feita': 'Reunião feita',
@@ -265,6 +271,18 @@ const PIPELINE_STATUS_ALIASES: Record<string, string> = {
   [LEGACY_VENDA_PERDIDA_NAO_MATRICULADO.toLowerCase()]: ORCAMENTOS_PERDIDOS_STATUS,
   'venda perdida (nao matriculado)': ORCAMENTOS_PERDIDOS_STATUS,
 };
+
+/** True se o lead já está (ou equivale a) na coluna Enviou orçamento. */
+export function isLeadStatusEnviouOrcamento(
+  leadStatus: string | null | undefined,
+): boolean {
+  const trimmed = (leadStatus || '').trim();
+  if (!trimmed) return false;
+  if (trimmed === PIPELINE_STATUS_ENVIOU_ORCAMENTO) return true;
+  const alias = PIPELINE_STATUS_ALIASES[trimmed.toLowerCase()];
+  if (alias === PIPELINE_STATUS_ENVIOU_ORCAMENTO) return true;
+  return trimmed.toLowerCase() === PIPELINE_STATUS_ENVIOU_ORCAMENTO.toLowerCase();
+}
 
 export function normalizeLeadStatusForPipeline(
   leadStatus: string | undefined | null,
