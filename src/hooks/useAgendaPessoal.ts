@@ -11,6 +11,10 @@ import {
   parseAgendaItemAnexos,
   type AgendaItemAnexo,
 } from '@/lib/agenda-item-anexos';
+import {
+  deleteOpenUnicaTwinsExcept,
+  findOpenUnicaTwin,
+} from '@/lib/agenda-pessoal-dedupe';
 
 export interface TarefaPessoal {
   id: string;
@@ -303,6 +307,24 @@ export function useAgendaPessoal(options?: UseAgendaPessoalOptions) {
           console.warn('Não deu para espelhar o título no Controle de Eventos:', eventoTituloError.message);
         }
       }
+      // Se moveu uma tarefa única para um dia/hora onde já existe a mesma,
+      // apaga as cópias extras para não aparecer duplicada na agenda.
+      if (
+        row.tipo_agendamento === 'unica' &&
+        !row.concluida &&
+        (updates.data !== undefined || updates.hora !== undefined || updates.titulo !== undefined)
+      ) {
+        await deleteOpenUnicaTwinsExcept(
+          supabase,
+          {
+            titularId: row.titular_id,
+            titulo: row.titulo,
+            data: row.data,
+            hora: row.hora,
+          },
+          row.id,
+        );
+      }
       return data;
     },
     onSuccess: () => {
@@ -412,24 +434,40 @@ export function useAgendaPessoal(options?: UseAgendaPessoalOptions) {
           : ((tarefa.conclusoes_ocorrencias as string[]) || []).includes(dataOcorrenciaAntiga);
 
       if (tarefa.tipo_agendamento === 'unica') {
+        const tituloFinal = updates?.titulo ?? tarefa.titulo;
+        const horaFinal = updates?.hora !== undefined ? updates.hora : tarefa.hora;
         const { error } = await supabase
           .from('crm_multiempresas_agenda_pessoal_tarefas')
           .update({
             data: novaData,
-            titulo: updates?.titulo ?? tarefa.titulo,
+            titulo: tituloFinal,
             descricao: updates?.descricao !== undefined ? updates.descricao : tarefa.descricao,
-            hora: updates?.hora !== undefined ? updates.hora : tarefa.hora,
+            hora: horaFinal,
             cor: updates?.cor !== undefined ? updates.cor : tarefa.cor,
             atualizado_em: new Date().toISOString(),
           })
           .eq('id', tarefa.id);
         if (error) throw error;
+        await deleteOpenUnicaTwinsExcept(
+          supabase,
+          {
+            titularId: tarefa.titular_id,
+            titulo: tituloFinal,
+            data: novaData,
+            hora: horaFinal,
+          },
+          tarefa.id,
+        );
         return;
       }
 
       const exclusoes = [...((tarefa.exclusoes_ocorrencias as string[]) || [])];
       if (!exclusoes.includes(dataOcorrenciaAntiga)) {
         exclusoes.push(dataOcorrenciaAntiga);
+      }
+      // Evita “duas iguais” no dia destino: a cópia avulsa substitui a ocorrência da série naquela data.
+      if (novaData !== dataOcorrenciaAntiga && !exclusoes.includes(novaData)) {
+        exclusoes.push(novaData);
       }
       const { error: exclError } = await supabase
         .from('crm_multiempresas_agenda_pessoal_tarefas')
@@ -441,15 +479,45 @@ export function useAgendaPessoal(options?: UseAgendaPessoalOptions) {
       if (exclError) throw exclError;
 
       if (!user?.id) throw new Error('Usuário não autenticado');
+
+      const tituloFinal = updates?.titulo ?? tarefa.titulo;
+      const horaFinal = updates?.hora !== undefined ? updates.hora : tarefa.hora;
+      const descricaoFinal =
+        updates?.descricao !== undefined ? updates.descricao : tarefa.descricao;
+      const corFinal = updates?.cor !== undefined ? updates.cor : tarefa.cor;
+
+      // Se já existe uma cópia única aberta nesse dia/hora, não cria outra.
+      const twinId = await findOpenUnicaTwin(supabase, {
+        titularId: tarefa.titular_id,
+        titulo: tituloFinal,
+        data: novaData,
+        hora: horaFinal,
+      });
+      if (twinId) {
+        if (wasConcluida || updates) {
+          await supabase
+            .from('crm_multiempresas_agenda_pessoal_tarefas')
+            .update({
+              descricao: descricaoFinal,
+              hora: horaFinal,
+              cor: corFinal,
+              concluida: wasConcluida,
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq('id', twinId);
+        }
+        return;
+      }
+
       const { error: createError } = await supabase
         .from('crm_multiempresas_agenda_pessoal_tarefas')
         .insert([
           {
-            titulo: updates?.titulo ?? tarefa.titulo,
-            descricao: updates?.descricao !== undefined ? updates.descricao : tarefa.descricao,
+            titulo: tituloFinal,
+            descricao: descricaoFinal,
             data: novaData,
-            hora: updates?.hora !== undefined ? updates.hora : tarefa.hora,
-            cor: updates?.cor !== undefined ? updates.cor : tarefa.cor,
+            hora: horaFinal,
+            cor: corFinal,
             tipo_agendamento: 'unica',
             titular_id: tarefa.titular_id,
             titular_nome: tarefa.titular_nome,
