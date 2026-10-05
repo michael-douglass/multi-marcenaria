@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '@/integrations/supabase/client'
@@ -43,12 +43,20 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
   const realtime = options?.realtime !== false
   const userId = user?.id ?? null
 
-  const queryKey = ['lead-projeto-chat-unread', schemaEmpresa, userId] as const
+  const queryKey = useMemo(
+    () => ['lead-projeto-chat-unread', schemaEmpresa, userId] as const,
+    [schemaEmpresa, userId],
+  )
 
   const query = useQuery({
     queryKey,
     enabled: queriesReady && Boolean(userId),
-    staleTime: 12_000,
+    // Contagem de não lidas precisa ser fresca: o app desliga refetch no foco da janela.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    // Rede de segurança se o realtime falhar ou atrasar (badge acende em poucos segundos).
+    refetchInterval: realtime ? 8_000 : false,
+    refetchIntervalInBackground: false,
     queryFn: async (): Promise<ProjetoChatUnreadResult> => {
       if (!userId) return { totalUnread: 0, threads: [], lastReadByLead: {} }
 
@@ -185,13 +193,14 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
     // Supabase reutiliza canal pelo nome — .on() após subscribe() estoura.
     const channelName = `lead-projeto-chat-unread-${schemaEmpresa}-${userId}-${Math.random().toString(36).slice(2, 9)}`
 
-    const invalidate = () => {
-      void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread', schemaEmpresa, userId] })
+    const refreshUnread = () => {
+      void queryClient.invalidateQueries({ queryKey })
+      void queryClient.refetchQueries({ queryKey, type: 'active' })
     }
 
     const channel = supabase
       .channel(channelName)
-      .on('postgres_changes', { event: '*', schema, table: notasTable }, invalidate)
+      .on('postgres_changes', { event: '*', schema, table: notasTable }, refreshUnread)
       .on(
         'postgres_changes',
         {
@@ -200,14 +209,19 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
           table: leiturasTable,
           filter: `user_id=eq.${userId}`,
         },
-        invalidate,
+        refreshUnread,
       )
-      .subscribe()
+      .subscribe((status) => {
+        // Se o canal cair, força uma leitura fresca para o badge não ficar “apagado”.
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          refreshUnread()
+        }
+      })
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [queryClient, realtime, schemaEmpresa, userId])
+  }, [queryClient, queryKey, realtime, schemaEmpresa, userId])
 
   const markLeadChatRead = useMutation({
     mutationFn: async (leadId: number) => {
