@@ -171,14 +171,14 @@ Quando 10 ou 13 tarefas caem no mesmo horário (ex.: 14:00 e 16:00), colocar tud
 
 | Contexto | Regra |
 |----------|-------|
-| **Painel flutuante** (`compact`) | Se o cluster tem **mais de 3** itens → `useStack = true` (caixa vertical com **todas** as tarefas). Limite de colunas lado a lado = **2** (enquanto ≤ 3 itens). |
+| **Painel flutuante** (`compact`) | Se o cluster tem **2 ou mais** itens → `useStack = true` (caixa vertical com **todas** as tarefas). Tarefa sozinha continua em chip normal. |
 | **Página cheia** | Não empilha por limiar (`stackThreshold` infinito). Até **5** colunas lado a lado; o que sobra vira botão **“+N mais”**. |
 
 Constantes:
 
 | Constante | Valor | Significado |
 |-----------|-------|-------------|
-| `EVENT_COMPACT_STACK_THRESHOLD` | **3** | Acima disso no painel → caixa |
+| `EVENT_COMPACT_STACK_THRESHOLD` | **1** | Acima disso no painel → caixa (lista a partir de 2) |
 | `EVENT_MAX_SIDE_BY_SIDE_COLUMNS` | **5** | Página: colunas antes do “+N” |
 | `EVENT_STACK_CHIP_HEIGHT_PX` | **22** | Altura de cada linha na lista |
 | `EVENT_STACK_MAX_HEIGHT_PX` | **220** | Máximo da área de lista (sem chrome) |

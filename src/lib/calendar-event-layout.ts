@@ -41,10 +41,10 @@ const EVENT_COLUMN_GAP_PERCENT = 1;
 /** Colunas lado a lado no calendário “cheio” antes de ir para “+N mais”. */
 export const EVENT_MAX_SIDE_BY_SIDE_COLUMNS = 5;
 /**
- * No painel flutuante: só vira lista se tiver **mais** deste nº de tarefas
- * consecutivas na mesma faixa (ex.: 4 → lista a partir da 5ª).
+ * No painel flutuante: vira lista se tiver **mais** deste nº de tarefas
+ * consecutivas na mesma faixa (1 → lista a partir de 2 tarefas juntas).
  */
-export const EVENT_COMPACT_STACK_THRESHOLD = 4;
+export const EVENT_COMPACT_STACK_THRESHOLD = 1;
 /** Janela de tempo da “faixa de horário” no painel (1 hora). */
 export const EVENT_COMPACT_STACK_WINDOW_MS = 60 * 60 * 1000;
 /** Altura de cada chip na lista empilhada (px). */

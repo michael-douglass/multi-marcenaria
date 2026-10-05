@@ -118,18 +118,18 @@ function FornecedorSelect({ fornecedores, value, onChange, getSaldoFornecedor, c
       />
       {open && (
         <div
-          className="absolute z-[200] w-full mt-1 rounded-lg border border-[rgba(240,210,140,.2)] overflow-y-auto"
-          style={{ background: '#1a0f0a', boxShadow: '0 8px 32px rgba(0,0,0,.6)', maxHeight: 224 }}
+          className="absolute z-[200] w-full mt-1 rounded-lg border border-[rgba(26,16,12,.16)] overflow-y-auto"
+          style={{ background: '#fffaf4', boxShadow: '0 12px 32px rgba(42,24,18,.14)', maxHeight: 224 }}
         >
           <div
-            className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(240,210,140,.08)]"
-            style={{ color: '#edd9c4' }}
+            className="px-3 py-2 text-sm cursor-pointer hover:bg-[rgba(107,63,18,.07)]"
+            style={{ color: '#6b5244' }}
             onClick={() => handleSelect('')}
           >
             — Nenhum —
           </div>
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-[#edd9c4]">Nenhum resultado.</div>
+            <div className="px-3 py-2 text-sm" style={{ color: '#6b5244' }}>Nenhum resultado.</div>
           ) : (
             filtered.map(f => {
               const saldo = getSaldoFornecedor(f.id)
@@ -137,18 +137,18 @@ function FornecedorSelect({ fornecedores, value, onChange, getSaldoFornecedor, c
               return (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[rgba(240,210,140,.08)]"
+                  className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[rgba(107,63,18,.07)]"
                   onClick={() => handleSelect(f.id)}
                 >
-                  <span style={{ color: '#fffaf4', fontSize: '.9rem' }}>{f.nome}</span>
+                  <span style={{ color: '#1a100c', fontSize: '.9rem' }}>{f.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     {saldo > 0 && (
-                      <span style={{ color: '#4ade80', fontSize: '.72rem', fontWeight: 700 }}>
+                      <span style={{ color: '#146c38', fontSize: '.72rem', fontWeight: 700 }}>
                         +{fmtCur(saldo)}
                       </span>
                     )}
                     {devido > 0 && (
-                      <span style={{ color: '#f87171', fontSize: '.72rem', fontWeight: 700 }}>
+                      <span style={{ color: '#9f1239', fontSize: '.72rem', fontWeight: 700 }}>
                         -{fmtCur(devido)}
                       </span>
                     )}

@@ -610,7 +610,7 @@ export function FullCalendar({
 
   const clusterLayoutOptions = compact
     ? {
-        /** Lista só com mais de 4 tarefas na mesma faixa de 1 hora. */
+        /** 2+ tarefas na mesma faixa de 1 hora → lista vertical (sem “+N mais”). */
         stackThreshold: EVENT_COMPACT_STACK_THRESHOLD,
         stackWindowMs: EVENT_COMPACT_STACK_WINDOW_MS,
         maxSideBySideColumns: 2,
