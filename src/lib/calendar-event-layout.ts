@@ -47,15 +47,108 @@ export const EVENT_MAX_SIDE_BY_SIDE_COLUMNS = 5;
 export const EVENT_COMPACT_STACK_THRESHOLD = 1;
 /** Janela de tempo da “faixa de horário” no painel (1 hora). */
 export const EVENT_COMPACT_STACK_WINDOW_MS = 60 * 60 * 1000;
-/** Altura de cada chip na lista empilhada (px). */
+/** Altura de cada chip na lista empilhada “cheia” (px) — popup / modo amplo. */
 export const EVENT_STACK_CHIP_HEIGHT_PX = 22;
-/** Altura máxima da caixa rolável de um grupo empilhado (px). */
-export const EVENT_STACK_MAX_HEIGHT_PX = 220;
 /**
- * Quantas linhas de tarefa precisam caber na caixa além do cabeçalho/busca.
- * No painel estreito a hora tem ~40px — sem este mínimo a lista some por completo.
+ * Altura de cada linha no preview da caixa fechada (px).
+ * Mantém texto legível; a caixa cresce para mostrar todas (rola só se passar do teto).
  */
-export const EVENT_STACK_MIN_VISIBLE_ROWS = 3;
+export const EVENT_STACK_PEEK_CHIP_HEIGHT_PX = 22;
+/**
+ * Teto da área de lista no preview (px), além do cabeçalho.
+ * ~20 linhas legíveis; listas maiores (ex.: 44) rolam por dentro.
+ */
+export const EVENT_STACK_MAX_HEIGHT_PX = 520;
+/** Cabeçalho da caixa de preview (compact / página). */
+export const EVENT_STACK_PEEK_CHROME_COMPACT_PX = 28;
+export const EVENT_STACK_PEEK_CHROME_PX = 32;
+export const EVENT_STACK_PEEK_LIST_PAD_PX = 8;
+export const EVENT_STACK_PEEK_ROW_GAP_PX = 2;
+/** Altura natural da caixa de preview (sem clamp pelo fim do dia). */
+export function getStackPeekNaturalHeightPx(
+  eventCount: number,
+  chipHeightPx: number,
+  compact?: boolean,
+): number {
+  const chromePx = compact
+    ? EVENT_STACK_PEEK_CHROME_COMPACT_PX
+    : EVENT_STACK_PEEK_CHROME_PX;
+  const listContentPx =
+    Math.max(eventCount, 1) * chipHeightPx +
+    Math.max(eventCount - 1, 0) * EVENT_STACK_PEEK_ROW_GAP_PX;
+  return Math.min(
+    chromePx + EVENT_STACK_PEEK_LIST_PAD_PX + listContentPx,
+    EVENT_STACK_MAX_HEIGHT_PX + chromePx,
+  );
+}
+
+/** Altura em px da caixa de preview (mesma conta do AgendaHourClusterBox). */
+export function getStackPeekBoxHeightPx(params: {
+  eventCount: number;
+  chipHeightPx: number;
+  compact?: boolean;
+  /** Altura total do dia (px). Se omitido, usa só a altura natural. */
+  dayHeightPx?: number;
+  clusterStart?: Date;
+  layoutTopPx?: number;
+  minTimeSpanPx?: number;
+}): number {
+  const naturalHeight = getStackPeekNaturalHeightPx(
+    params.eventCount,
+    params.chipHeightPx,
+    params.compact,
+  );
+  if (params.dayHeightPx == null || params.layoutTopPx == null) {
+    return naturalHeight;
+  }
+  const remainingInDayPx = Math.max(
+    params.dayHeightPx - params.layoutTopPx,
+    params.minTimeSpanPx ?? EVENT_STACK_CHIP_HEIGHT_PX,
+  );
+  return Math.min(naturalHeight, remainingInDayPx);
+}
+
+/**
+ * Expande a faixa de cada hora que tem lista empilhada, para a lista
+ * caber no horário certo e as outras tarefas continuarem alinhadas ao relógio.
+ */
+export function buildExpandedHourHeights(params: {
+  baseHourHeight: number;
+  stacks: { start: Date; eventCount: number }[];
+  chipHeightPx: number;
+  compact?: boolean;
+}): number[] {
+  const heights = Array.from({ length: 24 }, () => params.baseHourHeight);
+  for (const stack of params.stacks) {
+    const hour = Math.min(23, Math.max(0, stack.start.getHours()));
+    const frac = Math.min(0.95, Math.max(0, stack.start.getMinutes() / 60));
+    const boxH = getStackPeekNaturalHeightPx(
+      stack.eventCount,
+      params.chipHeightPx,
+      params.compact,
+    );
+    /** Garante espaço da hora de início até o fim da faixa expandida. */
+    const needed = boxH / Math.max(1 - frac, 0.2);
+    heights[hour] = Math.max(heights[hour], needed);
+  }
+  return heights;
+}
+
+/** Topo (px) de um instante na grade com alturas de hora variáveis. */
+export function getTopPxForDate(date: Date, hourHeights: number[]): number {
+  const hour = Math.min(23, Math.max(0, date.getHours()));
+  const frac = date.getMinutes() / 60 + date.getSeconds() / 3600;
+  let top = 0;
+  for (let i = 0; i < hour; i += 1) {
+    top += hourHeights[i] ?? 0;
+  }
+  top += frac * (hourHeights[hour] ?? 0);
+  return top;
+}
+
+export function getDayHeightFromHourHeights(hourHeights: number[]): number {
+  return hourHeights.reduce((sum, h) => sum + h, 0);
+}
 
 /**
  * Tarefas sem hora ficam à meia-noite com duração de 1h — mas 00:00

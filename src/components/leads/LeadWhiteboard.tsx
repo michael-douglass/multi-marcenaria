@@ -8,18 +8,12 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Tooltip,
   TooltipContent,
@@ -64,11 +58,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  preventFullscreenOutsideDismiss,
   PROJECT_IMAGE_PICKER_OPEN_ATTR,
   setWhiteboardFullscreenOpenFlag,
 } from '@/lib/dialog-outside-guard';
-import { leadFullscreenContentClass, leadFullscreenOverlayClass } from '@/lib/overlay-z-index';
+import { leadFullscreenContentClass } from '@/lib/overlay-z-index';
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeadWhiteboard, type LeadWhiteboardImage, type LeadWhiteboardDrawing } from '@/hooks/useLeadWhiteboard';
@@ -250,6 +244,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
   const [isImportingFromProject, setIsImportingFromProject] = useState(false);
   const [isSavingAttachment, setIsSavingAttachment] = useState(false);
   const isMobile = useIsMobile();
+  /** Tablet largo (ex.: Tab S9 Ultra) não entra em isMobile — mesmo assim precisa de zoom estável. */
+  const isTouchUi = isTouchOrCompactViewport();
   const isFullscreenLayout = variant === 'fullscreen';
 
   const {
@@ -432,7 +428,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     viewportEl,
     contentWidth: worldSize.width,
     contentHeight: worldSize.height,
-    maxFitScale: isMobile ? 1 : undefined,
+    maxFitScale: isMobile || isTouchUi ? 1 : undefined,
   });
 
   const toolsDisabled = disabled || !activeImageId;
@@ -1135,8 +1131,12 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
   }, [leadId, disabled, images.length, uploadImage]);
 
   const startBlankBoard = useCallback(async () => {
+    // Com tela cheia disponível: o pai expande e cria o quadro lá (evita flash no card).
+    if (onRequestFullscreen) {
+      onRequestFullscreen();
+      return;
+    }
     await ensureBlankBoard();
-    onRequestFullscreen?.();
   }, [ensureBlankBoard, onRequestFullscreen]);
 
   useImperativeHandle(
@@ -1554,32 +1554,36 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
   const zoomPercent = Math.round(view.scale * 100);
 
   useEffect(() => {
-    if (activeImage) {
-      const t = requestAnimationFrame(() => fitContent(16));
-      return () => cancelAnimationFrame(t);
-    }
+    if (!activeImage) return;
+    const t = requestAnimationFrame(() => fitContent(16));
+    return () => cancelAnimationFrame(t);
   }, [activeImage?.id, worldSize.width, worldSize.height, fitContent, activeImage]);
 
   useEffect(() => {
     if (!isFullscreenLayout || !viewportEl) return;
 
-    if (isMobile) {
-      // iOS muda a altura da tela ao abrir (barra do Safari) — evita vários reajustes de zoom.
+    // Toque / tablet: um ajuste só (raf + fallback). ResizeObserver contínuo faz a lousa “piscar”.
+    if (isTouchUi || isMobile) {
       const raf = requestAnimationFrame(() => fitContent(16));
-      const timer = window.setTimeout(() => fitContent(16), 400);
+      const timer = window.setTimeout(() => fitContent(16), 320);
       return () => {
         cancelAnimationFrame(raf);
         clearTimeout(timer);
       };
     }
 
+    let raf = 0;
     const ro = new ResizeObserver(() => {
-      requestAnimationFrame(() => fitContent(16));
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => fitContent(16));
     });
     ro.observe(viewportEl);
-    requestAnimationFrame(() => fitContent(16));
-    return () => ro.disconnect();
-  }, [isFullscreenLayout, viewportEl, fitContent, activeImage?.id, isMobile]);
+    raf = requestAnimationFrame(() => fitContent(16));
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [isFullscreenLayout, viewportEl, fitContent, activeImage?.id, isMobile, isTouchUi]);
 
   const handleUploadFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) => isLikelyImageFile(f));
@@ -3183,6 +3187,7 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
 
 export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   const isMobile = useIsMobile();
+  const isTouchUi = isTouchOrCompactViewport();
   const [fullscreen, setFullscreen] = useState(false);
   const boardRef = useRef<BoardInnerHandle>(null);
   const [saveState, setSaveState] = useState<{
@@ -3203,6 +3208,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   const [openingFullscreen, setOpeningFullscreen] = useState(false);
 
   const updateFullscreen = useCallback((open: boolean) => {
+    // Flag no DOM antes do React pintar — o card do lead vira “não-modal” na hora.
     setWhiteboardFullscreenOpenFlag(open);
     setFullscreen(open);
   }, []);
@@ -3211,9 +3217,12 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
     if (openingFullscreen) return;
     setOpeningFullscreen(true);
     try {
-      // Sem foto: cria quadro branco primeiro para já poder desenhar na tela cheia.
+      // Expande primeiro; o quadro branco (se faltar) nasce já em tela cheia.
+      // Antes: criava o quadro no card e o Dialog aninhado falhava na 1ª vez.
+      flushSync(() => {
+        updateFullscreen(true);
+      });
       await boardRef.current?.ensureBlankBoard();
-      updateFullscreen(true);
     } catch {
       /* toast já exibido em ensureBlankBoard */
     } finally {
@@ -3230,7 +3239,24 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   }, [fullscreen]);
 
   useEffect(() => {
-    if (!fullscreen || !isMobile) return;
+    if (!fullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (
+        typeof document !== 'undefined' &&
+        document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      updateFullscreen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [fullscreen, updateFullscreen]);
+
+  useEffect(() => {
+    if (!fullscreen || !(isMobile || isTouchUi)) return;
 
     const meta = document.querySelector('meta[name="viewport"]');
     const previousContent = meta?.getAttribute('content') ?? '';
@@ -3253,11 +3279,27 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       style.position = prevPosition;
       style.width = prevWidth;
     };
-  }, [fullscreen, isMobile]);
+  }, [fullscreen, isMobile, isTouchUi]);
 
   const handleHeaderSave = () => {
     void boardRef.current?.saveToAttachments();
   };
+
+  const board = (
+    <BoardInner
+      ref={boardRef}
+      leadId={leadId}
+      disabled={disabled}
+      minHeight={isMobile ? 300 : 380}
+      variant={fullscreen ? 'fullscreen' : 'inline'}
+      onClose={fullscreen ? () => updateFullscreen(false) : undefined}
+      onRequestFullscreen={() => {
+        void openFullscreen();
+      }}
+      onSaveStateChange={setSaveState}
+      className={fullscreen ? 'flex-1 min-h-0 h-full w-full' : undefined}
+    />
+  );
 
   return (
     <div
@@ -3322,64 +3364,38 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
                 ) : (
                   <Maximize2 className="h-3.5 w-3.5" />
                 )}
-                {isMobile ? 'Abrir' : 'Tela cheia'}
+                {isMobile || isTouchUi ? 'Abrir' : 'Tela cheia'}
               </Button>
             )}
           </div>
         )}
       </div>
 
-      {!fullscreen && (
-        <BoardInner
-          ref={boardRef}
-          leadId={leadId}
-          disabled={disabled}
-          minHeight={isMobile ? 300 : 380}
-          onRequestFullscreen={() => updateFullscreen(true)}
-          onSaveStateChange={setSaveState}
-        />
+      {fullscreen ? (
+        <>
+          <div className="rounded-xl border border-gold/25 bg-[#1a100c]/50 px-3 py-3 text-sm text-[#d4bc9f]">
+            Lousa aberta em tela cheia — use o botão de reduzir para voltar.
+          </div>
+          {createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Lousa em tela cheia"
+              data-whiteboard-fullscreen=""
+              className={cn(
+                leadFullscreenContentClass,
+                'fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-[100dvw] flex-col bg-background touch-manipulation',
+              )}
+            >
+              <span className="sr-only">Fotos do lead</span>
+              {board}
+            </div>,
+            document.body,
+          )}
+        </>
+      ) : (
+        board
       )}
-
-      <Dialog
-        open={fullscreen}
-        onOpenChange={(open) => {
-          if (
-            !open &&
-            typeof document !== 'undefined' &&
-            document.documentElement.hasAttribute(PROJECT_IMAGE_PICKER_OPEN_ATTR)
-          ) {
-            return;
-          }
-          updateFullscreen(open);
-        }}
-      >
-        <DialogContent
-          nested
-          overlayClassName={leadFullscreenOverlayClass}
-          data-whiteboard-fullscreen=""
-          className={cn(
-            leadFullscreenContentClass,
-            '!fixed inset-0 left-0 top-0 !translate-x-0 !translate-y-0 max-w-none w-[100dvw] h-[100dvh] max-h-[100dvh] p-0 gap-0 !flex !flex-col rounded-none border-0 bg-background [&>button]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 touch-manipulation',
-          )}
-          onPointerDownOutside={preventFullscreenOutsideDismiss}
-          onInteractOutside={preventFullscreenOutsideDismiss}
-          onFocusOutside={preventFullscreenOutsideDismiss}
-        >
-          <DialogTitle className="sr-only">Fotos do lead</DialogTitle>
-          {fullscreen && (
-            <BoardInner
-              key="whiteboard-fullscreen"
-              ref={boardRef}
-              leadId={leadId}
-              disabled={disabled}
-              variant="fullscreen"
-              onClose={() => updateFullscreen(false)}
-              onSaveStateChange={setSaveState}
-              className="flex-1 min-h-0 h-full w-full"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

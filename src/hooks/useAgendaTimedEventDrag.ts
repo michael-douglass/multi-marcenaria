@@ -33,6 +33,8 @@ interface UseAgendaTimedEventDragOptions {
   onEditEvent?: (event: AgendaEvent) => void;
   getGridElement: (day: Date) => HTMLElement | null;
   resolveTargetDay?: (clientX: number, clientY: number, fallbackDay: Date) => Date;
+  /** Alturas por hora (grade expandida no painel). */
+  getHourHeights?: (day: Date) => number[] | undefined;
 }
 
 export function useAgendaTimedEventDrag({
@@ -41,6 +43,7 @@ export function useAgendaTimedEventDrag({
   onEditEvent,
   getGridElement,
   resolveTargetDay,
+  getHourHeights,
 }: UseAgendaTimedEventDragOptions) {
   const [dragState, setDragState] = useState<AgendaEventDragState | null>(null);
   const pendingRef = useRef<PendingDrag | null>(null);
@@ -98,6 +101,7 @@ export function useAgendaTimedEventDrag({
         pending.grabOffsetY,
         pending.hourHeight,
         targetDay,
+        getHourHeights?.(targetDay),
       );
 
       setDragState({
@@ -110,7 +114,7 @@ export function useAgendaTimedEventDrag({
         isActive: true,
       });
     },
-    [dragState, getGridElement, resolveDay],
+    [dragState, getGridElement, getHourHeights, resolveDay],
   );
 
   const finishDrag = useCallback(
@@ -136,6 +140,7 @@ export function useAgendaTimedEventDrag({
             pending.grabOffsetY,
             pending.hourHeight,
             targetDay,
+            getHourHeights?.(targetDay),
           );
           const newEnd = new Date(previewStart.getTime() + pending.durationMs);
           onEventDrop(pending.event, previewStart, newEnd);
@@ -146,7 +151,7 @@ export function useAgendaTimedEventDrag({
       }
       // Toque sem arraste: o chip prende o balão. Edição é no título do balão.
     },
-    [getGridElement, onEventDrop, resolveDay],
+    [getGridElement, getHourHeights, onEventDrop, resolveDay],
   );
 
   const handlePointerUp = useCallback(

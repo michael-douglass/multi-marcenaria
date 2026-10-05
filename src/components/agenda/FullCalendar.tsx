@@ -41,10 +41,13 @@ import {
   EVENT_COMPACT_STACK_THRESHOLD,
   EVENT_COMPACT_STACK_WINDOW_MS,
   EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
-  EVENT_STACK_CHIP_HEIGHT_PX,
+  EVENT_STACK_PEEK_CHIP_HEIGHT_PX,
+  buildExpandedHourHeights,
   clampTopWithinDay,
   getDayGridHeightPx,
+  getDayHeightFromHourHeights,
   getEventColumnStyle,
+  getTopPxForDate,
   layoutTimedClusters,
   partitionTimedUntimedEvents,
   type TimedClusterLayout,
@@ -60,6 +63,29 @@ import { AgendaBulkMoveDialog } from '@/components/agenda/AgendaBulkMoveDialog';
 import { AgendaHourClusterBox } from '@/components/agenda/AgendaHourClusterBox';
 import { getAgendaEventChipStyle } from '@/lib/agenda-event-colors';
 import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
+import type { LeadLembrete } from '@/hooks/useLeadLembretes';
+import type { MarketingTask } from '@/hooks/useMarketingTasks';
+import type { PessoalAgendaEventData } from '@/components/agenda/TarefaPessoalOcorrenciaDialog';
+
+const CLUSTER_EVENT_TYPE_LABELS: Record<AgendaEvent['type'], string> = {
+  tarefa: 'Reunião',
+  lembrete: 'Lembrete',
+  pessoal: 'Pessoal',
+  conteudo: 'Marketing',
+};
+
+function getClusterEventSubtitle(event: AgendaEvent): string | undefined {
+  switch (event.type) {
+    case 'lembrete':
+      return (event.originalData as LeadLembrete).lead?.nome || undefined;
+    case 'pessoal':
+      return (event.originalData as PessoalAgendaEventData).titular_nome || undefined;
+    case 'conteudo':
+      return (event.originalData as MarketingTask).tipo || undefined;
+    default:
+      return undefined;
+  }
+}
 
 interface FullCalendarProps {
   events: AgendaEvent[];
@@ -121,12 +147,12 @@ function getCalendarLayout(compact: boolean): CalendarLayout {
   }
 
   /**
-   * Painel flutuante: horas um pouco mais altas que o mínimo antigo (~40px)
-   * para a caixa-lista caber na faixa sem tapar o horário seguinte.
+   * Painel flutuante: horas altas o bastante para o preview listar
+   * várias tarefas na faixa, sem a caixa invadir o horário seguinte.
    */
   return {
     hourHeightWeek: 48,
-    hourHeightDay: 88,
+    hourHeightDay: 104,
     untimedStripMaxHeight: 64,
     timeColWeek: 34,
     timeColDay: 40,
@@ -165,24 +191,57 @@ function getEventChipStyle(event: AgendaEvent) {
   return getAgendaEventChipStyle(event);
 }
 
+function getTimedEventMetrics(
+  event: AgendaEvent,
+  hourHeight: number,
+  minHeight: number,
+  maxSpanHours?: number,
+  hourHeights?: number[],
+) {
+  const durationHours = (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
+  const visibleHours =
+    maxSpanHours != null ? Math.min(durationHours, maxSpanHours) : durationHours;
+
+  if (hourHeights && hourHeights.length >= 24) {
+    const topPx = getTopPxForDate(event.start, hourHeights);
+    const endAt = new Date(
+      event.start.getTime() + visibleHours * 60 * 60 * 1000,
+    );
+    const endPx = getTopPxForDate(endAt, hourHeights);
+    const dayHeightPx = getDayHeightFromHourHeights(hourHeights);
+    const heightPx = Math.min(Math.max(endPx - topPx, minHeight), Math.max(dayHeightPx - topPx, minHeight));
+    return { topPx, heightPx };
+  }
+
+  const startHour = event.start.getHours();
+  const startMin = event.start.getMinutes();
+  const dayHeightPx = getDayGridHeightPx(hourHeight);
+  const rawTop = (startHour + startMin / 60) * hourHeight;
+  const remainingPx = Math.max(dayHeightPx - rawTop, minHeight);
+  const heightPx = Math.min(Math.max(visibleHours * hourHeight, minHeight), remainingPx);
+  const topPx = clampTopWithinDay(rawTop, heightPx, dayHeightPx);
+  return { topPx, heightPx };
+}
+
 function getTimedEventPosition(
   event: AgendaEvent,
   hourHeight: number,
   column: number,
   totalColumns: number,
   minHeight: number,
+  maxSpanHours?: number,
+  hourHeights?: number[],
 ) {
-  const startHour = event.start.getHours();
-  const startMin = event.start.getMinutes();
-  const durationHours = (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
-  const dayHeightPx = getDayGridHeightPx(hourHeight);
-  const rawTop = (startHour + startMin / 60) * hourHeight;
-  const remainingPx = Math.max(dayHeightPx - rawTop, minHeight);
-  const height = Math.min(Math.max(durationHours * hourHeight, minHeight), remainingPx);
-  const top = clampTopWithinDay(rawTop, height, dayHeightPx);
+  const { topPx, heightPx } = getTimedEventMetrics(
+    event,
+    hourHeight,
+    minHeight,
+    maxSpanHours,
+    hourHeights,
+  );
   return {
-    top: `${top}px`,
-    height: `${height}px`,
+    top: `${topPx}px`,
+    height: `${heightPx}px`,
     ...getEventColumnStyle(column, totalColumns),
   };
 }
@@ -205,7 +264,10 @@ function getOverflowChipPosition(
   };
 }
 
-function getCurrentTimeOffsetPx(now: Date, hourHeight: number) {
+function getCurrentTimeOffsetPx(now: Date, hourHeight: number, hourHeights?: number[]) {
+  if (hourHeights && hourHeights.length >= 24) {
+    return getTopPxForDate(now, hourHeights);
+  }
   return (now.getHours() + now.getMinutes() / 60) * hourHeight;
 }
 
@@ -225,10 +287,16 @@ interface CurrentTimeLineProps {
   now: Date;
   hourHeight: number;
   compact?: boolean;
+  hourHeights?: number[];
 }
 
-function CurrentTimeLine({ now, hourHeight, compact = false }: CurrentTimeLineProps) {
-  const top = getCurrentTimeOffsetPx(now, hourHeight);
+function CurrentTimeLine({
+  now,
+  hourHeight,
+  compact = false,
+  hourHeights,
+}: CurrentTimeLineProps) {
+  const top = getCurrentTimeOffsetPx(now, hourHeight, hourHeights);
 
   return (
     <div
@@ -258,10 +326,16 @@ interface CurrentTimeMarkerProps {
   now: Date;
   hourHeight: number;
   compact?: boolean;
+  hourHeights?: number[];
 }
 
-function CurrentTimeMarker({ now, hourHeight, compact = false }: CurrentTimeMarkerProps) {
-  const top = getCurrentTimeOffsetPx(now, hourHeight);
+function CurrentTimeMarker({
+  now,
+  hourHeight,
+  compact = false,
+  hourHeights,
+}: CurrentTimeMarkerProps) {
+  const top = getCurrentTimeOffsetPx(now, hourHeight, hourHeights);
 
   return (
     <div
@@ -322,6 +396,7 @@ export function FullCalendar({
   const canSelectBulk = !!onBulkReschedule || !!onBulkComplete;
   const canDrag = !!onEventDrop && !isRescheduling && !selectionMode;
   const gridRefsMap = useRef(new Map<string, HTMLDivElement>());
+  const hourHeightsByDayRef = useRef(new Map<string, number[]>());
   const weekDayColumnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const weekDaysForDragRef = useRef<Date[]>([]);
 
@@ -334,6 +409,51 @@ export function FullCalendar({
   const getGridElement = useCallback(
     (day: Date) => gridRefsMap.current.get(day.toISOString()) ?? null,
     [],
+  );
+
+  const getHourHeights = useCallback(
+    (day: Date) => hourHeightsByDayRef.current.get(day.toISOString()),
+    [],
+  );
+
+  const clusterLayoutOptions = useMemo(
+    () =>
+      compact
+        ? {
+            /** 2+ tarefas na mesma faixa de 1 hora → lista vertical (sem “+N mais”). */
+            stackThreshold: EVENT_COMPACT_STACK_THRESHOLD,
+            stackWindowMs: EVENT_COMPACT_STACK_WINDOW_MS,
+            maxSideBySideColumns: 2,
+          }
+        : {
+            stackThreshold: Number.POSITIVE_INFINITY,
+            maxSideBySideColumns: EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
+          },
+    [compact],
+  );
+
+  const resolveExpandedHourHeights = useCallback(
+    (dayEvents: AgendaEvent[], baseHourHeight: number) => {
+      if (!compact) {
+        return Array.from({ length: 24 }, () => baseHourHeight);
+      }
+      const { timed } = partitionTimedUntimedEvents(dayEvents);
+      const clusters = layoutTimedClusters(timed, clusterLayoutOptions);
+      const peekChipPx =
+        EVENT_STACK_PEEK_CHIP_HEIGHT_PX * Math.min(zoomScale, 1.15);
+      return buildExpandedHourHeights({
+        baseHourHeight,
+        stacks: clusters
+          .filter((cluster) => cluster.useStack)
+          .map((cluster) => ({
+            start: cluster.start,
+            eventCount: cluster.allEvents.length,
+          })),
+        chipHeightPx: peekChipPx,
+        compact: true,
+      });
+    },
+    [clusterLayoutOptions, compact, zoomScale],
   );
 
   const resolveWeekTargetDay = useCallback(
@@ -366,6 +486,7 @@ export function FullCalendar({
     onEditEvent,
     getGridElement,
     resolveTargetDay: view === 'semana' ? resolveWeekTargetDay : undefined,
+    getHourHeights,
   });
 
   const eligibleDayEvents = useMemo(
@@ -583,6 +704,7 @@ export function FullCalendar({
     e: React.MouseEvent<HTMLElement>,
     targetDay: Date,
     hourHeight: number,
+    hourHeights?: number[],
   ) => {
     if (!onTimeSlotClick) return;
     const target = e.target as HTMLElement;
@@ -590,7 +712,9 @@ export function FullCalendar({
 
     const rect = e.currentTarget.getBoundingClientRect();
     const offsetY = e.clientY - rect.top;
-    onTimeSlotClick(getDateTimeFromGridDrop(offsetY, hourHeight, targetDay));
+    onTimeSlotClick(
+      getDateTimeFromGridDrop(offsetY, hourHeight, targetDay, hourHeights),
+    );
   };
 
   const handleHourLabelClick = (targetDay: Date, hour: number) => {
@@ -608,52 +732,70 @@ export function FullCalendar({
   };
   const hoverDisabled = selectionMode;
 
-  const clusterLayoutOptions = compact
-    ? {
-        /** 2+ tarefas na mesma faixa de 1 hora → lista vertical (sem “+N mais”). */
-        stackThreshold: EVENT_COMPACT_STACK_THRESHOLD,
-        stackWindowMs: EVENT_COMPACT_STACK_WINDOW_MS,
-        maxSideBySideColumns: 2,
-      }
-    : {
-        stackThreshold: Number.POSITIVE_INFINITY,
-        maxSideBySideColumns: EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
-      };
+  const renderEventListRow = (event: AgendaEvent, dense = false) => {
+    const subtitle = getClusterEventSubtitle(event);
+    const typeLabel = CLUSTER_EVENT_TYPE_LABELS[event.type];
 
-  const renderEventListRow = (event: AgendaEvent, dense = false) => (
-    <AgendaEventHoverPreview
-      key={event.id}
-      event={event}
-      disabled={hoverDisabled}
-      {...eventPreviewProps}
-    >
-      <button
-        type="button"
-        data-agenda-event
-        className={cn(
-          getEventTypeClasses(event, true),
-          'relative w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          dense ? 'rounded border-l-2 px-1 py-0.5 text-[9px] leading-tight' : 'rounded-md border-l-4 px-2 py-1 text-[11px]',
-          selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
-        )}
-        style={getEventChipStyle(event)}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (selectionMode) {
-            handleEventSelectInteraction(event);
-            return;
-          }
-          handleEditClick(event);
-        }}
+    return (
+      <AgendaEventHoverPreview
+        key={event.id}
+        event={event}
+        /** Sem balão de hover nas linhas da lista (evita encavalar outras horas). */
+        disabled
+        {...eventPreviewProps}
       >
-        {renderSelectionCheckbox(event)}
-        <span className={cn('block truncate font-medium', selectionMode && 'pr-3.5')}>
-          {format(event.start, 'HH:mm')} · {event.title}
-        </span>
-      </button>
-    </AgendaEventHoverPreview>
-  );
+        <button
+          type="button"
+          data-agenda-event
+          className={cn(
+            getEventTypeClasses(event, true),
+            'relative w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            dense
+              ? 'h-full min-h-0 rounded-md border-l-[3px] px-1.5 py-0 text-[11px] leading-snug shadow-none'
+              : cn(
+                  'rounded-xl border border-[rgba(42,24,18,0.10)] border-l-[3px] px-3 py-2.5 shadow-sm',
+                  'bg-[#fffcf8]/90 transition-colors hover:bg-white hover:shadow-md',
+                ),
+            selectionMode && selectedIds.has(event.id) && 'ring-2 ring-primary',
+          )}
+          style={getEventChipStyle(event)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (selectionMode) {
+              handleEventSelectInteraction(event);
+              return;
+            }
+            handleEditClick(event);
+          }}
+        >
+          {renderSelectionCheckbox(event)}
+          {dense ? (
+            <span className={cn('block truncate font-medium', selectionMode && 'pr-3.5')}>
+              {event.title}
+            </span>
+          ) : (
+            <div className={cn('flex flex-col gap-1', selectionMode && 'pr-4')}>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-[13px] tracking-[0.06em] text-[#2a1812] tabular-nums">
+                  {format(event.start, 'HH:mm')}
+                </span>
+                <span className="rounded border border-[rgba(42,24,18,0.10)] bg-white/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8d5e22]">
+                  {typeLabel}
+                </span>
+              </div>
+              <span className="truncate text-[13px] font-medium leading-snug text-[#2a1812]">
+                {event.title}
+              </span>
+              {subtitle ? (
+                <span className="truncate text-[11px] text-[#6b5344]">{subtitle}</span>
+              ) : null}
+            </div>
+          )}
+        </button>
+      </AgendaEventHoverPreview>
+    );
+  };
 
   const renderOverflowMoreChip = (
     cluster: TimedClusterLayout<AgendaEvent>,
@@ -696,6 +838,7 @@ export function FullCalendar({
     cluster: TimedClusterLayout<AgendaEvent>,
     hourHeight: number,
     minHeight: number,
+    layoutTopPx?: number,
   ) => {
     const clusterKey = `stack:${cluster.start.toISOString()}`;
     return (
@@ -706,9 +849,10 @@ export function FullCalendar({
         minTimeSpanPx={minHeight}
         events={cluster.allEvents}
         hourHeight={hourHeight}
-        chipHeightPx={EVENT_STACK_CHIP_HEIGHT_PX * (compact ? Math.min(zoomScale, 1.15) : 1)}
+        chipHeightPx={EVENT_STACK_PEEK_CHIP_HEIGHT_PX * (compact ? Math.min(zoomScale, 1.15) : 1)}
         compact={compact}
         floatingLayer={floatingLayer}
+        layoutTopPx={layoutTopPx}
         expanded={expandedClusterKey === clusterKey}
         onExpandedChange={(open) => setExpandedClusterKey(open ? clusterKey : null)}
         renderEventRow={renderEventListRow}
@@ -723,6 +867,7 @@ export function FullCalendar({
     hourHeight: number,
     minHeight: number,
     weekMode = false,
+    hourHeights?: number[],
   ) => {
     const { event, column, totalColumns } = layouted;
     const position = getTimedEventPosition(
@@ -731,6 +876,8 @@ export function FullCalendar({
       column,
       totalColumns,
       minHeight,
+      compact ? 1 : undefined,
+      hourHeights,
     );
     const isDragging = isDraggingEvent(event.id);
     const displayStyle =
@@ -772,7 +919,8 @@ export function FullCalendar({
               }
             }}
             className={cn(
-              'absolute z-10 touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              /** z-[7]: listas empilhadas (z-[8]) ficam por cima se ainda houver sobreposição. */
+              'absolute z-[7] touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               weekMode
                 ? getEventTypeClasses(event, true)
                 : cn(
@@ -868,28 +1016,48 @@ export function FullCalendar({
     hourHeight: number,
     minHeight: number,
     weekMode = false,
+    hourHeights?: number[],
   ) => {
     const { timed } = partitionTimedUntimedEvents(dayEvents);
     const clusters = layoutTimedClusters(timed, clusterLayoutOptions);
+    const resolvedHeights =
+      hourHeights ??
+      (compact ? resolveExpandedHourHeights(dayEvents, hourHeight) : undefined);
+
+    if (resolvedHeights) {
+      hourHeightsByDayRef.current.set(targetDay.toISOString(), resolvedHeights);
+    }
 
     const columnNodes: ReactNode[] = [];
     const overlayNodes: ReactNode[] = [];
 
     for (const cluster of clusters) {
       if (cluster.useStack) {
-        overlayNodes.push(renderStackedCluster(cluster, hourHeight, minHeight));
+        const layoutTopPx = resolvedHeights
+          ? getTopPxForDate(cluster.start, resolvedHeights)
+          : undefined;
+        overlayNodes.push(
+          renderStackedCluster(cluster, hourHeight, minHeight, layoutTopPx),
+        );
         continue;
       }
       columnNodes.push(
         ...cluster.layouted.map((item) =>
-          renderColumnClusterEvent(item, targetDay, hourHeight, minHeight, weekMode),
+          renderColumnClusterEvent(
+            item,
+            targetDay,
+            hourHeight,
+            minHeight,
+            weekMode,
+            resolvedHeights,
+          ),
         ),
       );
       const overflow = renderOverflowMoreChip(cluster, hourHeight, minHeight);
       if (overflow) overlayNodes.push(overflow);
     }
 
-    /** Tarefas soltas por cima das caixas de fila (z-10 vs z-[8]) para não sumirem atrás. */
+    /** Listas empilhadas por cima das tarefas soltas (z-[8] > z-[7]). */
     return [...columnNodes, ...overlayNodes];
   };
 
@@ -1199,6 +1367,9 @@ export function FullCalendar({
     const dayEvents = events.filter((e) => isSameDay(e.start, currentPivot));
     const { untimed } = partitionTimedUntimedEvents(dayEvents);
     const hasUntimedStrip = untimed.length > 0;
+    const hourHeights = resolveExpandedHourHeights(dayEvents, layout.hourHeightDay);
+    const dayGridHeightPx = getDayHeightFromHourHeights(hourHeights);
+    hourHeightsByDayRef.current.set(currentPivot.toISOString(), hourHeights);
 
     return (
       <div
@@ -1262,18 +1433,27 @@ export function FullCalendar({
                       'border-b text-muted-foreground text-right',
                       compact ? 'px-0.5 text-[8px]' : 'p-2 text-xs',
                       onTimeSlotClick && 'cursor-pointer hover:bg-muted/30 transition-colors',
+                      /** Faixa expandida: destaca o horário “cheio” de lista. */
+                      compact &&
+                        hourHeights[hour] > layout.hourHeightDay + 0.5 &&
+                        'bg-[#f7f0e6]/55 font-semibold text-[#6b5344]',
                     )}
-                    style={{ height: layout.hourHeightDay }}
+                    style={{ height: hourHeights[hour] }}
                     onClick={() => handleHourLabelClick(currentPivot, hour)}
                     title={onTimeSlotClick ? `Criar tarefa às ${format(setHours(new Date(), hour), 'HH:mm')}` : undefined}
                   >
-                    {compact && hour % 2 !== 0
+                    {compact && hour % 2 !== 0 && hourHeights[hour] <= layout.hourHeightDay + 0.5
                       ? ''
                       : format(setHours(new Date(), hour), compact ? 'HH' : 'HH:mm')}
                   </div>
                 ))}
                 {isToday(currentPivot) && (
-                  <CurrentTimeMarker now={now} hourHeight={layout.hourHeightDay} compact={compact} />
+                  <CurrentTimeMarker
+                    now={now}
+                    hourHeight={layout.hourHeightDay}
+                    hourHeights={hourHeights}
+                    compact={compact}
+                  />
                 )}
               </div>
             </div>
@@ -1287,19 +1467,26 @@ export function FullCalendar({
                     'bg-primary/5 ring-1 ring-inset ring-primary/40',
                   onTimeSlotClick && 'cursor-pointer',
                 )}
-                style={{ minHeight: hours.length * layout.hourHeightDay }}
-                onClick={(e) => handleTimeGridClick(e, currentPivot, layout.hourHeightDay)}
+                style={{ minHeight: dayGridHeightPx }}
+                onClick={(e) =>
+                  handleTimeGridClick(e, currentPivot, layout.hourHeightDay, hourHeights)
+                }
               >
                 {hours.map((hour) => (
                   <div
                     key={hour}
                     className="border-b last:border-b-0 pointer-events-none"
-                    style={{ height: layout.hourHeightDay }}
+                    style={{ height: hourHeights[hour] }}
                   />
                 ))}
 
                 {isToday(currentPivot) && (
-                  <CurrentTimeLine now={now} hourHeight={layout.hourHeightDay} compact={compact} />
+                  <CurrentTimeLine
+                    now={now}
+                    hourHeight={layout.hourHeightDay}
+                    hourHeights={hourHeights}
+                    compact={compact}
+                  />
                 )}
 
                 {renderDragSnapIndicator(currentPivot.toISOString())}
@@ -1310,6 +1497,7 @@ export function FullCalendar({
                   layout.hourHeightDay,
                   layout.dayEventMinHeight,
                   false,
+                  hourHeights,
                 )}
               </div>
             </div>

@@ -4461,12 +4461,21 @@ body:has([data-lead-card][data-state="open"]) [data-saldo-mes-chrome] {
 }
 
 /*
- * Tela cheia da lousa / compositor: o véu do Dialog não pode engolir os cliques.
+ * Tela cheia da lousa / compositor: acima do card do lead; cliques liberados.
+ * Lousa usa portal fixo (sem Dialog Radix) para não piscar no tablet.
  */
+[data-whiteboard-fullscreen],
 [data-radix-dialog-content][data-whiteboard-fullscreen],
 [data-radix-dialog-content][data-ambiente-composer-fullscreen] {
   pointer-events: auto !important;
   z-index: 81 !important;
+}
+
+@media (hover: none) and (pointer: coarse), (max-width: 1024px) {
+  [data-whiteboard-fullscreen] {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /*
