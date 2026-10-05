@@ -41,12 +41,12 @@ export function FloatingProjetoChatIcon({
       }}
       title={
         isActive
-          ? 'Fechar chat do ateliê'
+          ? 'Fechar histórico do ateliê'
           : hasUnread
             ? `${count} ${count === 1 ? 'mensagem' : 'mensagens'} não lida${count === 1 ? '' : 's'}`
-            : 'Abrir chat do ateliê'
+            : 'Abrir histórico de conversas'
       }
-      aria-label={isActive ? 'Fechar chat do ateliê' : 'Abrir chat do ateliê'}
+      aria-label={isActive ? 'Fechar histórico do ateliê' : 'Abrir histórico de conversas do ateliê'}
       aria-pressed={isActive}
     >
       <FloatingProjetoChatAura className="opacity-90" />

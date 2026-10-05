@@ -12,41 +12,45 @@ import { cn } from '@/lib/utils'
 
 /**
  * Chat do ateliê — ícone flutuante global (ao lado da Agenda).
- * Mesmo comportamento da Agenda: permanece visível com não lidas,
- * independentemente de “ocultar popups” do dock CRM.
+ * O ícone permanece sempre na tela; o clique só abre/fecha o histórico.
  */
 export function FloatingProjetoChatShell() {
-  const { totalUnread, threads } = useProjetoChatUnread({ realtime: true })
+  const { totalUnread, threads: unreadThreads, lastReadByLead } = useProjetoChatUnread({
+    realtime: true,
+  })
   const [isOpen, setIsOpen] = useState(false)
 
+  const unreadCountByLead = unreadThreads.reduce<Record<number, number>>((acc, thread) => {
+    acc[thread.lead_id] = thread.unreadCount
+    return acc
+  }, {})
+
   if (typeof document === 'undefined') return null
-  if (!isOpen && totalUnread <= 0) return null
 
   return createPortal(
     <>
-      {!isOpen ? (
-        <div
-          {...{ [FLOATING_UI_ROOT_ATTR]: '' }}
-          data-floating-projeto-chat-icon=""
-          className={cn(
-            'fixed pointer-events-auto',
-            FLOATING_TOP_EDGE,
-            FLOATING_PROJETO_CHAT_ICON_RIGHT,
-            floatingAgendaIconClass,
-          )}
-        >
-          <FloatingProjetoChatIcon
-            count={totalUnread}
-            onClick={() => setIsOpen(true)}
-            isActive={false}
-          />
-        </div>
-      ) : null}
+      <div
+        {...{ [FLOATING_UI_ROOT_ATTR]: '' }}
+        data-floating-projeto-chat-icon=""
+        className={cn(
+          'fixed pointer-events-auto',
+          FLOATING_TOP_EDGE,
+          FLOATING_PROJETO_CHAT_ICON_RIGHT,
+          floatingAgendaIconClass,
+        )}
+      >
+        <FloatingProjetoChatIcon
+          count={totalUnread}
+          onClick={() => setIsOpen((open) => !open)}
+          isActive={isOpen}
+        />
+      </div>
 
       <FloatingProjetoChatPopup
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        threads={threads}
+        unreadCountByLead={unreadCountByLead}
+        lastReadByLead={lastReadByLead}
       />
     </>,
     document.body,
