@@ -65,6 +65,12 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
     markLeadChatRead(activeLeadId)
   }, [activeLeadId, markLeadChatRead, open])
 
+  const requestMarkUnread = (leadId: number, beforeIso?: string) => {
+    markLeadChatUnread(leadId, beforeIso)
+    // Fecha o sheet para o aviso ficar ativo na lista (evita remarcar lida na hora).
+    setOpen(false)
+  }
+
   const pending = unreadLeadIds.size
   const waveformMode = pending > 0 ? 'urgent' : threads.length > 0 ? 'active' : 'idle'
   const active = threads.find((thread) => thread.lead_id === activeLeadId) ?? threads[0] ?? null
@@ -375,7 +381,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                         size="sm"
                         className="h-8 gap-1 px-2 text-[11px] text-[#8a7060] hover:text-[#8d5e22]"
                         disabled={isMarkingUnread}
-                        onClick={() => markLeadChatUnread(active.lead_id)}
+                        onClick={() => requestMarkUnread(active.lead_id)}
                       >
                         <MailOpen className="h-3.5 w-3.5" />
                         Não lida
@@ -406,7 +412,7 @@ export function ProjetosChatPreview({ onOpenLead, compact = false }: ProjetosCha
                       className="min-h-0 flex-1"
                       markUnreadPending={isMarkingUnread}
                       onMarkUnread={(nota) =>
-                        markLeadChatUnread(active.lead_id, nota.criado_em)
+                        requestMarkUnread(active.lead_id, nota.criado_em)
                       }
                     />
                   )}

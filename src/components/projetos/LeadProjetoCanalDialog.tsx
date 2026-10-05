@@ -63,7 +63,10 @@ export function LeadProjetoCanalDialog({
             type="button"
             className="text-[11px] text-[#8a7060] hover:text-[#8d5e22] disabled:opacity-50"
             disabled={isMarkingUnread}
-            onClick={() => markLeadChatUnread(leadId)}
+            onClick={() => {
+              markLeadChatUnread(leadId)
+              onOpenChange(false)
+            }}
           >
             Marcar conversa como não lida
           </button>
@@ -75,7 +78,10 @@ export function LeadProjetoCanalDialog({
           lastReadAt={lastReadByLead[leadId] ?? null}
           className="min-h-0 flex-1 max-h-[46vh]"
           markUnreadPending={isMarkingUnread}
-          onMarkUnread={(nota) => markLeadChatUnread(leadId, nota.criado_em)}
+          onMarkUnread={(nota) => {
+            markLeadChatUnread(leadId, nota.criado_em)
+            onOpenChange(false)
+          }}
         />
         <ProjetoChatComposer
           compact

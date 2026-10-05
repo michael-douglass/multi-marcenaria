@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +11,7 @@ import {
   useLeadProjetoNotas,
   type LeadProjetoChatThread,
 } from '@/hooks/useLeadProjetos'
-import { useMarkLeadProjetoChatRead } from '@/hooks/useProjetoChatUnread'
+import { useMarkLeadProjetoChatRead, allowLeadChatAutoRead } from '@/hooks/useProjetoChatUnread'
 import { ProjetoChatThread } from '@/components/projetos/ProjetoChatThread'
 import { ProjetoChatComposer } from '@/components/projetos/ProjetoChatComposer'
 import { ProjetosChatSheetAura } from '@/components/projetos/ProjetosChatSheetAura'
@@ -70,19 +70,33 @@ export function FloatingProjetoChatPopup({
     isOpen ? activeLeadId : null,
   )
   const activeLastRead = activeLeadId != null ? lastReadByLead[activeLeadId] ?? null : null
+  const skipAutoReadLeadRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isOpen) {
       setActiveLeadId(null)
       setActiveLeadNome(null)
       setSearch('')
+      skipAutoReadLeadRef.current = null
     }
   }, [isOpen])
 
   useEffect(() => {
     if (!isOpen || activeLeadId == null) return
+    // Depois de “marcar não lida”, não remarcar como lida enquanto a conversa segue aberta.
+    if (skipAutoReadLeadRef.current === activeLeadId) return
     markLeadChatRead(activeLeadId)
   }, [activeLeadId, isOpen, markLeadChatRead])
+
+  const requestMarkUnread = (leadId: number, beforeIso?: string) => {
+    skipAutoReadLeadRef.current = leadId
+    markLeadChatUnread(leadId, beforeIso)
+    // Volta à lista para o badge aparecer (estilo WhatsApp).
+    if (activeLeadId === leadId) {
+      setActiveLeadId(null)
+      setActiveLeadNome(null)
+    }
+  }
 
   const filteredThreads = useMemo(() => {
     const q = normalizeSearch(search)
@@ -118,6 +132,9 @@ export function FloatingProjetoChatPopup({
   const unreadTotal = Object.values(unreadCountByLead).reduce((sum, n) => sum + (n > 0 ? 1 : 0), 0)
 
   const openThread = (thread: LeadProjetoChatThread) => {
+    // Reabrir conversa = pode marcar lida de novo.
+    skipAutoReadLeadRef.current = null
+    allowLeadChatAutoRead(thread.lead_id)
     setActiveLeadId(thread.lead_id)
     setActiveLeadNome(thread.lead_nome)
   }
@@ -394,7 +411,7 @@ export function FloatingProjetoChatPopup({
               disabled={isMarkingUnread || activeLeadId == null}
               onClick={() => {
                 if (activeLeadId == null) return
-                markLeadChatUnread(activeLeadId)
+                requestMarkUnread(activeLeadId)
               }}
               title="Marcar esta conversa como não lida"
               aria-label="Marcar esta conversa como não lida"
@@ -417,7 +434,7 @@ export function FloatingProjetoChatPopup({
               markUnreadPending={isMarkingUnread}
               onMarkUnread={(nota) => {
                 if (activeLeadId == null) return
-                markLeadChatUnread(activeLeadId, nota.criado_em)
+                requestMarkUnread(activeLeadId, nota.criado_em)
               }}
             />
           )}

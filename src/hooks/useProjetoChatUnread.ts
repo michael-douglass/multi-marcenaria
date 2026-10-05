@@ -29,6 +29,38 @@ function previewFromNota(mensagem: string | null | undefined, hasImage: boolean)
 }
 
 /**
+ * Evita corrida: ao abrir a conversa disparamos “marcar lida”; se o usuário
+ * clica “não lida” logo em seguida, o “lida” atrasado não pode apagar o rewind.
+ * Compartilhado entre instâncias do hook (popup + rádio + dialog).
+ */
+const suppressAutoReadUntil = new Map<number, number>()
+const lastUnreadRewindByLead = new Map<number, string>()
+
+function suppressAutoRead(leadId: number, ms = 12_000) {
+  suppressAutoReadUntil.set(leadId, Date.now() + ms)
+}
+
+function isAutoReadSuppressed(leadId: number): boolean {
+  const until = suppressAutoReadUntil.get(leadId)
+  if (until == null) return false
+  if (Date.now() > until) {
+    suppressAutoReadUntil.delete(leadId)
+    return false
+  }
+  return true
+}
+
+function clearAutoReadSuppress(leadId: number) {
+  suppressAutoReadUntil.delete(leadId)
+  lastUnreadRewindByLead.delete(leadId)
+}
+
+/** Libera o bloqueio para a próxima abertura marcar como lida de novo. */
+export function allowLeadChatAutoRead(leadId: number) {
+  clearAutoReadSuppress(leadId)
+}
+
+/**
  * Não lidas do canal do ateliê (estilo WhatsApp).
  * Só leads em que o usuário é titular ou projetista (arquiteto_id),
  * mais leads onde é destinatário explícito.
@@ -226,6 +258,9 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
   const markLeadChatRead = useMutation({
     mutationFn: async (leadId: number) => {
       if (!userId) throw new Error('Faça login para marcar como lida.')
+      // “Não lida” manual ganha de um marcar-lida em voo (abrir conversa).
+      if (isAutoReadSuppressed(leadId)) return
+
       const { error } = await db.from('lead_projeto_chat_leituras').upsert(
         {
           user_id: userId,
@@ -235,6 +270,22 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
         { onConflict: 'user_id,lead_id' },
       )
       if (error) throw error
+
+      // Se “não lida” venceu no meio do caminho, restaura o rewind.
+      if (isAutoReadSuppressed(leadId)) {
+        const rewind = lastUnreadRewindByLead.get(leadId)
+        if (rewind) {
+          const { error: restoreError } = await db.from('lead_projeto_chat_leituras').upsert(
+            {
+              user_id: userId,
+              lead_id: leadId,
+              last_read_at: rewind,
+            },
+            { onConflict: 'user_id,lead_id' },
+          )
+          if (restoreError) throw restoreError
+        }
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread'] })
@@ -246,25 +297,47 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
     mutationFn: async (input: { leadId: number; beforeIso?: string }) => {
       if (!userId) throw new Error('Faça login para marcar como não lida.')
 
+      // Bloqueia auto-lida imediatamente (antes do await).
+      suppressAutoRead(input.leadId)
+
       let beforeIso = input.beforeIso
       if (!beforeIso) {
-        const { data: last, error: findError } = await db
+        // 1) Preferência: mensagem endereçada a mim (ou legado sem destinatário).
+        const { data: forMe, error: forMeError } = await db
           .from('lead_projeto_notas')
           .select('criado_em')
           .eq('lead_id', input.leadId)
-          .or(`destinatario_id.eq.${userId},destinatario_id.is.null`)
           .neq('autor_id', userId)
+          .or(`destinatario_id.eq.${userId},destinatario_id.is.null`)
           .order('criado_em', { ascending: false })
           .limit(1)
           .maybeSingle()
-        if (findError) throw findError
-        if (!last?.criado_em) {
-          throw new Error('Não há mensagem recebida neste canal para marcar.')
+        if (forMeError) throw forMeError
+
+        if (forMe?.criado_em) {
+          beforeIso = String(forMe.criado_em)
+        } else {
+          // 2) Fallback: qualquer mensagem de outra pessoa no fio
+          // (admin/projetista vendo o canal ainda consegue marcar não lida).
+          const { data: anyOther, error: anyError } = await db
+            .from('lead_projeto_notas')
+            .select('criado_em')
+            .eq('lead_id', input.leadId)
+            .neq('autor_id', userId)
+            .order('criado_em', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (anyError) throw anyError
+          if (!anyOther?.criado_em) {
+            throw new Error('Não há mensagem recebida neste canal para marcar.')
+          }
+          beforeIso = String(anyOther.criado_em)
         }
-        beforeIso = String(last.criado_em)
       }
 
       const rewind = new Date(new Date(beforeIso).getTime() - 1).toISOString()
+      lastUnreadRewindByLead.set(input.leadId, rewind)
+
       const { error } = await db.from('lead_projeto_chat_leituras').upsert(
         {
           user_id: userId,
@@ -274,18 +347,37 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
         { onConflict: 'user_id,lead_id' },
       )
       if (error) throw error
-      return input.leadId
+      return { leadId: input.leadId, rewind }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Atualiza o cache na hora para o badge acender sem esperar o refetch.
+      queryClient.setQueriesData<ProjetoChatUnreadResult>(
+        { queryKey: ['lead-projeto-chat-unread'] },
+        (prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            lastReadByLead: {
+              ...prev.lastReadByLead,
+              [result.leadId]: result.rewind,
+            },
+          }
+        },
+      )
       void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread'] })
       toast.success('Marcada como não lida')
     },
-    onError: (error: Error) => toast.error(error.message || 'Não foi possível marcar como não lida'),
+    onError: (error: Error) => {
+      toast.error(error.message || 'Não foi possível marcar como não lida')
+    },
   })
 
   const markRead = useCallback(
     (leadId: number) => {
       if (!userId || !leadId) return
+      // Ainda na janela pós-“não lida”: não remarcar como lida.
+      if (isAutoReadSuppressed(leadId)) return
+      clearAutoReadSuppress(leadId)
       markLeadChatRead.mutate(leadId)
     },
     // mutate é estável no React Query v5
@@ -296,6 +388,7 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
   const markUnread = useCallback(
     (leadId: number, beforeIso?: string) => {
       if (!userId || !leadId) return
+      suppressAutoRead(leadId)
       markLeadChatUnread.mutate({ leadId, beforeIso })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
