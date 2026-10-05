@@ -411,8 +411,11 @@ export function useLeadProjetos(options?: { realtime?: boolean }) {
     const invalidateBoard = () => {
       void queryClient.invalidateQueries({ queryKey: ['lead-projetos', schemaEmpresa] })
     }
+    // Nome único por montagem: o Supabase reutiliza canal pelo nome e
+    // .on() depois de subscribe() estoura (ex.: Pipeline + outro listener).
+    const channelName = `lead-projetos-${schemaEmpresa}-${Math.random().toString(36).slice(2, 9)}`
     const channel = supabase
-      .channel(`lead-projetos-${schemaEmpresa}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: schemaEmpresa, table: 'lead_projetos' },
@@ -483,8 +486,9 @@ export function useLeadProjetoNotas(leadId: number | null | undefined, options?:
 
   useEffect(() => {
     if (!realtime || !schemaEmpresa || !leadId) return
+    const channelName = `lead-projeto-notas-${schemaEmpresa}-${leadId}-${Math.random().toString(36).slice(2, 9)}`
     const channel = supabase
-      .channel(`lead-projeto-notas-${schemaEmpresa}-${leadId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -589,8 +593,10 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
 
   useEffect(() => {
     if (!realtime || !schemaEmpresa) return
+    // Popup flutuante + rádio do ateliê podem montar juntos — nome fixo colidia.
+    const channelName = `lead-projeto-chat-board-${schemaEmpresa}-${Math.random().toString(36).slice(2, 9)}`
     const channel = supabase
-      .channel(`lead-projeto-chat-board-${schemaEmpresa}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: schemaEmpresa, table: 'lead_projeto_notas' },

@@ -74,7 +74,8 @@ export function useAtelieShaderPlane({
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    // THREE.Clock está deprecado (r185+); Timer exige update() a cada frame.
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
     let visible = true
@@ -119,7 +120,8 @@ export function useAtelieShaderPlane({
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
       if ((pauseWhenHidden || isPhone) && !visible) return
-      renderOnce(clock.getElapsedTime())
+      timer.update()
+      renderOnce(timer.getElapsed())
     }
 
     if (prefersReduced) {
