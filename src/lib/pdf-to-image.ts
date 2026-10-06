@@ -86,7 +86,12 @@ export async function pdfDataAllPagesToPngBlobs(
   options?: { maxPages?: number },
 ): Promise<Blob[]> {
   const maxPages = options?.maxPages ?? MAX_PDF_PAGES
-  const pdf = await pdfjs.getDocument({ data }).promise
+  const bytes = new Uint8Array(data.slice(0))
+  const pdf = await pdfjs.getDocument({
+    data: bytes,
+    disableFontFace: true,
+    useSystemFonts: true,
+  }).promise
   const pageCount = Math.min(pdf.numPages, maxPages)
 
   const blobs: Blob[] = []
@@ -112,16 +117,16 @@ export async function convertPdfPagesToJpegSequential(
     maxPages?: number
     maxEdge?: number
     quality?: number
-    /** Timeout por página (ms). Padrão 90s. */
+    /** Timeout por página (ms). Padrão 120s. */
     pageTimeoutMs?: number
-    /** Timeout para abrir o PDF (ms). Padrão 60s. */
+    /** Timeout para abrir o PDF (ms). Padrão 3 min (PDFs CAD/HelloMob podem demorar). */
     openTimeoutMs?: number
     onPage: (page: PdfPageJpegResult) => void | Promise<void>
   },
 ): Promise<{ totalPages: number; converted: number }> {
   const maxPages = options.maxPages ?? MAX_PDF_PAGES
-  const pageTimeoutMs = options.pageTimeoutMs ?? 90_000
-  const openTimeoutMs = options.openTimeoutMs ?? 60_000
+  const pageTimeoutMs = options.pageTimeoutMs ?? 120_000
+  const openTimeoutMs = options.openTimeoutMs ?? 180_000
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -139,10 +144,15 @@ export async function convertPdfPagesToJpegSequential(
 
   let pdf: pdfjs.PDFDocumentProxy
   try {
+    // pdf.js 5.x exige Uint8Array (ArrayBuffer puro pode travar o worker no browser).
+    const bytes = new Uint8Array(data.slice(0))
     pdf = await withTimeout(
       pdfjs.getDocument({
-        // Cópia: o worker do pdf.js pode “tomar” o ArrayBuffer original (detached).
-        data: data.slice(0),
+        data: bytes,
+        // PDFs de detalhamento (AutoCAD/HelloMob) abrem mais estáveis assim no browser.
+        disableFontFace: true,
+        useSystemFonts: true,
+        verbosity: 0,
       }).promise,
       openTimeoutMs,
       'O PDF demorou demais para abrir. Tente um arquivo menor ou sem senha/proteção.',
@@ -196,7 +206,12 @@ export async function pdfAllPagesToJpegBlobs(
   const maxPages = options?.maxPages ?? MAX_PDF_PAGES
   let pdf: pdfjs.PDFDocumentProxy
   try {
-    pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    pdf = await pdfjs.getDocument({
+      data: bytes,
+      disableFontFace: true,
+      useSystemFonts: true,
+    }).promise
   } catch {
     throw new Error(
       'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.',
@@ -230,8 +245,12 @@ export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
 
 /** Converte a 1ª página do PDF em PNG para pré-visualização. */
 export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
-  const data = await file.arrayBuffer()
-  const pdf = await pdfjs.getDocument({ data }).promise
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const pdf = await pdfjs.getDocument({
+    data: bytes,
+    disableFontFace: true,
+    useSystemFonts: true,
+  }).promise
   if (pdf.numPages < 1) throw new Error('PDF vazio.')
   return renderPdfPageToPngBlob(pdf, 1)
 }

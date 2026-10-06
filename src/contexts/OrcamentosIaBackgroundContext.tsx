@@ -191,7 +191,7 @@ function applyRowToJob(
   if (row.status && isQuoteAnalysisStatus(row.status)) {
     next.status = row.status
   }
-  if (row.error_message) next.errorMessage = row.error_message
+  if (row.error_message !== undefined) next.errorMessage = row.error_message
   const totals = row.totals && typeof row.totals === 'object' ? row.totals : null
   if (totals) {
     next.pipelineStage =
@@ -362,6 +362,16 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
         if (cancelled || !data) continue
 
         if (isConvertingStall(data)) {
+          // Se esta aba ainda está rodando o pipeline, não mate por stall —
+          // os timeouts do pdf.js / pipeline já cobrem travamento real.
+          if (runnersRef.current.has(job.analysisId)) {
+            setJobs((current) =>
+              current.map((j) =>
+                j.analysisId === job.analysisId ? applyRowToJob(j, data) : j,
+              ),
+            )
+            continue
+          }
           await failStalledConversion(job.analysisId)
           runnersRef.current.delete(job.analysisId)
           setJobs((current) =>
@@ -372,7 +382,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
                     status: 'FAILED' as QuoteAnalysisStatus,
                     errorMessage: STALL_MESSAGE,
                     runnerActive: false,
-                    needsResume: false,
+                    needsResume: true,
                     pipelineStage: 'failed',
                     pipelineDetail: STALL_MESSAGE,
                   }
@@ -553,6 +563,11 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
 
   const resumeQuoteAnalysis = useCallback(
     async (analysisId: string, companyIdHint?: string): Promise<boolean> => {
+      if (runnersRef.current.has(analysisId)) {
+        toast.info('Esta análise já está rodando nesta aba.')
+        return false
+      }
+
       let job = jobs.find((j) => j.analysisId === analysisId)
       if (!job) {
         const { data } = await supabase
@@ -576,46 +591,53 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           companyId,
           fileName,
           mode: data.mode === 'pro' ? 'pro' : 'max',
-          status: isQuoteAnalysisStatus(data.status) ? data.status : 'FAILED',
+          status: 'PROCESSING',
           pipelineStage: 'upload',
-          pipelineDetail: 'Preparando retomada…',
+          pipelineDetail: 'Retomando análise…',
           thoughtLog: [],
           pagesProcessed: null,
-          errorMessage: data.error_message ?? null,
+          errorMessage: null,
           startedAt: Date.now(),
-          runnerActive: false,
-          needsResume: true,
+          runnerActive: true,
+          needsResume: false,
         }
         setJobs((current) => {
-          if (current.some((j) => j.analysisId === analysisId)) return current
+          const existing = current.find((j) => j.analysisId === analysisId)
+          if (existing) {
+            job = {
+              ...existing,
+              status: 'PROCESSING',
+              runnerActive: true,
+              needsResume: false,
+              pipelineDetail: 'Retomando análise…',
+              errorMessage: null,
+              startedAt: Date.now(),
+            }
+            return current.map((j) => (j.analysisId === analysisId ? job! : j))
+          }
           return [...current, job!]
         })
       }
 
-      if (job.runnerActive || runnersRef.current.has(analysisId)) {
-        toast.info('Esta análise já está rodando nesta aba.')
-        return false
-      }
-
-      updateJob(job.id, {
+      runnersRef.current.add(analysisId)
+      updateJobByAnalysis(analysisId, {
         status: 'PROCESSING',
         runnerActive: true,
         needsResume: false,
         pipelineDetail: 'Retomando análise…',
         errorMessage: null,
       })
-      runnersRef.current.add(analysisId)
       requestExpand()
       toast.message('Retomando Orçamento IA…')
 
       try {
         const result = await reprocessOrcamentosIaPipeline({
-          analysisId: job.analysisId,
+          analysisId,
           companyId: job.companyId,
         })
         runnersRef.current.delete(analysisId)
         if (!result.ok) {
-          updateJob(job.id, {
+          updateJobByAnalysis(analysisId, {
             status: 'FAILED',
             errorMessage: result.error || 'Falha ao retomar.',
             runnerActive: false,
@@ -624,12 +646,14 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           toast.error(result.error || 'Falha ao retomar.')
           return false
         }
-        updateJob(job.id, {
+        updateJobByAnalysis(analysisId, {
           status: 'COMPLETED',
           runnerActive: false,
           needsResume: false,
           pipelineStage: 'completed',
-          pipelineDetail: 'Análise concluída.',
+          pipelineDetail: result.materialsSaved
+            ? `Pronto — ${result.materialsSaved} insumos salvos.`
+            : 'Análise concluída.',
         })
         toast.success('Orçamento IA concluído', {
           action: {
@@ -641,7 +665,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       } catch (err) {
         runnersRef.current.delete(analysisId)
         const message = err instanceof Error ? err.message : 'Erro ao retomar'
-        updateJob(job.id, {
+        updateJobByAnalysis(analysisId, {
           status: 'FAILED',
           errorMessage: message,
           runnerActive: false,
@@ -651,7 +675,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
         return false
       }
     },
-    [jobs, openAnalysis, requestExpand, updateJob],
+    [jobs, openAnalysis, requestExpand, updateJobByAnalysis],
   )
 
   const dismissJob = useCallback((jobId: string) => {
