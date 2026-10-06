@@ -20,6 +20,8 @@ interface LeadModalNavProps extends LeadNavVisibility {
   iaSubtab?: LeadIaSubtab;
   onJump: (item: LeadNavJumpItem) => void;
   onOpenMenu?: (menu: LeadNavMenu) => void;
+  /** Avisa o card quando a lista do menu está aberta (para não colapsar o cabeçalho). */
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 const unrollEase = [0.22, 1, 0.36, 1] as const;
@@ -44,11 +46,21 @@ const MENU_FULL_LABEL: Record<LeadNavMenu, string> = {
   ia: 'IA',
 };
 
+/** Adia setState do LeadModal para depois do commit do nav — evita o warning do React. */
+function deferLeadModalUpdate(fn: () => void) {
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(fn);
+    return;
+  }
+  setTimeout(fn, 0);
+}
+
 export function LeadModalNav({
   activeTab,
   iaSubtab,
   onJump,
   onOpenMenu,
+  onMenuOpenChange,
   showIa = true,
   hideContratos,
   hideOrcamentos,
@@ -62,6 +74,12 @@ export function LeadModalNav({
   );
   const reduceMotion = useReducedMotion();
   const rootRef = useRef<HTMLElement>(null);
+  const onOpenMenuRef = useRef(onOpenMenu);
+  const onJumpRef = useRef(onJump);
+  const onMenuOpenChangeRef = useRef(onMenuOpenChange);
+  onOpenMenuRef.current = onOpenMenu;
+  onJumpRef.current = onJump;
+  onMenuOpenChangeRef.current = onMenuOpenChange;
   const panelId = useId();
   const infoItems = filterLeadInfoNav({ hidePontuaGarbo });
   const detailsItems = filterLeadDetailsNav({
@@ -89,6 +107,10 @@ export function LeadModalNav({
   }, []);
 
   useEffect(() => {
+    onMenuOpenChangeRef.current?.(openMenu != null);
+  }, [openMenu]);
+
+  useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       const root = rootRef.current;
       if (!root || !(event.target instanceof Node)) return;
@@ -106,15 +128,15 @@ export function LeadModalNav({
   }, []);
 
   const goToPage = (menu: LeadNavMenu) => {
-    onOpenMenu?.(menu);
+    deferLeadModalUpdate(() => onOpenMenuRef.current?.(menu));
   };
 
   const toggleSectionList = (menu: LeadNavMenu) => {
-    setOpenMenu((current) => {
-      const next = current === menu ? null : menu;
-      if (next) onOpenMenu?.(next);
-      return next;
-    });
+    const willOpen = openMenu !== menu;
+    setOpenMenu(willOpen ? menu : null);
+    if (willOpen) {
+      deferLeadModalUpdate(() => onOpenMenuRef.current?.(menu));
+    }
   };
 
   /** Celular/tablet: toque na aba só troca a página. Desktop: abre a lista junto. */
@@ -145,7 +167,7 @@ export function LeadModalNav({
 
   const handleJump = (item: LeadNavJumpItem) => {
     setOpenMenu(null);
-    onJump(item);
+    deferLeadModalUpdate(() => onJumpRef.current?.(item));
   };
 
   const menus: LeadNavMenu[] = showIa ? ['info', 'detalhes', 'ia'] : ['info', 'detalhes'];

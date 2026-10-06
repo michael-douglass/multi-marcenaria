@@ -8,10 +8,7 @@ import {
   migratePdfCacheKey,
   pdfCacheKeyForMedia,
   pdfCacheKeyForPending,
-  prewarmPdfImages,
   prewarmPdfThumbnail,
-  PDF_PREVIEW_WIDTH_PX,
-  getCachedPdfPages,
 } from '@/lib/pdf-image-cache';
 import { toast } from 'sonner';
 import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex';
@@ -195,10 +192,11 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     const list = query.data;
     if (!list?.length) return;
 
+    // Só a capa (miniatura). Renderizar TODAS as páginas aqui trava tablet
+    // com cadernos grandes (ex.: lead 9688 — 2 PDFs de dezenas de páginas).
     for (const pdf of list) {
       if (pdf.tipo !== 'pdf') continue;
       const key = pdfCacheKeyForMedia(pdf.id);
-      void prewarmPdfImages(key, { url: pdf.file_url }, PDF_PREVIEW_WIDTH_PX);
       void prewarmPdfThumbnail(key, { url: pdf.file_url });
     }
   }, [query.data]);
@@ -242,9 +240,8 @@ export function useLeadPDFs(leadId: number | null | undefined) {
 
     if (uploadError) throw uploadError;
 
-    // Prévia do PDF em background — não bloqueia o salvamento do lead
+    // Prévia leve: só capa. Páginas sob demanda (cadernos grandes no tablet).
     if (tipo === 'pdf') {
-      void prewarmPdfImages(cacheKey, { file }, PDF_PREVIEW_WIDTH_PX);
       void prewarmPdfThumbnail(cacheKey, { file });
     }
 
@@ -307,7 +304,6 @@ export function useLeadPDFs(leadId: number | null | undefined) {
       },
     ]);
     if (tipo === 'pdf') {
-      void prewarmPdfImages(pdfCacheKeyForPending(tempId), { file }, PDF_PREVIEW_WIDTH_PX);
       void prewarmPdfThumbnail(pdfCacheKeyForPending(tempId), { file });
     }
     toast.success(

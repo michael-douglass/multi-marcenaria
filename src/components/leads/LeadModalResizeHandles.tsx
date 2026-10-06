@@ -74,7 +74,7 @@ function ResizeGripAura({ className }: { className?: string }) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
 
@@ -91,7 +91,8 @@ function ResizeGripAura({ className }: { className?: string }) {
     const draw = () => {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
-      material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
+      timer.update()
+      material.uniforms.uTime.value = prefersReduced ? 0 : timer.getElapsed()
       renderer.render(scene, camera)
     }
     draw()

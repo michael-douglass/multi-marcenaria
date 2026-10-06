@@ -213,16 +213,22 @@ export function LeadModal({
     useLeadModalSize(isOpen);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const headerPinnedCollapsedRef = useRef(false);
+  /** Enquanto o índice do card (LeadModalNav) está aberto, não colapsa o cabeçalho. */
+  const navMenuOpenRef = useRef(false);
 
   const handleLeadBodyScroll = useCallback((scrollTop: number) => {
     if (leadWindowMode === 'minimized') return;
-    if (scrollTop > 24) {
-      setHeaderCollapsed(true);
-      return;
-    }
-    if (scrollTop <= 6 && !headerPinnedCollapsedRef.current) {
-      setHeaderCollapsed(false);
-    }
+    // Fora do frame de layout do nav — evita "Cannot update LeadModal while rendering LeadModalNav".
+    requestAnimationFrame(() => {
+      if (navMenuOpenRef.current) return;
+      if (scrollTop > 24) {
+        setHeaderCollapsed(true);
+        return;
+      }
+      if (scrollTop <= 6 && !headerPinnedCollapsedRef.current) {
+        setHeaderCollapsed(false);
+      }
+    });
   }, [leadWindowMode]);
 
   const handleToggleHeaderCollapse = useCallback(() => {
@@ -614,6 +620,16 @@ export function LeadModal({
     headerPinnedCollapsedRef.current = false;
     setHeaderCollapsed(false);
     waitAndScrollLeadModalToSection(item.id);
+  }, []);
+
+  const handleLeadNavOpenMenu = useCallback((menu: Parameters<typeof leadNavMenuToTab>[0]) => {
+    setLeadModalTab(leadNavMenuToTab(menu));
+    headerPinnedCollapsedRef.current = false;
+    setHeaderCollapsed(false);
+  }, []);
+
+  const handleLeadNavMenuOpenChange = useCallback((open: boolean) => {
+    navMenuOpenRef.current = open;
   }, []);
 
   const handleLeadSearchJump = useCallback((hit: LeadSearchHit) => {
@@ -1675,11 +1691,8 @@ export function LeadModal({
             activeTab={leadModalTab}
             iaSubtab={iaSubtab}
             onJump={handleLeadNavJump}
-            onOpenMenu={(menu) => {
-              setLeadModalTab(leadNavMenuToTab(menu));
-              headerPinnedCollapsedRef.current = false;
-              setHeaderCollapsed(false);
-            }}
+            onOpenMenu={handleLeadNavOpenMenu}
+            onMenuOpenChange={handleLeadNavMenuOpenChange}
             showIa
             hideContratos={modoProjeto}
             hideOrcamentos={contextoProjeto}

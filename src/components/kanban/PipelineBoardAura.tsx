@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui'
+import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -50,17 +52,19 @@ export function PipelineBoardAura({ className }: { className?: string }) {
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const isPhone = window.matchMedia('(max-width: 767px)').matches
-    let renderer: THREE.WebGLRenderer
-    try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: false,
-        powerPreference: 'low-power',
-      })
-    } catch {
-      return
-    }
+    // Tablet/toque (Tab S9 Ultra incluso): WebGL no fundo do pipeline compete com o card do lead.
+    if (prefersReduced || isTouchOrCompactViewport()) return
+
+    const renderer = tryCreateWebGLRenderer(
+      () =>
+        new THREE.WebGLRenderer({
+          alpha: true,
+          antialias: false,
+          powerPreference: 'low-power',
+          failIfMajorPerformanceCaveat: true,
+        }),
+    )
+    if (!renderer) return
 
     renderer.setClearColor(0x000000, 0)
     renderer.domElement.style.display = 'block'
@@ -108,7 +112,7 @@ export function PipelineBoardAura({ className }: { className?: string }) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
     let visible = true
@@ -116,8 +120,7 @@ export function PipelineBoardAura({ className }: { className?: string }) {
     const resize = () => {
       const w = Math.max(host.clientWidth, 1)
       const h = Math.max(host.clientHeight, 1)
-      const cap = isPhone ? 1.15 : 1.5
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap))
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
       renderer.setSize(w, h, false)
       material.uniforms.uResolution.value.set(w, h)
     }
@@ -137,7 +140,8 @@ export function PipelineBoardAura({ className }: { className?: string }) {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
       if (!visible) return
-      material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
+      timer.update()
+      material.uniforms.uTime.value = prefersReduced ? 0 : timer.getElapsed()
       renderer.render(scene, camera)
     }
 

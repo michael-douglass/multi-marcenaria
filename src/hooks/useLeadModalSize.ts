@@ -15,9 +15,10 @@ import {
 } from '@/lib/lead-modal-size'
 import { isTouchUiViewport } from '@/lib/viewport-ui'
 
-/** No celular o card abre maximizado; no computador, tamanho médio (restored). */
+/** No celular/tablet toque o card abre maximizado; no computador, tamanho médio. */
 function openingLeadModalLayout(): LeadModalLayout {
-  if (isLeadModalMobileViewport()) {
+  // Galaxy Tab (tela larga + toque): maximizado — senão janela “desktop” briga com o toque.
+  if (isLeadModalMobileViewport() || isTouchUiViewport()) {
     return { ...maximizedLeadModalSize(), mode: 'maximized' }
   }
   return { ...restoredLeadModalSize(), mode: 'restored' }

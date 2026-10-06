@@ -89,7 +89,7 @@ export function LeadModalSearchAura({
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
 
@@ -107,7 +107,8 @@ export function LeadModalSearchAura({
       if (!running) return
       frame = requestAnimationFrame(draw)
       if (prefersReduced) return
-      material.uniforms.uTime.value = clock.getElapsedTime()
+      timer.update()
+      material.uniforms.uTime.value = timer.getElapsed()
       const target = focusRef.current ? 1 : 0.22
       material.uniforms.uFocus.value += (target - material.uniforms.uFocus.value) * 0.12
       renderer.render(scene, camera)

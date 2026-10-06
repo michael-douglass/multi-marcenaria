@@ -110,7 +110,7 @@ export function LeadModalHeaderAura({ className }: { className?: string }) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
     let visible = true
@@ -137,7 +137,8 @@ export function LeadModalHeaderAura({ className }: { className?: string }) {
       if (!running) return
       if (!prefersReduced) frame = requestAnimationFrame(draw)
       if (!visible) return
-      material.uniforms.uTime.value = prefersReduced ? 0 : clock.getElapsedTime()
+      timer.update()
+      material.uniforms.uTime.value = prefersReduced ? 0 : timer.getElapsed()
       renderer.render(scene, camera)
     }
     draw()

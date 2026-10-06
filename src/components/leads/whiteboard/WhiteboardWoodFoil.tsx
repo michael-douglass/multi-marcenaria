@@ -122,7 +122,7 @@ export function WhiteboardWoodFoil({ className }: WhiteboardWoodFoilProps) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
     scene.add(mesh);
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let frame = 0;
     let running = true;
 
@@ -139,7 +139,8 @@ export function WhiteboardWoodFoil({ className }: WhiteboardWoodFoilProps) {
     const draw = () => {
       if (!running) return;
       if (!prefersReduced) frame = requestAnimationFrame(draw);
-      uniforms.uTime.value = prefersReduced ? 0.6 : clock.getElapsedTime();
+      timer.update();
+      uniforms.uTime.value = prefersReduced ? 0.6 : timer.getElapsed();
       renderer.render(scene, camera);
     };
 

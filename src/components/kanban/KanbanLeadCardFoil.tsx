@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
+import { isTouchOrCompactViewport } from '@/lib/viewport-ui'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -72,7 +73,7 @@ export function KanbanLeadCardFoil({
     if (!host) return
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (prefersReduced) return
+    if (prefersReduced || isTouchOrCompactViewport()) return
 
     const renderer = tryCreateWebGLRenderer(
       () =>
@@ -114,7 +115,7 @@ export function KanbanLeadCardFoil({
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material)
     scene.add(mesh)
 
-    const clock = new THREE.Clock()
+    const timer = new THREE.Timer()
     let frame = 0
     let running = true
 
@@ -131,7 +132,8 @@ export function KanbanLeadCardFoil({
     const draw = () => {
       if (!running) return
       frame = requestAnimationFrame(draw)
-      material.uniforms.uTime.value = clock.getElapsedTime()
+      timer.update()
+      material.uniforms.uTime.value = timer.getElapsed()
       renderer.render(scene, camera)
     }
     draw()

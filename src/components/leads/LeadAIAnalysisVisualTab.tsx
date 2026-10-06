@@ -148,7 +148,7 @@ function PdfSelectThumbnail({ item }: { item: LeadAIMediaItem }) {
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, item]);
+  }, [cacheKey, item.fileUrl, item.id, item.kind]);
 
   if (!src) {
     return (

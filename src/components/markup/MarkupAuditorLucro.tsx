@@ -212,7 +212,7 @@ function MarkupAuditorOrb({
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let running = true;
     let frame = 0;
 
@@ -228,7 +228,8 @@ function MarkupAuditorOrb({
     const draw = () => {
       if (!running) return;
       if (!reducedMotion) frame = requestAnimationFrame(draw);
-      uniforms.uTime.value = reducedMotion ? 0.4 : clock.getElapsedTime();
+      timer.update();
+      uniforms.uTime.value = reducedMotion ? 0.4 : timer.getElapsed();
       uniforms.uAlert.value = alert;
       uniforms.uSign.value = sign;
       renderer.render(scene, camera);

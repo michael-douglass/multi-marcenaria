@@ -106,7 +106,7 @@ export function LeadNegociadorShaderBackdrop({
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
     scene.add(mesh);
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let frame = 0;
     let disposed = false;
 
@@ -123,7 +123,8 @@ export function LeadNegociadorShaderBackdrop({
     const animate = () => {
       if (disposed) return;
       frame = requestAnimationFrame(animate);
-      uniforms.uTime.value = clock.getElapsedTime();
+      timer.update();
+      uniforms.uTime.value = timer.getElapsed();
       uniforms.uProximity.value += (proximityRef.current - uniforms.uProximity.value) * 0.08;
       renderer.render(scene, camera);
     };

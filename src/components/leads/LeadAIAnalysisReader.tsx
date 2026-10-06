@@ -78,12 +78,19 @@ function FilmstripThumb({
   frame,
   active,
   onSelect,
+  eager = true,
 }: {
   frame: AnalysisViewerFrame;
   active: boolean;
   onSelect: () => void;
+  /** Em PDF grande, só as páginas próximas renderizam miniatura (tablet). */
+  eager?: boolean;
 }) {
-  const { src } = useAnalysisMediaThumb(frame.item, frame.pdfPageNumber);
+  const shouldLoadThumb = eager || active || !frame.pdfPageNumber;
+  const { src } = useAnalysisMediaThumb(
+    frame.item,
+    shouldLoadThumb ? frame.pdfPageNumber : undefined,
+  );
 
   return (
     <button
@@ -99,14 +106,19 @@ function FilmstripThumb({
           : 'border-gold-border-subtle/30 opacity-75 hover:border-gold/40 hover:opacity-100',
       )}
     >
-      {src ? (
+      {src && shouldLoadThumb ? (
         <img src={src} alt="" className="h-full w-full object-cover object-top" loading="lazy" />
       ) : (
-        <div className="flex h-full items-center justify-center bg-mahogany-muted/60">
+        <div className="flex h-full flex-col items-center justify-center gap-0.5 bg-mahogany-muted/60">
           <FileText className="h-4 w-4 text-cream-faint" />
+          {frame.pdfPageNumber ? (
+            <span className="text-[9px] font-medium tabular-nums text-cream-muted">
+              {frame.pdfPageNumber}
+            </span>
+          ) : null}
         </div>
       )}
-      {frame.pdfPageNumber && (
+      {frame.pdfPageNumber && shouldLoadThumb && (
         <span className="absolute bottom-0 inset-x-0 bg-black/65 py-0.5 text-center text-[9px] font-medium tabular-nums text-cream-secondary">
           {frame.pdfPageNumber}
         </span>
@@ -472,7 +484,11 @@ function ImageStageWithFilmstrip({
             aria-label="Navegar referências"
           >
             {(() => {
-              const maxVisible = 24;
+              const touchUi =
+                typeof window !== 'undefined' &&
+                window.matchMedia('(hover: none) and (pointer: coarse), (max-width: 1024px)').matches;
+              const maxVisible = touchUi ? 8 : 24;
+              const eagerRadius = touchUi ? 1 : 3;
               const half = Math.floor(maxVisible / 2);
               const start = total <= maxVisible ? 0 : Math.max(0, Math.min(activeIndex - half, total - maxVisible));
               const end = total <= maxVisible ? total : start + maxVisible;
@@ -485,6 +501,7 @@ function ImageStageWithFilmstrip({
                     key={thumbFrame.key}
                     frame={thumbFrame}
                     active={i === activeIndex}
+                    eager={Math.abs(i - activeIndex) <= eagerRadius}
                     onSelect={() => onSelect(i)}
                   />
                 );
