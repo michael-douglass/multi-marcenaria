@@ -30,10 +30,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { installPdfJsPolyfills } from '@/lib/map-polyfills'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
-import PdfJsWorker from '@/lib/pdf-js-worker-entry.ts?worker'
+import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs'
 import {
   getSignedPdfUrl,
-  getSignedPageImageUrl,
+  getSignedQuotePageUrls,
   loadQuoteAnalysisTree,
   updateQuoteMaterial,
   type QuoteAnalysisDetail,
@@ -80,6 +80,11 @@ const PDF_SCALE = PDF_DPI / 72
 const HIGHLIGHT = '#0066FF'
 const POPOUT_CHANNEL = 'orcamentos-ia-audit-sync'
 
+declare global {
+  // eslint-disable-next-line no-var
+  var pdfjsWorker: typeof import('pdfjs-dist/build/pdf.worker.min.mjs') | undefined
+}
+
 /** Extrai o nº da página de paths como `…/pages/page-009.png`. */
 function pageNumberFromImagePath(path: string | null | undefined): number | null {
   if (!path) return null
@@ -102,11 +107,23 @@ function resolveSelectionPage(
   )
 }
 
-let pdfWorker: Worker | null = null
+function resolveSelectionBbox(
+  module: QuoteModuleRow,
+  material?: QuoteMaterialRow | null,
+): QuoteBoundingBox | null {
+  return material?.bounding_box ?? module.bounding_box ?? null
+}
+
+/** Bbox genérico (0,0,0.5×0.5) — não serve para “ir ao móvel”; só a página. */
+function isPlaceholderBbox(bbox: QuoteBoundingBox | null | undefined): boolean {
+  if (!bbox) return true
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.02
+  return near(bbox.x, 0) && near(bbox.y, 0) && near(bbox.width, 0.5) && near(bbox.height, 0.5)
+}
+
 function ensurePdfWorker() {
-  if (pdfWorker) return
-  pdfWorker = new PdfJsWorker()
-  GlobalWorkerOptions.workerPort = pdfWorker
+  if (!globalThis.pdfjsWorker) globalThis.pdfjsWorker = pdfjsWorker
+  GlobalWorkerOptions.workerPort = null
 }
 
 interface AuditWorkspaceProps {
@@ -147,11 +164,17 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
   /** true = tela grande mostra a PNG da página (miniatura ampliada); false = PDF. */
   const [preferPageImage, setPreferPageImage] = useState(false)
+  /** Páginas JPEG já convertidas (clique no móvel → página certa sem depender do PDF). */
+  const [pageImages, setPageImages] = useState<Array<{ index: number; path: string; url: string }>>(
+    [],
+  )
   const mainViewerRef = useRef<HTMLDivElement>(null)
+  const mediaBoxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<PDFDocumentProxy | null>(null)
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
+  const pendingFocusRef = useRef<{ cx: number; cy: number; zoom: number } | null>(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -220,8 +243,20 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       if (signed.url) setPdfUrl(signed.url)
       else toast.error(signed.error || 'PDF não encontrado no Storage.')
     }
+
+    const pages = await getSignedQuotePageUrls(companyId, analysisId, 50)
+    if (!pages.error && pages.pages.length) {
+      setPageImages(pages.pages)
+      setPageCount((prev) => Math.max(prev, pages.pages.length))
+      // Sem PDF ainda: já mostra a 1ª página convertida
+      if (!treeData.source_pdf_path || pages.pages[0]) {
+        setPageThumbUrl(pages.pages[0].url)
+        setPreferPageImage(true)
+      }
+    }
+
     setLoading(false)
-  }, [analysisId])
+  }, [analysisId, companyId])
 
   useEffect(() => {
     void reload()
@@ -246,13 +281,14 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           for (const mod of env.modules) {
             if (mod.id === msg.selectionId) {
               setSelection({ kind: 'module', module: mod })
-              if (mod.bounding_box?.page) setPageNumber(mod.bounding_box.page)
+              const page = resolveSelectionPage(mod)
+              if (page) setPageNumber(page)
               return
             }
             const mat = mod.materials.find((m) => m.id === msg.selectionId)
             if (mat) {
               setSelection({ kind: 'material', material: mat, module: mod })
-              const page = mat.bounding_box?.page ?? mod.bounding_box?.page
+              const page = resolveSelectionPage(mod, mat)
               if (page) setPageNumber(page)
               return
             }
@@ -280,17 +316,21 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     ensurePdfWorker()
     ;(async () => {
       const res = await fetch(pdfUrl)
-      const data = await res.arrayBuffer()
-      const pdf = await getDocument({ data }).promise
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      const pdf = await getDocument({
+        data: bytes,
+        disableFontFace: true,
+        useSystemFonts: true,
+      }).promise
       if (cancelled) {
         await pdf.destroy()
         return
       }
       pdfRef.current = pdf
-      setPageCount(pdf.numPages)
-      setPageNumber(1)
+      setPageCount((prev) => Math.max(prev, pdf.numPages))
     })().catch((err) => {
-      toast.error(err instanceof Error ? err.message : 'Erro ao abrir PDF')
+      // Páginas JPEG já cobrem a pré-visualização — PDF é só fallback.
+      console.warn('[AuditWorkspace] PDF:', err)
     })
     return () => {
       cancelled = true
@@ -305,6 +345,17 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     return selection.material.bounding_box ?? selection.module.bounding_box
   }, [selection])
 
+  const highlightBbox = useMemo((): QuoteBoundingBox | null => {
+    if (!activeBbox || isPlaceholderBbox(activeBbox)) return null
+    return activeBbox
+  }, [activeBbox])
+
+  const selectionLabel = useMemo(() => {
+    if (!selection) return null
+    if (selection.kind === 'module') return selection.module.name
+    return `${selection.material.raw_name} · ${selection.module.name}`
+  }, [selection])
+
   const selectionSummary = useMemo(() => {
     if (!selection) return undefined
     if (selection.kind === 'module') {
@@ -313,60 +364,97 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     return `Material "${selection.material.raw_name}" no módulo "${selection.module.name}" (cat=${selection.material.category}, qtd=${selection.material.exact_quantity}, preço=${selection.material.unit_price})`
   }, [selection])
 
-  const selectedPageImagePath = useMemo(() => {
-    if (!selection) return null
-    if (selection.kind === 'material') {
-      return (
-        selection.material.page_image_path ||
-        selection.module.page_image_path ||
-        null
-      )
-    }
-    return selection.module.page_image_path || null
-  }, [selection])
+  const applyMediaFocus = useCallback(() => {
+    const pending = pendingFocusRef.current
+    const box = mediaBoxRef.current
+    if (!pending || !box) return
+    const w = box.clientWidth
+    const h = box.clientHeight
+    if (w < 8 || h < 8) return
+    setPan({
+      x: (0.5 - pending.cx) * w * pending.zoom,
+      y: (0.5 - pending.cy) * h * pending.zoom,
+    })
+    pendingFocusRef.current = null
+  }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    setPageThumbUrl(null)
-    if (!selectedPageImagePath) {
-      setPreferPageImage(false)
-      return
-    }
-    void (async () => {
-      const { url } = await getSignedPageImageUrl(selectedPageImagePath)
-      if (!cancelled && url) {
-        setPageThumbUrl(url)
-        // Ao selecionar item com página, já abre na tela grande
-        setPreferPageImage(true)
-        const page = pageNumberFromImagePath(selectedPageImagePath)
-        if (page) {
-          setPageNumber(page)
-          broadcast({ type: 'page', page })
-        }
+  /** Leva a pré-visualização à página do móvel e enquadra a área marcada. */
+  const focusSelectionOnViewer = useCallback(
+    (opts: {
+      page: number | null
+      bbox: QuoteBoundingBox | null
+      pageImagePath?: string | null
+    }) => {
+      setViewerMode('pdf')
+      const page = opts.page && opts.page >= 1 ? opts.page : null
+      if (page) {
+        setPageNumber(page)
+        broadcast({ type: 'page', page })
       }
-    })()
-    return () => {
-      cancelled = true
+
+      const fromMap = page ? pageImages.find((p) => p.index === page) : undefined
+      const fromPath =
+        opts.pageImagePath && pageImages.find((p) => p.path === opts.pageImagePath)
+
+      const entry = fromMap || fromPath
+      if (entry) {
+        setPageThumbUrl(entry.url)
+        setPreferPageImage(true)
+      } else if (page && pdfRef.current) {
+        setPreferPageImage(false)
+      }
+
+      const box = opts.bbox && !isPlaceholderBbox(opts.bbox) ? opts.bbox : null
+      if (box) {
+        const z = Math.min(2.5, Math.max(1.2, 0.9 / Math.max(box.width, box.height, 0.15)))
+        setZoom(z)
+        pendingFocusRef.current = {
+          cx: box.x + box.width / 2,
+          cy: box.y + box.height / 2,
+          zoom: z,
+        }
+        // Aplica no próximo frame (imagem/canvas já medidos) e de novo após load
+        requestAnimationFrame(() => applyMediaFocus())
+      } else {
+        pendingFocusRef.current = null
+        setZoom(1)
+        setPan({ x: 0, y: 0 })
+      }
+
+      mainViewerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    },
+    [pageImages, broadcast, applyMediaFocus],
+  )
+
+  // Troca de página (setas): usa JPEG pré-carregado quando existir
+  useEffect(() => {
+    const entry = pageImages.find((p) => p.index === pageNumber)
+    if (entry && preferPageImage) {
+      setPageThumbUrl(entry.url)
     }
-  }, [selectedPageImagePath, broadcast])
+  }, [pageNumber, pageImages, preferPageImage])
 
   const showPageOnMainViewer = useCallback(() => {
-    if (!pageThumbUrl) return
-    setPreferPageImage(true)
-    setPan({ x: 0, y: 0 })
-    setZoom(1)
     const page =
       (selection?.kind === 'material'
         ? resolveSelectionPage(selection.module, selection.material)
         : selection?.kind === 'module'
           ? resolveSelectionPage(selection.module)
-          : null) ?? pageNumberFromImagePath(selectedPageImagePath)
-    if (page) {
-      setPageNumber(page)
-      broadcast({ type: 'page', page })
-    }
-    mainViewerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [pageThumbUrl, selection, selectedPageImagePath, broadcast])
+          : null) ?? pageNumber
+    const bbox =
+      selection?.kind === 'material'
+        ? resolveSelectionBbox(selection.module, selection.material)
+        : selection?.kind === 'module'
+          ? resolveSelectionBbox(selection.module)
+          : null
+    const path =
+      selection?.kind === 'material'
+        ? selection.material.page_image_path || selection.module.page_image_path
+        : selection?.kind === 'module'
+          ? selection.module.page_image_path
+          : null
+    focusSelectionOnViewer({ page, bbox, pageImagePath: path })
+  }, [selection, pageNumber, focusSelectionOnViewer])
 
   const pricing = useMemo(
     () => (tree ? calculateQuotePricing(tree, pricingParams) : null),
@@ -466,6 +554,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
   // Render canvas 200 DPI + zoom
   useEffect(() => {
+    if (preferPageImage && pageThumbUrl) return
     const pdf = pdfRef.current
     const canvas = canvasRef.current
     if (!pdf || !canvas || pageCount < 1) return
@@ -479,34 +568,48 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       canvas.height = Math.floor(viewport.height)
       const ctx = canvas.getContext('2d')
       if (!ctx) return
-      await page.render({ canvas, viewport }).promise
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise
+      if (!cancelled) requestAnimationFrame(() => applyMediaFocus())
     })().catch(() => {
       /* página inválida */
     })
     return () => {
       cancelled = true
     }
-  }, [pageNumber, zoom, pageCount, pdfUrl])
+  }, [pageNumber, zoom, pageCount, pdfUrl, preferPageImage, pageThumbUrl, applyMediaFocus])
 
   const onSelectModule = (module: QuoteModuleRow) => {
     setSelection({ kind: 'module', module })
-    const page = resolveSelectionPage(module)
-    if (page) {
-      setPageNumber(page)
-      broadcast({ type: 'page', page })
+    // Abre o ambiente/móvel na lista para ver itens + preços juntos
+    const envId = tree?.environments.find((e) => e.modules.some((m) => m.id === module.id))?.id
+    if (envId) {
+      setExpandedEnvs((prev) => new Set(prev).add(envId))
     }
-    if (module.page_image_path) setPreferPageImage(true)
+    setExpandedMods((prev) => new Set(prev).add(module.id))
+
+    const page = resolveSelectionPage(module)
+    focusSelectionOnViewer({
+      page,
+      bbox: resolveSelectionBbox(module),
+      pageImagePath: module.page_image_path,
+    })
     broadcast({ type: 'select', selectionId: module.id })
   }
 
   const onSelectMaterial = (material: QuoteMaterialRow, module: QuoteModuleRow) => {
     setSelection({ kind: 'material', material, module })
-    const page = resolveSelectionPage(module, material)
-    if (page) {
-      setPageNumber(page)
-      broadcast({ type: 'page', page })
+    const envId = tree?.environments.find((e) => e.modules.some((m) => m.id === module.id))?.id
+    if (envId) {
+      setExpandedEnvs((prev) => new Set(prev).add(envId))
     }
-    if (material.page_image_path || module.page_image_path) setPreferPageImage(true)
+    setExpandedMods((prev) => new Set(prev).add(module.id))
+
+    const page = resolveSelectionPage(module, material)
+    focusSelectionOnViewer({
+      page,
+      bbox: resolveSelectionBbox(module, material),
+      pageImagePath: material.page_image_path || module.page_image_path,
+    })
     broadcast({ type: 'select', selectionId: material.id })
   }
 
@@ -814,24 +917,29 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               onClick={() => {
                 const p = Math.max(1, pageNumber - 1)
                 setPageNumber(p)
-                setPreferPageImage(false)
+                setPan({ x: 0, y: 0 })
+                if (pageImages.some((img) => img.index === p)) setPreferPageImage(true)
+                else setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
             >
               <Minus className="h-4 w-4" />
             </Button>
             <span className="min-w-[5rem] text-center text-xs tabular-nums">
-              {pageNumber} / {pageCount || '—'}
+              {pageNumber} / {pageCount || pageImages.length || '—'}
             </span>
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              disabled={pageNumber >= pageCount}
+              disabled={pageNumber >= (pageCount || pageImages.length)}
               onClick={() => {
-                const p = Math.min(pageCount, pageNumber + 1)
+                const max = pageCount || pageImages.length
+                const p = Math.min(max, pageNumber + 1)
                 setPageNumber(p)
-                setPreferPageImage(false)
+                setPan({ x: 0, y: 0 })
+                if (pageImages.some((img) => img.index === p)) setPreferPageImage(true)
+                else setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
             >
@@ -886,11 +994,26 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
           >
+            {selectionLabel && (
+              <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(90%,28rem)] rounded-lg bg-[#0066FF] px-3 py-1.5 text-white shadow-lg">
+                <p className="truncate text-sm font-semibold">{selectionLabel}</p>
+                <p className="text-[11px] text-white/85">
+                  Página {pageNumber}
+                  {highlightBbox ? ' · área marcada no desenho' : ' · local aproximado nesta folha'}
+                </p>
+              </div>
+            )}
+            {!pageThumbUrl && !pdfRef.current && (
+              <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-[#8a7060]">
+                Carregando pré-visualização das páginas…
+              </div>
+            )}
             <div
               className="absolute left-1/2 top-1/2"
               style={{ transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px))` }}
             >
               <div
+                ref={mediaBoxRef}
                 className="relative inline-block shadow-2xl"
                 style={
                   preferPageImage && pageThumbUrl
@@ -904,24 +1027,25 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                     alt={`Página ${pageNumber} do orçamento`}
                     className="block max-h-[min(78vh,1100px)] w-auto max-w-[min(92vw,900px)] object-contain"
                     draggable={false}
+                    onLoad={applyMediaFocus}
                   />
                 ) : (
                   <canvas ref={canvasRef} className="block max-w-none" />
                 )}
-                {activeBbox && (activeBbox.page ?? pageNumber) === pageNumber && (
+                {highlightBbox && (highlightBbox.page ?? pageNumber) === pageNumber && (
                   <svg
                     className="pointer-events-none absolute inset-0 h-full w-full"
                     viewBox="0 0 1 1"
                     preserveAspectRatio="none"
                   >
                     <rect
-                      x={activeBbox.x}
-                      y={activeBbox.y}
-                      width={activeBbox.width}
-                      height={activeBbox.height}
-                      fill={`${HIGHLIGHT}22`}
+                      x={highlightBbox.x}
+                      y={highlightBbox.y}
+                      width={highlightBbox.width}
+                      height={highlightBbox.height}
+                      fill={`${HIGHLIGHT}28`}
                       stroke={HIGHLIGHT}
-                      strokeWidth={0.008}
+                      strokeWidth={0.01}
                       vectorEffect="non-scaling-stroke"
                     />
                   </svg>
@@ -936,7 +1060,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           <div className="border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold text-[#2a1812]">Materiais do orçamento</h3>
             <p className="mt-0.5 text-xs text-[#8a7060]">
-              Clique em um item para ver onde ele aparece na planta.
+              Clique no móvel (ex.: Guarda Roupa) para abrir a página certa na pré-visualização.
             </p>
             {pageThumbUrl && (
               <button
@@ -951,7 +1075,9 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 title="Abrir esta página na tela grande"
               >
                 <p className="px-2 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#0066FF]">
-                  Página de origem · clique para ampliar
+                  {selectionLabel
+                    ? `${selectionLabel} · pág. ${pageNumber}`
+                    : `Página ${pageNumber} · clique para ampliar`}
                 </p>
                 <img
                   src={pageThumbUrl}
@@ -1084,11 +1210,20 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                                   type="button"
                                   className="min-w-0 flex-1 text-left"
                                   onClick={() => onSelectModule(mod)}
+                                  title="Ver este móvel na pré-visualização"
                                 >
                                   <span className="block truncate text-sm font-semibold text-[#2a1812]">
                                     {mod.name}
                                   </span>
                                   <span className="block text-[11px] text-[#8a7060]">
+                                    {(() => {
+                                      const page = resolveSelectionPage(mod)
+                                      return page ? (
+                                        <span className="mr-1.5 font-medium text-[#0066FF]">
+                                          pág. {page}
+                                        </span>
+                                      ) : null
+                                    })()}
                                     {mod.materials.length}{' '}
                                     {mod.materials.length === 1 ? 'item' : 'itens'}
                                     {(() => {

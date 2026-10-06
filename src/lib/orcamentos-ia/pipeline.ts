@@ -347,6 +347,47 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
   return { pagePaths }
 }
 
+const EDGE_EXTRACT_BATCH = 6
+
+function chunkPaths<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
+  ok?: boolean
+  error?: string
+  extraction?: unknown
+  inventory?: InventoryEnv[]
+  coverage?: CoverageReport
+  pagesProcessed?: number
+}> {
+  const { data, error } = await supabase.functions.invoke('orcamentos-ia-pipeline', { body })
+  if (error) {
+    const msg = error.message || 'Falha ao chamar o pipeline de IA.'
+    // Gateway 504 costuma vir como "non-2xx" genérico
+    if (/non-2xx|504|timeout|timed out/i.test(msg)) {
+      throw new Error(
+        'A IA demorou demais nesta etapa (limite do servidor). Vou tentar de novo em etapas menores — clique em Retomar.',
+      )
+    }
+    throw new Error(msg)
+  }
+  const payload = data as {
+    ok?: boolean
+    error?: string
+    extraction?: unknown
+    inventory?: InventoryEnv[]
+    coverage?: CoverageReport
+    pagesProcessed?: number
+  }
+  if (!payload?.ok) {
+    throw new Error(payload?.error || 'Pipeline de IA retornou erro.')
+  }
+  return payload
+}
+
 async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<PipelineStateType>> {
   await setAnalysisStatus(state.analysisId, 'READING_LAYOUT', {
     pipeline_stage: 'reading_inventory',
@@ -382,39 +423,80 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   }
   const ragPrompt = [prefsPrompt, formatMemoriesForPrompt(memories)].filter(Boolean).join('\n\n')
 
-  await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
-    pipeline_stage: 'extracting_batch',
-    pipeline_detail:
-      'Caçando chapas MDF, puxadores e ferragens nas pranchas — isso pode levar alguns minutos…',
-    thought_kind: 'vision',
+  // Fases curtas no Edge (inventory → extract por lote → audit) evitam 504 do gateway.
+  const invPayload = await invokeOrcamentosIaPhase({
+    analysisId: state.analysisId,
+    companyId: state.companyId,
+    mode: state.mode,
+    pagePaths: state.pagePaths,
+    phase: 'inventory',
+    ragMemoriesPrompt: ragPrompt,
+    models: ORCAMENTOS_IA_MODELS,
   })
+  const inventory = Array.isArray(invPayload.inventory) ? invPayload.inventory : []
 
-  const { data, error } = await supabase.functions.invoke('orcamentos-ia-pipeline', {
-    body: {
+  const batches = chunkPaths(state.pagePaths, EDGE_EXTRACT_BATCH)
+  const batchExtractions: unknown[] = []
+  for (let bi = 0; bi < batches.length; bi++) {
+    await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+      pipeline_stage: 'extracting_batch',
+      pipeline_detail: `Lote ${bi + 1}/${batches.length}: caçando chapas, puxadores e ferragens…`,
+      thought_kind: 'vision',
+      totals: { pages_processed: state.pagePaths.length, extract_batch: bi + 1, extract_batches: batches.length },
+    })
+    const part = await invokeOrcamentosIaPhase({
       analysisId: state.analysisId,
       companyId: state.companyId,
       mode: state.mode,
-      pagePaths: state.pagePaths,
-      models: ORCAMENTOS_IA_MODELS,
+      pagePaths: batches[bi],
+      phase: 'extract',
+      inventory,
       ragMemoriesPrompt: ragPrompt,
-    },
-  })
-
-  if (error) {
-    throw new Error(error.message || 'Falha ao chamar o pipeline de IA.')
+      models: ORCAMENTOS_IA_MODELS,
+    })
+    batchExtractions.push(part.extraction)
   }
 
-  const payload = data as {
-    ok?: boolean
-    error?: string
-    extraction?: unknown
-    inventory?: InventoryEnv[]
-    coverage?: CoverageReport
-    pagesProcessed?: number
+  let mergedRaw = mergeExtractions(batchExtractions)
+
+  if (state.mode === 'max') {
+    await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+      pipeline_stage: 'auditing',
+      pipeline_detail: 'Auditoria: conferindo se faltou módulo, chapa ou ferragem…',
+      thought_kind: 'audit',
+    })
+    try {
+      const aud = await invokeOrcamentosIaPhase({
+        analysisId: state.analysisId,
+        companyId: state.companyId,
+        mode: state.mode,
+        // Poucas páginas na auditoria — evita 504 do gateway com o3-mini + 13 imagens.
+        pagePaths: state.pagePaths.slice(0, 8),
+        phase: 'audit',
+        inventory,
+        extraction: mergedRaw,
+        ragMemoriesPrompt: ragPrompt,
+        models: ORCAMENTOS_IA_MODELS,
+      })
+      if (aud.extraction) mergedRaw = mergeExtractions([mergedRaw, aud.extraction])
+    } catch (auditErr) {
+      const msg = auditErr instanceof Error ? auditErr.message : String(auditErr)
+      console.warn('[pipeline] auditoria pulada:', msg)
+      await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+        pipeline_stage: 'auditing',
+        pipeline_detail:
+          'Auditoria demorou demais — seguindo com a extração já feita para cotar o orçamento.',
+        thought_kind: 'warn',
+        thought: true,
+      })
+    }
   }
 
-  if (!payload?.ok) {
-    throw new Error(payload?.error || 'Pipeline de IA retornou erro.')
+  const payload = {
+    ok: true as const,
+    extraction: mergedRaw,
+    inventory,
+    pagesProcessed: state.pagePaths.length,
   }
 
   const merged = mergeExtractions([payload.extraction])
@@ -456,9 +538,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     )
   }
 
-  const inventory = Array.isArray(payload.inventory) ? payload.inventory : []
-  const coverage =
-    payload.coverage ?? buildCoverageReport(inventory, parsed.data)
+  const coverage = buildCoverageReport(inventory, parsed.data)
 
   const bomGaps = findMarcenariaBomGaps(parsed.data)
   if (bomGaps.length) {

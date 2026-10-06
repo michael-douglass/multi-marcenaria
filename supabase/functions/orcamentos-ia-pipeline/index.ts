@@ -7,12 +7,31 @@ const AUDITOR_MODEL = 'o3-mini'
 const BATCH_SIZE = 8
 const MAX_PAGES = 40
 
+type AnyRec = Record<string, unknown>
+
+type PipelinePhase = 'full' | 'inventory' | 'extract' | 'audit'
+
+interface InventoryEnv {
+  environment: string
+  modules: string[]
+}
+
 interface PipelineBody {
   analysisId: string
   companyId: string
   mode?: 'max' | 'pro'
   pagePaths: string[]
   ragMemoriesPrompt?: string
+  /**
+   * Fases curtas evitam 504 do gateway (~150s).
+   * - inventory: capa → lista de ambientes/móveis
+   * - extract: 1 lote de páginas (pagePaths já cortado pelo client)
+   * - audit: 1 passagem do auditor
+   * - full: comportamento legado (tudo numa chamada — só PDFs pequenos)
+   */
+  phase?: PipelinePhase
+  inventory?: InventoryEnv[]
+  extraction?: AnyRec
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -32,7 +51,6 @@ function normalizeKey(value: string): string {
     .trim()
 }
 
-type AnyRec = Record<string, unknown>
 
 function asObjArray(value: unknown): AnyRec[] {
   if (!Array.isArray(value)) return []
@@ -757,6 +775,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey)
     const mode = body.mode === 'pro' ? 'pro' : 'max'
+    const phase: PipelinePhase = body.phase || 'full'
     const ragBlock = body.ragMemoriesPrompt?.trim()
       ? `\n\n${body.ragMemoriesPrompt.trim()}`
       : ''
@@ -777,12 +796,194 @@ Deno.serve(async (req) => {
       })
     }
 
+    const formatInventoryText = (inventory: InventoryEnv[]) =>
+      inventory.length
+        ? inventory.map((e) => `- ${e.environment}: ${(e.modules || []).join(', ')}`).join('\n')
+        : '(inventário vazio — extraia o máximo possível das pranchas)'
+
+    if (phase === 'inventory') {
+      const coverImages = signedContents.slice(0, Math.min(3, signedContents.length)).map((c) => ({
+        type: 'image_url' as const,
+        image_url: c.image_url,
+      }))
+      await setStage(
+        admin,
+        body.analysisId,
+        'READING_LAYOUT',
+        'reading_inventory',
+        'Olhando a capa do projeto: listando ambientes e móveis prometidos…',
+        'vision',
+      )
+      const inventoryRaw = await openAiJson({
+        apiKey: openAiKey,
+        model: PARSER_MODEL,
+        system: SYSTEM_INVENTORY,
+        userContent: [
+          {
+            type: 'text',
+            text: `Liste TODOS os ambientes e módulos/móveis deste projeto (guarda-roupa, painel, cabeceira, nicho, ferragens, etc.). ${signedContents.length} páginas no total.`,
+          },
+          ...coverImages,
+        ],
+        schemaName: 'quote_inventory',
+        schema: INVENTORY_SCHEMA,
+        maxTokens: 4000,
+      })
+      const inventory = Array.isArray(inventoryRaw.inventory)
+        ? (inventoryRaw.inventory as InventoryEnv[])
+        : []
+      return jsonResponse({ ok: true, phase, inventory, pagesProcessed: signedContents.length })
+    }
+
+    if (phase === 'extract') {
+      const inventory = Array.isArray(body.inventory) ? body.inventory : []
+      const inventoryText = formatInventoryText(inventory)
+      const images = signedContents.map((c) => ({
+        type: 'image_url' as const,
+        image_url: c.image_url,
+      }))
+      await setStage(
+        admin,
+        body.analysisId,
+        'EXTRACTING_MODULES',
+        'extracting_batch',
+        `Caçando chapas MDF, puxadores e dobradiças neste lote (${signedContents.length} página(s))…`,
+        'vision',
+      )
+      const batchExtraction = await openAiJson({
+        apiKey: openAiKey,
+        model: EXTRACTOR_MODEL,
+        system: SYSTEM_EXTRACTOR + ragBlock,
+        userContent: [
+          {
+            type: 'text',
+            text: `Lote com ${signedContents.length} página(s).
+INVENTÁRIO ESPERADO DO PROJETO:
+${inventoryText}
+
+Extraia TODOS os módulos/insumos visíveis NESTE lote. Não omita guarda-roupa, painel, cabeceira, nicho divisor nem ferragens.`,
+          },
+          ...images,
+        ],
+        schemaName: 'quote_extraction_batch',
+        schema: EXTRACTOR_SCHEMA,
+        maxTokens: 12000,
+      })
+      const extraction = ensurePlaceholders(mergeExtractions([batchExtraction]))
+      return jsonResponse({
+        ok: true,
+        phase,
+        inventory,
+        extraction,
+        pagesProcessed: signedContents.length,
+      })
+    }
+
+    if (phase === 'audit') {
+      const inventory = Array.isArray(body.inventory) ? body.inventory : []
+      const inventoryText = formatInventoryText(inventory)
+      let extraction = ensurePlaceholders(
+        body.extraction && typeof body.extraction === 'object'
+          ? body.extraction
+          : { environments: [], auditor_notes: [], warnings: [] },
+      )
+      const gaps = findBomGaps(extraction)
+      const coverageBefore = buildCoverage(inventory, extraction)
+      const scoreBefore = gaps.length + coverageBefore.missing.length
+      if (scoreBefore === 0) {
+        return jsonResponse({
+          ok: true,
+          phase,
+          inventory,
+          extraction,
+          coverage: coverageBefore,
+          bomGaps: gaps,
+          pagesProcessed: signedContents.length,
+          skipped: true,
+        })
+      }
+
+      await setStage(
+        admin,
+        body.analysisId,
+        'AUDITING_REVISION',
+        'auditing',
+        `Auditoria: ainda vejo ${gaps.length} falha(s) de lista e ${coverageBefore.missing.length} módulo(s) faltando — pedindo à IA completar…`,
+        'audit',
+      )
+
+      const auditImages = signedContents.slice(0, 8).map((c) => ({
+        type: 'image_url' as const,
+        image_url: c.image_url,
+      }))
+
+      extraction = ensurePlaceholders(
+        mergeExtractions([
+          extraction,
+          await openAiJson({
+            apiKey: openAiKey,
+            model: EXTRACTOR_MODEL,
+            system: SYSTEM_AUDITOR,
+            userContent: [
+              {
+                type: 'text',
+                text: `INVENTÁRIO ESPERADO:
+${inventoryText}
+
+FALHAS DE BOM (marcenaria sem chapa/ferragem completa):
+${gaps.length ? gaps.map((g) => `- ${g.environment} → ${g.module}: ${g.reason}`).join('\n') : '(nenhuma)'}
+
+MÓDULOS DO INVENTÁRIO AINDA FALTANDO:
+${
+  coverageBefore.missing.length
+    ? coverageBefore.missing.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
+    : '(nenhum)'
+}
+
+Pedra (granito/mármore/quartzo), alvenaria, gesso e decoração (espelho, tapete, luminária, quadro, puff) → out_of_scope=true, sem peças.
+Complete chapas MDF, ferragens e puxadores. Preencha bounding_box.page.
+ÁRVORE ATUAL:
+${JSON.stringify(extraction).slice(0, 50000)}`,
+              },
+              ...auditImages,
+            ],
+            schemaName: 'quote_extraction_audited',
+            schema: EXTRACTOR_SCHEMA,
+            maxTokens: 16000,
+          }),
+        ]),
+      )
+
+      const coverage = buildCoverage(inventory, extraction)
+      const bomGaps = findBomGaps(extraction)
+      if (bomGaps.length) {
+        const warnings = Array.isArray(extraction.warnings)
+          ? [...(extraction.warnings as string[])]
+          : []
+        for (const g of bomGaps) {
+          warnings.push(`BOM incompleto: ${g.environment} → ${g.module} (${g.reason})`)
+        }
+        extraction = { ...extraction, warnings: [...new Set(warnings)] }
+      }
+
+      return jsonResponse({
+        ok: true,
+        phase,
+        inventory,
+        extraction,
+        coverage,
+        bomGaps,
+        mode,
+        pagesProcessed: signedContents.length,
+      })
+    }
+
+    // full legado — inventário + lotes + 1 auditoria leve
     const coverImages = signedContents.slice(0, Math.min(3, signedContents.length)).map((c) => ({
       type: 'image_url' as const,
       image_url: c.image_url,
     }))
 
-    // Passo 0 — inventário da capa
     await setStage(
       admin,
       body.analysisId,
@@ -799,7 +1000,7 @@ Deno.serve(async (req) => {
       userContent: [
         {
           type: 'text',
-          text: `Liste TODOS os ambientes e módulos/móveis deste projeto (guarde-roupa, painel, cabeceira, nicho, ferragens, etc.). ${signedContents.length} páginas no total.`,
+          text: `Liste TODOS os ambientes e módulos/móveis deste projeto (guarda-roupa, painel, cabeceira, nicho, ferragens, etc.). ${signedContents.length} páginas no total.`,
         },
         ...coverImages,
       ],
@@ -809,25 +1010,17 @@ Deno.serve(async (req) => {
     })
 
     const inventory = Array.isArray(inventoryRaw.inventory)
-      ? (inventoryRaw.inventory as Array<{ environment: string; modules: string[] }>)
+      ? (inventoryRaw.inventory as InventoryEnv[])
       : []
+    const inventoryText = formatInventoryText(inventory)
 
-    const inventoryText = inventory.length
-      ? inventory
-          .map((e) => `- ${e.environment}: ${(e.modules || []).join(', ')}`)
-          .join('\n')
-      : '(inventário vazio — extraia o máximo possível das pranchas)'
-
-    // Extração em lotes
     const batches = chunk(signedContents, BATCH_SIZE)
     const batchResults: unknown[] = []
-
     for (let bi = 0; bi < batches.length; bi++) {
       const batch = batches[bi]
       const images = batch.map((c) => ({ type: 'image_url' as const, image_url: c.image_url }))
       const pageFrom = bi * BATCH_SIZE + 1
       const pageTo = bi * BATCH_SIZE + batch.length
-
       await setStage(
         admin,
         body.analysisId,
@@ -836,7 +1029,6 @@ Deno.serve(async (req) => {
         `Lote ${bi + 1}/${batches.length}: caçando chapas MDF, puxadores e dobradiças nas páginas ${pageFrom}–${pageTo}…`,
         'vision',
       )
-
       const batchExtraction = await openAiJson({
         apiKey: openAiKey,
         model: EXTRACTOR_MODEL,
@@ -860,59 +1052,49 @@ Extraia TODOS os módulos/insumos visíveis NESTE lote. Não omita guarda-roupa,
     }
 
     let extraction = ensurePlaceholders(mergeExtractions(batchResults))
-
-    // Auditor (modo max): no máx. 2 tentativas; para cedo se gaps não diminuírem
-    const MAX_AUDITOR_ATTEMPTS = 2
     if (mode === 'max') {
-      const allImages = signedContents.map((c) => ({
-        type: 'image_url' as const,
-        image_url: c.image_url,
-      }))
-      for (let attempt = 0; attempt < MAX_AUDITOR_ATTEMPTS; attempt++) {
-        const gaps = findBomGaps(extraction)
-        const coverageBefore = buildCoverage(inventory, extraction)
-        const scoreBefore = gaps.length + coverageBefore.missing.length
-        if (scoreBefore === 0) break
-
+      const gaps = findBomGaps(extraction)
+      const coverageBefore = buildCoverage(inventory, extraction)
+      if (gaps.length + coverageBefore.missing.length > 0) {
         await setStage(
           admin,
           body.analysisId,
           'AUDITING_REVISION',
           'auditing',
-          `Auditoria ${attempt + 1}/${MAX_AUDITOR_ATTEMPTS}: ainda vejo ${gaps.length} falha(s) de lista e ${coverageBefore.missing.length} módulo(s) faltando — pedindo à IA completar…`,
+          `Auditoria: ainda vejo ${gaps.length} falha(s) de lista e ${coverageBefore.missing.length} módulo(s) faltando — pedindo à IA completar…`,
           'audit',
         )
-
+        const auditImages = signedContents.slice(0, 8).map((c) => ({
+          type: 'image_url' as const,
+          image_url: c.image_url,
+        }))
         extraction = ensurePlaceholders(
           mergeExtractions([
             extraction,
             await openAiJson({
               apiKey: openAiKey,
-              model: attempt === 0 ? AUDITOR_MODEL : EXTRACTOR_MODEL,
+              model: EXTRACTOR_MODEL,
               system: SYSTEM_AUDITOR,
               userContent: [
                 {
                   type: 'text',
-                  text: `Tentativa ${attempt + 1}/${MAX_AUDITOR_ATTEMPTS}.
-INVENTÁRIO ESPERADO:
+                  text: `INVENTÁRIO ESPERADO:
 ${inventoryText}
 
-FALHAS DE BOM (marcenaria sem chapa/ferragem completa):
+FALHAS DE BOM:
 ${gaps.length ? gaps.map((g) => `- ${g.environment} → ${g.module}: ${g.reason}`).join('\n') : '(nenhuma)'}
 
-MÓDULOS DO INVENTÁRIO AINDA FALTANDO:
+MÓDULOS FALTANDO:
 ${
   coverageBefore.missing.length
     ? coverageBefore.missing.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
     : '(nenhum)'
 }
 
-Pedra (granito/mármore/quartzo), alvenaria, gesso e decoração (espelho, tapete, luminária, quadro, puff) → out_of_scope=true, sem peças.
-Complete chapas MDF, ferragens e puxadores. Preencha bounding_box.page.
 ÁRVORE ATUAL:
 ${JSON.stringify(extraction).slice(0, 50000)}`,
                 },
-                ...(attempt === 0 ? allImages.slice(0, 12) : []),
+                ...auditImages,
               ],
               schemaName: 'quote_extraction_audited',
               schema: EXTRACTOR_SCHEMA,
@@ -920,27 +1102,15 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
             }),
           ]),
         )
-
-        const gapsAfter = findBomGaps(extraction)
-        const coverageAfter = buildCoverage(inventory, extraction)
-        const scoreAfter = gapsAfter.length + coverageAfter.missing.length
-        if (scoreAfter >= scoreBefore) {
-          const notes = Array.isArray(extraction.auditor_notes)
-            ? [...(extraction.auditor_notes as string[])]
-            : []
-          notes.push(
-            `Auditoria encerrada cedo: gaps não reduziram (${scoreBefore} → ${scoreAfter}).`,
-          )
-          extraction = { ...extraction, auditor_notes: [...new Set(notes)] }
-          break
-        }
       }
     }
 
     const coverage = buildCoverage(inventory, extraction)
     const bomGaps = findBomGaps(extraction)
     if (bomGaps.length) {
-      const warnings = Array.isArray(extraction.warnings) ? [...extraction.warnings] : []
+      const warnings = Array.isArray(extraction.warnings)
+        ? [...(extraction.warnings as string[])]
+        : []
       for (const g of bomGaps) {
         warnings.push(`BOM incompleto: ${g.environment} → ${g.module} (${g.reason})`)
       }
@@ -965,6 +1135,7 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
 
     return jsonResponse({
       ok: true,
+      phase: 'full',
       extraction,
       inventory,
       coverage,

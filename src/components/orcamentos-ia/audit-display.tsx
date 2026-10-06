@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, ChevronDown, CircleAlert, PackageSearch, Pencil } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleAlert, EyeOff, PackageSearch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
@@ -249,8 +249,19 @@ function groupByEnvironment(items: Array<{ environment: string; module: string }
   return [...map.entries()]
 }
 
+const COVERAGE_SUMMARY_HIDDEN_KEY = 'orcamentos-ia-coverage-summary-hidden'
+
+function readCoverageHidden(): boolean {
+  try {
+    return localStorage.getItem(COVERAGE_SUMMARY_HIDDEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 /** "Conferência do projeto": quantos móveis do projeto entraram no orçamento. */
 export function CoverageSummary({ coverage }: { coverage: CoverageReport }) {
+  const [hidden, setHidden] = useState(readCoverageHidden)
   const [showFound, setShowFound] = useState(false)
   const expected = coverage.expectedCount || coverage.extracted.length
   const found = coverage.expectedCount ? coverage.coveredCount : coverage.extracted.length
@@ -259,19 +270,64 @@ export function CoverageSummary({ coverage }: { coverage: CoverageReport }) {
   const extracted = useMemo(() => groupByEnvironment(coverage.extracted ?? []), [coverage.extracted])
   const complete = missing.length === 0
 
+  const setHiddenPersist = (next: boolean) => {
+    setHidden(next)
+    try {
+      localStorage.setItem(COVERAGE_SUMMARY_HIDDEN_KEY, next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (hidden) {
+    return (
+      <button
+        type="button"
+        onClick={() => setHiddenPersist(false)}
+        className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl border border-[#8d5e22]/15 bg-[#fffcf8] px-3 py-2 text-left transition hover:bg-[#fff8f0]"
+        title="Mostrar conferência do projeto"
+      >
+        <span className="flex min-w-0 items-center gap-1.5 text-[12px] text-[#8d5e22]">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.04em' }}>
+            Conferência do projeto
+          </span>
+          <span className={cn('truncate text-[11px] tabular-nums', INK_MUTED)}>
+            · {found}/{expected} móveis
+          </span>
+        </span>
+        <span className="shrink-0 text-[11px] font-medium text-[#8d5e22]">Mostrar</span>
+      </button>
+    )
+  }
+
   return (
     <div className="mt-3 rounded-xl border border-[#8d5e22]/15 bg-[#fffcf8] p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <p
-          className="text-[15px] tracking-[0.06em] text-[#8d5e22]"
-          style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p
+              className="text-[15px] tracking-[0.06em] text-[#8d5e22]"
+              style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+            >
+              Conferência do projeto
+            </p>
+            <p className={cn('text-[12px] tabular-nums', INK_SOFT)}>
+              <strong className={cn('font-semibold', INK)}>{found}</strong> de {expected}{' '}
+              {expected === 1 ? 'móvel encontrado' : 'móveis encontrados'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setHiddenPersist(true)}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-[#8d5e22] hover:bg-[#8d5e22]/10"
+          title="Ocultar conferência do projeto"
+          aria-label="Ocultar conferência do projeto"
         >
-          Conferência do projeto
-        </p>
-        <p className={cn('text-[12px] tabular-nums', INK_SOFT)}>
-          <strong className={cn('font-semibold', INK)}>{found}</strong> de {expected}{' '}
-          {expected === 1 ? 'móvel encontrado' : 'móveis encontrados'}
-        </p>
+          <EyeOff className="h-3.5 w-3.5" />
+          Ocultar
+        </button>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#8d5e22]/10">
         <div
