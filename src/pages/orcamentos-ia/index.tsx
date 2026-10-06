@@ -33,6 +33,7 @@ import {
   type QuoteAnalysisRow,
   type QuoteAnalysisStatus,
 } from '@/lib/orcamentos-ia/storage'
+import { CORTE_CLAUDE_CSS_VARS } from '@/lib/orcamentos-ia/ui-tokens'
 
 function compactSearch(text: string): string {
   return text
@@ -153,16 +154,8 @@ export default function OrcamentosIaPage() {
 
   return (
     <div
-      className="orcamentos-ia-shell relative isolate min-h-[calc(100vh-4rem)] overflow-x-hidden overflow-y-visible bg-[#f7f4ef]"
-      style={
-        {
-          '--oi-accent': '#0066FF',
-          '--oi-bg': '#f7f4ef',
-          '--oi-ink': '#1a2332',
-          '--oi-muted': '#5c6570',
-          '--oi-card': '#ffffff',
-        } as CSSProperties
-      }
+      className="orcamentos-ia-shell relative isolate min-h-[calc(100vh-4rem)] overflow-x-hidden overflow-y-visible bg-[var(--cc-paper,#eef1f4)]"
+      style={{ ...CORTE_CLAUDE_CSS_VARS } as CSSProperties}
     >
       <div className="pointer-events-none absolute inset-0 -z-10">
         <OrcamentosIaShaderBackdrop />
@@ -170,74 +163,75 @@ export default function OrcamentosIaPage() {
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(180deg, rgba(247,244,239,0.55) 0%, rgba(247,244,239,0.82) 45%, rgba(247,244,239,0.94) 100%)',
+              'linear-gradient(165deg, rgba(15,20,25,0.55) 0%, rgba(238,241,244,0.35) 42%, rgba(238,241,244,0.88) 100%)',
           }}
         />
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 pb-28 sm:gap-8 sm:px-6 sm:py-10 sm:pb-32">
-        <header className="oi-hero flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-700">
-          <div className="space-y-3">
+      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 pb-28 sm:gap-10 sm:px-6 sm:py-12 sm:pb-32">
+        <header className="oi-hero flex min-h-[min(52vh,420px)] flex-col justify-end gap-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+          <div className="space-y-4">
+            <p
+              className="text-5xl leading-[0.9] tracking-[0.02em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-6xl md:text-7xl"
+              style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+            >
+              Corte Claude
+            </p>
             <p
               className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-[#0066FF]"
               style={{ fontFamily: 'Raleway, sans-serif' }}
             >
               <BrainCircuit className="h-4 w-4" />
-              Planilha 4.0 · GARBO
+              GARBO · BOM fabril
             </p>
             <h1
-              className="text-4xl leading-[0.95] tracking-wide text-[var(--oi-ink)] sm:text-5xl md:text-6xl"
-              style={{ fontFamily: "'Bebas Neue', sans-serif" }}
-            >
-              Orçamentos IA
-            </h1>
-            <p
-              className="max-w-xl text-base text-[var(--oi-muted)] sm:text-lg"
+              className="max-w-2xl text-2xl leading-snug text-[var(--cc-ink)] sm:text-3xl"
               style={{ fontFamily: "'Cormorant Garamond', serif" }}
             >
-              Do PDF à lista de compras — com preços, auditoria visual e memória da oficina.
-            </p>
+              Do croqui à lista exata de chapas, fitas e ferragens — sem preço por metro quadrado de
+              fachada.
+            </h1>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               className="gap-2 border-0 bg-[#0066FF] text-white shadow-md hover:bg-[#0052cc]"
-              onClick={() => setInventoryOpen(true)}
-              disabled={!companyId}
-            >
-              <Package className="h-4 w-4" />
-              Tabela de Preços & Estoque
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
-              onClick={() => setStandardsOpen(true)}
-              disabled={!companyId}
-            >
-              <Settings2 className="h-4 w-4" />
-              Central de Informações
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
-              onClick={() => setMemoriesOpen(true)}
-              disabled={!companyId}
-            >
-              <Brain className="h-4 w-4" />
-              Treinamento / Memórias
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
               onClick={() => setShowUpload((v) => !v)}
               disabled={!companyId}
             >
               <FilePlus2 className="h-4 w-4" />
               {showUpload ? 'Ocultar upload' : 'Novo orçamento'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-slate-300/80 bg-white/90 text-slate-800 backdrop-blur-sm hover:bg-white"
+              onClick={() => setInventoryOpen(true)}
+              disabled={!companyId}
+            >
+              <Package className="h-4 w-4" />
+              Preços & Estoque
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-slate-300/80 bg-white/90 text-slate-800 backdrop-blur-sm hover:bg-white"
+              onClick={() => setStandardsOpen(true)}
+              disabled={!companyId}
+            >
+              <Settings2 className="h-4 w-4" />
+              Preferências construtivas
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-slate-300/80 bg-white/90 text-slate-800 backdrop-blur-sm hover:bg-white"
+              onClick={() => setMemoriesOpen(true)}
+              disabled={!companyId}
+            >
+              <Brain className="h-4 w-4" />
+              Memórias
             </Button>
           </div>
         </header>

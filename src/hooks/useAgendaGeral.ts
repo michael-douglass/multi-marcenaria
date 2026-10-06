@@ -24,10 +24,19 @@ import { userIsTitularDaReuniao } from '@/lib/agenda-reuniao-titulares';
 import { toast } from 'sonner';
 import { getOcorrenciasNoIntervalo } from '@/lib/agenda-pessoal-recorrencia';
 import {
+  needsRecurringMovePrompt,
   planBulkRescheduleEvent,
   type BulkRescheduleTimeMode,
+  type RecurringMoveScope,
 } from '@/lib/agenda-postpone';
+import { buildRecurringSeriesMoveUpdates } from '@/lib/agenda-pessoal-recorrencia';
 import type { PessoalAgendaEventData } from '@/components/agenda/TarefaPessoalOcorrenciaDialog';
+
+export interface PendingRecurringMove {
+  event: AgendaEvent;
+  newStart: Date;
+  newEnd: Date;
+}
 
 export type BulkRescheduleOptions =
   | { keepTime: true }
@@ -235,6 +244,7 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
     deleteTarefa,
     concluirOcorrencia,
     excluirOcorrencia,
+    reagendarOcorrencia,
     loading: loadingPessoal,
   } = useAgendaPessoal({ forceOwnTitular });
   const {
@@ -257,6 +267,9 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
   const [editingLembrete, setEditingLembrete] = useState<LeadLembrete | null>(null);
   const [editingMarketingTask, setEditingMarketingTask] = useState<MarketingTask | null>(null);
   const [editingPessoal, setEditingPessoal] = useState<PessoalAgendaEventData | null>(null);
+  const [pendingRecurringMove, setPendingRecurringMove] = useState<PendingRecurringMove | null>(
+    null,
+  );
 
   // ── Filtro de titularidade (apenas admins) ──────────────────────────────────
 
@@ -396,6 +409,7 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
     event: AgendaEvent,
     newStart: Date,
     newEnd: Date,
+    recurringScope?: RecurringMoveScope,
   ) => {
     if (event.type === 'tarefa') {
       const reuniao = event.originalData as AgendaReuniao;
@@ -430,46 +444,77 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
 
     if (event.type === 'pessoal') {
       const pessoal = event.originalData as PessoalAgendaEventData;
-      if (
-        pessoal.tipo_agendamento === 'recorrente' &&
-        !isSameDay(newStart, pessoal.dataOcorrencia)
-      ) {
-        const err = new Error('RECURRENT_DAY_CHANGE');
-        err.name = 'RECURRENT_DAY_CHANGE';
-        throw err;
+      const novaData = format(newStart, 'yyyy-MM-dd');
+      const novaHora = format(newStart, 'HH:mm');
+
+      if (pessoal.tipo_agendamento === 'recorrente') {
+        if (recurringScope === 'occurrence') {
+          await reagendarOcorrencia.mutateAsync({
+            tarefa: pessoal,
+            dataOcorrenciaAntiga: format(pessoal.dataOcorrencia, 'yyyy-MM-dd'),
+            novaData,
+            updates: { hora: novaHora },
+          });
+          return;
+        }
+        const seriesUpdates = buildRecurringSeriesMoveUpdates(pessoal, newStart, novaHora);
+        await updateTarefa.mutateAsync({
+          id: pessoal.id,
+          ...seriesUpdates,
+        });
+        return;
       }
-      const updates: Parameters<typeof updateTarefa.mutateAsync>[0] = {
+
+      await updateTarefa.mutateAsync({
         id: pessoal.id,
-        hora: format(newStart, 'HH:mm'),
-      };
-      if (pessoal.tipo_agendamento === 'unica') {
-        updates.data = format(newStart, 'yyyy-MM-dd');
-      }
-      await updateTarefa.mutateAsync(updates);
+        hora: novaHora,
+        data: novaData,
+      });
     }
   };
 
-  const handleEventDrop = async (event: AgendaEvent, newStart: Date, newEnd: Date) => {
+  const finishEventReschedule = async (
+    event: AgendaEvent,
+    newStart: Date,
+    newEnd: Date,
+    recurringScope?: RecurringMoveScope,
+  ) => {
     setIsRescheduling(true);
     try {
-      await persistEventReschedule(event, newStart, newEnd);
+      await persistEventReschedule(event, newStart, newEnd, recurringScope);
       // A página permanece no dia visível: o card muda de data, o calendário não acompanha.
+      if (recurringScope === 'occurrence') {
+        return;
+      }
+      if (recurringScope === 'series') {
+        toast.success('Tarefa fixa atualizada. Todas as vezes passam a usar este horário.');
+        return;
+      }
       if (isSameDay(event.start, newStart)) {
         toast.success(`Horário atualizado para ${format(newStart, 'HH:mm')}`);
       } else {
         toast.success(`Tarefa adiada para ${format(newStart, 'dd/MM')} às ${format(newStart, 'HH:mm')}`);
       }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'RECURRENT_DAY_CHANGE') {
-        toast.error(
-          'Tarefas recorrentes só podem ter o horário alterado no mesmo dia. Edite a tarefa para mudar a data.',
-        );
-        return;
-      }
+    } catch {
       toast.error('Não foi possível atualizar o horário');
     } finally {
       setIsRescheduling(false);
     }
+  };
+
+  const handleEventDrop = async (event: AgendaEvent, newStart: Date, newEnd: Date) => {
+    if (needsRecurringMovePrompt(event, newStart)) {
+      setPendingRecurringMove({ event, newStart, newEnd });
+      return;
+    }
+    await finishEventReschedule(event, newStart, newEnd);
+  };
+
+  const handleConfirmRecurringMove = async (scope: RecurringMoveScope) => {
+    const pending = pendingRecurringMove;
+    if (!pending) return;
+    setPendingRecurringMove(null);
+    await finishEventReschedule(pending.event, pending.newStart, pending.newEnd, scope);
   };
 
   const handleBulkReschedule = async (
@@ -720,6 +765,9 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
     users,
     updateReuniao,
     handleEventDrop,
+    pendingRecurringMove,
+    setPendingRecurringMove,
+    handleConfirmRecurringMove,
     handleBulkReschedule,
     handleBulkComplete,
     handleEditEvent,

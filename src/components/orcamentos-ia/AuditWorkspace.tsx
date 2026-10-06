@@ -17,6 +17,8 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  Box,
+  FileText,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -42,6 +44,13 @@ import {
 import { ExplainCorrectionModal } from '@/components/orcamentos-ia/ExplainCorrectionModal'
 import { AuditChatWidget } from '@/components/orcamentos-ia/AuditChatWidget'
 import { CompanyMemoriesModal } from '@/components/orcamentos-ia/CompanyMemoriesModal'
+import { AuditCockpit } from '@/components/orcamentos-ia/AuditCockpit'
+import { PromptStudioModal } from '@/components/orcamentos-ia/PromptStudioModal'
+import { ModuleXrayScene } from '@/components/orcamentos-ia/ModuleXrayScene'
+import { listBomItemsForProject } from '@/lib/orcamentos-ia/bom-persist'
+import { explodeModule, inferTypology, type BomLine, type CutPiece } from '@/lib/orcamentos-ia/bom-engine'
+import { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
+import { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
 import {
   CoverageSummary,
   MaterialRow,
@@ -131,6 +140,10 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [reprocessing, setReprocessing] = useState(false)
   const [showOutOfScope, setShowOutOfScope] = useState(false)
   const [memoriesOpen, setMemoriesOpen] = useState(false)
+  const [promptStudioOpen, setPromptStudioOpen] = useState(false)
+  const [viewerMode, setViewerMode] = useState<'pdf' | 'xray'>('pdf')
+  const [bomLines, setBomLines] = useState<BomLine[]>([])
+  const [engineeringCot, setEngineeringCot] = useState('')
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
   /** true = tela grande mostra a PNG da página (miniatura ampliada); false = PDF. */
   const [preferPageImage, setPreferPageImage] = useState(false)
@@ -183,6 +196,24 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     setExpandedMods(
       new Set(treeData.environments.flatMap((e) => e.modules.map((m) => m.id))),
     )
+
+    const totals =
+      treeData.totals && typeof treeData.totals === 'object'
+        ? (treeData.totals as Record<string, unknown>)
+        : {}
+    setEngineeringCot(typeof totals.engineering_cot === 'string' ? totals.engineering_cot : '')
+
+    const migrated = migrateLegacyPricingParams(totals.pricing_params ?? totals.pricingParams)
+    setPricingParams((prev) => ({ ...prev, ...migrated.params }))
+    if (migrated.notice) toast.message(migrated.notice)
+
+    const bom = await listBomItemsForProject(analysisId)
+    if (bom.error) {
+      // Tabela pode ainda não existir localmente — não bloqueia auditoria
+      setBomLines([])
+    } else {
+      setBomLines(bom.data)
+    }
 
     if (treeData.source_pdf_path) {
       const signed = await getSignedPdfUrl(treeData.source_pdf_path)
@@ -341,6 +372,50 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     () => (tree ? calculateQuotePricing(tree, pricingParams) : null),
     [tree, pricingParams],
   )
+
+  const selectedModule: QuoteModuleRow | null = useMemo(() => {
+    if (!selection) return null
+    return selection.kind === 'module' ? selection.module : selection.module
+  }, [selection])
+
+  const xrayPieces: CutPiece[] = useMemo(() => {
+    if (!selectedModule) return []
+    const d = selectedModule.dimensions ?? {}
+    const result = explodeModule({
+      name: selectedModule.name,
+      typology: inferTypology(selectedModule.name),
+      width_mm: Number(d.width_mm) || 800,
+      height_mm: Number(d.height_mm) || 720,
+      depth_mm: Number(d.depth_mm) || 500,
+      drawer_count: /gavet/i.test(selectedModule.name) ? 3 : 0,
+      door_count: /porta|arm[aá]rio|a[eé]reo/i.test(selectedModule.name) ? 2 : 0,
+    })
+    return result.pieces
+  }, [selectedModule])
+
+  const cockpitBlocks = useMemo(() => {
+    const bom =
+      bomLines.length > 0
+        ? bomLines
+        : xrayPieces.length
+          ? explodeModule({
+              name: selectedModule?.name ?? 'Módulo',
+              typology: inferTypology(selectedModule?.name ?? ''),
+              width_mm: Number(selectedModule?.dimensions?.width_mm) || 800,
+              height_mm: Number(selectedModule?.dimensions?.height_mm) || 720,
+              depth_mm: Number(selectedModule?.dimensions?.depth_mm) || 500,
+            }).bom
+          : []
+    if (!bom.length && !engineeringCot) return null
+    return buildObservabilityBlocks({
+      chainOfThought: engineeringCot || 'Desmonte local a partir das cotas do módulo selecionado.',
+      bom,
+      pricing: pricingParams,
+      promptTraces: Array.isArray((tree?.totals as Record<string, unknown> | undefined)?.prompt_traces)
+        ? ((tree?.totals as Record<string, unknown>).prompt_traces as unknown[])
+        : [],
+    })
+  }, [bomLines, engineeringCot, pricingParams, selectedModule, tree?.totals, xrayPieces.length])
 
   const shoppingList = useMemo(
     () =>
@@ -599,22 +674,6 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               />
             </label>
           )}
-          {pricingParams.modality === 'per_sqm' && (
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              R$ por m²
-              <Input
-                type="number"
-                className="h-7 w-20 text-xs"
-                value={pricingParams.pricePerSqm}
-                onChange={(e) =>
-                  setPricingParams((p) => ({
-                    ...p,
-                    pricePerSqm: Number(e.target.value) || 0,
-                  }))
-                }
-              />
-            </label>
-          )}
           {pricing && (
             <div
               className="hidden rounded-lg border border-[#8d5e22]/25 bg-[#fffcf8] px-3 py-1 text-right sm:block"
@@ -717,15 +776,41 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
-        {/* Esquerda: PDF */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(280px,0.75fr)] lg:grid-cols-2">
+        {/* Esquerda: PDF / Raio-X */}
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card lg:col-span-1">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+            <div className="flex rounded-md border border-border p-0.5">
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium',
+                  viewerMode === 'pdf' ? 'bg-[#0066FF] text-white' : 'text-muted-foreground',
+                )}
+                onClick={() => setViewerMode('pdf')}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                PDF
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium',
+                  viewerMode === 'xray' ? 'bg-[#0066FF] text-white' : 'text-muted-foreground',
+                )}
+                onClick={() => setViewerMode('xray')}
+                disabled={!selectedModule}
+                title={selectedModule ? 'Raio-X 3D do módulo' : 'Selecione um módulo na árvore'}
+              >
+                <Box className="h-3.5 w-3.5" />
+                Raio-X
+              </button>
+            </div>
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              disabled={pageNumber <= 1}
+              disabled={pageNumber <= 1 || viewerMode !== 'pdf'}
               onClick={() => {
                 const p = Math.max(1, pageNumber - 1)
                 setPageNumber(p)
@@ -781,9 +866,21 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             </div>
           </div>
 
+          {viewerMode === 'xray' && selectedModule ? (
+            <ModuleXrayScene
+              className="min-h-0 flex-1"
+              pieces={xrayPieces}
+              moduleWidthMm={Number(selectedModule.dimensions?.width_mm) || 800}
+              moduleHeightMm={Number(selectedModule.dimensions?.height_mm) || 720}
+              moduleDepthMm={Number(selectedModule.dimensions?.depth_mm) || 500}
+            />
+          ) : null}
           <div
             ref={mainViewerRef}
-            className="relative min-h-0 flex-1 cursor-grab overflow-hidden bg-[#eef1f5] active:cursor-grabbing"
+            className={cn(
+              'relative min-h-0 flex-1 cursor-grab overflow-hidden bg-[#eef1f5] active:cursor-grabbing',
+              viewerMode === 'xray' && 'hidden',
+            )}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -1045,6 +1142,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             </div>
           </ScrollArea>
         </section>
+
+        <AuditCockpit
+          className="min-h-[280px] xl:min-h-0 lg:col-span-2 xl:col-span-1"
+          blocks={cockpitBlocks}
+          onOpenPromptStudio={() => setPromptStudioOpen(true)}
+        />
       </div>
 
       {/* Editor rápido */}
@@ -1105,6 +1208,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       <CompanyMemoriesModal
         open={memoriesOpen}
         onOpenChange={setMemoriesOpen}
+        companyId={companyId}
+      />
+
+      <PromptStudioModal
+        open={promptStudioOpen}
+        onOpenChange={setPromptStudioOpen}
         companyId={companyId}
       />
 

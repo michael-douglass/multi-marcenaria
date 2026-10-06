@@ -176,6 +176,25 @@ export const moduleExtractionSchema = z
       description: z.string().optional(),
       /** Pedra, alvenaria, decoração — listado à parte, sem custo. */
       out_of_scope: z.boolean().optional(),
+      /** Tipologia Corte Claude v11 (Módulos 1–11). */
+      typology: z
+        .enum([
+          'balcao',
+          'aereo',
+          'armario_correr',
+          'armario_giro',
+          'nicho',
+          'painel',
+          'gaveteiro',
+          'outro',
+        ])
+        .optional(),
+      door_count: z.number().int().nonnegative().optional(),
+      drawer_count: z.number().int().nonnegative().optional(),
+      shelf_count: z.number().int().nonnegative().optional(),
+      sliding_doors: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+      column_widths_mm: z.array(z.number().positive()).optional(),
+      doubled_top: z.boolean().optional(),
       dimensions: z
         .object({
           width_mm: z.number().positive(),

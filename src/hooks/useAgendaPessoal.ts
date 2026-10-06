@@ -528,9 +528,13 @@ export function useAgendaPessoal(options?: UseAgendaPessoalOptions) {
         ]);
       if (createError) throw createError;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['agenda-pessoal'] });
-      toast.success('Data da tarefa atualizada!');
+      if (variables.tarefa.tipo_agendamento === 'recorrente') {
+        toast.success('Esta ocorrência foi movida. A tarefa fixa permanece no horário original.');
+      } else {
+        toast.success('Data da tarefa atualizada!');
+      }
     },
     onError: (error) => {
       console.error('Erro ao reagendar ocorrência:', error);

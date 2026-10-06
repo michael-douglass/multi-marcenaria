@@ -36,6 +36,16 @@ import {
   formatMemoriesForPrompt,
   getCompanyMemories,
 } from '@/lib/orcamentos-ia/memory'
+import {
+  formatPreferencesForPrompt,
+  getSystemPreferences,
+} from '@/lib/orcamentos-ia/system-preferences'
+import {
+  clearBomItemsForProject,
+  explodeModuleForPersist,
+  insertBomItems,
+  validateBomLines,
+} from '@/lib/orcamentos-ia/bom-persist'
 
 /**
  * Pipeline multi-agente (Fase 3).
@@ -337,7 +347,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     pipeline_detail: 'Olhando a capa: vou listar ambientes e móveis prometidos no projeto…',
   })
 
-  // RAG: memórias da empresa injetadas no System Prompt do Extrator
+  // RAG + preferências construtivas v11 injetadas no System Prompt do Extrator
   const { memories } = await getCompanyMemories({
     companyId: state.companyId,
     query:
@@ -345,7 +355,26 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     matchThreshold: 0.65,
     matchCount: 12,
   })
-  const ragPrompt = formatMemoriesForPrompt(memories)
+  let prefsPrompt = ''
+  try {
+    const prefs = await getSystemPreferences(state.companyId)
+    prefsPrompt = formatPreferencesForPrompt(prefs)
+  } catch {
+    prefsPrompt = formatPreferencesForPrompt({
+      company_id: state.companyId,
+      base_assembly: 'under_sides',
+      top_assembly: 'over_sides',
+      mounting_device: 'minifix_dowel',
+      back_panel_type: 'grooved',
+      back_panel_thickness: 6,
+      drawer_slide_type: 'telescopic',
+      front_gap_mm: 2,
+      box_thickness_mm: 15,
+      shelf_recess_mm: 10,
+      edgeband_policy: 'visible_edges',
+    })
+  }
+  const ragPrompt = [prefsPrompt, formatMemoriesForPrompt(memories)].filter(Boolean).join('\n\n')
 
   await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
     pipeline_stage: 'extracting_batch',
@@ -536,8 +565,18 @@ async function nodeResolvePricesAndPersist(
   let materialsSaved = 0
   let marketFlags = 0
   let outOfScopeCount = 0
+  let bomItemsSaved = 0
+  const engineeringCot: string[] = []
   const resolver = await createPriceResolver(state.companyId)
   const price = (name: string, category: string) => assertPriced(resolver.resolve(name, category), name)
+
+  let systemPrefs: Awaited<ReturnType<typeof getSystemPreferences>> | null = null
+  try {
+    systemPrefs = await getSystemPreferences(state.companyId)
+  } catch {
+    systemPrefs = null
+  }
+  await clearBomItemsForProject(state.analysisId)
 
   /** Chapa em m²: área real × R$/m² (perda aplicada no custo e na lista de compras). */
   const areaRow = (
@@ -848,6 +887,22 @@ async function nodeResolvePricesAndPersist(
           `Módulo “${mod.name}” sem materiais após extração — pipeline abortado (proibido lista vazia).`,
         )
       }
+
+      // v11: desmonte determinístico → bom_items + CoT de engenharia
+      const exploded = explodeModuleForPersist(mod, systemPrefs, env.name)
+      const bomCheck = validateBomLines(exploded.bom)
+      if (!bomCheck.ok) {
+        throw new Error(
+          `BOM inválido no módulo “${mod.name}”: ${bomCheck.issues.slice(0, 3).join(' | ')}`,
+        )
+      }
+      const bomInsert = await insertBomItems(state.analysisId, modRow.id, exploded.bom)
+      if (bomInsert.error) throw new Error(bomInsert.error)
+      bomItemsSaved += bomInsert.count
+      engineeringCot.push(`### ${mod.name}\n${exploded.chainOfThought}`)
+      for (const w of exploded.warnings) {
+        engineeringCot.push(`AVISO [${mod.name}]: ${w}`)
+      }
     }
   }
 
@@ -883,11 +938,14 @@ async function nodeResolvePricesAndPersist(
     totals: {
       ...prevTotals,
       materials_count: materialsSaved,
+      bom_items_count: bomItemsSaved,
       market_price_flags: marketFlags,
       out_of_scope_modules: outOfScopeCount,
       environments: state.extraction.environments.length,
       modules: state.extraction.environments.reduce((n, e) => n + e.modules.length, 0),
       auditor_notes: state.extraction.auditor_notes,
+      engineering_cot: engineeringCot.join('\n\n'),
+      pricing_note: 'v11: venda apenas por BOM (MPC% ou ×N) — proibido m² de fachada',
       warnings: [
         ...(Array.isArray(state.extraction.warnings) ? state.extraction.warnings : []),
         ...(coverage.missing.length

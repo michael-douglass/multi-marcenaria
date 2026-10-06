@@ -14,6 +14,7 @@ import { EditReuniaoDialog } from './EditReuniaoDialog';
 import { LeadLembreteDialog } from './LeadLembreteDialog';
 import { MarketingTaskDialog } from '../marketing-conteudo/MarketingTaskDialog';
 import { TarefaPessoalOcorrenciaDialog } from './TarefaPessoalOcorrenciaDialog';
+import { AgendaRecorrenteMoveDialog } from './AgendaRecorrenteMoveDialog';
 
 interface AgendaGeralContentProps {
   compact?: boolean;
@@ -169,6 +170,23 @@ export function AgendaGeralContent({
         onOpenChange={(open) => !open && agenda.setEditingPessoal(null)}
         eventData={agenda.editingPessoal}
         floatingLayer={compact}
+      />
+
+      <AgendaRecorrenteMoveDialog
+        open={!!agenda.pendingRecurringMove}
+        onOpenChange={(open) => {
+          if (!open) agenda.setPendingRecurringMove(null);
+        }}
+        floatingLayer={compact}
+        isSaving={agenda.isRescheduling}
+        summary={
+          agenda.pendingRecurringMove
+            ? `${format(agenda.pendingRecurringMove.event.start, 'dd/MM HH:mm')} → ${format(agenda.pendingRecurringMove.newStart, 'dd/MM HH:mm')}`
+            : undefined
+        }
+        onChoose={(scope) => {
+          void agenda.handleConfirmRecurringMove(scope);
+        }}
       />
 
       {compact && (

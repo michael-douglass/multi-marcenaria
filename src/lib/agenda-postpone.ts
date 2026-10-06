@@ -24,6 +24,13 @@ export function isPessoalRecorrente(event: AgendaEvent): boolean {
   return data.tipo_agendamento === 'recorrente';
 }
 
+export type RecurringMoveScope = 'occurrence' | 'series';
+
+/** Tarefa fixa mudou de dia ou de horário → perguntar se é só desta vez. */
+export function needsRecurringMovePrompt(event: AgendaEvent, newStart: Date): boolean {
+  return isPessoalRecorrente(event) && isAgendaPostponeDraftDirty(event.start, newStart);
+}
+
 export function isAgendaPostponeDraftDirty(originalStart: Date, draftStart: Date): boolean {
   return originalStart.getTime() !== draftStart.getTime();
 }
@@ -102,7 +109,7 @@ export function planBulkRescheduleEvent(
       end: event.end,
       skipped: true,
       skipReason:
-        'Tarefas recorrentes só podem ter o horário alterado no mesmo dia. Edite a tarefa para mudar a data.',
+        'Tarefas recorrentes em outro dia: arraste uma de cada vez e escolha se vale só desta vez ou para sempre.',
     };
   }
 

@@ -114,6 +114,63 @@ export function getRecorrenciaTipoLabel(recorrenciaTipo: string | null | undefin
   return 'Recorrente';
 }
 
+/** Troca o dia da semana desta ocorrência na série (ex.: segunda → terça). */
+export function shiftRecorrenciaDiasSemana(
+  dias: number[] | null,
+  fromDow: number,
+  toDow: number,
+): number[] {
+  const current = dias && dias.length > 0 ? dias : [fromDow];
+  const next = new Set(current.filter((d) => d !== fromDow));
+  next.add(toDow);
+  return [...next].sort((a, b) => a - b);
+}
+
+/** Mantém o mês/ano de início da série e troca só o dia do mês. */
+export function withSameMonthDayOfMonth(isoDate: string, dayOfMonth: number): string {
+  const parsed = parseLocalDate(isoDate);
+  const last = endOfMonth(parsed).getDate();
+  const safeDay = Math.min(Math.max(1, dayOfMonth), last);
+  parsed.setDate(safeDay);
+  return format(parsed, 'yyyy-MM-dd');
+}
+
+export interface RecurringSeriesMoveUpdates {
+  hora: string | null;
+  data?: string;
+  recorrencia_dias_semana?: number[];
+}
+
+/**
+ * Atualiza a série inteira: horário e, se mudou o dia, o padrão (semana/mês).
+ * Em “todo dia”, mudar o dia não altera o padrão — só o horário.
+ */
+export function buildRecurringSeriesMoveUpdates(
+  tarefa: {
+    recorrencia_tipo: string | null;
+    recorrencia_dias_semana: number[] | null;
+    data: string;
+    dataOcorrencia: Date;
+  },
+  newStart: Date,
+  newHora: string | null,
+): RecurringSeriesMoveUpdates {
+  const updates: RecurringSeriesMoveUpdates = { hora: newHora };
+  if (isSameDay(tarefa.dataOcorrencia, newStart)) return updates;
+
+  if (tarefa.recorrencia_tipo === 'dias_semana') {
+    updates.recorrencia_dias_semana = shiftRecorrenciaDiasSemana(
+      tarefa.recorrencia_dias_semana,
+      tarefa.dataOcorrencia.getDay(),
+      newStart.getDay(),
+    );
+  } else if (tarefa.recorrencia_tipo === 'mensal') {
+    updates.data = withSameMonthDayOfMonth(tarefa.data, newStart.getDate());
+  }
+
+  return updates;
+}
+
 /** Resumo legível da recorrência (ex.: "Todo dia 10"). */
 export function formatRecorrenciaResumo(
   tarefa: Pick<TarefaPessoal, 'tipo_agendamento' | 'recorrencia_tipo' | 'recorrencia_dias_semana' | 'data'>,

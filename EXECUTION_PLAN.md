@@ -252,10 +252,32 @@ flowchart LR
 
 ---
 
+---
+
+## Fase v11 — Corte Claude (BOM fabril, sem m² de fachada)
+
+PRD: [`docs/prd_v11_sistema_orcamento_corte_claude.md`](docs/prd_v11_sistema_orcamento_corte_claude.md)
+
+- [x] Migration `20261006_orcamentos_ia_v11_bom.sql` — `system_preferences`, `bom_items`, `ai_prompt_overrides`
+- [x] Remoção da modalidade comercial `per_sqm` (`pricing.ts` + Audit Workspace)
+- [x] `normalizePricingModality` para orçamentos legados
+- [x] UI de preferências construtivas → `system_preferences` (`CompanyStandardsModal`)
+- [x] Teste E0: `node scripts/test-orcamentos-ia-v11-pricing-no-per-sqm.mjs`
+- [x] Motor `bom-engine` (E1) + teste `test-orcamentos-ia-bom-engine.mjs`
+- [x] Pipeline persiste `bom_items` + CoT (E2) + teste `test-orcamentos-ia-pipeline-bom-persist.mjs`
+- [x] Redesign hub Corte Claude + shader CNC (E3) + teste `test-orcamentos-ia-ui-tokens.mjs`
+- [x] Cockpit CoT / Auditor / Prompt Studio / Inspector (E4) + teste `test-orcamentos-ia-observability.mjs`
+- [x] Raio-X 3D `ModuleXrayScene` (E5) + teste `test-orcamentos-ia-xray-geometry.mjs`
+- [x] Tipologias correr/giro/nicho/engrosso (E6) + teste `test-orcamentos-ia-tipologias.mjs`
+- [x] Migração modalidade legada + `.cursorrules` v11 (E7) + teste `test-orcamentos-ia-migrate-modality.mjs`
+
+---
+
 ## Referências rápidas
 
 | Item | Local |
 |------|--------|
+| PRD v11 Corte Claude | `docs/prd_v11_sistema_orcamento_corte_claude.md` |
 | PRD v8 (visão) | `orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md` |
 | Relatório CalcmeX | `orcamento-com-IA/relatorio-implementacao-e-correcoes-calcmex.md` |
 | Medidas padrão | `src/lib/orcamentos-ia/dimension-defaults.ts` |

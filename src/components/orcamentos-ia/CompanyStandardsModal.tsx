@@ -19,38 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { supabase } from '@/lib/supabase'
-
-export interface CompanyStandardsRow {
-  id?: string
-  company_id: string
-  box_thickness: string
-  back_panel_thickness: string
-  assembly_method: string
-  bottom_fixing: string
-  tamponamento_rule: string
-  door_handle_discount_mm: number
-  handle_bar_length_m: number
-  constructive_method: string
-  shelf_support: string
-  wall_fixing: string
-  drawer_slide: string
-}
-
-const DEFAULT_STANDARDS = (companyId: string): CompanyStandardsRow => ({
-  company_id: companyId,
-  box_thickness: '15mm',
-  back_panel_thickness: '6mm',
-  assembly_method: 'minifix_cavilha',
-  bottom_fixing: 'rebaixo',
-  tamponamento_rule: 'empresa_25mm',
-  door_handle_discount_mm: 35,
-  handle_bar_length_m: 3.0,
-  constructive_method: 'metodo_a',
-  shelf_support: 'suporte_2_furos',
-  wall_fixing: 'cantoneira_3_furos',
-  drawer_slide: 'telescopica_450_45kg',
-})
+import {
+  DEFAULT_SYSTEM_PREFERENCES,
+  getSystemPreferences,
+  upsertSystemPreferences,
+  type SystemPreferences,
+} from '@/lib/orcamentos-ia/system-preferences'
 
 interface CompanyStandardsModalProps {
   open: boolean
@@ -65,7 +39,7 @@ export function CompanyStandardsModal({
 }: CompanyStandardsModalProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<CompanyStandardsRow>(() => DEFAULT_STANDARDS(companyId))
+  const [form, setForm] = useState<SystemPreferences>(() => DEFAULT_SYSTEM_PREFERENCES(companyId))
 
   useEffect(() => {
     if (!open || !companyId) return
@@ -73,24 +47,17 @@ export function CompanyStandardsModal({
     let cancelled = false
     const load = async () => {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('company_standards')
-        .select(
-          'id, company_id, box_thickness, back_panel_thickness, assembly_method, bottom_fixing, tamponamento_rule, door_handle_discount_mm, handle_bar_length_m, constructive_method, shelf_support, wall_fixing, drawer_slide',
-        )
-        .eq('company_id', companyId)
-        .maybeSingle()
-
-      if (cancelled) return
-      if (error) {
-        toast.error(error.message)
-        setForm(DEFAULT_STANDARDS(companyId))
-      } else if (data) {
-        setForm(data as CompanyStandardsRow)
-      } else {
-        setForm(DEFAULT_STANDARDS(companyId))
+      try {
+        const prefs = await getSystemPreferences(companyId)
+        if (!cancelled) setForm(prefs)
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : 'Falha ao carregar preferências')
+          setForm(DEFAULT_SYSTEM_PREFERENCES(companyId))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
 
     void load()
@@ -101,33 +68,15 @@ export function CompanyStandardsModal({
 
   const save = async () => {
     setSaving(true)
-    const payload = {
-      company_id: companyId,
-      box_thickness: form.box_thickness,
-      back_panel_thickness: form.back_panel_thickness,
-      assembly_method: form.assembly_method,
-      bottom_fixing: form.bottom_fixing,
-      tamponamento_rule: form.tamponamento_rule,
-      door_handle_discount_mm: form.door_handle_discount_mm,
-      handle_bar_length_m: form.handle_bar_length_m,
-      constructive_method: form.constructive_method,
-      shelf_support: form.shelf_support,
-      wall_fixing: form.wall_fixing,
-      drawer_slide: form.drawer_slide,
-      updated_at: new Date().toISOString(),
+    try {
+      await upsertSystemPreferences({ ...form, company_id: companyId })
+      toast.success('Preferências construtivas salvas.')
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao salvar')
+    } finally {
+      setSaving(false)
     }
-
-    const { error } = await supabase.from('company_standards').upsert(payload, {
-      onConflict: 'company_id',
-    })
-
-    setSaving(false)
-    if (error) {
-      toast.error(error.message)
-      return
-    }
-    toast.success('Padrões da marcenaria salvos.')
-    onOpenChange(false)
   }
 
   return (
@@ -136,146 +85,219 @@ export function CompanyStandardsModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900">
             <Settings2 className="h-5 w-5 text-[#0066FF]" />
-            Central de Informações
+            Preferências construtivas
           </DialogTitle>
           <DialogDescription className="text-slate-600">
-            Padrões construtivos da Planilha 4.0 usados pela IA ao orçar (esqueleto editável —
-            Fase 2).
+            Regras de montagem Corte Claude (v11) aplicadas no desmonte BOM — base/tampo, fixação,
+            fundo e folgas.
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Carregando padrões…
+            Carregando preferências…
           </div>
         ) : (
           <div className="grid gap-4 py-2">
-            <Field label="Método construtivo">
-              <Select
-                value={form.constructive_method}
-                onValueChange={(v) => setForm((f) => ({ ...f, constructive_method: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="metodo_a">Método A</SelectItem>
-                  <SelectItem value="metodo_b">Método B</SelectItem>
-                  <SelectItem value="metodo_c">Método C</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Espessura caixaria">
+              <Field label="Base da caixa">
                 <Select
-                  value={form.box_thickness}
-                  onValueChange={(v) => setForm((f) => ({ ...f, box_thickness: v }))}
+                  value={form.base_assembly}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      base_assembly: v as SystemPreferences['base_assembly'],
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="15mm">15 mm</SelectItem>
-                    <SelectItem value="18mm">18 mm</SelectItem>
-                    <SelectItem value="25mm">25 mm</SelectItem>
+                    <SelectItem value="under_sides">Passante (por baixo)</SelectItem>
+                    <SelectItem value="between_sides">Entre laterais</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Tampo">
+                <Select
+                  value={form.top_assembly}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      top_assembly: v as SystemPreferences['top_assembly'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="over_sides">Por cima das laterais</SelectItem>
+                    <SelectItem value="between_sides">Entre laterais</SelectItem>
+                    <SelectItem value="inside">Por dentro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Espessura caixaria">
+                <Select
+                  value={String(form.box_thickness_mm)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      box_thickness_mm: Number(v) as SystemPreferences['box_thickness_mm'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 mm</SelectItem>
+                    <SelectItem value="18">18 mm</SelectItem>
+                    <SelectItem value="25">25 mm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Fixação padrão">
+                <Select
+                  value={form.mounting_device}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      mounting_device: v as SystemPreferences['mounting_device'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minifix_dowel">Minifix + cavilha</SelectItem>
+                    <SelectItem value="screw">Parafuso estrutural</SelectItem>
+                    <SelectItem value="dowel_only">100% cavilha</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Tipo de fundo">
+                <Select
+                  value={form.back_panel_type}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      back_panel_type: v as SystemPreferences['back_panel_type'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="grooved">Rasgado (canal)</SelectItem>
+                    <SelectItem value="rebated">Rebaixado</SelectItem>
+                    <SelectItem value="screwed">Pregado/parafusado</SelectItem>
+                    <SelectItem value="reinforced">Fundo reforçado</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
               <Field label="Espessura fundo">
                 <Select
-                  value={form.back_panel_thickness}
-                  onValueChange={(v) => setForm((f) => ({ ...f, back_panel_thickness: v }))}
+                  value={String(form.back_panel_thickness)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      back_panel_thickness: Number(v) as SystemPreferences['back_panel_thickness'],
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="3mm">3 mm</SelectItem>
-                    <SelectItem value="6mm">6 mm</SelectItem>
+                    <SelectItem value="3">3 mm</SelectItem>
+                    <SelectItem value="6">6 mm</SelectItem>
+                    <SelectItem value="15">15 mm</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
             </div>
 
-            <Field label="Conectores / montagem">
+            <Field label="Corrediças">
               <Select
-                value={form.assembly_method}
-                onValueChange={(v) => setForm((f) => ({ ...f, assembly_method: v }))}
+                value={form.drawer_slide_type}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    drawer_slide_type: v as SystemPreferences['drawer_slide_type'],
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="minifix_cavilha">Minifix + cavilha</SelectItem>
-                  <SelectItem value="vb35">VB35</SelectItem>
-                  <SelectItem value="rafix">Rafix</SelectItem>
-                  <SelectItem value="parafuso_40x4">Parafuso 40×4</SelectItem>
+                  <SelectItem value="telescopic">Telescópica</SelectItem>
+                  <SelectItem value="telescopic_light">Telescópica Light</SelectItem>
+                  <SelectItem value="hidden_soft_close">Oculta com amortecedor</SelectItem>
+                  <SelectItem value="touch">Oculta fecho toque</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Desconto puxador (mm)">
+              <Field label="Folga frentes (mm)">
                 <Input
                   type="number"
                   min={0}
-                  value={form.door_handle_discount_mm}
+                  step="0.5"
+                  value={form.front_gap_mm}
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
-                      door_handle_discount_mm: Number(e.target.value) || 0,
+                      front_gap_mm: Number(e.target.value) || 0,
                     }))
                   }
                 />
               </Field>
-              <Field label="Barra de puxador (m)">
+              <Field label="Recuo prateleira (mm)">
                 <Input
                   type="number"
-                  step="0.1"
                   min={0}
-                  value={form.handle_bar_length_m}
+                  value={form.shelf_recess_mm}
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
-                      handle_bar_length_m: Number(e.target.value) || 3,
+                      shelf_recess_mm: Number(e.target.value) || 0,
                     }))
                   }
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Planilha 4.0: usar estritamente barras de 3 m.
-                </p>
               </Field>
             </div>
 
-            <Field label="Corrediças">
+            <Field label="Política de bordeamento">
               <Select
-                value={form.drawer_slide}
-                onValueChange={(v) => setForm((f) => ({ ...f, drawer_slide: v }))}
+                value={form.edgeband_policy}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    edgeband_policy: v as SystemPreferences['edgeband_policy'],
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="telescopica_450_45kg">Telescópica 450 mm 45 kg HF</SelectItem>
-                  <SelectItem value="oculta_amortecedor">Oculta com amortecedor</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field label="Fixação na parede">
-              <Select
-                value={form.wall_fixing}
-                onValueChange={(v) => setForm((f) => ({ ...f, wall_fixing: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cantoneira_2_furos">Cantoneira 2 furos</SelectItem>
-                  <SelectItem value="cantoneira_3_furos">Cantoneira 3 furos</SelectItem>
-                  <SelectItem value="regua_mdf_45">Régua MDF 45º</SelectItem>
+                  <SelectItem value="front_only">Apenas frente</SelectItem>
+                  <SelectItem value="visible_edges">Topos aparentes</SelectItem>
+                  <SelectItem value="all_edges">Todos os topos</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -292,7 +314,7 @@ export function CompanyStandardsModal({
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Salvar padrões
+            Salvar preferências
           </Button>
         </DialogFooter>
       </DialogContent>

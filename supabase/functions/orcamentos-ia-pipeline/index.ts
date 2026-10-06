@@ -528,15 +528,20 @@ const INVENTORY_SCHEMA = {
   },
 }
 
-const SYSTEM_EXTRACTOR = `Você é o Extrator técnico da Planilha 4.0 Premium (marcenaria).
+const SYSTEM_EXTRACTOR = `Você é o Extrator técnico Corte Claude v11 (marcenaria BOM / HelloMob).
 Extraia ABSOLUTAMENTE TUDO das pranchas deste LOTE:
+
+PROIBIDO precificar ou sugerir preço por m² de fachada (L×A × R$/m²). Só lista de insumos unitários (BOM).
 
 OBRIGATÓRIO — NUNCA módulos de marcenaria vazios.
 Para cada móvel (guarda-roupa, painel, cabeceira, nicho, mesa, aparador, divisória):
+- Informe typology quando possível: balcao|aereo|armario_correr|armario_giro|nicho|painel|gaveteiro|outro
+- Armário de correr: sliding_doors 2|3|4; armário de giro: column_widths_mm quando houver colunas
 - Cotar chapas MDF em caixaria e/ou frentes_portas (material_name, mm, quantity > 0)
 - Cotar ferragens e puxadores por UNIDADE INDIVIDUAL (dobradiças, corrediças, Minifix, etc.)
-- Cotar fitas de borda em metros
+- Cotar fitas de borda em metros (22 mm simples; 35/45 mm em engrosso)
 - Preencher bounding_box com page (1-based) + x,y,width,height 0–1 quando visível; senão page do módulo
+- Nichos abertos: preferir cavilha; sem rasgo de fundo em topos expostos
 
 MEDIDAS: use as cotas do desenho. Sem cota impressa, estime pela escala/proporção da planta (nunca 0).
 

@@ -46,10 +46,12 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAgendaPessoal, type TarefaPessoal } from '@/hooks/useAgendaPessoal';
-import { formatRecorrenciaResumo } from '@/lib/agenda-pessoal-recorrencia';
+import { formatRecorrenciaResumo, buildRecurringSeriesMoveUpdates } from '@/lib/agenda-pessoal-recorrencia';
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
 import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
+import { AgendaRecorrenteMoveDialog } from '@/components/agenda/AgendaRecorrenteMoveDialog';
+import type { RecurringMoveScope } from '@/lib/agenda-postpone';
 
 const DIAS_SEMANA_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -73,6 +75,7 @@ export function TarefaPessoalOcorrenciaDialog({
     useAgendaPessoal();
   const [editing, setEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMoveConfirm, setShowMoveConfirm] = useState(false);
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [hora, setHora] = useState('');
@@ -93,6 +96,7 @@ export function TarefaPessoalOcorrenciaDialog({
     if (!open || !eventData) return;
     setEditing(false);
     setShowDeleteConfirm(false);
+    setShowMoveConfirm(false);
     setTitulo(eventData.titulo);
     setDescricao(eventData.descricao || '');
     setHora(eventData.hora || '');
@@ -139,9 +143,19 @@ export function TarefaPessoalOcorrenciaDialog({
     );
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (recurringScope?: RecurringMoveScope) => {
     if (!titulo.trim() || !data || recorrenciaInvalida) return;
     const newDateStr = format(data, 'yyyy-MM-dd');
+    const estavaRecorrente = eventData.tipo_agendamento === 'recorrente';
+    const permaneceRecorrente = tipoAgendamento === 'recorrente';
+    const dataMudou = newDateStr !== dateStr;
+    const horaMudou = (hora.trim() || null) !== (eventData.hora || null);
+
+    if (estavaRecorrente && permaneceRecorrente && (dataMudou || horaMudou) && !recurringScope) {
+      setShowMoveConfirm(true);
+      return;
+    }
+
     const anexos = await anexosDraft.flush(eventData.id);
     const updates = {
       titulo: titulo.trim(),
@@ -171,9 +185,6 @@ export function TarefaPessoalOcorrenciaDialog({
             concluida,
           };
 
-    const estavaRecorrente = eventData.tipo_agendamento === 'recorrente';
-    const permaneceRecorrente = tipoAgendamento === 'recorrente';
-    const dataMudou = newDateStr !== dateStr;
     const convertendoParaUnica = estavaRecorrente && !permaneceRecorrente;
     const convertendoParaRecorrente = !estavaRecorrente && permaneceRecorrente;
 
@@ -191,7 +202,7 @@ export function TarefaPessoalOcorrenciaDialog({
         ...recurrenceUpdates,
         data: newDateStr,
       });
-    } else if (dataMudou && permaneceRecorrente) {
+    } else if (permaneceRecorrente && (dataMudou || horaMudou) && recurringScope === 'occurrence') {
       await reagendarOcorrencia.mutateAsync({
         tarefa: eventData,
         dataOcorrenciaAntiga: dateStr,
@@ -202,6 +213,21 @@ export function TarefaPessoalOcorrenciaDialog({
         id: eventData.id,
         ...recurrenceUpdates,
         anexos,
+      });
+    } else if (permaneceRecorrente && (dataMudou || horaMudou) && recurringScope === 'series') {
+      const [h, m] = (hora.trim() || '00:00').split(':').map(Number);
+      const newStart = new Date(data);
+      newStart.setHours(h || 0, m || 0, 0, 0);
+      const seriesMove = buildRecurringSeriesMoveUpdates(
+        eventData,
+        newStart,
+        hora.trim() || null,
+      );
+      await updateTarefa.mutateAsync({
+        id: eventData.id,
+        ...updates,
+        ...recurrenceUpdates,
+        ...seriesMove,
       });
     } else if (dataMudou && !permaneceRecorrente) {
       await reagendarOcorrencia.mutateAsync({
@@ -221,6 +247,7 @@ export function TarefaPessoalOcorrenciaDialog({
         ...recurrenceUpdates,
       });
     }
+    setShowMoveConfirm(false);
     setEditing(false);
     onOpenChange(false);
   };
@@ -481,7 +508,9 @@ export function TarefaPessoalOcorrenciaDialog({
                 Voltar
               </Button>
               <Button
-                onClick={handleSaveEdit}
+                onClick={() => {
+                  void handleSaveEdit();
+                }}
                 disabled={
                   !titulo.trim() ||
                   !data ||
@@ -561,6 +590,21 @@ export function TarefaPessoalOcorrenciaDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AgendaRecorrenteMoveDialog
+        open={showMoveConfirm}
+        onOpenChange={setShowMoveConfirm}
+        floatingLayer={floatingLayer}
+        isSaving={updateTarefa.isPending || reagendarOcorrencia.isPending}
+        summary={
+          data
+            ? `${format(dataOcorrencia, 'dd/MM')} ${eventData.hora || '—'} → ${format(data, 'dd/MM')} ${hora.trim() || '—'}`
+            : undefined
+        }
+        onChoose={(scope) => {
+          void handleSaveEdit(scope);
+        }}
+      />
     </Dialog>
   );
 }

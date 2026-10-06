@@ -149,19 +149,14 @@ export function AgendaEventPostponeControls({
         prevAriaLabel={`Dia anterior · ${dayAria}`}
         nextAriaLabel={`Próximo dia · ${dayAria}`}
         compact={compact}
-        disabled={recurring}
-        disabledReason={
-          recurring
-            ? 'Tarefas recorrentes só podem mudar o horário no mesmo dia'
-            : undefined
-        }
         onPrev={() => onDraftStartChange(shiftAgendaDraftByDays(draftStart, -1))}
         onNext={() => onDraftStartChange(shiftAgendaDraftByDays(draftStart, 1))}
       />
 
-      {dayChanged && !recurring && (
+      {dayChanged && (
         <p className={cn('text-muted-foreground/80 capitalize', compact ? 'text-[9px]' : 'text-[10px]')}>
-          {format(draftStart, "EEEE, dd/MM", { locale: ptBR })}
+          {format(draftStart, 'EEEE, dd/MM', { locale: ptBR })}
+          {recurring ? ' · na confirmação você escolhe se vale só desta vez' : ''}
         </p>
       )}
 

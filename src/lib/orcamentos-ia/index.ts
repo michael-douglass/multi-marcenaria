@@ -24,8 +24,20 @@ export {
   DEFAULT_PRICING_PARAMS,
   sheetsFromAreaM2,
   rollsForEdgeTapeMeters,
+  normalizePricingModality,
 } from '@/lib/orcamentos-ia/pricing'
 export type { PricingModality, PricingParams, PricingResult, ShoppingListItem } from '@/lib/orcamentos-ia/pricing'
+export {
+  DEFAULT_SYSTEM_PREFERENCES,
+  getSystemPreferences,
+  upsertSystemPreferences,
+  formatPreferencesForPrompt,
+} from '@/lib/orcamentos-ia/system-preferences'
+export type { SystemPreferences } from '@/lib/orcamentos-ia/system-preferences'
+export { explodeModule, explodeFromExtractionModule, buildBoxMeshesFromBom } from '@/lib/orcamentos-ia/bom-engine'
+export { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
+export { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
+export { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'
 export { runOrcamentosIaPipeline, reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
 export { quoteExtractionSchema } from '@/lib/orcamentos-ia/schemas'
 export {

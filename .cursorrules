@@ -1,14 +1,16 @@
-# Diretrizes do Projeto — Módulo de Orçamento com IA (v8 - Planilha 4.0 Stack)
+# Diretrizes do Projeto — Módulo de Orçamento com IA (v11 - Corte Claude / BOM fabril)
 
 ## Referência Principal
-- Toda a arquitetura de banco de dados, regras de negócio de marcenaria e estrutura de agentes deve seguir estritamente o arquivo `@orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md`.
-- O plano de execução técnico está em `@EXECUTION_PLAN.md`.
+- Toda a arquitetura de banco de dados, regras de negócio de marcenaria e estrutura de agentes deve seguir estritamente o arquivo `@docs/prd_v11_sistema_orcamento_corte_claude.md`.
+- O plano de execução técnico está em `@EXECUTION_PLAN.md` (seção Fase v11).
+- Histórico v8 (Planilha 4.0): `@orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md`.
 
 ## Stacks Técnicas
 - Framework & Linguagem: **Vite + React + TypeScript** (SPA do repositório GARBO Movelaria; não Next.js).
 - UI: **Tailwind CSS**, **Lucide-React** e design responsivo moderno (mobile-first).
 - Banco de Dados & RAG: Supabase Client (`@supabase/supabase-js`), PostgreSQL com extensão **pgvector**.
 - Engine de IA: Vercel AI SDK (`ai`, `@ai-sdk/openai`) e LangGraph JS (`@langchain/langgraph`) — orquestração em `src/lib/orcamentos-ia/pipeline.ts`; visão/extração na Edge Function `orcamentos-ia-pipeline`.
+- Desmonte determinístico: `src/lib/orcamentos-ia/bom-engine/` (HelloMob / Cortecloud).
 - Modelos OpenAI:
   - Visão e Extração Multimodal: `gpt-4o`
   - Classification/De-Para: `gpt-4o-mini`
@@ -22,12 +24,15 @@
 4. Arquitetura de componentes **modularizada** em `src/components/orcamentos-ia/` (subpastas por caso de uso: upload, audit-workspace, pricing, standards, etc.).
 5. Páginas da rota `/orcamentos-ia` em `src/pages/orcamentos-ia/`; helpers tipados em `src/lib/orcamentos-ia/`.
 6. Reutilize primitivos de `src/components/ui` (Shadcn/Radix) quando existirem; não reinventar botões, dialogs ou inputs.
+7. Identidade visual Corte Claude: tokens em `ui-tokens.ts`, accent `#0066FF`, shaders Three.js / WebGL no hub e raio-X.
 
 ## Diretrizes Estritas de Código e Engenharia
-1. Sempre consulte e use como fonte da verdade o PRD v8 (`prd_sistema_orcamento_gpt-v8.md`).
-2. Ferragens, conectores, parafusos e acessórios devem ser calculados **ESTRITAMENTE por unidade individual** (jamais por pacote/caixa).
-3. Todas as correções feitas na tela de auditoria com justificativa do usuário devem ser vetorizadas via OpenAI Embeddings e salvas na tabela `ai_memories`.
-4. Fallback de preço: `inventory_items` → senão `market_reference_prices` + confirmação do usuário na UI (`using_market_price`).
-5. Mantenha o suporte às **3 modalidades de precificação** (Margem MPC %, Multiplicador Material × N e R$/m²).
-6. Leitor de PDF a **200 DPI** com overlay SVG de bounding boxes; highlight sincronizado `#0066FF`.
-7. `company_id` nas tabelas do módulo mapeia o ID da empresa CRM já existente (sem tabela `companies` duplicada).
+1. Sempre consulte e use como fonte da verdade o PRD v11 (`docs/prd_v11_sistema_orcamento_corte_claude.md`).
+2. **PROIBIDO** precificar o móvel por m² de fachada (L×A × R$/m²). Venda só por BOM com margem MPC % ou multiplicador ×N.
+3. m² só existe para **consumo de chapa** (área da peça ÷ 5,0875 + 15% perda).
+4. Ferragens, conectores, parafusos e acessórios devem ser calculados **ESTRITAMENTE por unidade individual** (jamais por pacote/caixa).
+5. Preferências construtivas em `system_preferences`; BOM em `bom_items`.
+6. Todas as correções feitas na tela de auditoria com justificativa do usuário devem ser vetorizadas via OpenAI Embeddings e salvas na tabela `ai_memories`.
+7. Fallback de preço: `inventory_items` → senão `market_reference_prices` + confirmação do usuário na UI (`using_market_price`).
+8. Leitor de PDF a **200 DPI** com overlay SVG de bounding boxes; highlight sincronizado `#0066FF`; raio-X 3D complementar.
+9. `company_id` nas tabelas do módulo mapeia o ID da empresa CRM já existente (sem tabela `companies` duplicada).

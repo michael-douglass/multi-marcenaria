@@ -40,30 +40,35 @@ float fbm(vec2 p) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
-  // Papel claro + madeira suave + accent #0066FF (alto contraste)
-  vec3 paper = vec3(0.973, 0.957, 0.933);
-  vec3 warm = vec3(0.94, 0.90, 0.84);
-  vec3 woodTint = vec3(0.86, 0.78, 0.68);
+  // Cockpit CNC: tinta carvão + grade blueprint #0066FF + veio MDF sutil
+  vec3 ink = vec3(0.06, 0.08, 0.10);
+  vec3 slate = vec3(0.12, 0.15, 0.18);
+  vec3 paper = vec3(0.93, 0.945, 0.96);
+  vec3 woodTint = vec3(0.42, 0.32, 0.24);
   vec3 accent = vec3(0.0, 0.4, 1.0);
-  vec3 inkSoft = vec3(0.22, 0.28, 0.38);
 
-  float grain = fbm(uv * vec2(14.0, 28.0) + vec2(uTime * 0.015, uTime * 0.022));
-  float vein = sin((uv.y * 9.0 + grain * 2.2 + uTime * 0.03) * 3.14159) * 0.5 + 0.5;
-  float gridX = abs(fract(uv.x * 20.0) - 0.5);
-  float gridY = abs(fract(uv.y * 14.0) - 0.5);
-  float blueprint = 1.0 - smoothstep(0.0, 0.035, min(gridX, gridY));
+  float grain = fbm(uv * vec2(18.0, 32.0) + vec2(uTime * 0.012, uTime * 0.018));
+  float vein = sin((uv.x * 6.0 + grain * 3.0 + uTime * 0.02) * 3.14159) * 0.5 + 0.5;
+  float gridX = abs(fract(uv.x * 28.0 + uTime * 0.02) - 0.5);
+  float gridY = abs(fract(uv.y * 18.0) - 0.5);
+  float blueprint = 1.0 - smoothstep(0.0, 0.028, min(gridX, gridY));
+  float majorX = abs(fract(uv.x * 7.0) - 0.5);
+  float majorY = abs(fract(uv.y * 5.0) - 0.5);
+  float majorGrid = 1.0 - smoothstep(0.0, 0.02, min(majorX, majorY));
 
-  vec3 base = mix(paper, warm, uv.y * 0.55 + grain * 0.15);
-  base = mix(base, woodTint, vein * 0.12 + grain * 0.08);
+  // Hero escuro no topo → papel técnico embaixo
+  vec3 base = mix(ink, slate, uv.y * 0.35 + grain * 0.08);
+  base = mix(base, paper, smoothstep(0.28, 0.92, uv.y));
+  base = mix(base, woodTint * 0.35 + paper * 0.65, vein * 0.08 * (1.0 - uv.y));
 
-  float sweep = sin(uv.x * 3.2 - uv.y * 1.2 + uTime * 0.18) * 0.5 + 0.5;
-  base += accent * blueprint * 0.055;
-  base += accent * sweep * 0.025;
-  base -= inkSoft * grain * 0.04;
+  float scan = sin(uv.y * 120.0 - uTime * 1.4) * 0.5 + 0.5;
+  base += accent * blueprint * 0.09;
+  base += accent * majorGrid * 0.05;
+  base += accent * scan * 0.015 * (1.0 - uv.y);
 
   float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
-  float rim = pow(1.0 - clamp(edge * 2.6, 0.0, 1.0), 2.4);
-  base += accent * rim * 0.08;
+  float rim = pow(1.0 - clamp(edge * 2.2, 0.0, 1.0), 2.2);
+  base += accent * rim * 0.1;
 
   gl_FragColor = vec4(base, 1.0);
 }

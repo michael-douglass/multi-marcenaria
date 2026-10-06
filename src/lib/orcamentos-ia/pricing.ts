@@ -580,19 +580,27 @@ export function endCapsForHandleBars(bars: number): number {
 // Fase 6 — Motor MPC (3 modalidades) + Lista de Compras
 // ---------------------------------------------------------------------------
 
-export type PricingModality = 'mpc_margin' | 'material_multiplier' | 'per_sqm'
+/** v11: venda só por BOM (MPC % ou ×N). `per_sqm` de fachada foi removido. */
+export type PricingModality = 'mpc_margin' | 'material_multiplier'
 
 export const PRICING_MODALITY_LABEL: Record<PricingModality, string> = {
   mpc_margin: 'Margem %',
   material_multiplier: 'Multiplicar custo',
-  per_sqm: 'Preço por m²',
 }
 
 /** Explicação curta de cada forma de calcular o preço (tooltip). */
 export const PRICING_MODALITY_HINT: Record<PricingModality, string> = {
   mpc_margin: 'Preço = custo dos materiais ÷ (1 − margem). Ex.: margem 45% sobre R$ 1.000 → R$ 1.818',
   material_multiplier: 'Preço = custo dos materiais × fator. Ex.: × 2,5 sobre R$ 1.000 → R$ 2.500',
-  per_sqm: 'Preço = área total dos móveis (m²) × valor por m²',
+}
+
+/**
+ * Normaliza modalidade legada (ex.: `per_sqm` de orçamentos antigos) para v11.
+ * Nunca devolve precificação por m² de fachada.
+ */
+export function normalizePricingModality(raw: unknown): PricingModality {
+  if (raw === 'material_multiplier') return 'material_multiplier'
+  return 'mpc_margin'
 }
 
 /** Chapa padrão Planilha 4.0: 2,75 m × 1,85 m. */
@@ -608,9 +616,12 @@ export interface PricingParams {
   mpcPercent: number
   /** Modalidade 2: fator N, ex.: 2.0 ou 2.8 */
   materialMultiplier: number
-  /** Modalidade 3: R$/m² configurado */
-  pricePerSqm: number
-  /** Área total do móvel/ambiente em m² (quando não derivável dos módulos) */
+  /**
+   * @deprecated v11 — não usado na venda (era R$/m² de fachada).
+   * Mantido opcional só para ler JSON antigo sem quebrar o parse.
+   */
+  pricePerSqm?: number
+  /** Área de chapas (m²) para referência/auditoria — não define preço de venda. */
   totalAreaSqm?: number
   /** Taxa de perda de chapa (%), padrão 15 */
   sheetLossPct?: number
@@ -620,7 +631,6 @@ export const DEFAULT_PRICING_PARAMS: PricingParams = {
   modality: 'mpc_margin',
   mpcPercent: 45,
   materialMultiplier: 2.5,
-  pricePerSqm: 2500,
   sheetLossPct: DEFAULT_SHEET_LOSS_PCT,
 }
 
@@ -729,7 +739,7 @@ export function estimateTotalAreaSqm(
 /**
  * Modalidade 1 — Margem MPC %: Preço = Custo / (1 − %MPC/100)
  * Modalidade 2 — Multiplicador: Preço = Custo × N
- * Modalidade 3 — R$/m²: Preço = Área(m²) × valor/m²
+ * v11: proibido precificar venda por m² de fachada (L×A × R$/m²).
  */
 export function calculateSalePrice(
   materialsCost: number,
@@ -738,21 +748,9 @@ export function calculateSalePrice(
 ): PricingResult {
   const cost = Math.max(0, materialsCost)
   const area = Math.max(0, totalAreaSqm)
+  const modality = normalizePricingModality(params.modality)
 
-  if (params.modality === 'mpc_margin') {
-    const pct = Math.min(95, Math.max(0, params.mpcPercent))
-    const denom = 1 - pct / 100
-    const salePrice = denom > 0 ? cost / denom : cost
-    return {
-      modality: 'mpc_margin',
-      materialsCost: cost,
-      salePrice: roundMoney(salePrice),
-      totalAreaSqm: area,
-      formulaLabel: `Custo ÷ (1 − ${pct}%)`,
-    }
-  }
-
-  if (params.modality === 'material_multiplier') {
+  if (modality === 'material_multiplier') {
     const n = Math.max(0, params.materialMultiplier)
     return {
       modality: 'material_multiplier',
@@ -763,12 +761,15 @@ export function calculateSalePrice(
     }
   }
 
+  const pct = Math.min(95, Math.max(0, params.mpcPercent))
+  const denom = 1 - pct / 100
+  const salePrice = denom > 0 ? cost / denom : cost
   return {
-    modality: 'per_sqm',
+    modality: 'mpc_margin',
     materialsCost: cost,
-    salePrice: roundMoney(area * Math.max(0, params.pricePerSqm)),
+    salePrice: roundMoney(salePrice),
     totalAreaSqm: area,
-    formulaLabel: `${area.toFixed(2)} m² × R$ ${params.pricePerSqm.toFixed(0)}`,
+    formulaLabel: `Custo ÷ (1 − ${pct}%)`,
   }
 }
 
