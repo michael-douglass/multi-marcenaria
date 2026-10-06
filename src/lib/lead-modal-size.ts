@@ -141,9 +141,9 @@ export function restoredLeadModalSize(
   const insets = leadModalInsets(vw)
   const maxW = Math.max(minW, vw - insets.left - insets.right)
   const maxH = Math.max(minH, vh - insets.top - insets.bottom)
-  // ~62% da tela, teto 1200×820 — reduzido, porém legível em monitor/tablet.
-  const w = Math.min(Math.max(minW, Math.round(vw * 0.62)), Math.min(maxW, 1200))
-  const h = Math.min(Math.max(minH, Math.round(vh * 0.78)), Math.min(maxH, 820))
+  // 73% da tela — reduzido em relação à tela cheia, com boa área de trabalho.
+  const w = Math.min(Math.max(minW, Math.round(vw * 0.73)), maxW)
+  const h = Math.min(Math.max(minH, Math.round(vh * 0.73)), maxH)
   return clampLeadModalSize(placeLeadModalSize(w, h, vw, vh, insets), vw, vh)
 }
 

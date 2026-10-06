@@ -1,14 +1,29 @@
 /**
  * Conversão de PDF → imagem via pdf.js.
- * Usa o build `legacy` porque o build moderno exige Map.getOrInsertComputed
- * (Chrome 145+); sem isso o anexo falha com "getOrInsertComputed is not a function".
+ *
+ * Usa “fake worker” no main thread (`globalThis.pdfjsWorker`): no Vite/dev o
+ * workerSrc “cru” injeta /@vite/client e trava `getDocument`; o `?worker` +
+ * `workerPort` também pode ficar preso se o port for reutilizado. Main-thread
+ * é o caminho estável para o pipeline Orçamentos IA.
  */
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { installPdfJsPolyfills } from '@/lib/map-polyfills'
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist'
+import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs'
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
+installPdfJsPolyfills()
+
+declare global {
+  // eslint-disable-next-line no-var
+  var pdfjsWorker: typeof import('pdfjs-dist/build/pdf.worker.min.mjs') | undefined
+}
+
+function ensurePdfWorker(): void {
+  if (!globalThis.pdfjsWorker) {
+    globalThis.pdfjsWorker = pdfjsWorker
+  }
+  // Se outro módulo deixou um workerPort preso, getDocument nunca usa o fake worker.
+  GlobalWorkerOptions.workerPort = null
+}
 
 const PDF_RENDER_SCALE = 1.5
 const MAX_PDF_PAGES = 50
@@ -29,7 +44,7 @@ interface RenderPdfPageOptions {
 }
 
 async function renderPdfPageToBlob(
-  pdf: pdfjs.PDFDocumentProxy,
+  pdf: PDFDocumentProxy,
   pageNumber: number,
   options: RenderPdfPageOptions = {},
 ): Promise<Blob> {
@@ -74,7 +89,7 @@ async function renderPdfPageToBlob(
 }
 
 async function renderPdfPageToPngBlob(
-  pdf: pdfjs.PDFDocumentProxy,
+  pdf: PDFDocumentProxy,
   pageNumber: number,
 ): Promise<Blob> {
   return renderPdfPageToBlob(pdf, pageNumber, { mime: 'image/png' })
@@ -85,9 +100,10 @@ export async function pdfDataAllPagesToPngBlobs(
   data: ArrayBuffer,
   options?: { maxPages?: number },
 ): Promise<Blob[]> {
+  ensurePdfWorker()
   const maxPages = options?.maxPages ?? MAX_PDF_PAGES
   const bytes = new Uint8Array(data.slice(0))
-  const pdf = await pdfjs.getDocument({
+  const pdf = await getDocument({
     data: bytes,
     disableFontFace: true,
     useSystemFonts: true,
@@ -98,6 +114,7 @@ export async function pdfDataAllPagesToPngBlobs(
   for (let page = 1; page <= pageCount; page++) {
     blobs.push(await renderPdfPageToPngBlob(pdf, page))
   }
+  await pdf.destroy()
   return blobs
 }
 
@@ -142,12 +159,13 @@ export async function convertPdfPagesToJpegSequential(
     }
   }
 
-  let pdf: pdfjs.PDFDocumentProxy
+  let pdf: PDFDocumentProxy
   try {
+    ensurePdfWorker()
     // pdf.js 5.x exige Uint8Array (ArrayBuffer puro pode travar o worker no browser).
     const bytes = new Uint8Array(data.slice(0))
     pdf = await withTimeout(
-      pdfjs.getDocument({
+      getDocument({
         data: bytes,
         // PDFs de detalhamento (AutoCAD/HelloMob) abrem mais estáveis assim no browser.
         disableFontFace: true,
@@ -204,10 +222,11 @@ export async function pdfAllPagesToJpegBlobs(
   options?: { maxPages?: number },
 ): Promise<Blob[]> {
   const maxPages = options?.maxPages ?? MAX_PDF_PAGES
-  let pdf: pdfjs.PDFDocumentProxy
+  let pdf: PDFDocumentProxy
   try {
+    ensurePdfWorker()
     const bytes = new Uint8Array(await file.arrayBuffer())
-    pdf = await pdfjs.getDocument({
+    pdf = await getDocument({
       data: bytes,
       disableFontFace: true,
       useSystemFonts: true,
@@ -245,14 +264,19 @@ export async function pdfAllPagesToPngBlobs(file: File): Promise<Blob[]> {
 
 /** Converte a 1ª página do PDF em PNG para pré-visualização. */
 export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
+  ensurePdfWorker()
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const pdf = await pdfjs.getDocument({
+  const pdf = await getDocument({
     data: bytes,
     disableFontFace: true,
     useSystemFonts: true,
   }).promise
   if (pdf.numPages < 1) throw new Error('PDF vazio.')
-  return renderPdfPageToPngBlob(pdf, 1)
+  try {
+    return await renderPdfPageToPngBlob(pdf, 1)
+  } finally {
+    await pdf.destroy()
+  }
 }
 
 /**
