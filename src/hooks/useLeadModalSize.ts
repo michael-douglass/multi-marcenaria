@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -15,18 +15,14 @@ import {
 } from '@/lib/lead-modal-size'
 import { isTouchUiViewport } from '@/lib/viewport-ui'
 
-/** No celular/tablet toque o card abre maximizado; no computador, tamanho médio. */
+/** Sempre abre em tamanho reduzido (janela média). Maximizar fica no botão □. */
 function openingLeadModalLayout(): LeadModalLayout {
-  // Galaxy Tab (tela larga + toque): maximizado — senão janela “desktop” briga com o toque.
-  if (isLeadModalMobileViewport() || isTouchUiViewport()) {
-    return { ...maximizedLeadModalSize(), mode: 'maximized' }
-  }
   return { ...restoredLeadModalSize(), mode: 'restored' }
 }
 
 /**
  * Janela do card do lead por usuário.
- * Desktop: tamanho médio (restored). Celular: maximizado ao abrir.
+ * Abertura: sempre tamanho reduzido (restored).
  * Controles estilo Windows: minimizar, maximizar/restaurar, redimensionar pelas bordas.
  */
 export function useLeadModalSize(open: boolean) {
@@ -49,6 +45,7 @@ export function useLeadModalSize(open: boolean) {
     null,
   )
   const hydratedRef = useRef(false)
+  const wasOpenRef = useRef(false)
 
   useEffect(() => {
     layoutRef.current = layout
@@ -93,19 +90,31 @@ export function useLeadModalSize(open: boolean) {
     [persistLayout],
   )
 
-  useEffect(() => {
+  // Antes do paint: ao abrir, força janela reduzida (nunca tela cheia).
+  useLayoutEffect(() => {
     if (!open) {
       hydratedRef.current = false
+      wasOpenRef.current = false
       return
     }
 
-    // Celular → tela quase cheia; computador → tamanho médio de sempre.
+    // Só na transição fechado → aberto (não desfaz um maximizar manual).
+    if (wasOpenRef.current) return
+    wasOpenRef.current = true
+
     const next = openingLeadModalLayout()
+    layoutRef.current = next
     setLayout(next)
     persistLayout(next)
     hydratedRef.current = true
+  }, [open, persistLayout])
 
-    if (!user?.id) return
+  useEffect(() => {
+    if (!open || !user?.id || !hydratedRef.current) return
+
+    const next = layoutRef.current.mode === 'restored'
+      ? layoutRef.current
+      : openingLeadModalLayout()
 
     void supabase
       .from('movelaria_ui_settings')
@@ -118,7 +127,7 @@ export function useLeadModalSize(open: boolean) {
       .then(({ error }) => {
         if (error) console.error('[LeadModal] Erro ao sincronizar tamanho do card:', error)
       })
-  }, [open, user?.id, persistLayout])
+  }, [open, user?.id])
 
   useEffect(() => {
     let lastWidth = typeof window !== 'undefined' ? window.innerWidth : 0

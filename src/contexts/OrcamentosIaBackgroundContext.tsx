@@ -64,7 +64,7 @@ interface OrcamentosIaBackgroundContextValue {
   expandRequest: number
   requestExpand: () => void
   startQuoteAnalysis: (input: StartOrcamentosIaAnalysisInput) => Promise<string | null>
-  resumeQuoteAnalysis: (analysisId: string) => Promise<boolean>
+  resumeQuoteAnalysis: (analysisId: string, companyIdHint?: string) => Promise<boolean>
   dismissJob: (jobId: string) => void
   dismissCompletedJobs: () => void
   openAnalysis: (analysisId: string) => void
@@ -552,21 +552,60 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
   )
 
   const resumeQuoteAnalysis = useCallback(
-    async (analysisId: string): Promise<boolean> => {
-      const job = jobs.find((j) => j.analysisId === analysisId)
-      if (!job) return false
+    async (analysisId: string, companyIdHint?: string): Promise<boolean> => {
+      let job = jobs.find((j) => j.analysisId === analysisId)
+      if (!job) {
+        const { data } = await supabase
+          .from('quote_analyses')
+          .select('id, company_id, mode, status, error_message, source_pdf_path')
+          .eq('id', analysisId)
+          .maybeSingle()
+        if (!data) {
+          toast.error('Análise não encontrada para retomar.')
+          return false
+        }
+        const companyId = companyIdHint || data.company_id
+        if (!companyId) {
+          toast.error('Empresa não identificada.')
+          return false
+        }
+        const fileName = data.source_pdf_path?.split('/').pop() || 'projeto.pdf'
+        job = {
+          id: crypto.randomUUID(),
+          analysisId: data.id,
+          companyId,
+          fileName,
+          mode: data.mode === 'pro' ? 'pro' : 'max',
+          status: isQuoteAnalysisStatus(data.status) ? data.status : 'FAILED',
+          pipelineStage: 'upload',
+          pipelineDetail: 'Preparando retomada…',
+          thoughtLog: [],
+          pagesProcessed: null,
+          errorMessage: data.error_message ?? null,
+          startedAt: Date.now(),
+          runnerActive: false,
+          needsResume: true,
+        }
+        setJobs((current) => {
+          if (current.some((j) => j.analysisId === analysisId)) return current
+          return [...current, job!]
+        })
+      }
+
       if (job.runnerActive || runnersRef.current.has(analysisId)) {
         toast.info('Esta análise já está rodando nesta aba.')
         return false
       }
 
       updateJob(job.id, {
+        status: 'PROCESSING',
         runnerActive: true,
         needsResume: false,
         pipelineDetail: 'Retomando análise…',
         errorMessage: null,
       })
       runnersRef.current.add(analysisId)
+      requestExpand()
       toast.message('Retomando Orçamento IA…')
 
       try {

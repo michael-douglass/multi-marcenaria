@@ -18,8 +18,8 @@ export interface LeadModalLayout extends LeadModalSize {
 
 export type LeadResizeEdge = 'se' | 'sw' | 'ne' | 'nw' | 'e' | 's' | 'w' | 'n'
 
-/** v4: maximizado por padrão + modo de janela. */
-export const LEAD_MODAL_SIZE_STORAGE_KEY = 'lead-modal-size-v4'
+/** v5: abertura sempre reduzida (ignora maximizado salvo na v4). */
+export const LEAD_MODAL_SIZE_STORAGE_KEY = 'lead-modal-size-v5'
 export const LEAD_MODAL_MOBILE_BREAKPOINT = 768
 
 export const LEAD_MODAL_MARGIN_DESKTOP = 16
@@ -120,19 +120,19 @@ export function maximizedLeadModalSize(
   return clampLeadModalSize(placeLeadModalSize(w, h, vw, vh, insets), vw, vh)
 }
 
-/** Alias: padrão fixo = maximizado. */
+/** Alias: padrão fixo = tamanho reduzido. */
 export function defaultLeadModalSize(vw?: number, vh?: number): LeadModalSize {
-  return maximizedLeadModalSize(vw, vh)
+  return restoredLeadModalSize(vw, vh)
 }
 
 export function defaultLeadModalLayout(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
 ): LeadModalLayout {
-  return { ...maximizedLeadModalSize(vw, vh), mode: 'maximized' }
+  return { ...restoredLeadModalSize(vw, vh), mode: 'restored' }
 }
 
-/** Tamanho “restaurado” intermediário (quando sai do maximizado). */
+/** Tamanho reduzido ao abrir — janela intermediária, nunca tela cheia. */
 export function restoredLeadModalSize(
   vw = typeof window !== 'undefined' ? window.innerWidth : 1440,
   vh = typeof window !== 'undefined' ? window.innerHeight : 900,
@@ -141,8 +141,9 @@ export function restoredLeadModalSize(
   const insets = leadModalInsets(vw)
   const maxW = Math.max(minW, vw - insets.left - insets.right)
   const maxH = Math.max(minH, vh - insets.top - insets.bottom)
-  const w = Math.min(Math.max(minW, Math.round(vw * 0.72)), maxW)
-  const h = Math.min(Math.max(minH, Math.round(vh * 0.78)), maxH)
+  // ~52% da tela, teto 980×700 — claramente menor que tela cheia (mesmo em monitor largo).
+  const w = Math.min(Math.max(minW, Math.round(vw * 0.52)), Math.min(maxW, 980))
+  const h = Math.min(Math.max(minH, Math.round(vh * 0.7)), Math.min(maxH, 700))
   return clampLeadModalSize(placeLeadModalSize(w, h, vw, vh, insets), vw, vh)
 }
 
@@ -202,7 +203,7 @@ export function parseLeadModalLayout(raw: unknown): LeadModalLayout | null {
   const mode: LeadModalWindowMode =
     parsed.mode === 'restored' || parsed.mode === 'minimized' || parsed.mode === 'maximized'
       ? parsed.mode
-      : 'maximized'
+      : 'restored'
 
   const size = clampLeadModalSize({
     x: parsed.x,
@@ -210,14 +211,6 @@ export function parseLeadModalLayout(raw: unknown): LeadModalLayout | null {
     w: Math.round(parsed.w),
     h: Math.round(parsed.h),
   })
-
-  // Se veio de versão antiga e está bem menor que a tela, força maximizado.
-  if (typeof window !== 'undefined' && mode === 'restored') {
-    const max = maximizedLeadModalSize()
-    if (size.w < max.w * 0.85 || size.h < max.h * 0.85) {
-      return { ...max, mode: 'maximized' }
-    }
-  }
 
   if (mode === 'maximized') {
     return { ...maximizedLeadModalSize(), mode: 'maximized' }
@@ -228,28 +221,25 @@ export function parseLeadModalLayout(raw: unknown): LeadModalLayout | null {
 
 export function readInitialLeadModalLayout(): LeadModalLayout {
   if (typeof window === 'undefined') {
-    return defaultLeadModalLayout(1440, 900)
+    return { ...restoredLeadModalSize(1440, 900), mode: 'restored' }
   }
   try {
     const fromLocal = parseLeadModalLayout(
       JSON.parse(localStorage.getItem(LEAD_MODAL_SIZE_STORAGE_KEY) ?? 'null'),
     )
-    if (fromLocal) return fromLocal
+    // Preferência salva como maximizado não define a abertura — sempre reduzido.
+    if (fromLocal && fromLocal.mode !== 'maximized') return fromLocal
   } catch {
     /* fallthrough */
   }
-  // Migra legado v3 pequeno → maximizado
+  // Migra legado v3/v4 → tamanho reduzido (não maximizado).
   try {
-    const legacy = JSON.parse(localStorage.getItem('lead-modal-size-v3') ?? 'null')
-    if (legacy && typeof legacy === 'object') {
-      const max = maximizedLeadModalSize()
-      localStorage.removeItem('lead-modal-size-v3')
-      return { ...max, mode: 'maximized' }
-    }
+    localStorage.removeItem('lead-modal-size-v3')
+    localStorage.removeItem('lead-modal-size-v4')
   } catch {
-    /* fallthrough */
+    /* ignore */
   }
-  return defaultLeadModalLayout()
+  return { ...restoredLeadModalSize(), mode: 'restored' }
 }
 
 export function applyLeadModalResize(

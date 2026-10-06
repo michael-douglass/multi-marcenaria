@@ -4109,9 +4109,9 @@ body::before {
   inset: auto !important;
   left: var(--lead-card-x, 16px) !important;
   top: var(--lead-card-y, 16px) !important;
-  width: var(--lead-card-w, calc(100vw - 32px)) !important;
+  width: var(--lead-card-w, min(980px, calc(100vw - 64px))) !important;
   max-width: calc(100vw - 16px) !important;
-  height: var(--lead-card-h, calc(100dvh - 32px)) !important;
+  height: var(--lead-card-h, min(700px, calc(100dvh - 64px))) !important;
   max-height: calc(100dvh - 16px) !important;
   margin: 0 !important;
   transform: none !important;
@@ -4127,6 +4127,11 @@ body::before {
     inset 0 1px 0 rgba(255, 252, 246, 0.9) !important;
   /* Nested Sheet/AlertDialog (markup, confirmar duplicar) não podem congelar o card. */
   pointer-events: auto !important;
+}
+/* Segurança: modo reduzido nunca vira tela cheia mesmo se a var falhar. */
+.glass-dialog.lead-modal-shell[data-lead-window-mode='restored'] {
+  max-width: min(980px, calc(100vw - 32px)) !important;
+  max-height: min(700px, calc(100dvh - 32px)) !important;
 }
 .glass-dialog.lead-modal-shell[data-state='open'],
 .glass-dialog.lead-modal-shell[data-state='closed'] {
@@ -4166,9 +4171,9 @@ body::before {
   .glass-dialog.lead-modal-shell {
     left: var(--lead-card-x, 8px) !important;
     top: var(--lead-card-y, max(8px, env(safe-area-inset-top, 0px))) !important;
-    width: var(--lead-card-w, calc(100vw - 16px)) !important;
+    width: var(--lead-card-w, min(980px, calc(100vw - 24px))) !important;
     max-width: calc(100vw - 12px) !important;
-    height: var(--lead-card-h, calc(100dvh - 16px - env(safe-area-inset-top, 0px))) !important;
+    height: var(--lead-card-h, min(700px, calc(100dvh - 24px - env(safe-area-inset-top, 0px)))) !important;
     max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     border-radius: 0.85rem !important;
   }

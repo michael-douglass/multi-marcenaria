@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Brain, BrainCircuit, Eye, FilePlus2, Package, Search, Settings2, Trash2 } from 'lucide-react'
+import { Brain, BrainCircuit, Eye, FilePlus2, Package, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
+import { useOrcamentosIaBackground } from '@/contexts/OrcamentosIaBackgroundContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -51,6 +52,7 @@ export default function OrcamentosIaPage() {
   const { user } = useAuth()
   const { empresa } = useEmpresa()
   const companyId = empresa?.id ?? ''
+  const bg = useOrcamentosIaBackground()
   const [searchParams, setSearchParams] = useSearchParams()
   const [standardsOpen, setStandardsOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
@@ -61,6 +63,7 @@ export default function OrcamentosIaPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<QuoteAnalysisRow | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [resumingId, setResumingId] = useState<string | null>(null)
   const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(
     () => searchParams.get('audit'),
   )
@@ -322,7 +325,9 @@ export default function OrcamentosIaPage() {
                     const status = row.status as QuoteAnalysisStatus
                     const label = QUOTE_STATUS_LABEL[status] ?? row.status
                     const canOpen = status === 'COMPLETED'
+                    const canResume = status === 'FAILED'
                     const name = analysisDisplayName(row)
+                    const isResuming = resumingId === row.id
                     return (
                       <li
                         key={row.id}
@@ -345,8 +350,13 @@ export default function OrcamentosIaPage() {
                             {' · '}
                             Modo {row.mode === 'max' ? 'Max' : 'Pro'}
                           </p>
+                          {status === 'FAILED' && row.error_message ? (
+                            <p className="line-clamp-2 text-[11px] text-red-700/90">
+                              {row.error_message}
+                            </p>
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             className={cn(
                               'border-0 text-[10px] font-semibold',
@@ -359,22 +369,41 @@ export default function OrcamentosIaPage() {
                           >
                             {label}
                           </Badge>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className={cn(
-                              'gap-1.5',
-                              canOpen
-                                ? 'bg-[#0066FF] text-white hover:bg-[#0052cc]'
-                                : 'border-slate-300 bg-white text-slate-400',
-                            )}
-                            variant={canOpen ? 'default' : 'outline'}
-                            disabled={!canOpen}
-                            onClick={() => openAudit(row.id)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Abrir
-                          </Button>
+                          {canResume ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="gap-1.5 bg-[#0066FF] text-white hover:bg-[#0052cc]"
+                              disabled={isResuming || !companyId}
+                              onClick={() => {
+                                setResumingId(row.id)
+                                void bg.resumeQuoteAnalysis(row.id, companyId).finally(() => {
+                                  setResumingId(null)
+                                  void refreshList()
+                                })
+                              }}
+                            >
+                              <RefreshCw className={cn('h-3.5 w-3.5', isResuming && 'animate-spin')} />
+                              {isResuming ? 'Retomando…' : 'Retomar'}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className={cn(
+                                'gap-1.5',
+                                canOpen
+                                  ? 'bg-[#0066FF] text-white hover:bg-[#0052cc]'
+                                  : 'border-slate-300 bg-white text-slate-400',
+                              )}
+                              variant={canOpen ? 'default' : 'outline'}
+                              disabled={!canOpen}
+                              onClick={() => openAudit(row.id)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Abrir
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"

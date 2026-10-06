@@ -112,28 +112,16 @@ export async function convertPdfPagesToJpegSequential(
     maxPages?: number
     maxEdge?: number
     quality?: number
-    /** Timeout por página (ms). Padrão 120s. */
+    /** Timeout por página (ms). Padrão 90s. */
     pageTimeoutMs?: number
+    /** Timeout para abrir o PDF (ms). Padrão 60s. */
+    openTimeoutMs?: number
     onPage: (page: PdfPageJpegResult) => void | Promise<void>
   },
 ): Promise<{ totalPages: number; converted: number }> {
   const maxPages = options.maxPages ?? MAX_PDF_PAGES
-  let pdf: pdfjs.PDFDocumentProxy
-  try {
-    pdf = await pdfjs.getDocument({ data }).promise
-  } catch {
-    throw new Error(
-      'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.',
-    )
-  }
-
-  if (pdf.numPages < 1) {
-    await pdf.destroy()
-    throw new Error('PDF vazio.')
-  }
-
-  const totalPages = Math.min(pdf.numPages, maxPages)
-  let converted = 0
+  const pageTimeoutMs = options.pageTimeoutMs ?? 90_000
+  const openTimeoutMs = options.openTimeoutMs ?? 60_000
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -149,6 +137,32 @@ export async function convertPdfPagesToJpegSequential(
     }
   }
 
+  let pdf: pdfjs.PDFDocumentProxy
+  try {
+    pdf = await withTimeout(
+      pdfjs.getDocument({
+        // Cópia: o worker do pdf.js pode “tomar” o ArrayBuffer original (detached).
+        data: data.slice(0),
+      }).promise,
+      openTimeoutMs,
+      'O PDF demorou demais para abrir. Tente um arquivo menor ou sem senha/proteção.',
+    )
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.'
+    throw new Error(message)
+  }
+
+  if (pdf.numPages < 1) {
+    await pdf.destroy()
+    throw new Error('PDF vazio.')
+  }
+
+  const totalPages = Math.min(pdf.numPages, maxPages)
+  let converted = 0
+
   try {
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
       const blob = await withTimeout(
@@ -158,7 +172,7 @@ export async function convertPdfPagesToJpegSequential(
           maxEdge: options.maxEdge ?? ORCAMENTOS_IA_JPEG_MAX_EDGE,
           fillWhite: true,
         }),
-        options.pageTimeoutMs ?? 120_000,
+        pageTimeoutMs,
         `A conversão da página ${pageNumber} demorou demais e foi interrompida. Tente um PDF menor ou menos pesado.`,
       )
       converted += 1
