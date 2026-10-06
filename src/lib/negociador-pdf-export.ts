@@ -6,6 +6,7 @@ import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 
 export interface NegociadorPdfBranding {
   empresaNome: string;
+  empresaRazaoSocial?: string | null;
   empresaCnpj?: string | null;
   logoUrl?: string | null;
   clienteNome?: string | null;
@@ -41,6 +42,17 @@ function buildNegociadorPdfHtml(
 ): string {
   const dataGeracao = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
   const logoSrc = branding.logoUrl?.trim() || '';
+  const razaoSocial =
+    branding.empresaRazaoSocial?.trim() || branding.empresaNome?.trim() || 'Empresa';
+  const cnpj = branding.empresaCnpj?.trim() || '';
+  const desconto = Math.max(0, (Number(data.precoOriginal) || 0) - (Number(data.valorNegociado) || 0));
+  const temDesconto = desconto > 0.009;
+  const pctDesconto =
+    temDesconto && data.precoOriginal > 0
+      ? ((desconto / data.precoOriginal) * 100).toLocaleString('pt-BR', {
+          maximumFractionDigits: 1,
+        })
+      : null;
   const markups =
     data.markupsTitulos.length > 0
       ? data.markupsTitulos.map((t) => `<li>${esc(t)}</li>`).join('')
@@ -54,7 +66,7 @@ function buildNegociadorPdfHtml(
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: "Segoe UI", system-ui, sans-serif;
+    font-family: Georgia, "Times New Roman", "Segoe UI", serif;
     color: #2a1812;
     background: #fffcf8;
     padding: 28px 32px;
@@ -62,34 +74,143 @@ function buildNegociadorPdfHtml(
   }
   .header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
     border-bottom: 2px solid #c4963a;
     padding-bottom: 16px;
     margin-bottom: 20px;
   }
-  .logo { max-height: 56px; max-width: 180px; object-fit: contain; }
-  .empresa { text-align: right; }
-  .empresa h1 { font-size: 18px; color: #8d5e22; }
-  .empresa p { font-size: 11px; color: #6b5344; margin-top: 2px; }
-  h2 { font-size: 15px; color: #8d5e22; margin-bottom: 6px; }
-  .meta { font-size: 12px; color: #6b5344; margin-bottom: 16px; line-height: 1.45; }
-  .cards {
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .logo { max-height: 64px; max-width: 160px; object-fit: contain; }
+  .empresa-legal .nome {
+    font-size: 20px;
+    color: #8d5e22;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .empresa-legal .lbl {
+    display: block;
+    margin-top: 8px;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #c4963a;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .empresa-legal .val {
+    font-size: 12px;
+    color: #6b5344;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    line-height: 1.35;
+  }
+  .meta-direita { text-align: right; font-family: "Segoe UI", system-ui, sans-serif; }
+  .meta-direita .titulo {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-style: italic;
+    color: #c4963a;
+  }
+  .meta-direita p { font-size: 11px; color: #6b5344; margin-top: 6px; }
+  h2 {
+    font-size: 14px;
+    color: #8d5e22;
+    margin-bottom: 6px;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    letter-spacing: 0.04em;
+  }
+  .meta {
+    font-size: 12px;
+    color: #6b5344;
+    margin-bottom: 16px;
+    line-height: 1.45;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .totais {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 10px;
     margin-bottom: 18px;
   }
-  .card {
+  .linha-sub {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 14px;
     border: 1px solid #e5d4b8;
     background: #fffaf3;
     border-radius: 8px;
-    padding: 10px 12px;
+    font-family: "Segoe UI", system-ui, sans-serif;
   }
-  .card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #6b5344; }
-  .card .val { font-size: 14px; font-weight: 700; margin-top: 4px; color: #2a1812; }
-  .card.accent .val { color: #8d5e22; }
+  .linha-sub .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b5344;
+  }
+  .linha-sub .val { font-size: 16px; font-weight: 700; color: #2a1812; }
+  .desconto {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid #c45c3a;
+    background: linear-gradient(135deg, #fff4ee 0%, #ffe8dc 100%);
+    border-radius: 10px;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .desconto .lbl {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #a33d1f;
+    font-weight: 700;
+  }
+  .desconto .val {
+    font-size: 26px;
+    font-weight: 800;
+    color: #a33d1f;
+    font-variant-numeric: tabular-nums;
+  }
+  .desconto .pct {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: #c45c3a;
+    border-radius: 999px;
+    padding: 2px 10px;
+    vertical-align: middle;
+  }
+  .preco-final {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    border: 2px solid #c4963a;
+    background: linear-gradient(145deg, #2a1812 0%, #3d2418 55%, #5a3a1f 100%);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(42, 24, 18, 0.18);
+  }
+  .preco-final .lbl {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #f2d892;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-weight: 700;
+  }
+  .preco-final .val {
+    font-size: 36px;
+    font-weight: 700;
+    color: #f7efe4;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
   .obs {
     margin-top: 16px;
     padding: 12px;
@@ -99,18 +220,43 @@ function buildNegociadorPdfHtml(
     font-size: 12px;
     color: #2a1812;
     white-space: pre-wrap;
+    font-family: "Segoe UI", system-ui, sans-serif;
   }
-  ul { margin: 6px 0 0 18px; font-size: 12px; color: #2a1812; }
-  .foot { margin-top: 24px; font-size: 10px; color: #6b5344; text-align: center; }
+  ul {
+    margin: 6px 0 0 18px;
+    font-size: 12px;
+    color: #2a1812;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .foot {
+    margin-top: 24px;
+    font-size: 10px;
+    color: #6b5344;
+    text-align: center;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .foot .legal { margin-top: 4px; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div>${logoSrc ? `<img class="logo" src="${esc(logoSrc)}" alt="Logo" />` : ''}</div>
-    <div class="empresa">
-      <h1>${esc(branding.empresaNome || 'Empresa')}</h1>
-      ${branding.empresaCnpj ? `<p>CNPJ ${esc(branding.empresaCnpj)}</p>` : ''}
-      <p>Proposta de negociação · ${esc(dataGeracao)}</p>
+    <div class="brand">
+      ${logoSrc ? `<img class="logo" src="${esc(logoSrc)}" alt="Logo" />` : ''}
+      <div class="empresa-legal">
+        <div class="nome">${esc(branding.empresaNome || 'Garbo Movelaria')}</div>
+        <span class="lbl">Razão Social</span>
+        <div class="val">${esc(razaoSocial)}</div>
+        ${
+          cnpj
+            ? `<span class="lbl">CNPJ</span><div class="val">${esc(cnpj)}</div>`
+            : ''
+        }
+      </div>
+    </div>
+    <div class="meta-direita">
+      <div class="titulo">Orçamento</div>
+      <p>Proposta de negociação</p>
+      <p>${esc(dataGeracao)}</p>
     </div>
   </div>
 
@@ -120,9 +266,23 @@ function buildNegociadorPdfHtml(
     Documento com o valor fechado com o cliente.
   </p>
 
-  <div class="cards">
-    <div class="card"><div class="lbl">Preço original</div><div class="val">${formatarMoedaMarkup(data.precoOriginal)}</div></div>
-    <div class="card accent"><div class="lbl">Valor negociado</div><div class="val">${formatarMoedaMarkup(data.valorNegociado)}</div></div>
+  <div class="totais">
+    <div class="linha-sub">
+      <span class="lbl">Preço original</span>
+      <span class="val">${formatarMoedaMarkup(data.precoOriginal)}</span>
+    </div>
+    ${
+      temDesconto
+        ? `<div class="desconto">
+            <span class="lbl">Desconto${pctDesconto ? ` <span class="pct">−${esc(pctDesconto)}%</span>` : ''}</span>
+            <span class="val">−${formatarMoedaMarkup(desconto)}</span>
+          </div>`
+        : ''
+    }
+    <div class="preco-final">
+      <span class="lbl">Preço final</span>
+      <span class="val">${formatarMoedaMarkup(data.valorNegociado)}</span>
+    </div>
   </div>
 
   <h2 style="margin-top:18px">Markups incluídos</h2>
@@ -134,7 +294,10 @@ function buildNegociadorPdfHtml(
       : ''
   }
 
-  <p class="foot">Documento gerado pelo Negociador · ${esc(branding.empresaNome || '')}</p>
+  <p class="foot">
+    Documento gerado pelo Negociador · ${esc(branding.empresaNome || '')}
+    <span class="legal"><br/>Razão Social: ${esc(razaoSocial)}${cnpj ? ` · CNPJ: ${esc(cnpj)}` : ''}</span>
+  </p>
 </body>
 </html>`;
 }

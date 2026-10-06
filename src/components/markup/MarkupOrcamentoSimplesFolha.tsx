@@ -253,47 +253,101 @@ export function MarkupOrcamentoSimplesFolha({
         </tbody>
       </table>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-        <div style={{ width: 280 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
+        <div style={{ width: 340 }}>
           <LinhaTotal rotulo="Subtotal" valor={formatarMoedaMarkup(centavosParaReais(totais.subtotal_centavos))} />
           {totais.desconto_centavos > 0 ? (
-            <LinhaTotal
-              rotulo={
-                doc.desconto_tipo === 'percent'
-                  ? `Desconto (${Number(doc.desconto_valor).toLocaleString('pt-BR')}%)`
-                  : 'Desconto'
-              }
-              valor={`−${formatarMoedaMarkup(centavosParaReais(totais.desconto_centavos))}`}
-            />
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                marginTop: 10,
+                marginBottom: 4,
+                padding: '12px 14px',
+                borderRadius: 8,
+                border: '2px solid #c45c3a',
+                background: 'linear-gradient(135deg, #fff4ee 0%, #ffe8dc 100%)',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: RALEWAY,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: '#a33d1f',
+                }}
+              >
+                Desconto
+                {doc.desconto_tipo === 'percent' ? (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      marginLeft: 8,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: '#c45c3a',
+                      color: '#fff',
+                      fontSize: 11,
+                      letterSpacing: '0.04em',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    −{Number(doc.desconto_valor).toLocaleString('pt-BR')}%
+                  </span>
+                ) : null}
+              </span>
+              <span
+                style={{
+                  fontFamily: CORMORANT,
+                  fontSize: 26,
+                  fontWeight: 700,
+                  color: '#a33d1f',
+                  fontVariantNumeric: 'tabular-nums',
+                  lineHeight: 1,
+                }}
+              >
+                −{formatarMoedaMarkup(centavosParaReais(totais.desconto_centavos))}
+              </span>
+            </div>
           ) : null}
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'baseline',
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: `1px solid ${BRASS}`,
+              alignItems: 'center',
+              gap: 16,
+              marginTop: 12,
+              padding: '16px 18px',
+              borderRadius: 10,
+              border: `2px solid ${BRASS}`,
+              background: 'linear-gradient(145deg, #2a1812 0%, #3d2418 55%, #5a3a1f 100%)',
+              boxShadow: '0 10px 28px rgba(42, 24, 18, 0.16)',
             }}
           >
             <span
               style={{
-                fontFamily: CORMORANT,
-                fontSize: 15,
-                letterSpacing: '0.16em',
+                fontFamily: RALEWAY,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.18em',
                 textTransform: 'uppercase',
-                color: MUTED,
+                color: '#f2d892',
               }}
             >
-              Total
+              Preço final
             </span>
             <span
               style={{
                 fontFamily: CORMORANT,
-                fontSize: 32,
-                fontWeight: 600,
-                color: '#8a6d2e',
+                fontSize: 38,
+                fontWeight: 700,
+                color: '#f7efe4',
                 lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {formatarMoedaMarkup(centavosParaReais(totais.total_centavos))}

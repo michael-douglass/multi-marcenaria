@@ -439,14 +439,15 @@ export function LeadNegociadorDialog({
           markupsTitulos: orcamentosSelecionados.map((o) => o.titulo || 'Markup'),
         },
         {
-          empresaNome: empresa?.nome || 'Empresa',
+          empresaNome: empresa?.nome || 'Garbo Movelaria',
+          empresaRazaoSocial: empresa?.razao_social ?? null,
           empresaCnpj: empresa?.cnpj ?? null,
           logoUrl: logo,
           clienteNome: leadNome || null,
         },
       );
       toast.success('PDF gerado!', {
-        description: 'A negociação foi exportada com a logo da empresa.',
+        description: 'Orçamento da negociação com razão social e CNPJ da empresa.',
       });
     } catch (e) {
       toast.error('Não foi possível gerar o PDF', {
