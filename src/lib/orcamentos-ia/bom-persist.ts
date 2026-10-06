@@ -116,7 +116,9 @@ export function bomLineToQuoteMaterial(
         ? 'm'
         : line.unit_of_measure === 'bar'
           ? 'barra'
-          : 'un'
+          : line.unit_of_measure === 'sheet'
+            ? 'chapa'
+            : 'un'
 
   return {
     module_id: moduleId,

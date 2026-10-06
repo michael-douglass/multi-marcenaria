@@ -78,6 +78,7 @@ import { SlideMidia } from '@/components/orcamento-slides/SlideMidia';
 import { CuboMagicoFundo, CuboMagicoLens, cuboMagicoPeriodStyle } from '@/components/orcamento-slides/CuboMagicoFundo';
 import { CapaAtmosphereFoil } from '@/components/orcamento-slides/CapaAtmosphereFoil';
 import { CapaEditorialTextos, CapaMolduraOuro } from '@/components/orcamento-slides/CapaEditorial';
+import { EmpresaDadosLegais } from '@/components/orcamento-slides/EmpresaDadosLegais';
 import { isOrcamentoMidiaVideo } from '@/lib/orcamento-slide-midia-video';
 import { urlImagemApresentacao } from '@/lib/orcamento-slide-imagem-url';
 import './ferragens-cards.css';
@@ -1854,6 +1855,23 @@ function BlocoPrecificacao({
       )}
 
       <div className="relative z-10 h-0.5 w-16" style={{ background: p.secundaria, ...reveal(450, previewMode) }} data-reveal={!previewMode || undefined} />
+      <div
+        className={cn('relative z-10 w-full max-w-xl', textAlign.self)}
+        style={reveal(500, previewMode)}
+        data-reveal={!previewMode || undefined}
+      >
+        <EmpresaDadosLegais
+          color={`${p.secundaria}bb`}
+          variant="inline"
+          align={
+            textAlign.text === 'text-center'
+              ? 'center'
+              : textAlign.text === 'text-right'
+                ? 'right'
+                : 'left'
+          }
+        />
+      </div>
       <div className="relative z-10">
         <ImagensExtrasDoBloco bloco={bloco} mobile={mobile} previewMode={previewMode} px={0} />
       </div>

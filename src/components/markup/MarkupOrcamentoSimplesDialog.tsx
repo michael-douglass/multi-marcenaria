@@ -133,8 +133,9 @@ export function MarkupOrcamentoSimplesDialog({
 
   const branding = useMemo(
     () => ({
-      empresaNome: empresa?.razao_social?.trim() || empresa?.nome || 'Garbo Movelaria',
-      empresaCnpj: empresa?.cnpj ?? null,
+      empresaNome: empresa?.nome?.trim() || 'Garbo Movelaria',
+      empresaRazaoSocial: empresa?.razao_social?.trim() || null,
+      empresaCnpj: empresa?.cnpj?.trim() || null,
       logoUrl: logoEmbutida || config?.timbrado_url || empresa?.logo_url || null,
     }),
     [empresa, config?.timbrado_url, logoEmbutida],

@@ -7,11 +7,20 @@
 export const FLOATING_ICONS_TOP = 'top-[4rem]';
 
 /**
- * Topo absoluto da viewport (Saldo do mês + Agenda Geral).
- * Ficam sempre na faixa mais alta da tela, com respiro da safe-area.
+ * Faixa superior (Saldo do mês + Agenda + Chat do ateliê).
+ * Fica abaixo dos botões de sheet no canto (ex.: Recolher / Fechar da
+ * Calculadora de Markup em top-4 + pt-6), com respiro da safe-area.
+ * ~5rem limpa a primeira linha de ações sem empurrar demais o conteúdo.
  */
 export const FLOATING_TOP_EDGE =
-  'top-[max(0.75rem,env(safe-area-inset-top))] sm:top-4';
+  'top-[max(5rem,calc(env(safe-area-inset-top)+4.25rem))] sm:top-20';
+
+/**
+ * Popup do chat: logo abaixo do ícone (h-14 ≈ 3.5rem + 0.75rem de folga).
+ * Espelha FLOATING_TOP_EDGE para o painel acompanhar o ícone.
+ */
+export const FLOATING_BELOW_TOP_EDGE_ICON =
+  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+4.25rem)] sm:top-[calc(5rem+4.25rem)]';
 
 /** Ícone da Agenda no canto superior direito. */
 export const FLOATING_AGENDA_ICON_RIGHT =

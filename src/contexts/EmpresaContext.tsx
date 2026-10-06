@@ -22,6 +22,10 @@ export interface Empresa {
  */
 export const GARBO_EMPRESA_ID = '2c196e67-dd26-4e1c-839d-4d234f3a3dfd';
 
+/** Dados legais da contratada — impressão de orçamento, markup e contratos. */
+export const GARBO_RAZAO_SOCIAL = 'GARBO MOVEIS SOB MEDIDA LTDA'
+export const GARBO_CNPJ = '58.838.942/0001-23'
+
 export const GARBO_EMPRESA: Empresa = {
   id: GARBO_EMPRESA_ID,
   nome: 'Garbo Movelaria',
@@ -34,6 +38,8 @@ export const GARBO_EMPRESA: Empresa = {
   banner_mobile_url: null,
   banner_slides_desktop: null,
   banner_slides_mobile: null,
+  razao_social: GARBO_RAZAO_SOCIAL,
+  cnpj: GARBO_CNPJ,
 }
 
 interface EmpresaContextType {

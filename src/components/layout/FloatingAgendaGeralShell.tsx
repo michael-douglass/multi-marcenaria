@@ -21,7 +21,7 @@ interface FloatingAgendaGeralShellProps {
 /**
  * Agenda Geral sempre visível em todas as páginas com MainLayout.
  * Renderizado via portal no body para não ser cortado pelo layout da sidebar.
- * Ícone fica na faixa mais alta da tela (junto ao Saldo do mês).
+ * Ícone fica na faixa superior (junto ao Saldo do mês), abaixo dos botões de sheet.
  */
 export function FloatingAgendaGeralShell({
   isOpen,

@@ -2,6 +2,13 @@ import { supabase } from '@/lib/supabase'
 import type { MaterialCategory } from '@/lib/orcamentos-ia/schemas'
 import type { QuoteAnalysisDetail, QuoteMaterialRow } from '@/lib/orcamentos-ia/quote-tree'
 
+/** Peça da lista de corte — não entra no custo (custo vai na chapa do módulo). */
+export const CUTTING_LIST_TAG = 'corte-peca'
+
+export function isCuttingListNote(notes: string | null | undefined): boolean {
+  return (notes ?? '').includes(CUTTING_LIST_TAG)
+}
+
 /**
  * Aviso gravado em `notes` quando o material não está no estoque nem na tabela de mercado
  * e o preço veio da tabela padrão (preço médio por tipo de material).
@@ -504,7 +511,9 @@ export async function repriceZeroMaterials(params: {
   companyId: string
   materials: QuoteMaterialRow[]
 }): Promise<{ updated: number; materials: QuoteMaterialRow[]; error?: string }> {
-  const zeros = params.materials.filter((m) => !(Number(m.unit_price) > 0))
+  const zeros = params.materials.filter(
+    (m) => !(Number(m.unit_price) > 0) && !isCuttingListNote(m.notes),
+  )
   if (!zeros.length) {
     return { updated: 0, materials: params.materials }
   }
@@ -682,9 +691,13 @@ export function sumMaterialsCost(
 
 /** Custo de uma linha de insumo (mesma regra do total do orçamento). */
 export function materialLineCost(
-  m: Pick<QuoteMaterialRow, 'unit_measure' | 'full_units_quantity' | 'exact_quantity' | 'unit_price'>,
+  m: Pick<
+    QuoteMaterialRow,
+    'unit_measure' | 'full_units_quantity' | 'exact_quantity' | 'unit_price' | 'notes'
+  >,
   sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
 ): number {
+  if (isCuttingListNote(m.notes)) return 0
   const lossFactor = 1 + Math.max(0, sheetLossPct) / 100
   const qty =
     m.unit_measure === 'chapa' || m.unit_measure === 'barra'
@@ -855,6 +868,7 @@ export function buildShoppingList(
   let endCapPrice = 0
 
   for (const mat of materials) {
+    if (isCuttingListNote(mat.notes)) continue
     if (mat.category === 'chapa') {
       // "Lateral — MDF Branco TX 15mm" → agrupa pelo material, não pela peça
       const key = mat.raw_name.includes('—')
@@ -941,7 +955,7 @@ export function buildShoppingList(
       category: 'chapa',
       name,
       exactQuantity: Math.round(entry.m2 * 1000) / 1000 || entry.countAsSheet,
-      exactUnit: entry.m2 > 0 ? 'm²' : 'un',
+      exactUnit: entry.m2 > 0 ? 'm²' : 'chapa',
       purchaseQuantity: purchase,
       purchaseUnit: 'chapa',
       unitPrice: entry.unitPrice,

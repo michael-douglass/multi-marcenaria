@@ -10,6 +10,7 @@ import {
   formatBRL,
   materialLineCost,
 } from '@/lib/orcamentos-ia/pricing'
+import { isCuttingListNote } from '@/lib/orcamentos-ia/module-sheet-pricing'
 
 /**
  * Apresentação do Audit Workspace em linguagem de marceneiro/cliente:
@@ -73,19 +74,23 @@ export function describeMaterial(mat: QuoteMaterialRow): MaterialDisplay {
         pieces ? ` · ${number(pieces, 0)} ${pieces === 1 ? 'peça' : 'peças'}` : ''
       }`
     : null
-  const pendingPrice = mat.using_market_price && !mat.market_price_confirmed
+  const pendingPrice =
+    !isCuttingListNote(notes) && mat.using_market_price && !mat.market_price_confirmed
+  const cutting = isCuttingListNote(notes)
   return {
     title: piece,
     material,
-    detail,
+    detail: cutting ? [detail, 'lista de corte'].filter(Boolean).join(' · ') : detail,
     estimatedSize: /medida estimada/.test(notes),
     quantity: formatQuantity(Number(mat.exact_quantity) || 0, mat.unit_measure),
     total: materialLineCost(mat, DEFAULT_SHEET_LOSS_PCT),
-    priceStatus: !pendingPrice
+    priceStatus: cutting
       ? 'ok'
-      : isSuggestedPriceNote(notes)
-        ? 'suggested'
-        : 'market',
+      : !pendingPrice
+        ? 'ok'
+        : isSuggestedPriceNote(notes)
+          ? 'suggested'
+          : 'market',
   }
 }
 
@@ -132,9 +137,13 @@ export function MaterialRow({
           )}
         </button>
         <div className="shrink-0 text-right">
-          <p className={cn('text-[13px] font-semibold tabular-nums leading-tight', INK)}>
-            {formatBRL(d.total)}
-          </p>
+          {d.total > 0 ? (
+            <p className={cn('text-[13px] font-semibold tabular-nums leading-tight', INK)}>
+              {formatBRL(d.total)}
+            </p>
+          ) : (
+            <p className={cn('text-[11px] leading-tight', INK_MUTED)}>sem custo</p>
+          )}
           <p className={cn('mt-0.5 text-[11px] tabular-nums', INK_MUTED)}>{d.quantity}</p>
         </div>
         <button

@@ -24,14 +24,16 @@ export function boardBomLines(
   const area = Math.round(totalBoardAreaM2(pieces) * 1000) / 1000
   if (area <= 0) return []
   const sheets = sheetsFromAreaM2(area, lossPct, STANDARD_SHEET_AREA_M2)
+  const sheetCost = Math.round(unitCostPerM2 * STANDARD_SHEET_AREA_M2 * 100) / 100
   return [
     {
       item_category: 'board',
       item_description: materialName,
-      quantity: area,
-      unit_of_measure: 'm2',
-      unit_cost: unitCostPerM2,
+      quantity: sheets,
+      unit_of_measure: 'sheet',
+      unit_cost: sheetCost,
       metadata: {
+        area_m2: area,
         sheets_with_loss: sheets,
         sheet_area_m2: STANDARD_SHEET_AREA_M2,
         loss_pct: lossPct,

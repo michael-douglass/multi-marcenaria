@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { CuboMagicoLens } from '@/components/orcamento-slides/CuboMagicoFundo';
+import { EmpresaDadosLegais } from '@/components/orcamento-slides/EmpresaDadosLegais';
 import { urlImagemApresentacao } from '@/lib/orcamento-slide-imagem-url';
 import type { BlocoEscalaVisual } from '@/lib/orcamento-slide-types';
 import { slideTypography } from '@/lib/orcamento-slide-typography';
@@ -248,6 +249,21 @@ export function CapaEditorialTextos({
         reveal={reveal}
         delay={340}
       />
+
+      <div
+        className={cn('mt-3 w-full max-w-md', centered ? 'mx-auto' : '')}
+        style={{
+          ...sombraTexto,
+          ...reveal(420, previewMode),
+        }}
+        data-reveal={revealAttr(previewMode)}
+      >
+        <EmpresaDadosLegais
+          color={overlay ? 'rgba(247, 239, 228, 0.78)' : `${p.secundaria}cc`}
+          align={centered ? 'center' : 'left'}
+          variant="stacked"
+        />
+      </div>
     </CuboMagicoLens>
   );
 }

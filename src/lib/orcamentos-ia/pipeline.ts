@@ -17,9 +17,7 @@ import {
   barsOf3mFromMeters,
   CONTINGENCY_PRICE_WARNING,
   createPriceResolver,
-  DEFAULT_SHEET_LOSS_PCT,
   endCapsForHandleBars,
-  sheetsFromAreaM2,
   type ResolvedMaterialPrice,
 } from '@/lib/orcamentos-ia/pricing'
 import {
@@ -46,6 +44,14 @@ import {
   insertBomItems,
   validateBomLines,
 } from '@/lib/orcamentos-ia/bom-persist'
+import {
+  CUTTING_LIST_TAG,
+  isCuttingListNote,
+  pieceAreaM2,
+  sheetPurchaseNotes,
+  sheetsForModuleArea,
+  sheetUnitPrice,
+} from '@/lib/orcamentos-ia/module-sheet-pricing'
 
 /**
  * Pipeline multi-agente (Fase 3).
@@ -578,31 +584,6 @@ async function nodeResolvePricesAndPersist(
   }
   await clearBomItemsForProject(state.analysisId)
 
-  /** Chapa em m²: área real × R$/m² (perda aplicada no custo e na lista de compras). */
-  const areaRow = (
-    p: ResolvedMaterialPrice,
-    widthMm: number,
-    heightMm: number,
-    qty: number,
-  ) => {
-    const areaM2 = Math.round(((widthMm * heightMm * qty) / 1_000_000) * 1000) / 1000
-    const perM2 = p.pricePerM2 && p.pricePerM2 > 0 ? p.pricePerM2 : null
-    return perM2
-      ? {
-          unit_price: perM2,
-          exact_quantity: areaM2,
-          full_units_quantity: sheetsFromAreaM2(areaM2, DEFAULT_SHEET_LOSS_PCT),
-          unit_measure: 'm2',
-        }
-      : {
-          // Sem preço por m² derivável → mantém unidade do cadastro
-          unit_price: p.unitPrice,
-          exact_quantity: qty,
-          full_units_quantity: Math.ceil(qty),
-          unit_measure: p.unit || 'un',
-        }
-  }
-
   for (const [envIndex, env] of state.extraction.environments.entries()) {
     const { data: envRow, error: envError } = await supabase
       .from('quote_environments')
@@ -650,6 +631,10 @@ async function nodeResolvePricesAndPersist(
       }
 
       const materialRows: Array<Record<string, unknown>> = []
+      const sheetAgg = new Map<
+        string,
+        { areaM2: number; price: ReturnType<typeof price>; bbox: unknown }
+      >()
 
       const withPage = (
         row: Record<string, unknown>,
@@ -707,7 +692,6 @@ async function nodeResolvePricesAndPersist(
         }
 
         const piecePrice = price(piece.material_name, 'chapa')
-        if (piecePrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
           withPage(
             {
@@ -715,17 +699,25 @@ async function nodeResolvePricesAndPersist(
               raw_name: `${piece.name} — ${piece.material_name}`,
               category: 'chapa',
               system_material_id: piecePrice.inventoryItemId,
-              using_market_price: piecePrice.usingMarketPrice,
-              market_price_confirmed: false,
-              ...areaRow(piecePrice, piece.width_mm, piece.height_mm, piece.quantity),
-              notes: priceNotes(
-                piecePrice,
-                `função=${piece.function}; ${piece.width_mm}x${piece.height_mm}x${piece.thickness_mm}mm × ${piece.quantity}${piece.dimensions_estimated ? ' (medida estimada)' : ''}`,
-              ),
+              using_market_price: false,
+              market_price_confirmed: true,
+              unit_price: 0,
+              exact_quantity: piece.quantity,
+              full_units_quantity: Math.ceil(piece.quantity),
+              unit_measure: 'un',
+              notes: `${CUTTING_LIST_TAG}; função=${piece.function}; ${piece.width_mm}x${piece.height_mm}x${piece.thickness_mm}mm × ${piece.quantity}${piece.dimensions_estimated ? ' (medida estimada)' : ''}`,
             },
             piece.bounding_box,
           ),
         )
+        const prev = sheetAgg.get(piece.material_name) ?? {
+          areaM2: 0,
+          price: piecePrice,
+          bbox: piece.bounding_box,
+        }
+        prev.areaM2 += pieceAreaM2(piece.width_mm, piece.height_mm, piece.quantity)
+        prev.price = piecePrice
+        sheetAgg.set(piece.material_name, prev)
         if (!moduleHasTapeTotals && piece.edge_banding && piece.edge_banding.meters > 0) {
           // `meters` vem por unidade da peça
           const tapeMeters = Math.round(piece.edge_banding.meters * piece.quantity * 100) / 100
@@ -758,7 +750,6 @@ async function nodeResolvePricesAndPersist(
 
       for (const frente of mod.frentes_portas) {
         const frentePrice = price(frente.material_name, 'chapa')
-        if (frentePrice.usingMarketPrice) marketFlags += 1
         materialRows.push(
           withPage(
             {
@@ -766,15 +757,50 @@ async function nodeResolvePricesAndPersist(
               raw_name: `${frente.name} — ${frente.material_name}`,
               category: 'chapa',
               system_material_id: frentePrice.inventoryItemId,
-              using_market_price: frentePrice.usingMarketPrice,
-              market_price_confirmed: false,
-              ...areaRow(frentePrice, frente.width_mm, frente.height_mm, frente.quantity),
-              notes: priceNotes(
-                frentePrice,
-                `tipo=${frente.kind}; ${frente.width_mm}x${frente.height_mm}x${frente.thickness_mm}mm × ${frente.quantity}${frente.dimensions_estimated ? ' (medida estimada)' : ''}`,
-              ),
+              using_market_price: false,
+              market_price_confirmed: true,
+              unit_price: 0,
+              exact_quantity: frente.quantity,
+              full_units_quantity: Math.ceil(frente.quantity),
+              unit_measure: 'un',
+              notes: `${CUTTING_LIST_TAG}; tipo=${frente.kind}; ${frente.width_mm}x${frente.height_mm}x${frente.thickness_mm}mm × ${frente.quantity}${frente.dimensions_estimated ? ' (medida estimada)' : ''}`,
             },
             frente.bounding_box,
+          ),
+        )
+        const prevF = sheetAgg.get(frente.material_name) ?? {
+          areaM2: 0,
+          price: frentePrice,
+          bbox: frente.bounding_box,
+        }
+        prevF.areaM2 += pieceAreaM2(frente.width_mm, frente.height_mm, frente.quantity)
+        prevF.price = frentePrice
+        sheetAgg.set(frente.material_name, prevF)
+      }
+
+      for (const [materialName, agg] of sheetAgg) {
+        const packed = sheetsForModuleArea(agg.areaM2)
+        const unitPrice = sheetUnitPrice(agg.price)
+        if (agg.price.usingMarketPrice) marketFlags += 1
+        materialRows.push(
+          withPage(
+            {
+              module_id: modRow.id,
+              raw_name: `Chapa — ${materialName}`,
+              category: 'chapa',
+              system_material_id: agg.price.inventoryItemId,
+              using_market_price: agg.price.usingMarketPrice,
+              market_price_confirmed: false,
+              unit_price: unitPrice,
+              exact_quantity: packed.sheets,
+              full_units_quantity: packed.sheets,
+              unit_measure: 'chapa',
+              notes: priceNotes(
+                agg.price,
+                sheetPurchaseNotes(packed.areaM2, packed.sheets, packed.lossPct),
+              ),
+            },
+            agg.bbox,
           ),
         )
       }
@@ -870,7 +896,9 @@ async function nodeResolvePricesAndPersist(
         (r) =>
           ['chapa', 'fita_borda', 'ferragem', 'puxador', 'consumivel'].includes(
             String(r.category),
-          ) && !(Number(r.unit_price) > 0),
+          ) &&
+          !(Number(r.unit_price) > 0) &&
+          !isCuttingListNote(typeof r.notes === 'string' ? r.notes : null),
       )
       if (unpriced.length) {
         throw new Error(

@@ -20,7 +20,10 @@ const CORMORANT = "'Cormorant Garamond', Georgia, serif";
 const RALEWAY = "'Raleway', 'DM Sans', sans-serif";
 
 export interface MarkupOrcamentoSimplesFolhaBranding {
+  /** Nome fantasia (cabeçalho visual). */
   empresaNome: string;
+  /** Razão social legal — impressa no documento. */
+  empresaRazaoSocial?: string | null;
   empresaCnpj?: string | null;
   logoUrl?: string | null;
 }
@@ -42,6 +45,7 @@ export function MarkupOrcamentoSimplesFolha({
   const hoje = new Date();
   const validade = dataValidadeOrcamentoSimples(doc.validade_dias, hoje);
   const cols = colunasGaleriaOrcamentoSimples(fotosEmbutidas.length);
+  const razaoSocial = branding.empresaRazaoSocial?.trim() || branding.empresaNome;
   const cnpj = branding.empresaCnpj?.trim();
 
   return (
@@ -107,9 +111,36 @@ export function MarkupOrcamentoSimplesFolha({
             >
               {branding.empresaNome}
             </p>
+            <p
+              style={{
+                margin: '8px 0 0',
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                color: MUTED,
+                lineHeight: 1.45,
+              }}
+            >
+              <span style={{ color: BRASS, letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: 9 }}>
+                Razão Social
+              </span>
+              <br />
+              {razaoSocial}
+            </p>
             {cnpj ? (
-              <p style={{ margin: '4px 0 0', fontSize: 11, letterSpacing: '0.08em', color: MUTED }}>
-                CNPJ {cnpj}
+              <p
+                style={{
+                  margin: '6px 0 0',
+                  fontSize: 11,
+                  letterSpacing: '0.04em',
+                  color: MUTED,
+                  lineHeight: 1.45,
+                }}
+              >
+                <span style={{ color: BRASS, letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: 9 }}>
+                  CNPJ
+                </span>
+                <br />
+                {cnpj}
               </p>
             ) : null}
           </div>

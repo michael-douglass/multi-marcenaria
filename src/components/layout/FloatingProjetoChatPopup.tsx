@@ -18,6 +18,7 @@ import { ProjetosChatSheetAura } from '@/components/projetos/ProjetosChatSheetAu
 import { Input } from '@/components/ui/input'
 import { floatingAgendaPanelClass, FLOATING_UI_ROOT_ATTR } from '@/lib/overlay-z-index'
 import {
+  FLOATING_BELOW_TOP_EDGE_ICON,
   FLOATING_PROJETO_CHAT_ICON_RIGHT,
 } from '@/lib/floating-ui-layout'
 
@@ -152,13 +153,13 @@ export function FloatingProjetoChatPopup({
       className={cn(
         'fixed pointer-events-auto',
         // Logo abaixo do ícone (h-14), para o botão continuar visível e clicável.
-        'top-[calc(max(0.75rem,env(safe-area-inset-top))+4.25rem)] sm:top-[calc(1rem+4.25rem)]',
+        FLOATING_BELOW_TOP_EDGE_ICON,
         FLOATING_PROJETO_CHAT_ICON_RIGHT,
         floatingAgendaPanelClass,
         'flex w-[min(calc(100vw-1.25rem),24rem)] flex-col overflow-hidden rounded-2xl',
         'shadow-[0_20px_48px_rgba(18,8,4,0.32)]',
         'origin-top-right animate-in fade-in zoom-in-95 duration-200',
-        'h-[min(calc(100vh-6.5rem),38rem)] max-h-[min(calc(100vh-6.5rem),38rem)]',
+        'h-[min(calc(100vh-10.5rem),38rem)] max-h-[min(calc(100vh-10.5rem),38rem)]',
       )}
       style={{
         background:
