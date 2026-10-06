@@ -582,7 +582,7 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
           if (!modName) return null
 
           // Medidas (mm) ≤ 0 são estimadas por tipo no schema (dimension-defaults)
-          m.caixaria = coercePositiveList(m.caixaria, ['quantity'])
+          m.caixaria = coercePositiveList(m.caixaria, ['quantity']).map(sanitizePieceEdgeBanding)
           m.frentes_portas = coercePositiveList(m.frentes_portas, ['quantity'])
           m.ferragens = coercePositiveList(m.ferragens, ['exact_quantity', 'full_units_quantity'])
           m.fitas_borda_m = coercePositiveList(m.fitas_borda_m, ['meters'])
@@ -620,6 +620,30 @@ function coercePositiveList(value: unknown, numericKeys: string[]): unknown[] {
       }
       return row
     })
+}
+
+/** null/NaN em edge_banding.meters derrubava o Zod (default só cobre undefined). */
+function sanitizePieceEdgeBanding(item: unknown): unknown {
+  if (!item || typeof item !== 'object') return item
+  const row = { ...(item as Record<string, unknown>) }
+  const eb = row.edge_banding
+  if (eb == null) return row
+  if (typeof eb !== 'object') {
+    delete row.edge_banding
+    return row
+  }
+  const band = { ...(eb as Record<string, unknown>) }
+  const meters = Number(band.meters)
+  band.meters = Number.isFinite(meters) && meters >= 0 ? meters : 0
+  if (band.tape_name == null || (typeof band.tape_name === 'string' && !band.tape_name.trim())) {
+    delete band.tape_name
+  }
+  for (const side of ['C1', 'C2', 'L1', 'L2'] as const) {
+    if (band[side] == null) band[side] = false
+    else band[side] = Boolean(band[side])
+  }
+  row.edge_banding = band
+  return row
 }
 
 async function nodeResolvePricesAndPersist(

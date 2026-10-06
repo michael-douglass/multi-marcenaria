@@ -92,8 +92,12 @@ export const caixariaPieceSchema = z.preprocess(
         C2: z.boolean().default(false),
         L1: z.boolean().default(false),
         L2: z.boolean().default(false),
-        tape_name: z.string().optional(),
-        meters: z.number().nonnegative().default(0),
+        tape_name: z.string().nullish().transform((v) => v ?? undefined),
+        // IA às vezes manda null — .default() só cobre undefined
+        meters: z.preprocess(
+          (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v)),
+          z.number().nonnegative(),
+        ),
       })
       .optional(),
     quantity: z.number().positive().default(1),
