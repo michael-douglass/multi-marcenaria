@@ -33,6 +33,15 @@ export const FLOATING_PROJETO_CHAT_ICON_RIGHT =
   'right-[calc(max(0.75rem,env(safe-area-inset-right))+4.25rem)] sm:right-[calc(1rem+4.25rem)]';
 
 /**
+ * Orçamentos IA (miniatura): mesma coluna da Agenda, logo abaixo do ícone (h-14 + folga).
+ * Antes usava top-4rem/right-4 e cobria o calendário.
+ */
+export const FLOATING_ORCAMENTOS_IA_ICON_TOP = FLOATING_BELOW_TOP_EDGE_ICON;
+
+/** Mesma âncora horizontal da Agenda (coluna direita). */
+export const FLOATING_ORCAMENTOS_IA_ICON_RIGHT = FLOATING_AGENDA_ICON_RIGHT;
+
+/**
  * Saldo do mês: à esquerda da Agenda + slot do chat do ateliê,
  * para os três caberem no topo sem um cobrir o outro.
  */

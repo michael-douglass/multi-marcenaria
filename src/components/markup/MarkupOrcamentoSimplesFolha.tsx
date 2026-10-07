@@ -3,6 +3,7 @@ import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import {
   MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX,
   MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX,
+  alturaMaxFotoOrcamentoSimples,
   calcularTotaisOrcamentoSimples,
   centavosParaReais,
   colunasGaleriaOrcamentoSimples,
@@ -179,42 +180,19 @@ function PaginaA4({
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              gap: 10,
+              gap: 12,
               marginBottom: 22,
               flexShrink: 0,
+              alignItems: 'start',
             }}
           >
             {pagina.fotos.map((src, i) => (
-              <div
+              <FotoQuadro
                 key={`${src}-${pagina.fotoInicio + i}`}
-                style={{
-                  position: 'relative',
-                  aspectRatio: '4 / 3',
-                  overflow: 'hidden',
-                  background: '#e8dcc6',
-                  boxShadow: `0 0 0 1px ${BRASS}`,
-                }}
-              >
-                <img
-                  src={src}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    fontFamily: CORMORANT,
-                    fontSize: 13,
-                    letterSpacing: '0.12em',
-                    color: BRASS,
-                    textShadow: '0 1px 2px rgba(20,14,11,0.55)',
-                  }}
-                >
-                  {String(pagina.fotoInicio + i).padStart(2, '0')}
-                </span>
-              </div>
+                src={src}
+                numero={pagina.fotoInicio + i}
+                maxHeight={alturaMaxFotoOrcamentoSimples(cols)}
+              />
             ))}
           </section>
         ) : null}
@@ -600,6 +578,74 @@ function BlocoTotais({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Quadro editorial: a foto entra no formato dela (retrato ou paisagem).
+ * Nunca estica — só reduz para caber na largura da coluna e na altura máxima.
+ */
+function FotoQuadro({
+  src,
+  numero,
+  maxHeight,
+}: {
+  src: string;
+  numero: number;
+  maxHeight: number;
+}) {
+  return (
+    <figure
+      style={{
+        margin: 0,
+        position: 'relative',
+        padding: 7,
+        background: `linear-gradient(155deg, #f7efe0 0%, #e8d7bd 55%, #dfc9a8 100%)`,
+        boxShadow: `0 0 0 1px ${BRASS}, 0 10px 22px rgba(44, 29, 18, 0.08)`,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(180deg, #1c140f 0%, #2a1d14 100%)',
+          minHeight: 72,
+          maxHeight,
+          overflow: 'hidden',
+        }}
+      >
+        <img
+          src={src}
+          alt=""
+          style={{
+            display: 'block',
+            maxWidth: '100%',
+            maxHeight,
+            width: 'auto',
+            height: 'auto',
+            objectFit: 'contain',
+            objectPosition: 'center',
+          }}
+        />
+      </div>
+      <figcaption
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 14,
+          left: 14,
+          fontFamily: CORMORANT,
+          fontSize: 13,
+          letterSpacing: '0.14em',
+          color: BRASS,
+          textShadow: '0 1px 3px rgba(20,14,11,0.65)',
+          pointerEvents: 'none',
+        }}
+      >
+        {String(numero).padStart(2, '0')}
+      </figcaption>
+    </figure>
   );
 }
 

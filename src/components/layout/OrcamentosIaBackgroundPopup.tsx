@@ -15,7 +15,8 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import {
   FLOATING_HORIZONTAL,
-  FLOATING_ICONS_TOP,
+  FLOATING_ORCAMENTOS_IA_ICON_RIGHT,
+  FLOATING_ORCAMENTOS_IA_ICON_TOP,
   FLOATING_POPUP_TOP,
   floatingPopupMaxHeightStyle,
 } from '@/lib/floating-ui-layout'
@@ -96,8 +97,8 @@ export function OrcamentosIaBackgroundPopup({
         {...floatingRootProps}
         className={cn(
           'fixed pointer-events-auto',
-          FLOATING_ICONS_TOP,
-          FLOATING_HORIZONTAL,
+          FLOATING_ORCAMENTOS_IA_ICON_TOP,
+          FLOATING_ORCAMENTOS_IA_ICON_RIGHT,
           floatingAiBackgroundClass,
         )}
       >

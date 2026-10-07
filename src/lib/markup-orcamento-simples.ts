@@ -359,6 +359,16 @@ export function colunasGaleriaOrcamentoSimples(qtd: number): 1 | 2 | 3 {
   return 3;
 }
 
+/**
+ * Altura máxima do quadro da foto (px), sem forçar proporção.
+ * A imagem cabe dentro mantendo o formato original (retrato/paisagem).
+ */
+export function alturaMaxFotoOrcamentoSimples(cols: 1 | 2 | 3): number {
+  if (cols === 1) return 460;
+  if (cols === 2) return 320;
+  return 230;
+}
+
 /* —— Paginação A4 (altura fixa; sem esmagar o conteúdo) —— */
 
 const FOLHA_PAD_Y = 42 + 36;
@@ -381,9 +391,9 @@ function alturaGaleriaPagina(qtd: number): number {
   if (qtd <= 0) return 0;
   const cols = colunasGaleriaOrcamentoSimples(qtd);
   const rows = Math.ceil(qtd / cols);
-  const gap = 10;
-  const cellW = (FOLHA_CONTENT_W - gap * (cols - 1)) / cols;
-  const cellH = cellW * (3 / 4);
+  const gap = 12;
+  const moldura = 14; // passe-partout + borda do quadro
+  const cellH = alturaMaxFotoOrcamentoSimples(cols) + moldura;
   return rows * cellH + Math.max(0, rows - 1) * gap + 22;
 }
 
