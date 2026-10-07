@@ -142,6 +142,12 @@ export const PONTUA_GARBO_CAMPO_NOME = 'Pontua Garbo';
 /** Origem do card criado automaticamente para o parceiro. */
 export const PONTUA_GARBO_LEAD_ORIGEM = 'Pontua Garbo';
 
+/**
+ * Coluna inicial do card do parceiro no kanban Propspecção.
+ * Cadastros via Pontua Garbo entram direto em "Arquiteto".
+ */
+export const PONTUA_GARBO_LEAD_STATUS_INICIAL = 'Arquiteto';
+
 /** Indicação ainda em andamento no funil. */
 export function isOrcamentoIndicadoAberto(
   status: string | null | undefined,

@@ -8,6 +8,7 @@ import type { LeadCustomFieldDefinition } from '@/hooks/useLeadCustomFields';
 import {
   isPontuaGarboFieldActive,
   PONTUA_GARBO_LEAD_ORIGEM,
+  PONTUA_GARBO_LEAD_STATUS_INICIAL,
 } from '@/lib/pontua-garbo';
 import { accumulateIndicacoesPorMes } from '@/lib/pontua-garbo-indicacoes-mes';
 import {
@@ -486,7 +487,7 @@ export function useEnsurePontuaGarboPartnerLead() {
           email,
           telefone: (input.telefone ?? '').replace(/\D/g, '') || null,
           origem: PONTUA_GARBO_LEAD_ORIGEM,
-          status: 'Novo Lead',
+          status: PONTUA_GARBO_LEAD_STATUS_INICIAL,
           valor_negocio: 0,
           valor_orcamento: 0,
           data_chegada: new Date().toLocaleDateString('en-CA', {

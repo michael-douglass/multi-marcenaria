@@ -71,7 +71,7 @@ export function WhiteboardImageNotes({
             Notas da foto
           </p>
           <p className="truncate text-xs text-[#d4bc9f]">
-            Vai junto na pasta ao salvar a foto (arquivo separado com miniatura)
+            Vai junto na pasta ao salvar a foto — um arquivo só, com miniatura
           </p>
         </div>
       </div>

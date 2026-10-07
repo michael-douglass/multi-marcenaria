@@ -3,6 +3,8 @@ import type { EmpresaDbTarget } from "./empresa-tables.ts";
 import { dbFromSchema } from "./empresa-tables.ts";
 
 export const PONTUA_GARBO_LEAD_ORIGEM = "Pontua Garbo";
+/** Coluna inicial no kanban Propspecção para cadastros do programa. */
+export const PONTUA_GARBO_LEAD_STATUS_INICIAL = "Arquiteto";
 const MIN_SCORE_VINCULO = 70;
 const STOPWORDS = new Set([
   "de",
@@ -253,7 +255,7 @@ export async function ensurePontuaGarboPartnerLead(
       email,
       telefone,
       origem: PONTUA_GARBO_LEAD_ORIGEM,
-      status: "Novo Lead",
+      status: PONTUA_GARBO_LEAD_STATUS_INICIAL,
       valor_negocio: 0,
       valor_orcamento: 0,
       data_chegada: todaySaoPaulo(),

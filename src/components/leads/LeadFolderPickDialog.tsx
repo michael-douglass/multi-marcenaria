@@ -112,7 +112,7 @@ export function LeadFolderPickDialog({
   };
 
   const handleConfirm = async () => {
-    if (!canConfirm) return;
+    if (!canConfirm || isConfirming) return;
     setIsConfirming(true);
     try {
       let folderId = selectedId;
@@ -248,7 +248,7 @@ export function LeadFolderPickDialog({
                 <span className="mt-0.5 block text-[11px] text-[#4a3428]">
                   {notesCount === 0
                     ? 'Escreva uma nota ao lado da foto na lousa para incluir aqui.'
-                    : `Gera um arquivo de nota (imagem + PDF) com miniatura da foto e o texto — separado, na mesma pasta.`}
+                    : 'Gera um único arquivo de nota (imagem com miniatura + texto) na mesma pasta.'}
                 </span>
               </span>
             </label>

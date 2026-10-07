@@ -59,6 +59,7 @@ import {
 import { cn } from '@/lib/utils';
 import {
   PROJECT_IMAGE_PICKER_OPEN_ATTR,
+  WHITEBOARD_FULLSCREEN_ATTR,
   setWhiteboardFullscreenOpenFlag,
 } from '@/lib/dialog-outside-guard';
 import { leadFullscreenContentClass } from '@/lib/overlay-z-index';
@@ -165,13 +166,18 @@ interface LeadWhiteboardProps {
   disabled?: boolean;
 }
 
+interface OpenFullscreenOptions {
+  /** Só o botão “Quadro branco” pede folha nova — “Abrir” só expande. */
+  createBlankIfEmpty?: boolean;
+}
+
 interface BoardInnerProps extends LeadWhiteboardProps {
   className?: string;
   minHeight?: number;
   variant?: 'inline' | 'fullscreen';
   onClose?: () => void;
   /** Pedir tela cheia (ex.: após criar quadro branco). */
-  onRequestFullscreen?: () => void;
+  onRequestFullscreen?: (options?: OpenFullscreenOptions) => void;
   onSaveStateChange?: (state: {
     canSave: boolean;
     isSaving: boolean;
@@ -1106,12 +1112,22 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     legacyFallbackImageId,
   ]);
 
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
+  const imagesCountRef = useRef(images.length);
+  imagesCountRef.current = images.length;
+
   const ensureBlankBoard = useCallback(async () => {
     if (!leadId || disabled) {
       toast.error('Salve o lead antes de usar a lousa');
       throw new Error('Lead não disponível');
     }
-    if (images.length > 0) return;
+    // Ao abrir tela cheia o Board remonta: espera o cache/fetch antes de achar “vazio”.
+    const deadline = Date.now() + 4000;
+    while (isLoadingRef.current && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 40));
+    }
+    if (imagesCountRef.current > 0) return;
     setUploadingCount(1);
     try {
       const file = await createBlankWhiteboardFile(1280, 720);
@@ -1128,12 +1144,12 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
     } finally {
       setUploadingCount(0);
     }
-  }, [leadId, disabled, images.length, uploadImage]);
+  }, [leadId, disabled, uploadImage]);
 
   const startBlankBoard = useCallback(async () => {
-    // Com tela cheia disponível: o pai expande e cria o quadro lá (evita flash no card).
+    // Expande e só então cria a folha — evita flash no card e quadro fantasma no “Abrir”.
     if (onRequestFullscreen) {
-      onRequestFullscreen();
+      onRequestFullscreen({ createBlankIfEmpty: true });
       return;
     }
     await ensureBlankBoard();
@@ -1213,12 +1229,8 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
             baseName: safeBase,
             leadId,
           });
-          // Mesma pasta: imagem da nota (abre com miniatura) + PDF para imprimir
+          // Uma única vez: só a imagem da nota (com miniatura). Antes ia JPG + PDF = duplicata.
           await uploadPDF(noteFiles.imageFile, {
-            folderId,
-            folderName: options?.folderName,
-          });
-          await uploadPDF(noteFiles.pdfFile, {
             folderId,
             folderName: options?.folderName,
           });
@@ -3185,10 +3197,51 @@ const BoardInner = forwardRef<BoardInnerHandle, BoardInnerProps>(function BoardI
   );
 });
 
+function readLeadModalScrollTop(): number | null {
+  if (typeof document === 'undefined') return null;
+  const body = document.querySelector<HTMLElement>('[data-lead-modal-scroll="true"]');
+  return body ? body.scrollTop : null;
+}
+
+function restoreLeadModalScrollTop(top: number | null) {
+  if (top == null || typeof document === 'undefined') return;
+  const apply = () => {
+    const body = document.querySelector<HTMLElement>('[data-lead-modal-scroll="true"]');
+    if (body) body.scrollTop = top;
+  };
+  // Vários passos: soltar body { position:fixed } no mobile ainda zera o scroll depois.
+  apply();
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(() => {
+      apply();
+      for (const ms of [50, 120, 250, 450, 700]) {
+        window.setTimeout(apply, ms);
+      }
+    });
+  });
+}
+
+/**
+ * Sobrevive ao remount do Dialog do lead (quando a flag “não-modal” liga).
+ * Sem isso, o Abrir setava a flag, o card remontava a lousa com fullscreen=false
+ * e a tela cheia “falhava” — só sobrava scroll no topo + flag órfã.
+ */
+let whiteboardFullscreenIntent = false;
+let whiteboardSavedScrollTop: number | null = null;
+/** Pedido de folha branca que sobrevive ao remount do card. */
+let whiteboardPendingCreateBlank = false;
+
+function readWhiteboardFullscreenIntent(): boolean {
+  if (whiteboardFullscreenIntent) return true;
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.hasAttribute(WHITEBOARD_FULLSCREEN_ATTR);
+}
+
 export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   const isMobile = useIsMobile();
   const isTouchUi = isTouchOrCompactViewport();
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(readWhiteboardFullscreenIntent);
   const boardRef = useRef<BoardInnerHandle>(null);
   const [saveState, setSaveState] = useState<{
     canSave: boolean;
@@ -3208,33 +3261,85 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
   const [openingFullscreen, setOpeningFullscreen] = useState(false);
 
   const updateFullscreen = useCallback((open: boolean) => {
-    // Flag no DOM antes do React pintar — o card do lead vira “não-modal” na hora.
-    setWhiteboardFullscreenOpenFlag(open);
-    setFullscreen(open);
+    if (!open) {
+      whiteboardFullscreenIntent = false;
+      whiteboardPendingCreateBlank = false;
+      setWhiteboardFullscreenOpenFlag(false);
+      const saved = whiteboardSavedScrollTop;
+      setFullscreen(false);
+      restoreLeadModalScrollTop(saved);
+      // Mantém o valor até o unlock do body terminar de bagunçar o scroll.
+      window.setTimeout(() => {
+        restoreLeadModalScrollTop(saved);
+        if (whiteboardSavedScrollTop === saved) {
+          whiteboardSavedScrollTop = null;
+        }
+      }, 800);
+      return;
+    }
+    whiteboardFullscreenIntent = true;
+    setFullscreen(true);
   }, []);
 
-  const openFullscreen = useCallback(async () => {
+  const openFullscreen = useCallback(async (options?: OpenFullscreenOptions) => {
     if (openingFullscreen) return;
     setOpeningFullscreen(true);
     try {
-      // Expande primeiro; o quadro branco (se faltar) nasce já em tela cheia.
-      // Antes: criava o quadro no card e o Dialog aninhado falhava na 1ª vez.
+      // Guarda fora do React — o remount do card apagaria um useRef.
+      whiteboardSavedScrollTop = readLeadModalScrollTop();
+      whiteboardFullscreenIntent = true;
+      if (options?.createBlankIfEmpty) {
+        whiteboardPendingCreateBlank = true;
+      }
+      // Flag antes do estado: se o Dialog remountar no meio, o próximo mount
+      // já nasce em tela cheia (readWhiteboardFullscreenIntent).
+      setWhiteboardFullscreenOpenFlag(true);
       flushSync(() => {
-        updateFullscreen(true);
+        setFullscreen(true);
       });
-      await boardRef.current?.ensureBlankBoard();
+      // Se NÃO remountou, a ref desta instância ainda vale — tenta já.
+      // Se remountou, o effect abaixo na instância nova cumpre o pedido.
+      if (whiteboardPendingCreateBlank && boardRef.current) {
+        whiteboardPendingCreateBlank = false;
+        await boardRef.current.ensureBlankBoard();
+      }
     } catch {
       /* toast já exibido em ensureBlankBoard */
     } finally {
       setOpeningFullscreen(false);
     }
-  }, [openingFullscreen, updateFullscreen]);
+  }, [openingFullscreen]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!fullscreen) return;
     setWhiteboardFullscreenOpenFlag(true);
     return () => {
-      setWhiteboardFullscreenOpenFlag(false);
+      // Remount no meio da abertura mantém a intent — não apaga a flag.
+      if (!whiteboardFullscreenIntent) {
+        setWhiteboardFullscreenOpenFlag(false);
+      }
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
+    if (!fullscreen || !whiteboardPendingCreateBlank) return;
+    let cancelled = false;
+    const run = async () => {
+      const deadline = Date.now() + 2500;
+      while (!cancelled && !boardRef.current && Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 40));
+      }
+      if (cancelled || !whiteboardPendingCreateBlank || !boardRef.current) return;
+      whiteboardPendingCreateBlank = false;
+      try {
+        await boardRef.current.ensureBlankBoard();
+      } catch {
+        /* toast já exibido em ensureBlankBoard */
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
     };
   }, [fullscreen]);
 
@@ -3278,6 +3383,8 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       style.overflow = prevOverflow;
       style.position = prevPosition;
       style.width = prevWidth;
+      // Soltar o body no touch costuma zerar o scroll do card — recoloca na hora.
+      restoreLeadModalScrollTop(whiteboardSavedScrollTop);
     };
   }, [fullscreen, isMobile, isTouchUi]);
 
@@ -3293,8 +3400,8 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
       minHeight={isMobile ? 300 : 380}
       variant={fullscreen ? 'fullscreen' : 'inline'}
       onClose={fullscreen ? () => updateFullscreen(false) : undefined}
-      onRequestFullscreen={() => {
-        void openFullscreen();
+      onRequestFullscreen={(options) => {
+        void openFullscreen(options);
       }}
       onSaveStateChange={setSaveState}
       className={fullscreen ? 'flex-1 min-h-0 h-full w-full' : undefined}
@@ -3356,6 +3463,7 @@ export function LeadWhiteboard({ leadId, disabled }: LeadWhiteboardProps) {
                 className="h-9 gap-1.5"
                 disabled={openingFullscreen}
                 onClick={() => {
+                  // Só expande — não cria quadro branco (isso é o botão “Quadro branco”).
                   void openFullscreen();
                 }}
               >

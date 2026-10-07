@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf';
 import { dataUrlToFile } from '@/lib/contrato-anexo-upload';
 
 /** Cartão de nota da lousa (~A5 paisagem) — abre como imagem nos anexos. */
@@ -19,10 +18,8 @@ export interface WhiteboardNoteExportInput {
 }
 
 export interface WhiteboardNoteExportResult {
-  /** Imagem da nota (miniatura + texto) — abre na galeria. */
+  /** Imagem da nota (miniatura + texto) — um único arquivo na pasta. */
   imageFile: File;
-  /** PDF da mesma nota — para baixar/imprimir. */
-  pdfFile: File;
 }
 
 function wrapText(
@@ -230,7 +227,7 @@ export async function buildWhiteboardNoteAttachmentFiles(
       if (belowY > NOTE_H - 80) {
         ctx.fillStyle = '#8b6914';
         ctx.font = '16px Georgia, "Times New Roman", serif';
-        ctx.fillText('… (texto completo no PDF)', left, belowY);
+        ctx.fillText('… (texto cortado — resumo da nota)', left, belowY);
         break;
       }
       ctx.fillText(lines[lineIndex] || ' ', left, belowY);
@@ -257,37 +254,13 @@ export async function buildWhiteboardNoteAttachmentFiles(
   );
 
   const imageName = `${input.baseName}-nota.jpg`;
-  const pdfName = `${input.baseName}-nota.pdf`;
   const imageFile = await canvasToJpegFile(canvas, imageName);
 
-  // PDF com a mesma arte (abre e imprime com a miniatura)
-  const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
-  const pdf = new jsPDF({
-    orientation: 'landscape',
-    unit: 'pt',
-    format: 'a4',
-  });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 28;
-  const maxW = pageW - margin * 2;
-  const maxH = pageH - margin * 2;
-  const fit = Math.min(maxW / NOTE_W, maxH / NOTE_H);
-  const drawW = NOTE_W * fit;
-  const drawH = NOTE_H * fit;
-  const dx = (pageW - drawW) / 2;
-  const dy = (pageH - drawH) / 2;
-  pdf.addImage(dataUrl, 'JPEG', dx, dy, drawW, drawH);
-  const pdfBlob = pdf.output('blob');
-  const pdfFile = new File([pdfBlob], pdfName, { type: 'application/pdf' });
-
-  // Garante que o JPG também exista como File tipado (dataUrlToFile fallback se toBlob falhar em edge cases)
+  // Fallback se toBlob falhar em edge cases
   if (!imageFile.size) {
-    return {
-      imageFile: dataUrlToFile(dataUrl, imageName),
-      pdfFile,
-    };
+    const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+    return { imageFile: dataUrlToFile(dataUrl, imageName) };
   }
 
-  return { imageFile, pdfFile };
+  return { imageFile };
 }
