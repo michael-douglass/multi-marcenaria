@@ -237,7 +237,7 @@ function PaginaA4({
               gridTemplateColumns: '1fr 1fr',
               gap: 48,
               marginTop: 'auto',
-              paddingTop: 24,
+              paddingTop: 16,
               flexShrink: 0,
             }}
           >
@@ -699,10 +699,10 @@ function LinhaTotal({ rotulo, valor }: { rotulo: string; valor: string }) {
 function Assinatura({ rotulo }: { rotulo: string }) {
   return (
     <div>
-      <div style={{ borderBottom: `1px solid ${BRASS}`, height: 48 }} />
+      <div style={{ borderBottom: `1px solid ${BRASS}`, height: 40 }} />
       <p
         style={{
-          margin: '8px 0 0',
+          margin: '6px 0 0',
           fontSize: 11,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',

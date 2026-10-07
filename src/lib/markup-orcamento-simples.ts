@@ -361,40 +361,44 @@ export function colunasGaleriaOrcamentoSimples(qtd: number): 1 | 2 | 3 {
 
 /**
  * Altura máxima do quadro da foto (px), sem forçar proporção.
- * A imagem cabe dentro mantendo o formato original (retrato/paisagem).
+ * Base paisagem da coluna — retrato mantém o formato (contain), sem inflar a página.
  */
 export function alturaMaxFotoOrcamentoSimples(cols: 1 | 2 | 3): number {
-  if (cols === 1) return 460;
-  if (cols === 2) return 320;
-  return 230;
+  const gap = 12;
+  const cellW = (MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX - 96 - gap * (cols - 1)) / cols;
+  const paisagem = Math.round(cellW * (3 / 4));
+  if (cols === 1) return Math.min(380, paisagem);
+  if (cols === 2) return Math.min(260, paisagem);
+  return Math.min(190, paisagem);
 }
 
-/* —— Paginação A4 (altura fixa; sem esmagar o conteúdo) —— */
+/* —— Paginação A4 (altura fixa; 2ª página só se o conteúdo não couber) —— */
 
 const FOLHA_PAD_Y = 42 + 36;
 const FOLHA_INNER_H = MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX - FOLHA_PAD_Y;
 const FOLHA_CONTENT_W = MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX - 96;
-const H_CABECALHO = 148;
-const H_CABECALHO_CONT = 52;
-const H_META = 88;
-const H_TABELA_HEAD = 34;
-const H_LINHA = 42;
-const H_TOTAIS_BASE = 132;
-const H_TOTAIS_DESCONTO = 72;
-const H_OBS_ROTULO = 34;
-const H_ASSINATURAS = 96;
-const H_RODAPE_PAGINA = 22;
+const H_CABECALHO = 136;
+const H_CABECALHO_CONT = 48;
+const H_META = 82;
+const H_TABELA_HEAD = 32;
+const H_LINHA = 40;
+const H_TOTAIS_BASE = 118;
+const H_TOTAIS_DESCONTO = 64;
+const H_OBS_ROTULO = 30;
+const H_ASSINATURAS = 84;
+const H_RODAPE_PAGINA = 20;
 const OBS_LINE_H = 19.4;
 const OBS_CHAR_W = 6.85;
+const GALERIA_GAP = 12;
+const GALERIA_MOLDURA = 14;
+const GALERIA_MARGEM = 18;
 
 function alturaGaleriaPagina(qtd: number): number {
   if (qtd <= 0) return 0;
   const cols = colunasGaleriaOrcamentoSimples(qtd);
   const rows = Math.ceil(qtd / cols);
-  const gap = 12;
-  const moldura = 14; // passe-partout + borda do quadro
-  const cellH = alturaMaxFotoOrcamentoSimples(cols) + moldura;
-  return rows * cellH + Math.max(0, rows - 1) * gap + 22;
+  const cellH = alturaMaxFotoOrcamentoSimples(cols) + GALERIA_MOLDURA;
+  return rows * cellH + Math.max(0, rows - 1) * GALERIA_GAP + GALERIA_MARGEM;
 }
 
 function alturaTotaisPagina(temDesconto: boolean): number {
@@ -466,7 +470,7 @@ function fatiarObservacoes(texto: string, alturaCorpoMax: number): { pedaco: str
 
 /**
  * Divide o orçamento em páginas A4 de altura fixa.
- * Nada é esmagado: o que não cabe numa folha vai para a seguinte.
+ * Uma página é o padrão; a 2ª só nasce se fotos/itens/totais/obs realmente não couberem.
  */
 export function paginarOrcamentoSimplesFolha(input: {
   fotos: string[];
@@ -494,29 +498,25 @@ export function paginarOrcamentoSimplesFolha(input: {
   ) {
     guard += 1;
     const primeira = brutos.length === 0;
-    let usado = (primeira ? H_CABECALHO : H_CABECALHO_CONT) + H_RODAPE_PAGINA;
-    if (primeira) usado += H_META;
+    // Rodapé "Página X de Y" só entra depois, se houver mais de uma página.
+    let usado = primeira ? H_CABECALHO + H_META : H_CABECALHO_CONT;
 
     const fotoInicio = fotosJaColocadas + 1;
     const fotosPagina: string[] = [];
     while (fotosFila.length > 0) {
       const tentativa = fotosPagina.length + 1;
       const hGal = alturaGaleriaPagina(tentativa);
+      // Reserva só o mínimo do que ainda precisa aparecer nesta folha (não isola foto sozinha).
       const reservaMin =
         itensFila.length > 0
-          ? H_TABELA_HEAD + H_LINHA
+          ? H_TABELA_HEAD + H_LINHA + (totaisPendentes ? alturaTotaisPagina(input.temDesconto) : 0)
           : totaisPendentes
             ? alturaTotaisPagina(input.temDesconto)
-            : obsFila
-              ? H_OBS_ROTULO + OBS_LINE_H * 2
-              : 0;
+            : 0;
 
       if (usado + hGal > FOLHA_INNER_H) break;
-      if (fotosPagina.length > 0 && usado + hGal + reservaMin > FOLHA_INNER_H) break;
-      if (fotosPagina.length === 0 && usado + hGal + reservaMin > FOLHA_INNER_H && reservaMin > 0) {
-        if (usado + hGal <= FOLHA_INNER_H) {
-          fotosPagina.push(fotosFila.shift()!);
-        }
+      // Só impede nova foto se ainda dá para deixar itens+totais na mesma página.
+      if (fotosPagina.length > 0 && reservaMin > 0 && usado + hGal + reservaMin > FOLHA_INNER_H) {
         break;
       }
       fotosPagina.push(fotosFila.shift()!);
@@ -535,7 +535,14 @@ export function paginarOrcamentoSimplesFolha(input: {
         const ultimo = itensFila.length === 1;
         const extraTotais =
           ultimo && totaisPendentes ? alturaTotaisPagina(input.temDesconto) : 0;
-        if (usado + H_LINHA + extraTotais > FOLHA_INNER_H) break;
+        // Se o último item + totais não cabem, ainda coloca o item; totais vão na próxima.
+        if (usado + H_LINHA > FOLHA_INNER_H) break;
+        if (ultimo && extraTotais > 0 && usado + H_LINHA + extraTotais > FOLHA_INNER_H) {
+          // Cabe o item agora; totais na sequência / próxima página.
+          itensPagina.push(itensFila.shift()!);
+          usado += H_LINHA;
+          break;
+        }
         itensPagina.push(itensFila.shift()!);
         usado += H_LINHA;
       }
@@ -555,11 +562,11 @@ export function paginarOrcamentoSimplesFolha(input: {
     let observacoesContinuacao = false;
     const podeObs = itensFila.length === 0 && !totaisPendentes && obsFila.length > 0;
     if (podeObs) {
-      const reservarAssin = H_ASSINATURAS + 12;
       const livre = FOLHA_INNER_H - usado;
       const hObsTotal = alturaBlocoObs(obsFila);
-      const cabeTudoComAssin = livre >= hObsTotal + reservarAssin;
-      const alturaParaObs = cabeTudoComAssin ? livre - reservarAssin : livre;
+      // Se a obs inteira cabe com a assinatura, reserva o espaço. Senão preenche e continua.
+      const cabeTudoComAssin = livre >= hObsTotal + H_ASSINATURAS;
+      const alturaParaObs = cabeTudoComAssin ? livre - H_ASSINATURAS : livre;
       if (alturaParaObs >= H_OBS_ROTULO + OBS_LINE_H) {
         const corpoMax = alturaParaObs - H_OBS_ROTULO;
         const { pedaco, resto } = fatiarObservacoes(obsFila, corpoMax);
@@ -640,31 +647,8 @@ export function paginarOrcamentoSimplesFolha(input: {
     });
   }
 
-  const ultima = brutos[brutos.length - 1]!;
-  const usadoUltimaEstimado = (() => {
-    let u = (ultima.cabecalhoCompleto ? H_CABECALHO + H_META : H_CABECALHO_CONT) + H_RODAPE_PAGINA;
-    u += alturaGaleriaPagina(ultima.fotos.length);
-    if (ultima.itens.length > 0) u += H_TABELA_HEAD + ultima.itens.length * H_LINHA;
-    if (ultima.mostrarTotais) u += alturaTotaisPagina(input.temDesconto);
-    if (ultima.observacoes.trim()) u += alturaBlocoObs(ultima.observacoes);
-    return u;
-  })();
-
-  if (usadoUltimaEstimado + H_ASSINATURAS + 8 <= FOLHA_INNER_H) {
-    ultima.mostrarAssinaturas = true;
-  } else {
-    brutos.push({
-      cabecalhoCompleto: false,
-      fotos: [],
-      fotoInicio: fotosJaColocadas + 1,
-      itens: [],
-      mostrarCabecalhoTabela: false,
-      mostrarTotais: false,
-      observacoes: '',
-      observacoesContinuacao: false,
-      mostrarAssinaturas: true,
-    });
-  }
+  // Assinaturas sempre na última página de conteúdo — nunca abre folha só para assinar.
+  brutos[brutos.length - 1]!.mostrarAssinaturas = true;
 
   const total = brutos.length;
   return brutos.map((pagina, indice) => ({
