@@ -1,5 +1,7 @@
 import {
   createContext,
+  lazy,
+  Suspense,
   useCallback,
   useContext,
   useMemo,
@@ -13,7 +15,13 @@ import {
   OrcamentoSlideExportJobRunner,
   type OrcamentoSlideExportPresentationProps,
 } from '@/components/orcamento-slides/OrcamentoSlideExportJobRunner';
-import type { OrcamentoExportFormat } from '@/lib/orcamento-slide-export';
+import type { OrcamentoExportFormat, OrcamentoPdfPronto } from '@/lib/orcamento-slide-export';
+
+const OrcamentoPdfPreviewDialog = lazy(() =>
+  import('@/components/orcamento-slides/pdf-preview/OrcamentoPdfPreviewDialog').then((m) => ({
+    default: m.OrcamentoPdfPreviewDialog,
+  })),
+);
 
 export interface StartOrcamentoSlideExportInput {
   orcamentoId: string;
@@ -51,6 +59,8 @@ function newJobId(): string {
  */
 export function OrcamentoSlideExportBackgroundProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<OrcamentoSlideExportBackgroundJob[]>([]);
+  const [pdfPreview, setPdfPreview] = useState<OrcamentoPdfPronto | null>(null);
+  const closePdfPreview = useCallback(() => setPdfPreview(null), []);
   const jobsRef = useRef(jobs);
   jobsRef.current = jobs;
 
@@ -117,8 +127,18 @@ export function OrcamentoSlideExportBackgroundProvider({ children }: { children:
           format={job.format}
           presentationProps={job.presentationProps}
           onSettled={() => settleJob(job.id)}
+          onPdfReady={setPdfPreview}
         />
       ))}
+      {pdfPreview && (
+        <Suspense fallback={null}>
+          <OrcamentoPdfPreviewDialog
+            key={pdfPreview.blob.size + pdfPreview.viewport}
+            pdf={pdfPreview}
+            onClose={closePdfPreview}
+          />
+        </Suspense>
+      )}
     </OrcamentoSlideExportBackgroundContext.Provider>
   );
 }

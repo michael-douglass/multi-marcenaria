@@ -155,10 +155,12 @@ export function PrecificacaoOpcaoCard({
         )}
 
         <p
-          className={cn('font-serif font-black leading-none', isForm ? 'text-foreground' : undefined)}
+          className={cn('font-serif font-black', isForm ? 'text-foreground' : undefined)}
           style={{
             fontFamily: `'${paleta.tituloFont}', serif`,
             fontSize: precoPx,
+            // leading-none fazia o html2canvas desenhar o valor sobre a linha de parcelas no PDF.
+            lineHeight: 1.1,
             color: isForm ? undefined : paleta.secundaria,
             textShadow: isForm ? undefined : `0 1px 0 ${espresso}, 0 2px 18px ${paleta.secundaria}40`,
           }}

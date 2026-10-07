@@ -2,8 +2,9 @@ import type { CSSProperties } from 'react';
 
 import type { BlocoAlturaVisual, BlocoEscalaVisual, BlocoLayoutViewport } from '@/lib/orcamento-slide-types';
 
-const FAITHFUL_HEIGHT_DESKTOP = 'h-[1080px]';
-const FAITHFUL_HEIGHT_MOBILE = 'h-[1920px]';
+/** A exportação define `--orcamento-stage-h` com a altura do palco (720 / 768). */
+const FAITHFUL_HEIGHT_DESKTOP = 'h-[var(--orcamento-stage-h,1080px)]';
+const FAITHFUL_HEIGHT_MOBILE = 'h-[var(--orcamento-stage-h,1920px)]';
 
 function faithfulSlideHeightClass(mobile: boolean): string {
   return mobile

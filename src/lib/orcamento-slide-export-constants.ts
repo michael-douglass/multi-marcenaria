@@ -35,6 +35,28 @@ export function resolveExportPageSize(viewport: OrcamentoExportViewport): Export
   };
 }
 
+/**
+ * Palco de layout (CSS px) usado na exportação — tamanho de tela real, não de pixel final.
+ * O layout foi desenhado para notebook/celular; montar em 1920 ou 1080 CSS deixava
+ * textos e fotos minúsculos. A captura amplia o palco até o tamanho de saída.
+ */
+export const ORCAMENTO_EXPORT_STAGE: Record<OrcamentoExportViewport, ExportPageSize> = {
+  desktop: { width: 1280, height: 720 },
+  mobile: { width: 432, height: 768 },
+};
+
+/** Muda quando o motor de PDF muda — invalida PDFs antigos guardados no Storage. */
+export const ORCAMENTO_EXPORT_RENDER_VERSION = 'stage-v3';
+
+export function resolveExportStageSize(viewport: OrcamentoExportViewport): ExportPageSize {
+  return ORCAMENTO_EXPORT_STAGE[viewport];
+}
+
+/** Fator de ampliação palco → pixels finais (1280→1920 = 1.5 · 432→1080 = 2.5). */
+export function resolveExportCaptureScale(viewport: OrcamentoExportViewport): number {
+  return resolveExportPageSize(viewport).width / resolveExportStageSize(viewport).width;
+}
+
 /** Orientação da página de impressão conforme o palco escolhido. */
 export function resolvePrintOrientation(viewport: OrcamentoExportViewport): ExportPrintOrientation {
   switch (viewport) {

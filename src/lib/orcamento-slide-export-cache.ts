@@ -1,6 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { OrcamentoExportFormat } from '@/lib/orcamento-slide-export';
-import type { OrcamentoExportViewport } from '@/lib/orcamento-slide-export-constants';
+import {
+  ORCAMENTO_EXPORT_RENDER_VERSION,
+  type OrcamentoExportViewport,
+} from '@/lib/orcamento-slide-export-constants';
 import {
   buildPdfFileName,
   triggerBlobDownload,
@@ -51,6 +54,7 @@ export async function buildExportFingerprint(opts: {
     .join('|');
 
   const raw = [
+    ORCAMENTO_EXPORT_RENDER_VERSION,
     opts.orcamento.id,
     opts.orcamento.atualizado_em,
     opts.orcamento.status,
@@ -69,14 +73,11 @@ function storagePathFor(input: OrcamentoSlideExportCacheInput): string {
   return `${input.empresaSchema}/${input.orcamentoId}/${input.viewport}/${input.format}/${input.fingerprint}.pdf`;
 }
 
-/**
- * Se existir PDF com o mesmo fingerprint, baixa e salva no disco do usuário.
- * Retorna true em cache hit.
- */
-export async function tryDownloadCachedPdfExport(
+/** Se existir PDF com o mesmo fingerprint no Storage, devolve o arquivo (sem baixar no disco). */
+export async function tryFetchCachedPdfExport(
   input: OrcamentoSlideExportCacheInput,
-): Promise<boolean> {
-  if (input.format !== 'pdf') return false;
+): Promise<Blob | null> {
+  if (input.format !== 'pdf') return null;
 
   const { data, error } = await supabase
     .from(ORCAMENTO_SLIDE_EXPORTS_TABLE)
@@ -89,17 +90,28 @@ export async function tryDownloadCachedPdfExport(
     .eq('format', 'pdf')
     .maybeSingle();
 
-  if (error || !data) return false;
+  if (error || !data) return null;
 
   const row = data as OrcamentoSlideExportRow;
-  if (row.content_fingerprint !== input.fingerprint) return false;
+  if (row.content_fingerprint !== input.fingerprint) return null;
 
   const { data: blob, error: downErr } = await supabase.storage
     .from(ORCAMENTO_SLIDE_EXPORTS_BUCKET)
     .download(row.storage_path);
 
-  if (downErr || !blob) return false;
+  if (downErr || !blob) return null;
+  return blob;
+}
 
+/**
+ * Se existir PDF com o mesmo fingerprint, baixa e salva no disco do usuário.
+ * Retorna true em cache hit.
+ */
+export async function tryDownloadCachedPdfExport(
+  input: OrcamentoSlideExportCacheInput,
+): Promise<boolean> {
+  const blob = await tryFetchCachedPdfExport(input);
+  if (!blob) return false;
   triggerBlobDownload(blob, buildPdfFileName(input.titulo));
   return true;
 }

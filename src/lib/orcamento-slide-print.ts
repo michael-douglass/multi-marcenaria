@@ -1,5 +1,7 @@
 ﻿import {
+  resolveExportCaptureScale,
   resolveExportPageSize,
+  resolveExportStageSize,
   resolvePrintOrientation,
   resolvePrintPageSize,
   slideSizeToMm,
@@ -353,7 +355,7 @@ function revelarElementosOcultos(root: HTMLElement): void {
     html.style.boxShadow = 'none';
     html.style.filter = 'none';
     html.style.backdropFilter = 'none';
-    html.style.webkitBackdropFilter = 'none';
+    html.style.setProperty('-webkit-backdrop-filter', 'none');
   });
 }
 
@@ -361,14 +363,6 @@ function coletarSlidesDoRoot(root: HTMLElement): HTMLElement[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(':scope > [data-orcamento-slide], :scope > section'),
   );
-}
-
-function escalaCapturaPdf(viewport: OrcamentoExportViewport): number {
-  // Celular: um pouco mais nítido nos números, sem estourar a memória.
-  if (viewport === 'mobile') {
-    return 1.2;
-  }
-  return Math.min(Math.max(window.devicePixelRatio || 1, 1.25), 1.75);
 }
 
 function prepararClone(
@@ -396,7 +390,7 @@ function prepararClone(
     html.style.boxShadow = 'none';
     html.style.filter = 'none';
     html.style.backdropFilter = 'none';
-    html.style.webkitBackdropFilter = 'none';
+    html.style.setProperty('-webkit-backdrop-filter', 'none');
   });
 
   const slideHeightPx = `${slideHeight}px`;
@@ -522,12 +516,12 @@ function coletarSlidesExportacao(doc: Document): HTMLElement[] {
 function prepararSlidesParaCaptura(
   slides: HTMLElement[],
   slideWidth: number,
-  slideHeight: number,
+  alturas: number[],
 ): void {
   const slideWidthPx = `${slideWidth}px`;
-  const slideHeightPx = `${slideHeight}px`;
 
-  slides.forEach((slide) => {
+  slides.forEach((slide, i) => {
+    const slideHeightPx = `${alturas[i]}px`;
     slide.style.width = slideWidthPx;
     slide.style.maxWidth = slideWidthPx;
     slide.style.height = slideHeightPx;
@@ -539,75 +533,64 @@ function prepararSlidesParaCaptura(
     slide.style.boxShadow = 'none';
     slide.style.filter = 'none';
     slide.style.backdropFilter = 'none';
-    slide.style.webkitBackdropFilter = 'none';
+    slide.style.setProperty('-webkit-backdrop-filter', 'none');
   });
 }
 
 /**
- * Se o conteúdo passou da altura da página, reduz em escala (sem cortar no meio).
- * Garante 1 slide = 1 página visualmente completa.
+ * Distância entre o ponto mais alto e o mais baixo do conteúdo.
+ * Usa só as “folhas” (texto, imagem): em layouts centralizados o excesso
+ * vaza para cima e para baixo, e scrollHeight só enxerga a parte de baixo.
+ */
+function medirExtensaoConteudo(slide: HTMLElement): number {
+  const base = slide.getBoundingClientRect();
+  let topo = base.top;
+  let fundo = base.bottom;
+  slide.querySelectorAll<HTMLElement>('*').forEach((el) => {
+    if (el.children.length > 0 && el.tagName !== 'IMG') return;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    topo = Math.min(topo, r.top);
+    fundo = Math.max(fundo, r.bottom);
+  });
+  return Math.ceil(fundo - topo);
+}
+
+/**
+ * Altura de captura de cada slide. Slide que cabe no palco fica no palco;
+ * slide maior (ex.: muitos itens no celular) é montado na altura natural —
+ * a página do PDF encaixa a imagem inteira em vez de cortar o topo.
  */
 function encaixarConteudoNosSlides(
   slides: HTMLElement[],
   slideWidth: number,
   slideHeight: number,
-): void {
-  slides.forEach((slide) => {
-    if (slide.querySelector('[data-orcamento-print-fit]')) return;
-
-    // Libera overflow interno (ex.: lista de valores) para medir a altura real.
-    const overflowRestores: Array<{ el: HTMLElement; overflow: string }> = [];
-    slide.querySelectorAll<HTMLElement>('*').forEach((el) => {
-      const cs = getComputedStyle(el);
-      if (cs.overflow === 'hidden' || cs.overflowY === 'hidden') {
-        overflowRestores.push({ el, overflow: el.style.overflow });
-        el.style.overflow = 'visible';
-      }
-    });
-
+): number[] {
+  return slides.map((slide) => {
     slide.style.width = `${slideWidth}px`;
     slide.style.maxWidth = `${slideWidth}px`;
-    slide.style.height = 'auto';
-    slide.style.minHeight = '0';
-    slide.style.maxHeight = 'none';
-    slide.style.overflow = 'visible';
-    slide.style.transform = 'none';
-
-    // Valores separados: tipografia um pouco mais densa antes de escalar.
-    if (slide.getAttribute('data-bloco-tipo') === 'precos_fracionados') {
-      compactarSlidePrecosFracionadosParaPrint(slide);
-    }
-
-    const contentHeight = Math.ceil(
-      Math.max(slide.scrollHeight, slide.offsetHeight, slide.getBoundingClientRect().height),
-    );
-
-    overflowRestores.forEach(({ el, overflow }) => {
-      el.style.overflow = overflow;
-    });
-
     slide.style.height = `${slideHeight}px`;
     slide.style.minHeight = `${slideHeight}px`;
     slide.style.maxHeight = `${slideHeight}px`;
     slide.style.overflow = 'hidden';
+    slide.style.transform = 'none';
 
-    if (contentHeight <= slideHeight + 4) return;
-
-    const scale = Math.min(1, slideHeight / contentHeight);
-    if (scale >= 0.995) return;
-
-    const fit = slide.ownerDocument.createElement('div');
-    fit.setAttribute('data-orcamento-print-fit', '');
-    fit.style.width = `${slideWidth}px`;
-    fit.style.height = `${contentHeight}px`;
-    fit.style.transformOrigin = 'top center';
-    fit.style.transform = `scale(${scale})`;
-    fit.style.willChange = 'transform';
-
-    while (slide.firstChild) {
-      fit.appendChild(slide.firstChild);
+    // Valores separados: tipografia um pouco mais densa antes de medir.
+    if (slide.getAttribute('data-bloco-tipo') === 'precos_fracionados') {
+      compactarSlidePrecosFracionadosParaPrint(slide);
     }
-    slide.appendChild(fit);
+
+    // Folga de 3%: sombra/borda que passa poucos px não justifica mudar a página.
+    if (medirExtensaoConteudo(slide) <= slideHeight * 1.03) return slideHeight;
+
+    // Altura fixa das seções vem de --orcamento-stage-h; “auto” deixa o conteúdo empilhar.
+    slide.style.setProperty('--orcamento-stage-h', 'auto');
+    slide.style.height = 'auto';
+    slide.style.maxHeight = 'none';
+    const natural = Math.max(slideHeight, Math.ceil(slide.scrollHeight));
+    slide.style.height = `${natural}px`;
+    slide.style.maxHeight = `${natural}px`;
+    return natural;
   });
 }
 
@@ -882,11 +865,9 @@ function excluirVideosEPrepararImagensParaExport(root: HTMLElement): void {
     el.remove();
   });
 
+  // Não força object-fit: fotos object-cover (capa, molduras 16:9) devem preencher o quadro.
   root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
     if (img.loading === 'lazy') img.loading = 'eager';
-    img.style.objectFit = img.style.objectFit || 'contain';
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
     img.decoding = 'sync';
   });
 
@@ -1090,8 +1071,26 @@ async function cederVezAInterface(): Promise<void> {
 interface SlidesProntosParaCaptura {
   slides: HTMLElement[];
   slideWidth: number;
-  slideHeight: number;
+  /** Altura de captura por slide (palco ou natural, quando o conteúdo não cabe). */
+  alturas: number[];
+  /** Tamanho final de cada página em px (1920×1080 / 1080×1920). */
+  pagina: ReturnType<typeof resolveExportPageSize>;
   scale: number;
+}
+
+/**
+ * html2canvas não entende `-webkit-line-clamp`: desenha a linha seguinte pela metade.
+ * No PDF o texto sai inteiro — slides que crescerem são encaixados pela altura natural.
+ */
+function soltarLimitesDeLinhas(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('*').forEach((el) => {
+    const clamp = getComputedStyle(el).webkitLineClamp;
+    if (!clamp || clamp === 'none') return;
+    el.style.setProperty('-webkit-line-clamp', 'none');
+    el.style.display = 'block';
+    el.style.overflow = 'visible';
+    el.style.maxHeight = 'none';
+  });
 }
 
 async function prepararSlidesParaExportacao(
@@ -1099,35 +1098,85 @@ async function prepararSlidesParaExportacao(
   viewport: OrcamentoExportViewport,
   onProgress?: OrcamentoExportProgressCallback,
 ): Promise<SlidesProntosParaCaptura> {
-  const slideSize = resolveExportPageSize(viewport);
+  // Palco em tamanho de tela real; a captura amplia até 1920×1080 / 1080×1920.
+  const slideSize = resolveExportStageSize(viewport);
 
   onProgress?.({ current: 0, total: 0, phase: 'preparando' });
 
   excluirVideosEPrepararImagensParaExport(rootElement);
   await prepararConteudoParaCaptura(rootElement);
   revelarElementosOcultos(rootElement);
-
-  if (viewport === 'mobile') {
-    otimizarIconesPdfMobile(rootElement, slideSize.height);
-  }
+  soltarLimitesDeLinhas(rootElement);
 
   const slides = coletarSlidesExportaveis(rootElement);
   if (slides.length === 0) {
     throw new Error('Nenhum slide encontrado para exportar.');
   }
 
-  // Primeiro mede/encaixa o conteúdo; depois trava cada slide numa página fixa.
+  // Primeiro mede o conteúdo; depois trava cada slide na altura escolhida.
   // prepararConteudoParaCaptura já aguardou imagens/fontes — sem segunda espera.
-  encaixarConteudoNosSlides(slides, slideSize.width, slideSize.height);
-  prepararSlidesParaCaptura(slides, slideSize.width, slideSize.height);
-  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const alturas = encaixarConteudoNosSlides(slides, slideSize.width, slideSize.height);
+  prepararSlidesParaCaptura(slides, slideSize.width, alturas);
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
   return {
     slides,
     slideWidth: slideSize.width,
-    slideHeight: slideSize.height,
-    scale: escalaCapturaPdf(viewport),
+    alturas,
+    pagina: resolveExportPageSize(viewport),
+    scale: resolveExportCaptureScale(viewport),
   };
+}
+
+/** Cor do canto superior esquerdo — preenche a sobra quando o slide alto é encaixado. */
+function corDeFundoDoCanvas(canvas: HTMLCanvasElement): string {
+  const ctx = canvas.getContext('2d');
+  const px = ctx?.getImageData(2, 2, 1, 1).data;
+  return px ? `rgb(${px[0]}, ${px[1]}, ${px[2]})` : '#100a08';
+}
+
+/** Encaixa (contain) a captura numa página do tamanho final, centralizada. */
+function encaixarCanvasNaPagina(
+  canvas: HTMLCanvasElement,
+  pagina: { width: number; height: number },
+): HTMLCanvasElement {
+  if (canvas.width === pagina.width && canvas.height === pagina.height) return canvas;
+
+  const out = document.createElement('canvas');
+  out.width = pagina.width;
+  out.height = pagina.height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return canvas;
+
+  ctx.fillStyle = corDeFundoDoCanvas(canvas);
+  ctx.fillRect(0, 0, out.width, out.height);
+  const escala = Math.min(out.width / canvas.width, out.height / canvas.height);
+  const w = Math.round(canvas.width * escala);
+  const h = Math.round(canvas.height * escala);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, Math.round((out.width - w) / 2), Math.round((out.height - h) / 2), w, h);
+
+  canvas.width = 0;
+  canvas.height = 0;
+  return out;
+}
+
+/** Captura o slide i já no tamanho final da página. */
+async function capturarPagina(
+  prontos: SlidesProntosParaCaptura,
+  i: number,
+): Promise<HTMLCanvasElement> {
+  const altura = prontos.alturas[i];
+  // Slide alto é reduzido ao encaixar — captura com mais pixels para o texto seguir nítido.
+  const extra = Math.min(altura / (prontos.pagina.height / prontos.scale), 1.6);
+  const canvas = await capturarSlideComoCanvas(
+    prontos.slides[i],
+    prontos.slideWidth,
+    altura,
+    prontos.scale * Math.max(extra, 1),
+    i,
+  );
+  return encaixarCanvasNaPagina(canvas, prontos.pagina);
 }
 
 async function capturarSlideComoCanvas(
@@ -1175,7 +1224,7 @@ async function capturarSlideComoCanvas(
 
 /**
  * Gera o PDF em memória — captura slide a slide, grava no PDF e libera o canvas na hora.
- * Qualidade mantida (escala 1.2–1.75 + JPEG 0.92).
+ * Palco 1280×720 / 432×768 ampliado para 1920×1080 / 1080×1920 + JPEG 0.92.
  */
 export async function gerarOrcamentoApresentacaoPdf(
   rootElement: HTMLElement,
@@ -1183,13 +1232,10 @@ export async function gerarOrcamentoApresentacaoPdf(
   onProgress?: OrcamentoExportProgressCallback,
 ): Promise<Blob> {
   const orientation = resolvePrintOrientation(viewport);
-  const { slides, slideWidth, slideHeight, scale } = await prepararSlidesParaExportacao(
-    rootElement,
-    viewport,
-    onProgress,
-  );
+  const prontos = await prepararSlidesParaExportacao(rootElement, viewport, onProgress);
+  const { slides } = prontos;
 
-  const pageMm = slideSizeToMm({ width: slideWidth, height: slideHeight });
+  const pageMm = slideSizeToMm(prontos.pagina);
   const pdfOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
   const pdf = new jsPDF({
     orientation: pdfOrientation,
@@ -1204,13 +1250,7 @@ export async function gerarOrcamentoApresentacaoPdf(
   for (let i = 0; i < slides.length; i++) {
     onProgress?.({ current: i + 1, total, phase: 'capturando' });
 
-    const canvas = await capturarSlideComoCanvas(
-      slides[i],
-      slideWidth,
-      slideHeight,
-      scale,
-      i,
-    );
+    const canvas = await capturarPagina(prontos, i);
 
     onProgress?.({ current: i + 1, total, phase: 'montando' });
 
@@ -1262,11 +1302,8 @@ export async function baixarOrcamentoApresentacaoImagens(
   viewport: OrcamentoExportViewport,
   onProgress?: OrcamentoExportProgressCallback,
 ): Promise<void> {
-  const { slides, slideWidth, slideHeight, scale } = await prepararSlidesParaExportacao(
-    rootElement,
-    viewport,
-    onProgress,
-  );
+  const prontos = await prepararSlidesParaExportacao(rootElement, viewport, onProgress);
+  const { slides } = prontos;
   const slug = slugTituloExport(titulo);
   const pad = String(slides.length).length;
   const total = slides.length;
@@ -1274,13 +1311,7 @@ export async function baixarOrcamentoApresentacaoImagens(
   for (let i = 0; i < slides.length; i++) {
     onProgress?.({ current: i + 1, total, phase: 'capturando' });
 
-    const canvas = await capturarSlideComoCanvas(
-      slides[i],
-      slideWidth,
-      slideHeight,
-      scale,
-      i,
-    );
+    const canvas = await capturarPagina(prontos, i);
 
     const page = String(i + 1).padStart(Math.max(pad, 2), '0');
     const blob = await canvasToJpegBlob(canvas);

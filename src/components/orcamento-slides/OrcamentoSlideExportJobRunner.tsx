@@ -13,11 +13,12 @@ import { useOrcamentoSlideFormasPagamento } from '@/hooks/useOrcamentoSlideForma
 import { useLeadDetail } from '@/hooks/useLeads';
 import { useOrcamentoSlideExport } from '@/hooks/useOrcamentoSlideExport';
 import { resolverMidiasApresentacao } from '@/lib/orcamento-slide-bloco-imagens';
-import type { OrcamentoExportFormat } from '@/lib/orcamento-slide-export';
+import type { OrcamentoExportFormat, OrcamentoPdfPronto } from '@/lib/orcamento-slide-export';
 import {
   buildExportFingerprint,
-  tryDownloadCachedPdfExport,
+  tryFetchCachedPdfExport,
 } from '@/lib/orcamento-slide-export-cache';
+import { buildPdfFileName, triggerBlobDownload } from '@/lib/orcamento-slide-print';
 import type { OrcamentoSlide, OrcamentoSlideMidia } from '@/lib/orcamento-slide-types';
 
 export type OrcamentoSlideExportPresentationProps = Omit<
@@ -39,6 +40,8 @@ export interface OrcamentoSlideExportJobRunnerProps {
   /** Snapshot opcional (ex.: apresentação aberta) — evita reload e preserva edições locais. */
   presentationProps?: OrcamentoSlideExportPresentationProps | null;
   onSettled: () => void;
+  /** PDF: abre a pré-visualização em vez de baixar direto. */
+  onPdfReady?: ((pdf: OrcamentoPdfPronto) => void) | null;
 }
 
 /**
@@ -53,6 +56,7 @@ export function OrcamentoSlideExportJobRunner({
   format,
   presentationProps: snapshotProps = null,
   onSettled,
+  onPdfReady = null,
 }: OrcamentoSlideExportJobRunnerProps) {
   if (format === 'pdf') {
     return (
@@ -63,6 +67,7 @@ export function OrcamentoSlideExportJobRunner({
         format={format}
         snapshotProps={snapshotProps}
         onSettled={onSettled}
+        onPdfReady={onPdfReady}
       />
     );
   }
@@ -76,6 +81,7 @@ export function OrcamentoSlideExportJobRunner({
         viewport={viewport}
         format={format}
         onSettled={onSettled}
+        onPdfReady={null}
         dismissLoadingToast={() => {}}
       />
     );
@@ -102,6 +108,7 @@ function OrcamentoSlideExportCacheGate({
   format,
   snapshotProps,
   onSettled,
+  onPdfReady,
 }: {
   orcamentoId: string;
   titulo: string;
@@ -109,6 +116,7 @@ function OrcamentoSlideExportCacheGate({
   format: OrcamentoExportFormat;
   snapshotProps: OrcamentoSlideExportPresentationProps | null;
   onSettled: () => void;
+  onPdfReady: ((pdf: OrcamentoPdfPronto) => void) | null;
 }) {
   const { schemaEmpresa } = useEmpresa();
   const [cacheState, setCacheState] = useState<'checking' | 'miss' | 'hit'>('checking');
@@ -174,22 +182,33 @@ function OrcamentoSlideExportCacheGate({
           viewport,
           format: 'pdf',
         });
-        const hit = await tryDownloadCachedPdfExport({
+        const tituloArquivo = titulo || orcamento.cliente_nome || orcamento.identificador;
+        const cached = await tryFetchCachedPdfExport({
           empresaSchema: schemaEmpresa,
           orcamentoId: orcamento.id,
           viewport,
           format: 'pdf',
           fingerprint,
-          titulo: titulo || orcamento.cliente_nome || orcamento.identificador,
+          titulo: tituloArquivo,
         });
 
-        if (hit) {
+        if (cached) {
           setCacheState('hit');
-          toast.success('PDF baixado', {
-            id: toastId ?? undefined,
-            description: 'Arquivo já preparado — download instantâneo.',
-            duration: 4000,
-          });
+          if (onPdfReady) {
+            toast.success('PDF pronto', {
+              id: toastId ?? undefined,
+              description: 'Arquivo já preparado — abrindo a pré-visualização.',
+              duration: 3000,
+            });
+            onPdfReady({ blob: cached, titulo: tituloArquivo, viewport, fromCache: true });
+          } else {
+            triggerBlobDownload(cached, buildPdfFileName(tituloArquivo));
+            toast.success('PDF baixado', {
+              id: toastId ?? undefined,
+              description: 'Arquivo já preparado — download instantâneo.',
+              duration: 4000,
+            });
+          }
           verifyToastRef.current = null;
           onSettled();
           return;
@@ -213,6 +232,7 @@ function OrcamentoSlideExportCacheGate({
     format,
     titulo,
     onSettled,
+    onPdfReady,
   ]);
 
   if (cacheState === 'hit' || cacheState === 'checking') {
@@ -228,6 +248,7 @@ function OrcamentoSlideExportCacheGate({
         viewport={viewport}
         format={format}
         onSettled={onSettled}
+        onPdfReady={onPdfReady}
         dismissLoadingToast={() => {}}
       />
     );
@@ -240,6 +261,7 @@ function OrcamentoSlideExportCacheGate({
       viewport={viewport}
       format={format}
       onSettled={onSettled}
+      onPdfReady={onPdfReady}
     />
   );
 }
@@ -250,6 +272,7 @@ function OrcamentoSlideExportJobLoader({
   viewport,
   format,
   onSettled,
+  onPdfReady = null,
 }: Omit<OrcamentoSlideExportJobRunnerProps, 'presentationProps'>) {
   const loadingToastRef = useRef<string | number | null>(null);
   const { data: orcamento, isLoading: loadingOrc, isError, error } = useOrcamentoPorId(orcamentoId);
@@ -344,6 +367,7 @@ function OrcamentoSlideExportJobLoader({
       viewport={viewport}
       format={format}
       onSettled={onSettled}
+      onPdfReady={onPdfReady}
       dismissLoadingToast={() => {
         if (loadingToastRef.current != null) {
           toast.dismiss(loadingToastRef.current);
@@ -361,6 +385,7 @@ interface ReadyProps {
   viewport: OrcamentoExportViewport;
   format: OrcamentoExportFormat;
   onSettled: () => void;
+  onPdfReady: ((pdf: OrcamentoPdfPronto) => void) | null;
   dismissLoadingToast: () => void;
 }
 
@@ -371,6 +396,7 @@ function OrcamentoSlideExportJobReady({
   viewport,
   format,
   onSettled,
+  onPdfReady,
   dismissLoadingToast,
 }: ReadyProps) {
   const { schemaEmpresa } = useEmpresa();
@@ -392,6 +418,7 @@ function OrcamentoSlideExportJobReady({
     titulo,
     presentationProps,
     cacheContext,
+    onPdfReady,
   });
 
   useEffect(() => {
