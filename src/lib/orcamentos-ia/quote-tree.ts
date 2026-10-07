@@ -157,6 +157,15 @@ export async function getSignedPageImageUrl(
   return getSignedPdfUrl(path)
 }
 
+/** Extrai o nº da página (1-based) de `…/pages/page-009.jpg`. */
+export function pageIndexFromStoragePath(path: string | null | undefined): number | null {
+  if (!path) return null
+  const match = path.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
+  if (!match) return null
+  const n = Number(match[1])
+  return Number.isFinite(n) && n >= 1 ? n : null
+}
+
 /** Lista caminhos das páginas convertidas no Storage (page-001.png…). */
 export async function listQuotePagePaths(
   companyId: string,
@@ -171,7 +180,11 @@ export async function listQuotePagePaths(
   const paths = (data || [])
     .filter((o) => /\.(png|jpe?g|webp)$/i.test(o.name))
     .map((o) => `${prefix}/${o.name}`)
-    .sort()
+    .sort((a, b) => {
+      const pa = pageIndexFromStoragePath(a) ?? 0
+      const pb = pageIndexFromStoragePath(b) ?? 0
+      return pa - pb || a.localeCompare(b)
+    })
   return { paths }
 }
 
@@ -196,7 +209,9 @@ export async function getSignedQuotePageUrls(
   for (let i = 0; i < slice.length; i++) {
     const signed = data[i]?.signedUrl
     if (!signed) continue
-    pages.push({ path: slice[i], url: signed, index: i + 1 })
+    // index = nº real do arquivo (page-004 → 4), NÃO a posição no array
+    const index = pageIndexFromStoragePath(slice[i]) ?? i + 1
+    pages.push({ path: slice[i], url: signed, index })
   }
   return { pages }
 }

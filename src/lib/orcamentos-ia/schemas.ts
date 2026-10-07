@@ -86,20 +86,23 @@ export const caixariaPieceSchema = z.preprocess(
     height_mm: z.number().positive(),
     thickness_mm: z.number().positive().default(15),
     material_name: z.string().min(2).describe('Ex.: MDF Branco TX 15mm'),
-    edge_banding: z
-      .object({
-        C1: z.boolean().default(false),
-        C2: z.boolean().default(false),
-        L1: z.boolean().default(false),
-        L2: z.boolean().default(false),
-        tape_name: z.string().nullish().transform((v) => v ?? undefined),
-        // IA às vezes manda null — .default() só cobre undefined
-        meters: z.preprocess(
-          (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v)),
-          z.number().nonnegative(),
-        ),
-      })
-      .optional(),
+    // IA manda edge_banding: null — preprocess null→undefined antes do .optional()
+    edge_banding: z.preprocess(
+      (v) => (v == null ? undefined : v),
+      z
+        .object({
+          C1: z.boolean().default(false),
+          C2: z.boolean().default(false),
+          L1: z.boolean().default(false),
+          L2: z.boolean().default(false),
+          tape_name: z.string().nullish().transform((v) => v ?? undefined),
+          meters: z.preprocess(
+            (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v)),
+            z.number().nonnegative(),
+          ),
+        })
+        .optional(),
+    ),
     quantity: z.number().positive().default(1),
     dimensions_estimated: z.boolean().optional(),
     bounding_box: boundingBoxSchema.optional(),

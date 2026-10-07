@@ -60,6 +60,24 @@ export interface MaterialDisplay {
   quantity: string
   total: number
   priceStatus: 'ok' | 'suggested' | 'market'
+  /** Peça da lista de corte — custo entra na linha "Chapa — …". */
+  cuttingList: boolean
+}
+
+/** Insumo cobrável com R$ 0 (não é lista de corte). */
+export function isBillableUnpriced(mat: QuoteMaterialRow): boolean {
+  if (isCuttingListNote(mat.notes)) return false
+  const cat = mat.category || ''
+  if (!['chapa', 'fita_borda', 'ferragem', 'puxador', 'consumivel'].includes(cat)) return false
+  return !(Number(mat.unit_price) > 0)
+}
+
+/** Chapa agregada ("Chapa — …") sem preço — buraco crítico no módulo. */
+export function isUnpricedSheetAggregate(mat: QuoteMaterialRow): boolean {
+  if (isCuttingListNote(mat.notes)) return false
+  if (mat.category !== 'chapa') return false
+  if (!/^chapa\s*[—\-–]/i.test(mat.raw_name.trim())) return false
+  return !(Number(mat.unit_price) > 0)
 }
 
 export function describeMaterial(mat: QuoteMaterialRow): MaterialDisplay {
@@ -84,6 +102,7 @@ export function describeMaterial(mat: QuoteMaterialRow): MaterialDisplay {
     estimatedSize: /medida estimada/.test(notes),
     quantity: formatQuantity(Number(mat.exact_quantity) || 0, mat.unit_measure),
     total: materialLineCost(mat, DEFAULT_SHEET_LOSS_PCT),
+    cuttingList: cutting,
     priceStatus: cutting
       ? 'ok'
       : !pendingPrice
@@ -137,12 +156,16 @@ export function MaterialRow({
           )}
         </button>
         <div className="shrink-0 text-right">
-          {d.total > 0 ? (
+          {d.cuttingList ? (
+            <p className={cn('text-[11px] leading-tight', INK_MUTED)} title="O valor entra na linha Chapa deste móvel">
+              incluso na Chapa
+            </p>
+          ) : d.total > 0 ? (
             <p className={cn('text-[13px] font-semibold tabular-nums leading-tight', INK)}>
               {formatBRL(d.total)}
             </p>
           ) : (
-            <p className={cn('text-[11px] leading-tight', INK_MUTED)}>sem custo</p>
+            <p className={cn('text-[11px] font-medium leading-tight text-[#a8741f]')}>sem custo</p>
           )}
           <p className={cn('mt-0.5 text-[11px] tabular-nums', INK_MUTED)}>{d.quantity}</p>
         </div>
@@ -213,22 +236,45 @@ function PriceHint({
  * em vez de repetir o parágrafo em cada linha.
  */
 export function PriceReviewBanner({ materials }: { materials: QuoteMaterialRow[] }) {
-  const pending = materials.filter((m) => describeMaterial(m).priceStatus !== 'ok')
-  if (!pending.length) return null
+  const pending = materials.filter((m) => {
+    if (isCuttingListNote(m.notes)) return false
+    return describeMaterial(m).priceStatus !== 'ok'
+  })
+  const unpricedBillable = materials.filter(isBillableUnpriced)
+  if (!pending.length && !unpricedBillable.length) return null
   const names = [
-    ...new Set(pending.map((m) => describeMaterial(m).material ?? describeMaterial(m).title)),
+    ...new Set(
+      [...pending, ...unpricedBillable].map(
+        (m) => describeMaterial(m).material ?? describeMaterial(m).title,
+      ),
+    ),
   ]
   return (
     <div className="mt-2 rounded-xl border border-[#c4963a]/40 bg-[#fbf3e3] p-3">
       <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#5c3d16]">
         <CircleAlert className="h-4 w-4 text-[#a8741f]" />
-        {pending.length} {pending.length === 1 ? 'item com preço' : 'itens com preço'} para conferir
+        {unpricedBillable.length
+          ? `${unpricedBillable.length} ${
+              unpricedBillable.length === 1 ? 'item cobrável sem preço' : 'itens cobráveis sem preço'
+            }`
+          : `${pending.length} ${pending.length === 1 ? 'item com preço' : 'itens com preço'} para conferir`}
       </p>
       <p className="mt-1 text-[11.5px] leading-relaxed text-[#6b4a1c]">
-        Estes materiais não estão cadastrados no seu estoque, então o sistema usou um{' '}
-        <strong className="font-semibold">preço médio de mercado</strong> para não deixar o valor
-        zerado. Confira cada um ou cadastre o material em “Tabela de Preços &amp; Estoque” para
-        usar o seu preço nos próximos orçamentos.
+        {unpricedBillable.length ? (
+          <>
+            Há insumos cobráveis (chapa, fita ou ferragem) ainda sem R$. O sistema deve buscar no{' '}
+            <strong className="font-semibold">estoque</strong> e, se não achar, usar{' '}
+            <strong className="font-semibold">preço médio de mercado</strong>. Use “Reauditar” ou
+            edite o preço manualmente.
+          </>
+        ) : (
+          <>
+            Estes materiais não estão cadastrados no seu estoque, então o sistema usou um{' '}
+            <strong className="font-semibold">preço médio de mercado</strong> para não deixar o valor
+            zerado. Confira cada um ou cadastre o material em “Tabela de Preços &amp; Estoque” para
+            usar o seu preço nos próximos orçamentos.
+          </>
+        )}
       </p>
       <p className="mt-1.5 text-[11px] text-[#7a5a30]">
         <span className="font-medium">Materiais:</span> {names.slice(0, 6).join(', ')}
@@ -260,15 +306,24 @@ function readCoverageHidden(): boolean {
 }
 
 /** "Conferência do projeto": quantos móveis do projeto entraram no orçamento. */
-export function CoverageSummary({ coverage }: { coverage: CoverageReport }) {
+export function CoverageSummary({
+  coverage,
+  auditorNotes,
+}: {
+  coverage: CoverageReport
+  auditorNotes?: string[] | null
+}) {
   const [hidden, setHidden] = useState(readCoverageHidden)
   const [showFound, setShowFound] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
+  const notes = (auditorNotes ?? []).filter((n) => typeof n === 'string' && n.trim())
   const expected = coverage.expectedCount || coverage.extracted.length
   const found = coverage.expectedCount ? coverage.coveredCount : coverage.extracted.length
   const pct = expected ? Math.round((found / expected) * 100) : 100
   const missing = useMemo(() => groupByEnvironment(coverage.missing ?? []), [coverage.missing])
+  const extras = useMemo(() => groupByEnvironment(coverage.extras ?? []), [coverage.extras])
   const extracted = useMemo(() => groupByEnvironment(coverage.extracted ?? []), [coverage.extracted])
-  const complete = missing.length === 0
+  const complete = missing.length === 0 && extras.length === 0
 
   const setHiddenPersist = (next: boolean) => {
     setHidden(next)
@@ -339,16 +394,29 @@ export function CoverageSummary({ coverage }: { coverage: CoverageReport }) {
       {complete ? (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#3f6a3a]">
           <Check className="h-3.5 w-3.5" />
-          Todos os móveis do projeto estão no orçamento.
+          Todos os móveis do projeto estão no orçamento — sem extras suspeitos.
         </p>
       ) : (
-        <div className="mt-2.5">
-          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#8a4b12]">
-            <PackageSearch className="h-3.5 w-3.5" />
-            Não encontramos no orçamento:
-          </p>
-          <ModuleChips groups={missing} tone="missing" />
-          <p className={cn('mt-1.5 text-[11px]', INK_MUTED)}>
+        <div className="mt-2.5 space-y-2.5">
+          {missing.length > 0 && (
+            <div>
+              <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#8a4b12]">
+                <PackageSearch className="h-3.5 w-3.5" />
+                Não encontramos no orçamento:
+              </p>
+              <ModuleChips groups={missing} tone="missing" />
+            </div>
+          )}
+          {extras.length > 0 && (
+            <div>
+              <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#a12a2a]">
+                <PackageSearch className="h-3.5 w-3.5" />
+                A mais no orçamento (confira se existe no PDF):
+              </p>
+              <ModuleChips groups={extras} tone="extra" />
+            </div>
+          )}
+          <p className={cn('text-[11px]', INK_MUTED)}>
             Confira na planta e, se precisar, clique em “Reprocessar PDF”.
           </p>
         </div>
@@ -367,6 +435,26 @@ export function CoverageSummary({ coverage }: { coverage: CoverageReport }) {
           {showFound && <ModuleChips groups={extracted} tone="found" />}
         </>
       )}
+
+      {notes.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowNotes((v) => !v)}
+            className="mt-2.5 flex items-center gap-1 text-[11.5px] font-medium text-[#0066FF] hover:underline"
+          >
+            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !showNotes && '-rotate-90')} />
+            {showNotes ? 'Esconder notas do auditor' : `Notas do auditor (${notes.length})`}
+          </button>
+          {showNotes && (
+            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11px] text-[#4a3228]">
+              {notes.slice(0, 20).map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -376,7 +464,7 @@ function ModuleChips({
   tone,
 }: {
   groups: Array<[string, string[]]>
-  tone: 'missing' | 'found'
+  tone: 'missing' | 'found' | 'extra'
 }) {
   const showEnvNames = groups.length > 1
   return (
@@ -392,7 +480,9 @@ function ModuleChips({
                   'rounded-full border px-2 py-0.5 text-[11.5px]',
                   tone === 'missing'
                     ? 'border-[#c4963a]/45 bg-[#fbf3e3] text-[#5c3d16]'
-                    : 'border-[#2a1812]/10 bg-[#f8f4ee] text-[#4a3228]',
+                    : tone === 'extra'
+                      ? 'border-[#c45a5a]/45 bg-[#fff0f0] text-[#6a2020]'
+                      : 'border-[#2a1812]/10 bg-[#f8f4ee] text-[#4a3228]',
                 )}
               >
                 {m}

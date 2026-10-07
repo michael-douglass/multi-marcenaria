@@ -85,10 +85,12 @@ import { MarkupIAFluxoVerificacao } from '@/components/markup/MarkupIAFluxoVerif
 import { MarkupIAAgentesPanel } from '@/components/markup/MarkupIAAgentesPanel';
 import { MarkupIAVerificacaoChecklist } from '@/components/markup/MarkupIAVerificacaoChecklist';
 import { MarkupRegrasConstrutivasEditor } from '@/components/markup/MarkupRegrasConstrutivasEditor';
+import { MarkupCatalogoExportButton } from '@/components/markup/MarkupCatalogoExportButton';
 import { PIPELINE_LEAD_AI_MODELS } from '@/lib/pipeline-lead-ai-config';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
 import { cn } from '@/lib/utils';
 import { normalizarUnidadeCobranca, rotuloUnidadeCobranca } from '@/lib/markup-servicos';
 
@@ -432,6 +434,7 @@ function ServicoTemplateEditor({
 
 export default function MarkupConfigPage() {
   const { userRole } = useAuth();
+  const { empresa } = useEmpresa();
   const { config, salvarConfig, uploadTimbrado, isLoading: loadingConfig } = useMarkupConfig();
   const { config: pipelineAiConfig } = usePipelineLeadAIConfig();
   const { data: categorias = [] } = useMarkupCategorias();
@@ -727,6 +730,11 @@ export default function MarkupConfigPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">
+              <MarkupCatalogoExportButton
+                produtos={produtos}
+                empresaNome={empresa?.nome ?? 'Garbo Movelaria'}
+                disabled={loadingProdutos}
+              />
               <Button
                 type="button"
                 variant="outline"

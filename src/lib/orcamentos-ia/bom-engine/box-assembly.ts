@@ -1,6 +1,9 @@
 import type { CutPiece, ModuleSpec, ModuleTypology } from '@/lib/orcamentos-ia/bom-engine/types'
 import type { BomPreferences } from '@/lib/orcamentos-ia/bom-engine/preferences'
-import { shouldSkipBackGroove } from '@/lib/orcamentos-ia/bom-engine/preferences'
+import {
+  MIN_DRAWER_FRONT_MM,
+  shouldSkipBackGroove,
+} from '@/lib/orcamentos-ia/bom-engine/preferences'
 
 let pieceSeq = 0
 function pid(prefix: string): string {
@@ -187,9 +190,9 @@ export function explodeDrawers(
   const t = prefs.box_thickness_mm
   const gap = prefs.front_gap_mm
   const frontH = Math.floor((spec.height_mm - gap * (count + 1)) / count)
-  if (frontH < 200) {
+  if (frontH < MIN_DRAWER_FRONT_MM) {
     warnings.push(
-      `Altura da gaveta/vão ${frontH} mm < 200 mm (mínimo CNC/ventosas). Ajuste cotas.`,
+      `Altura da gaveta/vão ${frontH} mm < ${MIN_DRAWER_FRONT_MM} mm (mínimo CNC/ventosas). Ajuste cotas.`,
     )
   }
   const frontW = Math.max(0, spec.width_mm - 2 * gap)
@@ -285,6 +288,10 @@ export function inferTypology(name: string): ModuleTypology {
   if (/a[eé]reo|arm[aá]rio a[eé]reo/.test(n)) return 'aereo'
   if (/painel|ripado/.test(n)) return 'painel'
   if (/gaveteiro|gaveta/.test(n) && !/balc/.test(n)) return 'gaveteiro'
+  // Bancada/ilha de gourmet → tipagem de balcão (não cair em "outro"/mesa)
+  if (/bancada|ilha/.test(n)) return 'balcao'
   if (/balc[aã]o|baixo|cooktop|pia/.test(n)) return 'balcao'
+  // Mesa/escrivaninha: tipologia explícita (BOM genérico em "outro", sem confundir com bancada)
+  if (/\bmesa\b|escrivaninha/.test(n) && !/cabeceira/.test(n)) return 'outro'
   return 'outro'
 }

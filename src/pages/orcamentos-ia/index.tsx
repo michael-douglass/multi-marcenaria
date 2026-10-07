@@ -88,23 +88,57 @@ export default function OrcamentosIaPage() {
     if (!activeAnalysisId) void refreshList()
   }, [activeAnalysisId, refreshList])
 
+  /** Quando um job em segundo plano termina, atualiza a lista (evita badge preso em “Aguardando”). */
+  const jobsSignature = bg.jobs.map((j) => `${j.analysisId}:${j.status}`).join('|')
+  useEffect(() => {
+    if (activeAnalysisId) return
+    const hasTerminal = bg.jobs.some((j) => j.status === 'COMPLETED' || j.status === 'FAILED')
+    if (hasTerminal) void refreshList()
+  }, [jobsSignature, activeAnalysisId, refreshList, bg.jobs])
+
+  /** Enquanto houver item não concluído na lista, reconsulta o banco a cada 4s. */
+  useEffect(() => {
+    if (activeAnalysisId) return
+    const busy = analyses.some(
+      (a) => a.status !== 'COMPLETED' && a.status !== 'FAILED',
+    )
+    if (!busy) return
+    const id = window.setInterval(() => {
+      void refreshList()
+    }, 4000)
+    return () => window.clearInterval(id)
+  }, [analyses, activeAnalysisId, refreshList])
+
+  /** Status efetivo: banco + job em segundo plano (prioriza COMPLETED). */
+  const effectiveStatus = useCallback(
+    (row: QuoteAnalysisRow): QuoteAnalysisStatus => {
+      const job = bg.jobs.find((j) => j.analysisId === row.id)
+      if (row.status === 'COMPLETED' || job?.status === 'COMPLETED') return 'COMPLETED'
+      if (row.status === 'FAILED') return 'FAILED'
+      if (job?.status) return job.status
+      return row.status as QuoteAnalysisStatus
+    },
+    [bg.jobs],
+  )
+
   const filteredAnalyses = useMemo(() => {
     const q = compactSearch(searchQuery)
     if (!q) return analyses
     return analyses.filter((row) => {
+      const status = effectiveStatus(row)
       const blob = compactSearch(
         [
           analysisDisplayName(row),
           row.id,
           row.mode,
-          row.status,
-          QUOTE_STATUS_LABEL[row.status as QuoteAnalysisStatus] ?? '',
+          status,
+          QUOTE_STATUS_LABEL[status] ?? '',
           row.source_pdf_path ?? '',
         ].join(' '),
       )
       return blob.includes(q)
     })
-  }, [analyses, searchQuery])
+  }, [analyses, searchQuery, effectiveStatus])
 
   const openAudit = (analysisId: string) => {
     setActiveAnalysisId(analysisId)
@@ -112,6 +146,27 @@ export default function OrcamentosIaPage() {
     const next = new URLSearchParams(searchParams)
     next.set('audit', analysisId)
     setSearchParams(next, { replace: true })
+  }
+
+  /** Reconsulta o status no banco antes de abrir — corrige lista desatualizada. */
+  const tryOpenAudit = async (row: QuoteAnalysisRow) => {
+    const status = effectiveStatus(row)
+    if (status === 'COMPLETED') {
+      openAudit(row.id)
+      return
+    }
+    setListLoading(true)
+    const { data } = await listQuoteAnalyses(companyId)
+    setListLoading(false)
+    if (data.length) setAnalyses(data)
+    const fresh = data.find((a) => a.id === row.id)
+    if (fresh?.status === 'COMPLETED') {
+      openAudit(row.id)
+      return
+    }
+    toast.message('Orçamento ainda processando', {
+      description: 'Assim que concluir, o botão Abrir libera. Clique em Atualizar se precisar.',
+    })
   }
 
   const backToList = () => {
@@ -142,8 +197,8 @@ export default function OrcamentosIaPage() {
     return (
       <div
         className={cn(
-          'w-full bg-[#f7f4ef]',
-          isPopout ? 'min-h-screen p-3' : 'px-3 py-4 sm:px-4',
+          'flex min-h-0 w-full flex-1 flex-col bg-[#f7f4ef]',
+          isPopout ? 'min-h-screen p-2 sm:p-3' : 'px-2 py-2 sm:px-3 sm:py-2.5 md:px-4',
         )}
       >
         <AuditWorkspace
@@ -322,8 +377,8 @@ export default function OrcamentosIaPage() {
               ) : (
                 <ul className="space-y-2">
                   {filteredAnalyses.map((row, idx) => {
-                    const status = row.status as QuoteAnalysisStatus
-                    const label = QUOTE_STATUS_LABEL[status] ?? row.status
+                    const status = effectiveStatus(row)
+                    const label = QUOTE_STATUS_LABEL[status] ?? status
                     const canOpen = status === 'COMPLETED'
                     const canResume = status === 'FAILED'
                     const name = analysisDisplayName(row)
@@ -394,11 +449,16 @@ export default function OrcamentosIaPage() {
                                 'gap-1.5',
                                 canOpen
                                   ? 'bg-[#0066FF] text-white hover:bg-[#0052cc]'
-                                  : 'border-slate-300 bg-white text-slate-400',
+                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50',
                               )}
                               variant={canOpen ? 'default' : 'outline'}
-                              disabled={!canOpen}
-                              onClick={() => openAudit(row.id)}
+                              disabled={listLoading && !canOpen}
+                              title={
+                                canOpen
+                                  ? 'Abrir conferência'
+                                  : 'Verificar no servidor se já concluiu e abrir'
+                              }
+                              onClick={() => void tryOpenAudit(row)}
                             >
                               <Eye className="h-3.5 w-3.5" />
                               Abrir

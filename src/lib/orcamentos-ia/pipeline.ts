@@ -18,15 +18,22 @@ import {
   CONTINGENCY_PRICE_WARNING,
   createPriceResolver,
   endCapsForHandleBars,
+  repriceZeroMaterials,
   type ResolvedMaterialPrice,
 } from '@/lib/orcamentos-ia/pricing'
 import {
+  listQuotePagePaths,
+  loadQuoteAnalysisTree,
+} from '@/lib/orcamentos-ia/quote-tree'
+import {
+  applyAntiHallucinationHeuristics,
   buildCoverageReport,
   buildPageImagePath,
   ensureModulePlaceholder,
   findMarcenariaBomGaps,
   mergeExtractions,
   pageFromBoundingBox,
+  sanitizeInventory,
   type CoverageReport,
   type InventoryEnv,
 } from '@/lib/orcamentos-ia/merge-extraction'
@@ -361,6 +368,9 @@ async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
   extraction?: unknown
   inventory?: InventoryEnv[]
   coverage?: CoverageReport
+  bomGaps?: Array<{ environment: string; module: string; reason: string }>
+  auditNeedsRerun?: boolean
+  hallucinationScore?: number
   pagesProcessed?: number
 }> {
   const { data, error } = await supabase.functions.invoke('orcamentos-ia-pipeline', { body })
@@ -380,6 +390,9 @@ async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
     extraction?: unknown
     inventory?: InventoryEnv[]
     coverage?: CoverageReport
+    bomGaps?: Array<{ environment: string; module: string; reason: string }>
+    auditNeedsRerun?: boolean
+    hallucinationScore?: number
     pagesProcessed?: number
   }
   if (!payload?.ok) {
@@ -433,7 +446,9 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     ragMemoriesPrompt: ragPrompt,
     models: ORCAMENTOS_IA_MODELS,
   })
-  const inventory = Array.isArray(invPayload.inventory) ? invPayload.inventory : []
+  const inventory = sanitizeInventory(
+    Array.isArray(invPayload.inventory) ? (invPayload.inventory as InventoryEnv[]) : [],
+  )
 
   const batches = chunkPaths(state.pagePaths, EDGE_EXTRACT_BATCH)
   const batchExtractions: unknown[] = []
@@ -466,19 +481,20 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       thought_kind: 'audit',
     })
     try {
+      // Edge faz até 3 passagens com janela de 8 imagens; enviamos até 24 páginas para a janela deslizar.
       const aud = await invokeOrcamentosIaPhase({
         analysisId: state.analysisId,
         companyId: state.companyId,
         mode: state.mode,
-        // Poucas páginas na auditoria — evita 504 do gateway com o3-mini + 13 imagens.
-        pagePaths: state.pagePaths.slice(0, 8),
+        pagePaths: state.pagePaths.slice(0, 24),
         phase: 'audit',
         inventory,
         extraction: mergedRaw,
         ragMemoriesPrompt: ragPrompt,
         models: ORCAMENTOS_IA_MODELS,
       })
-      if (aud.extraction) mergedRaw = mergeExtractions([mergedRaw, aud.extraction])
+      // Árvore do auditor substitui (pode ter removido alucinações) — não só merge que soma.
+      if (aud.extraction) mergedRaw = aud.extraction
     } catch (auditErr) {
       const msg = auditErr instanceof Error ? auditErr.message : String(auditErr)
       console.warn('[pipeline] auditoria pulada:', msg)
@@ -500,8 +516,18 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   }
 
   const merged = mergeExtractions([payload.extraction])
-  const sanitized = sanitizeExtractionPayload(merged)
-  const parsed = quoteExtractionSchema.safeParse(sanitized)
+  let sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(merged))
+  let parsed = quoteExtractionSchema.safeParse(sanitized)
+  // Segunda chance: nulls/vazios da IA — limpa de novo e revalida
+  if (!parsed.success) {
+    sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(sanitized))
+    parsed = quoteExtractionSchema.safeParse(sanitized)
+  }
+  // Terceira chance: remove chaves null profundas que o Zod .optional() rejeita
+  if (!parsed.success) {
+    sanitized = sanitizeExtractionPayload(stripNullOptionals(sanitized))
+    parsed = quoteExtractionSchema.safeParse(sanitized)
+  }
   if (!parsed.success) {
     const detail = parsed.error.issues
       .slice(0, 3)
@@ -588,6 +614,16 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
           m.fitas_borda_m = coercePositiveList(m.fitas_borda_m, ['meters'])
 
           m = ensureModulePlaceholder(m)
+
+          // Módulo in-scope sem nenhum material → remove (evita falha Zod no pipeline)
+          if (m.out_of_scope !== true) {
+            const total =
+              (Array.isArray(m.caixaria) ? m.caixaria.length : 0) +
+              (Array.isArray(m.frentes_portas) ? m.frentes_portas.length : 0) +
+              (Array.isArray(m.ferragens) ? m.ferragens.length : 0) +
+              (Array.isArray(m.fitas_borda_m) ? m.fitas_borda_m.length : 0)
+            if (total === 0) return null
+          }
           return m
         })
         .filter(Boolean)
@@ -596,7 +632,12 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
     })
     .filter(Boolean)
 
-  return { ...root, environments }
+  const warnings = Array.isArray(root.warnings) ? [...(root.warnings as string[])] : []
+  if (environments.length === 0) {
+    warnings.push('Nenhum ambiente com materiais restantes após limpeza — confira o PDF.')
+  }
+
+  return { ...root, environments, warnings: [...new Set(warnings)] }
 }
 
 function coercePositiveList(value: unknown, numericKeys: string[]): unknown[] {
@@ -622,13 +663,25 @@ function coercePositiveList(value: unknown, numericKeys: string[]): unknown[] {
     })
 }
 
-/** null/NaN em edge_banding.meters derrubava o Zod (default só cobre undefined). */
+/** Remove `null` em objetos aninhados (Zod .optional() ≠ .nullable()). */
+function stripNullOptionals(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripNullOptionals)
+  if (!value || typeof value !== 'object') return value
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === null) continue
+    out[k] = stripNullOptionals(v)
+  }
+  return out
+}
+
+/** null/NaN em edge_banding derrubava o Zod (.optional() aceita undefined, não null). */
 function sanitizePieceEdgeBanding(item: unknown): unknown {
   if (!item || typeof item !== 'object') return item
   const row = { ...(item as Record<string, unknown>) }
   const eb = row.edge_banding
-  if (eb == null) return row
-  if (typeof eb !== 'object') {
+  // IA manda edge_banding: null com frequência — remove a chave (vira undefined)
+  if (eb == null || typeof eb !== 'object') {
     delete row.edge_banding
     return row
   }
@@ -677,15 +730,16 @@ async function nodeResolvePricesAndPersist(
   let outOfScopeCount = 0
   let bomItemsSaved = 0
   const engineeringCot: string[] = []
-  const resolver = await createPriceResolver(state.companyId)
-  const price = (name: string, category: string) => assertPriced(resolver.resolve(name, category), name)
-
   let systemPrefs: Awaited<ReturnType<typeof getSystemPreferences>> | null = null
   try {
     systemPrefs = await getSystemPreferences(state.companyId)
   } catch {
     systemPrefs = null
   }
+  const resolver = await createPriceResolver(state.companyId, {
+    preferredThicknessMm: systemPrefs?.box_thickness_mm ?? 15,
+  })
+  const price = (name: string, category: string) => assertPriced(resolver.resolve(name, category), name)
   await clearBomItemsForProject(state.analysisId)
 
   for (const [envIndex, env] of state.extraction.environments.entries()) {
@@ -744,8 +798,11 @@ async function nodeResolvePricesAndPersist(
         row: Record<string, unknown>,
         bbox: unknown,
       ): Record<string, unknown> => {
-        const page = pageFromBoundingBox(bbox) ?? modPage
-        const inheritedBbox =
+        const piecePage = pageFromBoundingBox(bbox)
+        // Peça com página diferente do módulo = alucinação comum; ancora no módulo
+        const page =
+          piecePage && modPage && piecePage !== modPage ? modPage : (piecePage ?? modPage)
+        let inheritedBbox: unknown =
           bbox && typeof bbox === 'object'
             ? bbox
             : mod.bounding_box
@@ -753,6 +810,14 @@ async function nodeResolvePricesAndPersist(
               : page
                 ? { page, x: 0, y: 0, width: 1, height: 1 }
                 : null
+        if (
+          inheritedBbox &&
+          typeof inheritedBbox === 'object' &&
+          page &&
+          pageFromBoundingBox(inheritedBbox) !== page
+        ) {
+          inheritedBbox = { ...(inheritedBbox as Record<string, unknown>), page }
+        }
         return {
           ...row,
           bounding_box: inheritedBbox,
@@ -1085,9 +1150,15 @@ async function nodeResolvePricesAndPersist(
               `Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`,
             ]
           : []),
+        ...(coverage.extras?.length
+          ? [
+              `Possíveis alucinações: ${coverage.extras.length} módulo(s) a mais que o inventário — confira no PDF.`,
+            ]
+          : []),
       ],
       inventory,
       coverage,
+      last_extraction: state.extraction,
     },
   })
 
@@ -1179,6 +1250,215 @@ export async function runOrcamentosIaPipeline(
     return { ok: false, error: result.error }
   }
   return { ok: true, materialsSaved: result.materialsSaved }
+}
+
+/**
+ * Reaudita estrutura (cobertura + marcações + BOM) sem apagar materiais/preços confirmados.
+ * Chama só `phase: 'audit'` na Edge e aplica correções de página/bbox nos módulos.
+ */
+export async function reauditOrcamentosIaAnalysis(params: {
+  analysisId: string
+  companyId: string
+}): Promise<{ ok: boolean; error?: string; auditNeedsRerun?: boolean; updatedModules?: number }> {
+  const { data: row, error } = await supabase
+    .from('quote_analyses')
+    .select('id, company_id, mode, totals, source_pdf_path')
+    .eq('id', params.analysisId)
+    .eq('company_id', params.companyId)
+    .maybeSingle()
+  if (error) return { ok: false, error: error.message }
+  if (!row) return { ok: false, error: 'Análise não encontrada.' }
+
+  const { paths } = await listQuotePagePaths(params.companyId, params.analysisId)
+  if (!paths.length) return { ok: false, error: 'Sem páginas convertidas para reauditar.' }
+
+  const treeResult = await loadQuoteAnalysisTree(params.analysisId)
+  const tree = treeResult.data
+  if (treeResult.error || !tree) {
+    return { ok: false, error: treeResult.error || 'Não foi possível carregar a árvore.' }
+  }
+
+  const prevTotals =
+    row.totals && typeof row.totals === 'object' ? (row.totals as Record<string, unknown>) : {}
+  const inventory = Array.isArray(prevTotals.inventory)
+    ? sanitizeInventory(prevTotals.inventory as InventoryEnv[])
+    : tree.environments.map((e) => ({
+        environment: e.name,
+        modules: e.modules.filter((m) => !m.out_of_scope).map((m) => m.name),
+      }))
+
+  const extractionFromTree = {
+    environments: tree.environments.map((env) => ({
+      name: env.name,
+      modules: env.modules.map((mod) => ({
+        name: mod.name,
+        description: mod.description ?? undefined,
+        dimensions: mod.dimensions ?? undefined,
+        bounding_box: mod.bounding_box ?? undefined,
+        out_of_scope: mod.out_of_scope === true,
+        caixaria: mod.materials
+          .filter((m) => m.category === 'chapa' && !isCuttingListNote(m.notes))
+          .slice(0, 1)
+          .map((m) => ({
+            name: m.raw_name,
+            material_name: m.raw_name.includes('—')
+              ? m.raw_name.split('—').pop()?.trim() || m.raw_name
+              : m.raw_name,
+            thickness_mm: 15,
+            width_mm: Number(mod.dimensions?.width_mm) || 800,
+            height_mm: Number(mod.dimensions?.height_mm) || 720,
+            quantity: Math.max(1, Number(m.exact_quantity) || 1),
+            function: 'outro' as const,
+          })),
+        frentes_portas: [],
+        ferragens: mod.materials
+          .filter((m) => m.category === 'ferragem' || m.category === 'puxador')
+          .map((m) => ({
+            name: m.raw_name,
+            quantity: Math.max(1, Number(m.exact_quantity) || 1),
+            unit: 'un' as const,
+          })),
+        fitas_borda_m: mod.materials
+          .filter((m) => m.category === 'fita_borda')
+          .map((m) => ({
+            width_mm: 22 as const,
+            meters: Math.max(0.1, Number(m.exact_quantity) || 0.1),
+          })),
+      })),
+    })),
+    auditor_notes: Array.isArray(prevTotals.auditor_notes)
+      ? (prevTotals.auditor_notes as string[])
+      : [],
+    warnings: Array.isArray(prevTotals.warnings) ? (prevTotals.warnings as string[]) : [],
+  }
+
+  const seedExtraction =
+    prevTotals.last_extraction && typeof prevTotals.last_extraction === 'object'
+      ? prevTotals.last_extraction
+      : extractionFromTree
+
+  await setAnalysisStatus(params.analysisId, 'AUDITING_REVISION', {
+    pipeline_stage: 'reauditing',
+    pipeline_detail: 'Reauditoria: cobrindo móveis, BOM e marcações de página…',
+    thought_kind: 'audit',
+  })
+
+  let aud: Awaited<ReturnType<typeof invokeOrcamentosIaPhase>>
+  try {
+    aud = await invokeOrcamentosIaPhase({
+      analysisId: params.analysisId,
+      companyId: params.companyId,
+      mode: row.mode === 'pro' ? 'pro' : 'max',
+      pagePaths: paths.slice(0, 24),
+      phase: 'audit',
+      inventory,
+      extraction: seedExtraction,
+      models: ORCAMENTOS_IA_MODELS,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await setAnalysisStatus(params.analysisId, 'COMPLETED', {
+      pipeline_stage: 'completed',
+      pipeline_detail: 'Reauditoria incompleta — preços e lista foram mantidos.',
+      thought_kind: 'warn',
+      thought: true,
+    })
+    return { ok: false, error: message }
+  }
+
+  const audited = aud.extraction && typeof aud.extraction === 'object' ? aud.extraction : null
+  const coverage =
+    aud.coverage ??
+    buildCoverageReport(inventory, audited ?? seedExtraction)
+  const auditNeedsRerun =
+    aud.auditNeedsRerun === true ||
+    coverage.missing.length > 0 ||
+    (aud.bomGaps?.length ?? 0) > 0 ||
+    (aud.hallucinationScore ?? 0) > 0
+
+  let updatedModules = 0
+  if (audited && typeof audited === 'object') {
+    const envs = Array.isArray((audited as { environments?: unknown }).environments)
+      ? ((audited as { environments: Array<{ name?: string; modules?: unknown[] }> }).environments)
+      : []
+    for (const env of envs) {
+      const treeEnv = tree.environments.find(
+        (e) => normalizeKey(e.name) === normalizeKey(env.name || ''),
+      )
+      if (!treeEnv) continue
+      for (const mod of Array.isArray(env.modules) ? env.modules : []) {
+        if (!mod || typeof mod !== 'object') continue
+        const rec = mod as Record<string, unknown>
+        const name = typeof rec.name === 'string' ? rec.name : ''
+        const treeMod = treeEnv.modules.find((m) => normalizeKey(m.name) === normalizeKey(name))
+        if (!treeMod) continue
+        const bbox = rec.bounding_box
+        const page =
+          pageFromBoundingBox(bbox) ??
+          (typeof rec.page_number === 'number' ? rec.page_number : null)
+        if (!page && !bbox) continue
+        const pagePath = buildPageImagePath(params.companyId, params.analysisId, page, paths)
+        const { error: upErr } = await supabase
+          .from('quote_modules')
+          .update({
+            bounding_box: bbox && typeof bbox === 'object' ? bbox : treeMod.bounding_box,
+            page_number: page ?? treeMod.page_number,
+            page_image_path: pagePath ?? treeMod.page_image_path,
+          })
+          .eq('id', treeMod.id)
+        if (!upErr) updatedModules += 1
+      }
+    }
+  }
+
+  const flatMats = tree.environments.flatMap((e) => e.modules.flatMap((m) => m.materials))
+  const repriced = await repriceZeroMaterials({
+    companyId: params.companyId,
+    materials: flatMats,
+  })
+
+  const notes = Array.isArray((audited as { auditor_notes?: unknown } | null)?.auditor_notes)
+    ? ((audited as { auditor_notes: string[] }).auditor_notes)
+    : Array.isArray(prevTotals.auditor_notes)
+      ? (prevTotals.auditor_notes as string[])
+      : []
+
+  await setAnalysisStatus(params.analysisId, 'COMPLETED', {
+    error_message: null,
+    pipeline_stage: 'completed',
+    pipeline_detail: auditNeedsRerun
+      ? 'Reauditoria: ainda há pontos a conferir (cobertura/BOM/marcações).'
+      : 'Reauditoria concluída — móveis e preços conferidos.',
+    thought_kind: 'done',
+    totals: {
+      ...prevTotals,
+      coverage,
+      inventory,
+      auditor_notes: notes,
+      audit_needs_rerun: auditNeedsRerun,
+      last_extraction: audited ?? prevTotals.last_extraction ?? seedExtraction,
+      reaudit_at: new Date().toISOString(),
+      reprice_updated: repriced.updated,
+      warnings: [
+        ...(Array.isArray(prevTotals.warnings) ? (prevTotals.warnings as string[]) : []),
+        ...(coverage.missing.length
+          ? [`Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`]
+          : []),
+      ].filter((v, i, a) => a.indexOf(v) === i),
+    },
+  })
+
+  return { ok: true, auditNeedsRerun, updatedModules }
+}
+
+function normalizeKey(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 /**

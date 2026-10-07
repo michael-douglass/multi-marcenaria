@@ -1,8 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import {
+  ENGINEERING_MODULAR_AUDITOR,
+  ENGINEERING_MODULAR_EXTRACTOR,
+} from '../_shared/engineering-modular-prompts.ts'
 
 const EXTRACTOR_MODEL = 'gpt-4o'
-const PARSER_MODEL = 'gpt-4o-mini'
+/** Inventário de ambientes precisa ler CONTEÚDO das pranchas — mini erra cômodos. */
+const PARSER_MODEL = 'gpt-4o'
 const AUDITOR_MODEL = 'o3-mini'
 const BATCH_SIZE = 8
 const MAX_PAGES = 40
@@ -26,13 +31,20 @@ interface PipelineBody {
    * Fases curtas evitam 504 do gateway (~150s).
    * - inventory: capa → lista de ambientes/móveis
    * - extract: 1 lote de páginas (pagePaths já cortado pelo client)
-   * - audit: 1 passagem do auditor
+   * - audit: até 3 passagens anti-alucinação (remover/renomear + completar BOM)
    * - full: comportamento legado (tudo numa chamada — só PDFs pequenos)
    */
   phase?: PipelinePhase
   inventory?: InventoryEnv[]
   extraction?: AnyRec
 }
+
+const MAX_AUDIT_PASSES = 3
+const AUDIT_IMAGES_PER_PASS = 8
+/** Inventário: amostra capa + meio + fim (não só as 3 primeiras páginas). */
+const INVENTORY_MAX_IMAGES = 12
+const BEDROOM_ONLY_RE = /guarda.?roupa|roupeiro|cabeceira|criado.?mudo/
+const SOCIAL_ENV_RE = /gourmet|cozinha|lavabo|lavanderia|jantar|area\s*gourmet|espaco\s*gourmet/
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -233,30 +245,57 @@ const OUT_OF_SCOPE_HINTS = [
 /** Móveis/decoração comprados prontos em loja — fora do escopo mesmo com "peças". */
 const STORE_BRAND_HINTS = ['westwing', 'nordecor', 'portofino', 'tok stok', 'tokstok', 'mobly', 'etna', 'desk design', 'oppa']
 
+/** IA manda edge_banding: null — Zod/client rejeitam; remove a chave. */
+function cleanCaixariaEdgeBanding(pieces: AnyRec[]): AnyRec[] {
+  return pieces.map((piece) => {
+    if (!('edge_banding' in piece)) return piece
+    if (piece.edge_banding == null || typeof piece.edge_banding !== 'object') {
+      const { edge_banding: _drop, ...rest } = piece
+      return rest
+    }
+    const band = { ...(piece.edge_banding as AnyRec) }
+    const meters = Number(band.meters)
+    band.meters = Number.isFinite(meters) && meters >= 0 ? meters : 0
+    for (const side of ['C1', 'C2', 'L1', 'L2']) {
+      if (band[side] == null) band[side] = false
+    }
+    if (band.tape_name == null) delete band.tape_name
+    return { ...piece, edge_banding: band }
+  })
+}
+
 function ensurePlaceholders(extraction: AnyRec): AnyRec {
   const environments = asObjArray(extraction.environments).map((env) => {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
       const hinted = mod.out_of_scope === true || OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
+      const caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
       if (STORE_BRAND_HINTS.some((h) => nameKey.includes(h))) {
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
-      const mdfPieces = asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
+      const mdfPieces = caixaria.length + asObjArray(mod.frentes_portas).length
       // Com chapa MDF (ex.: bancada sob granito) continua no escopo
-      if (mdfPieces > 0) return { ...mod, out_of_scope: undefined }
+      if (mdfPieces > 0) return { ...mod, caixaria, out_of_scope: undefined }
       if (hinted) {
         // Fora de escopo: listado à parte no cliente, sem insumos nem custo
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
       const total = asObjArray(mod.ferragens).length + asObjArray(mod.fitas_borda_m).length
-      if (total > 0) return { ...mod, out_of_scope: undefined }
+      if (total > 0) return { ...mod, caixaria, out_of_scope: undefined }
       // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
       return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
     })
     return { ...env, modules }
   })
   return { ...extraction, environments }
+}
+
+function isPlaceholderBbox(bbox: unknown): boolean {
+  if (!bbox || typeof bbox !== 'object') return true
+  const b = bbox as Record<string, unknown>
+  const near = (a: unknown, n: number) => Math.abs(Number(a) - n) < 0.02
+  return near(b.x, 0) && near(b.y, 0) && near(b.width, 0.5) && near(b.height, 0.5)
 }
 
 function findBomGaps(extraction: AnyRec): Array<{ environment: string; module: string; reason: string }> {
@@ -291,9 +330,41 @@ function findBomGaps(extraction: AnyRec): Array<{ environment: string; module: s
           reason: 'Remover placeholder e detalhar ferragens/puxadores',
         })
       }
+      const bbox = mod.bounding_box
+      const page =
+        bbox && typeof bbox === 'object'
+          ? Number((bbox as Record<string, unknown>).page)
+          : Number(mod.page_number)
+      if (!Number.isFinite(page) || page < 1) {
+        gaps.push({
+          environment: envName,
+          module: modName,
+          reason: 'Sem bounding_box.page (marcação de página no PDF)',
+        })
+      } else if (isPlaceholderBbox(bbox)) {
+        gaps.push({
+          environment: envName,
+          module: modName,
+          reason: 'Marcação genérica/placeholder — ajustar caixa na página correta do PDF',
+        })
+      }
     }
   }
   return gaps
+}
+
+/** Match de módulos: igualdade normalizada; fuzzy só se o nome curto tiver ≥6 chars. */
+function modulesMatch(a: string, b: string): boolean {
+  const ak = normalizeKey(a)
+  const bk = normalizeKey(b)
+  if (!ak || !bk) return false
+  if (ak === bk) return true
+  if (ak.length >= 6 && bk.length >= 6 && (ak.includes(bk) || bk.includes(ak))) return true
+  const tokensA = ak.split(' ').filter((t) => t.length >= 5)
+  const tokensB = bk.split(' ').filter((t) => t.length >= 5)
+  if (tokensA.length >= 2 && tokensA.every((t) => bk.includes(t))) return true
+  if (tokensB.length >= 2 && tokensB.every((t) => ak.includes(t))) return true
+  return false
 }
 
 function buildCoverage(inventory: Array<{ environment: string; modules: string[] }>, extraction: AnyRec) {
@@ -305,41 +376,442 @@ function buildCoverage(inventory: Array<{ environment: string; modules: string[]
   for (const env of asObjArray(extraction.environments)) {
     const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
     for (const mod of asObjArray(env.modules)) {
+      if (mod.out_of_scope === true) continue
       extracted.push({
         environment: envName,
         module: typeof mod.name === 'string' ? mod.name : 'Modulo',
       })
     }
   }
-  const extractedKeys = new Set(
-    extracted.map((i) => `${normalizeKey(i.environment)}::${normalizeKey(i.module)}`),
+  const missing = expected.filter(
+    (item) =>
+      !extracted.some(
+        (ex) =>
+          modulesMatch(item.module, ex.module) &&
+          (modulesMatch(item.environment, ex.environment) ||
+            normalizeKey(item.environment) === normalizeKey(ex.environment)),
+      ),
   )
-  const missing = expected.filter((item) => {
-    const key = `${normalizeKey(item.environment)}::${normalizeKey(item.module)}`
-    if (extractedKeys.has(key)) return false
-    const modKey = normalizeKey(item.module)
-    // Match flexível: "Guarda Roupa" cobre "Guarda Roupa em MDF Arauco" e vice-versa
-    for (const k of extractedKeys) {
-      const extractedMod = k.split('::')[1] || ''
-      if (!extractedMod) continue
-      if (extractedMod === modKey) return false
-      if (extractedMod.includes(modKey) || modKey.includes(extractedMod)) return false
-      const tokensExp = modKey.split(' ').filter((t) => t.length >= 4)
-      const tokensExt = extractedMod.split(' ').filter((t) => t.length >= 4)
-      if (tokensExp.length && tokensExp.every((t) => extractedMod.includes(t))) return false
-      if (tokensExt.length >= 2 && tokensExt.filter((t) => modKey.includes(t)).length >= 2) {
-        return false
-      }
-    }
-    return true
-  })
+  const extras = extracted.filter(
+    (item) =>
+      !expected.some(
+        (ex) =>
+          modulesMatch(item.module, ex.module) &&
+          (modulesMatch(item.environment, ex.environment) ||
+            normalizeKey(item.environment) === normalizeKey(ex.environment) ||
+            expected.length === 0),
+      ),
+  )
+  // Sem inventário: extras só se inventário vazio (não punir extração livre)
+  const extrasFinal = expected.length === 0 ? [] : extras
   return {
     expected,
     extracted,
     missing,
+    extras: extrasFinal,
     coveredCount: expected.length - missing.length,
     expectedCount: expected.length,
   }
+}
+
+function moduleDims(mod: AnyRec): { h: number; d: number; w: number } {
+  const dims = mod.dimensions && typeof mod.dimensions === 'object' ? (mod.dimensions as AnyRec) : null
+  return {
+    h: Number(dims?.height_mm) || 0,
+    d: Number(dims?.depth_mm) || 0,
+    w: Number(dims?.width_mm) || 0,
+  }
+}
+
+function isDiningTableHint(nameKey: string, descKey: string, h: number, d: number, w: number): boolean {
+  const blob = `${nameKey} ${descKey}`
+  if (/jantar|belize|organico|escrivaninha|tampo organico|mesa de jantar/.test(blob)) return true
+  // Mesa de jantar típica: ~750 mm de altura e profundidade larga (não bancada 600–700)
+  if (h >= 700 && h <= 820 && (d >= 900 || w >= 2400)) return true
+  return false
+}
+
+/** Só renomeia mesa→bancada com evidência de balcão — NÃO só porque o ambiente é gourmet. */
+function shouldRenameMesaToBancada(
+  nameKey: string,
+  descKey: string,
+  h: number,
+  d: number,
+): boolean {
+  if (!/\bmesa\b/.test(nameKey)) return false
+  if (/cabeceira|centro|jantar|belize|organico|escrivaninha/.test(nameKey)) return false
+  if (isDiningTableHint(nameKey, descKey, h, d, 0)) return false
+  const bancadaDims = h >= 850 && h <= 980 && d >= 500 && d <= 750
+  const counterHint = /cooktop|pia|churras|bancada|ilha|balcao|fogao|forno/.test(`${nameKey} ${descKey}`)
+  return bancadaDims || counterHint
+}
+
+function fixWrongBancadaLabel(modName: string, descKey: string, h: number, d: number, w: number): string | null {
+  const nameKey = normalizeKey(modName)
+  if (!/bancada/.test(nameKey)) return null
+  if (/lavabo|pia|cooktop|ilha|churras|balcao/.test(`${nameKey} ${descKey}`)) return null
+  if (isDiningTableHint(nameKey, descKey, h, d, w) || /mesa|jantar|belize|organico/.test(descKey)) {
+    return modName.replace(/bancada/gi, 'Mesa')
+  }
+  return null
+}
+
+/** Amostra páginas do início, meio e fim para o inventário de ambientes. */
+function pickInventoryContents<T>(signedContents: T[], maxImages = INVENTORY_MAX_IMAGES): T[] {
+  const n = signedContents.length
+  if (n <= maxImages) return signedContents
+  const idxs = new Set<number>([0])
+  if (n > 1) idxs.add(1)
+  idxs.add(n - 1)
+  if (n > 2) idxs.add(n - 2)
+  const midSlots = Math.max(0, maxImages - idxs.size)
+  for (let i = 1; i <= midSlots; i++) {
+    idxs.add(Math.min(n - 1, Math.max(0, Math.round((i * (n - 1)) / (midSlots + 1)))))
+  }
+  return [...idxs].sort((a, b) => a - b).map((i) => signedContents[i])
+}
+
+/** Remove alucinações de quarto em ambientes sociais e itens genéricos. */
+function sanitizeInventory(inventory: InventoryEnv[]): InventoryEnv[] {
+  // Une ambientes com o mesmo nome (ex.: dois "Espaço Gourmet")
+  const byKey = new Map<string, InventoryEnv>()
+  for (const env of inventory || []) {
+    const envKey = normalizeKey(env.environment || '')
+    if (!envKey) continue
+    const modules = (env.modules || [])
+      .map((m) => String(m || '').trim())
+      .filter(Boolean)
+      .filter((m) => {
+        const modKey = normalizeKey(m)
+        if (/^ferragens?$/.test(modKey)) return false
+        if (BEDROOM_ONLY_RE.test(modKey) && SOCIAL_ENV_RE.test(envKey)) return false
+        if (/lavanderia/.test(envKey) && !/lavanderia|tanque|maquina|máquina/.test(modKey)) return false
+        return true
+      })
+    const prev = byKey.get(envKey)
+    if (!prev) {
+      byKey.set(envKey, { environment: env.environment, modules: [...new Set(modules)] })
+    } else {
+      prev.modules = [...new Set([...(prev.modules || []), ...modules])]
+      if ((env.environment || '').length > (prev.environment || '').length) {
+        prev.environment = env.environment
+      }
+    }
+  }
+  let cleaned = [...byKey.values()].filter((e) => e.modules.length > 0)
+
+  // Capa "Espaço Gourmet" + "Cozinha" do mesmo open-space → um só ambiente
+  const gourmet = cleaned.find((e) => /gourmet/.test(normalizeKey(e.environment)))
+  const cozinha = cleaned.find((e) => /^cozinha$|cozinha gourmet/.test(normalizeKey(e.environment)))
+  if (gourmet && cozinha && normalizeKey(gourmet.environment) !== normalizeKey(cozinha.environment)) {
+    const mergedMods = [...new Set([...(gourmet.modules || []), ...(cozinha.modules || [])])]
+    cleaned = cleaned
+      .filter((e) => normalizeKey(e.environment) !== normalizeKey(cozinha.environment))
+      .map((e) =>
+        normalizeKey(e.environment) === normalizeKey(gourmet.environment)
+          ? { ...e, modules: mergedMods }
+          : e,
+      )
+  }
+  return cleaned
+}
+
+/**
+ * Separa Lavabo real; funde Cozinha+Gourmet; ignora Lavanderia fantasma do ASSUNTO.
+ */
+function rebalanceEnvironments(extraction: AnyRec): AnyRec {
+  const notes: string[] = Array.isArray(extraction.auditor_notes)
+    ? [...(extraction.auditor_notes as string[])]
+    : []
+  const buckets = new Map<string, { name: string; modules: AnyRec[] }>()
+
+  const put = (envName: string, mod: AnyRec) => {
+    const key = normalizeKey(envName)
+    const prev = buckets.get(key)
+    const modKey = normalizeKey(typeof mod.name === 'string' ? mod.name : 'Modulo')
+    if (!prev) {
+      buckets.set(key, { name: envName, modules: [mod] })
+      return
+    }
+    const existing = prev.modules.findIndex(
+      (m) => normalizeKey(typeof m.name === 'string' ? m.name : '') === modKey,
+    )
+    if (existing >= 0) prev.modules[existing] = mergeModule(prev.modules[existing], mod)
+    else prev.modules.push(mod)
+    if (envName.length > prev.name.length) prev.name = envName
+  }
+
+  const hasGourmetLabel = asObjArray(extraction.environments).some((e) =>
+    /gourmet/.test(normalizeKey(typeof e.name === 'string' ? e.name : '')),
+  )
+  const defaultSocial = hasGourmetLabel ? 'Espaço Gourmet' : 'Cozinha'
+
+  for (const env of asObjArray(extraction.environments)) {
+    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+    const envKey = normalizeKey(envName)
+    for (const mod of asObjArray(env.modules)) {
+      let modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      const descKey = normalizeKey(typeof mod.description === 'string' ? mod.description : '')
+      let nameKey = normalizeKey(modName)
+      const blob = `${nameKey} ${descKey}`
+      const { h, d, w } = moduleDims(mod)
+
+      const fixed = fixWrongBancadaLabel(modName, descKey, h, d, w)
+      if (fixed) {
+        notes.push(`Renomeado "${modName}" → "${fixed}" (mesa de jantar, não bancada).`)
+        modName = fixed
+        nameKey = normalizeKey(modName)
+      }
+
+      if (BEDROOM_ONLY_RE.test(nameKey) && SOCIAL_ENV_RE.test(envKey)) {
+        notes.push(`Removido "${modName}" de "${envName}": tipologia de quarto sem evidência.`)
+        continue
+      }
+
+      const isKitchenFurniture =
+        /cooktop|churras|ilha|geladeira|cristaleira|forno|fogao|fogão|gourmet|adega|microondas/.test(
+          blob,
+        ) || (/bancada/.test(nameKey) && /pia|cooktop|churras/.test(blob))
+      const isLavabo = /lavabo/.test(blob) || (/lavabo/.test(envKey) && !isKitchenFurniture)
+      const isLavanderia = /lavanderia|tanque|maquina de lavar|máquina de lavar/.test(blob)
+
+      let target = defaultSocial
+      if (isLavabo && !isKitchenFurniture) {
+        target = 'Lavabo'
+        if (!/lavabo/.test(nameKey)) {
+          modName = /bancada/.test(nameKey) ? 'Bancada Lavabo' : `${modName} Lavabo`
+          nameKey = normalizeKey(modName)
+        }
+      } else if (isLavanderia && !isKitchenFurniture) target = 'Lavanderia'
+      else if (
+        !isKitchenFurniture &&
+        !/mesa|jantar|painel|armario|armário|ripado|cristaleira|ilha|bancada|torre/.test(blob) &&
+        !/cozinha|gourmet|lavabo|lavanderia/.test(envKey)
+      ) {
+        target = envName // quarto/outro ambiente real
+      }
+
+      if (target !== envName && /lavabo|lavanderia|cozinha/.test(envKey)) {
+        notes.push(`Movido "${modName}" de "${envName}" → "${target}".`)
+      }
+
+      put(target, { ...mod, name: modName })
+    }
+  }
+
+  return {
+    ...extraction,
+    environments: [...buckets.values()].filter((e) => e.modules.length > 0),
+    auditor_notes: [...new Set(notes)],
+  }
+}
+
+function findTypologySuspects(
+  extraction: AnyRec,
+): Array<{ environment: string; module: string; reason: string }> {
+  const suspects: Array<{ environment: string; module: string; reason: string }> = []
+  for (const env of asObjArray(extraction.environments)) {
+    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+    for (const mod of asObjArray(env.modules)) {
+      if (mod.out_of_scope === true) continue
+      const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      const nameKey = normalizeKey(modName)
+      const descKey = normalizeKey(typeof mod.description === 'string' ? mod.description : '')
+      const { h, d } = moduleDims(mod)
+      if (shouldRenameMesaToBancada(nameKey, descKey, h, d)) {
+        suspects.push({
+          environment: envName,
+          module: modName,
+          reason: 'Possível bancada/ilha rotulada como mesa — renomear se o desenho confirmar',
+        })
+      }
+      if (/bancada/.test(nameKey) && isDiningTableHint(nameKey, descKey, h, d, moduleDims(mod).w)) {
+        suspects.push({
+          environment: envName,
+          module: modName,
+          reason: 'Possível mesa de jantar rotulada como bancada — renomear se o desenho confirmar',
+        })
+      }
+      const mdf =
+        asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
+      const page =
+        Number(mod.page_number) ||
+        Number((mod.bounding_box as AnyRec | undefined)?.page) ||
+        0
+      if (mdf === 0 && !page && /guarda.?roupa|roupeiro|painel tv|cabeceira/.test(nameKey)) {
+        suspects.push({
+          environment: envName,
+          module: modName,
+          reason: 'Sem chapa MDF nem página — possível alucinação; remover se não houver evidência',
+        })
+      }
+    }
+  }
+  return suspects
+}
+
+function hallucinationScore(
+  gaps: Array<{ environment: string; module: string; reason: string }>,
+  coverage: ReturnType<typeof buildCoverage>,
+  typology: Array<{ environment: string; module: string; reason: string }>,
+): number {
+  // missing (móvel do inventário sem cotação) pesa mais — auditor não pode deixar passar
+  return (
+    gaps.length +
+    coverage.missing.length * 2 +
+    coverage.extras.length +
+    typology.length
+  )
+}
+
+/** Janela deslizante de páginas centrada em módulos suspeitos / faltantes. */
+function pickAuditContents<T extends { path?: string; image_url: string }>(
+  signedContents: T[],
+  extraction: AnyRec,
+  passIndex: number,
+  maxImages: number,
+): T[] {
+  if (signedContents.length <= maxImages) return signedContents
+  const pages = new Set<number>()
+  for (const env of asObjArray(extraction.environments)) {
+    for (const mod of asObjArray(env.modules)) {
+      const p =
+        Number(mod.page_number) ||
+        Number((mod.bounding_box as AnyRec | undefined)?.page) ||
+        0
+      if (p >= 1) pages.add(p)
+    }
+  }
+  const pageList = [...pages].sort((a, b) => a - b)
+  const center =
+    pageList.length > 0
+      ? pageList[Math.min(passIndex - 1, pageList.length - 1)]
+      : Math.min(signedContents.length, 1 + (passIndex - 1) * maxImages)
+  const start = Math.max(0, Math.min(signedContents.length - maxImages, center - Math.floor(maxImages / 2) - 1))
+  // Alterna janela nas passagens 2–3
+  const shift = ((passIndex - 1) * Math.floor(maxImages / 2)) % Math.max(1, signedContents.length - maxImages + 1)
+  const from = Math.min(signedContents.length - maxImages, Math.max(0, start + (passIndex > 1 ? shift : 0)))
+  return signedContents.slice(from, from + maxImages)
+}
+
+/**
+ * A árvore do auditor manda (pode remover módulos). Enriquece com materiais
+ * da árvore anterior quando o nome do módulo bate.
+ */
+function applyAuditorTree(previous: AnyRec, audited: AnyRec): AnyRec {
+  const prevIndex = new Map<string, AnyRec>()
+  for (const env of asObjArray(previous.environments)) {
+    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+    for (const mod of asObjArray(env.modules)) {
+      const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      prevIndex.set(`${normalizeKey(envName)}::${normalizeKey(modName)}`, mod)
+    }
+  }
+
+  const environments = asObjArray(audited.environments).map((env) => {
+    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+    const modules = asObjArray(env.modules).map((mod) => {
+      const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      const key = `${normalizeKey(envName)}::${normalizeKey(modName)}`
+      let prev = prevIndex.get(key)
+      if (!prev) {
+        for (const [k, v] of prevIndex) {
+          const [, pm] = k.split('::')
+          if (modulesMatch(modName, pm || '')) {
+            prev = v
+            break
+          }
+        }
+      }
+      if (!prev) return mod
+      return mergeModule(prev, mod)
+    })
+    return { ...env, modules }
+  })
+
+  const auditorNotes = [
+    ...(Array.isArray(previous.auditor_notes) ? previous.auditor_notes : []),
+    ...(Array.isArray(audited.auditor_notes) ? audited.auditor_notes : []),
+  ].filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+
+  const warnings = [
+    ...(Array.isArray(previous.warnings) ? previous.warnings : []),
+    ...(Array.isArray(audited.warnings) ? audited.warnings : []),
+  ].filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
+
+  return {
+    ...audited,
+    environments,
+    auditor_notes: [...new Set(auditorNotes)],
+    warnings: [...new Set(warnings)],
+  }
+}
+
+/** Rede de segurança: bancada↔mesa (só com evidência) e módulos sem evidência. */
+function applyHeuristicPrune(extraction: AnyRec): AnyRec {
+  const notes: string[] = Array.isArray(extraction.auditor_notes)
+    ? [...(extraction.auditor_notes as string[])]
+    : []
+  const warnings: string[] = Array.isArray(extraction.warnings)
+    ? [...(extraction.warnings as string[])]
+    : []
+
+  const environments = asObjArray(extraction.environments)
+    .map((env) => {
+      const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+      const modules = asObjArray(env.modules)
+        .map((mod) => {
+          if (mod.out_of_scope === true) return mod
+          const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+          const nameKey = normalizeKey(modName)
+          const descKey = normalizeKey(typeof mod.description === 'string' ? mod.description : '')
+          const { h, d, w } = moduleDims(mod)
+
+          const fixedBancada = fixWrongBancadaLabel(modName, descKey, h, d, w)
+          if (fixedBancada) {
+            notes.push(`Renomeado "${modName}" → "${fixedBancada}" (mesa de jantar, não bancada).`)
+            return { ...mod, name: fixedBancada, typology: 'outro' }
+          }
+
+          if (shouldRenameMesaToBancada(nameKey, descKey, h, d)) {
+            const renamed = modName.replace(/mesa/gi, 'Bancada')
+            notes.push(`Renomeado "${modName}" → "${renamed}" (evidência de bancada/ilha).`)
+            return { ...mod, name: renamed, typology: 'balcao' }
+          }
+          return mod
+        })
+        .filter((mod) => {
+          if (mod.out_of_scope === true) return true
+          const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+          const nameKey = normalizeKey(modName)
+          const mdf =
+            asObjArray(mod.caixaria).length + asObjArray(mod.frentes_portas).length
+          const page =
+            Number(mod.page_number) ||
+            Number((mod.bounding_box as AnyRec | undefined)?.page) ||
+            0
+          const ferragens = asObjArray(mod.ferragens).length
+          if (
+            mdf === 0 &&
+            ferragens === 0 &&
+            !page &&
+            /guarda.?roupa|roupeiro|cabeceira/.test(nameKey)
+          ) {
+            notes.push(`Removido "${modName}": sem evidência de página/peças (alucinação).`)
+            return false
+          }
+          return true
+        })
+      return { ...env, modules }
+    })
+    .filter((env) => asObjArray(env.modules).length > 0)
+
+  return rebalanceEnvironments({
+    ...extraction,
+    environments,
+    auditor_notes: [...new Set(notes)],
+    warnings: [...new Set(warnings)],
+  })
 }
 
 const EXTRACTOR_SCHEMA = {
@@ -546,52 +1018,98 @@ const INVENTORY_SCHEMA = {
   },
 }
 
-const SYSTEM_EXTRACTOR = `Você é o Extrator técnico Corte Claude v11 (marcenaria BOM / HelloMob).
-Extraia ABSOLUTAMENTE TUDO das pranchas deste LOTE:
+/** Fallback canônico (Engenharia Modular). Override ativo em ai_prompt_overrides prevalece. */
+const SYSTEM_EXTRACTOR = ENGINEERING_MODULAR_EXTRACTOR
+const SYSTEM_AUDITOR = ENGINEERING_MODULAR_AUDITOR
 
-PROIBIDO precificar ou sugerir preço por m² de fachada (L×A × R$/m²). Só lista de insumos unitários (BOM).
+type PromptAgentKey = 'extractor' | 'auditor'
 
-OBRIGATÓRIO — NUNCA módulos de marcenaria vazios.
-Para cada móvel (guarda-roupa, painel, cabeceira, nicho, mesa, aparador, divisória):
-- Informe typology quando possível: balcao|aereo|armario_correr|armario_giro|nicho|painel|gaveteiro|outro
-- Armário de correr: sliding_doors 2|3|4; armário de giro: column_widths_mm quando houver colunas
-- Cotar chapas MDF em caixaria e/ou frentes_portas (material_name, mm, quantity > 0)
-- Cotar ferragens e puxadores por UNIDADE INDIVIDUAL (dobradiças, corrediças, Minifix, etc.)
-- Cotar fitas de borda em metros (22 mm simples; 35/45 mm em engrosso)
-- Preencher bounding_box com page (1-based) + x,y,width,height 0–1 quando visível; senão page do módulo
-- Nichos abertos: preferir cavilha; sem rasgo de fundo em topos expostos
+async function loadActivePromptOverrides(
+  admin: ReturnType<typeof createClient>,
+  companyId: string,
+): Promise<{ extractor: string; auditor: string; sources: Record<PromptAgentKey, 'override' | 'canonical'> }> {
+  const sources: Record<PromptAgentKey, 'override' | 'canonical'> = {
+    extractor: 'canonical',
+    auditor: 'canonical',
+  }
+  let extractor = SYSTEM_EXTRACTOR
+  let auditor = SYSTEM_AUDITOR
+  try {
+    const { data, error } = await admin
+      .from('ai_prompt_overrides')
+      .select('agent_key, system_prompt, active')
+      .eq('company_id', companyId)
+      .eq('active', true)
+      .in('agent_key', ['extractor', 'auditor'])
+    if (error) {
+      console.warn('[orcamentos-ia-pipeline] ai_prompt_overrides:', error.message)
+      return { extractor, auditor, sources }
+    }
+    for (const row of data || []) {
+      const key = row.agent_key as PromptAgentKey
+      const text = typeof row.system_prompt === 'string' ? row.system_prompt.trim() : ''
+      if (!text) continue
+      if (key === 'extractor') {
+        extractor = text
+        sources.extractor = 'override'
+      } else if (key === 'auditor') {
+        auditor = text
+        sources.auditor = 'override'
+      }
+    }
+  } catch (err) {
+    console.warn('[orcamentos-ia-pipeline] loadActivePromptOverrides failed:', err)
+  }
+  return { extractor, auditor, sources }
+}
 
-MEDIDAS: use as cotas do desenho. Sem cota impressa, estime pela escala/proporção da planta (nunca 0).
+async function recordPromptTraces(
+  admin: ReturnType<typeof createClient>,
+  analysisId: string,
+  traces: Array<{
+    agent_key: PromptAgentKey
+    source: 'override' | 'canonical'
+    system_preview: string
+    at: string
+  }>,
+) {
+  if (!traces.length) return
+  const { data } = await admin
+    .from('quote_analyses')
+    .select('totals')
+    .eq('id', analysisId)
+    .maybeSingle()
+  const prev =
+    data?.totals && typeof data.totals === 'object'
+      ? (data.totals as Record<string, unknown>)
+      : {}
+  const prevTraces = Array.isArray(prev.prompt_traces) ? prev.prompt_traces : []
+  await admin
+    .from('quote_analyses')
+    .update({
+      totals: {
+        ...prev,
+        prompt_traces: [...prevTraces, ...traces].slice(-20),
+        pipeline_updated_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', analysisId)
+}
 
-MESA COM SAIA / ESCRIVANINHA (Planilha 4.0 Premium) — fatie SEMPRE em:
-- caixaria função "tampo": tampo (L × P). Tampo engrossado 30/45 mm = tampo 15/18 mm + tiras de engrosso (caixaria "outro", largura 70–100 mm) no perímetro.
-- caixaria função "outro": saia frontal e saias laterais (altura típica 80–120 mm), travessa/reforço.
-- caixaria função "lateral": pés/laterais em MDF (altura ≈ 735 mm) quando o pé for de madeira; pé metálico → ferragem "Pé de mesa metálico" (un).
-- fitas_borda_m: perímetro do tampo + bordas visíveis das saias/pés.
-- ferragens: cantoneiras, Minifix/parafusos por unidade, passa-cabo se houver.
-Gaveteiro sob a mesa = módulo próprio (caixaria + frentes + corrediças).
+const SYSTEM_INVENTORY = `Você monta o ÍNDICE de ambientes e módulos de marcenaria do projeto. Só nomes, sem peças.
 
-FORA DO ESCOPO (out_of_scope = true, SEM caixaria/frentes/ferragens):
-- Marmoraria: granito, mármore, quartzo, Silestone, Dekton, porcelanato (tampos/soleiras/nichos de pedra).
-- Obra civil: alvenaria, gesso/drywall, sancas, pintura, revestimento.
-- Eletros, metais sanitários, decoração e iluminação (tapete, quadro, LED, pendente, espelho avulso, puff).
-- Bancada de MDF com tampo de pedra: o móvel de MDF é marcenaria normal; crie um módulo separado "Tampo em granito/quartzo" com out_of_scope = true.
-
-PROIBIDO usar "A confirmar" em módulos de marcenaria.
-Responda só no JSON schema.`
-
-const SYSTEM_AUDITOR = `Você é o Auditor construtivo (o3-mini) da Planilha 4.0.
-FORCE a cotação completa de marcenaria: todo guarda-roupa/painel/cabeceira/nicho/mesa DEVE ter:
-- chapas MDF (caixaria ou frentes) com medidas e material
-- ferragens/puxadores por unidade (sem placeholder "A confirmar")
-- bounding_box.page em cada peça quando possível
-Mesa com saia/escrivaninha: exija tampo, saias, pés (MDF ou metálico), fitas no perímetro e ferragens.
-Pedra (granito/mármore/quartzo), alvenaria, gesso, eletros e decoração: out_of_scope = true, sem peças de MDF.
-Compare com INVENTÁRIO e LISTA DE FALHAS. Complete lacunas olhando as imagens.
-Devolva o JSON completo.`
-
-const SYSTEM_INVENTORY = `Liste ambientes e módulos do projeto (capa/sumário/plantas). Só nomes, sem pecas.
-Inclua guarda-roupa, painel, cabeceira, nicho divisor, torre, bancada, mesa, ferragens se houver.
+REGRAS:
+1) Separe AMBIENTES reais pelo desenho e pelo CONTEÚDO/título da prancha (Espaço Gourmet, Cozinha, Lavabo, Lavanderia, Quarto…).
+2) NÃO junte tudo num único ambiente só porque a capa tem um nome (ex.: capa "Espaço Gourmet" + prancha "BANCADA LAVABO" → dois ambientes).
+3) ASSUNTO genérico ("Marmoraria Cozinha e Lavanderia") NÃO define o ambiente de cada prancha.
+4) Liste SÓ móveis de marcenaria visíveis (bancada MDF, ilha, armário, torre, cristaleira, painel, ripado, mesa de jantar…).
+5) NÃO invente guarda-roupa, cabeceira, criado-mudo ou quarto se não houver planta/detalhe desses ambientes.
+6) Mesa de jantar / mesa orgânica ≠ bancada. Ilha/bancada com cooktop/pia ≠ mesa.
+7) Pedra, eletro, cadeira/banqueta de loja, decoração → omita do inventário.
+8) Lavanderia SÓ se houver desenho de lavanderia (tanque/máquina). A palavra "Lavanderia" no ASSUNTO da prancha NÃO basta.
+9) Não duplique Cozinha e Espaço Gourmet para o mesmo open-space — use o nome da capa.
+10) Inclua cristaleira, torre geladeira, painel TV, armários e ripados quando desenhados.
 Responda só no JSON schema.`
 
 async function openAiJson(params: {
@@ -780,6 +1298,10 @@ Deno.serve(async (req) => {
       ? `\n\n${body.ragMemoriesPrompt.trim()}`
       : ''
 
+    const promptPack = await loadActivePromptOverrides(admin, body.companyId)
+    const systemExtractor = promptPack.extractor
+    const systemAuditor = promptPack.auditor
+
     const paths = body.pagePaths.slice(0, MAX_PAGES)
     const signedContents: Array<{ type: 'image_url'; image_url: { url: string }; path: string }> = []
     for (const path of paths) {
@@ -796,13 +1318,43 @@ Deno.serve(async (req) => {
       })
     }
 
+    /** Nº da página no PDF (page-006.jpg → 6). Diferente do "PRANCHA Nº" impresso. */
+    const pdfPageFromPath = (path: string): number | null => {
+      const m = path.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
+      if (!m) return null
+      const n = Number(m[1])
+      return Number.isFinite(n) && n >= 1 ? n : null
+    }
+
+    /**
+     * Alterna texto "PDF página N" + imagem — o modelo deve usar N no bounding_box.page,
+     * não o carimbo "PRANCHA Nº" (capa desloca a numeração).
+     */
+    const labeledImagesForVision = (
+      contents: Array<{ type: 'image_url'; image_url: { url: string }; path: string }>,
+    ): unknown[] => {
+      const out: unknown[] = []
+      for (const c of contents) {
+        const n = pdfPageFromPath(c.path)
+        out.push({
+          type: 'text',
+          text: n
+            ? `=== PDF página ${n} (arquivo page-${String(n).padStart(3, '0')}) ===\nUse bounding_box.page = ${n}. NÃO use o "PRANCHA Nº" impresso se for diferente (há capa/índice antes das pranchas).`
+            : `=== Imagem: ${c.path} ===\nUse o número da página do arquivo no bounding_box.page.`,
+        })
+        out.push({ type: 'image_url', image_url: c.image_url })
+      }
+      return out
+    }
+
     const formatInventoryText = (inventory: InventoryEnv[]) =>
       inventory.length
         ? inventory.map((e) => `- ${e.environment}: ${(e.modules || []).join(', ')}`).join('\n')
         : '(inventário vazio — extraia o máximo possível das pranchas)'
 
     if (phase === 'inventory') {
-      const coverImages = signedContents.slice(0, Math.min(3, signedContents.length)).map((c) => ({
+      const inventoryPages = pickInventoryContents(signedContents)
+      const coverImages = inventoryPages.map((c) => ({
         type: 'image_url' as const,
         image_url: c.image_url,
       }))
@@ -811,7 +1363,7 @@ Deno.serve(async (req) => {
         body.analysisId,
         'READING_LAYOUT',
         'reading_inventory',
-        'Olhando a capa do projeto: listando ambientes e móveis prometidos…',
+        `Lendo capa + pranchas-chave (${coverImages.length}/${signedContents.length}): separando ambientes e móveis…`,
         'vision',
       )
       const inventoryRaw = await openAiJson({
@@ -821,7 +1373,10 @@ Deno.serve(async (req) => {
         userContent: [
           {
             type: 'text',
-            text: `Liste TODOS os ambientes e módulos/móveis deste projeto (guarda-roupa, painel, cabeceira, nicho, ferragens, etc.). ${signedContents.length} páginas no total.`,
+            text: `Estas são ${coverImages.length} páginas representativas (capa, plantas e detalhamentos) de um PDF com ${signedContents.length} páginas.
+Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.
+OBRIGATÓRIO: se houver prancha com título/CONTEÚDO "LAVABO" ou "BANCADA LAVABO", crie ambiente "Lavabo" separado (não misture com Gourmet/Cozinha).
+Priorize CONTEÚDO da prancha, não o ASSUNTO genérico. Não invente móveis de quarto nem Lavanderia sem desenho de tanque/máquina.`,
           },
           ...coverImages,
         ],
@@ -829,19 +1384,58 @@ Deno.serve(async (req) => {
         schema: INVENTORY_SCHEMA,
         maxTokens: 4000,
       })
-      const inventory = Array.isArray(inventoryRaw.inventory)
-        ? (inventoryRaw.inventory as InventoryEnv[])
-        : []
+      let inventory = sanitizeInventory(
+        Array.isArray(inventoryRaw.inventory) ? (inventoryRaw.inventory as InventoryEnv[]) : [],
+      )
+
+      // 2ª passada só nas pranchas da 2ª metade (detalhamentos) — capa sozinha esconde Lavabo
+      if (signedContents.length >= 8) {
+        const detailSlice = signedContents.slice(Math.floor(signedContents.length / 2))
+        const detailImages = pickInventoryContents(detailSlice, 6).map((c) => ({
+          type: 'image_url' as const,
+          image_url: c.image_url,
+        }))
+        try {
+          const detailRaw = await openAiJson({
+            apiKey: openAiKey,
+            model: PARSER_MODEL,
+            system: SYSTEM_INVENTORY,
+            userContent: [
+              {
+                type: 'text',
+                text: `Inventário atual:
+${formatInventoryText(inventory)}
+
+Olhe estas pranchas de DETALHAMENTO. Se houver ambientes/módulos faltando (ex.: Lavabo, cristaleira, painel TV, armário), devolva o inventário COMPLETO atualizado.
+Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanque/máquina.`,
+              },
+              ...detailImages,
+            ],
+            schemaName: 'quote_inventory',
+            schema: INVENTORY_SCHEMA,
+            maxTokens: 4000,
+          })
+          const detailInv = Array.isArray(detailRaw.inventory)
+            ? (detailRaw.inventory as InventoryEnv[])
+            : []
+          // MESCLA com a 1ª passada — a 2ª sozinha às vezes esquece Lavabo/Gourmet
+          if (detailInv.length > 0) {
+            inventory = sanitizeInventory([...inventory, ...detailInv])
+          }
+        } catch (detailErr) {
+          console.warn('[orcamentos-ia-pipeline] inventory detail pass failed:', detailErr)
+        }
+      }
+
       return jsonResponse({ ok: true, phase, inventory, pagesProcessed: signedContents.length })
     }
 
     if (phase === 'extract') {
-      const inventory = Array.isArray(body.inventory) ? body.inventory : []
+      const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
       const inventoryText = formatInventoryText(inventory)
-      const images = signedContents.map((c) => ({
-        type: 'image_url' as const,
-        image_url: c.image_url,
-      }))
+      const pageHints = signedContents
+        .map((c) => pdfPageFromPath(c.path))
+        .filter((n): n is number => n != null)
       await setStage(
         admin,
         body.analysisId,
@@ -850,110 +1444,152 @@ Deno.serve(async (req) => {
         `Caçando chapas MDF, puxadores e dobradiças neste lote (${signedContents.length} página(s))…`,
         'vision',
       )
+      const extractorSystem = systemExtractor + ragBlock
       const batchExtraction = await openAiJson({
         apiKey: openAiKey,
         model: EXTRACTOR_MODEL,
-        system: SYSTEM_EXTRACTOR + ragBlock,
+        system: extractorSystem,
         userContent: [
           {
             type: 'text',
-            text: `Lote com ${signedContents.length} página(s).
-INVENTÁRIO ESPERADO DO PROJETO:
+            text: `Lote com ${signedContents.length} página(s) do PDF${
+              pageHints.length ? ` (índices: ${pageHints.join(', ')})` : ''
+            }.
+INVENTÁRIO ESPERADO DO PROJETO (âncora; se conflitar com a imagem, prefira a imagem):
 ${inventoryText}
 
-Extraia TODOS os módulos/insumos visíveis NESTE lote. Não omita guarda-roupa, painel, cabeceira, nicho divisor nem ferragens.`,
+Extraia módulos/insumos VISÍVEIS neste lote.
+Cada imagem vem precedida de "PDF página N" — bounding_box.page DEVE ser esse N (página do arquivo), NÃO o "PRANCHA Nº" do carimbo.
+O inventário é âncora PARCIAL: se a prancha for "DETALHAMENTO BANCADA LAVABO", crie ambiente Lavabo mesmo que não esteja no inventário.
+Use ambiente correto (Lavabo ≠ Cozinha ≠ Espaço Gourmet). Inclua cristaleira/painel/armário se desenhados.
+Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
           },
-          ...images,
+          ...labeledImagesForVision(signedContents),
         ],
         schemaName: 'quote_extraction_batch',
         schema: EXTRACTOR_SCHEMA,
         maxTokens: 12000,
       })
-      const extraction = ensurePlaceholders(mergeExtractions([batchExtraction]))
+      await recordPromptTraces(admin, body.analysisId, [
+        {
+          agent_key: 'extractor',
+          source: promptPack.sources.extractor,
+          system_preview: extractorSystem.slice(0, 240),
+          at: new Date().toISOString(),
+        },
+      ])
+      const extraction = rebalanceEnvironments(
+        ensurePlaceholders(mergeExtractions([batchExtraction])),
+      )
       return jsonResponse({
         ok: true,
         phase,
         inventory,
         extraction,
         pagesProcessed: signedContents.length,
+        prompt_source: promptPack.sources,
       })
     }
 
     if (phase === 'audit') {
-      const inventory = Array.isArray(body.inventory) ? body.inventory : []
+      const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
       const inventoryText = formatInventoryText(inventory)
       let extraction = ensurePlaceholders(
         body.extraction && typeof body.extraction === 'object'
           ? body.extraction
           : { environments: [], auditor_notes: [], warnings: [] },
       )
-      const gaps = findBomGaps(extraction)
-      const coverageBefore = buildCoverage(inventory, extraction)
-      const scoreBefore = gaps.length + coverageBefore.missing.length
-      if (scoreBefore === 0) {
-        return jsonResponse({
-          ok: true,
-          phase,
-          inventory,
-          extraction,
-          coverage: coverageBefore,
-          bomGaps: gaps,
-          pagesProcessed: signedContents.length,
-          skipped: true,
-        })
-      }
 
-      await setStage(
-        admin,
-        body.analysisId,
-        'AUDITING_REVISION',
-        'auditing',
-        `Auditoria: ainda vejo ${gaps.length} falha(s) de lista e ${coverageBefore.missing.length} módulo(s) faltando — pedindo à IA completar…`,
-        'audit',
-      )
+      let imageBudget = AUDIT_IMAGES_PER_PASS
+      let passesRun = 0
+      let lastScore = -1
 
-      const auditImages = signedContents.slice(0, 8).map((c) => ({
-        type: 'image_url' as const,
-        image_url: c.image_url,
-      }))
+      for (let pass = 1; pass <= MAX_AUDIT_PASSES; pass++) {
+        const gaps = findBomGaps(extraction)
+        const coverageBefore = buildCoverage(inventory, extraction)
+        const typology = findTypologySuspects(extraction)
+        const score = hallucinationScore(gaps, coverageBefore, typology)
+        lastScore = score
 
-      extraction = ensurePlaceholders(
-        mergeExtractions([
-          extraction,
-          await openAiJson({
+        // Sempre 1ª passagem (mesmo score 0) — valida tipologias/extras; depois só se score > 0
+        if (pass > 1 && score === 0) break
+
+        await setStage(
+          admin,
+          body.analysisId,
+          'AUDITING_REVISION',
+          'auditing',
+          `Auditoria passagem ${pass}/${MAX_AUDIT_PASSES}: score ${score} (BOM ${gaps.length}, faltando ${coverageBefore.missing.length}, extras ${coverageBefore.extras.length}, tipologia ${typology.length})…`,
+          'audit',
+        )
+
+        const windowContents = pickAuditContents(signedContents, extraction, pass, imageBudget)
+
+        try {
+          const auditedRaw = await openAiJson({
             apiKey: openAiKey,
-            model: EXTRACTOR_MODEL,
-            system: SYSTEM_AUDITOR,
+            model: AUDITOR_MODEL,
+            system: systemAuditor,
             userContent: [
               {
                 type: 'text',
-                text: `INVENTÁRIO ESPERADO:
+                text: `PASSAGEM ${pass}/${MAX_AUDIT_PASSES} — verifique as imagens e devolva a árvore CORRIGIDA.
+Cada imagem vem com "PDF página N" — corrija bounding_box.page para esse N (não o PRANCHA Nº impresso).
+
+INVENTÁRIO (âncora; se inventário tiver erro, prefira as imagens):
 ${inventoryText}
 
-FALHAS DE BOM (marcenaria sem chapa/ferragem completa):
+FALHAS DE BOM:
 ${gaps.length ? gaps.map((g) => `- ${g.environment} → ${g.module}: ${g.reason}`).join('\n') : '(nenhuma)'}
 
-MÓDULOS DO INVENTÁRIO AINDA FALTANDO:
+MÓDULOS DO INVENTÁRIO FALTANDO NA EXTRAÇÃO:
 ${
   coverageBefore.missing.length
     ? coverageBefore.missing.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
     : '(nenhum)'
 }
 
-Pedra (granito/mármore/quartzo), alvenaria, gesso e decoração (espelho, tapete, luminária, quadro, puff) → out_of_scope=true, sem peças.
-Complete chapas MDF, ferragens e puxadores. Preencha bounding_box.page.
-ÁRVORE ATUAL:
+MÓDULOS A MAIS (possível alucinação — remover se não houver evidência nas imagens):
+${
+  coverageBefore.extras.length
+    ? coverageBefore.extras.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
+    : '(nenhum)'
+}
+
+TIPOLOGIAS SUSPEITAS (renomear se necessário):
+${
+  typology.length
+    ? typology.map((t) => `- ${t.environment} → ${t.module}: ${t.reason}`).join('\n')
+    : '(nenhuma)'
+}
+
+ÁRVORE ATUAL (pode remover/renomear módulos; complete BOM só do que existir):
 ${JSON.stringify(extraction).slice(0, 50000)}`,
               },
-              ...auditImages,
+              ...labeledImagesForVision(windowContents),
             ],
             schemaName: 'quote_extraction_audited',
             schema: EXTRACTOR_SCHEMA,
             maxTokens: 16000,
-          }),
-        ]),
-      )
+          })
+          extraction = ensurePlaceholders(
+            applyAuditorTree(extraction, ensurePlaceholders(auditedRaw)),
+          )
+          passesRun = pass
+        } catch (passErr) {
+          const msg = passErr instanceof Error ? passErr.message : String(passErr)
+          console.warn(`[orcamentos-ia-pipeline] audit pass ${pass} falhou:`, msg)
+          imageBudget = Math.max(4, imageBudget - 2)
+          const warnings = Array.isArray(extraction.warnings)
+            ? [...(extraction.warnings as string[])]
+            : []
+          warnings.push(`Auditoria passagem ${pass} incompleta: ${msg.slice(0, 160)}`)
+          extraction = { ...extraction, warnings: [...new Set(warnings)] }
+          // tenta próxima passagem com menos imagens
+        }
+      }
 
+      extraction = applyHeuristicPrune(extraction)
       const coverage = buildCoverage(inventory, extraction)
       const bomGaps = findBomGaps(extraction)
       if (bomGaps.length) {
@@ -966,6 +1602,46 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
         extraction = { ...extraction, warnings: [...new Set(warnings)] }
       }
 
+      if (passesRun > 0) {
+        await recordPromptTraces(admin, body.analysisId, [
+          {
+            agent_key: 'auditor',
+            source: promptPack.sources.auditor,
+            system_preview: systemAuditor.slice(0, 240),
+            at: new Date().toISOString(),
+          },
+        ])
+      }
+
+      const auditNeedsRerun = lastScore > 0 || coverage.missing.length > 0 || bomGaps.length > 0
+      // Marca na análise se ainda precisa de outra passagem (UI "Reauditar")
+      try {
+        const { data: cur } = await admin
+          .from('quote_analyses')
+          .select('totals')
+          .eq('id', body.analysisId)
+          .maybeSingle()
+        const prev =
+          cur?.totals && typeof cur.totals === 'object'
+            ? (cur.totals as Record<string, unknown>)
+            : {}
+        await admin
+          .from('quote_analyses')
+          .update({
+            totals: {
+              ...prev,
+              audit_needs_rerun: auditNeedsRerun,
+              hallucination_score: lastScore,
+              coverage,
+              inventory,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', body.analysisId)
+      } catch (e) {
+        console.warn('[orcamentos-ia-pipeline] audit_needs_rerun persist:', e)
+      }
+
       return jsonResponse({
         ok: true,
         phase,
@@ -974,12 +1650,17 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
         coverage,
         bomGaps,
         mode,
+        auditPasses: passesRun,
+        hallucinationScore: lastScore,
+        auditNeedsRerun,
         pagesProcessed: signedContents.length,
+        prompt_source: promptPack.sources,
       })
     }
 
     // full legado — inventário + lotes + 1 auditoria leve
-    const coverImages = signedContents.slice(0, Math.min(3, signedContents.length)).map((c) => ({
+    const inventoryPages = pickInventoryContents(signedContents)
+    const coverImages = inventoryPages.map((c) => ({
       type: 'image_url' as const,
       image_url: c.image_url,
     }))
@@ -989,7 +1670,7 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
       body.analysisId,
       'READING_LAYOUT',
       'reading_inventory',
-      'Olhando a capa do projeto: listando ambientes e móveis prometidos…',
+      `Lendo capa + pranchas-chave (${coverImages.length}/${signedContents.length}): separando ambientes…`,
       'vision',
     )
 
@@ -1000,7 +1681,8 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
       userContent: [
         {
           type: 'text',
-          text: `Liste TODOS os ambientes e módulos/móveis deste projeto (guarda-roupa, painel, cabeceira, nicho, ferragens, etc.). ${signedContents.length} páginas no total.`,
+          text: `Estas são ${coverImages.length} páginas representativas de um PDF com ${signedContents.length} páginas.
+Liste ambientes SEPARADOS e só módulos reais. Priorize CONTEÚDO/título da prancha. Não invente móveis de quarto.`,
         },
         ...coverImages,
       ],
@@ -1009,18 +1691,18 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
       maxTokens: 4000,
     })
 
-    const inventory = Array.isArray(inventoryRaw.inventory)
-      ? (inventoryRaw.inventory as InventoryEnv[])
-      : []
+    const inventory = sanitizeInventory(
+      Array.isArray(inventoryRaw.inventory) ? (inventoryRaw.inventory as InventoryEnv[]) : [],
+    )
     const inventoryText = formatInventoryText(inventory)
 
     const batches = chunk(signedContents, BATCH_SIZE)
     const batchResults: unknown[] = []
     for (let bi = 0; bi < batches.length; bi++) {
       const batch = batches[bi]
-      const images = batch.map((c) => ({ type: 'image_url' as const, image_url: c.image_url }))
-      const pageFrom = bi * BATCH_SIZE + 1
-      const pageTo = bi * BATCH_SIZE + batch.length
+      const pageNums = batch.map((c) => pdfPageFromPath(c.path)).filter((n): n is number => n != null)
+      const pageFrom = pageNums[0] ?? bi * BATCH_SIZE + 1
+      const pageTo = pageNums[pageNums.length - 1] ?? bi * BATCH_SIZE + batch.length
       await setStage(
         admin,
         body.analysisId,
@@ -1032,17 +1714,17 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
       const batchExtraction = await openAiJson({
         apiKey: openAiKey,
         model: EXTRACTOR_MODEL,
-        system: SYSTEM_EXTRACTOR + ragBlock,
+        system: systemExtractor + ragBlock,
         userContent: [
           {
             type: 'text',
-            text: `Lote ${bi + 1}/${batches.length} (páginas ${pageFrom}–${pageTo} de ${signedContents.length}).
+            text: `Lote ${bi + 1}/${batches.length} (PDF páginas ${pageFrom}–${pageTo} de ${signedContents.length}).
 INVENTÁRIO ESPERADO DO PROJETO:
 ${inventoryText}
 
-Extraia TODOS os módulos/insumos visíveis NESTE lote. Não omita guarda-roupa, painel, cabeceira, nicho divisor nem ferragens.`,
+Extraia módulos/insumos VISÍVEIS neste lote. bounding_box.page = "PDF página N" de cada imagem (não o PRANCHA Nº). Ambiente correto (Lavabo ≠ Cozinha). Não invente guarda-roupa/cabeceira. Mesa ≠ bancada.`,
           },
-          ...images,
+          ...labeledImagesForVision(batch),
         ],
         schemaName: 'quote_extraction_batch',
         schema: EXTRACTOR_SCHEMA,
@@ -1051,58 +1733,75 @@ Extraia TODOS os módulos/insumos visíveis NESTE lote. Não omita guarda-roupa,
       batchResults.push(batchExtraction)
     }
 
-    let extraction = ensurePlaceholders(mergeExtractions(batchResults))
+    await recordPromptTraces(admin, body.analysisId, [
+      {
+        agent_key: 'extractor',
+        source: promptPack.sources.extractor,
+        system_preview: (systemExtractor + ragBlock).slice(0, 240),
+        at: new Date().toISOString(),
+      },
+    ])
+
+    let extraction = rebalanceEnvironments(ensurePlaceholders(mergeExtractions(batchResults)))
     if (mode === 'max') {
-      const gaps = findBomGaps(extraction)
-      const coverageBefore = buildCoverage(inventory, extraction)
-      if (gaps.length + coverageBefore.missing.length > 0) {
+      let imageBudget = AUDIT_IMAGES_PER_PASS
+      for (let pass = 1; pass <= MAX_AUDIT_PASSES; pass++) {
+        const gaps = findBomGaps(extraction)
+        const coverageBefore = buildCoverage(inventory, extraction)
+        const typology = findTypologySuspects(extraction)
+        const score = hallucinationScore(gaps, coverageBefore, typology)
+        if (pass > 1 && score === 0) break
         await setStage(
           admin,
           body.analysisId,
           'AUDITING_REVISION',
           'auditing',
-          `Auditoria: ainda vejo ${gaps.length} falha(s) de lista e ${coverageBefore.missing.length} módulo(s) faltando — pedindo à IA completar…`,
+          `Auditoria passagem ${pass}/${MAX_AUDIT_PASSES}: score ${score}…`,
           'audit',
         )
-        const auditImages = signedContents.slice(0, 8).map((c) => ({
-          type: 'image_url' as const,
-          image_url: c.image_url,
-        }))
-        extraction = ensurePlaceholders(
-          mergeExtractions([
-            extraction,
-            await openAiJson({
-              apiKey: openAiKey,
-              model: EXTRACTOR_MODEL,
-              system: SYSTEM_AUDITOR,
-              userContent: [
-                {
-                  type: 'text',
-                  text: `INVENTÁRIO ESPERADO:
+        const auditWindow = pickAuditContents(signedContents, extraction, pass, imageBudget)
+        try {
+          const auditedRaw = await openAiJson({
+            apiKey: openAiKey,
+            model: AUDITOR_MODEL,
+            system: systemAuditor,
+            userContent: [
+              {
+                type: 'text',
+                text: `PASSAGEM ${pass}/${MAX_AUDIT_PASSES}. Verifique imagens; remova alucinações; renomeie tipologias; complete BOM só do que existir.
+bounding_box.page = N do rótulo "PDF página N" (não o PRANCHA Nº impresso).
+
+INVENTÁRIO:
 ${inventoryText}
 
-FALHAS DE BOM:
-${gaps.length ? gaps.map((g) => `- ${g.environment} → ${g.module}: ${g.reason}`).join('\n') : '(nenhuma)'}
+BOM gaps: ${gaps.length}; faltando: ${coverageBefore.missing.length}; extras: ${coverageBefore.extras.length}; tipologia: ${typology.length}
 
-MÓDULOS FALTANDO:
-${
-  coverageBefore.missing.length
-    ? coverageBefore.missing.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
-    : '(nenhum)'
-}
-
-ÁRVORE ATUAL:
+ÁRVORE:
 ${JSON.stringify(extraction).slice(0, 50000)}`,
-                },
-                ...auditImages,
-              ],
-              schemaName: 'quote_extraction_audited',
-              schema: EXTRACTOR_SCHEMA,
-              maxTokens: 16000,
-            }),
-          ]),
-        )
+              },
+              ...labeledImagesForVision(auditWindow),
+            ],
+            schemaName: 'quote_extraction_audited',
+            schema: EXTRACTOR_SCHEMA,
+            maxTokens: 16000,
+          })
+          extraction = ensurePlaceholders(
+            applyAuditorTree(extraction, ensurePlaceholders(auditedRaw)),
+          )
+        } catch (passErr) {
+          console.warn('[orcamentos-ia-pipeline] full audit pass failed:', passErr)
+          imageBudget = Math.max(4, imageBudget - 2)
+        }
       }
+      extraction = applyHeuristicPrune(extraction)
+      await recordPromptTraces(admin, body.analysisId, [
+        {
+          agent_key: 'auditor',
+          source: promptPack.sources.auditor,
+          system_preview: systemAuditor.slice(0, 240),
+          at: new Date().toISOString(),
+        },
+      ])
     }
 
     const coverage = buildCoverage(inventory, extraction)

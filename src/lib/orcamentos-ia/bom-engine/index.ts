@@ -13,6 +13,8 @@ export {
   resolveBomPreferences,
   effectiveMountingDevice,
   shouldSkipBackGroove,
+  MIN_DRAWER_FRONT_MM,
+  MIN_FRONT_GAP_MM,
 } from '@/lib/orcamentos-ia/bom-engine/preferences'
 export type { BomPreferences } from '@/lib/orcamentos-ia/bom-engine/preferences'
 

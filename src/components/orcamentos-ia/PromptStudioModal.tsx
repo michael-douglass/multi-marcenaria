@@ -21,14 +21,16 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import type { PromptAgentKey } from '@/lib/orcamentos-ia/observability'
+import {
+  ENGINEERING_MODULAR_AUDITOR,
+  ENGINEERING_MODULAR_DISASSEMBLER_DOC,
+  ENGINEERING_MODULAR_EXTRACTOR,
+} from '@/lib/orcamentos-ia/prompts/engineering-modular'
 
 const DEFAULT_PROMPTS: Record<PromptAgentKey, string> = {
-  extractor:
-    'Extrator Corte Claude v11: liste tipologias, cotas e insumos unitários. PROIBIDO preço por m² de fachada.',
-  disassembler:
-    'Desmontador: aplique preferências construtivas e explode peças com desconto de espessura.',
-  auditor:
-    'Auditor: valide BOM completo (chapas, fitas, ferragens por unidade) e reporte gaps.',
+  extractor: ENGINEERING_MODULAR_EXTRACTOR,
+  disassembler: ENGINEERING_MODULAR_DISASSEMBLER_DOC,
+  auditor: ENGINEERING_MODULAR_AUDITOR,
 }
 
 interface PromptStudioModalProps {
@@ -66,6 +68,11 @@ export function PromptStudioModal({ open, onOpenChange, companyId }: PromptStudi
   }, [open, companyId, agent])
 
   const save = async () => {
+    if (agent === 'disassembler') {
+      toast.message(
+        'Desmontador é o motor determinístico (bom-engine). Este texto é só documentação — não altera o cálculo.',
+      )
+    }
     setSaving(true)
     const { error } = await supabase.from('ai_prompt_overrides').upsert(
       {
@@ -82,7 +89,13 @@ export function PromptStudioModal({ open, onOpenChange, companyId }: PromptStudi
       toast.error(error.message)
       return
     }
-    toast.success('Prompt salvo. Próximas análises usam este override.')
+    if (agent === 'extractor' || agent === 'auditor') {
+      toast.success(
+        'Override ativo. A próxima análise (Extrator/Auditor na Edge) usa este texto — confira no Inspector o prompt_traces.',
+      )
+    } else {
+      toast.success('Texto de referência do Desmontador salvo (não altera o bom-engine).')
+    }
   }
 
   return (
@@ -94,8 +107,8 @@ export function PromptStudioModal({ open, onOpenChange, companyId }: PromptStudi
             Prompt Studio
           </DialogTitle>
           <DialogDescription>
-            Edite os system prompts dos agentes (Extrator, Desmontador, Auditor). Só usuários
-            autenticados — a Edge Function lê o override ativo.
+            Extrator e Auditor: a Edge Function lê o override ativo na próxima análise. Desmontador:
+            documentação do bom-engine (cálculo determinístico — sem fase LLM).
           </DialogDescription>
         </DialogHeader>
 
@@ -108,7 +121,7 @@ export function PromptStudioModal({ open, onOpenChange, companyId }: PromptStudi
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="extractor">Extrator</SelectItem>
-                <SelectItem value="disassembler">Desmontador</SelectItem>
+                <SelectItem value="disassembler">Desmontador (doc)</SelectItem>
                 <SelectItem value="auditor">Auditor</SelectItem>
               </SelectContent>
             </Select>

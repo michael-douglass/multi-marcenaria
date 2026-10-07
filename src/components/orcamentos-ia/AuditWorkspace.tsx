@@ -35,6 +35,7 @@ import {
   getSignedPdfUrl,
   getSignedQuotePageUrls,
   loadQuoteAnalysisTree,
+  pageIndexFromStoragePath,
   updateQuoteMaterial,
   type QuoteAnalysisDetail,
   type QuoteBoundingBox,
@@ -47,6 +48,9 @@ import { CompanyMemoriesModal } from '@/components/orcamentos-ia/CompanyMemories
 import { AuditCockpit } from '@/components/orcamentos-ia/AuditCockpit'
 import { PromptStudioModal } from '@/components/orcamentos-ia/PromptStudioModal'
 import { ModuleXrayScene } from '@/components/orcamentos-ia/ModuleXrayScene'
+import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCanvas'
+import { QuotePresentationExportButton } from '@/components/orcamentos-ia/QuotePresentationExportButton'
+import { useEmpresa } from '@/contexts/EmpresaContext'
 import { listBomItemsForProject } from '@/lib/orcamentos-ia/bom-persist'
 import { explodeModule, inferTypology, type BomLine, type CutPiece } from '@/lib/orcamentos-ia/bom-engine'
 import { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
@@ -57,9 +61,14 @@ import {
   PriceReviewBanner,
   describeMaterial,
   formatQuantity,
+  isBillableUnpriced,
+  isUnpricedSheetAggregate,
   perUnitLabel,
 } from '@/components/orcamentos-ia/audit-display'
-import { reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
+import {
+  reauditOrcamentosIaAnalysis,
+  reprocessOrcamentosIaPipeline,
+} from '@/lib/orcamentos-ia/pipeline'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
 import {
   buildShoppingList,
@@ -85,33 +94,62 @@ declare global {
   var pdfjsWorker: typeof import('pdfjs-dist/build/pdf.worker.min.mjs') | undefined
 }
 
-/** Extrai o nº da página de paths como `…/pages/page-009.png`. */
 function pageNumberFromImagePath(path: string | null | undefined): number | null {
-  if (!path) return null
-  const match = path.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
-  if (!match) return null
-  const n = Number(match[1])
-  return Number.isFinite(n) && n >= 1 ? n : null
+  return pageIndexFromStoragePath(path)
+}
+
+/**
+ * Página canônica do móvel: path do Storage > page_number > bbox do módulo.
+ * Não confia no bbox do item se discordar do móvel (IA às vezes marca peça em folha errada).
+ */
+function resolveModulePage(module: QuoteModuleRow): number | null {
+  return (
+    pageNumberFromImagePath(module.page_image_path) ??
+    (module.page_number && module.page_number >= 1 ? module.page_number : null) ??
+    (module.bounding_box?.page && module.bounding_box.page >= 1 ? module.bounding_box.page : null)
+  )
 }
 
 function resolveSelectionPage(
   module: QuoteModuleRow,
   material?: QuoteMaterialRow | null,
 ): number | null {
-  const fromBox =
-    material?.bounding_box?.page ?? module.bounding_box?.page ?? module.page_number ?? null
-  if (fromBox && fromBox >= 1) return fromBox
-  return (
-    pageNumberFromImagePath(material?.page_image_path) ??
-    pageNumberFromImagePath(module.page_image_path)
-  )
+  const modulePage = resolveModulePage(module)
+  if (!material) return modulePage
+
+  const materialPathPage = pageNumberFromImagePath(material.page_image_path)
+  const materialBoxPage =
+    material.bounding_box?.page && material.bounding_box.page >= 1
+      ? material.bounding_box.page
+      : null
+
+  // Path do item alinhado ao móvel → ok; senão path do item se existir; senão só bbox se bater com o móvel
+  if (materialPathPage && (!modulePage || materialPathPage === modulePage)) {
+    return materialPathPage
+  }
+  if (materialBoxPage && (!modulePage || materialBoxPage === modulePage)) {
+    return materialBoxPage
+  }
+  return modulePage ?? materialPathPage ?? materialBoxPage
 }
 
 function resolveSelectionBbox(
   module: QuoteModuleRow,
   material?: QuoteMaterialRow | null,
 ): QuoteBoundingBox | null {
-  return material?.bounding_box ?? module.bounding_box ?? null
+  const modulePage = resolveModulePage(module)
+  const materialBox = material?.bounding_box ?? null
+  if (materialBox) {
+    const boxPage = materialBox.page && materialBox.page >= 1 ? materialBox.page : null
+    // Descarta bbox de item em página diferente do móvel (evita retângulo em folha aleatória)
+    if (!modulePage || !boxPage || boxPage === modulePage) {
+      return {
+        ...materialBox,
+        page: boxPage ?? modulePage ?? materialBox.page,
+      }
+    }
+  }
+  return module.bounding_box
 }
 
 /** Bbox genérico (0,0,0.5×0.5) — não serve para “ir ao móvel”; só a página. */
@@ -138,6 +176,7 @@ type Selection =
   | null
 
 export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspaceProps) {
+  const { empresa } = useEmpresa()
   const [tree, setTree] = useState<QuoteAnalysisDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
@@ -155,6 +194,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [pricingParams, setPricingParams] = useState<PricingParams>(DEFAULT_PRICING_PARAMS)
   const [showShoppingList, setShowShoppingList] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
+  const [reauditing, setReauditing] = useState(false)
   const [showOutOfScope, setShowOutOfScope] = useState(false)
   const [memoriesOpen, setMemoriesOpen] = useState(false)
   const [promptStudioOpen, setPromptStudioOpen] = useState(false)
@@ -187,9 +227,9 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
     let treeData = data
     const flatMats = data.environments.flatMap((e) => e.modules.flatMap((m) => m.materials))
-    const hasZeroPrices = flatMats.some((m) => !(Number(m.unit_price) > 0))
+    const hasBillableZeros = flatMats.some(isBillableUnpriced)
 
-    if (data.status === 'COMPLETED' && hasZeroPrices) {
+    if (hasBillableZeros) {
       const repriced = await repriceZeroMaterials({
         companyId: data.company_id,
         materials: flatMats,
@@ -198,7 +238,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         toast.error(`Falha ao preencher preços zerados: ${repriced.error}`)
       } else if (repriced.updated > 0) {
         toast.message(
-          `${repriced.updated} item(ns) com preço R$ 0,00 foram preenchidos (estoque/mercado/contingência).`,
+          `${repriced.updated} item(ns) com preço R$ 0,00 preenchidos (estoque → mercado → preço médio).`,
         )
         const byId = new Map(repriced.materials.map((m) => [m.id, m]))
         treeData = {
@@ -211,6 +251,14 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             })),
           })),
         }
+      }
+      const stillZero = treeData.environments
+        .flatMap((e) => e.modules.flatMap((m) => m.materials))
+        .filter(isBillableUnpriced)
+      if (stillZero.length) {
+        toast.warning(
+          `${stillZero.length} item(ns) cobráveis ainda sem preço — confira o banner e use Reauditar ou edite o valor.`,
+        )
       }
     }
 
@@ -386,20 +434,31 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       pageImagePath?: string | null
     }) => {
       setViewerMode('pdf')
-      const page = opts.page && opts.page >= 1 ? opts.page : null
+      const pageFromPath = pageNumberFromImagePath(opts.pageImagePath)
+      const page =
+        (opts.page && opts.page >= 1 ? opts.page : null) ?? pageFromPath
       if (page) {
         setPageNumber(page)
         broadcast({ type: 'page', page })
       }
 
-      const fromMap = page ? pageImages.find((p) => p.index === page) : undefined
+      // Path do Storage primeiro (fonte da verdade); índice só como fallback
       const fromPath =
         opts.pageImagePath && pageImages.find((p) => p.path === opts.pageImagePath)
+      const fromMap = page ? pageImages.find((p) => p.index === page) : undefined
+      const fromParsed =
+        page &&
+        pageImages.find((p) => pageNumberFromImagePath(p.path) === page)
 
-      const entry = fromMap || fromPath
+      const entry = fromPath || fromParsed || fromMap
       if (entry) {
         setPageThumbUrl(entry.url)
         setPreferPageImage(true)
+        const resolved = pageNumberFromImagePath(entry.path)
+        if (resolved && resolved !== page) {
+          setPageNumber(resolved)
+          broadcast({ type: 'page', page: resolved })
+        }
       } else if (page && pdfRef.current) {
         setPreferPageImage(false)
       }
@@ -428,10 +487,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
   // Troca de página (setas): usa JPEG pré-carregado quando existir
   useEffect(() => {
-    const entry = pageImages.find((p) => p.index === pageNumber)
-    if (entry && preferPageImage) {
-      setPageThumbUrl(entry.url)
-    }
+    if (!preferPageImage) return
+    const entry =
+      pageImages.find((p) => p.index === pageNumber) ||
+      pageImages.find((p) => pageNumberFromImagePath(p.path) === pageNumber)
+    if (entry) setPageThumbUrl(entry.url)
   }, [pageNumber, pageImages, preferPageImage])
 
   const showPageOnMainViewer = useCallback(() => {
@@ -513,6 +573,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     [tree, pricingParams.sheetLossPct],
   )
 
+  const shoppingListMaterialsTotal = useMemo(
+    () => shoppingList.reduce((sum, row) => sum + (Number(row.lineTotal) || 0), 0),
+    [shoppingList],
+  )
+
   const setModality = (modality: PricingModality) => {
     setPricingParams((p) => ({ ...p, modality }))
   }
@@ -529,7 +594,13 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const coverage = useMemo((): CoverageReport | null => {
     const raw = tree?.totals?.coverage
     if (!raw || typeof raw !== 'object') return null
-    return raw as CoverageReport
+    const report = raw as CoverageReport
+    return { ...report, extras: report.extras ?? [] }
+  }, [tree])
+
+  const auditorNotes = useMemo(() => {
+    const raw = tree?.totals?.auditor_notes
+    return Array.isArray(raw) ? raw.filter((n): n is string => typeof n === 'string') : []
   }, [tree])
 
   const handleReprocess = async () => {
@@ -549,6 +620,33 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     toast.success(
       `Reprocessamento concluído${result.materialsSaved != null ? ` (${result.materialsSaved} materiais)` : ''}.`,
     )
+    await reload()
+  }
+
+  /** Só auditoria (cobertura + marcações + BOM) — não apaga preços confirmados. */
+  const handleReaudit = async () => {
+    if (reauditing || reprocessing) return
+    setReauditing(true)
+    toast.message('Reauditoria: conferindo móveis, chapas e páginas marcadas…')
+    const result = await reauditOrcamentosIaAnalysis({ analysisId, companyId })
+    setReauditing(false)
+    if (!result.ok) {
+      toast.error(result.error || 'Falha na reauditoria.')
+      return
+    }
+    if (result.auditNeedsRerun) {
+      toast.warning(
+        `Reauditoria: ainda há pontos a conferir${
+          result.updatedModules ? ` (${result.updatedModules} marcações atualizadas)` : ''
+        }. Pode rodar de novo.`,
+      )
+    } else {
+      toast.success(
+        `Reauditoria ok${
+          result.updatedModules ? ` · ${result.updatedModules} marcações ajustadas` : ''
+        }.`,
+      )
+    }
     await reload()
   }
 
@@ -669,7 +767,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
   const openPopout = () => {
     const url = `${window.location.origin}/orcamentos-ia?audit=${analysisId}&popout=1`
-    window.open(url, 'orcamentos-ia-popout', 'width=1200,height=900,menubar=no,toolbar=no')
+    const win = window.open(url, 'orcamentos-ia-popout', 'width=1200,height=900,menubar=no,toolbar=no')
+    if (!win) {
+      toast.error('O navegador bloqueou a nova janela. Permita pop-ups ou abra o link manualmente.')
+      return
+    }
   }
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -712,11 +814,13 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] min-h-[520px] flex-col gap-3 rounded-2xl bg-[#f7f4ef] p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-        <div className="space-y-0.5">
-          <h2 className="text-lg font-semibold tracking-tight text-[#2a1812]">Conferência do orçamento</h2>
-          <p className="text-xs text-[#6b5244]">
+    <div className="flex h-[calc(100dvh-6.5rem)] min-h-[520px] max-h-[calc(100dvh-5.75rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 sm:gap-3 sm:p-3 md:p-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
+        <div className="min-w-0 space-y-0.5">
+          <h2 className="text-base font-semibold tracking-tight text-[#2a1812] sm:text-lg">
+            Conferência do orçamento
+          </h2>
+          <p className="hidden text-xs text-[#6b5244] sm:block">
             Confira os materiais que a IA encontrou e ajuste preços antes de enviar ao cliente.
           </p>
         </div>
@@ -801,6 +905,20 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             <Brain className="h-3.5 w-3.5" />
             Memórias do Max
           </Button>
+          {tree && (
+            <QuotePresentationExportButton
+              tree={tree}
+              pricingParams={pricingParams}
+              pageImages={pageImages}
+              branding={{
+                companyName: empresa?.nome || 'Garbo Movelaria',
+                logoUrl: empresa?.logo_url,
+                cnpj: empresa?.cnpj,
+                razaoSocial: empresa?.razao_social,
+              }}
+              disabled={loading}
+            />
+          )}
           <Button
             type="button"
             variant={showShoppingList ? 'default' : 'outline'}
@@ -813,9 +931,25 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             type="button"
             variant="outline"
             size="sm"
+            className="gap-1.5 border-[#0066FF]/30 text-[#0066FF] hover:bg-[#0066FF]/10"
+            onClick={() => void handleReaudit()}
+            disabled={reauditing || reprocessing}
+            title="Confere coberturas, BOM e marcações sem apagar seus preços"
+          >
+            {reauditing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Reauditar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="gap-1.5"
             onClick={() => void handleReprocess()}
-            disabled={reprocessing}
+            disabled={reprocessing || reauditing}
           >
             {reprocessing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -842,47 +976,120 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       </div>
 
       {showShoppingList && (
-        <div className="max-h-48 overflow-auto rounded-xl border border-border bg-card">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-muted/80 backdrop-blur">
-              <tr className="border-b border-border">
-                <th className="px-3 py-2 font-medium">Item</th>
-                <th className="px-2 py-2 font-medium">Exato</th>
-                <th className="px-2 py-2 font-medium">Compra</th>
-                <th className="px-2 py-2 font-medium">Total</th>
-                <th className="px-3 py-2 font-medium">Obs.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shoppingList.map((row) => (
-                <tr key={row.key} className="border-b border-border/50">
-                  <td className="px-3 py-1.5 font-medium">{row.name}</td>
-                  <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
-                    {row.exactQuantity} {row.exactUnit}
-                  </td>
-                  <td className="px-2 py-1.5 tabular-nums">
-                    {row.purchaseQuantity} {row.purchaseUnit}
-                  </td>
-                  <td className="px-2 py-1.5 tabular-nums">{formatBRL(row.lineTotal)}</td>
-                  <td className="px-3 py-1.5 text-muted-foreground">{row.notes}</td>
+        <div className="shrink-0 overflow-hidden rounded-xl border border-[#0066FF]/20 bg-card shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0066FF]/15 bg-[#f4f8ff] px-3 py-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0066FF]">
+                Lista de compras
+              </p>
+              <p className="text-[11px] text-[#8a7060]">
+                {shoppingList.length} {shoppingList.length === 1 ? 'material' : 'materiais'} consolidados
+              </p>
+            </div>
+            <div className="rounded-lg border border-[#0066FF]/25 bg-white px-3 py-1.5 text-right">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[#8a7060]">
+                Total materiais
+              </p>
+              <p className="text-base font-semibold tabular-nums text-[#2a1812]">
+                {formatBRL(shoppingListMaterialsTotal)}
+              </p>
+            </div>
+          </div>
+          <div className="max-h-48 overflow-auto">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="sticky top-0 z-[1] bg-muted/95 backdrop-blur">
+                <tr className="border-b border-border">
+                  <th className="w-[32%] px-3 py-2 font-medium">Item</th>
+                  <th className="w-[12%] px-2 py-2 font-medium">Exato</th>
+                  <th className="w-[12%] px-2 py-2 font-medium">Compra</th>
+                  <th className="w-[12%] px-2 py-2 text-right font-medium">Unitário</th>
+                  <th className="w-[14%] px-2 py-2 text-right font-medium text-[#0066FF]">
+                    Total
+                  </th>
+                  <th className="w-[18%] px-3 py-2 font-medium">Obs.</th>
                 </tr>
-              ))}
-              {!shoppingList.length && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
-                    Sem itens para consolidar.
-                  </td>
-                </tr>
+              </thead>
+              <tbody>
+                {shoppingList.map((row) => (
+                  <tr key={row.key} className="border-b border-border/50">
+                    <td className="truncate px-3 py-1.5 font-medium" title={row.name}>
+                      {row.name}
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
+                      {row.exactQuantity} {row.exactUnit}
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums">
+                      {row.purchaseQuantity} {row.purchaseUnit}
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                      {formatBRL(row.unitPrice)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-[#2a1812]">
+                      {formatBRL(row.lineTotal)}
+                    </td>
+                    <td
+                      className="truncate px-3 py-1.5 text-muted-foreground"
+                      title={row.notes || undefined}
+                    >
+                      {row.notes}
+                    </td>
+                  </tr>
+                ))}
+                {!shoppingList.length && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">
+                      Sem itens para consolidar.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {shoppingList.length > 0 && (
+                <tfoot className="sticky bottom-0 border-t border-[#0066FF]/20 bg-[#f4f8ff]/95 backdrop-blur">
+                  <tr>
+                    <td colSpan={4} className="px-3 py-2 text-right text-[11px] font-medium text-[#6b5244]">
+                      Total materiais
+                    </td>
+                    <td className="px-2 py-2 text-right text-sm font-semibold tabular-nums text-[#0066FF]">
+                      {formatBRL(shoppingListMaterialsTotal)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               )}
-            </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(280px,0.75fr)] lg:grid-cols-2">
-        {/* Esquerda: PDF / Raio-X */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card lg:col-span-1">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+      {/*
+        Grid responsivo: a página do PDF sempre tem faixa própria de altura.
+        Mobile → página no topo (≈40dvh) + materiais embaixo.
+        lg → página | materiais; cockpit sob as duas.
+        xl → três colunas lado a lado.
+      */}
+      <div
+        className={cn(
+          'grid min-h-0 flex-1 gap-2 sm:gap-3',
+          'grid-rows-[minmax(220px,40dvh)_minmax(0,1fr)]',
+          'lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)_minmax(180px,26%)]',
+          'xl:grid-cols-[minmax(300px,1.2fr)_minmax(0,1fr)_minmax(260px,0.72fr)] xl:grid-rows-none',
+        )}
+      >
+        {/* Esquerda: PDF / Raio-X — sempre visível */}
+        <section
+          className={cn(
+            'relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#0066FF]/20 bg-card shadow-[0_0_0_1px_rgba(0,102,255,0.06)]',
+            'max-lg:sticky max-lg:top-0 max-lg:z-20',
+            'lg:row-span-1 xl:row-auto',
+          )}
+        >
+          <ThoughtShaderCanvas
+            className="pointer-events-none absolute inset-0 z-0 opacity-[0.55]"
+            progress={pageNumber / Math.max(pageCount || pageImages.length || 1, 1)}
+            intensity={selectionLabel ? 0.55 : 0.28}
+            active
+          />
+          <div className="relative z-[1] flex flex-wrap items-center gap-2 border-b border-[#0066FF]/15 bg-white/80 px-3 py-2 backdrop-blur-md">
             <div className="flex rounded-md border border-border p-0.5">
               <button
                 type="button"
@@ -976,7 +1183,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
           {viewerMode === 'xray' && selectedModule ? (
             <ModuleXrayScene
-              className="min-h-0 flex-1"
+              className="relative z-[1] min-h-0 flex-1"
               pieces={xrayPieces}
               moduleWidthMm={Number(selectedModule.dimensions?.width_mm) || 800}
               moduleHeightMm={Number(selectedModule.dimensions?.height_mm) || 720}
@@ -986,7 +1193,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           <div
             ref={mainViewerRef}
             className={cn(
-              'relative min-h-0 flex-1 cursor-grab overflow-hidden bg-[#eef1f5] active:cursor-grabbing',
+              'relative z-[1] min-h-0 flex-1 cursor-grab overflow-hidden bg-[#e8eef8]/90 active:cursor-grabbing',
               viewerMode === 'xray' && 'hidden',
             )}
             onPointerDown={onPointerDown}
@@ -1025,7 +1232,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                   <img
                     src={pageThumbUrl}
                     alt={`Página ${pageNumber} do orçamento`}
-                    className="block max-h-[min(78vh,1100px)] w-auto max-w-[min(92vw,900px)] object-contain"
+                    className="block max-h-[min(36dvh,520px)] w-auto max-w-[min(96%,720px)] object-contain sm:max-h-[min(48dvh,720px)] lg:max-h-[min(70dvh,980px)] lg:max-w-[min(92vw,900px)]"
                     draggable={false}
                     onLoad={applyMediaFocus}
                   />
@@ -1055,39 +1262,64 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           </div>
         </section>
 
-        {/* Direita: árvore */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
-            <h3 className="text-sm font-semibold text-[#2a1812]">Materiais do orçamento</h3>
-            <p className="mt-0.5 text-xs text-[#8a7060]">
-              Clique no móvel (ex.: Guarda Roupa) para abrir a página certa na pré-visualização.
-            </p>
+        {/* Direita: árvore — página sticky no topo da coluna */}
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card lg:min-h-0">
+          <div className="shrink-0 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-[#2a1812]">Materiais do orçamento</h3>
+                <p className="mt-0.5 text-[11px] text-[#8a7060] sm:text-xs">
+                  Clique no móvel para abrir a página certa na pré-visualização.
+                </p>
+              </div>
+              {coverage && (
+                <div className="hidden shrink-0 sm:block">
+                  <CoverageSummary coverage={coverage} auditorNotes={auditorNotes} />
+                </div>
+              )}
+            </div>
+
+            {/* Mini página sempre à vista nesta coluna (desktop); no mobile a coluna PDF já ocupa o topo */}
             {pageThumbUrl && (
               <button
                 type="button"
                 onClick={showPageOnMainViewer}
                 className={cn(
-                  'mt-2 w-full overflow-hidden rounded-lg border bg-slate-50 text-left transition',
+                  'mt-2 flex w-full items-stretch gap-2 overflow-hidden rounded-xl border bg-gradient-to-br from-[#f4f8ff] to-white text-left transition',
+                  'hover:border-[#0066FF]/55 hover:shadow-[0_0_0_3px_rgba(0,102,255,0.12)]',
                   preferPageImage
-                    ? 'border-[#0066FF] ring-2 ring-[#0066FF]/25'
-                    : 'border-[#0066FF]/30 hover:border-[#0066FF]/60',
+                    ? 'border-[#0066FF] ring-2 ring-[#0066FF]/20'
+                    : 'border-[#0066FF]/25',
+                  'max-lg:hidden',
                 )}
-                title="Abrir esta página na tela grande"
+                title="Focar esta página na pré-visualização"
               >
-                <p className="px-2 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#0066FF]">
-                  {selectionLabel
-                    ? `${selectionLabel} · pág. ${pageNumber}`
-                    : `Página ${pageNumber} · clique para ampliar`}
-                </p>
                 <img
                   src={pageThumbUrl}
-                  alt="Página do orçamento"
-                  className="max-h-36 w-full object-contain object-top"
+                  alt={`Página ${pageNumber} do orçamento`}
+                  className="h-[4.75rem] w-[3.4rem] shrink-0 object-cover object-top sm:h-24 sm:w-[4.25rem]"
                   draggable={false}
                 />
+                <span className="flex min-w-0 flex-1 flex-col justify-center py-1.5 pr-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0066FF]">
+                    Página {pageNumber}
+                    {(pageCount || pageImages.length) > 0
+                      ? ` / ${pageCount || pageImages.length}`
+                      : ''}
+                  </span>
+                  <span className="truncate text-xs font-medium text-[#2a1812]">
+                    {selectionLabel || 'Clique para ampliar na pré-visualização'}
+                  </span>
+                  <span className="text-[10px] text-[#8a7060]">Sempre sincronizada com a lista</span>
+                </span>
               </button>
             )}
-            {coverage && <CoverageSummary coverage={coverage} />}
+
+            {coverage && (
+              <div className="mt-2 sm:hidden">
+                <CoverageSummary coverage={coverage} auditorNotes={auditorNotes} />
+              </div>
+            )}
             {outOfScopeModules.length > 0 && (
               <>
                 <button
@@ -1218,23 +1450,27 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                                   <span className="block text-[11px] text-[#8a7060]">
                                     {(() => {
                                       const page = resolveSelectionPage(mod)
-                                      return page ? (
-                                        <span className="mr-1.5 font-medium text-[#0066FF]">
-                                          pág. {page}
-                                        </span>
-                                      ) : null
-                                    })()}
-                                    {mod.materials.length}{' '}
-                                    {mod.materials.length === 1 ? 'item' : 'itens'}
-                                    {(() => {
+                                      const pageLabel = page ? `pág. ${page}` : null
+                                      const itemsLabel = `${mod.materials.length} ${
+                                        mod.materials.length === 1 ? 'item' : 'itens'
+                                      }`
                                       const pending = mod.materials.filter(
-                                        (m) => describeMaterial(m).priceStatus !== 'ok',
+                                        (m) =>
+                                          !describeMaterial(m).cuttingList &&
+                                          describeMaterial(m).priceStatus !== 'ok',
                                       ).length
-                                      return pending ? (
-                                        <span className="ml-1.5 font-medium text-[#a8741f]">
-                                          · {pending} {pending === 1 ? 'preço' : 'preços'} para conferir
-                                        </span>
-                                      ) : null
+                                      const sheetGap = mod.materials.some(isUnpricedSheetAggregate)
+                                      const billableGap = mod.materials.filter(isBillableUnpriced).length
+                                      const pendingLabel = sheetGap
+                                        ? 'preço da chapa faltando'
+                                        : billableGap
+                                          ? `${billableGap} sem preço`
+                                          : pending
+                                            ? `${pending} ${pending === 1 ? 'preço' : 'preços'} para conferir`
+                                            : null
+                                      return [pageLabel, itemsLabel, pendingLabel]
+                                        .filter(Boolean)
+                                        .join(' · ')
                                     })()}
                                   </span>
                                 </button>
@@ -1246,24 +1482,67 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                               </div>
                               {modOpen && (
                                 <div className="ml-4 space-y-0.5 border-l border-[#8d5e22]/15 py-1 pl-2">
-                                  {mod.materials.map((mat) => (
-                                    <MaterialRow
-                                      key={mat.id}
-                                      mat={mat}
-                                      selected={
-                                        selection?.kind === 'material' &&
-                                        selection.material.id === mat.id
-                                      }
-                                      onSelect={() => onSelectMaterial(mat, mod)}
-                                      onEdit={() => openEdit(mat)}
-                                      onConfirmPrice={() => void confirmMarketPrice(mat)}
-                                    />
-                                  ))}
-                                  {!mod.materials.length && (
-                                    <p className="px-2 py-1 text-[11px] text-muted-foreground">
-                                      Nenhum material listado para este móvel.
-                                    </p>
-                                  )}
+                                  {(() => {
+                                    const billable = mod.materials.filter(
+                                      (m) => !describeMaterial(m).cuttingList,
+                                    )
+                                    const cutting = mod.materials.filter(
+                                      (m) => describeMaterial(m).cuttingList,
+                                    )
+                                    const ordered = [
+                                      ...billable.filter((m) =>
+                                        /^chapa\s*[—\-–]/i.test(m.raw_name),
+                                      ),
+                                      ...billable.filter(
+                                        (m) => !/^chapa\s*[—\-–]/i.test(m.raw_name),
+                                      ),
+                                    ]
+                                    return (
+                                      <>
+                                        {ordered.map((mat) => (
+                                          <MaterialRow
+                                            key={mat.id}
+                                            mat={mat}
+                                            selected={
+                                              selection?.kind === 'material' &&
+                                              selection.material.id === mat.id
+                                            }
+                                            onSelect={() => onSelectMaterial(mat, mod)}
+                                            onEdit={() => openEdit(mat)}
+                                            onConfirmPrice={() => void confirmMarketPrice(mat)}
+                                          />
+                                        ))}
+                                        {cutting.length > 0 && (
+                                          <div className="mt-1.5 rounded-md border border-dashed border-[#8d5e22]/25 bg-[#f7f4ef]/80 px-2 py-1.5">
+                                            <p className="px-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-[#8a7060]">
+                                              Peças de corte · {cutting.length} · custo na Chapa
+                                              acima
+                                            </p>
+                                            {cutting.map((mat) => (
+                                              <MaterialRow
+                                                key={mat.id}
+                                                mat={mat}
+                                                selected={
+                                                  selection?.kind === 'material' &&
+                                                  selection.material.id === mat.id
+                                                }
+                                                onSelect={() => onSelectMaterial(mat, mod)}
+                                                onEdit={() => openEdit(mat)}
+                                                onConfirmPrice={() =>
+                                                  void confirmMarketPrice(mat)
+                                                }
+                                              />
+                                            ))}
+                                          </div>
+                                        )}
+                                        {!mod.materials.length && (
+                                          <p className="px-2 py-1 text-[11px] text-muted-foreground">
+                                            Nenhum material listado para este móvel.
+                                          </p>
+                                        )}
+                                      </>
+                                    )
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -1279,7 +1558,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         </section>
 
         <AuditCockpit
-          className="min-h-[280px] xl:min-h-0 lg:col-span-2 xl:col-span-1"
+          className={cn(
+            'min-h-0 overflow-hidden',
+            'max-lg:hidden',
+            'lg:col-span-2 lg:min-h-0',
+            'xl:col-span-1',
+          )}
           blocks={cockpitBlocks}
           onOpenPromptStudio={() => setPromptStudioOpen(true)}
         />

@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase'
 import type { MaterialCategory } from '@/lib/orcamentos-ia/schemas'
-import type { QuoteAnalysisDetail, QuoteMaterialRow } from '@/lib/orcamentos-ia/quote-tree'
+import type {
+  QuoteAnalysisDetail,
+  QuoteEnvironmentRow,
+  QuoteMaterialRow,
+  QuoteModuleRow,
+} from '@/lib/orcamentos-ia/quote-tree'
 
 /** Peça da lista de corte — não entra no custo (custo vai na chapa do módulo). */
 export const CUTTING_LIST_TAG = 'corte-peca'
@@ -14,7 +19,7 @@ export function isCuttingListNote(notes: string | null | undefined): boolean {
  * e o preço veio da tabela padrão (preço médio por tipo de material).
  */
 export const CONTINGENCY_PRICE_WARNING =
-  'Preço médio sugerido (material não encontrado no estoque) — confira'
+  'Preço médio estimado (material não encontrado no estoque nem no mercado) — confira'
 
 /** Reconhece o aviso atual e o texto antigo ("tabela padrão de contingência"). */
 export function isSuggestedPriceNote(notes: string | null | undefined): boolean {
@@ -43,19 +48,21 @@ export interface ResolvedMaterialPrice {
 
 /** Tabela de contingência — NUNCA devolver R$ 0 quando não houver match. */
 export const CONTINGENCY_PRICES = {
-  chapa_mdf_6mm: { unitPrice: 140, unit: 'chapa', label: 'Chapa MDF 6mm (Fundos)' },
-  chapa_mdf_15mm_branco: { unitPrice: 220, unit: 'chapa', label: 'Chapa MDF 15mm Branco/Unicolor' },
+  /** Preços alinhados ao catálogo Markup Garbo (06/10/2026). */
+  chapa_mdf_6mm: { unitPrice: 230, unit: 'chapa', label: 'Chapa MDF 6mm (Fundos)' },
+  chapa_mdf_15mm_branco: { unitPrice: 280, unit: 'chapa', label: 'Chapa MDF 15mm Branco/Unicolor' },
   chapa_mdf_15mm_amadeirado: {
-    unitPrice: 320,
+    unitPrice: 500,
     unit: 'chapa',
     label: 'Chapa MDF 15mm Amadeirado/Especial',
   },
-  chapa_mdf_18mm: { unitPrice: 380, unit: 'chapa', label: 'Chapa MDF 18mm' },
+  chapa_mdf_18mm: { unitPrice: 595, unit: 'chapa', label: 'Chapa MDF 18mm' },
   pedra_quartzo: { unitPrice: 950, unit: 'm2', label: 'Quartzo / Silestone (m²)' },
   pedra_granito: { unitPrice: 450, unit: 'm2', label: 'Granito / Mármore (m²)' },
-  fita_borda_m: { unitPrice: 2.5, unit: 'm', label: 'Fita de Borda (metro)' },
-  dobradica: { unitPrice: 15, unit: 'un', label: 'Dobradiça Soft Close' },
-  corredica: { unitPrice: 45, unit: 'par', label: 'Corrediça Telescópica/Oculta (par)' },
+  fita_borda_m: { unitPrice: 1.3, unit: 'm', label: 'Fita de Borda (metro)' },
+  dobradica: { unitPrice: 20, unit: 'un', label: 'Dobradiça Soft Close' },
+  corredica: { unitPrice: 75, unit: 'par', label: 'Corrediça Telescópica/Oculta (par)' },
+  articulador: { unitPrice: 100, unit: 'un', label: 'Articulador / pistão a gás' },
   pe_mesa: { unitPrice: 60, unit: 'un', label: 'Pé de mesa metálico (un)' },
   passa_cabo: { unitPrice: 12, unit: 'un', label: 'Passa-cabo (un)' },
   cantoneira: { unitPrice: 2.5, unit: 'un', label: 'Cantoneira / suporte (un)' },
@@ -63,7 +70,7 @@ export const CONTINGENCY_PRICES = {
   tampinha: { unitPrice: 1.5, unit: 'un', label: 'Tampinha lateral puxador' },
   cola: { unitPrice: 35, unit: 'un', label: 'Cola / adesivo' },
   parafuso: { unitPrice: 0.35, unit: 'un', label: 'Parafuso / prego (un)' },
-  minifix: { unitPrice: 1.2, unit: 'un', label: 'Minifix / conectores' },
+  minifix: { unitPrice: 1.0, unit: 'un', label: 'Minifix / conectores' },
   ferragem_generica: { unitPrice: 8, unit: 'un', label: 'Ferragem / acessório genérico' },
   servico_generico: { unitPrice: 80, unit: 'un', label: 'Serviço / mão de obra genérico' },
   outro: { unitPrice: 25, unit: 'un', label: 'Insumo genérico (contingência)' },
@@ -263,6 +270,15 @@ function inferContingency(
     return pick('dobradica')
   }
 
+  if (
+    n.includes('articulador') ||
+    n.includes('pistao') ||
+    n.includes('piston') ||
+    n.includes('gas spring')
+  ) {
+    return pick('articulador')
+  }
+
   if (n.includes('corredica') || n.includes('telescop') || n.includes('oculta')) {
     return pick('corredica')
   }
@@ -364,10 +380,17 @@ function bestScored<T>(
   query: string,
   getName: (row: T) => string,
   minScore: number,
+  thicknessMm?: number | null,
 ): { score: number; row: T } | null {
   let best: { score: number; row: T } | null = null
+  const thickHint =
+    thicknessMm && [6, 15, 18, 25].includes(thicknessMm) ? ` ${thicknessMm}` : ''
+  const queryWithThick =
+    thickHint && !new RegExp(`\\b${thicknessMm}\\b`).test(normalizeName(query))
+      ? `${query}${thickHint}`
+      : query
   for (const row of rows) {
-    const score = scoreMatch(getName(row), query)
+    const score = scoreMatch(getName(row), queryWithThick)
     if (score < minScore) continue
     if (!best || score > best.score) best = { score, row }
   }
@@ -378,6 +401,11 @@ export interface PriceResolver {
   resolve(rawMaterialName: string, preferredCategory?: MaterialCategory | string): ResolvedMaterialPrice
 }
 
+export interface CreatePriceResolverOptions {
+  /** Espessura padrão da caixaria (system_preferences.box_thickness_mm) — melhora match de chapas. */
+  preferredThicknessMm?: number | null
+}
+
 /**
  * Carrega estoque, mercado e apelidos UMA vez e resolve preços em memória
  * (evita 2–5 queries por insumo em PDFs longos).
@@ -386,9 +414,13 @@ export interface PriceResolver {
  * 1) apelido De-Para (`inventory_aliases`) → item do estoque
  * 2) fuzzy em `inventory_items` (empresa + global)
  * 3) fuzzy em `market_reference_prices`
- * 4) contingência por família/categoria → using_market_price = true
+ * 4) contingência / preço médio estimado → using_market_price = true
  */
-export async function createPriceResolver(companyId: string): Promise<PriceResolver> {
+export async function createPriceResolver(
+  companyId: string,
+  options?: CreatePriceResolverOptions,
+): Promise<PriceResolver> {
+  const preferredThicknessMm = options?.preferredThicknessMm ?? null
   const [invRes, marketRes, aliasRes] = await Promise.all([
     supabase
       .from('inventory_items')
@@ -456,10 +488,14 @@ export async function createPriceResolver(companyId: string): Promise<PriceResol
     const invByCat = preferredCategory
       ? inventory.filter((r) => r.category === preferredCategory)
       : inventory
+    const thick =
+      preferredCategory === 'chapa' || /mdf|chapa|mdp/i.test(name)
+        ? preferredThicknessMm
+        : null
     // Outra categoria só com casamento forte ("Pé Metal Preto" ≠ "Puxador Perfil Preto")
     const bestInv =
-      bestScored(invByCat, name, (r) => r.name, 28) ??
-      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 75) : null)
+      bestScored(invByCat, name, (r) => r.name, 28, thick) ??
+      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 75, thick) : null)
     const invPrice = bestInv ? fromInventory(bestInv.row) : null
     if (invPrice) return invPrice
 
@@ -468,19 +504,38 @@ export async function createPriceResolver(companyId: string): Promise<PriceResol
       ? market.filter((r) => r.category === preferredCategory)
       : market
     const bestMarket =
-      bestScored(marketByCat, name, (r) => r.item_pattern, 28) ??
-      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 75) : null)
-    const marketPrice = Number(bestMarket?.row.estimated_market_price) || 0
-    if (bestMarket && marketPrice > 0) {
-      const unit = bestMarket.row.unit || 'un'
+      bestScored(marketByCat, name, (r) => r.item_pattern, 28, thick) ??
+      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 75, thick) : null)
+    // Média das referências de mercado que casam bem (chapas / mesma categoria)
+    const marketPool = (marketByCat.length ? marketByCat : market)
+      .map((row) => ({
+        row,
+        score: scoreMatch(row.item_pattern, thick ? `${name} ${thick}` : name),
+      }))
+      .filter((x) => x.score >= 28 && Number(x.row.estimated_market_price) > 0)
+    const marketAvg =
+      marketPool.length >= 2
+        ? marketPool.reduce((s, x) => s + Number(x.row.estimated_market_price), 0) /
+          marketPool.length
+        : 0
+    const marketPrice =
+      marketAvg > 0
+        ? roundMoney(marketAvg)
+        : Number(bestMarket?.row.estimated_market_price) || 0
+    if (marketPrice > 0 && (bestMarket || marketPool.length)) {
+      const unit = bestMarket?.row.unit || marketPool[0]?.row.unit || 'un'
+      const matchedName =
+        marketPool.length >= 2
+          ? `Média mercado (${marketPool.length} refs)`
+          : bestMarket?.row.item_pattern || marketPool[0]?.row.item_pattern || name
       return {
         unitPrice: marketPrice,
         unit,
         usingMarketPrice: true,
         inventoryItemId: null,
-        matchedName: bestMarket.row.item_pattern,
+        matchedName,
         source: 'market',
-        warning: 'Preço de referência de mercado — confirme ou informe o custo real.',
+        warning: 'Preço médio de mercado — confirme ou informe o custo real.',
         pricePerM2: perM2FromUnit(marketPrice, unit),
         contingencyKey: null,
       }
@@ -794,6 +849,36 @@ export function calculateQuotePricing(
   const cost = sumMaterialsCost(materials, params.sheetLossPct)
   const area = estimateTotalAreaSqm(tree, params.totalAreaSqm)
   return calculateSalePrice(cost, params, area)
+}
+
+/** Custo de materiais de um móvel (0 se fora de escopo). */
+export function moduleMaterialsCost(
+  mod: Pick<QuoteModuleRow, 'out_of_scope' | 'materials'>,
+  sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
+): number {
+  if (mod.out_of_scope) return 0
+  return sumMaterialsCost(mod.materials, sheetLossPct)
+}
+
+/** Soma o custo dos móveis do ambiente (ignora out_of_scope). */
+export function environmentMaterialsCost(
+  env: Pick<QuoteEnvironmentRow, 'modules'>,
+  sheetLossPct = DEFAULT_SHEET_LOSS_PCT,
+): number {
+  return env.modules.reduce((acc, mod) => acc + moduleMaterialsCost(mod, sheetLossPct), 0)
+}
+
+/**
+ * Aloca venda proporcional ao custo do bloco.
+ * v11: sem m² de fachada — só rateio sobre custo de materiais/BOM.
+ */
+export function allocateSalePrice(
+  totalSale: number,
+  blockCost: number,
+  totalCost: number,
+): number {
+  if (!(totalSale > 0) || !(totalCost > 0) || !(blockCost > 0)) return 0
+  return roundMoney(totalSale * (blockCost / totalCost))
 }
 
 /** m² exato → chapas inteiras com perda %. */

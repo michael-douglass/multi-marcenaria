@@ -87,8 +87,10 @@ export function formatPreferencesForPrompt(prefs: SystemPreferences): string {
     `- Recuo de prateleira: ${prefs.shelf_recess_mm} mm`,
     `- Bordeamento: ${prefs.edgeband_policy}`,
     '- PROIBIDO precificar o móvel por m² de fachada (L×A × R$/m²). Só BOM unitário.',
+    '- PROIBIDO inventar R$ / markup — preço fica no estoque + resolvedor.',
     '- Nichos abertos: montagem 100% cavilha; sem rasgo de fundo em topos expostos.',
     '- Engrosso (2×15 ou 2×18): fita larga 35 mm ou 45 mm.',
     '- Vão de gaveta mínimo 200 mm (restrição CNC/ventosas).',
+    '- Armário de correr: portas + trilhos + sarrafo unilateral.',
   ].join('\n')
 }

@@ -14,14 +14,37 @@ import type {
 export const MARKUP_ORCAMENTO_SIMPLES_MAX_FOTOS = 18;
 export const MARKUP_ORCAMENTO_SIMPLES_MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 export const MARKUP_ORCAMENTO_SIMPLES_VALIDADE_PADRAO = 15;
+/** Largura da folha A4 em 96 DPI (210 mm). */
 export const MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX = 794;
-export const MARKUP_ORCAMENTO_SIMPLES_ALTURA_MIN_PX = 1123;
+/** Altura exata da folha A4 em 96 DPI (297 mm) — cada página usa este valor fixo. */
+export const MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX = 1123;
+/** @deprecated Use MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX (altura fixa da página). */
+export const MARKUP_ORCAMENTO_SIMPLES_ALTURA_MIN_PX = MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX;
 export const MARKUP_ORCAMENTO_SIMPLES_TIPOS_UPLOAD = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
 ] as const;
+
+/** Conteúdo de uma página A4 do orçamento simples. */
+export interface MarkupOrcamentoSimplesPagina {
+  indice: number;
+  total: number;
+  /** Cabeçalho completo (marca) só na 1ª página. */
+  cabecalhoCompleto: boolean;
+  fotos: string[];
+  /** Índice visual da 1ª foto desta página (1-based), para legenda 01, 02… contínua. */
+  fotoInicio: number;
+  /** Itens desta página; vazio = não mostra tabela. */
+  itens: MarkupOrcamentoSimplesItem[];
+  mostrarCabecalhoTabela: boolean;
+  mostrarTotais: boolean;
+  observacoes: string;
+  /** Texto de observações que veio cortado da página anterior. */
+  observacoesContinuacao: boolean;
+  mostrarAssinaturas: boolean;
+}
 
 export interface MarkupOrcamentoSimplesTotais {
   subtotal_centavos: number;
@@ -334,4 +357,309 @@ export function colunasGaleriaOrcamentoSimples(qtd: number): 1 | 2 | 3 {
   if (qtd <= 1) return 1;
   if (qtd === 2) return 2;
   return 3;
+}
+
+/* —— Paginação A4 (altura fixa; sem esmagar o conteúdo) —— */
+
+const FOLHA_PAD_Y = 42 + 36;
+const FOLHA_INNER_H = MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX - FOLHA_PAD_Y;
+const FOLHA_CONTENT_W = MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX - 96;
+const H_CABECALHO = 148;
+const H_CABECALHO_CONT = 52;
+const H_META = 88;
+const H_TABELA_HEAD = 34;
+const H_LINHA = 42;
+const H_TOTAIS_BASE = 132;
+const H_TOTAIS_DESCONTO = 72;
+const H_OBS_ROTULO = 34;
+const H_ASSINATURAS = 96;
+const H_RODAPE_PAGINA = 22;
+const OBS_LINE_H = 19.4;
+const OBS_CHAR_W = 6.85;
+
+function alturaGaleriaPagina(qtd: number): number {
+  if (qtd <= 0) return 0;
+  const cols = colunasGaleriaOrcamentoSimples(qtd);
+  const rows = Math.ceil(qtd / cols);
+  const gap = 10;
+  const cellW = (FOLHA_CONTENT_W - gap * (cols - 1)) / cols;
+  const cellH = cellW * (3 / 4);
+  return rows * cellH + Math.max(0, rows - 1) * gap + 22;
+}
+
+function alturaTotaisPagina(temDesconto: boolean): number {
+  return H_TOTAIS_BASE + (temDesconto ? H_TOTAIS_DESCONTO : 0);
+}
+
+function contarLinhasObs(texto: string): number {
+  if (!texto) return 0;
+  const charsPorLinha = Math.max(24, Math.floor(FOLHA_CONTENT_W / OBS_CHAR_W));
+  let linhas = 0;
+  for (const trecho of texto.split('\n')) {
+    linhas += Math.max(1, Math.ceil(Math.max(trecho.length, 1) / charsPorLinha));
+  }
+  return linhas;
+}
+
+function alturaBlocoObs(texto: string): number {
+  const t = texto.trim();
+  if (!t) return 0;
+  return H_OBS_ROTULO + contarLinhasObs(t) * OBS_LINE_H;
+}
+
+/** Parte o texto das observações para caber numa altura útil (só o corpo, sem o rótulo). */
+function fatiarObservacoes(texto: string, alturaCorpoMax: number): { pedaco: string; resto: string } {
+  const limpo = texto.replace(/\r\n/g, '\n');
+  if (!limpo.trim()) return { pedaco: '', resto: '' };
+  if (alturaCorpoMax < OBS_LINE_H) return { pedaco: '', resto: limpo };
+
+  const maxLinhas = Math.max(1, Math.floor(alturaCorpoMax / OBS_LINE_H));
+  const charsPorLinha = Math.max(24, Math.floor(FOLHA_CONTENT_W / OBS_CHAR_W));
+  const paragrafos = limpo.split('\n');
+  let linhasUsadas = 0;
+  const pedacos: string[] = [];
+
+  for (let i = 0; i < paragrafos.length; i += 1) {
+    const para = paragrafos[i] ?? '';
+    const linhasPara = Math.max(1, Math.ceil(Math.max(para.length, 1) / charsPorLinha));
+    if (linhasUsadas + linhasPara <= maxLinhas) {
+      pedacos.push(para);
+      linhasUsadas += linhasPara;
+      continue;
+    }
+    const linhasRestantes = maxLinhas - linhasUsadas;
+    if (linhasRestantes <= 0) {
+      return {
+        pedaco: pedacos.join('\n'),
+        resto: paragrafos.slice(i).join('\n'),
+      };
+    }
+    const corteChars = Math.max(8, linhasRestantes * charsPorLinha);
+    if (para.length <= corteChars) {
+      pedacos.push(para);
+      return {
+        pedaco: pedacos.join('\n'),
+        resto: paragrafos.slice(i + 1).join('\n'),
+      };
+    }
+    let corte = corteChars;
+    const espaco = para.lastIndexOf(' ', corte);
+    if (espaco > corte * 0.55) corte = espaco;
+    pedacos.push(para.slice(0, corte).trimEnd());
+    const restoPara = para.slice(corte).trimStart();
+    const restoPartes = [restoPara, ...paragrafos.slice(i + 1)];
+    return { pedaco: pedacos.join('\n'), resto: restoPartes.join('\n').replace(/^\n+/, '') };
+  }
+
+  return { pedaco: pedacos.join('\n'), resto: '' };
+}
+
+/**
+ * Divide o orçamento em páginas A4 de altura fixa.
+ * Nada é esmagado: o que não cabe numa folha vai para a seguinte.
+ */
+export function paginarOrcamentoSimplesFolha(input: {
+  fotos: string[];
+  itens: MarkupOrcamentoSimplesItem[];
+  observacoes: string;
+  temDesconto: boolean;
+}): MarkupOrcamentoSimplesPagina[] {
+  const fotosFila = [...input.fotos];
+  const itensFila = [...input.itens];
+  let obsFila = input.observacoes.trim();
+  let totaisPendentes = true;
+  let fotosJaColocadas = 0;
+  let obsJaComecou = false;
+  type PaginaBruta = Omit<MarkupOrcamentoSimplesPagina, 'indice' | 'total'>;
+  const brutos: PaginaBruta[] = [];
+
+  let guard = 0;
+  while (
+    guard < 40 &&
+    (fotosFila.length > 0 ||
+      itensFila.length > 0 ||
+      totaisPendentes ||
+      obsFila.length > 0 ||
+      brutos.length === 0)
+  ) {
+    guard += 1;
+    const primeira = brutos.length === 0;
+    let usado = (primeira ? H_CABECALHO : H_CABECALHO_CONT) + H_RODAPE_PAGINA;
+    if (primeira) usado += H_META;
+
+    const fotoInicio = fotosJaColocadas + 1;
+    const fotosPagina: string[] = [];
+    while (fotosFila.length > 0) {
+      const tentativa = fotosPagina.length + 1;
+      const hGal = alturaGaleriaPagina(tentativa);
+      const reservaMin =
+        itensFila.length > 0
+          ? H_TABELA_HEAD + H_LINHA
+          : totaisPendentes
+            ? alturaTotaisPagina(input.temDesconto)
+            : obsFila
+              ? H_OBS_ROTULO + OBS_LINE_H * 2
+              : 0;
+
+      if (usado + hGal > FOLHA_INNER_H) break;
+      if (fotosPagina.length > 0 && usado + hGal + reservaMin > FOLHA_INNER_H) break;
+      if (fotosPagina.length === 0 && usado + hGal + reservaMin > FOLHA_INNER_H && reservaMin > 0) {
+        if (usado + hGal <= FOLHA_INNER_H) {
+          fotosPagina.push(fotosFila.shift()!);
+        }
+        break;
+      }
+      fotosPagina.push(fotosFila.shift()!);
+    }
+    if (fotosPagina.length > 0) {
+      usado += alturaGaleriaPagina(fotosPagina.length);
+      fotosJaColocadas += fotosPagina.length;
+    }
+
+    const itensPagina: MarkupOrcamentoSimplesItem[] = [];
+    let mostrarCabecalhoTabela = false;
+    if (itensFila.length > 0 && usado + H_TABELA_HEAD + H_LINHA <= FOLHA_INNER_H) {
+      mostrarCabecalhoTabela = true;
+      usado += H_TABELA_HEAD;
+      while (itensFila.length > 0) {
+        const ultimo = itensFila.length === 1;
+        const extraTotais =
+          ultimo && totaisPendentes ? alturaTotaisPagina(input.temDesconto) : 0;
+        if (usado + H_LINHA + extraTotais > FOLHA_INNER_H) break;
+        itensPagina.push(itensFila.shift()!);
+        usado += H_LINHA;
+      }
+    }
+
+    let mostrarTotais = false;
+    if (itensFila.length === 0 && totaisPendentes) {
+      const hTot = alturaTotaisPagina(input.temDesconto);
+      if (usado + hTot <= FOLHA_INNER_H) {
+        mostrarTotais = true;
+        totaisPendentes = false;
+        usado += hTot;
+      }
+    }
+
+    let observacoes = '';
+    let observacoesContinuacao = false;
+    const podeObs = itensFila.length === 0 && !totaisPendentes && obsFila.length > 0;
+    if (podeObs) {
+      const reservarAssin = H_ASSINATURAS + 12;
+      const livre = FOLHA_INNER_H - usado;
+      const hObsTotal = alturaBlocoObs(obsFila);
+      const cabeTudoComAssin = livre >= hObsTotal + reservarAssin;
+      const alturaParaObs = cabeTudoComAssin ? livre - reservarAssin : livre;
+      if (alturaParaObs >= H_OBS_ROTULO + OBS_LINE_H) {
+        const corpoMax = alturaParaObs - H_OBS_ROTULO;
+        const { pedaco, resto } = fatiarObservacoes(obsFila, corpoMax);
+        if (pedaco.trim()) {
+          observacoes = pedaco;
+          observacoesContinuacao = obsJaComecou;
+          obsJaComecou = true;
+          obsFila = resto.trim();
+          usado += alturaBlocoObs(observacoes);
+        }
+      }
+    }
+
+    const paginaVazia =
+      fotosPagina.length === 0 &&
+      itensPagina.length === 0 &&
+      !mostrarTotais &&
+      !observacoes.trim();
+
+    if (paginaVazia) {
+      if (totaisPendentes && usado + alturaTotaisPagina(input.temDesconto) <= FOLHA_INNER_H) {
+        mostrarTotais = true;
+        totaisPendentes = false;
+      } else if (obsFila) {
+        const { pedaco, resto } = fatiarObservacoes(
+          obsFila,
+          Math.max(OBS_LINE_H * 3, FOLHA_INNER_H - usado - H_OBS_ROTULO),
+        );
+        if (pedaco.trim()) {
+          observacoes = pedaco;
+          observacoesContinuacao = obsJaComecou;
+          obsJaComecou = true;
+          obsFila = resto.trim();
+        } else {
+          observacoes = obsFila.slice(0, 280);
+          observacoesContinuacao = obsJaComecou;
+          obsJaComecou = true;
+          obsFila = obsFila.slice(280).trim();
+        }
+      } else {
+        break;
+      }
+    }
+
+    brutos.push({
+      cabecalhoCompleto: primeira,
+      fotos: fotosPagina,
+      fotoInicio,
+      itens: itensPagina,
+      mostrarCabecalhoTabela: mostrarCabecalhoTabela && itensPagina.length > 0,
+      mostrarTotais,
+      observacoes,
+      observacoesContinuacao,
+      mostrarAssinaturas: false,
+    });
+
+    if (
+      fotosFila.length === 0 &&
+      itensFila.length === 0 &&
+      !totaisPendentes &&
+      obsFila.length === 0
+    ) {
+      break;
+    }
+  }
+
+  if (brutos.length === 0) {
+    brutos.push({
+      cabecalhoCompleto: true,
+      fotos: [],
+      fotoInicio: 1,
+      itens: input.itens,
+      mostrarCabecalhoTabela: input.itens.length > 0,
+      mostrarTotais: true,
+      observacoes: input.observacoes.trim(),
+      observacoesContinuacao: false,
+      mostrarAssinaturas: true,
+    });
+  }
+
+  const ultima = brutos[brutos.length - 1]!;
+  const usadoUltimaEstimado = (() => {
+    let u = (ultima.cabecalhoCompleto ? H_CABECALHO + H_META : H_CABECALHO_CONT) + H_RODAPE_PAGINA;
+    u += alturaGaleriaPagina(ultima.fotos.length);
+    if (ultima.itens.length > 0) u += H_TABELA_HEAD + ultima.itens.length * H_LINHA;
+    if (ultima.mostrarTotais) u += alturaTotaisPagina(input.temDesconto);
+    if (ultima.observacoes.trim()) u += alturaBlocoObs(ultima.observacoes);
+    return u;
+  })();
+
+  if (usadoUltimaEstimado + H_ASSINATURAS + 8 <= FOLHA_INNER_H) {
+    ultima.mostrarAssinaturas = true;
+  } else {
+    brutos.push({
+      cabecalhoCompleto: false,
+      fotos: [],
+      fotoInicio: fotosJaColocadas + 1,
+      itens: [],
+      mostrarCabecalhoTabela: false,
+      mostrarTotais: false,
+      observacoes: '',
+      observacoesContinuacao: false,
+      mostrarAssinaturas: true,
+    });
+  }
+
+  const total = brutos.length;
+  return brutos.map((pagina, indice) => ({
+    ...pagina,
+    indice: indice + 1,
+    total,
+  }));
 }

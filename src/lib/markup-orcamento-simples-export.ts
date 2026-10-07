@@ -1,11 +1,13 @@
 /**
  * Exporta a folha comercial em PDF/JPG.
  * Captura fora do diálogo (ancestrais com transform quebram o html2canvas).
+ * Cada página A4 é capturada e gravada na proporção correta (sem achatar).
  */
 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
+  MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX,
   MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX,
   nomeArquivoOrcamentoSimples,
 } from '@/lib/markup-orcamento-simples';
@@ -15,6 +17,7 @@ const A4_W_MM = 210;
 const A4_H_MM = 297;
 const JPEG_QUALITY = 0.92;
 const EMBED_MAX_SIDE = 1400;
+const CREAM = '#fbf6ec';
 
 function triggerDownload(blob: Blob, fileName: string): void {
   const objectUrl = URL.createObjectURL(blob);
@@ -85,7 +88,7 @@ export async function incorporarImagemOrcamento(
       bitmap.close();
       return url;
     }
-    ctx.fillStyle = '#fbf6ec';
+    ctx.fillStyle = CREAM;
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close();
@@ -95,7 +98,15 @@ export async function incorporarImagemOrcamento(
   }
 }
 
-function montarIframeCaptura(): HTMLIFrameElement {
+function listarPaginasFolha(root: HTMLElement): HTMLElement[] {
+  if (root.matches('[data-markup-orcamento-folha]')) {
+    return [root];
+  }
+  const paginas = Array.from(root.querySelectorAll<HTMLElement>('[data-markup-orcamento-folha]'));
+  return paginas.length > 0 ? paginas : [root];
+}
+
+function montarIframeCaptura(alturaPx: number): HTMLIFrameElement {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = [
@@ -103,7 +114,7 @@ function montarIframeCaptura(): HTMLIFrameElement {
     `left:-${MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX + 40}px`,
     'top:0',
     `width:${MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX}px`,
-    'height:1600px',
+    `height:${Math.max(alturaPx, MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX)}px`,
     'border:none',
     'opacity:0',
     'pointer-events:none',
@@ -112,8 +123,8 @@ function montarIframeCaptura(): HTMLIFrameElement {
   return iframe;
 }
 
-async function capturarFolhaCanvas(folhaEl: HTMLElement): Promise<HTMLCanvasElement> {
-  const iframe = montarIframeCaptura();
+async function capturarPaginaCanvas(paginaEl: HTMLElement): Promise<HTMLCanvasElement> {
+  const iframe = montarIframeCaptura(MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX);
   const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
   if (!doc) {
     iframe.remove();
@@ -121,15 +132,17 @@ async function capturarFolhaCanvas(folhaEl: HTMLElement): Promise<HTMLCanvasElem
   }
 
   doc.open();
-  doc.write('<!doctype html><html><head></head><body style="margin:0;background:#fbf6ec;"></body></html>');
+  doc.write(`<!doctype html><html><head></head><body style="margin:0;background:${CREAM};"></body></html>`);
   doc.close();
 
-  const clone = folhaEl.cloneNode(true) as HTMLElement;
+  const clone = paginaEl.cloneNode(true) as HTMLElement;
   clone.style.transform = 'none';
   clone.style.width = `${MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX}px`;
+  clone.style.height = `${MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX}px`;
   clone.style.margin = '0';
   clone.style.opacity = '1';
   clone.style.position = 'static';
+  clone.style.overflow = 'hidden';
   doc.body.appendChild(clone);
 
   try {
@@ -137,15 +150,13 @@ async function capturarFolhaCanvas(folhaEl: HTMLElement): Promise<HTMLCanvasElem
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const width = MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX;
-    const height = Math.max(clone.scrollHeight, clone.offsetHeight, 1);
-
-    iframe.style.height = `${height}px`;
+    const height = MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX;
 
     return await html2canvas(clone, {
       scale: EXPORT_SCALE,
       useCORS: true,
       allowTaint: false,
-      backgroundColor: '#fbf6ec',
+      backgroundColor: CREAM,
       logging: false,
       width,
       height,
@@ -160,65 +171,72 @@ async function capturarFolhaCanvas(folhaEl: HTMLElement): Promise<HTMLCanvasElem
   }
 }
 
-function fatiarPdf(canvas: HTMLCanvasElement, fileName: string): void {
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageW = A4_W_MM;
-  const pageH = A4_H_MM;
-  const imgW = pageW;
-  const imgH = (canvas.height * imgW) / canvas.width;
-
-  if (imgH <= pageH + 0.4) {
-    pdf.addImage(canvas.toDataURL('image/jpeg', JPEG_QUALITY), 'JPEG', 0, 0, imgW, imgH);
-    pdf.save(fileName);
-    return;
-  }
-
-  const pageHeightPx = Math.round((pageH / pageW) * canvas.width);
-  let y = 0;
-  let primeira = true;
-
-  while (y < canvas.height) {
-    const sliceH = Math.min(pageHeightPx, canvas.height - y);
-    const slice = document.createElement('canvas');
-    slice.width = canvas.width;
-    slice.height = sliceH;
-    const ctx = slice.getContext('2d');
-    if (!ctx) break;
-    ctx.fillStyle = '#fbf6ec';
-    ctx.fillRect(0, 0, slice.width, slice.height);
-    ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-
-    const sliceImgH = (sliceH * imgW) / canvas.width;
-    if (!primeira) pdf.addPage();
-    pdf.addImage(slice.toDataURL('image/jpeg', JPEG_QUALITY), 'JPEG', 0, 0, imgW, sliceImgH);
-    primeira = false;
-    y += sliceH;
-  }
-
-  pdf.save(fileName);
+function adicionarPaginaA4(pdf: jsPDF, canvas: HTMLCanvasElement, primeira: boolean): void {
+  if (!primeira) pdf.addPage();
+  // Página já nasceu em proporção A4 — preenche a folha inteira, sem esticar.
+  pdf.addImage(canvas.toDataURL('image/jpeg', JPEG_QUALITY), 'JPEG', 0, 0, A4_W_MM, A4_H_MM);
 }
 
 export async function exportarOrcamentoSimplesPdf(
-  folhaEl: HTMLElement,
+  folhaRoot: HTMLElement,
   titulo: string,
 ): Promise<void> {
-  const canvas = await capturarFolhaCanvas(folhaEl);
-  if (canvas.width < 2 || canvas.height < 2) {
+  const paginas = listarPaginasFolha(folhaRoot);
+  if (paginas.length === 0) {
     throw new Error('A folha saiu em branco. Tente de novo.');
   }
-  fatiarPdf(canvas, nomeArquivoOrcamentoSimples(titulo, 'pdf'));
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  for (let i = 0; i < paginas.length; i += 1) {
+    const canvas = await capturarPaginaCanvas(paginas[i]!);
+    if (canvas.width < 2 || canvas.height < 2) {
+      throw new Error('A folha saiu em branco. Tente de novo.');
+    }
+    adicionarPaginaA4(pdf, canvas, i === 0);
+  }
+
+  pdf.save(nomeArquivoOrcamentoSimples(titulo, 'pdf'));
 }
 
 export async function exportarOrcamentoSimplesJpg(
-  folhaEl: HTMLElement,
+  folhaRoot: HTMLElement,
   titulo: string,
 ): Promise<void> {
-  const canvas = await capturarFolhaCanvas(folhaEl);
-  if (canvas.width < 2 || canvas.height < 2) {
+  const paginas = listarPaginasFolha(folhaRoot);
+  if (paginas.length === 0) {
     throw new Error('A folha saiu em branco. Tente de novo.');
   }
+
+  const canvases: HTMLCanvasElement[] = [];
+  for (const pagina of paginas) {
+    const canvas = await capturarPaginaCanvas(pagina);
+    if (canvas.width < 2 || canvas.height < 2) {
+      throw new Error('A folha saiu em branco. Tente de novo.');
+    }
+    canvases.push(canvas);
+  }
+
+  const gap = Math.round(16 * EXPORT_SCALE);
+  const width = canvases[0]!.width;
+  const height =
+    canvases.reduce((acc, c) => acc + c.height, 0) + gap * Math.max(0, canvases.length - 1);
+  const stacked = document.createElement('canvas');
+  stacked.width = width;
+  stacked.height = height;
+  const ctx = stacked.getContext('2d');
+  if (!ctx) throw new Error('Falha ao gerar JPG');
+  ctx.fillStyle = '#140e0b';
+  ctx.fillRect(0, 0, width, height);
+
+  let y = 0;
+  for (const canvas of canvases) {
+    ctx.drawImage(canvas, 0, y);
+    y += canvas.height + gap;
+  }
+
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
+    stacked.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('Falha ao gerar JPG'))),
       'image/jpeg',
       JPEG_QUALITY,

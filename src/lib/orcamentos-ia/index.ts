@@ -25,7 +25,30 @@ export {
   sheetsFromAreaM2,
   rollsForEdgeTapeMeters,
   normalizePricingModality,
+  moduleMaterialsCost,
+  environmentMaterialsCost,
+  allocateSalePrice,
 } from '@/lib/orcamentos-ia/pricing'
+export {
+  buildQuotePresentationLayout,
+  resolveModuleImageUrl,
+  formatModuleDimensions,
+  clonePresentationLayout,
+  recomputePresentationTotals,
+  computeLaborProfitExtra,
+  distributeExtraOntoSalePrices,
+} from '@/lib/orcamentos-ia/quote-presentation'
+export type {
+  QuotePresentationLayout,
+  QuotePresentationBranding,
+  QuotePageImage,
+} from '@/lib/orcamentos-ia/quote-presentation'
+export {
+  openQuotePresentationPrint,
+  buildQuotePresentationHtml,
+  buildQuotePresentationBodyHtml,
+  QUOTE_PRESENTATION_CSS,
+} from '@/lib/orcamentos-ia/quote-presentation-print'
 export type { PricingModality, PricingParams, PricingResult, ShoppingListItem } from '@/lib/orcamentos-ia/pricing'
 export {
   DEFAULT_SYSTEM_PREFERENCES,
@@ -38,7 +61,11 @@ export { explodeModule, explodeFromExtractionModule, buildBoxMeshesFromBom } fro
 export { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
 export { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
 export { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'
-export { runOrcamentosIaPipeline, reprocessOrcamentosIaPipeline } from '@/lib/orcamentos-ia/pipeline'
+export {
+  runOrcamentosIaPipeline,
+  reprocessOrcamentosIaPipeline,
+  reauditOrcamentosIaAnalysis,
+} from '@/lib/orcamentos-ia/pipeline'
 export { quoteExtractionSchema } from '@/lib/orcamentos-ia/schemas'
 export {
   estimateModuleDimensions,

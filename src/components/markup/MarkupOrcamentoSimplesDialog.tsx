@@ -34,7 +34,7 @@ import type { SalvarMarkupOrcamentoInput } from '@/hooks/useMarkupOrcamentos';
 import { runWithFilePickerGuard } from '@/lib/dialog-outside-guard';
 import { formatarMoedaMarkup } from '@/lib/markup-calculo';
 import {
-  MARKUP_ORCAMENTO_SIMPLES_ALTURA_MIN_PX,
+  MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX,
   MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX,
   MARKUP_ORCAMENTO_SIMPLES_MAX_FOTOS,
   MARKUP_ORCAMENTO_SIMPLES_MAX_UPLOAD_BYTES,
@@ -335,8 +335,11 @@ export function MarkupOrcamentoSimplesDialog({
   };
 
   const exportar = async (formato: 'pdf' | 'jpg') => {
-    const folha = folhaRef.current?.querySelector<HTMLElement>('[data-markup-orcamento-folha]');
-    if (!folha) {
+    const raiz =
+      folhaRef.current?.querySelector<HTMLElement>('[data-markup-orcamento-folhas]') ??
+      folhaRef.current;
+    const temPagina = Boolean(raiz?.querySelector('[data-markup-orcamento-folha]'));
+    if (!raiz || !temPagina) {
       toast.error('A prévia ainda não está pronta.');
       return;
     }
@@ -344,9 +347,9 @@ export function MarkupOrcamentoSimplesDialog({
     try {
       await persistir();
       if (formato === 'pdf') {
-        await exportarOrcamentoSimplesPdf(folha, doc.titulo);
+        await exportarOrcamentoSimplesPdf(raiz, doc.titulo);
       } else {
-        await exportarOrcamentoSimplesJpg(folha, doc.titulo);
+        await exportarOrcamentoSimplesJpg(raiz, doc.titulo);
       }
       toast.success(formato === 'pdf' ? 'PDF baixado.' : 'JPG baixado.');
     } catch (erro) {
@@ -769,7 +772,7 @@ function FolhaPreviewPane({ children }: { children: ReactNode }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-  const [altura, setAltura] = useState(MARKUP_ORCAMENTO_SIMPLES_ALTURA_MIN_PX);
+  const [altura, setAltura] = useState(MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -778,7 +781,7 @@ function FolhaPreviewPane({ children }: { children: ReactNode }) {
     const atualizar = () => {
       const largura = Math.max(host.clientWidth - 32, 160);
       setScale(largura / MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX);
-      setAltura(Math.max(inner.scrollHeight, MARKUP_ORCAMENTO_SIMPLES_ALTURA_MIN_PX));
+      setAltura(Math.max(inner.scrollHeight, MARKUP_ORCAMENTO_SIMPLES_ALTURA_PX));
     };
     const ro = new ResizeObserver(atualizar);
     ro.observe(host);
@@ -802,7 +805,6 @@ function FolhaPreviewPane({ children }: { children: ReactNode }) {
             width: MARKUP_ORCAMENTO_SIMPLES_LARGURA_PX,
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
-            boxShadow: '0 28px 80px rgba(0,0,0,0.55)',
           }}
         >
           {children}
