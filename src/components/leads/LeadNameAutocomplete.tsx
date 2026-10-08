@@ -75,8 +75,9 @@ export function LeadNameAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  /** Evita reabrir a lista logo após selecionar um lead (o valor muda e ainda dá match). */
-  const suppressOpenRef = useRef(false);
+  /** Nome do lead escolhido: enquanto o campo tiver esse valor, a lista não reabre (a busca refaz e ainda dá match). */
+  const selectedValueRef = useRef<string | null>(null);
+  const isSelectedValue = value === selectedValueRef.current;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedTerm(value.trim()), DEBOUNCE_MS);
@@ -117,7 +118,7 @@ export function LeadNameAutocomplete({
     return unique;
   }, [remoteRows, value]);
 
-  const showDropdown = open && value.trim().length >= MIN_CHARS;
+  const showDropdown = open && !isSelectedValue && value.trim().length >= MIN_CHARS;
 
   const updateCoords = useCallback(() => {
     const el = inputRef.current;
@@ -144,13 +145,13 @@ export function LeadNameAutocomplete({
 
   useEffect(() => {
     setActiveIndex(0);
-    if (suppressOpenRef.current) {
-      suppressOpenRef.current = false;
+    if (isSelectedValue) {
       setOpen(false);
       return;
     }
+    selectedValueRef.current = null;
     if (value.trim().length >= MIN_CHARS) setOpen(true);
-  }, [value, results.length]);
+  }, [value, results.length, isSelectedValue]);
 
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
@@ -164,7 +165,7 @@ export function LeadNameAutocomplete({
   }, []);
 
   const handleSelect = (lead: LeadContactSuggestion) => {
-    suppressOpenRef.current = true;
+    selectedValueRef.current = lead.name;
     onSelectLead(lead);
     setOpen(false);
   };
@@ -210,7 +211,7 @@ export function LeadNameAutocomplete({
         className={cn('w-full max-w-full', className)}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => {
-          if (value.trim().length >= MIN_CHARS) setOpen(true);
+          if (!isSelectedValue && value.trim().length >= MIN_CHARS) setOpen(true);
         }}
         onKeyDown={handleKeyDown}
       />
@@ -222,7 +223,7 @@ export function LeadNameAutocomplete({
             id="lead-name-suggestions"
             data-lead-name-autocomplete=""
             role="listbox"
-            className="fixed z-[10050] max-h-72 overflow-y-auto rounded-lg border border-gold-border-subtle/30 bg-mahogany-panel text-popover-foreground shadow-xl shadow-black/40"
+            className="pointer-events-auto fixed z-[10050] max-h-72 overflow-y-auto rounded-lg border border-gold-border-subtle/30 bg-mahogany-panel text-popover-foreground shadow-xl shadow-black/40"
             style={{
               top: coords.top,
               left: coords.left,
@@ -267,7 +268,7 @@ export function LeadNameAutocomplete({
                       >
                         <User className="mt-0.5 h-4 w-4 shrink-0 text-cream-muted" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium text-foreground/95">
+                          <span className="block truncate font-medium text-cream">
                             {lead.name}
                           </span>
                           <span className="block truncate text-xs text-cream-muted">
