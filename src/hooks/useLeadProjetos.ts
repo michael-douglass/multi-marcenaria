@@ -12,6 +12,7 @@ import { getTodaySaoPaulo } from '@/lib/utils'
 import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex'
 import {
   getFeitoProjetoStageId,
+  isProjetoStageNomeFixo,
   getWaitingProjetoStageId,
   projetistaPuxaJaEmDesenho,
   stageNameLooksWaiting,
@@ -276,6 +277,10 @@ export function useProjetoStagesAdmin() {
 
   const updateStage = useMutation({
     mutationFn: async ({ id, nome, cor }: { id: string; nome?: string; cor?: string | null }) => {
+      const atual = (query.data ?? []).find((s) => s.id === id)
+      if (nome != null && isProjetoStageNomeFixo(atual?.nome) && nome.trim() !== atual?.nome) {
+        throw new Error('O nome desta coluna é fixo e não pode ser alterado.')
+      }
       const payload: Record<string, unknown> = {}
       if (nome != null) payload.nome = nome.trim()
       if (cor !== undefined) payload.cor = cor
@@ -288,6 +293,8 @@ export function useProjetoStagesAdmin() {
 
   const deleteStage = useMutation({
     mutationFn: async (id: string) => {
+      const atual = (query.data ?? []).find((s) => s.id === id)
+      if (isProjetoStageNomeFixo(atual?.nome)) throw new Error('Esta coluna é fixa e não pode ser excluída.')
       const { error } = await db.from('projeto_stages').delete().eq('id', id)
       if (error) throw error
     },

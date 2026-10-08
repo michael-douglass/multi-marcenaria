@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X, Check } from 'lucide-react'
+import { ArrowDown, ArrowUp, Lock, Pencil, Plus, Trash2, X, Check } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useProjetoStagesAdmin } from '@/hooks/useLeadProjetos'
 import { cn } from '@/lib/utils'
+import { isProjetoStageNomeFixo } from '@/lib/projetos-atelie'
 
 interface ProjetoStagesConfigDialogProps {
   open: boolean
@@ -39,7 +40,7 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
         <DialogHeader>
           <DialogTitle className="font-display text-[#8d5e22]">Colunas do ateliê</DialogTitle>
           <DialogDescription>
-            A fila é a primeira com “aguardando” ou “fila”. Feitos é sempre a última.
+            A fila é a primeira com “aguardando” ou “fila”. Colunas com cadeado têm nome fixo e não podem ser renomeadas nem excluídas.
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2">
@@ -99,7 +100,10 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
                 </>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1 truncate text-sm">{stage.nome}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {stage.nome}
+                    {isProjetoStageNomeFixo(stage.nome) ? <Lock className="ml-1.5 inline h-3 w-3 text-[#8d5e22]" aria-label="Nome fixo" /> : null}
+                  </span>
                   <Button
                     type="button"
                     size="icon"
@@ -125,6 +129,7 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8"
+                    disabled={isProjetoStageNomeFixo(stage.nome)}
                     onClick={() => {
                       setEditingId(stage.id)
                       setEditNome(stage.nome)
@@ -138,6 +143,7 @@ export function ProjetoStagesConfigDialog({ open, onOpenChange }: ProjetoStagesC
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8 text-destructive"
+                    disabled={isProjetoStageNomeFixo(stage.nome)}
                     onClick={() => deleteStage.mutate(stage.id)}
                   >
                     <Trash2 className="h-4 w-4" />

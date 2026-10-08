@@ -10,7 +10,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { OrcamentoProjetoPdfPagePickerDialog } from '@/components/orcamento-slides/OrcamentoProjetoPdfPagePickerDialog';
-import { formatBibliotecaFileSize, getBibliotecaFileSizeError } from '@/lib/biblioteca-utils';
+import {
+  BIBLIOTECA_MAX_FILE_SIZE_MB,
+  formatBibliotecaFileSize,
+  getBibliotecaFileSizeError,
+} from '@/lib/biblioteca-utils';
 import {
   isOrcamentoProjetoPdfFile,
   pdfPageImagesToFiles,
@@ -141,8 +145,8 @@ export function BibliotecaUploadZone({ onUpload, uploading }: BibliotecaUploadZo
     if (rejectedSize > 0) {
       toast.error(
         rejectedSize === 1
-          ? 'Um arquivo passou do tamanho máximo (200 MB)'
-          : `${rejectedSize} arquivos passaram do tamanho máximo (200 MB)`,
+          ? `Um arquivo passou do tamanho máximo (${BIBLIOTECA_MAX_FILE_SIZE_MB} MB)`
+          : `${rejectedSize} arquivos passaram do tamanho máximo (${BIBLIOTECA_MAX_FILE_SIZE_MB} MB)`,
       );
     }
     if (accepted.length === 0) return;
@@ -326,7 +330,7 @@ export function BibliotecaUploadZone({ onUpload, uploading }: BibliotecaUploadZo
               Arraste imagens, vídeos, áudios ou PDF
             </p>
             <p className="mt-1 text-xs sm:text-sm text-[#6b5244] max-w-md mx-auto">
-              Selecione vários de uma vez · JPG, PNG, WebP · MP4, WebM · MP3, WAV · PDF · até 200 MB
+              Selecione vários de uma vez · JPG, PNG, WebP · MP4, WebM · MP3, WAV · PDF · até {BIBLIOTECA_MAX_FILE_SIZE_MB} MB
             </p>
           </div>
           <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#6b3f12]/70">

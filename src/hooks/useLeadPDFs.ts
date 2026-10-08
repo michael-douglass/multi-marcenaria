@@ -40,7 +40,8 @@ export interface PendingLeadPDF {
   folderName?: string;
 }
 
-const MAX_ATTACHMENT_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
+export const LEAD_ATTACHMENT_MAX_SIZE_MB = 250;
+const MAX_ATTACHMENT_SIZE_BYTES = LEAD_ATTACHMENT_MAX_SIZE_MB * 1024 * 1024;
 const STORAGE_BUCKET = 'marketing-medias';
 const LEAD_ATTACHMENT_TIPOS: LeadAttachmentTipo[] = ['pdf', 'imagem', 'video'];
 
@@ -100,7 +101,7 @@ function validateAttachmentFile(file: File): string | null {
     return 'Apenas PDF, imagens (JPG, PNG, WebP, GIF) e vídeos (MP4, WebM) são permitidos';
   }
   if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
-    return 'Arquivo muito grande (máx. 200MB)';
+    return `Arquivo muito grande (máx. ${LEAD_ATTACHMENT_MAX_SIZE_MB}MB)`;
   }
   return null;
 }
@@ -357,7 +358,7 @@ export function useLeadPDFs(leadId: number | null | undefined) {
       );
       toast.error('Erro ao anexar arquivo', {
         description: sizeExceeded
-          ? 'Este arquivo passou de 200MB. Escolha um vídeo menor ou reduza a qualidade (ex.: 720p).'
+          ? `Este arquivo passou de ${LEAD_ATTACHMENT_MAX_SIZE_MB}MB. Escolha um vídeo menor ou reduza a qualidade (ex.: 720p).`
           : message,
       });
     }

@@ -1,8 +1,8 @@
 import type { BibliotecaMedia } from '@/hooks/useBibliotecaMedias';
 
 /** Limite por arquivo na biblioteca (alinhado ao bucket marketing-medias). */
-export const BIBLIOTECA_MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
-export const BIBLIOTECA_MAX_FILE_SIZE_MB = 200;
+export const BIBLIOTECA_MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024; // 250 MB
+export const BIBLIOTECA_MAX_FILE_SIZE_MB = 250;
 
 export type BibliotecaCategoria = 'todas' | 'imagens' | 'videos' | 'arquivos';
 

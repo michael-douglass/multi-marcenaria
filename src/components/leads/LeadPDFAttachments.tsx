@@ -32,6 +32,7 @@ import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video
 import {
   useLeadPDFs,
   getLeadAttachmentViewKind,
+  LEAD_ATTACHMENT_MAX_SIZE_MB,
   type LeadPDF,
   type PendingLeadPDF,
 } from '@/hooks/useLeadPDFs';
@@ -1563,10 +1564,10 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const uploadHint = !canUploadPdf
     ? 'Você não tem permissão para anexar arquivos'
     : !viewingRoot
-      ? `Enviar para “${folderLabel}” · máx. 200MB`
+      ? `Enviar para “${folderLabel}” · máx. ${LEAD_ATTACHMENT_MAX_SIZE_MB}MB`
       : leadId
-        ? 'PDF, foto ou vídeo · arraste aqui · máx. 200MB'
-        : 'PDF, foto ou vídeo · serão enviados ao salvar o lead · máx. 200MB';
+        ? `PDF, foto ou vídeo · arraste aqui · máx. ${LEAD_ATTACHMENT_MAX_SIZE_MB}MB`
+        : `PDF, foto ou vídeo · serão enviados ao salvar o lead · máx. ${LEAD_ATTACHMENT_MAX_SIZE_MB}MB`;
 
   return (
     <div className="space-y-3 w-full" data-dialog-file-picker-zone>

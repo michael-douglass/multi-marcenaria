@@ -85,6 +85,25 @@ export function shouldPromoteLeadToVisitaObraFeita(
   return currentOrdem < targetOrdem;
 }
 
+/** Coluna que recebe todo projeto marcado como concluído (“Precificações concluídas”). */
+export const PRECIFICACOES_CONCLUIDAS_NOME = 'Precificações concluídas';
+
+export function stageNameIsPrecificacoesConcluidas(nome: string | null | undefined): boolean {
+  const n = normalizeProjetoStageName(nome);
+  return n.includes('precificac') && n.includes('concluid');
+}
+
+/** Coluna fixa do fim do fluxo: “Orçamento ( Ja enviados )” — o nome não pode ser alterado. */
+export function stageNameIsOrcamentosJaEnviados(nome: string | null | undefined): boolean {
+  const n = normalizeProjetoStageName(nome);
+  return n.includes('orcamento') && n.includes('enviado');
+}
+
+/** Colunas com nome travado (sem renomear nem excluir). */
+export function isProjetoStageNomeFixo(nome: string | null | undefined): boolean {
+  return stageNameIsOrcamentosJaEnviados(nome) || stageNameIsPrecificacoesConcluidas(nome);
+}
+
 export function classifyProjetoStage(
   stage: ProjetoStageLike,
   stages: readonly ProjetoStageLike[],
@@ -92,6 +111,7 @@ export function classifyProjetoStage(
   const ordered = [...stages].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
   const last = ordered.length >= 2 ? ordered[ordered.length - 1] : null;
   if (last && stage.id === last.id) return 'feito';
+  if (stageNameIsPrecificacoesConcluidas(stage.nome)) return 'feito';
   if (stageNameLooksVisita(stage.nome)) return 'visita';
   if (stageNameLooksWaiting(stage.nome)) return 'waiting';
   return 'other';
@@ -112,6 +132,8 @@ export function getWaitingProjetoStageId(stages: readonly ProjetoStageLike[]): s
 
 export function getFeitoProjetoStageId(stages: readonly ProjetoStageLike[]): string | null {
   const ordered = [...stages].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  const precificadas = ordered.find((stage) => stageNameIsPrecificacoesConcluidas(stage.nome));
+  if (precificadas) return precificadas.id;
   if (ordered.length < 2) return null;
   return ordered[ordered.length - 1]?.id ?? null;
 }
