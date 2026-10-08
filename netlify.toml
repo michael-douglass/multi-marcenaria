@@ -9,6 +9,8 @@
   NODE_VERSION = "20"
   # Garante uso do pnpm quando existir pnpm-lock.yaml
   NETLIFY_USE_PNPM = "true"
+  # Evita "Aborted" (exit 134 / heap out of memory) no tsc + vite build
+  NODE_OPTIONS = "--max-old-space-size=6144"
 
 # React Router (BrowserRouter): todas as rotas servem index.html
 [[redirects]]
