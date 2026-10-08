@@ -12,6 +12,7 @@ export interface LeadBuscaItem {
   empresa: string | null;
   status: string;
   regiao: string | null;
+  origem: string | null;
 }
 
 /** Busca leads por nome, telefone, e-mail ou empresa (mínimo 2 caracteres). */
@@ -30,7 +31,7 @@ export function useBuscaLeads(search: string, options?: { excludeLeadId?: number
     queryFn: async (): Promise<LeadBuscaItem[]> => {
       let query = db
         .from(leadsTable)
-        .select('id, nome, telefone, email, empresa, status, regiao')
+        .select('id, nome, telefone, email, empresa, status, regiao, origem')
         .or(
           `nome.ilike.%${term}%,telefone.ilike.%${term}%,email.ilike.%${term}%,empresa.ilike.%${term}%`,
         )

@@ -13,7 +13,7 @@ export interface PipelineIndicatorsState {
   metricsOpen: boolean;
   /** Gráfico de evolução 15 dias — true = visível/expandido. Sempre inicia fechado ao abrir a página. */
   chartOpen: boolean;
-  /** Container dos 5 indicadores — true = visível/expandido. */
+  /** Container dos 5 indicadores — true = visível/expandido. Sempre inicia fechado ao abrir a página. */
   sectionOpen: boolean;
   cards: Record<PipelineIndicatorKey, boolean>;
 }
@@ -63,10 +63,7 @@ export function normalizePipelineIndicators(
       typeof obj.chartOpen === 'boolean'
         ? obj.chartOpen
         : DEFAULT_PIPELINE_INDICATORS.chartOpen,
-    sectionOpen:
-      typeof obj.sectionOpen === 'boolean'
-        ? obj.sectionOpen
-        : DEFAULT_PIPELINE_INDICATORS.sectionOpen,
+    sectionOpen: DEFAULT_PIPELINE_INDICATORS.sectionOpen,
     cards,
   };
 }

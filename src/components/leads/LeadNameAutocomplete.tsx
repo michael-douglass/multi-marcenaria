@@ -22,6 +22,7 @@ export interface LeadContactSuggestion {
   company?: string;
   status?: string;
   regiao?: string;
+  origin?: string;
 }
 
 interface LeadNameAutocompleteProps {
@@ -98,6 +99,7 @@ export function LeadNameAutocomplete({
       company: row.empresa?.trim() || undefined,
       status: row.status,
       regiao: row.regiao ?? undefined,
+      origin: row.origem?.trim() || undefined,
     }));
 
     const asLeads = suggestions.map(toSearchLead);

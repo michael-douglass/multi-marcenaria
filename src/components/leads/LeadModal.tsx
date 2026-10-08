@@ -659,6 +659,12 @@ export function LeadModal({
       email: suggestion.email,
       phone: formatInternationalPhone(suggestion.phone),
       company: suggestion.company ?? prev.company ?? '',
+      ...(isNewLead
+        ? {
+            regiao: suggestion.regiao ?? prev.regiao,
+            origin: suggestion.origin ?? prev.origin,
+          }
+        : {}),
     }));
     // Em lead existente, abre email/telefone/empresa para o usuário ver o preenchimento.
     if (!isNewLead) {
@@ -671,10 +677,11 @@ export function LeadModal({
         return next;
       });
     }
+    const contactSummary = [suggestion.phone, suggestion.email].filter(Boolean).join(' · ');
     toast.success('Dados de contato preenchidos', {
-      description: suggestion.email || suggestion.phone
-        ? [suggestion.phone, suggestion.email].filter(Boolean).join(' · ')
-        : 'Lead encontrado — complete o que faltar',
+      description: isNewLead
+        ? `${contactSummary || 'Complete o que faltar'} — ao salvar, será criado um novo card para um novo orçamento.`
+        : contactSummary || 'Lead encontrado — complete o que faltar',
     });
   }, [isNewLead]);
 
