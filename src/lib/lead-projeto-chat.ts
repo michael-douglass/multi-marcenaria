@@ -33,22 +33,34 @@ export function podeVerTodasNotasDoAtelie(
 /**
  * Resolve para quem a mensagem vai:
  * titular → arquiteto (ou fila do ateliê se ainda não pegaram);
- * projetista → titular.
+ * ateliê (arquiteto/projetista) → quem falou por último no fio (quem pediu), senão titular;
+ * terceiro falando com o ateliê (ex.: admin pedindo no lugar do vendedor) → arquiteto/fila;
+ * demais terceiros (ex.: produção) → titular.
  */
 export function resolverDestinatarioNota(input: {
   autorId: string;
   titularId: string | null | undefined;
   arquitetoId: string | null | undefined;
+  /** Quem escreve é do ateliê (projetista / projetista admin). */
+  autorEhAtelie?: boolean;
+  /** Autor da mensagem mais recente do fio que não seja quem escreve agora. */
+  ultimoOutroAutorId?: string | null;
+  /** Terceiro escrevendo no canal do ateliê: a mensagem vai para o ateliê, não para o titular. */
+  terceiroFalaComAtelie?: boolean;
 }): string | null {
   const titular = input.titularId?.trim() || null;
   const arquiteto = input.arquitetoId?.trim() || null;
+  const ultimoOutro = input.ultimoOutroAutorId?.trim() || null;
   const autor = input.autorId;
 
   if (titular && autor === titular) {
     return arquiteto;
   }
-  if (arquiteto && autor === arquiteto) {
-    return titular;
+  if ((arquiteto && autor === arquiteto) || input.autorEhAtelie) {
+    return ultimoOutro ?? titular;
+  }
+  if (input.terceiroFalaComAtelie) {
+    return arquiteto;
   }
   if (titular && autor !== titular) {
     return titular;

@@ -8,7 +8,7 @@ export const SLIDE_PREVIEW_DESKTOP = SLIDE_IMAGEM_PAISAGEM;
 export const SLIDE_PREVIEW_MOBILE = SLIDE_IMAGEM_RETRATO;
 
 export const FORMATO_IMAGEM_SLIDE_HINT =
-  'Escolha o formato antes de enviar. A imagem será recortada e ajustada para 1920×1080 ou 1080×1920.';
+  'Escolha o formato antes de enviar. A imagem será encaixada inteira (sem recorte) em 1920×1080 ou 1080×1920.';
 
 const RATIO_PAISAGEM = SLIDE_IMAGEM_PAISAGEM.width / SLIDE_IMAGEM_PAISAGEM.height;
 const RATIO_RETRATO = SLIDE_IMAGEM_RETRATO.width / SLIDE_IMAGEM_RETRATO.height;
@@ -57,27 +57,26 @@ function carregarImagem(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function recortarECobrir(
+/** Cor do fundo da apresentação — preenche as faixas quando a proporção da foto difere do quadro. */
+const COR_FUNDO_SLIDE = '#0a0706';
+
+/** Encaixa a imagem inteira no quadro (sem recorte nem ampliação além do necessário). */
+function encaixarSemRecorte(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   alvo: { width: number; height: number },
 ) {
-  const srcRatio = img.naturalWidth / img.naturalHeight;
-  const dstRatio = alvo.width / alvo.height;
-  let sx = 0;
-  let sy = 0;
-  let sw = img.naturalWidth;
-  let sh = img.naturalHeight;
+  const escala = Math.min(alvo.width / img.naturalWidth, alvo.height / img.naturalHeight);
+  const dw = Math.round(img.naturalWidth * escala);
+  const dh = Math.round(img.naturalHeight * escala);
+  const dx = Math.round((alvo.width - dw) / 2);
+  const dy = Math.round((alvo.height - dh) / 2);
 
-  if (srcRatio > dstRatio) {
-    sw = img.naturalHeight * dstRatio;
-    sx = (img.naturalWidth - sw) / 2;
-  } else if (srcRatio < dstRatio) {
-    sh = img.naturalWidth / dstRatio;
-    sy = (img.naturalHeight - sh) / 2;
-  }
-
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, alvo.width, alvo.height);
+  ctx.fillStyle = COR_FUNDO_SLIDE;
+  ctx.fillRect(0, 0, alvo.width, alvo.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, dx, dy, dw, dh);
 }
 
 /** Redimensiona para 1920×1080 ou 1080×1920 conforme orientação escolhida (ou detectada). */
@@ -98,7 +97,7 @@ export async function processarImagemSlide(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Não foi possível processar a imagem.');
 
-  recortarECobrir(ctx, img, alvo);
+  encaixarSemRecorte(ctx, img, alvo);
 
   const MAX_BYTES = 480_000;
   let quality = 0.84;

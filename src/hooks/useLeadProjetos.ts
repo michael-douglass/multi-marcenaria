@@ -27,7 +27,7 @@ import {
   uploadLeadProjetoChatImage,
 } from '@/lib/lead-projeto-chat'
 import { DEFAULT_PIPELINE_STAGES } from '@/hooks/usePipelineCustomStages'
-import type { AppUserRole } from '@/lib/app-roles'
+import { isProjetistaRole, type AppUserRole } from '@/lib/app-roles'
 
 const NOTA_SELECT =
   'id, lead_id, autor_id, destinatario_id, mensagem, tipo, criado_em, imagem_url, file_name, mime_type'
@@ -86,6 +86,8 @@ export interface LeadProjetoChatThread {
   lead_nome: string
   titular_nome: string | null
   last: LeadProjetoNota
+  /** Usuário logado escreveu, recebeu, ou (projetista) tem pedido na fila neste fio. */
+  participo: boolean
 }
 
 interface UsuarioNome {
@@ -552,9 +554,16 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
         { currentUserId: userId, roles: userRoles, isSuperAdmin },
       )
 
+      const souAtelie = isProjetistaRole(userRoles)
       const lastByLead = new Map<number, LeadProjetoNota>()
+      const leadsQueParticipo = new Set<number>()
       for (const nota of mapped) {
         if (!lastByLead.has(nota.lead_id)) lastByLead.set(nota.lead_id, nota)
+        const participa =
+          nota.autor_id === userId ||
+          nota.destinatario_id === userId ||
+          (!nota.destinatario_id && souAtelie)
+        if (participa) leadsQueParticipo.add(nota.lead_id)
       }
 
       const leadIds = [...lastByLead.keys()]
@@ -586,6 +595,7 @@ export function useLeadProjetoChatBoard(options?: { realtime?: boolean }) {
           lead_nome: meta?.nome ?? `Lead #${leadId}`,
           titular_nome: meta?.titular ?? null,
           last,
+          participo: leadsQueParticipo.has(leadId),
         }
       })
     },
@@ -658,15 +668,28 @@ export function useLeadProjetoMutations() {
 
     let destinatarioId = input.destinatarioId
     if (destinatarioId === undefined) {
-      const { data: projeto } = await db
-        .from('lead_projetos')
-        .select('titular_id, arquiteto_id')
-        .eq('lead_id', input.leadId)
-        .maybeSingle()
+      const [{ data: projeto }, { data: ultimaDeOutro }] = await Promise.all([
+        db
+          .from('lead_projetos')
+          .select('titular_id, arquiteto_id')
+          .eq('lead_id', input.leadId)
+          .maybeSingle(),
+        db
+          .from('lead_projeto_notas')
+          .select('autor_id')
+          .eq('lead_id', input.leadId)
+          .neq('autor_id', user.id)
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
       destinatarioId = resolverDestinatarioNota({
         autorId: user.id,
         titularId: projeto?.titular_id ? String(projeto.titular_id) : null,
         arquitetoId: projeto?.arquiteto_id ? String(projeto.arquiteto_id) : null,
+        autorEhAtelie: isProjetistaRole(userRoles),
+        ultimoOutroAutorId: ultimaDeOutro?.autor_id ? String(ultimaDeOutro.autor_id) : null,
+        terceiroFalaComAtelie: true,
       })
     }
 

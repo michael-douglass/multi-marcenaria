@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase'
 import { isSchemaApiExposed } from '@/lib/empresa-tables'
+import { isProjetistaRole } from '@/lib/app-roles'
 
 export interface ProjetoChatUnreadThread {
   lead_id: number
@@ -64,20 +65,22 @@ export function allowLeadChatAutoRead(leadId: number) {
  * Não lidas do canal do ateliê (estilo WhatsApp).
  * Só leads em que o usuário é titular ou projetista (arquiteto_id),
  * mais leads onde é destinatário explícito.
- * Contagem = msgs de outra pessoa depois do last_read_at.
- * Mensagens sem destinatario_id (legado) contam no fio do participante.
+ * Contagem = msgs de outra pessoa endereçadas a mim depois do last_read_at.
+ * Mensagens sem destinatario_id (fila do ateliê) só contam para projetistas
+ * que são titular/arquiteto daquele lead.
  */
 export function useProjetoChatUnread(options?: { realtime?: boolean }) {
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, userRoles } = useAuth()
   const { schemaEmpresa, queriesReady } = useEmpresa()
   const realtime = options?.realtime !== false
   const userId = user?.id ?? null
+  const souAtelie = isProjetistaRole(userRoles)
 
   const queryKey = useMemo(
-    () => ['lead-projeto-chat-unread', schemaEmpresa, userId] as const,
-    [schemaEmpresa, userId],
+    () => ['lead-projeto-chat-unread', schemaEmpresa, userId, souAtelie] as const,
+    [schemaEmpresa, userId, souAtelie],
   )
 
   const query = useQuery({
@@ -97,6 +100,11 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
         .select('lead_id, titular_id, arquiteto_id')
         .or(`titular_id.eq.${userId},arquiteto_id.eq.${userId}`)
       if (projetosError) throw projetosError
+
+      // Leads em que sou titular ou arquiteto: só neles a fila sem destinatário me notifica.
+      const leadsDoMeuAtelie = new Set<number>(
+        (projetos ?? []).map((p) => Number(p.lead_id)).filter((id) => Number.isFinite(id) && id > 0),
+      )
 
       const leadIds: number[] = [
         ...new Set(
@@ -162,8 +170,11 @@ export function useProjetoChatUnread(options?: { realtime?: boolean }) {
 
       for (const nota of notas ?? []) {
         const destinatarioId = nota.destinatario_id ? String(nota.destinatario_id) : null
-        // Endereçada a mim, ou legado sem destinatário (conta no fio do participante).
-        const countsForBadge = destinatarioId == null || destinatarioId === userId
+        // Só notifica quem é titular da conversa: endereçada a mim, ou fila sem
+        // destinatário em lead onde sou titular/arquiteto (e atuo no ateliê).
+        const countsForBadge =
+          destinatarioId === userId ||
+          (destinatarioId == null && souAtelie && leadsDoMeuAtelie.has(Number(nota.lead_id)))
         if (!countsForBadge) continue
 
         const leadId = Number(nota.lead_id)

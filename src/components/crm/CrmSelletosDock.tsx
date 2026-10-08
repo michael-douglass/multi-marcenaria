@@ -1,29 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { addDays, isBefore, isFuture, isToday, parseISO } from 'date-fns'
 import { MessageNotificationsPopup } from '@/components/layout/MessageNotificationsPopup'
 import { WhatsAppNotificationIcon } from '@/components/layout/WhatsAppNotificationIcon'
-import { FloatingMarketingCalendarIcon } from '@/components/layout/FloatingMarketingCalendarIcon'
-import { FloatingMarketingCalendarPopup } from '@/components/layout/FloatingMarketingCalendarPopup'
-import { FloatingApprovalIcon } from '@/components/layout/FloatingApprovalIcon'
-import { FloatingPresenceIcon } from '@/components/layout/FloatingPresenceIcon'
-import { PresencePopup } from '@/components/layout/PresencePopup'
 import { InactivityCheckDialog } from '@/components/layout/InactivityCheckDialog'
-import { MarketingApprovalPopup } from '@/components/marketing-conteudo/MarketingApprovalPopup'
 import { useLeadNotifications } from '@/hooks/useLeadNotifications'
 import { LeadAIAnalysisBackgroundPopup } from '@/components/layout/LeadAIAnalysisBackgroundPopup'
 import { OrcamentosIaBackgroundPopup } from '@/components/layout/OrcamentosIaBackgroundPopup'
 import { FloatingLeadAIBackgroundIcon } from '@/components/layout/FloatingLeadAIBackgroundIcon'
 import { useMessageNotifications } from '@/hooks/useMessageNotifications'
-import { useMarketingTasks } from '@/hooks/useMarketingTasks'
-import { useMarketingApprovalNotifications } from '@/hooks/useMarketingApprovalNotifications'
-import { useMarketingColumns, useMarketingContentCards } from '@/hooks/useMarketingConteudo'
 import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/hooks/use-toast'
-import { isMarketingOnly, isVendedorRestricted } from '@/lib/app-roles'
+import { isMarketingOnly } from '@/lib/app-roles'
 import { usePresenceTracking } from '@/hooks/usePresenceTracking'
-import { useOnlineUsers } from '@/hooks/useOnlineUsers'
 import { useUiPreferences } from '@/hooks/useUiPreferences'
 import { floatingIconsPositionClass } from '@/lib/floating-ui-layout'
 import { FLOATING_UI_ROOT_ATTR } from '@/lib/overlay-z-index'
@@ -36,10 +24,9 @@ export function CrmSelletosDock() {
   useLeadNotifications()
   const { preferences } = useUiPreferences()
   const navigate = useNavigate()
-  const { isSuperAdmin, userRoles, hasRole } = useAuth()
+  const { isSuperAdmin, userRoles } = useAuth()
 
   const isMarketingUser = isMarketingOnly(userRoles, isSuperAdmin)
-  const isVendedor = isVendedorRestricted(userRoles, isSuperAdmin)
 
   const messageNotifications = useMessageNotifications()
   const isMessagePopupDisabled = preferences.disableMessageNotificationsPopup
@@ -54,9 +41,6 @@ export function CrmSelletosDock() {
 
   useEffect(() => {
     if (!isFloatingPopupsHidden) return
-    setIsMarketingCalendarOpen(false)
-    setIsApprovalPopupOpen(false)
-    setIsPresenceOpen(false)
     messageNotifications.closePopup()
   }, [isFloatingPopupsHidden, messageNotifications])
 
@@ -67,31 +51,7 @@ export function CrmSelletosDock() {
   })
   const [aiBackgroundExpandRequest, setAiBackgroundExpandRequest] = useState(0)
 
-  const { tasks: marketingTasks, completeTask, deleteTask } = useMarketingTasks()
-  const [isMarketingCalendarOpen, setIsMarketingCalendarOpen] = useState(false)
-
-  const isAdmin = hasRole('admin') || isSuperAdmin
-  const approvalNotifications = useMarketingApprovalNotifications()
-  const { columns: marketingColumns } = useMarketingColumns()
-  const { cards: marketingCards, updateCard: updateMarketingCard } = useMarketingContentCards()
-  const [isApprovalPopupOpen, setIsApprovalPopupOpen] = useState(false)
-  const { toast } = useToast()
-
   const presenceTracking = usePresenceTracking()
-  const { onlineUsers, count: onlineCount } = useOnlineUsers()
-  const [isPresenceOpen, setIsPresenceOpen] = useState(false)
-
-  const marketingTasksCount = useMemo(() => {
-    const today = new Date()
-    const nextWeek = addDays(today, 7)
-    return marketingTasks.filter((task) => {
-      const taskDate = parseISO(task.data_agendada)
-      return (
-        (task.status === 'pendente' || task.status === 'em_andamento') &&
-        (isToday(taskDate) || (isFuture(taskDate) && isBefore(taskDate, nextWeek)))
-      )
-    }).length
-  }, [marketingTasks])
 
   const handleLeadClick = (leadId: number) => {
     navigate(`/pipeline?id=${leadId}`)
@@ -104,34 +64,6 @@ export function CrmSelletosDock() {
   const openPopup = () => {
     if (isMessagePopupDisabled || isFloatingPopupsHidden) return
     messageNotifications.setIsOpen(true)
-  }
-
-  const handleApproveCardFromPopup = (cardId: string) => {
-    const approvedColumn = marketingColumns.find(
-      (c) =>
-        c.nome.toLowerCase().includes('aprovados') &&
-        !c.nome.toLowerCase().includes('enviados'),
-    )
-
-    if (!approvedColumn) {
-      toast({
-        title: 'Erro',
-        description: 'Coluna "Aprovados" não encontrada',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    updateMarketingCard({ id: cardId, column_id: approvedColumn.id })
-    toast({
-      title: 'Conteúdo aprovado!',
-      description: 'O conteúdo foi movido para a coluna de aprovados',
-    })
-  }
-
-  const handleViewCard = (cardId: string) => {
-    navigate(`/marketing-conteudo?card=${cardId}`)
-    setIsApprovalPopupOpen(false)
   }
 
   const showIconsBar =
@@ -160,24 +92,6 @@ export function CrmSelletosDock() {
                   onClick={openPopup}
                 />
               )}
-              {!isFloatingPopupsHidden && isAdmin && !isPresenceOpen && (
-                <FloatingPresenceIcon
-                  count={onlineCount}
-                  onClick={() => setIsPresenceOpen(true)}
-                />
-              )}
-              {!isFloatingPopupsHidden && isAdmin && !isApprovalPopupOpen && (
-                <FloatingApprovalIcon
-                  count={approvalNotifications.unreadCount}
-                  onClick={() => setIsApprovalPopupOpen(true)}
-                />
-              )}
-              {!isFloatingPopupsHidden && !isVendedor && !isMarketingCalendarOpen && (
-                <FloatingMarketingCalendarIcon
-                  count={marketingTasksCount}
-                  onClick={() => setIsMarketingCalendarOpen(true)}
-                />
-              )}
               {!isMarketingUser &&
                 aiBackgroundMinimized.minimized &&
                 aiBackgroundMinimized.count > 0 && (
@@ -192,40 +106,8 @@ export function CrmSelletosDock() {
           )
         : null}
 
-      {!isVendedor && !isFloatingPopupsHidden && (
-        <FloatingMarketingCalendarPopup
-          isOpen={isMarketingCalendarOpen}
-          onClose={() => setIsMarketingCalendarOpen(false)}
-          tasks={marketingTasks}
-          onCompleteTask={completeTask}
-          onDeleteTask={deleteTask}
-        />
-      )}
-
       {saqueAlert.enabled && saqueAlert.isPopupOpen && (
         <SaquePedidosAdminPopup alert={saqueAlert} />
-      )}
-
-      {isAdmin && !isFloatingPopupsHidden && (
-        <MarketingApprovalPopup
-          isOpen={isApprovalPopupOpen}
-          onClose={() => setIsApprovalPopupOpen(false)}
-          notifications={approvalNotifications.notifications}
-          cards={marketingCards}
-          columns={marketingColumns}
-          onMarkAsRead={approvalNotifications.markAsRead}
-          onClearAll={approvalNotifications.clearAll}
-          onViewCard={handleViewCard}
-          onApproveCard={handleApproveCardFromPopup}
-        />
-      )}
-
-      {isAdmin && !isFloatingPopupsHidden && (
-        <PresencePopup
-          isOpen={isPresenceOpen}
-          onClose={() => setIsPresenceOpen(false)}
-          onlineUsers={onlineUsers}
-        />
       )}
 
       <InactivityCheckDialog

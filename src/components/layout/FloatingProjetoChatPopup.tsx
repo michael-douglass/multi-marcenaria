@@ -16,11 +16,19 @@ import { ProjetoChatThread } from '@/components/projetos/ProjetoChatThread'
 import { ProjetoChatComposer } from '@/components/projetos/ProjetoChatComposer'
 import { ProjetosChatSheetAura } from '@/components/projetos/ProjetosChatSheetAura'
 import { Input } from '@/components/ui/input'
+import { podeVerTodasNotasDoAtelie } from '@/lib/lead-projeto-chat'
 import { floatingAgendaPanelClass, FLOATING_UI_ROOT_ATTR } from '@/lib/overlay-z-index'
 import {
   FLOATING_BELOW_TOP_EDGE_ICON,
   FLOATING_PROJETO_CHAT_ICON_RIGHT,
 } from '@/lib/floating-ui-layout'
+
+type ChatScope = 'minhas' | 'todas'
+
+const CHAT_SCOPES: ReadonlyArray<{ value: ChatScope; label: string }> = [
+  { value: 'minhas', label: 'Minhas' },
+  { value: 'todas', label: 'Todas' },
+]
 
 interface FloatingProjetoChatPopupProps {
   isOpen: boolean
@@ -58,7 +66,9 @@ export function FloatingProjetoChatPopup({
   lastReadByLead,
 }: FloatingProjetoChatPopupProps) {
   const navigate = useNavigate()
-  const { user, userRoles } = useAuth()
+  const { user, userRoles, isSuperAdmin } = useAuth()
+  const canSeeAll = podeVerTodasNotasDoAtelie(userRoles, isSuperAdmin)
+  const [scope, setScope] = useState<ChatScope>('minhas')
   const { data: boardThreads = [], isLoading: loadingBoard } = useLeadProjetoChatBoard({
     realtime: isOpen,
   })
@@ -99,9 +109,19 @@ export function FloatingProjetoChatPopup({
     }
   }
 
+  const scopedThreads = useMemo(
+    () =>
+      canSeeAll && scope === 'todas'
+        ? boardThreads
+        : boardThreads.filter(
+            (thread) => thread.participo || (unreadCountByLead[thread.lead_id] ?? 0) > 0,
+          ),
+    [boardThreads, canSeeAll, scope, unreadCountByLead],
+  )
+
   const filteredThreads = useMemo(() => {
     const q = normalizeSearch(search)
-    const list = boardThreads
+    const list = scopedThreads
       .map((thread) => ({
         thread,
         unreadCount: unreadCountByLead[thread.lead_id] ?? 0,
@@ -125,7 +145,7 @@ export function FloatingProjetoChatPopup({
         return a.thread.last.criado_em < b.thread.last.criado_em ? 1 : -1
       })
     return list
-  }, [boardThreads, search, unreadCountByLead])
+  }, [scopedThreads, search, unreadCountByLead])
 
   if (!isOpen) return null
 
@@ -279,11 +299,35 @@ export function FloatingProjetoChatPopup({
                 </button>
               ) : null}
             </label>
-            <p className="mt-1.5 px-0.5 text-[10px] tabular-nums" style={{ color: '#8a7364' }}>
-              {loadingBoard
-                ? 'Carregando histórico…'
-                : `${filteredThreads.length} de ${boardThreads.length} conversa${boardThreads.length === 1 ? '' : 's'}`}
-            </p>
+            <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
+              <p className="text-[10px] tabular-nums" style={{ color: '#8a7364' }}>
+                {loadingBoard
+                  ? 'Carregando histórico…'
+                  : `${filteredThreads.length} de ${scopedThreads.length} conversa${scopedThreads.length === 1 ? '' : 's'}`}
+              </p>
+              {canSeeAll ? (
+                <div
+                  role="group"
+                  aria-label="Quais conversas mostrar"
+                  className="inline-flex shrink-0 rounded-full border border-[rgba(14,116,144,0.28)] bg-white/80 p-0.5"
+                >
+                  {CHAT_SCOPES.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setScope(option.value)}
+                      aria-pressed={scope === option.value}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors',
+                        scope === option.value ? 'bg-sky-600 text-white' : 'text-[#0e7490] hover:bg-sky-50',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <ul
@@ -298,7 +342,9 @@ export function FloatingProjetoChatPopup({
               <li className="px-3 py-10 text-center text-sm" style={{ color: '#5c4638' }}>
                 {search.trim()
                   ? 'Nenhuma conversa combina com a busca.'
-                  : 'Ainda não há conversas no histórico.'}
+                  : scope === 'minhas'
+                    ? 'Você ainda não conversou com o ateliê.'
+                    : 'Ainda não há conversas no histórico.'}
               </li>
             ) : (
               filteredThreads.map(({ thread, unreadCount }) => (
