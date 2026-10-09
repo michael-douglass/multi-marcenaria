@@ -60,6 +60,19 @@ function somaPrecos(lista: MarkupOrcamento[]): number {
   }, 0);
 }
 
+/** Soma do material de cada markup: bruto e com fator de sobras (o que entra no custo). */
+function somaMateriais(lista: MarkupOrcamento[]): { bruto: number; comSobras: number } {
+  return lista.reduce(
+    (acc, o) => {
+      const bruto = Math.max(0, Number(o.modulos?.totais?.custo_materiais) || 0);
+      const ajustado = Number(o.modulos?.totais?.custo_materiais_ajustado);
+      const comSobras = Number.isFinite(ajustado) && ajustado > 0 ? ajustado : bruto;
+      return { bruto: acc.bruto + bruto, comSobras: acc.comSobras + comSobras };
+    },
+    { bruto: 0, comSobras: 0 },
+  );
+}
+
 export function MarkupLeadSection({
   leadId,
   leadNome,
@@ -138,6 +151,7 @@ export function MarkupLeadSection({
     () => agregarMetricasServicosOrcamentos(baseMetricas),
     [baseMetricas],
   );
+  const totalMateriais = useMemo(() => somaMateriais(baseMetricas), [baseMetricas]);
   const metricasFiltradas = useMemo(() => {
     const termo = busca.trim();
     if (!termo) return metricas.porServico;
@@ -293,7 +307,7 @@ export function MarkupLeadSection({
                     />
                   </div>
 
-                  <div className="lead-markup-totais__metricas" aria-label="Totais de mão de obra">
+                  <div className="lead-markup-totais__metricas" aria-label="Totais de mão de obra e material">
                     <div className="lead-markup-totais__metrica">
                       <div className="lead-markup-totais__kicker">Total horas</div>
                       <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica">
@@ -317,6 +331,17 @@ export function MarkupLeadSection({
                       <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica lead-markup-totais__valor--selecionado">
                         {formatarMoedaMarkup(metricas.totalValor)}
                       </div>
+                    </div>
+                    <div className="lead-markup-totais__metrica">
+                      <div className="lead-markup-totais__kicker">Total material</div>
+                      <div className="lead-markup-totais__valor lead-markup-totais__valor--metrica lead-markup-totais__valor--selecionado">
+                        {formatarMoedaMarkup(totalMateriais.comSobras)}
+                      </div>
+                      {totalMateriais.comSobras > totalMateriais.bruto && (
+                        <div className="lead-markup-totais__meta">
+                          {formatarMoedaMarkup(totalMateriais.bruto)} + sobras
+                        </div>
+                      )}
                     </div>
                     <div className="lead-markup-totais__meta lead-markup-totais__metricas-nota">
                       {qtdSelecionada > 0

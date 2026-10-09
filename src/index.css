@@ -5258,7 +5258,7 @@ html[data-project-image-picker-open] .ambiente-project-picker-overlay {
 @media (min-width: 640px) {
   .lead-markup-totais__metricas {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 .lead-markup-totais__metricas-nota {
