@@ -51,6 +51,7 @@ import {
   isVendedorRestrictedCrm,
 } from '@/lib/crm-identity'
 import { isManutencaoKanbanPage } from '@/lib/manutencao-attention'
+import { PROJETOS_ABA_PARAM, PROJETOS_PRODUCAO_URL } from '@/lib/projetos-hub'
 import type { ActiveSection, UserProfile, UserRole } from '@/types'
 
 export type NavSector = 'comercial' | 'casa'
@@ -87,6 +88,8 @@ export interface NavChildItem {
   hideIfMarketingOnly?: boolean
   hideIfProjetistaOnly?: boolean
   hideIfVendedorRestricted?: boolean
+  /** Esconde quem já tem papel comercial no CRM (atalho redundante com o menu Comercial). */
+  hideIfCrmComercial?: boolean
   children?: NavChildItem[]
   badge?: number
 }
@@ -143,11 +146,15 @@ function isNavEntryVisible(
     hideIfMarketingOnly?: boolean
     hideIfProjetistaOnly?: boolean
     hideIfVendedorRestricted?: boolean
+    hideIfCrmComercial?: boolean
     parceiroOnly?: boolean
   },
   ctx: NavVisibilityContext,
 ): boolean {
   if (entry.parceiroOnly) return Boolean(ctx.showParceiros)
+  if (entry.hideIfCrmComercial && CRM_COMERCIAL_ROLES.some(r => (ctx.crmRoles ?? []).includes(r))) {
+    return false
+  }
   if (entry.hideIfMarketingOnly && ctx.marketingOnly) return false
   if (entry.hideIfProjetistaOnly && ctx.projetistaOnly) return false
   if (entry.hideIfVendedorRestricted && ctx.vendedorRestricted) return false
@@ -313,13 +320,14 @@ const CRM_MKT_VISIVEL_ROLES: CrmRole[] = ['admin', 'vendedor', 'marketing']
 
 const OBRAS_CHILDREN: NavChildItem[] = [
   {
+    // Produção mora na aba "Produção" de /projetos; este atalho fica só para o Montador Admin sem CRM.
     id: 'projetosProducao',
     title: 'Projetos de produção',
-    url: '/projetos-producao',
+    url: PROJETOS_PRODUCAO_URL,
     icon: Ruler,
     radialColor: 'rgba(94,234,212,0.92)',
     roles: ['MontadorAdmin'],
-    crmRoles: CRM_COMERCIAL_ROLES,
+    hideIfCrmComercial: true,
   },
   {
     id: 'agendaObras',
@@ -895,6 +903,9 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
   if (pathname.startsWith('/admin/marca')) return 'marcaCrm'
   if (pathname === '/admin' || pathname.startsWith('/admin')) return 'adminUsuarios'
   if (pathname.startsWith('/projetos-producao')) return 'projetosProducao'
+  if (pathname === '/projetos' && new URLSearchParams(search).get(PROJETOS_ABA_PARAM) === 'producao') {
+    return 'projetosProducao'
+  }
   if (pathname.startsWith('/projetos')) return 'projetos'
   if (pathname.startsWith('/contratos')) return 'contratosCrm'
   if (pathname.startsWith('/orcamento-slides')) return 'orcamentoSlides'

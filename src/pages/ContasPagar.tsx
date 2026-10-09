@@ -64,6 +64,7 @@ import {
 } from '../lib/contas-pagar-valores'
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 import { CaixaPopup } from '@/components/layout/CaixaPopup'
+import { useFloatingTopOffset } from '@/hooks/useFloatingTopOffset'
 
 // ── Componente de seleção de fornecedor com busca ─────────────
 const normForn = (s: string) => s.toLowerCase().replace(/[\s.]/g, '')
@@ -341,6 +342,8 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
   const [parcelasRascunho, setParcelasRascunho] = useState<Record<string, ParcelaRascunhoValor>>({})
   const [editAnexos, setEditAnexos] = useState<PendingContaPagarAnexo[]>([])
   const [caixaOpen, setCaixaOpen] = useState(false)
+  // Botão "Caixa" (h ≈ 2.25rem) ocupa o topo do canto direito; ícones globais descem para baixo dele.
+  useFloatingTopOffset('2.75rem')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [scopePromptOpen, setScopePromptOpen] = useState(false)

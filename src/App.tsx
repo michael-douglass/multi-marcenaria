@@ -13,14 +13,13 @@ import {
   evaluateIdentityGate,
   hasCrmColaboradorAccess,
   isCrmAppPath,
-  isCrmAdmin,
   isPortalOnly,
 } from '@/lib/crm-identity'
 import { ForaDoHorario } from '@/pages/ForaDoHorario'
 import { ChatCrmPage } from '@/pages/crm/ChatCrmPage'
 import { rememberLastRoute, readLastRoute } from '@/lib/last-route'
 import { consumePontoResumeFlag, peekPontoResumeFlag } from '@/hooks/useBaterPonto'
-import { canAccessProjetosProducao } from '@/lib/projetos-producao'
+import { PROJETOS_ABA_PARAM } from '@/lib/projetos-hub'
 import { hasChegadaMateriaisAccess, hasObrasAdminSectionsAccess, hasObrasMenuAccess, hasPedidosObrasAccess } from '@/lib/obra-permissions'
 import { Dashboard } from '@/pages/Dashboard'
 import { Fornecedores } from '@/pages/Fornecedores'
@@ -87,14 +86,21 @@ const PontuaGarboApresentacaoPage = lazy(() => import('@/pages/marketing/PontuaG
 const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPublicaPage'))
 const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
 const CadastroDeAlunos = lazy(() => import('@/pages/CadastroDeAlunos'))
-const ProjetosPage = lazy(() => import('@/pages/Projetos'))
-const ProjetosProducaoPage = lazy(() => import('@/pages/ProjetosProducao'))
+const ProjetosHubPage = lazy(() => import('@/pages/projetos/ProjetosHub'))
 const ControleEventosPage = lazy(() => import('@/pages/ControleEventos'))
 const ControleEventoBoardPage = lazy(() => import('@/pages/ControleEventoBoard'))
 
 function PreserveSearchRedirect({ to }: { to: string }) {
   const location = useLocation()
   return <Navigate to={`${to}${location.search}${location.hash}`} replace />
+}
+
+/** Endereço antigo da Produção: vira a aba Oficina do hub /projetos, mantendo ?id=. */
+function ProjetosProducaoRedirect() {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  params.set(PROJETOS_ABA_PARAM, 'producao')
+  return <Navigate to={`/projetos?${params.toString()}${location.hash}`} replace />
 }
 
 function CrmLazy({ children }: { children: ReactNode }) {
@@ -382,22 +388,7 @@ function AuthenticatedRoutes() {
           />
 
           {/* Agenda de Obras */}
-          <Route
-            path="/projetos-producao"
-            element={
-              canAccessProjetosProducao(
-                crmProfile,
-                roles,
-                isCrmAdmin(crmProfile) || roles.includes('Administrador'),
-              )
-                ? (
-                  <CrmLazy>
-                    <ProjetosProducaoPage />
-                  </CrmLazy>
-                )
-                : <Restricted message="Projetos de produção: projetista, vendedor ou Montador Admin." />
-            }
-          />
+          <Route path="/projetos-producao" element={<ProjetosProducaoRedirect />} />
           <Route
             path="/agenda-obras"
             element={
@@ -522,7 +513,7 @@ function AuthenticatedRoutes() {
           <Route path="/leads/lousa" element={crmPage('/leads', <Leads />)} />
           <Route path="/leads/:id/lousa" element={crmPage('/leads', <Leads />)} />
           <Route path="/leads" element={crmPage('/leads', <Leads />)} />
-          <Route path="/projetos" element={crmPage('/projetos', <ProjetosPage />)} />
+          <Route path="/projetos" element={crmPage('/projetos', <ProjetosHubPage />)} />
           <Route path="/agenda" element={<PreserveSearchRedirect to="/agenda-comercial" />} />
           <Route path="/agenda-comercial" element={crmPage('/agenda-comercial', <AgendaComercial />)} />
           <Route path="/contratos/configuracoes" element={crmPage('/contratos', <ContratosConfigSelletosPage />)} />

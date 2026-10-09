@@ -108,6 +108,21 @@ export function getStackPeekBoxHeightPx(params: {
   return Math.min(naturalHeight, remainingInDayPx);
 }
 
+/** Horas do dia (0–23) cobertas por pelo menos uma tarefa com horário. */
+export function getOccupiedHours(events: CalendarTimeRange[]): Set<number> {
+  const occupied = new Set<number>();
+  for (const event of events) {
+    const startHour = Math.min(23, Math.max(0, event.start.getHours()));
+    const sameDay = event.end.toDateString() === event.start.toDateString();
+    const lastInstant = new Date(Math.max(event.end.getTime() - 1, event.start.getTime()));
+    const endHour = sameDay ? Math.min(23, lastInstant.getHours()) : 23;
+    for (let hour = startHour; hour <= Math.max(startHour, endHour); hour += 1) {
+      occupied.add(hour);
+    }
+  }
+  return occupied;
+}
+
 /**
  * Expande a faixa de cada hora que tem lista empilhada, para a lista
  * caber no horário certo e as outras tarefas continuarem alinhadas ao relógio.
@@ -117,8 +132,17 @@ export function buildExpandedHourHeights(params: {
   stacks: { start: Date; eventCount: number }[];
   chipHeightPx: number;
   compact?: boolean;
+  /** Horas (0–23) com alguma tarefa; as demais encolhem para `emptyHourHeightPx`. */
+  occupiedHours?: ReadonlySet<number>;
+  emptyHourHeightPx?: number;
 }): number[] {
-  const heights = Array.from({ length: 24 }, () => params.baseHourHeight);
+  const { occupiedHours, emptyHourHeightPx } = params;
+  const shouldCollapseEmpty = occupiedHours != null && emptyHourHeightPx != null;
+  const heights = Array.from({ length: 24 }, (_, hour) =>
+    shouldCollapseEmpty && !occupiedHours.has(hour)
+      ? Math.min(emptyHourHeightPx, params.baseHourHeight)
+      : params.baseHourHeight,
+  );
   for (const stack of params.stacks) {
     const hour = Math.min(23, Math.max(0, stack.start.getHours()));
     const frac = Math.min(0.95, Math.max(0, stack.start.getMinutes() / 60));
@@ -127,11 +151,33 @@ export function buildExpandedHourHeights(params: {
       params.chipHeightPx,
       params.compact,
     );
-    /** Garante espaço da hora de início até o fim da faixa expandida. */
-    const needed = boxH / Math.max(1 - frac, 0.2);
+    /**
+     * Trecho antes do início da lista mantém a escala normal (ver
+     * `getStackTopPxForDate`); só o espaço da lista é acrescentado.
+     */
+    const needed = frac * params.baseHourHeight + boxH;
     heights[hour] = Math.max(heights[hour], needed);
   }
   return heights;
+}
+
+/**
+ * Topo da lista empilhada: os minutos antes do início usam a altura normal da
+ * hora, e não a altura expandida — evita um vão vazio acima da lista.
+ */
+export function getStackTopPxForDate(
+  date: Date,
+  hourHeights: number[],
+  baseHourHeight: number,
+): number {
+  const hour = Math.min(23, Math.max(0, date.getHours()));
+  const frac = Math.min(0.95, Math.max(0, date.getMinutes() / 60));
+  let top = 0;
+  for (let i = 0; i < hour; i += 1) {
+    top += hourHeights[i] ?? 0;
+  }
+  const hourHeight = hourHeights[hour] ?? baseHourHeight;
+  return top + frac * Math.min(hourHeight, baseHourHeight);
 }
 
 /** Topo (px) de um instante na grade com alturas de hora variáveis. */

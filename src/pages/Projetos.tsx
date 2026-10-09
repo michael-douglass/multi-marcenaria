@@ -46,6 +46,7 @@ import {
   type LeadProjeto,
 } from '@/hooks/useLeadProjetos'
 import { useLeadLembretesCountMap } from '@/hooks/useLeadLembretes'
+import { useObraProducaoMutations, useProducaoLeadIds } from '@/hooks/useObraProducao'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   canPegarProjeto,
@@ -67,7 +68,7 @@ function resolveDropStageId(
   return projetos.find((projeto) => projeto.id === id)?.stage_id ?? null
 }
 
-type ConfirmKind = 'soltar' | 'reabrir' | 'solicitar' | 'puxar' | 'concluir'
+type ConfirmKind = 'soltar' | 'reabrir' | 'solicitar' | 'puxar' | 'concluir' | 'producao'
 
 const CONFIRM_COPY: Record<ConfirmKind, { title: string; body: string }> = {
   soltar: {
@@ -89,6 +90,10 @@ const CONFIRM_COPY: Record<ConfirmKind, { title: string; body: string }> = {
   concluir: {
     title: 'Concluir o projeto?',
     body: 'O card vai para a última coluna (feitos).',
+  },
+  producao: {
+    title: 'Enviar para produção?',
+    body: 'O projeto entra na aba Produção, na coluna “Projetos de produção pendentes”. O card continua aqui no ateliê.',
   },
 }
 
@@ -183,6 +188,9 @@ export default function Projetos() {
   const canPegar = canPegarProjeto(userRoles, isSuperAdmin)
   const canSoltar = canSoltarOuReabrir(userRoles, isSuperAdmin)
   const canSolicitar = canSolicitarNovamente(userRoles, isSuperAdmin)
+  const canEnviarProducao = canConfig
+  const { data: producaoLeadIds } = useProducaoLeadIds({ enabled: canEnviarProducao })
+  const { puxarLead: enviarProducao } = useObraProducaoMutations()
 
   const columns = useMemo(
     () =>
@@ -385,6 +393,14 @@ export default function Projetos() {
                         canSoltar={canSoltar}
                         canReabrir={canSoltar}
                         canSolicitar={canSolicitar}
+                        canEnviarProducao={canEnviarProducao}
+                        naProducao={producaoLeadIds?.has(projeto.lead_id) ?? false}
+                        isEnviandoProducao={
+                          enviarProducao.isPending && enviarProducao.variables === projeto.lead_id
+                        }
+                        onEnviarProducao={(item) =>
+                          askConfirm('producao', () => enviarProducao.mutate(item.lead_id))
+                        }
                         chatThread={chatByLead.get(projeto.lead_id) ?? null}
                         lembretesCount={lembretesCountMap.get(projeto.lead_id) ?? 0}
                         onOpen={openLead}

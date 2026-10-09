@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Hourglass, Lamp, RotateCcw, Send, User } from 'lucide-react'
+import { Check, Factory, GripVertical, Hourglass, Lamp, RotateCcw, Send, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LeadLembretesPopover } from '@/components/agenda/LeadLembretesPopover'
 import { Bell } from 'lucide-react'
@@ -24,6 +24,10 @@ interface ProjetoKanbanCardProps {
   canSoltar?: boolean
   canReabrir?: boolean
   canSolicitar?: boolean
+  /** Projetista admin: botão "Enviar para produção" nos cards feitos. */
+  canEnviarProducao?: boolean
+  naProducao?: boolean
+  isEnviandoProducao?: boolean
   chatThread?: LeadProjetoChatThread | null
   lembretesCount?: number
   onOpen: (leadId: number) => void
@@ -31,6 +35,7 @@ interface ProjetoKanbanCardProps {
   onSoltar?: (projetoId: string) => void
   onReabrir?: (projetoId: string) => void
   onSolicitar?: (projeto: LeadProjeto) => void
+  onEnviarProducao?: (projeto: LeadProjeto) => void
 }
 
 export function ProjetoKanbanCard({
@@ -42,6 +47,9 @@ export function ProjetoKanbanCard({
   canSoltar,
   canReabrir,
   canSolicitar,
+  canEnviarProducao,
+  naProducao,
+  isEnviandoProducao,
   chatThread,
   lembretesCount = 0,
   onOpen,
@@ -49,6 +57,7 @@ export function ProjetoKanbanCard({
   onSoltar,
   onReabrir,
   onSolicitar,
+  onEnviarProducao,
 }: ProjetoKanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: projeto.id,
@@ -210,6 +219,28 @@ export function ProjetoKanbanCard({
                 <Send className="h-3 w-3" />
                 Solicitar novamente
               </Button>
+            ) : null}
+            {canEnviarProducao && kind === 'feito' ? (
+              naProducao ? (
+                <span
+                  className="inline-flex h-7 items-center gap-1 rounded-md border border-[#2d8c78]/30 bg-[#2d8c78]/10 px-2 text-[10px] font-semibold text-[#1f5f52]"
+                  role="status"
+                >
+                  <Check className="h-3 w-3" />
+                  Na produção
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 gap-1 bg-[#2d8c78] px-2 text-[10px] text-white hover:bg-[#247a68]"
+                  disabled={isEnviandoProducao}
+                  onClick={() => onEnviarProducao?.(projeto)}
+                >
+                  <Factory className="h-3 w-3" />
+                  Enviar para produção
+                </Button>
+              )
             ) : null}
           </div>
         </div>

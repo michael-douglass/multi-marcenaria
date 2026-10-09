@@ -11,16 +11,24 @@ export const FLOATING_ICONS_TOP = 'top-[4rem]';
  * Fica abaixo dos botões de sheet no canto (ex.: Recolher / Fechar da
  * Calculadora de Markup em top-4 + pt-6), com respiro da safe-area.
  * ~5rem limpa a primeira linha de ações sem empurrar demais o conteúdo.
+ * `--floating-top-offset` (via `useFloatingTopOffset`) empurra a faixa para baixo
+ * em páginas com botão fixo próprio no mesmo canto (ex.: "Caixa" em Contas a Pagar).
  */
+export const FLOATING_TOP_OFFSET_VAR = '--floating-top-offset';
+
 export const FLOATING_TOP_EDGE =
-  'top-[max(5rem,calc(env(safe-area-inset-top)+4.25rem))] sm:top-20';
+  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+var(--floating-top-offset,0px))] sm:top-[calc(5rem+var(--floating-top-offset,0px))]';
 
 /**
  * Popup do chat: logo abaixo do ícone (h-14 ≈ 3.5rem + 0.75rem de folga).
  * Espelha FLOATING_TOP_EDGE para o painel acompanhar o ícone.
  */
 export const FLOATING_BELOW_TOP_EDGE_ICON =
-  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+4.25rem)] sm:top-[calc(5rem+4.25rem)]';
+  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+4.25rem+var(--floating-top-offset,0px))] sm:top-[calc(9.25rem+var(--floating-top-offset,0px))]';
+
+/** Botão de minimizar/mostrar ícones: logo abaixo da Agenda (h-14 + 0.25rem). */
+export const FLOATING_ICONS_TOGGLE_TOP =
+  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+3.75rem+var(--floating-top-offset,0px))] sm:top-[calc(8.75rem+var(--floating-top-offset,0px))]';
 
 /** Ícone da Agenda no canto superior direito. */
 export const FLOATING_AGENDA_ICON_RIGHT =
@@ -36,7 +44,8 @@ export const FLOATING_PROJETO_CHAT_ICON_RIGHT =
  * Orçamentos IA (miniatura): mesma coluna da Agenda, logo abaixo do ícone (h-14 + folga).
  * Antes usava top-4rem/right-4 e cobria o calendário.
  */
-export const FLOATING_ORCAMENTOS_IA_ICON_TOP = FLOATING_BELOW_TOP_EDGE_ICON;
+export const FLOATING_ORCAMENTOS_IA_ICON_TOP =
+  'top-[calc(max(5rem,calc(env(safe-area-inset-top)+4.25rem))+6rem+var(--floating-top-offset,0px))] sm:top-[calc(11rem+var(--floating-top-offset,0px))]';
 
 /** Mesma âncora horizontal da Agenda (coluna direita). */
 export const FLOATING_ORCAMENTOS_IA_ICON_RIGHT = FLOATING_AGENDA_ICON_RIGHT;

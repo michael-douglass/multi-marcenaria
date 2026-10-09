@@ -1,7 +1,7 @@
 # Projetos de produção
 
-**Rota:** `/projetos-producao`  
-**Página:** `src/pages/ProjetosProducao.tsx`
+**Rota:** aba "Produção" de `/projetos` (`/projetos?aba=producao`). O endereço antigo `/projetos-producao` redireciona para lá.  
+**Página:** `src/pages/ProjetosProducao.tsx`, montada pelo hub `src/pages/projetos/ProjetosHub.tsx`
 
 ## Em linguagem simples
 

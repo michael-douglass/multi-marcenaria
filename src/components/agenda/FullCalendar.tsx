@@ -43,11 +43,13 @@ import {
   EVENT_MAX_SIDE_BY_SIDE_COLUMNS,
   EVENT_STACK_PEEK_CHIP_HEIGHT_PX,
   buildExpandedHourHeights,
+  getOccupiedHours,
   clampTopWithinDay,
   getDayGridHeightPx,
   getDayHeightFromHourHeights,
   getEventColumnStyle,
   getTopPxForDate,
+  getStackTopPxForDate,
   layoutTimedClusters,
   partitionTimedUntimedEvents,
   type TimedClusterLayout,
@@ -73,6 +75,9 @@ const CLUSTER_EVENT_TYPE_LABELS: Record<AgendaEvent['type'], string> = {
   pessoal: 'Pessoal',
   conteudo: 'Marketing',
 };
+
+/** Na visão de dia compacta, horas sem tarefa ocupam esta fração da altura normal. */
+const EMPTY_HOUR_HEIGHT_RATIO = 0.25;
 
 function getClusterEventSubtitle(event: AgendaEvent): string | undefined {
   switch (event.type) {
@@ -433,7 +438,7 @@ export function FullCalendar({
   );
 
   const resolveExpandedHourHeights = useCallback(
-    (dayEvents: AgendaEvent[], baseHourHeight: number) => {
+    (dayEvents: AgendaEvent[], baseHourHeight: number, collapseEmptyHours = false) => {
       if (!compact) {
         return Array.from({ length: 24 }, () => baseHourHeight);
       }
@@ -442,6 +447,10 @@ export function FullCalendar({
       const peekChipPx =
         EVENT_STACK_PEEK_CHIP_HEIGHT_PX * Math.min(zoomScale, 1.15);
       return buildExpandedHourHeights({
+        ...(collapseEmptyHours && {
+          occupiedHours: getOccupiedHours(timed),
+          emptyHourHeightPx: Math.max(18, Math.round(baseHourHeight * EMPTY_HOUR_HEIGHT_RATIO)),
+        }),
         baseHourHeight,
         stacks: clusters
           .filter((cluster) => cluster.useStack)
@@ -1034,7 +1043,7 @@ export function FullCalendar({
     for (const cluster of clusters) {
       if (cluster.useStack) {
         const layoutTopPx = resolvedHeights
-          ? getTopPxForDate(cluster.start, resolvedHeights)
+          ? getStackTopPxForDate(cluster.start, resolvedHeights, hourHeight)
           : undefined;
         overlayNodes.push(
           renderStackedCluster(cluster, hourHeight, minHeight, layoutTopPx),
@@ -1367,7 +1376,7 @@ export function FullCalendar({
     const dayEvents = events.filter((e) => isSameDay(e.start, currentPivot));
     const { untimed } = partitionTimedUntimedEvents(dayEvents);
     const hasUntimedStrip = untimed.length > 0;
-    const hourHeights = resolveExpandedHourHeights(dayEvents, layout.hourHeightDay);
+    const hourHeights = resolveExpandedHourHeights(dayEvents, layout.hourHeightDay, true);
     const dayGridHeightPx = getDayHeightFromHourHeights(hourHeights);
     hourHeightsByDayRef.current.set(currentPivot.toISOString(), hourHeights);
 

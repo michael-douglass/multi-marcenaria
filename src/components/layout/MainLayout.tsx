@@ -8,6 +8,8 @@ import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
 import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
 import { FloatingProjetoChatShell } from '@/components/layout/FloatingProjetoChatShell'
+import { FloatingIconsToggle } from '@/components/layout/FloatingIconsToggle'
+import { useFloatingIconsCollapsed } from '@/hooks/useFloatingIconsCollapsed'
 import { ContasPagarNotifProvider } from '@/components/layout/ContasPagarNotifications'
 import { useApp } from '@/context/AppContext'
 import { isVisualizadorOnly, isAdministrador } from '@/lib/role-access'
@@ -100,6 +102,8 @@ export function MainLayout() {
   const [isAgendaGeralOpen, setIsAgendaGeralOpen] = useState(false)
   const { roles, userProfile, crmProfile } = useApp()
   const { preferences, updatePreferences } = useUiPreferences()
+  const { isCollapsed: areFloatingIconsCollapsed, toggleCollapsed: toggleFloatingIcons } =
+    useFloatingIconsCollapsed()
   const location = useLocation()
   const navigate = useNavigate()
   const showAgendaGeral = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
@@ -133,6 +137,8 @@ export function MainLayout() {
     (location.pathname.startsWith('/pipeline/') &&
       !location.pathname.startsWith('/pipeline/configuracoes'))
   const boardOnPage = isPipelineBoard || isProjetosAtelie
+  const hasTopFloatingIcons = !hideFabsOnPonto && (showAgendaGeral || showSaldoMesInsight)
+  const showTopFloatingIcons = hasTopFloatingIcons && !areFloatingIconsCollapsed
 
   return (
     <ContasPagarNotifProvider>
@@ -172,7 +178,17 @@ export function MainLayout() {
         </div>
       </SidebarInset>
 
-      {showAgendaGeral && !hideFabsOnPonto ? (
+      {hasTopFloatingIcons ? (
+        <FloatingIconsToggle
+          isCollapsed={areFloatingIconsCollapsed}
+          onToggle={() => {
+            setIsAgendaGeralOpen(false)
+            toggleFloatingIcons()
+          }}
+        />
+      ) : null}
+
+      {showAgendaGeral && showTopFloatingIcons ? (
         <FloatingAgendaGeralShell
           isOpen={isAgendaGeralOpen}
           onToggle={() => setIsAgendaGeralOpen(open => !open)}
@@ -184,7 +200,7 @@ export function MainLayout() {
         />
       ) : null}
 
-      {showAgendaGeral && !hideFabsOnPonto ? (
+      {showAgendaGeral && showTopFloatingIcons ? (
         <AppErrorBoundary>
           <FloatingProjetoChatShell />
         </AppErrorBoundary>
@@ -196,7 +212,7 @@ export function MainLayout() {
         </AppErrorBoundary>
       )}
 
-      {showSaldoMesInsight && !hideFabsOnPonto ? (
+      {showSaldoMesInsight && showTopFloatingIcons ? (
         <AppErrorBoundary>
           <SaldoMesInsightHost />
         </AppErrorBoundary>

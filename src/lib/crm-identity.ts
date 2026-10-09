@@ -296,8 +296,8 @@ export function canAccessCrmPath(
 
   if (isPortalOnly(movelaria, crm)) return false
 
-  // Montador Admin acessa produção mesmo sem papel CRM
-  if (pathname.startsWith('/projetos-producao')) {
+  // Montador Admin acessa produção mesmo sem papel CRM (no hub /projetos vê só a aba Produção)
+  if (pathname.startsWith('/projetos-producao') || pathname === '/projetos') {
     if (movelaria?.perfil === 'montador_admin') return true
   }
 

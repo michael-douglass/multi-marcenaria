@@ -176,6 +176,22 @@ export function useProducaoStages() {
   })
 }
 
+/** IDs dos leads que já têm card na Produção (para o ateliê marcar "Na produção"). */
+export function useProducaoLeadIds(options?: { enabled?: boolean }) {
+  const db = useEmpresaSupabase()
+  const { schemaEmpresa, queriesReady } = useEmpresa()
+
+  return useQuery({
+    queryKey: ['obra-producao', schemaEmpresa, 'lead-ids'],
+    enabled: queriesReady && (options?.enabled ?? true),
+    queryFn: async (): Promise<Set<number>> => {
+      const { data, error } = await db.from('obra_producao').select('lead_id')
+      if (error) throw error
+      return new Set((data ?? []).map((row: { lead_id: number }) => Number(row.lead_id)))
+    },
+  })
+}
+
 export function useProducaoStagesAdmin() {
   const db = useEmpresaSupabase()
   const queryClient = useQueryClient()
@@ -188,7 +204,17 @@ export function useProducaoStagesAdmin() {
 
   const createStage = useMutation({
     mutationFn: async (input: { nome: string; cor: string | null }) => {
-      const ordem = stages.length > 0 ? Math.max(...stages.map((s) => s.ordem)) + 1 : 0
+      const ordered = [...stages].sort((a, b) => a.ordem - b.ordem)
+      const last = ordered.length >= 2 ? ordered[ordered.length - 1] : null
+      // A última coluna é sempre "Concluídos": a nova entra antes dela e Concluídos desce uma posição.
+      const ordem = last ? last.ordem : ordered.length > 0 ? ordered[ordered.length - 1].ordem + 1 : 0
+      if (last) {
+        const { error: bumpError } = await db
+          .from('producao_stages')
+          .update({ ordem: last.ordem + 1, atualizado_em: new Date().toISOString() })
+          .eq('id', last.id)
+        if (bumpError) throw bumpError
+      }
       const { error } = await db.from('producao_stages').insert({
         nome: input.nome.trim(),
         cor: input.cor ?? STAGE_COLORS[ordem % STAGE_COLORS.length],
