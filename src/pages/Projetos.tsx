@@ -57,6 +57,7 @@ import {
   shouldPulseFeitoAwaitingOrcamento,
 } from '@/lib/projetos-atelie'
 import { isProjetistaAdminRole, isProjetistaOnly } from '@/lib/app-roles'
+import { normalizeSearchText } from '@/lib/lead-search'
 
 function resolveDropStageId(
   overId: string | number,
@@ -112,6 +113,7 @@ export default function Projetos() {
   const [colunasOpen, setColunasOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; run: () => void } | null>(null)
+  const [filtroQuadro, setFiltroQuadro] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const selectedLeadId = searchParams.get('id') ? Number(searchParams.get('id')) : null
   // Mouse = arrastar no computador. Toque = precisa segurar um pouco para não brigar com o scroll.
@@ -192,11 +194,21 @@ export default function Projetos() {
   const { data: producaoLeadIds } = useProducaoLeadIds({ enabled: canEnviarProducao })
   const { puxarLead: enviarProducao } = useObraProducaoMutations()
 
+  const projetosVisiveis = useMemo(() => {
+    const termo = normalizeSearchText(filtroQuadro)
+    if (!termo) return projetos
+    return projetos.filter((projeto) =>
+      normalizeSearchText(
+        `${projeto.lead_nome} ${projeto.lead_empresa ?? ''} ${projeto.titular_nome ?? ''}`,
+      ).includes(termo),
+    )
+  }, [filtroQuadro, projetos])
+
   const columns = useMemo(
     () =>
       stages.map((stage) => {
         const kind = classifyProjetoStage(stage, stages)
-        const items = projetos.filter((projeto) => projeto.stage_id === stage.id)
+        const items = projetosVisiveis.filter((projeto) => projeto.stage_id === stage.id)
         if (kind !== 'feito') {
           return { stage, items }
         }
@@ -209,7 +221,7 @@ export default function Projetos() {
         })
         return { stage, items: sorted }
       }),
-    [projetos, stages],
+    [projetosVisiveis, stages],
   )
 
   const counts = useMemo(() => {
@@ -308,6 +320,7 @@ export default function Projetos() {
             projetos={projetos}
             onOpenLead={openLead}
             onPuxarLead={(leadId) => askConfirm('puxar', () => puxarParaProjeto.mutate(leadId))}
+            onFiltroQuadroChange={setFiltroQuadro}
           />
         </div>
 

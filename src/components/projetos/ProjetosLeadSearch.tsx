@@ -12,9 +12,16 @@ interface ProjetosLeadSearchProps {
   projetos: LeadProjeto[]
   onOpenLead: (leadId: number) => void
   onPuxarLead: (leadId: number) => void
+  /** Texto que filtra os cards do quadro na hora (vazio quando o escopo é "Todos os leads"). */
+  onFiltroQuadroChange: (query: string) => void
 }
 
-export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: ProjetosLeadSearchProps) {
+export function ProjetosLeadSearch({
+  projetos,
+  onOpenLead,
+  onPuxarLead,
+  onFiltroQuadroChange,
+}: ProjetosLeadSearchProps) {
   const [escopo, setEscopo] = useState<Escopo>('quadro')
   const [value, setValue] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -34,30 +41,27 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
     setCoords({ top: box.bottom + 4, left: box.left, width: box.width })
   }, [value, escopo, debounced])
 
-  const quadroResults = useMemo(() => {
-    const q = debounced.trim().toLowerCase()
-    if (escopo !== 'quadro' || q.length < 1) return []
-    return projetos.filter((p) =>
-      `${p.lead_nome} ${p.lead_empresa ?? ''} ${p.titular_nome ?? ''}`.toLowerCase().includes(q),
-    )
-  }, [debounced, escopo, projetos])
+  const changeValue = (next: string) => {
+    setValue(next)
+    if (escopo === 'quadro') onFiltroQuadroChange(next)
+  }
+
+  const changeEscopo = (next: Escopo) => {
+    setEscopo(next)
+    onFiltroQuadroChange(next === 'quadro' ? value : '')
+  }
 
   const remoteEnabled = escopo === 'todos' && debounced.trim().length >= MIN_CARACTERES_BUSCA_PROJETOS
   const { data: remote = [], isFetching } = useProjetosBuscaLeads(remoteEnabled ? debounced : '')
 
-  const results =
-    escopo === 'quadro'
-      ? quadroResults.map((p) => ({ id: p.lead_id, nome: p.lead_nome, extra: p.titular_nome, onBoard: true }))
-      : remote.map((lead) => ({
-          id: lead.id,
-          nome: lead.nome,
-          extra: lead.empresa,
-          onBoard: boardIds.has(lead.id),
-        }))
+  const results = remote.map((lead) => ({
+    id: lead.id,
+    nome: lead.nome,
+    extra: lead.empresa,
+    onBoard: boardIds.has(lead.id),
+  }))
 
-  const showPanel =
-    value.trim().length > 0 &&
-    (results.length > 0 || (escopo === 'todos' && debounced.trim().length >= MIN_CARACTERES_BUSCA_PROJETOS))
+  const showPanel = remoteEnabled && value.trim().length > 0
 
   return (
     <div ref={wrapRef} className="relative max-w-md">
@@ -68,7 +72,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
             'rounded-full px-2 py-0.5',
             escopo === 'quadro' ? 'bg-[#8d5e22]/15 text-[#8d5e22]' : 'text-[#6b5244]',
           )}
-          onClick={() => setEscopo('quadro')}
+          onClick={() => changeEscopo('quadro')}
         >
           Neste quadro
         </button>
@@ -78,7 +82,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
             'rounded-full px-2 py-0.5',
             escopo === 'todos' ? 'bg-sky-700/10 text-sky-800' : 'text-[#6b5244]',
           )}
-          onClick={() => setEscopo('todos')}
+          onClick={() => changeEscopo('todos')}
         >
           Todos os leads
         </button>
@@ -87,7 +91,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a7060]" />
         <Input
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => changeValue(event.target.value)}
           placeholder={escopo === 'quadro' ? 'Buscar neste quadro' : 'Buscar todos os leads'}
           className="h-9 border-[rgba(42,24,18,0.16)] bg-[#fffcf8] pl-9 text-sm text-[#2a1812] shadow-[0_8px_18px_rgba(42,24,18,0.06)] placeholder:text-[#8a7060]"
         />
@@ -112,7 +116,7 @@ export function ProjetosLeadSearch({ projetos, onOpenLead, onPuxarLead }: Projet
                     onClick={() => {
                       if (item.onBoard) onOpenLead(item.id)
                       else onPuxarLead(item.id)
-                      setValue('')
+                      changeValue('')
                     }}
                   >
                     <span className="truncate text-sm text-[#2a1812]">{item.nome}</span>
