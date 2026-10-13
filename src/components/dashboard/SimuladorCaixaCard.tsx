@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  Search,
   Trash2,
   Wallet,
 } from 'lucide-react'
@@ -213,6 +214,8 @@ export function SimuladorCaixaCard({
   } | null>(null)
   const [ajusteTitulo, setAjusteTitulo] = useState('')
   const [ajusteValorDraft, setAjusteValorDraft] = useState('')
+  /** Busca na lista de contas reais do painel − (ocultar). */
+  const [buscaPainel, setBuscaPainel] = useState('')
   /** true enquanto o histórico mudou e ainda não gravamos (debounce). */
   const [isDirty, setIsDirty] = useState(false)
   const [isDirtyB, setIsDirtyB] = useState(false)
@@ -282,6 +285,18 @@ export function SimuladorCaixaCard({
     )
   }, [painelMes, itensDoAnoPainel, ocultosDoPainel])
 
+  /** Lista filtrada pelo campo de busca (nome / título). */
+  const itensPainelFiltrados = useMemo(() => {
+    const termo = buscaPainel.trim().toLowerCase()
+    if (!termo) return itensPainelRemover
+    return itensPainelRemover.filter(i => {
+      const titulo = i.titulo.toLowerCase()
+      const valor = String(i.valor)
+      const venc = i.vencimento
+      return titulo.includes(termo) || valor.includes(termo) || venc.includes(termo)
+    })
+  }, [itensPainelRemover, buscaPainel])
+
   const previsaoRecebimento = useMemo(() => {
     const naJanela = janela.some(j => j.mes === proximo.label && j.ano === proximo.ano)
     if (!naJanela) return roundMoney(previsaoRecebimentoOriginal)
@@ -326,6 +341,7 @@ export function SimuladorCaixaCard({
     setAjustesB([])
     setAjusteTitulo('')
     setAjusteValorDraft('')
+    setBuscaPainel('')
     setPainelMes(null)
     setHistoricosAbertos({})
     setIsDirty(false)
@@ -527,12 +543,14 @@ export function SimuladorCaixaCard({
     setPainelMes({ mes, ano: anoMes, campo, tipo })
     setAjusteTitulo('')
     setAjusteValorDraft('')
+    setBuscaPainel('')
   }
 
   const fecharPainelMes = () => {
     setPainelMes(null)
     setAjusteTitulo('')
     setAjusteValorDraft('')
+    setBuscaPainel('')
   }
 
   const confirmarAjusteMes = () => {
@@ -623,24 +641,58 @@ export function SimuladorCaixaCard({
         const todosAjustes = temDoisAnos ? [...ajustes, ...ajustesB] : ajustes
         const ocultadosCount = todosAjustes.filter(isAjusteOcultarConta).length
         const ajustesManuaisCount = todosAjustes.filter(a => !isAjusteOcultarConta(a)).length
+        const janelaLabel = `${janela[0]?.mes}/${janela[0]?.ano} → ${janela[5]?.mes}/${janela[5]?.ano}`
+
         await exportarSimuladorCaixa(
           {
             empresaNome,
             ano: anoJanelaInicio,
+            janelaLabel,
             previsao: {
               label: `${proximo.nome} ${proximo.ano}`,
               receber: previsaoRecebimento,
               pagar: previsaoDespesas,
               saldo: saldoPrevisao,
             },
-            meses: linhasVisiveis.map(m => ({
-              mes: `${m.mes}/${m.ano}`,
-              mesNome: m.nome,
-              receitas: m.receitas,
-              despesas: m.despesas,
-              saldo: m.saldo,
-              historicoCount: ajustesDoAno(m.ano).filter(a => a.mes === m.mes).length,
-            })),
+            meses: linhasVisiveis.map(m => {
+              const histMes = ajustesDoAno(m.ano).filter(a => a.mes === m.mes)
+              return {
+                mes: m.mes,
+                mesNome: m.nome,
+                ano: m.ano,
+                receitas: m.receitas,
+                despesas: m.despesas,
+                saldo: m.saldo,
+                historico: histMes.map(a => {
+                  const isOculto = isAjusteOcultarConta(a)
+                  const campo = rotuloCampoAjuste(a.campo)
+                  const quando = new Date(a.criadoEm).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                  const acao = isOculto
+                    ? ('ocultar' as const)
+                    : a.tipo === 'adicionar'
+                      ? ('adicionar' as const)
+                      : ('remover' as const)
+                  const acaoTxt = isOculto
+                    ? 'Ocultado'
+                    : a.tipo === 'adicionar'
+                      ? 'Adicionado'
+                      : 'Removido'
+                  return {
+                    titulo: a.titulo,
+                    detalhe: `${campo} · ${acaoTxt} · ${quando}`,
+                    acao,
+                    valor: a.valor,
+                    campoLabel: campo,
+                  }
+                }),
+              }
+            }),
             caixaFinal,
             ocultadosCount,
             ajustesManuaisCount,
@@ -1003,13 +1055,38 @@ export function SimuladorCaixaCard({
                           <p className="text-[9px] uppercase tracking-[0.1em] text-[#edd9c4]/55">
                             Contas reais deste mês (só na simulação)
                           </p>
+                          {itensPainelRemover.length > 0 && (
+                            <label className="relative block">
+                              <span className="sr-only">Buscar conta</span>
+                              <Search
+                                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#edd9c4]/45"
+                                aria-hidden
+                              />
+                              <input
+                                type="search"
+                                value={buscaPainel}
+                                onChange={e => setBuscaPainel(e.target.value)}
+                                placeholder="Buscar por nome, valor ou data…"
+                                autoComplete="off"
+                                className={cn(
+                                  'w-full rounded border border-[rgba(240,210,140,0.18)] bg-[rgba(42,24,18,0.05)]',
+                                  'py-1.5 pl-7 pr-2 text-xs text-[#fffaf4] outline-none',
+                                  'placeholder:text-[#edd9c4]/35 focus:border-[rgba(242,216,146,0.55)]',
+                                )}
+                              />
+                            </label>
+                          )}
                           {itensPainelRemover.length === 0 ? (
                             <p className="rounded border border-[rgba(240,210,140,0.12)] px-2 py-2 text-[10px] text-[#edd9c4]/50">
                               Nenhuma parcela em aberto neste mês — ou todas já foram ocultadas.
                             </p>
+                          ) : itensPainelFiltrados.length === 0 ? (
+                            <p className="rounded border border-[rgba(240,210,140,0.12)] px-2 py-2 text-[10px] text-[#edd9c4]/50">
+                              Nenhuma conta encontrada para “{buscaPainel.trim()}”.
+                            </p>
                           ) : (
                             <ul className="max-h-40 space-y-1 overflow-y-auto overscroll-contain pr-0.5">
-                              {itensPainelRemover.map(item => (
+                              {itensPainelFiltrados.map(item => (
                                 <li
                                   key={item.id}
                                   className="flex items-center gap-2 rounded border border-[rgba(240,210,140,0.14)] bg-[rgba(42,24,18,0.04)] px-2 py-1.5"
