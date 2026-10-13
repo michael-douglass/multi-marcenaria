@@ -4,7 +4,11 @@ import {
   ArrowUpRight,
   CalendarClock,
   ChevronDown,
+  EyeOff,
+  FileDown,
   History,
+  ImageDown,
+  Loader2,
   Minus,
   Plus,
   RotateCcw,
@@ -13,9 +17,20 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MONTHS_PT } from '@/lib/date-br'
+import {
+  useSimuladorCaixaItens,
+  useSimuladorCaixaMensal,
+} from '@/hooks/useFinanceiroDashboard'
 import { useSimuladorCaixaShared } from '@/hooks/useSimuladorCaixaShared'
 import {
+  exportarSimuladorCaixa,
+  type SimuladorCaixaExportFormat,
+} from '@/lib/simulador-caixa-export'
+import {
   aplicarAjustesNosMeses,
+  aplicarOcultosNaBase,
+  idsContasOcultas,
+  isAjusteOcultarConta,
   rotuloCampoAjuste,
   somarAjustes,
   type SimuladorAjuste,
@@ -40,6 +55,8 @@ interface SimuladorCaixaCardProps {
   dataOriginal: MesComparativoSimulador[]
   previsaoRecebimentoOriginal: number
   previsaoDespesasOriginal: number
+  /** Nome da empresa no cabeçalho do PDF/JPG. */
+  empresaNome?: string | null
 }
 
 const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -55,6 +72,35 @@ function infoProximoMes(): { nome: string; label: string; ano: number } {
   }
 }
 
+interface MesJanela {
+  /** Rótulo curto (Out, Jan…). */
+  mes: string
+  ano: number
+  nome: string
+}
+
+/**
+ * Sempre os próximos 6 meses a partir do mês atual (inclusive), cruzando o ano.
+ * Ex.: Out/2026 → Out, Nov, Dez, Jan, Fev, Mar (2026→2027).
+ */
+function buildJanelaProximos6(): MesJanela[] {
+  const agora = new Date()
+  const out: MesJanela[] = []
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(agora.getFullYear(), agora.getMonth() + i, 1)
+    out.push({
+      mes: MESES_CURTOS[d.getMonth()],
+      ano: d.getFullYear(),
+      nome: MONTHS_PT[d.getMonth()],
+    })
+  }
+  return out
+}
+
+function mesKey(ano: number, mes: string): string {
+  return `${ano}:${mes}`
+}
+
 function buildMesesBase(data: MesComparativoSimulador[]): SimuladorMes[] {
   return MESES_CURTOS.map(label => {
     const found = data.find(m => m.mes === label)
@@ -64,10 +110,6 @@ function buildMesesBase(data: MesComparativoSimulador[]): SimuladorMes[] {
       despesas: roundMoney(found?.despesas ?? 0),
     }
   })
-}
-
-function mesesComPrevisaoSet(data: MesComparativoSimulador[]): Set<string> {
-  return new Set(data.filter(m => m.temPrevisao).map(m => m.mes))
 }
 
 function roundMoney(n: number): number {
@@ -110,7 +152,15 @@ export function SimuladorCaixaCard({
   dataOriginal,
   previsaoRecebimentoOriginal,
   previsaoDespesasOriginal,
+  empresaNome,
 }: SimuladorCaixaCardProps) {
+  /** Janela fixa: sempre os próximos 6 meses (ex.: Out→Mar), cruzando o ano. */
+  const janela = useMemo(() => buildJanelaProximos6(), [])
+  const anoJanelaInicio = janela[0]?.ano ?? ano
+  const anoJanelaFim = janela[janela.length - 1]?.ano ?? ano
+  const temDoisAnos = anoJanelaFim !== anoJanelaInicio
+
+  /** Histórico do 1º ano da janela (ex.: 2026). */
   const {
     simulacao: simulacaoSalva,
     loading: loadingSimulacao,
@@ -118,18 +168,46 @@ export function SimuladorCaixaCard({
     error: saveError,
     save,
     clear,
-  } = useSimuladorCaixaShared(ano)
+  } = useSimuladorCaixaShared(anoJanelaInicio)
+
+  /** Histórico do 2º ano da janela (ex.: 2027), se cruzar o calendário. */
+  const {
+    simulacao: simulacaoSalvaB,
+    loading: loadingSimulacaoB,
+    saving: savingB,
+    error: saveErrorB,
+    save: saveB,
+    clear: clearB,
+  } = useSimuladorCaixaShared(anoJanelaFim)
+
+  const { data: itensAno = [], isSuccess: itensCarregados } = useSimuladorCaixaItens(anoJanelaInicio)
+  const { data: itensAnoB = [], isSuccess: itensCarregadosB } = useSimuladorCaixaItens(anoJanelaFim)
+  const { data: mensalAnoInicio } = useSimuladorCaixaMensal(anoJanelaInicio)
+  const { data: mensalAnoB } = useSimuladorCaixaMensal(anoJanelaFim)
+
+  /** Totais oficiais do 1º ano da janela (ex.: 2026), independentes do select. */
+  const dataJanelaInicio = useMemo((): MesComparativoSimulador[] => {
+    if (ano === anoJanelaInicio) return dataOriginal
+    return (mensalAnoInicio ?? []).map(m => ({
+      mes: m.mes,
+      receitas: m.receitas,
+      despesas: m.despesas,
+      temPrevisao: m.temPrevisao,
+    }))
+  }, [ano, anoJanelaInicio, dataOriginal, mensalAnoInicio])
 
   /**
-   * Só o histórico (+/−) fica salvo e não é sobrescrito pelos dados reais.
+   * Só o histórico (+/− / ocultar) fica salvo e não é sobrescrito pelos dados reais.
    * Os valores “a receber / a pagar” sempre vêm do sistema + esse histórico.
    */
   const [ajustes, setAjustes] = useState<SimuladorAjuste[]>([])
-  /** Quais cards de mês estão com o histórico expandido. */
+  const [ajustesB, setAjustesB] = useState<SimuladorAjuste[]>([])
+  /** Quais cards de mês estão com o histórico expandido (chave ano:mes). */
   const [historicosAbertos, setHistoricosAbertos] = useState<Record<string, boolean>>({})
   /** Painel aberto em um card de mês: qual ação o usuário escolheu. */
   const [painelMes, setPainelMes] = useState<{
     mes: string
+    ano: number
     campo: SimuladorAjusteCampo
     tipo: SimuladorAjusteTipo
   } | null>(null)
@@ -137,51 +215,123 @@ export function SimuladorCaixaCard({
   const [ajusteValorDraft, setAjusteValorDraft] = useState('')
   /** true enquanto o histórico mudou e ainda não gravamos (debounce). */
   const [isDirty, setIsDirty] = useState(false)
+  const [isDirtyB, setIsDirtyB] = useState(false)
   const [saveFlash, setSaveFlash] = useState(false)
+  const [exportingFormat, setExportingFormat] = useState<SimuladorCaixaExportFormat | null>(null)
   const saveFlashTimer = useRef<number | null>(null)
   /** Evita eco do próprio save sobrescrever o histórico local ainda dirty. */
   const historicoAnoRef = useRef<number | null>(null)
+  const historicoAnoBRef = useRef<number | null>(null)
 
   const proximo = useMemo(() => infoProximoMes(), [])
-  const previsaoNoAnoAtual = proximo.ano === ano
-  const mesesPrevisaoOriginais = useMemo(() => mesesComPrevisaoSet(dataOriginal), [dataOriginal])
 
-  const baseMeses = useMemo(() => buildMesesBase(dataOriginal), [dataOriginal])
+  const ocultosIds = useMemo(() => idsContasOcultas(ajustes), [ajustes])
+  const ocultosIdsB = useMemo(() => idsContasOcultas(ajustesB), [ajustesB])
+
+  /**
+   * Base = mesmos totais das Anotações (a receber / a pagar em aberto).
+   * Contas ocultadas só na simulação são descontadas em cima dessa base.
+   */
+  const baseMeses = useMemo(() => {
+    const doSistema = buildMesesBase(dataJanelaInicio)
+    if (!itensCarregados || ocultosIds.size === 0) return doSistema
+    return aplicarOcultosNaBase(doSistema, itensAno, ocultosIds)
+  }, [itensCarregados, itensAno, ocultosIds, dataJanelaInicio])
+
+  const dataOriginalB = useMemo((): MesComparativoSimulador[] => {
+    return (mensalAnoB ?? []).map(m => ({
+      mes: m.mes,
+      receitas: m.receitas,
+      despesas: m.despesas,
+      temPrevisao: m.temPrevisao,
+    }))
+  }, [mensalAnoB])
+
+  const baseMesesB = useMemo(() => {
+    const doSistema = buildMesesBase(dataOriginalB)
+    if (!itensCarregadosB || ocultosIdsB.size === 0) return doSistema
+    return aplicarOcultosNaBase(doSistema, itensAnoB, ocultosIdsB)
+  }, [itensCarregadosB, itensAnoB, ocultosIdsB, dataOriginalB])
+
   const meses = useMemo(
     () => aplicarAjustesNosMeses(baseMeses, ajustes),
     [baseMeses, ajustes],
   )
 
+  const mesesB = useMemo(
+    () => aplicarAjustesNosMeses(baseMesesB, ajustesB),
+    [baseMesesB, ajustesB],
+  )
+
+  const pickMesesDoAno = (anoMes: number) =>
+    temDoisAnos && anoMes === anoJanelaFim ? mesesB : meses
+
+  const itensDoAnoPainel =
+    painelMes && temDoisAnos && painelMes.ano === anoJanelaFim ? itensAnoB : itensAno
+  const ocultosDoPainel =
+    painelMes && temDoisAnos && painelMes.ano === anoJanelaFim ? ocultosIdsB : ocultosIds
+
+  /** Parcelas do painel − (ainda visíveis / não ocultadas). */
+  const itensPainelRemover = useMemo(() => {
+    if (!painelMes || painelMes.tipo !== 'remover') return []
+    return itensDoAnoPainel.filter(
+      i =>
+        i.mes === painelMes.mes &&
+        i.campo === painelMes.campo &&
+        !ocultosDoPainel.has(i.id),
+    )
+  }, [painelMes, itensDoAnoPainel, ocultosDoPainel])
+
   const previsaoRecebimento = useMemo(() => {
-    if (previsaoNoAnoAtual) {
-      return meses.find(m => m.mes === proximo.label)?.receitas ?? roundMoney(previsaoRecebimentoOriginal)
-    }
-    return roundMoney(previsaoRecebimentoOriginal)
-  }, [previsaoNoAnoAtual, meses, proximo.label, previsaoRecebimentoOriginal])
+    const naJanela = janela.some(j => j.mes === proximo.label && j.ano === proximo.ano)
+    if (!naJanela) return roundMoney(previsaoRecebimentoOriginal)
+    const row = pickMesesDoAno(proximo.ano).find(m => m.mes === proximo.label)
+    return row ? row.receitas : roundMoney(previsaoRecebimentoOriginal)
+  }, [
+    janela,
+    proximo,
+    previsaoRecebimentoOriginal,
+    meses,
+    mesesB,
+    temDoisAnos,
+    anoJanelaFim,
+  ])
 
   const previsaoDespesas = useMemo(() => {
-    if (previsaoNoAnoAtual) {
-      return meses.find(m => m.mes === proximo.label)?.despesas ?? roundMoney(previsaoDespesasOriginal)
-    }
-    return roundMoney(previsaoDespesasOriginal)
-  }, [previsaoNoAnoAtual, meses, proximo.label, previsaoDespesasOriginal])
+    const naJanela = janela.some(j => j.mes === proximo.label && j.ano === proximo.ano)
+    if (!naJanela) return roundMoney(previsaoDespesasOriginal)
+    const row = pickMesesDoAno(proximo.ano).find(m => m.mes === proximo.label)
+    return row ? row.despesas : roundMoney(previsaoDespesasOriginal)
+  }, [
+    janela,
+    proximo,
+    previsaoDespesasOriginal,
+    meses,
+    mesesB,
+    temDoisAnos,
+    anoJanelaFim,
+  ])
 
-  const markDirty = () => {
-    setIsDirty(true)
+  const markDirty = (anoAlvo: number = anoJanelaInicio) => {
+    if (temDoisAnos && anoAlvo === anoJanelaFim) setIsDirtyB(true)
+    else setIsDirty(true)
     setSaveFlash(false)
   }
 
-  // Troca de ano: limpa painéis e espera o histórico daquele ano
+  // Troca de janela (virada de ano): limpa painéis
   useEffect(() => {
     historicoAnoRef.current = null
+    historicoAnoBRef.current = null
     setAjustes([])
+    setAjustesB([])
     setAjusteTitulo('')
     setAjusteValorDraft('')
     setPainelMes(null)
     setHistoricosAbertos({})
     setIsDirty(false)
+    setIsDirtyB(false)
     setSaveFlash(false)
-  }, [ano])
+  }, [anoJanelaInicio, anoJanelaFim])
 
   // Carrega só o histórico salvo — números vêm sempre da base real do sistema
   useEffect(() => {
@@ -189,13 +339,22 @@ export function SimuladorCaixaCard({
     if (isDirty) return
 
     setAjustes(simulacaoSalva?.ajustes ?? [])
-    historicoAnoRef.current = ano
-  }, [ano, loadingSimulacao, simulacaoSalva, isDirty])
+    historicoAnoRef.current = anoJanelaInicio
+  }, [anoJanelaInicio, loadingSimulacao, simulacaoSalva, isDirty])
+
+  useEffect(() => {
+    if (!temDoisAnos) return
+    if (loadingSimulacaoB) return
+    if (isDirtyB) return
+
+    setAjustesB(simulacaoSalvaB?.ajustes ?? [])
+    historicoAnoBRef.current = anoJanelaFim
+  }, [temDoisAnos, anoJanelaFim, loadingSimulacaoB, simulacaoSalvaB, isDirtyB])
 
   // Salva automaticamente o histórico (e um espelho dos meses derivados, só para compatibilidade)
   useEffect(() => {
     if (!isDirty || loadingSimulacao) return
-    if (historicoAnoRef.current !== ano) return
+    if (historicoAnoRef.current !== anoJanelaInicio) return
 
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -220,7 +379,7 @@ export function SimuladorCaixaCard({
   }, [
     isDirty,
     loadingSimulacao,
-    ano,
+    anoJanelaInicio,
     meses,
     previsaoRecebimento,
     previsaoDespesas,
@@ -229,53 +388,106 @@ export function SimuladorCaixaCard({
   ])
 
   useEffect(() => {
+    if (!temDoisAnos || !isDirtyB || loadingSimulacaoB) return
+    if (historicoAnoBRef.current !== anoJanelaFim) return
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await saveB({
+            meses: mesesB,
+            previsaoRecebimento: 0,
+            previsaoDespesas: 0,
+            ajustes: ajustesB,
+          })
+          setIsDirtyB(false)
+          setSaveFlash(true)
+          if (saveFlashTimer.current != null) window.clearTimeout(saveFlashTimer.current)
+          saveFlashTimer.current = window.setTimeout(() => setSaveFlash(false), 1800)
+        } catch {
+          // mantém isDirtyB
+        }
+      })()
+    }, 550)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    temDoisAnos,
+    isDirtyB,
+    loadingSimulacaoB,
+    anoJanelaFim,
+    mesesB,
+    ajustesB,
+    saveB,
+  ])
+
+  useEffect(() => {
     return () => {
       if (saveFlashTimer.current != null) window.clearTimeout(saveFlashTimer.current)
     }
   }, [])
 
-  const linhas = useMemo(() => {
-    return meses.map(m => {
-      const saldo = m.receitas - m.despesas
-      return { ...m, saldo }
-    })
-  }, [meses])
+  const valorMesAno = (anoMes: number, mes: string, campo: SimuladorAjusteCampo): number => {
+    return pickMesesDoAno(anoMes).find(m => m.mes === mes)?.[campo] ?? 0
+  }
 
-  /** Só meses com movimento, previsão (contas em aberto) ou ajustes — evita cards zerados. */
+  /**
+   * Sempre os 6 meses da janela (Out→Mar), na ordem civil, com ano no card.
+   */
   const linhasVisiveis = useMemo(() => {
-    return linhas.filter(m => {
-      if (m.receitas > 0 || m.despesas > 0) return true
-      if (mesesPrevisaoOriginais.has(m.mes)) return true
-      if (previsaoNoAnoAtual && m.mes === proximo.label) return true
-      if (ajustes.some(a => a.mes === m.mes)) return true
-      return false
+    return janela.map(j => {
+      const row = pickMesesDoAno(j.ano).find(m => m.mes === j.mes)
+      const receitas = row?.receitas ?? 0
+      const despesas = row?.despesas ?? 0
+      return {
+        mes: j.mes,
+        ano: j.ano,
+        nome: j.nome,
+        receitas,
+        despesas,
+        saldo: receitas - despesas,
+        key: mesKey(j.ano, j.mes),
+      }
     })
-  }, [linhas, mesesPrevisaoOriginais, previsaoNoAnoAtual, proximo.label, ajustes])
+  }, [janela, meses, mesesB, temDoisAnos, anoJanelaFim])
 
-  const saldoMeses = linhas.reduce((s, m) => s + m.saldo, 0)
-  const impactoAjustes = somarAjustes(ajustes)
+  const saldoMesesJanela = linhasVisiveis.reduce((s, m) => s + m.saldo, 0)
+  const impactoAjustes =
+    somarAjustes(ajustes) + (temDoisAnos ? somarAjustes(ajustesB) : 0)
   const saldoPrevisao = previsaoRecebimento - previsaoDespesas
-  // Se o próximo mês (ex.: Ago) já está no ano, a previsão já entrou no card do mês.
-  // Se for ano seguinte (ex.: Jan), soma a previsão à parte no caixa.
-  const caixaFinal = roundMoneySigned(
-    saldoMeses + impactoAjustes + (previsaoNoAnoAtual ? 0 : saldoPrevisao),
-  )
+  // Caixa da janela (6 meses à frente) + ajustes gerais sem mês.
+  const caixaFinal = roundMoneySigned(saldoMesesJanela + impactoAjustes)
   const caixaPositivo = caixaFinal > 0
   const caixaNegativo = caixaFinal < 0
 
-  const ehMesProximo = (mes: string) => previsaoNoAnoAtual && mes === proximo.label
-  const ehMesPrevisao = (mes: string) =>
-    mesesPrevisaoOriginais.has(mes) || ehMesProximo(mes)
+  const ehMesProximo = (mes: string, anoMes: number) =>
+    mes === proximo.label && anoMes === proximo.ano
+  const ehMesPrevisao = (mes: string, anoMes: number) => {
+    if (ehMesProximo(mes, anoMes)) return true
+    if (anoMes === anoJanelaInicio && dataJanelaInicio.some(d => d.mes === mes && d.temPrevisao)) {
+      return true
+    }
+    if (anoMes === anoJanelaFim && dataOriginalB.some(d => d.mes === mes && d.temPrevisao)) {
+      return true
+    }
+    return false
+  }
+
+  const ajustesDoAno = (anoMes: number) =>
+    temDoisAnos && anoMes === anoJanelaFim ? ajustesB : ajustes
+
+  const ehAnoFim = (anoMes: number) => temDoisAnos && anoMes === anoJanelaFim
 
   /** Digitar o valor vira um item de histórico (diferença em relação ao que está na tela). */
   const commitValorCampo = (
     mes: string,
+    anoMes: number,
     campo: SimuladorAjusteCampo,
     valor: number,
     titulo = 'Ajuste manual',
   ) => {
     const v = roundMoney(valor)
-    const atual = meses.find(m => m.mes === mes)?.[campo] ?? 0
+    const atual = valorMesAno(anoMes, mes, campo)
     const delta = roundMoney(v - atual)
     if (delta === 0) return
 
@@ -288,24 +500,31 @@ export function SimuladorCaixaCard({
       mes,
       campo,
     }
-    setAjustes(prev => [novo, ...prev])
-    markDirty()
+    if (ehAnoFim(anoMes)) setAjustesB(prev => [novo, ...prev])
+    else setAjustes(prev => [novo, ...prev])
+    markDirty(anoMes)
   }
 
-  const updateMes = (mes: string, field: 'receitas' | 'despesas', valor: number) => {
-    commitValorCampo(mes, field, valor)
+  const updateMes = (
+    mes: string,
+    anoMes: number,
+    field: 'receitas' | 'despesas',
+    valor: number,
+  ) => {
+    commitValorCampo(mes, anoMes, field, valor)
   }
 
   const updatePrevisao = (field: 'receitas' | 'despesas', valor: number) => {
-    if (previsaoNoAnoAtual) {
-      commitValorCampo(proximo.label, field, valor)
-      return
-    }
-    // Próximo mês fora do ano selecionado: só acompanha o sistema (sem histórico local).
+    commitValorCampo(proximo.label, proximo.ano, field, valor)
   }
 
-  const abrirPainelMes = (mes: string, campo: SimuladorAjusteCampo, tipo: SimuladorAjusteTipo) => {
-    setPainelMes({ mes, campo, tipo })
+  const abrirPainelMes = (
+    mes: string,
+    anoMes: number,
+    campo: SimuladorAjusteCampo,
+    tipo: SimuladorAjusteTipo,
+  ) => {
+    setPainelMes({ mes, ano: anoMes, campo, tipo })
     setAjusteTitulo('')
     setAjusteValorDraft('')
   }
@@ -322,7 +541,7 @@ export function SimuladorCaixaCard({
     const valor = parseMoneyInput(ajusteValorDraft)
     if (!titulo || valor <= 0) return
 
-    const { mes, campo, tipo } = painelMes
+    const { mes, ano: anoMes, campo, tipo } = painelMes
     const novo: SimuladorAjuste = {
       id: createId(),
       titulo,
@@ -331,31 +550,111 @@ export function SimuladorCaixaCard({
       criadoEm: new Date().toISOString(),
       mes,
       campo,
+      contaId: null,
+      origem: null,
     }
-    setAjustes(prev => [novo, ...prev])
+    if (ehAnoFim(anoMes)) setAjustesB(prev => [novo, ...prev])
+    else setAjustes(prev => [novo, ...prev])
     fecharPainelMes()
-    markDirty()
+    markDirty(anoMes)
   }
 
-  const apagarAjuste = (id: string) => {
-    setAjustes(prev => prev.filter(a => a.id !== id))
-    markDirty()
+  /** Oculta uma parcela real só na simulação (entra no histórico e é salva). */
+  const ocultarConta = (item: {
+    id: string
+    titulo: string
+    valor: number
+    mes: string
+    campo: SimuladorAjusteCampo
+    origem: 'receber' | 'pagar'
+  }) => {
+    const anoMes = painelMes?.ano ?? anoJanelaInicio
+    const ocultos = ehAnoFim(anoMes) ? ocultosIdsB : ocultosIds
+    if (ocultos.has(item.id)) return
+    const novo: SimuladorAjuste = {
+      id: createId(),
+      titulo: item.titulo,
+      tipo: 'remover',
+      valor: roundMoney(item.valor),
+      criadoEm: new Date().toISOString(),
+      mes: item.mes,
+      campo: item.campo,
+      contaId: item.id,
+      origem: item.origem,
+    }
+    if (ehAnoFim(anoMes)) setAjustesB(prev => [novo, ...prev])
+    else setAjustes(prev => [novo, ...prev])
+    markDirty(anoMes)
+  }
+
+  const apagarAjuste = (id: string, anoMes: number) => {
+    if (ehAnoFim(anoMes)) setAjustesB(prev => prev.filter(a => a.id !== id))
+    else setAjustes(prev => prev.filter(a => a.id !== id))
+    markDirty(anoMes)
   }
 
   const handleReset = () => {
     void (async () => {
       try {
         await clear()
+        if (temDoisAnos) await clearB()
         setAjustes([])
+        setAjustesB([])
         setAjusteTitulo('')
         setAjusteValorDraft('')
         setPainelMes(null)
         setHistoricosAbertos({})
         setIsDirty(false)
+        setIsDirtyB(false)
         setSaveFlash(false)
-        historicoAnoRef.current = ano
+        historicoAnoRef.current = anoJanelaInicio
+        historicoAnoBRef.current = anoJanelaFim
       } catch {
         // erro já fica em saveError
+      }
+    })()
+  }
+
+  const handleExport = (format: SimuladorCaixaExportFormat) => {
+    if (exportingFormat) return
+    setExportingFormat(format)
+    void (async () => {
+      try {
+        const todosAjustes = temDoisAnos ? [...ajustes, ...ajustesB] : ajustes
+        const ocultadosCount = todosAjustes.filter(isAjusteOcultarConta).length
+        const ajustesManuaisCount = todosAjustes.filter(a => !isAjusteOcultarConta(a)).length
+        await exportarSimuladorCaixa(
+          {
+            empresaNome,
+            ano: anoJanelaInicio,
+            previsao: {
+              label: `${proximo.nome} ${proximo.ano}`,
+              receber: previsaoRecebimento,
+              pagar: previsaoDespesas,
+              saldo: saldoPrevisao,
+            },
+            meses: linhasVisiveis.map(m => ({
+              mes: `${m.mes}/${m.ano}`,
+              mesNome: m.nome,
+              receitas: m.receitas,
+              despesas: m.despesas,
+              saldo: m.saldo,
+              historicoCount: ajustesDoAno(m.ano).filter(a => a.mes === m.mes).length,
+            })),
+            caixaFinal,
+            ocultadosCount,
+            ajustesManuaisCount,
+          },
+          format,
+        )
+      } catch (err) {
+        alert(
+          err instanceof Error
+            ? err.message
+            : `Não foi possível exportar o ${format.toUpperCase()}.`,
+        )
+      } finally {
+        setExportingFormat(null)
       }
     })()
   }
@@ -368,24 +667,27 @@ export function SimuladorCaixaCard({
             Simulador de Caixa
           </CardTitle>
           <CardDescription className="mt-1 text-[11px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
-            Igual ao sistema: parcelas em aberto por vencimento · histórico manual permanece
+            Sempre {janela[0]?.mes}/{janela[0]?.ano} → {janela[5]?.mes}/{janela[5]?.ano} · ocultar
+            dívidas: − A receber / − A pagar
           </CardDescription>
-          {loadingSimulacao && (
+          {(loadingSimulacao || (temDoisAnos && loadingSimulacaoB)) && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#edd9c4]/55">
               Carregando simulação…
             </p>
           )}
-          {(isDirty || saving) && !loadingSimulacao && (
+          {(isDirty || isDirtyB || saving || savingB) &&
+            !loadingSimulacao &&
+            !(temDoisAnos && loadingSimulacaoB) && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
               Salvando…
             </p>
           )}
-          {saveFlash && !isDirty && !saving && (
+          {saveFlash && !isDirty && !isDirtyB && !saving && !savingB && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-300">
               Salvo para todos
             </p>
           )}
-          {saveError && (
+          {(saveError || saveErrorB) && (
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-red-300">
               Não foi possível salvar. Tente de novo.
             </p>
@@ -412,12 +714,62 @@ export function SimuladorCaixaCard({
             </select>
           </label>
 
+          <div
+            className={cn(
+              'inline-flex overflow-hidden rounded-md border border-[rgba(42,24,18,0.16)]',
+              'bg-[#fffcf8] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]',
+            )}
+            role="group"
+            aria-label="Exportar simulador"
+          >
+            <button
+              type="button"
+              onClick={() => handleExport('pdf')}
+              disabled={Boolean(exportingFormat)}
+              title="Exportar folha A4 em PDF"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]',
+                'text-[#2a1812] transition-colors hover:bg-[rgba(141,94,34,0.08)]',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              )}
+            >
+              {exportingFormat === 'pdf' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <FileDown className="h-3.5 w-3.5 text-[#8d5e22]" aria-hidden />
+              )}
+              PDF
+            </button>
+            <span
+              aria-hidden
+              className="w-px self-stretch bg-[rgba(42,24,18,0.12)]"
+            />
+            <button
+              type="button"
+              onClick={() => handleExport('jpg')}
+              disabled={Boolean(exportingFormat)}
+              title="Exportar folha A4 em JPG"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]',
+                'text-[#2a1812] transition-colors hover:bg-[rgba(141,94,34,0.08)]',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              )}
+            >
+              {exportingFormat === 'jpg' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <ImageDown className="h-3.5 w-3.5 text-[#8d5e22]" aria-hidden />
+              )}
+              JPG
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleReset}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md border border-[rgba(240,210,140,0.25)]',
-          'bg-[rgba(42,24,18,0.04)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b5244]',
+              'bg-[rgba(42,24,18,0.04)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b5244]',
               'transition-colors hover:border-[rgba(240,210,140,0.45)] hover:text-[#f2d892]',
             )}
           >
@@ -453,9 +805,8 @@ export function SimuladorCaixaCard({
                   {proximo.nome.toUpperCase()} {proximo.ano}
                 </p>
                 <p className="mt-1 text-xs text-[#edd9c4]/70">
-                  {previsaoNoAnoAtual
-                    ? `Mesma conta do card “A Receber Este Mês”: parcelas vencendo em ${proximo.nome}. Já no card ${proximo.label}.`
-                    : 'Entra no total do caixa (mês fora deste ano). Meses deste ano com contas em aberto já estão nos cards.'}
+                  Parcelas vencendo em {proximo.nome} · já no card {proximo.label}/{proximo.ano} da
+                  janela de 6 meses.
                 </p>
               </div>
             </div>
@@ -467,7 +818,6 @@ export function SimuladorCaixaCard({
                 onChange={v => updatePrevisao('receitas', v)}
                 tone="in"
                 commitOnBlurOnly
-                readOnly={!previsaoNoAnoAtual}
               />
               <MoneyField
                 label="A pagar"
@@ -475,7 +825,6 @@ export function SimuladorCaixaCard({
                 onChange={v => updatePrevisao('despesas', v)}
                 tone="out"
                 commitOnBlurOnly
-                readOnly={!previsaoNoAnoAtual}
               />
               <SaldoBadge label="Saldo previsto" saldo={saldoPrevisao} />
             </div>
@@ -484,20 +833,13 @@ export function SimuladorCaixaCard({
 
         <div>
           <p className="font-display text-base tracking-[0.14em] text-[#f2d892]">
-            MESES · {ano}
+            PRÓXIMOS 6 MESES · {janela[0]?.mes} {janela[0]?.ano} → {janela[5]?.mes}{' '}
+            {janela[5]?.ano}
           </p>
           <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-[#edd9c4]/60">
-            Só meses com a receber ou a pagar · edite ou use +/− · salva para todos
+            A receber − a pagar · edite ou use +/− · salva para todos
           </p>
         </div>
-
-        {linhasVisiveis.length === 0 ? (
-          <div className="rounded-lg border border-[rgba(240,210,140,0.12)] bg-[rgba(42,24,18,0.04)] px-4 py-5 text-center">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#edd9c4]/65">
-              Sem a receber ou a pagar em aberto em {ano}
-            </p>
-          </div>
-        ) : null}
 
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {linhasVisiveis.map((m, i) => {
@@ -505,13 +847,13 @@ export function SimuladorCaixaCard({
             const isNeg = m.saldo < 0
             const sinal = isPos ? 'Positivo' : isNeg ? 'Negativo' : 'Zerado'
             const SaldoIcon = isNeg ? ArrowDownRight : ArrowUpRight
-            const isPrevisao = ehMesPrevisao(m.mes)
-            const ajustesDoMes = ajustes.filter(a => a.mes === m.mes)
-            const historicoAberto = Boolean(historicosAbertos[m.mes])
+            const isPrevisao = ehMesPrevisao(m.mes, m.ano)
+            const ajustesDoMes = ajustesDoAno(m.ano).filter(a => a.mes === m.mes)
+            const historicoAberto = Boolean(historicosAbertos[m.key])
 
             return (
               <article
-                key={m.mes}
+                key={m.key}
                 className={cn(
                   'dash-card-enter relative overflow-hidden rounded-lg border px-3.5 py-3',
                   isPrevisao
@@ -532,7 +874,12 @@ export function SimuladorCaixaCard({
 
                 <header className="mb-2.5 flex items-center justify-between gap-2 pl-1">
                   <div className="flex min-w-0 items-center gap-2">
-                    <h4 className="font-display text-lg tracking-[0.08em] text-[#f2d892]">{m.mes}</h4>
+                    <h4 className="font-display text-lg tracking-[0.08em] text-[#f2d892]">
+                      {m.mes}
+                      <span className="ml-1.5 text-[10px] font-sans font-semibold tracking-[0.12em] text-[#edd9c4]/55">
+                        {m.ano}
+                      </span>
+                    </h4>
                     {isPrevisao && (
                       <span className="rounded border border-[rgba(242,216,146,0.35)] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-[#f2d892]">
                         Previsão
@@ -558,7 +905,7 @@ export function SimuladorCaixaCard({
                   <MoneyField
                     label="A receber"
                     value={m.receitas}
-                    onChange={v => updateMes(m.mes, 'receitas', v)}
+                    onChange={v => updateMes(m.mes, m.ano, 'receitas', v)}
                     tone="in"
                     compact
                     commitOnBlurOnly
@@ -566,7 +913,7 @@ export function SimuladorCaixaCard({
                   <MoneyField
                     label="A pagar"
                     value={m.despesas}
-                    onChange={v => updateMes(m.mes, 'despesas', v)}
+                    onChange={v => updateMes(m.mes, m.ano, 'despesas', v)}
                     tone="out"
                     compact
                     commitOnBlurOnly
@@ -576,12 +923,13 @@ export function SimuladorCaixaCard({
                   <div className="grid grid-cols-2 gap-1.5 pt-1">
                     <button
                       type="button"
-                      onClick={() => abrirPainelMes(m.mes, 'receitas', 'adicionar')}
+                      onClick={() => abrirPainelMes(m.mes, m.ano, 'receitas', 'adicionar')}
                       className={cn(
                         'inline-flex items-center justify-center gap-1 rounded-md border border-emerald-400/30',
                         'bg-emerald-500/10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-emerald-300',
                         'transition-colors hover:bg-emerald-500/20',
                         painelMes?.mes === m.mes &&
+                          painelMes.ano === m.ano &&
                           painelMes.campo === 'receitas' &&
                           painelMes.tipo === 'adicionar' &&
                           'ring-1 ring-emerald-400/50',
@@ -592,12 +940,13 @@ export function SimuladorCaixaCard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => abrirPainelMes(m.mes, 'receitas', 'remover')}
+                      onClick={() => abrirPainelMes(m.mes, m.ano, 'receitas', 'remover')}
                       className={cn(
                         'inline-flex items-center justify-center gap-1 rounded-md border border-red-400/30',
                         'bg-red-500/10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-red-300',
                         'transition-colors hover:bg-red-500/20',
                         painelMes?.mes === m.mes &&
+                          painelMes.ano === m.ano &&
                           painelMes.campo === 'receitas' &&
                           painelMes.tipo === 'remover' &&
                           'ring-1 ring-red-400/50',
@@ -608,12 +957,13 @@ export function SimuladorCaixaCard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => abrirPainelMes(m.mes, 'despesas', 'adicionar')}
+                      onClick={() => abrirPainelMes(m.mes, m.ano, 'despesas', 'adicionar')}
                       className={cn(
                         'inline-flex items-center justify-center gap-1 rounded-md border border-amber-400/30',
                         'bg-amber-500/10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-amber-200',
                         'transition-colors hover:bg-amber-500/20',
                         painelMes?.mes === m.mes &&
+                          painelMes.ano === m.ano &&
                           painelMes.campo === 'despesas' &&
                           painelMes.tipo === 'adicionar' &&
                           'ring-1 ring-amber-400/50',
@@ -624,12 +974,13 @@ export function SimuladorCaixaCard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => abrirPainelMes(m.mes, 'despesas', 'remover')}
+                      onClick={() => abrirPainelMes(m.mes, m.ano, 'despesas', 'remover')}
                       className={cn(
                         'inline-flex items-center justify-center gap-1 rounded-md border border-[rgba(240,210,140,0.28)]',
                         'bg-[rgba(240,210,140,0.06)] px-2 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#f2d892]',
                         'transition-colors hover:bg-[rgba(240,210,140,0.12)]',
                         painelMes?.mes === m.mes &&
+                          painelMes.ano === m.ano &&
                           painelMes.campo === 'despesas' &&
                           painelMes.tipo === 'remover' &&
                           'ring-1 ring-[rgba(242,216,146,0.55)]',
@@ -640,12 +991,66 @@ export function SimuladorCaixaCard({
                     </button>
                   </div>
 
-                  {painelMes?.mes === m.mes && (
+                  {painelMes?.mes === m.mes && painelMes.ano === m.ano && (
                     <div className="mt-1 space-y-2 rounded-md border border-[rgba(240,210,140,0.2)] bg-[rgba(242,216,146,0.05)] p-2.5">
                       <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#f2d892]">
-                        {painelMes.tipo === 'adicionar' ? 'Adicionar' : 'Remover'}{' '}
+                        {painelMes.tipo === 'adicionar' ? 'Adicionar' : 'Ocultar dívidas ·'}{' '}
                         {rotuloCampoAjuste(painelMes.campo).toLowerCase()}
                       </p>
+
+                      {painelMes.tipo === 'remover' && (
+                        <div className="space-y-1.5">
+                          <p className="text-[9px] uppercase tracking-[0.1em] text-[#edd9c4]/55">
+                            Contas reais deste mês (só na simulação)
+                          </p>
+                          {itensPainelRemover.length === 0 ? (
+                            <p className="rounded border border-[rgba(240,210,140,0.12)] px-2 py-2 text-[10px] text-[#edd9c4]/50">
+                              Nenhuma parcela em aberto neste mês — ou todas já foram ocultadas.
+                            </p>
+                          ) : (
+                            <ul className="max-h-40 space-y-1 overflow-y-auto overscroll-contain pr-0.5">
+                              {itensPainelRemover.map(item => (
+                                <li
+                                  key={item.id}
+                                  className="flex items-center gap-2 rounded border border-[rgba(240,210,140,0.14)] bg-[rgba(42,24,18,0.04)] px-2 py-1.5"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[11px] font-medium text-[#fffaf4]">
+                                      {item.titulo}
+                                    </p>
+                                    <p className="text-[9px] text-[#edd9c4]/45">
+                                      Vence {fmtDate(item.vencimento)} · {fmtCur(item.valor)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => ocultarConta(item)}
+                                    className={cn(
+                                      'inline-flex shrink-0 items-center gap-1 rounded border border-red-400/35',
+                                      'bg-red-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.1em] text-red-300',
+                                      'transition-colors hover:bg-red-500/20',
+                                    )}
+                                  >
+                                    <EyeOff className="h-3 w-3" aria-hidden />
+                                    Ocultar
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <div
+                            className="my-1 h-px"
+                            style={{
+                              background:
+                                'linear-gradient(90deg, transparent, rgba(240,210,140,0.25) 30%, rgba(240,210,140,0.25) 70%, transparent)',
+                            }}
+                          />
+                          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#edd9c4]/50">
+                            Outro valor (manual)
+                          </p>
+                        </div>
+                      )}
+
                       <label className="block">
                         <span className="text-[9px] uppercase tracking-[0.12em] text-[#edd9c4]/60">
                           Título
@@ -697,7 +1102,7 @@ export function SimuladorCaixaCard({
                             'hover:text-[#f2d892]',
                           )}
                         >
-                          Cancelar
+                          Fechar
                         </button>
                         <button
                           type="button"
@@ -743,7 +1148,7 @@ export function SimuladorCaixaCard({
                         onClick={() =>
                           setHistoricosAbertos(prev => ({
                             ...prev,
-                            [m.mes]: !prev[m.mes],
+                            [m.key]: !prev[m.key],
                           }))
                         }
                         aria-expanded={historicoAberto}
@@ -780,6 +1185,12 @@ export function SimuladorCaixaCard({
                           <ul className="divide-y divide-[rgba(240,210,140,0.08)] border-t border-[rgba(240,210,140,0.1)]">
                             {ajustesDoMes.map(a => {
                               const isAdd = a.tipo === 'adicionar'
+                              const isOculto = isAjusteOcultarConta(a)
+                              const acaoLabel = isAdd
+                                ? 'Adicionado'
+                                : isOculto
+                                  ? 'Ocultado'
+                                  : 'Removido'
                               return (
                                 <li
                                   key={a.id}
@@ -796,6 +1207,8 @@ export function SimuladorCaixaCard({
                                   >
                                     {isAdd ? (
                                       <Plus className="h-3 w-3" />
+                                    ) : isOculto ? (
+                                      <EyeOff className="h-3 w-3" />
                                     ) : (
                                       <Minus className="h-3 w-3" />
                                     )}
@@ -805,8 +1218,8 @@ export function SimuladorCaixaCard({
                                       {a.titulo}
                                     </p>
                                     <p className="text-[9px] text-[#edd9c4]/50">
-                                      {rotuloCampoAjuste(a.campo)} ·{' '}
-                                      {isAdd ? 'Adicionado' : 'Removido'} · {fmtDate(a.criadoEm)}
+                                      {rotuloCampoAjuste(a.campo)} · {acaoLabel} ·{' '}
+                                      {fmtDate(a.criadoEm)}
                                     </p>
                                   </div>
                                   <p
@@ -820,8 +1233,13 @@ export function SimuladorCaixaCard({
                                   </p>
                                   <button
                                     type="button"
-                                    onClick={() => apagarAjuste(a.id)}
-                                    aria-label={`Apagar ajuste ${a.titulo}`}
+                                    onClick={() => apagarAjuste(a.id, m.ano)}
+                                    aria-label={
+                                      isOculto
+                                        ? `Restaurar conta ${a.titulo} na simulação`
+                                        : `Apagar ajuste ${a.titulo}`
+                                    }
+                                    title={isOculto ? 'Restaurar na simulação' : 'Apagar'}
                                     className={cn(
                                       'flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[rgba(240,210,140,0.2)]',
                                       'text-[#edd9c4]/70 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300',
@@ -853,7 +1271,7 @@ export function SimuladorCaixaCard({
                 : 'border-[rgba(240,210,140,0.2)] bg-[rgba(242,216,146,0.05)]',
           )}
           role="status"
-          aria-label={`Caixa simulado em ${ano}`}
+          aria-label={`Caixa simulado · próximos 6 meses`}
         >
           <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -862,16 +1280,11 @@ export function SimuladorCaixaCard({
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#edd9c4]/75">
-                  Como está o caixa · {ano}
+                  Como está o caixa · {janela[0]?.mes}/{janela[0]?.ano} → {janela[5]?.mes}/
+                  {janela[5]?.ano}
                 </p>
                 <p className="mt-1 max-w-md text-xs leading-relaxed text-[#edd9c4]/80">
-                  Meses com a receber ou a pagar
-                  {mesesPrevisaoOriginais.size > 0
-                    ? ` (previsão em ${mesesPrevisaoOriginais.size} mês${mesesPrevisaoOriginais.size === 1 ? '' : 'es'})`
-                    : ''}
-                  {!previsaoNoAnoAtual
-                    ? ` + previsão ${proximo.nome} (${fmtCur(saldoPrevisao)})`
-                    : ''}
+                  Soma dos 6 meses à frente (a receber − a pagar)
                   {impactoAjustes !== 0
                     ? ` + ajustes gerais (${impactoAjustes > 0 ? '+' : ''}${fmtCur(impactoAjustes)})`
                     : ''}

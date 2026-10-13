@@ -2,6 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FinanceiroStats, DadoGraficoMensal, DadoGraficoComparativo } from '@/types'
 import { buildSaldoMesForecast, type SaldoMesForecast } from '@/lib/saldo-mes-insight'
+import type {
+  SimuladorAjusteCampo,
+  SimuladorAjusteOrigem,
+} from '@/lib/simulador-caixa-storage'
 import { startOfMonth, endOfMonth, format, addMonths } from 'date-fns'
 
 export function useFinanceiroStats() {
@@ -382,6 +386,109 @@ export function useSimuladorCaixaMensal(ano: number = new Date().getFullYear()) 
         receitas: roundMoney(m.receitas),
         despesas: roundMoney(m.despesas),
       }))
+    },
+  })
+}
+
+const MESES_CURTOS_SIM = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+] as const
+
+/** Parcela individual em aberto usada no Simulador (ocultar conta). */
+export interface SimuladorCaixaItem {
+  id: string
+  mes: string
+  campo: SimuladorAjusteCampo
+  origem: SimuladorAjusteOrigem
+  titulo: string
+  valor: number
+  /** YYYY-MM-DD */
+  vencimento: string
+}
+
+/**
+ * Parcelas reais a receber / a pagar do ano (para listar e ocultar no simulador).
+ */
+export function useSimuladorCaixaItens(ano: number = new Date().getFullYear()) {
+  return useQuery<SimuladorCaixaItem[]>({
+    queryKey: ['simulador-caixa-itens', ano, 'v2-obs-receber'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const start = `${ano}-01-01`
+      const end = `${ano}-12-31`
+
+      // contas_receber NÃO tem coluna `descricao` (usa observacao) — select inválido
+      // zerava o a receber em silêncio e quebrava as somas do simulador.
+      const [receberRes, pagarRes] = await Promise.all([
+        supabase
+          .from('movelaria_contas_receber')
+          .select('id, cliente_nome, observacao, valor_parcela, data_vencimento')
+          .eq('status', 'pendente')
+          .gte('data_vencimento', start)
+          .lte('data_vencimento', end),
+        supabase
+          .from('movelaria_contas_pagar')
+          .select('id, fornecedor_nome, descricao, valor_parcela, valor_pago, data_vencimento')
+          .in('status', ['pendente', 'parcialmente_pago'])
+          .gte('data_vencimento', start)
+          .lte('data_vencimento', end),
+      ])
+
+      if (receberRes.error) {
+        throw new Error(`Simulador (a receber): ${receberRes.error.message}`)
+      }
+      if (pagarRes.error) {
+        throw new Error(`Simulador (a pagar): ${pagarRes.error.message}`)
+      }
+
+      const itens: SimuladorCaixaItem[] = []
+
+      for (const r of receberRes.data ?? []) {
+        const mesIdx = monthIndexFromIso(r.data_vencimento)
+        if (mesIdx == null) continue
+        const valor = roundMoney(Number(r.valor_parcela) || 0)
+        if (valor <= 0) continue
+        const cliente = typeof r.cliente_nome === 'string' ? r.cliente_nome.trim() : ''
+        const obs = typeof r.observacao === 'string' ? r.observacao.trim() : ''
+        itens.push({
+          id: String(r.id),
+          mes: MESES_CURTOS_SIM[mesIdx],
+          campo: 'receitas',
+          origem: 'receber',
+          titulo: cliente || obs || 'Conta a receber',
+          valor,
+          vencimento: String(r.data_vencimento ?? '').slice(0, 10),
+        })
+      }
+
+      for (const d of pagarRes.data ?? []) {
+        const mesIdx = monthIndexFromIso(d.data_vencimento)
+        if (mesIdx == null) continue
+        const parcela = Number(d.valor_parcela) || 0
+        const emAberto = roundMoney(Math.max(0, parcela - Number(d.valor_pago ?? 0)))
+        if (emAberto <= 0) continue
+        const fornecedor =
+          typeof d.fornecedor_nome === 'string' ? d.fornecedor_nome.trim() : ''
+        const desc = typeof d.descricao === 'string' ? d.descricao.trim() : ''
+        itens.push({
+          id: String(d.id),
+          mes: MESES_CURTOS_SIM[mesIdx],
+          campo: 'despesas',
+          origem: 'pagar',
+          titulo: fornecedor || desc || 'Conta a pagar',
+          valor: emAberto,
+          vencimento: String(d.data_vencimento ?? '').slice(0, 10),
+        })
+      }
+
+      itens.sort((a, b) => {
+        if (a.vencimento !== b.vencimento) return a.vencimento.localeCompare(b.vencimento)
+        return a.titulo.localeCompare(b.titulo, 'pt-BR')
+      })
+
+      return itens
     },
   })
 }

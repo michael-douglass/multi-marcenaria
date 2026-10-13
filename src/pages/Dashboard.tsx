@@ -426,6 +426,7 @@ export function Dashboard() {
           previsaoDespesasOriginal={
             previsaoProximoNoSimulador?.despesas ?? stats?.despesasProximoMes ?? 0
           }
+          empresaNome={empresa?.nome ?? 'Movelaria Garbo'}
         />
       </DashboardSection>
     </div>
