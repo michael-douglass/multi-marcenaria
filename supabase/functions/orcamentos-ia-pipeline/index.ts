@@ -39,6 +39,8 @@ interface PipelineBody {
   phase?: PipelinePhase
   inventory?: InventoryEnv[]
   extraction?: AnyRec
+  /** Feedback do Self-Healing (módulos ausentes) — prefixado no prompt extract/audit. */
+  healFeedback?: string
 }
 
 const MAX_AUDIT_PASSES = 3
@@ -1619,6 +1621,10 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
     if (phase === 'extract') {
       const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
       const inventoryText = formatInventoryText(inventory)
+      const healFeedback =
+        typeof body.healFeedback === 'string' && body.healFeedback.trim()
+          ? body.healFeedback.trim()
+          : ''
       const pageHints = signedContents
         .map((c) => pdfPageFromPath(c.path))
         .filter((n): n is number => n != null)
@@ -1626,8 +1632,10 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
         admin,
         body.analysisId,
         'EXTRACTING_MODULES',
-        'extracting_batch',
-        `Caçando chapas MDF, puxadores e dobradiças neste lote (${signedContents.length} página(s))…`,
+        healFeedback ? 'self_heal' : 'extracting_batch',
+        healFeedback
+          ? `Auto-correção: reexaminando lote (${signedContents.length} página(s))…`
+          : `Caçando chapas MDF, puxadores e dobradiças neste lote (${signedContents.length} página(s))…`,
         'vision',
       )
       const extractorSystem = systemExtractor + ragBlock
@@ -1637,7 +1645,7 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
         userContent: [
           {
             type: 'text',
-            text: `Lote com ${signedContents.length} página(s) do PDF${
+            text: `${healFeedback ? `${healFeedback}\n\n` : ''}Lote com ${signedContents.length} página(s) do PDF${
               pageHints.length ? ` (índices: ${pageHints.join(', ')})` : ''
             }.
 INVENTÁRIO ESPERADO DO PROJETO (âncora; se conflitar com a imagem, prefira a imagem):
@@ -1683,6 +1691,10 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
     if (phase === 'audit') {
       const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
       const inventoryText = formatInventoryText(inventory)
+      const healFeedback =
+        typeof body.healFeedback === 'string' && body.healFeedback.trim()
+          ? body.healFeedback.trim()
+          : ''
       let extraction = ensurePlaceholders(
         body.extraction && typeof body.extraction === 'object'
           ? body.extraction
@@ -1727,7 +1739,7 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
             userContent: [
               {
                 type: 'text',
-                text: `PASSAGEM ${pass}/${auditPasses} — verifique as imagens e devolva a árvore CORRIGIDA.
+                text: `${healFeedback ? `${healFeedback}\n\n` : ''}PASSAGEM ${pass}/${auditPasses} — verifique as imagens e devolva a árvore CORRIGIDA.
 Cada imagem vem com "PDF página N" — corrija bounding_box.page para esse N (não o PRANCHA Nº impresso).
 
 INVENTÁRIO (âncora; se inventário tiver erro, prefira as imagens):

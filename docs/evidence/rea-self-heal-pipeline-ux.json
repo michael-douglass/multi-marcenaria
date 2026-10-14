@@ -1,0 +1,37 @@
+{
+  "task": "rea-self-heal-pipeline-ux",
+  "verdict": "PASS — self-heal loop + UX Abrir NEEDS_REVIEW; REA parse_failures=0; tsc clean; Edge pipeline v49",
+  "tsc": "clean",
+  "rea": {
+    "operation": "analyze_javascript_application",
+    "path": "src/lib/orcamentos-ia",
+    "detail": "summary",
+    "integrity_policy": "record-and-continue",
+    "parent_evidence_id": "ev_16b16e61a21f4e939105cf6e029c3357608d39376fe8bef629d71931f2dacc71",
+    "summary_evidence_id": "ev_a4f52178509e58986882135113e9465298d7a9dde64876b4ef6e6f4dc2e8542c",
+    "artifact_sha256": "64910e413394ce2210f1c5e04cf7545e1d622d5ceabe8129a179b742c702e45a",
+    "statistics": {
+      "relevant_files": 32,
+      "parsed_javascript_files": 32,
+      "parse_failures": 0,
+      "visited_ast_nodes": 41849
+    }
+  },
+  "code_gates": {
+    "self_heal_max_retries": 3,
+    "healFeedback_edge_extract_audit": true,
+    "pipeline_stage_self_heal": true,
+    "canOpen_NEEDS_REVIEW": true,
+    "toast_processing_only_active": true,
+    "busy_excludes_NEEDS_REVIEW": true,
+    "audit_workspace_sticky_breaker_banner": true,
+    "pricing_ts_unchanged": true,
+    "claude_max_no_gpt_fallback": true
+  },
+  "deploy": {
+    "function": "orcamentos-ia-pipeline",
+    "status": "ACTIVE",
+    "version": 49
+  },
+  "checkedAt": "2026-10-13T21:40:00-03:00"
+}

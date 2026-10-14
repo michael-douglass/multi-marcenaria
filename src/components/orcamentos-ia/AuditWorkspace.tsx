@@ -857,8 +857,33 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     )
   }
 
+  const showBreakerBanner =
+    tree.status === 'NEEDS_REVIEW' || (circuitBreaker && circuitBreaker.ok === false)
+  const breakerBlockers = (
+    circuitBreaker?.blockers?.length
+      ? circuitBreaker.blockers
+      : ['Status NEEDS_REVIEW — confira cobertura, preços e quantidades.']
+  ).slice(0, 6)
+
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-[520px] max-h-[calc(100dvh-5.75rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 sm:gap-3 sm:p-3 md:p-4">
+      {showBreakerBanner ? (
+        <div
+          role="alert"
+          className="sticky top-0 z-20 shrink-0 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950 shadow-sm"
+        >
+          <p className="font-semibold">Circuit breaker — revisão necessária</p>
+          <p className="mt-1 text-amber-900/90">
+            A análise não foi liberada como concluída. Corrija os pontos abaixo (ou use
+            Reauditar) e ajuste preços manualmente se precisar.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-900/90">
+            {breakerBlockers.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
         <div className="min-w-0 space-y-0.5">
           <h2 className="text-base font-semibold tracking-tight text-[#2a1812] sm:text-lg">
@@ -1436,29 +1461,6 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           <ScrollArea className="min-h-0 flex-1">
             {/* pb-28: espaço para os botões flutuantes (chat do Max / atalhos) */}
             <div className="space-y-2 p-3 pb-28">
-              {(tree.status === 'NEEDS_REVIEW' ||
-                (circuitBreaker && circuitBreaker.ok === false)) && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950"
-                >
-                  <p className="font-semibold">Circuit breaker — revisão necessária</p>
-                  <p className="mt-1 text-amber-900/90">
-                    A análise não foi liberada como concluída. Corrija os pontos abaixo e
-                    reprocessar/reauditar.
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-900/90">
-                    {(circuitBreaker?.blockers?.length
-                      ? circuitBreaker.blockers
-                      : ['Status NEEDS_REVIEW — confira cobertura, preços e quantidades.']
-                    )
-                      .slice(0, 6)
-                      .map((b) => (
-                        <li key={b}>{b}</li>
-                      ))}
-                  </ul>
-                </div>
-              )}
               <PriceReviewBanner
                 materials={tree.environments.flatMap((e) =>
                   e.modules.filter((m) => !m.out_of_scope).flatMap((m) => m.materials),

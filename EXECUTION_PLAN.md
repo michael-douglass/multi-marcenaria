@@ -322,7 +322,11 @@ Espelho: [`orcamento-com-IA/prd_v12_circuit_breaker_auditor_cortecloud.md`](orca
 - [x] `circuit-breaker.ts` + status `NEEDS_REVIEW` (migration)
 - [x] Dual material Branco TX + persistência `sale_price` / MPC
 - [x] AuditWorkspace banner + prompts Edge v12
-- [ ] Aceite: reprocessar ELITON e scorecard v12
+- [x] Claude Opus 5.5 no max sem fallback gpt-4o (`allowOpenAiFallback`)
+- [x] Ripado/colmeia nos prompts + evidência REA
+- [x] Dedup família + `forceDeduplicateViewQuantities` (pós-merge/auditoria)
+- [x] Aceite parcial ELITON `019d7ebd`: COMPLETED, Ilha única, ripado, Claude; venda ainda > Cortecloud
+- [x] PRD consolidado de acertos v12.1
 
 ---
 
@@ -330,6 +334,7 @@ Espelho: [`orcamento-com-IA/prd_v12_circuit_breaker_auditor_cortecloud.md`](orca
 
 | Item | Local |
 |------|--------|
+| **PRD v12.1 Acertos consolidados (reuso)** | [`docs/prd_v12_1_corte_claude_acertos_consolidados.md`](docs/prd_v12_1_corte_claude_acertos_consolidados.md) |
 | PRD v12 Circuit Breaker | `docs/prd_v12_circuit_breaker_auditor_cortecloud.md` |
 | PRD v11 Corte Claude | `docs/prd_v11_sistema_orcamento_corte_claude.md` |
 | PRD v8 (visão) | `orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md` |

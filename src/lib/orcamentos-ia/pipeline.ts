@@ -559,57 +559,164 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     }
   }
 
-  const payload = {
-    ok: true as const,
-    extraction: mergedRaw,
-    inventory,
-    pagesProcessed: state.pagePaths.length,
-  }
+  const finalizeExtractionTree = (raw: unknown): QuoteExtraction => {
+    const merged = forceDeduplicateViewQuantities(mergeExtractions([raw]))
+    let sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(merged))
+    let parsed = quoteExtractionSchema.safeParse(sanitized)
+    if (!parsed.success) {
+      sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(sanitized))
+      parsed = quoteExtractionSchema.safeParse(sanitized)
+    }
+    if (!parsed.success) {
+      sanitized = sanitizeExtractionPayload(stripNullOptionals(sanitized))
+      parsed = quoteExtractionSchema.safeParse(sanitized)
+    }
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')
+      throw new Error(
+        `Resposta do Extrator fora do schema esperado${detail ? ` (${detail})` : ''}.`,
+      )
+    }
 
-  const merged = forceDeduplicateViewQuantities(mergeExtractions([payload.extraction]))
-  let sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(merged))
-  let parsed = quoteExtractionSchema.safeParse(sanitized)
-  // Segunda chance: nulls/vazios da IA — limpa de novo e revalida
-  if (!parsed.success) {
-    sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(sanitized))
-    parsed = quoteExtractionSchema.safeParse(sanitized)
-  }
-  // Terceira chance: remove chaves null profundas que o Zod .optional() rejeita
-  if (!parsed.success) {
-    sanitized = sanitizeExtractionPayload(stripNullOptionals(sanitized))
-    parsed = quoteExtractionSchema.safeParse(sanitized)
-  }
-  if (!parsed.success) {
-    const detail = parsed.error.issues
-      .slice(0, 3)
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ')
-    throw new Error(
-      `Resposta do Extrator fora do schema esperado${detail ? ` (${detail})` : ''}.`,
+    const dualApplied = applyDualMaterialBoxDefaults(
+      parsed.data,
+      invokePrefs.box_thickness_mm ?? DEFAULT_COMPANY_STANDARDS(state.companyId).box_thickness_mm,
     )
-  }
+    const dualParsed = quoteExtractionSchema.safeParse(dualApplied)
+    if (dualParsed.success) parsed = dualParsed
 
-  // Dual material Cortecloud: caixote interno → MDF Branco TX (espessura da fábrica)
-  const dualApplied = applyDualMaterialBoxDefaults(
-    parsed.data,
-    invokePrefs.box_thickness_mm ?? DEFAULT_COMPANY_STANDARDS(state.companyId).box_thickness_mm,
-  )
-  const dualParsed = quoteExtractionSchema.safeParse(dualApplied)
-  if (dualParsed.success) parsed = dualParsed
-
-  // Porta final: família canônica + tetos geométricos (laterais/portas/tampos) pós-LLM.
-  {
     const clamped = forceDeduplicateViewQuantities(parsed.data)
     const reparsed = quoteExtractionSchema.safeParse(clamped)
     if (reparsed.success) parsed = reparsed
+    return parsed.data
   }
 
-  const estimatedPieces = parsed.data.environments
+  let tree = finalizeExtractionTree(mergedRaw)
+  let coverage = buildCoverageReport(inventory, tree)
+
+  /** Self-Healing: até 3 ciclos se inventário ainda tiver módulo ausente. */
+  const SELF_HEAL_MAX = 3
+  const selfHeal = {
+    attempts: 0,
+    max_retries: SELF_HEAL_MAX,
+    missing_before: coverage.missing.map((m) => ({ ...m })),
+    missing_after: coverage.missing.map((m) => ({ ...m })),
+    feedback: [] as string[],
+  }
+
+  while (coverage.missing.length > 0 && selfHeal.attempts < SELF_HEAL_MAX) {
+    selfHeal.attempts += 1
+    const missingLines = coverage.missing
+      .slice(0, 12)
+      .map((m) => `- ${m.environment} → ${m.module}`)
+      .join('\n')
+    const missingLabel = coverage.missing
+      .slice(0, 3)
+      .map((m) => m.module)
+      .join(', ')
+    const healFeedback = [
+      `═══ AUTO-CORREÇÃO ${selfHeal.attempts}/${SELF_HEAL_MAX} ═══`,
+      'MÓDULOS OBRIGATÓRIOS AUSENTES — reexamine as pranchas do PDF e INCLUA cada um com caixaria/frentes, cotas mm e bounding_box:',
+      missingLines,
+      'Não invente móveis fora desta lista; complete APENAS os ausentes. Nome canônico curto (ex.: Painel TV).',
+    ].join('\n')
+    selfHeal.feedback.push(healFeedback)
+
+    await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+      pipeline_stage: 'self_heal',
+      pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: buscando ${missingLabel || 'módulo faltante'}…`,
+      thought_kind: 'vision',
+      thought: true,
+      totals: {
+        inventory,
+        coverage,
+        self_heal: { ...selfHeal, missing_after: coverage.missing },
+        pages_processed: state.pagePaths.length,
+      },
+    })
+
+    const healExtractions: unknown[] = [tree]
+    for (let bi = 0; bi < batches.length; bi++) {
+      await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+        pipeline_stage: 'self_heal',
+        pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: lote ${bi + 1}/${batches.length}…`,
+        thought_kind: 'vision',
+      })
+      try {
+        const part = await invokeOrcamentosIaPhase({
+          analysisId: state.analysisId,
+          companyId: state.companyId,
+          mode: state.mode,
+          pagePaths: batches[bi],
+          phase: 'extract',
+          inventory,
+          healFeedback,
+          ragMemoriesPrompt: [ragPrompt, healFeedback].filter(Boolean).join('\n\n'),
+          models: ORCAMENTOS_IA_MODELS,
+        })
+        if (part.extraction) healExtractions.push(part.extraction)
+      } catch (healExtractErr) {
+        console.warn(
+          '[pipeline] self-heal extract falhou:',
+          healExtractErr instanceof Error ? healExtractErr.message : healExtractErr,
+        )
+      }
+    }
+
+    let healedRaw = forceDeduplicateViewQuantities(mergeExtractions(healExtractions))
+
+    if (state.mode === 'max') {
+      await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+        pipeline_stage: 'self_heal',
+        pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: auditoria dos módulos recuperados…`,
+        thought_kind: 'audit',
+      })
+      try {
+        const auditPageCap = 12
+        const aud = await invokeOrcamentosIaPhase({
+          analysisId: state.analysisId,
+          companyId: state.companyId,
+          mode: state.mode,
+          pagePaths: state.pagePaths.slice(0, auditPageCap),
+          phase: 'audit',
+          inventory,
+          extraction: healedRaw,
+          healFeedback,
+          ragMemoriesPrompt: [ragPrompt, healFeedback].filter(Boolean).join('\n\n'),
+          models: ORCAMENTOS_IA_MODELS,
+        })
+        if (aud.extraction) {
+          healedRaw = forceDeduplicateViewQuantities(mergeExtractions([aud.extraction]))
+        }
+      } catch (healAuditErr) {
+        console.warn(
+          '[pipeline] self-heal audit falhou:',
+          healAuditErr instanceof Error ? healAuditErr.message : healAuditErr,
+        )
+      }
+    }
+
+    try {
+      tree = finalizeExtractionTree(healedRaw)
+      coverage = buildCoverageReport(inventory, tree)
+      selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
+    } catch (healParseErr) {
+      console.warn(
+        '[pipeline] self-heal parse falhou:',
+        healParseErr instanceof Error ? healParseErr.message : healParseErr,
+      )
+      break
+    }
+  }
+
+  const estimatedPieces = tree.environments
     .flatMap((e) => e.modules)
     .flatMap((mod) => [...mod.caixaria, ...mod.frentes_portas])
     .filter((p) => p.dimensions_estimated).length
-  // Peça maior que a chapa padrão (2750×1850) nas duas orientações: IA agregou o móvel inteiro
-  const oversized = parsed.data.environments
+  const oversized = tree.environments
     .flatMap((e) => e.modules.map((mod) => ({ mod, pieces: [...mod.caixaria, ...mod.frentes_portas] })))
     .flatMap(({ mod, pieces }) =>
       pieces
@@ -620,25 +727,33 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
         .map((p) => `${mod.name} → ${p.name} (${p.width_mm}×${p.height_mm} mm)`),
     )
   if (oversized.length) {
-    parsed.data.warnings.push(
+    tree.warnings.push(
       `Peça(s) maiores que a chapa 2750×1850 — confira se a IA agrupou o móvel: ${oversized.slice(0, 5).join('; ')}`,
     )
   }
   if (estimatedPieces > 0) {
-    parsed.data.warnings.push(
+    tree.warnings.push(
       `${estimatedPieces} peça(s) sem cota no projeto — medidas estimadas pelo tipo (confira na auditoria).`,
     )
   }
+  if (selfHeal.attempts > 0) {
+    tree.auditor_notes = [
+      ...(Array.isArray(tree.auditor_notes) ? tree.auditor_notes : []),
+      `Self-heal: ${selfHeal.attempts} ciclo(s); faltando ao final: ${
+        selfHeal.missing_after.length
+          ? selfHeal.missing_after.map((m) => m.module).join(', ')
+          : 'nenhum'
+      }.`,
+    ]
+  }
 
-  const coverage = buildCoverageReport(inventory, parsed.data)
-
-  const bomGaps = findMarcenariaBomGaps(parsed.data)
+  const bomGaps = findMarcenariaBomGaps(tree)
   if (bomGaps.length) {
     const detail = bomGaps
       .slice(0, 5)
       .map((g) => `${g.module}: ${g.reason}`)
       .join('; ')
-    console.warn('[pipeline] BOM gaps após auditor:', detail)
+    console.warn('[pipeline] BOM gaps após auditor/self-heal:', detail)
   }
 
   await setAnalysisStatus(state.analysisId, 'FETCHING_MARKET_PRICES', {
@@ -649,11 +764,12 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       inventory,
       coverage,
       bom_gaps: bomGaps,
-      pages_processed: payload.pagesProcessed ?? state.pagePaths.length,
+      self_heal: selfHeal,
+      pages_processed: state.pagePaths.length,
     },
   })
 
-  return { extraction: parsed.data }
+  return { extraction: tree }
 }
 
 /** Corrige quantidades zeradas; marca fora de escopo (pedra/decoração). Dimensões → schema. */

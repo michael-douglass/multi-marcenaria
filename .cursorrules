@@ -2,7 +2,9 @@
 
 ## Referência Principal
 - Toda a arquitetura de banco de dados, regras de negócio de marcenaria e estrutura de agentes deve seguir estritamente o arquivo `@docs/prd_v11_sistema_orcamento_corte_claude.md`.
-- O plano de execução técnico está em `@EXECUTION_PLAN.md` (seção Fase v11).
+- **Acertos operacionais congelados (v12.1):** `@docs/prd_v12_1_corte_claude_acertos_consolidados.md` — circuit breaker, Claude max, dedup de vistas, ripado, deploy.
+- Circuit breaker / paridade Cortecloud: `@docs/prd_v12_circuit_breaker_auditor_cortecloud.md`.
+- O plano de execução técnico está em `@EXECUTION_PLAN.md` (seções Fase v11 / v12).
 - Histórico v8 (Planilha 4.0): `@orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md`.
 
 ## Stacks Técnicas

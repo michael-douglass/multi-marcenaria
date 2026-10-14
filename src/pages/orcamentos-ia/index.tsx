@@ -92,16 +92,30 @@ export default function OrcamentosIaPage() {
   const jobsSignature = bg.jobs.map((j) => `${j.analysisId}:${j.status}`).join('|')
   useEffect(() => {
     if (activeAnalysisId) return
-    const hasTerminal = bg.jobs.some((j) => j.status === 'COMPLETED' || j.status === 'FAILED')
+    const hasTerminal = bg.jobs.some(
+      (j) =>
+        j.status === 'COMPLETED' || j.status === 'FAILED' || j.status === 'NEEDS_REVIEW',
+    )
     if (hasTerminal) void refreshList()
   }, [jobsSignature, activeAnalysisId, refreshList, bg.jobs])
 
-  /** Enquanto houver item não concluído na lista, reconsulta o banco a cada 4s. */
+  /** Terminal: não precisa mais poll (COMPLETED / FAILED / NEEDS_REVIEW). */
+  const isTerminalStatus = (status: QuoteAnalysisStatus) =>
+    status === 'COMPLETED' || status === 'FAILED' || status === 'NEEDS_REVIEW'
+
+  const isActivelyProcessing = (status: QuoteAnalysisStatus) =>
+    status === 'PENDING' ||
+    status === 'PROCESSING' ||
+    status === 'CONVERTING_PAGES' ||
+    status === 'READING_LAYOUT' ||
+    status === 'EXTRACTING_MODULES' ||
+    status === 'AUDITING_REVISION' ||
+    status === 'FETCHING_MARKET_PRICES'
+
+  /** Enquanto houver item ainda processando, reconsulta o banco a cada 4s. */
   useEffect(() => {
     if (activeAnalysisId) return
-    const busy = analyses.some(
-      (a) => a.status !== 'COMPLETED' && a.status !== 'FAILED',
-    )
+    const busy = analyses.some((a) => !isTerminalStatus(a.status as QuoteAnalysisStatus))
     if (!busy) return
     const id = window.setInterval(() => {
       void refreshList()
@@ -114,6 +128,7 @@ export default function OrcamentosIaPage() {
     (row: QuoteAnalysisRow): QuoteAnalysisStatus => {
       const job = bg.jobs.find((j) => j.analysisId === row.id)
       if (row.status === 'COMPLETED' || job?.status === 'COMPLETED') return 'COMPLETED'
+      if (row.status === 'NEEDS_REVIEW' || job?.status === 'NEEDS_REVIEW') return 'NEEDS_REVIEW'
       if (row.status === 'FAILED') return 'FAILED'
       if (job?.status) return job.status
       return row.status as QuoteAnalysisStatus
@@ -155,17 +170,45 @@ export default function OrcamentosIaPage() {
       openAudit(row.id)
       return
     }
+    if (status === 'NEEDS_REVIEW') {
+      toast.message('Abrindo análise para revisão manual', {
+        description: 'Circuit breaker pediu conferência — confira o banner de alertas.',
+      })
+      openAudit(row.id)
+      return
+    }
+    if (status === 'FAILED') {
+      toast.error('Esta análise falhou', {
+        description: row.error_message || 'Use Retomar ou envie o PDF de novo.',
+      })
+      return
+    }
+
     setListLoading(true)
     const { data } = await listQuoteAnalyses(companyId)
     setListLoading(false)
     if (data.length) setAnalyses(data)
     const fresh = data.find((a) => a.id === row.id)
-    if (fresh?.status === 'COMPLETED') {
+    const freshStatus = (fresh?.status ?? status) as QuoteAnalysisStatus
+    if (freshStatus === 'COMPLETED') {
       openAudit(row.id)
       return
     }
-    toast.message('Orçamento ainda processando', {
-      description: 'Assim que concluir, o botão Abrir libera. Clique em Atualizar se precisar.',
+    if (freshStatus === 'NEEDS_REVIEW') {
+      toast.message('Abrindo análise para revisão manual', {
+        description: 'Circuit breaker pediu conferência — confira o banner de alertas.',
+      })
+      openAudit(row.id)
+      return
+    }
+    if (isActivelyProcessing(freshStatus)) {
+      toast.message('Ainda processando o PDF…', {
+        description: 'O botão Abrir libera quando concluir ou quando pedir revisão manual.',
+      })
+      return
+    }
+    toast.message('Orçamento ainda não está pronto', {
+      description: 'Clique em Atualizar daqui a pouco ou aguarde o processamento.',
     })
   }
 
@@ -379,7 +422,7 @@ export default function OrcamentosIaPage() {
                   {filteredAnalyses.map((row, idx) => {
                     const status = effectiveStatus(row)
                     const label = QUOTE_STATUS_LABEL[status] ?? status
-                    const canOpen = status === 'COMPLETED'
+                    const canOpen = status === 'COMPLETED' || status === 'NEEDS_REVIEW'
                     const canResume = status === 'FAILED'
                     const name = analysisDisplayName(row)
                     const isResuming = resumingId === row.id
@@ -416,9 +459,11 @@ export default function OrcamentosIaPage() {
                             className={cn(
                               'border-0 text-[10px] font-semibold',
                               status === 'COMPLETED' && 'bg-[#0066FF] text-white',
+                              status === 'NEEDS_REVIEW' && 'bg-amber-500 text-white',
                               status === 'FAILED' && 'bg-red-600 text-white',
                               status !== 'COMPLETED' &&
                                 status !== 'FAILED' &&
+                                status !== 'NEEDS_REVIEW' &&
                                 'bg-slate-200 text-slate-700',
                             )}
                           >
@@ -454,9 +499,11 @@ export default function OrcamentosIaPage() {
                               variant={canOpen ? 'default' : 'outline'}
                               disabled={listLoading && !canOpen}
                               title={
-                                canOpen
+                                status === 'COMPLETED'
                                   ? 'Abrir conferência'
-                                  : 'Verificar no servidor se já concluiu e abrir'
+                                  : status === 'NEEDS_REVIEW'
+                                    ? 'Abrir para revisão manual (circuit breaker)'
+                                    : 'Verificar no servidor se já concluiu e abrir'
                               }
                               onClick={() => void tryOpenAudit(row)}
                             >
