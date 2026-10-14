@@ -421,7 +421,16 @@ export default function OrcamentosIaPage() {
                 <ul className="space-y-2">
                   {filteredAnalyses.map((row, idx) => {
                     const status = effectiveStatus(row)
-                    const label = QUOTE_STATUS_LABEL[status] ?? status
+                    const bgJob = bg.jobs.find((j) => j.analysisId === row.id)
+                    // Self-heal cirúrgico: badge fica em Auditoria (não pisca "Extraindo")
+                    const isSelfHeal = bgJob?.pipelineStage === 'self_heal'
+                    const label = isSelfHeal
+                      ? QUOTE_STATUS_LABEL.AUDITING_REVISION
+                      : (QUOTE_STATUS_LABEL[status] ?? status)
+                    const healDetail =
+                      isSelfHeal && typeof bgJob?.pipelineDetail === 'string'
+                        ? bgJob.pipelineDetail
+                        : null
                     const canOpen = status === 'COMPLETED' || status === 'NEEDS_REVIEW'
                     const canResume = status === 'FAILED'
                     const name = analysisDisplayName(row)
@@ -448,6 +457,11 @@ export default function OrcamentosIaPage() {
                             {' · '}
                             Modo {row.mode === 'max' ? 'Max' : 'Pro'}
                           </p>
+                          {healDetail ? (
+                            <p className="line-clamp-2 text-[11px] text-[#0066FF]/90">
+                              {healDetail}
+                            </p>
+                          ) : null}
                           {status === 'FAILED' && row.error_message ? (
                             <p className="line-clamp-2 text-[11px] text-red-700/90">
                               {row.error_message}

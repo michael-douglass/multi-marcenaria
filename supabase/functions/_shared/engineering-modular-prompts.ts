@@ -107,6 +107,17 @@ width_mm ↔ eixo C; height_mm ↔ eixo L da peça.
 - Use o ambiente correto por prancha: leia o título/CONTEÚDO do desenho (ex.: DETALHAMENTO BANCADA LAVABO → "Lavabo").
 - ASSUNTO genérico ("Marmoraria Cozinha e Lavanderia") NÃO define o ambiente de cada módulo.
 - Lavabo ≠ Cozinha ≠ Espaço Gourmet. Não misture tudo num único ambiente.
+- Quarto / Quarto Suíte / Closet: Painel TV, Mesa de cabeceira, Cabeceira, Guarda-roupa, Aparador PERMANECEM no Quarto — PROIBIDO jogar para Cozinha.
+
+═══ PROJETOS MODULARES / HELLOMOB (paridade Cortecloud Quarto) ═══
+Quando o PDF/inventário for dormitório modular (guarda-roupa em colunas, balcões, painéis avulsos):
+1) FATIE o guarda-roupa em colunas: "Armário 1 coluna" + larguras reais (ex.: 860, 900, 1500 mm) via column_widths_mm OU módulos separados por coluna.
+2) Balcões inferiores / gaveteiros: módulos próprios (typology=balcao|gaveteiro), cotas compactas.
+3) Portas avulsas e vistas verticais (coluna aberta/ripada): módulos distintos quando o desenho separar.
+4) PROIBIDO um único "Guarda Roupas" inflado sem column_widths_mm quando o PDF mostrar várias colunas.
+5) Painel TV liso ≠ Painel ripado — dois módulos (já reforçado acima).
+6) Mesa de cabeceira / criado-mudo: typology=gaveteiro; H≤700 mm, D≤500 mm, W≤900 mm — NUNCA caixa de 2,50×2,80 m.
+7) Cabeceira: typology=painel; profundidade típica ≤150 mm — NÃO inventar laterais de balcão 390×2800.
 
 ═══ WORKFLOW POR TIPOLOGIA ═══
 Para cada móvel real informe typology quando possível:

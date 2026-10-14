@@ -1,0 +1,43 @@
+{
+  "task": "rea-surgical-self-heal",
+  "verdict": "PASS — cura cirúrgica (heal_module) + injeção forçada + status AUDITING_REVISION estável; REA parse_failures=0; tsc clean; Edge pipeline v50",
+  "tsc": "clean",
+  "rea": {
+    "operation": "analyze_javascript_application",
+    "path": "src/lib/orcamentos-ia",
+    "detail": "summary",
+    "integrity_policy": "record-and-continue",
+    "parent_evidence_id": "ev_d8b419eca12254f53c33b1b92eec96ff955e1e949654bc345bc13107e43516bc",
+    "summary_evidence_id": "ev_94d723e9ac118abf722b0e220bfcc3ef3eb6d4324d43259574c91f591ec46f3c",
+    "artifact_sha256": "9801ab52d7d417dd8dfe52df618d3150a5b6fbb4ae16b084213458e46d73eb4f",
+    "statistics": {
+      "relevant_files": 32,
+      "parsed_javascript_files": 32,
+      "parse_failures": 0,
+      "visited_ast_nodes": 43085
+    }
+  },
+  "code_gates": {
+    "heal_module_phase": true,
+    "no_full_reextract_on_self_heal": true,
+    "injectMissingInventoryModules": true,
+    "forcedInjectLock_auditor": true,
+    "status_locked_AUDITING_REVISION": true,
+    "pipeline_stage_self_heal": true,
+    "ui_badge_self_heal_as_auditoria": true,
+    "resolvePipelineStageId_self_heal_to_auditing": true,
+    "pricing_ts_unchanged": true,
+    "claude_max_no_gpt_fallback": true
+  },
+  "deploy": {
+    "function": "orcamentos-ia-pipeline",
+    "status": "ACTIVE",
+    "version": 50
+  },
+  "flow": {
+    "attempt_1": "heal_module — inserção cirúrgica só dos faltantes + merge na árvore atual",
+    "attempt_2_3": "injectMissingInventoryModules + audit forcedInjectLock + re-inject safety net",
+    "ui": "status fixo AUDITING_REVISION; thought_log/pipeline_detail atualizam o texto da tentativa"
+  },
+  "checkedAt": "2026-10-13T22:00:00-03:00"
+}

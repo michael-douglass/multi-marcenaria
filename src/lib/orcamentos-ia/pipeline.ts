@@ -33,9 +33,11 @@ import {
   applyAntiHallucinationHeuristics,
   buildCoverageReport,
   buildPageImagePath,
+  clampGeometryBounds,
   ensureModulePlaceholder,
   findMarcenariaBomGaps,
   forceDeduplicateViewQuantities,
+  injectMissingInventoryModules,
   mergeExtractions,
   modulesMatchCoverage,
   pageFromBoundingBox,
@@ -44,6 +46,7 @@ import {
   type CoverageReport,
   type InventoryEnv,
 } from '@/lib/orcamentos-ia/merge-extraction'
+import { rebalanceEnvironments } from '@/lib/orcamentos-ia/rebalance'
 import {
   applyDualMaterialBoxDefaults,
   evaluateCircuitBreaker,
@@ -560,11 +563,17 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   }
 
   const finalizeExtractionTree = (raw: unknown): QuoteExtraction => {
-    const merged = forceDeduplicateViewQuantities(mergeExtractions([raw]))
-    let sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(merged))
+    // Lock dormitório antes das heurísticas — evita Cozinha fantasma (Painel TV / Mesa cabeceira)
+    const rebalanced = rebalanceEnvironments(raw, inventory)
+    const merged = forceDeduplicateViewQuantities(mergeExtractions([rebalanced]))
+    let sanitized = sanitizeExtractionPayload(
+      clampGeometryBounds(applyAntiHallucinationHeuristics(merged)),
+    )
     let parsed = quoteExtractionSchema.safeParse(sanitized)
     if (!parsed.success) {
-      sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(sanitized))
+      sanitized = sanitizeExtractionPayload(
+        clampGeometryBounds(applyAntiHallucinationHeuristics(sanitized)),
+      )
       parsed = quoteExtractionSchema.safeParse(sanitized)
     }
     if (!parsed.success) {
@@ -588,7 +597,8 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     const dualParsed = quoteExtractionSchema.safeParse(dualApplied)
     if (dualParsed.success) parsed = dualParsed
 
-    const clamped = forceDeduplicateViewQuantities(parsed.data)
+    const geom = clampGeometryBounds(forceDeduplicateViewQuantities(parsed.data))
+    const clamped = forceDeduplicateViewQuantities(geom)
     const reparsed = quoteExtractionSchema.safeParse(clamped)
     if (reparsed.success) parsed = reparsed
     return parsed.data
@@ -597,14 +607,38 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   let tree = finalizeExtractionTree(mergedRaw)
   let coverage = buildCoverageReport(inventory, tree)
 
-  /** Self-Healing: até 3 ciclos se inventário ainda tiver módulo ausente. */
+  /**
+   * Self-Heal cirúrgico (v12.2):
+   * 1) Uma chamada heal_module só para os faltantes (sem re-extrair todos os lotes)
+   * 2–3) Injeção forçada determinística + auditoria com lock
+   * Status permanece AUDITING_REVISION (sem piscar EXTRACTING_MODULES).
+   */
   const SELF_HEAL_MAX = 3
   const selfHeal = {
     attempts: 0,
     max_retries: SELF_HEAL_MAX,
+    mode: null as 'surgical' | 'forced_inject' | null,
     missing_before: coverage.missing.map((m) => ({ ...m })),
     missing_after: coverage.missing.map((m) => ({ ...m })),
     feedback: [] as string[],
+  }
+
+  const publishSelfHealStatus = async (detail: string) => {
+    await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+      pipeline_stage: 'self_heal',
+      pipeline_detail: detail,
+      thought_kind: 'audit',
+      thought: true,
+      totals: {
+        inventory,
+        coverage,
+        self_heal: {
+          ...selfHeal,
+          missing_after: coverage.missing.map((m) => ({ ...m })),
+        },
+        pages_processed: state.pagePaths.length,
+      },
+    })
   }
 
   while (coverage.missing.length > 0 && selfHeal.attempts < SELF_HEAL_MAX) {
@@ -619,61 +653,78 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       .join(', ')
     const healFeedback = [
       `═══ AUTO-CORREÇÃO ${selfHeal.attempts}/${SELF_HEAL_MAX} ═══`,
-      'MÓDULOS OBRIGATÓRIOS AUSENTES — reexamine as pranchas do PDF e INCLUA cada um com caixaria/frentes, cotas mm e bounding_box:',
+      'MÓDULOS OBRIGATÓRIOS AUSENTES — cure de forma CIRÚRGICA (só estes), sem reescrever o restante da árvore:',
       missingLines,
-      'Não invente móveis fora desta lista; complete APENAS os ausentes. Nome canônico curto (ex.: Painel TV).',
+      'Nome canônico curto (ex.: Painel TV). Inclua caixaria/frentes, cotas mm e bounding_box.',
     ].join('\n')
     selfHeal.feedback.push(healFeedback)
 
-    await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
-      pipeline_stage: 'self_heal',
-      pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: buscando ${missingLabel || 'módulo faltante'}…`,
-      thought_kind: 'vision',
-      thought: true,
-      totals: {
-        inventory,
-        coverage,
-        self_heal: { ...selfHeal, missing_after: coverage.missing },
-        pages_processed: state.pagePaths.length,
-      },
-    })
-
-    const healExtractions: unknown[] = [tree]
-    for (let bi = 0; bi < batches.length; bi++) {
-      await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
-        pipeline_stage: 'self_heal',
-        pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: lote ${bi + 1}/${batches.length}…`,
-        thought_kind: 'vision',
-      })
+    if (selfHeal.attempts === 1) {
+      selfHeal.mode = 'surgical'
+      await publishSelfHealStatus(
+        `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: Encaixando ${missingLabel || 'módulo faltante'}…`,
+      )
       try {
+        const healPageCap = Math.min(12, state.pagePaths.length)
         const part = await invokeOrcamentosIaPhase({
           analysisId: state.analysisId,
           companyId: state.companyId,
           mode: state.mode,
-          pagePaths: batches[bi],
-          phase: 'extract',
+          pagePaths: state.pagePaths.slice(0, healPageCap),
+          phase: 'heal_module',
           inventory,
+          missingModules: coverage.missing,
+          currentExtraction: tree,
+          extraction: tree,
           healFeedback,
           ragMemoriesPrompt: [ragPrompt, healFeedback].filter(Boolean).join('\n\n'),
           models: ORCAMENTOS_IA_MODELS,
         })
-        if (part.extraction) healExtractions.push(part.extraction)
-      } catch (healExtractErr) {
+        if (part.extraction) {
+          const mergedHeal = forceDeduplicateViewQuantities(
+            mergeExtractions([tree, part.extraction]),
+          )
+          tree = finalizeExtractionTree(mergedHeal)
+          coverage = buildCoverageReport(inventory, tree)
+          selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
+        }
+      } catch (healSurgicalErr) {
         console.warn(
-          '[pipeline] self-heal extract falhou:',
-          healExtractErr instanceof Error ? healExtractErr.message : healExtractErr,
+          '[pipeline] self-heal cirúrgico falhou:',
+          healSurgicalErr instanceof Error ? healSurgicalErr.message : healSurgicalErr,
         )
       }
+      continue
     }
 
-    let healedRaw = forceDeduplicateViewQuantities(mergeExtractions(healExtractions))
+    // Tentativas 2–3: injeção forçada determinística (100% cobertura do inventário)
+    selfHeal.mode = 'forced_inject'
+    await publishSelfHealStatus(
+      `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: Injeção forçada — ${missingLabel || 'módulo faltante'}…`,
+    )
+    try {
+      const injected = injectMissingInventoryModules(tree, coverage.missing)
+      tree = finalizeExtractionTree(injected)
+      coverage = buildCoverageReport(inventory, tree)
+      selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
+    } catch (injectErr) {
+      console.warn(
+        '[pipeline] injeção forçada falhou:',
+        injectErr instanceof Error ? injectErr.message : injectErr,
+      )
+      break
+    }
 
     if (state.mode === 'max') {
-      await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
-        pipeline_stage: 'self_heal',
-        pipeline_detail: `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: auditoria dos módulos recuperados…`,
-        thought_kind: 'audit',
-      })
+      await publishSelfHealStatus(
+        `Auto-correção ${selfHeal.attempts}/${SELF_HEAL_MAX}: Auditoria preservando injeção…`,
+      )
+      const injectLockFeedback = [
+        healFeedback,
+        'INJEÇÃO FORÇADA ATIVA: NÃO remova módulos com auditor_notes contendo "injeção forçada self-heal".',
+        'Se ainda faltar item do inventário, reinjecte com dims/materiais padrão do ambiente.',
+        'Cobertura 100% do inventário é obrigatória antes de encerrar.',
+      ].join('\n')
       try {
         const auditPageCap = 12
         const aud = await invokeOrcamentosIaPhase({
@@ -683,33 +734,42 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           pagePaths: state.pagePaths.slice(0, auditPageCap),
           phase: 'audit',
           inventory,
-          extraction: healedRaw,
-          healFeedback,
-          ragMemoriesPrompt: [ragPrompt, healFeedback].filter(Boolean).join('\n\n'),
+          extraction: tree,
+          healFeedback: injectLockFeedback,
+          forcedInjectLock: true,
+          ragMemoriesPrompt: [ragPrompt, injectLockFeedback].filter(Boolean).join('\n\n'),
           models: ORCAMENTOS_IA_MODELS,
         })
         if (aud.extraction) {
-          healedRaw = forceDeduplicateViewQuantities(mergeExtractions([aud.extraction]))
+          // Merge com a árvore pré-auditoria para não perder injetados se o modelo omitir
+          const mergedAud = forceDeduplicateViewQuantities(
+            mergeExtractions([tree, aud.extraction]),
+          )
+          tree = finalizeExtractionTree(mergedAud)
         }
       } catch (healAuditErr) {
         console.warn(
-          '[pipeline] self-heal audit falhou:',
+          '[pipeline] self-heal audit (inject lock) falhou:',
           healAuditErr instanceof Error ? healAuditErr.message : healAuditErr,
         )
       }
+      // Rede de segurança: se o auditor removeu algo do inventário, re-injeta
+      coverage = buildCoverageReport(inventory, tree)
+      if (coverage.missing.length > 0) {
+        try {
+          tree = finalizeExtractionTree(injectMissingInventoryModules(tree, coverage.missing))
+          coverage = buildCoverageReport(inventory, tree)
+        } catch (reInjectErr) {
+          console.warn(
+            '[pipeline] re-injeção pós-auditoria falhou:',
+            reInjectErr instanceof Error ? reInjectErr.message : reInjectErr,
+          )
+        }
+      }
+      selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
     }
 
-    try {
-      tree = finalizeExtractionTree(healedRaw)
-      coverage = buildCoverageReport(inventory, tree)
-      selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
-    } catch (healParseErr) {
-      console.warn(
-        '[pipeline] self-heal parse falhou:',
-        healParseErr instanceof Error ? healParseErr.message : healParseErr,
-      )
-      break
-    }
+    if (coverage.missing.length === 0) break
   }
 
   const estimatedPieces = tree.environments
@@ -739,7 +799,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   if (selfHeal.attempts > 0) {
     tree.auditor_notes = [
       ...(Array.isArray(tree.auditor_notes) ? tree.auditor_notes : []),
-      `Self-heal: ${selfHeal.attempts} ciclo(s); faltando ao final: ${
+      `Self-heal (${selfHeal.mode || 'surgical'}): ${selfHeal.attempts} ciclo(s); faltando ao final: ${
         selfHeal.missing_after.length
           ? selfHeal.missing_after.map((m) => m.module).join(', ')
           : 'nenhum'

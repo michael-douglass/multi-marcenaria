@@ -236,6 +236,12 @@ export const moduleExtractionSchema = z
       handle_recess_mm: z.union([z.literal(0), z.literal(20), z.literal(40)]).optional(),
       door_overhang_mm: z.number().min(0).max(30).optional(),
       sliding_envelope: z.boolean().optional(),
+      /**
+       * Cotas do módulo (mm). Limites tipológicos (clamp em `geometry-bounds.ts`, não rejeição Zod):
+       * - mesa_de_cabeceira/criado: H≤700 D≤500 W≤900
+       * - cabeceira: D≤150 H≤1400
+       * - painel_tv / painel_ripado: D≤80
+       */
       dimensions: z
         .object({
           width_mm: z.number().positive(),
@@ -292,6 +298,9 @@ export type QuoteExtraction = z.infer<typeof quoteExtractionSchema>
 export type ModuleExtraction = z.infer<typeof moduleExtractionSchema>
 export type FerragemItem = z.infer<typeof ferragemItemSchema>
 export type MaterialCategory = z.infer<typeof materialCategorySchema>
+
+/** Limites tipológicos (clamp) — ver `geometry-bounds.ts`. */
+export { GEOMETRY_BOUNDS, clampGeometryBounds } from '@/lib/orcamentos-ia/geometry-bounds'
 
 /** Re-export tipado dos padrões da empresa (Default-with-Override Cortecloud). */
 export {

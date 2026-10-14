@@ -10,17 +10,23 @@ import {
   resolveOrcamentosModels,
   type LlmJsonResult,
 } from '../_shared/llm-json.ts'
+import { rebalanceEnvironments as rebalanceEnvironmentsShared } from '../_shared/rebalance-environments.ts'
 
 const BATCH_SIZE = 8
 const MAX_PAGES = 40
 
 type AnyRec = Record<string, unknown>
 
-type PipelinePhase = 'full' | 'inventory' | 'extract' | 'audit'
+type PipelinePhase = 'full' | 'inventory' | 'extract' | 'audit' | 'heal_module'
 
 interface InventoryEnv {
   environment: string
   modules: string[]
+}
+
+interface CoverageItemLite {
+  environment: string
+  module: string
 }
 
 interface PipelineBody {
@@ -33,15 +39,24 @@ interface PipelineBody {
    * Fases curtas evitam 504 do gateway (~150s).
    * - inventory: capa → lista de ambientes/móveis
    * - extract: 1 lote de páginas (pagePaths já cortado pelo client)
+   * - heal_module: cura cirúrgica — só módulos faltantes (sem re-extrair tudo)
    * - audit: até 3 passagens anti-alucinação (remover/renomear + completar BOM)
    * - full: comportamento legado (tudo numa chamada — só PDFs pequenos)
    */
   phase?: PipelinePhase
   inventory?: InventoryEnv[]
   extraction?: AnyRec
+  /** Árvore atual para merge na cura cirúrgica (alias de extraction). */
+  currentExtraction?: AnyRec
+  /** Itens do inventário ainda ausentes (cura cirúrgica). */
+  missingModules?: CoverageItemLite[]
   /** Feedback do Self-Healing (módulos ausentes) — prefixado no prompt extract/audit. */
   healFeedback?: string
+  /** Auditor não pode remover módulos com nota de injeção forçada. */
+  forcedInjectLock?: boolean
 }
+
+const FORCED_INJECT_NOTE = 'injeção forçada self-heal: cobertura inventário'
 
 const MAX_AUDIT_PASSES = 3
 const AUDIT_IMAGES_PER_PASS = 8
@@ -412,6 +427,41 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
   }
 }
 
+function moduleHasForcedInjectNote(mod: AnyRec): boolean {
+  const notes = Array.isArray(mod.auditor_notes) ? mod.auditor_notes : []
+  return notes.some(
+    (n) => typeof n === 'string' && n.toLowerCase().includes('injeção forçada self-heal'),
+  )
+}
+
+/** Garante que módulos injetados na árvore anterior não sumam após o auditor. */
+function preserveForcedInjectModules(before: AnyRec, after: AnyRec): AnyRec {
+  const afterEnvs = asObjArray(after.environments).map((env) => ({
+    ...env,
+    modules: [...asObjArray(env.modules)],
+  }))
+  for (const envBefore of asObjArray(before.environments)) {
+    const envName = typeof envBefore.name === 'string' ? envBefore.name : 'Ambiente'
+    const envKey = normalizeKey(envName)
+    let envAfter = afterEnvs.find((e) => normalizeKey(String(e.name || '')) === envKey)
+    if (!envAfter) {
+      envAfter = { name: envName, modules: [] }
+      afterEnvs.push(envAfter)
+    }
+    for (const modBefore of asObjArray(envBefore.modules)) {
+      if (!moduleHasForcedInjectNote(modBefore)) continue
+      const modName = typeof modBefore.name === 'string' ? modBefore.name : 'Modulo'
+      const exists = asObjArray(envAfter.modules).some(
+        (m) => normalizeKey(String(m.name || '')) === normalizeKey(modName),
+      )
+      if (!exists) {
+        envAfter.modules = [...asObjArray(envAfter.modules), modBefore]
+      }
+    }
+  }
+  return { ...after, environments: afterEnvs }
+}
+
 function ensurePlaceholders(extraction: AnyRec): AnyRec {
   const environments = asObjArray(extraction.environments).map((env) => {
     const modules = asObjArray(env.modules).map((mod) => {
@@ -670,94 +720,9 @@ function sanitizeInventory(inventory: InventoryEnv[]): InventoryEnv[] {
   return cleaned
 }
 
-/**
- * Separa Lavabo real; funde Cozinha+Gourmet; ignora Lavanderia fantasma do ASSUNTO.
- */
-function rebalanceEnvironments(extraction: AnyRec): AnyRec {
-  const notes: string[] = Array.isArray(extraction.auditor_notes)
-    ? [...(extraction.auditor_notes as string[])]
-    : []
-  const buckets = new Map<string, { name: string; modules: AnyRec[] }>()
-
-  const put = (envName: string, mod: AnyRec) => {
-    const key = normalizeKey(envName)
-    const prev = buckets.get(key)
-    const modKey = normalizeKey(typeof mod.name === 'string' ? mod.name : 'Modulo')
-    if (!prev) {
-      buckets.set(key, { name: envName, modules: [mod] })
-      return
-    }
-    const existing = prev.modules.findIndex(
-      (m) => normalizeKey(typeof m.name === 'string' ? m.name : '') === modKey,
-    )
-    if (existing >= 0) prev.modules[existing] = mergeModule(prev.modules[existing], mod)
-    else prev.modules.push(mod)
-    if (envName.length > prev.name.length) prev.name = envName
-  }
-
-  const hasGourmetLabel = asObjArray(extraction.environments).some((e) =>
-    /gourmet/.test(normalizeKey(typeof e.name === 'string' ? e.name : '')),
-  )
-  const defaultSocial = hasGourmetLabel ? 'Espaço Gourmet' : 'Cozinha'
-
-  for (const env of asObjArray(extraction.environments)) {
-    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
-    const envKey = normalizeKey(envName)
-    for (const mod of asObjArray(env.modules)) {
-      let modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
-      const descKey = normalizeKey(typeof mod.description === 'string' ? mod.description : '')
-      let nameKey = normalizeKey(modName)
-      const blob = `${nameKey} ${descKey}`
-      const { h, d, w } = moduleDims(mod)
-
-      const fixed = fixWrongBancadaLabel(modName, descKey, h, d, w)
-      if (fixed) {
-        notes.push(`Renomeado "${modName}" → "${fixed}" (mesa de jantar, não bancada).`)
-        modName = fixed
-        nameKey = normalizeKey(modName)
-      }
-
-      if (BEDROOM_ONLY_RE.test(nameKey) && SOCIAL_ENV_RE.test(envKey)) {
-        notes.push(`Removido "${modName}" de "${envName}": tipologia de quarto sem evidência.`)
-        continue
-      }
-
-      const isKitchenFurniture =
-        /cooktop|churras|ilha|geladeira|cristaleira|forno|fogao|fogão|gourmet|adega|microondas/.test(
-          blob,
-        ) || (/bancada/.test(nameKey) && /pia|cooktop|churras/.test(blob))
-      const isLavabo = /lavabo/.test(blob) || (/lavabo/.test(envKey) && !isKitchenFurniture)
-      const isLavanderia = /lavanderia|tanque|maquina de lavar|máquina de lavar/.test(blob)
-
-      let target = defaultSocial
-      if (isLavabo && !isKitchenFurniture) {
-        target = 'Lavabo'
-        if (!/lavabo/.test(nameKey)) {
-          modName = /bancada/.test(nameKey) ? 'Bancada Lavabo' : `${modName} Lavabo`
-          nameKey = normalizeKey(modName)
-        }
-      } else if (isLavanderia && !isKitchenFurniture) target = 'Lavanderia'
-      else if (
-        !isKitchenFurniture &&
-        !/mesa|jantar|painel|armario|armário|ripado|cristaleira|ilha|bancada|torre/.test(blob) &&
-        !/cozinha|gourmet|lavabo|lavanderia/.test(envKey)
-      ) {
-        target = envName // quarto/outro ambiente real
-      }
-
-      if (target !== envName && /lavabo|lavanderia|cozinha/.test(envKey)) {
-        notes.push(`Movido "${modName}" de "${envName}" → "${target}".`)
-      }
-
-      put(target, { ...mod, name: modName })
-    }
-  }
-
-  return {
-    ...extraction,
-    environments: [...buckets.values()].filter((e) => e.modules.length > 0),
-    auditor_notes: [...new Set(notes)],
-  }
+/** Lock dormitório + Lavabo/Gourmet — ver `_shared/rebalance-environments.ts`. */
+function rebalanceEnvironments(extraction: AnyRec, inventory?: InventoryEnv[]): AnyRec {
+  return rebalanceEnvironmentsShared(extraction, inventory) as AnyRec
 }
 
 function findTypologySuspects(
@@ -1313,7 +1278,7 @@ async function setStage(
     if (!(last && last.message === message && last.stage === stage)) {
       const entryKind =
         kind ||
-        (stage === 'auditing'
+        (stage === 'auditing' || stage === 'self_heal'
           ? 'audit'
           : stage === 'fetching_prices' || stage === 'persisting'
             ? 'price'
@@ -1628,15 +1593,16 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
       const pageHints = signedContents
         .map((c) => pdfPageFromPath(c.path))
         .filter((n): n is number => n != null)
+      // Self-heal nunca deve piscar EXTRACTING_MODULES na UI
       await setStage(
         admin,
         body.analysisId,
-        'EXTRACTING_MODULES',
+        healFeedback ? 'AUDITING_REVISION' : 'EXTRACTING_MODULES',
         healFeedback ? 'self_heal' : 'extracting_batch',
         healFeedback
-          ? `Auto-correção: reexaminando lote (${signedContents.length} página(s))…`
+          ? `Auto-correção: encaixe cirúrgico (${signedContents.length} página(s))…`
           : `Caçando chapas MDF, puxadores e dobradiças neste lote (${signedContents.length} página(s))…`,
-        'vision',
+        healFeedback ? 'audit' : 'vision',
       )
       const extractorSystem = systemExtractor + ragBlock
       const batchCall = await callLlm({
@@ -1688,6 +1654,109 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
       })
     }
 
+    if (phase === 'heal_module') {
+      const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
+      const inventoryText = formatInventoryText(inventory)
+      const healFeedback =
+        typeof body.healFeedback === 'string' && body.healFeedback.trim()
+          ? body.healFeedback.trim()
+          : ''
+      const missingModules = Array.isArray(body.missingModules)
+        ? body.missingModules.filter(
+            (m): m is CoverageItemLite =>
+              !!m &&
+              typeof m === 'object' &&
+              typeof (m as CoverageItemLite).environment === 'string' &&
+              typeof (m as CoverageItemLite).module === 'string',
+          )
+        : []
+      const currentExtraction =
+        (body.currentExtraction && typeof body.currentExtraction === 'object'
+          ? body.currentExtraction
+          : null) ||
+        (body.extraction && typeof body.extraction === 'object' ? body.extraction : null) ||
+        { environments: [], auditor_notes: [], warnings: [] }
+
+      const missingText = missingModules.length
+        ? missingModules.map((m) => `- ${m.environment} → ${m.module}`).join('\n')
+        : '(ver healFeedback)'
+
+      await setStage(
+        admin,
+        body.analysisId,
+        'AUDITING_REVISION',
+        'self_heal',
+        `Auto-correção: encaixe cirúrgico — ${
+          missingModules
+            .slice(0, 2)
+            .map((m) => m.module)
+            .join(', ') || 'módulo faltante'
+        }…`,
+        'audit',
+      )
+
+      const imageBudget =
+        mode === 'max' && isClaudeModel(EXTRACTOR_MODEL) ? AUDIT_IMAGES_PER_PASS_CLAUDE : 8
+      const windowContents = pickAuditContents(signedContents, currentExtraction, 1, imageBudget)
+
+      const healSystem =
+        systemExtractor +
+        ragBlock +
+        `\n\nMODO CURA CIRÚRGICA (Targeted Self-Heal):
+- Devolva APENAS os módulos da lista obrigatória (ausentes do inventário).
+- NÃO reescreva nem devolva de novo os módulos já presentes na árvore atual.
+- Estrutura: environments com só os módulos novos, caixaria/frentes, cotas mm e bounding_box.
+- Nome canônico curto (ex.: "Painel TV").`
+
+      const batchCall = await callLlm({
+        model: EXTRACTOR_MODEL,
+        system: healSystem,
+        userContent: [
+          {
+            type: 'text',
+            text: `${healFeedback ? `${healFeedback}\n\n` : ''}CURA CIRÚRGICA — extraia SOMENTE estes módulos faltantes:
+${missingText}
+
+INVENTÁRIO DO PROJETO (âncora):
+${inventoryText}
+
+ÁRVORE ATUAL (referência — NÃO devolva estes módulos de novo):
+${JSON.stringify(currentExtraction).slice(0, 30000)}
+
+Cada imagem vem com "PDF página N" — use esse N em bounding_box.page.
+Resposta: JSON quote_extraction só com os módulos novos.`,
+          },
+          ...(await labeledImagesForVision(windowContents)),
+        ],
+        schemaName: 'quote_extraction_heal',
+        schema: EXTRACTOR_SCHEMA,
+        maxTokens: 8000,
+      })
+      await recordPromptTraces(admin, body.analysisId, [
+        {
+          agent_key: 'extractor_heal',
+          source: promptPack.sources.extractor,
+          system_preview: batchCall.system_preview,
+          model: batchCall.model,
+          schema_name: batchCall.schema_name,
+          response_preview: batchCall.response_preview,
+          usage: batchCall.usage,
+          at: new Date().toISOString(),
+        },
+      ])
+      const extraction = rebalanceEnvironments(
+        ensurePlaceholders(mergeExtractions([batchCall.json])),
+      )
+      return jsonResponse({
+        ok: true,
+        phase,
+        inventory,
+        extraction,
+        pagesProcessed: windowContents.length,
+        prompt_source: promptPack.sources,
+      })
+    }
+
     if (phase === 'audit') {
       const inventory = sanitizeInventory(Array.isArray(body.inventory) ? body.inventory : [])
       const inventoryText = formatInventoryText(inventory)
@@ -1695,11 +1764,14 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
         typeof body.healFeedback === 'string' && body.healFeedback.trim()
           ? body.healFeedback.trim()
           : ''
+      const forcedInjectLock = body.forcedInjectLock === true
+      const auditStage = healFeedback || forcedInjectLock ? 'self_heal' : 'auditing'
       let extraction = ensurePlaceholders(
         body.extraction && typeof body.extraction === 'object'
           ? body.extraction
           : { environments: [], auditor_notes: [], warnings: [] },
       )
+      const extractionBeforeAudit = extraction
 
       const auditPasses =
         mode === 'max' && isClaudeModel(AUDITOR_MODEL) ? MAX_AUDIT_PASSES_CLAUDE : MAX_AUDIT_PASSES
@@ -1707,11 +1779,13 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
         mode === 'max' && isClaudeModel(AUDITOR_MODEL)
           ? AUDIT_IMAGES_PER_PASS_CLAUDE
           : AUDIT_IMAGES_PER_PASS
+      // Com lock de injeção: 1 passagem basta (não arriscar remoção em loops longos)
+      const effectivePasses = forcedInjectLock ? 1 : auditPasses
       let passesRun = 0
       let lastScore = -1
       let lastAuditMeta: LlmJsonResult | null = null
 
-      for (let pass = 1; pass <= auditPasses; pass++) {
+      for (let pass = 1; pass <= effectivePasses; pass++) {
         const gaps = findBomGaps(extraction)
         const coverageBefore = buildCoverage(inventory, extraction)
         const typology = findTypologySuspects(extraction)
@@ -1725,21 +1799,32 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
           admin,
           body.analysisId,
           'AUDITING_REVISION',
-          'auditing',
-          `Auditoria passagem ${pass}/${auditPasses}: score ${score} (BOM ${gaps.length}, faltando ${coverageBefore.missing.length}, extras ${coverageBefore.extras.length}, tipologia ${typology.length})…`,
+          auditStage,
+          forcedInjectLock || healFeedback
+            ? `Auto-correção: auditoria preservando injeção (passagem ${pass}/${effectivePasses})…`
+            : `Auditoria passagem ${pass}/${effectivePasses}: score ${score} (BOM ${gaps.length}, faltando ${coverageBefore.missing.length}, extras ${coverageBefore.extras.length}, tipologia ${typology.length})…`,
           'audit',
         )
 
         const windowContents = pickAuditContents(signedContents, extraction, pass, imageBudget)
 
+        const injectRules =
+          forcedInjectLock || healFeedback
+            ? `\n\n═══ REGRA OBRIGATÓRIA DE INJEÇÃO ═══
+- Módulos com auditor_notes contendo "${FORCED_INJECT_NOTE}" NÃO podem ser removidos.
+- Se o inventário ainda listar faltantes após a cura cirúrgica, INJETE-OS na árvore com dimensões e materiais padrão do ambiente (caixaria mínima).
+- Cobertura 100% do inventário é obrigatória antes de encerrar.
+- Não invente extras fora do inventário; complete BOM dos existentes.`
+            : ''
+
         try {
           const auditCall = await callLlm({
             model: AUDITOR_MODEL,
-            system: systemAuditor,
+            system: systemAuditor + injectRules,
             userContent: [
               {
                 type: 'text',
-                text: `${healFeedback ? `${healFeedback}\n\n` : ''}PASSAGEM ${pass}/${auditPasses} — verifique as imagens e devolva a árvore CORRIGIDA.
+                text: `${healFeedback ? `${healFeedback}\n\n` : ''}PASSAGEM ${pass}/${effectivePasses} — verifique as imagens e devolva a árvore CORRIGIDA.
 Cada imagem vem com "PDF página N" — corrija bounding_box.page para esse N (não o PRANCHA Nº impresso).
 
 INVENTÁRIO (âncora; se inventário tiver erro, prefira as imagens):
@@ -1768,6 +1853,7 @@ ${
     ? typology.map((t) => `- ${t.environment} → ${t.module}: ${t.reason}`).join('\n')
     : '(nenhuma)'
 }
+${injectRules}
 
 ÁRVORE ATUAL (pode remover/renomear módulos; complete BOM só do que existir):
 ${JSON.stringify(extraction).slice(0, 50000)}`,
@@ -1782,6 +1868,9 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
           extraction = ensurePlaceholders(
             applyAuditorTree(extraction, ensurePlaceholders(auditCall.json)),
           )
+          if (forcedInjectLock) {
+            extraction = preserveForcedInjectModules(extractionBeforeAudit, extraction)
+          }
           passesRun = pass
         } catch (passErr) {
           const msg = passErr instanceof Error ? passErr.message : String(passErr)
@@ -1794,6 +1883,10 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
           extraction = { ...extraction, warnings: [...new Set(warnings)] }
           // tenta próxima passagem com menos imagens
         }
+      }
+
+      if (forcedInjectLock) {
+        extraction = preserveForcedInjectModules(extractionBeforeAudit, extraction)
       }
 
       extraction = applyHeuristicPrune(extraction)

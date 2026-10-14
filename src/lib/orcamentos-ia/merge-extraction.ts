@@ -4,6 +4,15 @@
  * peças com mesma chave (função|nome|cotas) usam MAX — nunca somam lotes/vistas.
  */
 
+import { rebalanceEnvironments } from '@/lib/orcamentos-ia/rebalance'
+
+export { rebalanceEnvironments } from '@/lib/orcamentos-ia/rebalance'
+export {
+  clampGeometryBounds,
+  splitMixedPainelModules,
+  GEOMETRY_BOUNDS,
+} from '@/lib/orcamentos-ia/geometry-bounds'
+
 export interface InventoryEnv {
   environment: string
   modules: string[]
@@ -576,6 +585,237 @@ export function modulesMatchCoverage(a: string, b: string): boolean {
   return false
 }
 
+/** Nota gravada em módulos criados pela injeção forçada do Self-Heal. */
+export const FORCED_INJECT_NOTE = 'injeção forçada self-heal: cobertura inventário'
+
+function guessMaterialFromModuleName(name: string): string {
+  const m = String(name || '').match(/MDF\s+[^,;.()]+/i)
+  if (m) {
+    const raw = m[0].replace(/\s+/g, ' ').trim()
+    return /\d+\s*mm/i.test(raw) ? raw : `${raw} 18mm`
+  }
+  return 'MDF 18mm'
+}
+
+function medianPositive(values: number[], fallback: number): number {
+  const sorted = values.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b)
+  if (!sorted.length) return fallback
+  return sorted[Math.floor(sorted.length / 2)]!
+}
+
+/**
+ * Infere cotas a partir dos irmãos do ambiente (mediana) + tipología do nome.
+ * Painel TV: profundidade típica de chapa (~18 mm).
+ */
+function inferInjectDims(env: AnyRec, moduleName: string): {
+  width_mm: number
+  height_mm: number
+  depth_mm: number
+} {
+  const siblings = asArray(env.modules)
+  const widths: number[] = []
+  const heights: number[] = []
+  const depths: number[] = []
+  for (const mod of siblings) {
+    const d = moduleDims(mod)
+    if (d.w > 0) widths.push(d.w)
+    if (d.h > 0) heights.push(d.h)
+    if (d.d > 0) depths.push(d.d)
+  }
+  const fam = moduleFamilyKey(moduleName)
+  if (/painel/.test(fam)) {
+    return {
+      width_mm: medianPositive(widths, 1800),
+      height_mm: medianPositive(
+        heights.filter((h) => h >= 1800),
+        medianPositive(heights, 2400),
+      ),
+      depth_mm: 18,
+    }
+  }
+  return {
+    width_mm: medianPositive(widths, 800),
+    height_mm: medianPositive(heights, 720),
+    depth_mm: medianPositive(depths, 500),
+  }
+}
+
+function buildInjectCaixaria(
+  moduleName: string,
+  dims: { width_mm: number; height_mm: number; depth_mm: number },
+  material: string,
+): AnyRec[] {
+  const fam = moduleFamilyKey(moduleName)
+  const mat = material.includes('mm') ? material : `${material} 18mm`
+  if (/painel/.test(fam)) {
+    const perimeterM =
+      Math.round(((2 * (dims.width_mm + dims.height_mm)) / 1000) * 1000) / 1000
+    return [
+      {
+        name: /ripad/.test(fam) ? 'Ripado' : 'Painel',
+        function: 'painel',
+        width_mm: dims.width_mm,
+        height_mm: dims.height_mm,
+        thickness_mm: 18,
+        material_name: mat,
+        quantity: 1,
+        dimensions_estimated: true,
+        edge_banding: {
+          C1: true,
+          C2: true,
+          L1: true,
+          L2: true,
+          tape_name: 'Fita 22 mm',
+          meters: perimeterM,
+        },
+      },
+    ]
+  }
+  const w = dims.width_mm
+  const h = dims.height_mm
+  const d = dims.depth_mm
+  const thickness = 15
+  const bandFront = {
+    C1: true,
+    C2: false,
+    L1: false,
+    L2: false,
+    tape_name: 'Fita 22 mm',
+    meters: Math.round((w / 1000) * 1000) / 1000,
+  }
+  return [
+    {
+      name: 'Lateral esquerda',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat.replace(/18mm/i, '15mm'),
+      quantity: 1,
+      dimensions_estimated: true,
+      edge_banding: {
+        ...bandFront,
+        meters: Math.round((h / 1000) * 1000) / 1000,
+      },
+    },
+    {
+      name: 'Lateral direita',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat.replace(/18mm/i, '15mm'),
+      quantity: 1,
+      dimensions_estimated: true,
+      edge_banding: {
+        ...bandFront,
+        meters: Math.round((h / 1000) * 1000) / 1000,
+      },
+    },
+    {
+      name: 'Base',
+      function: 'base',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: thickness,
+      material_name: mat.replace(/18mm/i, '15mm'),
+      quantity: 1,
+      dimensions_estimated: true,
+      edge_banding: bandFront,
+    },
+    {
+      name: 'Fundo',
+      function: 'fundo',
+      width_mm: w,
+      height_mm: h,
+      thickness_mm: 6,
+      material_name: 'MDF 6mm',
+      quantity: 1,
+      dimensions_estimated: true,
+      edge_banding: { C1: false, C2: false, L1: false, L2: false, meters: 0 },
+    },
+  ]
+}
+
+/**
+ * Injeção forçada determinística: garante 100% de cobertura do inventário
+ * sem re-extrair o PDF. Preserva módulos já existentes.
+ */
+export function injectMissingInventoryModules(
+  extraction: unknown,
+  missing: CoverageItem[],
+): AnyRec {
+  const root =
+    extraction && typeof extraction === 'object'
+      ? ({ ...(extraction as AnyRec) } as AnyRec)
+      : ({ environments: [], auditor_notes: [], warnings: [] } as AnyRec)
+
+  const environments = asArray(root.environments).map((env) => ({
+    ...env,
+    modules: [...asArray(env.modules)],
+  }))
+
+  for (const item of missing) {
+    let envIdx = environments.findIndex((env) => {
+      const envName = typeof env.name === 'string' ? env.name : ''
+      return (
+        modulesMatchCoverage(envName, item.environment) ||
+        normalizeExtractionKey(envName) === normalizeExtractionKey(item.environment)
+      )
+    })
+    if (envIdx < 0) {
+      environments.push({ name: item.environment, modules: [] })
+      envIdx = environments.length - 1
+    }
+    const env = environments[envIdx]!
+    const already = asArray(env.modules).some((mod) =>
+      modulesMatchCoverage(typeof mod.name === 'string' ? mod.name : '', item.module),
+    )
+    if (already) continue
+
+    const shortName = canonicalModuleName(item.module)
+    const dims = inferInjectDims(env, item.module)
+    const material = guessMaterialFromModuleName(item.module)
+    const caixaria = buildInjectCaixaria(shortName, dims, material)
+    let fitaMeters = 0
+    for (const p of caixaria) {
+      const eb =
+        p.edge_banding && typeof p.edge_banding === 'object'
+          ? (p.edge_banding as AnyRec)
+          : null
+      const m = Number(eb?.meters)
+      if (Number.isFinite(m) && m > 0) fitaMeters += m * (Number(p.quantity) || 1)
+    }
+
+    const injected: AnyRec = {
+      name: shortName,
+      description: `Injetado para cobrir inventário: ${item.module}`,
+      dimensions: dims,
+      caixaria,
+      frentes_portas: [],
+      ferragens: [],
+      fitas_borda_m:
+        fitaMeters > 0
+          ? [{ tape_name: 'Fita 22 mm', meters: Math.round(fitaMeters * 1000) / 1000 }]
+          : [],
+      auditor_notes: [FORCED_INJECT_NOTE],
+      bounding_box: null,
+    }
+
+    env.modules = [...asArray(env.modules), ensureModulePlaceholder(injected)]
+    environments[envIdx] = env
+  }
+
+  const prevNotes = Array.isArray(root.auditor_notes)
+    ? root.auditor_notes.filter((n): n is string => typeof n === 'string')
+    : []
+  return {
+    ...root,
+    environments,
+    auditor_notes: [...new Set([...prevNotes, FORCED_INJECT_NOTE])],
+  }
+}
+
 export function buildCoverageReport(
   inventory: InventoryEnv[],
   extraction: unknown,
@@ -674,94 +914,6 @@ function fixWrongBancadaLabel(
     return modName.replace(/bancada/gi, 'Mesa')
   }
   return null
-}
-
-/** Separa Lavabo real; funde Cozinha+Gourmet; ignora Lavanderia fantasma do ASSUNTO. */
-export function rebalanceEnvironments(extraction: unknown): unknown {
-  if (!extraction || typeof extraction !== 'object') return extraction
-  const root = extraction as AnyRec
-  const notes: string[] = Array.isArray(root.auditor_notes)
-    ? [...(root.auditor_notes as string[])]
-    : []
-  const buckets = new Map<string, { name: string; modules: AnyRec[] }>()
-
-  const put = (envName: string, mod: AnyRec) => {
-    const key = normalizeExtractionKey(envName)
-    const prev = buckets.get(key)
-    const modKey = normalizeExtractionKey(typeof mod.name === 'string' ? mod.name : 'Modulo')
-    if (!prev) {
-      buckets.set(key, { name: envName, modules: [mod] })
-      return
-    }
-    const existing = prev.modules.findIndex(
-      (m) => normalizeExtractionKey(typeof m.name === 'string' ? m.name : '') === modKey,
-    )
-    if (existing >= 0) prev.modules[existing] = { ...prev.modules[existing], ...mod }
-    else prev.modules.push(mod)
-    if (envName.length > prev.name.length) prev.name = envName
-  }
-
-  const hasGourmetLabel = asArray(root.environments).some((e) =>
-    /gourmet/.test(normalizeExtractionKey(typeof e.name === 'string' ? e.name : '')),
-  )
-  const defaultSocial = hasGourmetLabel ? 'Espaço Gourmet' : 'Cozinha'
-
-  for (const env of asArray(root.environments)) {
-    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
-    const envKey = normalizeExtractionKey(envName)
-    for (const mod of asArray(env.modules)) {
-      let modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
-      const descKey = normalizeExtractionKey(
-        typeof mod.description === 'string' ? mod.description : '',
-      )
-      let nameKey = normalizeExtractionKey(modName)
-      const blob = `${nameKey} ${descKey}`
-      const { h, d, w } = moduleDims(mod)
-
-      const fixed = fixWrongBancadaLabel(modName, descKey, h, d, w)
-      if (fixed) {
-        notes.push(`Renomeado "${modName}" → "${fixed}" (mesa de jantar, não bancada).`)
-        modName = fixed
-        nameKey = normalizeExtractionKey(modName)
-      }
-
-      if (BEDROOM_ONLY_RE.test(nameKey) && SOCIAL_ENV_RE.test(envKey)) {
-        notes.push(`Removido "${modName}" de "${envName}": tipologia de quarto sem evidência.`)
-        continue
-      }
-
-      const isKitchenFurniture =
-        /cooktop|churras|ilha|geladeira|cristaleira|forno|fogao|fogão|gourmet|adega|microondas/.test(
-          blob,
-        ) || (/bancada/.test(nameKey) && /pia|cooktop|churras/.test(blob))
-      const isLavabo = /lavabo/.test(blob) || (/lavabo/.test(envKey) && !isKitchenFurniture)
-      const isLavanderia = /lavanderia|tanque|maquina de lavar|máquina de lavar/.test(blob)
-
-      let target = defaultSocial
-      if (isLavabo && !isKitchenFurniture) {
-        target = 'Lavabo'
-        if (!/lavobo|lavabo/.test(nameKey)) {
-          modName = /bancada/.test(nameKey) ? 'Bancada Lavabo' : `${modName} Lavabo`
-          nameKey = normalizeExtractionKey(modName)
-        }
-      } else if (isLavanderia && !isKitchenFurniture) target = 'Lavanderia'
-      else if (
-        !isKitchenFurniture &&
-        !/mesa|jantar|painel|armario|armário|ripado|cristaleira|ilha|bancada|torre/.test(blob) &&
-        !/cozinha|gourmet|lavabo|lavanderia/.test(envKey)
-      ) {
-        target = envName
-      }
-
-      put(target, { ...mod, name: modName })
-    }
-  }
-
-  return {
-    ...root,
-    environments: [...buckets.values()].filter((e) => e.modules.length > 0),
-    auditor_notes: [...new Set(notes)],
-  }
 }
 
 /**

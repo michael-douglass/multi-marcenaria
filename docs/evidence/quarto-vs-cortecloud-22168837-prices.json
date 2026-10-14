@@ -1,0 +1,90 @@
+{
+  "comparedAt": "2026-10-14T01:55:00.000Z",
+  "cortecloud": {
+    "plans_url": "https://marceneiro.cortecloud.com.br/#/plans/22168837/view",
+    "modules_url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/22168837/view",
+    "cliente": "Camila e Otavio",
+    "cotacao_central": {
+      "servicos_mao_obra": 4022.14,
+      "materiais": 6463.4,
+      "total_central": 10485.54,
+      "nota": "Total a ser pago à central (retirada s/ frete). NÃO é preço de venda ao cliente final."
+    },
+    "chapas": [
+      { "qtd": 5, "material": "MDF 15 mm Amendoeira Bold 2F Arauco" },
+      { "qtd": 11, "material": "MDF 15 mm Branco Texturizado 2F Eucatex" },
+      { "qtd": 4, "material": "MDF 6 mm Branco Texturizado 2F Multimarcas" },
+      { "qtd": 6, "material": "MDF 15 mm Lino Chess 2F Arauco" }
+    ],
+    "chapas_total": 26,
+    "modules_projeto_tab": [
+      "Armário 1 coluna (várias: 860/890/900/1500/600/870…)",
+      "Balcão (860/890/900/1500 × 570/750 × 600)",
+      "Painel avulso 1680×1350 e 1820×1350",
+      "Painel ripado 840×1350 e 510×1350",
+      "Portas avulsas 434/439/444/424 × 2488",
+      "Nichos, vistas verticais, laterais/tampo tamponamento",
+      "Gaveteiros horizontais 1 e 2 gavetas"
+    ]
+  },
+  "nosso_ultimo": {
+    "analysisId": "dad0b30e-a1dc-4cfd-bf3f-4d2b262df3b9",
+    "status": "COMPLETED",
+    "circuit_breaker_ok": true,
+    "sale_price": 26555.95,
+    "materials_cost": 14605.77,
+    "mpc_margin_pct": 45,
+    "pricing_formula": "Custo ÷ (1 − 45%)",
+    "environments": ["Quarto Suíte"],
+    "modules": [
+      { "name": "Guarda Roupas", "custo_bom": 4270.32 },
+      { "name": "Armário", "custo_bom": 1396.42 },
+      { "name": "Aparador", "custo_bom": 712.46 },
+      { "name": "Mesa De Cabeceira", "custo_bom": 442.94 },
+      { "name": "Painel ripado", "custo_bom": 277.89 },
+      { "name": "Divisoria Ripada", "custo_bom": 269.87 },
+      { "name": "Cabeceira", "custo_bom": 268.02 },
+      { "name": "Divisoria Nichos", "custo_bom": 266.19 },
+      { "name": "Painel TV", "custo_bom": 259.27 },
+      { "name": "Espelho 60x200", "custo_bom": null, "note": "fora de escopo" }
+    ]
+  },
+  "nosso_anterior_bugado": {
+    "analysisId": "9b9c4d60-6c22-4179-850b-8b2f838120cb",
+    "sale_price": 22015.29,
+    "materials_cost": 12108.41,
+    "problems": [
+      "Painel TV e Mesa de Cabeceira em Cozinha fantasma",
+      "circuit breaker bloqueava COMPLETED",
+      "cabeceira/mesa com placeholder 2500×2800"
+    ]
+  },
+  "delta_preco": {
+    "nosso_custo_vs_cc_materiais": {
+      "nosso": 14605.77,
+      "cortecloud_materiais": 6463.4,
+      "fator": 2.26,
+      "leitura": "Nosso custo de materiais ~2,3× o material da central Cortecloud (tabelas/estoque diferentes + BOM ainda mais grosso no guarda-roupa)."
+    },
+    "nosso_venda_vs_cc_total_central": {
+      "nosso_venda_mpc45": 26555.95,
+      "cortecloud_total_central": 10485.54,
+      "fator": 2.53,
+      "leitura": "Comparação parcial: Cortecloud mostra preço de central (corte+material+serviço); nós mostramos venda com margem 45% sobre BOM."
+    }
+  },
+  "parity_modules": {
+    "melhorou": [
+      "Tudo no Quarto Suíte (sumiu Cozinha fantasma)",
+      "Painel TV liso ≠ Painel ripado (dois módulos)",
+      "Mesa de cabeceira compacta (não mais caixa absurda)",
+      "Status COMPLETED + circuit breaker OK"
+    ],
+    "ainda_falta": [
+      "Cortecloud fatia guarda-roupa em dezenas de colunas/balcões/portas; nós ainda agregamos Guarda Roupas + Armário",
+      "Chapas Cortecloud = 26; nosso BOM agrega área maior (custo material ~2×)",
+      "Extras no coverage: Divisoria Ripada, Painel ripado, Armário (além do inventário da capa)"
+    ],
+    "verdict": "MÉDIA — ambiente e tipologias corrigidos; preço ainda alto vs central; granularidade HelloMob incompleta"
+  }
+}

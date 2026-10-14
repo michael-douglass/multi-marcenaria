@@ -34,6 +34,7 @@ const configs = {
     '_shared/cors.ts',
     '_shared/engineering-modular-prompts.ts',
     '_shared/llm-json.ts',
+    '_shared/rebalance-environments.ts',
   ],
   'orcamentos-ia-chat': [
     'orcamentos-ia-chat/index.ts',

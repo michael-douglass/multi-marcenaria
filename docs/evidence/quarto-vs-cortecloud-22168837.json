@@ -1,0 +1,78 @@
+{
+  "comparedAt": "2026-10-14T01:20:00.000Z",
+  "nosso": {
+    "analysisId": "9b9c4d60-6c22-4179-850b-8b2f838120cb",
+    "status": "NEEDS_REVIEW",
+    "sale_price": 22015.29,
+    "materials_cost": 12108.41,
+    "mpc_margin_pct": 45,
+    "circuit_breaker_ok": false,
+    "coverage_missing": [
+      "Quarto Suíte → Painel TV em MDF Arauco Lino",
+      "Quarto Suíte → Mesa de Cabeceira em MDF Arauco Lino"
+    ],
+    "modules": [
+      { "environment": "Quarto Suíte", "name": "Guarda Roupas", "chapas_compra": 14, "custo_chapas": 3920, "custo_ferragem": 2820 },
+      { "environment": "Quarto Suíte", "name": "Aparador", "chapas_compra": 4, "custo_chapas": 1120, "custo_ferragem": 508 },
+      { "environment": "Quarto Suíte", "name": "Divisoria Com Nichos", "chapas_compra": 2, "custo_chapas": 560 },
+      { "environment": "Quarto Suíte", "name": "Cabeceira Em Amendoeira", "chapas_compra": 3, "custo_chapas": 840, "note": "BOM placeholder caixa 2500x2800 — tipologicamente errado" },
+      { "environment": "Quarto Suíte", "name": "Espelho 60x200cm", "chapas_compra": 0 },
+      { "environment": "Cozinha", "name": "Painel TV", "chapas_compra": 3, "custo_chapas": 840, "note": "ambiente ERRADO (deveria ser Quarto)" },
+      { "environment": "Cozinha", "name": "Mesa De Cabeceira Em Lino", "chapas_compra": 3, "custo_chapas": 840, "note": "ambiente ERRADO + cotas absurdas de caixa" }
+    ],
+    "total_chapas_compra": 29
+  },
+  "cortecloud": {
+    "hellomobId": "22168837",
+    "url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/22168837/view/environment/Quarto",
+    "environment": "Quarto",
+    "modules_from_ui": [
+      "Armário com 1 coluna 860×750×600",
+      "Armário com 1 coluna 860×1180×600",
+      "Armário com 1 coluna 860×1930×600",
+      "Armário com 1 coluna 1500×750×600",
+      "Armário com 1 coluna 1500×1180×600",
+      "Armário com 1 coluna 890×1180×600",
+      "Armário com 1 coluna 900×750×600",
+      "Armário com 1 coluna 900×1180×600",
+      "Armário com 1 coluna 600×2600×220",
+      "Armário com 1 coluna 870×1350×200",
+      "Balcão 860×570×600 (×2+)",
+      "Balcão 1500×570×600",
+      "Balcão 890×750×600",
+      "Balcão 890×570×600",
+      "Balcão 900×570×600",
+      "Lateral de tamponamento 2600×620",
+      "Lateral de tamponamento 2600×200",
+      "Lateral de tamponamento 150×410",
+      "Porta avulsa 434/439/444/424 × 2488",
+      "Vista vertical 200×720 / 200×650",
+      "Nicho 567×351×200",
+      "Nicho 412×428×180",
+      "Painel avulso 1680×1350",
+      "Painel avulso 1820×1350",
+      "Painel ripado 840×1350",
+      "Painel ripado 510×1350",
+      "Gaveteiro horizontal 1 gaveta 430×370×370",
+      "Gaveteiro horizontal 2 gavetas 840×150×390",
+      "Tampo para tamponamento 2546×410"
+    ],
+    "composition_summary": {
+      "guarda_roupas": "vários Armário 1 coluna + Balcões + Portas avulsas + Vista vertical + Laterais/Tampo tamponamento",
+      "painel_tv": "Painel avulso + Painel ripado (separados) no ambiente Quarto",
+      "criados_aparador": "Gaveteiros horizontais / balcões baixos",
+      "divisoria_nichos": "Armário coluna rasa 870×1350×200 + Nichos"
+    },
+    "note": "WebGL modal apareceu no browser Cursor; lista de módulos capturada via DOM buttons na aba Projeto. Totais R$ do serviço não expostos nesta view 3D."
+  },
+  "verdict": {
+    "parity": "BAIXA",
+    "root_causes": [
+      "rebalanceEnvironments move painel/mesa para Cozinha",
+      "Cortecloud usa módulos HelloMob granulares; nós agregamos Guarda-Roupas e inflamos chapas (14 só no guarda-roupa)",
+      "Cabeceira/Mesa de cabeceira receberam caixaria placeholder de balcão (2500×2800) em vez de tipología painel/criado",
+      "Painel ripado e painel liso existem separados no Cortecloud; nós misturamos no módulo Painel TV",
+      "circuit breaker bloqueia COMPLETED por coverage env+module"
+    ]
+  }
+}

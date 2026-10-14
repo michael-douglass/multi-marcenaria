@@ -159,6 +159,7 @@ export function thoughtKindForStage(stage: string | null | undefined): ThoughtKi
     case 'extracting_batch':
       return 'vision'
     case 'auditing':
+    case 'self_heal':
       return 'audit'
     case 'fetching_prices':
     case 'persisting':
@@ -178,6 +179,7 @@ export function thoughtIntensityForStage(stage: string | null | undefined): numb
     case 'extracting_batch':
       return 0.92
     case 'auditing':
+    case 'self_heal':
       return 1
     case 'reading_inventory':
       return 0.72
@@ -248,6 +250,8 @@ export function resolvePipelineStageId(
   }
   if (status === 'COMPLETED') return 'completed'
   if (status === 'NEEDS_REVIEW') return 'needs_review'
+  // Self-heal cirúrgico: visualmente permanece em Auditoria (sem piscar Extração)
+  if (stage === 'self_heal') return 'auditing'
   if (stage && PIPELINE_VISUAL_STEPS.some((s) => s.id === stage)) {
     return stage as PipelineStageId
   }

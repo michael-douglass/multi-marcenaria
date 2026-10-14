@@ -118,13 +118,16 @@ export function AiThoughtConsole({
   const progress =
     progressOverride ??
     (status ? QUOTE_STATUS_PROGRESS[status] : uploading ? 4 : 0)
+  // Self-heal: etapa visual = Auditoria; intensidade usa o stage real
+  const intensityStage =
+    (pipelineStage || '').toLowerCase() === 'self_heal' ? 'self_heal' : current
 
   const activeStep = PIPELINE_VISUAL_STEPS.find((s) => s.id === current)
   const stepIndex = Math.max(
     1,
     PIPELINE_VISUAL_STEPS.findIndex((s) => s.id === current) + 1,
   )
-  const intensity = thoughtIntensityForStage(current)
+  const intensity = thoughtIntensityForStage(intensityStage)
   const shaderProgress = Math.min(1, Math.max(0, progress / 100))
 
   const logRef = useRef<HTMLDivElement>(null)

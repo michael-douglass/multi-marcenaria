@@ -11,6 +11,7 @@ const files = [
   '_shared/cors.ts',
   '_shared/engineering-modular-prompts.ts',
   '_shared/llm-json.ts',
+  '_shared/rebalance-environments.ts',
 ]
 
 const payload = {

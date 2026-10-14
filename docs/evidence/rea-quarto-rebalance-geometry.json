@@ -1,0 +1,46 @@
+{
+  "title": "Paridade Quarto HelloMob — rebalance + geometria",
+  "date": "2026-04-13",
+  "hellomob": {
+    "url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/22168837/view/environment/Quarto",
+    "modules_evidence": "docs/evidence/hellomob-22168837-modules.json",
+    "har": "docs/evidence/captura_hellomob.har",
+    "rea_network_evidence_id": "ev_1bec4b…",
+    "cursor_browser_note": "Aba Cortecloud aberta; WebGL/3D sem suporte no browser embutido — lista de módulos permanece a evidência JSON anterior."
+  },
+  "changes": {
+    "rebalance": "src/lib/orcamentos-ia/rebalance.ts + supabase/functions/_shared/rebalance-environments.ts",
+    "geometry": "src/lib/orcamentos-ia/geometry-bounds.ts (clamp + splitMixedPainelModules)",
+    "pipeline": "finalizeExtractionTree chama rebalanceEnvironments(inventory) + clampGeometryBounds",
+    "prompts": "engineering-modular (client + Edge) — colunas HelloMob, painel liso≠ripado, cotas compactas cabeceira/criado",
+    "pricing_untouched": true
+  },
+  "edge_deploy": {
+    "slug": "orcamentos-ia-pipeline",
+    "version": 51,
+    "status": "ACTIVE",
+    "includes_shared": ["rebalance-environments.ts", "engineering-modular-prompts.ts", "llm-json.ts", "cors.ts"]
+  },
+  "validation": {
+    "tsc_noEmit": "ok",
+    "smoke_rebalance_geometry": {
+      "input": "Guarda Roupas em Quarto + Painel TV (liso+ripas) e Mesa cabeceira 2500×2800 em Cozinha fantasma",
+      "output_environments": ["Quarto Suíte"],
+      "output_modules": [
+        "Guarda Roupas",
+        "Painel TV (liso, depth clamp 80)",
+        "Painel ripado (split)",
+        "Mesa De Cabeceira Em Lino (clamp ≤900×700×390)"
+      ],
+      "kitchen_emptied": true
+    },
+    "rea_analyze_javascript_application": {
+      "evidence_id": "ev_7a24246a9b9c00d4703cd0e95f6c20cab274c47c654de88a2d07aa6ea9f4a460",
+      "parent_evidence_id": "ev_0a6185a740560480cad8426e14f271ce1ca42379b3da3b84408a787b707e6771",
+      "subject": "src/lib/orcamentos-ia",
+      "parsed_javascript_files": 34,
+      "parse_failures": 0,
+      "coverage_note": "partial semantic graph (budget); static facts retained"
+    }
+  }
+}
