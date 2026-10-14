@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-10-14T16:45:00.000Z",
+  "fix_for": "ec7735f1 typology divisoria → Zod FAILED",
+  "changes": {
+    "schemas": "normalizeModuleTypology + z.preprocess",
+    "pipeline": "coerceModuleTypologies before safeParse",
+    "edge": "normalizeModuleTypology in ensurePlaceholders + skip schema pages",
+    "prompts": "8 rótulos estritos Extrator/Auditor"
+  },
+  "tsc": { "command": "pnpm exec tsc --noEmit", "exit_code": 0 },
+  "smoke": {
+    "script": "scripts/smoke-normalize-typology.mjs",
+    "divisoria": "nicho",
+    "guarda_roupas": "armario_giro",
+    "unknown": "outro"
+  },
+  "rea": {
+    "tool": "analyze_javascript_application",
+    "input_path": "src/lib/orcamentos-ia",
+    "evidence_id": "ev_145059a776233e773dffeb80f50aac4bd2c8bc4048681583954d6de40273ae82",
+    "parse_failures": 0,
+    "parsed_javascript_files": 36
+  },
+  "edge_deploy": {
+    "function": "orcamentos-ia-pipeline",
+    "version": 63,
+    "status": "ACTIVE"
+  },
+  "verdict": "OK — typology inventada não derruba mais o job no finalize"
+}

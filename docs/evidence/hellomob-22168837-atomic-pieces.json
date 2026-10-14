@@ -1,0 +1,98 @@
+{
+  "hellomobId": "22168837",
+  "url": "https://marceneiro.cortecloud.com.br/#/plans/22168837/view",
+  "modules_url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/22168837/view/environment/Quarto",
+  "source": "reuse_hellomob-22168837-modules.json + browser Lista de peças (14/10/2026); HAR Playwright não regenerado nesta sessão",
+  "rea_note": "Ground truth suficiente para regras de fatiamento; peças amostradas da UI Lista de peças com C1/fitas.",
+  "client": "Camila e Otavio - Quarto",
+  "modules_count": 33,
+  "composition_rules": {
+    "split_wardrobe": "Armário 1 coluna por vão (860/890/900/1500/600/870…) — NUNCA Guarda-Roupas único",
+    "balcoes": "Balcão por vão sob colunas",
+    "portas_avulsas": "Porta avulsa com cota própria (434/439/444/424 × 2488)",
+    "paineis": "Painel avulso liso ≠ Painel ripado",
+    "caixaria_minima_coluna": [
+      "Lateral esquerda 15 Branco TX",
+      "Lateral direita 15 Branco TX",
+      "Base 15 Branco TX",
+      "Fundo 6 Branco TX (caixa fechada)",
+      "Prateleiras/divisórias se desenhadas",
+      "Frente/porta em frentes_portas (cor do projeto)"
+    ],
+    "edge_banding": {
+      "fundo_6mm": "C1=C2=L1=L2=false",
+      "lateral_base_visivel": "C1=true tipicamente; tape_name = cor da frente (Amendoeira/Lino)",
+      "portas": "podem C1+C2+L1+L2"
+    }
+  },
+  "sample_pieces_from_lista": [
+    {
+      "function": "Contra frente sapateira",
+      "qty": 2,
+      "material": "MDF 15 Branco Texturizado Eucatex",
+      "c_mm": 285.5,
+      "l_mm": 63.3,
+      "edge": "none"
+    },
+    {
+      "function": "Lateral direita",
+      "qty": 1,
+      "material": "MDF 15 Branco Texturizado Eucatex",
+      "c_mm": 135.0,
+      "l_mm": 390.0,
+      "edge": "C1 Amendoeira Rehau 0.4x22"
+    },
+    {
+      "function": "Fundo",
+      "qty": 1,
+      "material": "MDF 6 Branco Texturizado Multimarcas",
+      "c_mm": 750.0,
+      "l_mm": 860.0,
+      "edge": "none"
+    },
+    {
+      "function": "Tampo",
+      "qty": 1,
+      "material": "MDF 15 Branco Texturizado Eucatex",
+      "c_mm": 860.0,
+      "l_mm": 594.0,
+      "edge": "C1 Lino Chess Rehau 0.4x22"
+    }
+  ],
+  "modules_granulares": [
+    { "name": "Armário 1 coluna 860x750x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 860x1180x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 860x1930x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 1500x750x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 1500x1180x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 890x1180x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 900x750x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 900x1180x600", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 600x2600x220", "typology": "armario_giro" },
+    { "name": "Armário 1 coluna 870x1350x200", "typology": "armario_giro" },
+    { "name": "Balcão 860x570x600", "typology": "balcao" },
+    { "name": "Balcão 1500x570x600", "typology": "balcao" },
+    { "name": "Balcão 890x750x600", "typology": "balcao" },
+    { "name": "Balcão 890x570x600", "typology": "balcao" },
+    { "name": "Balcão 900x570x600", "typology": "balcao" },
+    { "name": "Porta avulsa 434x2488", "typology": "outro" },
+    { "name": "Porta avulsa 439x2488", "typology": "outro" },
+    { "name": "Porta avulsa 444x2488", "typology": "outro" },
+    { "name": "Porta avulsa 424x2488", "typology": "outro" },
+    { "name": "Painel avulso 1680x1350", "typology": "painel" },
+    { "name": "Painel avulso 1820x1350", "typology": "painel" },
+    { "name": "Painel ripado 840x1350", "typology": "painel" },
+    { "name": "Painel ripado 510x1350", "typology": "painel" },
+    { "name": "Nicho 567x351x200", "typology": "nicho" },
+    { "name": "Nicho 412x428x180", "typology": "nicho" },
+    { "name": "Gaveteiro horizontal 1 gaveta 430x370x370", "typology": "gaveteiro" },
+    { "name": "Gaveteiro horizontal 2 gavetas 840x150x390", "typology": "gaveteiro" }
+  ],
+  "sheets_target": {
+    "Amendoeira Bold 15": 5,
+    "Branco Eucatex 15": 11,
+    "Branco Multimarcas 6": 4,
+    "Lino Chess 15": 6,
+    "total": 26
+  }
+}

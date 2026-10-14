@@ -48,8 +48,34 @@ const MATERIAL_COLOR_TOKENS = new Set([
   'mm',
 ])
 
+/** Extrai cotas L×A(×P) do nome (HelloMob / Cortecloud). */
+export function dimsTokenFromName(raw: string): string | null {
+  const m = String(raw || '')
+    .replace(/,/g, '.')
+    .match(
+      /(\d+(?:\.\d+)?)\s*(?:mm)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:mm)?(?:\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:mm)?)?/i,
+    )
+  if (!m) return null
+  const a = Math.round(Number(m[1]))
+  const b = Math.round(Number(m[2]))
+  if (!(a > 0 && b > 0)) return null
+  const c = m[3] != null ? Math.round(Number(m[3])) : null
+  return c != null && c > 0 ? `${a}x${b}x${c}` : `${a}x${b}`
+}
+
+function dimsTokenFromMod(mod?: Record<string, unknown> | null): string | null {
+  if (!mod?.dimensions || typeof mod.dimensions !== 'object') return null
+  const d = mod.dimensions as Record<string, unknown>
+  const w = Number(d.width_mm)
+  const h = Number(d.height_mm)
+  const depth = Number(d.depth_mm)
+  if (!(w > 0 && h > 0)) return null
+  return depth > 0 ? `${Math.round(w)}x${Math.round(h)}x${Math.round(depth)}` : `${Math.round(w)}x${Math.round(h)}`
+}
+
 /**
  * Nome curto alinhado ao inventário (sem cor/material/sufixos de vista).
+ * HelloMob: preserva tipologia + cotas (Armário 1 coluna 860x750x600 ≠ 900x1180x600).
  * Ex.: "Ilha (Noite)" → "Ilha"; "Mesa Belize 3,00 m" → "Mesa de jantar".
  */
 export function canonicalModuleName(name: string): string {
@@ -59,7 +85,35 @@ export function canonicalModuleName(name: string): string {
   raw = raw.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ')
   const dash = raw.indexOf(' - ')
   if (dash > 0) raw = raw.slice(0, dash)
+  const dims = dimsTokenFromName(raw)
   let key = normalizeExtractionKey(raw)
+
+  // ── HelloMob / Quarto atômico (NÃO colapsar colunas) ──
+  if (/\b1\s*coluna\b/.test(key) || /armario\s+com\s+1\s+coluna/.test(key)) {
+    return dims ? `Armário 1 coluna ${dims}` : 'Armário 1 coluna'
+  }
+  if (/porta\s+avulsa/.test(key)) {
+    return dims ? `Porta avulsa ${dims}` : 'Porta avulsa'
+  }
+  if (/vista\s+vertical/.test(key)) {
+    return dims ? `Vista vertical ${dims}` : 'Vista vertical'
+  }
+  if (/lateral\s+(de\s+)?tamponamento|tamponamento\s+lateral/.test(key)) {
+    return dims ? `Lateral de tamponamento ${dims}` : 'Lateral de tamponamento'
+  }
+  if (/tampo\s+(para\s+)?tamponamento|tamponamento\s+tampo/.test(key)) {
+    return dims ? `Tampo para tamponamento ${dims}` : 'Tampo para tamponamento'
+  }
+  if (/\bnicho\b/.test(key) && dims) return `Nicho ${dims}`
+  if (/gaveteiro/.test(key) && dims) return `Gaveteiro ${dims}`
+  if (/\bbalcao\b/.test(key) && dims) return `Balcão ${dims}`
+  if (/\b(painel\s+ripad|brise|ripado)\b/.test(key)) {
+    return dims ? `Painel ripado ${dims}` : 'Painel ripado'
+  }
+  if (/\bpainel\b/.test(key) && /\b(tv|liso|avulso)\b/.test(key)) {
+    return dims ? `Painel avulso ${dims}` : 'Painel TV'
+  }
+
   key = key
     .replace(/\b\d+([.,]\d+)?\s*(mm|m|cm)\b/g, ' ')
     .replace(/\b\d+\b/g, ' ')
@@ -87,7 +141,9 @@ export function canonicalModuleName(name: string): string {
   if (/bancada|balcao\s*inferior|balcao\s*parede/.test(key)) return 'Bancada'
   if (/gaveteiro/.test(key)) return 'Gaveteiro'
   if (/aereo|aereos/.test(key)) return 'Aéreo'
-  if (/armario|roupeiro/.test(key)) return 'Armário'
+  // Guarda-roupas monolítico sem cotas → Armário (auditor deve splitar)
+  if (/guarda\s*roupas?|roupeiro/.test(key)) return 'Armário'
+  if (/armario/.test(key)) return 'Armário'
 
   // Title-case residual short name
   if (!key) return 'Modulo'
@@ -97,9 +153,19 @@ export function canonicalModuleName(name: string): string {
     .join(' ')
 }
 
-/** Chave de família física para merge (Ilha Noite ≡ Ilha balcão). */
-export function moduleFamilyKey(name: string): string {
-  return normalizeExtractionKey(canonicalModuleName(name))
+/** Chave de família física para merge (Ilha Noite ≡ Ilha balcão; colunas HelloMob ≠ entre si). */
+export function moduleFamilyKey(name: string, mod?: Record<string, unknown> | null): string {
+  const canon = canonicalModuleName(name)
+  let key = normalizeExtractionKey(canon)
+  if (/\d+\s*x\s*\d+/.test(key)) return key
+  const dims = dimsTokenFromMod(mod) || dimsTokenFromName(name)
+  if (
+    dims &&
+    /(armario|balcao|bancada|nicho|gaveteiro|porta|painel|vista|lateral|tampo)/.test(key)
+  ) {
+    return normalizeExtractionKey(`${canon} ${dims}`)
+  }
+  return key
 }
 
 /** Limpa inventário: sem tipologias de quarto em gourmet/cozinha e sem "ferragens" genérico. */
@@ -489,7 +555,7 @@ function collapseModulesByFamily(env: AnyRec): AnyRec {
   const modules = new Map<string, AnyRec>()
   for (const mod of asArray(env.modules)) {
     const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
-    const key = moduleFamilyKey(name)
+    const key = moduleFamilyKey(name, mod)
     const normalized = { ...mod, name: canonicalModuleName(name) }
     const prev = modules.get(key)
     modules.set(key, prev ? mergeModule(prev, normalized) : normalized)
@@ -504,7 +570,7 @@ function mergeEnvironment(a: AnyRec, b: AnyRec): AnyRec {
   const modules = new Map<string, AnyRec>()
   for (const mod of [...asArray(a.modules), ...asArray(b.modules)]) {
     const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
-    const key = moduleFamilyKey(name)
+    const key = moduleFamilyKey(name, mod)
     const normalized = { ...mod, name: canonicalModuleName(name) }
     const prev = modules.get(key)
     modules.set(key, prev ? mergeModule(prev, normalized) : normalized)
@@ -515,7 +581,6 @@ function mergeEnvironment(a: AnyRec, b: AnyRec): AnyRec {
     modules: [...modules.values()],
   }
 }
-
 /** Une varias extracoes em uma, sem duplicar ambiente/modulo/material. */
 export function mergeExtractions(parts: unknown[]): AnyRec {
   const environments = new Map<string, AnyRec>()
@@ -1021,16 +1086,14 @@ export function isMarcenariaModule(mod: AnyRec): boolean {
 
 /**
  * Marca `out_of_scope` só em pedra/alvenaria/decoração/loja sem MDF.
- * Marcenaria (tipologia/caixa) permanece SEMPRE no escopo — completa BOM mínimo se vazio.
+ * Marcenaria (tipologia/caixa) permanece SEMPRE no escopo — completa BOM mínimo se faltar.
  */
 export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
   if (isStoreBoughtModule(mod)) return { ...mod, out_of_scope: true }
 
   const mdfPieces = asArray(mod.caixaria).length + asArray(mod.frentes_portas).length
   if (isMarcenariaModule(mod)) {
-    const cleared = { ...mod, out_of_scope: false }
-    if (mdfPieces > 0) return cleared
-    return enrichMinimalCaixariaClient(cleared)
+    return enrichMinimalCaixariaClient({ ...mod, out_of_scope: false })
   }
 
   if (mdfPieces > 0) {
@@ -1040,32 +1103,72 @@ export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
   return { ...mod, out_of_scope: true }
 }
 
+const BOX_TYPOLOGY_RE =
+  /ilha|balcao|bancada|armario|aereo|torre|cristaleira|gaveteiro|roupeiro|nicho|guarda.?roupa/
+
 /**
- * Completa laterais/base/fundo mínimos no client (espelho leve da Edge).
- * Só para tipologias de caixa sem peças — evita remoção no sanitize do pipeline.
+ * Completa laterais E+D / base / fundo 6 mm + C1 nas bordas frontais (espelho Edge).
+ * Preserva peças já existentes; só acrescenta o que faltar.
  */
 function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
   const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
   const nameKey = normalizeExtractionKey(name)
   if (!BOX_MODULE_RE.test(nameKey)) return { ...mod, out_of_scope: false }
 
+  const typology = typeof mod.typology === 'string' ? mod.typology : ''
+  const needsBox =
+    BOX_TYPOLOGY_RE.test(nameKey) ||
+    /^(balcao|aereo|armario_|nicho|gaveteiro)/.test(typology)
+  // Painel liso/ripado / porta avulsa / vista: não forçar caixa 4 peças
+  if (!needsBox || /painel|porta\s+avulsa|vista\s+vertical|tamponamento/.test(nameKey)) {
+    return { ...mod, out_of_scope: false }
+  }
+
   const dims = mod.dimensions && typeof mod.dimensions === 'object' ? (mod.dimensions as AnyRec) : {}
+  let caixaria = [...asArray(mod.caixaria)]
   const w = Number(dims.width_mm) > 0 ? Number(dims.width_mm) : 800
   const h = Number(dims.height_mm) > 0 ? Number(dims.height_mm) : 720
   const d = Number(dims.depth_mm) > 0 ? Number(dims.depth_mm) : 500
   const openFront = /ilha|bancada|mesa|prateleira/.test(nameKey)
   const mat = 'MDF Branco TX 15mm'
-  const caixaria: AnyRec[] = [
-    {
-      name: 'Lateral esquerda',
-      function: 'lateral',
-      width_mm: d,
-      height_mm: h,
-      thickness_mm: 15,
-      material_name: mat,
-      quantity: 1,
-    },
-    {
+  const bandFront = (lenMm: number): AnyRec => ({
+    C1: true,
+    C2: false,
+    L1: false,
+    L2: false,
+    tape_name: 'Fita 22 mm cor da frente',
+    meters: Math.round((lenMm / 1000) * 1000) / 1000,
+  })
+  const bandNone: AnyRec = { C1: false, C2: false, L1: false, L2: false, meters: 0 }
+
+  const hasFn = (fn: string) => caixaria.some((c) => String(c.function || '') === fn)
+  const lateralCount = caixaria.filter((c) => String(c.function || '') === 'lateral').length
+
+  if (lateralCount === 0) {
+    caixaria.push(
+      {
+        name: 'Lateral esquerda',
+        function: 'lateral',
+        width_mm: d,
+        height_mm: h,
+        thickness_mm: 15,
+        material_name: mat,
+        quantity: 1,
+        edge_banding: bandFront(h),
+      },
+      {
+        name: 'Lateral direita',
+        function: 'lateral',
+        width_mm: d,
+        height_mm: h,
+        thickness_mm: 15,
+        material_name: mat,
+        quantity: 1,
+        edge_banding: bandFront(h),
+      },
+    )
+  } else if (lateralCount === 1) {
+    caixaria.push({
       name: 'Lateral direita',
       function: 'lateral',
       width_mm: d,
@@ -1073,8 +1176,11 @@ function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
       thickness_mm: 15,
       material_name: mat,
       quantity: 1,
-    },
-    {
+      edge_banding: bandFront(h),
+    })
+  }
+  if (!hasFn('base')) {
+    caixaria.push({
       name: 'Base',
       function: 'base',
       width_mm: w,
@@ -1082,9 +1188,10 @@ function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
       thickness_mm: 15,
       material_name: mat,
       quantity: 1,
-    },
-  ]
-  if (!openFront) {
+      edge_banding: bandFront(w),
+    })
+  }
+  if (!hasFn('fundo') && !openFront) {
     caixaria.push({
       name: 'Fundo',
       function: 'fundo',
@@ -1093,8 +1200,22 @@ function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
       thickness_mm: 6,
       material_name: 'MDF Branco TX 6mm',
       quantity: 1,
+      edge_banding: bandNone,
     })
   }
+
+  // Defaults seguros de fita: fundo → false; lateral/base sem edge → C1
+  caixaria = caixaria.map((p) => {
+    const fn = String(p.function || '')
+    if (p.edge_banding && typeof p.edge_banding === 'object') return p
+    if (fn === 'fundo') return { ...p, edge_banding: bandNone }
+    if (fn === 'lateral' || fn === 'base' || fn === 'tampo') {
+      const len = fn === 'lateral' ? Number(p.height_mm) || h : Number(p.width_mm) || w
+      return { ...p, edge_banding: bandFront(len) }
+    }
+    return p
+  })
+
   return {
     ...mod,
     out_of_scope: false,
@@ -1102,7 +1223,6 @@ function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
     dimensions: { width_mm: w, height_mm: h, depth_mm: d, ...(dims as object) },
   }
 }
-
 /** Só pedra/civil/decoração solta — NÃO inclui LED/espelho (ambíguos em marcenaria). */
 const OUT_OF_SCOPE_HINTS = [
   'tapete',

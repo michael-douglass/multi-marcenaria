@@ -1,12 +1,12 @@
 {
-  "target": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+  "target": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
   "log": [
     {
-      "t": "2026-10-14T13:03:51.152Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:07:53.231Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 0,
-      "status": "EXTRACTING_MODULES",
-      "stage": "extracting_batch",
+      "status": "READING_LAYOUT",
+      "stage": "reading_inventory",
       "async": "running",
       "page": 0,
       "pages": 13,
@@ -18,8 +18,8 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:04:06.446Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:08:08.358Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 15,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
@@ -34,8 +34,8 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:04:21.714Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:08:23.627Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 31,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
@@ -50,8 +50,8 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:04:36.912Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:08:38.737Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 46,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
@@ -66,13 +66,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:04:51.996Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:08:53.840Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 61,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 1,
+      "page": 0,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -82,13 +82,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:05:07.082Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:09:09.121Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 76,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 1,
+      "page": 0,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -98,8 +98,8 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:05:22.150Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:09:24.404Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 91,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
@@ -114,8 +114,8 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:05:37.233Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:09:39.481Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 106,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
@@ -130,9 +130,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:05:52.319Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 121,
+      "t": "2026-10-14T15:09:54.750Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 122,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -146,9 +146,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:06:07.395Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 136,
+      "t": "2026-10-14T15:10:10.434Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 137,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -162,13 +162,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:06:22.643Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 152,
+      "t": "2026-10-14T15:10:25.739Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 153,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 2,
+      "page": 1,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -178,13 +178,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:06:37.767Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 167,
+      "t": "2026-10-14T15:10:40.913Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 168,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 2,
+      "page": 1,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -194,13 +194,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:06:52.840Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 182,
+      "t": "2026-10-14T15:10:55.999Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 183,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 2,
+      "page": 1,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -210,13 +210,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:07:08.109Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 197,
+      "t": "2026-10-14T15:11:11.065Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 198,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 2,
+      "page": 1,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -226,13 +226,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:07:23.373Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 212,
+      "t": "2026-10-14T15:11:26.172Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 213,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 2,
+      "page": 1,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -242,13 +242,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:07:38.668Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:11:41.249Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 228,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 3,
+      "page": 2,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -258,13 +258,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:07:53.753Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:11:56.339Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 243,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 3,
+      "page": 2,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -274,13 +274,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:08:08.829Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:12:11.411Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 258,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 3,
+      "page": 2,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -290,13 +290,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:08:23.920Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:12:26.494Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 273,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 3,
+      "page": 2,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -306,12 +306,28 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:08:38.993Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:12:41.581Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 288,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
+      "page": 2,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:12:56.674Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 304,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
       "page": 3,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
@@ -322,13 +338,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:08:54.071Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 303,
+      "t": "2026-10-14T15:13:11.990Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 319,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 4,
+      "page": 3,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -338,13 +354,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:09:09.171Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 318,
+      "t": "2026-10-14T15:13:27.285Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 334,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 4,
+      "page": 3,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -354,29 +370,13 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:09:24.498Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 333,
-      "status": "EXTRACTING_MODULES",
-      "stage": "extracting_batch",
-      "async": "running",
-      "page": 4,
-      "pages": 13,
-      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
-      "err": null,
-      "modules": null,
-      "oos": null,
-      "sale": null,
-      "materials": null
-    },
-    {
-      "t": "2026-10-14T13:09:39.575Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
+      "t": "2026-10-14T15:13:42.365Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
       "elapsed_s": 349,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
-      "page": 4,
+      "page": 3,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
@@ -386,9 +386,41 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:09:54.656Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 364,
+      "t": "2026-10-14T15:13:57.644Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 365,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 3,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:14:12.722Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 380,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 3,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:14:27.983Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 395,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -402,9 +434,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:10:09.775Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 379,
+      "t": "2026-10-14T15:14:43.243Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 410,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -418,9 +450,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:10:24.856Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 394,
+      "t": "2026-10-14T15:14:58.334Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 425,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -434,9 +466,41 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:10:40.068Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 409,
+      "t": "2026-10-14T15:15:13.855Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 441,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 4,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:15:28.934Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 456,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 4,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:15:44.014Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 471,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -450,9 +514,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:10:55.158Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 424,
+      "t": "2026-10-14T15:15:59.403Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 486,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -466,9 +530,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:11:10.239Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 439,
+      "t": "2026-10-14T15:16:14.495Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 501,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -482,9 +546,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:11:25.329Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 454,
+      "t": "2026-10-14T15:16:29.651Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 517,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -498,9 +562,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:11:40.417Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 469,
+      "t": "2026-10-14T15:16:44.774Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 532,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -514,9 +578,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:11:55.493Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 484,
+      "t": "2026-10-14T15:16:59.879Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 547,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -530,9 +594,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:12:10.578Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 500,
+      "t": "2026-10-14T15:17:14.956Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 562,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -546,9 +610,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:12:25.669Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 515,
+      "t": "2026-10-14T15:17:30.239Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 577,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -562,9 +626,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:12:41.135Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 530,
+      "t": "2026-10-14T15:17:45.614Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 593,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -578,9 +642,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:12:56.222Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 545,
+      "t": "2026-10-14T15:18:00.699Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 608,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -594,9 +658,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:13:11.312Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 560,
+      "t": "2026-10-14T15:18:15.990Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 623,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -610,25 +674,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:13:26.672Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 576,
-      "status": "EXTRACTING_MODULES",
-      "stage": "extracting_batch",
-      "async": "running",
-      "page": 6,
-      "pages": 13,
-      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
-      "err": null,
-      "modules": null,
-      "oos": null,
-      "sale": null,
-      "materials": null
-    },
-    {
-      "t": "2026-10-14T13:13:41.751Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 591,
+      "t": "2026-10-14T15:18:31.096Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 638,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -642,9 +690,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:13:56.837Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 606,
+      "t": "2026-10-14T15:18:46.363Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 653,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -658,9 +706,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:14:11.924Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 621,
+      "t": "2026-10-14T15:19:01.534Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 668,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -674,9 +722,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:14:27.006Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 636,
+      "t": "2026-10-14T15:19:16.612Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 684,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -690,9 +738,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:14:42.088Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 651,
+      "t": "2026-10-14T15:19:31.719Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 699,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -706,9 +754,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:14:57.233Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 666,
+      "t": "2026-10-14T15:19:46.985Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 714,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -722,9 +770,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:15:12.340Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 681,
+      "t": "2026-10-14T15:20:02.067Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 729,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -738,9 +786,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:15:27.444Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 696,
+      "t": "2026-10-14T15:20:17.148Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 744,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -754,9 +802,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:15:42.522Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 711,
+      "t": "2026-10-14T15:20:32.225Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 759,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -770,9 +818,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:15:57.595Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 727,
+      "t": "2026-10-14T15:20:47.312Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 774,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -786,9 +834,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:16:12.739Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 742,
+      "t": "2026-10-14T15:21:02.387Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 789,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -802,9 +850,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:16:27.834Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 757,
+      "t": "2026-10-14T15:21:17.470Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 804,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -818,9 +866,25 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:16:43.094Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 772,
+      "t": "2026-10-14T15:21:32.577Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 819,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 8,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:21:47.667Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 835,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -834,9 +898,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:16:58.210Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 787,
+      "t": "2026-10-14T15:22:02.917Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 850,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -850,9 +914,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:17:13.296Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 802,
+      "t": "2026-10-14T15:22:18.171Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 865,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -866,9 +930,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:17:28.374Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 817,
+      "t": "2026-10-14T15:22:35.961Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 883,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -882,9 +946,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:17:43.457Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 832,
+      "t": "2026-10-14T15:22:51.210Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 898,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -898,9 +962,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:17:58.530Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 848,
+      "t": "2026-10-14T15:23:06.358Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 913,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -914,9 +978,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:18:13.799Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 863,
+      "t": "2026-10-14T15:23:21.614Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 929,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -930,9 +994,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:18:29.059Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 878,
+      "t": "2026-10-14T15:23:36.757Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 944,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -946,9 +1010,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:18:44.179Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 893,
+      "t": "2026-10-14T15:23:51.861Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 959,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -962,9 +1026,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:18:59.258Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 908,
+      "t": "2026-10-14T15:24:06.946Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 974,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -978,9 +1042,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:19:14.385Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 923,
+      "t": "2026-10-14T15:24:22.040Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 989,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -994,9 +1058,57 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:19:29.462Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 938,
+      "t": "2026-10-14T15:24:37.332Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1004,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 10,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:24:52.615Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1020,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 10,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:25:07.785Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1035,
+      "status": "EXTRACTING_MODULES",
+      "stage": "extracting_batch",
+      "async": "running",
+      "page": 10,
+      "pages": 13,
+      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
+      "err": null,
+      "modules": null,
+      "oos": null,
+      "sale": null,
+      "materials": null
+    },
+    {
+      "t": "2026-10-14T15:25:22.933Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1050,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1010,9 +1122,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:19:44.625Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 954,
+      "t": "2026-10-14T15:25:38.014Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1065,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1026,9 +1138,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:19:59.705Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 969,
+      "t": "2026-10-14T15:25:53.101Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1080,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1042,9 +1154,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:20:14.873Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 984,
+      "t": "2026-10-14T15:26:08.230Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1095,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1058,9 +1170,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:20:29.957Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 999,
+      "t": "2026-10-14T15:26:23.316Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1110,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1074,25 +1186,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:20:45.154Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1014,
-      "status": "EXTRACTING_MODULES",
-      "stage": "extracting_batch",
-      "async": "running",
-      "page": 11,
-      "pages": 13,
-      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
-      "err": null,
-      "modules": null,
-      "oos": null,
-      "sale": null,
-      "materials": null
-    },
-    {
-      "t": "2026-10-14T13:21:00.441Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1029,
+      "t": "2026-10-14T15:26:38.417Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1125,
       "status": "EXTRACTING_MODULES",
       "stage": "extracting_batch",
       "async": "running",
@@ -1106,25 +1202,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:21:15.697Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1045,
-      "status": "EXTRACTING_MODULES",
-      "stage": "extracting_batch",
-      "async": "running",
-      "page": 12,
-      "pages": 13,
-      "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
-      "err": null,
-      "modules": null,
-      "oos": null,
-      "sale": null,
-      "materials": null
-    },
-    {
-      "t": "2026-10-14T13:21:30.786Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1060,
+      "t": "2026-10-14T15:26:53.794Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1141,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1138,9 +1218,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:21:45.884Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1075,
+      "t": "2026-10-14T15:27:08.879Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1156,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1154,9 +1234,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:22:00.974Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1090,
+      "t": "2026-10-14T15:27:24.148Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1171,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1170,9 +1250,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:22:16.052Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1105,
+      "t": "2026-10-14T15:27:39.450Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1186,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1186,9 +1266,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:22:31.127Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1120,
+      "t": "2026-10-14T15:27:54.805Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1202,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1202,9 +1282,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:22:46.203Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1135,
+      "t": "2026-10-14T15:28:09.963Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1217,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1218,9 +1298,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:23:01.422Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1150,
+      "t": "2026-10-14T15:28:25.033Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1232,
       "status": "AUDITING_REVISION",
       "stage": "auditing",
       "async": "running",
@@ -1234,12 +1314,12 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:23:16.575Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1166,
-      "status": "FETCHING_MARKET_PRICES",
-      "stage": "fetching_prices",
-      "async": "ready_for_pricing",
+      "t": "2026-10-14T15:28:40.161Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1247,
+      "status": "AUDITING_REVISION",
+      "stage": "auditing",
+      "async": "running",
       "page": 13,
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
@@ -1250,9 +1330,9 @@
       "materials": null
     },
     {
-      "t": "2026-10-14T13:23:31.837Z",
-      "id": "b3dfa890-3ce9-4d8e-86ba-95a0d0e763b5",
-      "elapsed_s": 1181,
+      "t": "2026-10-14T15:28:55.439Z",
+      "id": "740a388a-dbcc-4efb-a9d3-7c997d5537c7",
+      "elapsed_s": 1262,
       "status": "COMPLETED",
       "stage": "completed",
       "async": "ready_for_pricing",
@@ -1260,10 +1340,10 @@
       "pages": 13,
       "pdf": "A4_ARQ_DET_QUARTO SUI_TE_CO_REV01.pdf",
       "err": null,
-      "modules": 8,
+      "modules": 9,
       "oos": 1,
-      "sale": 37345.9,
-      "materials": 20540.245000000006
+      "sale": 23672.77,
+      "materials": 13020.0249
     }
   ]
 }

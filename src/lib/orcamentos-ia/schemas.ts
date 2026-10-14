@@ -20,6 +20,50 @@ export const extractionModelSchema = z
 
 export type ExtractionModel = z.infer<typeof extractionModelSchema>
 
+/** Tipologias canônicas de módulo (Corte Claude / Zod). Peça usa function=divisoria — módulo não. */
+export const MODULE_TYPOLOGIES = [
+  'balcao',
+  'aereo',
+  'armario_correr',
+  'armario_giro',
+  'nicho',
+  'painel',
+  'gaveteiro',
+  'outro',
+] as const
+
+export type ModuleTypology = (typeof MODULE_TYPOLOGIES)[number]
+
+const MODULE_TYPOLOGY_SET = new Set<string>(MODULE_TYPOLOGIES)
+
+/**
+ * Mapeia rótulos inventados pela IA para o enum de 8 valores.
+ * Impede ZodValidationError (ex.: typology "divisoria" no job ec7735f1).
+ */
+export function normalizeModuleTypology(raw: unknown): ModuleTypology | undefined {
+  if (raw == null || raw === '') return undefined
+  const key = String(raw)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  if (!key) return undefined
+  if (MODULE_TYPOLOGY_SET.has(key)) return key as ModuleTypology
+
+  if (/divisoria|estante|coluna|prateleira/.test(key)) return 'nicho'
+  if (/armario_correr|correr|sliding/.test(key)) return 'armario_correr'
+  if (/guarda_?roup|roupeiro|closet|cristaleira|armario|torre|paneleiro/.test(key)) {
+    return 'armario_giro'
+  }
+  if (/rack|painel|ripado|cabeceira|brise|tv/.test(key)) return 'painel'
+  if (/bancada|ilha|balcao/.test(key)) return 'balcao'
+  if (/aereo/.test(key)) return 'aereo'
+  if (/gaveteiro|criado|mesa_?cabeceira|mesa_de_cabeceira/.test(key)) return 'gaveteiro'
+
+  return 'outro'
+}
+
 /** Categorias alinhadas à Planilha 4.0 / inventory_items. */
 export const materialCategorySchema = z.enum([
   'chapa',
@@ -196,6 +240,11 @@ export const moduleExtractionSchema = z
         m.dimensions && typeof m.dimensions === 'object'
           ? (m.dimensions as Record<string, unknown>)
           : {}
+      // Tipologia canônica antes de qualquer heurística (anti-FAILED por "divisoria" etc.)
+      const typologyNorm = normalizeModuleTypology(m.typology)
+      if (typologyNorm) m.typology = typologyNorm
+      else if (m.typology != null && m.typology !== '') m.typology = 'outro'
+
       // Marcenaria tipada nunca fica out_of_scope (trava anti-descarte Flaviane / Cortecloud)
       const typology = typeof m.typology === 'string' ? m.typology : ''
       const nameKey = typeof m.name === 'string' ? m.name.toLowerCase() : ''
@@ -209,7 +258,7 @@ export const moduleExtractionSchema = z
         'gaveteiro',
       ].includes(typology)
       const isMarcenariaName =
-        /ilha|balc[aã]o|bancada|arm[aá]rio|a[eé]reo|torre|cristaleira|gaveteiro|roupeiro|nicho|painel|mesa|prateleira|guarda.?roupa|cabeceira|escrivaninha/i.test(
+        /ilha|balc[aã]o|bancada|arm[aá]rio|a[eé]reo|torre|cristaleira|gaveteiro|roupeiro|nicho|painel|mesa|prateleira|guarda.?roupa|cabeceira|escrivaninha|divis[oó]ria/i.test(
           nameKey,
         )
       if (m.out_of_scope === true && (isMarcenariaTypology || isMarcenariaName)) {
@@ -246,19 +295,11 @@ export const moduleExtractionSchema = z
       description: z.string().optional(),
       /** Pedra, alvenaria, decoração — listado à parte, sem custo. */
       out_of_scope: z.boolean().optional(),
-      /** Tipologia Corte Claude v11 (Módulos 1–11). */
-      typology: z
-        .enum([
-          'balcao',
-          'aereo',
-          'armario_correr',
-          'armario_giro',
-          'nicho',
-          'painel',
-          'gaveteiro',
-          'outro',
-        ])
-        .optional(),
+      /** Tipologia Corte Claude — preprocess mapeia rótulos inventados (ex.: divisoria→nicho). */
+      typology: z.preprocess(
+        (v) => normalizeModuleTypology(v),
+        z.enum(MODULE_TYPOLOGIES).optional(),
+      ),
       door_count: z.number().int().nonnegative().optional(),
       drawer_count: z.number().int().nonnegative().optional(),
       shelf_count: z.number().int().nonnegative().optional(),

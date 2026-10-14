@@ -392,19 +392,47 @@ export async function llmJson(params: {
     if (!params.anthropicKey) {
       throw new Error('ANTHROPIC_API_KEY não configurada para modelo Claude.')
     }
+    const claudeArgs = {
+      apiKey: params.anthropicKey,
+      model: params.model,
+      system: params.system,
+      userContent: params.userContent,
+      schemaName: params.schemaName,
+      schema: params.schema,
+      maxTokens: params.maxTokens,
+      effort: params.effort,
+    }
     try {
-      return await claudeJson({
-        apiKey: params.anthropicKey,
-        model: params.model,
-        system: params.system,
-        userContent: params.userContent,
-        schemaName: params.schemaName,
-        schema: params.schema,
-        maxTokens: params.maxTokens,
-        effort: params.effort,
-      })
+      return await claudeJson(claudeArgs)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+      // JSON truncado/quebrado (página densa): 1 retry antes de falhar a cadeia.
+      const isJsonGlitch =
+        /JSON|não é JSON|Expected ','|Unexpected token|Unterminated string/i.test(message)
+      if (isJsonGlitch) {
+        console.warn(`[llm-json] Claude JSON glitch; retry 1x: ${message.slice(0, 160)}`)
+        try {
+          return await claudeJson(claudeArgs)
+        } catch (retryErr) {
+          const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr)
+          if (!allowOpenAiFallback) {
+            throw new Error(
+              `Modelo escolhido (${params.model}) falhou após retry (${retryMsg.slice(0, 220)}); retente a análise — fallback gpt-4o bloqueado.`,
+            )
+          }
+          console.warn(`[llm-json] Claude retry falhou; fallback gpt-4o`)
+          if (!params.openAiKey) throw retryErr
+          return openAiJson({
+            apiKey: params.openAiKey,
+            model: 'gpt-4o',
+            system: params.system,
+            userContent: params.userContent,
+            schemaName: params.schemaName,
+            schema: params.schema,
+            maxTokens: params.maxTokens,
+          })
+        }
+      }
       if (!allowOpenAiFallback) {
         throw new Error(
           `Modelo escolhido (${params.model}) falhou (${message.slice(0, 220)}); retente a análise — fallback gpt-4o bloqueado.`,

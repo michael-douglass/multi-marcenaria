@@ -19,16 +19,18 @@ Missão: ler as pranchas deste LOTE e listar ABSOLUTAMENTE TUDO que for marcenar
 8) NÃO some peças de vistas/páginas diferentes do mesmo móvel — cada lote descreve só o que VÊ; quantidades realistas (ex.: 2 laterais, não 9).
 9) Painel e ripado soltos, se visíveis no PDF ou no inventário, SÃO módulos obrigatórios (typology painel).
 10) PROIBIDO devolver "Painel" / "Painel TV" / "Ripado" como uma única chapa lisa quando o desenho mostrar ripas/brises — fatie em ripas individuais.
-11) PROIBIDO criar vários módulos para o mesmo móvel físico (ex.: "Ilha Noite" + "Ilha balcão" + "Ilha armário traseiro") — um nome canônico só.
+11) Em cozinha/gourmet/ilha: PROIBIDO fatiar o MESMO móvel físico em clones de vista (ex.: "Ilha Noite" + "Ilha balcão" + "Ilha armário traseiro") — um nome canônico só.
+    EXCEÇÃO ABSOLUTA (vence a regra 11): Quarto / Closet / HelloMob — SEMPRE fatie colunas, balcões, portas avulsas e painéis (ver seção HELLOMOB).
 
-═══ MÓDULO FÍSICO ÚNICO (anti-fusão de vistas) ═══
-Planta baixa + elevação + corte + detalhe do MESMO móvel = UM módulo na árvore.
+═══ MÓDULO FÍSICO ÚNICO (anti-fusão de vistas — cozinha/ilha/gourmet) ═══
+Planta baixa + elevação + corte + detalhe do MESMO móvel = UM módulo na árvore (Ilha, Bancada, Cristaleira, Torre).
 - NÃO invente "Ilha (Noite)", "Ilha balcão sob granito", "Ilha - Armário traseiro" como módulos separados.
-- Nome canônico CURTO alinhado ao inventário: Ilha | Bancada | Armário | Cristaleira | Torre geladeira | Painel TV | Painel ripado | Mesa de jantar | Bancada Lavabo | Gaveteiro.
+- Nome canônico CURTO alinhado ao inventário: Ilha | Bancada | Cristaleira | Torre geladeira | Mesa de jantar | Bancada Lavabo.
 - Cor/material (Noite, Louro Freijó, Reflecta) vai em material_name / description — NUNCA no name do módulo.
 - Painel TV liso e Painel ripado SÃO módulos distintos (tipologias diferentes).
 - Quantidades físicas: laterais de caixa = 2 (≤ 4 só se houver divisórias laterais reais); portas ≤ ceil(L_mm/300)+2; tampos ≤ 2.
 - Se este lote só mostra uma vista, liste o BOM dessa vista; o merge entre lotes fará MAX — NÃO multiplique laterais/portas "por página".
+- NÃO aplique "módulo único" a guarda-roupa/colunas HelloMob — aí a seção HELLOMOB manda.
 
 ═══ FATIAMENTO DE RIPADOS / BRISES (paridade Cortecloud) ═══
 Ao identificar painel ripado, brise, ripas, "painel ripado" ou área com faixas verticais/horizontais:
@@ -109,19 +111,27 @@ width_mm ↔ eixo C; height_mm ↔ eixo L da peça.
 - Lavabo ≠ Cozinha ≠ Espaço Gourmet. Não misture tudo num único ambiente.
 - Quarto / Quarto Suíte / Closet: Painel TV, Mesa de cabeceira, Cabeceira, Guarda-roupa, Aparador PERMANECEM no Quarto — PROIBIDO jogar para Cozinha.
 
-═══ PROJETOS MODULARES / HELLOMOB (paridade Cortecloud Quarto) ═══
+═══ PROJETOS MODULARES / HELLOMOB (paridade Cortecloud Quarto — VENCE "módulo físico único") ═══
 Quando o PDF/inventário for dormitório modular (guarda-roupa em colunas, balcões, painéis avulsos):
-1) FATIE o guarda-roupa em colunas: "Armário 1 coluna" + larguras reais (ex.: 860, 900, 1500 mm) via column_widths_mm OU módulos separados por coluna.
-2) Balcões inferiores / gaveteiros: módulos próprios (typology=balcao|gaveteiro), cotas compactas.
-3) Portas avulsas e vistas verticais (coluna aberta/ripada): módulos distintos quando o desenho separar.
-4) PROIBIDO um único "Guarda Roupas" inflado sem column_widths_mm quando o PDF mostrar várias colunas.
-5) Painel TV liso ≠ Painel ripado — dois módulos (já reforçado acima).
-6) Mesa de cabeceira / criado-mudo: typology=gaveteiro; H≤700 mm, D≤500 mm, W≤900 mm — NUNCA caixa de 2,50×2,80 m.
-7) Cabeceira: typology=painel; profundidade típica ≤150 mm — NÃO inventar laterais de balcão 390×2800.
+TRAVE ABSOLUTA: PROIBIDO módulo único "Guarda Roupas" / "Roupeiro" / "Armário" que agregue parede inteira
+(>1200 mm de frente útil sem column_widths_mm explícitas). Fatia OBRIGATÓRIA em módulos atômicos:
+1) "Armário 1 coluna {L}×{A}×{P}" — um módulo por vão (ex.: 860×750×600, 900×1180×600, 1500×750×600).
+2) "Balcão {L}×{A}×{P}" — balcões inferiores por vão (typology=balcao).
+3) "Porta avulsa {L}×{A}" — portas que o desenho lista soltas (não embutir no armário).
+4) "Vista vertical {L}×{A}" — colunas abertas/ripadas laterais.
+5) "Lateral de tamponamento …" / "Tampo para tamponamento …" — peças de fechamento.
+6) "Nicho {L}×{A}×{P}" e "Gaveteiro horizontal …" — módulos próprios.
+7) Painel avulso/TV liso ≠ Painel ripado — dois módulos; ripas 18 mm individuais + apoio.
+8) Mesa de cabeceira / criado-mudo: typology=gaveteiro; H≤700 mm, D≤500 mm, W≤900 mm — NUNCA caixa de 2,50×2,80 m.
+9) Cabeceira: typology=painel; profundidade típica ≤150 mm — NÃO inventar laterais de balcão 390×2800.
+Caixaria mínima por coluna/caixa: 2 laterais + base (+ tampo/travessa) + fundo 6 mm se fechada +
+prateleiras/divisórias desenhadas; portas em frentes_portas (cor do projeto, NÃO Branco TX).
 
 ═══ WORKFLOW POR TIPOLOGIA ═══
-Para cada móvel real informe typology quando possível:
+TYPOLOGY — só estes 8 valores (string EXATA, minúsculas):
 balcao | aereo | armario_correr | armario_giro | nicho | painel | gaveteiro | outro
+PROIBIDO como typology de módulo: divisoria, estante, coluna, rack, guarda_roupas, cristaleira, ripado, cabeceira.
+(Use function=divisoria na PEÇA caixaria; módulo com nichos/estante → typology=nicho; guarda-roupa → armario_giro; painel/ripado/cabeceira → painel.)
 
 - balcao / aéreo: laterais + base + tampo + prateleiras + fundo + frentes/portas + dobradiças/corrediças.
 - armario_correr: sliding_doors 2|3|4; trilhos; sarrafo; divisórias; prateleiras/cabideiro se houver.
@@ -193,12 +203,15 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
 8) Painel e ripado do inventário/prancha NÃO podem ser omitidos.
 9) Se o desenho mostra ripado/brise: EXIJA ripas individuais 18 mm (30–50 mm) + apoio — rejeite painel liso genérico.
 10) Gaveteiros/cristaleiras: EXIJA colmeias, caixas de gaveta e tampos 18 mm quando visíveis.
-11) FUNDIR módulos da mesma família física (Ilha Noite / Ilha balcão / Ilha armário traseiro → um só "Ilha") e RENOMEAR para o nome canônico do inventário.
+11) Em cozinha/gourmet: FUNDIR clones de vista da mesma família (Ilha Noite / Ilha balcão → um só "Ilha").
+    Em Quarto/HelloMob: NÃO fundir colunas — rejeite "Guarda Roupas"/"Roupeiro" único sem column_widths_mm e EXIJA split em Armário 1 coluna {L}×{A}×{P} + balcões + portas avulsas.
 
 ═══ MISSÃO ═══
 1) Só mantenha módulo se houver evidência nas imagens (nome no desenho, página ou bounding_box).
 2) REMOVA módulos inventados (ex.: guarda-roupa/cabeceira em projeto só gourmet/cozinha). Liste cada remoção em auditor_notes.
 3) RENOMEIE tipologias erradas: bancada/ilha/balcão NÃO é "mesa"; mesa de jantar/Mesa Belize/escrivaninha NÃO é bancada.
+   typology SÓ nos 8 rótulos (balcao|aereo|armario_correr|armario_giro|nicho|painel|gaveteiro|outro).
+   Corrija "divisoria"/"estante"/"coluna" → nicho; "guarda_roupas"/"cristaleira" → armario_giro; "ripado"/"rack" → painel.
 4) SEPARE ambientes: Lavabo ≠ Espaço Gourmet/Cozinha. Prefira as imagens ao inventário errado.
 5) Complete BOM só de módulos que EXISTEM: chapas MDF, ferragens/puxadores por unidade, bounding_box.page (= página do PDF/arquivo, não "PRANCHA Nº" do carimbo).
 6) Pedra/alvenaria/gesso/eletros/decoração solta/cadeira de loja → out_of_scope=true, sem peças MDF.
@@ -208,8 +221,8 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
 8) COBERTURA: todo móvel do inventário (âncora) que existir nas imagens DEVE estar na árvore com BOM (chapa). Se faltar, complete ou explique em auditor_notes.
 9) Deduplique peças: laterais ≤ 2 (caixa; ≤ 4 só com divisória lateral real); tampos ≤ 2; portas ≤ ceil(L/300)+2. Se ultrapassar, APAGUE vistas duplicadas (não só avise).
 10) MARCAÇÕES: confira se bounding_box.page bate com o rótulo "PDF página N" da imagem onde o móvel aparece; corrija página e caixa se estiver na folha errada (ex.: Painel TV não pode ficar na vista da cozinha).
-11) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$, markup ou preço de venda.`
-
+11) HELLOMOB: se existir um único "Guarda Roupas"/"Roupeiro" sem column_widths_mm e frente >1200 mm, SPLIT em colunas/balcões/portas (registre em auditor_notes). Painel liso ≠ ripado.
+12) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$, markup ou preço de venda.`
 /**
  * Desmontador: documentação do bom-engine (determinístico).
  * Não há fase LLM — o Prompt Studio guarda este texto só como referência.

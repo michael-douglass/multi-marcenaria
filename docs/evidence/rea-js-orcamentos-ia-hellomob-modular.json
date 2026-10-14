@@ -1,0 +1,29 @@
+{
+  "capturedAt": "2026-10-14T15:55:00.000Z",
+  "tool": "REA analyze_javascript_application",
+  "input_path": "src/lib/orcamentos-ia",
+  "format": "directory",
+  "detail": "summary",
+  "integrity_policy": "record-and-continue",
+  "evidence_id": "ev_49bcd94e28d451ebe880015b60ab7d400ba6f58cc8cff6261b2ca63e973c4579",
+  "parent_evidence_id": "ev_529ddea898c4f246ad7a0625721760eea3e8c42c8d7f61fd4a123a120f605323",
+  "statistics": {
+    "relevant_files": 36,
+    "parsed_javascript_files": 36,
+    "parse_failures": 0,
+    "findings": 736,
+    "visited_ast_nodes": 49916
+  },
+  "tsc": {
+    "command": "pnpm exec tsc --noEmit",
+    "exit_code": 0
+  },
+  "plan_scope": "HelloMob modular + caixaria atômica (sem preço)",
+  "touched_modules_expected": [
+    "prompts/engineering-modular.ts",
+    "merge-extraction.ts",
+    "bom-consolidate.ts",
+    "schemas.ts (edge_banding defaults already OK)"
+  ],
+  "verdict": "OK — 0 parse failures; tsc limpo; cobertura semântica parcial (budget) sem erros de tipagem nos arquivos tocados"
+}

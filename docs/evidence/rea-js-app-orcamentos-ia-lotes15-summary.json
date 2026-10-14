@@ -1,0 +1,25 @@
+{
+  "compared_at": "2026-10-14T15:05:00Z",
+  "scope": "src/lib/orcamentos-ia",
+  "tsc": "ok",
+  "pnpm_build": "ok",
+  "edge_version": 60,
+  "rea": {
+    "evidence_id": "ev_2dbd2a16ea5c9ee6d4c4580645d20171951e21a5aa2fddc84d82321597f2deb3",
+    "parent_evidence_id": "ev_5254cef97a042b788113d4879a2f70cd580d8015fbacca72c2b5a43f237c7838",
+    "parsed_javascript_files": 36,
+    "parse_failures": 0,
+    "relevant_files": 36,
+    "coverage": "partial (budget limits on large modules; no parse failures)",
+    "notes": [
+      "bom-consolidate.ts and hardware-alias.ts included in directory inventory",
+      "Semantic graph truncated by result budget on quote-presentation/schemas/storage — not type errors"
+    ]
+  },
+  "architecture": {
+    "checkpoint_every_pages": 15,
+    "llm_pages_per_call": 1,
+    "pricing": "single_pass_after_bom_consolidate",
+    "fetching_market_prices_deferred": true
+  }
+}

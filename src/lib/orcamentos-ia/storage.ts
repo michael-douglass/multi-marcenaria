@@ -83,8 +83,8 @@ export const QUOTE_STATUS_LABEL: Record<QuoteAnalysisStatus, string> = {
   CONVERTING_PAGES: 'Convertendo páginas / imagens',
   READING_LAYOUT: 'Lendo layout das pranchas',
   EXTRACTING_MODULES: 'Extraindo módulos e insumos',
-  FETCHING_MARKET_PRICES: 'Buscando preços de mercado',
-  AUDITING_REVISION: 'Auditoria construtiva',
+  FETCHING_MARKET_PRICES: 'Buscando preços (lista de materiais pronta)',
+  AUDITING_REVISION: 'Auditoria / montagem da lista de materiais',
   NEEDS_REVIEW: 'Revisão necessária (circuit breaker)',
   COMPLETED: 'Concluído',
   FAILED: 'Falhou',
@@ -124,13 +124,20 @@ export function formatAsyncPageProgress(totals: Record<string, unknown> | null |
   if (!Number.isFinite(total) || total <= 0) return null
   const page = Number.isFinite(cur) ? Math.min(Math.max(0, cur), total) : 0
   const modsLabel = Number.isFinite(mods) ? Math.max(0, mods) : 0
-  if (totals.pipeline_stage === 'auditing' || totals.pipeline_stage === 'pricing_pending') {
-    return typeof totals.pipeline_detail === 'string' && totals.pipeline_detail.trim()
-      ? totals.pipeline_detail.trim()
-      : `Auditoria / preços — ${modsLabel} módulo(s) encontrados`
+  if (typeof totals.pipeline_detail === 'string' && totals.pipeline_detail.trim()) {
+    return totals.pipeline_detail.trim()
   }
+  if (totals.pipeline_stage === 'auditing' || totals.pipeline_stage === 'pricing_pending') {
+    return `Auditoria / montagem da lista — ${modsLabel} módulo(s) encontrados`
+  }
+  if (totals.pipeline_stage === 'fetching_prices') {
+    return `Buscando preços — ${modsLabel} módulo(s)`
+  }
+  const lotEvery = Number(totals.checkpoint_every_pages) || 15
   const displayPage = Math.min(total, Math.max(1, page + (page < total ? 1 : 0)))
-  return `Lendo página ${displayPage} de ${total}… Módulos encontrados: ${modsLabel}`
+  const totalLots = Math.max(1, Math.ceil(total / lotEvery))
+  const currentLot = Math.min(totalLots, Math.floor(page / lotEvery) + 1)
+  return `Lote ${currentLot}/${totalLots}: lendo página ${displayPage} de ${total}… Módulos: ${modsLabel}`
 }
 
 /** Tipo de linha no console de pensamento da IA. */
@@ -176,7 +183,7 @@ export const PIPELINE_VISUAL_STEPS: PipelineVisualStep[] = [
     id: 'extracting_batch',
     label: '4. Extração',
     shortLabel: 'Extração',
-    hint: 'Lê cada página (cadeia async anti-504)',
+    hint: 'Lê páginas em lotes de 15 (1 página/IA, checkpoint)',
   },
   {
     id: 'auditing',
@@ -186,15 +193,15 @@ export const PIPELINE_VISUAL_STEPS: PipelineVisualStep[] = [
   },
   {
     id: 'pricing_pending',
-    label: '6. Pronto p/ preços',
-    shortLabel: 'Fila preços',
-    hint: 'Extração/auditoria ok — inicia cotação',
+    label: '6. Lista de materiais',
+    shortLabel: 'BOM',
+    hint: 'Consolida chapas/ferragens do projeto inteiro (ainda sem preço)',
   },
   {
     id: 'fetching_prices',
     label: '7. Preços',
     shortLabel: 'Preços',
-    hint: 'Busca valores no estoque e no mercado',
+    hint: 'Busca preços uma única vez com o BOM já montado',
   },
   {
     id: 'persisting',
@@ -212,14 +219,13 @@ export const PIPELINE_VISUAL_STEPS: PipelineVisualStep[] = [
 
 export function thoughtKindForStage(stage: string | null | undefined): ThoughtKind {
   switch (stage) {
-    case 'pricing_pending':
-      return 'price'
     case 'converting_pages':
     case 'reading_inventory':
     case 'extracting_batch':
       return 'vision'
     case 'auditing':
     case 'self_heal':
+    case 'pricing_pending':
       return 'audit'
     case 'fetching_prices':
     case 'persisting':

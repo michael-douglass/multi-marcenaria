@@ -15,6 +15,11 @@ import { rebalanceEnvironments as rebalanceEnvironmentsShared } from '../_shared
 const BATCH_SIZE = 8
 /** Anti-504 async: até 300 páginas (1 LLM / request). */
 const MAX_PAGES = 300
+/**
+ * Barreira de checkpoint a cada N páginas (ainda 1 página/LLM).
+ * Não precifica — só grava partial e mensagem de lote.
+ */
+const CHECKPOINT_EVERY_PAGES = 15
 
 type AnyRec = Record<string, unknown>
 
@@ -105,6 +110,39 @@ function normalizeKey(value: string): string {
     .trim()
 }
 
+/** Espelho client schemas.ts — evita typology "divisoria" no partial_extraction. */
+const MODULE_TYPOLOGIES = new Set([
+  'balcao',
+  'aereo',
+  'armario_correr',
+  'armario_giro',
+  'nicho',
+  'painel',
+  'gaveteiro',
+  'outro',
+])
+
+function normalizeModuleTypology(raw: unknown): string | undefined {
+  if (raw == null || raw === '') return undefined
+  const key = String(raw)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  if (!key) return undefined
+  if (MODULE_TYPOLOGIES.has(key)) return key
+  if (/divisoria|estante|coluna|prateleira/.test(key)) return 'nicho'
+  if (/armario_correr|correr|sliding/.test(key)) return 'armario_correr'
+  if (/guarda_?roup|roupeiro|closet|cristaleira|armario|torre|paneleiro/.test(key)) {
+    return 'armario_giro'
+  }
+  if (/rack|painel|ripado|cabeceira|brise|tv/.test(key)) return 'painel'
+  if (/bancada|ilha|balcao/.test(key)) return 'balcao'
+  if (/aereo/.test(key)) return 'aereo'
+  if (/gaveteiro|criado|mesa_?cabeceira|mesa_de_cabeceira/.test(key)) return 'gaveteiro'
+  return 'outro'
+}
 
 function asObjArray(value: unknown): AnyRec[] {
   if (!Array.isArray(value)) return []
@@ -322,10 +360,9 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
   const dims = mod.dimensions && typeof mod.dimensions === 'object' ? (mod.dimensions as AnyRec) : {}
   let caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
   const first = caixaria[0] || {}
-  const mat =
-    (typeof first.material_name === 'string' && first.material_name) ||
-    'MDF 15mm'
-  const thickness = Number(first.thickness_mm) > 0 ? Number(first.thickness_mm) : 15
+  // Caixa interna sempre Branco TX — não herdar cor da frente
+  const mat = 'MDF Branco TX 15mm'
+  const thickness = 15
   const w = Number(dims.width_mm) > 0 ? Number(dims.width_mm) : Number(first.width_mm) > 0 ? Number(first.width_mm) : 800
   const h = Number(dims.height_mm) > 0 ? Number(dims.height_mm) : Number(first.height_mm) > 0 ? Number(first.height_mm) : 720
   const d = Number(dims.depth_mm) > 0 ? Number(dims.depth_mm) : 500
@@ -337,11 +374,10 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
     C2: false,
     L1: false,
     L2: false,
-    tape_name: 'Fita 22 mm',
+    tape_name: 'Fita 22 mm cor da frente',
     meters: Math.round((w / 1000) * 1000) / 1000,
   }
   const bandNone = { C1: false, C2: false, L1: false, L2: false, meters: 0 }
-
   const push = (piece: AnyRec) => {
     caixaria = [...caixaria, piece]
   }
@@ -390,7 +426,7 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
       width_mm: w,
       height_mm: h,
       thickness_mm: 6,
-      material_name: mat.includes('MDF') ? mat.replace(/15|18/, '6') : 'MDF 6mm',
+      material_name: 'MDF Branco TX 6mm',
       quantity: 1,
       edge_banding: bandNone,
       dimensions_estimated: true,
@@ -486,30 +522,36 @@ function ensurePlaceholders(extraction: AnyRec): AnyRec {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
+      const typology = normalizeModuleTypology(mod.typology)
+      const withTypology: AnyRec = typology
+        ? { ...mod, typology }
+        : mod.typology != null && mod.typology !== ''
+          ? { ...mod, typology: 'outro' }
+          : { ...mod }
       const isBox = BOX_MODULE_RE.test(nameKey)
       const hardOos = OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
       const ambigDecor = AMBIGUOUS_DECOR_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
-      let caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
+      let caixaria = cleanCaixariaEdgeBanding(asObjArray(withTypology.caixaria))
       if (STORE_BRAND_HINTS.some((h) => nameKey.includes(h))) {
-        return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
+        return { ...withTypology, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
-      const mdfPieces = caixaria.length + asObjArray(mod.frentes_portas).length
+      const mdfPieces = caixaria.length + asObjArray(withTypology.frentes_portas).length
       // Tipologia de marcenaria: NUNCA out_of_scope (trava anti-descarte Flaviane)
       if (isBox) {
-        return enrichMinimalCaixaria({ ...mod, name, caixaria, out_of_scope: undefined })
+        return enrichMinimalCaixaria({ ...withTypology, name, caixaria, out_of_scope: undefined })
       }
       // Com chapa MDF (ex.: bancada sob granito) continua no escopo
       if (mdfPieces > 0) {
-        return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
+        return enrichMinimalCaixaria({ ...withTypology, caixaria, out_of_scope: undefined })
       }
-      if (hardOos || (ambigDecor && !isBox) || mod.out_of_scope === true) {
+      if (hardOos || (ambigDecor && !isBox) || withTypology.out_of_scope === true) {
         // Fora de escopo: listado à parte no cliente, sem insumos nem custo
-        return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
+        return { ...withTypology, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
-      const total = asObjArray(mod.ferragens).length + asObjArray(mod.fitas_borda_m).length
-      if (total > 0) return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
+      const total = asObjArray(withTypology.ferragens).length + asObjArray(withTypology.fitas_borda_m).length
+      if (total > 0) return enrichMinimalCaixaria({ ...withTypology, caixaria, out_of_scope: undefined })
       // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
-      return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
+      return { ...withTypology, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
     })
     return { ...env, modules }
   })
@@ -1472,45 +1514,55 @@ Deno.serve(async (req) => {
 
     const enqueueChain = (payload: Record<string, unknown>) => {
       const selfUrl = `${supabaseUrl}/functions/v1/orcamentos-ia-pipeline`
-      const run = fetch(selfUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-          [CHAIN_SECRET_HEADER]: chainSecretExpected,
-        },
-        body: JSON.stringify({
-          analysisId: body.analysisId,
-          companyId: body.companyId,
-          mode,
-          extraction_model: extractionKey,
-          ragMemoriesPrompt: body.ragMemoriesPrompt,
-          ...payload,
-        }),
-      }).then(async (res) => {
-        if (!res.ok) {
-          const text = await res.text().catch(() => '')
-          console.error('[chain] next tick failed', res.status, text.slice(0, 400))
-          await patchTotals(
-            {
-              pipeline_stage: 'failed',
-              pipeline_detail: `Cadeia interrompida (HTTP ${res.status}). Clique em Retomar.`,
-              async_chain_status: 'failed',
-            },
-            'FAILED',
-          )
+      const tickBody = JSON.stringify({
+        analysisId: body.analysisId,
+        companyId: body.companyId,
+        mode,
+        extraction_model: extractionKey,
+        ragMemoriesPrompt: body.ragMemoriesPrompt,
+        ...payload,
+      })
+      const maxAttempts = 3
+      const run = (async () => {
+        let lastStatus = 0
+        let lastText = ''
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          try {
+            const res = await fetch(selfUrl, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+                [CHAIN_SECRET_HEADER]: chainSecretExpected,
+              },
+              body: tickBody,
+            })
+            if (res.ok) return
+            lastStatus = res.status
+            lastText = await res.text().catch(() => '')
+            console.error('[chain] next tick failed', res.status, lastText.slice(0, 400), `attempt=${attempt}`)
+            // 5xx / 546 (worker limit): retry — PDF grande costuma oscilar.
+            if (res.status < 500 || attempt >= maxAttempts) break
+            await new Promise((r) => setTimeout(r, 1500 * attempt))
+          } catch (err) {
+            console.error('[chain] enqueue error', err, `attempt=${attempt}`)
+            lastStatus = 0
+            lastText = err instanceof Error ? err.message : String(err)
+            if (attempt >= maxAttempts) break
+            await new Promise((r) => setTimeout(r, 1500 * attempt))
+          }
         }
-      }).catch(async (err) => {
-        console.error('[chain] enqueue error', err)
         await patchTotals(
           {
             pipeline_stage: 'failed',
-            pipeline_detail: 'Cadeia interrompida (rede). Clique em Retomar.',
+            pipeline_detail: lastStatus
+              ? `Cadeia interrompida (HTTP ${lastStatus}). Clique em Retomar.`
+              : 'Cadeia interrompida (rede). Clique em Retomar.',
             async_chain_status: 'failed',
           },
           'FAILED',
         )
-      })
+      })()
       try {
         EdgeRuntime.waitUntil(run)
       } catch {
@@ -1811,50 +1863,102 @@ Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.`,
           const path = paths[pageIndex]
           const pageContents = signedContents.filter((c) => c.path === path)
           const pageNum = pageIndex + 1
+          const lotSizeUi = CHECKPOINT_EVERY_PAGES
+          const totalLotsUi = Math.max(1, Math.ceil(paths.length / lotSizeUi))
+          const currentLotUi = Math.min(totalLotsUi, Math.floor(pageIndex / lotSizeUi) + 1)
+          const lotStartUi = (currentLotUi - 1) * lotSizeUi + 1
+          const lotEndUi = Math.min(paths.length, currentLotUi * lotSizeUi)
           await setStage(
             admin,
             body.analysisId,
             'EXTRACTING_MODULES',
             'extracting_batch',
-            `Lendo página ${pageNum} de ${paths.length}…`,
+            `Lote ${currentLotUi}/${totalLotsUi} (págs. ${lotStartUi}–${lotEndUi}): lendo página ${pageNum} de ${paths.length}…`,
             'vision',
           )
 
-          const batchCall = await callLlm({
-            model: EXTRACTOR_MODEL,
-            system: systemExtractor + ragEffective,
-            userContent: [
-              {
-                type: 'text',
-                text: `PÁGINA ÚNICA ${pageNum}/${paths.length} do PDF.
+          const prevPartial =
+            totals.partial_extraction && typeof totals.partial_extraction === 'object'
+              ? (totals.partial_extraction as AnyRec)
+              : { environments: [], auditor_notes: [], warnings: [] }
+
+          let merged = prevPartial
+          let modulesFound = countModules(merged)
+          let skippedPage = false
+          try {
+            const batchCall = await callLlm({
+              model: EXTRACTOR_MODEL,
+              system: systemExtractor + ragEffective,
+              userContent: [
+                {
+                  type: 'text',
+                  text: `PÁGINA ÚNICA ${pageNum}/${paths.length} do PDF.
 INVENTÁRIO ESPERADO:
 ${inventoryText}
 
 Extraia APENAS o que estiver VISÍVEL nesta página.
 bounding_box.page = índice PDF desta imagem.
 Não invente móveis de outras páginas.`,
-              },
-              ...(await labeledImagesForVision(pageContents.length ? pageContents : [{ ...signedContents[0], path }])),
-            ],
-            schemaName: 'quote_extraction_batch',
-            schema: EXTRACTOR_SCHEMA,
-            maxTokens: 8000,
-          })
+                },
+                ...(await labeledImagesForVision(
+                  pageContents.length ? pageContents : [{ ...signedContents[0], path }],
+                )),
+              ],
+              schemaName: 'quote_extraction_batch',
+              schema: EXTRACTOR_SCHEMA,
+              maxTokens: 8000,
+            })
+            const pageExtraction = rebalanceEnvironments(
+              ensurePlaceholders(mergeExtractions([batchCall.json])),
+              inventory,
+            )
+            merged = rebalanceEnvironments(
+              ensurePlaceholders(mergeExtractions([prevPartial, pageExtraction])),
+              inventory,
+            )
+            modulesFound = countModules(merged)
+          } catch (pageErr) {
+            const pageMsg = pageErr instanceof Error ? pageErr.message : String(pageErr)
+            // Página densa / JSON/schema quebrado: não mata PDF — pula e segue.
+            if (
+              /JSON|não é JSON|Expected ','|fallback gpt-4o bloqueado|schema|typology|Zod|Invalid option|fora do schema/i.test(
+                pageMsg,
+              )
+            ) {
+              console.error('[chain_tick] skip page after JSON/schema failure', pageNum, pageMsg.slice(0, 200))
+              skippedPage = true
+              const warnings = Array.isArray(prevPartial.warnings)
+                ? [...(prevPartial.warnings as unknown[])]
+                : []
+              warnings.push(
+                `Página ${pageNum}: leitura ignorada (resposta da IA inválida). Clique em Retomar se faltar móvel.`,
+              )
+              merged = { ...prevPartial, warnings }
+              modulesFound = countModules(merged)
+            } else {
+              throw pageErr
+            }
+          }
 
-          const prevPartial =
-            totals.partial_extraction && typeof totals.partial_extraction === 'object'
-              ? (totals.partial_extraction as AnyRec)
-              : { environments: [], auditor_notes: [], warnings: [] }
-          const pageExtraction = rebalanceEnvironments(
-            ensurePlaceholders(mergeExtractions([batchCall.json])),
-            inventory,
-          )
-          const merged = rebalanceEnvironments(
-            ensurePlaceholders(mergeExtractions([prevPartial, pageExtraction])),
-            inventory,
-          )
-          const modulesFound = countModules(merged)
           const nextPage = pageIndex + 1
+          const lotSize = CHECKPOINT_EVERY_PAGES
+          const totalLots = Math.max(1, Math.ceil(paths.length / lotSize))
+          const finishedLot =
+            nextPage < paths.length && nextPage > 0 && nextPage % lotSize === 0
+          const lotJustDone = finishedLot ? nextPage / lotSize : 0
+          let pipelineDetail: string
+          if (skippedPage) {
+            pipelineDetail = `Página ${pageNum} ignorada (JSON inválido). Seguindo ${nextPage + 1}/${paths.length}…`
+          } else if (nextPage >= paths.length) {
+            pipelineDetail = `Extração concluída (${modulesFound} módulos). Iniciando auditoria por ambiente…`
+          } else if (finishedLot) {
+            pipelineDetail = `Lote ${lotJustDone}/${totalLots} concluído — páginas ${nextPage - lotSize + 1}–${nextPage} salvas (checkpoint). Seguindo lote ${lotJustDone + 1}…`
+          } else {
+            const currentLot = Math.floor(pageIndex / lotSize) + 1
+            const lotStart = (currentLot - 1) * lotSize + 1
+            const lotEnd = Math.min(paths.length, currentLot * lotSize)
+            pipelineDetail = `Lote ${currentLot}/${totalLots} (págs. ${lotStart}–${lotEnd}): lendo página ${nextPage + 1} de ${paths.length}… Módulos: ${modulesFound}`
+          }
 
           await patchTotals(
             {
@@ -1863,11 +1967,13 @@ Não invente móveis de outras páginas.`,
               total_pages: paths.length,
               modules_found_count: modulesFound,
               inventory,
-              pipeline_stage: nextPage >= paths.length ? 'auditing' : 'extracting_batch',
-              pipeline_detail:
+              checkpoint_every_pages: lotSize,
+              extraction_lot:
                 nextPage >= paths.length
-                  ? `Extração concluída (${modulesFound} módulos). Iniciando auditoria por ambiente…`
-                  : `Lendo página ${nextPage + 1} de ${paths.length}… Módulos encontrados: ${modulesFound}`,
+                  ? totalLots
+                  : Math.min(totalLots, Math.floor(pageIndex / lotSize) + 1),
+              pipeline_stage: nextPage >= paths.length ? 'auditing' : 'extracting_batch',
+              pipeline_detail: pipelineDetail,
               async_chain_status: 'running',
             },
             nextPage >= paths.length ? 'AUDITING_REVISION' : 'EXTRACTING_MODULES',
@@ -1895,6 +2001,7 @@ Não invente móveis de outras páginas.`,
             chainStep: 'extract',
             pageIndex,
             modulesFound,
+            skippedPage,
             pagesLeft: Math.max(0, paths.length - nextPage),
           })
         }
@@ -1922,6 +2029,7 @@ Não invente móveis de outras páginas.`,
 
           if (envIndex >= envs.length) {
             // Cadeia concluída → client cotará
+            // Cliente consolidará BOM e só então buscará preços — não antecipar FETCHING_MARKET_PRICES.
             await patchTotals(
               {
                 partial_extraction: extraction,
@@ -1930,12 +2038,12 @@ Não invente móveis de outras páginas.`,
                 async_chain_status: 'ready_for_pricing',
                 pipeline_stage: 'pricing_pending',
                 pipeline_detail:
-                  'Extração e auditoria prontas — cotando preços…',
+                  'Extração e auditoria prontas — montando lista de materiais do projeto…',
                 modules_found_count: countModules(extraction),
                 current_page: paths.length,
                 total_pages: paths.length,
               },
-              'FETCHING_MARKET_PRICES',
+              'AUDITING_REVISION',
             )
             return jsonResponse({
               ok: true,
@@ -2690,15 +2798,15 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
     await setStage(
       admin,
       body.analysisId,
-      'FETCHING_MARKET_PRICES',
-      'fetching_prices',
-      'Extração pronta. Agora cruzo cada item com estoque e preços de mercado…',
-      'price',
+      'AUDITING_REVISION',
+      'pricing_pending',
+      'Extração pronta — montando lista de materiais do projeto (preços só no fim)…',
+      'info',
     )
     await admin
       .from('quote_analyses')
       .update({
-        status: 'FETCHING_MARKET_PRICES',
+        status: 'AUDITING_REVISION',
         updated_at: new Date().toISOString(),
       })
       .eq('id', body.analysisId)

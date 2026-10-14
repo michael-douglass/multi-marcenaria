@@ -1,4 +1,5 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
+import { isNetworkFailure } from '@/lib/network-error'
 import { supabase } from '@/lib/supabase'
 import {
   convertPdfPagesToJpegSequential,
@@ -18,6 +19,7 @@ import {
   type QuoteAnalysisStatus,
 } from '@/lib/orcamentos-ia/storage'
 import {
+  normalizeModuleTypology,
   quoteExtractionSchema,
   type QuoteExtraction,
 } from '@/lib/orcamentos-ia/schemas'
@@ -74,6 +76,7 @@ import {
   insertBomItems,
   validateBomLines,
 } from '@/lib/orcamentos-ia/bom-persist'
+import { consolidateExtractionForPricing } from '@/lib/orcamentos-ia/bom-consolidate'
 import {
   CUTTING_LIST_TAG,
   isCuttingListNote,
@@ -402,15 +405,40 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
 }> {
   const started = Date.now()
   let lastUpdated = Date.now()
+  let consecutiveNetworkMisses = 0
 
   while (true) {
-    const { data, error } = await supabase
-      .from('quote_analyses')
-      .select('status, totals, error_message')
-      .eq('id', analysisId)
-      .maybeSingle()
+    let data: {
+      status?: string | null
+      totals?: unknown
+      error_message?: string | null
+    } | null = null
+    try {
+      const res = await supabase
+        .from('quote_analyses')
+        .select('status, totals, error_message')
+        .eq('id', analysisId)
+        .maybeSingle()
+      if (res.error) throw new Error(res.error.message)
+      data = res.data
+      consecutiveNetworkMisses = 0
+    } catch (err) {
+      // PDF grande: a Edge segue na nuvem; um "Failed to fetch" no poll do browser
+      // não deve matar o job (falso FAILED). Re-tenta até estolar de verdade.
+      consecutiveNetworkMisses += 1
+      if (consecutiveNetworkMisses >= 8) {
+        throw new Error(
+          err instanceof Error && /failed to fetch|network|abort/i.test(err.message)
+            ? 'A conexão caiu várias vezes ao acompanhar a leitura. A nuvem pode ainda estar processando — clique em Retomar.'
+            : err instanceof Error
+              ? err.message
+              : 'Falha ao consultar o progresso da análise.',
+        )
+      }
+      await new Promise((r) => setTimeout(r, ASYNC_CHAIN_POLL_MS))
+      continue
+    }
 
-    if (error) throw new Error(error.message)
     const totals =
       data?.totals && typeof data.totals === 'object'
         ? (data.totals as Record<string, unknown>)
@@ -422,7 +450,16 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
         : NaN
     if (Number.isFinite(updatedAt)) lastUpdated = updatedAt
 
-    if (data?.status === 'FAILED' || chainStatus === 'failed') {
+    // Só trata FAILED se a cadeia também parou — evita falso alarme quando o
+    // cliente gravou FAILED por rede e o chain_tick da Edge já retomou o status.
+    if (chainStatus === 'failed') {
+      throw new Error(
+        (typeof totals.pipeline_detail === 'string' && totals.pipeline_detail) ||
+          data?.error_message ||
+          'Cadeia async falhou. Clique em Retomar.',
+      )
+    }
+    if (data?.status === 'FAILED' && chainStatus !== 'running') {
       throw new Error(
         (typeof totals.pipeline_detail === 'string' && totals.pipeline_detail) ||
           data?.error_message ||
@@ -587,6 +624,38 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   const inventory = asyncReady.inventory
   let mergedRaw = forceDeduplicateViewQuantities(mergeExtractions([asyncReady.extraction]))
 
+  const coerceModuleTypologies = (tree: unknown): unknown => {
+    if (!tree || typeof tree !== 'object') return tree
+    const root = tree as Record<string, unknown>
+    const envs = Array.isArray(root.environments) ? root.environments : []
+    const remapNotes: string[] = []
+    const environments = envs.map((env) => {
+      if (!env || typeof env !== 'object') return env
+      const e = env as Record<string, unknown>
+      const modules = Array.isArray(e.modules) ? e.modules : []
+      return {
+        ...e,
+        modules: modules.map((mod) => {
+          if (!mod || typeof mod !== 'object') return mod
+          const m = { ...(mod as Record<string, unknown>) }
+          const before = m.typology
+          const after = normalizeModuleTypology(before) ?? (before != null && before !== '' ? 'outro' : undefined)
+          if (before != null && before !== '' && after && String(before) !== after) {
+            remapNotes.push(`Tipologia "${String(before)}" → "${after}"`)
+          }
+          if (after) m.typology = after
+          else delete m.typology
+          return m
+        }),
+      }
+    })
+    const warnings = Array.isArray(root.warnings) ? [...(root.warnings as string[])] : []
+    if (remapNotes.length) {
+      warnings.push(`Tipologias normalizadas: ${[...new Set(remapNotes)].slice(0, 8).join('; ')}`)
+    }
+    return { ...root, environments, warnings: [...new Set(warnings)] }
+  }
+
   const finalizeExtractionTree = (raw: unknown): QuoteExtraction => {
     // Lock dormitório antes das heurísticas — evita Cozinha fantasma (Painel TV / Mesa cabeceira)
     const rebalanced = rebalanceEnvironments(raw, inventory)
@@ -594,16 +663,29 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     let sanitized = sanitizeExtractionPayload(
       clampGeometryBounds(applyAntiHallucinationHeuristics(merged)),
     )
+    sanitized = coerceModuleTypologies(sanitized)
     let parsed = quoteExtractionSchema.safeParse(sanitized)
     if (!parsed.success) {
       sanitized = sanitizeExtractionPayload(
         clampGeometryBounds(applyAntiHallucinationHeuristics(sanitized)),
       )
+      sanitized = coerceModuleTypologies(sanitized)
       parsed = quoteExtractionSchema.safeParse(sanitized)
     }
     if (!parsed.success) {
       sanitized = sanitizeExtractionPayload(stripNullOptionals(sanitized))
+      sanitized = coerceModuleTypologies(sanitized)
       parsed = quoteExtractionSchema.safeParse(sanitized)
+    }
+    // Última chance: se só typology falhou (preprocess falhou em edge case), force outro
+    if (!parsed.success) {
+      const onlyTypology = parsed.error.issues.every((i) =>
+        i.path.some((p) => p === 'typology'),
+      )
+      if (onlyTypology) {
+        sanitized = coerceModuleTypologies(sanitized)
+        parsed = quoteExtractionSchema.safeParse(sanitized)
+      }
     }
     if (!parsed.success) {
       const detail = parsed.error.issues
@@ -843,16 +925,27 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     console.warn('[pipeline] BOM gaps após auditor/self-heal:', detail)
   }
 
-  await setAnalysisStatus(state.analysisId, 'FETCHING_MARKET_PRICES', {
-    pipeline_stage: 'fetching_prices',
-    pipeline_detail: 'Cruzando cada item com estoque e tabela de mercado…',
-    thought_kind: 'price',
+  // Consolidação global (paleta de chapas + De-Para ferragens) — ainda SEM preços.
+  const { extraction: consolidatedTree, consolidatedBom } =
+    consolidateExtractionForPricing(tree)
+  tree = consolidatedTree
+  tree.auditor_notes = [
+    ...(Array.isArray(tree.auditor_notes) ? tree.auditor_notes : []),
+    ...consolidatedBom.notes,
+  ]
+
+  await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+    pipeline_stage: 'pricing_pending',
+    pipeline_detail:
+      'Lista de materiais consolidada — em seguida busco preços uma única vez…',
+    thought_kind: 'audit',
     totals: {
       inventory,
       coverage,
       bom_gaps: bomGaps,
       self_heal: selfHeal,
       pages_processed: state.pagePaths.length,
+      consolidated_bom: consolidatedBom,
     },
   })
 
@@ -995,7 +1088,8 @@ async function nodeResolvePricesAndPersist(
 
   await setAnalysisStatus(state.analysisId, 'FETCHING_MARKET_PRICES', {
     pipeline_stage: 'fetching_prices',
-    pipeline_detail: 'Aplicando preços e montando a lista de insumos do orçamento…',
+    pipeline_detail:
+      'Buscando preços (estoque → De-Para → mercado) — passagem única no BOM consolidado…',
     thought_kind: 'price',
   })
 
@@ -1566,6 +1660,20 @@ function buildPipelineGraph() {
         return await nodeInvokeAgents(state)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro nos agentes de IA'
+        // Só rede no poll: a Edge pode ainda estar lendo. Erros reais da cadeia
+        // (HTTP 500, JSON inválido, etc.) devem ir para FAILED mesmo se o texto
+        // diga "Clique em Retomar".
+        if (
+          isNetworkFailure(err) ||
+          /conexão caiu várias vezes|nuvem pode ainda estar processando/i.test(message)
+        ) {
+          await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+            error_message: message,
+            pipeline_stage: 'extracting_batch',
+            pipeline_detail: message,
+          })
+          return { error: message }
+        }
         await setAnalysisStatus(state.analysisId, 'FAILED', { error_message: message, pipeline_stage: 'failed', pipeline_detail: message })
         return { error: message }
       }
@@ -2009,12 +2117,14 @@ export async function reprocessOrcamentosIaPipeline(params: {
   const file = new File([blob], fileName, { type: mime })
   const mode = (row.mode === 'pro' ? 'pro' : 'max') as QuoteAnalysisMode
 
+  // Mesmo sem JPEGs no Storage: se houver checkpoint, NÃO zerar partial na Edge.
   return runOrcamentosIaPipeline({
     analysisId: params.analysisId,
     companyId: params.companyId,
     mode,
     extractionModel,
     sourceFiles: [file],
+    resumeFromPage,
   })
 }
 

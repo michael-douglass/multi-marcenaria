@@ -82,6 +82,24 @@ export {
   reprocessOrcamentosIaPipeline,
   reauditOrcamentosIaAnalysis,
 } from '@/lib/orcamentos-ia/pipeline'
+export {
+  consolidateExtractionForPricing,
+  consolidateProjectBom,
+  applySheetPaletteToExtraction,
+  DEFAULT_PROJECT_SHEET_PALETTE,
+} from '@/lib/orcamentos-ia/bom-consolidate'
+export type {
+  ConsolidatedBom,
+  ConsolidatedSheetLine,
+  ConsolidatedHardwareLine,
+  ProjectSheetSku,
+} from '@/lib/orcamentos-ia/bom-consolidate'
+export {
+  mapHardwareAlias,
+  hardwareAliasSeedPairs,
+  HARDWARE_ALIAS_RULES,
+} from '@/lib/orcamentos-ia/hardware-alias'
+export type { HardwareCanonicalKey, MappedHardware } from '@/lib/orcamentos-ia/hardware-alias'
 export { quoteExtractionSchema } from '@/lib/orcamentos-ia/schemas'
 export {
   estimateModuleDimensions,

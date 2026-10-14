@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { mapHardwareAlias } from '@/lib/orcamentos-ia/hardware-alias'
 import type { MaterialCategory } from '@/lib/orcamentos-ia/schemas'
 import type {
   QuoteAnalysisDetail,
@@ -474,10 +475,15 @@ export async function createPriceResolver(
     rawMaterialName: string,
     preferredCategory?: MaterialCategory | string,
   ): ResolvedMaterialPrice => {
-    const name = rawMaterialName.trim()
+    let name = rawMaterialName.trim()
     if (!name) return contingencyResult('Insumo sem nome', preferredCategory || 'outro')
 
     const preferred = (preferredCategory || '').toLowerCase()
+    // De-Para canônico de ferragens (puxador alça, dobradiça reta, …) antes do fuzzy
+    if (preferred === 'ferragem' || preferred === 'puxador' || preferred === 'consumivel') {
+      const mapped = mapHardwareAlias(name)
+      if (mapped.matched) name = mapped.canonicalName
+    }
     const isEdgeband =
       preferred === 'fita_borda' ||
       /\bfita\b/.test(normalizeName(name)) ||
