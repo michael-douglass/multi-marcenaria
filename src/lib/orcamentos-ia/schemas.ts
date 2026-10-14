@@ -71,19 +71,34 @@ function fillPieceMm(raw: unknown, defaults: (row: Record<string, unknown>) => {
 export const caixariaPieceSchema = z.preprocess(
   (raw) => fillPieceMm(raw, (row) => defaultPieceMm(row.function)),
   z.object({
-    name: z.string().min(1).describe('Ex.: Base, Lateral esquerda, Divisória, Fundo, Sarrafo'),
-    function: z.enum([
-      'base',
-      'lateral',
-      'divisoria',
-      'prateleira',
-      'fundo',
-      'sarrafo',
-      'tampo',
-      'outro',
-    ]),
-    width_mm: z.number().positive(),
-    height_mm: z.number().positive(),
+    name: z
+      .string()
+      .min(1)
+      .describe(
+        'Nome tipográfico Cortecloud/HelloMob. Ex.: Lateral esquerda, Base, Fundo, Prateleira estrutural, Travessa dianteira, Divisória',
+      ),
+    function: z
+      .enum([
+        'base',
+        'lateral',
+        'divisoria',
+        'prateleira',
+        'fundo',
+        'sarrafo',
+        'tampo',
+        'outro',
+      ])
+      .describe(
+        'Papel da peça (paridade Cortecloud functions/list): base←Base; lateral←Lateral Dir/Esq; divisoria←Divisória; prateleira←Prateleira; fundo←Fundo; sarrafo←Travessa/Tira/Rodapé; tampo←Tampo; outro←gaveta/saia/pé/complementos',
+      ),
+    width_mm: z
+      .number()
+      .positive()
+      .describe('Cota em mm no eixo C (comprimento da peça no plano de corte Cortecloud)'),
+    height_mm: z
+      .number()
+      .positive()
+      .describe('Cota em mm no eixo L (largura da peça no plano de corte Cortecloud)'),
     thickness_mm: z.number().positive().default(15),
     material_name: z.string().min(2).describe('Ex.: MDF Branco TX 15mm'),
     // IA manda edge_banding: null — preprocess null→undefined antes do .optional()
@@ -91,16 +106,31 @@ export const caixariaPieceSchema = z.preprocess(
       (v) => (v == null ? undefined : v),
       z
         .object({
-          C1: z.boolean().default(false),
-          C2: z.boolean().default(false),
-          L1: z.boolean().default(false),
-          L2: z.boolean().default(false),
+          C1: z
+            .boolean()
+            .default(false)
+            .describe('Fita na aresta C1 (comprimento) — Cortecloud c1 / c1_edge_id'),
+          C2: z
+            .boolean()
+            .default(false)
+            .describe('Fita na aresta C2 (comprimento oposto) — Cortecloud c2'),
+          L1: z
+            .boolean()
+            .default(false)
+            .describe('Fita na aresta L1 (largura) — Cortecloud l1'),
+          L2: z
+            .boolean()
+            .default(false)
+            .describe('Fita na aresta L2 (largura oposta) — Cortecloud l2'),
           tape_name: z.string().nullish().transform((v) => v ?? undefined),
           meters: z.preprocess(
             (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v)),
             z.number().nonnegative(),
           ),
         })
+        .describe(
+          'Paridade Cortecloud: C=comprimento, L=largura. Caixaria típica só C1; fundo sem fita; portas/frentes podem ter C1+C2+L1+L2',
+        )
         .optional(),
     ),
     quantity: z.number().positive().default(1),
@@ -202,6 +232,10 @@ export const moduleExtractionSchema = z
       sliding_doors: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
       column_widths_mm: z.array(z.number().positive()).optional(),
       doubled_top: z.boolean().optional(),
+      top_shelf: z.boolean().optional(),
+      handle_recess_mm: z.union([z.literal(0), z.literal(20), z.literal(40)]).optional(),
+      door_overhang_mm: z.number().min(0).max(30).optional(),
+      sliding_envelope: z.boolean().optional(),
       dimensions: z
         .object({
           width_mm: z.number().positive(),
@@ -247,7 +281,7 @@ export const environmentExtractionSchema = z.object({
   modules: z.array(moduleExtractionSchema).min(1),
 })
 
-/** Resultado completo do Extrator (gpt-4o). */
+/** Resultado completo do Extrator (modo max: Claude Opus; modo pro: gpt-4o). */
 export const quoteExtractionSchema = z.object({
   environments: z.array(environmentExtractionSchema).min(1),
   auditor_notes: z.array(z.string()).default([]),
@@ -258,3 +292,22 @@ export type QuoteExtraction = z.infer<typeof quoteExtractionSchema>
 export type ModuleExtraction = z.infer<typeof moduleExtractionSchema>
 export type FerragemItem = z.infer<typeof ferragemItemSchema>
 export type MaterialCategory = z.infer<typeof materialCategorySchema>
+
+/** Re-export tipado dos padrões da empresa (Default-with-Override Cortecloud). */
+export {
+  companyStandardsSchema,
+  drawerConstructionSchema,
+  DEFAULT_COMPANY_STANDARDS,
+} from '@/lib/orcamentos-ia/company-standards'
+export type {
+  CompanyStandards,
+  DrawerConstruction,
+} from '@/lib/orcamentos-ia/company-standards'
+
+/** Circuit breaker v12 — relatório gravado em totals.circuit_breaker. */
+export {
+  circuitBreakerReportSchema,
+  evaluateCircuitBreaker,
+  applyDualMaterialBoxDefaults,
+} from '@/lib/orcamentos-ia/circuit-breaker'
+export type { CircuitBreakerReport } from '@/lib/orcamentos-ia/circuit-breaker'

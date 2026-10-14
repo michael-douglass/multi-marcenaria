@@ -19,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import {
-  DEFAULT_SYSTEM_PREFERENCES,
+  DEFAULT_COMPANY_STANDARDS,
   getSystemPreferences,
   upsertSystemPreferences,
   type SystemPreferences,
@@ -39,7 +40,7 @@ export function CompanyStandardsModal({
 }: CompanyStandardsModalProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<SystemPreferences>(() => DEFAULT_SYSTEM_PREFERENCES(companyId))
+  const [form, setForm] = useState<SystemPreferences>(() => DEFAULT_COMPANY_STANDARDS(companyId))
 
   useEffect(() => {
     if (!open || !companyId) return
@@ -53,7 +54,7 @@ export function CompanyStandardsModal({
       } catch (err) {
         if (!cancelled) {
           toast.error(err instanceof Error ? err.message : 'Falha ao carregar preferências')
-          setForm(DEFAULT_SYSTEM_PREFERENCES(companyId))
+          setForm(DEFAULT_COMPANY_STANDARDS(companyId))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -70,7 +71,7 @@ export function CompanyStandardsModal({
     setSaving(true)
     try {
       await upsertSystemPreferences({ ...form, company_id: companyId })
-      toast.success('Preferências construtivas salvas.')
+      toast.success('Padrões da empresa salvos (Default com sobrescrita).')
       onOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Falha ao salvar')
@@ -79,17 +80,22 @@ export function CompanyStandardsModal({
     }
   }
 
+  const resetFactory = () => {
+    setForm(DEFAULT_COMPANY_STANDARDS(companyId))
+    toast.message('Valores de fábrica Cortecloud restaurados no formulário — clique em Salvar para gravar.')
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-slate-200 bg-[#f7f4ef] text-slate-900 sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900">
             <Settings2 className="h-5 w-5 text-[#0066FF]" />
-            Preferências construtivas
+            Padrões construtivos (company_standards)
           </DialogTitle>
           <DialogDescription className="text-slate-600">
-            Regras de montagem Corte Claude (v11) aplicadas no desmonte BOM — base/tampo, fixação,
-            fundo e folgas.
+            Pré-configurado no padrão fabril Cortecloud. Qualquer alteração sua sobrescreve o default e
+            a IA (Extrator/Auditor) passa a respeitar 100% o que estiver salvo.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,6 +106,114 @@ export function CompanyStandardsModal({
           </div>
         ) : (
           <div className="grid gap-4 py-2">
+            <p className="rounded-lg border border-[#0066FF]/25 bg-[#0066FF]/5 px-3 py-2 text-xs text-slate-700">
+              Default de fábrica: caixa 15 mm Branco · frentes 18 mm cor do projeto · fundo 6 mm ·
+              gaveta kit 5 peças + corrediça oculta · fita mista na frente.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Caixa (box_thickness)">
+                <Select
+                  value={String(form.box_thickness_mm)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      box_thickness_mm: Number(v) as SystemPreferences['box_thickness_mm'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 mm (Branco TX)</SelectItem>
+                    <SelectItem value="18">18 mm</SelectItem>
+                    <SelectItem value="25">25 mm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Frente (front_thickness)">
+                <Select
+                  value={String(form.front_thickness_mm)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      front_thickness_mm: Number(v) as SystemPreferences['front_thickness_mm'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15 mm</SelectItem>
+                    <SelectItem value="18">18 mm (cor projeto)</SelectItem>
+                    <SelectItem value="25">25 mm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Fundo (back_thickness)">
+                <Select
+                  value={String(form.back_panel_thickness)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      back_panel_thickness: Number(v) as SystemPreferences['back_panel_thickness'],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 mm</SelectItem>
+                    <SelectItem value="6">6 mm (Branco TX)</SelectItem>
+                    <SelectItem value="15">15 mm</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+
+            <Field label="Construção de gaveta">
+              <Select
+                value={form.drawer_construction}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    drawer_construction: v as SystemPreferences['drawer_construction'],
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kit_fabril_5_pecas">
+                    Kit fabril 5 peças (laterais+contras 15 + fundo 6 + oculta)
+                  </SelectItem>
+                  <SelectItem value="frente_only">Somente frente</SelectItem>
+                  <SelectItem value="custom">Custom (seguir desenho)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold text-slate-700">
+                  Fita mista (mixed_edge_banding)
+                </Label>
+                <p className="text-xs text-slate-500">
+                  Borda frontal da caixa branca na cor da frente (padrão Cortecloud).
+                </p>
+              </div>
+              <Switch
+                checked={form.mixed_edge_banding}
+                onCheckedChange={(checked) =>
+                  setForm((f) => ({ ...f, mixed_edge_banding: checked }))
+                }
+              />
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Base da caixa">
                 <Select
@@ -143,26 +257,6 @@ export function CompanyStandardsModal({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Espessura caixaria">
-                <Select
-                  value={String(form.box_thickness_mm)}
-                  onValueChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      box_thickness_mm: Number(v) as SystemPreferences['box_thickness_mm'],
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 mm</SelectItem>
-                    <SelectItem value="18">18 mm</SelectItem>
-                    <SelectItem value="25">25 mm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
               <Field label="Fixação padrão">
                 <Select
                   value={form.mounting_device}
@@ -183,9 +277,6 @@ export function CompanyStandardsModal({
                   </SelectContent>
                 </Select>
               </Field>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Tipo de fundo">
                 <Select
                   value={form.back_panel_type}
@@ -207,26 +298,6 @@ export function CompanyStandardsModal({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Espessura fundo">
-                <Select
-                  value={String(form.back_panel_thickness)}
-                  onValueChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      back_panel_thickness: Number(v) as SystemPreferences['back_panel_thickness'],
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 mm</SelectItem>
-                    <SelectItem value="6">6 mm</SelectItem>
-                    <SelectItem value="15">15 mm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
             </div>
 
             <Field label="Corrediças">
@@ -243,10 +314,10 @@ export function CompanyStandardsModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="telescopic">Telescópica</SelectItem>
-                  <SelectItem value="telescopic_light">Telescópica Light</SelectItem>
                   <SelectItem value="hidden_soft_close">Oculta com amortecedor</SelectItem>
                   <SelectItem value="touch">Oculta fecho toque</SelectItem>
+                  <SelectItem value="telescopic">Telescópica</SelectItem>
+                  <SelectItem value="telescopic_light">Telescópica Light</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -304,18 +375,23 @@ export function CompanyStandardsModal({
           </div>
         )}
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+          <Button type="button" variant="ghost" onClick={resetFactory} disabled={loading || saving}>
+            Restaurar fábrica
           </Button>
-          <Button type="button" onClick={() => void save()} disabled={loading || saving}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Salvar preferências
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void save()} disabled={loading || saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Salvar preferências
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

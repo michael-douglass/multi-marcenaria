@@ -1,0 +1,37 @@
+{
+  "analysisId": "93805427-e80e-4f47-a0cd-e09be2b8b161",
+  "checkedAt": "2026-10-13T22:45:00Z",
+  "status": "COMPLETED",
+  "mode": "max",
+  "pdf": "ELITON GOURMET.pdf",
+  "windowUtc": { "created": "2026-10-13T22:38:49Z", "updated": "2026-10-13T22:41:54Z" },
+  "counts": {
+    "environments": 2,
+    "modules": 6,
+    "materials": 58,
+    "bom_items": 37,
+    "coverage": "6/6 expected inventory"
+  },
+  "pricing": {
+    "sale_price": null,
+    "materials_cost": null,
+    "pricing_modality": null,
+    "tape_unit_prices_brl_per_m": [1.3, 1.4],
+    "note": "Fitas OK (~R$1,30/m). Preço de venda MPC não gravado em totals."
+  },
+  "companyStandardsInDb": {
+    "box_thickness_mm": 15,
+    "front_thickness_mm": 18,
+    "drawer_construction": "kit_fabril_5_pecas",
+    "mixed_edge_banding": true,
+    "drawer_slide_type": "touch"
+  },
+  "verdict": {
+    "pipeline_finished": true,
+    "standards_applied_in_bom_engine": "partial — CoT ainda monomaterial MDF 15 mm",
+    "dual_material_in_extraction": "partial — cristaleira caixa Branco TX; vários módulos caixa em Noite 15",
+    "auditor_quantity_merge": "fail — Ilha laterais 4+5 e 6 portas; Mesa tampos 5+3",
+    "missing_vs_prior": ["Painel", "Ripado"],
+    "fita_pricing": "pass"
+  }
+}

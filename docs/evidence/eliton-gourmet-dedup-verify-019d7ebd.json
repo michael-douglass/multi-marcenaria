@@ -1,0 +1,34 @@
+{
+  "task": "aceite-dedup-vistas-modulos",
+  "analysisId": "019d7ebd-95c9-469c-8df9-82f70bfe7af0",
+  "url": "http://localhost:3000/orcamentos-ia?audit=019d7ebd-95c9-469c-8df9-82f70bfe7af0",
+  "checkedAt": "2026-10-13T21:10:00-03:00",
+  "vs_f22b5194": {
+    "sale_before": 133523.97,
+    "sale_after": 60058.99,
+    "status_before": "NEEDS_REVIEW",
+    "status_after": "COMPLETED"
+  },
+  "aceite": {
+    "status_COMPLETED": true,
+    "circuit_breaker_ok": true,
+    "duplicate_view_flags": 0,
+    "ilha_unica": true,
+    "ilha_laterais_extraction": 2,
+    "painel_ripado": true,
+    "ripas": 14,
+    "claude_opus_5_5_traces": 7,
+    "gpt_traces": 0,
+    "venda_na_faixa_25_40k": false,
+    "venda_observada": 60058.99,
+    "nota_venda": "Caiu ~55% vs R$133k; ainda acima da faixa alvo ~25–40k"
+  },
+  "residuos": {
+    "duas_mesas_nao_fundidas": [
+      "Mesa De Jantar Organica",
+      "Mesa De Jantar Belize Organica"
+    ],
+    "causa": "canonicalModuleName: regex mesa\\s*jantar não casa 'mesa de jantar' (token 'de' no meio)"
+  },
+  "verdict": "PASS parcial — breaker/COMPLETED/Ilha única/Claude/ripado OK; preço melhor mas acima do alvo; mesa ainda duplicável"
+}

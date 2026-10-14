@@ -1,0 +1,29 @@
+﻿{
+    "url":  "http://localhost:3000/orcamentos-ia?audit=f22b5194-e8cc-4530-82d5-0565f1abb1b3",
+    "checkedAt":  "2026-10-13T20:51:25.0000974-03:00",
+    "circuit_breaker":  {
+                            "ok":  false,
+                            "motivo":  "fusão de vistas (laterais/portas infladas) + Ilha nome inventário"
+                        },
+    "ripado":  {
+                   "name":  "Painel ripado Louro Freijó",
+                   "ripas":  "17 peças 40×2750 mm",
+                   "presente":  true
+               },
+    "verdict":  "PASS Claude + ripado fatiado; FAIL liberação (NEEDS_REVIEW) e preço inflado por duplicatas",
+    "analysisId":  "f22b5194-e8cc-4530-82d5-0565f1abb1b3",
+    "painel_tv":  "Painel TV liso Noite (separado do ripado)",
+    "noite_chapas_ui_sum":  16,
+    "models":  {
+                   "extractor":  "claude-opus-5-5",
+                   "gpt_traces":  0,
+                   "claude_traces":  7
+               },
+    "pricing":  {
+                    "materials":  73438.18,
+                    "sale":  133523.97,
+                    "mpc":  45
+                },
+    "status":  "NEEDS_REVIEW",
+    "cortecloud_noite":  14
+}

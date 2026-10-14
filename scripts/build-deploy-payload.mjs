@@ -29,6 +29,20 @@ const configs = {
     '_shared/lead-knowledge.ts',
     '_shared/iris-sky-prompts.ts',
   ],
+  'orcamentos-ia-pipeline': [
+    'orcamentos-ia-pipeline/index.ts',
+    '_shared/cors.ts',
+    '_shared/engineering-modular-prompts.ts',
+    '_shared/llm-json.ts',
+  ],
+  'orcamentos-ia-chat': [
+    'orcamentos-ia-chat/index.ts',
+    '_shared/cors.ts',
+  ],
+  'orcamentos-ia-memory': [
+    'orcamentos-ia-memory/index.ts',
+    '_shared/cors.ts',
+  ],
 };
 
 for (const [name, rels] of Object.entries(configs)) {

@@ -4,11 +4,13 @@ import {
   ENGINEERING_MODULAR_AUDITOR,
   ENGINEERING_MODULAR_EXTRACTOR,
 } from '../_shared/engineering-modular-prompts.ts'
+import {
+  isClaudeModel,
+  llmJson,
+  resolveOrcamentosModels,
+  type LlmJsonResult,
+} from '../_shared/llm-json.ts'
 
-const EXTRACTOR_MODEL = 'gpt-4o'
-/** Inventário de ambientes precisa ler CONTEÚDO das pranchas — mini erra cômodos. */
-const PARSER_MODEL = 'gpt-4o'
-const AUDITOR_MODEL = 'o3-mini'
 const BATCH_SIZE = 8
 const MAX_PAGES = 40
 
@@ -41,6 +43,9 @@ interface PipelineBody {
 
 const MAX_AUDIT_PASSES = 3
 const AUDIT_IMAGES_PER_PASS = 8
+/** Claude max: menos imagens/passagens para caber no gateway (~150s). */
+const MAX_AUDIT_PASSES_CLAUDE = 2
+const AUDIT_IMAGES_PER_PASS_CLAUDE = 4
 /** Inventário: amostra capa + meio + fim (não só as 3 primeiras páginas). */
 const INVENTORY_MAX_IMAGES = 12
 const BEDROOM_ONLY_RE = /guarda.?roupa|roupeiro|cabeceira|criado.?mudo/
@@ -264,25 +269,172 @@ function cleanCaixariaEdgeBanding(pieces: AnyRec[]): AnyRec[] {
   })
 }
 
+/** Tipologias que exigem caixa fatiada (paridade Cortecloud). */
+const BOX_MODULE_RE =
+  /ilha|balcao|bancada|armario|torre|cristaleira|gaveteiro|aereo|roupeiro|paneleiro|cozinhas/
+
+/**
+ * Se a IA devolver caixa com 1 peça, completa laterais/base/fundo/tampo a partir das cotas do módulo.
+ * Determinístico — não inventa móveis novos, só completa BOM mínimo.
+ */
+function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
+  if (mod.out_of_scope === true) return mod
+  const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
+  const nameKey = normalizeKey(name)
+  if (!BOX_MODULE_RE.test(nameKey)) return mod
+
+  const dims = mod.dimensions && typeof mod.dimensions === 'object' ? (mod.dimensions as AnyRec) : {}
+  let caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
+  const first = caixaria[0] || {}
+  const mat =
+    (typeof first.material_name === 'string' && first.material_name) ||
+    'MDF 15mm'
+  const thickness = Number(first.thickness_mm) > 0 ? Number(first.thickness_mm) : 15
+  const w = Number(dims.width_mm) > 0 ? Number(dims.width_mm) : Number(first.width_mm) > 0 ? Number(first.width_mm) : 800
+  const h = Number(dims.height_mm) > 0 ? Number(dims.height_mm) : Number(first.height_mm) > 0 ? Number(first.height_mm) : 720
+  const d = Number(dims.depth_mm) > 0 ? Number(dims.depth_mm) : 500
+  const openFront = /ilha|bancada/.test(nameKey)
+
+  const hasFn = (fn: string) => caixaria.some((c) => String(c.function || '') === fn)
+  const bandFront = {
+    C1: true,
+    C2: false,
+    L1: false,
+    L2: false,
+    tape_name: 'Fita 22 mm',
+    meters: Math.round((w / 1000) * 1000) / 1000,
+  }
+  const bandNone = { C1: false, C2: false, L1: false, L2: false, meters: 0 }
+
+  const push = (piece: AnyRec) => {
+    caixaria = [...caixaria, piece]
+  }
+
+  if (!hasFn('lateral')) {
+    push({
+      name: 'Lateral esquerda',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: { ...bandFront, meters: Math.round((h / 1000) * 1000) / 1000 },
+      dimensions_estimated: true,
+    })
+    push({
+      name: 'Lateral direita',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: { ...bandFront, meters: Math.round((h / 1000) * 1000) / 1000 },
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('base')) {
+    push({
+      name: 'Base',
+      function: 'base',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: bandFront,
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('fundo') && !openFront) {
+    push({
+      name: 'Fundo',
+      function: 'fundo',
+      width_mm: w,
+      height_mm: h,
+      thickness_mm: 6,
+      material_name: mat.includes('MDF') ? mat.replace(/15|18/, '6') : 'MDF 6mm',
+      quantity: 1,
+      edge_banding: bandNone,
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('tampo') && !hasFn('sarrafo') && openFront) {
+    push({
+      name: 'Tampo',
+      function: 'tampo',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: {
+        C1: true,
+        C2: true,
+        L1: true,
+        L2: true,
+        tape_name: 'Fita 22 mm',
+        meters: Math.round(((2 * (w + d)) / 1000) * 1000) / 1000,
+      },
+      dimensions_estimated: true,
+    })
+  }
+
+  caixaria = cleanCaixariaEdgeBanding(caixaria)
+
+  let fitas = asObjArray(mod.fitas_borda_m)
+  if (fitas.length === 0) {
+    let meters = 0
+    for (const p of caixaria) {
+      const eb = p.edge_banding && typeof p.edge_banding === 'object' ? (p.edge_banding as AnyRec) : null
+      const m = Number(eb?.meters)
+      if (Number.isFinite(m) && m > 0) meters += m * (Number(p.quantity) || 1)
+    }
+    if (meters > 0) {
+      fitas = [{ tape_name: 'Fita 22 mm', meters: Math.round(meters * 1000) / 1000 }]
+    }
+  }
+
+  return {
+    ...mod,
+    name,
+    caixaria,
+    fitas_borda_m: fitas,
+    dimensions: {
+      width_mm: w,
+      height_mm: h,
+      depth_mm: d,
+      ...(typeof dims === 'object' ? dims : {}),
+    },
+  }
+}
+
 function ensurePlaceholders(extraction: AnyRec): AnyRec {
   const environments = asObjArray(extraction.environments).map((env) => {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
       const hinted = mod.out_of_scope === true || OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
-      const caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
+      let caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
       if (STORE_BRAND_HINTS.some((h) => nameKey.includes(h))) {
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
       const mdfPieces = caixaria.length + asObjArray(mod.frentes_portas).length
       // Com chapa MDF (ex.: bancada sob granito) continua no escopo
-      if (mdfPieces > 0) return { ...mod, caixaria, out_of_scope: undefined }
+      if (mdfPieces > 0) {
+        return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
+      }
       if (hinted) {
         // Fora de escopo: listado à parte no cliente, sem insumos nem custo
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
       const total = asObjArray(mod.ferragens).length + asObjArray(mod.fitas_borda_m).length
-      if (total > 0) return { ...mod, caixaria, out_of_scope: undefined }
+      if (total > 0) return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
+      // Caixa tipada sem peças: completa mínimo determinístico
+      if (BOX_MODULE_RE.test(nameKey)) {
+        return enrichMinimalCaixaria({ ...mod, name, caixaria: [], out_of_scope: undefined })
+      }
       // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
       return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
     })
@@ -1071,6 +1223,15 @@ async function recordPromptTraces(
     source: 'override' | 'canonical'
     system_preview: string
     at: string
+    model?: string
+    schema_name?: string
+    /** Preview da resposta JSON (sem imagens) — fecha auditoria de payloads. */
+    response_preview?: string
+    usage?: {
+      prompt_tokens?: number
+      completion_tokens?: number
+      total_tokens?: number
+    } | null
   }>,
 ) {
   if (!traces.length) return
@@ -1111,60 +1272,6 @@ REGRAS:
 9) Não duplique Cozinha e Espaço Gourmet para o mesmo open-space — use o nome da capa.
 10) Inclua cristaleira, torre geladeira, painel TV, armários e ripados quando desenhados.
 Responda só no JSON schema.`
-
-async function openAiJson(params: {
-  apiKey: string
-  model: string
-  system: string
-  userContent: unknown[]
-  schemaName: string
-  schema: Record<string, unknown>
-  maxTokens?: number
-}): Promise<Record<string, unknown>> {
-  const body: Record<string, unknown> = {
-    model: params.model,
-    messages: [
-      { role: 'system', content: params.system },
-      { role: 'user', content: params.userContent },
-    ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: params.schemaName,
-        strict: false,
-        schema: params.schema,
-      },
-    },
-  }
-
-  if (params.model.startsWith('o3') || params.model.startsWith('o1')) {
-    body.max_completion_tokens = params.maxTokens ?? 16000
-  } else {
-    body.max_tokens = params.maxTokens ?? 12000
-    body.temperature = 0.1
-  }
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${params.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`OpenAI ${params.model} (${res.status}): ${errText.slice(0, 500)}`)
-  }
-
-  const data = await res.json()
-  const content = data?.choices?.[0]?.message?.content
-  if (!content || typeof content !== 'string') {
-    throw new Error(`Resposta vazia do modelo ${params.model}`)
-  }
-  return JSON.parse(content) as Record<string, unknown>
-}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = []
@@ -1253,7 +1360,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim()
+    const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim() || null
+    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim() || null
     if (!openAiKey) {
       return jsonResponse(
         { ok: false, error: 'OPENAI_API_KEY não configurada na Edge Function.' },
@@ -1293,30 +1401,107 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey)
     const mode = body.mode === 'pro' ? 'pro' : 'max'
+    const models = resolveOrcamentosModels({
+      mode,
+      hasAnthropic: Boolean(anthropicKey),
+    })
+    const EXTRACTOR_MODEL = models.extractor
+    const PARSER_MODEL = models.parser
+    const AUDITOR_MODEL = models.auditor
     const phase: PipelinePhase = body.phase || 'full'
     const ragBlock = body.ragMemoriesPrompt?.trim()
       ? `\n\n${body.ragMemoriesPrompt.trim()}`
       : ''
 
+    /** Max + Claude: sem fallback gpt-4o. Parser OpenAI não usa este ramo. */
+    const callLlm = (params: {
+      model: string
+      system: string
+      userContent: unknown[]
+      schemaName: string
+      schema: Record<string, unknown>
+      maxTokens?: number
+      effort?: 'low' | 'medium' | 'high' | 'max'
+    }) => {
+      const allowOpenAiFallback = !(mode === 'max' && isClaudeModel(params.model))
+      const effort =
+        params.effort ??
+        (isClaudeModel(params.model)
+          ? params.schemaName.includes('audit')
+            ? 'medium'
+            : 'low'
+          : undefined)
+      return llmJson({
+        openAiKey,
+        anthropicKey,
+        model: params.model,
+        system: params.system,
+        userContent: params.userContent,
+        schemaName: params.schemaName,
+        schema: params.schema,
+        maxTokens: params.maxTokens,
+        allowOpenAiFallback,
+        effort,
+      })
+    }
+
     const promptPack = await loadActivePromptOverrides(admin, body.companyId)
     const systemExtractor = promptPack.extractor
     const systemAuditor = promptPack.auditor
+    console.log(
+      `[orcamentos-ia-pipeline] mode=${mode} phase=${phase} extractor=${EXTRACTOR_MODEL} parser=${PARSER_MODEL} auditor=${AUDITOR_MODEL} anthropic=${Boolean(anthropicKey)} openai=${Boolean(openAiKey)} claudeFallbackBlocked=${mode === 'max'}`,
+    )
 
     const paths = body.pagePaths.slice(0, MAX_PAGES)
-    const signedContents: Array<{ type: 'image_url'; image_url: { url: string }; path: string }> = []
-    for (const path of paths) {
-      const { data: signed, error: signError } = await admin.storage
-        .from('orcamentos-ia')
-        .createSignedUrl(path, 60 * 30)
-      if (signError || !signed?.signedUrl) {
-        throw new Error(`Não foi possível assinar ${path}: ${signError?.message}`)
+    type VisionImage = { type: 'image_url'; image_url: { url: string }; path: string }
+    const imageCache = new Map<string, VisionImage>()
+
+    /**
+     * Baixa a imagem do Storage e embute em data-URL (base64).
+     * Evita o erro OpenAI/Anthropic "Unable to download content from the provided URL"
+     * com signed URLs do Supabase (timeout / rede da provedora de IA).
+     */
+    const loadImageAsDataUrl = async (path: string): Promise<VisionImage> => {
+      const hit = imageCache.get(path)
+      if (hit) return hit
+      const { data: blob, error: dlError } = await admin.storage.from('orcamentos-ia').download(path)
+      if (dlError || !blob) {
+        throw new Error(`Não foi possível baixar ${path}: ${dlError?.message || 'arquivo vazio'}`)
       }
-      signedContents.push({
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      let binary = ''
+      const chunkSize = 0x8000
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+      }
+      const b64 = btoa(binary)
+      const lower = path.toLowerCase()
+      const mime = lower.endsWith('.png')
+        ? 'image/png'
+        : lower.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg'
+      const item: VisionImage = {
         type: 'image_url',
-        image_url: { url: signed.signedUrl },
+        image_url: { url: `data:${mime};base64,${b64}` },
         path,
-      })
+      }
+      imageCache.set(path, item)
+      return item
     }
+
+    const loadImages = async (subset: string[]): Promise<VisionImage[]> => {
+      const out: VisionImage[] = []
+      for (const path of subset) out.push(await loadImageAsDataUrl(path))
+      return out
+    }
+
+    /** Metadados leves (só path) — a imagem base64 é carregada sob demanda. */
+    const signedContents: VisionImage[] = paths.map((path) => ({
+      type: 'image_url',
+      image_url: { url: '' },
+      path,
+    }))
 
     /** Nº da página no PDF (page-006.jpg → 6). Diferente do "PRANCHA Nº" impresso. */
     const pdfPageFromPath = (path: string): number | null => {
@@ -1329,12 +1514,14 @@ Deno.serve(async (req) => {
     /**
      * Alterna texto "PDF página N" + imagem — o modelo deve usar N no bounding_box.page,
      * não o carimbo "PRANCHA Nº" (capa desloca a numeração).
+     * Carrega base64 sob demanda (só as páginas deste lote).
      */
-    const labeledImagesForVision = (
+    const labeledImagesForVision = async (
       contents: Array<{ type: 'image_url'; image_url: { url: string }; path: string }>,
-    ): unknown[] => {
+    ): Promise<unknown[]> => {
       const out: unknown[] = []
       for (const c of contents) {
+        const loaded = await loadImageAsDataUrl(c.path)
         const n = pdfPageFromPath(c.path)
         out.push({
           type: 'text',
@@ -1342,9 +1529,16 @@ Deno.serve(async (req) => {
             ? `=== PDF página ${n} (arquivo page-${String(n).padStart(3, '0')}) ===\nUse bounding_box.page = ${n}. NÃO use o "PRANCHA Nº" impresso se for diferente (há capa/índice antes das pranchas).`
             : `=== Imagem: ${c.path} ===\nUse o número da página do arquivo no bounding_box.page.`,
         })
-        out.push({ type: 'image_url', image_url: c.image_url })
+        out.push({ type: 'image_url', image_url: loaded.image_url })
       }
       return out
+    }
+
+    const imagesOnly = async (
+      contents: Array<{ path: string }>,
+    ): Promise<Array<{ type: 'image_url'; image_url: { url: string } }>> => {
+      const loaded = await loadImages(contents.map((c) => c.path))
+      return loaded.map((c) => ({ type: 'image_url' as const, image_url: c.image_url }))
     }
 
     const formatInventoryText = (inventory: InventoryEnv[]) =>
@@ -1354,10 +1548,7 @@ Deno.serve(async (req) => {
 
     if (phase === 'inventory') {
       const inventoryPages = pickInventoryContents(signedContents)
-      const coverImages = inventoryPages.map((c) => ({
-        type: 'image_url' as const,
-        image_url: c.image_url,
-      }))
+      const coverImages = await imagesOnly(inventoryPages)
       await setStage(
         admin,
         body.analysisId,
@@ -1366,8 +1557,7 @@ Deno.serve(async (req) => {
         `Lendo capa + pranchas-chave (${coverImages.length}/${signedContents.length}): separando ambientes e móveis…`,
         'vision',
       )
-      const inventoryRaw = await openAiJson({
-        apiKey: openAiKey,
+      const inventoryCall = await callLlm({
         model: PARSER_MODEL,
         system: SYSTEM_INVENTORY,
         userContent: [
@@ -1385,19 +1575,15 @@ Priorize CONTEÚDO da prancha, não o ASSUNTO genérico. Não invente móveis de
         maxTokens: 4000,
       })
       let inventory = sanitizeInventory(
-        Array.isArray(inventoryRaw.inventory) ? (inventoryRaw.inventory as InventoryEnv[]) : [],
+        Array.isArray(inventoryCall.json.inventory) ? (inventoryCall.json.inventory as InventoryEnv[]) : [],
       )
 
       // 2ª passada só nas pranchas da 2ª metade (detalhamentos) — capa sozinha esconde Lavabo
       if (signedContents.length >= 8) {
         const detailSlice = signedContents.slice(Math.floor(signedContents.length / 2))
-        const detailImages = pickInventoryContents(detailSlice, 6).map((c) => ({
-          type: 'image_url' as const,
-          image_url: c.image_url,
-        }))
+        const detailImages = await imagesOnly(pickInventoryContents(detailSlice, 6))
         try {
-          const detailRaw = await openAiJson({
-            apiKey: openAiKey,
+          const detailCall = await callLlm({
             model: PARSER_MODEL,
             system: SYSTEM_INVENTORY,
             userContent: [
@@ -1415,8 +1601,8 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
             schema: INVENTORY_SCHEMA,
             maxTokens: 4000,
           })
-          const detailInv = Array.isArray(detailRaw.inventory)
-            ? (detailRaw.inventory as InventoryEnv[])
+          const detailInv = Array.isArray(detailCall.json.inventory)
+            ? (detailCall.json.inventory as InventoryEnv[])
             : []
           // MESCLA com a 1ª passada — a 2ª sozinha às vezes esquece Lavabo/Gourmet
           if (detailInv.length > 0) {
@@ -1445,8 +1631,7 @@ Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanqu
         'vision',
       )
       const extractorSystem = systemExtractor + ragBlock
-      const batchExtraction = await openAiJson({
-        apiKey: openAiKey,
+      const batchCall = await callLlm({
         model: EXTRACTOR_MODEL,
         system: extractorSystem,
         userContent: [
@@ -1464,7 +1649,7 @@ O inventário é âncora PARCIAL: se a prancha for "DETALHAMENTO BANCADA LAVABO"
 Use ambiente correto (Lavabo ≠ Cozinha ≠ Espaço Gourmet). Inclua cristaleira/painel/armário se desenhados.
 Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
           },
-          ...labeledImagesForVision(signedContents),
+          ...(await labeledImagesForVision(signedContents)),
         ],
         schemaName: 'quote_extraction_batch',
         schema: EXTRACTOR_SCHEMA,
@@ -1474,12 +1659,16 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
         {
           agent_key: 'extractor',
           source: promptPack.sources.extractor,
-          system_preview: extractorSystem.slice(0, 240),
+          system_preview: batchCall.system_preview,
+          model: batchCall.model,
+          schema_name: batchCall.schema_name,
+          response_preview: batchCall.response_preview,
+          usage: batchCall.usage,
           at: new Date().toISOString(),
         },
       ])
       const extraction = rebalanceEnvironments(
-        ensurePlaceholders(mergeExtractions([batchExtraction])),
+        ensurePlaceholders(mergeExtractions([batchCall.json])),
       )
       return jsonResponse({
         ok: true,
@@ -1500,11 +1689,17 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
           : { environments: [], auditor_notes: [], warnings: [] },
       )
 
-      let imageBudget = AUDIT_IMAGES_PER_PASS
+      const auditPasses =
+        mode === 'max' && isClaudeModel(AUDITOR_MODEL) ? MAX_AUDIT_PASSES_CLAUDE : MAX_AUDIT_PASSES
+      let imageBudget =
+        mode === 'max' && isClaudeModel(AUDITOR_MODEL)
+          ? AUDIT_IMAGES_PER_PASS_CLAUDE
+          : AUDIT_IMAGES_PER_PASS
       let passesRun = 0
       let lastScore = -1
+      let lastAuditMeta: LlmJsonResult | null = null
 
-      for (let pass = 1; pass <= MAX_AUDIT_PASSES; pass++) {
+      for (let pass = 1; pass <= auditPasses; pass++) {
         const gaps = findBomGaps(extraction)
         const coverageBefore = buildCoverage(inventory, extraction)
         const typology = findTypologySuspects(extraction)
@@ -1519,21 +1714,20 @@ Não invente guarda-roupa/cabeceira. Mesa de jantar ≠ bancada.`,
           body.analysisId,
           'AUDITING_REVISION',
           'auditing',
-          `Auditoria passagem ${pass}/${MAX_AUDIT_PASSES}: score ${score} (BOM ${gaps.length}, faltando ${coverageBefore.missing.length}, extras ${coverageBefore.extras.length}, tipologia ${typology.length})…`,
+          `Auditoria passagem ${pass}/${auditPasses}: score ${score} (BOM ${gaps.length}, faltando ${coverageBefore.missing.length}, extras ${coverageBefore.extras.length}, tipologia ${typology.length})…`,
           'audit',
         )
 
         const windowContents = pickAuditContents(signedContents, extraction, pass, imageBudget)
 
         try {
-          const auditedRaw = await openAiJson({
-            apiKey: openAiKey,
+          const auditCall = await callLlm({
             model: AUDITOR_MODEL,
             system: systemAuditor,
             userContent: [
               {
                 type: 'text',
-                text: `PASSAGEM ${pass}/${MAX_AUDIT_PASSES} — verifique as imagens e devolva a árvore CORRIGIDA.
+                text: `PASSAGEM ${pass}/${auditPasses} — verifique as imagens e devolva a árvore CORRIGIDA.
 Cada imagem vem com "PDF página N" — corrija bounding_box.page para esse N (não o PRANCHA Nº impresso).
 
 INVENTÁRIO (âncora; se inventário tiver erro, prefira as imagens):
@@ -1566,14 +1760,15 @@ ${
 ÁRVORE ATUAL (pode remover/renomear módulos; complete BOM só do que existir):
 ${JSON.stringify(extraction).slice(0, 50000)}`,
               },
-              ...labeledImagesForVision(windowContents),
+              ...(await labeledImagesForVision(windowContents)),
             ],
             schemaName: 'quote_extraction_audited',
             schema: EXTRACTOR_SCHEMA,
             maxTokens: 16000,
           })
+          lastAuditMeta = auditCall
           extraction = ensurePlaceholders(
-            applyAuditorTree(extraction, ensurePlaceholders(auditedRaw)),
+            applyAuditorTree(extraction, ensurePlaceholders(auditCall.json)),
           )
           passesRun = pass
         } catch (passErr) {
@@ -1607,7 +1802,11 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
           {
             agent_key: 'auditor',
             source: promptPack.sources.auditor,
-            system_preview: systemAuditor.slice(0, 240),
+            system_preview: lastAuditMeta?.system_preview ?? systemAuditor.slice(0, 240),
+            model: lastAuditMeta?.model ?? AUDITOR_MODEL,
+            schema_name: lastAuditMeta?.schema_name,
+            response_preview: lastAuditMeta?.response_preview,
+            usage: lastAuditMeta?.usage ?? null,
             at: new Date().toISOString(),
           },
         ])
@@ -1660,10 +1859,7 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
 
     // full legado — inventário + lotes + 1 auditoria leve
     const inventoryPages = pickInventoryContents(signedContents)
-    const coverImages = inventoryPages.map((c) => ({
-      type: 'image_url' as const,
-      image_url: c.image_url,
-    }))
+    const coverImages = await imagesOnly(inventoryPages)
 
     await setStage(
       admin,
@@ -1674,8 +1870,7 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
       'vision',
     )
 
-    const inventoryRaw = await openAiJson({
-      apiKey: openAiKey,
+    const inventoryCall = await callLlm({
       model: PARSER_MODEL,
       system: SYSTEM_INVENTORY,
       userContent: [
@@ -1692,7 +1887,7 @@ Liste ambientes SEPARADOS e só módulos reais. Priorize CONTEÚDO/título da pr
     })
 
     const inventory = sanitizeInventory(
-      Array.isArray(inventoryRaw.inventory) ? (inventoryRaw.inventory as InventoryEnv[]) : [],
+      Array.isArray(inventoryCall.json.inventory) ? (inventoryCall.json.inventory as InventoryEnv[]) : [],
     )
     const inventoryText = formatInventoryText(inventory)
 
@@ -1711,8 +1906,7 @@ Liste ambientes SEPARADOS e só módulos reais. Priorize CONTEÚDO/título da pr
         `Lote ${bi + 1}/${batches.length}: caçando chapas MDF, puxadores e dobradiças nas páginas ${pageFrom}–${pageTo}…`,
         'vision',
       )
-      const batchExtraction = await openAiJson({
-        apiKey: openAiKey,
+      const batchCall = await callLlm({
         model: EXTRACTOR_MODEL,
         system: systemExtractor + ragBlock,
         userContent: [
@@ -1724,13 +1918,13 @@ ${inventoryText}
 
 Extraia módulos/insumos VISÍVEIS neste lote. bounding_box.page = "PDF página N" de cada imagem (não o PRANCHA Nº). Ambiente correto (Lavabo ≠ Cozinha). Não invente guarda-roupa/cabeceira. Mesa ≠ bancada.`,
           },
-          ...labeledImagesForVision(batch),
+          ...(await labeledImagesForVision(batch)),
         ],
         schemaName: 'quote_extraction_batch',
         schema: EXTRACTOR_SCHEMA,
         maxTokens: 12000,
       })
-      batchResults.push(batchExtraction)
+      batchResults.push(batchCall.json)
     }
 
     await recordPromptTraces(admin, body.analysisId, [
@@ -1738,14 +1932,23 @@ Extraia módulos/insumos VISÍVEIS neste lote. bounding_box.page = "PDF página 
         agent_key: 'extractor',
         source: promptPack.sources.extractor,
         system_preview: (systemExtractor + ragBlock).slice(0, 240),
+        model: EXTRACTOR_MODEL,
+        response_preview:
+          typeof batchResults[batchResults.length - 1] === 'object'
+            ? JSON.stringify(batchResults[batchResults.length - 1]).slice(0, 4000)
+            : '',
         at: new Date().toISOString(),
       },
     ])
 
     let extraction = rebalanceEnvironments(ensurePlaceholders(mergeExtractions(batchResults)))
     if (mode === 'max') {
-      let imageBudget = AUDIT_IMAGES_PER_PASS
-      for (let pass = 1; pass <= MAX_AUDIT_PASSES; pass++) {
+      const auditPasses = isClaudeModel(AUDITOR_MODEL) ? MAX_AUDIT_PASSES_CLAUDE : MAX_AUDIT_PASSES
+      let imageBudget = isClaudeModel(AUDITOR_MODEL)
+        ? AUDIT_IMAGES_PER_PASS_CLAUDE
+        : AUDIT_IMAGES_PER_PASS
+      let lastAuditMeta: LlmJsonResult | null = null
+      for (let pass = 1; pass <= auditPasses; pass++) {
         const gaps = findBomGaps(extraction)
         const coverageBefore = buildCoverage(inventory, extraction)
         const typology = findTypologySuspects(extraction)
@@ -1756,19 +1959,18 @@ Extraia módulos/insumos VISÍVEIS neste lote. bounding_box.page = "PDF página 
           body.analysisId,
           'AUDITING_REVISION',
           'auditing',
-          `Auditoria passagem ${pass}/${MAX_AUDIT_PASSES}: score ${score}…`,
+          `Auditoria passagem ${pass}/${auditPasses}: score ${score}…`,
           'audit',
         )
         const auditWindow = pickAuditContents(signedContents, extraction, pass, imageBudget)
         try {
-          const auditedRaw = await openAiJson({
-            apiKey: openAiKey,
+          const auditCall = await callLlm({
             model: AUDITOR_MODEL,
             system: systemAuditor,
             userContent: [
               {
                 type: 'text',
-                text: `PASSAGEM ${pass}/${MAX_AUDIT_PASSES}. Verifique imagens; remova alucinações; renomeie tipologias; complete BOM só do que existir.
+                text: `PASSAGEM ${pass}/${auditPasses}. Verifique imagens; remova alucinações; renomeie tipologias; complete BOM só do que existir.
 bounding_box.page = N do rótulo "PDF página N" (não o PRANCHA Nº impresso).
 
 INVENTÁRIO:
@@ -1779,14 +1981,15 @@ BOM gaps: ${gaps.length}; faltando: ${coverageBefore.missing.length}; extras: ${
 ÁRVORE:
 ${JSON.stringify(extraction).slice(0, 50000)}`,
               },
-              ...labeledImagesForVision(auditWindow),
+              ...(await labeledImagesForVision(auditWindow)),
             ],
             schemaName: 'quote_extraction_audited',
             schema: EXTRACTOR_SCHEMA,
-            maxTokens: 16000,
+            maxTokens: 12000,
           })
+          lastAuditMeta = auditCall
           extraction = ensurePlaceholders(
-            applyAuditorTree(extraction, ensurePlaceholders(auditedRaw)),
+            applyAuditorTree(extraction, ensurePlaceholders(auditCall.json)),
           )
         } catch (passErr) {
           console.warn('[orcamentos-ia-pipeline] full audit pass failed:', passErr)
@@ -1798,7 +2001,11 @@ ${JSON.stringify(extraction).slice(0, 50000)}`,
         {
           agent_key: 'auditor',
           source: promptPack.sources.auditor,
-          system_preview: systemAuditor.slice(0, 240),
+          system_preview: lastAuditMeta?.system_preview ?? systemAuditor.slice(0, 240),
+          model: lastAuditMeta?.model ?? AUDITOR_MODEL,
+          schema_name: lastAuditMeta?.schema_name,
+          response_preview: lastAuditMeta?.response_preview,
+          usage: lastAuditMeta?.usage ?? null,
           at: new Date().toISOString(),
         },
       ])

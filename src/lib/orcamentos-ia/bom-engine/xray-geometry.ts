@@ -11,6 +11,9 @@ export interface BoxMeshDesc {
   size: [number, number, number]
   thickness_mm: number
   highlighted?: boolean
+  /** Tag de vão / coluna (Módulos 9–10) para overlay 3D. */
+  gapTag?: string
+  column_index?: number
 }
 
 export interface BuildMeshesOptions {
@@ -49,6 +52,14 @@ export function buildBoxMeshesFromBom(
     const h = piece.height_mm / 1000
     const th = piece.thickness_mm / 1000
     const highlight = options.selectedPieceId === piece.id
+    const gapTag =
+      piece.column_index != null
+        ? `Coluna ${piece.column_index}`
+        : piece.role === 'prateleira'
+          ? 'Vão prateleira'
+          : piece.role === 'frente'
+            ? 'Vão gaveta'
+            : undefined
 
     if (piece.role === 'lateral') {
       for (let i = 0; i < piece.quantity; i++) {
@@ -66,6 +77,8 @@ export function buildBoxMeshesFromBom(
           size: [th, h, w], // thickness × height × depth
           thickness_mm: piece.thickness_mm,
           highlighted: highlight,
+          gapTag,
+          column_index: piece.column_index,
         })
       }
       continue
@@ -80,6 +93,8 @@ export function buildBoxMeshesFromBom(
         size: [w, th, h],
         thickness_mm: piece.thickness_mm,
         highlighted: highlight,
+        gapTag,
+        column_index: piece.column_index,
       })
       continue
     }
@@ -93,6 +108,8 @@ export function buildBoxMeshesFromBom(
         size: [w, th, h],
         thickness_mm: piece.thickness_mm,
         highlighted: highlight,
+        gapTag,
+        column_index: piece.column_index,
       })
       continue
     }
@@ -106,6 +123,8 @@ export function buildBoxMeshesFromBom(
         size: [w, h, th],
         thickness_mm: piece.thickness_mm,
         highlighted: highlight,
+        gapTag,
+        column_index: piece.column_index,
       })
       continue
     }
@@ -122,6 +141,8 @@ export function buildBoxMeshesFromBom(
           size: [w, th, h],
           thickness_mm: piece.thickness_mm,
           highlighted: highlight,
+          gapTag: gapTag ?? `Vão ${shelfIndex}`,
+          column_index: piece.column_index,
         })
       }
       continue
@@ -136,6 +157,8 @@ export function buildBoxMeshesFromBom(
       size: [w, th, h],
       thickness_mm: piece.thickness_mm,
       highlighted: highlight,
+      gapTag,
+      column_index: piece.column_index,
     })
   }
 

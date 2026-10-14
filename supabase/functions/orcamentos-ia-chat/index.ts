@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const CHAT_MODEL = 'gpt-4o-mini'
+const CHAT_MODEL_OPENAI = 'gpt-4o-mini'
+const CHAT_MODEL_CLAUDE = 'claude-opus-5-5'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -23,8 +24,12 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim()
-    if (!openAiKey) {
-      return jsonResponse({ ok: false, error: 'OPENAI_API_KEY não configurada.' }, 500)
+    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim()
+    if (!openAiKey && !anthropicKey) {
+      return jsonResponse(
+        { ok: false, error: 'Nenhuma chave de IA configurada (OPENAI_API_KEY / ANTHROPIC_API_KEY).' },
+        500,
+      )
     }
 
     const userClient = createClient(supabaseUrl, anonKey, {
@@ -165,32 +170,63 @@ Itens "FORA DO ESCOPO" (pedra, alvenaria, decoração) não entram no custo de m
       .filter(Boolean)
       .join('\n')
 
-    const oaRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openAiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        temperature: 0.3,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
-    })
+    let answer: string | undefined
+    let usedModel = CHAT_MODEL_OPENAI
 
-    if (!oaRes.ok) {
-      const errText = await oaRes.text()
-      throw new Error(`OpenAI chat (${oaRes.status}): ${errText.slice(0, 400)}`)
+    if (anthropicKey) {
+      usedModel = CHAT_MODEL_CLAUDE
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL_CLAUDE,
+          max_tokens: 4096,
+          system,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      })
+      if (!claudeRes.ok) {
+        const errText = await claudeRes.text()
+        throw new Error(`Claude chat (${claudeRes.status}): ${errText.slice(0, 400)}`)
+      }
+      const claudeJson = await claudeRes.json()
+      const blocks = Array.isArray(claudeJson?.content) ? claudeJson.content : []
+      answer = blocks
+        .filter((b: { type?: string }) => b?.type === 'text')
+        .map((b: { text?: string }) => b.text || '')
+        .join('\n')
+        .trim()
+    } else {
+      const oaRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openAiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL_OPENAI,
+          temperature: 0.3,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      })
+      if (!oaRes.ok) {
+        const errText = await oaRes.text()
+        throw new Error(`OpenAI chat (${oaRes.status}): ${errText.slice(0, 400)}`)
+      }
+      const oaJson = await oaRes.json()
+      answer = (oaJson?.choices?.[0]?.message?.content as string | undefined)?.trim()
     }
 
-    const oaJson = await oaRes.json()
-    const answer = (oaJson?.choices?.[0]?.message?.content as string | undefined)?.trim()
     if (!answer) throw new Error('Resposta vazia do modelo.')
 
-    return jsonResponse({ ok: true, answer })
+    return jsonResponse({ ok: true, answer, model: usedModel })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro no chat Max'
     console.error('[orcamentos-ia-chat]', message)

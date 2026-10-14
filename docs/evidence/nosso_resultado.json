@@ -1,0 +1,621 @@
+{
+  "source": "corte-claude",
+  "analysisId": "93805427-e80e-4f47-a0cd-e09be2b8b161",
+  "exportedAt": "2026-10-13T22:56:48.114Z",
+  "status": "COMPLETED",
+  "pricing_modality": null,
+  "totals": {
+    "sale_price": null,
+    "materials_cost": null,
+    "mpc_margin_pct": null,
+    "modules": 6,
+    "materials_count": 58,
+    "bom_items_count": 37,
+    "coverage": {
+      "extras": [],
+      "missing": [],
+      "expected": [
+        {
+          "module": "ilha",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "mesa de jantar",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "armário",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "torre geladeira",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "cristaleira",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "bancada",
+          "environment": "Lavabo"
+        }
+      ],
+      "extracted": [
+        {
+          "module": "Ilha",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "Mesa de Jantar",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "Armário",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "Cristaleira",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "Torre Geladeira",
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "module": "Bancada Lavabo",
+          "environment": "Lavabo"
+        }
+      ],
+      "coveredCount": 6,
+      "expectedCount": 6
+    }
+  },
+  "modules": [
+    {
+      "name": "Ilha",
+      "env": "Espaço Gourmet",
+      "dimensions": {
+        "depth_mm": 600,
+        "width_mm": 1500,
+        "height_mm": 900
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Lateral Esquerda — MDF Noite",
+          "category": "chapa",
+          "qty": 4,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Fundo — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Lateral Esquerda — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 5,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Base — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Tampo — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Porta de Giro — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 6,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 1750,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 280,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "chapa",
+          "unit_price": 1750,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 500,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita MDF Noite",
+          "category": "fita_borda",
+          "qty": 30.2,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Parafuso",
+          "category": "ferragem",
+          "qty": 20,
+          "unit": "un",
+          "unit_price": 0.12,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Dobradiça",
+          "category": "ferragem",
+          "qty": 16,
+          "unit": "un",
+          "unit_price": 20,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Pistão a Gás",
+          "category": "ferragem",
+          "qty": 4,
+          "unit": "un",
+          "unit_price": 100,
+          "cutting_list": false
+        }
+      ]
+    },
+    {
+      "name": "Mesa de Jantar",
+      "env": "Espaço Gourmet",
+      "dimensions": {
+        "depth_mm": 1000,
+        "width_mm": 2000,
+        "height_mm": 750
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Tampo — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 5,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Tampo — Madeira Natural",
+          "category": "chapa",
+          "qty": 3,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 3,
+          "unit": "chapa",
+          "unit_price": 500,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — Madeira Natural",
+          "category": "chapa",
+          "qty": 3,
+          "unit": "chapa",
+          "unit_price": 650,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita MDF Louro Freijó",
+          "category": "fita_borda",
+          "qty": 9,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita Madeira",
+          "category": "fita_borda",
+          "qty": 14.8,
+          "unit": "m",
+          "unit_price": 1.4,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Cantoneira",
+          "category": "ferragem",
+          "qty": 8,
+          "unit": "un",
+          "unit_price": 2.4,
+          "cutting_list": false
+        }
+      ]
+    },
+    {
+      "name": "Armário",
+      "env": "Espaço Gourmet",
+      "dimensions": {
+        "depth_mm": 500,
+        "width_mm": 2000,
+        "estimated": true,
+        "height_mm": 2400
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Lateral Esquerda — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Lateral Direita — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Base — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Fundo — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Porta de Giro — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Basculante — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Noite, Linha Áris",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "chapa",
+          "unit_price": 1750,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 500,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita MDF Noite",
+          "category": "fita_borda",
+          "qty": 10,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Dobradiça",
+          "category": "ferragem",
+          "qty": 8,
+          "unit": "un",
+          "unit_price": 20,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Pistão a Gás",
+          "category": "ferragem",
+          "qty": 4,
+          "unit": "un",
+          "unit_price": 100,
+          "cutting_list": false
+        }
+      ]
+    },
+    {
+      "name": "Cristaleira",
+      "env": "Espaço Gourmet",
+      "dimensions": {
+        "depth_mm": 500,
+        "width_mm": 800,
+        "height_mm": 2700
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Lateral esquerda — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Lateral direita — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Base — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Fundo — MDF Branco TX",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Prateleira — MDF Branco TX",
+          "category": "chapa",
+          "qty": 5,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Porta de correr — MDF Reflecta",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Frente de gaveta — MDF Reflecta",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Branco TX",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "chapa",
+          "unit_price": 280,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Reflecta",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 280,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita na cor da frente",
+          "category": "fita_borda",
+          "qty": 10.7,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Corrediça touch",
+          "category": "ferragem",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 28.5,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Dobradiça",
+          "category": "ferragem",
+          "qty": 4,
+          "unit": "un",
+          "unit_price": 20,
+          "cutting_list": false
+        }
+      ]
+    },
+    {
+      "name": "Torre Geladeira",
+      "env": "Espaço Gourmet",
+      "dimensions": {
+        "depth_mm": 600,
+        "width_mm": 1000,
+        "height_mm": 2700
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Lateral — MDF Noite",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Base — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Fundo — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Porta de Giro — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Noite",
+          "category": "chapa",
+          "qty": 2,
+          "unit": "chapa",
+          "unit_price": 1750,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Chapa — MDF Louro Freijó",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 500,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita MDF Noite",
+          "category": "fita_borda",
+          "qty": 8.6,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Dobradiça",
+          "category": "ferragem",
+          "qty": 8,
+          "unit": "un",
+          "unit_price": 20,
+          "cutting_list": false
+        }
+      ]
+    },
+    {
+      "name": "Bancada Lavabo",
+      "env": "Lavabo",
+      "dimensions": {
+        "depth_mm": 470,
+        "width_mm": 1650,
+        "height_mm": 900
+      },
+      "out_of_scope": false,
+      "materials": [
+        {
+          "raw_name": "Tampo — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Base — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Lateral esquerda — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Lateral direita — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "un",
+          "unit_price": 0,
+          "cutting_list": true
+        },
+        {
+          "raw_name": "Chapa — MDF Noite",
+          "category": "chapa",
+          "qty": 1,
+          "unit": "chapa",
+          "unit_price": 1750,
+          "cutting_list": false
+        },
+        {
+          "raw_name": "Fita Noite",
+          "category": "fita_borda",
+          "qty": 6.98,
+          "unit": "m",
+          "unit_price": 1.3,
+          "cutting_list": false
+        }
+      ]
+    }
+  ],
+  "bom_summary": {
+    "n": 37,
+    "total": 5770.599999999999
+  },
+  "zeros": {
+    "billable": 0,
+    "cutting_list": 29,
+    "all_zero_price": 29
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "session_date": "2026-10-13",
+  "bundle_path": "docs/evidence/orcamentos-ia-rea-bundle.json",
+  "bundle_bytes": 46064308,
+  "records": 14,
+  "unknowns_open": 2,
+  "artifacts": [
+    {
+      "path": "src/lib/orcamentos-ia",
+      "sha256": "c5d812855f4268040183f4511940b90711434a1575e22f534844ab7609588197",
+      "parent_evidence_id": "ev_ad88aaa199a5505775ee850511c036f7a67e5e39f356c30a9037f1ce7a08ef6f",
+      "summary_evidence_id": "ev_16f6ee66589675c82203bfb4a89467c08bb5152d63a2cd929592a4c58398798c",
+      "parsed_javascript_files": 30,
+      "findings": 567,
+      "semantic_unknowns": 6403
+    },
+    {
+      "path": "docs/evidence/captura_cortecloud-micro.har",
+      "format": "har",
+      "parent_evidence_id": "ev_fdae8404eb011faed3a1f160e3ed8fd3fe7bd308ba251d562bf1e9c55fdbd55b",
+      "total_records": 7,
+      "note": "Subset of captura_cortecloud.har for REA 32MB/heap budget; full HAR gitignored at repo root"
+    },
+    {
+      "path": "supabase/functions/orcamentos-ia-pipeline",
+      "sha256": "7ed09ba0ab48ec062c83d4ab61ff4956823f5b9ad820cbd0015353560891b56b",
+      "parent_evidence_id": "ev_e2d63c237162761ba9e7cd776275e4233854dd6587ff8b4fc78834cc7311bcd2",
+      "parsed_javascript_files": 1,
+      "request_relations_retained": 6,
+      "semantic_unknowns": 1683
+    },
+    {
+      "path": "supabase/functions/orcamentos-ia-memory",
+      "sha256": "82ab11620034b8a5c5ba5c67a2cead8f915f0cb4262410746722ee0c7e428ec9",
+      "parent_evidence_id": "ev_66980fb0bc1fddbaa1fe8fb5c9aa6f1b26e57ce4ac99f9a25fdc71dd881372d6",
+      "parsed_javascript_files": 1,
+      "semantic_unknowns": 124
+    },
+    {
+      "path": "supabase/functions/orcamentos-ia-chat",
+      "sha256": "c37669ebcae90f6e6313e7063fff93f02d8641bafccc8b081c186861810abea0",
+      "parent_evidence_id": "ev_06483b407e85fae124ef810dea9e9376a1f410d6009aeccad9ac8fb44d86ed85",
+      "parsed_javascript_files": 1,
+      "semantic_unknowns": 218
+    }
+  ],
+  "unknowns": [
+    {
+      "unknown_id": "unk_b01086fd9af7e76f4e82d990823cad4abd99f6f7777d7ec8e73f0b0342b82db6",
+      "domain": "orcamentos-ia.bom-engine",
+      "severity": "medium",
+      "question": "Coverage of HelloMob modules 5-11 vs bom-engine implementation"
+    },
+    {
+      "unknown_id": "unk_cortecloud_pricing_formula",
+      "domain": "orcamentos-ia.cortecloud",
+      "severity": "medium",
+      "question": "Closed-form material+service+markup pricing when Cortecloud service.price is populated"
+    }
+  ],
+  "resolved_unknowns": [
+    {
+      "unknown_id": "unk_279a8c0b4450971586ddd807b47216cf00cb410d57061f5d131695d4d4ee452c",
+      "resolution": "Claude Opus integrated via @ai-sdk/anthropic + Edge llm-json; models in openai-models.ts"
+    }
+  ],
+  "cortecloud_capture": {
+    "script": "scripts/capture-cortecloud.js",
+    "report": "docs/evidence/cortecloud-caixaria-report.md",
+    "service_ids_sampled": [23516165, 23478274, 20008680]
+  },
+  "authority": "shipped-artifact",
+  "limitations": [
+    "JavaScript parsed as inert text; no runtime execution",
+    "Semantic graph relations are conservative candidates",
+    "Calcme/meX private product was not reverse-engineered",
+    "Full Cortecloud HAR exceeds REA decoder budget; micro subset used for inspect_web_network_capture"
+  ]
+}

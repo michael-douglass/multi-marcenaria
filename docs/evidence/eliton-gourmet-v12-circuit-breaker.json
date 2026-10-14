@@ -1,0 +1,20 @@
+{
+  "phase": "v12-circuit-breaker",
+  "implementedAt": "2026-10-13T23:10:00.000Z",
+  "baselineAnalysisId": "93805427-e80e-4f47-a0cd-e09be2b8b161",
+  "code": {
+    "circuit_breaker": "src/lib/orcamentos-ia/circuit-breaker.ts",
+    "merge_anti_sum": "src/lib/orcamentos-ia/merge-extraction.ts",
+    "pipeline_persist_sale_price": true,
+    "status_needs_review": true,
+    "migration": "20261014_orcamentos_ia_needs_review_status.sql"
+  },
+  "evidence": {
+    "prd": "docs/prd_v12_circuit_breaker_auditor_cortecloud.md",
+    "calcmex": "docs/evidence/resultado_calcmex.json",
+    "nosso": "docs/evidence/nosso_resultado.json",
+    "compare": "docs/evidence/cortecloud-23574204-rea-compare.json",
+    "har_micro": "docs/evidence/captura_cortecloud-23574204-micro.har"
+  },
+  "acceptance_pending": "Reprocessar ELITON GOURMET na UI e validar sale_price + breaker ok"
+}

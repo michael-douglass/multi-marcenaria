@@ -1,0 +1,55 @@
+{
+  "comparedAt": "2026-10-13T23:05:00.000Z",
+  "targetA": "docs/evidence/resultado_calcmex.json",
+  "targetB": "docs/evidence/nosso_resultado.json",
+  "rea": {
+    "network": {
+      "tool": "inspect_web_network_capture",
+      "har": "docs/evidence/captura_cortecloud-23516165-micro.har",
+      "note": "Parts/list sample; plano 23574204 usou catálogo functions + edging rules no micro dedicado"
+    },
+    "javascript": {
+      "tool": "analyze_javascript_application",
+      "path": "src/lib/orcamentos-ia",
+      "evidence_id": "ev_ade2b243eb6702c3a834ce2c1ff568dd26139899e4170765a5de133175ebadf0",
+      "summary_view": "ev_7fe75f3b9b3922f837a84185c175b91660ea2ceb5d826b2e291742330d976977",
+      "relevant_files": 32,
+      "includes_circuit_breaker": true
+    },
+    "compare": {
+      "tool": "structured_diff_json",
+      "note": "compare_artifacts exige inventários inspect_artifact; divergências abaixo são o contrato de aceite v12"
+    }
+  },
+  "divergences": [
+    {
+      "id": "D1_sale_price",
+      "severity": "Cortecloud/calcmex sempre fecha custo+venda; nosso 93805427 tinha sale_price null",
+      "fix": "pipeline grava sale_price, materials_cost, mpc_margin_pct, multiplier_n antes do status final"
+    },
+    {
+      "id": "D2_view_merge",
+      "severity": "Cortecloud 1 peça/função por módulo; nosso somava lotes (Ilha 9 laterais)",
+      "fix": "mergeNumericMax + discard vista conflitante + validatePlausibleQuantities"
+    },
+    {
+      "id": "D3_dual_material",
+      "severity": "Caixa Branco TX 15 / frente 18; nosso usava Noite 15 na caixa",
+      "fix": "applyDualMaterialBoxDefaults + circuit breaker enforceBrancoTx"
+    },
+    {
+      "id": "D4_zero_price",
+      "severity": "Itens cobráveis sempre com preço; 29 zeros eram corte-peca + scorecard enganoso",
+      "fix": "gate só cobráveis; cutting-list não bloqueia; NEEDS_REVIEW se cobrável R$0"
+    },
+    {
+      "id": "D5_painel_ripado",
+      "severity": "Módulos decorativos presentes no plano; nosso omitiu",
+      "fix": "coverage.missing fail-closed no circuit breaker + prompts v12"
+    }
+  ],
+  "acceptance": {
+    "reprocess_eliton": "sale_price>0; billable_zeros=0; laterals<=4; box Branco TX; coverage.missing=[] ou NEEDS_REVIEW",
+    "status_gate": "COMPLETED só se circuit_breaker.ok"
+  }
+}

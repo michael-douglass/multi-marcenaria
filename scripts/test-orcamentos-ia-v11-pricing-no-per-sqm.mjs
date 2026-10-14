@@ -55,6 +55,45 @@ check(
   pricing.DEFAULT_PRICING_PARAMS.modality === 'mpc_margin',
 )
 
+const shopping = pricing.buildShoppingList({
+  id: 'test',
+  environments: [
+    {
+      id: 'e1',
+      name: 'Teste',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Ilha',
+          out_of_scope: false,
+          materials: [
+            {
+              id: 't1',
+              raw_name: 'Fita MDF Louro Freijó',
+              category: 'fita_borda',
+              unit_price: 500,
+              exact_quantity: 7.7,
+              full_units_quantity: 8,
+              unit_measure: 'm',
+              notes: null,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+})
+const fitaRow = shopping.find((r) => r.category === 'fita_borda')
+check('lista de compras clampa preço absurdo de fita', Boolean(fitaRow))
+check(
+  'fita com unit_price=500 usa contingência ≤ R$ 25/m',
+  fitaRow && fitaRow.unitPrice <= pricing.MAX_EDGEBAND_UNIT_PRICE_PER_M,
+)
+check(
+  'linha de fita 20 m não vira R$ 10.000',
+  fitaRow && fitaRow.lineTotal < 1000,
+)
+
 await vite.close()
 if (!ok) {
   console.error('\nE0 FALHOU')

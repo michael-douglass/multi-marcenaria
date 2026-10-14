@@ -1,0 +1,59 @@
+{
+  "task": "rea-dedup-vistas-modulos",
+  "verdict": "PASS — merge-extraction + pipeline parse OK; family key + geometric clamp wired; smoke Ilha variants → 1 módulo, laterais≤2, portas≤teto, flags=[]",
+  "tsc": "clean",
+  "rea": {
+    "operation": "analyze_javascript_application",
+    "path": "src/lib/orcamentos-ia",
+    "detail": "summary",
+    "integrity_policy": "record-and-continue",
+    "parent_evidence_id": "ev_8d38a725eadc0d1ddb6891ab4c8063dfaf392c9047085c8275e82cc13488d312",
+    "summary_evidence_id": "ev_d0adac50e005dd5ecfedfc7f41831da637288c641c83c679115f07fd9b5f19b7",
+    "artifact_sha256": "45f450bb9a9b62b457d7eb9b69aaabc2d886d461c749988a8bfeeaf2c5d90ecc",
+    "statistics": {
+      "relevant_files": 32,
+      "parsed_javascript_files": 32,
+      "parse_failures": 1,
+      "visited_ast_nodes": 41251
+    },
+    "target_files": {
+      "merge-extraction.ts": {
+        "kind": "javascript-module",
+        "node_id": "jag_node_02f9a9c5ec517e51eb8ed2dabb6652f6a98353011a7a85792e9f440a29b14906",
+        "exports_observed": ["modulesMatchCoverage"],
+        "parse": "OK"
+      },
+      "pipeline.ts": {
+        "kind": "javascript-module",
+        "node_id": "jag_node_092217331fd4854328a14b4409620966f42502b77e6298e6b77759a20aec3b69",
+        "parse": "OK"
+      }
+    },
+    "note": "parse_failures=1 é residual no diretório (não merge-extraction/pipeline); ambos os alvos do plano parsearam como javascript-module."
+  },
+  "code_gates": {
+    "canonicalModuleName": true,
+    "moduleFamilyKey": true,
+    "forceDeduplicateViewQuantities": true,
+    "mergeEnvironment_by_family": true,
+    "modulesMatchCoverage_family": true,
+    "pipeline_clamp_after_merge": true,
+    "pipeline_clamp_after_audit": true,
+    "pipeline_clamp_final_before_coverage": true,
+    "pipeline_reaudit_clamp": true,
+    "prompt_modulo_fisico_unico": true,
+    "edge_prompts_synced": true,
+    "pricing_ts_unchanged": true
+  },
+  "smoke": {
+    "Ilha (Noite)": "Ilha",
+    "Ilha (balcão sob granito)": "Ilha",
+    "Ilha - Armário traseiro": "Ilha",
+    "modules_after_merge_clamp": 1,
+    "laterals": 2,
+    "doors": 8,
+    "tops": 2,
+    "validatePlausibleQuantities": []
+  },
+  "checkedAt": "2026-10-13T21:00:00-03:00"
+}

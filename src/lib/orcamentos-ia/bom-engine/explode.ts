@@ -1,4 +1,11 @@
-import type { ExplodeResult, ModuleSpec, BomLine, CutPiece } from '@/lib/orcamentos-ia/bom-engine/types'
+import type {
+  ExplodeResult,
+  ModuleSpec,
+  BomLine,
+  CutPiece,
+  IndustrialLabel,
+  ModuleTypology,
+} from '@/lib/orcamentos-ia/bom-engine/types'
 import {
   resolveBomPreferences,
   effectiveMountingDevice,
@@ -20,6 +27,7 @@ import {
   estimateHandleMeters,
 } from '@/lib/orcamentos-ia/bom-engine/hardware'
 import { boardBomLines, totalBoardAreaM2 } from '@/lib/orcamentos-ia/bom-engine/sheets'
+import { buildIndustrialLabels } from '@/lib/orcamentos-ia/bom-engine/labels'
 import type { SystemPreferences } from '@/lib/orcamentos-ia/system-preferences'
 
 export interface ExplodeOptions {
@@ -28,27 +36,41 @@ export interface ExplodeOptions {
   moduleQty?: number
 }
 
+export interface ExplodeResultWithLabels extends ExplodeResult {
+  labels: IndustrialLabel[]
+}
+
 /**
  * Desmonte determinístico HelloMob/Cortecloud:
- * cotas + preferências + tipologia → peças + BOM + Chain of Thought.
+ * cotas + preferências + tipologia → peças + BOM + Chain of Thought + etiquetas.
  */
-export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): ExplodeResult {
+export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): ExplodeResultWithLabels {
   resetPieceSeq()
   const warnings: string[] = []
   const prefs = resolveBomPreferences(options.prefs)
   const typology = spec.typology || inferTypology(spec.name)
   const working: ModuleSpec = { ...spec, typology }
+  // Maleiro (Módulo 8/9): top_shelf garante ao menos 1 prateleira alta
+  if (working.top_shelf && !(working.shelf_count && working.shelf_count > 0)) {
+    working.shelf_count = 1
+  }
   const mounting = effectiveMountingDevice(typology, prefs)
   const qty = Math.max(1, options.moduleQty ?? working.quantity ?? 1)
 
   const thought: string[] = [
     `Interpretação: módulo "${working.name}" como tipologia ${typology}.`,
     `Cotas externas: L=${working.width_mm} × A=${working.height_mm} × P=${working.depth_mm} mm.`,
-    `Preferências: base=${prefs.base_assembly}, tampo=${prefs.top_assembly}, MDF=${prefs.box_thickness_mm} mm, fixação efetiva=${mounting}.`,
+    `Preferências: base=${prefs.base_assembly}, tampo=${prefs.top_assembly}, caixa=MDF Branco TX ${prefs.box_thickness_mm} mm, frente=${prefs.front_thickness_mm} mm, fixação efetiva=${mounting}, fita=${prefs.edgeband_policy}.`,
   ]
 
   if (typology === 'nicho') {
     thought.push('Nicho aberto: forçando montagem 100% cavilha e sem fundo rasgado (topos expostos).')
+  }
+  if (working.handle_recess_mm != null) {
+    thought.push(`Puxador cava: recuo ${working.handle_recess_mm} mm na travessa dianteira.`)
+  }
+  if (working.door_overhang_mm && typology === 'aereo') {
+    thought.push(`Puxador passante: porta avança ${working.door_overhang_mm} mm para baixo.`)
   }
 
   let pieces: CutPiece[] = []
@@ -56,13 +78,17 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
   if (typology === 'armario_giro' && (working.column_widths_mm?.length ?? 0) > 1) {
     const cols = working.column_widths_mm!
     thought.push(`Armário de giro: ${cols.length} colunas independentes (${cols.join(' + ')} mm).`)
+    if (working.top_shelf) thought.push('Maleiro ativo: prateleira superior por coluna.')
     cols.forEach((cw, i) => {
       const colSpec: ModuleSpec = {
         ...working,
         width_mm: cw,
-        door_count: working.door_count ? Math.max(1, Math.round((working.door_count ?? 0) / cols.length)) : 1,
+        door_count: working.door_count
+          ? Math.max(1, Math.round((working.door_count ?? 0) / cols.length))
+          : 1,
         drawer_count: i === 0 ? working.drawer_count : 0,
         shelf_count: working.shelf_count ?? (working.top_shelf ? 1 : 0),
+        top_shelf: working.top_shelf,
       }
       pieces.push(...explodeBox(colSpec, prefs, { columnIndex: i + 1 }))
       pieces.push(...explodeDoors(colSpec, prefs))
@@ -70,14 +96,17 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
     })
   } else if (typology === 'armario_correr') {
     const sliding = working.sliding_doors ?? 2
+    const envelope = working.sliding_envelope !== false
     thought.push(
-      `Armário de correr: frente coluna única + kit ${sliding} portas; recuo zero interno; sarrafo unilateral.`,
+      `Armário de correr: frente coluna única + trilhos ${sliding} portas` +
+        (envelope ? '; tamponamento envoltório' : '') +
+        '; recuo zero interno; sarrafo unilateral.',
     )
     pieces.push(
       ...explodeBox(
         { ...working, sliding_doors: sliding, door_count: 0 },
         prefs,
-        { unilateralStretcher: true },
+        { unilateralStretcher: true, slidingEnvelope: envelope },
       ),
     )
     pieces.push(...explodeDoors({ ...working, sliding_doors: sliding }, prefs))
@@ -138,11 +167,12 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
     )
   }
 
-  const materialName = working.material_name ?? `MDF ${prefs.box_thickness_mm}mm`
+  const materialName =
+    working.material_name ?? `MDF Branco TX ${prefs.box_thickness_mm}mm`
   const unitCost = options.unitCostPerM2 ?? 45
   const bom: BomLine[] = [
     ...boardBomLines(pieces, materialName, unitCost),
-    ...edgebandBomLines(pieces),
+    ...edgebandBomLines(pieces, undefined, prefs.edgeband_policy),
   ]
 
   // Junções aproximadas: 4 cantos + prateleiras×2 + gavetas×4
@@ -173,10 +203,12 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
     `Área de chapas: ${area.toFixed(3)} m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).`,
   )
   thought.push(
-    `Fitas: ${bom
-      .filter((b) => b.item_category === 'edgeband')
-      .map((b) => `${b.item_description}=${b.quantity} m`)
-      .join(', ') || 'nenhuma'}.`,
+    `Fitas (${prefs.edgeband_policy}): ${
+      bom
+        .filter((b) => b.item_category === 'edgeband')
+        .map((b) => `${b.item_description}=${b.quantity} m`)
+        .join(', ') || 'nenhuma'
+    }.`,
   )
   thought.push(`Ferragens/conectores calculados por unidade individual (nunca por pacote).`)
 
@@ -189,12 +221,18 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
 
   for (const w of warnings) thought.push(`AVISO: ${w}`)
 
+  const labels = buildIndustrialLabels(pieces, working)
+  if (labels.length) {
+    thought.push(`Etiquetas industriais geradas: ${labels.length} peça(s).`)
+  }
+
   return {
     pieces,
     bom: scaleBomCosts(bom),
     chainOfThought: thought.join('\n'),
     warnings,
     mountingDevice: mounting,
+    labels,
   }
 }
 
@@ -205,25 +243,72 @@ function scaleBomCosts(bom: BomLine[]): BomLine[] {
   }))
 }
 
+const TYPOLOGIES = new Set<ModuleTypology>([
+  'balcao',
+  'aereo',
+  'armario_correr',
+  'armario_giro',
+  'nicho',
+  'painel',
+  'gaveteiro',
+  'outro',
+])
+
+function asTypology(raw: unknown, name: string): ModuleTypology {
+  if (typeof raw === 'string' && TYPOLOGIES.has(raw as ModuleTypology)) {
+    return raw as ModuleTypology
+  }
+  return inferTypology(name)
+}
+
 export function explodeFromExtractionModule(
   mod: {
     name: string
+    typology?: string | null
     dimensions?: { width_mm?: number | null; height_mm?: number | null; depth_mm?: number | null }
     caixaria?: Array<{ function?: string | null }>
     frentes_portas?: Array<{ kind?: string | null }>
+    door_count?: number | null
+    drawer_count?: number | null
+    shelf_count?: number | null
+    sliding_doors?: 2 | 3 | 4 | null
+    column_widths_mm?: number[] | null
+    doubled_top?: boolean | null
+    top_shelf?: boolean | null
+    handle_recess_mm?: 0 | 20 | 40 | null
+    door_overhang_mm?: number | null
+    sliding_envelope?: boolean | null
     room_tag?: string
   },
   prefs?: Partial<SystemPreferences> | null,
-): ExplodeResult {
+): ExplodeResultWithLabels {
   const name = mod.name || 'Módulo'
-  const typology = inferTypology(name)
+  const typology = asTypology(mod.typology, name)
+  const drawersFromFrentes =
+    mod.frentes_portas?.filter((f) => f.kind === 'frente_gaveta').length ?? 0
+  const doorsFromFrentes =
+    mod.frentes_portas?.filter(
+      (f) =>
+        f.kind === 'porta_giro' ||
+        f.kind === 'porta_correr' ||
+        f.kind === 'basculante' ||
+        f.kind === 'porta',
+    ).length ?? 0
+  const shelvesFromCaixaria =
+    mod.caixaria?.filter((c) => c.function === 'prateleira').length ?? 0
+
   const drawers =
-    mod.frentes_portas?.filter((f) => f.kind === 'frente_gaveta').length ??
-    (typology === 'balcao' || typology === 'gaveteiro' ? 3 : 0)
+    mod.drawer_count ??
+    (drawersFromFrentes ||
+      (typology === 'balcao' || typology === 'gaveteiro' ? 3 : 0))
   const doors =
-    mod.frentes_portas?.filter((f) => f.kind === 'porta' || f.kind === 'porta_correr').length ??
-    (typology === 'aereo' || typology === 'armario_giro' ? 2 : 0)
-  const shelves = mod.caixaria?.filter((c) => c.function === 'prateleira').length ?? 0
+    mod.door_count ??
+    (doorsFromFrentes ||
+      (typology === 'aereo' || typology === 'armario_giro' ? 2 : 0))
+  const shelves = mod.shelf_count ?? shelvesFromCaixaria
+  const sliding =
+    mod.sliding_doors ??
+    (typology === 'armario_correr' ? (2 as const) : undefined)
 
   return explodeModule(
     {
@@ -235,7 +320,13 @@ export function explodeFromExtractionModule(
       drawer_count: drawers,
       door_count: doors,
       shelf_count: shelves,
-      sliding_doors: typology === 'armario_correr' ? 2 : undefined,
+      sliding_doors: sliding,
+      column_widths_mm: mod.column_widths_mm ?? undefined,
+      doubled_top: mod.doubled_top ?? undefined,
+      top_shelf: mod.top_shelf ?? undefined,
+      handle_recess_mm: mod.handle_recess_mm ?? undefined,
+      door_overhang_mm: mod.door_overhang_mm ?? undefined,
+      sliding_envelope: mod.sliding_envelope ?? undefined,
       room_tag: mod.room_tag,
     },
     { prefs },

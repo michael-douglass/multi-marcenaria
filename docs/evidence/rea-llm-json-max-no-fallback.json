@@ -1,0 +1,31 @@
+﻿{
+    "task":  "rea-llm-json-max-no-fallback",
+    "verdict":  "PASS — fallback gpt-4o gated by allowOpenAiFallback; Edge max+Claude passes false",
+    "tsc":  "clean",
+    "shared":  {
+                   "evidence_id":  "ev_28de8dea2a204be6ed683363e2af568ed39ae95902973b943b921d1357b4e923",
+                   "path":  "supabase/functions/_shared",
+                   "parent_evidence_id":  "ev_bbf8f621fdfc3401c767c07425f2bf751d064c9c9f43d059cfbefa4631622aa3",
+                   "parsed_javascript_files":  20,
+                   "parse_failures":  0
+               },
+    "deploy":  {
+                   "function":  "orcamentos-ia-pipeline",
+                   "status":  "Deployed",
+                   "project_ref":  "zzqgtclvuetemzhqzhbq"
+               },
+    "code_gates":  {
+                       "llmJson_param":  "allowOpenAiFallback",
+                       "gabarito_prompt":  true,
+                       "extractor_max":  "claude-opus-5-5",
+                       "callLlm_formula":  "allowOpenAiFallback: !(mode === \u0027max\u0027 \u0026\u0026 isClaudeModel(model))",
+                       "max_blocks_fallback":  "throw Modo max exige … fallback gpt-4o bloqueado"
+                   },
+    "checkedAt":  "2026-10-13T20:28:35.4547161-03:00",
+    "pipeline":  {
+                     "evidence_id":  "ev_a734c34b2b39e3348c592de1f8d57da337249865088aaf4352e69cf6a0059089",
+                     "path":  "supabase/functions/orcamentos-ia-pipeline",
+                     "parent_evidence_id":  "ev_d53643ad2588c996030af9f4de173742ae2ee166a9317c2a7171fcae15d7eac1",
+                     "parse_failures":  0
+                 }
+}

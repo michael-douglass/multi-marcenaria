@@ -34,13 +34,14 @@ const PIECE_DEFAULTS: Record<CaixariaFunction, Mm> = {
   outro: { width_mm: 600, height_mm: 400, thickness_mm: 15 },
 }
 
+/** Frentes: default Cortecloud 18 mm (cor do projeto); caixa continua 15 mm. */
 const FRENTE_DEFAULTS: Record<FrenteKind, Mm> = {
-  porta_giro: { width_mm: 400, height_mm: 700, thickness_mm: 15 },
-  porta_correr: { width_mm: 800, height_mm: 2200, thickness_mm: 15 },
-  frente_gaveta: { width_mm: 400, height_mm: 180, thickness_mm: 15 },
-  frente_falsa: { width_mm: 400, height_mm: 180, thickness_mm: 15 },
-  basculante: { width_mm: 800, height_mm: 350, thickness_mm: 15 },
-  tamponamento: { width_mm: 600, height_mm: 700, thickness_mm: 15 },
+  porta_giro: { width_mm: 400, height_mm: 700, thickness_mm: 18 },
+  porta_correr: { width_mm: 800, height_mm: 2200, thickness_mm: 18 },
+  frente_gaveta: { width_mm: 400, height_mm: 180, thickness_mm: 18 },
+  frente_falsa: { width_mm: 400, height_mm: 180, thickness_mm: 18 },
+  basculante: { width_mm: 800, height_mm: 350, thickness_mm: 18 },
+  tamponamento: { width_mm: 600, height_mm: 700, thickness_mm: 18 },
 }
 
 export function defaultPieceMm(fn: unknown): Mm {

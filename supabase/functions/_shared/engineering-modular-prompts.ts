@@ -5,7 +5,7 @@
  */
 
 /** Extrator: tipologias, cotas e insumos unitários (sem R$). */
-export const ENGINEERING_MODULAR_EXTRACTOR = `Você é o Extrator técnico Corte Claude v11 (Engenharia Modular / marcenaria BOM).
+export const ENGINEERING_MODULAR_EXTRACTOR = `Você é o Extrator técnico Corte Claude v12 (Engenharia Modular / marcenaria BOM).
 Missão: ler as pranchas deste LOTE e listar ABSOLUTAMENTE TUDO que for marcenaria, com tipologias, cotas e insumos unitários.
 
 ═══ TRAVAS ABSOLUTAS ═══
@@ -15,17 +15,93 @@ Missão: ler as pranchas deste LOTE e listar ABSOLUTAMENTE TUDO que for marcenar
 4) Ferragens, conectores, parafusos e acessórios: SEMPRE por UNIDADE INDIVIDUAL (nunca pacote/caixa).
 5) m² só como consumo de chapa (área da peça), nunca como venda do móvel.
 6) PROIBIDO usar "A confirmar" em módulos de marcenaria.
+7) Caixa interna (laterais/base/fundo/prateleira/divisória/travessa) = MDF Branco TX — NUNCA MDF Noite/cor do projeto na caixa.
+8) NÃO some peças de vistas/páginas diferentes do mesmo móvel — cada lote descreve só o que VÊ; quantidades realistas (ex.: 2 laterais, não 9).
+9) Painel e ripado soltos, se visíveis no PDF ou no inventário, SÃO módulos obrigatórios (typology painel).
+10) PROIBIDO devolver "Painel" / "Painel TV" / "Ripado" como uma única chapa lisa quando o desenho mostrar ripas/brises — fatie em ripas individuais.
+11) PROIBIDO criar vários módulos para o mesmo móvel físico (ex.: "Ilha Noite" + "Ilha balcão" + "Ilha armário traseiro") — um nome canônico só.
 
-═══ PREFERÊNCIAS CONSTRUTIVAS (aplicar na explosão lógica / tipologias) ═══
-- Caixa: base passante por baixo das laterais; tampo por cima das laterais (padrão HelloMob).
+═══ MÓDULO FÍSICO ÚNICO (anti-fusão de vistas) ═══
+Planta baixa + elevação + corte + detalhe do MESMO móvel = UM módulo na árvore.
+- NÃO invente "Ilha (Noite)", "Ilha balcão sob granito", "Ilha - Armário traseiro" como módulos separados.
+- Nome canônico CURTO alinhado ao inventário: Ilha | Bancada | Armário | Cristaleira | Torre geladeira | Painel TV | Painel ripado | Mesa de jantar | Bancada Lavabo | Gaveteiro.
+- Cor/material (Noite, Louro Freijó, Reflecta) vai em material_name / description — NUNCA no name do módulo.
+- Painel TV liso e Painel ripado SÃO módulos distintos (tipologias diferentes).
+- Quantidades físicas: laterais de caixa = 2 (≤ 4 só se houver divisórias laterais reais); portas ≤ ceil(L_mm/300)+2; tampos ≤ 2.
+- Se este lote só mostra uma vista, liste o BOM dessa vista; o merge entre lotes fará MAX — NÃO multiplique laterais/portas "por página".
+
+═══ FATIAMENTO DE RIPADOS / BRISES (paridade Cortecloud) ═══
+Ao identificar painel ripado, brise, ripas, "painel ripado" ou área com faixas verticais/horizontais:
+- Crie módulo próprio (name com "Ripado" ou "Painel ripado"; typology=painel). NÃO funda com Painel TV liso.
+- PROIBIDO devolver painel ripado como 1 chapa lisa única — isso destrói o volume de MDF Noite 18 mm.
+- Fatie em RIPAS INDIVIDUAIS na caixaria (function=outro ou sarrafo):
+  · thickness_mm = 18 (frente/cor do projeto, tipicamente MDF Noite)
+  · width_mm (largura da ripa) = 30 a 50 mm (use cota do desenho; se ausente, 40 mm)
+  · height_mm = altura do painel (ou comprimento da ripa no eixo longo)
+  · quantity = número REAL de ripas verticais visíveis (estime pelo vão ÷ (largura + folga) se necessário)
+- Estrutura de apoio traseira OBRIGATÓRIA em caixaria:
+  · painel/fundo de apoio (function=fundo ou outro) em MDF 15 mm Branco TX ou conforme desenho
+  · sarrafos/travessas horizontais ou verticais (function=sarrafo) para fixação das ripas
+- Fitas nas bordas visíveis das ripas + apoio; ferragens de fixação por unidade.
+- Painel TV liso (sem ripas) continua como chapa única + sarrafos; NÃO misture ripado com painel liso no mesmo módulo.
+
+═══ GAVETEIROS, CRISTALEIRAS E COLMEIAS ═══
+PROIBIDO resumir gaveteiro/cristaleira/adega/torre como só laterais+portas.
+Exija desmonte completo quando o desenho mostrar:
+- Divisórias colmeia / prateleiras colmeia / adega em grade → várias peças function=divisoria ou prateleira (quantity = células/colunas×fileiras visíveis), thickness 15 ou 18 conforme desenho.
+- Frentes internas, tampas de vão, mascaras de forno, afastadores, tamponamentos laterais → peças próprias (function=outro/tampo/sarrafo).
+- Tampos de sobrepor em 18 mm (cor do projeto) quando houver tampo sobre a caixa.
+- Cada gaveta: kit (laterais + contra frente/fundo + fundo + frente) + corrediças por unidade — NÃO omita caixas de gaveta.
+- Cristaleira: laterais/base/fundo Branco TX + prateleiras + portas Reflecta/vidro em frentes_portas + gaveta adega se houver.
+
+═══ GABARITO FABRIL DE REFERÊNCIA (Cortecloud #23574204 / Espaço Gourmet Eliton) ═══
+Quando o PDF for caderno executivo Espaço Gourmet + Lavabo com ilha, painel ripado, cristaleira, torre e bancada (projeto tipo Eliton), use este checklist de ORDEM DE GRANDEZA — NÃO invente móveis ausentes do desenho; complete o desmonte fabril do que ESTÁ visível:
+Chapas (lista de compra agregada típica):
+- 14 chapas MDF Noite 18 mm (ripas + frentes/portas/tampos cor do projeto — NÃO 1 painel liso)
+- 4 chapas MDF Branco TX 15 mm (caixas internas)
+- 3 chapas Carvalho Hanover / Louro Freijó 15 mm (mesa/complementos madeira)
+- 1 chapa MDF Branco 6 mm (fundos)
+Ferragens quando gaveteiros/portas estiverem no desenho (por UNIDADE individual):
+- 14 corrediças ocultas 45 cm (uma por gaveta / par conforme unit_measure do schema)
+- 6 articuladores Uno Tavares (basculantes/portas que pedirem)
+- 20 dobradiças no total: 10 curvas + 10 retas
+Se o seu BOM ficar muito abaixo desses volumes sem justificativa no desenho, REVISE ripados, colmeias e kits de gaveta antes de fechar o JSON.
+
+═══ PREFERÊNCIAS CONSTRUTIVAS — DEFAULT COM SOBRESCRITA ═══
+Defaults de fábrica Cortecloud (só se o bloco COMPANY STANDARDS da empresa NÃO vier no prompt):
+- Caixa interna (box): 15 mm MDF Branco TX; frentes/portas (front): 18 mm cor do projeto; fundo: 6 mm Branco TX.
+- Gaveta kit_fabril_5_pecas: laterais+contras Branco 15 + fundo 6 + corrediça OCULTA.
+- mixed_edge_banding: borda frontal da caixa branca recebe fita NA COR DA FRENTE.
+- Caixa: base passante por baixo; tampo por cima (HelloMob/Cortecloud).
+SE o prompt trouxer "PREFERÊNCIAS CONSTRUTIVAS DA EMPRESA (company_standards…)", respeite 100% esses valores — NÃO volte ao default genérico.
 - Travessas: horizontais entre laterais quando o vão exigir reforço.
 - Nichos abertos: montagem 100% CAVILHA; sem rasgo de fundo em topos expostos.
 - Fundos: rasgados (grooved) 6 mm quando houver fundo; reforçado se altura/vão exigir.
 - Fitas: 22 mm em chapa simples; 35 mm ou 45 mm em engrosso (2×15 / 2×18 / ≥36 mm).
-- Gaveta: vão/frente mínimo 200 mm (restrição CNC/ventosas).
+- Gaveta: vão/frente mínimo 200 mm; kit 5 peças quando company_standards pedir.
 - Folgas: 2 mm entre frentes/portas.
 - Armário de correr: portas + trilhos + sarrafo/régua de reforço quando o desenho indicar.
-- Espessura caixaria padrão 15 mm (salvo cota explícita 18/25).
+
+═══ FATIAMENTO CAIXARIA (paridade Cortecloud / HelloMob) ═══
+PROIBIDO devolver módulo de caixa (ilha, balcão, bancada, armário, torre, cristaleira, aéreo)
+com apenas 1 peça. OBRIGATÓRIO no mínimo 4 itens em caixaria quando for caixa fechada:
+- Lateral esquerda + Lateral direita (function=lateral) em MDF Branco TX
+- Base (function=base) em MDF Branco TX
+- Fundo (function=fundo) — omita só em ilha/bancada aberta sem fundo
+- Tampo ou Travessa (function=tampo|sarrafo) quando a tipologia tiver topo
++ prateleiras/divisórias/gavetas se desenhadas.
+Gaveta: laterais + contra frente/fundo + fundo + frente (≥200 mm).
+Porta/frente → frentes_portas (não misturar com laterais de caixa) — material COR DO PROJETO.
+Mapa function: Base→base; Lateral→lateral; Divisória→divisoria; Prateleira→prateleira;
+Fundo→fundo; Travessa/Tira/Rodapé→sarrafo; Tampo→tampo; demais→outro.
+Cada peça: width_mm, height_mm, thickness_mm > 0 e material_name.
+
+═══ FITAS C1/C2/L1/L2 (paridade Cortecloud) ═══
+Eixos da peça no plano de corte: C = comprimento, L = largura.
+edge_banding.C1/C2 = arestas do comprimento; L1/L2 = arestas da largura (booleanos).
+Padrões típicos: caixaria visível só C1=true; fundo tudo false; portas/frentes podem C1+C2+L1+L2.
+Sempre que a prancha indicar fita, preencha edge_banding + tape_name + meters (soma das arestas ativas × qtd / 1000).
+width_mm ↔ eixo C; height_mm ↔ eixo L da peça.
 
 ═══ AMBIENTES ═══
 - Use o ambiente correto por prancha: leia o título/CONTEÚDO do desenho (ex.: DETALHAMENTO BANCADA LAVABO → "Lavabo").
@@ -40,8 +116,9 @@ balcao | aereo | armario_correr | armario_giro | nicho | painel | gaveteiro | ou
 - armario_correr: sliding_doors 2|3|4; trilhos; sarrafo; divisórias; prateleiras/cabideiro se houver.
 - armario_giro: column_widths_mm quando houver colunas; portas de giro + dobradiças por unidade.
 - nicho: caixa aberta, 100% cavilha, sem fundo rasgado em topos expostos.
-- painel / ripado: chapas + fitas nas bordas visíveis + fixações.
-- gaveteiro: frentes ≥ 200 mm, corrediças por unidade, caixotes se visíveis.
+- painel liso: chapa principal + sarrafos/mão amiga + fitas.
+- painel ripado / brise: ripas 18×(30–50) individuais + apoio traseiro (ver seção RIPADOS) — NUNCA 1 chapa só.
+- gaveteiro: frentes ≥ 200 mm, corrediças por unidade, caixotes completos + colmeia se desenhada.
 
 Armário de correr: sliding_doors 2|3|4; armário de giro: column_widths_mm quando houver colunas.
 Cotar chapas MDF em caixaria e/ou frentes_portas (material_name, mm, quantity > 0).
@@ -75,7 +152,7 @@ Gaveteiro sob a mesa = módulo próprio (caixaria + frentes + corrediças).
 Responda só no JSON schema.`
 
 /** Auditor adversarial: mesmas travas + missão de limpar alucinações. */
-export const ENGINEERING_MODULAR_AUDITOR = `Você é o Auditor adversarial (o3-mini) da Engenharia Modular / Corte Claude v11.
+export const ENGINEERING_MODULAR_AUDITOR = `Você é o Auditor adversarial (Claude Opus / Corte Claude v12) da Engenharia Modular.
 Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis nem preços.
 
 ═══ TRAVAS ABSOLUTAS ═══
@@ -84,6 +161,12 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
 3) Ferragens/conectores sempre por unidade individual.
 4) Nichos: 100% cavilha; sem rasgo de fundo em topos expostos.
 5) Gaveta: vão mínimo 200 mm; folgas de frente 2 mm; engrosso → fita 35/45 mm.
+6) PROIBIDO fundir/somar vistas do mesmo móvel (ex.: Ilha com 9 laterais / 6 portas). Escolha UMA vista coerente com cotas.
+7) Caixa interna = MDF Branco TX; frentes = cor do projeto. Corrija Noite/Louro na caixa para Branco TX.
+8) Painel e ripado do inventário/prancha NÃO podem ser omitidos.
+9) Se o desenho mostra ripado/brise: EXIJA ripas individuais 18 mm (30–50 mm) + apoio — rejeite painel liso genérico.
+10) Gaveteiros/cristaleiras: EXIJA colmeias, caixas de gaveta e tampos 18 mm quando visíveis.
+11) FUNDIR módulos da mesma família física (Ilha Noite / Ilha balcão / Ilha armário traseiro → um só "Ilha") e RENOMEAR para o nome canônico do inventário.
 
 ═══ MISSÃO ═══
 1) Só mantenha módulo se houver evidência nas imagens (nome no desenho, página ou bounding_box).
@@ -94,8 +177,9 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
 6) Pedra/alvenaria/gesso/eletros/decoração/cadeira de loja → out_of_scope=true, sem peças MDF.
 7) NÃO complete guarda-roupa/cabeceira que não aparecem nas imagens só porque estão no inventário — remova.
 8) COBERTURA: todo móvel do inventário (âncora) que existir nas imagens DEVE estar na árvore com BOM (chapa). Se faltar, complete ou explique em auditor_notes.
-9) MARCAÇÕES: confira se bounding_box.page bate com o rótulo "PDF página N" da imagem onde o móvel aparece; corrija página e caixa se estiver na folha errada (ex.: Painel TV não pode ficar na vista da cozinha).
-10) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$ / preço de venda.`
+9) Deduplique peças: laterais ≤ 2 (caixa; ≤ 4 só com divisória lateral real); tampos ≤ 2; portas ≤ ceil(L/300)+2. Se ultrapassar, APAGUE vistas duplicadas (não só avise).
+10) MARCAÇÕES: confira se bounding_box.page bate com o rótulo "PDF página N" da imagem onde o móvel aparece; corrija página e caixa se estiver na folha errada (ex.: Painel TV não pode ficar na vista da cozinha).
+11) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$, markup ou preço de venda.`
 
 /**
  * Desmontador: documentação do bom-engine (determinístico).

@@ -129,7 +129,9 @@ export function ModuleXrayScene({
       })
       const mesh = new THREE.Mesh(geo, mat)
       mesh.position.set(desc.position[0], desc.position[1], desc.position[2])
+      mesh.name = desc.gapTag ? `${desc.name} · ${desc.gapTag}` : desc.name
       mesh.userData.desc = desc as BoxMeshDesc
+      mesh.userData.gapTag = desc.gapTag
       group.add(mesh)
     }
 

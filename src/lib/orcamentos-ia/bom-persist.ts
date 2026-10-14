@@ -2,13 +2,10 @@ import { z } from 'zod'
 import { supabase } from '@/lib/supabase'
 import {
   explodeFromExtractionModule,
-  explodeModule,
   type BomLine,
   type ExplodeResult,
-  type ModuleSpec,
 } from '@/lib/orcamentos-ia/bom-engine'
 import type { SystemPreferences } from '@/lib/orcamentos-ia/system-preferences'
-import { inferTypology } from '@/lib/orcamentos-ia/bom-engine/box-assembly'
 
 export const bomItemRowSchema = z.object({
   item_category: z.enum(['board', 'edgeband', 'hardware', 'fastener', 'labor', 'other']),
@@ -144,35 +141,25 @@ export function explodeModuleForPersist(
     frentes_portas?: Array<{ kind?: string | null }>
     door_count?: number | null
     drawer_count?: number | null
+    shelf_count?: number | null
     sliding_doors?: 2 | 3 | 4 | null
     column_widths_mm?: number[] | null
     doubled_top?: boolean | null
+    top_shelf?: boolean | null
+    handle_recess_mm?: 0 | 20 | 40 | null
+    door_overhang_mm?: number | null
+    sliding_envelope?: boolean | null
     room_tag?: string | null
   },
   prefs: Partial<SystemPreferences> | null,
   roomTag?: string,
 ): ExplodeResult {
-  if (mod.typology || mod.sliding_doors || mod.column_widths_mm?.length) {
-    const typology = (mod.typology as ModuleSpec['typology']) || inferTypology(mod.name)
-    return explodeModule(
-      {
-        name: mod.name,
-        typology,
-        width_mm: Number(mod.dimensions?.width_mm) || 800,
-        height_mm: Number(mod.dimensions?.height_mm) || 720,
-        depth_mm: Number(mod.dimensions?.depth_mm) || 500,
-        door_count: mod.door_count ?? undefined,
-        drawer_count: mod.drawer_count ?? undefined,
-        sliding_doors: mod.sliding_doors ?? undefined,
-        column_widths_mm: mod.column_widths_mm ?? undefined,
-        doubled_top: mod.doubled_top ?? undefined,
-        room_tag: mod.room_tag ?? roomTag,
-      },
-      { prefs },
-    )
-  }
+  // Sempre propaga tipologias/campos v11 (não re-inferir só pelo nome)
   return explodeFromExtractionModule(
-    { ...mod, room_tag: mod.room_tag ?? roomTag },
+    {
+      ...mod,
+      room_tag: mod.room_tag ?? roomTag ?? undefined,
+    },
     prefs,
   )
 }

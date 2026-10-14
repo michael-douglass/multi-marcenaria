@@ -34,6 +34,7 @@ export type QuoteAnalysisStatus =
   | 'EXTRACTING_MODULES'
   | 'FETCHING_MARKET_PRICES'
   | 'AUDITING_REVISION'
+  | 'NEEDS_REVIEW'
   | 'COMPLETED'
   | 'FAILED'
 
@@ -46,6 +47,7 @@ export const QUOTE_STATUS_PROGRESS: Record<QuoteAnalysisStatus, number> = {
   EXTRACTING_MODULES: 55,
   FETCHING_MARKET_PRICES: 72,
   AUDITING_REVISION: 88,
+  NEEDS_REVIEW: 95,
   COMPLETED: 100,
   FAILED: 100,
 }
@@ -58,6 +60,7 @@ export const QUOTE_STATUS_LABEL: Record<QuoteAnalysisStatus, string> = {
   EXTRACTING_MODULES: 'Extraindo módulos e insumos',
   FETCHING_MARKET_PRICES: 'Buscando preços de mercado',
   AUDITING_REVISION: 'Auditoria construtiva',
+  NEEDS_REVIEW: 'Revisão necessária (circuit breaker)',
   COMPLETED: 'Concluído',
   FAILED: 'Falhou',
 }
@@ -74,6 +77,7 @@ export type PipelineStageId =
   | 'auditing'
   | 'fetching_prices'
   | 'persisting'
+  | 'needs_review'
   | 'completed'
   | 'failed'
 
@@ -243,6 +247,7 @@ export function resolvePipelineStageId(
     return 'failed'
   }
   if (status === 'COMPLETED') return 'completed'
+  if (status === 'NEEDS_REVIEW') return 'needs_review'
   if (stage && PIPELINE_VISUAL_STEPS.some((s) => s.id === stage)) {
     return stage as PipelineStageId
   }
@@ -259,6 +264,8 @@ export function resolvePipelineStageId(
       return 'auditing'
     case 'FETCHING_MARKET_PRICES':
       return 'fetching_prices'
+    case 'NEEDS_REVIEW':
+      return 'needs_review'
     case 'PROCESSING':
       return 'extracting_batch'
     default:

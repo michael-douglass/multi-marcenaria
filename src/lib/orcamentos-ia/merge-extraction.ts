@@ -1,7 +1,7 @@
 /**
- * Merge e dedupe de extracoes Planilha 4.0.
+ * Merge e dedupe de extracoes Planilha 4.0 / Corte Claude v12.
  * Ambiente/modulo com mesmo nome normalizado viram um so;
- * materiais iguais somam quantidade.
+ * peças com mesma chave (função|nome|cotas) usam MAX — nunca somam lotes/vistas.
  */
 
 export interface InventoryEnv {
@@ -20,6 +20,77 @@ export function normalizeExtractionKey(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+const MATERIAL_COLOR_TOKENS = new Set([
+  'noite',
+  'branco',
+  'tx',
+  'louro',
+  'freijo',
+  'carvalho',
+  'hanover',
+  'reflecta',
+  'mdf',
+  'arauco',
+  'duratex',
+  'cor',
+  'projeto',
+  'mm',
+])
+
+/**
+ * Nome curto alinhado ao inventário (sem cor/material/sufixos de vista).
+ * Ex.: "Ilha (Noite)" → "Ilha"; "Mesa Belize 3,00 m" → "Mesa de jantar".
+ */
+export function canonicalModuleName(name: string): string {
+  let raw = String(name || '').trim()
+  if (!raw) return 'Modulo'
+  // Remove parênteses e sufixo após " - "
+  raw = raw.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ')
+  const dash = raw.indexOf(' - ')
+  if (dash > 0) raw = raw.slice(0, dash)
+  let key = normalizeExtractionKey(raw)
+  key = key
+    .replace(/\b\d+([.,]\d+)?\s*(mm|m|cm)\b/g, ' ')
+    .replace(/\b\d+\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const tokens = key.split(' ').filter((t) => t && !MATERIAL_COLOR_TOKENS.has(t))
+  key = tokens.join(' ').trim()
+
+  if (/\b(painel\s+ripad|brise|ripado)\b/.test(key)) return 'Painel ripado'
+  if (/\bpainel\b/.test(key) && /\b(tv|liso|avulso)\b/.test(key)) return 'Painel TV'
+  if (/^painel$/.test(key)) return 'Painel TV'
+  // Aceita "mesa de jantar", "mesa belize", "mesa organica" (tokens no meio)
+  if (
+    /\bmesa\b/.test(key) &&
+    (/\b(jantar|belize|organica)\b/.test(key) || /^mesa$/.test(key))
+  ) {
+    return 'Mesa de jantar'
+  }
+  if (/torre|geladeira|paneleiro/.test(key) && /torre|geladeira/.test(key)) {
+    return 'Torre geladeira'
+  }
+  if (/cristaleira|adega/.test(key)) return 'Cristaleira'
+  if (/lavabo/.test(key) && /bancada|balcao/.test(key)) return 'Bancada Lavabo'
+  if (/^ilha\b|\bilha\b/.test(key)) return 'Ilha'
+  if (/bancada|balcao\s*inferior|balcao\s*parede/.test(key)) return 'Bancada'
+  if (/gaveteiro/.test(key)) return 'Gaveteiro'
+  if (/aereo|aereos/.test(key)) return 'Aéreo'
+  if (/armario|roupeiro/.test(key)) return 'Armário'
+
+  // Title-case residual short name
+  if (!key) return 'Modulo'
+  return key
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+/** Chave de família física para merge (Ilha Noite ≡ Ilha balcão). */
+export function moduleFamilyKey(name: string): string {
+  return normalizeExtractionKey(canonicalModuleName(name))
 }
 
 /** Limpa inventário: sem tipologias de quarto em gourmet/cozinha e sem "ferragens" genérico. */
@@ -78,12 +149,26 @@ function asArray(value: unknown): AnyRec[] {
   return value.filter((x) => x && typeof x === 'object') as AnyRec[]
 }
 
-function mergeNumeric(a: unknown, b: unknown): number {
+/** Quantidades entre lotes: MAX (anti-inflação por fusão de vistas). */
+function mergeNumericMax(a: unknown, b: unknown): number {
   const na = Number(a)
   const nb = Number(b)
   const va = Number.isFinite(na) ? na : 0
   const vb = Number.isFinite(nb) ? nb : 0
-  return va + vb
+  return Math.max(va, vb)
+}
+
+function pieceDimKey(item: AnyRec): string {
+  const w = Math.round(Number(item.width_mm) || 0)
+  const h = Math.round(Number(item.height_mm) || 0)
+  const t = Math.round(Number(item.thickness_mm) || 0)
+  const fn =
+    typeof item.function === 'string'
+      ? item.function
+      : typeof item.kind === 'string'
+        ? item.kind
+        : ''
+  return `${normalizeExtractionKey(fn)}|${w}x${h}x${t}`
 }
 
 function materialKey(item: AnyRec, kind: string): string {
@@ -94,7 +179,8 @@ function materialKey(item: AnyRec, kind: string): string {
     (typeof item.name === 'string' && item.name) ||
     ''
   const cat = typeof item.category === 'string' ? item.category : kind
-  return `${kind}|${cat}|${normalizeExtractionKey(name)}`
+  const dims = kind === 'ferragem' || kind === 'fita' ? '' : `|${pieceDimKey(item)}`
+  return `${kind}|${cat}|${normalizeExtractionKey(name)}${dims}`
 }
 
 function mergeMaterialList(existing: AnyRec[], incoming: AnyRec[], kind: string): AnyRec[] {
@@ -109,19 +195,75 @@ function mergeMaterialList(existing: AnyRec[], incoming: AnyRec[], kind: string)
     const next = { ...prev }
     for (const qtyKey of ['quantity', 'exact_quantity', 'full_units_quantity', 'meters']) {
       if (qtyKey in item || qtyKey in prev) {
-        next[qtyKey] = mergeNumeric(prev[qtyKey], item[qtyKey])
+        next[qtyKey] = mergeNumericMax(prev[qtyKey], item[qtyKey])
       }
+    }
+    // Preferir bounding_box da peça com mais evidência de página
+    const prevPage = pageFromBoundingBox(prev.bounding_box) || 0
+    const nextPage = pageFromBoundingBox(item.bounding_box) || 0
+    if (nextPage > 0 && (prevPage === 0 || nextPage < prevPage)) {
+      next.bounding_box = item.bounding_box
     }
     map.set(key, next)
   }
   return [...map.values()]
 }
 
+function moduleRichness(mod: AnyRec): number {
+  return (
+    asArray(mod.caixaria).length +
+    asArray(mod.frentes_portas).length +
+    asArray(mod.ferragens).length +
+    asArray(mod.fitas_borda_m).length
+  )
+}
+
+function dimsConflict(a: AnyRec, b: AnyRec, tol = 80): boolean {
+  const da = moduleDims(a)
+  const db = moduleDims(b)
+  if (da.w <= 0 || db.w <= 0) return false
+  return (
+    Math.abs(da.w - db.w) > tol ||
+    Math.abs(da.h - db.h) > tol ||
+    Math.abs(da.d - db.d) > tol
+  )
+}
+
+function preferredCanonicalName(a: AnyRec, b: AnyRec): string {
+  const richer = moduleRichness(b) > moduleRichness(a) ? b : a
+  const raw =
+    (typeof richer.name === 'string' && richer.name) ||
+    (typeof a.name === 'string' && a.name) ||
+    (typeof b.name === 'string' && b.name) ||
+    'Modulo'
+  return canonicalModuleName(raw)
+}
+
 function mergeModule(a: AnyRec, b: AnyRec): AnyRec {
+  // Vistas conflitantes da mesma família: fica a mais rica (evita somar Ilha pág.4 + pág.9)
+  if (dimsConflict(a, b)) {
+    const keep = moduleRichness(b) > moduleRichness(a) ? b : a
+    const drop = keep === a ? b : a
+    const notes = Array.isArray(keep.auditor_notes) ? [...(keep.auditor_notes as string[])] : []
+    notes.push(
+      `Vista espelho descartada em "${String(keep.name)}": cotas divergentes entre lotes (anti-fusão v12).`,
+    )
+    return {
+      ...keep,
+      name: preferredCanonicalName(a, b),
+      _discarded_view: {
+        name: drop.name,
+        dimensions: drop.dimensions,
+        richness: moduleRichness(drop),
+      },
+      auditor_notes: notes,
+    }
+  }
+
   return {
     ...a,
     ...b,
-    name: (typeof a.name === 'string' && a.name) || b.name,
+    name: preferredCanonicalName(a, b),
     description: a.description || b.description,
     dimensions: a.dimensions && Object.keys(a.dimensions as object).length ? a.dimensions : b.dimensions,
     bounding_box: a.bounding_box || b.bounding_box,
@@ -136,13 +278,227 @@ function mergeModule(a: AnyRec, b: AnyRec): AnyRec {
   }
 }
 
+export interface DuplicateViewFlag {
+  environment: string
+  module: string
+  reason: string
+  laterals?: number
+  doors?: number
+  tops?: number
+}
+
+function pieceAreaScore(p: AnyRec): number {
+  const w = Math.max(0, Number(p.width_mm) || 0)
+  const h = Math.max(0, Number(p.height_mm) || 0)
+  const q = Math.max(1, Number(p.quantity) || 1)
+  return w * h * q
+}
+
+function maxLateralsCap(mod: AnyRec): number {
+  const fam = moduleFamilyKey(typeof mod.name === 'string' ? mod.name : '')
+  // Painel/mesa: estrutura pode ter mais peças; caixa tipica = 2 laterais
+  if (/painel|mesa|nicho/.test(fam)) return 4
+  return 2
+}
+
+function maxDoorsCap(mod: AnyRec): number {
+  const { w } = moduleDims(mod)
+  return w > 0 ? Math.max(4, Math.ceil(w / 300) + 2) : 8
+}
+
+/** Mantém peças até o teto de qty (prioriza maior área×quantidade). */
+function clampPieceGroup(
+  pieces: AnyRec[],
+  pred: (p: AnyRec) => boolean,
+  maxQty: number,
+): { kept: AnyRec[]; removedQty: number } {
+  const target = pieces.filter(pred)
+  const others = pieces.filter((p) => !pred(p))
+  if (target.length === 0 || maxQty < 0) return { kept: pieces, removedQty: 0 }
+  const total = target.reduce((s, p) => s + Math.max(1, Number(p.quantity) || 1), 0)
+  if (total <= maxQty) return { kept: pieces, removedQty: 0 }
+
+  const sorted = [...target].sort((a, b) => pieceAreaScore(b) - pieceAreaScore(a))
+  const keptTarget: AnyRec[] = []
+  let remaining = maxQty
+  let removedQty = 0
+  for (const p of sorted) {
+    const q = Math.max(1, Number(p.quantity) || 1)
+    if (remaining <= 0) {
+      removedQty += q
+      continue
+    }
+    if (q <= remaining) {
+      keptTarget.push(p)
+      remaining -= q
+    } else {
+      keptTarget.push({ ...p, quantity: remaining })
+      removedQty += q - remaining
+      remaining = 0
+    }
+  }
+  return { kept: [...others, ...keptTarget], removedQty }
+}
+
+/**
+ * Corrige fusão de vistas: colapsa famílias e aplica tetos geométricos
+ * (laterais / portas / tampos). Fonte da verdade pós-LLM.
+ */
+export function forceDeduplicateViewQuantities(extraction: unknown): AnyRec {
+  if (!extraction || typeof extraction !== 'object') {
+    return { environments: [], auditor_notes: [], warnings: [] }
+  }
+  const root = extraction as AnyRec
+  const globalNotes = Array.isArray(root.auditor_notes)
+    ? [...(root.auditor_notes as string[])]
+    : []
+
+  const environments = asArray(root.environments).map((env) => {
+    const collapsed = collapseModulesByFamily(env)
+    const modules = asArray(collapsed.modules).map((mod) => {
+      if (mod.out_of_scope === true) {
+        return { ...mod, name: canonicalModuleName(typeof mod.name === 'string' ? mod.name : 'Modulo') }
+      }
+      const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      const canon = canonicalModuleName(modName)
+      const notes = Array.isArray(mod.auditor_notes) ? [...(mod.auditor_notes as string[])] : []
+      let caixaria = asArray(mod.caixaria)
+      let frentes = asArray(mod.frentes_portas)
+
+      const latCap = maxLateralsCap({ ...mod, name: canon })
+      const lat = clampPieceGroup(
+        caixaria,
+        (p) => /lateral/.test(normalizeExtractionKey(typeof p.function === 'string' ? p.function : '')),
+        latCap,
+      )
+      caixaria = lat.kept
+      if (lat.removedQty > 0) {
+        notes.push(
+          `Dedup geométrico: laterais reduzidas (~${lat.removedQty} un.) — teto ${latCap} em "${canon}".`,
+        )
+      }
+
+      const top = clampPieceGroup(
+        caixaria,
+        (p) => /tampo/.test(normalizeExtractionKey(typeof p.function === 'string' ? p.function : '')),
+        2,
+      )
+      caixaria = top.kept
+      if (top.removedQty > 0) {
+        notes.push(
+          `Dedup geométrico: tampos reduzidos (~${top.removedQty} un.) — teto 2 em "${canon}".`,
+        )
+      }
+
+      const doorCap = maxDoorsCap({ ...mod, name: canon })
+      const doors = clampPieceGroup(frentes, () => true, doorCap)
+      frentes = doors.kept
+      if (doors.removedQty > 0) {
+        notes.push(
+          `Dedup geométrico: portas/frentes reduzidas (~${doors.removedQty} un.) — teto ${doorCap} em "${canon}".`,
+        )
+      }
+
+      return {
+        ...mod,
+        name: canon,
+        caixaria,
+        frentes_portas: frentes,
+        auditor_notes: notes,
+      }
+    })
+    return { ...collapsed, modules }
+  })
+
+  return {
+    ...root,
+    environments,
+    auditor_notes: [...new Set(globalNotes)],
+  }
+}
+
+/** Tetos plausíveis por módulo — flag para circuit breaker (pós-clamp). */
+export function validatePlausibleQuantities(extraction: unknown): DuplicateViewFlag[] {
+  const flags: DuplicateViewFlag[] = []
+  if (!extraction || typeof extraction !== 'object') return flags
+  for (const env of asArray((extraction as AnyRec).environments)) {
+    const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
+    for (const mod of asArray(env.modules)) {
+      if (mod.out_of_scope === true) continue
+      const modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
+      let laterals = 0
+      let tops = 0
+      for (const p of asArray(mod.caixaria)) {
+        const fn = normalizeExtractionKey(typeof p.function === 'string' ? p.function : '')
+        const q = Math.max(1, Number(p.quantity) || 1)
+        if (/lateral/.test(fn)) laterals += q
+        if (/tampo/.test(fn)) tops += q
+      }
+      let doors = 0
+      for (const f of asArray(mod.frentes_portas)) {
+        doors += Math.max(1, Number(f.quantity) || 1)
+      }
+      const maxLaterals = maxLateralsCap(mod)
+      const maxDoors = maxDoorsCap(mod)
+      if (laterals > maxLaterals) {
+        flags.push({
+          environment: envName,
+          module: modName,
+          reason: `Laterais=${laterals} > ${maxLaterals} (possível fusão de vistas)`,
+          laterals,
+          doors,
+          tops,
+        })
+      }
+      if (doors > maxDoors) {
+        flags.push({
+          environment: envName,
+          module: modName,
+          reason: `Portas/frentes=${doors} > teto ${maxDoors}`,
+          laterals,
+          doors,
+          tops,
+        })
+      }
+      if (tops > 2) {
+        flags.push({
+          environment: envName,
+          module: modName,
+          reason: `Tampos=${tops} > 2 (possível duplicata de lote)`,
+          laterals,
+          doors,
+          tops,
+        })
+      }
+    }
+  }
+  return flags
+}
+
+/** Colapsa variantes do mesmo móvel físico dentro de um ambiente. */
+function collapseModulesByFamily(env: AnyRec): AnyRec {
+  const modules = new Map<string, AnyRec>()
+  for (const mod of asArray(env.modules)) {
+    const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
+    const key = moduleFamilyKey(name)
+    const normalized = { ...mod, name: canonicalModuleName(name) }
+    const prev = modules.get(key)
+    modules.set(key, prev ? mergeModule(prev, normalized) : normalized)
+  }
+  return {
+    ...env,
+    modules: [...modules.values()],
+  }
+}
+
 function mergeEnvironment(a: AnyRec, b: AnyRec): AnyRec {
   const modules = new Map<string, AnyRec>()
   for (const mod of [...asArray(a.modules), ...asArray(b.modules)]) {
     const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
-    const key = normalizeExtractionKey(name)
+    const key = moduleFamilyKey(name)
+    const normalized = { ...mod, name: canonicalModuleName(name) }
     const prev = modules.get(key)
-    modules.set(key, prev ? mergeModule(prev, mod) : { ...mod })
+    modules.set(key, prev ? mergeModule(prev, normalized) : normalized)
   }
   return {
     ...a,
@@ -173,8 +529,9 @@ export function mergeExtractions(parts: unknown[]): AnyRec {
     for (const env of asArray(root.environments)) {
       const name = typeof env.name === 'string' ? env.name : 'Ambiente'
       const key = normalizeExtractionKey(name)
+      const collapsed = collapseModulesByFamily(env)
       const prev = environments.get(key)
-      environments.set(key, prev ? mergeEnvironment(prev, env) : { ...env })
+      environments.set(key, prev ? mergeEnvironment(prev, collapsed) : collapsed)
     }
   }
 
@@ -200,16 +557,21 @@ export interface CoverageReport {
   expectedCount: number
 }
 
-/** Match estrito + fuzzy mínimo (evita falso “coberto”). */
+/** Match estrito + família canônica + fuzzy mínimo (evita falso “coberto”). */
 export function modulesMatchCoverage(a: string, b: string): boolean {
+  const famA = moduleFamilyKey(a)
+  const famB = moduleFamilyKey(b)
+  if (famA && famB && famA === famB) return true
   const ak = normalizeExtractionKey(a)
   const bk = normalizeExtractionKey(b)
   if (!ak || !bk) return false
   if (ak === bk) return true
-  if (ak.length >= 6 && bk.length >= 6 && (ak.includes(bk) || bk.includes(ak))) return true
-  const tokensA = ak.split(' ').filter((t) => t.length >= 5)
-  const tokensB = bk.split(' ').filter((t) => t.length >= 5)
-  if (tokensA.length >= 2 && tokensA.every((t) => bk.includes(t))) return true
+  if (ak.length >= 4 && bk.length >= 4 && (ak.includes(bk) || bk.includes(ak))) return true
+  const tokensA = ak.split(' ').filter((t) => t.length >= 4)
+  const tokensB = bk.split(' ').filter((t) => t.length >= 4)
+  if (tokensA.length >= 1 && tokensA.every((t) => bk.includes(t)) && tokensA.some((t) => t.length >= 4)) {
+    return tokensA.length >= 2 || famA === famB || ak === famB || bk === famA
+  }
   if (tokensB.length >= 2 && tokensB.every((t) => ak.includes(t))) return true
   return false
 }

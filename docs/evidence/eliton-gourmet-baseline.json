@@ -1,0 +1,198 @@
+{
+  "analysisId": "7f377e15-ff4f-4dcc-a7ed-26663aea7975",
+  "scoredAt": "2026-10-13T21:39:09.690Z",
+  "analysis": {
+    "status": "COMPLETED",
+    "mode": "max",
+    "pdf": "2c196e67-dd26-4e1c-839d-4d234f3a3dfd/7f377e15-ff4f-4dcc-a7ed-26663aea7975/ELITON GOURMET.pdf",
+    "pricing_modality": null,
+    "updated_at": "2026-10-13T20:26:16.274+00:00",
+    "totals": {
+      "modules": 8,
+      "coverage": null,
+      "warnings": [],
+      "inventory": [
+        {
+          "modules": [
+            "ilha",
+            "mesa de jantar",
+            "armário",
+            "torre geladeira",
+            "painel",
+            "ripado",
+            "cristaleira"
+          ],
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "modules": [
+            "bancada"
+          ],
+          "environment": "Lavabo"
+        }
+      ],
+      "environments": 2,
+      "pricing_note": "v11: venda apenas por BOM — reprocess phased retry",
+      "auditor_notes": [
+        "Movido \"Bancada\" de \"Lavabo\" → \"Espaço Gourmet\".",
+        "Removido \"Bancada\" do Espaço Gourmet por não haver evidência nas imagens.",
+        "Adicionado \"Torre Geladeira\" e \"Ripado\" conforme evidência nas imagens.",
+        "Corrigido bounding_box.page para todos os módulos conforme as imagens.",
+        "Adicionado \"Bancada\" no Lavabo conforme evidência nas imagens."
+      ],
+      "reprocessed_at": "2026-10-13T20:26:16.274Z",
+      "materials_count": 17,
+      "pages_processed": 21
+    }
+  },
+  "counts": {
+    "environments": 2,
+    "modules": 8,
+    "inScope": 8,
+    "materials": 17,
+    "bom_items": 0
+  },
+  "moduleStats": [
+    {
+      "id": "adda4005-251d-43ba-ab55-e6ac7257d4de",
+      "name": "Ilha",
+      "env": "Espaço Gourmet",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "0b1d2e46-698b-4657-81da-5b10456c6337",
+      "name": "Bancada Lavabo",
+      "env": "Lavabo",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "0f3e2ad0-00ee-4039-8a40-e900f256ea2d",
+      "name": "Mesa de Jantar",
+      "env": "Espaço Gourmet",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "389a5e36-218d-4839-880d-c3bf75c8627e",
+      "name": "Armário",
+      "env": "Espaço Gourmet",
+      "materials": 3,
+      "chapaCount": 2,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "82065acd-f4ae-444a-a9e5-76c37b1c2f0b",
+      "name": "Painel",
+      "env": "Espaço Gourmet",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "a1dbce9b-b15a-4193-9fe1-04bbd6e7a1d6",
+      "name": "Cristaleira",
+      "env": "Espaço Gourmet",
+      "materials": 8,
+      "chapaCount": 5,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "7f805ea1-6e8d-45ce-b57a-7529818dc37d",
+      "name": "Torre Geladeira",
+      "env": "Espaço Gourmet",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    },
+    {
+      "id": "8bfe92da-7797-40aa-811b-1f49249a65fb",
+      "name": "Ripado",
+      "env": "Espaço Gourmet",
+      "materials": 1,
+      "chapaCount": 1,
+      "tapeCount": 0,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": false
+    }
+  ],
+  "checks": {
+    "statusCompleted": {
+      "ok": true,
+      "value": "COMPLETED",
+      "threshold": "COMPLETED"
+    },
+    "gourmetAndLavabo": {
+      "ok": true,
+      "value": {
+        "hasGourmet": true,
+        "hasLavabo": true,
+        "envNames": [
+          "Espaço Gourmet",
+          "Lavabo"
+        ]
+      },
+      "threshold": "Gourmet + Lavabo"
+    },
+    "caixariaRichPct": {
+      "ok": false,
+      "value": 12.5,
+      "threshold": ">= 50%",
+      "detail": "1/8 módulos com ≥3 chapas"
+    },
+    "tapePctOfRich": {
+      "ok": true,
+      "value": 100,
+      "threshold": ">= 30% dos ricos",
+      "detail": "1/1 com fita"
+    },
+    "allPricesPositive": {
+      "ok": true,
+      "value": "17/17",
+      "threshold": "100%"
+    },
+    "bomItems": {
+      "ok": false,
+      "value": 0,
+      "threshold": "> 0"
+    }
+  },
+  "passCount": 4,
+  "totalChecks": 6,
+  "pass": false,
+  "thresholds": {
+    "statusCompleted": true,
+    "requireGourmetAndLavabo": true,
+    "minCaixariaRichPct": 0.5,
+    "minTapePctOfRich": 0.3,
+    "allPricesPositive": true,
+    "bomItemsRequired": true,
+    "minCaixariaPieces": 3
+  }
+}

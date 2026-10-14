@@ -46,7 +46,7 @@ export function fastenersForBox(
     ]
   }
 
-  // minifix_dowel
+  // minifix_dowel — Minifix + cavilha + VB35 (união de fundo/travessa, PRD v11)
   return [
     {
       item_category: 'fastener',
@@ -63,6 +63,14 @@ export function fastenersForBox(
       unit_of_measure: 'unit',
       unit_cost: 0.15,
       metadata: { device },
+    },
+    {
+      item_category: 'fastener',
+      item_description: 'VB35',
+      quantity: Math.max(2, Math.ceil(joints / 2)),
+      unit_of_measure: 'unit',
+      unit_cost: 0.95,
+      metadata: { device, use: 'fundo_travessa' },
     },
   ]
 }
@@ -100,14 +108,31 @@ export function doorHardwareLines(
   slidingDoors?: 2 | 3 | 4,
 ): BomLine[] {
   if (typology === 'armario_correr' && slidingDoors) {
+    const n = slidingDoors
     return [
       {
         item_category: 'hardware',
-        item_description: `Kit deslizante ${slidingDoors} portas`,
+        item_description: `Trilho superior ${n} portas`,
         quantity: 1,
         unit_of_measure: 'unit',
-        unit_cost: slidingDoors === 2 ? 180 : slidingDoors === 3 ? 260 : 340,
-        metadata: { sliding_doors: slidingDoors },
+        unit_cost: n === 2 ? 90 : n === 3 ? 130 : 170,
+        metadata: { sliding_doors: n, part: 'track_top' },
+      },
+      {
+        item_category: 'hardware',
+        item_description: `Trilho inferior ${n} portas`,
+        quantity: 1,
+        unit_of_measure: 'unit',
+        unit_cost: n === 2 ? 70 : n === 3 ? 100 : 130,
+        metadata: { sliding_doors: n, part: 'track_bottom' },
+      },
+      {
+        item_category: 'hardware',
+        item_description: 'Rodízio / carro deslizante',
+        quantity: n * 2,
+        unit_of_measure: 'unit',
+        unit_cost: 18,
+        metadata: { sliding_doors: n, part: 'roller' },
       },
     ]
   }
@@ -152,8 +177,13 @@ export function estimateHandleMeters(spec: ModuleSpec): number {
   const doors = spec.door_count ?? 0
   const drawers = spec.drawer_count ?? 0
   const sliding = spec.sliding_doors ?? 0
+  // Cava em travessa (recess): usa comprimento horizontal da travessa, não perfil vertical
+  if (spec.handle_recess_mm != null && (spec.typology === 'balcao' || spec.typology === 'aereo')) {
+    const cavaM = (spec.width_mm / 1000) * Math.max(1, doors || 1)
+    return Math.round(cavaM * 1000) / 1000
+  }
   // Perfil vertical por porta ≈ altura; gaveta ≈ largura útil
-  const doorM = ((doors || sliding) * (spec.height_mm / 1000))
+  const doorM = (doors || sliding) * (spec.height_mm / 1000)
   const drawerM = drawers * (Math.min(spec.width_mm, 600) / 1000)
   return Math.round((doorM + drawerM) * 1000) / 1000
 }

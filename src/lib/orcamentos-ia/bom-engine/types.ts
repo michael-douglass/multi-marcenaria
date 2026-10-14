@@ -74,8 +74,33 @@ export interface ModuleSpec {
   top_shelf?: boolean
   /** Tampo/prateleira engrossada */
   doubled_top?: boolean
+  /**
+   * Recuo de puxador cava em travessa (Módulo 2): 0 = topo, 20 = intermediário, 40 = padrão de pega.
+   */
+  handle_recess_mm?: 0 | 20 | 40
+  /**
+   * Avanço da porta para baixo em aéreos com puxador passante (10–30 mm), Módulo 2.
+   */
+  door_overhang_mm?: number
+  /** Tamponamento envoltório 18/25 mm em armário de correr (Módulo 7). */
+  sliding_envelope?: boolean
   material_name?: string
   room_tag?: string
+}
+
+/** Etiqueta industrial por peça (ambiente → triagem na obra). */
+export interface IndustrialLabel {
+  room_tag: string
+  module_name: string
+  piece_id: string
+  piece_name: string
+  role: PieceRole
+  width_mm: number
+  height_mm: number
+  thickness_mm: number
+  quantity: number
+  column_index?: number
+  barcode_payload: string
 }
 
 export interface ExplodeResult {
@@ -84,4 +109,6 @@ export interface ExplodeResult {
   chainOfThought: string
   warnings: string[]
   mountingDevice: string
+  /** Etiquetas industriais (Módulos 5–6); pode estar vazio. */
+  labels?: IndustrialLabel[]
 }

@@ -1,0 +1,205 @@
+{
+  "analysisId": "7f377e15-ff4f-4dcc-a7ed-26663aea7975",
+  "scoredAt": "2026-10-13T21:45:38.685Z",
+  "analysis": {
+    "status": "COMPLETED",
+    "mode": "max",
+    "pdf": "2c196e67-dd26-4e1c-839d-4d234f3a3dfd/7f377e15-ff4f-4dcc-a7ed-26663aea7975/ELITON GOURMET.pdf",
+    "pricing_modality": "mpc_margin",
+    "updated_at": "2026-10-13T21:45:38.177+00:00",
+    "totals": {
+      "modules": 8,
+      "coverage": null,
+      "warnings": [],
+      "inventory": [
+        {
+          "modules": [
+            "ilha",
+            "mesa de jantar",
+            "armário",
+            "torre geladeira",
+            "painel",
+            "ripado",
+            "cristaleira"
+          ],
+          "environment": "Espaço Gourmet"
+        },
+        {
+          "modules": [
+            "bancada"
+          ],
+          "environment": "Lavabo"
+        }
+      ],
+      "priced_at": "2026-10-13T21:45:38.176Z",
+      "sale_price": 21446.83,
+      "environments": 2,
+      "pricing_note": "v11: venda apenas por BOM — reprocess phased retry",
+      "auditor_notes": [
+        "Movido \"Bancada\" de \"Lavabo\" → \"Espaço Gourmet\".",
+        "Removido \"Bancada\" do \"Espaço Gourmet\" por não haver evidência nas imagens.",
+        "Adicionado \"Torre Geladeira\" e \"Ripado\" ao \"Espaço Gourmet\" com base nas imagens."
+      ],
+      "materials_cost": 11795.759,
+      "reprocessed_at": "2026-10-13T21:42:39.531Z",
+      "bom_items_count": 55,
+      "engineering_cot": "### Ilha\nInterpretação: módulo \"Ilha\" como tipologia balcao.\nCotas externas: L=1500 × A=900 × P=600 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 600×900×15 mm (qtd 2).\nBase (under_sides): 1500×600 mm (passante = L).\nÁrea de chapas: 10.082 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=30.15 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 9 peça(s).\n\n### Mesa de Jantar\nInterpretação: módulo \"Mesa de Jantar\" como tipologia outro.\nCotas externas: L=2000 × A=750 × P=1000 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 1000×750×15 mm (qtd 2).\nBase (under_sides): 2000×1000 mm (passante = L).\nÁrea de chapas: 6.918 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=12.97 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 4 peça(s).\n\n### Painel\nInterpretação: módulo \"Painel\" como tipologia painel.\nCotas externas: L=3200 × A=2100 × P=50 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nPainel: peça principal + sarrafos/mão amiga.\nÁrea de chapas: 7.392 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=20.2 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 2 peça(s).\n\n### Armário\nInterpretação: módulo \"Armário\" como tipologia armario_giro.\nCotas externas: L=800 × A=720 × P=500 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 500×720×15 mm (qtd 2).\nBase (under_sides): 800×500 mm (passante = L).\nÁrea de chapas: 2.621 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=9.478 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 5 peça(s).\n\n### Cristaleira\nInterpretação: módulo \"Cristaleira\" como tipologia armario_giro.\nCotas externas: L=800 × A=2700 × P=500 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 500×2700×15 mm (qtd 2).\nBase (under_sides): 800×500 mm (passante = L).\nÁrea de chapas: 8.075 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=22.128 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 6 peça(s).\n\n### Torre Geladeira\nInterpretação: módulo \"Torre Geladeira\" como tipologia armario_giro.\nCotas externas: L=1000 × A=2600 × P=600 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 600×2600×15 mm (qtd 2).\nBase (under_sides): 1000×600 mm (passante = L).\nÁrea de chapas: 9.393 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=27.148 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 5 peça(s).\n\n### Ripado\nInterpretação: módulo \"Ripado\" como tipologia painel.\nCotas externas: L=1000 × A=2600 × P=50 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nPainel: peça principal + sarrafos/mão amiga.\nÁrea de chapas: 2.810 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=10.2 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Espaço Gourmet.\nEtiquetas industriais geradas: 2 peça(s).\n\n### Bancada Lavabo\nInterpretação: módulo \"Bancada Lavabo\" como tipologia balcao.\nCotas externas: L=1650 × A=900 × P=470 mm.\nPreferências: base=under_sides, tampo=over_sides, MDF=15 mm, fixação efetiva=minifix_dowel, fita=visible_edges.\nLaterais: 470×900×15 mm (qtd 2).\nBase (under_sides): 1650×470 mm (passante = L).\nÁrea de chapas: 9.281 m² → conversão comercial com perda 15% (chapa 2,75×1,85 = 5,0875 m²).\nFitas (visible_edges): Fita de Borda 22mm=30.68 m.\nFerragens/conectores calculados por unidade individual (nunca por pacote).\nEtiqueta de ambiente: Lavabo.\nEtiquetas industriais geradas: 9 peça(s).",
+      "materials_count": 43,
+      "pages_processed": 21,
+      "pricing_formula": "Custo ÷ (1 − 45%)",
+      "pricing_modality": "mpc_margin",
+      "using_facade_sqm": false,
+      "sheet_area_m2_ref": 18.415
+    }
+  },
+  "counts": {
+    "environments": 2,
+    "modules": 8,
+    "inScope": 8,
+    "materials": 43,
+    "bom_items": 55
+  },
+  "moduleStats": [
+    {
+      "id": "ad6fb158-145b-4b7a-83b2-5c3d0b0c56a1",
+      "name": "Ilha",
+      "env": "Espaço Gourmet",
+      "materials": 6,
+      "chapaCount": 4,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "26d6b7e3-0098-4058-9e2a-ba6cde59e109",
+      "name": "Bancada Lavabo",
+      "env": "Lavabo",
+      "materials": 4,
+      "chapaCount": 3,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "294b961c-095f-4144-9729-79f4c9b56aad",
+      "name": "Mesa de Jantar",
+      "env": "Espaço Gourmet",
+      "materials": 4,
+      "chapaCount": 2,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": true
+    },
+    {
+      "id": "0e5d2490-b3f7-45b6-aded-7240357d4892",
+      "name": "Painel",
+      "env": "Espaço Gourmet",
+      "materials": 3,
+      "chapaCount": 1,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": true
+    },
+    {
+      "id": "a91aaf60-03de-44d5-b1b9-894a75d7a73e",
+      "name": "Armário",
+      "env": "Espaço Gourmet",
+      "materials": 10,
+      "chapaCount": 7,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "a91e28f5-972d-47df-931b-8921235be750",
+      "name": "Cristaleira",
+      "env": "Espaço Gourmet",
+      "materials": 9,
+      "chapaCount": 6,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "23b7f8f8-3d06-40d2-a4be-b5ec042a5ecc",
+      "name": "Torre Geladeira",
+      "env": "Espaço Gourmet",
+      "materials": 5,
+      "chapaCount": 4,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": true,
+      "hasTape": true
+    },
+    {
+      "id": "e0966012-87ad-4c5d-8ef1-fcb1e597f5ed",
+      "name": "Ripado",
+      "env": "Espaço Gourmet",
+      "materials": 2,
+      "chapaCount": 1,
+      "tapeCount": 1,
+      "zeroPrice": 0,
+      "richCaixaria": false,
+      "hasTape": true
+    }
+  ],
+  "checks": {
+    "statusCompleted": {
+      "ok": true,
+      "value": "COMPLETED",
+      "threshold": "COMPLETED"
+    },
+    "gourmetAndLavabo": {
+      "ok": true,
+      "value": {
+        "hasGourmet": true,
+        "hasLavabo": true,
+        "envNames": [
+          "Espaço Gourmet",
+          "Lavabo"
+        ]
+      },
+      "threshold": "Gourmet + Lavabo"
+    },
+    "caixariaRichPct": {
+      "ok": true,
+      "value": 62.5,
+      "threshold": ">= 50%",
+      "detail": "5/8 módulos com ≥3 chapas"
+    },
+    "tapePctOfRich": {
+      "ok": true,
+      "value": 100,
+      "threshold": ">= 30% dos ricos",
+      "detail": "5/5 com fita"
+    },
+    "allPricesPositive": {
+      "ok": true,
+      "value": "43/43",
+      "threshold": "100%"
+    },
+    "bomItems": {
+      "ok": true,
+      "value": 55,
+      "threshold": "> 0"
+    }
+  },
+  "passCount": 6,
+  "totalChecks": 6,
+  "pass": true,
+  "thresholds": {
+    "statusCompleted": true,
+    "requireGourmetAndLavabo": true,
+    "minCaixariaRichPct": 0.5,
+    "minTapePctOfRich": 0.3,
+    "allPricesPositive": true,
+    "bomItemsRequired": true,
+    "minCaixariaPieces": 3
+  }
+}

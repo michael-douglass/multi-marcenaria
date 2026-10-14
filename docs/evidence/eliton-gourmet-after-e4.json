@@ -1,0 +1,13 @@
+{
+  "analysisId": "7f377e15-ff4f-4dcc-a7ed-26663aea7975",
+  "status": "COMPLETED",
+  "materials": 43,
+  "zeroPrices": 0,
+  "modality": "mpc_margin",
+  "materialsCost": 11795.759,
+  "salePrice": 21446.83,
+  "formula": "Custo ÷ (1 − 45%)",
+  "sheetAreaM2Ref": 18.415,
+  "usingFacadeSqm": false,
+  "pass": true
+}

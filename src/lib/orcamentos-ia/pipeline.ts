@@ -15,10 +15,14 @@ import {
 } from '@/lib/orcamentos-ia/schemas'
 import {
   barsOf3mFromMeters,
+  calculateQuotePricing,
   CONTINGENCY_PRICE_WARNING,
   createPriceResolver,
+  DEFAULT_PRICING_PARAMS,
   endCapsForHandleBars,
+  normalizePricingModality,
   repriceZeroMaterials,
+  type PricingParams,
   type ResolvedMaterialPrice,
 } from '@/lib/orcamentos-ia/pricing'
 import {
@@ -31,17 +35,25 @@ import {
   buildPageImagePath,
   ensureModulePlaceholder,
   findMarcenariaBomGaps,
+  forceDeduplicateViewQuantities,
   mergeExtractions,
+  modulesMatchCoverage,
   pageFromBoundingBox,
   sanitizeInventory,
+  validatePlausibleQuantities,
   type CoverageReport,
   type InventoryEnv,
 } from '@/lib/orcamentos-ia/merge-extraction'
+import {
+  applyDualMaterialBoxDefaults,
+  evaluateCircuitBreaker,
+} from '@/lib/orcamentos-ia/circuit-breaker'
 import {
   formatMemoriesForPrompt,
   getCompanyMemories,
 } from '@/lib/orcamentos-ia/memory'
 import {
+  DEFAULT_COMPANY_STANDARDS,
   formatPreferencesForPrompt,
   getSystemPreferences,
 } from '@/lib/orcamentos-ia/system-preferences'
@@ -64,7 +76,8 @@ import {
  * Pipeline multi-agente (Fase 3).
  * - Orquestração: LangGraph no cliente (status + páginas + persistência).
  * - Visão/extração/auditoria: Edge Function `orcamentos-ia-pipeline`
- *   (OpenAI gpt-4o + o3-mini; chave só no servidor).
+ *   (modo max = Claude Opus estrito na Edge, sem fallback gpt-4o;
+ *   modo pro = OpenAI gpt-4o / o3-mini; chaves só no servidor).
  * - Preços: `createPriceResolver` (alias → inventory → market → contingência; nunca R$ 0).
  */
 
@@ -81,6 +94,8 @@ async function setAnalysisStatus(
     thought_kind?: 'info' | 'vision' | 'audit' | 'price' | 'warn' | 'done'
     /** Se false, não grava linha no thought_log (evita spam em progresso de página). */
     thought?: boolean
+    pricing_modality?: string | null
+    pricing_params?: Record<string, unknown> | null
   },
 ) {
   let totalsPatch = extra?.totals
@@ -142,6 +157,10 @@ async function setAnalysisStatus(
       updated_at: new Date().toISOString(),
       ...(extra?.error_message !== undefined ? { error_message: extra.error_message } : {}),
       ...(totalsPatch ? { totals: totalsPatch } : {}),
+      ...(extra?.pricing_modality !== undefined
+        ? { pricing_modality: extra.pricing_modality }
+        : {}),
+      ...(extra?.pricing_params !== undefined ? { pricing_params: extra.pricing_params } : {}),
     })
     .eq('id', analysisId)
   if (error) throw new Error(error.message)
@@ -354,7 +373,9 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
   return { pagePaths }
 }
 
-const EDGE_EXTRACT_BATCH = 6
+/** Lotes menores no max (Claude Vision) evitam 504 do gateway Supabase (~150s). */
+const EDGE_EXTRACT_BATCH_PRO = 6
+const EDGE_EXTRACT_BATCH_MAX = 3
 
 function chunkPaths<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -374,17 +395,7 @@ async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
   pagesProcessed?: number
 }> {
   const { data, error } = await supabase.functions.invoke('orcamentos-ia-pipeline', { body })
-  if (error) {
-    const msg = error.message || 'Falha ao chamar o pipeline de IA.'
-    // Gateway 504 costuma vir como "non-2xx" genérico
-    if (/non-2xx|504|timeout|timed out/i.test(msg)) {
-      throw new Error(
-        'A IA demorou demais nesta etapa (limite do servidor). Vou tentar de novo em etapas menores — clique em Retomar.',
-      )
-    }
-    throw new Error(msg)
-  }
-  const payload = data as {
+  type PipelinePayload = {
     ok?: boolean
     error?: string
     extraction?: unknown
@@ -394,6 +405,45 @@ async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
     auditNeedsRerun?: boolean
     hallucinationScore?: number
     pagesProcessed?: number
+  }
+  let payload = (data ?? null) as PipelinePayload | null
+
+  // FunctionsHttpError: corpo JSON fica em error.context (não em data)
+  if (error) {
+    let bodyErr = typeof payload?.error === 'string' ? payload.error.trim() : ''
+    if (!bodyErr) {
+      try {
+        const ctx = (error as { context?: Response }).context
+        if (ctx && typeof ctx.json === 'function') {
+          const cloned = typeof ctx.clone === 'function' ? ctx.clone() : ctx
+          const parsed = (await cloned.json()) as PipelinePayload
+          if (parsed && typeof parsed === 'object') {
+            payload = parsed
+            if (typeof parsed.error === 'string') bodyErr = parsed.error.trim()
+          }
+        } else if (ctx && typeof ctx.text === 'function') {
+          const text = await ctx.text()
+          const parsed = JSON.parse(text) as PipelinePayload
+          if (typeof parsed?.error === 'string') {
+            payload = parsed
+            bodyErr = parsed.error.trim()
+          }
+        }
+      } catch {
+        /* ignore parse */
+      }
+    }
+    const msg = bodyErr || error.message || 'Falha ao chamar o pipeline de IA.'
+    // Só tratar como timeout se não houver erro explícito da Edge
+    if (
+      !bodyErr &&
+      /non-2xx|504|502|timeout|timed out/i.test(error.message || '')
+    ) {
+      throw new Error(
+        'A IA demorou demais nesta etapa (limite do servidor). Vou tentar de novo em etapas menores — clique em Retomar.',
+      )
+    }
+    throw new Error(msg)
   }
   if (!payload?.ok) {
     throw new Error(payload?.error || 'Pipeline de IA retornou erro.')
@@ -415,26 +465,22 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     matchThreshold: 0.65,
     matchCount: 12,
   })
+  // Default-with-Override: lê company_standards (system_preferences) e injeta no Extrator/Auditor
   let prefsPrompt = ''
+  let invokePrefs = DEFAULT_COMPANY_STANDARDS(state.companyId)
   try {
-    const prefs = await getSystemPreferences(state.companyId)
-    prefsPrompt = formatPreferencesForPrompt(prefs)
+    invokePrefs = await getSystemPreferences(state.companyId)
+    prefsPrompt = formatPreferencesForPrompt(invokePrefs)
   } catch {
-    prefsPrompt = formatPreferencesForPrompt({
-      company_id: state.companyId,
-      base_assembly: 'under_sides',
-      top_assembly: 'over_sides',
-      mounting_device: 'minifix_dowel',
-      back_panel_type: 'grooved',
-      back_panel_thickness: 6,
-      drawer_slide_type: 'telescopic',
-      front_gap_mm: 2,
-      box_thickness_mm: 15,
-      shelf_recess_mm: 10,
-      edgeband_policy: 'visible_edges',
-    })
+    prefsPrompt = formatPreferencesForPrompt(invokePrefs)
   }
-  const ragPrompt = [prefsPrompt, formatMemoriesForPrompt(memories)].filter(Boolean).join('\n\n')
+  const ragPrompt = [
+    'REGRA DE OURO — COMPANY STANDARDS: se o bloco abaixo trouxer valores salvos pelo marceneiro, eles prevalecem sobre qualquer default genérico do prompt estático.',
+    prefsPrompt,
+    formatMemoriesForPrompt(memories),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   // Fases curtas no Edge (inventory → extract por lote → audit) evitam 504 do gateway.
   const invPayload = await invokeOrcamentosIaPhase({
@@ -450,7 +496,9 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     Array.isArray(invPayload.inventory) ? (invPayload.inventory as InventoryEnv[]) : [],
   )
 
-  const batches = chunkPaths(state.pagePaths, EDGE_EXTRACT_BATCH)
+  const extractBatchSize =
+    state.mode === 'max' ? EDGE_EXTRACT_BATCH_MAX : EDGE_EXTRACT_BATCH_PRO
+  const batches = chunkPaths(state.pagePaths, extractBatchSize)
   const batchExtractions: unknown[] = []
   for (let bi = 0; bi < batches.length; bi++) {
     await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
@@ -472,7 +520,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     batchExtractions.push(part.extraction)
   }
 
-  let mergedRaw = mergeExtractions(batchExtractions)
+  let mergedRaw = forceDeduplicateViewQuantities(mergeExtractions(batchExtractions))
 
   if (state.mode === 'max') {
     await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
@@ -481,20 +529,23 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       thought_kind: 'audit',
     })
     try {
-      // Edge faz até 3 passagens com janela de 8 imagens; enviamos até 24 páginas para a janela deslizar.
+      // Edge faz passagens com janela de imagens; no max (Claude) envia menos páginas p/ evitar 504.
+      const auditPageCap = state.mode === 'max' ? 12 : 24
       const aud = await invokeOrcamentosIaPhase({
         analysisId: state.analysisId,
         companyId: state.companyId,
         mode: state.mode,
-        pagePaths: state.pagePaths.slice(0, 24),
+        pagePaths: state.pagePaths.slice(0, auditPageCap),
         phase: 'audit',
         inventory,
         extraction: mergedRaw,
         ragMemoriesPrompt: ragPrompt,
         models: ORCAMENTOS_IA_MODELS,
       })
-      // Árvore do auditor substitui (pode ter removido alucinações) — não só merge que soma.
-      if (aud.extraction) mergedRaw = aud.extraction
+      // Árvore do auditor substitui (pode ter removido alucinações) — reaplica dedup geométrico.
+      if (aud.extraction) {
+        mergedRaw = forceDeduplicateViewQuantities(mergeExtractions([aud.extraction]))
+      }
     } catch (auditErr) {
       const msg = auditErr instanceof Error ? auditErr.message : String(auditErr)
       console.warn('[pipeline] auditoria pulada:', msg)
@@ -515,7 +566,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     pagesProcessed: state.pagePaths.length,
   }
 
-  const merged = mergeExtractions([payload.extraction])
+  const merged = forceDeduplicateViewQuantities(mergeExtractions([payload.extraction]))
   let sanitized = sanitizeExtractionPayload(applyAntiHallucinationHeuristics(merged))
   let parsed = quoteExtractionSchema.safeParse(sanitized)
   // Segunda chance: nulls/vazios da IA — limpa de novo e revalida
@@ -536,6 +587,21 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     throw new Error(
       `Resposta do Extrator fora do schema esperado${detail ? ` (${detail})` : ''}.`,
     )
+  }
+
+  // Dual material Cortecloud: caixote interno → MDF Branco TX (espessura da fábrica)
+  const dualApplied = applyDualMaterialBoxDefaults(
+    parsed.data,
+    invokePrefs.box_thickness_mm ?? DEFAULT_COMPANY_STANDARDS(state.companyId).box_thickness_mm,
+  )
+  const dualParsed = quoteExtractionSchema.safeParse(dualApplied)
+  if (dualParsed.success) parsed = dualParsed
+
+  // Porta final: família canônica + tetos geométricos (laterais/portas/tampos) pós-LLM.
+  {
+    const clamped = forceDeduplicateViewQuantities(parsed.data)
+    const reparsed = quoteExtractionSchema.safeParse(clamped)
+    if (reparsed.success) parsed = reparsed
   }
 
   const estimatedPieces = parsed.data.environments
@@ -675,7 +741,12 @@ function stripNullOptionals(value: unknown): unknown {
   return out
 }
 
-/** null/NaN em edge_banding derrubava o Zod (.optional() aceita undefined, não null). */
+/**
+ * null/NaN em edge_banding derrubava o Zod (.optional() aceita undefined, não null).
+ * Convenção Cortecloud (HAR): C1/C2 = arestas do comprimento (c); L1/L2 = arestas da largura (l).
+ * Ver docs/evidence/cortecloud-caixaria-report.md e schemas.caixariaPieceSchema.
+ */
+/** Sanitiza edge_banding para o Zod. */
 function sanitizePieceEdgeBanding(item: unknown): unknown {
   if (!item || typeof item !== 'object') return item
   const row = { ...(item as Record<string, unknown>) }
@@ -1127,39 +1198,134 @@ async function nodeResolvePricesAndPersist(
     (prevTotals.coverage as CoverageReport | undefined) ??
     buildCoverageReport(inventory, state.extraction)
 
+  // v12: gravar sale_price / MPC obrigatoriamente
+  const { data: analysisRow } = await supabase
+    .from('quote_analyses')
+    .select('pricing_modality, pricing_params')
+    .eq('id', state.analysisId)
+    .maybeSingle()
+
+  const modality = normalizePricingModality(
+    analysisRow?.pricing_modality || DEFAULT_PRICING_PARAMS.modality,
+  )
+  const rawParams =
+    analysisRow?.pricing_params && typeof analysisRow.pricing_params === 'object'
+      ? (analysisRow.pricing_params as Record<string, unknown>)
+      : {}
+  const pricingParams: PricingParams = {
+    ...DEFAULT_PRICING_PARAMS,
+    modality,
+    mpcPercent:
+      Number(rawParams.mpcPercent ?? rawParams.mpc_margin_pct) ||
+      DEFAULT_PRICING_PARAMS.mpcPercent,
+    materialMultiplier:
+      Number(rawParams.materialMultiplier ?? rawParams.multiplier_n) ||
+      DEFAULT_PRICING_PARAMS.materialMultiplier,
+  }
+
+  const treeResult = await loadQuoteAnalysisTree(state.analysisId)
+  if (!treeResult.data) {
+    throw new Error(treeResult.error || 'Falha ao carregar árvore para precificação.')
+  }
+  const tree = treeResult.data
+  const pricingResult = calculateQuotePricing(tree, pricingParams)
+  const duplicateFlags = validatePlausibleQuantities(state.extraction)
+  const flatMats = tree.environments.flatMap((e) =>
+    e.modules.flatMap((m) => m.materials),
+  )
+
+  const financialTotals = {
+    materials_cost: pricingResult.materialsCost,
+    cost_price: pricingResult.materialsCost,
+    sale_price: pricingResult.salePrice,
+    mpc_margin_pct:
+      pricingResult.modality === 'mpc_margin' ? pricingParams.mpcPercent : null,
+    multiplier_n:
+      pricingResult.modality === 'material_multiplier'
+        ? pricingParams.materialMultiplier
+        : null,
+    pricing_modality: pricingResult.modality,
+    pricing_formula: pricingResult.formulaLabel,
+    sheet_area_m2_ref: pricingResult.totalAreaSqm,
+    priced_at: new Date().toISOString(),
+    using_facade_sqm: false,
+  }
+
+  const breaker = evaluateCircuitBreaker({
+    extraction: state.extraction,
+    materials: flatMats,
+    coverage,
+    pricing: financialTotals,
+    prefs: systemPrefs,
+    duplicateFlags,
+    enforceBrancoTx: true,
+  })
+
+  const nextTotals: Record<string, unknown> = {
+    ...prevTotals,
+    materials_count: materialsSaved,
+    bom_items_count: bomItemsSaved,
+    market_price_flags: marketFlags,
+    out_of_scope_modules: outOfScopeCount,
+    environments: state.extraction.environments.length,
+    modules: state.extraction.environments.reduce((n, e) => n + e.modules.length, 0),
+    auditor_notes: state.extraction.auditor_notes,
+    engineering_cot: engineeringCot.join('\n\n'),
+    pricing_note:
+      'v12: venda apenas por BOM (MPC% ou ×N) — circuit breaker; proibido m² de fachada',
+    warnings: [
+      ...(Array.isArray(state.extraction.warnings) ? state.extraction.warnings : []),
+      ...(coverage.missing.length
+        ? [
+            `Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`,
+          ]
+        : []),
+      ...(coverage.extras?.length
+        ? [
+            `Possíveis alucinações: ${coverage.extras.length} módulo(s) a mais que o inventário — confira no PDF.`,
+          ]
+        : []),
+      ...(!breaker.ok
+        ? breaker.blockers.map((b) => `Circuit breaker: ${b}`)
+        : []),
+    ],
+    inventory,
+    coverage,
+    last_extraction: state.extraction,
+    duplicate_view_flags: duplicateFlags,
+    circuit_breaker: breaker,
+    ...financialTotals,
+  }
+
+  const pricingParamsPersist = {
+    mpcPercent: pricingParams.mpcPercent,
+    materialMultiplier: pricingParams.materialMultiplier,
+    mpc_margin_pct: pricingParams.mpcPercent,
+    multiplier_n: pricingParams.materialMultiplier,
+    modality: pricingResult.modality,
+  }
+
+  if (!breaker.ok) {
+    await setAnalysisStatus(state.analysisId, 'NEEDS_REVIEW', {
+      error_message: breaker.blockers[0] || 'Circuit breaker: revisão necessária',
+      pipeline_stage: 'needs_review',
+      pipeline_detail: `Circuit breaker: ${breaker.blockers.slice(0, 2).join(' | ')}`,
+      thought_kind: 'warn',
+      pricing_modality: pricingResult.modality,
+      pricing_params: pricingParamsPersist,
+      totals: nextTotals,
+    })
+    return { materialsSaved }
+  }
+
   await setAnalysisStatus(state.analysisId, 'COMPLETED', {
     error_message: null,
     pipeline_stage: 'completed',
     pipeline_detail: 'Pronto — análise concluída. Você já pode revisar chapas e ferragens.',
     thought_kind: 'done',
-    totals: {
-      ...prevTotals,
-      materials_count: materialsSaved,
-      bom_items_count: bomItemsSaved,
-      market_price_flags: marketFlags,
-      out_of_scope_modules: outOfScopeCount,
-      environments: state.extraction.environments.length,
-      modules: state.extraction.environments.reduce((n, e) => n + e.modules.length, 0),
-      auditor_notes: state.extraction.auditor_notes,
-      engineering_cot: engineeringCot.join('\n\n'),
-      pricing_note: 'v11: venda apenas por BOM (MPC% ou ×N) — proibido m² de fachada',
-      warnings: [
-        ...(Array.isArray(state.extraction.warnings) ? state.extraction.warnings : []),
-        ...(coverage.missing.length
-          ? [
-              `Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`,
-            ]
-          : []),
-        ...(coverage.extras?.length
-          ? [
-              `Possíveis alucinações: ${coverage.extras.length} módulo(s) a mais que o inventário — confira no PDF.`,
-            ]
-          : []),
-      ],
-      inventory,
-      coverage,
-      last_extraction: state.extraction,
-    },
+    pricing_modality: pricingResult.modality,
+    pricing_params: pricingParamsPersist,
+    totals: nextTotals,
   })
 
   return { materialsSaved }
@@ -1343,13 +1509,14 @@ export async function reauditOrcamentosIaAnalysis(params: {
     thought_kind: 'audit',
   })
 
+  const reauditMode = row.mode === 'pro' ? 'pro' : 'max'
   let aud: Awaited<ReturnType<typeof invokeOrcamentosIaPhase>>
   try {
     aud = await invokeOrcamentosIaPhase({
       analysisId: params.analysisId,
       companyId: params.companyId,
-      mode: row.mode === 'pro' ? 'pro' : 'max',
-      pagePaths: paths.slice(0, 24),
+      mode: reauditMode,
+      pagePaths: paths.slice(0, reauditMode === 'max' ? 12 : 24),
       phase: 'audit',
       inventory,
       extraction: seedExtraction,
@@ -1366,7 +1533,10 @@ export async function reauditOrcamentosIaAnalysis(params: {
     return { ok: false, error: message }
   }
 
-  const audited = aud.extraction && typeof aud.extraction === 'object' ? aud.extraction : null
+  const auditedRaw = aud.extraction && typeof aud.extraction === 'object' ? aud.extraction : null
+  const audited = auditedRaw
+    ? forceDeduplicateViewQuantities(mergeExtractions([auditedRaw]))
+    : null
   const coverage =
     aud.coverage ??
     buildCoverageReport(inventory, audited ?? seedExtraction)
@@ -1383,14 +1553,19 @@ export async function reauditOrcamentosIaAnalysis(params: {
       : []
     for (const env of envs) {
       const treeEnv = tree.environments.find(
-        (e) => normalizeKey(e.name) === normalizeKey(env.name || ''),
+        (e) =>
+          normalizeKey(e.name) === normalizeKey(env.name || '') ||
+          modulesMatchCoverage(e.name, env.name || ''),
       )
       if (!treeEnv) continue
       for (const mod of Array.isArray(env.modules) ? env.modules : []) {
         if (!mod || typeof mod !== 'object') continue
         const rec = mod as Record<string, unknown>
         const name = typeof rec.name === 'string' ? rec.name : ''
-        const treeMod = treeEnv.modules.find((m) => normalizeKey(m.name) === normalizeKey(name))
+        const treeMod = treeEnv.modules.find(
+          (m) =>
+            normalizeKey(m.name) === normalizeKey(name) || modulesMatchCoverage(m.name, name),
+        )
         if (!treeMod) continue
         const bbox = rec.bounding_box
         const page =
@@ -1423,19 +1598,70 @@ export async function reauditOrcamentosIaAnalysis(params: {
       ? (prevTotals.auditor_notes as string[])
       : []
 
-  await setAnalysisStatus(params.analysisId, 'COMPLETED', {
-    error_message: null,
-    pipeline_stage: 'completed',
-    pipeline_detail: auditNeedsRerun
-      ? 'Reauditoria: ainda há pontos a conferir (cobertura/BOM/marcações).'
-      : 'Reauditoria concluída — móveis e preços conferidos.',
-    thought_kind: 'done',
+  const reauditTree = await loadQuoteAnalysisTree(params.analysisId)
+  const reauditMats =
+    reauditTree.data?.environments.flatMap((e) => e.modules.flatMap((m) => m.materials)) ||
+    flatMats
+  const reauditPricingParams: PricingParams = {
+    ...DEFAULT_PRICING_PARAMS,
+    modality: normalizePricingModality(
+      (prevTotals.pricing_modality as string) || DEFAULT_PRICING_PARAMS.modality,
+    ),
+  }
+  const reauditPricing = reauditTree.data
+    ? calculateQuotePricing(reauditTree.data, reauditPricingParams)
+    : null
+  const reauditFinancial = {
+    materials_cost: reauditPricing?.materialsCost ?? (Number(prevTotals.materials_cost) || 0),
+    cost_price: reauditPricing?.materialsCost ?? (Number(prevTotals.cost_price) || 0),
+    sale_price: reauditPricing?.salePrice ?? (Number(prevTotals.sale_price) || 0),
+    mpc_margin_pct: reauditPricingParams.mpcPercent,
+    multiplier_n: reauditPricingParams.materialMultiplier,
+    pricing_modality: reauditPricing?.modality ?? reauditPricingParams.modality,
+    pricing_formula: reauditPricing?.formulaLabel ?? null,
+    priced_at: new Date().toISOString(),
+    using_facade_sqm: false,
+  }
+  const reauditExtraction =
+    audited ?? forceDeduplicateViewQuantities(mergeExtractions([seedExtraction]))
+  const reauditDup = validatePlausibleQuantities(reauditExtraction)
+  const reauditBreaker = evaluateCircuitBreaker({
+    extraction: reauditExtraction,
+    materials: reauditMats,
+    coverage,
+    pricing: reauditFinancial,
+    duplicateFlags: reauditDup,
+    enforceBrancoTx: true,
+  })
+  const reauditStatus: QuoteAnalysisStatus =
+    !reauditBreaker.ok || auditNeedsRerun ? 'NEEDS_REVIEW' : 'COMPLETED'
+
+  await setAnalysisStatus(params.analysisId, reauditStatus, {
+    error_message: reauditBreaker.ok ? null : reauditBreaker.blockers[0] || null,
+    pipeline_stage: reauditStatus === 'COMPLETED' ? 'completed' : 'needs_review',
+    pipeline_detail: !reauditBreaker.ok
+      ? `Circuit breaker: ${reauditBreaker.blockers.slice(0, 2).join(' | ')}`
+      : auditNeedsRerun
+        ? 'Reauditoria: ainda há pontos a conferir (cobertura/BOM/marcações).'
+        : 'Reauditoria concluída — móveis e preços conferidos.',
+    thought_kind: reauditBreaker.ok ? 'done' : 'warn',
+    pricing_modality: reauditFinancial.pricing_modality,
+    pricing_params: {
+      mpcPercent: reauditPricingParams.mpcPercent,
+      materialMultiplier: reauditPricingParams.materialMultiplier,
+      mpc_margin_pct: reauditPricingParams.mpcPercent,
+      multiplier_n: reauditPricingParams.materialMultiplier,
+      modality: reauditFinancial.pricing_modality,
+    },
     totals: {
       ...prevTotals,
+      ...reauditFinancial,
+      circuit_breaker: reauditBreaker,
+      duplicate_view_flags: reauditDup,
       coverage,
       inventory,
       auditor_notes: notes,
-      audit_needs_rerun: auditNeedsRerun,
+      audit_needs_rerun: auditNeedsRerun || !reauditBreaker.ok,
       last_extraction: audited ?? prevTotals.last_extraction ?? seedExtraction,
       reaudit_at: new Date().toISOString(),
       reprice_updated: repriced.updated,

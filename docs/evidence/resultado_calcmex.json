@@ -1,0 +1,106 @@
+{
+  "source": "cortecloud",
+  "planId": "23574204",
+  "label": "Paridade construtiva Cortecloud (plano 23574204 / defaults fábrica)",
+  "exportedAt": "2026-10-13T22:58:10.487Z",
+  "authority": "company_standards + HAR functions/edging + relatório caixaria 23516165",
+  "constructive": {
+    "box_material": "MDF Branco TX",
+    "box_thickness_mm": 15,
+    "front_thickness_mm": 18,
+    "back_thickness_mm": 6,
+    "drawer_construction": "kit_fabril_5_pecas",
+    "mixed_edge_banding": true,
+    "drawer_slide": "touch_or_hidden_soft_close",
+    "edge_axes": {
+      "C1_C2": "comprimento",
+      "L1_L2": "largura"
+    },
+    "functions_catalog": [
+      "Base",
+      "Lateral Direita",
+      "Lateral Esquerda",
+      "Fundo",
+      "Prateleira",
+      "Divisória",
+      "Travessa",
+      "Tampo",
+      "Porta",
+      "Contra Frente / Contra Fundo de Gaveta",
+      "Lateral de Gaveta",
+      "Tira"
+    ]
+  },
+  "quantity_rules": {
+    "laterals_per_carcass_max": 4,
+    "tops_per_module_max": 2,
+    "no_sum_across_views": true
+  },
+  "pricing_rules": {
+    "sale_by_facade_sqm": false,
+    "hardware_per_unit": true,
+    "billable_items_must_have_price": true
+  },
+  "expected_decorative_modules": [
+    "painel",
+    "ripado"
+  ],
+  "har_micro": "docs/evidence/captura_cortecloud-23574204-micro.har",
+  "har_reference_parts_sample": "docs/evidence/captura_cortecloud-23516165-micro.har",
+  "limitations": [
+    "Plano 23574204 não tinha parts/list no HAR pré-captura; defaults e catálogo de funções usados como referência construtiva.",
+    "Captura Playwright do plano permanece disponível via scripts/capture-cortecloud.js --url ..."
+  ],
+  "parts_count": 174,
+  "function_counts": {
+    "Lateral direita": 18,
+    "Lateral esquerda": 18,
+    "Base": 18,
+    "Prateleira estrutural": 3,
+    "Lateral direita gaveta": 14,
+    "Lateral esquerda gaveta": 14,
+    "Contra frente gaveta": 14,
+    "Contra fundo gaveta": 14,
+    "Fundo gaveta": 14,
+    "Frente gaveta": 12,
+    "Porta basculante": 5,
+    "Lateral": 6,
+    "Prateleira conjunto prateleiras": 13,
+    "Porta direita": 5,
+    "Mascara forno": 1,
+    "Prateleira apoio 1": 1,
+    "Prateleira apoio 2": 1,
+    "Frente gaveta b": 1,
+    "Porta esquerda": 3,
+    "Tampo": 7,
+    "Fundo reforçado": 7,
+    "Prateleira colmeia divisória": 4,
+    "Divisória repartida": 5,
+    "Divisória repartida b": 5,
+    "Divisória repartida c": 5,
+    "Divisória repartida d": 5,
+    "Divisória repartida e": 5,
+    "Travessa dianteira": 1,
+    "Prateleira": 1,
+    "Prateleira 2": 1,
+    "Prateleira 3": 1,
+    "Rodapé": 2,
+    "Travessa rodapé": 3,
+    "Reforço rodapé": 2,
+    "Painel": 11,
+    "Ripado": 24,
+    "prateleira estrutural meio vao superior": 1,
+    "Lateral direita tamponamento": 1,
+    "Lateral esquerda tamponamento": 1,
+    "Tamponamento inferior": 1,
+    "Lateral tamponamento direita": 1,
+    "Lateral tamponamento esquerda": 1
+  },
+  "boards_sample": [
+    "MDF BRANCO 2F EUCATEX ® 15.0mm",
+    "MDF BRANCO 2F MULTIMARCAS 6.0mm",
+    "MDF NOITE 2F GUARARAPES ® 18.0mm",
+    "MDF LOURO FREIJO 2F ARAUCO ® 15.0mm"
+  ],
+  "har_micro_entries": 3
+}

@@ -2,6 +2,7 @@
  * Reprocessa análise em fases (inventory → extract lotes → audit) até COMPLETED.
  * Uso: node --env-file=.env scripts/retry-orcamento-ia-phased.mjs [analysisId]
  */
+import { spawnSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 
 const ANALYSIS_ID = process.argv[2] || '287a24e0-0ec5-4a02-aa2a-c09b7ac72a0e'
@@ -120,6 +121,135 @@ function pruneExtraction(raw) {
     environments: [...buckets.values()].filter((e) => asArr(e.modules).length > 0),
     auditor_notes: [...new Set(notes)],
     warnings: [...new Set(warnings)],
+  }
+}
+
+const BOX_MODULE_RE =
+  /ilha|balcao|bancada|armario|torre|cristaleira|gaveteiro|aereo|roupeiro|paneleiro/
+
+/** Completa caixaria mínima (laterais/base/fundo/tampo) quando a IA devolve 1 peça. */
+function enrichMinimalCaixaria(mod) {
+  if (mod.out_of_scope === true) return mod
+  const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
+  const nameKey = normalizeKey(name)
+  if (!BOX_MODULE_RE.test(nameKey)) return mod
+
+  const dims = mod.dimensions && typeof mod.dimensions === 'object' ? mod.dimensions : {}
+  let caixaria = asArr(mod.caixaria)
+  const first = caixaria[0] || {}
+  const mat = typeof first.material_name === 'string' ? first.material_name : 'MDF 15mm'
+  const thickness = Number(first.thickness_mm) > 0 ? Number(first.thickness_mm) : 15
+  const w = Number(dims.width_mm) > 0 ? Number(dims.width_mm) : Number(first.width_mm) > 0 ? Number(first.width_mm) : 800
+  const h = Number(dims.height_mm) > 0 ? Number(dims.height_mm) : Number(first.height_mm) > 0 ? Number(first.height_mm) : 720
+  const d = Number(dims.depth_mm) > 0 ? Number(dims.depth_mm) : 500
+  const openFront = /ilha|bancada/.test(nameKey)
+  const hasFn = (fn) => caixaria.some((c) => c.function === fn)
+  const bandFront = (meters) => ({
+    C1: true,
+    C2: false,
+    L1: false,
+    L2: false,
+    tape_name: 'Fita 22 mm',
+    meters,
+  })
+
+  if (!hasFn('lateral')) {
+    caixaria.push({
+      name: 'Lateral esquerda',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: bandFront(Math.round((h / 1000) * 1000) / 1000),
+      dimensions_estimated: true,
+    })
+    caixaria.push({
+      name: 'Lateral direita',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: bandFront(Math.round((h / 1000) * 1000) / 1000),
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('base')) {
+    caixaria.push({
+      name: 'Base',
+      function: 'base',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: bandFront(Math.round((w / 1000) * 1000) / 1000),
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('fundo') && !openFront) {
+    caixaria.push({
+      name: 'Fundo',
+      function: 'fundo',
+      width_mm: w,
+      height_mm: h,
+      thickness_mm: 6,
+      material_name: 'MDF 6mm',
+      quantity: 1,
+      edge_banding: { C1: false, C2: false, L1: false, L2: false, meters: 0 },
+      dimensions_estimated: true,
+    })
+  }
+  if (!hasFn('tampo') && !hasFn('sarrafo') && openFront) {
+    caixaria.push({
+      name: 'Tampo',
+      function: 'tampo',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: thickness,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: {
+        C1: true,
+        C2: true,
+        L1: true,
+        L2: true,
+        tape_name: 'Fita 22 mm',
+        meters: Math.round(((2 * (w + d)) / 1000) * 1000) / 1000,
+      },
+      dimensions_estimated: true,
+    })
+  }
+
+  let fitas = asArr(mod.fitas_borda_m)
+  if (!fitas.length) {
+    let meters = 0
+    for (const p of caixaria) {
+      const m = Number(p.edge_banding?.meters)
+      if (Number.isFinite(m) && m > 0) meters += m * (Number(p.quantity) || 1)
+    }
+    if (meters > 0) fitas = [{ tape_name: 'Fita 22 mm', meters: Math.round(meters * 1000) / 1000 }]
+  }
+
+  return {
+    ...mod,
+    caixaria,
+    fitas_borda_m: fitas,
+    dimensions: { width_mm: w, height_mm: h, depth_mm: d, ...dims },
+  }
+}
+
+function enrichExtraction(raw) {
+  if (!raw || typeof raw !== 'object') return raw
+  return {
+    ...raw,
+    environments: asArr(raw.environments).map((env) => ({
+      ...env,
+      modules: asArr(env.modules).map(enrichMinimalCaixaria),
+    })),
   }
 }
 
@@ -429,7 +559,7 @@ async function runOnce(analysis) {
     }
   }
 
-  extraction = pruneExtraction(extraction)
+  extraction = enrichExtraction(pruneExtraction(extraction))
   if (!extraction.environments.length) {
     throw new Error('Após limpeza, nenhum ambiente com materiais restou.')
   }
@@ -491,6 +621,18 @@ async function main() {
   if (lastErr) {
     console.error('Esgotaram as tentativas.')
     process.exit(1)
+  }
+
+  // v11.3: desmonte determinístico → bom_items (caminho Edge/retry não passa pelo pipeline client)
+  console.log('\nPersistindo bom_items…')
+  const bomRun = spawnSync(
+    process.execPath,
+    ['--env-file=.env', 'scripts/persist-bom-items.mjs', ANALYSIS_ID],
+    { stdio: 'inherit', cwd: process.cwd(), env: process.env },
+  )
+  if (bomRun.status !== 0) {
+    console.error('Falha ao persistir bom_items (exit', bomRun.status, ')')
+    process.exit(bomRun.status || 1)
   }
 
   const { data: final } = await admin

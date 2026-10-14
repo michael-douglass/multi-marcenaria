@@ -1,0 +1,18 @@
+{
+  "analysisId": "7f377e15-ff4f-4dcc-a7ed-26663aea7975",
+  "url": "http://localhost:3000/orcamentos-ia?audit=7f377e15-ff4f-4dcc-a7ed-26663aea7975",
+  "checkedAt": "2026-10-13T21:47:00.000Z",
+  "ui": {
+    "title": "Conferência do orçamento",
+    "environments": ["Espaço Gourmet", "Lavabo"],
+    "modulesVisible": ["Ilha", "Mesa de Jantar", "Painel", "Armário", "Cristaleira", "Torre Geladeira", "Ripado", "Bancada Lavabo"],
+    "materialsBanner": "43 itens com preço para conferir",
+    "salePrice": "R$ 21.446,83",
+    "materialsCost": "R$ 11.795,76",
+    "modality": "Margem % 45",
+    "bomCockpitEmpty": false,
+    "pdfPages": "1 / 21"
+  },
+  "scorecard": "PASS 6/6",
+  "pass": true
+}

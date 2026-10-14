@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Box,
   FileText,
+  Tags,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -52,7 +53,15 @@ import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCan
 import { QuotePresentationExportButton } from '@/components/orcamentos-ia/QuotePresentationExportButton'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { listBomItemsForProject } from '@/lib/orcamentos-ia/bom-persist'
-import { explodeModule, inferTypology, type BomLine, type CutPiece } from '@/lib/orcamentos-ia/bom-engine'
+import {
+  explodeFromExtractionModule,
+  explodeModule,
+  formatLabelsForPrint,
+  inferTypology,
+  type BomLine,
+  type CutPiece,
+  type IndustrialLabel,
+} from '@/lib/orcamentos-ia/bom-engine'
 import { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
 import { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
 import {
@@ -516,30 +525,65 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     focusSelectionOnViewer({ page, bbox, pageImagePath: path })
   }, [selection, pageNumber, focusSelectionOnViewer])
 
-  const pricing = useMemo(
-    () => (tree ? calculateQuotePricing(tree, pricingParams) : null),
-    [tree, pricingParams],
-  )
+  const pricing = useMemo(() => {
+    if (!tree) return null
+    const live = calculateQuotePricing(tree, pricingParams)
+    const totals =
+      tree.totals && typeof tree.totals === 'object'
+        ? (tree.totals as Record<string, unknown>)
+        : {}
+    const persistedSale = Number(totals.sale_price)
+    const persistedCost = Number(totals.materials_cost ?? totals.cost_price)
+    // Preferir valores gravados pelo pipeline (circuit breaker v12) quando existem
+    if (persistedSale > 0 && persistedCost >= 0) {
+      return {
+        ...live,
+        materialsCost: persistedCost,
+        salePrice: persistedSale,
+        formulaLabel:
+          typeof totals.pricing_formula === 'string'
+            ? totals.pricing_formula
+            : live.formulaLabel,
+        modality: (typeof totals.pricing_modality === 'string'
+          ? totals.pricing_modality
+          : live.modality) as PricingModality,
+      }
+    }
+    return live
+  }, [tree, pricingParams])
+
+  const circuitBreaker = useMemo(() => {
+    const totals =
+      tree?.totals && typeof tree.totals === 'object'
+        ? (tree.totals as Record<string, unknown>)
+        : null
+    const cb = totals?.circuit_breaker
+    if (!cb || typeof cb !== 'object') return null
+    return cb as { ok?: boolean; blockers?: string[] }
+  }, [tree])
 
   const selectedModule: QuoteModuleRow | null = useMemo(() => {
     if (!selection) return null
     return selection.kind === 'module' ? selection.module : selection.module
   }, [selection])
 
-  const xrayPieces: CutPiece[] = useMemo(() => {
-    if (!selectedModule) return []
-    const d = selectedModule.dimensions ?? {}
-    const result = explodeModule({
-      name: selectedModule.name,
-      typology: inferTypology(selectedModule.name),
-      width_mm: Number(d.width_mm) || 800,
-      height_mm: Number(d.height_mm) || 720,
-      depth_mm: Number(d.depth_mm) || 500,
-      drawer_count: /gavet/i.test(selectedModule.name) ? 3 : 0,
-      door_count: /porta|arm[aá]rio|a[eé]reo/i.test(selectedModule.name) ? 2 : 0,
-    })
-    return result.pieces
-  }, [selectedModule])
+  const xrayExplode = useMemo(() => {
+    if (!selectedModule || !tree) return null
+    const env = tree.environments.find((e) =>
+      e.modules.some((m) => m.id === selectedModule.id),
+    )
+    return explodeFromExtractionModule(
+      {
+        name: selectedModule.name,
+        dimensions: selectedModule.dimensions ?? undefined,
+        room_tag: env?.name,
+      },
+      null,
+    )
+  }, [selectedModule, tree])
+
+  const xrayPieces: CutPiece[] = xrayExplode?.pieces ?? []
+  const industrialLabels: IndustrialLabel[] = xrayExplode?.labels ?? []
 
   const cockpitBlocks = useMemo(() => {
     const bom =
@@ -555,13 +599,13 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             }).bom
           : []
     if (!bom.length && !engineeringCot) return null
+    const totals = (tree?.totals as Record<string, unknown> | undefined) ?? {}
     return buildObservabilityBlocks({
       chainOfThought: engineeringCot || 'Desmonte local a partir das cotas do módulo selecionado.',
       bom,
       pricing: pricingParams,
-      promptTraces: Array.isArray((tree?.totals as Record<string, unknown> | undefined)?.prompt_traces)
-        ? ((tree?.totals as Record<string, unknown>).prompt_traces as unknown[])
-        : [],
+      promptTraces: Array.isArray(totals.prompt_traces) ? (totals.prompt_traces as unknown[]) : [],
+      extractionSnippet: totals.last_extraction ?? null,
     })
   }, [bomLines, engineeringCot, pricingParams, selectedModule, tree?.totals, xrayPieces.length])
 
@@ -926,6 +970,30 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             onClick={() => setShowShoppingList((v) => !v)}
           >
             Lista de compras
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={!industrialLabels.length}
+            title="Copia etiquetas industriais do módulo selecionado (ambiente + cotas)"
+            onClick={async () => {
+              const text = formatLabelsForPrint(industrialLabels)
+              if (!text) {
+                toast.error('Selecione um módulo para gerar etiquetas.')
+                return
+              }
+              try {
+                await navigator.clipboard.writeText(text)
+                toast.success(`${industrialLabels.length} etiqueta(s) copiada(s).`)
+              } catch {
+                toast.error('Não foi possível copiar. Tente de novo.')
+              }
+            }}
+          >
+            <Tags className="h-3.5 w-3.5" />
+            Etiquetas
           </Button>
           <Button
             type="button"
@@ -1368,6 +1436,29 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
           <ScrollArea className="min-h-0 flex-1">
             {/* pb-28: espaço para os botões flutuantes (chat do Max / atalhos) */}
             <div className="space-y-2 p-3 pb-28">
+              {(tree.status === 'NEEDS_REVIEW' ||
+                (circuitBreaker && circuitBreaker.ok === false)) && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950"
+                >
+                  <p className="font-semibold">Circuit breaker — revisão necessária</p>
+                  <p className="mt-1 text-amber-900/90">
+                    A análise não foi liberada como concluída. Corrija os pontos abaixo e
+                    reprocessar/reauditar.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-900/90">
+                    {(circuitBreaker?.blockers?.length
+                      ? circuitBreaker.blockers
+                      : ['Status NEEDS_REVIEW — confira cobertura, preços e quantidades.']
+                    )
+                      .slice(0, 6)
+                      .map((b) => (
+                        <li key={b}>{b}</li>
+                      ))}
+                  </ul>
+                </div>
+              )}
               <PriceReviewBanner
                 materials={tree.environments.flatMap((e) =>
                   e.modules.filter((m) => !m.out_of_scope).flatMap((m) => m.materials),

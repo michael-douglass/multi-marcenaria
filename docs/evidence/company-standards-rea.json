@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-13T22:40:00.000Z",
+  "operation": "analyze_javascript_application",
+  "input_path": "src/lib/orcamentos-ia",
+  "parent_evidence_id": "ev_e93f4e2b1cc11c679a9d248352c363aafedfffded3ad9e3db7079b9d2e91b917",
+  "summary_evidence_id": "ev_840874c7e420c4050ced946ec00840010b0d08583ca09b8435101656d3a34589",
+  "root_sha256": "24a561e0995ca641f672b0135d3b534dd89745fa47eb6e470e794fac89d261f8",
+  "statistics": {
+    "relevant_files": 31,
+    "parsed_javascript_files": 31,
+    "parse_failures": 0,
+    "findings": 601
+  },
+  "zod_defaults_verified": {
+    "box_thickness_mm": 15,
+    "front_thickness_mm": 18,
+    "back_panel_thickness": 6,
+    "drawer_construction": "kit_fabril_5_pecas",
+    "mixed_edge_banding": true,
+    "drawer_slide_type": "hidden_soft_close"
+  },
+  "pass": true,
+  "notes": "Default-with-Override tipado via companyStandardsSchema; parse rejeita box_thickness_mm inválido (ex.: 12)."
+}

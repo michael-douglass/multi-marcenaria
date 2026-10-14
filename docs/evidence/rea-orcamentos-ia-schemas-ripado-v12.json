@@ -1,0 +1,27 @@
+﻿{
+    "tsc":  "clean",
+    "parent_evidence_id":  "ev_c73a445c1c454a27ad29109f003cff2b3172931e65a531d11a25e90d94d01705",
+    "path":  "src/lib/orcamentos-ia",
+    "prompts":  {
+                    "deployed":  "orcamentos-ia-pipeline",
+                    "colmeias":  true,
+                    "edge_synced":  true,
+                    "ripados":  true
+                },
+    "models":  {
+                   "edge_CLAUDE_OPUS_VISION":  "claude-opus-5-5",
+                   "extractorVision":  "claude-opus-5-5",
+                   "max_requires_anthropic":  true
+               },
+    "summary_evidence_id":  "ev_d03c2fd22ee4860e82bc6e820899a388b96c0cb7ae360347dd52f11a2fa558d8",
+    "timestamp":  "2026-10-13T20:10:59.9076615-03:00",
+    "task":  "rea-schemas-ripado-v12",
+    "stats":  {
+                  "parse_failures":  0,
+                  "findings":  634,
+                  "coverage_application":  "complete",
+                  "parsed_javascript_files":  32,
+                  "relevant_files":  32,
+                  "text_bytes_read":  302322
+              }
+}

@@ -1,0 +1,18 @@
+﻿{
+    "circuit_breaker_ok":  true,
+    "url":  "http://localhost:3000/orcamentos-ia?audit=2e2c3faa-be39-4109-82c7-58743e3bba83",
+    "modules":  7,
+    "painel_tv":  "1 peça lisa 2100x3200 (não fatiado)",
+    "sale_price":  33220.47,
+    "extractor_model_traced":  "gpt-4o",
+    "analysisId":  "2e2c3faa-be39-4109-82c7-58743e3bba83",
+    "checkedAt":  "2026-10-13T20:19:20.6178439-03:00",
+    "status":  "COMPLETED",
+    "ripado_presente":  false,
+    "mdf_noite_chapas":  7,
+    "mode":  "max",
+    "verdict":  "FAIL_RIPADO — prompt v12 carregado, mas visão caiu no gpt-4o; volume Noite 7 vs Cortecloud 14",
+    "expected_model":  "claude-opus-5-5",
+    "materials_cost":  18271.26,
+    "mpc_margin_pct":  45
+}

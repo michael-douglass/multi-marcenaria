@@ -52,12 +52,28 @@ export {
 export type { PricingModality, PricingParams, PricingResult, ShoppingListItem } from '@/lib/orcamentos-ia/pricing'
 export {
   DEFAULT_SYSTEM_PREFERENCES,
+  DEFAULT_COMPANY_STANDARDS,
   getSystemPreferences,
   upsertSystemPreferences,
   formatPreferencesForPrompt,
 } from '@/lib/orcamentos-ia/system-preferences'
 export type { SystemPreferences } from '@/lib/orcamentos-ia/system-preferences'
-export { explodeModule, explodeFromExtractionModule, buildBoxMeshesFromBom } from '@/lib/orcamentos-ia/bom-engine'
+export {
+  companyStandardsSchema,
+  drawerConstructionSchema,
+  getCompanyStandards,
+  upsertCompanyStandards,
+  parseCompanyStandards,
+} from '@/lib/orcamentos-ia/company-standards'
+export type { CompanyStandards, DrawerConstruction } from '@/lib/orcamentos-ia/company-standards'
+export {
+  explodeModule,
+  explodeFromExtractionModule,
+  buildBoxMeshesFromBom,
+  buildIndustrialLabels,
+  formatLabelsForPrint,
+  applyEdgebandPolicy,
+} from '@/lib/orcamentos-ia/bom-engine'
 export { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
 export { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
 export { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'

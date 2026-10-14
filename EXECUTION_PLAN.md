@@ -273,10 +273,64 @@ PRD: [`docs/prd_v11_sistema_orcamento_corte_claude.md`](docs/prd_v11_sistema_orc
 
 ---
 
+## Fase v11.3 — Aplicação em épicos (teste ELITON GOURMET)
+
+PRD canônico: [`docs/prd_v11_sistema_orcamento_corte_claude.md`](docs/prd_v11_sistema_orcamento_corte_claude.md) (`11.3-cortecloud-evidence`)  
+Espelho: [`orcamento-com-IA/prd_v11_sistema_orcamento_corte_claude.md`](orcamento-com-IA/prd_v11_sistema_orcamento_corte_claude.md)
+
+**Projeto de teste fixo**
+
+| Campo | Valor |
+|-------|--------|
+| Nome | ELITON GOURMET |
+| `analysisId` | `7f377e15-ff4f-4dcc-a7ed-26663aea7975` |
+| Scorecard | `node --env-file=.env scripts/score-orcamento-ia.mjs <analysisId>` |
+
+**Scorecard — limiares “bom o suficiente”**
+
+| Critério | Limiar |
+|----------|--------|
+| Status | `COMPLETED` |
+| Ambientes | Gourmet + Lavabo |
+| Módulos com ≥3 peças de caixaria | ≥ 50% in-scope |
+| Módulos com fita (`fita_borda`) | ≥ 30% dos que têm caixa |
+| `unit_price` > 0 | 100% dos materiais |
+| `bom_items` | count > 0 |
+
+**Épicos**
+
+- [x] E0 — Congelar PRD + espelho + esta seção
+- [x] E1 — Baseline scorecard → `docs/evidence/eliton-gourmet-baseline.json` (FAIL 4/6 — caixaria 12,5%, bom 0)
+- [x] E2 — Reprocess caixaria C1–L2 → `docs/evidence/eliton-gourmet-after-e2.json` (caixaria 62,5%, fita 100%; bom ainda 0)
+- [x] E3 — BOM engine / `bom_items` → `docs/evidence/eliton-gourmet-after-e3.json` (55 linhas; scorecard 6/6)
+- [x] E4 — Precificação zero R$ 0,00 → `docs/evidence/eliton-gourmet-after-e4.json` (43/43 preços; MPC 45% → venda R$ 21.446,83)
+- [x] EG — **Pulado** (scorecard PASS após E4; sem nova varredura Cortecloud)
+- [x] E5 — Aceite PRD/EXECUTION_PLAN + smoke UI ELITON
+
+Ordem: E0 → E1 → E2 → E3 → E4 → (EG se falhar) → E5.
+
+---
+
+## Fase v12 — Circuit Breaker Auditor + Paridade Cortecloud #23574204
+
+PRD: [`docs/prd_v12_circuit_breaker_auditor_cortecloud.md`](docs/prd_v12_circuit_breaker_auditor_cortecloud.md)  
+Espelho: [`orcamento-com-IA/prd_v12_circuit_breaker_auditor_cortecloud.md`](orcamento-com-IA/prd_v12_circuit_breaker_auditor_cortecloud.md)
+
+- [x] Captura/filter HAR plano 23574204 (`scripts/capture-cortecloud.js`, `filter-cortecloud-har-micro.mjs`)
+- [x] REA network + JS app + compare → `docs/evidence/cortecloud-23574204-rea-compare.json`
+- [x] Merge anti-soma + `validatePlausibleQuantities`
+- [x] `circuit-breaker.ts` + status `NEEDS_REVIEW` (migration)
+- [x] Dual material Branco TX + persistência `sale_price` / MPC
+- [x] AuditWorkspace banner + prompts Edge v12
+- [ ] Aceite: reprocessar ELITON e scorecard v12
+
+---
+
 ## Referências rápidas
 
 | Item | Local |
 |------|--------|
+| PRD v12 Circuit Breaker | `docs/prd_v12_circuit_breaker_auditor_cortecloud.md` |
 | PRD v11 Corte Claude | `docs/prd_v11_sistema_orcamento_corte_claude.md` |
 | PRD v8 (visão) | `orcamento-com-IA/prd_sistema_orcamento_gpt-v8.md` |
 | Relatório CalcmeX | `orcamento-com-IA/relatorio-implementacao-e-correcoes-calcmex.md` |

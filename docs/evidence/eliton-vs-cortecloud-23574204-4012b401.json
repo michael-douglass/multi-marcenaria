@@ -1,0 +1,55 @@
+{
+  "comparedAt": "2026-10-13T23:10:00.000Z",
+  "nosso": {
+    "analysisId": "4012b401-fbdc-4a80-91af-590184276a56",
+    "status": "COMPLETED",
+    "circuit_breaker_ok": true,
+    "sale_price": 26374.39,
+    "materials_cost": 14505.91,
+    "mpc_margin_pct": 45,
+    "modules": [
+      "Ilha",
+      "Mesa de Jantar",
+      "Painel TV",
+      "Armário",
+      "Cristaleira",
+      "Torre Geladeira",
+      "Bancada Lavabo"
+    ],
+    "sheets": {
+      "Branco TX 15": 8,
+      "Noite 18 (agregado)": 6,
+      "Louro Freijó": 1,
+      "Reflecta": 1
+    },
+    "llm_models_seen": ["gpt-4o"],
+    "dual_material_box_branco": true,
+    "laterals_inflated": false
+  },
+  "cortecloud": {
+    "planId": "23574204",
+    "url": "https://marceneiro.cortecloud.com.br/#/plans/23574204/view",
+    "total_central": 25066.22,
+    "materials": 22652.56,
+    "labor": 2413.66,
+    "parts": 174,
+    "sheets_purchase": {
+      "Louro Freijo 15": 3,
+      "Noite 18": 14,
+      "Branco 15": 4,
+      "Branco 6": 1
+    },
+    "modules_complements_sample": [
+      "Balcão gaveteiro",
+      "Torre geladeira",
+      "Painel ripado",
+      "Painel avulso",
+      "Adega",
+      "Aéreo"
+    ]
+  },
+  "verdict": {
+    "v12_gates": "PASS (sale_price, zeros cobráveis, dual caixa, coverage inventário)",
+    "parity_with_cortecloud": "PARCIAL — método dual ok; quantidade de peças/gavetas/ripado e chapas Noite ainda abaixo do plano 23574204"
+  }
+}

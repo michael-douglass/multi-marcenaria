@@ -34,6 +34,8 @@ export function explodeBox(
     unilateralStretcher?: boolean
     skipBack?: boolean
     columnIndex?: number
+    /** Tamponamento envoltório (armário de correr) */
+    slidingEnvelope?: boolean
   },
 ): CutPiece[] {
   const t = prefs.box_thickness_mm
@@ -145,15 +147,20 @@ export function explodeBox(
     })
   }
 
-  // Travessa dianteira (balcão / aéreo)
+  // Travessa dianteira (balcão / aéreo) — altura ajustada pelo recuo de cava (Módulo 2)
   if (spec.typology === 'balcao' || spec.typology === 'aereo' || spec.typology === 'gaveteiro') {
     const travW = Math.max(0, W - 2 * t)
+    const recess = spec.handle_recess_mm ?? 0
+    const travH = recess === 0 ? 100 : recess === 20 ? 80 : 60
     pieces.push({
       id: pid('trav'),
       role: 'travessa',
-      name: 'Travessa dianteira',
+      name:
+        recess > 0
+          ? `Travessa dianteira (cava ${recess}mm)`
+          : 'Travessa dianteira',
       width_mm: travW,
-      height_mm: 100,
+      height_mm: travH,
       thickness_mm: t,
       quantity: 1,
       edge_lengths_mm: edgeFront(travW),
@@ -174,6 +181,35 @@ export function explodeBox(
       edge_lengths_mm: {},
       column_index: col,
     })
+  }
+
+  // Tamponamento envoltório (Módulo 7 — armário de correr)
+  if (options?.slidingEnvelope) {
+    const envT = t >= 18 ? t : 18
+    pieces.push(
+      {
+        id: pid('tamp-lat'),
+        role: 'lateral',
+        name: 'Tamponamento lateral envoltório',
+        width_mm: D + envT,
+        height_mm: H + envT,
+        thickness_mm: envT,
+        quantity: 2,
+        edge_lengths_mm: edgeFrontSides(D + envT, H + envT),
+        column_index: col,
+      },
+      {
+        id: pid('tamp-top'),
+        role: 'tampo',
+        name: 'Tamponamento superior envoltório',
+        width_mm: W + 2 * envT,
+        height_mm: D + envT,
+        thickness_mm: envT,
+        quantity: 1,
+        edge_lengths_mm: edgeFront(W + 2 * envT),
+        column_index: col,
+      },
+    )
   }
 
   return pieces
@@ -265,16 +301,22 @@ export function explodeDoors(spec: ModuleSpec, prefs: BomPreferences): CutPiece[
   const doors = spec.door_count ?? 0
   if (doors <= 0) return []
   const doorW = Math.max(0, (spec.width_mm - gap * (doors + 1)) / doors)
+  // Aéreo com puxador passante: porta avança para baixo (10–30 mm)
+  const overhang =
+    spec.typology === 'aereo' && doors === 1
+      ? Math.min(30, Math.max(0, Number(spec.door_overhang_mm) || 0))
+      : 0
+  const doorH = Math.max(0, spec.height_mm - 2 * gap + overhang)
   return [
     {
       id: pid('porta'),
       role: 'porta',
-      name: 'Porta de giro',
+      name: overhang > 0 ? `Porta de giro (avanço ${overhang}mm)` : 'Porta de giro',
       width_mm: doorW,
-      height_mm: Math.max(0, spec.height_mm - 2 * gap),
+      height_mm: doorH,
       thickness_mm: t,
       quantity: doors,
-      edge_lengths_mm: edgeFrontSides(doorW, spec.height_mm),
+      edge_lengths_mm: edgeFrontSides(doorW, doorH),
     },
   ]
 }

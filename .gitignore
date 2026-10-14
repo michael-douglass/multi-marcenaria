@@ -16,6 +16,12 @@ coverage/
 Thumbs.db
 .aider*
 .env
-.env
-.env
-.env
+# Bundle REA completo (~46MB) — manter só o índice versionado
+docs/evidence/orcamentos-ia-rea-bundle.json
+# Capturas de rede autenticadas (Cortecloud / Playwright) — nunca versionar
+captura_cortecloud.har
+docs/evidence/captura_cortecloud-filtered.har
+docs/evidence/captura_cortecloud-micro.har
+docs/evidence/_cortecloud-har-extract.json
+*.har
+!.github/**/*.har

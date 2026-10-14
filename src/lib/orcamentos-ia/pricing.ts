@@ -477,37 +477,67 @@ export async function createPriceResolver(
     const name = rawMaterialName.trim()
     if (!name) return contingencyResult('Insumo sem nome', preferredCategory || 'outro')
 
-    // 1) Apelido De-Para
+    const preferred = (preferredCategory || '').toLowerCase()
+    const isEdgeband =
+      preferred === 'fita_borda' ||
+      /\bfita\b/.test(normalizeName(name)) ||
+      /\bborda\b/.test(normalizeName(name))
+
+    // 1) Apelido De-Para (só se o item apontado for da mesma família)
     const normalized = normalizeName(name)
     const alias = bestScored(aliases, normalized, (a) => a.alias_normalized, 55)
     const aliasItem = alias ? inventoryById.get(alias.row.inventory_item_id) : undefined
-    const aliasPrice = aliasItem ? fromInventory(aliasItem) : null
-    if (aliasPrice) return aliasPrice
+    if (aliasItem) {
+      const aliasCat = (aliasItem.category || '').toLowerCase()
+      const aliasOk =
+        !preferred ||
+        aliasCat === preferred ||
+        (!isEdgeband && aliasCat !== 'chapa')
+      if (aliasOk && !(isEdgeband && aliasCat === 'chapa')) {
+        const aliasPrice = fromInventory(aliasItem)
+        if (aliasPrice) {
+          if (isEdgeband && aliasPrice.unitPrice > MAX_EDGEBAND_UNIT_PRICE_PER_M) {
+            return contingencyResult(name, 'fita_borda')
+          }
+          return aliasPrice
+        }
+      }
+    }
 
-    // 2) Estoque — categoria preferida; se fraco, todas
-    const invByCat = preferredCategory
-      ? inventory.filter((r) => r.category === preferredCategory)
-      : inventory
+    // 2) Estoque — categoria preferida; fita NUNCA casa com chapa
+    const invByCat = preferred
+      ? inventory.filter((r) => r.category === preferred)
+      : isEdgeband
+        ? inventory.filter((r) => r.category === 'fita_borda')
+        : inventory
+    // Espessura de chapa só entra no fuzzy de chapas (evita "Fita MDF …" → chapa 15mm)
     const thick =
-      preferredCategory === 'chapa' || /mdf|chapa|mdp/i.test(name)
+      preferred === 'chapa' || (!isEdgeband && /mdf|chapa|mdp/i.test(name))
         ? preferredThicknessMm
         : null
-    // Outra categoria só com casamento forte ("Pé Metal Preto" ≠ "Puxador Perfil Preto")
+    const allowCrossCategory =
+      Boolean(preferred) && preferred !== 'fita_borda' && !isEdgeband
     const bestInv =
       bestScored(invByCat, name, (r) => r.name, 28, thick) ??
-      (preferredCategory ? bestScored(inventory, name, (r) => r.name, 75, thick) : null)
+      (allowCrossCategory ? bestScored(inventory, name, (r) => r.name, 75, thick) : null)
     const invPrice = bestInv ? fromInventory(bestInv.row) : null
-    if (invPrice) return invPrice
+    if (invPrice) {
+      if (isEdgeband && invPrice.unitPrice > MAX_EDGEBAND_UNIT_PRICE_PER_M) {
+        return contingencyResult(name, 'fita_borda')
+      }
+      return invPrice
+    }
 
-    // 3) Mercado
-    const marketByCat = preferredCategory
-      ? market.filter((r) => r.category === preferredCategory)
-      : market
+    // 3) Mercado — mesma trava de categoria para fita
+    const marketByCat = preferred
+      ? market.filter((r) => r.category === preferred)
+      : isEdgeband
+        ? market.filter((r) => r.category === 'fita_borda')
+        : market
     const bestMarket =
       bestScored(marketByCat, name, (r) => r.item_pattern, 28, thick) ??
-      (preferredCategory ? bestScored(market, name, (r) => r.item_pattern, 75, thick) : null)
-    // Média das referências de mercado que casam bem (chapas / mesma categoria)
-    const marketPool = (marketByCat.length ? marketByCat : market)
+      (allowCrossCategory ? bestScored(market, name, (r) => r.item_pattern, 75, thick) : null)
+    const marketPool = (marketByCat.length ? marketByCat : isEdgeband ? [] : market)
       .map((row) => ({
         row,
         score: scoreMatch(row.item_pattern, thick ? `${name} ${thick}` : name),
@@ -523,7 +553,10 @@ export async function createPriceResolver(
         ? roundMoney(marketAvg)
         : Number(bestMarket?.row.estimated_market_price) || 0
     if (marketPrice > 0 && (bestMarket || marketPool.length)) {
-      const unit = bestMarket?.row.unit || marketPool[0]?.row.unit || 'un'
+      if (isEdgeband && marketPrice > MAX_EDGEBAND_UNIT_PRICE_PER_M) {
+        return contingencyResult(name, 'fita_borda')
+      }
+      const unit = bestMarket?.row.unit || marketPool[0]?.row.unit || (isEdgeband ? 'm' : 'un')
       const matchedName =
         marketPool.length >= 2
           ? `Média mercado (${marketPool.length} refs)`
@@ -542,7 +575,7 @@ export async function createPriceResolver(
     }
 
     // 4) Contingência obrigatória (preços diferenciados por família)
-    return contingencyResult(name, preferredCategory)
+    return contingencyResult(name, isEdgeband ? 'fita_borda' : preferredCategory)
   }
 
   return { resolve }
@@ -892,6 +925,12 @@ export function sheetsFromAreaM2(
   return Math.ceil(withLoss / sheetAreaM2)
 }
 
+/**
+ * Teto de sanidade para fita de borda (R$/m).
+ * Preços de chapa (~R$ 280–1750) nunca devem vazar para metro de fita.
+ */
+export const MAX_EDGEBAND_UNIT_PRICE_PER_M = 25
+
 /** Metros de fita → rolos 20/50/100 m. */
 export function rollsForEdgeTapeMeters(meters: number): {
   rolls: Partial<Record<20 | 50 | 100, number>>
@@ -1055,6 +1094,11 @@ export function buildShoppingList(
       .filter((s) => rolls[s])
       .map((s) => `${rolls[s]}×${s}m`)
       .join(' + ')
+    // unit_price de fita é sempre R$/metro — nunca preço de chapa/rolo inteiro
+    const unitPrice =
+      entry.unitPrice > 0 && entry.unitPrice <= MAX_EDGEBAND_UNIT_PRICE_PER_M
+        ? entry.unitPrice
+        : CONTINGENCY_PRICES.fita_borda_m.unitPrice
     items.push({
       key: `fita-${name}`,
       category: 'fita_borda',
@@ -1063,9 +1107,13 @@ export function buildShoppingList(
       exactUnit: 'm',
       purchaseQuantity: totalMetersPurchased,
       purchaseUnit: 'm (rolos)',
-      unitPrice: entry.unitPrice,
-      lineTotal: roundMoney(totalMetersPurchased * entry.unitPrice),
-      notes: rollDesc || '—',
+      unitPrice,
+      lineTotal: roundMoney(totalMetersPurchased * unitPrice),
+      notes:
+        (rollDesc || '—') +
+        (entry.unitPrice > MAX_EDGEBAND_UNIT_PRICE_PER_M
+          ? ` · preço/m corrigido (era R$ ${roundMoney(entry.unitPrice)})`
+          : ''),
     })
   }
 
