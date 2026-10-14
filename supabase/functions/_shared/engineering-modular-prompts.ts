@@ -154,11 +154,27 @@ Fatie SEMPRE em:
 Gaveteiro sob a mesa = módulo próprio (caixaria + frentes + corrediças).
 
 ═══ FORA DO ESCOPO (out_of_scope = true, SEM caixaria/frentes/ferragens) ═══
+PROIBIDO marcar móveis de marcenaria (MDF/MDP/madeira) como fora do escopo.
+Todo elemento em chapa presente na planta técnica de QUALQUER ambiente deve ser orçado e fatiado
+(Quartos 01/02/03, Cozinha, Home office, Lavabo, Área Externa, Lavanderia, Banheiros, Sala, etc.).
+OOS permitido SOMENTE para:
 - Marmoraria: granito, mármore, quartzo, Silestone, Dekton, porcelanato.
 - Obra civil: alvenaria, gesso/drywall, sancas, pintura, revestimento.
-- Eletros, metais sanitários, decoração e iluminação.
+- Eletros, metais sanitários, decoração solta e iluminação avulsa (sem caixa MDF).
 - Cadeiras/banquetas de loja.
-- Bancada de MDF com tampo de pedra: o móvel MDF é marcenaria; módulo separado "Tampo em granito/quartzo" com out_of_scope = true.
+- Bancada de MDF com tampo de pedra: o móvel MDF é marcenaria (out_of_scope=false); módulo separado "Tampo em granito/quartzo" com out_of_scope = true.
+
+═══ RECONSTRUÇÃO CAIXARIA POR CAIXARIA (paridade fabril Cortecloud) ═══
+Para cada móvel em MDF, decomponha o BOM fabril completo:
+- Laterais E+D, base, prateleiras, divisórias, travessas/sarrafos
+- Fundo rebaixado 6 mm (quando houver fundo)
+- Frentes/portas/gavetas na COR indicada no projeto (não na caixa interna)
+Caixa interna = MDF Branco TX; frentes/tampos = cor da prancha.
+
+═══ PALETA DE CORES — RECONHECER E ALOCAR (ex.: Flaviane/Anamá / Cortecloud #23125828) ═══
+Quando a prancha indicar estas cores, use-as em material_name das frentes/tampos/peças coloridas:
+Bege Papiro | Lord Matt | Mint Essencial | Blush Essencial | Azul Astral | Imbuia Caiapó | Areia Noronha | Branco TX
+NÃO colapse tudo em Branco TX nas frentes. Fundos 6 mm seguem a cor do ambiente quando o desenho exige (ex.: fundo colorido).
 
 Responda só no JSON schema.`
 
@@ -185,7 +201,9 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
 3) RENOMEIE tipologias erradas: bancada/ilha/balcão NÃO é "mesa"; mesa de jantar/Mesa Belize/escrivaninha NÃO é bancada.
 4) SEPARE ambientes: Lavabo ≠ Espaço Gourmet/Cozinha. Prefira as imagens ao inventário errado.
 5) Complete BOM só de módulos que EXISTEM: chapas MDF, ferragens/puxadores por unidade, bounding_box.page (= página do PDF/arquivo, não "PRANCHA Nº" do carimbo).
-6) Pedra/alvenaria/gesso/eletros/decoração/cadeira de loja → out_of_scope=true, sem peças MDF.
+6) Pedra/alvenaria/gesso/eletros/decoração solta/cadeira de loja → out_of_scope=true, sem peças MDF.
+   PROIBIDO promover tipologias de marcenaria (armário, aéreo, balcão, bancada MDF, gaveteiro, nicho, painel, mesa MDF, ilha, prateleira estrutural) a out_of_scope.
+   Móvel em MDF/MDP/madeira em qualquer ambiente = sempre orçar e fatiar (laterais, base, prateleiras, divisórias, travessas, fundo 6 mm, frentes na cor).
 7) NÃO complete guarda-roupa/cabeceira que não aparecem nas imagens só porque estão no inventário — remova.
 8) COBERTURA: todo móvel do inventário (âncora) que existir nas imagens DEVE estar na árvore com BOM (chapa). Se faltar, complete ou explique em auditor_notes.
 9) Deduplique peças: laterais ≤ 2 (caixa; ≤ 4 só com divisória lateral real); tampos ≤ 2; portas ≤ ceil(L/300)+2. Se ultrapassar, APAGUE vistas duplicadas (não só avise).

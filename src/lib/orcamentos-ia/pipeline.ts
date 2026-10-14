@@ -1,7 +1,15 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 import { supabase } from '@/lib/supabase'
-import { convertPdfPagesToJpegSequential } from '@/lib/pdf-to-image'
-import { ORCAMENTOS_IA_MODELS } from '@/lib/orcamentos-ia/openai-models'
+import {
+  convertPdfPagesToJpegSequential,
+  resizeImageToOrcamentosJpeg,
+} from '@/lib/pdf-to-image'
+import {
+  DEFAULT_EXTRACTION_MODEL,
+  isExtractionModelKey,
+  ORCAMENTOS_IA_MODELS,
+  type ExtractionModelKey,
+} from '@/lib/orcamentos-ia/openai-models'
 import {
   ORCAMENTOS_IA_BUCKET,
   appendThoughtLog,
@@ -178,6 +186,11 @@ const PipelineState = Annotation.Root({
   analysisId: Annotation<string>,
   companyId: Annotation<string>,
   mode: Annotation<QuoteAnalysisMode>,
+  /** Chave UI do modelo de visão (sonnet / opus / gpt-4o). */
+  extractionModel: Annotation<ExtractionModelKey>({
+    reducer: (_a, b) => b,
+    default: () => DEFAULT_EXTRACTION_MODEL,
+  }),
   /** PDF e/ou imagens de origem. */
   sourceFiles: Annotation<File[]>({
     reducer: (_a, b) => b,
@@ -341,17 +354,10 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
 
     if (isImageFile(file)) {
       pageIndex += 1
-      const ext = file.name.toLowerCase().endsWith('.webp')
-        ? 'webp'
-        : file.name.toLowerCase().match(/\.jpe?g$/)
-          ? 'jpg'
-          : 'png'
-      const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.${ext}`
-      const contentType =
-        file.type ||
-        (ext === 'jpg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png')
-      const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, file, {
-        contentType,
+      const jpegBlob = await resizeImageToOrcamentosJpeg(file)
+      const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.jpg`
+      const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, jpegBlob, {
+        contentType: 'image/jpeg',
         upsert: true,
         cacheControl: '3600',
       })
@@ -569,6 +575,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     analysisId: state.analysisId,
     companyId: state.companyId,
     mode: state.mode,
+    extraction_model: state.extractionModel,
     pagePaths: state.pagePaths,
     phase: 'start_async',
     resumeFromPage,
@@ -688,6 +695,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           analysisId: state.analysisId,
           companyId: state.companyId,
           mode: state.mode,
+          extraction_model: state.extractionModel,
           pagePaths: state.pagePaths.slice(0, healPageCap),
           phase: 'heal_module',
           inventory,
@@ -749,6 +757,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           analysisId: state.analysisId,
           companyId: state.companyId,
           mode: state.mode,
+          extraction_model: state.extractionModel,
           pagePaths: state.pagePaths.slice(0, auditPageCap),
           phase: 'audit',
           inventory,
@@ -873,16 +882,31 @@ function sanitizeExtractionPayload(raw: unknown): unknown {
           m.ferragens = coercePositiveList(m.ferragens, ['exact_quantity', 'full_units_quantity'])
           m.fitas_borda_m = coercePositiveList(m.fitas_borda_m, ['meters'])
 
+          // Guarda-roupa com 5–8 folhas: IA manda sliding_doors=6; schema antigo só 2|3|4 derrubava o job.
+          if (m.sliding_doors != null) {
+            const n = Math.round(Number(m.sliding_doors))
+            if (!Number.isFinite(n)) delete m.sliding_doors
+            else m.sliding_doors = Math.min(8, Math.max(2, n))
+          }
+
           m = ensureModulePlaceholder(m)
 
-          // Módulo in-scope sem nenhum material → remove (evita falha Zod no pipeline)
+          // Módulo in-scope sem nenhum material → remove (exceto tipologias de marcenaria
+          // já preenchidas por ensureModulePlaceholder / enrich mínimo)
           if (m.out_of_scope !== true) {
             const total =
               (Array.isArray(m.caixaria) ? m.caixaria.length : 0) +
               (Array.isArray(m.frentes_portas) ? m.frentes_portas.length : 0) +
               (Array.isArray(m.ferragens) ? m.ferragens.length : 0) +
               (Array.isArray(m.fitas_borda_m) ? m.fitas_borda_m.length : 0)
-            if (total === 0) return null
+            if (total === 0) {
+              // Segunda chance: tipologias de caixa não podem sumir (paridade Flaviane)
+              m = ensureModulePlaceholder({ ...m, out_of_scope: false })
+              const retry =
+                (Array.isArray(m.caixaria) ? m.caixaria.length : 0) +
+                (Array.isArray(m.frentes_portas) ? m.frentes_portas.length : 0)
+              if (retry === 0) return null
+            }
           }
           return m
         })
@@ -1568,6 +1592,8 @@ export interface RunOrcamentosIaPipelineParams {
   analysisId: string
   companyId: string
   mode: QuoteAnalysisMode
+  /** Modelo de visão; default Sonnet econômico. */
+  extractionModel?: ExtractionModelKey
   /** PDF e/ou imagens. Preferir este campo. */
   sourceFiles?: File[]
   /** @deprecated use sourceFiles */
@@ -1576,6 +1602,10 @@ export interface RunOrcamentosIaPipelineParams {
   reuseExistingPages?: boolean
   /** Retomar cadeia async a partir desta página (0-based). */
   resumeFromPage?: number
+}
+
+function resolveExtractionModelParam(value: unknown): ExtractionModelKey {
+  return isExtractionModelKey(value) ? value : DEFAULT_EXTRACTION_MODEL
 }
 
 export interface RunOrcamentosIaPipelineResult {
@@ -1600,6 +1630,7 @@ export async function runOrcamentosIaPipeline(
     analysisId: params.analysisId,
     companyId: params.companyId,
     mode: params.mode,
+    extractionModel: resolveExtractionModelParam(params.extractionModel),
     sourceFiles: params.reuseExistingPages ? [] : sourceFiles,
     pdfFile: null,
     pagePaths: [],
@@ -1628,7 +1659,7 @@ export async function reauditOrcamentosIaAnalysis(params: {
 }): Promise<{ ok: boolean; error?: string; auditNeedsRerun?: boolean; updatedModules?: number }> {
   const { data: row, error } = await supabase
     .from('quote_analyses')
-    .select('id, company_id, mode, totals, source_pdf_path')
+    .select('id, company_id, mode, extraction_model, totals, source_pdf_path')
     .eq('id', params.analysisId)
     .eq('company_id', params.companyId)
     .maybeSingle()
@@ -1637,6 +1668,9 @@ export async function reauditOrcamentosIaAnalysis(params: {
 
   const { paths } = await listQuotePagePaths(params.companyId, params.analysisId)
   if (!paths.length) return { ok: false, error: 'Sem páginas convertidas para reauditar.' }
+  const reauditExtractionModel = resolveExtractionModelParam(
+    (row as { extraction_model?: string }).extraction_model,
+  )
 
   const treeResult = await loadQuoteAnalysisTree(params.analysisId)
   const tree = treeResult.data
@@ -1716,6 +1750,7 @@ export async function reauditOrcamentosIaAnalysis(params: {
       analysisId: params.analysisId,
       companyId: params.companyId,
       mode: reauditMode,
+      extraction_model: reauditExtractionModel,
       pagePaths: paths.slice(0, reauditMode === 'max' ? 12 : 24),
       phase: 'audit',
       inventory,
@@ -1897,7 +1932,7 @@ export async function reprocessOrcamentosIaPipeline(params: {
 }): Promise<RunOrcamentosIaPipelineResult> {
   const { data: row, error } = await supabase
     .from('quote_analyses')
-    .select('id, company_id, mode, source_pdf_path, totals')
+    .select('id, company_id, mode, extraction_model, source_pdf_path, totals')
     .eq('id', params.analysisId)
     .eq('company_id', params.companyId)
     .maybeSingle()
@@ -1905,6 +1940,9 @@ export async function reprocessOrcamentosIaPipeline(params: {
   if (error) return { ok: false, error: error.message }
   if (!row) return { ok: false, error: 'Análise não encontrada.' }
 
+  const extractionModel = resolveExtractionModelParam(
+    (row as { extraction_model?: string }).extraction_model,
+  )
   const pagesPrefix = `${params.companyId}/${params.analysisId}/pages`
   const { data: existing } = await supabase.storage
     .from(ORCAMENTOS_IA_BUCKET)
@@ -1941,6 +1979,7 @@ export async function reprocessOrcamentosIaPipeline(params: {
       analysisId: params.analysisId,
       companyId: params.companyId,
       mode: (row.mode === 'pro' ? 'pro' : 'max') as QuoteAnalysisMode,
+      extractionModel,
       reuseExistingPages: true,
       resumeFromPage,
     })
@@ -1974,6 +2013,7 @@ export async function reprocessOrcamentosIaPipeline(params: {
     analysisId: params.analysisId,
     companyId: params.companyId,
     mode,
+    extractionModel,
     sourceFiles: [file],
   })
 }

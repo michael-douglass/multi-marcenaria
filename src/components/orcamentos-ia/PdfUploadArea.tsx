@@ -3,11 +3,22 @@ import { FileUp, Loader2, Sparkles, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { AiThoughtConsole } from '@/components/orcamentos-ia/AiThoughtConsole'
 import { useOrcamentosIaBackground } from '@/contexts/OrcamentosIaBackgroundContext'
 import {
+  DEFAULT_EXTRACTION_MODEL,
+  EXTRACTION_MODEL_KEYS,
+  EXTRACTION_MODEL_LABELS,
   isAllowedQuoteSourceFile,
+  type ExtractionModelKey,
   type QuoteAnalysisMode,
 } from '@/lib/orcamentos-ia/storage'
 
@@ -27,8 +38,11 @@ export function PdfUploadArea({
 }: PdfUploadAreaProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<QuoteAnalysisMode>('max')
+  const [extractionModel, setExtractionModel] =
+    useState<ExtractionModelKey>(DEFAULT_EXTRACTION_MODEL)
   const [dragging, setDragging] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [startingLabel, setStartingLabel] = useState<string | null>(null)
   const bg = useOrcamentosIaBackground()
   const completedNotified = useRef<Set<string>>(new Set())
 
@@ -54,12 +68,15 @@ export function PdfUploadArea({
         return
       }
 
+      const mb = (files[0].size / (1024 * 1024)).toFixed(1)
+      setStartingLabel(`Enviando ${files[0].name} (${mb} MB)…`)
       setStarting(true)
       try {
         const analysisId = await bg.startQuoteAnalysis({
           companyId,
           userId,
           mode,
+          extractionModel,
           files,
         })
         if (analysisId) {
@@ -67,9 +84,10 @@ export function PdfUploadArea({
         }
       } finally {
         setStarting(false)
+        setStartingLabel(null)
       }
     },
-    [bg, companyId, mode, onAnalysisCreated, userId],
+    [bg, companyId, extractionModel, mode, onAnalysisCreated, userId],
   )
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -97,7 +115,7 @@ export function PdfUploadArea({
           >
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-[#0066FF]" />
             <span>
-              <span className="block text-sm font-semibold">Modo Max com o3-mini</span>
+              <span className="block text-sm font-semibold">Modo Max</span>
               <span className="mt-1 block text-xs text-muted-foreground">
                 Extração profunda + auditoria construtiva (mais lento e preciso).
               </span>
@@ -123,6 +141,40 @@ export function PdfUploadArea({
             </span>
           </button>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="extraction-model" className="text-sm font-medium text-foreground">
+          Modelo de IA (visão)
+        </Label>
+        <Select
+          value={extractionModel}
+          onValueChange={(value) => {
+            if ((EXTRACTION_MODEL_KEYS as readonly string[]).includes(value)) {
+              setExtractionModel(value as ExtractionModelKey)
+            }
+          }}
+          disabled={busy}
+        >
+          <SelectTrigger id="extraction-model" className="w-full sm:max-w-md">
+            <SelectValue placeholder="Escolha o modelo" />
+          </SelectTrigger>
+          <SelectContent>
+            {EXTRACTION_MODEL_KEYS.map((key) => (
+              <SelectItem key={key} value={key}>
+                <span className="flex flex-col items-start gap-0.5 py-0.5 text-left">
+                  <span>{EXTRACTION_MODEL_LABELS[key].label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {EXTRACTION_MODEL_LABELS[key].hint}
+                  </span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Padrão: Sonnet (mais barato). Opus para cadernos densos. GPT-4o se preferir OpenAI.
+        </p>
       </div>
 
       <div
@@ -178,9 +230,14 @@ export function PdfUploadArea({
           A análise roda em segundo plano: você pode sair desta página. Um ícone flutuante
           acompanha o progresso.
         </p>
-        {activeJob?.fileName && (
+        {(startingLabel || activeJob?.fileName) && (
           <p className="mt-3 text-xs font-medium text-foreground/80">
-            Arquivo(s): {activeJob.fileName}
+            {startingLabel || `Arquivo(s): ${activeJob?.fileName}`}
+          </p>
+        )}
+        {starting && (
+          <p className="mt-2 max-w-md text-xs text-[#0066FF]">
+            Upload em andamento — não feche a aba. PDFs grandes podem levar alguns minutos.
           </p>
         )}
       </div>

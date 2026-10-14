@@ -1,0 +1,16 @@
+{
+  "analyzed_at": "2026-10-14T03:20:00Z",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "format": "directory",
+  "operation": "analyze_javascript_application",
+  "evidence_id": "ev_03fe253392824d858dee29748b51ca55498ba0a5ff887cdce9158843a18bb649",
+  "parent_evidence_id": "ev_68aaf8503e39a50c0819f28fb3f4b9c849058524b38c94c26921f3e366102f97",
+  "statistics": {
+    "relevant_files": 34,
+    "parsed_javascript_files": 34,
+    "findings": 646,
+    "text_bytes_read": 353982
+  },
+  "coverage_status": "partial",
+  "note": "Validação estrutural do módulo orcamentos-ia (não prova 74 chapas). Travas anti-OOS em merge-extraction/pipeline/schemas."
+}

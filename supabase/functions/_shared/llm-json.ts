@@ -185,10 +185,34 @@ function parseClaudeContentBlocks(
   return { json: extractJsonObject(text), preview: text.slice(0, 4000) }
 }
 
+/** Bloco de system com prompt caching (reutilizado entre páginas; imagem não entra no cache). */
+function anthropicCachedSystem(text: string): Array<{
+  type: 'text'
+  text: string
+  cache_control: { type: 'ephemeral' }
+}> {
+  return [
+    {
+      type: 'text',
+      text,
+      cache_control: { type: 'ephemeral' },
+    },
+  ]
+}
+
 /**
- * Claude Opus 5.5: sem tool_choice forçado (`tool`/`any` → 400).
+ * `effort` (adaptive thinking) só no Opus 5.x.
+ * Sonnet 4.5 responde 400: "This model does not support the effort parameter."
+ */
+function claudeSupportsEffort(model: string): boolean {
+  return /claude-opus/i.test(model)
+}
+
+/**
+ * Claude: sem tool_choice forçado (`tool`/`any` → 400).
  * Preferimos structured outputs (`output_config.format`); se o schema for rejeitado,
  * caímos em tools + tool_choice auto + instrução no system.
+ * Prompt caching ephemeral no system/tools estáveis (não na imagem da página).
  */
 export async function claudeJson(params: {
   apiKey: string
@@ -204,6 +228,7 @@ export async function claudeJson(params: {
   const toolName = params.schemaName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'structured_json'
   const inputSchema = asToolInputSchema(params.schema)
   const effort = params.effort ?? 'low'
+  const withEffort = claudeSupportsEffort(params.model)
   const messages = [
     {
       role: 'user',
@@ -211,9 +236,10 @@ export async function claudeJson(params: {
     },
   ]
 
-  const headers = {
+  const headers: Record<string, string> = {
     'x-api-key': params.apiKey,
     'anthropic-version': '2023-06-01',
+    'anthropic-beta': 'prompt-caching-2024-07-31',
     'Content-Type': 'application/json',
   }
 
@@ -223,18 +249,20 @@ export async function claudeJson(params: {
     `Devolva o resultado como JSON válido no formato exigido (schema ${params.schemaName}). Sem markdown.`,
   ].join('\n')
 
+  const structuredOutputConfig: Record<string, unknown> = {
+    format: {
+      type: 'json_schema',
+      schema: inputSchema,
+    },
+  }
+  if (withEffort) structuredOutputConfig.effort = effort
+
   const structuredBody: Record<string, unknown> = {
     model: params.model,
     max_tokens: params.maxTokens ?? 16000,
-    system: systemStructured,
+    system: anthropicCachedSystem(systemStructured),
     messages,
-    output_config: {
-      effort,
-      format: {
-        type: 'json_schema',
-        schema: inputSchema,
-      },
-    },
+    output_config: structuredOutputConfig,
   }
 
   let res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -249,13 +277,13 @@ export async function claudeJson(params: {
     const errText = await res.text()
     const schemaRejected =
       res.status === 400 &&
-      /schema|output_config|json_schema|additionalProperties|unsupported/i.test(errText)
+      /schema|output_config|json_schema|additionalProperties|unsupported|effort/i.test(errText)
 
     if (!schemaRejected) {
       throw new Error(`Anthropic ${params.model} (${res.status}): ${errText.slice(0, 500)}`)
     }
 
-    // Fallback Opus 5.5: tools + auto (nunca tool_choice forçado)
+    // Fallback: tools + auto (nunca tool_choice forçado). Sem effort no Sonnet.
     usedSystem = [
       params.system,
       '',
@@ -265,18 +293,21 @@ export async function claudeJson(params: {
     const toolsBody: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.maxTokens ?? 16000,
-      system: usedSystem,
+      system: anthropicCachedSystem(usedSystem),
       tools: [
         {
           name: toolName,
           description: `Retorna o objeto JSON do schema ${params.schemaName}`,
           input_schema: inputSchema,
           strict: true,
+          cache_control: { type: 'ephemeral' },
         },
       ],
       tool_choice: { type: 'auto' },
       messages,
-      output_config: { effort },
+    }
+    if (withEffort) {
+      toolsBody.output_config = { effort }
     }
 
     res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -294,6 +325,7 @@ export async function claudeJson(params: {
             name: toolName,
             description: `Retorna o objeto JSON do schema ${params.schemaName}`,
             input_schema: inputSchema,
+            cache_control: { type: 'ephemeral' },
           },
         ],
       }
@@ -339,8 +371,8 @@ export async function claudeJson(params: {
 
 /**
  * Roteia para Claude ou OpenAI conforme o model id.
- * Fallback Claude→gpt-4o só quando `allowOpenAiFallback` é true (modo pro / emergência).
- * Modo max passa `allowOpenAiFallback: false` — falha Claude vira erro para retentar.
+ * Fallback Claude→gpt-4o só quando `allowOpenAiFallback` é true.
+ * Escolha Claude do usuário passa `allowOpenAiFallback: false` — sem rebaixar.
  */
 export async function llmJson(params: {
   openAiKey?: string | null
@@ -375,7 +407,7 @@ export async function llmJson(params: {
       const message = err instanceof Error ? err.message : String(err)
       if (!allowOpenAiFallback) {
         throw new Error(
-          `Modo max exige ${params.model}. Claude falhou (${message.slice(0, 220)}); retente a análise — fallback gpt-4o bloqueado.`,
+          `Modelo escolhido (${params.model}) falhou (${message.slice(0, 220)}); retente a análise — fallback gpt-4o bloqueado.`,
         )
       }
       console.warn(`[llm-json] Claude falhou (${message.slice(0, 180)}); fallback gpt-4o`)
@@ -405,34 +437,61 @@ export async function llmJson(params: {
   })
 }
 
-/** Modelo Claude canônico (visão + auditor modo max). */
+/** Modelo Claude canônico (legado / Opus alta complexidade). */
 export const CLAUDE_OPUS_VISION = 'claude-opus-5-5'
+export const CLAUDE_SONNET_VISION = 'claude-sonnet-4-5'
+
+/** Chaves estáveis da UI / quote_analyses.extraction_model → ID de API. */
+export const EXTRACTION_MODEL_API_IDS = {
+  'claude-sonnet': CLAUDE_SONNET_VISION,
+  'claude-opus': CLAUDE_OPUS_VISION,
+  'gpt-4o': 'gpt-4o',
+} as const
+
+export type ExtractionModelKey = keyof typeof EXTRACTION_MODEL_API_IDS
+
+export function isExtractionModelKey(value: unknown): value is ExtractionModelKey {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(EXTRACTION_MODEL_API_IDS, value)
+  )
+}
 
 /**
- * Escolhe modelos por modo + disponibilidade de chaves.
- * Modo max EXIGE Anthropic — não faz fallback silencioso para gpt-4o.
+ * Escolhe modelos por extraction_model (seletor) + mode (parser leve).
+ * Claude escolhido EXIGE Anthropic — sem fallback silencioso para gpt-4o.
  */
 export function resolveOrcamentosModels(params: {
   mode: 'max' | 'pro' | string
   hasAnthropic: boolean
-}): { extractor: string; parser: string; auditor: string } {
+  extractionModel?: string | null
+}): {
+  extractor: string
+  parser: string
+  auditor: string
+  extractionKey: ExtractionModelKey
+} {
   const mode = params.mode === 'pro' ? 'pro' : 'max'
-  if (mode === 'max') {
-    if (!params.hasAnthropic) {
-      throw new Error(
-        'Modo max exige ANTHROPIC_API_KEY na Edge (claude-opus-5-5). Configure o secret no Supabase.',
-      )
-    }
-    return {
-      extractor: CLAUDE_OPUS_VISION,
-      parser: 'gpt-4o',
-      auditor: CLAUDE_OPUS_VISION,
-    }
+  const extractionKey: ExtractionModelKey = isExtractionModelKey(params.extractionModel)
+    ? params.extractionModel
+    : 'claude-sonnet'
+  const apiModel = EXTRACTION_MODEL_API_IDS[extractionKey]
+  const wantsClaude = extractionKey === 'claude-sonnet' || extractionKey === 'claude-opus'
+
+  if (wantsClaude && !params.hasAnthropic) {
+    throw new Error(
+      `Modelo ${extractionKey} exige ANTHROPIC_API_KEY na Edge (${apiModel}). Configure o secret no Supabase ou escolha GPT-4o.`,
+    )
   }
-  // Modo pro: OpenAI leve
+
+  // Legado: mode max sem extraction_model explícito já cai em sonnet (default acima).
+  // Parser permanece leve conforme mode — não muda com o seletor de visão.
+  const parser = mode === 'pro' ? 'gpt-4o-mini' : 'gpt-4o'
+
   return {
-    extractor: 'gpt-4o',
-    parser: 'gpt-4o-mini',
-    auditor: 'o3-mini',
+    extractor: apiModel,
+    parser,
+    auditor: apiModel,
+    extractionKey,
   }
 }

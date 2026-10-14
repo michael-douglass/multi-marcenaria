@@ -30,9 +30,50 @@ const MAX_PDF_PAGES = 50
 /** JPEG de documentos (menor que PNG; fundo branco evita página preta). */
 const PDF_JPEG_QUALITY = 0.85
 const PDF_JPEG_MAX_EDGE = 2000
-/** Pipeline Orçamentos IA: JPEG mais leve para não travar PDFs grandes. */
-export const ORCAMENTOS_IA_JPEG_MAX_EDGE = 1600
+/** Pipeline Orçamentos IA: JPEG mais leve (custo de visão LLM). */
+export const ORCAMENTOS_IA_JPEG_MAX_EDGE = 1560
 export const ORCAMENTOS_IA_JPEG_QUALITY = 0.82
+
+/**
+ * Redimensiona foto (PNG/JPG/WebP) para JPEG no mesmo teto do PDF→visão.
+ * Usado quando o usuário envia imagens diretas (não PDF).
+ */
+export async function resizeImageToOrcamentosJpeg(
+  file: Blob | File,
+  options?: { maxEdge?: number; quality?: number },
+): Promise<Blob> {
+  const maxEdge = options?.maxEdge ?? ORCAMENTOS_IA_JPEG_MAX_EDGE
+  const quality = options?.quality ?? ORCAMENTOS_IA_JPEG_QUALITY
+  const bitmap = await createImageBitmap(file)
+  try {
+    const longest = Math.max(bitmap.width, bitmap.height)
+    const scale = longest > maxEdge ? maxEdge / longest : 1
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Não foi possível redimensionar a imagem.')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          canvas.width = 0
+          canvas.height = 0
+          if (blob) resolve(blob)
+          else reject(new Error('Falha ao gerar JPEG da imagem.'))
+        },
+        'image/jpeg',
+        quality,
+      )
+    })
+  } finally {
+    bitmap.close()
+  }
+}
 /** No card/lightbox: poucas páginas. 100 PNGs derrubavam o Safari no iPhone. */
 const MAX_LEAD_PDF_PAGES = 8
 

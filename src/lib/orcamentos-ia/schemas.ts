@@ -5,6 +5,20 @@ import {
   estimateModuleDimensions,
   positiveOrNull,
 } from '@/lib/orcamentos-ia/dimension-defaults'
+import {
+  DEFAULT_EXTRACTION_MODEL,
+  EXTRACTION_MODEL_KEYS,
+} from '@/lib/orcamentos-ia/openai-models'
+
+/**
+ * Seletor de modelo de visão/extração (UI + quote_analyses.extraction_model).
+ * Default econômico: claude-sonnet.
+ */
+export const extractionModelSchema = z
+  .enum(EXTRACTION_MODEL_KEYS)
+  .default(DEFAULT_EXTRACTION_MODEL)
+
+export type ExtractionModel = z.infer<typeof extractionModelSchema>
 
 /** Categorias alinhadas à Planilha 4.0 / inventory_items. */
 export const materialCategorySchema = z.enum([
@@ -182,6 +196,25 @@ export const moduleExtractionSchema = z
         m.dimensions && typeof m.dimensions === 'object'
           ? (m.dimensions as Record<string, unknown>)
           : {}
+      // Marcenaria tipada nunca fica out_of_scope (trava anti-descarte Flaviane / Cortecloud)
+      const typology = typeof m.typology === 'string' ? m.typology : ''
+      const nameKey = typeof m.name === 'string' ? m.name.toLowerCase() : ''
+      const isMarcenariaTypology = [
+        'balcao',
+        'aereo',
+        'armario_correr',
+        'armario_giro',
+        'nicho',
+        'painel',
+        'gaveteiro',
+      ].includes(typology)
+      const isMarcenariaName =
+        /ilha|balc[aã]o|bancada|arm[aá]rio|a[eé]reo|torre|cristaleira|gaveteiro|roupeiro|nicho|painel|mesa|prateleira|guarda.?roupa|cabeceira|escrivaninha/i.test(
+          nameKey,
+        )
+      if (m.out_of_scope === true && (isMarcenariaTypology || isMarcenariaName)) {
+        m.out_of_scope = false
+      }
       // Fora de escopo (pedra/decoração): mantém medidas só se todas forem válidas
       if (m.out_of_scope === true) {
         const valid = (['width_mm', 'height_mm', 'depth_mm'] as const).every(
@@ -229,7 +262,18 @@ export const moduleExtractionSchema = z
       door_count: z.number().int().nonnegative().optional(),
       drawer_count: z.number().int().nonnegative().optional(),
       shelf_count: z.number().int().nonnegative().optional(),
-      sliding_doors: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+      /**
+       * Portas de correr. Tipico 2–4; guarda-roupas grandes podem ter 5–8.
+       * Coerce valores fora da faixa em vez de derrubar o orçamento inteiro.
+       */
+      sliding_doors: z.preprocess((value) => {
+        if (value == null || value === '') return undefined
+        const n = Math.round(Number(value))
+        if (!Number.isFinite(n)) return undefined
+        if (n < 2) return 2
+        if (n > 8) return 8
+        return n
+      }, z.number().int().min(2).max(8).optional()),
       column_widths_mm: z.array(z.number().positive()).optional(),
       doubled_top: z.boolean().optional(),
       top_shelf: z.boolean().optional(),

@@ -45,6 +45,8 @@ interface PipelineBody {
   analysisId: string
   companyId: string
   mode?: 'max' | 'pro'
+  /** Chave UI: claude-sonnet | claude-opus | gpt-4o */
+  extraction_model?: string
   pagePaths?: string[]
   ragMemoriesPrompt?: string
   /**
@@ -251,19 +253,17 @@ function mergeExtractions(parts: unknown[]): AnyRec {
   }
 }
 
-/** Decoração, iluminação, marmoraria e obra civil — fora do escopo de marcenaria. */
+/** Pedra/civil/decoração solta — fora do escopo. LED/espelho ambíguos tratados após check de caixa. */
 const OUT_OF_SCOPE_HINTS = [
   'tapete',
   'quadro',
   'puff',
   'pendente',
   'arandela',
-  'led',
   'luminaria',
   'westwing',
   'nordecor',
   'pendurador',
-  'espelho',
   'almofada',
   'cortina',
   'vaso',
@@ -281,6 +281,7 @@ const OUT_OF_SCOPE_HINTS = [
   'gesso',
   'drywall',
 ]
+const AMBIGUOUS_DECOR_HINTS = ['led', 'espelho']
 
 /** Móveis/decoração comprados prontos em loja — fora do escopo mesmo com "peças". */
 const STORE_BRAND_HINTS = ['westwing', 'nordecor', 'portofino', 'tok stok', 'tokstok', 'mobly', 'etna', 'desk design', 'oppa']
@@ -304,9 +305,9 @@ function cleanCaixariaEdgeBanding(pieces: AnyRec[]): AnyRec[] {
   })
 }
 
-/** Tipologias que exigem caixa fatiada (paridade Cortecloud). */
+/** Tipologias que exigem caixa fatiada (paridade Cortecloud / Flaviane #23125828). */
 const BOX_MODULE_RE =
-  /ilha|balcao|bancada|armario|torre|cristaleira|gaveteiro|aereo|roupeiro|paneleiro|cozinhas/
+  /ilha|balcao|bancada|armario|aereo|torre|cristaleira|gaveteiro|roupeiro|paneleiro|nicho|painel|mesa|prateleira|cozinhas|guarda.?roupa|cabeceira|criado|escrivaninha|home.?office|aparador|espelheira|porta/
 
 /**
  * Se a IA devolver caixa com 1 peça, completa laterais/base/fundo/tampo a partir das cotas do módulo.
@@ -485,26 +486,28 @@ function ensurePlaceholders(extraction: AnyRec): AnyRec {
     const modules = asObjArray(env.modules).map((mod) => {
       const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
       const nameKey = normalizeKey(name)
-      const hinted = mod.out_of_scope === true || OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
+      const isBox = BOX_MODULE_RE.test(nameKey)
+      const hardOos = OUT_OF_SCOPE_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
+      const ambigDecor = AMBIGUOUS_DECOR_HINTS.some((h) => nameKey.includes(normalizeKey(h)))
       let caixaria = cleanCaixariaEdgeBanding(asObjArray(mod.caixaria))
       if (STORE_BRAND_HINTS.some((h) => nameKey.includes(h))) {
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
       const mdfPieces = caixaria.length + asObjArray(mod.frentes_portas).length
+      // Tipologia de marcenaria: NUNCA out_of_scope (trava anti-descarte Flaviane)
+      if (isBox) {
+        return enrichMinimalCaixaria({ ...mod, name, caixaria, out_of_scope: undefined })
+      }
       // Com chapa MDF (ex.: bancada sob granito) continua no escopo
       if (mdfPieces > 0) {
         return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
       }
-      if (hinted) {
+      if (hardOos || (ambigDecor && !isBox) || mod.out_of_scope === true) {
         // Fora de escopo: listado à parte no cliente, sem insumos nem custo
         return { ...mod, name, out_of_scope: true, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
       }
       const total = asObjArray(mod.ferragens).length + asObjArray(mod.fitas_borda_m).length
       if (total > 0) return enrichMinimalCaixaria({ ...mod, caixaria, out_of_scope: undefined })
-      // Caixa tipada sem peças: completa mínimo determinístico
-      if (BOX_MODULE_RE.test(nameKey)) {
-        return enrichMinimalCaixaria({ ...mod, name, caixaria: [], out_of_scope: undefined })
-      }
       // Marcenaria sem peças: NÃO inventar placeholder — deixa o auditor completar
       return { ...mod, caixaria: [], frentes_portas: [], ferragens: [], fitas_borda_m: [] }
     })
@@ -1411,13 +1414,27 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey)
     const mode = body.mode === 'pro' ? 'pro' : 'max'
+    let extractionModelKey =
+      typeof body.extraction_model === 'string' ? body.extraction_model.trim() : ''
+    if (!extractionModelKey) {
+      const { data: analysisRow } = await admin
+        .from('quote_analyses')
+        .select('extraction_model')
+        .eq('id', body.analysisId)
+        .maybeSingle()
+      if (typeof analysisRow?.extraction_model === 'string') {
+        extractionModelKey = analysisRow.extraction_model.trim()
+      }
+    }
     const models = resolveOrcamentosModels({
       mode,
       hasAnthropic: Boolean(anthropicKey),
+      extractionModel: extractionModelKey || 'claude-sonnet',
     })
     const EXTRACTOR_MODEL = models.extractor
     const PARSER_MODEL = models.parser
     const AUDITOR_MODEL = models.auditor
+    const extractionKey = models.extractionKey
     const ragBlock = body.ragMemoriesPrompt?.trim()
       ? `\n\n${body.ragMemoriesPrompt.trim()}`
       : ''
@@ -1466,6 +1483,7 @@ Deno.serve(async (req) => {
           analysisId: body.analysisId,
           companyId: body.companyId,
           mode,
+          extraction_model: extractionKey,
           ragMemoriesPrompt: body.ragMemoriesPrompt,
           ...payload,
         }),
@@ -1501,7 +1519,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    /** Max + Claude: sem fallback gpt-4o. Parser OpenAI não usa este ramo. */
+    /** Claude escolhido pelo usuário: sem fallback gpt-4o. Parser OpenAI não usa este ramo. */
     const callLlm = (params: {
       model: string
       system: string
@@ -1511,7 +1529,7 @@ Deno.serve(async (req) => {
       maxTokens?: number
       effort?: 'low' | 'medium' | 'high' | 'max'
     }) => {
-      const allowOpenAiFallback = !(mode === 'max' && isClaudeModel(params.model))
+      const allowOpenAiFallback = !isClaudeModel(params.model)
       const effort =
         params.effort ??
         (isClaudeModel(params.model)
@@ -1537,7 +1555,7 @@ Deno.serve(async (req) => {
     const systemExtractor = promptPack.extractor
     const systemAuditor = promptPack.auditor
     console.log(
-      `[orcamentos-ia-pipeline] mode=${mode} phase=${phase} extractor=${EXTRACTOR_MODEL} parser=${PARSER_MODEL} auditor=${AUDITOR_MODEL} anthropic=${Boolean(anthropicKey)} openai=${Boolean(openAiKey)} claudeFallbackBlocked=${mode === 'max'}`,
+      `[orcamentos-ia-pipeline] mode=${mode} extraction=${extractionKey} phase=${phase} extractor=${EXTRACTOR_MODEL} parser=${PARSER_MODEL} auditor=${AUDITOR_MODEL} anthropic=${Boolean(anthropicKey)} openai=${Boolean(openAiKey)} claudeFallbackBlocked=${isClaudeModel(EXTRACTOR_MODEL)}`,
     )
 
     let paths = (Array.isArray(body.pagePaths) ? body.pagePaths : []).slice(0, MAX_PAGES)

@@ -66,8 +66,8 @@ export interface ModuleSpec {
   door_count?: number
   drawer_count?: number
   shelf_count?: number
-  /** Portas de correr: 2, 3 ou 4 */
-  sliding_doors?: 2 | 3 | 4
+  /** Portas de correr (2–8; típico 2–4). */
+  sliding_doors?: 2 | 3 | 4 | 5 | 6 | 7 | 8
   /** Larguras das colunas (armário de giro); se vazio, 1 coluna = width */
   column_widths_mm?: number[]
   /** Maleiro ativo por coluna */

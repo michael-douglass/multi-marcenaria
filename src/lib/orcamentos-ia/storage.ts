@@ -1,11 +1,36 @@
 import { supabase } from '@/lib/supabase'
+import {
+  DEFAULT_EXTRACTION_MODEL,
+  EXTRACTION_MODEL_KEYS,
+  EXTRACTION_MODEL_LABELS,
+  isExtractionModelKey,
+  resolveExtractionApiModel,
+  type ExtractionModelKey,
+} from '@/lib/orcamentos-ia/openai-models'
+
+export type { ExtractionModelKey }
+export {
+  DEFAULT_EXTRACTION_MODEL,
+  EXTRACTION_MODEL_KEYS,
+  EXTRACTION_MODEL_LABELS,
+  isExtractionModelKey,
+  resolveExtractionApiModel,
+}
 
 /** Nome do bucket autenticado (não público) para PDFs e páginas do módulo. */
 export const ORCAMENTOS_IA_BUCKET = 'orcamentos-ia'
 
 const PDF_MIME = 'application/pdf'
-const MAX_SOURCE_BYTES = 100 * 1024 * 1024 // 100 MB
+/** Limite alinhado ao bucket `orcamentos-ia` no Supabase (100 MB). */
+export const MAX_SOURCE_BYTES = 100 * 1024 * 1024
 const ALLOWED_IMAGE_EXT = ['.png', '.jpg', '.jpeg', '.webp'] as const
+
+export function formatSourceBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 export function isAllowedQuoteSourceFile(file: File): boolean {
   const name = file.name.toLowerCase()
@@ -353,6 +378,8 @@ export interface UploadQuotePdfParams {
   companyId: string
   analysisId: string
   file: File
+  /** 0–100 durante o envio (XHR). */
+  onProgress?: (percent: number) => void
 }
 
 export interface UploadQuotePdfResult {
@@ -362,37 +389,32 @@ export interface UploadQuotePdfResult {
 
 /** Envia PDF ou imagem do projeto para o bucket autenticado. */
 export async function uploadQuoteSource(params: UploadQuotePdfParams): Promise<UploadQuotePdfResult> {
-  const { companyId, analysisId, file } = params
+  const { companyId, analysisId, file, onProgress } = params
 
   if (!isAllowedQuoteSourceFile(file)) {
     return { path: '', error: 'Envie PDF ou imagens (PNG, JPG, WebP).' }
   }
   if (file.size > MAX_SOURCE_BYTES) {
-    return { path: '', error: 'O arquivo ultrapassa o limite de 100 MB.' }
+    return {
+      path: '',
+      error: `O arquivo ultrapassa o limite de ${formatSourceBytes(MAX_SOURCE_BYTES)}.`,
+    }
   }
 
   const ready = await ensureOrcamentosIaBucket()
   if (!ready.ok) return { path: '', error: ready.error }
 
   const path = buildQuotePdfPath(companyId, analysisId, file.name)
+  // XHR direto no Storage (sem o fetch custom do client) — PDFs grandes
+  // não morrem por AbortSignal do wrapper e dá progresso real.
   try {
-    const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
+    const result = await uploadQuoteSourceViaXhr({
+      path,
+      file,
       contentType: contentTypeForSourceFile(file),
+      onProgress,
     })
-
-    if (error) {
-      const msg = error.message || 'Falha no upload.'
-      if (/abort/i.test(msg)) {
-        return {
-          path: '',
-          error:
-            'Upload abortado: o arquivo demorou demais para subir. Mantenha a aba aberta e tente de novo (timeout ampliado para PDFs grandes).',
-        }
-      }
-      return { path: '', error: msg }
-    }
+    if (result.error) return { path: '', error: result.error }
     return { path }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -407,6 +429,88 @@ export async function uploadQuoteSource(params: UploadQuotePdfParams): Promise<U
   }
 }
 
+async function uploadQuoteSourceViaXhr(opts: {
+  path: string
+  file: File
+  contentType: string
+  onProgress?: (percent: number) => void
+}): Promise<{ error?: string }> {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) {
+    return { error: 'Sessão expirada. Faça login de novo e reenvie o PDF.' }
+  }
+
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '')
+  const anonKey =
+    (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)
+  if (!baseUrl || !anonKey) {
+    return { error: 'Configuração do Supabase incompleta no frontend.' }
+  }
+
+  const encodedPath = opts.path
+    .split('/')
+    .map((seg) => encodeURIComponent(seg))
+    .join('/')
+  const url = `${baseUrl}/storage/v1/object/${ORCAMENTOS_IA_BUCKET}/${encodedPath}`
+
+  return await new Promise<{ error?: string }>((resolve) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    // PDFs grandes em rede lenta: 40 min (antes 10 min cortava no meio).
+    xhr.timeout = 2_400_000
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.setRequestHeader('apikey', anonKey)
+    xhr.setRequestHeader('x-upsert', 'true')
+    xhr.setRequestHeader('cache-control', '3600')
+    xhr.setRequestHeader('Content-Type', opts.contentType)
+
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable || !opts.onProgress) return
+      const pct = Math.min(100, Math.round((ev.loaded / ev.total) * 100))
+      opts.onProgress(pct)
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        opts.onProgress?.(100)
+        resolve({})
+        return
+      }
+      let detail = xhr.responseText?.slice(0, 280) || `HTTP ${xhr.status}`
+      try {
+        const parsed = JSON.parse(xhr.responseText) as { message?: string; error?: string }
+        detail = parsed.message || parsed.error || detail
+      } catch {
+        /* texto cru */
+      }
+      if (xhr.status === 413) {
+        resolve({
+          error: `Arquivo rejeitado pelo servidor (muito grande). Limite: ${formatSourceBytes(MAX_SOURCE_BYTES)}.`,
+        })
+        return
+      }
+      resolve({ error: detail || `Falha no upload (HTTP ${xhr.status}).` })
+    }
+
+    xhr.ontimeout = () => {
+      resolve({
+        error:
+          'Upload abortado: o PDF pesado passou do tempo de envio. Mantenha a aba aberta e reenvie.',
+      })
+    }
+    xhr.onerror = () => {
+      resolve({ error: 'Falha de rede no upload. Verifique a conexão e tente de novo.' })
+    }
+    xhr.onabort = () => {
+      resolve({ error: 'Upload cancelado. Reenvie o arquivo.' })
+    }
+
+    xhr.send(opts.file)
+  })
+}
+
 /** @deprecated use uploadQuoteSource */
 export async function uploadQuotePdf(params: UploadQuotePdfParams): Promise<UploadQuotePdfResult> {
   return uploadQuoteSource(params)
@@ -415,6 +519,8 @@ export async function uploadQuotePdf(params: UploadQuotePdfParams): Promise<Uplo
 export interface CreateQuoteAnalysisParams {
   companyId: string
   mode: QuoteAnalysisMode
+  /** Modelo de visão/extração (default Sonnet econômico). */
+  extractionModel?: ExtractionModelKey
   createdBy?: string | null
   sourcePdfPath?: string | null
 }
@@ -423,6 +529,7 @@ export interface QuoteAnalysisRow {
   id: string
   company_id: string
   mode: string
+  extraction_model?: string | null
   status: QuoteAnalysisStatus
   source_pdf_path: string | null
   error_message: string | null
@@ -434,17 +541,21 @@ export interface QuoteAnalysisRow {
 export async function createPendingQuoteAnalysis(
   params: CreateQuoteAnalysisParams,
 ): Promise<{ data: QuoteAnalysisRow | null; error?: string }> {
+  const extractionModel = isExtractionModelKey(params.extractionModel)
+    ? params.extractionModel
+    : DEFAULT_EXTRACTION_MODEL
   const { data, error } = await supabase
     .from('quote_analyses')
     .insert({
       company_id: params.companyId,
       mode: params.mode,
+      extraction_model: extractionModel,
       status: 'PENDING',
       created_by: params.createdBy ?? null,
       source_pdf_path: params.sourcePdfPath ?? null,
     })
     .select(
-      'id, company_id, mode, status, source_pdf_path, error_message, created_at, updated_at',
+      'id, company_id, mode, extraction_model, status, source_pdf_path, error_message, created_at, updated_at',
     )
     .single()
 

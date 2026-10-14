@@ -142,7 +142,7 @@ export function explodeModuleForPersist(
     door_count?: number | null
     drawer_count?: number | null
     shelf_count?: number | null
-    sliding_doors?: 2 | 3 | 4 | null
+    sliding_doors?: 2 | 3 | 4 | 5 | 6 | 7 | 8 | null
     column_widths_mm?: number[] | null
     doubled_top?: boolean | null
     top_shelf?: boolean | null

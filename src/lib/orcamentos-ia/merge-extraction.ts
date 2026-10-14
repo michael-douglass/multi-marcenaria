@@ -994,13 +994,45 @@ export function applyAntiHallucinationHeuristics(extraction: unknown): unknown {
 }
 
 /**
- * Marca `out_of_scope` em pedra/alvenaria/decoração sem MDF.
- * Não cria mais ferragem placeholder — esses módulos ficam fora do custo.
- * Bancada de MDF sob granito (com caixaria/frentes) continua no escopo.
+ * Tipologias de marcenaria (caixaria) — NUNCA podem ser out_of_scope.
+ * Paridade Cortecloud #23125828 / Flaviane: todo MDF/MDP/madeira entra no orçamento.
+ */
+export const BOX_MODULE_RE =
+  /ilha|balcao|bancada|armario|aereo|torre|cristaleira|gaveteiro|roupeiro|paneleiro|nicho|painel|mesa|prateleira|cozinhas|guarda.?roupa|cabeceira|criado|escrivaninha|home.?office|aparador|espelheira|porta/
+
+/** Tipologias Zod de marcenaria (schemas.ts) — forçam in-scope. */
+const MARCENARIA_TYPOLOGIES = new Set([
+  'balcao',
+  'aereo',
+  'armario_correr',
+  'armario_giro',
+  'nicho',
+  'painel',
+  'gaveteiro',
+])
+
+export function isMarcenariaModule(mod: AnyRec): boolean {
+  if (isStoreBoughtModule(mod)) return false
+  const typology = typeof mod.typology === 'string' ? mod.typology : ''
+  if (MARCENARIA_TYPOLOGIES.has(typology)) return true
+  const name = normalizeExtractionKey(typeof mod.name === 'string' ? mod.name : '')
+  return BOX_MODULE_RE.test(name)
+}
+
+/**
+ * Marca `out_of_scope` só em pedra/alvenaria/decoração/loja sem MDF.
+ * Marcenaria (tipologia/caixa) permanece SEMPRE no escopo — completa BOM mínimo se vazio.
  */
 export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
   if (isStoreBoughtModule(mod)) return { ...mod, out_of_scope: true }
+
   const mdfPieces = asArray(mod.caixaria).length + asArray(mod.frentes_portas).length
+  if (isMarcenariaModule(mod)) {
+    const cleared = { ...mod, out_of_scope: false }
+    if (mdfPieces > 0) return cleared
+    return enrichMinimalCaixariaClient(cleared)
+  }
+
   if (mdfPieces > 0) {
     return mod.out_of_scope === true ? { ...mod, out_of_scope: false } : mod
   }
@@ -1008,20 +1040,82 @@ export function ensureModulePlaceholder(mod: AnyRec): AnyRec {
   return { ...mod, out_of_scope: true }
 }
 
+/**
+ * Completa laterais/base/fundo mínimos no client (espelho leve da Edge).
+ * Só para tipologias de caixa sem peças — evita remoção no sanitize do pipeline.
+ */
+function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
+  const name = typeof mod.name === 'string' ? mod.name : 'Modulo'
+  const nameKey = normalizeExtractionKey(name)
+  if (!BOX_MODULE_RE.test(nameKey)) return { ...mod, out_of_scope: false }
+
+  const dims = mod.dimensions && typeof mod.dimensions === 'object' ? (mod.dimensions as AnyRec) : {}
+  const w = Number(dims.width_mm) > 0 ? Number(dims.width_mm) : 800
+  const h = Number(dims.height_mm) > 0 ? Number(dims.height_mm) : 720
+  const d = Number(dims.depth_mm) > 0 ? Number(dims.depth_mm) : 500
+  const openFront = /ilha|bancada|mesa|prateleira/.test(nameKey)
+  const mat = 'MDF Branco TX 15mm'
+  const caixaria: AnyRec[] = [
+    {
+      name: 'Lateral esquerda',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: 15,
+      material_name: mat,
+      quantity: 1,
+    },
+    {
+      name: 'Lateral direita',
+      function: 'lateral',
+      width_mm: d,
+      height_mm: h,
+      thickness_mm: 15,
+      material_name: mat,
+      quantity: 1,
+    },
+    {
+      name: 'Base',
+      function: 'base',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: 15,
+      material_name: mat,
+      quantity: 1,
+    },
+  ]
+  if (!openFront) {
+    caixaria.push({
+      name: 'Fundo',
+      function: 'fundo',
+      width_mm: w,
+      height_mm: h,
+      thickness_mm: 6,
+      material_name: 'MDF Branco TX 6mm',
+      quantity: 1,
+    })
+  }
+  return {
+    ...mod,
+    out_of_scope: false,
+    caixaria,
+    dimensions: { width_mm: w, height_mm: h, depth_mm: d, ...(dims as object) },
+  }
+}
+
+/** Só pedra/civil/decoração solta — NÃO inclui LED/espelho (ambíguos em marcenaria). */
 const OUT_OF_SCOPE_HINTS = [
   'tapete',
   'quadro',
   'puff',
   'pendente',
   'arandela',
-  'led',
   'luminaria',
   'luminária',
   'westwing',
   'nordecor',
   'portofino',
   'pendurador',
-  'espelho',
   'almofada',
   'cortina',
   'vaso',
@@ -1042,6 +1136,9 @@ const OUT_OF_SCOPE_HINTS = [
   'drywall',
 ]
 
+/** Decoração solta só-espelho/LED (sem tipologia de caixa). */
+const AMBIGUOUS_DECOR_HINTS = ['led', 'espelho']
+
 /** Móveis/decoração comprados prontos em loja — nunca são marcenaria, mesmo com "peças". */
 const STORE_BRAND_HINTS = ['westwing', 'nordecor', 'portofino', 'tok stok', 'tokstok', 'mobly', 'etna', 'desk design', 'oppa']
 
@@ -1051,9 +1148,13 @@ export function isStoreBoughtModule(mod: AnyRec): boolean {
 }
 
 export function isOutOfScopeModule(mod: AnyRec): boolean {
+  if (isMarcenariaModule(mod)) return false
   if (mod.out_of_scope === true) return true
   const name = normalizeExtractionKey(typeof mod.name === 'string' ? mod.name : '')
-  return OUT_OF_SCOPE_HINTS.some((h) => name.includes(normalizeExtractionKey(h)))
+  if (OUT_OF_SCOPE_HINTS.some((h) => name.includes(normalizeExtractionKey(h)))) return true
+  // LED/espelho sozinhos = decoração; com tipologia de caixa já retornou false acima
+  if (AMBIGUOUS_DECOR_HINTS.some((h) => name.includes(normalizeExtractionKey(h)))) return true
+  return false
 }
 
 export function isPlaceholderFerragem(item: AnyRec): boolean {

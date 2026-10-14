@@ -13,12 +13,17 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
   createPendingQuoteAnalysis,
+  deleteQuoteAnalysis,
+  formatSourceBytes,
   isAllowedQuoteSourceFile,
   isQuoteAnalysisStatus,
   formatAsyncPageProgress,
+  DEFAULT_EXTRACTION_MODEL,
+  MAX_SOURCE_BYTES,
   parseThoughtLog,
   updateQuoteAnalysisPdfPath,
   uploadQuoteSource,
+  type ExtractionModelKey,
   type QuoteAnalysisMode,
   type QuoteAnalysisStatus,
   type ThoughtLogEntry,
@@ -57,6 +62,8 @@ export interface StartOrcamentosIaAnalysisInput {
   companyId: string
   userId?: string | null
   mode: QuoteAnalysisMode
+  /** Modelo de visão (default Sonnet econômico). */
+  extractionModel?: ExtractionModelKey
   files: File[]
 }
 
@@ -418,6 +425,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
   const startQuoteAnalysis = useCallback(
     async (input: StartOrcamentosIaAnalysisInput): Promise<string | null> => {
       const { companyId, userId, mode } = input
+      const extractionModel = input.extractionModel ?? DEFAULT_EXTRACTION_MODEL
       const files = input.files.filter(isAllowedQuoteSourceFile).slice(0, 300)
       if (!companyId) {
         toast.error('Empresa não identificada.')
@@ -429,22 +437,73 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       }
 
       const fileName = files.map((f) => f.name).join(', ')
+      const primary = files[0]
+      const primaryMb = formatSourceBytes(primary.size)
       const jobId = crypto.randomUUID()
 
+      if (primary.size > MAX_SOURCE_BYTES) {
+        toast.error(
+          `Arquivo grande demais (${primaryMb}). Limite: ${formatSourceBytes(MAX_SOURCE_BYTES)}. Comprima o PDF e tente de novo.`,
+        )
+        return null
+      }
+
+      let createdAnalysisId: string | null = null
       try {
         const { data: analysis, error: createError } = await createPendingQuoteAnalysis({
           companyId,
           mode,
+          extractionModel,
           createdBy: userId,
         })
         if (createError || !analysis) {
           throw new Error(createError || 'Não foi possível criar a análise.')
         }
+        createdAnalysisId = analysis.id
 
+        // Job visível DURANTE o upload (antes só aparecia depois — parecia “travado”).
+        const uploadingDetail = `Enviando PDF (${primaryMb})… mantenha esta aba aberta.`
+        const baseJob: OrcamentosIaBackgroundJob = {
+          id: jobId,
+          analysisId: analysis.id,
+          companyId,
+          fileName,
+          mode,
+          status: 'PENDING',
+          pipelineStage: 'upload',
+          pipelineDetail: uploadingDetail,
+          thoughtLog: [
+            {
+              at: new Date().toISOString(),
+              stage: 'upload',
+              kind: 'info',
+              message: uploadingDetail,
+            },
+          ],
+          pagesProcessed: null,
+          errorMessage: null,
+          startedAt: Date.now(),
+          runnerActive: true,
+          needsResume: false,
+        }
+        setJobs((current) => [...current, baseJob])
+        toast.message('Enviando PDF…', {
+          description: `${primary.name} (${primaryMb}). Pode demorar em arquivos grandes.`,
+          duration: 8000,
+        })
+
+        let lastPct = -1
         const firstUpload = await uploadQuoteSource({
           companyId,
           analysisId: analysis.id,
-          file: files[0],
+          file: primary,
+          onProgress: (percent) => {
+            if (percent === lastPct) return
+            lastPct = percent
+            updateJobByAnalysis(analysis.id, {
+              pipelineDetail: `Enviando PDF… ${percent}% (${primaryMb})`,
+            })
+          },
         })
         if (firstUpload.error || !firstUpload.path) {
           throw new Error(firstUpload.error || 'Falha no upload.')
@@ -462,16 +521,12 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           if (up.error) console.warn('[orcamentos-ia-bg] arquivo extra:', up.error)
         }
 
-        const baseJob: OrcamentosIaBackgroundJob = {
-          id: jobId,
-          analysisId: analysis.id,
-          companyId,
-          fileName,
-          mode,
+        updateJobByAnalysis(analysis.id, {
           status: 'PROCESSING',
           pipelineStage: 'upload',
           pipelineDetail: 'Arquivo enviado. Iniciando análise em segundo plano…',
           thoughtLog: [
+            ...baseJob.thoughtLog,
             {
               at: new Date().toISOString(),
               stage: 'upload',
@@ -479,16 +534,10 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               message: 'Arquivo enviado. Iniciando análise em segundo plano…',
             },
           ],
-          pagesProcessed: null,
-          errorMessage: null,
-          startedAt: Date.now(),
-          runnerActive: true,
-          needsResume: false,
-        }
-
-        setJobs((current) => [...current, baseJob])
+        })
         toast.message('Orçamento IA em segundo plano', {
-          description: 'Pode navegar para outras páginas — a análise continua nesta aba. Clique no ícone azul para acompanhar.',
+          description:
+            'Pode navegar para outras páginas — a análise continua nesta aba. Clique no ícone azul para acompanhar.',
           duration: 6000,
           action: {
             label: 'Acompanhar',
@@ -503,6 +552,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               analysisId: analysis.id,
               companyId,
               mode,
+              extractionModel,
               sourceFiles: files,
             })
             runnersRef.current.delete(analysis.id)
@@ -557,7 +607,27 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
         return analysis.id
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao iniciar análise.'
-        toast.error(message)
+        // NUNCA apagar a ficha no catch: upload de 70MB+ pode ainda estar
+        // terminando no Storage depois de um abort/HMR. Só marca FAILED.
+        if (createdAnalysisId) {
+          await supabase
+            .from('quote_analyses')
+            .update({
+              status: 'FAILED',
+              error_message: message.slice(0, 500),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', createdAnalysisId)
+            .is('source_pdf_path', null)
+          updateJobByAnalysis(createdAnalysisId, {
+            status: 'FAILED',
+            errorMessage: message,
+            runnerActive: false,
+            needsResume: true,
+            pipelineDetail: message,
+          })
+        }
+        toast.error(message, { duration: 12000 })
         return null
       }
     },

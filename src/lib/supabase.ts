@@ -20,8 +20,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 const REST_TIMEOUT_MS = 20_000
-/** PDFs executivos grandes (dezenas de MB) precisam de mais que 2 min no upload. */
-const STORAGE_TIMEOUT_MS = 600_000
+/** PDFs grandes (dezenas de MB) em rede lenta — 40 min no Storage. */
+const STORAGE_TIMEOUT_MS = 2_400_000
 /** Render/IA no servidor pode passar de 1 minuto. Cortar cedo aborta o cliente e dispara um 2º pedido. */
 const FUNCTIONS_TIMEOUT_MS = 180_000
 

@@ -1,0 +1,142 @@
+{
+  "compared_at": "2026-10-14T03:19:39.827Z",
+  "target_a": "F:\\Movelaria-Garbo\\Movelaria\\docs\\evidence\\resultado_cortecloud_23125828.json",
+  "target_b": "F:\\Movelaria-Garbo\\Movelaria\\docs\\evidence\\nosso_resultado.json",
+  "cortecloud": {
+    "plan_id": 23125828,
+    "sheets_total": 74,
+    "parts_rows": 919,
+    "pieces_quantity_sum": 1223,
+    "materials_rs": 24083.81,
+    "ambients": [
+      "Area Externa",
+      "Area de serviço",
+      "Banheiro 01",
+      "Banheiro 02",
+      "Banheiro terreo",
+      "Cozinha",
+      "Cozinha e sala de jantar",
+      "Home office",
+      "Lavabo",
+      "Quarto 01",
+      "Quarto 02",
+      "Quarto 03",
+      "sala de jantar"
+    ]
+  },
+  "nosso": {
+    "analysis_id": "fde3a87b-a249-4e95-8a2d-f75f6c9b7818",
+    "sheets_total": 42,
+    "modules_in_scope": 17,
+    "modules_out_of_scope": 39,
+    "materials_rs": 24320.16,
+    "sale_price": 44218.48
+  },
+  "sheet_deltas": {
+    "Areia": {
+      "cortecloud": 9,
+      "nosso": 1,
+      "delta": -8
+    },
+    "Azul": {
+      "cortecloud": 2,
+      "nosso": 0,
+      "delta": -2
+    },
+    "Bege": {
+      "cortecloud": 1,
+      "nosso": 0,
+      "delta": -1
+    },
+    "Blush": {
+      "cortecloud": 4,
+      "nosso": 0,
+      "delta": -4
+    },
+    "Branco": {
+      "cortecloud": 43,
+      "nosso": 34,
+      "delta": -9
+    },
+    "Imbuia": {
+      "cortecloud": 10,
+      "nosso": 2,
+      "delta": -8
+    },
+    "Lord": {
+      "cortecloud": 2,
+      "nosso": 0,
+      "delta": -2
+    },
+    "LouroFreijo": {
+      "cortecloud": 0,
+      "nosso": 1,
+      "delta": 1
+    },
+    "Mint": {
+      "cortecloud": 3,
+      "nosso": 2,
+      "delta": -1
+    },
+    "Outro": {
+      "cortecloud": 0,
+      "nosso": 1,
+      "delta": 1
+    },
+    "Vidro": {
+      "cortecloud": 0,
+      "nosso": 1,
+      "delta": 1
+    }
+  },
+  "sheets_gap": 32,
+  "materials_delta_rs": 236.35,
+  "missing_ambients": [
+    "Area Externa",
+    "Lavabo",
+    "Quarto 02",
+    "Quarto 03",
+    "sala de jantar"
+  ],
+  "wrongly_oos_candidates": [
+    {
+      "env": "Banheiro (imagem ilustrativa)",
+      "name": "Prateleira"
+    },
+    {
+      "env": "Banheiro (imagem ilustrativa)",
+      "name": "Espelheira"
+    },
+    {
+      "env": "Quarto Suíte",
+      "name": "Aparador De Madeira Com Gaveta"
+    },
+    {
+      "env": "Sala de Jantar",
+      "name": "Mesa de jantar"
+    },
+    {
+      "env": "Home Office / Quarto visita",
+      "name": "Mesa Lateral De Apoio"
+    },
+    {
+      "env": "Área de Serviço",
+      "name": "Porta Acesso Externo"
+    },
+    {
+      "env": "Área de Serviço",
+      "name": "Porta Deposito"
+    },
+    {
+      "env": "Cozinha",
+      "name": "Porta De Correr"
+    }
+  ],
+  "acceptance": {
+    "sheets_target": 74,
+    "sheets_min": 70,
+    "sheets_ok": false,
+    "materials_near": true,
+    "notes": "Travas anti-OOS no codigo prontas; cobertura 74 chapas exige reprocessamento LLM do PDF com prompts novos."
+  }
+}
