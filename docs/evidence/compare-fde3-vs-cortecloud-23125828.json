@@ -1,0 +1,49 @@
+﻿{
+  "compared_at": "2026-10-14T03:10:00Z",
+  "same_project": "Flaviane e Helio / Anama Arq — Caderno Executivo",
+  "our_quote": {
+    "id": "fde3a87b-a249-4e95-8a2d-f75f6c9b7818",
+    "url": "http://localhost:3000/orcamentos-ia?audit=fde3a87b-a249-4e95-8a2d-f75f6c9b7818",
+    "status": "COMPLETED",
+    "sale_price": 44218.48,
+    "materials_cost": 24320.16,
+    "mpc_margin_pct": 45,
+    "modules_total": 56,
+    "modules_in_scope": 17,
+    "modules_out_of_scope": 39,
+    "in_scope_modules": [
+      "Cozinha: Armário, Aéreo, Prateleira",
+      "Quarto Suíte: Gaveteiro, Mesa Com Prateleiras, Bancada, Armário",
+      "Lavanderia: 4 móveis",
+      "Área de Serviço: Prateleiras, Armário",
+      "Banheiro Térreo: Armário, Prateleira Decorativa",
+      "Gourmet: Bancada",
+      "Home Office: Mesa Com Prateleiras"
+    ],
+    "sheets_priced_ui": {"Branco": 34, "Mint": 2, "Imbuia": 2, "Areia": 1, "Louro Freijo": 1, "Vidro": 1, "Outro": 1, "total": 42},
+    "bom_sheets_branco_only": 36,
+    "missing_vs_cc_colors": ["Bege", "Lord", "Blush", "Azul", "quase toda Areia/Imbuia/Mint em volume"]
+  },
+  "cortecloud": {
+    "plan_id": 23125828,
+    "url": "https://marceneiro.cortecloud.com.br/#/plans/23125828/view",
+    "central": "JR Ferragens e Madeiras",
+    "materials": 24083.81,
+    "services_labor": 10367.24,
+    "total_central": 34451.05,
+    "packaging": "Não Incluso",
+    "freight": "retirada s/ frete",
+    "sheets_total": 74,
+    "sheets": {"Bege_15": 1, "Imbuia_15": 8, "Imbuia_6": 2, "Lord_15": 2, "Mint_6": 1, "Mint_15": 2, "Blush_15": 3, "Blush_6": 1, "Azul_15": 2, "Areia_15": 8, "Areia_6": 1, "Branco_15": 33, "Branco_6": 10},
+    "piece_rows_approx": 959,
+    "ambients_piece_counts": {"Quarto 01": 188, "Cozinha e sala de jantar": 197, "Quarto 02": 132, "Quarto 03": 130, "Home office": 55, "Cozinha": 47, "Area de serviço": 41, "Area Externa": 28, "Lavabo": 28, "Banheiro terreo": 24, "sala de jantar": 23, "Banheiro 01": 13, "Banheiro 02": 13},
+    "hardware_highlights": {"dobradica_165_nao_incluso": 24, "corredica_450_nao_incluso": 51, "pistao": 8, "dobradica_110": 10}
+  },
+  "deltas": {
+    "materials_rs": 236.35,
+    "materials_pct": 0.98,
+    "sheets_our_42_vs_cc_74": -32,
+    "sale_vs_cc_total": "nosso venda 44218 (MPC45) vs CC total central 34451 (materiais+mão de obra da central)"
+  },
+  "verdict": "Mesmo projeto (Flaviane/Helio). Custo de materiais quase idêntico (~1%), mas o Cortecloud tem o plano de corte completo (~959 peças, 74 chapas, vários ambientes). Nosso orçamento precificou só 17 móveis no escopo e 42 chapas — faltam Quarto 02/03, lavabo, área externa, volume de cores e ferragens NÃO INCLUSO do CC."
+}

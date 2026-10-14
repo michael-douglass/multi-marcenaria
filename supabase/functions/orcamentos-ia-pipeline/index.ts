@@ -13,11 +13,23 @@ import {
 import { rebalanceEnvironments as rebalanceEnvironmentsShared } from '../_shared/rebalance-environments.ts'
 
 const BATCH_SIZE = 8
-const MAX_PAGES = 40
+/** Anti-504 async: até 300 páginas (1 LLM / request). */
+const MAX_PAGES = 300
 
 type AnyRec = Record<string, unknown>
 
-type PipelinePhase = 'full' | 'inventory' | 'extract' | 'audit' | 'heal_module'
+type PipelinePhase =
+  | 'full'
+  | 'inventory'
+  | 'extract'
+  | 'audit'
+  | 'heal_module'
+  | 'start_async'
+  | 'chain_tick'
+  | 'extract_page'
+  | 'audit_environment'
+
+type ChainStep = 'inventory' | 'extract' | 'audit' | 'done'
 
 interface InventoryEnv {
   environment: string
@@ -33,28 +45,34 @@ interface PipelineBody {
   analysisId: string
   companyId: string
   mode?: 'max' | 'pro'
-  pagePaths: string[]
+  pagePaths?: string[]
   ragMemoriesPrompt?: string
   /**
    * Fases curtas evitam 504 do gateway (~150s).
-   * - inventory: capa → lista de ambientes/móveis
-   * - extract: 1 lote de páginas (pagePaths já cortado pelo client)
-   * - heal_module: cura cirúrgica — só módulos faltantes (sem re-extrair tudo)
-   * - audit: até 3 passagens anti-alucinação (remover/renomear + completar BOM)
-   * - full: comportamento legado (tudo numa chamada — só PDFs pequenos)
+   * - inventory / extract / heal_module / audit / full: legado síncrono
+   * - start_async: responde <2s e dispara cadeia (waitUntil)
+   * - chain_tick / extract_page / audit_environment: 1 unidade de trabalho por request
    */
   phase?: PipelinePhase
   inventory?: InventoryEnv[]
   extraction?: AnyRec
-  /** Árvore atual para merge na cura cirúrgica (alias de extraction). */
   currentExtraction?: AnyRec
-  /** Itens do inventário ainda ausentes (cura cirúrgica). */
   missingModules?: CoverageItemLite[]
-  /** Feedback do Self-Healing (módulos ausentes) — prefixado no prompt extract/audit. */
   healFeedback?: string
-  /** Auditor não pode remover módulos com nota de injeção forçada. */
   forcedInjectLock?: boolean
+  /** Cadeia async: passo atual. */
+  chainStep?: ChainStep
+  /** Índice 0-based da página a extrair. */
+  pageIndex?: number
+  /** Índice 0-based do ambiente a auditar. */
+  envIndex?: number
+  /** Retomar sem zerar partial_extraction. */
+  resumeFromPage?: number
 }
+
+declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void }
+
+const CHAIN_SECRET_HEADER = 'x-pipeline-chain-secret'
 
 const FORCED_INJECT_NOTE = 'injeção forçada self-heal: cobertura inventário'
 
@@ -1362,8 +1380,33 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as PipelineBody
-    if (!body?.analysisId || !body?.companyId || !body?.pagePaths?.length) {
+    const phase: PipelinePhase = body.phase || 'full'
+    const isAsyncPhase =
+      phase === 'start_async' ||
+      phase === 'chain_tick' ||
+      phase === 'extract_page' ||
+      phase === 'audit_environment'
+
+    if (!body?.analysisId || !body?.companyId) {
+      return jsonResponse({ ok: false, error: 'analysisId e companyId são obrigatórios.' }, 400)
+    }
+    if (!isAsyncPhase && !body?.pagePaths?.length) {
       return jsonResponse({ ok: false, error: 'analysisId, companyId e pagePaths são obrigatórios.' }, 400)
+    }
+    if (phase === 'start_async' && !body?.pagePaths?.length) {
+      return jsonResponse({ ok: false, error: 'start_async exige pagePaths.' }, 400)
+    }
+
+    const chainSecretExpected =
+      Deno.env.get('ORCAMENTOS_IA_CHAIN_SECRET')?.trim() || serviceKey.trim()
+    const chainSecretGot = req.headers.get(CHAIN_SECRET_HEADER)?.trim() || ''
+    const isChainCall = Boolean(chainSecretGot && chainSecretGot === chainSecretExpected)
+    if (
+      (phase === 'chain_tick' || phase === 'extract_page' || phase === 'audit_environment') &&
+      !isChainCall &&
+      !isServiceRole
+    ) {
+      return jsonResponse({ ok: false, error: 'Cadeia async requer secret ou service_role.' }, 401)
     }
 
     const admin = createClient(supabaseUrl, serviceKey)
@@ -1375,10 +1418,88 @@ Deno.serve(async (req) => {
     const EXTRACTOR_MODEL = models.extractor
     const PARSER_MODEL = models.parser
     const AUDITOR_MODEL = models.auditor
-    const phase: PipelinePhase = body.phase || 'full'
     const ragBlock = body.ragMemoriesPrompt?.trim()
       ? `\n\n${body.ragMemoriesPrompt.trim()}`
       : ''
+
+    const readTotals = async (): Promise<Record<string, unknown>> => {
+      const { data } = await admin
+        .from('quote_analyses')
+        .select('totals')
+        .eq('id', body.analysisId)
+        .maybeSingle()
+      return data?.totals && typeof data.totals === 'object'
+        ? (data.totals as Record<string, unknown>)
+        : {}
+    }
+
+    const patchTotals = async (patch: Record<string, unknown>, status?: string) => {
+      const prev = await readTotals()
+      const next = { ...prev, ...patch, pipeline_updated_at: new Date().toISOString() }
+      const upd: Record<string, unknown> = {
+        totals: next,
+        updated_at: new Date().toISOString(),
+      }
+      if (status) upd.status = status
+      await admin.from('quote_analyses').update(upd).eq('id', body.analysisId)
+      return next
+    }
+
+    const countModules = (extraction: AnyRec): number => {
+      let n = 0
+      for (const env of asObjArray(extraction.environments)) {
+        n += asObjArray(env.modules).length
+      }
+      return n
+    }
+
+    const enqueueChain = (payload: Record<string, unknown>) => {
+      const selfUrl = `${supabaseUrl}/functions/v1/orcamentos-ia-pipeline`
+      const run = fetch(selfUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+          [CHAIN_SECRET_HEADER]: chainSecretExpected,
+        },
+        body: JSON.stringify({
+          analysisId: body.analysisId,
+          companyId: body.companyId,
+          mode,
+          ragMemoriesPrompt: body.ragMemoriesPrompt,
+          ...payload,
+        }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => '')
+          console.error('[chain] next tick failed', res.status, text.slice(0, 400))
+          await patchTotals(
+            {
+              pipeline_stage: 'failed',
+              pipeline_detail: `Cadeia interrompida (HTTP ${res.status}). Clique em Retomar.`,
+              async_chain_status: 'failed',
+            },
+            'FAILED',
+          )
+        }
+      }).catch(async (err) => {
+        console.error('[chain] enqueue error', err)
+        await patchTotals(
+          {
+            pipeline_stage: 'failed',
+            pipeline_detail: 'Cadeia interrompida (rede). Clique em Retomar.',
+            async_chain_status: 'failed',
+          },
+          'FAILED',
+        )
+      })
+      try {
+        EdgeRuntime.waitUntil(run)
+      } catch {
+        // Ambientes sem waitUntil: dispara sem aguardar (best-effort)
+        void run
+      }
+    }
 
     /** Max + Claude: sem fallback gpt-4o. Parser OpenAI não usa este ramo. */
     const callLlm = (params: {
@@ -1419,7 +1540,14 @@ Deno.serve(async (req) => {
       `[orcamentos-ia-pipeline] mode=${mode} phase=${phase} extractor=${EXTRACTOR_MODEL} parser=${PARSER_MODEL} auditor=${AUDITOR_MODEL} anthropic=${Boolean(anthropicKey)} openai=${Boolean(openAiKey)} claudeFallbackBlocked=${mode === 'max'}`,
     )
 
-    const paths = body.pagePaths.slice(0, MAX_PAGES)
+    let paths = (Array.isArray(body.pagePaths) ? body.pagePaths : []).slice(0, MAX_PAGES)
+    if (isAsyncPhase && paths.length === 0) {
+      const tot = await readTotals()
+      const stored = Array.isArray(tot.page_paths)
+        ? (tot.page_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+        : []
+      paths = stored.slice(0, MAX_PAGES)
+    }
     type VisionImage = { type: 'image_url'; image_url: { url: string }; path: string }
     const imageCache = new Map<string, VisionImage>()
 
@@ -1512,6 +1640,419 @@ Deno.serve(async (req) => {
       inventory.length
         ? inventory.map((e) => `- ${e.environment}: ${(e.modules || []).join(', ')}`).join('\n')
         : '(inventário vazio — extraia o máximo possível das pranchas)'
+
+    // ═══ ASYNC ANTI-504: start_async → chain_tick (1 LLM / request) ═══
+    if (phase === 'start_async') {
+      const resumeFrom =
+        typeof body.resumeFromPage === 'number' && body.resumeFromPage >= 0
+          ? Math.floor(body.resumeFromPage)
+          : 0
+      const prev = await readTotals()
+      const keepPartial =
+        resumeFrom > 0 && prev.partial_extraction && typeof prev.partial_extraction === 'object'
+      const partial = keepPartial
+        ? (prev.partial_extraction as AnyRec)
+        : { environments: [], auditor_notes: [], warnings: [] }
+      const inventoryKeep =
+        resumeFrom > 0 && Array.isArray(prev.inventory)
+          ? (prev.inventory as InventoryEnv[])
+          : []
+      const auditedKeep =
+        resumeFrom > 0 && Array.isArray(prev.audited_environments)
+          ? (prev.audited_environments as string[])
+          : []
+
+      await patchTotals(
+        {
+          page_paths: paths,
+          total_pages: paths.length,
+          current_page: resumeFrom,
+          modules_found_count: countModules(partial),
+          partial_extraction: partial,
+          inventory: inventoryKeep,
+          audited_environments: auditedKeep,
+          async_chain_status: 'running',
+          pipeline_stage: resumeFrom > 0 ? 'extracting_batch' : 'reading_inventory',
+          pipeline_detail:
+            resumeFrom > 0
+              ? `Retomando na página ${resumeFrom + 1} de ${paths.length}…`
+              : `Iniciando leitura assíncrona de ${paths.length} página(s)…`,
+          rag_memories_prompt: body.ragMemoriesPrompt || prev.rag_memories_prompt || null,
+        },
+        resumeFrom > 0 ? 'EXTRACTING_MODULES' : 'READING_LAYOUT',
+      )
+
+      const nextStep: ChainStep = resumeFrom > 0 && inventoryKeep.length > 0 ? 'extract' : 'inventory'
+      enqueueChain({
+        phase: 'chain_tick',
+        chainStep: nextStep,
+        pageIndex: resumeFrom,
+        envIndex: 0,
+        pagePaths: paths,
+      })
+
+      return jsonResponse({
+        ok: true,
+        phase,
+        status: 'EXTRACTING',
+        analysisId: body.analysisId,
+        total_pages: paths.length,
+        resumeFromPage: resumeFrom,
+      })
+    }
+
+    if (phase === 'chain_tick' || phase === 'extract_page' || phase === 'audit_environment') {
+      if (!paths.length) {
+        return jsonResponse({ ok: false, error: 'page_paths ausentes no checkpoint.' }, 400)
+      }
+
+      const totals = await readTotals()
+      const ragFromTotals =
+        typeof totals.rag_memories_prompt === 'string' ? totals.rag_memories_prompt.trim() : ''
+      const ragEffective = ragBlock || (ragFromTotals ? `\n\n${ragFromTotals}` : '')
+      let chainStep: ChainStep =
+        body.chainStep ||
+        (phase === 'extract_page' ? 'extract' : phase === 'audit_environment' ? 'audit' : 'inventory')
+      let pageIndex =
+        typeof body.pageIndex === 'number' && body.pageIndex >= 0
+          ? Math.floor(body.pageIndex)
+          : Number(totals.current_page) || 0
+      let envIndex =
+        typeof body.envIndex === 'number' && body.envIndex >= 0
+          ? Math.floor(body.envIndex)
+          : 0
+
+      try {
+        // —— INVENTORY (1x) ——
+        if (chainStep === 'inventory') {
+          const inventoryPages = pickInventoryContents(signedContents)
+          const coverImages = await imagesOnly(inventoryPages)
+          await setStage(
+            admin,
+            body.analysisId,
+            'READING_LAYOUT',
+            'reading_inventory',
+            `Inventário async: capa + chave (${coverImages.length}/${paths.length})…`,
+            'vision',
+          )
+          const inventoryCall = await callLlm({
+            model: PARSER_MODEL,
+            system: SYSTEM_INVENTORY,
+            userContent: [
+              {
+                type: 'text',
+                text: `Estas são ${coverImages.length} páginas representativas de um PDF com ${paths.length} páginas.
+Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.`,
+              },
+              ...coverImages,
+            ],
+            schemaName: 'quote_inventory',
+            schema: INVENTORY_SCHEMA,
+            maxTokens: 4000,
+          })
+          const inventory = sanitizeInventory(
+            Array.isArray(inventoryCall.json.inventory)
+              ? (inventoryCall.json.inventory as InventoryEnv[])
+              : [],
+          )
+          await patchTotals(
+            {
+              inventory,
+              current_page: 0,
+              pipeline_stage: 'extracting_batch',
+              pipeline_detail: `Lendo página 1 de ${paths.length}… Módulos encontrados: 0`,
+              async_chain_status: 'running',
+            },
+            'EXTRACTING_MODULES',
+          )
+          enqueueChain({
+            phase: 'chain_tick',
+            chainStep: 'extract',
+            pageIndex: 0,
+            pagePaths: paths,
+          })
+          return jsonResponse({ ok: true, phase: 'chain_tick', chainStep: 'inventory', inventory })
+        }
+
+        // —— EXTRACT 1 PAGE ——
+        if (chainStep === 'extract') {
+          if (pageIndex >= paths.length) {
+            enqueueChain({
+              phase: 'chain_tick',
+              chainStep: 'audit',
+              envIndex: 0,
+              pagePaths: paths,
+            })
+            return jsonResponse({ ok: true, phase: 'chain_tick', chainStep: 'extract', skipped: true })
+          }
+
+          const inventory = sanitizeInventory(
+            Array.isArray(totals.inventory) ? (totals.inventory as InventoryEnv[]) : [],
+          )
+          const inventoryText = formatInventoryText(inventory)
+          const path = paths[pageIndex]
+          const pageContents = signedContents.filter((c) => c.path === path)
+          const pageNum = pageIndex + 1
+          await setStage(
+            admin,
+            body.analysisId,
+            'EXTRACTING_MODULES',
+            'extracting_batch',
+            `Lendo página ${pageNum} de ${paths.length}…`,
+            'vision',
+          )
+
+          const batchCall = await callLlm({
+            model: EXTRACTOR_MODEL,
+            system: systemExtractor + ragEffective,
+            userContent: [
+              {
+                type: 'text',
+                text: `PÁGINA ÚNICA ${pageNum}/${paths.length} do PDF.
+INVENTÁRIO ESPERADO:
+${inventoryText}
+
+Extraia APENAS o que estiver VISÍVEL nesta página.
+bounding_box.page = índice PDF desta imagem.
+Não invente móveis de outras páginas.`,
+              },
+              ...(await labeledImagesForVision(pageContents.length ? pageContents : [{ ...signedContents[0], path }])),
+            ],
+            schemaName: 'quote_extraction_batch',
+            schema: EXTRACTOR_SCHEMA,
+            maxTokens: 8000,
+          })
+
+          const prevPartial =
+            totals.partial_extraction && typeof totals.partial_extraction === 'object'
+              ? (totals.partial_extraction as AnyRec)
+              : { environments: [], auditor_notes: [], warnings: [] }
+          const pageExtraction = rebalanceEnvironments(
+            ensurePlaceholders(mergeExtractions([batchCall.json])),
+            inventory,
+          )
+          const merged = rebalanceEnvironments(
+            ensurePlaceholders(mergeExtractions([prevPartial, pageExtraction])),
+            inventory,
+          )
+          const modulesFound = countModules(merged)
+          const nextPage = pageIndex + 1
+
+          await patchTotals(
+            {
+              partial_extraction: merged,
+              current_page: nextPage,
+              total_pages: paths.length,
+              modules_found_count: modulesFound,
+              inventory,
+              pipeline_stage: nextPage >= paths.length ? 'auditing' : 'extracting_batch',
+              pipeline_detail:
+                nextPage >= paths.length
+                  ? `Extração concluída (${modulesFound} módulos). Iniciando auditoria por ambiente…`
+                  : `Lendo página ${nextPage + 1} de ${paths.length}… Módulos encontrados: ${modulesFound}`,
+              async_chain_status: 'running',
+            },
+            nextPage >= paths.length ? 'AUDITING_REVISION' : 'EXTRACTING_MODULES',
+          )
+
+          if (nextPage < paths.length) {
+            enqueueChain({
+              phase: 'chain_tick',
+              chainStep: 'extract',
+              pageIndex: nextPage,
+              pagePaths: paths,
+            })
+          } else {
+            enqueueChain({
+              phase: 'chain_tick',
+              chainStep: 'audit',
+              envIndex: 0,
+              pagePaths: paths,
+            })
+          }
+
+          return jsonResponse({
+            ok: true,
+            phase: 'chain_tick',
+            chainStep: 'extract',
+            pageIndex,
+            modulesFound,
+            pagesLeft: Math.max(0, paths.length - nextPage),
+          })
+        }
+
+        // —— AUDIT 1 ENVIRONMENT ——
+        if (chainStep === 'audit') {
+          const inventory = sanitizeInventory(
+            Array.isArray(totals.inventory) ? (totals.inventory as InventoryEnv[]) : [],
+          )
+          let extraction =
+            totals.partial_extraction && typeof totals.partial_extraction === 'object'
+              ? ensurePlaceholders(totals.partial_extraction as AnyRec)
+              : { environments: [], auditor_notes: [], warnings: [] }
+          const envs = asObjArray(extraction.environments)
+          const audited = Array.isArray(totals.audited_environments)
+            ? (totals.audited_environments as string[]).filter((x) => typeof x === 'string')
+            : []
+
+          // Avança envIndex até achar ambiente ainda não auditado
+          while (envIndex < envs.length) {
+            const name = typeof envs[envIndex].name === 'string' ? String(envs[envIndex].name) : ''
+            if (name && !audited.includes(name)) break
+            envIndex += 1
+          }
+
+          if (envIndex >= envs.length) {
+            // Cadeia concluída → client cotará
+            await patchTotals(
+              {
+                partial_extraction: extraction,
+                inventory,
+                coverage: buildCoverage(inventory, extraction),
+                async_chain_status: 'ready_for_pricing',
+                pipeline_stage: 'pricing_pending',
+                pipeline_detail:
+                  'Extração e auditoria prontas — cotando preços…',
+                modules_found_count: countModules(extraction),
+                current_page: paths.length,
+                total_pages: paths.length,
+              },
+              'FETCHING_MARKET_PRICES',
+            )
+            return jsonResponse({
+              ok: true,
+              phase: 'chain_tick',
+              chainStep: 'done',
+              async_chain_status: 'ready_for_pricing',
+            })
+          }
+
+          const env = envs[envIndex]
+          const envName = typeof env.name === 'string' ? String(env.name) : `Ambiente ${envIndex + 1}`
+          const envOnly: AnyRec = {
+            environments: [env],
+            auditor_notes: Array.isArray(extraction.auditor_notes) ? extraction.auditor_notes : [],
+            warnings: Array.isArray(extraction.warnings) ? extraction.warnings : [],
+          }
+
+          // Páginas citadas nos bounding boxes deste ambiente (cap 6)
+          const pageSet = new Set<number>()
+          for (const mod of asObjArray(env.modules)) {
+            const bb = mod.bounding_box
+            if (bb && typeof bb === 'object' && typeof (bb as AnyRec).page === 'number') {
+              pageSet.add(Number((bb as AnyRec).page))
+            }
+          }
+          const wantedPages = [...pageSet].filter((n) => n >= 1).slice(0, 6)
+          let windowContents = signedContents.filter((c) => {
+            const n = pdfPageFromPath(c.path)
+            return n != null && wantedPages.includes(n)
+          })
+          if (!windowContents.length) {
+            windowContents = pickAuditContents(signedContents, envOnly, 1, 4)
+          }
+          windowContents = windowContents.slice(0, 6)
+
+          await setStage(
+            admin,
+            body.analysisId,
+            'AUDITING_REVISION',
+            'auditing',
+            `Auditoria incremental: ${envName} (${envIndex + 1}/${envs.length})…`,
+            'audit',
+          )
+
+          const inventoryText = formatInventoryText(inventory)
+          try {
+            const auditCall = await callLlm({
+              model: AUDITOR_MODEL,
+              system: systemAuditor,
+              userContent: [
+                {
+                  type: 'text',
+                  text: `AUDITORIA INCREMENTAL — ambiente "${envName}" apenas.
+Devolva a árvore CORRIGIDA só deste ambiente (environments com 1 item).
+Não apague módulos evidentes nas imagens. Complete BOM se faltar.
+
+INVENTÁRIO:
+${inventoryText}
+
+ÁRVORE DO AMBIENTE:
+${JSON.stringify(envOnly).slice(0, 40000)}`,
+                },
+                ...(await labeledImagesForVision(windowContents)),
+              ],
+              schemaName: 'quote_extraction_audited_env',
+              schema: EXTRACTOR_SCHEMA,
+              maxTokens: 10000,
+            })
+
+            const auditedEnv = ensurePlaceholders(auditCall.json)
+            // Substitui só o ambiente auditado na árvore global
+            const auditedEnvsList = asObjArray(auditedEnv.environments)
+            if (auditedEnvsList.length) {
+              const replacement = auditedEnvsList[0]
+              const nextEnvs = envs.map((e, i) => (i === envIndex ? replacement : e))
+              extraction = ensurePlaceholders({
+                ...extraction,
+                environments: nextEnvs,
+              })
+            }
+          } catch (auditEnvErr) {
+            const msg = auditEnvErr instanceof Error ? auditEnvErr.message : String(auditEnvErr)
+            console.warn(`[chain] audit_environment ${envName}:`, msg)
+            const warnings = Array.isArray(extraction.warnings)
+              ? [...(extraction.warnings as string[])]
+              : []
+            warnings.push(`Auditoria de "${envName}" incompleta: ${msg.slice(0, 120)}`)
+            extraction = { ...extraction, warnings: [...new Set(warnings)] }
+          }
+
+          const auditedNext = [...audited, envName]
+          await patchTotals(
+            {
+              partial_extraction: extraction,
+              audited_environments: auditedNext,
+              modules_found_count: countModules(extraction),
+              pipeline_stage: 'auditing',
+              pipeline_detail: `Ambiente auditado: ${envName}. Próximos…`,
+              async_chain_status: 'running',
+            },
+            'AUDITING_REVISION',
+          )
+
+          enqueueChain({
+            phase: 'chain_tick',
+            chainStep: 'audit',
+            envIndex: envIndex + 1,
+            pagePaths: paths,
+          })
+
+          return jsonResponse({
+            ok: true,
+            phase: 'chain_tick',
+            chainStep: 'audit',
+            environment: envName,
+            envIndex,
+          })
+        }
+
+        return jsonResponse({ ok: false, error: `chainStep inválido: ${chainStep}` }, 400)
+      } catch (chainErr) {
+        const msg = chainErr instanceof Error ? chainErr.message : String(chainErr)
+        console.error('[chain_tick] failed:', msg)
+        await patchTotals(
+          {
+            pipeline_stage: 'failed',
+            pipeline_detail: `Falha na página/ambiente: ${msg.slice(0, 180)}. Clique em Retomar.`,
+            async_chain_status: 'failed',
+            current_page: pageIndex,
+          },
+          'FAILED',
+        )
+        return jsonResponse({ ok: false, error: msg }, 500)
+      }
+    }
 
     if (phase === 'inventory') {
       const inventoryPages = pickInventoryContents(signedContents)

@@ -75,11 +75,38 @@ export type PipelineStageId =
   | 'reading_inventory'
   | 'extracting_batch'
   | 'auditing'
+  | 'pricing_pending'
   | 'fetching_prices'
   | 'persisting'
   | 'needs_review'
   | 'completed'
   | 'failed'
+
+/** Checkpoint da cadeia async (totals JSONB). */
+export interface PipelineAsyncCheckpoint {
+  current_page?: number
+  total_pages?: number
+  modules_found_count?: number
+  async_chain_status?: string | null
+  pipeline_detail?: string | null
+}
+
+export function formatAsyncPageProgress(totals: Record<string, unknown> | null | undefined): string | null {
+  if (!totals || typeof totals !== 'object') return null
+  const cur = Number(totals.current_page)
+  const total = Number(totals.total_pages)
+  const mods = Number(totals.modules_found_count)
+  if (!Number.isFinite(total) || total <= 0) return null
+  const page = Number.isFinite(cur) ? Math.min(Math.max(0, cur), total) : 0
+  const modsLabel = Number.isFinite(mods) ? Math.max(0, mods) : 0
+  if (totals.pipeline_stage === 'auditing' || totals.pipeline_stage === 'pricing_pending') {
+    return typeof totals.pipeline_detail === 'string' && totals.pipeline_detail.trim()
+      ? totals.pipeline_detail.trim()
+      : `Auditoria / preços — ${modsLabel} módulo(s) encontrados`
+  }
+  const displayPage = Math.min(total, Math.max(1, page + (page < total ? 1 : 0)))
+  return `Lendo página ${displayPage} de ${total}… Módulos encontrados: ${modsLabel}`
+}
 
 /** Tipo de linha no console de pensamento da IA. */
 export type ThoughtKind = 'info' | 'vision' | 'audit' | 'price' | 'warn' | 'done'
@@ -124,29 +151,35 @@ export const PIPELINE_VISUAL_STEPS: PipelineVisualStep[] = [
     id: 'extracting_batch',
     label: '4. Extração',
     shortLabel: 'Extração',
-    hint: 'Lê cada lote de páginas (chapas, ferragens…)',
+    hint: 'Lê cada página (cadeia async anti-504)',
   },
   {
     id: 'auditing',
     label: '5. Auditoria',
     shortLabel: 'Auditoria',
-    hint: 'Confere se faltou algo e completa',
+    hint: 'Confere ambiente por ambiente',
+  },
+  {
+    id: 'pricing_pending',
+    label: '6. Pronto p/ preços',
+    shortLabel: 'Fila preços',
+    hint: 'Extração/auditoria ok — inicia cotação',
   },
   {
     id: 'fetching_prices',
-    label: '6. Preços',
+    label: '7. Preços',
     shortLabel: 'Preços',
     hint: 'Busca valores no estoque e no mercado',
   },
   {
     id: 'persisting',
-    label: '7. Salvando',
+    label: '8. Salvando',
     shortLabel: 'Salvando',
     hint: 'Grava módulos e insumos no orçamento',
   },
   {
     id: 'completed',
-    label: '8. Pronto',
+    label: '9. Pronto',
     shortLabel: 'Pronto',
     hint: 'Análise concluída',
   },
@@ -154,6 +187,8 @@ export const PIPELINE_VISUAL_STEPS: PipelineVisualStep[] = [
 
 export function thoughtKindForStage(stage: string | null | undefined): ThoughtKind {
   switch (stage) {
+    case 'pricing_pending':
+      return 'price'
     case 'converting_pages':
     case 'reading_inventory':
     case 'extracting_batch':
@@ -340,14 +375,36 @@ export async function uploadQuoteSource(params: UploadQuotePdfParams): Promise<U
   if (!ready.ok) return { path: '', error: ready.error }
 
   const path = buildQuotePdfPath(companyId, analysisId, file.name)
-  const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType: contentTypeForSourceFile(file),
-  })
+  try {
+    const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: contentTypeForSourceFile(file),
+    })
 
-  if (error) return { path: '', error: error.message }
-  return { path }
+    if (error) {
+      const msg = error.message || 'Falha no upload.'
+      if (/abort/i.test(msg)) {
+        return {
+          path: '',
+          error:
+            'Upload abortado: o arquivo demorou demais para subir. Mantenha a aba aberta e tente de novo (timeout ampliado para PDFs grandes).',
+        }
+      }
+      return { path: '', error: msg }
+    }
+    return { path }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/abort/i.test(msg)) {
+      return {
+        path: '',
+        error:
+          'Upload abortado: o PDF pesado passou do tempo de envio. Mantenha a aba aberta e reenvie.',
+      }
+    }
+    return { path: '', error: msg || 'Falha no upload.' }
+  }
 }
 
 /** @deprecated use uploadQuoteSource */

@@ -1,0 +1,39 @@
+{
+  "title": "Pipeline assíncrono página a página (anti-504)",
+  "date": "2026-10-14",
+  "root_cause": "Lotes extract + auditoria monolítica seguravam HTTP >150s → gateway 504",
+  "architecture": {
+    "extract": "1 página por request Edge (pageSize=1)",
+    "chain": "start_async responde <2s + EdgeRuntime.waitUntil self-invoke chain_tick",
+    "audit": "1 ambiente por request após última página",
+    "pricing": "client aguarda async_chain_status=ready_for_pricing e roda resolvePrices",
+    "checkpoint": "quote_analyses.totals: current_page, total_pages, modules_found_count, partial_extraction, audited_environments, page_paths",
+    "max_pages": 300
+  },
+  "files": [
+    "supabase/functions/orcamentos-ia-pipeline/index.ts",
+    "src/lib/orcamentos-ia/pipeline.ts",
+    "src/lib/orcamentos-ia/storage.ts",
+    "src/contexts/OrcamentosIaBackgroundContext.tsx",
+    "src/components/orcamentos-ia/AuditWorkspace.tsx"
+  ],
+  "edge_deploy": {
+    "slug": "orcamentos-ia-pipeline",
+    "version": 52,
+    "status": "ACTIVE"
+  },
+  "validation": {
+    "tsc_noEmit": "ok",
+    "rea_analyze_javascript_application": {
+      "evidence_id": "ev_934861606422253362059f229dfacebd83dbe8f207e326fa40c134d760ca234b",
+      "parent_evidence_id": "ev_fbaeb7d336f3b862e1f52fd4eb9991b09e2196ac6a06ef3d0ead012ca48ef176",
+      "parsed_javascript_files": 34,
+      "parse_failures": 0
+    }
+  },
+  "ui": {
+    "progress": "Lendo página X de Y… Módulos encontrados: N",
+    "resume": "reprocessOrcamentosIaPipeline continua de current_page sem zerar partial_extraction"
+  },
+  "note_secret": "ORCAMENTOS_IA_CHAIN_SECRET opcional; fallback = SERVICE_ROLE_KEY no header x-pipeline-chain-secret"
+}

@@ -84,7 +84,12 @@ import {
  * - Preços: `createPriceResolver` (alias → inventory → market → contingência; nunca R$ 0).
  */
 
-const MAX_PIPELINE_PAGES = 40
+/** Anti-504 async: até 300 páginas (cadeia Edge 1 página/request). */
+const MAX_PIPELINE_PAGES = 300
+
+/** Poll da cadeia async (Edge) até ready_for_pricing / failed. */
+const ASYNC_CHAIN_POLL_MS = 2500
+const ASYNC_CHAIN_STALL_MS = 12 * 60 * 1000
 
 async function setAnalysisStatus(
   analysisId: string,
@@ -196,6 +201,11 @@ const PipelineState = Annotation.Root({
     default: () => 0,
   }),
   error: Annotation<string | null>({
+    reducer: (_a, b) => b,
+    default: () => null,
+  }),
+  /** Checkpoint async: continuar da página N (0-based) sem zerar partial_extraction. */
+  resumeFromPage: Annotation<number | null>({
     reducer: (_a, b) => b,
     default: () => null,
   }),
@@ -376,14 +386,66 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
   return { pagePaths }
 }
 
-/** Lotes menores no max (Claude Vision) evitam 504 do gateway Supabase (~150s). */
-const EDGE_EXTRACT_BATCH_PRO = 6
-const EDGE_EXTRACT_BATCH_MAX = 3
+/**
+ * Aguarda a cadeia Edge (1 página/request) gravar async_chain_status=ready_for_pricing.
+ * Retorna partial_extraction + inventory do checkpoint.
+ */
+async function waitForAsyncChainReady(analysisId: string): Promise<{
+  extraction: unknown
+  inventory: InventoryEnv[]
+}> {
+  const started = Date.now()
+  let lastUpdated = Date.now()
 
-function chunkPaths<T>(items: T[], size: number): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
-  return out
+  while (true) {
+    const { data, error } = await supabase
+      .from('quote_analyses')
+      .select('status, totals, error_message')
+      .eq('id', analysisId)
+      .maybeSingle()
+
+    if (error) throw new Error(error.message)
+    const totals =
+      data?.totals && typeof data.totals === 'object'
+        ? (data.totals as Record<string, unknown>)
+        : {}
+    const chainStatus = typeof totals.async_chain_status === 'string' ? totals.async_chain_status : ''
+    const updatedAt =
+      typeof totals.pipeline_updated_at === 'string'
+        ? Date.parse(totals.pipeline_updated_at)
+        : NaN
+    if (Number.isFinite(updatedAt)) lastUpdated = updatedAt
+
+    if (data?.status === 'FAILED' || chainStatus === 'failed') {
+      throw new Error(
+        (typeof totals.pipeline_detail === 'string' && totals.pipeline_detail) ||
+          data?.error_message ||
+          'Cadeia async falhou. Clique em Retomar.',
+      )
+    }
+
+    if (chainStatus === 'ready_for_pricing' || totals.pipeline_stage === 'pricing_pending') {
+      const inventory = sanitizeInventory(
+        Array.isArray(totals.inventory) ? (totals.inventory as InventoryEnv[]) : [],
+      )
+      const extraction =
+        totals.partial_extraction && typeof totals.partial_extraction === 'object'
+          ? totals.partial_extraction
+          : { environments: [], auditor_notes: [], warnings: [] }
+      return { extraction, inventory }
+    }
+
+    if (Date.now() - lastUpdated > ASYNC_CHAIN_STALL_MS) {
+      throw new Error(
+        'A leitura async parou sem progresso. Clique em Retomar para continuar da última página.',
+      )
+    }
+    if (Date.now() - started > 6 * 60 * 60 * 1000) {
+      throw new Error('Tempo máximo da cadeia async excedido (6h). Clique em Retomar.')
+    }
+
+    await new Promise((r) => setTimeout(r, ASYNC_CHAIN_POLL_MS))
+  }
 }
 
 async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
@@ -485,82 +547,38 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     .filter(Boolean)
     .join('\n\n')
 
-  // Fases curtas no Edge (inventory → extract por lote → audit) evitam 504 do gateway.
-  const invPayload = await invokeOrcamentosIaPhase({
+  // Anti-504: Edge processa 1 página/request em cadeia (start_async <2s + waitUntil).
+  const resumeFromPage =
+    typeof state.resumeFromPage === 'number' && state.resumeFromPage > 0
+      ? state.resumeFromPage
+      : undefined
+
+  await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+    pipeline_stage: 'extracting_batch',
+    pipeline_detail: resumeFromPage
+      ? `Retomando cadeia async na página ${resumeFromPage + 1}…`
+      : `Disparando leitura async de ${state.pagePaths.length} página(s)…`,
+    thought_kind: 'vision',
+    totals: {
+      total_pages: state.pagePaths.length,
+      pages_processed: state.pagePaths.length,
+    },
+  })
+
+  await invokeOrcamentosIaPhase({
     analysisId: state.analysisId,
     companyId: state.companyId,
     mode: state.mode,
     pagePaths: state.pagePaths,
-    phase: 'inventory',
+    phase: 'start_async',
+    resumeFromPage,
     ragMemoriesPrompt: ragPrompt,
     models: ORCAMENTOS_IA_MODELS,
   })
-  const inventory = sanitizeInventory(
-    Array.isArray(invPayload.inventory) ? (invPayload.inventory as InventoryEnv[]) : [],
-  )
 
-  const extractBatchSize =
-    state.mode === 'max' ? EDGE_EXTRACT_BATCH_MAX : EDGE_EXTRACT_BATCH_PRO
-  const batches = chunkPaths(state.pagePaths, extractBatchSize)
-  const batchExtractions: unknown[] = []
-  for (let bi = 0; bi < batches.length; bi++) {
-    await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
-      pipeline_stage: 'extracting_batch',
-      pipeline_detail: `Lote ${bi + 1}/${batches.length}: caçando chapas, puxadores e ferragens…`,
-      thought_kind: 'vision',
-      totals: { pages_processed: state.pagePaths.length, extract_batch: bi + 1, extract_batches: batches.length },
-    })
-    const part = await invokeOrcamentosIaPhase({
-      analysisId: state.analysisId,
-      companyId: state.companyId,
-      mode: state.mode,
-      pagePaths: batches[bi],
-      phase: 'extract',
-      inventory,
-      ragMemoriesPrompt: ragPrompt,
-      models: ORCAMENTOS_IA_MODELS,
-    })
-    batchExtractions.push(part.extraction)
-  }
-
-  let mergedRaw = forceDeduplicateViewQuantities(mergeExtractions(batchExtractions))
-
-  if (state.mode === 'max') {
-    await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
-      pipeline_stage: 'auditing',
-      pipeline_detail: 'Auditoria: conferindo se faltou módulo, chapa ou ferragem…',
-      thought_kind: 'audit',
-    })
-    try {
-      // Edge faz passagens com janela de imagens; no max (Claude) envia menos páginas p/ evitar 504.
-      const auditPageCap = state.mode === 'max' ? 12 : 24
-      const aud = await invokeOrcamentosIaPhase({
-        analysisId: state.analysisId,
-        companyId: state.companyId,
-        mode: state.mode,
-        pagePaths: state.pagePaths.slice(0, auditPageCap),
-        phase: 'audit',
-        inventory,
-        extraction: mergedRaw,
-        ragMemoriesPrompt: ragPrompt,
-        models: ORCAMENTOS_IA_MODELS,
-      })
-      // Árvore do auditor substitui (pode ter removido alucinações) — reaplica dedup geométrico.
-      if (aud.extraction) {
-        mergedRaw = forceDeduplicateViewQuantities(mergeExtractions([aud.extraction]))
-      }
-    } catch (auditErr) {
-      const msg = auditErr instanceof Error ? auditErr.message : String(auditErr)
-      console.warn('[pipeline] auditoria pulada:', msg)
-      await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
-        pipeline_stage: 'auditing',
-        pipeline_detail:
-          'Auditoria demorou demais — seguindo com a extração já feita para cotar o orçamento.',
-        thought_kind: 'warn',
-        thought: true,
-      })
-    }
-  }
+  const asyncReady = await waitForAsyncChainReady(state.analysisId)
+  const inventory = asyncReady.inventory
+  let mergedRaw = forceDeduplicateViewQuantities(mergeExtractions([asyncReady.extraction]))
 
   const finalizeExtractionTree = (raw: unknown): QuoteExtraction => {
     // Lock dormitório antes das heurísticas — evita Cozinha fantasma (Painel TV / Mesa cabeceira)
@@ -1556,6 +1574,8 @@ export interface RunOrcamentosIaPipelineParams {
   pdfFile?: File
   /** Se true, não reconverte — só reusa pages/ já no Storage. */
   reuseExistingPages?: boolean
+  /** Retomar cadeia async a partir desta página (0-based). */
+  resumeFromPage?: number
 }
 
 export interface RunOrcamentosIaPipelineResult {
@@ -1586,6 +1606,10 @@ export async function runOrcamentosIaPipeline(
     extraction: null,
     materialsSaved: 0,
     error: null,
+    resumeFromPage:
+      typeof params.resumeFromPage === 'number' && params.resumeFromPage > 0
+        ? params.resumeFromPage
+        : null,
   })
 
   if (result.error) {
@@ -1873,7 +1897,7 @@ export async function reprocessOrcamentosIaPipeline(params: {
 }): Promise<RunOrcamentosIaPipelineResult> {
   const { data: row, error } = await supabase
     .from('quote_analyses')
-    .select('id, company_id, mode, source_pdf_path')
+    .select('id, company_id, mode, source_pdf_path, totals')
     .eq('id', params.analysisId)
     .eq('company_id', params.companyId)
     .maybeSingle()
@@ -1888,7 +1912,29 @@ export async function reprocessOrcamentosIaPipeline(params: {
 
   const hasPages = (existing || []).some((o) => /\.(png|jpe?g|webp)$/i.test(o.name))
 
-  await setAnalysisStatus(params.analysisId, 'PENDING', { error_message: null })
+  const totals =
+    row.totals && typeof row.totals === 'object' ? (row.totals as Record<string, unknown>) : {}
+  const checkpointPage = Number(totals.current_page)
+  const partial = totals.partial_extraction
+  const hasPartial =
+    partial &&
+    typeof partial === 'object' &&
+    Array.isArray((partial as { environments?: unknown }).environments)
+  const resumeFromPage =
+    hasPages &&
+    hasPartial &&
+    Number.isFinite(checkpointPage) &&
+    checkpointPage > 0
+      ? Math.floor(checkpointPage)
+      : undefined
+
+  await setAnalysisStatus(params.analysisId, 'PENDING', {
+    error_message: null,
+    totals: {
+      async_chain_status: resumeFromPage ? 'running' : null,
+      pipeline_stage: resumeFromPage ? 'extracting_batch' : totals.pipeline_stage,
+    },
+  })
 
   if (hasPages) {
     return runOrcamentosIaPipeline({
@@ -1896,6 +1942,7 @@ export async function reprocessOrcamentosIaPipeline(params: {
       companyId: params.companyId,
       mode: (row.mode === 'pro' ? 'pro' : 'max') as QuoteAnalysisMode,
       reuseExistingPages: true,
+      resumeFromPage,
     })
   }
 

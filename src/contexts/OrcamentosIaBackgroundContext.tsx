@@ -15,6 +15,7 @@ import {
   createPendingQuoteAnalysis,
   isAllowedQuoteSourceFile,
   isQuoteAnalysisStatus,
+  formatAsyncPageProgress,
   parseThoughtLog,
   updateQuoteAnalysisPdfPath,
   uploadQuoteSource,
@@ -196,10 +197,12 @@ function applyRowToJob(
   if (totals) {
     next.pipelineStage =
       typeof totals.pipeline_stage === 'string' ? totals.pipeline_stage : next.pipelineStage
+    const asyncProgress = formatAsyncPageProgress(totals)
     next.pipelineDetail =
-      typeof totals.pipeline_detail === 'string' ? totals.pipeline_detail : next.pipelineDetail
+      asyncProgress ||
+      (typeof totals.pipeline_detail === 'string' ? totals.pipeline_detail : next.pipelineDetail)
     next.thoughtLog = parseThoughtLog(totals)
-    const pp = totals.pages_processed
+    const pp = totals.pages_processed ?? totals.current_page
     next.pagesProcessed = typeof pp === 'number' ? pp : next.pagesProcessed
   }
   if (isTerminal(next.status)) {
@@ -415,7 +418,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
   const startQuoteAnalysis = useCallback(
     async (input: StartOrcamentosIaAnalysisInput): Promise<string | null> => {
       const { companyId, userId, mode } = input
-      const files = input.files.filter(isAllowedQuoteSourceFile).slice(0, 40)
+      const files = input.files.filter(isAllowedQuoteSourceFile).slice(0, 300)
       if (!companyId) {
         toast.error('Empresa não identificada.')
         return null

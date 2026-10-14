@@ -78,6 +78,7 @@ import {
   reauditOrcamentosIaAnalysis,
   reprocessOrcamentosIaPipeline,
 } from '@/lib/orcamentos-ia/pipeline'
+import { formatAsyncPageProgress } from '@/lib/orcamentos-ia/storage'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
 import {
   buildShoppingList,
@@ -301,7 +302,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       else toast.error(signed.error || 'PDF não encontrado no Storage.')
     }
 
-    const pages = await getSignedQuotePageUrls(companyId, analysisId, 50)
+    const pages = await getSignedQuotePageUrls(companyId, analysisId, 300)
     if (!pages.error && pages.pages.length) {
       setPageImages(pages.pages)
       setPageCount((prev) => Math.max(prev, pages.pages.length))
@@ -318,6 +319,20 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   useEffect(() => {
     void reload()
   }, [reload])
+
+  /** Atualiza progresso async (página X de Y) enquanto a cadeia Edge roda. */
+  useEffect(() => {
+    if (!tree) return
+    const busy = !['COMPLETED', 'FAILED', 'NEEDS_REVIEW'].includes(String(tree.status || ''))
+    if (!busy) return
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const { data } = await loadQuoteAnalysisTree(analysisId)
+        if (data) setTree(data)
+      })()
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [analysisId, tree?.status])
 
   useEffect(() => {
     const channel = new BroadcastChannel(POPOUT_CHANNEL)
@@ -650,11 +665,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const handleReprocess = async () => {
     if (reprocessing) return
     const ok = window.confirm(
-      'Reprocessar este PDF com o novo motor (inventário + lotes)? A lista atual de ambientes/itens será substituída.',
+      'Reprocessar / Retomar este PDF? Se já houver checkpoint de página, continua de onde parou (anti-504).',
     )
     if (!ok) return
     setReprocessing(true)
-    toast.message('Reprocessando PDF… isso pode levar alguns minutos.')
+    toast.message('Retomando / reprocessando… a cadeia async lê 1 página por vez.')
     const result = await reprocessOrcamentosIaPipeline({ analysisId, companyId })
     setReprocessing(false)
     if (!result.ok) {
@@ -662,7 +677,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       return
     }
     toast.success(
-      `Reprocessamento concluído${result.materialsSaved != null ? ` (${result.materialsSaved} materiais)` : ''}.`,
+      `Concluído${result.materialsSaved != null ? ` (${result.materialsSaved} materiais)` : ''}.`,
     )
     await reload()
   }
@@ -865,8 +880,24 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       : ['Status NEEDS_REVIEW — confira cobertura, preços e quantidades.']
   ).slice(0, 6)
 
+  const asyncProgressText = formatAsyncPageProgress(tree.totals)
+  const isPipelineBusy = ![
+    'COMPLETED',
+    'FAILED',
+    'NEEDS_REVIEW',
+  ].includes(String(tree.status || ''))
+
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-[520px] max-h-[calc(100dvh-5.75rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 sm:gap-3 sm:p-3 md:p-4">
+      {isPipelineBusy && asyncProgressText ? (
+        <div
+          role="status"
+          className="sticky top-0 z-20 flex shrink-0 items-center gap-2 rounded-xl border border-[#0066FF]/30 bg-[#0066FF]/10 px-3 py-2 text-sm text-[#003d99] shadow-sm"
+        >
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#0066FF]" />
+          <span className="font-medium">{asyncProgressText}</span>
+        </div>
+      ) : null}
       {showBreakerBanner ? (
         <div
           role="alert"

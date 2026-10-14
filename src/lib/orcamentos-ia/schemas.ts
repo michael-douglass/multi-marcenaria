@@ -302,6 +302,12 @@ export type MaterialCategory = z.infer<typeof materialCategorySchema>
 /** Limites tipológicos (clamp) — ver `geometry-bounds.ts`. */
 export { GEOMETRY_BOUNDS, clampGeometryBounds } from '@/lib/orcamentos-ia/geometry-bounds'
 
+/**
+ * Checkpoint da cadeia async anti-504 (gravado em `quote_analyses.totals`):
+ * current_page, total_pages, modules_found_count, partial_extraction,
+ * audited_environments, page_paths, async_chain_status.
+ */
+
 /** Re-export tipado dos padrões da empresa (Default-with-Override Cortecloud). */
 export {
   companyStandardsSchema,
