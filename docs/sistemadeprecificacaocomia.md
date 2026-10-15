@@ -1,3 +1,8 @@
+> **Atenção (2026-10-15):** este arquivo é um rascunho antigo (Python/Excel/Gemini).  
+> A fonte operacional do sistema **real** (Vite + Supabase + BOM fabril / Corte Claude) está em:  
+> **`docs/sistema_precificacao_ia_operacao_e_reparo.md`**  
+> PRD canônico: `docs/prd_v11_sistema_orcamento_corte_claude.md`.
+
 Vou gerar agora um documento completo, minucioso e passo a passo diretamente no seu editor de documentos ao lado.
 Este manual mestre engloba toda a arquitetura, schemas de banco de dados, prompts de IA prontos para uso, fórmulas matemáticas de marcenaria, scripts de integração em Python e um estudo de caso prático do início ao fim.
 

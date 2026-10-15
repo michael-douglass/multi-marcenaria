@@ -30,13 +30,19 @@ export interface QuotePresentationBranding {
 export interface QuotePresentationModuleBlock {
   id: string
   name: string
+  /** Resumo curto da descrição da IA (sem preço). */
+  description: string | null
   dimensionsLabel: string | null
+  /** Linhas de detalhe para a proposta (peças, ferragens, materiais). */
+  detailLines: string[]
   materialsCost: number
   salePrice: number
   imageUrl: string | null
   pageNumber: number | null
   outOfScope: boolean
   marketPriceCount: number
+  sheetPieceCount: number
+  hardwareCount: number
 }
 
 export interface QuotePresentationEnvironmentBlock {
@@ -114,6 +120,39 @@ function countMarketFlags(mod: QuoteModuleRow): number {
   return mod.materials.filter((m) => m.using_market_price || !m.market_price_confirmed).length
 }
 
+function summarizeModuleDetails(mod: QuoteModuleRow): {
+  description: string | null
+  detailLines: string[]
+  sheetPieceCount: number
+  hardwareCount: number
+} {
+  const mats = mod.materials || []
+  const sheetCats = new Set(['chapa', 'fita_borda'])
+  const hwCats = new Set(['ferragem', 'puxador', 'consumivel'])
+  let sheetPieceCount = 0
+  let hardwareCount = 0
+  const names: string[] = []
+  for (const m of mats) {
+    const cat = String(m.category || '').toLowerCase()
+    const qty = Math.max(0, Number(m.full_units_quantity) || Number(m.exact_quantity) || 0)
+    if (sheetCats.has(cat) || cat === 'chapa') sheetPieceCount += qty || 1
+    if (hwCats.has(cat)) hardwareCount += qty || 1
+    const label = String(m.raw_name || '').trim()
+    if (label && names.length < 4 && !names.some((n) => n.toLowerCase() === label.toLowerCase())) {
+      names.push(label)
+    }
+  }
+  const detailLines: string[] = []
+  if (sheetPieceCount > 0) detailLines.push(`${Math.round(sheetPieceCount)} peça(s) de chapa/fita`)
+  if (hardwareCount > 0) detailLines.push(`${Math.round(hardwareCount)} ferragem(ns)/acessório(s)`)
+  if (names.length) detailLines.push(names.join(' · '))
+  const description =
+    typeof mod.description === 'string' && mod.description.trim()
+      ? mod.description.trim().slice(0, 160)
+      : null
+  return { description, detailLines, sheetPieceCount, hardwareCount }
+}
+
 function buildModuleBlock(
   mod: QuoteModuleRow,
   pageImages: QuotePageImage[],
@@ -122,16 +161,21 @@ function buildModuleBlock(
   sheetLossPct: number,
 ): QuotePresentationModuleBlock {
   const cost = moduleMaterialsCost(mod, sheetLossPct)
+  const details = summarizeModuleDetails(mod)
   return {
     id: mod.id,
     name: mod.name,
+    description: details.description,
     dimensionsLabel: formatModuleDimensions(mod.dimensions),
+    detailLines: details.detailLines,
     materialsCost: cost,
     salePrice: mod.out_of_scope ? 0 : allocateSalePrice(totalSale, cost, totalCost),
     imageUrl: resolveModuleImageUrl(mod, pageImages),
     pageNumber: mod.page_number,
     outOfScope: mod.out_of_scope,
     marketPriceCount: countMarketFlags(mod),
+    sheetPieceCount: details.sheetPieceCount,
+    hardwareCount: details.hardwareCount,
   }
 }
 

@@ -20,7 +20,7 @@ export const QUOTE_PRESENTATION_CSS = `
 
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm;
   }
 
   html, body {
@@ -39,36 +39,53 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-sheet {
-    width: 190mm;
+    width: 194mm;
     max-width: 100%;
     margin: 0 auto;
-    padding: 0 0 8mm;
+    padding: 0 0 6mm;
     background: ${T.card};
   }
 
   .qp-cover {
-    padding: 8mm 8mm 6mm;
-    border-bottom: 2px solid ${T.accent};
+    position: relative;
+    padding: 9mm 9mm 7mm;
+    border-bottom: 3px solid ${T.accent};
+    overflow: hidden;
     background:
-      linear-gradient(180deg, rgba(0,102,255,0.06) 0%, transparent 55%),
-      ${T.card};
+      linear-gradient(135deg, rgba(0,102,255,0.09) 0%, transparent 42%),
+      linear-gradient(180deg, #f8fafc 0%, ${T.card} 70%);
+  }
+
+  .qp-cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(rgba(0,102,255,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,102,255,0.07) 1px, transparent 1px);
+    background-size: 14px 14px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 75%);
   }
 
   .qp-brand-row {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 14px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
 
   .qp-logo {
-    max-height: 52px;
-    max-width: 120px;
+    max-height: 56px;
+    max-width: 130px;
     object-fit: contain;
   }
 
   .qp-brand-name {
-    font-size: 16pt;
+    font-size: 17pt;
     font-weight: 700;
     letter-spacing: 0.02em;
     color: ${T.ink};
@@ -81,57 +98,68 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-eyebrow {
+    position: relative;
+    z-index: 1;
     font-size: 8pt;
-    font-weight: 600;
-    letter-spacing: 0.14em;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: ${T.accent};
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .qp-title {
-    font-size: 18pt;
+    position: relative;
+    z-index: 1;
+    font-size: 20pt;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 1.15;
     color: ${T.ink};
     word-break: break-word;
+    max-width: 140mm;
   }
 
   .qp-date {
-    margin-top: 6px;
+    position: relative;
+    z-index: 1;
+    margin-top: 8px;
     font-size: 9pt;
     color: ${T.muted};
   }
 
   .qp-totals {
+    position: relative;
+    z-index: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
-    margin-top: 16px;
+    max-width: 300px;
+    margin-top: 18px;
   }
 
   .qp-total-block {
-    padding: 10px 12px;
+    padding: 12px 14px;
     border: 1px solid rgba(15, 20, 25, 0.1);
-    border-radius: 8px;
+    border-radius: 10px;
     background: ${T.paper};
   }
 
   .qp-total-block.sale {
-    border-color: rgba(0, 102, 255, 0.35);
-    background: rgba(0, 102, 255, 0.06);
+    border-color: rgba(0, 102, 255, 0.4);
+    background: linear-gradient(135deg, rgba(0,102,255,0.1), rgba(0,102,255,0.03));
+    box-shadow: 0 8px 24px rgba(0, 102, 255, 0.08);
   }
 
   .qp-total-label {
     font-size: 8pt;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: ${T.muted};
   }
 
   .qp-total-value {
     margin-top: 4px;
-    font-size: 16pt;
+    font-size: 20pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: ${T.ink};
@@ -141,14 +169,8 @@ export const QUOTE_PRESENTATION_CSS = `
     color: ${T.accent};
   }
 
-  .qp-formula {
-    margin-top: 8px;
-    font-size: 8.5pt;
-    color: ${T.muted};
-  }
-
   .qp-env {
-    padding: 6mm 8mm 5mm;
+    padding: 7mm 9mm 6mm;
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -159,15 +181,15 @@ export const QUOTE_PRESENTATION_CSS = `
 
   .qp-env-hero {
     width: 100%;
-    height: 148px;
+    height: 210px;
     object-fit: cover;
-    border-radius: 10px;
-    border: 1px solid rgba(0, 102, 255, 0.22);
-    margin-bottom: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 102, 255, 0.25);
+    margin-bottom: 12px;
     background:
-      linear-gradient(135deg, rgba(0,102,255,0.1), transparent 55%),
-      repeating-linear-gradient(0deg, transparent, transparent 9px, rgba(0,102,255,0.07) 9px, rgba(0,102,255,0.07) 10px),
-      repeating-linear-gradient(90deg, transparent, transparent 9px, rgba(0,102,255,0.07) 9px, rgba(0,102,255,0.07) 10px),
+      linear-gradient(135deg, rgba(0,102,255,0.12), transparent 55%),
+      repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(0,102,255,0.06) 11px, rgba(0,102,255,0.06) 12px),
+      repeating-linear-gradient(90deg, transparent, transparent 11px, rgba(0,102,255,0.06) 11px, rgba(0,102,255,0.06) 12px),
       ${T.paper};
     display: block;
   }
@@ -176,9 +198,9 @@ export const QUOTE_PRESENTATION_CSS = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10pt;
+    font-size: 11pt;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: ${T.accent};
   }
@@ -187,8 +209,8 @@ export const QUOTE_PRESENTATION_CSS = `
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 14px;
+    margin-bottom: 14px;
   }
 
   .qp-thumb-ph {
@@ -203,14 +225,14 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-env-name {
-    font-size: 14pt;
+    font-size: 15pt;
     font-weight: 700;
     color: ${T.ink};
   }
 
   .qp-env-sub {
-    margin-top: 3px;
-    font-size: 8.5pt;
+    margin-top: 4px;
+    font-size: 9pt;
     color: ${T.muted};
   }
 
@@ -220,33 +242,25 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-env-sale {
-    font-size: 13pt;
+    font-size: 15pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: ${T.accent};
   }
 
-  .qp-env-cost {
-    margin-top: 2px;
-    font-size: 8.5pt;
-    color: ${T.muted};
-    font-variant-numeric: tabular-nums;
-  }
-
   .qp-modules {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
   }
 
   .qp-mod {
     display: grid;
-    grid-template-columns: 132px 1fr auto;
-    gap: 12px;
+    grid-template-columns: 188px 1fr auto;
+    gap: 0;
     align-items: stretch;
-    padding: 0;
     border: 1px solid rgba(15, 20, 25, 0.1);
-    border-radius: 10px;
+    border-radius: 12px;
     background: #fafaf8;
     overflow: hidden;
     page-break-inside: avoid;
@@ -254,64 +268,100 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-mod-thumb {
-    width: 132px;
-    height: 110px;
+    width: 188px;
+    height: 168px;
     object-fit: cover;
     border: none;
-    border-right: 1px solid rgba(0, 102, 255, 0.15);
+    border-right: 1px solid rgba(0, 102, 255, 0.18);
     background: ${T.paper};
     display: block;
   }
 
   .qp-mod-thumb.qp-thumb-ph {
-    width: 132px;
-    height: 110px;
+    width: 188px;
+    height: 168px;
   }
 
   .qp-mod-body {
-    padding: 10px 4px 10px 0;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     min-width: 0;
+    gap: 6px;
   }
 
   .qp-mod-name {
-    font-size: 11pt;
+    font-size: 12pt;
     font-weight: 700;
     color: ${T.ink};
+    line-height: 1.25;
   }
 
   .qp-mod-meta {
-    margin-top: 3px;
-    font-size: 8pt;
+    font-size: 8.5pt;
     color: ${T.muted};
+  }
+
+  .qp-mod-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  .qp-chip {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 102, 255, 0.22);
+    background: rgba(0, 102, 255, 0.06);
+    font-size: 7.5pt;
+    font-weight: 600;
+    color: ${T.inkSoft};
+    letter-spacing: 0.02em;
+  }
+
+  .qp-mod-desc {
+    font-size: 8.5pt;
+    line-height: 1.35;
+    color: ${T.muted};
+  }
+
+  .qp-mod-details {
+    font-size: 8pt;
+    line-height: 1.4;
+    color: ${T.inkSoft};
   }
 
   .qp-mod-money {
     text-align: right;
-    padding: 10px 12px 10px 0;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: flex-end;
+    min-width: 96px;
+    background: linear-gradient(180deg, rgba(0,102,255,0.04), transparent);
+  }
+
+  .qp-mod-sale-label {
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: ${T.muted};
+    margin-bottom: 3px;
   }
 
   .qp-mod-sale {
-    font-size: 11.5pt;
+    font-size: 13pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: ${T.ink};
   }
 
-  .qp-mod-cost {
-    margin-top: 2px;
-    font-size: 8pt;
-    color: ${T.muted};
-    font-variant-numeric: tabular-nums;
-  }
-
   .qp-oos {
-    padding: 5mm 8mm 6mm;
+    padding: 5mm 9mm 6mm;
     border-top: 1px dashed rgba(15, 20, 25, 0.15);
   }
 
@@ -331,7 +381,7 @@ export const QUOTE_PRESENTATION_CSS = `
   }
 
   .qp-footer {
-    padding: 5mm 8mm 6mm;
+    padding: 5mm 9mm 6mm;
     border-top: 1px solid rgba(15, 20, 25, 0.08);
     font-size: 9.5pt;
     font-weight: 700;
@@ -344,6 +394,24 @@ export const QUOTE_PRESENTATION_CSS = `
     html, body { background: #fff; }
     .qp-sheet { width: 100%; }
   }
+
+  @media (max-width: 720px) {
+    .qp-mod {
+      grid-template-columns: 1fr;
+    }
+    .qp-mod-thumb,
+    .qp-mod-thumb.qp-thumb-ph {
+      width: 100%;
+      height: 180px;
+      border-right: none;
+      border-bottom: 1px solid rgba(0, 102, 255, 0.18);
+    }
+    .qp-mod-money {
+      align-items: flex-start;
+      text-align: left;
+      border-top: 1px solid rgba(15, 20, 25, 0.06);
+    }
+  }
 `
 
 function thumbHtml(url: string | null, className: string, placeholder: string): string {
@@ -351,6 +419,21 @@ function thumbHtml(url: string | null, className: string, placeholder: string): 
     return `<img class="${className}" src="${esc(url)}" alt="" />`
   }
   return `<div class="${className} qp-thumb-ph" aria-hidden="true">${esc(placeholder)}</div>`
+}
+
+function moduleChipsHtml(mod: {
+  dimensionsLabel: string | null
+  pageNumber: number | null
+  sheetPieceCount: number
+  hardwareCount: number
+}): string {
+  const chips: string[] = []
+  if (mod.dimensionsLabel) chips.push(mod.dimensionsLabel)
+  if (mod.pageNumber != null) chips.push(`Pág. ${mod.pageNumber}`)
+  if (mod.sheetPieceCount > 0) chips.push(`${Math.round(mod.sheetPieceCount)} peças`)
+  if (mod.hardwareCount > 0) chips.push(`${Math.round(mod.hardwareCount)} ferragens`)
+  if (!chips.length) return ''
+  return `<div class="qp-mod-chips">${chips.map((c) => `<span class="qp-chip">${esc(c)}</span>`).join('')}</div>`
 }
 
 /** Corpo HTML do documento (preview e print). */
@@ -366,23 +449,29 @@ export function buildQuotePresentationBodyHtml(layout: QuotePresentationLayout):
   const envHtml = layout.environments
     .map((env) => {
       const mods = env.modules
-        .map(
-          (mod) => `
+        .map((mod) => {
+          const details =
+            mod.detailLines?.length > 0
+              ? `<div class="qp-mod-details">${mod.detailLines.map((l) => esc(l)).join('<br/>')}</div>`
+              : ''
+          const desc = mod.description
+            ? `<div class="qp-mod-desc">${esc(mod.description)}</div>`
+            : ''
+          return `
         <article class="qp-mod">
           ${thumbHtml(mod.imageUrl, 'qp-mod-thumb', 'Foto')}
           <div class="qp-mod-body">
             <div class="qp-mod-name">${esc(mod.name)}</div>
-            <div class="qp-mod-meta">
-              ${mod.dimensionsLabel ? esc(mod.dimensionsLabel) : 'Móvel sob medida'}
-              ${mod.pageNumber != null ? ` · pág. ${mod.pageNumber}` : ''}
-            </div>
+            ${moduleChipsHtml(mod)}
+            ${desc}
+            ${details}
           </div>
           <div class="qp-mod-money">
+            <div class="qp-mod-sale-label">Preço</div>
             <div class="qp-mod-sale">${esc(formatBRL(mod.salePrice))}</div>
-            <div class="qp-mod-cost">Materiais ${esc(formatBRL(mod.materialsCost))}</div>
           </div>
-        </article>`,
-        )
+        </article>`
+        })
         .join('')
 
       return `
@@ -395,7 +484,6 @@ export function buildQuotePresentationBodyHtml(layout: QuotePresentationLayout):
           </div>
           <div class="qp-env-money">
             <div class="qp-env-sale">${esc(formatBRL(env.salePrice))}</div>
-            <div class="qp-env-cost">Materiais ${esc(formatBRL(env.materialsCost))}</div>
           </div>
         </header>
         <div class="qp-modules">${mods}</div>
@@ -425,16 +513,11 @@ export function buildQuotePresentationBodyHtml(layout: QuotePresentationLayout):
       <h1 class="qp-title">${esc(layout.projectTitle)}</h1>
       <p class="qp-date">Gerado em ${esc(layout.generatedAtLabel)}</p>
       <div class="qp-totals">
-        <div class="qp-total-block">
-          <div class="qp-total-label">Materiais</div>
-          <div class="qp-total-value">${esc(formatBRL(pricing.materialsCost))}</div>
-        </div>
         <div class="qp-total-block sale">
-          <div class="qp-total-label">Preço de venda</div>
+          <div class="qp-total-label">Total da proposta</div>
           <div class="qp-total-value">${esc(formatBRL(pricing.salePrice))}</div>
         </div>
       </div>
-      <p class="qp-formula">Cálculo: ${esc(pricing.formulaLabel)}</p>
     </header>
     ${envHtml || '<section class="qp-env"><p class="qp-env-sub">Nenhum ambiente cotado nesta análise.</p></section>'}
     ${oosHtml}
@@ -507,7 +590,6 @@ export function openQuotePresentationPrint(layout: QuotePresentationLayout): voi
     }
   }
 
-  // Fallback sem pop-up: Blob URL
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const tab = window.open(url, '_blank')
@@ -516,7 +598,6 @@ export function openQuotePresentationPrint(layout: QuotePresentationLayout): voi
     return
   }
 
-  // Último recurso: iframe oculto + diálogo de impressão
   const iframe = document.createElement('iframe')
   iframe.setAttribute('title', 'Impressão da proposta')
   iframe.style.position = 'fixed'
@@ -543,7 +624,5 @@ export function openQuotePresentationPrint(layout: QuotePresentationLayout): voi
     }
   }
   iframe.src = url
-
-  // Se o navegador não disparar onload a tempo, ainda assim limpa
   setTimeout(cleanup, 120_000)
 }

@@ -4,7 +4,6 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { OrcamentosIaShaderBackdrop } from '@/components/orcamentos-ia/OrcamentosIaShaderBackdrop'
 import { QuotePresentationPreview } from '@/components/orcamentos-ia/QuotePresentationPreview'
-import { QuotePresentationEditor } from '@/components/orcamentos-ia/QuotePresentationEditor'
 import {
   buildQuotePresentationLayout,
   clonePresentationLayout,
@@ -51,20 +50,10 @@ export function QuotePresentationModal({
   const [draft, setDraft] = useState<QuotePresentationLayout>(() =>
     clonePresentationLayout(baseLayout),
   )
-  /** Preços de partida para redistribuir mão de obra/lucro sem dobrar. */
-  const [baseline, setBaseline] = useState<QuotePresentationLayout>(() =>
-    clonePresentationLayout(baseLayout),
-  )
-  const [laborCost, setLaborCost] = useState(0)
-  const [profitPercent, setProfitPercent] = useState(0)
 
   useEffect(() => {
     if (!open) return
-    const cloned = clonePresentationLayout(baseLayout)
-    setDraft(cloned)
-    setBaseline(clonePresentationLayout(baseLayout))
-    setLaborCost(0)
-    setProfitPercent(0)
+    setDraft(clonePresentationLayout(baseLayout))
   }, [open, baseLayout])
 
   const handlePrint = () => {
@@ -81,12 +70,8 @@ export function QuotePresentationModal({
   }
 
   const handleReset = () => {
-    const cloned = clonePresentationLayout(baseLayout)
-    setDraft(cloned)
-    setBaseline(clonePresentationLayout(baseLayout))
-    setLaborCost(0)
-    setProfitPercent(0)
-    toast.message('Valores e fotos restaurados da cotação.')
+    setDraft(clonePresentationLayout(baseLayout))
+    toast.message('Nomes, valores e fotos restaurados da cotação.')
   }
 
   return (
@@ -116,32 +101,17 @@ export function QuotePresentationModal({
       }
     >
       <div className="relative -mx-1 min-h-[70vh] overflow-hidden rounded-xl border border-slate-200/80">
-        <div className="pointer-events-none absolute inset-0 opacity-35">
+        <div className="pointer-events-none absolute inset-0 opacity-40">
           <OrcamentosIaShaderBackdrop />
         </div>
-        <div className="relative z-[1] grid gap-3 p-2 sm:p-3 lg:grid-cols-[minmax(280px,380px)_1fr]">
-          <div className="max-h-[72vh] overflow-y-auto rounded-xl border border-white/70 bg-white/85 p-2 shadow-sm backdrop-blur-sm">
-            <QuotePresentationEditor
-              draft={draft}
-              baseline={baseline}
-              onChange={setDraft}
-              pageImages={pageImages}
-              laborCost={laborCost}
-              profitPercent={profitPercent}
-              onLaborCostChange={setLaborCost}
-              onProfitPercentChange={setProfitPercent}
-            />
-          </div>
-          <div className="min-w-0">
-            <p
-              className="mb-2 px-1 text-xs text-slate-600"
-              style={{ fontFamily: 'Raleway, sans-serif' }}
-            >
-              Prévia idêntica ao PDF. Ajuste fotos e valores à esquerda; depois use “Imprimir / Salvar
-              PDF”.
-            </p>
-            <QuotePresentationPreview layout={draft} />
-          </div>
+        <div className="relative z-[1] p-2 sm:p-3">
+          <QuotePresentationPreview
+            layout={draft}
+            onChange={setDraft}
+            pageImages={pageImages}
+            editable
+            className="max-h-[min(78vh,820px)] border-white/70 bg-white/70 shadow-sm backdrop-blur-sm"
+          />
         </div>
       </div>
     </Modal>
