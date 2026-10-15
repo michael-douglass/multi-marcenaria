@@ -8,10 +8,14 @@ export {
   ORCAMENTOS_IA_BUCKET,
   QUOTE_STATUS_PROGRESS,
   QUOTE_STATUS_LABEL,
+  CANCELLED_BY_USER_MESSAGE,
   ensureOrcamentosIaBucket,
   uploadQuotePdf,
   createPendingQuoteAnalysis,
   updateQuoteAnalysisPdfPath,
+  cancelOrcamentosIaAnalysis,
+  isQuoteAnalysisCancelled,
+  isReadyForClientPricing,
 } from '@/lib/orcamentos-ia/storage'
 
 export { resolveMaterialPrice, barsOf3mFromMeters, endCapsForHandleBars, repriceZeroMaterials, CONTINGENCY_PRICE_WARNING, CONTINGENCY_PRICES } from '@/lib/orcamentos-ia/pricing'
@@ -70,6 +74,8 @@ export {
   explodeModule,
   explodeFromExtractionModule,
   buildBoxMeshesFromBom,
+  buildAtomicPieces,
+  colorForAtomicPiece,
   buildIndustrialLabels,
   formatLabelsForPrint,
   applyEdgebandPolicy,
@@ -81,6 +87,7 @@ export {
   runOrcamentosIaPipeline,
   reprocessOrcamentosIaPipeline,
   reauditOrcamentosIaAnalysis,
+  repersistQuoteAnalysisFromLastExtraction,
 } from '@/lib/orcamentos-ia/pipeline'
 export {
   consolidateExtractionForPricing,
@@ -95,12 +102,28 @@ export type {
   ProjectSheetSku,
 } from '@/lib/orcamentos-ia/bom-consolidate'
 export {
+  FLAVIANE_REFERENCE_PALETTE,
+  FLAVIANE_PALETTE_MATERIAL_KEYS,
+  DEFAULT_BOX_BACK_PALETTE,
+  buildProjectSheetPaletteFromExtraction,
+  parseProjectSheetPalette,
+  resolvePaletteForPricing,
+} from '@/lib/orcamentos-ia/project-sheet-palette'
+export {
   mapHardwareAlias,
   hardwareAliasSeedPairs,
   HARDWARE_ALIAS_RULES,
 } from '@/lib/orcamentos-ia/hardware-alias'
 export type { HardwareCanonicalKey, MappedHardware } from '@/lib/orcamentos-ia/hardware-alias'
-export { quoteExtractionSchema } from '@/lib/orcamentos-ia/schemas'
+export {
+  quoteExtractionSchema,
+  atomicPieceSchema,
+} from '@/lib/orcamentos-ia/schemas'
+export type {
+  AtomicPiece,
+  AtomicPieceRole,
+  AtomicSheetRole,
+} from '@/lib/orcamentos-ia/schemas'
 export {
   estimateModuleDimensions,
   defaultPieceMm,
@@ -115,6 +138,33 @@ export {
   askMaxChat,
 } from '@/lib/orcamentos-ia/memory'
 export { loadQuoteAnalysisTree, getSignedPdfUrl, getSignedPageImageUrl, listQuotePagePaths, getSignedQuotePageUrls } from '@/lib/orcamentos-ia/quote-tree'
+export {
+  convertSelectedPdfPagesToJpeg,
+  assertBatchPagePaths,
+  normalizeSelectedPages,
+  pageNumbersFromTotals,
+} from '@/lib/orcamentos-ia/pdf-processor'
+export {
+  derivePipelineTelemetry,
+  type PipelineTelemetry,
+  type PipelineTelemetryPhase,
+  type ShaderThoughtMode,
+} from '@/lib/orcamentos-ia/pipeline-telemetry'
+export {
+  scopeInventoryToSelectedPages,
+  buildScopedCoverageReport,
+  scopedAuditorPromptAddendum,
+  filterExtractionToSelectedPages,
+  shouldBlockOnCoverageMissing,
+} from '@/lib/orcamentos-ia/audit'
+export type { CoverageScope } from '@/lib/orcamentos-ia/audit'
+export {
+  buildQuoteProjectThumbPath,
+  cacheMissingProjectPageThumbs,
+  loadProjectPageThumbUrls,
+  uploadQuoteProjectThumb,
+  PROJECT_THUMB_WIDTH,
+} from '@/lib/orcamentos-ia/project-page-thumbs'
 export {
   getInventoryItems,
   updateInventoryItem,

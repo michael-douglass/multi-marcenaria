@@ -1,0 +1,26 @@
+{
+  "epic": 2,
+  "prd": "v17",
+  "feature": "quote-projects-folder",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_8fd1e1ce3324cb8ac2dbfee246129907e0dc688aecdb4e4155685e0491af13ba",
+  "parent_evidence_id": "ev_98fd1dd63159353a084524f9c3b41a399a2db5ab4e00b836cc27106791835040",
+  "parent_digest": "98fd1dd63159353a084524f9c3b41a399a2db5ab4e00b836cc27106791835040",
+  "artifact_sha256": "1a9841ec237074cb0377002beb140f8a9a83fba1854a23011f5db53b23f74e93",
+  "statistics": {
+    "relevant_files": 39,
+    "parsed_javascript_files": 39,
+    "parse_failures": 0,
+    "findings": 741,
+    "text_bytes_read": 440635
+  },
+  "checks": {
+    "tsc_noEmit": "ok",
+    "migration_quote_projects": "ok",
+    "gate_quote_projects_insert": "ok",
+    "project_id_nullable": true
+  },
+  "migration": "20261014180000_quote_projects_folder.sql",
+  "date": "2026-10-14"
+}

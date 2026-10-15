@@ -1,0 +1,31 @@
+{
+  "epic": 4,
+  "prd": "v17",
+  "feature": "audit-workspace-folder-tabs",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_c5d984ae6338c302a8f948fce2167d46a7976a4b185f772f983fbb53844ec534",
+  "parent_evidence_id": "ev_8a7322c0c16d2dc8bd23a50c2beaf98f2136f3624dd45112ac5ea2294a4fa2b9",
+  "parent_digest": "8a7322c0c16d2dc8bd23a50c2beaf98f2136f3624dd45112ac5ea2294a4fa2b9",
+  "artifact_sha256": "1d995af32d94dca3ecb7a8c03995cbde1394536cfa28b807976babc7be6525eb",
+  "statistics": {
+    "relevant_files": 40,
+    "parsed_javascript_files": 40,
+    "parse_failures": 0,
+    "findings": 837,
+    "text_bytes_read": 447812
+  },
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_page_ranges": "ok",
+    "smoke_project_folder_merge": "ok",
+    "project_folder_tabs": "ok",
+    "hub_grouped_by_project_id": "ok"
+  },
+  "ui": {
+    "consolidated_tab": "Orçamento consolidado do projeto",
+    "history_tab": "Histórico por lote de páginas",
+    "continue_batch": "Cotar mais páginas"
+  },
+  "date": "2026-10-14"
+}

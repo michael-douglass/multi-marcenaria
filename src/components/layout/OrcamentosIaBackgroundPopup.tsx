@@ -8,6 +8,8 @@ import {
   Loader2,
   Minus,
   Play,
+  RotateCcw,
+  Square,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -63,17 +65,31 @@ export function OrcamentosIaBackgroundPopup({
   const visibleJobs = [...ctx.jobs].sort((a, b) => b.startedAt - a.startedAt)
   const activeCount = visibleJobs.filter(isActiveJob).length
 
+  const focusJobId = (analysisId: string | null | undefined) => {
+    if (!analysisId) return
+    const match = visibleJobs.find((j) => j.analysisId === analysisId)
+    if (match) setExpandedId(match.id)
+  }
+
   useEffect(() => {
     if (expandRequest === lastExpandRequestRef.current) return
     lastExpandRequestRef.current = expandRequest
-    if (expandRequest > 0) setIsMinimized(false)
-  }, [expandRequest])
+    if (expandRequest > 0) {
+      setIsMinimized(false)
+      focusJobId(ctx.focusAnalysisId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandRequest, ctx.focusAnalysisId])
 
   useEffect(() => {
     if (ctx.expandRequest === lastCtxExpandRef.current) return
     lastCtxExpandRef.current = ctx.expandRequest
-    if (ctx.expandRequest > 0) setIsMinimized(false)
-  }, [ctx.expandRequest])
+    if (ctx.expandRequest > 0) {
+      setIsMinimized(false)
+      focusJobId(ctx.focusAnalysisId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.expandRequest, ctx.focusAnalysisId])
 
   useEffect(() => {
     onMinimizedChange?.(isMinimized, {
@@ -127,6 +143,9 @@ export function OrcamentosIaBackgroundPopup({
   }
 
   const detailJob =
+    (ctx.focusAnalysisId
+      ? visibleJobs.find((j) => j.analysisId === ctx.focusAnalysisId)
+      : null) ??
     visibleJobs.find((j) => j.id === expandedId) ??
     visibleJobs.find(isActiveJob) ??
     visibleJobs[0]
@@ -259,6 +278,52 @@ export function OrcamentosIaBackgroundPopup({
                       Retomar
                     </Button>
                   )}
+                  {active && !job.needsResume && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 border-red-500/40 text-xs text-red-700 hover:bg-red-50"
+                      title="Para a leitura agora"
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            'Interromper a leitura? O progresso parcial fica salvo para Retomar.',
+                          )
+                        ) {
+                          return
+                        }
+                        void ctx.cancelQuoteAnalysis(job.analysisId)
+                      }}
+                    >
+                      <Square className="h-3 w-3" />
+                      Interromper
+                    </Button>
+                  )}
+                  {(job.needsResume ||
+                    job.status === 'FAILED' ||
+                    job.status === 'NEEDS_REVIEW') && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 border-amber-500/40 text-xs text-amber-800 hover:bg-amber-50"
+                      title="Apaga o progresso e lê o PDF de novo desde a página 1"
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            'Recomeçar do ZERO? Apaga o progresso parcial e começa de novo.',
+                          )
+                        ) {
+                          return
+                        }
+                        void ctx.restartQuoteAnalysisFromScratch(job.analysisId)
+                      }}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Recomeçar do zero
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     size="sm"
@@ -275,8 +340,16 @@ export function OrcamentosIaBackgroundPopup({
           })}
         </ul>
 
-        {detailJob && (detailJob.runnerActive || isActiveJob(detailJob)) && (
-          <div className="rounded-xl border border-slate-200 overflow-hidden">
+        {detailJob && (
+          <div className="rounded-xl border border-[#0066FF]/25 overflow-hidden bg-white/90">
+            <div className="border-b border-slate-200/80 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0066FF]">
+                Passos da precificação
+              </p>
+              <p className="truncate text-[11px] text-slate-500">
+                {detailJob.fileName || detailJob.analysisId.slice(0, 8)}
+              </p>
+            </div>
             <AiThoughtConsole
               status={detailJob.status}
               pipelineStage={detailJob.pipelineStage}
@@ -284,9 +357,22 @@ export function OrcamentosIaBackgroundPopup({
               thoughtLog={detailJob.thoughtLog}
               analysisId={detailJob.analysisId}
               companyId={detailJob.companyId}
+              projectId={
+                (typeof detailJob.totalsSnapshot?.project_id === 'string'
+                  ? detailJob.totalsSnapshot.project_id
+                  : null) ||
+                (typeof detailJob.totalsSnapshot?.projectId === 'string'
+                  ? detailJob.totalsSnapshot.projectId
+                  : null)
+              }
               pagesProcessed={detailJob.pagesProcessed}
-              errorMessage={detailJob.errorMessage}
-              compact
+              totals={detailJob.totalsSnapshot}
+              errorMessage={
+                detailJob.runnerActive || isActiveJob(detailJob)
+                  ? null
+                  : detailJob.errorMessage
+              }
+              density="workshop"
             />
           </div>
         )}

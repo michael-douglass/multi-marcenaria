@@ -12,22 +12,33 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
+  cancelOrcamentosIaAnalysis,
   createPendingQuoteAnalysis,
+  createQuoteProject,
+  CANCELLED_BY_USER_MESSAGE,
   deleteQuoteAnalysis,
   formatSourceBytes,
+  getQuoteProject,
   isAllowedQuoteSourceFile,
   isQuoteAnalysisStatus,
+  isReadyForClientPricing,
+  appendThoughtLog,
   formatAsyncPageProgress,
   DEFAULT_EXTRACTION_MODEL,
   MAX_SOURCE_BYTES,
   parseThoughtLog,
+  thoughtKindForStage,
   updateQuoteAnalysisPdfPath,
+  updateQuoteProjectPdf,
+  uploadQuoteProjectPdf,
   uploadQuoteSource,
   type ExtractionModelKey,
   type QuoteAnalysisMode,
   type QuoteAnalysisStatus,
   type ThoughtLogEntry,
 } from '@/lib/orcamentos-ia/storage'
+import { formatPageRanges } from '@/lib/orcamentos-ia/page-ranges'
+import { countPdfPages } from '@/lib/pdf-to-image'
 import {
   reprocessOrcamentosIaPipeline,
   runOrcamentosIaPipeline,
@@ -52,6 +63,8 @@ export interface OrcamentosIaBackgroundJob {
   pagesProcessed: number | null
   errorMessage: string | null
   startedAt: number
+  /** Snapshot de totals (engrenagens extract/audit). */
+  totalsSnapshot: Record<string, unknown> | null
   /** Pipeline JS ainda rodando nesta aba. */
   runnerActive: boolean
   /** Precisa de Retomar (reabriu aba sem runner). */
@@ -65,14 +78,45 @@ export interface StartOrcamentosIaAnalysisInput {
   /** Modelo de visão (default Sonnet econômico). */
   extractionModel?: ExtractionModelKey
   files: File[]
+  /**
+   * Páginas absolutas do PDF a cotar neste lote (1-based).
+   * Omitido = todas as páginas convertidas.
+   */
+  pageNumbers?: number[]
+  /** Pasta de projeto existente — novo lote atrelado ao mesmo project_id. */
+  existingProjectId?: string
+  /** Nome da pasta ao criar (novo orçamento). */
+  projectName?: string
+}
+
+export interface StartOrcamentosIaFromProjectInput {
+  companyId: string
+  projectId: string
+  pageNumbers: number[]
+  userId?: string | null
+  mode: QuoteAnalysisMode
+  extractionModel?: ExtractionModelKey
 }
 
 interface OrcamentosIaBackgroundContextValue {
   jobs: OrcamentosIaBackgroundJob[]
   expandRequest: number
-  requestExpand: () => void
+  /** analysisId do job que o popup deve destacar ao expandir (Retomar / Acompanhar). */
+  focusAnalysisId: string | null
+  requestExpand: (analysisId?: string | null) => void
   startQuoteAnalysis: (input: StartOrcamentosIaAnalysisInput) => Promise<string | null>
+  /** Novo lote na pasta — usa PDF permanente, sem re-upload. */
+  startQuoteAnalysisFromProject: (
+    input: StartOrcamentosIaFromProjectInput,
+  ) => Promise<string | null>
   resumeQuoteAnalysis: (analysisId: string, companyIdHint?: string) => Promise<boolean>
+  /** Apaga checkpoint e recomeça a leitura do PDF desde a página 1. */
+  restartQuoteAnalysisFromScratch: (
+    analysisId: string,
+    companyIdHint?: string,
+  ) => Promise<boolean>
+  /** Interrompe a leitura async e o pipeline em andamento. */
+  cancelQuoteAnalysis: (analysisId: string) => Promise<boolean>
   dismissJob: (jobId: string) => void
   dismissCompletedJobs: () => void
   openAnalysis: (analysisId: string) => void
@@ -202,13 +246,38 @@ function applyRowToJob(
   if (row.error_message !== undefined) next.errorMessage = row.error_message
   const totals = row.totals && typeof row.totals === 'object' ? row.totals : null
   if (totals) {
+    next.totalsSnapshot = totals
     next.pipelineStage =
       typeof totals.pipeline_stage === 'string' ? totals.pipeline_stage : next.pipelineStage
     const asyncProgress = formatAsyncPageProgress(totals)
-    next.pipelineDetail =
+    const detailFromTotals =
       asyncProgress ||
-      (typeof totals.pipeline_detail === 'string' ? totals.pipeline_detail : next.pipelineDetail)
-    next.thoughtLog = parseThoughtLog(totals)
+      (typeof totals.pipeline_detail === 'string' ? totals.pipeline_detail : null)
+    const prevDetail = next.pipelineDetail
+    next.pipelineDetail = detailFromTotals || next.pipelineDetail
+
+    // Base: thought_log do banco + espelho local quando pipeline_detail muda
+    // (Edge patchTotals não grava thought_log a cada tick).
+    let log = parseThoughtLog(totals)
+    if (!log.length && job.thoughtLog.length) log = [...job.thoughtLog]
+    if (
+      detailFromTotals &&
+      detailFromTotals.trim() &&
+      detailFromTotals !== prevDetail
+    ) {
+      const stage =
+        typeof totals.pipeline_stage === 'string' ? totals.pipeline_stage : next.pipelineStage
+      log = appendThoughtLog(
+        { thought_log: log },
+        {
+          stage: stage || 'extracting_batch',
+          kind: thoughtKindForStage(stage),
+          message: detailFromTotals.trim(),
+        },
+      )
+    }
+    next.thoughtLog = log
+
     const pp = totals.pages_processed ?? totals.current_page
     next.pagesProcessed = typeof pp === 'number' ? pp : next.pagesProcessed
   }
@@ -222,9 +291,15 @@ function applyRowToJob(
 export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<OrcamentosIaBackgroundJob[]>([])
   const [expandRequest, setExpandRequest] = useState(0)
+  const [focusAnalysisId, setFocusAnalysisId] = useState<string | null>(null)
   const navigate = useNavigate()
   const hydratedRef = useRef(false)
   const runnersRef = useRef<Set<string>>(new Set())
+  /** Evita loop de auto-retomada de precificação órfã. */
+  const autoResumePricingRef = useRef<Set<string>>(new Set())
+  const resumeQuoteAnalysisRef = useRef<
+    ((analysisId: string, companyIdHint?: string) => Promise<boolean>) | null
+  >(null)
 
   const updateJob = useCallback((jobId: string, patch: Partial<OrcamentosIaBackgroundJob>) => {
     setJobs((current) =>
@@ -243,7 +318,8 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
     [],
   )
 
-  const requestExpand = useCallback(() => {
+  const requestExpand = useCallback((analysisId?: string | null) => {
+    if (analysisId) setFocusAnalysisId(analysisId)
     setExpandRequest((n) => n + 1)
   }, [])
 
@@ -312,8 +388,10 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
             typeof totals?.pages_processed === 'number' ? totals.pages_processed : null,
           errorMessage: data.error_message ?? null,
           startedAt: meta.startedAt,
+          totalsSnapshot: totals,
           runnerActive: false,
-          needsResume: isBusyStatus(status),
+          needsResume:
+            isBusyStatus(status) || isReadyForClientPricing(totals),
         })
       }
       if (!cancelled && restored.length) {
@@ -321,6 +399,18 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           const ids = new Set(prev.map((j) => j.analysisId))
           return [...prev, ...restored.filter((j) => !ids.has(j.analysisId))]
         })
+        // Precificação órfã: Edge já fechou, cliente sumiu — retoma sozinho 1x.
+        for (const job of restored) {
+          if (
+            !isReadyForClientPricing(job.totalsSnapshot) ||
+            !isBusyStatus(job.status)
+          ) {
+            continue
+          }
+          if (autoResumePricingRef.current.has(job.analysisId)) continue
+          autoResumePricingRef.current.add(job.analysisId)
+          void resumeQuoteAnalysisRef.current?.(job.analysisId, job.companyId)
+        }
       }
     })()
 
@@ -427,6 +517,13 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       const { companyId, userId, mode } = input
       const extractionModel = input.extractionModel ?? DEFAULT_EXTRACTION_MODEL
       const files = input.files.filter(isAllowedQuoteSourceFile).slice(0, 300)
+      const pageNumbers =
+        Array.isArray(input.pageNumbers) && input.pageNumbers.length > 0
+          ? [...new Set(input.pageNumbers.filter((p) => Number.isInteger(p) && p > 0))].sort(
+              (a, b) => a - b,
+            )
+          : undefined
+      const existingProjectId = input.existingProjectId?.trim() || undefined
       if (!companyId) {
         toast.error('Empresa não identificada.')
         return null
@@ -450,11 +547,32 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
 
       let createdAnalysisId: string | null = null
       try {
+        let projectId = existingProjectId ?? null
+        if (!projectId) {
+          const folderName =
+            (input.projectName?.trim() ||
+              primary.name.replace(/\.[^.]+$/, '') ||
+              'Projeto').slice(0, 120)
+          const { data: project, error: projectError } = await createQuoteProject({
+            companyId,
+            name: folderName,
+            sourcePdfName: primary.name,
+            createdBy: userId,
+          })
+          if (projectError || !project) {
+            throw new Error(projectError || 'Não foi possível criar a pasta do projeto.')
+          }
+          projectId = project.id
+        }
+
         const { data: analysis, error: createError } = await createPendingQuoteAnalysis({
           companyId,
           mode,
           extractionModel,
           createdBy: userId,
+          projectId,
+          pageRanges: pageNumbers ?? null,
+          batchLabel: pageNumbers?.length ? formatPageRanges(pageNumbers) : null,
         })
         if (createError || !analysis) {
           throw new Error(createError || 'Não foi possível criar a análise.')
@@ -483,6 +601,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           pagesProcessed: null,
           errorMessage: null,
           startedAt: Date.now(),
+          totalsSnapshot: null,
           runnerActive: true,
           needsResume: false,
         }
@@ -493,23 +612,60 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
         })
 
         let lastPct = -1
-        const firstUpload = await uploadQuoteSource({
-          companyId,
-          analysisId: analysis.id,
-          file: primary,
-          onProgress: (percent) => {
-            if (percent === lastPct) return
-            lastPct = percent
-            updateJobByAnalysis(analysis.id, {
-              pipelineDetail: `Enviando PDF… ${percent}% (${primaryMb})`,
-            })
-          },
-        })
-        if (firstUpload.error || !firstUpload.path) {
-          throw new Error(firstUpload.error || 'Falha no upload.')
+        const onUploadPct = (percent: number) => {
+          if (percent === lastPct) return
+          lastPct = percent
+          updateJobByAnalysis(analysis.id, {
+            pipelineDetail: `Enviando PDF… ${percent}% (${primaryMb})`,
+          })
         }
 
-        const pathUpdate = await updateQuoteAnalysisPdfPath(analysis.id, firstUpload.path)
+        // PDF permanente na pasta: um único path compartilhado por todos os lotes.
+        const isPrimaryPdf =
+          primary.type === 'application/pdf' || primary.name.toLowerCase().endsWith('.pdf')
+        let pdfPath = ''
+        if (projectId && isPrimaryPdf) {
+          const { data: folderRow } = await getQuoteProject(projectId)
+          if (folderRow?.pdf_url) {
+            pdfPath = folderRow.pdf_url
+          } else {
+            const projectUpload = await uploadQuoteProjectPdf({
+              companyId,
+              projectId,
+              file: primary,
+              onProgress: onUploadPct,
+            })
+            if (projectUpload.error || !projectUpload.path) {
+              throw new Error(projectUpload.error || 'Falha no upload do PDF da pasta.')
+            }
+            pdfPath = projectUpload.path
+            let pageCount: number | null = null
+            try {
+              pageCount = await countPdfPages(primary)
+            } catch {
+              pageCount = null
+            }
+            const pdfMeta = await updateQuoteProjectPdf(projectId, {
+              pdf_url: pdfPath,
+              page_count: pageCount,
+              source_pdf_name: primary.name,
+            })
+            if (pdfMeta.error) throw new Error(pdfMeta.error)
+          }
+        } else {
+          const firstUpload = await uploadQuoteSource({
+            companyId,
+            analysisId: analysis.id,
+            file: primary,
+            onProgress: onUploadPct,
+          })
+          if (firstUpload.error || !firstUpload.path) {
+            throw new Error(firstUpload.error || 'Falha no upload.')
+          }
+          pdfPath = firstUpload.path
+        }
+
+        const pathUpdate = await updateQuoteAnalysisPdfPath(analysis.id, pdfPath)
         if (pathUpdate.error) throw new Error(pathUpdate.error)
 
         for (let i = 1; i < files.length; i++) {
@@ -554,6 +710,8 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               mode,
               extractionModel,
               sourceFiles: files,
+              pageNumbers,
+              projectId: analysis.project_id || projectId || null,
             })
             runnersRef.current.delete(analysis.id)
             if (!result.ok) {
@@ -634,43 +792,242 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
     [openAnalysis, requestExpand, updateJobByAnalysis],
   )
 
+  const startQuoteAnalysisFromProject = useCallback(
+    async (input: StartOrcamentosIaFromProjectInput): Promise<string | null> => {
+      const { companyId, projectId, userId, mode } = input
+      const extractionModel = input.extractionModel ?? DEFAULT_EXTRACTION_MODEL
+      const pageNumbers = [
+        ...new Set(input.pageNumbers.filter((p) => Number.isInteger(p) && p > 0)),
+      ].sort((a, b) => a - b)
+
+      if (!companyId || !projectId) {
+        toast.error('Pasta do projeto não identificada.')
+        return null
+      }
+      if (!pageNumbers.length) {
+        toast.error('Selecione ao menos uma página pendente.')
+        return null
+      }
+
+      const { data: project, error: projectError } = await getQuoteProject(projectId)
+      if (projectError || !project) {
+        toast.error(projectError || 'Pasta não encontrada.')
+        return null
+      }
+      if (!project.pdf_url) {
+        toast.error(
+          'Esta pasta ainda não tem PDF permanente. Use “Novo orçamento” e envie o arquivo uma vez.',
+        )
+        return null
+      }
+
+      const already = new Set(project.budgeted_pages || [])
+      const fresh = pageNumbers.filter((p) => !already.has(p))
+      if (!fresh.length) {
+        toast.error('Todas as páginas escolhidas já foram orçadas. Selecione páginas em branco.')
+        return null
+      }
+      if (fresh.length < pageNumbers.length) {
+        toast.message('Algumas páginas já orçadas foram ignoradas.', {
+          description: `Seguindo com ${fresh.length} página(s) pendente(s).`,
+        })
+      }
+
+      let createdAnalysisId: string | null = null
+      const jobId = crypto.randomUUID()
+      const fileName = project.source_pdf_name || project.name || 'projeto.pdf'
+
+      try {
+        const { data: analysis, error: createError } = await createPendingQuoteAnalysis({
+          companyId,
+          mode,
+          extractionModel,
+          createdBy: userId,
+          projectId,
+          sourcePdfPath: project.pdf_url,
+          pageRanges: fresh,
+          batchLabel: formatPageRanges(fresh),
+        })
+        if (createError || !analysis) {
+          throw new Error(createError || 'Não foi possível criar o lote.')
+        }
+        createdAnalysisId = analysis.id
+
+        const baseJob: OrcamentosIaBackgroundJob = {
+          id: jobId,
+          analysisId: analysis.id,
+          companyId,
+          fileName,
+          mode,
+          status: 'PENDING',
+          pipelineStage: 'upload',
+          pipelineDetail: `Lote págs. ${formatPageRanges(fresh)} — usando PDF da pasta (sem reenvio)…`,
+          thoughtLog: [
+            {
+              at: new Date().toISOString(),
+              stage: 'upload',
+              kind: 'info',
+              message: `Lote págs. ${formatPageRanges(fresh)} — PDF permanente da pasta.`,
+            },
+          ],
+          pagesProcessed: null,
+          errorMessage: null,
+          startedAt: Date.now(),
+          totalsSnapshot: null,
+          runnerActive: true,
+          needsResume: false,
+        }
+        setJobs((current) => [...current, baseJob])
+        toast.message('Cotação incremental iniciada', {
+          description: `Páginas ${formatPageRanges(fresh)} · sem reenviar o PDF.`,
+          duration: 6000,
+          action: { label: 'Acompanhar', onClick: () => requestExpand() },
+        })
+
+        runnersRef.current.add(analysis.id)
+        void (async () => {
+          try {
+            const result = await runOrcamentosIaPipeline({
+              analysisId: analysis.id,
+              companyId,
+              mode,
+              extractionModel,
+              sourceFiles: [],
+              pageNumbers: fresh,
+              projectId,
+            })
+            runnersRef.current.delete(analysis.id)
+            if (!result.ok) {
+              updateJobByAnalysis(analysis.id, {
+                status: 'FAILED',
+                errorMessage: result.error || 'Pipeline falhou.',
+                runnerActive: false,
+                needsResume: true,
+                pipelineDetail: result.error || 'Pipeline falhou.',
+              })
+              toast.error('Orçamento IA falhou', {
+                description: `${result.error || 'Pipeline falhou.'} Use Retomar no lote para continuar com as mesmas páginas.`,
+              })
+              return
+            }
+            updateJobByAnalysis(analysis.id, {
+              status: 'COMPLETED',
+              runnerActive: false,
+              needsResume: false,
+              pipelineStage: 'completed',
+              pipelineDetail: result.materialsSaved
+                ? `Pronto — ${result.materialsSaved} insumos salvos.`
+                : 'Análise concluída.',
+            })
+            toast.success('Lote concluído', {
+              description: fileName,
+              duration: 12000,
+              action: { label: 'Abrir', onClick: () => openAnalysis(analysis.id) },
+            })
+          } catch (err) {
+            runnersRef.current.delete(analysis.id)
+            const message = err instanceof Error ? err.message : 'Erro no pipeline'
+            updateJobByAnalysis(analysis.id, {
+              status: 'FAILED',
+              errorMessage: message,
+              runnerActive: false,
+              needsResume: true,
+              pipelineDetail: message,
+            })
+            toast.error('Orçamento IA falhou', {
+              description: `${message} Use Retomar no lote para continuar com as mesmas páginas.`,
+            })
+          }
+        })()
+
+        return analysis.id
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erro ao iniciar lote.'
+        if (createdAnalysisId) {
+          await supabase
+            .from('quote_analyses')
+            .update({
+              status: 'FAILED',
+              error_message: message.slice(0, 500),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', createdAnalysisId)
+          updateJobByAnalysis(createdAnalysisId, {
+            status: 'FAILED',
+            errorMessage: message,
+            runnerActive: false,
+            needsResume: true,
+            pipelineDetail: message,
+          })
+        }
+        toast.error(message, { duration: 12000 })
+        return null
+      }
+    },
+    [openAnalysis, requestExpand, updateJobByAnalysis],
+  )
+
   const resumeQuoteAnalysis = useCallback(
     async (analysisId: string, companyIdHint?: string): Promise<boolean> => {
+      // Runner fantasma: se o banco já falhou/concluiu, libera e deixa Retomar.
       if (runnersRef.current.has(analysisId)) {
-        toast.info('Esta análise já está rodando nesta aba.')
+        const { data: live } = await supabase
+          .from('quote_analyses')
+          .select('status')
+          .eq('id', analysisId)
+          .maybeSingle()
+        const st = live?.status
+        if (st === 'FAILED' || st === 'COMPLETED' || st === 'NEEDS_REVIEW') {
+          runnersRef.current.delete(analysisId)
+        } else {
+          toast.info('Esta análise já está rodando nesta aba.')
+          return false
+        }
+      }
+
+      const { data: rowForResume } = await supabase
+        .from('quote_analyses')
+        .select('id, company_id, mode, status, error_message, source_pdf_path, totals')
+        .eq('id', analysisId)
+        .maybeSingle()
+      if (!rowForResume) {
+        toast.error('Análise não encontrada para retomar.')
         return false
       }
+      const resumeTotals =
+        rowForResume.totals && typeof rowForResume.totals === 'object'
+          ? (rowForResume.totals as Record<string, unknown>)
+          : {}
+      const resumeBatchLabel =
+        typeof resumeTotals.batch_label === 'string' && resumeTotals.batch_label.trim()
+          ? resumeTotals.batch_label.trim()
+          : null
+      const resumeDetail = resumeBatchLabel
+        ? `Retomando lote págs. ${resumeBatchLabel} — de onde parou…`
+        : 'Retomando análise…'
 
       let job = jobs.find((j) => j.analysisId === analysisId)
       if (!job) {
-        const { data } = await supabase
-          .from('quote_analyses')
-          .select('id, company_id, mode, status, error_message, source_pdf_path')
-          .eq('id', analysisId)
-          .maybeSingle()
-        if (!data) {
-          toast.error('Análise não encontrada para retomar.')
-          return false
-        }
-        const companyId = companyIdHint || data.company_id
+        const companyId = companyIdHint || rowForResume.company_id
         if (!companyId) {
           toast.error('Empresa não identificada.')
           return false
         }
-        const fileName = data.source_pdf_path?.split('/').pop() || 'projeto.pdf'
+        const fileName = rowForResume.source_pdf_path?.split('/').pop() || 'projeto.pdf'
         job = {
           id: crypto.randomUUID(),
-          analysisId: data.id,
+          analysisId: rowForResume.id,
           companyId,
           fileName,
-          mode: data.mode === 'pro' ? 'pro' : 'max',
+          mode: rowForResume.mode === 'pro' ? 'pro' : 'max',
           status: 'PROCESSING',
           pipelineStage: 'upload',
-          pipelineDetail: 'Retomando análise…',
+          pipelineDetail: resumeDetail,
           thoughtLog: [],
           pagesProcessed: null,
           errorMessage: null,
           startedAt: Date.now(),
+          totalsSnapshot: resumeTotals,
           runnerActive: true,
           needsResume: false,
         }
@@ -682,9 +1039,10 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               status: 'PROCESSING',
               runnerActive: true,
               needsResume: false,
-              pipelineDetail: 'Retomando análise…',
+              pipelineDetail: resumeDetail,
               errorMessage: null,
               startedAt: Date.now(),
+              totalsSnapshot: resumeTotals,
             }
             return current.map((j) => (j.analysisId === analysisId ? job! : j))
           }
@@ -692,31 +1050,51 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
         })
       }
 
+      const companyIdForResume =
+        companyIdHint || job.companyId || rowForResume.company_id
+      if (!companyIdForResume) {
+        toast.error('Empresa não identificada.')
+        return false
+      }
+      job = { ...job, companyId: companyIdForResume }
+
       runnersRef.current.add(analysisId)
       updateJobByAnalysis(analysisId, {
         status: 'PROCESSING',
         runnerActive: true,
         needsResume: false,
-        pipelineDetail: 'Retomando análise…',
+        pipelineDetail: resumeDetail,
         errorMessage: null,
       })
-      requestExpand()
-      toast.message('Retomando Orçamento IA…')
+      requestExpand(analysisId)
+      toast.message(resumeDetail, {
+        description: 'Acompanhe os passos da precificação no painel ao lado.',
+        duration: 5000,
+      })
 
       try {
         const result = await reprocessOrcamentosIaPipeline({
           analysisId,
-          companyId: job.companyId,
+          companyId: companyIdForResume,
         })
         runnersRef.current.delete(analysisId)
         if (!result.ok) {
+          const cancelled = /interrompid/i.test(result.error || '')
           updateJobByAnalysis(analysisId, {
             status: 'FAILED',
             errorMessage: result.error || 'Falha ao retomar.',
             runnerActive: false,
             needsResume: true,
+            pipelineStage: 'failed',
+            pipelineDetail: cancelled
+              ? 'Interrompido pelo usuário. Use Retomar ou Recomeçar do zero.'
+              : result.error || 'Falha ao retomar.',
           })
-          toast.error(result.error || 'Falha ao retomar.')
+          if (cancelled) {
+            toast.message('Leitura interrompida')
+          } else {
+            toast.error(result.error || 'Falha ao retomar.')
+          }
           return false
         }
         updateJobByAnalysis(analysisId, {
@@ -738,17 +1116,175 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       } catch (err) {
         runnersRef.current.delete(analysisId)
         const message = err instanceof Error ? err.message : 'Erro ao retomar'
+        const cancelled = /interrompid/i.test(message)
         updateJobByAnalysis(analysisId, {
           status: 'FAILED',
           errorMessage: message,
           runnerActive: false,
           needsResume: true,
         })
-        toast.error(message)
+        if (cancelled) toast.message('Leitura interrompida')
+        else toast.error(message)
         return false
       }
     },
     [jobs, openAnalysis, requestExpand, updateJobByAnalysis],
+  )
+
+  resumeQuoteAnalysisRef.current = resumeQuoteAnalysis
+
+  const restartQuoteAnalysisFromScratch = useCallback(
+    async (analysisId: string, companyIdHint?: string): Promise<boolean> => {
+      if (runnersRef.current.has(analysisId)) {
+        toast.info('Esta análise já está rodando nesta aba. Aguarde ou recarregue.')
+        return false
+      }
+
+      let job = jobs.find((j) => j.analysisId === analysisId)
+      if (!job) {
+        const { data } = await supabase
+          .from('quote_analyses')
+          .select('id, company_id, mode, status, error_message, source_pdf_path')
+          .eq('id', analysisId)
+          .maybeSingle()
+        if (!data) {
+          toast.error('Análise não encontrada para recomeçar.')
+          return false
+        }
+        const companyId = companyIdHint || data.company_id
+        if (!companyId) {
+          toast.error('Empresa não identificada.')
+          return false
+        }
+        const fileName = data.source_pdf_path?.split('/').pop() || 'projeto.pdf'
+        job = {
+          id: crypto.randomUUID(),
+          analysisId: data.id,
+          companyId,
+          fileName,
+          mode: data.mode === 'pro' ? 'pro' : 'max',
+          status: 'PROCESSING',
+          pipelineStage: 'upload',
+          pipelineDetail: 'Recomeçando do zero…',
+          thoughtLog: [],
+          pagesProcessed: null,
+          errorMessage: null,
+          startedAt: Date.now(),
+          totalsSnapshot: null,
+          runnerActive: true,
+          needsResume: false,
+        }
+        setJobs((current) => {
+          const existing = current.find((j) => j.analysisId === analysisId)
+          if (existing) {
+            job = {
+              ...existing,
+              status: 'PROCESSING',
+              runnerActive: true,
+              needsResume: false,
+              pipelineDetail: 'Recomeçando do zero…',
+              errorMessage: null,
+              startedAt: Date.now(),
+            }
+            return current.map((j) => (j.analysisId === analysisId ? job! : j))
+          }
+          return [...current, job!]
+        })
+      }
+
+      runnersRef.current.add(analysisId)
+      updateJobByAnalysis(analysisId, {
+        status: 'PROCESSING',
+        runnerActive: true,
+        needsResume: false,
+        pipelineDetail: 'Recomeçando do zero…',
+        errorMessage: null,
+      })
+      requestExpand(analysisId)
+      toast.message('Recomeçando Orçamento IA do zero…', {
+        description: 'Acompanhe os passos da precificação no painel ao lado.',
+        duration: 5000,
+      })
+
+      try {
+        const result = await reprocessOrcamentosIaPipeline({
+          analysisId,
+          companyId: job.companyId,
+          fromScratch: true,
+        })
+        runnersRef.current.delete(analysisId)
+        if (!result.ok) {
+          const cancelled = /interrompid/i.test(result.error || '')
+          updateJobByAnalysis(analysisId, {
+            status: 'FAILED',
+            errorMessage: result.error || 'Falha ao recomeçar.',
+            runnerActive: false,
+            needsResume: true,
+            pipelineStage: 'failed',
+            pipelineDetail: cancelled
+              ? 'Interrompido pelo usuário. Use Retomar ou Recomeçar do zero.'
+              : result.error || 'Falha ao recomeçar.',
+          })
+          if (cancelled) toast.message('Leitura interrompida')
+          else toast.error(result.error || 'Falha ao recomeçar.')
+          return false
+        }
+        updateJobByAnalysis(analysisId, {
+          status: 'COMPLETED',
+          runnerActive: false,
+          needsResume: false,
+          pipelineStage: 'completed',
+          pipelineDetail: result.materialsSaved
+            ? `Pronto — ${result.materialsSaved} insumos salvos.`
+            : 'Análise concluída.',
+        })
+        toast.success('Orçamento IA concluído (do zero)', {
+          action: {
+            label: 'Abrir',
+            onClick: () => openAnalysis(analysisId),
+          },
+        })
+        return true
+      } catch (err) {
+        runnersRef.current.delete(analysisId)
+        const message = err instanceof Error ? err.message : 'Erro ao recomeçar'
+        const cancelled = /interrompid/i.test(message)
+        updateJobByAnalysis(analysisId, {
+          status: 'FAILED',
+          errorMessage: message,
+          runnerActive: false,
+          needsResume: true,
+        })
+        if (cancelled) toast.message('Leitura interrompida')
+        else toast.error(message)
+        return false
+      }
+    },
+    [jobs, openAnalysis, requestExpand, updateJobByAnalysis],
+  )
+
+  const cancelQuoteAnalysis = useCallback(
+    async (analysisId: string): Promise<boolean> => {
+      const result = await cancelOrcamentosIaAnalysis(analysisId)
+      if (!result.ok) {
+        toast.error(result.error || 'Não foi possível interromper.')
+        return false
+      }
+      runnersRef.current.delete(analysisId)
+      updateJobByAnalysis(analysisId, {
+        status: 'FAILED',
+        runnerActive: false,
+        needsResume: true,
+        pipelineStage: 'failed',
+        pipelineDetail: 'Interrompido pelo usuário. Use Retomar ou Recomeçar do zero.',
+        errorMessage: CANCELLED_BY_USER_MESSAGE,
+      })
+      toast.message('Leitura interrompida', {
+        description: 'Você pode Retomar do checkpoint ou Recomeçar do zero.',
+      })
+      return true
+    },
+    [updateJobByAnalysis],
   )
 
   const dismissJob = useCallback((jobId: string) => {
@@ -785,9 +1321,13 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
     () => ({
       jobs,
       expandRequest,
+      focusAnalysisId,
       requestExpand,
       startQuoteAnalysis,
+      startQuoteAnalysisFromProject,
       resumeQuoteAnalysis,
+      restartQuoteAnalysisFromScratch,
+      cancelQuoteAnalysis,
       dismissJob,
       dismissCompletedJobs,
       openAnalysis,
@@ -795,16 +1335,20 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
       isRunningForCompany,
     }),
     [
+      cancelQuoteAnalysis,
       dismissCompletedJobs,
       dismissJob,
       expandRequest,
+      focusAnalysisId,
       getActiveJobForCompany,
       isRunningForCompany,
       jobs,
       openAnalysis,
       requestExpand,
       resumeQuoteAnalysis,
+      restartQuoteAnalysisFromScratch,
       startQuoteAnalysis,
+      startQuoteAnalysisFromProject,
     ],
   )
 
@@ -821,9 +1365,13 @@ export function useOrcamentosIaBackground(): OrcamentosIaBackgroundContextValue 
     return {
       jobs: [],
       expandRequest: 0,
+      focusAnalysisId: null,
       requestExpand: () => {},
       startQuoteAnalysis: async () => null,
+      startQuoteAnalysisFromProject: async () => null,
       resumeQuoteAnalysis: async () => false,
+      restartQuoteAnalysisFromScratch: async () => false,
+      cancelQuoteAnalysis: async () => false,
       dismissJob: () => {},
       dismissCompletedJobs: () => {},
       openAnalysis: () => {},

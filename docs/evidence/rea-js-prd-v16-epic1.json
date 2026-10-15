@@ -1,0 +1,23 @@
+{
+  "epic": 1,
+  "prd": "v16",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_0c1da0841139bc34fff8ae6424aa8cec815e038f51a2668ab0848ae54b51af27",
+  "parent_evidence_id": "ev_beb7e6719c5f36f447ea1103161df15df0e0e492dc8dd609ea96b07f6f6c2edf",
+  "parent_digest": "beb7e6719c5f36f447ea1103161df15df0e0e492dc8dd609ea96b07f6f6c2edf",
+  "artifact_sha256": "97daba267ef2643fc8500afabea01d0eeb4e639998f55c54aea39ea3a1cf2130",
+  "statistics": {
+    "relevant_files": 36,
+    "parsed_javascript_files": 36,
+    "parse_failures": 0,
+    "findings": 702,
+    "text_bytes_read": 389065
+  },
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_normalize_typology": "ok",
+    "CHECKPOINT_EVERY_PAGES": 15
+  },
+  "date": "2026-10-14"
+}

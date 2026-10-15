@@ -1,16 +1,24 @@
 import { installPdfJsPolyfills } from '@/lib/map-polyfills';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
-import PdfJsWorker from '@/lib/pdf-js-worker-entry.ts?worker';
+import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs';
 
 installPdfJsPolyfills();
 
-let pdfWorker: Worker | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var pdfjsWorker: typeof import('pdfjs-dist/build/pdf.worker.min.mjs') | undefined;
+}
 
-/** Worker empacotado pelo Vite — evita fallback "fake worker" com /@vite/client. */
+/**
+ * Mesmo “fake worker” do `pdf-to-image` (main thread).
+ * O `?worker` + workerPort conflita com countPdfPages / pipeline e trava
+ * a grade “Gerando prévia…” para sempre no Vite/dev.
+ */
 function ensurePdfWorker(): void {
-  if (pdfWorker) return;
-  pdfWorker = new PdfJsWorker();
-  GlobalWorkerOptions.workerPort = pdfWorker;
+  if (!globalThis.pdfjsWorker) {
+    globalThis.pdfjsWorker = pdfjsWorker;
+  }
+  GlobalWorkerOptions.workerPort = null;
 }
 
 export interface PdfPageImage {
@@ -40,10 +48,17 @@ export async function loadPdfDocument(fileUrl: string) {
   return loadPdfFromArrayBuffer(data);
 }
 
+/** Carrega PDF a partir de um arquivo local (prévia imediata no seletor). */
+export async function loadPdfFromFile(file: File) {
+  const data = await file.arrayBuffer();
+  return loadPdfFromArrayBuffer(data);
+}
+
 async function renderPageToImage(
   pdf: PDFDocumentProxy,
   pageNum: number,
   targetWidthPx: number,
+  jpegQuality: number = JPEG_QUALITY,
 ): Promise<PdfPageImage> {
   const page = await pdf.getPage(pageNum);
   const baseViewport = page.getViewport({ scale: 1 });
@@ -51,19 +66,20 @@ async function renderPageToImage(
   const viewport = page.getViewport({ scale });
 
   const canvas = document.createElement('canvas');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  canvas.width = Math.max(1, Math.floor(viewport.width));
+  canvas.height = Math.max(1, Math.floor(viewport.height));
 
   await page.render({
     canvas,
     viewport,
   }).promise;
 
+  const quality = Math.min(1, Math.max(0.5, jpegQuality));
   return {
     pageNumber: pageNum,
-    src: canvas.toDataURL('image/jpeg', JPEG_QUALITY),
-    width: viewport.width,
-    height: viewport.height,
+    src: canvas.toDataURL('image/jpeg', quality),
+    width: canvas.width,
+    height: canvas.height,
   };
 }
 
@@ -223,6 +239,21 @@ export async function getPdfPageCountFromUrl(fileUrl: string): Promise<number> {
   return pdf.numPages;
 }
 
+/** Renderiza uma página a partir de um PDF já carregado (reusa o documento). */
+export async function renderPdfPageFromDocument(
+  pdf: PDFDocumentProxy,
+  pageNumber: number,
+  targetWidthPx: number,
+  jpegQuality?: number,
+): Promise<PdfPageImage> {
+  if (pageNumber < 1 || pageNumber > pdf.numPages) {
+    throw new Error(
+      `Página ${pageNumber} inexistente neste PDF (total: ${pdf.numPages})`,
+    );
+  }
+  return renderPageToImage(pdf, pageNumber, targetWidthPx, jpegQuality);
+}
+
 /** Renderiza uma única página do PDF (evita converter o documento inteiro). */
 export async function renderPdfSinglePageFromUrl(
   fileUrl: string,
@@ -230,12 +261,7 @@ export async function renderPdfSinglePageFromUrl(
   targetWidthPx: number,
 ): Promise<PdfPageImage> {
   const pdf = await loadPdfDocument(fileUrl);
-  if (pageNumber < 1 || pageNumber > pdf.numPages) {
-    throw new Error(
-      `Página ${pageNumber} inexistente neste PDF (total: ${pdf.numPages})`,
-    );
-  }
-  return renderPageToImage(pdf, pageNumber, targetWidthPx);
+  return renderPdfPageFromDocument(pdf, pageNumber, targetWidthPx);
 }
 
 /** Renderiza uma única página de um arquivo local. */

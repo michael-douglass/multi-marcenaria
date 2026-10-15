@@ -1,0 +1,15 @@
+{
+  "epic": 2,
+  "prd": "v18",
+  "feature": "budgeted-pages-page-grid-selector",
+  "gate": "smoke_tsc",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_budgeted_pages": "ok",
+    "mergeBudgetedPages": "ok",
+    "refreshQuoteProjectFolderSnapshot_budgeted": "ok",
+    "PageGridSelector": "ok",
+    "hub_cotar_mais_paginas_grade": "ok"
+  },
+  "date": "2026-10-14"
+}

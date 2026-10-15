@@ -1,0 +1,24 @@
+{
+  "epic": 4,
+  "prd": "v19",
+  "feature": "ui-batch-scope-banner-coverage",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/components/orcamentos-ia",
+  "evidence_id": "ev_7dff0d94a7a4ab8be313c37f590492a2e25ed01dcd8852c03f2d9dde2416f0ee",
+  "parent_evidence_id": "ev_949ebbd7ae295dca607228a8f35b9a8c3bc389075fff68055f023cc7208e4221",
+  "parent_digest": "949ebbd7ae295dca607228a8f35b9a8c3bc389075fff68055f023cc7208e4221",
+  "artifact_sha256": "3ec2f08a1891836b12cbb86808bde8f4343e94a68d22ab98a3eaa5f1433ad56a",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "banner_batch_pages": "ok",
+    "coverage_summary_batch_title": "ok",
+    "folder_partial_neutral_notice": "ok",
+    "manual_checklist": "lote 1-15 Casa Mesa: banner de páginas; sem falso missing suíte/quarto fora do lote"
+  },
+  "modules": [
+    "src/components/orcamentos-ia/AuditWorkspace.tsx",
+    "src/components/orcamentos-ia/audit-display.tsx",
+    "src/components/orcamentos-ia/ProjectFolderTabs.tsx"
+  ],
+  "date": "2026-10-14"
+}

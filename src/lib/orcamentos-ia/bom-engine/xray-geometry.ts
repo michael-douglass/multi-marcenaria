@@ -148,6 +148,65 @@ export function buildBoxMeshesFromBom(
       continue
     }
 
+    if (piece.role === 'divisoria') {
+      for (let i = 0; i < piece.quantity; i++) {
+        const x = ox + (W * (i + 1)) / (piece.quantity + 1)
+        meshes.push({
+          id: `${piece.id}-${i}`,
+          role: piece.role,
+          name: piece.name,
+          position: [x, oy + H / 2, oz + D / 2],
+          size: [th, h > 0.01 ? h : H - 2 * t, w > 0.01 ? w : D],
+          thickness_mm: piece.thickness_mm,
+          highlighted: highlight,
+          gapTag: gapTag ?? `Divisória ${i + 1}`,
+          column_index: piece.column_index,
+        })
+      }
+      continue
+    }
+
+    if (piece.role === 'frente' || piece.role === 'porta') {
+      const frontCount = Math.max(1, piece.quantity)
+      for (let i = 0; i < frontCount; i++) {
+        const slotW = W / frontCount
+        const cx = ox + slotW * (i + 0.5)
+        const sx = Math.min(w > 0.01 ? w : slotW * 0.96, slotW * 0.98)
+        const sy = h > 0.01 ? h : H
+        meshes.push({
+          id: `${piece.id}-${i}`,
+          role: piece.role,
+          name: piece.name,
+          position: [cx, oy + sy / 2, oz + th / 2],
+          size: [sx, sy, th],
+          thickness_mm: piece.thickness_mm,
+          highlighted: highlight,
+          gapTag: gapTag ?? (piece.role === 'porta' ? `Porta ${i + 1}` : `Frente ${i + 1}`),
+          column_index: piece.column_index,
+        })
+      }
+      continue
+    }
+
+    if (
+      piece.role === 'travessa' ||
+      piece.role === 'sarrafo' ||
+      piece.role === 'gaveta_contrafundo'
+    ) {
+      meshes.push({
+        id: piece.id,
+        role: piece.role,
+        name: piece.name,
+        position: [ox + W / 2, oy + H * 0.55, oz + th / 2 + 0.01],
+        size: [w > 0.01 ? w : W - 2 * t, th, h > 0.01 ? h : t],
+        thickness_mm: piece.thickness_mm,
+        highlighted: highlight,
+        gapTag,
+        column_index: piece.column_index,
+      })
+      continue
+    }
+
     // Default: centrado
     meshes.push({
       id: piece.id,

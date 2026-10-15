@@ -6,6 +6,12 @@ import {
   resizeImageToOrcamentosJpeg,
 } from '@/lib/pdf-to-image'
 import {
+  assertBatchPagePaths,
+  convertSelectedPdfPagesToJpeg,
+  normalizeSelectedPages,
+  pageNumbersFromTotals,
+} from '@/lib/orcamentos-ia/pdf-processor'
+import {
   DEFAULT_EXTRACTION_MODEL,
   isExtractionModelKey,
   ORCAMENTOS_IA_MODELS,
@@ -14,6 +20,12 @@ import {
 import {
   ORCAMENTOS_IA_BUCKET,
   appendThoughtLog,
+  buildQuoteProjectPagePath,
+  CANCELLED_BY_USER_MESSAGE,
+  createOrcamentosIaSignedUrl,
+  downloadOrcamentosIaObject,
+  isQuoteAnalysisCancelled,
+  isReadyForClientPricing,
   thoughtKindForStage,
   type QuoteAnalysisMode,
   type QuoteAnalysisStatus,
@@ -40,13 +52,23 @@ import {
   loadQuoteAnalysisTree,
 } from '@/lib/orcamentos-ia/quote-tree'
 import {
+  buildScopedCoverageReport,
+  filterExtractionToSelectedPages,
+  scopeInventoryToSelectedPages,
+  shouldBlockOnCoverageMissing,
+  type CoverageScope,
+} from '@/lib/orcamentos-ia/audit'
+import {
   applyAntiHallucinationHeuristics,
   buildCoverageReport,
   buildPageImagePath,
   clampGeometryBounds,
+  countBillableModules,
   ensureModulePlaceholder,
+  expandInventoryFromExtraction,
   findMarcenariaBomGaps,
   forceDeduplicateViewQuantities,
+  ensureExtractionHasEnvironments,
   injectMissingInventoryModules,
   mergeExtractions,
   modulesMatchCoverage,
@@ -77,6 +99,8 @@ import {
   validateBomLines,
 } from '@/lib/orcamentos-ia/bom-persist'
 import { consolidateExtractionForPricing } from '@/lib/orcamentos-ia/bom-consolidate'
+import { refreshQuoteProjectFolderSnapshot } from '@/lib/orcamentos-ia/project-folder-merge'
+import { formatPageRanges } from '@/lib/orcamentos-ia/page-ranges'
 import {
   CUTTING_LIST_TAG,
   isCuttingListNote,
@@ -101,6 +125,26 @@ const MAX_PIPELINE_PAGES = 300
 /** Poll da cadeia async (Edge) até ready_for_pricing / failed. */
 const ASYNC_CHAIN_POLL_MS = 2500
 const ASYNC_CHAIN_STALL_MS = 12 * 60 * 1000
+
+async function assertNotCancelled(analysisId: string): Promise<void> {
+  const { data } = await supabase
+    .from('quote_analyses')
+    .select('status, error_message, totals')
+    .eq('id', analysisId)
+    .maybeSingle()
+  if (
+    isQuoteAnalysisCancelled({
+      status: data?.status,
+      error_message: data?.error_message,
+      totals:
+        data?.totals && typeof data.totals === 'object'
+          ? (data.totals as Record<string, unknown>)
+          : null,
+    })
+  ) {
+    throw new Error(CANCELLED_BY_USER_MESSAGE)
+  }
+}
 
 async function setAnalysisStatus(
   analysisId: string,
@@ -127,13 +171,26 @@ async function setAnalysisStatus(
   if (shouldTouchTotals) {
     const { data: current } = await supabase
       .from('quote_analyses')
-      .select('totals')
+      .select('status, error_message, totals')
       .eq('id', analysisId)
       .maybeSingle()
     const prev =
       current?.totals && typeof current.totals === 'object'
         ? (current.totals as Record<string, unknown>)
         : {}
+    // Não “ressuscitar” job interrompido pelo usuário (ticks/cliente atrasados).
+    if (
+      isQuoteAnalysisCancelled({
+        status: current?.status,
+        error_message: current?.error_message,
+        totals: prev,
+      }) &&
+      status !== 'FAILED' &&
+      status !== 'COMPLETED' &&
+      status !== 'NEEDS_REVIEW'
+    ) {
+      return
+    }
 
     const stage =
       extra?.pipeline_stage ||
@@ -208,6 +265,16 @@ const PipelineState = Annotation.Root({
     reducer: (_a, b) => b,
     default: () => [],
   }),
+  /** Páginas absolutas do PDF neste lote (1-based). Vazio = todas convertidas. */
+  pageNumbers: Annotation<number[]>({
+    reducer: (_a, b) => b,
+    default: () => [],
+  }),
+  /** Pasta quote_projects — storage compartilhado de páginas. */
+  projectId: Annotation<string | null>({
+    reducer: (_a, b) => b,
+    default: () => null,
+  }),
   extraction: Annotation<QuoteExtraction | null>({
     reducer: (_a, b) => b,
     default: () => null,
@@ -273,49 +340,315 @@ function isImageFile(file: File): boolean {
   )
 }
 
+function pageNumberFromStorageName(name: string): number | null {
+  const m = name.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+/** Resolve path do PDF da pasta/análise (sem baixar os bytes). */
+async function resolveProjectPdfStoragePath(params: {
+  analysisId: string
+  projectId: string | null
+}): Promise<string> {
+  const { data: analysis } = await supabase
+    .from('quote_analyses')
+    .select('source_pdf_path, project_id')
+    .eq('id', params.analysisId)
+    .maybeSingle()
+
+  let path =
+    typeof analysis?.source_pdf_path === 'string' && analysis.source_pdf_path.trim()
+      ? analysis.source_pdf_path.trim()
+      : null
+
+  const projectId =
+    params.projectId ||
+    (typeof analysis?.project_id === 'string' ? analysis.project_id : null)
+
+  if (!path && projectId) {
+    const { data: project } = await supabase
+      .from('quote_projects')
+      .select('pdf_url')
+      .eq('id', projectId)
+      .maybeSingle()
+    if (typeof project?.pdf_url === 'string' && project.pdf_url.trim()) {
+      path = project.pdf_url.trim()
+    }
+  }
+
+  if (!path) {
+    throw new Error(
+      'PDF da pasta não encontrado. Envie o arquivo uma vez em “Novo orçamento” ou “Cotar mais páginas”.',
+    )
+  }
+  return path
+}
+
+/**
+ * URL assinada do PDF da pasta — pdf.js lê por faixas (não baixa 80 MB de uma vez).
+ */
+async function signProjectPdfUrl(params: {
+  analysisId: string
+  projectId: string | null
+}): Promise<string> {
+  const path = await resolveProjectPdfStoragePath(params)
+  return createOrcamentosIaSignedUrl(path, 60 * 60)
+}
+
+/**
+ * Fallback: baixa o PDF inteiro (só se a abertura por URL falhar).
+ */
+async function downloadProjectPdfAsFile(params: {
+  analysisId: string
+  projectId: string | null
+}): Promise<File> {
+  const path = await resolveProjectPdfStoragePath(params)
+  const blob = await downloadOrcamentosIaObject(path)
+  const fileName = path.split('/').pop() || 'projeto.pdf'
+  return new File([blob], fileName, { type: 'application/pdf' })
+}
+
 async function nodeConvertPages(state: PipelineStateType): Promise<Partial<PipelineStateType>> {
   await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
     pipeline_stage: 'converting_pages',
     pipeline_detail: 'Preparando as páginas do projeto para a IA enxergar o desenho…',
   })
 
-  // Reusa páginas já existentes (reprocessamento de PDF ou imagens)
-  const pagesPrefix = `${state.companyId}/${state.analysisId}/pages`
+  const projectId = state.projectId?.trim() || null
+
+  // Reidrata page_ranges do lote quando o estado veio sem pageNumbers (retomar/reprocessar).
+  let selectedPages = normalizeSelectedPages(state.pageNumbers)
+  if (!selectedPages.length) {
+    const { data: row } = await supabase
+      .from('quote_analyses')
+      .select('totals, project_id')
+      .eq('id', state.analysisId)
+      .maybeSingle()
+    const totals =
+      row?.totals && typeof row.totals === 'object'
+        ? (row.totals as Record<string, unknown>)
+        : null
+    selectedPages = pageNumbersFromTotals(totals)
+    const resolvedProject =
+      projectId ||
+      (typeof row?.project_id === 'string' && row.project_id.trim()
+        ? row.project_id.trim()
+        : null)
+    // Pasta/lote incremental: proibido “todas as páginas” (gasto de tokens).
+    if (resolvedProject && !selectedPages.length) {
+      throw new Error(
+        'Este lote da pasta não tem páginas selecionadas (page_ranges). Escolha as páginas na grade e inicie de novo — não enviaremos o PDF inteiro à IA.',
+      )
+    }
+  }
+
+  const resolvedProjectId =
+    projectId ||
+    (
+      await supabase
+        .from('quote_analyses')
+        .select('project_id')
+        .eq('id', state.analysisId)
+        .maybeSingle()
+    ).data?.project_id?.trim() ||
+    null
+
+  // Pasta do projeto: JPEGs compartilhados entre lotes. Sem pasta: path clássico por análise.
+  const pagesPrefix = resolvedProjectId
+    ? `${state.companyId}/quote-projects/${resolvedProjectId}/pages`
+    : `${state.companyId}/${state.analysisId}/pages`
+
   const { data: existing } = await supabase.storage
     .from(ORCAMENTOS_IA_BUCKET)
-    .list(pagesPrefix, { limit: 100, sortBy: { column: 'name', order: 'asc' } })
-  const existingPaths = (existing || [])
-    .filter((o) => /\.(png|jpe?g|webp)$/i.test(o.name))
-    .map((o) => `${pagesPrefix}/${o.name}`)
-    .sort()
+    .list(pagesPrefix, { limit: 300, sortBy: { column: 'name', order: 'asc' } })
+  const existingByPage = new Map<number, string>()
+  for (const o of existing || []) {
+    if (!/\.(png|jpe?g|webp)$/i.test(o.name)) continue
+    const n = pageNumberFromStorageName(o.name)
+    if (n != null) existingByPage.set(n, `${pagesPrefix}/${o.name}`)
+  }
+  const existingPaths = [...existingByPage.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, path]) => path)
 
-  const files =
+  let files: File[] =
     state.sourceFiles?.length > 0
       ? state.sourceFiles
       : state.pdfFile
         ? [state.pdfFile]
         : []
 
-  // Se já há páginas e não há novos arquivos (reprocess só IA), reutiliza
-  if (existingPaths.length > 0 && files.length === 0) {
+  const filterSelected = (paths: string[]): string[] => {
+    if (!selectedPages.length) return paths.slice(0, MAX_PIPELINE_PAGES)
+    return assertBatchPagePaths(paths, selectedPages).slice(0, MAX_PIPELINE_PAGES)
+  }
+
+  const missingSelected = selectedPages.length
+    ? selectedPages.filter((p) => !existingByPage.has(p))
+    : []
+
+  /** PDF da pasta via URL assinada (range) — evita “Failed to fetch” em 80 MB. */
+  let pdfSignedUrl: string | null = null
+
+  // Incremental sem re-upload: assina URL do PDF se faltam JPEGs das páginas pedidas.
+  if (
+    !files.length &&
+    (missingSelected.length > 0 || (existingPaths.length === 0 && selectedPages.length > 0))
+  ) {
+    const loteHint = selectedPages.length
+      ? `lote págs. ${formatPageRanges(selectedPages)}`
+      : 'páginas escolhidas'
     await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
       pipeline_stage: 'converting_pages',
-      pipeline_detail: `Já tenho ${Math.min(existingPaths.length, MAX_PIPELINE_PAGES)} página(s) pronta(s) — reaproveitando sem converter de novo.`,
-      totals: { pages_processed: Math.min(existingPaths.length, MAX_PIPELINE_PAGES) },
+      pipeline_detail:
+        missingSelected.length > 0 && selectedPages.length
+          ? `Retomando ${loteHint}: abrindo o PDF da pasta (por faixas) para converter ${missingSelected.length} página(s) que faltam…`
+          : `Abrindo o PDF da pasta (sem novo upload) para converter só as ${loteHint}…`,
+      totals: selectedPages.length
+        ? { page_ranges: selectedPages, selected_pages: selectedPages }
+        : undefined,
     })
-    return { pagePaths: existingPaths.slice(0, MAX_PIPELINE_PAGES) }
+    pdfSignedUrl = await signProjectPdfUrl({
+      analysisId: state.analysisId,
+      projectId: resolvedProjectId,
+    })
   }
 
-  if (!files.length && existingPaths.length > 0) {
-    return { pagePaths: existingPaths.slice(0, MAX_PIPELINE_PAGES) }
+  // Só reutiliza quando NÃO falta nenhuma página do lote (evita seguir com 2/19).
+  if (
+    existingPaths.length > 0 &&
+    files.length === 0 &&
+    !pdfSignedUrl &&
+    missingSelected.length === 0
+  ) {
+    const pagePaths = filterSelected(existingPaths)
+    if (!pagePaths.length) {
+      throw new Error(
+        selectedPages.length
+          ? 'As páginas escolhidas ainda não foram convertidas nesta pasta.'
+          : 'Nenhuma página pronta para reutilizar.',
+      )
+    }
+    const strictPaths = selectedPages.length
+      ? assertBatchPagePaths(pagePaths, selectedPages)
+      : pagePaths
+    await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
+      pipeline_stage: 'converting_pages',
+      pipeline_detail: `Já tenho ${strictPaths.length} página(s) pronta(s) — reaproveitando sem converter de novo.`,
+      totals: {
+        pages_processed: strictPaths.length,
+        page_paths: strictPaths,
+        ...(selectedPages.length ? { page_ranges: selectedPages, selected_pages: selectedPages } : {}),
+      },
+    })
+    return { pagePaths: strictPaths, pageNumbers: selectedPages }
   }
 
-  if (!files.length) {
+  if (!files.length && !pdfSignedUrl && existingPaths.length > 0 && missingSelected.length === 0) {
+    const pagePaths = filterSelected(existingPaths)
+    return {
+      pagePaths: selectedPages.length
+        ? assertBatchPagePaths(pagePaths, selectedPages)
+        : pagePaths,
+      pageNumbers: selectedPages,
+    }
+  }
+
+  if (!files.length && !pdfSignedUrl) {
     throw new Error('Nenhum PDF ou imagem para converter.')
+  }
+
+  // Com seleção: PDF só converte páginas do lote (nunca o arquivo inteiro).
+  if (selectedPages.length === 0 && files.some(isPdfFile)) {
+    // Sem pasta e sem seleção explícita: limita ao teto, mas avisa.
+    console.warn(
+      '[orcamentos-ia] conversão sem page_ranges — usando teto MAX_PIPELINE_PAGES (fluxo legado sem pasta).',
+    )
   }
 
   const pagePaths: string[] = []
   let pageIndex = 0
+
+  const uploadConvertedPage = async (pageNumber: number, totalPages: number, blob: Blob) => {
+    pageIndex += 1
+    const path = resolvedProjectId
+      ? buildQuoteProjectPagePath(state.companyId, resolvedProjectId, pageNumber)
+      : `${state.companyId}/${state.analysisId}/pages/page-${String(pageNumber).padStart(3, '0')}.jpg`
+    const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, blob, {
+      contentType: 'image/jpeg',
+      upsert: true,
+      cacheControl: '3600',
+    })
+    if (error) throw new Error(`Falha ao enviar página ${pageNumber}: ${error.message}`)
+    existingByPage.set(pageNumber, path)
+    await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
+      pipeline_stage: 'converting_pages',
+      pipeline_detail: `Transformando página ${pageNumber} de ${totalPages} do PDF em imagem…`,
+      totals: {
+        pages_processed: pageIndex,
+        pages_total: totalPages,
+        conversion_page: pageNumber,
+        ...(selectedPages.length
+          ? { page_ranges: selectedPages, selected_pages: selectedPages }
+          : {}),
+      },
+      thought: pageIndex === 1 || pageIndex % 3 === 0 || pageNumber === totalPages,
+    })
+  }
+
+  // Pasta/lote: abre PDF por URL assinada (range) — não baixa 80 MB na memória.
+  if (pdfSignedUrl && selectedPages.length) {
+    const needConvert = selectedPages
+      .filter((p) => !existingByPage.has(p))
+      .slice(0, MAX_PIPELINE_PAGES)
+    if (needConvert.length) {
+      await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
+        pipeline_stage: 'converting_pages',
+        pipeline_detail: `Convertendo só as páginas ${needConvert.slice(0, 8).join(', ')}${
+          needConvert.length > 8 ? '…' : ''
+        } do PDF da pasta…`,
+      })
+      try {
+        await convertSelectedPdfPagesToJpeg({
+          url: pdfSignedUrl,
+          pageNumbers: needConvert,
+          maxPages: MAX_PIPELINE_PAGES,
+          onPage: async ({ pageNumber, totalPages, blob }) => {
+            await uploadConvertedPage(pageNumber, totalPages, blob)
+          },
+        })
+      } catch {
+        // Fallback: baixa o PDF inteiro e converte o que ainda falta.
+        const stillNeed = needConvert.filter((p) => !existingByPage.has(p))
+        if (stillNeed.length) {
+          await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
+            pipeline_stage: 'converting_pages',
+            pipeline_detail:
+              'Abertura por faixas falhou — baixando o PDF completo da pasta para continuar…',
+          })
+          const pdfFile = await downloadProjectPdfAsFile({
+            analysisId: state.analysisId,
+            projectId: resolvedProjectId,
+          })
+          await convertSelectedPdfPagesToJpeg({
+            data: await pdfFile.arrayBuffer(),
+            pageNumbers: stillNeed,
+            maxPages: MAX_PIPELINE_PAGES,
+            onPage: async ({ pageNumber, totalPages, blob }) => {
+              await uploadConvertedPage(pageNumber, totalPages, blob)
+            },
+          })
+        }
+      }
+    }
+    const ordered = selectedPages
+    for (const n of ordered) {
+      const path = existingByPage.get(n)
+      if (path && pagePaths.length < MAX_PIPELINE_PAGES) pagePaths.push(path)
+    }
+  }
 
   for (const file of files) {
     if (pageIndex >= MAX_PIPELINE_PAGES) break
@@ -323,49 +656,63 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
     if (isPdfFile(file)) {
       await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
         pipeline_stage: 'converting_pages',
-        pipeline_detail: `Abrindo o PDF “${file.name}” e transformando cada folha em imagem…`,
+        pipeline_detail: selectedPages.length
+          ? `Convertendo só as páginas ${selectedPages.slice(0, 8).join(', ')}${
+              selectedPages.length > 8 ? '…' : ''
+            } do PDF…`
+          : `Abrindo o PDF “${file.name}” e transformando cada folha em imagem…`,
       })
 
-      const remaining = MAX_PIPELINE_PAGES - pageIndex
-      await convertPdfPagesToJpegSequential(await file.arrayBuffer(), {
-        maxPages: remaining,
-        onPage: async ({ pageNumber, totalPages, blob }) => {
-          pageIndex += 1
-          const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.jpg`
-          const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, blob, {
-            contentType: 'image/jpeg',
-            upsert: true,
-            cacheControl: '3600',
-          })
-          if (error) throw new Error(`Falha ao enviar página ${pageIndex}: ${error.message}`)
-          pagePaths.push(path)
-          await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
-            pipeline_stage: 'converting_pages',
-            pipeline_detail: `Transformando página ${pageIndex} de ${totalPages} do PDF em imagem…`,
-            totals: {
-              pages_processed: pageIndex,
-              pages_total: totalPages,
-              conversion_page: pageNumber,
-            },
-            // Evita spam no thought_log; só marcos 1, a cada 3 e a última
-            thought: pageIndex === 1 || pageIndex % 3 === 0 || pageIndex === totalPages,
-          })
-        },
-      })
+      const needConvert = selectedPages.length
+        ? selectedPages.filter((p) => !existingByPage.has(p)).slice(0, MAX_PIPELINE_PAGES)
+        : Array.from({ length: MAX_PIPELINE_PAGES }, (_, i) => i + 1)
+
+      if (selectedPages.length && !needConvert.length) {
+        // Já todas no storage — monta pagePaths da seleção
+      } else if (selectedPages.length) {
+        await convertSelectedPdfPagesToJpeg({
+          data: await file.arrayBuffer(),
+          pageNumbers: needConvert,
+          maxPages: MAX_PIPELINE_PAGES,
+          onPage: async ({ pageNumber, totalPages, blob }) => {
+            await uploadConvertedPage(pageNumber, totalPages, blob)
+          },
+        })
+      } else {
+        // Legado sem seleção (sem pasta): primeiras N páginas.
+        await convertPdfPagesToJpegSequential(await file.arrayBuffer(), {
+          maxPages: MAX_PIPELINE_PAGES,
+          onPage: async ({ pageNumber, totalPages, blob }) => {
+            await uploadConvertedPage(pageNumber, totalPages, blob)
+          },
+        })
+      }
+
+      const ordered = selectedPages.length
+        ? selectedPages
+        : [...existingByPage.keys()].sort((a, b) => a - b)
+      for (const n of ordered) {
+        const path = existingByPage.get(n)
+        if (path && pagePaths.length < MAX_PIPELINE_PAGES) pagePaths.push(path)
+      }
       continue
     }
 
     if (isImageFile(file)) {
       pageIndex += 1
       const jpegBlob = await resizeImageToOrcamentosJpeg(file)
-      const path = `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.jpg`
+      const path = resolvedProjectId
+        ? buildQuoteProjectPagePath(state.companyId, resolvedProjectId, pageIndex)
+        : `${state.companyId}/${state.analysisId}/pages/page-${String(pageIndex).padStart(3, '0')}.jpg`
       const { error } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).upload(path, jpegBlob, {
         contentType: 'image/jpeg',
         upsert: true,
         cacheControl: '3600',
       })
       if (error) throw new Error(`Falha ao enviar imagem ${pageIndex}: ${error.message}`)
-      pagePaths.push(path)
+      if (!selectedPages.length || selectedPages.includes(pageIndex)) {
+        pagePaths.push(path)
+      }
       await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
         pipeline_stage: 'converting_pages',
         pipeline_detail: `Recebendo a foto ${pageIndex}: ${file.name}`,
@@ -379,20 +726,33 @@ async function nodeConvertPages(state: PipelineStateType): Promise<Partial<Pipel
 
   if (!pagePaths.length) throw new Error('Nenhuma página gerada a partir dos arquivos.')
 
-  if (pagePaths.length >= MAX_PIPELINE_PAGES) {
-    await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
-      pipeline_stage: 'converting_pages',
-      pipeline_detail: `Processadas as primeiras ${MAX_PIPELINE_PAGES} páginas.`,
-      totals: {
-        pages_processed: pagePaths.length,
-        pages_cap: MAX_PIPELINE_PAGES,
-        pages_warning: `Processadas as primeiras ${MAX_PIPELINE_PAGES} páginas.`,
-        source_files: files.map((f) => f.name),
-      },
-    })
-  }
+  const strictPaths = selectedPages.length
+    ? assertBatchPagePaths(pagePaths, selectedPages)
+    : pagePaths
 
-  return { pagePaths }
+  await setAnalysisStatus(state.analysisId, 'CONVERTING_PAGES', {
+    pipeline_stage: 'converting_pages',
+    pipeline_detail:
+      strictPaths.length >= MAX_PIPELINE_PAGES
+        ? `Processadas as primeiras ${MAX_PIPELINE_PAGES} páginas.`
+        : `Pronto: ${strictPaths.length} página(s) para este lote.`,
+    totals: {
+      pages_processed: strictPaths.length,
+      page_paths: strictPaths,
+      ...(selectedPages.length
+        ? { page_ranges: selectedPages, selected_pages: selectedPages }
+        : {}),
+      ...(strictPaths.length >= MAX_PIPELINE_PAGES
+        ? {
+            pages_cap: MAX_PIPELINE_PAGES,
+            pages_warning: `Processadas as primeiras ${MAX_PIPELINE_PAGES} páginas.`,
+          }
+        : {}),
+      source_files: files.map((f) => f.name),
+    },
+  })
+
+  return { pagePaths: strictPaths, pageNumbers: selectedPages }
 }
 
 /**
@@ -406,6 +766,9 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
   const started = Date.now()
   let lastUpdated = Date.now()
   let consecutiveNetworkMisses = 0
+  /** Exige 2 polls seguidos em ready com a mesma contagem — evita corrida com tick de auditoria atrasado. */
+  let readyStreak = 0
+  let lastReadyMods: number | null = null
 
   while (true) {
     let data: {
@@ -450,6 +813,17 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
         : NaN
     if (Number.isFinite(updatedAt)) lastUpdated = updatedAt
 
+    if (
+      chainStatus === 'cancelled' ||
+      isQuoteAnalysisCancelled({
+        status: data?.status,
+        error_message: data?.error_message,
+        totals,
+      })
+    ) {
+      throw new Error(CANCELLED_BY_USER_MESSAGE)
+    }
+
     // Só trata FAILED se a cadeia também parou — evita falso alarme quando o
     // cliente gravou FAILED por rede e o chain_tick da Edge já retomou o status.
     if (chainStatus === 'failed') {
@@ -459,7 +833,12 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
           'Cadeia async falhou. Clique em Retomar.',
       )
     }
-    if (data?.status === 'FAILED' && chainStatus !== 'running') {
+    // Recuperável: Edge já deixou ready_for_pricing, mas o client falhou no schema
+    // (ex.: environments []). Não derruba o poll — segue para injeção + precificação.
+    const readyDespiteClientFail =
+      data?.status === 'FAILED' &&
+      (chainStatus === 'ready_for_pricing' || totals.pipeline_stage === 'pricing_pending')
+    if (data?.status === 'FAILED' && chainStatus !== 'running' && !readyDespiteClientFail) {
       throw new Error(
         (typeof totals.pipeline_detail === 'string' && totals.pipeline_detail) ||
           data?.error_message ||
@@ -468,15 +847,47 @@ async function waitForAsyncChainReady(analysisId: string): Promise<{
     }
 
     if (chainStatus === 'ready_for_pricing' || totals.pipeline_stage === 'pricing_pending') {
-      const inventory = sanitizeInventory(
-        Array.isArray(totals.inventory) ? (totals.inventory as InventoryEnv[]) : [],
-      )
       const extraction =
         totals.partial_extraction && typeof totals.partial_extraction === 'object'
           ? totals.partial_extraction
           : { environments: [], auditor_notes: [], warnings: [] }
+      const envCount = Array.isArray((extraction as { environments?: unknown }).environments)
+        ? ((extraction as { environments: unknown[] }).environments).length
+        : 0
+      const auditedCount = Array.isArray(totals.audited_environments)
+        ? totals.audited_environments.length
+        : 0
+      // Ainda há ambientes sem carimbo de auditoria → espera um pouco.
+      // Depois de 90s em ready, segue mesmo assim (evita travar a UI para sempre).
+      const readySinceMs = Number.isFinite(updatedAt)
+        ? Date.now() - updatedAt
+        : Date.now() - started
+      if (envCount > 0 && auditedCount < envCount && readySinceMs < 90_000) {
+        readyStreak = 0
+        lastReadyMods = null
+        await new Promise((r) => setTimeout(r, ASYNC_CHAIN_POLL_MS))
+        continue
+      }
+      const mods = Number(totals.modules_found_count) || countBillableModules(extraction)
+      if (lastReadyMods === mods) readyStreak += 1
+      else {
+        readyStreak = 1
+        lastReadyMods = mods
+      }
+      if (readyStreak < 2) {
+        await new Promise((r) => setTimeout(r, ASYNC_CHAIN_POLL_MS))
+        continue
+      }
+      const inventory = expandInventoryFromExtraction(
+        sanitizeInventory(
+          Array.isArray(totals.inventory) ? (totals.inventory as InventoryEnv[]) : [],
+        ),
+        extraction,
+      )
       return { extraction, inventory }
     }
+    readyStreak = 0
+    lastReadyMods = null
 
     if (Date.now() - lastUpdated > ASYNC_CHAIN_STALL_MS) {
       throw new Error(
@@ -560,69 +971,108 @@ async function invokeOrcamentosIaPhase(body: Record<string, unknown>): Promise<{
 }
 
 async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<PipelineStateType>> {
-  await setAnalysisStatus(state.analysisId, 'READING_LAYOUT', {
-    pipeline_stage: 'reading_inventory',
-    pipeline_detail: 'Olhando a capa: vou listar ambientes e móveis prometidos no projeto…',
-  })
+  // Aba fechou depois da Edge: já tem partial_extraction + ready_for_pricing.
+  // Não reinicia a leitura — só consolida e segue para precificação.
+  const { data: checkpointRow } = await supabase
+    .from('quote_analyses')
+    .select('totals')
+    .eq('id', state.analysisId)
+    .maybeSingle()
+  const checkpointTotals =
+    checkpointRow?.totals && typeof checkpointRow.totals === 'object'
+      ? (checkpointRow.totals as Record<string, unknown>)
+      : null
+  const skipAsyncRestart = isReadyForClientPricing(checkpointTotals)
 
-  // RAG + preferências construtivas v11 injetadas no System Prompt do Extrator
-  const { memories } = await getCompanyMemories({
-    companyId: state.companyId,
-    query:
-      'regras construtivas, ferragens por unidade, puxadores perfil 3 metros, descontos de porta e correções de orçamento',
-    matchThreshold: 0.65,
-    matchCount: 12,
-  })
-  // Default-with-Override: lê company_standards (system_preferences) e injeta no Extrator/Auditor
-  let prefsPrompt = ''
+  // Preferências sempre carregadas — usadas na consolidação mesmo no atalho de precificação.
   let invokePrefs = DEFAULT_COMPANY_STANDARDS(state.companyId)
+  let prefsPrompt = ''
   try {
     invokePrefs = await getSystemPreferences(state.companyId)
     prefsPrompt = formatPreferencesForPrompt(invokePrefs)
   } catch {
     prefsPrompt = formatPreferencesForPrompt(invokePrefs)
   }
-  const ragPrompt = [
-    'REGRA DE OURO — COMPANY STANDARDS: se o bloco abaixo trouxer valores salvos pelo marceneiro, eles prevalecem sobre qualquer default genérico do prompt estático.',
-    prefsPrompt,
-    formatMemoriesForPrompt(memories),
-  ]
-    .filter(Boolean)
-    .join('\n\n')
 
-  // Anti-504: Edge processa 1 página/request em cadeia (start_async <2s + waitUntil).
-  const resumeFromPage =
-    typeof state.resumeFromPage === 'number' && state.resumeFromPage > 0
-      ? state.resumeFromPage
-      : undefined
+  if (!skipAsyncRestart) {
+    await setAnalysisStatus(state.analysisId, 'READING_LAYOUT', {
+      pipeline_stage: 'reading_inventory',
+      pipeline_detail: 'Olhando a capa: vou listar ambientes e móveis prometidos no projeto…',
+    })
 
-  await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
-    pipeline_stage: 'extracting_batch',
-    pipeline_detail: resumeFromPage
-      ? `Retomando cadeia async na página ${resumeFromPage + 1}…`
-      : `Disparando leitura async de ${state.pagePaths.length} página(s)…`,
-    thought_kind: 'vision',
-    totals: {
-      total_pages: state.pagePaths.length,
-      pages_processed: state.pagePaths.length,
-    },
-  })
+    // RAG + preferências construtivas v11 injetadas no System Prompt do Extrator
+    const { memories } = await getCompanyMemories({
+      companyId: state.companyId,
+      query:
+        'regras construtivas, ferragens por unidade, puxadores perfil 3 metros, descontos de porta e correções de orçamento',
+      matchThreshold: 0.65,
+      matchCount: 12,
+    })
+    const ragPrompt = [
+      'REGRA DE OURO — COMPANY STANDARDS: se o bloco abaixo trouxer valores salvos pelo marceneiro, eles prevalecem sobre qualquer default genérico do prompt estático.',
+      prefsPrompt,
+      formatMemoriesForPrompt(memories),
+    ]
+      .filter(Boolean)
+      .join('\n\n')
 
-  await invokeOrcamentosIaPhase({
-    analysisId: state.analysisId,
-    companyId: state.companyId,
-    mode: state.mode,
-    extraction_model: state.extractionModel,
-    pagePaths: state.pagePaths,
-    phase: 'start_async',
-    resumeFromPage,
-    ragMemoriesPrompt: ragPrompt,
-    models: ORCAMENTOS_IA_MODELS,
-  })
+    // Anti-504: Edge processa 1 página/request em cadeia (start_async <2s + waitUntil).
+    const resumeFromPage =
+      typeof state.resumeFromPage === 'number' && state.resumeFromPage > 0
+        ? state.resumeFromPage
+        : undefined
+
+    await setAnalysisStatus(state.analysisId, 'EXTRACTING_MODULES', {
+      pipeline_stage: 'extracting_batch',
+      pipeline_detail: resumeFromPage
+        ? `Retomando cadeia async na página ${resumeFromPage + 1}…`
+        : `Disparando leitura async de ${state.pagePaths.length} página(s)…`,
+      thought_kind: 'vision',
+      totals: {
+        total_pages: state.pagePaths.length,
+        pages_processed: state.pagePaths.length,
+      },
+    })
+
+    await invokeOrcamentosIaPhase({
+      analysisId: state.analysisId,
+      companyId: state.companyId,
+      mode: state.mode,
+      extraction_model: state.extractionModel,
+      pagePaths: state.pagePaths,
+      phase: 'start_async',
+      resumeFromPage,
+      ragMemoriesPrompt: ragPrompt,
+      models: ORCAMENTOS_IA_MODELS,
+    })
+  } else {
+    await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
+      pipeline_stage: 'pricing_pending',
+      pipeline_detail:
+        'Leitura já pronta na nuvem — retomando consolidação e precificação (sem reler o PDF)…',
+      thought_kind: 'audit',
+      // isReadyForClientPricing exige async_chain ready — não deixar FAILED antigo bloquear.
+      error_message: null,
+      totals: {
+        async_chain_status: 'ready_for_pricing',
+        pipeline_stage: 'pricing_pending',
+      },
+    })
+  }
 
   const asyncReady = await waitForAsyncChainReady(state.analysisId)
-  const inventory = asyncReady.inventory
-  let mergedRaw = forceDeduplicateViewQuantities(mergeExtractions([asyncReady.extraction]))
+  await assertNotCancelled(state.analysisId)
+  let inventory = expandInventoryFromExtraction(
+    asyncReady.inventory,
+    asyncReady.extraction,
+  )
+  // Rede de segurança: render/capa sem cotas → Edge devolve environments [].
+  // Injeta stubs do inventário ANTES do schema (evita FAILED "Too small").
+  let mergedRaw = forceDeduplicateViewQuantities(
+    mergeExtractions([
+      ensureExtractionHasEnvironments(asyncReady.extraction, inventory),
+    ]),
+  )
 
   const coerceModuleTypologies = (tree: unknown): unknown => {
     if (!tree || typeof tree !== 'object') return tree
@@ -692,8 +1142,15 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
         .slice(0, 3)
         .map((i) => `${i.path.join('.')}: ${i.message}`)
         .join('; ')
+      const emptyEnvs = parsed.error.issues.some(
+        (i) =>
+          i.path.includes('environments') &&
+          /too small|at least 1|min/i.test(i.message),
+      )
       throw new Error(
-        `Resposta do Extrator fora do schema esperado${detail ? ` (${detail})` : ''}.`,
+        emptyEnvs
+          ? `A IA não encontrou móveis nas páginas deste lote (lista de ambientes vazia). Confira se as páginas escolhidas têm desenho de marcenaria — capa/índice/página em branco não geram cotação. ${detail ? `(${detail})` : ''}`
+          : `Resposta do Extrator fora do schema esperado${detail ? ` (${detail})` : ''}.`,
       )
     }
 
@@ -712,13 +1169,31 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   }
 
   let tree = finalizeExtractionTree(mergedRaw)
-  let coverage = buildCoverageReport(inventory, tree)
+  inventory = expandInventoryFromExtraction(inventory, tree)
+  const batchPagesForCoverage =
+    normalizeSelectedPages(state.pageNumbers).length > 0
+      ? normalizeSelectedPages(state.pageNumbers)
+      : normalizeSelectedPages(
+          state.pagePaths
+            .map((p) => {
+              const m = p.match(/page-(\d+)\./i)
+              return m ? Number(m[1]) : null
+            })
+            .filter((n): n is number => n != null),
+        )
+  const coverageScope: CoverageScope = batchPagesForCoverage.length ? 'batch' : 'project'
+  let scopedPack = scopeInventoryToSelectedPages(inventory, batchPagesForCoverage, tree)
+  let coverage: CoverageReport & {
+    deferred?: CoverageReport['missing']
+    coverage_scope?: CoverageScope
+  } = buildScopedCoverageReport(inventory, tree, batchPagesForCoverage)
 
   /**
    * Self-Heal cirúrgico (v12.2):
    * 1) Uma chamada heal_module só para os faltantes (sem re-extrair todos os lotes)
    * 2–3) Injeção forçada determinística + auditoria com lock
    * Status permanece AUDITING_REVISION (sem piscar EXTRACTING_MODULES).
+   * Em lote parcial: só missing do escopo batch (não a casa inteira da capa).
    */
   const SELF_HEAL_MAX = 3
   const selfHeal = {
@@ -730,6 +1205,11 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     feedback: [] as string[],
   }
 
+  const refreshScopedCoverage = () => {
+    scopedPack = scopeInventoryToSelectedPages(inventory, batchPagesForCoverage, tree)
+    coverage = buildScopedCoverageReport(inventory, tree, batchPagesForCoverage)
+  }
+
   const publishSelfHealStatus = async (detail: string) => {
     await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
       pipeline_stage: 'self_heal',
@@ -739,6 +1219,12 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       totals: {
         inventory,
         coverage,
+        coverage_scope: coverageScope,
+        selected_pages: batchPagesForCoverage,
+        page_ranges: batchPagesForCoverage.length
+          ? batchPagesForCoverage
+          : undefined,
+        deferred_inventory: scopedPack.deferred,
         self_heal: {
           ...selfHeal,
           missing_after: coverage.missing.map((m) => ({ ...m })),
@@ -749,6 +1235,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   }
 
   while (coverage.missing.length > 0 && selfHeal.attempts < SELF_HEAL_MAX) {
+    await assertNotCancelled(state.analysisId)
     selfHeal.attempts += 1
     const missingLines = coverage.missing
       .slice(0, 12)
@@ -780,7 +1267,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           extraction_model: state.extractionModel,
           pagePaths: state.pagePaths.slice(0, healPageCap),
           phase: 'heal_module',
-          inventory,
+          inventory: scopedPack.scopedInventory,
           missingModules: coverage.missing,
           currentExtraction: tree,
           extraction: tree,
@@ -789,11 +1276,22 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           models: ORCAMENTOS_IA_MODELS,
         })
         if (part.extraction) {
+          const beforeCount = countBillableModules(tree)
           const mergedHeal = forceDeduplicateViewQuantities(
             mergeExtractions([tree, part.extraction]),
           )
-          tree = finalizeExtractionTree(mergedHeal)
-          coverage = buildCoverageReport(inventory, tree)
+          const healed = finalizeExtractionTree(mergedHeal)
+          const afterCount = countBillableModules(healed)
+          // Não aceitar cura que “apaga” a árvore rica (ex.: 20 → 8 stubs)
+          if (afterCount >= Math.max(1, Math.floor(beforeCount * 0.7))) {
+            tree = healed
+          } else {
+            console.warn(
+              `[pipeline] self-heal cirúrgico descartado: módulos ${beforeCount} → ${afterCount}`,
+            )
+            tree = finalizeExtractionTree(injectMissingInventoryModules(tree, coverage.missing))
+          }
+          refreshScopedCoverage()
           selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
         }
       } catch (healSurgicalErr) {
@@ -813,7 +1311,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     try {
       const injected = injectMissingInventoryModules(tree, coverage.missing)
       tree = finalizeExtractionTree(injected)
-      coverage = buildCoverageReport(inventory, tree)
+      refreshScopedCoverage()
       selfHeal.missing_after = coverage.missing.map((m) => ({ ...m }))
     } catch (injectErr) {
       console.warn(
@@ -830,8 +1328,10 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
       const injectLockFeedback = [
         healFeedback,
         'INJEÇÃO FORÇADA ATIVA: NÃO remova módulos com auditor_notes contendo "injeção forçada self-heal".',
-        'Se ainda faltar item do inventário, reinjecte com dims/materiais padrão do ambiente.',
-        'Cobertura 100% do inventário é obrigatória antes de encerrar.',
+        'Se ainda faltar item do inventário do LOTE, reinjecte com dims/materiais padrão do ambiente.',
+        coverageScope === 'batch'
+          ? 'Cobertura 100% só do inventário deste lote (páginas selecionadas) — ignore capa/casa inteira.'
+          : 'Cobertura 100% do inventário é obrigatória antes de encerrar.',
       ].join('\n')
       try {
         const auditPageCap = 12
@@ -842,7 +1342,7 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           extraction_model: state.extractionModel,
           pagePaths: state.pagePaths.slice(0, auditPageCap),
           phase: 'audit',
-          inventory,
+          inventory: scopedPack.scopedInventory,
           extraction: tree,
           healFeedback: injectLockFeedback,
           forcedInjectLock: true,
@@ -862,12 +1362,12 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
           healAuditErr instanceof Error ? healAuditErr.message : healAuditErr,
         )
       }
-      // Rede de segurança: se o auditor removeu algo do inventário, re-injeta
-      coverage = buildCoverageReport(inventory, tree)
+      // Rede de segurança: se o auditor removeu algo do inventário do lote, re-injeta
+      refreshScopedCoverage()
       if (coverage.missing.length > 0) {
         try {
           tree = finalizeExtractionTree(injectMissingInventoryModules(tree, coverage.missing))
-          coverage = buildCoverageReport(inventory, tree)
+          refreshScopedCoverage()
         } catch (reInjectErr) {
           console.warn(
             '[pipeline] re-injeção pós-auditoria falhou:',
@@ -925,14 +1425,17 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     console.warn('[pipeline] BOM gaps após auditor/self-heal:', detail)
   }
 
-  // Consolidação global (paleta de chapas + De-Para ferragens) — ainda SEM preços.
-  const { extraction: consolidatedTree, consolidatedBom } =
+  // Consolidação global (paleta dinâmica + De-Para ferragens) — ainda SEM preços.
+  const { extraction: consolidatedTree, consolidatedBom, projectSheetPalette } =
     consolidateExtractionForPricing(tree)
   tree = consolidatedTree
   tree.auditor_notes = [
     ...(Array.isArray(tree.auditor_notes) ? tree.auditor_notes : []),
     ...consolidatedBom.notes,
+    `Paleta de chapas: ${projectSheetPalette.length} SKU(s) (sem colapso Jatobá).`,
   ]
+
+  refreshScopedCoverage()
 
   await setAnalysisStatus(state.analysisId, 'AUDITING_REVISION', {
     pipeline_stage: 'pricing_pending',
@@ -942,10 +1445,19 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
     totals: {
       inventory,
       coverage,
+      coverage_scope: coverageScope,
+      selected_pages: batchPagesForCoverage,
+      page_ranges: batchPagesForCoverage.length ? batchPagesForCoverage : undefined,
+      deferred_inventory: scopedPack.deferred,
       bom_gaps: bomGaps,
       self_heal: selfHeal,
       pages_processed: state.pagePaths.length,
       consolidated_bom: consolidatedBom,
+      project_sheet_palette: projectSheetPalette.map((s) => ({
+        label: s.label,
+        thickness_mm: s.thickness_mm,
+        role: s.role,
+      })),
     },
   })
 
@@ -1085,6 +1597,7 @@ async function nodeResolvePricesAndPersist(
   state: PipelineStateType,
 ): Promise<Partial<PipelineStateType>> {
   if (!state.extraction) throw new Error('Extração vazia.')
+  await assertNotCancelled(state.analysisId)
 
   await setAnalysisStatus(state.analysisId, 'FETCHING_MARKET_PRICES', {
     pipeline_stage: 'fetching_prices',
@@ -1125,7 +1638,26 @@ async function nodeResolvePricesAndPersist(
   const price = (name: string, category: string) => assertPriced(resolver.resolve(name, category), name)
   await clearBomItemsForProject(state.analysisId)
 
-  for (const [envIndex, env] of state.extraction.environments.entries()) {
+  const persistPageNumbers =
+    normalizeSelectedPages(state.pageNumbers).length > 0
+      ? normalizeSelectedPages(state.pageNumbers)
+      : normalizeSelectedPages(
+          state.pagePaths
+            .map((p) => {
+              const m = p.match(/page-(\d+)\./i)
+              return m ? Number(m[1]) : null
+            })
+            .filter((n): n is number => n != null),
+        )
+  const extractionForPersist = filterExtractionToSelectedPages(
+    state.extraction,
+    persistPageNumbers,
+  ) as QuoteExtraction
+  if (!extractionForPersist?.environments?.length) {
+    throw new Error('Nenhum módulo do lote restante após filtro de páginas — abortando persistência.')
+  }
+
+  for (const [envIndex, env] of extractionForPersist.environments.entries()) {
     const { data: envRow, error: envError } = await supabase
       .from('quote_environments')
       .insert({
@@ -1506,9 +2038,17 @@ async function nodeResolvePricesAndPersist(
   const inventory = Array.isArray(prevTotals.inventory)
     ? (prevTotals.inventory as InventoryEnv[])
     : []
-  const coverage =
-    (prevTotals.coverage as CoverageReport | undefined) ??
-    buildCoverageReport(inventory, state.extraction)
+  const persistScopePages =
+    persistPageNumbers.length > 0
+      ? persistPageNumbers
+      : pageNumbersFromTotals(prevTotals)
+  const coverageScopePersist: CoverageScope = persistScopePages.length ? 'batch' : 'project'
+  const scopedPersist = buildScopedCoverageReport(
+    inventory,
+    extractionForPersist,
+    persistScopePages,
+  )
+  const coverage: CoverageReport = scopedPersist
 
   // v12: gravar sale_price / MPC obrigatoriamente
   const { data: analysisRow } = await supabase
@@ -1541,7 +2081,7 @@ async function nodeResolvePricesAndPersist(
   }
   const tree = treeResult.data
   const pricingResult = calculateQuotePricing(tree, pricingParams)
-  const duplicateFlags = validatePlausibleQuantities(state.extraction)
+  const duplicateFlags = validatePlausibleQuantities(extractionForPersist)
   const flatMats = tree.environments.flatMap((e) =>
     e.modules.flatMap((m) => m.materials),
   )
@@ -1563,14 +2103,33 @@ async function nodeResolvePricesAndPersist(
     using_facade_sqm: false,
   }
 
+  // Em lote: pagesTotal = tamanho do lote (não page_count do PDF inteiro).
+  const pagesTotal =
+    coverageScopePersist === 'batch'
+      ? persistScopePages.length || state.pagePaths.length
+      : Number(prevTotals.pages_total) ||
+        Number(prevTotals.total_pages) ||
+        (Array.isArray(prevTotals.page_paths) ? prevTotals.page_paths.length : 0) ||
+        state.pagePaths.length
+  const coverageForBreaker =
+    shouldBlockOnCoverageMissing({
+      coverageScope: coverageScopePersist,
+      missingCount: coverage.missing.length,
+      deferredCount: scopedPersist.deferred.length,
+    })
+      ? coverage
+      : { ...coverage, missing: [] }
   const breaker = evaluateCircuitBreaker({
-    extraction: state.extraction,
+    extraction: extractionForPersist,
     materials: flatMats,
-    coverage,
+    coverage: coverageForBreaker,
     pricing: financialTotals,
     prefs: systemPrefs,
     duplicateFlags,
     enforceBrancoTx: true,
+    pagesTotal,
+    billableModuleCount: countBillableModules(extractionForPersist),
+    coverageScope: coverageScopePersist,
   })
 
   const nextTotals: Record<string, unknown> = {
@@ -1579,17 +2138,19 @@ async function nodeResolvePricesAndPersist(
     bom_items_count: bomItemsSaved,
     market_price_flags: marketFlags,
     out_of_scope_modules: outOfScopeCount,
-    environments: state.extraction.environments.length,
-    modules: state.extraction.environments.reduce((n, e) => n + e.modules.length, 0),
-    auditor_notes: state.extraction.auditor_notes,
+    environments: extractionForPersist.environments.length,
+    modules: extractionForPersist.environments.reduce((n, e) => n + e.modules.length, 0),
+    auditor_notes: extractionForPersist.auditor_notes,
     engineering_cot: engineeringCot.join('\n\n'),
     pricing_note:
       'v12: venda apenas por BOM (MPC% ou ×N) — circuit breaker; proibido m² de fachada',
     warnings: [
-      ...(Array.isArray(state.extraction.warnings) ? state.extraction.warnings : []),
+      ...(Array.isArray(extractionForPersist.warnings) ? extractionForPersist.warnings : []),
       ...(coverage.missing.length
         ? [
-            `Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`,
+            coverageScopePersist === 'batch'
+              ? `Cobertura incompleta neste lote: ${coverage.missing.length} módulo(s) faltando nas páginas selecionadas.`
+              : `Cobertura incompleta: ${coverage.missing.length} módulo(s) do inventário ainda faltando.`,
           ]
         : []),
       ...(coverage.extras?.length
@@ -1603,7 +2164,11 @@ async function nodeResolvePricesAndPersist(
     ],
     inventory,
     coverage,
-    last_extraction: state.extraction,
+    coverage_scope: coverageScopePersist,
+    selected_pages: persistScopePages,
+    page_ranges: persistScopePages.length ? persistScopePages : prevTotals.page_ranges,
+    deferred_inventory: scopedPersist.deferred,
+    last_extraction: extractionForPersist,
     duplicate_view_flags: duplicateFlags,
     circuit_breaker: breaker,
     ...financialTotals,
@@ -1627,7 +2192,8 @@ async function nodeResolvePricesAndPersist(
       pricing_params: pricingParamsPersist,
       totals: nextTotals,
     })
-    return { materialsSaved }
+    await maybeRefreshProjectFolder(state)
+    return { materialsSaved, extraction: extractionForPersist }
   }
 
   await setAnalysisStatus(state.analysisId, 'COMPLETED', {
@@ -1640,7 +2206,30 @@ async function nodeResolvePricesAndPersist(
     totals: nextTotals,
   })
 
-  return { materialsSaved }
+  await maybeRefreshProjectFolder(state)
+  return { materialsSaved, extraction: extractionForPersist }
+}
+
+/** Após precificar o lote, une extractions da pasta e grava snapshot consolidado. */
+async function maybeRefreshProjectFolder(state: PipelineStateType): Promise<void> {
+  let projectId = state.projectId?.trim() || null
+  if (!projectId) {
+    const { data } = await supabase
+      .from('quote_analyses')
+      .select('project_id')
+      .eq('id', state.analysisId)
+      .maybeSingle()
+    projectId = typeof data?.project_id === 'string' ? data.project_id : null
+  }
+  if (!projectId) return
+  try {
+    const result = await refreshQuoteProjectFolderSnapshot(projectId)
+    if (!result.ok) {
+      console.warn('[orcamentos-ia] folder snapshot:', result.error)
+    }
+  } catch (err) {
+    console.warn('[orcamentos-ia] folder snapshot failed', err)
+  }
 }
 
 function buildPipelineGraph() {
@@ -1663,6 +2252,9 @@ function buildPipelineGraph() {
         // Só rede no poll: a Edge pode ainda estar lendo. Erros reais da cadeia
         // (HTTP 500, JSON inválido, etc.) devem ir para FAILED mesmo se o texto
         // diga "Clique em Retomar".
+        if (/interrompid/i.test(message)) {
+          return { error: CANCELLED_BY_USER_MESSAGE }
+        }
         if (
           isNetworkFailure(err) ||
           /conexão caiu várias vezes|nuvem pode ainda estar processando/i.test(message)
@@ -1684,6 +2276,9 @@ function buildPipelineGraph() {
         return await nodeResolvePricesAndPersist(state)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao resolver preços'
+        if (/interrompid/i.test(message)) {
+          return { error: CANCELLED_BY_USER_MESSAGE }
+        }
         await setAnalysisStatus(state.analysisId, 'FAILED', { error_message: message, pipeline_stage: 'failed', pipeline_detail: message })
         return { error: message }
       }
@@ -1710,6 +2305,17 @@ export interface RunOrcamentosIaPipelineParams {
   reuseExistingPages?: boolean
   /** Retomar cadeia async a partir desta página (0-based). */
   resumeFromPage?: number
+  /**
+   * Páginas absolutas do PDF a incluir neste lote (1-based).
+   * Omitido = converter/usar todas.
+   */
+  pageNumbers?: number[]
+  /**
+   * Pasta quote_projects.
+   * Com pageNumbers e sourceFiles vazio: baixa PDF de quote_projects.pdf_url
+   * e converte só as páginas selecionadas (sem re-upload).
+   */
+  projectId?: string | null
 }
 
 function resolveExtractionModelParam(value: unknown): ExtractionModelKey {
@@ -1733,6 +2339,13 @@ export async function runOrcamentosIaPipeline(
         ? [params.pdfFile]
         : []
 
+  const pageNumbers =
+    Array.isArray(params.pageNumbers) && params.pageNumbers.length > 0
+      ? [...new Set(params.pageNumbers.filter((p) => Number.isInteger(p) && p > 0))].sort(
+          (a, b) => a - b,
+        )
+      : []
+
   const app = buildPipelineGraph()
   const result = await app.invoke({
     analysisId: params.analysisId,
@@ -1742,6 +2355,8 @@ export async function runOrcamentosIaPipeline(
     sourceFiles: params.reuseExistingPages ? [] : sourceFiles,
     pdfFile: null,
     pagePaths: [],
+    pageNumbers,
+    projectId: params.projectId?.trim() || null,
     extraction: null,
     materialsSaved: 0,
     error: null,
@@ -1767,14 +2382,30 @@ export async function reauditOrcamentosIaAnalysis(params: {
 }): Promise<{ ok: boolean; error?: string; auditNeedsRerun?: boolean; updatedModules?: number }> {
   const { data: row, error } = await supabase
     .from('quote_analyses')
-    .select('id, company_id, mode, extraction_model, totals, source_pdf_path')
+    .select('id, company_id, mode, extraction_model, totals, source_pdf_path, project_id')
     .eq('id', params.analysisId)
     .eq('company_id', params.companyId)
     .maybeSingle()
   if (error) return { ok: false, error: error.message }
   if (!row) return { ok: false, error: 'Análise não encontrada.' }
 
-  const { paths } = await listQuotePagePaths(params.companyId, params.analysisId)
+  const reauditTotals =
+    row.totals && typeof row.totals === 'object' ? (row.totals as Record<string, unknown>) : {}
+  const preferredPaths = Array.isArray(reauditTotals.page_paths)
+    ? (reauditTotals.page_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+    : []
+  const reauditProjectId =
+    typeof (row as { project_id?: string | null }).project_id === 'string'
+      ? (row as { project_id: string }).project_id
+      : null
+  const { paths: listedPaths } = await listQuotePagePaths(params.companyId, params.analysisId, {
+    projectId: reauditProjectId,
+    preferredPaths,
+  })
+  const batchPages = pageNumbersFromTotals(reauditTotals)
+  const paths = batchPages.length
+    ? assertBatchPagePaths(listedPaths, batchPages)
+    : listedPaths
   if (!paths.length) return { ok: false, error: 'Sem páginas convertidas para reauditar.' }
   const reauditExtractionModel = resolveExtractionModelParam(
     (row as { extraction_model?: string }).extraction_model,
@@ -1880,9 +2511,12 @@ export async function reauditOrcamentosIaAnalysis(params: {
   const audited = auditedRaw
     ? forceDeduplicateViewQuantities(mergeExtractions([auditedRaw]))
     : null
+  const reauditBatchPages = pageNumbersFromTotals(reauditTotals)
   const coverage =
     aud.coverage ??
-    buildCoverageReport(inventory, audited ?? seedExtraction)
+    (reauditBatchPages.length
+      ? buildScopedCoverageReport(inventory, audited ?? seedExtraction, reauditBatchPages)
+      : buildCoverageReport(inventory, audited ?? seedExtraction))
   const auditNeedsRerun =
     aud.auditNeedsRerun === true ||
     coverage.missing.length > 0 ||
@@ -1968,6 +2602,7 @@ export async function reauditOrcamentosIaAnalysis(params: {
   const reauditExtraction =
     audited ?? forceDeduplicateViewQuantities(mergeExtractions([seedExtraction]))
   const reauditDup = validatePlausibleQuantities(reauditExtraction)
+  const reauditCoverageScope: CoverageScope = reauditBatchPages.length ? 'batch' : 'project'
   const reauditBreaker = evaluateCircuitBreaker({
     extraction: reauditExtraction,
     materials: reauditMats,
@@ -1975,6 +2610,11 @@ export async function reauditOrcamentosIaAnalysis(params: {
     pricing: reauditFinancial,
     duplicateFlags: reauditDup,
     enforceBrancoTx: true,
+    pagesTotal:
+      reauditCoverageScope === 'batch'
+        ? reauditBatchPages.length || paths.length
+        : paths.length,
+    coverageScope: reauditCoverageScope,
   })
   const reauditStatus: QuoteAnalysisStatus =
     !reauditBreaker.ok || auditNeedsRerun ? 'NEEDS_REVIEW' : 'COMPLETED'
@@ -2002,6 +2642,9 @@ export async function reauditOrcamentosIaAnalysis(params: {
       circuit_breaker: reauditBreaker,
       duplicate_view_flags: reauditDup,
       coverage,
+      coverage_scope: reauditCoverageScope,
+      selected_pages: reauditBatchPages,
+      page_ranges: reauditBatchPages.length ? reauditBatchPages : prevTotals.page_ranges,
       inventory,
       auditor_notes: notes,
       audit_needs_rerun: auditNeedsRerun || !reauditBreaker.ok,
@@ -2033,14 +2676,17 @@ function normalizeKey(value: string): string {
 /**
  * Reprocessa um orçamento já existente.
  * Preferência: reusa páginas em pages/; se não houver, baixa o arquivo fonte.
+ * `fromScratch: true` apaga checkpoint/partial e recomeça da página 1.
  */
 export async function reprocessOrcamentosIaPipeline(params: {
   analysisId: string
   companyId: string
+  /** Se true, zera partial_extraction / checkpoint e recomeça do zero. */
+  fromScratch?: boolean
 }): Promise<RunOrcamentosIaPipelineResult> {
   const { data: row, error } = await supabase
     .from('quote_analyses')
-    .select('id, company_id, mode, extraction_model, source_pdf_path, totals')
+    .select('id, company_id, mode, extraction_model, source_pdf_path, totals, project_id')
     .eq('id', params.analysisId)
     .eq('company_id', params.companyId)
     .maybeSingle()
@@ -2051,22 +2697,70 @@ export async function reprocessOrcamentosIaPipeline(params: {
   const extractionModel = resolveExtractionModelParam(
     (row as { extraction_model?: string }).extraction_model,
   )
-  const pagesPrefix = `${params.companyId}/${params.analysisId}/pages`
-  const { data: existing } = await supabase.storage
-    .from(ORCAMENTOS_IA_BUCKET)
-    .list(pagesPrefix, { limit: 5 })
-
-  const hasPages = (existing || []).some((o) => /\.(png|jpe?g|webp)$/i.test(o.name))
-
   const totals =
     row.totals && typeof row.totals === 'object' ? (row.totals as Record<string, unknown>) : {}
+  const pageNumbers = pageNumbersFromTotals(totals)
+  const projectId =
+    typeof (row as { project_id?: string | null }).project_id === 'string'
+      ? (row as { project_id: string }).project_id
+      : null
+
+  const analysisPagesPrefix = `${params.companyId}/${params.analysisId}/pages`
+  const projectPagesPrefix = projectId
+    ? `${params.companyId}/quote-projects/${projectId}/pages`
+    : null
+  const { data: existingAnalysis } = await supabase.storage
+    .from(ORCAMENTOS_IA_BUCKET)
+    .list(analysisPagesPrefix, { limit: 5 })
+  const { data: existingProject } = projectPagesPrefix
+    ? await supabase.storage
+        .from(ORCAMENTOS_IA_BUCKET)
+        .list(projectPagesPrefix, { limit: 5 })
+    : { data: null }
+
+  const hasPages =
+    (existingAnalysis || []).some((o) => /\.(png|jpe?g|webp)$/i.test(o.name)) ||
+    (existingProject || []).some((o) => /\.(png|jpe?g|webp)$/i.test(o.name))
+
+  const fromScratch = params.fromScratch === true
+  const batchLabel =
+    typeof totals.batch_label === 'string' && totals.batch_label.trim()
+      ? totals.batch_label.trim()
+      : pageNumbers.length
+        ? formatPageRanges(pageNumbers)
+        : null
+
+  // Recomeçar do zero: limpa BOM/ambientes e checkpoint async
+  if (fromScratch) {
+    const { data: oldEnvs } = await supabase
+      .from('quote_environments')
+      .select('id')
+      .eq('analysis_id', params.analysisId)
+    if (oldEnvs?.length) {
+      await supabase
+        .from('quote_environments')
+        .delete()
+        .in(
+          'id',
+          oldEnvs.map((e) => e.id),
+        )
+    }
+    try {
+      await supabase.from('bom_items').delete().eq('analysis_id', params.analysisId)
+    } catch {
+      /* tabela pode não existir em ambientes antigos */
+    }
+  }
+
   const checkpointPage = Number(totals.current_page)
   const partial = totals.partial_extraction
   const hasPartial =
+    !fromScratch &&
     partial &&
     typeof partial === 'object' &&
     Array.isArray((partial as { environments?: unknown }).environments)
   const resumeFromPage =
+    !fromScratch &&
     hasPages &&
     hasPartial &&
     Number.isFinite(checkpointPage) &&
@@ -2074,12 +2768,90 @@ export async function reprocessOrcamentosIaPipeline(params: {
       ? Math.floor(checkpointPage)
       : undefined
 
-  await setAnalysisStatus(params.analysisId, 'PENDING', {
+  // Pasta incremental: Retomar SEMPRE reancora page_ranges do lote (pré-config).
+  if (projectId && !pageNumbers.length && !fromScratch) {
+    return {
+      ok: false,
+      error:
+        'Este lote da pasta não tem páginas selecionadas (page_ranges). Escolha as páginas na grade e inicie de novo.',
+    }
+  }
+
+  const resumeDetail = fromScratch
+    ? batchLabel
+      ? `Recomeçando do zero o lote págs. ${batchLabel} — checkpoint limpo…`
+      : 'Recomeçando do zero — checkpoint e extração parcial limpos…'
+    : resumeFromPage
+      ? batchLabel
+        ? `Retomando lote págs. ${batchLabel} na página ${resumeFromPage + 1}…`
+        : `Retomando na página ${resumeFromPage + 1}…`
+      : batchLabel
+        ? `Retomando lote págs. ${batchLabel} — reusando o que já converteu e completando o resto…`
+        : 'Preparando reprocessamento…'
+
+  const pricingReady = !fromScratch && isReadyForClientPricing(totals)
+  const pricingReadyDetail = batchLabel
+    ? `Retomando precificação do lote págs. ${batchLabel} — leitura já pronta…`
+    : 'Retomando precificação — leitura já pronta na nuvem…'
+
+  await setAnalysisStatus(params.analysisId, pricingReady ? 'AUDITING_REVISION' : 'PENDING', {
     error_message: null,
-    totals: {
-      async_chain_status: resumeFromPage ? 'running' : null,
-      pipeline_stage: resumeFromPage ? 'extracting_batch' : totals.pipeline_stage,
-    },
+    pipeline_stage: fromScratch
+      ? 'upload'
+      : pricingReady
+        ? 'pricing_pending'
+        : resumeFromPage
+          ? 'extracting_batch'
+          : 'converting_pages',
+    pipeline_detail: pricingReady ? pricingReadyDetail : resumeDetail,
+    thought_kind: pricingReady ? 'audit' : 'info',
+    totals: fromScratch
+      ? {
+          current_page: 0,
+          partial_extraction: null,
+          async_chain_status: null,
+          extraction_lot: null,
+          inventory: null,
+          coverage: null,
+          consolidated_bom: null,
+          project_sheet_palette: null,
+          bom_gaps: null,
+          self_heal: null,
+          circuit_breaker: null,
+          modules_found_count: 0,
+          thought_log: [],
+          ...(pageNumbers.length
+            ? {
+                page_ranges: pageNumbers,
+                selected_pages: pageNumbers,
+                batch_label: batchLabel,
+              }
+            : {}),
+        }
+      : pricingReady
+        ? {
+            // Mantém partial_extraction / async_chain — só retoma precificação.
+            async_chain_status: 'ready_for_pricing',
+            pipeline_stage: 'pricing_pending',
+            ...(pageNumbers.length
+              ? {
+                  page_ranges: pageNumbers,
+                  selected_pages: pageNumbers,
+                  batch_label: batchLabel,
+                }
+              : {}),
+          }
+        : {
+            async_chain_status: resumeFromPage ? 'running' : null,
+            pipeline_stage: resumeFromPage ? 'extracting_batch' : 'converting_pages',
+            ...(pageNumbers.length
+              ? {
+                  page_ranges: pageNumbers,
+                  selected_pages: pageNumbers,
+                  batch_label: batchLabel,
+                }
+              : {}),
+          },
   })
 
   if (hasPages) {
@@ -2090,6 +2862,8 @@ export async function reprocessOrcamentosIaPipeline(params: {
       extractionModel,
       reuseExistingPages: true,
       resumeFromPage,
+      pageNumbers: pageNumbers.length ? pageNumbers : undefined,
+      projectId,
     })
   }
 
@@ -2097,12 +2871,14 @@ export async function reprocessOrcamentosIaPipeline(params: {
     return { ok: false, error: 'PDF/imagem original não encontrado para reprocessar.' }
   }
 
-  const { data: blob, error: dlError } = await supabase.storage
-    .from(ORCAMENTOS_IA_BUCKET)
-    .download(row.source_pdf_path)
-
-  if (dlError || !blob) {
-    return { ok: false, error: dlError?.message || 'Falha ao baixar o arquivo do Storage.' }
+  let blob: Blob
+  try {
+    blob = await downloadOrcamentosIaObject(row.source_pdf_path)
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Falha ao baixar o arquivo do Storage.',
+    }
   }
 
   const fileName = row.source_pdf_path.split('/').pop() || 'projeto.pdf'
@@ -2117,7 +2893,8 @@ export async function reprocessOrcamentosIaPipeline(params: {
   const file = new File([blob], fileName, { type: mime })
   const mode = (row.mode === 'pro' ? 'pro' : 'max') as QuoteAnalysisMode
 
-  // Mesmo sem JPEGs no Storage: se houver checkpoint, NÃO zerar partial na Edge.
+  // Mesmo sem JPEGs no Storage: se houver checkpoint, NÃO zerar partial na Edge
+  // (exceto when fromScratch já limpou acima).
   return runOrcamentosIaPipeline({
     analysisId: params.analysisId,
     companyId: params.companyId,
@@ -2125,7 +2902,127 @@ export async function reprocessOrcamentosIaPipeline(params: {
     extractionModel,
     sourceFiles: [file],
     resumeFromPage,
+    pageNumbers: pageNumbers.length ? pageNumbers : undefined,
+    projectId,
   })
+}
+
+/** Evita double-persist (React Strict Mode / reload paralelo). */
+const repersistInFlight = new Map<
+  string,
+  Promise<{ ok: boolean; materialsSaved?: number; error?: string }>
+>()
+
+/**
+ * Regrava ambientes/módulos/materiais/BOM a partir de `totals.last_extraction`.
+ * Usado quando o lote tem extração + sale_price, mas as linhas do banco sumiram
+ * (ex.: restore parcial) e a UI hidrata itens virtuais a R$ 0.
+ */
+export async function repersistQuoteAnalysisFromLastExtraction(params: {
+  analysisId: string
+  companyId: string
+  /** Apaga ambientes atuais e regrava (útil após corrida que duplicou linhas). */
+  force?: boolean
+}): Promise<{ ok: boolean; materialsSaved?: number; error?: string }> {
+  const existing = repersistInFlight.get(params.analysisId)
+  if (existing) return existing
+
+  const run = (async () => {
+    const { data: row, error } = await supabase
+      .from('quote_analyses')
+      .select('id, company_id, project_id, mode, totals')
+      .eq('id', params.analysisId)
+      .maybeSingle()
+    if (error || !row) {
+      return { ok: false, error: error?.message || 'Análise não encontrada.' }
+    }
+
+    // Já há ambientes reais no banco → não regrava (evita duplicar), salvo force.
+    if (!params.force) {
+      const { count: envCount } = await supabase
+        .from('quote_environments')
+        .select('id', { count: 'exact', head: true })
+        .eq('analysis_id', params.analysisId)
+      if ((envCount ?? 0) > 0) {
+        return { ok: true, materialsSaved: 0 }
+      }
+    }
+
+    const totals =
+      row.totals && typeof row.totals === 'object'
+        ? (row.totals as Record<string, unknown>)
+        : {}
+    const raw = totals.last_extraction
+    if (!raw || typeof raw !== 'object') {
+      return { ok: false, error: 'Este lote não tem extração salva para regravar preços.' }
+    }
+
+    let parsed = quoteExtractionSchema.safeParse(raw)
+    if (!parsed.success) {
+      const cleaned = forceDeduplicateViewQuantities(mergeExtractions([raw]))
+      parsed = quoteExtractionSchema.safeParse(cleaned)
+    }
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .slice(0, 2)
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')
+      return {
+        ok: false,
+        error: `Extração salva inválida${detail ? ` (${detail})` : ''}. Rode a cotação de novo.`,
+      }
+    }
+
+    const preferredPaths = Array.isArray(totals.page_paths)
+      ? (totals.page_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+      : []
+    const projectId =
+      typeof row.project_id === 'string' && row.project_id.trim()
+        ? row.project_id
+        : null
+    const listed = await listQuotePagePaths(params.companyId, params.analysisId, {
+      projectId,
+      preferredPaths,
+    })
+    const pageNumbers = Array.isArray(totals.page_ranges)
+      ? [
+          ...new Set(
+            (totals.page_ranges as unknown[]).filter(
+              (n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0,
+            ),
+          ),
+        ].sort((a, b) => a - b)
+      : []
+
+    try {
+      const result = await nodeResolvePricesAndPersist({
+        analysisId: params.analysisId,
+        companyId: params.companyId,
+        mode: (row.mode as QuoteAnalysisMode) || 'max',
+        extractionModel: DEFAULT_EXTRACTION_MODEL,
+        sourceFiles: [],
+        pdfFile: null,
+        pagePaths: listed.paths,
+        pageNumbers,
+        projectId,
+        extraction: parsed.data,
+        materialsSaved: 0,
+        error: null,
+        resumeFromPage: null,
+      })
+      return { ok: true, materialsSaved: result.materialsSaved }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Falha ao regravar preços.'
+      return { ok: false, error: message }
+    }
+  })()
+
+  repersistInFlight.set(params.analysisId, run)
+  try {
+    return await run
+  } finally {
+    repersistInFlight.delete(params.analysisId)
+  }
 }
 
 /** Reexport útil para UI / testes. */

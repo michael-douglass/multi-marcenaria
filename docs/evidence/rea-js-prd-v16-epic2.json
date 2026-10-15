@@ -1,0 +1,23 @@
+{
+  "epic": 2,
+  "prd": "v16",
+  "gate": "analyze_javascript_application + palette smoke",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_f7a00601b5dc1e7f3c88fc23f058359b4408eae37c506a441a5b8d3a73ef1548",
+  "parent_evidence_id": "ev_30cb15af0ff6725ae5d1e828687bf273ba53c1ffa6c732ba35d0609e61227b30",
+  "parent_digest": "30cb15af0ff6725ae5d1e828687bf273ba53c1ffa6c732ba35d0609e61227b30",
+  "artifact_sha256": "eaadff722e19c1019efda7ce787aab316bef83c5415e5eeb55c7e8e152ff09c1",
+  "statistics": {
+    "relevant_files": 37,
+    "parsed_javascript_files": 37,
+    "parse_failures": 0,
+    "findings": 687
+  },
+  "checks": {
+    "smoke_project_sheet_palette": "ok",
+    "no_jatoba_default_front": true,
+    "FLAVIANE_REFERENCE_PALETTE": true,
+    "project_sheet_palette_schema": true
+  },
+  "date": "2026-10-14"
+}

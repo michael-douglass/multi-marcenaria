@@ -180,8 +180,8 @@ export function sanitizeInventory(inventory: InventoryEnv[]): InventoryEnv[] {
       .filter((m) => {
         const modKey = normalizeExtractionKey(m)
         if (/^ferragens?$/.test(modKey)) return false
+        // Quarto em ambiente social: remove. Armário/organizador em lavanderia: mantém.
         if (BEDROOM_ONLY_RE.test(modKey) && SOCIAL_ENV_RE.test(envKey)) return false
-        if (/lavanderia/.test(envKey) && !/lavanderia|tanque|maquina|máquina/.test(modKey)) return false
         return true
       })
     const prev = byKey.get(envKey)
@@ -586,6 +586,7 @@ export function mergeExtractions(parts: unknown[]): AnyRec {
   const environments = new Map<string, AnyRec>()
   const auditorNotes: string[] = []
   const warnings: string[] = []
+  const paletteByKey = new Map<string, AnyRec>()
 
   for (const part of parts) {
     if (!part || typeof part !== 'object') continue
@@ -598,6 +599,20 @@ export function mergeExtractions(parts: unknown[]): AnyRec {
     if (Array.isArray(root.warnings)) {
       for (const w of root.warnings) {
         if (typeof w === 'string' && w.trim()) warnings.push(w.trim())
+      }
+    }
+    if (Array.isArray(root.project_sheet_palette)) {
+      for (const row of root.project_sheet_palette) {
+        if (!row || typeof row !== 'object') continue
+        const r = row as AnyRec
+        const label = typeof r.label === 'string' ? r.label.trim() : ''
+        if (!label || /jatob/i.test(label)) continue
+        const th = Number(r.thickness_mm) || 15
+        const role = typeof r.role === 'string' ? r.role : 'front_color'
+        const key = `${label.toLowerCase()}|${th}|${role}`
+        if (!paletteByKey.has(key)) {
+          paletteByKey.set(key, { label, thickness_mm: th, role })
+        }
       }
     }
     for (const env of asArray(root.environments)) {
@@ -613,7 +628,25 @@ export function mergeExtractions(parts: unknown[]): AnyRec {
     environments: [...environments.values()],
     auditor_notes: [...new Set(auditorNotes)],
     warnings: [...new Set(warnings)],
+    project_sheet_palette: [...paletteByKey.values()],
   }
+}
+
+/**
+ * Fusão incremental da Pasta de Precificação.
+ * Une last_extraction de vários lotes e aplica dedupe de vistas (MAX, não soma).
+ */
+export function mergeProjectFolderExtractions(parts: unknown[]): AnyRec {
+  const usable = (parts || []).filter((p) => p && typeof p === 'object')
+  if (!usable.length) {
+    return {
+      environments: [],
+      auditor_notes: [],
+      warnings: [],
+      project_sheet_palette: [],
+    }
+  }
+  return forceDeduplicateViewQuantities(mergeExtractions(usable))
 }
 
 export interface CoverageItem {
@@ -802,6 +835,73 @@ function buildInjectCaixaria(
   ]
 }
 
+/** Achata inventário-âncora em itens de cobertura (para injeção). */
+export function inventoryToCoverageItems(inventory: InventoryEnv[]): CoverageItem[] {
+  const out: CoverageItem[] = []
+  for (const env of inventory) {
+    const envName = typeof env.environment === 'string' ? env.environment.trim() : ''
+    if (!envName) continue
+    for (const mod of env.modules || []) {
+      const name = typeof mod === 'string' ? mod.trim() : ''
+      if (!name) continue
+      out.push({ environment: envName, module: name })
+    }
+  }
+  return out
+}
+
+/**
+ * Se a Edge devolveu environments vazio (ex.: página só render/ilustrativa)
+ * mas o inventário tem móveis, injeta stubs estimados para não derrubar o lote.
+ */
+export function ensureExtractionHasEnvironments(
+  extraction: unknown,
+  inventory: InventoryEnv[],
+): AnyRec {
+  const root =
+    extraction && typeof extraction === 'object'
+      ? ({ ...(extraction as AnyRec) } as AnyRec)
+      : ({ environments: [], auditor_notes: [], warnings: [] } as AnyRec)
+  const envs = asArray(root.environments)
+  if (envs.length > 0) return root
+  const missing = inventoryToCoverageItems(inventory)
+  if (!missing.length) {
+    // Sem inventário e sem ambientes: stub mínimo para o schema (NEEDS_REVIEW depois).
+    return {
+      ...root,
+      environments: [
+        {
+          name: 'Ambiente (lote parcial)',
+          modules: [
+            ensureModulePlaceholder({
+              name: 'Módulo a confirmar',
+              description: 'Lote sem móveis extraídos — revise as páginas selecionadas.',
+              out_of_scope: false,
+              auditor_notes: ['Stub: extrator devolveu environments vazio'],
+              caixaria: [],
+              frentes_portas: [],
+              ferragens: [],
+              fitas_borda_m: [],
+            }),
+          ],
+        },
+      ],
+      warnings: [
+        ...(Array.isArray(root.warnings) ? (root.warnings as string[]) : []),
+        'Extrator não encontrou móveis nas páginas do lote — gerado stub para revisão manual.',
+      ],
+    }
+  }
+  const injected = injectMissingInventoryModules(root, missing)
+  const warnings = Array.isArray(injected.warnings)
+    ? [...(injected.warnings as string[])]
+    : []
+  warnings.push(
+    'Páginas do lote sem BOM técnico completo (ex.: render/ilustração). Módulos injetados do inventário com cotas estimadas — confira na auditoria.',
+  )
+  return { ...injected, warnings: [...new Set(warnings)] }
+}
+
 /**
  * Injeção forçada determinística: garante 100% de cobertura do inventário
  * sem re-extrair o PDF. Preserva módulos já existentes.
@@ -879,6 +979,47 @@ export function injectMissingInventoryModules(
     environments,
     auditor_notes: [...new Set([...prevNotes, FORCED_INJECT_NOTE])],
   }
+}
+
+/**
+ * Amplia o inventário-âncora com módulos cobráveis já extraídos das pranchas.
+ * Evita “cobertura 100%” falsa quando a capa listou só 3–4 móveis e o PDF tem dezenas.
+ */
+export function expandInventoryFromExtraction(
+  inventory: InventoryEnv[],
+  extraction: unknown,
+): InventoryEnv[] {
+  const fromExtraction: InventoryEnv[] = []
+  if (extraction && typeof extraction === 'object') {
+    for (const env of asArray((extraction as AnyRec).environments)) {
+      const envName = typeof env.name === 'string' ? env.name.trim() : ''
+      if (!envName) continue
+      const modules: string[] = []
+      for (const mod of asArray(env.modules)) {
+        if (mod.out_of_scope === true) continue
+        const modName = typeof mod.name === 'string' ? mod.name.trim() : ''
+        if (!modName) continue
+        modules.push(modName)
+      }
+      if (modules.length) {
+        fromExtraction.push({ environment: envName, modules: [...new Set(modules)] })
+      }
+    }
+  }
+  return sanitizeInventory([...(inventory || []), ...fromExtraction])
+}
+
+/** Conta módulos cobráveis (não out_of_scope) na árvore. */
+export function countBillableModules(extraction: unknown): number {
+  if (!extraction || typeof extraction !== 'object') return 0
+  let n = 0
+  for (const env of asArray((extraction as AnyRec).environments)) {
+    for (const mod of asArray(env.modules)) {
+      if (mod.out_of_scope === true) continue
+      n += 1
+    }
+  }
+  return n
 }
 
 export function buildCoverageReport(
@@ -1201,6 +1342,24 @@ function enrichMinimalCaixariaClient(mod: AnyRec): AnyRec {
       material_name: 'MDF Branco TX 6mm',
       quantity: 1,
       edge_banding: bandNone,
+    })
+  }
+
+  // Tipologias caixa fechada (HelloMob / Cortecloud): tampo por cima quando faltar
+  const needsTampo =
+    !openFront &&
+    (/armario|aereo|gaveteiro|roupeiro|guarda.?roupa|torre|cristaleira/.test(nameKey) ||
+      /^(armario_|aereo|gaveteiro)/.test(typology))
+  if (needsTampo && !hasFn('tampo') && !hasFn('travessa')) {
+    caixaria.push({
+      name: 'Tampo',
+      function: 'tampo',
+      width_mm: w,
+      height_mm: d,
+      thickness_mm: 15,
+      material_name: mat,
+      quantity: 1,
+      edge_banding: bandFront(w),
     })
   }
 

@@ -2,12 +2,17 @@
  * Consolidação global do BOM pós-extração (antes da precificação).
  * - Caixa interna → Branco TX; fundo → 6 mm Branco TX
  * - Frentes/ripados coloridos: PRESERVA material_name (não colapsa Amendoeira/Lino → um só)
+ * - PROIBIDO colapsar frentes coloridas em Jatobá genérico (PRD v16)
  * - Normaliza ferragens via mapHardwareAlias
  * Determinístico — não inventa quantidades de chapas do zero.
  */
 import type { QuoteExtraction } from '@/lib/orcamentos-ia/schemas'
 import { mapHardwareAlias } from '@/lib/orcamentos-ia/hardware-alias'
 import { pieceAreaM2, sheetsForModuleArea } from '@/lib/orcamentos-ia/module-sheet-pricing'
+import {
+  DEFAULT_BOX_BACK_PALETTE,
+  resolvePaletteForPricing,
+} from '@/lib/orcamentos-ia/project-sheet-palette'
 
 export interface ProjectSheetSku {
   /** Rótulo comercial (ex.: MDF Branco Eucatex 15mm). */
@@ -19,27 +24,11 @@ export interface ProjectSheetSku {
   match?: RegExp
 }
 
-/** Paleta padrão alinhada à lista Flaviane (quando o projeto não declara outra). */
-export const DEFAULT_PROJECT_SHEET_PALETTE: ProjectSheetSku[] = [
-  {
-    label: 'MDF Branco Multimarcas 6mm',
-    thickness_mm: 6,
-    role: 'back_white',
-    match: /branco|tx|white/i,
-  },
-  {
-    label: 'MDF Branco Eucatex 15mm',
-    thickness_mm: 15,
-    role: 'box_white',
-    match: /branco|tx|white/i,
-  },
-  {
-    label: 'MDF Jatoba Brasileiro Arauco 15mm',
-    thickness_mm: 15,
-    role: 'front_color',
-    match: /jatob|imbuia|areia|freij|noite|duna|cidreira|blush|mint|azul|bege|lord|madeira|cor/i,
-  },
-]
+/**
+ * Default seguro: só caixa + fundo Branco TX.
+ * Frentes coloridas vêm da paleta do projeto (Lote 1 / BOM) — nunca Jatobá.
+ */
+export const DEFAULT_PROJECT_SHEET_PALETTE: ProjectSheetSku[] = DEFAULT_BOX_BACK_PALETTE
 
 export interface ConsolidatedSheetLine {
   label: string
@@ -254,16 +243,22 @@ export function consolidateProjectBom(
 }
 
 /**
- * Pipeline helper: aplica paleta + devolve tree + consolidated_bom para totals.
+ * Pipeline helper: aplica paleta dinâmica + devolve tree + consolidated_bom para totals.
+ * Preferência: palette explícita → project_sheet_palette da IA → cores do BOM → só caixa/fundo.
  */
 export function consolidateExtractionForPricing(
   extraction: QuoteExtraction,
   palette?: ProjectSheetSku[],
-): { extraction: QuoteExtraction; consolidatedBom: ConsolidatedBom } {
-  const pal = palette?.length ? palette : DEFAULT_PROJECT_SHEET_PALETTE
+): {
+  extraction: QuoteExtraction
+  consolidatedBom: ConsolidatedBom
+  projectSheetPalette: ProjectSheetSku[]
+} {
+  const pal = resolvePaletteForPricing(extraction, palette)
   const next = applySheetPaletteToExtraction(extraction, pal)
   return {
     extraction: next,
     consolidatedBom: consolidateProjectBom(next, pal),
+    projectSheetPalette: pal,
   }
 }

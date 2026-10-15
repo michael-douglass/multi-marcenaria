@@ -1,0 +1,29 @@
+{
+  "epic": 2,
+  "prd": "v19",
+  "feature": "scoped-audit-batch-coverage",
+  "gate": "smoke-scoped-audit",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "parent_evidence_id": "ev_69e93184b07f4838693f4cb7b3af647b86c2ee38d517332f2bf60688fa060d8e",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_scoped_audit": "ok",
+    "coverage_scope": "batch",
+    "missing_count": 0,
+    "deferred_count": 3,
+    "deferred_sample": [
+      { "environment": "Suíte", "module": "Guarda-roupa" },
+      { "environment": "Suíte", "module": "Cabeceira" },
+      { "environment": "Quarto", "module": "Roupeiro" }
+    ],
+    "underprice_skipped": true,
+    "breaker_ok": true
+  },
+  "modules": [
+    "src/lib/orcamentos-ia/audit.ts",
+    "src/lib/orcamentos-ia/circuit-breaker.ts",
+    "src/lib/orcamentos-ia/prompts/engineering-modular.ts",
+    "supabase/functions/_shared/engineering-modular-prompts.ts"
+  ],
+  "date": "2026-10-14"
+}

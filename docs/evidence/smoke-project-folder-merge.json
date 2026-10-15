@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "environments": [
+    "Cozinha",
+    "Quarto"
+  ],
+  "moduleCount": 5,
+  "expectedModules": 5,
+  "modules": [
+    {
+      "environment": "Cozinha",
+      "name": "Balcão 1200x900x600"
+    },
+    {
+      "environment": "Cozinha",
+      "name": "Armário aéreo 800x400x350"
+    },
+    {
+      "environment": "Quarto",
+      "name": "Guarda-roupa 2000x2400x600"
+    },
+    {
+      "environment": "Quarto",
+      "name": "Cabeceira 1600x1200x50"
+    },
+    {
+      "environment": "Quarto",
+      "name": "Criado-mudo 450x500x400"
+    }
+  ]
+}

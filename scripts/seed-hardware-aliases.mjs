@@ -35,15 +35,55 @@ if (!companyId) {
 }
 
 const SEEDS = [
-  { aliases: ['puxador alca', 'puxador alça', 'puxador perfil', 'PUXADOR ALÇA'], itemLike: '%puxador%al%' },
-  { aliases: ['dobradica', 'dobradiça', 'dobradiça reta', 'DOBRADIÇA RETA'], itemLike: '%dobrad%' },
-  { aliases: ['corredica oculta', 'corrediça oculta', 'CORREDIÇA OCULTA 45'], itemLike: '%corred%ocult%' },
-  { aliases: ['corredica teles', 'corrediça teles', 'CORREDIÇA TELES 25'], itemLike: '%teles%' },
-  { aliases: ['cabideiro', 'cabideiro oval', 'CABIDEIRO OVAL'], itemLike: '%cabide%' },
-  { aliases: ['articulador', 'articulador uno', 'pistao'], itemLike: '%articul%' },
-  { aliases: ['ro82', 'RO82'], itemLike: '%ro%82%' },
-  { aliases: ['trilho superior', 'TRILHO SUPERIOR/B'], itemLike: '%trilho%' },
-  { aliases: ['rm-331', 'perfil led', 'RM-331 PERFIL DE LED EMB'], itemLike: '%led%' },
+  {
+    aliases: [
+      'puxador alca',
+      'puxador alça',
+      'puxador concha',
+      'puxador cava',
+      'PUXADOR ALÇA',
+    ],
+    // Preferir "Puxador Alça" (não "Tampinha lateral…")
+    itemMatch: /puxador\s*al[cç]a/i,
+  },
+  {
+    aliases: ['puxador perfil'],
+    itemMatch: /^puxador\s*perfil/i,
+  },
+  {
+    aliases: [
+      'dobradica soft close',
+      'dobradiça soft-close',
+      'dobradiça amortecida',
+      'DOBRADIÇA RETA SOFT-CLOSE',
+    ],
+    itemMatch: /dobradi[cç].*(amortec|soft)/i,
+  },
+  {
+    aliases: ['dobradica', 'dobradiça', 'dobradiça reta', 'DOBRADIÇA RETA'],
+    itemMatch: /dobradi[cç].*reta|dobradi[cç]a\s*·?\s*reta/i,
+    fallbackMatch: /dobradi[cç]/i,
+  },
+  {
+    aliases: ['corredica oculta', 'corrediça oculta', 'CORREDIÇA OCULTA 45'],
+    itemMatch: /corredi[cç]a?\s*oculta/i,
+  },
+  {
+    aliases: ['corredica teles', 'corrediça teles', 'CORREDIÇA TELES 25'],
+    itemMatch: /corredi[cç]a?\s*telesc/i,
+  },
+  { aliases: ['cabideiro', 'cabideiro oval', 'CABIDEIRO OVAL'], itemMatch: /cabideiro/i },
+  {
+    aliases: ['articulador', 'articulador uno', 'articulador uno tavares', 'pistao', 'pistão'],
+    itemMatch: /articulador/i,
+  },
+  { aliases: ['ro82', 'RO82'], itemMatch: /ro\s*82|rm-003/i },
+  // Sem SKU de trilho no estoque atual — usa perfil LED como fallback? Não. Só skip.
+  { aliases: ['trilho superior', 'TRILHO SUPERIOR/B'], itemMatch: /trilho/i },
+  {
+    aliases: ['rm-331', 'perfil led', 'RM-331 PERFIL DE LED EMB', 'fita led', 'led 12v', 'FITA LED'],
+    itemMatch: /rm-?331|perfil.*led/i,
+  },
 ]
 
 const url = process.env.VITE_SUPABASE_URL
@@ -77,15 +117,31 @@ if (error) {
   process.exit(1)
 }
 
+function findItem(seed) {
+  const list = items || []
+  if (seed.itemMatch instanceof RegExp) {
+    const hit = list.find((i) => seed.itemMatch.test(i.name))
+    if (hit) return hit
+  }
+  if (seed.fallbackMatch instanceof RegExp) {
+    const hit = list.find((i) => seed.fallbackMatch.test(i.name))
+    if (hit) return hit
+  }
+  if (typeof seed.itemLike === 'string') {
+    return list.find((i) =>
+      seed.itemLike
+        .replace(/%/g, '.*')
+        .split('.*')
+        .every((part) => !part || new RegExp(part, 'i').test(i.name)),
+    )
+  }
+  return null
+}
+
 let created = 0
 let skipped = 0
 for (const seed of SEEDS) {
-  const item = (items || []).find((i) =>
-    seed.itemLike
-      .replace(/%/g, '.*')
-      .split('.*')
-      .every((part) => !part || new RegExp(part, 'i').test(i.name)),
-  )
+  const item = findItem(seed)
   if (!item) {
     console.warn('Sem item de estoque para', seed.aliases[0])
     skipped += 1

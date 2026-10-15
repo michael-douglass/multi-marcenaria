@@ -54,3 +54,11 @@ export type { ExplodeOptions, ExplodeResultWithLabels } from '@/lib/orcamentos-i
 export { buildIndustrialLabels, formatLabelsForPrint } from '@/lib/orcamentos-ia/bom-engine/labels'
 export { buildBoxMeshesFromBom } from '@/lib/orcamentos-ia/bom-engine/xray-geometry'
 export type { BoxMeshDesc, BuildMeshesOptions } from '@/lib/orcamentos-ia/bom-engine/xray-geometry'
+export {
+  buildAtomicPieces,
+  colorForAtomicPiece,
+} from '@/lib/orcamentos-ia/bom-engine/atomic-pieces'
+export type {
+  BuildAtomicPiecesInput,
+  BuildAtomicPiecesResult,
+} from '@/lib/orcamentos-ia/bom-engine/atomic-pieces'

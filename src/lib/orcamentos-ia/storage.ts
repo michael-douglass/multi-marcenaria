@@ -7,6 +7,7 @@ import {
   resolveExtractionApiModel,
   type ExtractionModelKey,
 } from '@/lib/orcamentos-ia/openai-models'
+import { formatPageRanges } from '@/lib/orcamentos-ia/page-ranges'
 
 export type { ExtractionModelKey }
 export {
@@ -114,6 +115,24 @@ export interface PipelineAsyncCheckpoint {
   modules_found_count?: number
   async_chain_status?: string | null
   pipeline_detail?: string | null
+}
+
+/**
+ * Extração/auditoria da Edge já fecharam — falta só o cliente precificar e gravar.
+ * (Aba fechada / refresh no meio deixa o lote “ocupado” sem runner.)
+ */
+export function isReadyForClientPricing(
+  totals: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!totals || typeof totals !== 'object') return false
+  const chain =
+    typeof totals.async_chain_status === 'string' ? totals.async_chain_status : ''
+  const stage = typeof totals.pipeline_stage === 'string' ? totals.pipeline_stage : ''
+  if (chain !== 'ready_for_pricing' && stage !== 'pricing_pending') return false
+  const partial = totals.partial_extraction
+  if (!partial || typeof partial !== 'object') return false
+  const envs = (partial as { environments?: unknown }).environments
+  return Array.isArray(envs) && envs.length > 0
 }
 
 export function formatAsyncPageProgress(totals: Record<string, unknown> | null | undefined): string | null {
@@ -380,6 +399,364 @@ export function buildQuotePdfPath(companyId: string, analysisId: string, fileNam
   return `${companyId}/${analysisId}/${safeName}`
 }
 
+/** Path de página JPEG compartilhada na pasta do projeto (página absoluta do PDF). */
+export function buildQuoteProjectPagePath(
+  companyId: string,
+  projectId: string,
+  pageNumber: number,
+): string {
+  return `${companyId}/quote-projects/${projectId}/pages/page-${String(pageNumber).padStart(3, '0')}.jpg`
+}
+
+/** Path permanente do PDF da pasta (um único arquivo por projeto). */
+export function buildQuoteProjectPdfPath(companyId: string, projectId: string): string {
+  return `${companyId}/quote-projects/${projectId}/source.pdf`
+}
+
+/** URL assinada do objeto no bucket (PDF grande: preferir range via pdf.js). */
+export async function createOrcamentosIaSignedUrl(
+  path: string,
+  expiresInSec = 60 * 60,
+): Promise<string> {
+  const clean = path.trim().replace(/^\/+/, '')
+  if (!clean) throw new Error('Caminho do arquivo vazio.')
+  const { data, error } = await supabase.storage
+    .from(ORCAMENTOS_IA_BUCKET)
+    .createSignedUrl(clean, expiresInSec)
+  if (error || !data?.signedUrl) {
+    throw new Error(error?.message || 'Não foi possível assinar a URL do arquivo.')
+  }
+  return data.signedUrl
+}
+
+/**
+ * Baixa objeto grande do bucket (PDF 70–100 MB).
+ *
+ * Preferir `createOrcamentosIaSignedUrl` + pdf.js (range). Este helper fica
+ * como fallback: URL assinada + `globalThis.fetch` nativo (sem o wrapper
+ * do cliente, que estoura “Failed to fetch” em arquivos grandes).
+ */
+export async function downloadOrcamentosIaObject(
+  path: string,
+  options?: { maxAttempts?: number; expiresInSec?: number },
+): Promise<Blob> {
+  const clean = path.trim().replace(/^\/+/, '')
+  if (!clean) throw new Error('Caminho do arquivo vazio.')
+
+  const maxAttempts = options?.maxAttempts ?? 3
+  const expiresInSec = options?.expiresInSec ?? 60 * 60
+  let lastError: string | null = null
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const signedUrl = await createOrcamentosIaSignedUrl(clean, expiresInSec)
+      const res = await globalThis.fetch(signedUrl)
+      if (!res.ok) {
+        lastError = `Download HTTP ${res.status} ao baixar o arquivo.`
+      } else {
+        const blob = await res.blob()
+        if (!blob.size) {
+          lastError = 'Arquivo vazio no Storage.'
+        } else {
+          return blob
+        }
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : 'Failed to fetch'
+    }
+    if (attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 700 * attempt))
+    }
+  }
+
+  throw new Error(
+    lastError ||
+      'Falha ao baixar o PDF da pasta. Clique em Retomar em alguns segundos.',
+  )
+}
+
+const QUOTE_PROJECT_SELECT =
+  'id, company_id, name, source_pdf_name, source_fingerprint, pdf_url, budgeted_pages, page_count, totals, created_by, created_at, updated_at'
+
+export interface QuoteProjectRow {
+  id: string
+  company_id: string
+  name: string
+  source_pdf_name: string | null
+  source_fingerprint: string | null
+  /** Path no Storage do PDF permanente (não URL pública). */
+  pdf_url: string | null
+  /** Páginas absolutas já orçadas. */
+  budgeted_pages: number[]
+  page_count: number | null
+  totals: Record<string, unknown> | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+function normalizeBudgetedPages(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  return [...new Set(raw.filter((n): n is number => Number.isInteger(n) && n > 0))].sort(
+    (a, b) => a - b,
+  )
+}
+
+function asQuoteProjectRow(row: Record<string, unknown>): QuoteProjectRow {
+  return {
+    id: String(row.id),
+    company_id: String(row.company_id),
+    name: String(row.name || ''),
+    source_pdf_name: typeof row.source_pdf_name === 'string' ? row.source_pdf_name : null,
+    source_fingerprint:
+      typeof row.source_fingerprint === 'string' ? row.source_fingerprint : null,
+    pdf_url: typeof row.pdf_url === 'string' ? row.pdf_url : null,
+    budgeted_pages: normalizeBudgetedPages(row.budgeted_pages),
+    page_count: typeof row.page_count === 'number' ? row.page_count : null,
+    totals:
+      row.totals && typeof row.totals === 'object'
+        ? (row.totals as Record<string, unknown>)
+        : null,
+    created_by: typeof row.created_by === 'string' ? row.created_by : null,
+    created_at: String(row.created_at || ''),
+    updated_at: String(row.updated_at || ''),
+  }
+}
+
+export interface CreateQuoteProjectParams {
+  companyId: string
+  name: string
+  sourcePdfName?: string | null
+  sourceFingerprint?: string | null
+  createdBy?: string | null
+}
+
+/** Cria a pasta de precificação (agrupa lotes de páginas). */
+export async function createQuoteProject(
+  params: CreateQuoteProjectParams,
+): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .insert({
+      company_id: params.companyId,
+      name: params.name.slice(0, 200),
+      source_pdf_name: params.sourcePdfName ?? null,
+      source_fingerprint: params.sourceFingerprint ?? null,
+      created_by: params.createdBy ?? null,
+      totals: {},
+      budgeted_pages: [],
+    })
+    .select(QUOTE_PROJECT_SELECT)
+    .single()
+
+  if (error) return { data: null, error: error.message }
+  return { data: asQuoteProjectRow(data as Record<string, unknown>) }
+}
+
+export async function getQuoteProject(
+  projectId: string,
+): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .select(QUOTE_PROJECT_SELECT)
+    .eq('id', projectId)
+    .maybeSingle()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null }
+}
+
+/** Lista pastas de precificação da empresa (mais recentes primeiro). */
+export async function listQuoteProjects(
+  companyId: string,
+  limit = 40,
+): Promise<{ data: QuoteProjectRow[]; error?: string }> {
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .select(QUOTE_PROJECT_SELECT)
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { data: [], error: error.message }
+  return { data: (data ?? []).map((r) => asQuoteProjectRow(r as Record<string, unknown>)) }
+}
+
+/**
+ * Reaproveita pasta que já tem o mesmo PDF (evita reenviar 80MB e pastas duplicadas).
+ */
+export async function findQuoteProjectWithPdfBySourceName(
+  companyId: string,
+  sourcePdfName: string,
+): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const name = sourcePdfName.trim()
+  if (!name) return { data: null }
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .select(QUOTE_PROJECT_SELECT)
+    .eq('company_id', companyId)
+    .eq('source_pdf_name', name)
+    .not('pdf_url', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null }
+}
+
+/**
+ * Reaproveita pasta pelo nome do arquivo mesmo com upload ainda em andamento
+ * (pdf_url ainda null) — evita pasta duplicada quando o usuário clica “Iniciar”
+ * antes do PDF de 80MB terminar de subir.
+ */
+export async function findQuoteProjectBySourceName(
+  companyId: string,
+  sourcePdfName: string,
+): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const name = sourcePdfName.trim()
+  if (!name) return { data: null }
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .select(QUOTE_PROJECT_SELECT)
+    .eq('company_id', companyId)
+    .eq('source_pdf_name', name)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null }
+}
+
+export interface UpdateQuoteProjectPdfParams {
+  pdf_url: string
+  page_count?: number | null
+  source_pdf_name?: string | null
+}
+
+/** Grava path permanente do PDF + metadados na pasta. */
+export async function updateQuoteProjectPdf(
+  projectId: string,
+  params: UpdateQuoteProjectPdfParams,
+): Promise<{ error?: string }> {
+  const patch: Record<string, unknown> = {
+    pdf_url: params.pdf_url,
+    updated_at: new Date().toISOString(),
+  }
+  if (params.page_count != null) patch.page_count = params.page_count
+  if (params.source_pdf_name !== undefined) {
+    patch.source_pdf_name = params.source_pdf_name
+  }
+  const { error } = await supabase.from('quote_projects').update(patch).eq('id', projectId)
+  if (error) return { error: error.message }
+  return {}
+}
+
+/** Substitui o array budgeted_pages da pasta. */
+export async function updateQuoteProjectBudgetedPages(
+  projectId: string,
+  pages: number[],
+): Promise<{ error?: string }> {
+  const budgeted_pages = normalizeBudgetedPages(pages)
+  const { error } = await supabase
+    .from('quote_projects')
+    .update({ budgeted_pages, updated_at: new Date().toISOString() })
+    .eq('id', projectId)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export interface UploadQuoteProjectPdfParams {
+  companyId: string
+  projectId: string
+  file: File
+  onProgress?: (percent: number) => void
+}
+
+/** Envia o PDF original uma vez para a pasta do projeto (path permanente). */
+export async function uploadQuoteProjectPdf(
+  params: UploadQuoteProjectPdfParams,
+): Promise<UploadQuotePdfResult> {
+  const { companyId, projectId, file, onProgress } = params
+  const name = file.name.toLowerCase()
+  const isPdf = file.type === 'application/pdf' || name.endsWith('.pdf')
+  if (!isPdf) {
+    return { path: '', error: 'A pasta do projeto aceita apenas PDF no arquivo permanente.' }
+  }
+  if (file.size > MAX_SOURCE_BYTES) {
+    return {
+      path: '',
+      error: `O arquivo ultrapassa o limite de ${formatSourceBytes(MAX_SOURCE_BYTES)}.`,
+    }
+  }
+
+  const ready = await ensureOrcamentosIaBucket()
+  if (!ready.ok) return { path: '', error: ready.error }
+
+  const path = buildQuoteProjectPdfPath(companyId, projectId)
+  try {
+    const result = await uploadQuoteSourceViaXhr({
+      path,
+      file,
+      contentType: 'application/pdf',
+      onProgress,
+    })
+    if (result.error) return { path: '', error: result.error }
+    return { path }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/abort/i.test(msg)) {
+      return {
+        path: '',
+        error:
+          'Upload abortado: o PDF pesado passou do tempo de envio. Mantenha a aba aberta e reenvie.',
+      }
+    }
+    return { path: '', error: msg || 'Falha no upload.' }
+  }
+}
+
+/** Lista lotes (análises) de uma pasta, mais recentes primeiro. */
+export async function listQuoteAnalysesForProject(
+  projectId: string,
+): Promise<{ data: QuoteAnalysisRow[]; error?: string }> {
+  const { data, error } = await supabase
+    .from('quote_analyses')
+    .select(
+      'id, company_id, mode, status, source_pdf_path, error_message, project_id, totals, pricing_modality, pricing_params, created_at, updated_at',
+    )
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true })
+
+  if (error) return { data: [], error: error.message }
+  return { data: (data ?? []) as QuoteAnalysisRow[] }
+}
+
+export async function updateQuoteProjectTotals(
+  projectId: string,
+  patch: Record<string, unknown>,
+): Promise<{ error?: string }> {
+  const { data: current } = await supabase
+    .from('quote_projects')
+    .select('totals')
+    .eq('id', projectId)
+    .maybeSingle()
+  const prev =
+    current?.totals && typeof current.totals === 'object'
+      ? (current.totals as Record<string, unknown>)
+      : {}
+  const { error } = await supabase
+    .from('quote_projects')
+    .update({
+      totals: { ...prev, ...patch },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', projectId)
+  if (error) return { error: error.message }
+  return {}
+}
+
 export interface UploadQuotePdfParams {
   companyId: string
   analysisId: string
@@ -529,6 +906,12 @@ export interface CreateQuoteAnalysisParams {
   extractionModel?: ExtractionModelKey
   createdBy?: string | null
   sourcePdfPath?: string | null
+  /** Pasta de projeto (quote_projects.id). */
+  projectId?: string | null
+  /** Páginas absolutas deste lote (1-based). */
+  pageRanges?: number[] | null
+  /** Rótulo compacto do lote (ex.: "1-5, 8"). */
+  batchLabel?: string | null
 }
 
 export interface QuoteAnalysisRow {
@@ -539,6 +922,12 @@ export interface QuoteAnalysisRow {
   status: QuoteAnalysisStatus
   source_pdf_path: string | null
   error_message: string | null
+  /** Pasta do projeto (quote_projects) — distinto de bom_items.project_id. */
+  project_id?: string | null
+  /** Checkpoint / progresso async (detalhe da etapa atual). */
+  totals?: Record<string, unknown> | null
+  pricing_modality?: string | null
+  pricing_params?: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }
@@ -550,18 +939,41 @@ export async function createPendingQuoteAnalysis(
   const extractionModel = isExtractionModelKey(params.extractionModel)
     ? params.extractionModel
     : DEFAULT_EXTRACTION_MODEL
+  const pageRanges =
+    Array.isArray(params.pageRanges) && params.pageRanges.length > 0
+      ? [...new Set(params.pageRanges.filter((p) => Number.isInteger(p) && p > 0))].sort(
+          (a, b) => a - b,
+        )
+      : null
+  const totalsSeed: Record<string, unknown> = {}
+  if (pageRanges?.length) {
+    totalsSeed.page_ranges = pageRanges
+    totalsSeed.batch_label = params.batchLabel || formatPageRanges(pageRanges)
+  }
+  if (params.projectId) {
+    totalsSeed.project_id = params.projectId
+  }
+
+  const insertRow: Record<string, unknown> = {
+    company_id: params.companyId,
+    mode: params.mode,
+    extraction_model: extractionModel,
+    status: 'PENDING',
+    created_by: params.createdBy ?? null,
+    source_pdf_path: params.sourcePdfPath ?? null,
+  }
+  if (params.projectId) {
+    insertRow.project_id = params.projectId
+  }
+  if (Object.keys(totalsSeed).length > 0) {
+    insertRow.totals = totalsSeed
+  }
+
   const { data, error } = await supabase
     .from('quote_analyses')
-    .insert({
-      company_id: params.companyId,
-      mode: params.mode,
-      extraction_model: extractionModel,
-      status: 'PENDING',
-      created_by: params.createdBy ?? null,
-      source_pdf_path: params.sourcePdfPath ?? null,
-    })
+    .insert(insertRow)
     .select(
-      'id, company_id, mode, extraction_model, status, source_pdf_path, error_message, created_at, updated_at',
+      'id, company_id, mode, extraction_model, status, source_pdf_path, error_message, project_id, totals, created_at, updated_at',
     )
     .single()
 
@@ -594,7 +1006,7 @@ export async function listQuoteAnalyses(
   const { data, error } = await supabase
     .from('quote_analyses')
     .select(
-      'id, company_id, mode, status, source_pdf_path, error_message, created_at, updated_at',
+      'id, company_id, mode, status, source_pdf_path, error_message, project_id, totals, created_at, updated_at',
     )
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
@@ -604,16 +1016,96 @@ export async function listQuoteAnalyses(
   return { data: (data ?? []) as QuoteAnalysisRow[] }
 }
 
+export const CANCELLED_BY_USER_MESSAGE = 'Interrompido pelo usuário.'
+
+/** True se o job foi cancelado pelo usuário (status/cadeia). */
+export function isQuoteAnalysisCancelled(params: {
+  status?: string | null
+  error_message?: string | null
+  totals?: Record<string, unknown> | null
+}): boolean {
+  const chain =
+    params.totals && typeof params.totals.async_chain_status === 'string'
+      ? params.totals.async_chain_status
+      : ''
+  if (chain === 'cancelled') return true
+  const err = String(params.error_message || '')
+  return /interrompid/i.test(err)
+}
+
+/**
+ * Pede interrupção da leitura async e do pipeline no cliente.
+ * A Edge para no próximo tick; o poll do browser encerra em seguida.
+ */
+export async function cancelOrcamentosIaAnalysis(
+  analysisId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: current, error: readErr } = await supabase
+    .from('quote_analyses')
+    .select('id, status, totals, error_message')
+    .eq('id', analysisId)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: readErr.message }
+  if (!current) return { ok: false, error: 'Análise não encontrada.' }
+
+  const status = String(current.status || '')
+  if (status === 'COMPLETED' || status === 'NEEDS_REVIEW') {
+    return { ok: false, error: 'Este orçamento já terminou — não há o que interromper.' }
+  }
+  if (isQuoteAnalysisCancelled(current)) {
+    return { ok: true }
+  }
+
+  const prev =
+    current.totals && typeof current.totals === 'object'
+      ? (current.totals as Record<string, unknown>)
+      : {}
+  const detail = 'Interrompido pelo usuário. Use Retomar ou Recomeçar do zero.'
+  const thought_log = appendThoughtLog(prev, {
+    stage: 'failed',
+    kind: 'warn',
+    message: detail,
+  })
+
+  const { error } = await supabase
+    .from('quote_analyses')
+    .update({
+      status: 'FAILED',
+      error_message: CANCELLED_BY_USER_MESSAGE,
+      totals: {
+        ...prev,
+        async_chain_status: 'cancelled',
+        pipeline_stage: 'failed',
+        pipeline_detail: detail,
+        cancel_requested_at: new Date().toISOString(),
+        thought_log,
+        pipeline_updated_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', analysisId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+/** PDF/páginas da pasta do projeto — compartilhados entre lotes; nunca apagar ao excluir um lote. */
+export function isQuoteProjectSharedStoragePath(path: string | null | undefined): boolean {
+  if (!path) return false
+  return /\/quote-projects\/[^/]+\//.test(path)
+}
+
 /**
  * Exclui a análise (cascade em ambientes/módulos/materiais)
- * e remove arquivos do Storage em `companyId/analysisId/`.
+ * e remove só arquivos do Storage em `companyId/analysisId/`.
+ * Nunca remove PDF/páginas em `…/quote-projects/{projectId}/…`.
  */
 export async function deleteQuoteAnalysis(
   analysis: Pick<QuoteAnalysisRow, 'id' | 'company_id' | 'source_pdf_path'>,
 ): Promise<{ error?: string }> {
   const prefix = `${analysis.company_id}/${analysis.id}`
 
-  // Remove pasta do Storage (PDF + páginas), se existir
+  // Remove pasta do Storage (PDF + páginas) só deste lote — não a pasta do projeto.
   try {
     const { data: rootFiles } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).list(prefix, {
       limit: 100,
@@ -629,7 +1121,13 @@ export async function deleteQuoteAnalysis(
     for (const f of pageFiles ?? []) {
       if (f.name) paths.push(`${prefix}/pages/${f.name}`)
     }
-    if (analysis.source_pdf_path && !paths.includes(analysis.source_pdf_path)) {
+    // Só apaga source_pdf_path se for exclusivo deste lote (nunca quote-projects/).
+    if (
+      analysis.source_pdf_path &&
+      !paths.includes(analysis.source_pdf_path) &&
+      !isQuoteProjectSharedStoragePath(analysis.source_pdf_path) &&
+      analysis.source_pdf_path.startsWith(`${prefix}/`)
+    ) {
       paths.push(analysis.source_pdf_path)
     }
     if (paths.length) {
@@ -642,4 +1140,113 @@ export async function deleteQuoteAnalysis(
   const { error } = await supabase.from('quote_analyses').delete().eq('id', analysis.id)
   if (error) return { error: error.message }
   return {}
+}
+
+async function listStorageFilePaths(prefix: string): Promise<string[]> {
+  const { data } = await supabase.storage.from(ORCAMENTOS_IA_BUCKET).list(prefix, {
+    limit: 300,
+    sortBy: { column: 'name', order: 'asc' },
+  })
+  const paths: string[] = []
+  for (const f of data ?? []) {
+    if (!f.name || f.name.endsWith('/')) continue
+    // Pasta “virtual” no list: sem id e sem metadata de arquivo
+    const isFolderPlaceholder = f.id == null && !f.metadata
+    if (isFolderPlaceholder) continue
+    paths.push(`${prefix}/${f.name}`)
+  }
+  return paths
+}
+
+/**
+ * Exclui a pasta de precificação inteira:
+ * - todos os lotes (quote_analyses) ligados
+ * - PDF permanente, páginas e miniaturas em `…/quote-projects/{id}/`
+ * - registro em quote_projects
+ */
+export async function deleteQuoteProject(params: {
+  projectId: string
+  companyId: string
+}): Promise<{ error?: string; deletedBatches?: number }> {
+  const { projectId, companyId } = params
+  if (!projectId || !companyId) {
+    return { error: 'Pasta ou empresa não identificada.' }
+  }
+
+  const { data: project, error: projectError } = await supabase
+    .from('quote_projects')
+    .select('id, company_id, name')
+    .eq('id', projectId)
+    .eq('company_id', companyId)
+    .maybeSingle()
+  if (projectError) return { error: projectError.message }
+  if (!project) return { error: 'Pasta não encontrada.' }
+
+  const { data: batches, error: batchesError } = await supabase
+    .from('quote_analyses')
+    .select('id, company_id, source_pdf_path')
+    .eq('project_id', projectId)
+  if (batchesError) return { error: batchesError.message }
+
+  for (const batch of batches ?? []) {
+    const del = await deleteQuoteAnalysis(batch)
+    if (del.error) return { error: del.error, deletedBatches: 0 }
+  }
+
+  // Storage compartilhado da pasta (PDF + pages + thumbs).
+  const folderPrefix = `${companyId}/quote-projects/${projectId}`
+  try {
+    const paths = [
+      ...(await listStorageFilePaths(folderPrefix)),
+      ...(await listStorageFilePaths(`${folderPrefix}/pages`)),
+      ...(await listStorageFilePaths(`${folderPrefix}/thumbs`)),
+    ]
+    // source.pdf pode vir só como path conhecido
+    const pdfPath = buildQuoteProjectPdfPath(companyId, projectId)
+    if (!paths.includes(pdfPath)) paths.push(pdfPath)
+    if (paths.length) {
+      // remove em lotes (API tem limite prático)
+      for (let i = 0; i < paths.length; i += 50) {
+        await supabase.storage.from(ORCAMENTOS_IA_BUCKET).remove(paths.slice(i, i + 50))
+      }
+    }
+  } catch {
+    // Segue para apagar o registro mesmo se o Storage falhar parcialmente
+  }
+
+  const { error } = await supabase
+    .from('quote_projects')
+    .delete()
+    .eq('id', projectId)
+    .eq('company_id', companyId)
+  if (error) return { error: error.message }
+
+  return { deletedBatches: batches?.length ?? 0 }
+}
+
+/**
+ * Lotes criados e abandonados no meio do upload (sem PDF).
+ * Marca FAILED para não ficarem “fantasma” na lista.
+ */
+export async function failOrphanPendingAnalysesWithoutPdf(
+  companyId: string,
+  olderThanMs = 5 * 60 * 1000,
+): Promise<{ failed: number; error?: string }> {
+  const cutoff = new Date(Date.now() - olderThanMs).toISOString()
+  const { data, error } = await supabase
+    .from('quote_analyses')
+    .update({
+      status: 'FAILED',
+      error_message:
+        'Upload interrompido: o PDF não chegou a ser gravado. Envie de novo ou use “Cotar mais páginas” se a pasta já tiver o arquivo.',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('company_id', companyId)
+    .eq('status', 'PENDING')
+    .is('source_pdf_path', null)
+    .lt('created_at', cutoff)
+    .select('id')
+
+  if (error) return { failed: 0, error: error.message }
+  return { failed: data?.length ?? 0 }
 }

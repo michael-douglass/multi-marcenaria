@@ -305,14 +305,19 @@ function readCoverageHidden(): boolean {
   }
 }
 
-/** "Conferência do projeto": quantos móveis do projeto entraram no orçamento. */
+/** "Conferência do projeto" / lote: quantos móveis entraram no orçamento. */
 export function CoverageSummary({
   coverage,
   auditorNotes,
+  coverageScope,
 }: {
   coverage: CoverageReport
   auditorNotes?: string[] | null
+  /** Quando batch: título e textos falam só do lote de páginas. */
+  coverageScope?: 'batch' | 'project' | null
 }) {
+  const isBatch = coverageScope === 'batch'
+  const title = isBatch ? 'Conferência deste lote' : 'Conferência do projeto'
   const [hidden, setHidden] = useState(readCoverageHidden)
   const [showFound, setShowFound] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
@@ -340,12 +345,12 @@ export function CoverageSummary({
         type="button"
         onClick={() => setHiddenPersist(false)}
         className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl border border-[#8d5e22]/15 bg-[#fffcf8] px-3 py-2 text-left transition hover:bg-[#fff8f0]"
-        title="Mostrar conferência do projeto"
+        title={`Mostrar ${title.toLowerCase()}`}
       >
         <span className="flex min-w-0 items-center gap-1.5 text-[12px] text-[#8d5e22]">
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.04em' }}>
-            Conferência do projeto
+            {title}
           </span>
           <span className={cn('truncate text-[11px] tabular-nums', INK_MUTED)}>
             · {found}/{expected} móveis
@@ -365,7 +370,7 @@ export function CoverageSummary({
               className="text-[15px] tracking-[0.06em] text-[#8d5e22]"
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
             >
-              Conferência do projeto
+              {title}
             </p>
             <p className={cn('text-[12px] tabular-nums', INK_SOFT)}>
               <strong className={cn('font-semibold', INK)}>{found}</strong> de {expected}{' '}
@@ -377,8 +382,8 @@ export function CoverageSummary({
           type="button"
           onClick={() => setHiddenPersist(true)}
           className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-[#8d5e22] hover:bg-[#8d5e22]/10"
-          title="Ocultar conferência do projeto"
-          aria-label="Ocultar conferência do projeto"
+          title={`Ocultar ${title.toLowerCase()}`}
+          aria-label={`Ocultar ${title.toLowerCase()}`}
         >
           <EyeOff className="h-3.5 w-3.5" />
           Ocultar
@@ -394,7 +399,9 @@ export function CoverageSummary({
       {complete ? (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#3f6a3a]">
           <Check className="h-3.5 w-3.5" />
-          Todos os móveis do projeto estão no orçamento — sem extras suspeitos.
+          {isBatch
+            ? 'Todos os móveis deste lote (páginas selecionadas) estão no orçamento — sem extras suspeitos.'
+            : 'Todos os móveis do projeto estão no orçamento — sem extras suspeitos.'}
         </p>
       ) : (
         <div className="mt-2.5 space-y-2.5">
@@ -402,7 +409,9 @@ export function CoverageSummary({
             <div>
               <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#8a4b12]">
                 <PackageSearch className="h-3.5 w-3.5" />
-                Não encontramos no orçamento:
+                {isBatch
+                  ? 'Não encontramos no orçamento (dentro das páginas do lote):'
+                  : 'Não encontramos no orçamento:'}
               </p>
               <ModuleChips groups={missing} tone="missing" />
             </div>
@@ -417,7 +426,9 @@ export function CoverageSummary({
             </div>
           )}
           <p className={cn('text-[11px]', INK_MUTED)}>
-            Confira na planta e, se precisar, clique em “Reprocessar PDF”.
+            {isBatch
+              ? 'Confira só as pranchas deste lote. Ambientes de outras páginas entram em outro lote.'
+              : 'Confira na planta e, se precisar, clique em “Reprocessar PDF”.'}
           </p>
         </div>
       )}

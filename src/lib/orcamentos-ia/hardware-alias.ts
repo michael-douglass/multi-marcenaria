@@ -6,6 +6,7 @@
 
 export type HardwareCanonicalKey =
   | 'puxador_alca'
+  | 'dobradica_soft_close'
   | 'dobradica_reta'
   | 'corredica_oculta_45'
   | 'corredica_teles_25'
@@ -14,6 +15,7 @@ export type HardwareCanonicalKey =
   | 'ro82'
   | 'trilho_superior'
   | 'perfil_led_rm331'
+  | 'fita_led'
   | 'unknown'
 
 export interface HardwareAliasRule {
@@ -35,13 +37,34 @@ function normalizeHardwareText(value: string): string {
     .trim()
 }
 
-/** Seeds de obra (Flaviane / lista de materiais típica). */
+/** Seeds de obra (Flaviane / lista de materiais típica) — PRD v16 Épico 4. */
 export const HARDWARE_ALIAS_RULES: HardwareAliasRule[] = [
   {
     key: 'puxador_alca',
     canonicalName: 'PUXADOR ALÇA',
     category: 'puxador',
-    patterns: [/puxador.*alc/, /\balca\b.*puxador/, /handle.*pull/, /puxador perfil/],
+    patterns: [
+      /puxador.*alc/,
+      /\balca\b.*puxador/,
+      /handle.*pull/,
+      /puxador perfil/,
+      /puxador.*concha/,
+      /puxador.*cava/,
+      /puxador.*embut/,
+    ],
+  },
+  // Soft-close ANTES da reta genérica (ordem importa)
+  {
+    key: 'dobradica_soft_close',
+    canonicalName: 'DOBRADIÇA RETA SOFT-CLOSE',
+    category: 'ferragem',
+    patterns: [
+      /dobradic.*soft/,
+      /soft.?close.*dobrad/,
+      /dobradic.*amortec/,
+      /dobradic.*click/,
+      /hinge.*soft/,
+    ],
   },
   {
     key: 'dobradica_reta',
@@ -53,7 +76,7 @@ export const HARDWARE_ALIAS_RULES: HardwareAliasRule[] = [
     key: 'corredica_oculta_45',
     canonicalName: 'CORREDIÇA OCULTA 45',
     category: 'ferragem',
-    patterns: [/corredic.*ocult/, /corredic.*45/, /hidden.*slide/, /slide.*soft/],
+    patterns: [/corredic.*ocult/, /corredic.*45/, /hidden.*slide/, /slide.*soft/, /corredic.*amortec/],
   },
   {
     key: 'corredica_teles_25',
@@ -71,7 +94,15 @@ export const HARDWARE_ALIAS_RULES: HardwareAliasRule[] = [
     key: 'articulador_uno',
     canonicalName: 'Articulador uno Tavares Forte',
     category: 'ferragem',
-    patterns: [/articulador/, /uno tavares/, /piston.*gas/, /pistao/],
+    patterns: [
+      /articulador.*uno/,
+      /uno tavares/,
+      /\buno\b.*articul/,
+      /articulador/,
+      /piston.*gas/,
+      /pistao/,
+      /piston gas/,
+    ],
   },
   {
     key: 'ro82',
@@ -89,7 +120,13 @@ export const HARDWARE_ALIAS_RULES: HardwareAliasRule[] = [
     key: 'perfil_led_rm331',
     canonicalName: 'RM-331 PERFIL DE LED EMB',
     category: 'ferragem',
-    patterns: [/rm\s*331/, /perfil.*led/, /led emb/, /fita led.*perfil/],
+    patterns: [/rm\s*331/, /perfil.*led/, /led emb/, /perfil.*alum.*led/],
+  },
+  {
+    key: 'fita_led',
+    canonicalName: 'FITA LED',
+    category: 'consumivel',
+    patterns: [/fita\s*led/, /\bled\s*strip\b/, /led\s*12v/, /iluminacao\s*led/],
   },
 ]
 

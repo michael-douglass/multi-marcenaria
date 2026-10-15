@@ -165,26 +165,111 @@ export interface PdfPageJpegResult {
   blob: Blob
 }
 
+export type ConvertPdfPagesOptions = {
+  maxPages?: number
+  maxEdge?: number
+  quality?: number
+  /** Timeout por página (ms). Padrão 120s. */
+  pageTimeoutMs?: number
+  /** Timeout para abrir o PDF (ms). Padrão 3 min (PDFs CAD/HelloMob podem demorar). */
+  openTimeoutMs?: number
+  /**
+   * Se informado, converte só essas páginas absolutas (1-based).
+   * Útil ao completar lotes da pasta sem reprocessar o PDF inteiro.
+   */
+  pageNumbers?: number[]
+  onPage: (page: PdfPageJpegResult) => void | Promise<void>
+}
+
+async function openPdfDocument(
+  source: { data: ArrayBuffer } | { url: string },
+  openTimeoutMs: number,
+): Promise<PDFDocumentProxy> {
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(message)), ms)
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
+  ensurePdfWorker()
+  try {
+    if ('url' in source) {
+      // URL assinada: pdf.js usa range requests (não precisa baixar 80 MB de uma vez).
+      return await withTimeout(
+        getDocument({
+          url: source.url,
+          disableFontFace: true,
+          useSystemFonts: true,
+          verbosity: 0,
+          // Preferir faixas; se o CDN não suportar, cai no stream completo.
+          disableRange: false,
+          disableStream: false,
+        }).promise,
+        openTimeoutMs,
+        'O PDF demorou demais para abrir. Tente um arquivo menor ou sem senha/proteção.',
+      )
+    }
+    // pdf.js 5.x exige Uint8Array (ArrayBuffer puro pode travar o worker no browser).
+    const bytes = new Uint8Array(source.data.slice(0))
+    return await withTimeout(
+      getDocument({
+        data: bytes,
+        disableFontFace: true,
+        useSystemFonts: true,
+        verbosity: 0,
+      }).promise,
+      openTimeoutMs,
+      'O PDF demorou demais para abrir. Tente um arquivo menor ou sem senha/proteção.',
+    )
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Não foi possível ler este PDF. Se estiver protegido por senha, exporte sem senha e envie de novo.'
+    throw new Error(message)
+  }
+}
+
 /**
  * Converte o PDF página a página em JPEG (sem acumular tudo na memória).
  * Usado pelo pipeline de Orçamentos IA — progresso + menos risco de travar a aba.
  */
 export async function convertPdfPagesToJpegSequential(
   data: ArrayBuffer,
-  options: {
-    maxPages?: number
-    maxEdge?: number
-    quality?: number
-    /** Timeout por página (ms). Padrão 120s. */
-    pageTimeoutMs?: number
-    /** Timeout para abrir o PDF (ms). Padrão 3 min (PDFs CAD/HelloMob podem demorar). */
-    openTimeoutMs?: number
-    onPage: (page: PdfPageJpegResult) => void | Promise<void>
-  },
+  options: ConvertPdfPagesOptions,
+): Promise<{ totalPages: number; converted: number }> {
+  return convertPdfPagesToJpegFromSource({ data }, options)
+}
+
+/** Abre PDF por URL assinada (range requests) — ideal para PDFs grandes da pasta. */
+export async function convertPdfPagesToJpegFromUrl(
+  url: string,
+  options: ConvertPdfPagesOptions,
+): Promise<{ totalPages: number; converted: number }> {
+  return convertPdfPagesToJpegFromSource({ url }, options)
+}
+
+async function convertPdfPagesToJpegFromSource(
+  source: { data: ArrayBuffer } | { url: string },
+  options: ConvertPdfPagesOptions,
 ): Promise<{ totalPages: number; converted: number }> {
   const maxPages = options.maxPages ?? MAX_PDF_PAGES
   const pageTimeoutMs = options.pageTimeoutMs ?? 120_000
   const openTimeoutMs = options.openTimeoutMs ?? 180_000
+  const onlyPages =
+    Array.isArray(options.pageNumbers) && options.pageNumbers.length > 0
+      ? [...new Set(options.pageNumbers.filter((p) => Number.isInteger(p) && p > 0))].sort(
+          (a, b) => a - b,
+        )
+      : null
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -202,20 +287,7 @@ export async function convertPdfPagesToJpegSequential(
 
   let pdf: PDFDocumentProxy
   try {
-    ensurePdfWorker()
-    // pdf.js 5.x exige Uint8Array (ArrayBuffer puro pode travar o worker no browser).
-    const bytes = new Uint8Array(data.slice(0))
-    pdf = await withTimeout(
-      getDocument({
-        data: bytes,
-        // PDFs de detalhamento (AutoCAD/HelloMob) abrem mais estáveis assim no browser.
-        disableFontFace: true,
-        useSystemFonts: true,
-        verbosity: 0,
-      }).promise,
-      openTimeoutMs,
-      'O PDF demorou demais para abrir. Tente um arquivo menor ou sem senha/proteção.',
-    )
+    pdf = await openPdfDocument(source, openTimeoutMs)
   } catch (err) {
     const message =
       err instanceof Error
@@ -229,11 +301,15 @@ export async function convertPdfPagesToJpegSequential(
     throw new Error('PDF vazio.')
   }
 
-  const totalPages = Math.min(pdf.numPages, maxPages)
+  const totalPages = pdf.numPages
+  const cap = Math.min(totalPages, maxPages)
+  const toConvert = onlyPages
+    ? onlyPages.filter((p) => p >= 1 && p <= cap)
+    : Array.from({ length: cap }, (_, i) => i + 1)
   let converted = 0
 
   try {
-    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+    for (const pageNumber of toConvert) {
       const blob = await withTimeout(
         renderPdfPageToBlob(pdf, pageNumber, {
           mime: 'image/jpeg',
@@ -315,6 +391,30 @@ export async function pdfFirstPageToPngBlob(file: File): Promise<Blob> {
   if (pdf.numPages < 1) throw new Error('PDF vazio.')
   try {
     return await renderPdfPageToPngBlob(pdf, 1)
+  } finally {
+    await pdf.destroy()
+  }
+}
+
+/**
+ * Conta páginas do PDF sem renderizar (leve — usado antes do seletor de cotação).
+ * Não aplica teto de conversão: retorna o total real do documento.
+ */
+export async function countPdfPages(file: File | ArrayBuffer): Promise<number> {
+  ensurePdfWorker()
+  const data =
+    file instanceof ArrayBuffer
+      ? new Uint8Array(file.slice(0))
+      : new Uint8Array(await file.arrayBuffer())
+  const pdf = await getDocument({
+    data,
+    disableFontFace: true,
+    useSystemFonts: true,
+    verbosity: 0,
+  }).promise
+  try {
+    if (pdf.numPages < 1) throw new Error('PDF vazio.')
+    return pdf.numPages
   } finally {
     await pdf.destroy()
   }

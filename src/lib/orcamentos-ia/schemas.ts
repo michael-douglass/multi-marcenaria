@@ -372,17 +372,86 @@ export const environmentExtractionSchema = z.object({
   modules: z.array(moduleExtractionSchema).min(1),
 })
 
+/** Entrada de paleta de chapas do projeto (Lote 1 / legenda) — PRD v16. */
+export const projectSheetPaletteEntrySchema = z.object({
+  label: z.string().min(1),
+  thickness_mm: z.union([z.literal(6), z.literal(15), z.literal(18)]),
+  role: z.enum(['box_white', 'back_white', 'front_color']),
+})
+
 /** Resultado completo do Extrator (modo max: Claude Opus; modo pro: gpt-4o). */
 export const quoteExtractionSchema = z.object({
   environments: z.array(environmentExtractionSchema).min(1),
   auditor_notes: z.array(z.string()).default([]),
   warnings: z.array(z.string()).default([]),
+  /** Paleta dinâmica (Lote 1). Opcional — frentes coloridas sem colapso Jatobá. */
+  project_sheet_palette: z.array(projectSheetPaletteEntrySchema).optional().default([]),
 })
 
+/**
+ * Metadados de lote na pasta de precificação (gravados em quote_analyses.totals).
+ * Não altera a árvore de módulos — só vínculo com a pasta e intervalo de páginas.
+ */
+export const quoteBatchFolderMetaSchema = z.object({
+  project_id: z.string().uuid().optional().nullable(),
+  page_ranges: z.array(z.number().int().positive()).optional(),
+  selected_pages: z.array(z.number().int().positive()).optional(),
+  batch_label: z.string().optional().nullable(),
+  coverage_scope: z.enum(['batch', 'project']).optional(),
+})
+
+export type QuoteBatchFolderMeta = z.infer<typeof quoteBatchFolderMetaSchema>
 export type QuoteExtraction = z.infer<typeof quoteExtractionSchema>
 export type ModuleExtraction = z.infer<typeof moduleExtractionSchema>
 export type FerragemItem = z.infer<typeof ferragemItemSchema>
 export type MaterialCategory = z.infer<typeof materialCategorySchema>
+
+/**
+ * Peça atômica posicionada para o Raio-X 3D (contrato UI / client-side).
+ * Não faz parte do input da IA — é montada no browser a partir da lista de corte,
+ * da extração ou do desmonte determinístico.
+ */
+export const atomicPieceRoleSchema = z.enum([
+  'lateral',
+  'base',
+  'tampo',
+  'divisoria',
+  'prateleira',
+  'fundo',
+  'travessa',
+  'sarrafo',
+  'frente',
+  'porta',
+  'gaveta_lateral',
+  'gaveta_contrafundo',
+  'gaveta_fundo',
+  'outro',
+])
+
+export const atomicSheetRoleSchema = z.enum(['box_white', 'back_white', 'front_color'])
+
+export const atomicPieceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  role: atomicPieceRoleSchema,
+  width_mm: z.number().positive(),
+  height_mm: z.number().positive(),
+  thickness_mm: z.number().positive(),
+  quantity: z.number().positive().default(1),
+  material_name: z.string().min(1),
+  sheet_role: atomicSheetRoleSchema,
+  /** Centro da peça no espaço do módulo (metros). Preenchido pelo builder. */
+  position_m: z.tuple([z.number(), z.number(), z.number()]),
+  /** Dimensões da caixa Three.js (metros): x, y, z. */
+  size_m: z.tuple([z.number(), z.number(), z.number()]),
+  highlighted: z.boolean().optional(),
+  gapTag: z.string().optional(),
+  column_index: z.number().int().positive().optional(),
+})
+
+export type AtomicPiece = z.infer<typeof atomicPieceSchema>
+export type AtomicPieceRole = z.infer<typeof atomicPieceRoleSchema>
+export type AtomicSheetRole = z.infer<typeof atomicSheetRoleSchema>
 
 /** Limites tipológicos (clamp) — ver `geometry-bounds.ts`. */
 export { GEOMETRY_BOUNDS, clampGeometryBounds } from '@/lib/orcamentos-ia/geometry-bounds'

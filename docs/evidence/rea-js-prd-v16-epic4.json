@@ -1,0 +1,25 @@
+{
+  "epic": 4,
+  "prd": "v16",
+  "gate": "tsc + hardware-alias smoke + analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_b0b9e413619c7000146c1e75ffb62f5b0a499fe97753630fd3049f2470f9ab28",
+  "parent_evidence_id": "ev_6f9ce1d604c1837fdf5186ef4a187f451f598994f5cc25418d2be303f2a7c415",
+  "parent_digest": "6f9ce1d604c1837fdf5186ef4a187f451f598994f5cc25418d2be303f2a7c415",
+  "artifact_sha256": "c9cf860dbbd957ff69e2c153521076151e861e3ed4d0c65f8c356f6307ae1478",
+  "statistics": {
+    "relevant_files": 37,
+    "parsed_javascript_files": 37,
+    "parse_failures": 0,
+    "findings": 687
+  },
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_hardware_alias": "ok",
+    "FETCHING_MARKET_PRICES_count": 1,
+    "dobradica_soft_close": true,
+    "fita_led": true,
+    "prd_v16_path": "docs/prd_v16_paridade_fabril_subprojetos_15_paginas.md"
+  },
+  "date": "2026-10-14"
+}

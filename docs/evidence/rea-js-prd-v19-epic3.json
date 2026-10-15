@@ -1,0 +1,19 @@
+{
+  "epic": 3,
+  "prd": "v19",
+  "feature": "pricing-persist-batch-filter",
+  "gate": "smoke-scoped-pricing-batch",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_scoped_pricing_batch": "ok",
+    "environments_after_filter": ["Cozinha"],
+    "module_count": 2,
+    "suite_removed": true,
+    "selected_pages": [1, 2, 3, 4]
+  },
+  "modules": [
+    "src/lib/orcamentos-ia/pipeline.ts",
+    "src/lib/orcamentos-ia/audit.ts"
+  ],
+  "date": "2026-10-14"
+}

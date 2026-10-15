@@ -140,6 +140,38 @@ export interface EvaluateCircuitBreakerInput {
   duplicateFlags?: DuplicateViewFlag[]
   /** Se false, não exige Branco TX na caixa (override explícito do usuário). */
   enforceBrancoTx?: boolean
+  /** Total de páginas do PDF — usado para freio de subcotação. */
+  pagesTotal?: number | null
+  /** Módulos cobráveis persistidos/extraídos. */
+  billableModuleCount?: number | null
+  /**
+   * Escopo da cobertura: em `batch`, pagesTotal = tamanho do lote
+   * e a regra de subcotação por PDF global é ignorada.
+   */
+  coverageScope?: 'batch' | 'project' | null
+}
+
+/** PDF grande com custo/módulos baixos demais → revisão (não “COMPLETED” enganoso). */
+const UNDERPRICE_MIN_PAGES = 25
+const UNDERPRICE_MIN_BILLABLE_MODULES = 8
+const UNDERPRICE_MIN_MATERIALS_COST = 8000
+
+function countBillableModulesInExtraction(extraction: unknown): number {
+  if (!extraction || typeof extraction !== 'object') return 0
+  const root = extraction as { environments?: unknown[] }
+  let n = 0
+  for (const env of root.environments || []) {
+    if (!env || typeof env !== 'object') continue
+    const modules = Array.isArray((env as { modules?: unknown }).modules)
+      ? ((env as { modules: unknown[] }).modules)
+      : []
+    for (const mod of modules) {
+      if (!mod || typeof mod !== 'object') continue
+      if ((mod as { out_of_scope?: boolean }).out_of_scope === true) continue
+      n += 1
+    }
+  }
+  return n
 }
 
 const DEFAULT_BOX_MATERIAL = 'MDF Branco TX'
@@ -256,6 +288,30 @@ export function evaluateCircuitBreaker(
     blockers.push(
       `Cobertura incompleta: ${missing} módulo(s) do inventário faltando (${sample}).`,
     )
+  }
+
+  // Lote parcial: não comparar módulos/custo com o PDF inteiro da casa.
+  const skipGlobalUnderprice = input.coverageScope === 'batch'
+  const pages = Number(input.pagesTotal)
+  if (
+    !skipGlobalUnderprice &&
+    Number.isFinite(pages) &&
+    pages >= UNDERPRICE_MIN_PAGES
+  ) {
+    const billable =
+      input.billableModuleCount != null
+        ? Number(input.billableModuleCount)
+        : countBillableModulesInExtraction(input.extraction)
+    if (Number.isFinite(billable) && billable < UNDERPRICE_MIN_BILLABLE_MODULES) {
+      blockers.push(
+        `Subcotação suspeita: só ${billable} módulo(s) cobráveis em PDF de ${pages} páginas (mín. ${UNDERPRICE_MIN_BILLABLE_MODULES}).`,
+      )
+    }
+    if (cost > 0 && cost < UNDERPRICE_MIN_MATERIALS_COST) {
+      blockers.push(
+        `Custo de materiais R$ ${cost.toFixed(2)} baixo demais para PDF de ${pages} páginas (mín. referência R$ ${UNDERPRICE_MIN_MATERIALS_COST.toLocaleString('pt-BR')}).`,
+      )
+    }
   }
 
   return {

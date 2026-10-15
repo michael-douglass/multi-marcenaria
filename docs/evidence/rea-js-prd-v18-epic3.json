@@ -1,0 +1,25 @@
+{
+  "epic": 3,
+  "prd": "v18",
+  "feature": "incremental-quote-from-project-no-reupload",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_4fa61d851df5d440d8684231894f6da303ddd937570cb37f46e1211d9d1a8b53",
+  "parent_evidence_id": "ev_89bf0f33b9120b01a2ff1e5f3ff8f7cd019f6e1042b850ab5effce9703d18ff3",
+  "parent_digest": "89bf0f33b9120b01a2ff1e5f3ff8f7cd019f6e1042b850ab5effce9703d18ff3",
+  "artifact_sha256": "59dddaed6c032e4a6d2bcb74657d075c2b3685ffaa882e1ad1a67d75aeb4b853",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_incremental_from_project": "ok",
+    "downloadProjectPdfAsFile": "ok",
+    "startQuoteAnalysisFromProject": "ok",
+    "RunOrcamentosIaPipelineParams_contract": "ok"
+  },
+  "coverage": {
+    "relevant_files": 40,
+    "parsed_javascript_files": 40,
+    "parse_failures": 0,
+    "status": "partial_budget"
+  },
+  "date": "2026-10-14"
+}

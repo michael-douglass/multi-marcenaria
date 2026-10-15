@@ -1,0 +1,32 @@
+{
+  "epic": 4,
+  "prd": "v18",
+  "feature": "folder-consolidated-bom-mpc",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/components/orcamentos-ia",
+  "evidence_id": "ev_1a2dda23931a4c2442fb13e873892e1ba24c942fa81f15b59fe52cfff0751da5",
+  "parent_evidence_id": "ev_4fb0a6e6947b1c19b6bd5bcdff0581514c4db91f0e295edd9e7aab7bda2b7033",
+  "parent_digest": "4fb0a6e6947b1c19b6bd5bcdff0581514c4db91f0e295edd9e7aab7bda2b7033",
+  "artifact_sha256": "9c3cd553335cad2d8202e3a44b830a3cdb7088dd60ae0d3df208d4f2fc4c455b",
+  "lib_evidence_id": "ev_4fa61d851df5d440d8684231894f6da303ddd937570cb37f46e1211d9d1a8b53",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_folder_mpc": "ok",
+    "smoke_budgeted_pages": "ok",
+    "smoke_incremental_from_project": "ok",
+    "refreshQuoteProjectFolderSnapshot_mpc": "ok",
+    "ProjectFolderTabs_bom_pages": "ok"
+  },
+  "checklist": [
+    "pasta com PDF permanente",
+    "grade verde/branco (PageGridSelector)",
+    "2º lote sem upload (startQuoteAnalysisFromProject)",
+    "consolidado soma BOM/MPC da pasta"
+  ],
+  "coverage": {
+    "relevant_files": 25,
+    "parsed_javascript_files": 25,
+    "parse_failures": 0
+  },
+  "date": "2026-10-14"
+}

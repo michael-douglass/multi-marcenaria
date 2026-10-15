@@ -1,0 +1,29 @@
+{
+  "epic": 1,
+  "prd": "v17",
+  "feature": "page-range-selector",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_e65b941a74ad53daf7be8abdfc76900834c060173e3e0987774f9a86dad7c513",
+  "parent_evidence_id": "ev_762a15ac6640c6c468f1a2cad00a567661a43410c3223077272822e880e844ac",
+  "parent_digest": "762a15ac6640c6c468f1a2cad00a567661a43410c3223077272822e880e844ac",
+  "artifact_sha256": "d45d8f6829d5efb0cfb1b05d5466a3aa3541d9f7c5f04fef12b5a88eb2548494",
+  "statistics": {
+    "relevant_files": 38,
+    "parsed_javascript_files": 38,
+    "parse_failures": 0,
+    "findings": 706,
+    "text_bytes_read": 415972
+  },
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_page_ranges": "ok",
+    "page_range_selector_props": "ok"
+  },
+  "files_added": [
+    "src/lib/orcamentos-ia/page-ranges.ts",
+    "src/components/orcamentos-ia/PageRangeSelector.tsx",
+    "scripts/smoke-page-ranges.mjs"
+  ],
+  "date": "2026-10-14"
+}

@@ -183,8 +183,16 @@ Caixa interna = MDF Branco TX; frentes/tampos = cor da prancha.
 
 ═══ PALETA DE CORES — RECONHECER E ALOCAR (ex.: Flaviane/Anamá / Cortecloud #23125828) ═══
 Quando a prancha indicar estas cores, use-as em material_name das frentes/tampos/peças coloridas:
-Bege Papiro | Lord Matt | Mint Essencial | Blush Essencial | Azul Astral | Imbuia Caiapó | Areia Noronha | Branco TX
-NÃO colapse tudo em Branco TX nas frentes. Fundos 6 mm seguem a cor do ambiente quando o desenho exige (ex.: fundo colorido).
+Bege Papiro | Lord Matt | Mint Essencial | Blush Essencial | Azul Astral | Imbuia Caiapó | Areia Noronha | Branco TX / Branco Eucatex / Branco Multimarcas
+NÃO colapse tudo em Branco TX nas frentes.
+PROIBIDO usar "Jatobá" / "Jatoba Brasileiro" como cor genérica quando a legenda mostra outra cor.
+Fundos 6 mm: Branco TX/Multimarcas na caixa; fundo colorido só se o desenho exigir.
+
+═══ LOTE 1 / LEGENDA — project_sheet_palette[] ═══
+Nas primeiras páginas (capa, legenda, lista de materiais), preencha project_sheet_palette com cada SKU visto:
+{ label, thickness_mm (6|15|18), role: "box_white"|"back_white"|"front_color" }
+Ex.: Branco Eucatex 15 → box_white; Branco Multimarcas 6 → back_white; Imbuia Caiapó 15 → front_color.
+Se não houver legenda nesta página, deixe project_sheet_palette = [] (não invente Jatobá).
 
 Responda só no JSON schema.`
 
@@ -218,11 +226,45 @@ Missão: VERIFICAR, CORRIGIR e REMOVER alucinações — não inventar móveis n
    PROIBIDO promover tipologias de marcenaria (armário, aéreo, balcão, bancada MDF, gaveteiro, nicho, painel, mesa MDF, ilha, prateleira estrutural) a out_of_scope.
    Móvel em MDF/MDP/madeira em qualquer ambiente = sempre orçar e fatiar (laterais, base, prateleiras, divisórias, travessas, fundo 6 mm, frentes na cor).
 7) NÃO complete guarda-roupa/cabeceira que não aparecem nas imagens só porque estão no inventário — remova.
-8) COBERTURA: todo móvel do inventário (âncora) que existir nas imagens DEVE estar na árvore com BOM (chapa). Se faltar, complete ou explique em auditor_notes.
+8) COBERTURA: todo móvel do inventário (âncora) que existir nas imagens DESTE LOTE DEVE estar na árvore com BOM (chapa). Se faltar, complete ou explique em auditor_notes. NÃO exija móveis só citados na capa/índice sem imagem neste lote.
 9) Deduplique peças: laterais ≤ 2 (caixa; ≤ 4 só com divisória lateral real); tampos ≤ 2; portas ≤ ceil(L/300)+2. Se ultrapassar, APAGUE vistas duplicadas (não só avise).
 10) MARCAÇÕES: confira se bounding_box.page bate com o rótulo "PDF página N" da imagem onde o móvel aparece; corrija página e caixa se estiver na folha errada (ex.: Painel TV não pode ficar na vista da cozinha).
 11) HELLOMOB: se existir um único "Guarda Roupas"/"Roupeiro" sem column_widths_mm e frente >1200 mm, SPLIT em colunas/balcões/portas (registre em auditor_notes). Painel liso ≠ ripado.
-12) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$, markup ou preço de venda.`
+12) Devolva a árvore JSON COMPLETA já corrigida (sem os módulos removidos). NÃO invente R$, markup ou preço de venda.
+13) LOTE PARCIAL: se selected_pages estiver no payload, avalie só essas pranchas — proibido marcar suíte/quarto/etc. como faltantes só porque aparecem no inventário-capa.`
+
+/** Addendum dinâmico quando o lote tem selected_pages / page_ranges. */
+export function scopedAuditorPromptAddendum(
+  selectedPages: number[] | null | undefined,
+  pageCount?: number | null,
+): string {
+  if (!Array.isArray(selectedPages) || !selectedPages.length) return ''
+  const pages = [
+    ...new Set(
+      selectedPages.filter(
+        (p): p is number => typeof p === 'number' && Number.isInteger(p) && p > 0,
+      ),
+    ),
+  ].sort((a, b) => a - b)
+  if (!pages.length) return ''
+  const label =
+    pages.length <= 8
+      ? pages.join(', ')
+      : `${pages[0]}-${pages[pages.length - 1]} (${pages.length} págs.)`
+  const totalHint =
+    typeof pageCount === 'number' && pageCount > pages.length
+      ? ` (PDF tem ${pageCount} páginas; este lote cobre só ${pages.length})`
+      : ''
+  return `
+
+═══ ESCOPO DO LOTE (OBRIGATÓRIO) ═══
+Avalie APENAS as pranchas/páginas ${label}${totalHint}.
+PROIBIDO exigir, completar ou marcar como faltante móveis de ambientes/páginas fora desta seleção
+(ex.: suíte/quarto citados só na capa/índice, mas sem imagem neste lote).
+Itens fora do lote ficam para outro lote — não invente BOM nem force cobertura da casa inteira.
+selected_pages=[${pages.join(', ')}]`
+}
+
 /**
  * Desmontador: documentação do bom-engine (determinístico).
  * Não há fase LLM — o Prompt Studio guarda este texto só como referência.

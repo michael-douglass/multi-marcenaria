@@ -601,6 +601,9 @@ export async function resolveMaterialPrice(
  * Reaplica `resolveMaterialPrice` em materiais com preço ≤ 0
  * (orçamentos COMPLETED antigos / reabertura).
  */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export async function repriceZeroMaterials(params: {
   companyId: string
   materials: QuoteMaterialRow[]
@@ -612,11 +615,23 @@ export async function repriceZeroMaterials(params: {
     return { updated: 0, materials: params.materials }
   }
 
+  // Materiais hidratados (virt-mat-*) não existem no banco — não dá UPDATE.
+  // Quem deve regravar é `repersistQuoteAnalysisFromLastExtraction`.
+  const persistable = zeros.filter((m) => UUID_RE.test(m.id))
+  if (!persistable.length) {
+    return {
+      updated: 0,
+      materials: params.materials,
+      error:
+        'Lista só em memória (sem linhas no banco). Use Reauditar ou aguarde a regravação automática.',
+    }
+  }
+
   const next = params.materials.map((m) => ({ ...m }))
   let updated = 0
   const resolver = await createPriceResolver(params.companyId)
 
-  for (const mat of zeros) {
+  for (const mat of persistable) {
     const priceName = mat.raw_name.includes('—')
       ? mat.raw_name.split('—').pop()?.trim() || mat.raw_name
       : mat.raw_name

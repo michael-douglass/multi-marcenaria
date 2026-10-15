@@ -1,0 +1,26 @@
+{
+  "epic": 1,
+  "prd": "v19",
+  "feature": "pdf-processor-strict-page-ranges",
+  "gate": "analyze_javascript_application",
+  "input_path": "F:/Movelaria-Garbo/Movelaria/src/lib/orcamentos-ia",
+  "evidence_id": "ev_713ab494f89ee582569472ed1e98e29f09131253d9bedecd5b0ac2efda6ee0ab",
+  "parent_evidence_id": "ev_69e93184b07f4838693f4cb7b3af647b86c2ee38d517332f2bf60688fa060d8e",
+  "parent_digest": "69e93184b07f4838693f4cb7b3af647b86c2ee38d517332f2bf60688fa060d8e",
+  "artifact_sha256": "40fd0f26f22be7f0505dee959bed46042e24d178f4807ad1f84e01c988987d8f",
+  "checks": {
+    "tsc_noEmit": "ok",
+    "smoke_pdf_processor_strict": "ok",
+    "empty_selection_rejected": true,
+    "assert_batch_paths": "ok",
+    "outside_paths_rejected": true,
+    "edge_page_ranges_filter": "ok",
+    "reprocess_page_numbers": "ok"
+  },
+  "modules": [
+    "src/lib/orcamentos-ia/pdf-processor.ts",
+    "src/lib/orcamentos-ia/pipeline.ts",
+    "supabase/functions/orcamentos-ia-pipeline/index.ts"
+  ],
+  "date": "2026-10-14"
+}

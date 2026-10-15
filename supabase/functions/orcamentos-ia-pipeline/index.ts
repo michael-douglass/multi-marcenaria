@@ -3,6 +3,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import {
   ENGINEERING_MODULAR_AUDITOR,
   ENGINEERING_MODULAR_EXTRACTOR,
+  scopedAuditorPromptAddendum,
 } from '../_shared/engineering-modular-prompts.ts'
 import {
   isClaudeModel,
@@ -254,6 +255,7 @@ function mergeExtractions(parts: unknown[]): AnyRec {
   const environments = new Map<string, AnyRec>()
   const auditorNotes: string[] = []
   const warnings: string[] = []
+  const paletteByKey = new Map<string, AnyRec>()
 
   for (const part of parts) {
     if (!part || typeof part !== 'object') continue
@@ -266,6 +268,20 @@ function mergeExtractions(parts: unknown[]): AnyRec {
     if (Array.isArray(root.warnings)) {
       for (const w of root.warnings) {
         if (typeof w === 'string' && w.trim()) warnings.push(w.trim())
+      }
+    }
+    if (Array.isArray(root.project_sheet_palette)) {
+      for (const row of root.project_sheet_palette) {
+        if (!row || typeof row !== 'object') continue
+        const r = row as AnyRec
+        const label = typeof r.label === 'string' ? r.label.trim() : ''
+        if (!label || /jatob/i.test(label)) continue
+        const th = Number(r.thickness_mm) || 15
+        const role = typeof r.role === 'string' ? r.role : 'front_color'
+        const pkey = `${label.toLowerCase()}|${th}|${role}`
+        if (!paletteByKey.has(pkey)) {
+          paletteByKey.set(pkey, { label, thickness_mm: th, role })
+        }
       }
     }
     for (const env of asObjArray(root.environments)) {
@@ -288,6 +304,7 @@ function mergeExtractions(parts: unknown[]): AnyRec {
     environments: [...environments.values()],
     auditor_notes: [...new Set(auditorNotes)],
     warnings: [...new Set(warnings)],
+    project_sheet_palette: [...paletteByKey.values()],
   }
 }
 
@@ -432,7 +449,11 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
       dimensions_estimated: true,
     })
   }
-  if (!hasFn('tampo') && !hasFn('sarrafo') && openFront) {
+  // Ilha/bancada aberta OU tipologias caixa fechada (HelloMob) — tampo quando faltar
+  const needsTampo =
+    openFront ||
+    /armario|aereo|gaveteiro|roupeiro|guarda.?roupa|torre|cristaleira/.test(nameKey)
+  if (!hasFn('tampo') && !hasFn('sarrafo') && !hasFn('travessa') && needsTampo) {
     push({
       name: 'Tampo',
       function: 'tampo',
@@ -441,14 +462,16 @@ function enrichMinimalCaixaria(mod: AnyRec): AnyRec {
       thickness_mm: thickness,
       material_name: mat,
       quantity: 1,
-      edge_banding: {
-        C1: true,
-        C2: true,
-        L1: true,
-        L2: true,
-        tape_name: 'Fita 22 mm',
-        meters: Math.round(((2 * (w + d)) / 1000) * 1000) / 1000,
-      },
+      edge_banding: openFront
+        ? {
+            C1: true,
+            C2: true,
+            L1: true,
+            L2: true,
+            tape_name: 'Fita 22 mm',
+            meters: Math.round(((2 * (w + d)) / 1000) * 1000) / 1000,
+          }
+        : { ...bandFront, meters: Math.round((w / 1000) * 1000) / 1000 },
       dimensions_estimated: true,
     })
   }
@@ -751,8 +774,8 @@ function sanitizeInventory(inventory: InventoryEnv[]): InventoryEnv[] {
       .filter((m) => {
         const modKey = normalizeKey(m)
         if (/^ferragens?$/.test(modKey)) return false
+        // Quarto em ambiente social: remove. Armário/organizador em lavanderia: mantém.
         if (BEDROOM_ONLY_RE.test(modKey) && SOCIAL_ENV_RE.test(envKey)) return false
-        if (/lavanderia/.test(envKey) && !/lavanderia|tanque|maquina|máquina/.test(modKey)) return false
         return true
       })
     const prev = byKey.get(envKey)
@@ -781,6 +804,128 @@ function sanitizeInventory(inventory: InventoryEnv[]): InventoryEnv[] {
       )
   }
   return cleaned
+}
+
+/** Amplia inventário-âncora com módulos cobráveis já extraídos (evita cobertura falsa). */
+function expandInventoryFromExtraction(
+  inventory: InventoryEnv[],
+  extraction: AnyRec | unknown,
+): InventoryEnv[] {
+  const fromExtraction: InventoryEnv[] = []
+  const root =
+    extraction && typeof extraction === 'object' ? (extraction as AnyRec) : null
+  for (const env of asObjArray(root?.environments)) {
+    const envName = typeof env.name === 'string' ? env.name.trim() : ''
+    if (!envName) continue
+    const modules: string[] = []
+    for (const mod of asObjArray(env.modules)) {
+      if (mod.out_of_scope === true) continue
+      const modName = typeof mod.name === 'string' ? mod.name.trim() : ''
+      if (modName) modules.push(modName)
+    }
+    if (modules.length) {
+      fromExtraction.push({ environment: envName, modules: [...new Set(modules)] })
+    }
+  }
+  return sanitizeInventory([...(inventory || []), ...fromExtraction])
+}
+
+/**
+ * Quando a página é só render/ilustração, o modelo devolve environments [].
+ * Injeta móveis do inventário com cotas estimadas para o lote não falhar no client.
+ */
+function injectInventoryAsEstimatedModules(
+  extraction: AnyRec,
+  inventory: InventoryEnv[],
+  pageHint?: number | null,
+): AnyRec {
+  const environments: AnyRec[] = []
+  for (const inv of inventory) {
+    const envName = typeof inv.environment === 'string' ? inv.environment.trim() : ''
+    if (!envName) continue
+    const modules: AnyRec[] = []
+    for (const modNameRaw of inv.modules || []) {
+      const modName = typeof modNameRaw === 'string' ? modNameRaw.trim() : ''
+      if (!modName) continue
+      const stub = enrichMinimalCaixaria({
+        name: modName,
+        description: `Estimado a partir do inventário (página sem cotas técnicas).`,
+        dimensions: { width_mm: 800, height_mm: 720, depth_mm: 560 },
+        dimensions_estimated: true,
+        caixaria: [],
+        frentes_portas: [],
+        ferragens: [],
+        fitas_borda_m: [],
+        auditor_notes: [
+          'Injetado: extrator devolveu environments vazio em página ilustrativa/render.',
+        ],
+        bounding_box:
+          typeof pageHint === 'number' && pageHint >= 1
+            ? { page: pageHint, x: 0.05, y: 0.05, width: 0.9, height: 0.9 }
+            : null,
+      })
+      modules.push(stub)
+    }
+    if (modules.length) environments.push({ name: envName, modules })
+  }
+  if (!environments.length) return extraction
+  const warnings = Array.isArray(extraction.warnings)
+    ? [...(extraction.warnings as unknown[])]
+    : []
+  warnings.push(
+    'Módulos injetados do inventário com cotas estimadas (página sem desenho executivo). Confira na auditoria.',
+  )
+  const notes = Array.isArray(extraction.auditor_notes)
+    ? [...(extraction.auditor_notes as unknown[])]
+    : []
+  notes.push('Injeção de inventário após environments vazio (anti-FAILED Too small).')
+  return {
+    ...extraction,
+    environments,
+    warnings: [...new Set(warnings.map(String))],
+    auditor_notes: [...new Set(notes.map(String))],
+  }
+}
+
+/** Preferir árvore mais rica na auditoria incremental (não apagar módulos com BOM). */
+function mergeEnvPreferRicher(prevEnv: AnyRec, nextEnv: AnyRec): AnyRec {
+  const prevMods = asObjArray(prevEnv.modules)
+  const nextMods = asObjArray(nextEnv.modules)
+  if (!prevMods.length) return { ...prevEnv, ...nextEnv, modules: nextMods }
+  if (!nextMods.length) return prevEnv
+
+  const pieceScore = (mod: AnyRec) => {
+    const cx = asObjArray(mod.caixaria).length
+    const fr = asObjArray(mod.frentes_portas).length
+    const gv = asObjArray(mod.gavetas).length
+    return cx + fr + gv + (mod.out_of_scope === true ? 0 : 1)
+  }
+
+  const byKey = new Map<string, AnyRec>()
+  for (const mod of prevMods) {
+    const name = typeof mod.name === 'string' ? normalizeKey(mod.name) : ''
+    if (name) byKey.set(name, mod)
+  }
+  for (const mod of nextMods) {
+    const name = typeof mod.name === 'string' ? normalizeKey(mod.name) : ''
+    if (!name) continue
+    const prev = byKey.get(name)
+    if (!prev || pieceScore(mod) >= pieceScore(prev)) byKey.set(name, mod)
+  }
+  // Mantém módulos do prev que o auditor omitiu (só se tiverem peças ou não forem OOS)
+  for (const mod of prevMods) {
+    const name = typeof mod.name === 'string' ? normalizeKey(mod.name) : ''
+    if (!name || byKey.has(name)) continue
+    if (mod.out_of_scope === true && pieceScore(mod) === 0) continue
+    byKey.set(name, mod)
+  }
+
+  return {
+    ...prevEnv,
+    ...nextEnv,
+    name: typeof nextEnv.name === 'string' && nextEnv.name.trim() ? nextEnv.name : prevEnv.name,
+    modules: [...byKey.values()],
+  }
 }
 
 /** Lock dormitório + Lavabo/Gourmet — ver `_shared/rebalance-environments.ts`. */
@@ -1178,6 +1323,19 @@ const EXTRACTOR_SCHEMA = {
     },
     auditor_notes: { type: 'array', items: { type: 'string' } },
     warnings: { type: 'array', items: { type: 'string' } },
+    project_sheet_palette: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['label', 'thickness_mm', 'role'],
+        properties: {
+          label: { type: 'string' },
+          thickness_mm: { type: 'number', enum: [6, 15, 18] },
+          role: { type: 'string', enum: ['box_white', 'back_white', 'front_color'] },
+        },
+      },
+    },
   },
 }
 
@@ -1494,6 +1652,10 @@ Deno.serve(async (req) => {
 
     const patchTotals = async (patch: Record<string, unknown>, status?: string) => {
       const prev = await readTotals()
+      // Usuário pediu interrupção: não deixar ticks antigos “ressuscitar” a cadeia.
+      if (prev.async_chain_status === 'cancelled') {
+        return prev
+      }
       const next = { ...prev, ...patch, pipeline_updated_at: new Date().toISOString() }
       const upd: Record<string, unknown> = {
         totals: next,
@@ -1502,6 +1664,21 @@ Deno.serve(async (req) => {
       if (status) upd.status = status
       await admin.from('quote_analyses').update(upd).eq('id', body.analysisId)
       return next
+    }
+
+    const isCancelled = async (): Promise<boolean> => {
+      const { data } = await admin
+        .from('quote_analyses')
+        .select('status, error_message, totals')
+        .eq('id', body.analysisId)
+        .maybeSingle()
+      const tot =
+        data?.totals && typeof data.totals === 'object'
+          ? (data.totals as Record<string, unknown>)
+          : {}
+      if (tot.async_chain_status === 'cancelled') return true
+      const err = String(data?.error_message || '')
+      return /interrompid/i.test(err)
     }
 
     const countModules = (extraction: AnyRec): number => {
@@ -1605,7 +1782,7 @@ Deno.serve(async (req) => {
 
     const promptPack = await loadActivePromptOverrides(admin, body.companyId)
     const systemExtractor = promptPack.extractor
-    const systemAuditor = promptPack.auditor
+    let systemAuditor = promptPack.auditor
     console.log(
       `[orcamentos-ia-pipeline] mode=${mode} extraction=${extractionKey} phase=${phase} extractor=${EXTRACTOR_MODEL} parser=${PARSER_MODEL} auditor=${AUDITOR_MODEL} anthropic=${Boolean(anthropicKey)} openai=${Boolean(openAiKey)} claudeFallbackBlocked=${isClaudeModel(EXTRACTOR_MODEL)}`,
     )
@@ -1618,6 +1795,48 @@ Deno.serve(async (req) => {
         : []
       paths = stored.slice(0, MAX_PAGES)
     }
+
+    // Escopo estrito: se o lote tem page_ranges/selected_pages, só esses paths vão à LLM.
+    const totForRanges = await readTotals()
+    const rawRanges = totForRanges.page_ranges ?? totForRanges.selected_pages
+    const selectedPagesForAudit = Array.isArray(rawRanges)
+      ? [
+          ...new Set(
+            rawRanges.filter(
+              (p): p is number => typeof p === 'number' && Number.isInteger(p) && p > 0,
+            ),
+          ),
+        ].sort((a, b) => a - b)
+      : []
+    if (selectedPagesForAudit.length) {
+      const wanted = new Set(selectedPagesForAudit)
+      const pageNum = (path: string): number | null => {
+        const m = path.match(/page-(\d+)\.(?:png|jpe?g|webp)$/i)
+        if (!m) return null
+        const n = Number(m[1])
+        return Number.isFinite(n) && n >= 1 ? n : null
+      }
+      const filtered = paths.filter((p) => {
+        const n = pageNum(p)
+        return n != null && wanted.has(n)
+      })
+      if (!filtered.length) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: `page_paths vazios após filtro page_ranges (${selectedPagesForAudit.join(', ')}). Abortado (fail-closed).`,
+          },
+          400,
+        )
+      }
+      paths = filtered.slice(0, MAX_PAGES)
+    }
+    systemAuditor += scopedAuditorPromptAddendum(
+      selectedPagesForAudit,
+      typeof totForRanges.pages_total === 'number'
+        ? Number(totForRanges.pages_total)
+        : paths.length,
+    )
     type VisionImage = { type: 'image_url'; image_url: { url: string }; path: string }
     const imageCache = new Map<string, VisionImage>()
 
@@ -1718,6 +1937,25 @@ Deno.serve(async (req) => {
           ? Math.floor(body.resumeFromPage)
           : 0
       const prev = await readTotals()
+      // Idempotente: se a cadeia já terminou OU ainda corre, não reinicia em paralelo.
+      if (
+        resumeFrom <= 0 &&
+        (prev.async_chain_status === 'ready_for_pricing' ||
+          prev.async_chain_status === 'running') &&
+        prev.partial_extraction &&
+        typeof prev.partial_extraction === 'object' &&
+        (countModules(prev.partial_extraction as AnyRec) > 0 ||
+          prev.async_chain_status === 'running')
+      ) {
+        return jsonResponse({
+          ok: true,
+          phase,
+          status: prev.async_chain_status === 'ready_for_pricing' ? 'READY' : 'EXTRACTING',
+          analysisId: body.analysisId,
+          async_chain_status: prev.async_chain_status,
+          skipped_restart: true,
+        })
+      }
       const keepPartial =
         resumeFrom > 0 && prev.partial_extraction && typeof prev.partial_extraction === 'object'
       const partial = keepPartial
@@ -1777,6 +2015,17 @@ Deno.serve(async (req) => {
       }
 
       const totals = await readTotals()
+      if (
+        totals.async_chain_status === 'cancelled' ||
+        (await isCancelled())
+      ) {
+        return jsonResponse({
+          ok: true,
+          phase: 'chain_tick',
+          cancelled: true,
+          async_chain_status: 'cancelled',
+        })
+      }
       const ragFromTotals =
         typeof totals.rag_memories_prompt === 'string' ? totals.rag_memories_prompt.trim() : ''
       const ragEffective = ragBlock || (ragFromTotals ? `\n\n${ragFromTotals}` : '')
@@ -1812,7 +2061,8 @@ Deno.serve(async (req) => {
               {
                 type: 'text',
                 text: `Estas são ${coverImages.length} páginas representativas de um PDF com ${paths.length} páginas.
-Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.`,
+Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.
+Em PDF grande (≥20 págs.), espere vários ambientes (cozinha/gourmet, lavabo, lavanderia, home office, área de serviço, quarto…) — não resuma em 2–3 itens.`,
               },
               ...coverImages,
             ],
@@ -1820,11 +2070,44 @@ Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.`,
             schema: INVENTORY_SCHEMA,
             maxTokens: 4000,
           })
-          const inventory = sanitizeInventory(
+          let inventory = sanitizeInventory(
             Array.isArray(inventoryCall.json.inventory)
               ? (inventoryCall.json.inventory as InventoryEnv[])
               : [],
           )
+          // 2ª passada (detalhamentos) — mesma lógica do phase inventory síncrono
+          if (paths.length >= 8) {
+            const detailSlice = signedContents.slice(Math.floor(signedContents.length / 2))
+            const detailImages = await imagesOnly(pickInventoryContents(detailSlice, 6))
+            try {
+              const detailCall = await callLlm({
+                model: PARSER_MODEL,
+                system: SYSTEM_INVENTORY,
+                userContent: [
+                  {
+                    type: 'text',
+                    text: `Inventário atual:
+${formatInventoryText(inventory)}
+
+Olhe estas pranchas de DETALHAMENTO. Se houver ambientes/módulos faltando (ex.: Lavabo, home office, área de serviço, porta, armário, mesa), devolva o inventário COMPLETO atualizado.
+Não apague ambientes já listados sem motivo. Não invente Lavanderia sem tanque/máquina.`,
+                  },
+                  ...detailImages,
+                ],
+                schemaName: 'quote_inventory',
+                schema: INVENTORY_SCHEMA,
+                maxTokens: 4000,
+              })
+              const detailInv = Array.isArray(detailCall.json.inventory)
+                ? (detailCall.json.inventory as InventoryEnv[])
+                : []
+              if (detailInv.length > 0) {
+                inventory = sanitizeInventory([...inventory, ...detailInv])
+              }
+            } catch (detailErr) {
+              console.warn('[chain] inventory detail pass failed:', detailErr)
+            }
+          }
           await patchTotals(
             {
               inventory,
@@ -1863,17 +2146,26 @@ Liste ambientes SEPARADOS e só módulos de marcenaria realmente visíveis.`,
           const path = paths[pageIndex]
           const pageContents = signedContents.filter((c) => c.path === path)
           const pageNum = pageIndex + 1
+          // Nº absoluto no PDF (page-004 → 4), não o índice 1..N do lote.
+          const absPage = pdfPageFromPath(path) ?? pageNum
+          const absPages = paths
+            .map((p) => pdfPageFromPath(p))
+            .filter((n): n is number => n != null)
+          const absLabel =
+            absPages.length === paths.length && absPages.length > 0
+              ? absPages.length <= 6
+                ? absPages.join(', ')
+                : `${absPages[0]}–${absPages[absPages.length - 1]}`
+              : `${pageNum}`
           const lotSizeUi = CHECKPOINT_EVERY_PAGES
           const totalLotsUi = Math.max(1, Math.ceil(paths.length / lotSizeUi))
           const currentLotUi = Math.min(totalLotsUi, Math.floor(pageIndex / lotSizeUi) + 1)
-          const lotStartUi = (currentLotUi - 1) * lotSizeUi + 1
-          const lotEndUi = Math.min(paths.length, currentLotUi * lotSizeUi)
           await setStage(
             admin,
             body.analysisId,
             'EXTRACTING_MODULES',
             'extracting_batch',
-            `Lote ${currentLotUi}/${totalLotsUi} (págs. ${lotStartUi}–${lotEndUi}): lendo página ${pageNum} de ${paths.length}…`,
+            `Lote ${currentLotUi}/${totalLotsUi} (PDF págs. ${absLabel}): lendo página ${absPage} (${pageNum}/${paths.length} deste lote)…`,
             'vision',
           )
 
@@ -1898,7 +2190,11 @@ ${inventoryText}
 
 Extraia APENAS o que estiver VISÍVEL nesta página.
 bounding_box.page = índice PDF desta imagem.
-Não invente móveis de outras páginas.`,
+Não invente móveis de outras páginas.
+
+REGRA ANTI-VAZIO: se a página for render/foto/ilustração SEM cotas, AINDA ASSIM liste os móveis VISÍVEIS
+(ou os do inventário que aparecem nesta imagem) com dimensions_estimated=true e cotas tipológicas.
+PROIBIDO devolver environments: [] quando há mobiliário visível ou inventário correspondente nesta página.`,
                 },
                 ...(await labeledImagesForVision(
                   pageContents.length ? pageContents : [{ ...signedContents[0], path }],
@@ -1908,10 +2204,17 @@ Não invente móveis de outras páginas.`,
               schema: EXTRACTOR_SCHEMA,
               maxTokens: 8000,
             })
-            const pageExtraction = rebalanceEnvironments(
+            let pageExtraction = rebalanceEnvironments(
               ensurePlaceholders(mergeExtractions([batchCall.json])),
               inventory,
             )
+            // Página só ilustrativa: modelo às vezes devolve []. Injeta inventário como stub.
+            if (
+              asObjArray(pageExtraction.environments).length === 0 &&
+              inventory.length > 0
+            ) {
+              pageExtraction = injectInventoryAsEstimatedModules(pageExtraction, inventory, absPage)
+            }
             merged = rebalanceEnvironments(
               ensurePlaceholders(mergeExtractions([prevPartial, pageExtraction])),
               inventory,
@@ -2028,18 +2331,47 @@ Não invente móveis de outras páginas.`,
           }
 
           if (envIndex >= envs.length) {
+            // Revalida: ambientes novos (merge) ainda sem auditoria → continua, não marca ready cedo
+            const unauditedIdx = envs.findIndex((e) => {
+              const name = typeof e.name === 'string' ? String(e.name) : ''
+              return Boolean(name) && !audited.includes(name)
+            })
+            if (unauditedIdx >= 0) {
+              enqueueChain({
+                phase: 'chain_tick',
+                chainStep: 'audit',
+                envIndex: unauditedIdx,
+                pagePaths: paths,
+              })
+              return jsonResponse({
+                ok: true,
+                phase: 'chain_tick',
+                chainStep: 'audit',
+                resumed_unaudited: true,
+                envIndex: unauditedIdx,
+              })
+            }
             // Cadeia concluída → client cotará
-            // Cliente consolidará BOM e só então buscará preços — não antecipar FETCHING_MARKET_PRICES.
+            // Amplia inventário com o que foi extraído (capa curta não pode “fechar” cobertura).
+            let finalExtraction = extraction
+            if (asObjArray(finalExtraction.environments).length === 0 && inventory.length > 0) {
+              finalExtraction = injectInventoryAsEstimatedModules(
+                finalExtraction,
+                inventory,
+                pdfPageFromPath(paths[0] || '') || 1,
+              )
+            }
+            const fullInventory = expandInventoryFromExtraction(inventory, finalExtraction)
             await patchTotals(
               {
-                partial_extraction: extraction,
-                inventory,
-                coverage: buildCoverage(inventory, extraction),
+                partial_extraction: finalExtraction,
+                inventory: fullInventory,
+                coverage: buildCoverage(fullInventory, finalExtraction),
                 async_chain_status: 'ready_for_pricing',
                 pipeline_stage: 'pricing_pending',
                 pipeline_detail:
                   'Extração e auditoria prontas — montando lista de materiais do projeto…',
-                modules_found_count: countModules(extraction),
+                modules_found_count: countModules(finalExtraction),
                 current_page: paths.length,
                 total_pages: paths.length,
               },
@@ -2099,6 +2431,7 @@ Não invente móveis de outras páginas.`,
                   text: `AUDITORIA INCREMENTAL — ambiente "${envName}" apenas.
 Devolva a árvore CORRIGIDA só deste ambiente (environments com 1 item).
 Não apague módulos evidentes nas imagens. Complete BOM se faltar.
+${selectedPagesForAudit.length ? `selected_pages=[${selectedPagesForAudit.join(', ')}]` : ''}
 
 INVENTÁRIO:
 ${inventoryText}
@@ -2114,10 +2447,10 @@ ${JSON.stringify(envOnly).slice(0, 40000)}`,
             })
 
             const auditedEnv = ensurePlaceholders(auditCall.json)
-            // Substitui só o ambiente auditado na árvore global
+            // Substitui só o ambiente auditado — preferindo módulos com mais peças (anti-apagão)
             const auditedEnvsList = asObjArray(auditedEnv.environments)
             if (auditedEnvsList.length) {
-              const replacement = auditedEnvsList[0]
+              const replacement = mergeEnvPreferRicher(envs[envIndex] || {}, auditedEnvsList[0])
               const nextEnvs = envs.map((e, i) => (i === envIndex ? replacement : e))
               extraction = ensurePlaceholders({
                 ...extraction,

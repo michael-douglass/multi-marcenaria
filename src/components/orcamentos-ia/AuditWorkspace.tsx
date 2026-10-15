@@ -17,8 +17,10 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  RotateCcw,
   Box,
   FileText,
+  Square,
   Tags,
   ZoomIn,
   ZoomOut,
@@ -35,6 +37,7 @@ import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs'
 import {
   getSignedPdfUrl,
   getSignedQuotePageUrls,
+  isVirtualHydratedId,
   loadQuoteAnalysisTree,
   pageIndexFromStoragePath,
   updateQuoteMaterial,
@@ -48,18 +51,18 @@ import { AuditChatWidget } from '@/components/orcamentos-ia/AuditChatWidget'
 import { CompanyMemoriesModal } from '@/components/orcamentos-ia/CompanyMemoriesModal'
 import { AuditCockpit } from '@/components/orcamentos-ia/AuditCockpit'
 import { PromptStudioModal } from '@/components/orcamentos-ia/PromptStudioModal'
-import { ModuleXrayScene } from '@/components/orcamentos-ia/ModuleXrayScene'
+import { RaioX3D } from '@/components/orcamentos-ia/RaioX3D'
 import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCanvas'
 import { QuotePresentationExportButton } from '@/components/orcamentos-ia/QuotePresentationExportButton'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { listBomItemsForProject } from '@/lib/orcamentos-ia/bom-persist'
 import {
+  buildAtomicPieces,
   explodeFromExtractionModule,
   explodeModule,
   formatLabelsForPrint,
   inferTypology,
   type BomLine,
-  type CutPiece,
   type IndustrialLabel,
 } from '@/lib/orcamentos-ia/bom-engine'
 import { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
@@ -76,9 +79,27 @@ import {
 } from '@/components/orcamentos-ia/audit-display'
 import {
   reauditOrcamentosIaAnalysis,
+  repersistQuoteAnalysisFromLastExtraction,
   reprocessOrcamentosIaPipeline,
 } from '@/lib/orcamentos-ia/pipeline'
-import { formatAsyncPageProgress } from '@/lib/orcamentos-ia/storage'
+import {
+  cancelOrcamentosIaAnalysis,
+  formatAsyncPageProgress,
+  getQuoteProject,
+  listQuoteAnalysesForProject,
+  type PipelineStageId,
+  type QuoteAnalysisRow,
+  type QuoteAnalysisStatus,
+  type QuoteProjectRow,
+  type ThoughtLogEntry,
+} from '@/lib/orcamentos-ia/storage'
+import { AiThoughtConsole } from '@/components/orcamentos-ia/AiThoughtConsole'
+import {
+  ProjectFolderTabs,
+  type FolderViewMode,
+} from '@/components/orcamentos-ia/ProjectFolderTabs'
+import { formatPageRanges } from '@/lib/orcamentos-ia/page-ranges'
+import { pageNumbersFromTotals } from '@/lib/orcamentos-ia/pdf-processor'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
 import {
   buildShoppingList,
@@ -177,7 +198,11 @@ function ensurePdfWorker() {
 interface AuditWorkspaceProps {
   analysisId: string
   companyId: string
+  /** Pasta quote_projects — se omitido, resolve via analysis.project_id. */
+  projectId?: string | null
   onBack?: () => void
+  /** Troca o lote ativo na URL/lista (histórico da pasta). */
+  onOpenBatch?: (analysisId: string) => void
 }
 
 type Selection =
@@ -185,10 +210,19 @@ type Selection =
   | { kind: 'material'; material: QuoteMaterialRow; module: QuoteModuleRow }
   | null
 
-export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspaceProps) {
+export function AuditWorkspace({
+  analysisId,
+  companyId,
+  projectId: projectIdProp = null,
+  onBack,
+  onOpenBatch,
+}: AuditWorkspaceProps) {
   const { empresa } = useEmpresa()
   const [tree, setTree] = useState<QuoteAnalysisDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [folderProject, setFolderProject] = useState<QuoteProjectRow | null>(null)
+  const [folderBatches, setFolderBatches] = useState<QuoteAnalysisRow[]>([])
+  const [folderViewMode, setFolderViewMode] = useState<FolderViewMode>('history')
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pageCount, setPageCount] = useState(0)
   const [pageNumber, setPageNumber] = useState(1)
@@ -204,6 +238,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const [pricingParams, setPricingParams] = useState<PricingParams>(DEFAULT_PRICING_PARAMS)
   const [showShoppingList, setShowShoppingList] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [reauditing, setReauditing] = useState(false)
   const [showOutOfScope, setShowOutOfScope] = useState(false)
   const [memoriesOpen, setMemoriesOpen] = useState(false)
@@ -225,6 +260,8 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const pendingFocusRef = useRef<{ cx: number; cy: number; zoom: number } | null>(null)
+  /** Evita disparar regravação duas vezes no mesmo lote (Strict Mode / reload). */
+  const repersistAttemptedRef = useRef<string | null>(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -237,12 +274,45 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
     let treeData = data
     const flatMats = data.environments.flatMap((e) => e.modules.flatMap((m) => m.materials))
-    const hasBillableZeros = flatMats.some(isBillableUnpriced)
+    const hasVirtualTree =
+      flatMats.length > 0 && flatMats.every((m) => isVirtualHydratedId(m.id))
 
-    if (hasBillableZeros) {
-      const repriced = await repriceZeroMaterials({
+    // Extração existe, mas ambientes/materiais sumiram do banco → regrava preços de verdade.
+    if (hasVirtualTree && repersistAttemptedRef.current !== analysisId) {
+      repersistAttemptedRef.current = analysisId
+      toast.message('Regravando lista e preços deste lote…', {
+        description: 'Os itens estavam só em memória; isso corrige o alerta falso de “sem preço”.',
+      })
+      const repaired = await repersistQuoteAnalysisFromLastExtraction({
+        analysisId,
         companyId: data.company_id,
-        materials: flatMats,
+      })
+      if (repaired.ok) {
+        toast.success(
+          `Lista regravada${
+            repaired.materialsSaved != null && repaired.materialsSaved > 0
+              ? ` (${repaired.materialsSaved} itens)`
+              : ''
+          }.`,
+        )
+        const again = await loadQuoteAnalysisTree(analysisId)
+        if (again.data) treeData = again.data
+      } else {
+        toast.error(repaired.error || 'Não foi possível regravar os preços deste lote.')
+        repersistAttemptedRef.current = null
+      }
+    }
+
+    const flatAfter = treeData.environments.flatMap((e) =>
+      e.modules.flatMap((m) => m.materials),
+    )
+    const hasBillableZeros = flatAfter.some(isBillableUnpriced)
+    const stillVirtual = flatAfter.some((m) => isVirtualHydratedId(m.id))
+
+    if (hasBillableZeros && !stillVirtual) {
+      const repriced = await repriceZeroMaterials({
+        companyId: treeData.company_id,
+        materials: flatAfter,
       })
       if (repriced.error) {
         toast.error(`Falha ao preencher preços zerados: ${repriced.error}`)
@@ -252,8 +322,8 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         )
         const byId = new Map(repriced.materials.map((m) => [m.id, m]))
         treeData = {
-          ...data,
-          environments: data.environments.map((env) => ({
+          ...treeData,
+          environments: treeData.environments.map((env) => ({
             ...env,
             modules: env.modules.map((mod) => ({
               ...mod,
@@ -302,7 +372,18 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       else toast.error(signed.error || 'PDF não encontrado no Storage.')
     }
 
-    const pages = await getSignedQuotePageUrls(companyId, analysisId, 300)
+    const totalsPaths = Array.isArray(totals.page_paths)
+      ? (totals.page_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+      : null
+    const resolvedProjectId =
+      projectIdProp ||
+      treeData.project_id ||
+      (typeof totals.project_id === 'string' ? totals.project_id : null)
+
+    const pages = await getSignedQuotePageUrls(companyId, analysisId, 300, {
+      projectId: resolvedProjectId,
+      preferredPaths: totalsPaths,
+    })
     if (!pages.error && pages.pages.length) {
       setPageImages(pages.pages)
       setPageCount((prev) => Math.max(prev, pages.pages.length))
@@ -313,8 +394,21 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       }
     }
 
+    if (resolvedProjectId) {
+      const [proj, batches] = await Promise.all([
+        getQuoteProject(resolvedProjectId),
+        listQuoteAnalysesForProject(resolvedProjectId),
+      ])
+      setFolderProject(proj.data)
+      setFolderBatches(batches.data)
+      if (batches.data.length > 1) setFolderViewMode('consolidated')
+    } else {
+      setFolderProject(null)
+      setFolderBatches([])
+    }
+
     setLoading(false)
-  }, [analysisId, companyId])
+  }, [analysisId, companyId, projectIdProp])
 
   useEffect(() => {
     void reload()
@@ -456,8 +550,12 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       page: number | null
       bbox: QuoteBoundingBox | null
       pageImagePath?: string | null
+      /** Mantém Raio-X aberto (não força volta ao PDF). */
+      preserveViewerMode?: boolean
     }) => {
-      setViewerMode('pdf')
+      if (!opts.preserveViewerMode) {
+        setViewerMode('pdf')
+      }
       const pageFromPath = pageNumberFromImagePath(opts.pageImagePath)
       const page =
         (opts.page && opts.page >= 1 ? opts.page : null) ?? pageFromPath
@@ -582,8 +680,21 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     return selection.kind === 'module' ? selection.module : selection.module
   }, [selection])
 
-  const xrayExplode = useMemo(() => {
-    if (!selectedModule || !tree) return null
+  const xrayAtomic = useMemo(() => {
+    if (!selectedModule) return null
+    const totals = (tree?.totals as Record<string, unknown> | undefined) ?? {}
+    return buildAtomicPieces({
+      module: selectedModule,
+      lastExtraction: totals.last_extraction,
+    })
+  }, [selectedModule, tree?.totals])
+
+  const atomic_pieces = xrayAtomic?.atomic_pieces ?? []
+
+  /** Etiquetas industriais: do explode do builder, ou desmonte local se a fonte foi lista/extração. */
+  const industrialLabels: IndustrialLabel[] = useMemo(() => {
+    if (xrayAtomic?.explode?.labels?.length) return xrayAtomic.explode.labels
+    if (!selectedModule || !tree) return []
     const env = tree.environments.find((e) =>
       e.modules.some((m) => m.id === selectedModule.id),
     )
@@ -594,17 +705,14 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         room_tag: env?.name,
       },
       null,
-    )
-  }, [selectedModule, tree])
-
-  const xrayPieces: CutPiece[] = xrayExplode?.pieces ?? []
-  const industrialLabels: IndustrialLabel[] = xrayExplode?.labels ?? []
+    ).labels
+  }, [xrayAtomic, selectedModule, tree])
 
   const cockpitBlocks = useMemo(() => {
     const bom =
       bomLines.length > 0
         ? bomLines
-        : xrayPieces.length
+        : atomic_pieces.length
           ? explodeModule({
               name: selectedModule?.name ?? 'Módulo',
               typology: inferTypology(selectedModule?.name ?? ''),
@@ -622,7 +730,7 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       promptTraces: Array.isArray(totals.prompt_traces) ? (totals.prompt_traces as unknown[]) : [],
       extractionSnippet: totals.last_extraction ?? null,
     })
-  }, [bomLines, engineeringCot, pricingParams, selectedModule, tree?.totals, xrayPieces.length])
+  }, [bomLines, engineeringCot, pricingParams, selectedModule, tree?.totals, atomic_pieces.length])
 
   const shoppingList = useMemo(
     () =>
@@ -657,28 +765,89 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     return { ...report, extras: report.extras ?? [] }
   }, [tree])
 
+  const batchPageRanges = useMemo(() => {
+    const totals = tree?.totals
+    if (!totals || typeof totals !== 'object') return [] as number[]
+    return pageNumbersFromTotals(totals as Record<string, unknown>)
+  }, [tree])
+
+  const coverageScope = useMemo((): 'batch' | 'project' | null => {
+    const raw = tree?.totals?.coverage_scope
+    if (raw === 'batch' || raw === 'project') return raw
+    return batchPageRanges.length ? 'batch' : null
+  }, [tree, batchPageRanges])
+
+  const batchScopeBanner = useMemo(() => {
+    if (!batchPageRanges.length) return null
+    const totals = tree?.totals
+    const label =
+      totals && typeof totals === 'object' && typeof totals.batch_label === 'string'
+        ? totals.batch_label.trim()
+        : formatPageRanges(batchPageRanges)
+    return label || formatPageRanges(batchPageRanges)
+  }, [batchPageRanges, tree])
+
   const auditorNotes = useMemo(() => {
     const raw = tree?.totals?.auditor_notes
     return Array.isArray(raw) ? raw.filter((n): n is string => typeof n === 'string') : []
   }, [tree])
 
-  const handleReprocess = async () => {
-    if (reprocessing) return
+  const handleReprocess = async (fromScratch = false) => {
+    if (reprocessing || cancelling) return
     const ok = window.confirm(
-      'Reprocessar / Retomar este PDF? Se já houver checkpoint de página, continua de onde parou (anti-504).',
+      fromScratch
+        ? 'Recomeçar do ZERO? Apaga o progresso parcial, o checkpoint e a lista já salva — e lê o PDF de novo desde a página 1.'
+        : 'Reprocessar / Retomar este PDF? Se já houver checkpoint de página, continua de onde parou (anti-504).',
     )
     if (!ok) return
     setReprocessing(true)
-    toast.message('Retomando / reprocessando… a cadeia async lê 1 página por vez.')
-    const result = await reprocessOrcamentosIaPipeline({ analysisId, companyId })
+    toast.message(
+      fromScratch
+        ? 'Recomeçando do zero…'
+        : 'Retomando / reprocessando… a cadeia async lê 1 página por vez.',
+    )
+    const result = await reprocessOrcamentosIaPipeline({
+      analysisId,
+      companyId,
+      fromScratch,
+    })
     setReprocessing(false)
     if (!result.ok) {
-      toast.error(result.error || 'Falha ao reprocessar.')
+      if (/interrompid/i.test(result.error || '')) {
+        toast.message('Leitura interrompida', {
+          description: 'Use Retomar ou Recomeçar do zero quando quiser continuar.',
+        })
+      } else {
+        toast.error(result.error || 'Falha ao reprocessar.')
+      }
+      await reload()
       return
     }
     toast.success(
       `Concluído${result.materialsSaved != null ? ` (${result.materialsSaved} materiais)` : ''}.`,
     )
+    await reload()
+  }
+
+  const handleCancel = async () => {
+    if (cancelling || reauditing) return
+    if (
+      !window.confirm(
+        'Interromper a leitura agora? O progresso parcial fica salvo para Retomar.',
+      )
+    ) {
+      return
+    }
+    setCancelling(true)
+    const result = await cancelOrcamentosIaAnalysis(analysisId)
+    setCancelling(false)
+    if (!result.ok) {
+      toast.error(result.error || 'Não foi possível interromper.')
+      return
+    }
+    toast.message('Leitura interrompida', {
+      description: 'Use Retomar ou Recomeçar do zero quando quiser continuar.',
+    })
     await reload()
   }
 
@@ -751,6 +920,33 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
       pageImagePath: module.page_image_path,
     })
     broadcast({ type: 'select', selectionId: module.id })
+  }
+
+  /** Primeiro móvel de marcenaria (ignora pedra/decoração fora de escopo). */
+  const firstBillableModule = useMemo((): QuoteModuleRow | null => {
+    for (const env of tree?.environments ?? []) {
+      const mod = env.modules.find((m) => !m.out_of_scope)
+      if (mod) return mod
+    }
+    return tree?.environments?.[0]?.modules?.[0] ?? null
+  }, [tree])
+
+  const openXrayViewer = () => {
+    const mod = selectedModule ?? firstBillableModule
+    if (!mod) {
+      toast.message('Nenhum módulo na árvore para o Raio-X.')
+      return
+    }
+    // Seleciona o módulo sem chamar focusSelectionOnViewer (que forçava PDF e
+    // anulava o clique em Raio-X).
+    if (!selectedModule || selectedModule.id !== mod.id) {
+      setSelection({ kind: 'module', module: mod })
+      const envId = tree?.environments.find((e) => e.modules.some((m) => m.id === mod.id))?.id
+      if (envId) setExpandedEnvs((prev) => new Set(prev).add(envId))
+      setExpandedMods((prev) => new Set(prev).add(mod.id))
+      broadcast({ type: 'select', selectionId: mod.id })
+    }
+    setViewerMode('xray')
   }
 
   const onSelectMaterial = (material: QuoteMaterialRow, module: QuoteModuleRow) => {
@@ -887,15 +1083,86 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
     'NEEDS_REVIEW',
   ].includes(String(tree.status || ''))
 
+  const showFolderTabs = Boolean(folderProject && folderBatches.length >= 1)
+
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-[520px] max-h-[calc(100dvh-5.75rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 sm:gap-3 sm:p-3 md:p-4">
-      {isPipelineBusy && asyncProgressText ? (
-        <div
-          role="status"
-          className="sticky top-0 z-20 flex shrink-0 items-center gap-2 rounded-xl border border-[#0066FF]/30 bg-[#0066FF]/10 px-3 py-2 text-sm text-[#003d99] shadow-sm"
-        >
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#0066FF]" />
-          <span className="font-medium">{asyncProgressText}</span>
+      {showFolderTabs && folderProject ? (
+        <ProjectFolderTabs
+          project={folderProject}
+          batches={folderBatches}
+          activeAnalysisId={analysisId}
+          viewMode={folderViewMode}
+          onViewModeChange={setFolderViewMode}
+          onSelectBatch={(id) => {
+            setFolderViewMode('history')
+            if (id !== analysisId) onOpenBatch?.(id)
+          }}
+        />
+      ) : null}
+      {showFolderTabs && folderViewMode === 'consolidated' ? (
+        <p className="shrink-0 text-xs text-muted-foreground">
+          Visão consolidada acima. Para editar chapas/ferragens de um intervalo, abra a aba
+          Histórico e escolha o lote.
+        </p>
+      ) : null}
+      {isPipelineBusy ? (
+        <div className="sticky top-0 z-20 flex shrink-0 flex-col gap-2">
+          {asyncProgressText ? (
+            <div
+              role="status"
+              className="flex items-center gap-2 rounded-xl border border-[#0066FF]/30 bg-[#0066FF]/10 px-3 py-2 text-sm text-[#003d99] shadow-sm"
+            >
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#0066FF]" />
+              <span className="font-medium">{asyncProgressText}</span>
+            </div>
+          ) : null}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <AiThoughtConsole
+              status={tree.status as QuoteAnalysisStatus}
+              pipelineStage={
+                typeof tree.totals?.pipeline_stage === 'string'
+                  ? (tree.totals.pipeline_stage as PipelineStageId)
+                  : null
+              }
+              pipelineDetail={
+                typeof tree.totals?.pipeline_detail === 'string'
+                  ? tree.totals.pipeline_detail
+                  : null
+              }
+              thoughtLog={
+                Array.isArray(tree.totals?.thought_log)
+                  ? (tree.totals.thought_log as ThoughtLogEntry[])
+                  : []
+              }
+              analysisId={analysisId}
+              companyId={companyId}
+              projectId={
+                projectIdProp ||
+                (typeof tree.project_id === 'string' ? tree.project_id : null) ||
+                (typeof tree.totals?.project_id === 'string'
+                  ? (tree.totals.project_id as string)
+                  : null)
+              }
+              pagesProcessed={
+                Number(tree.totals?.pages_processed) ||
+                Number(tree.totals?.current_page) ||
+                undefined
+              }
+              totals={
+                tree.totals && typeof tree.totals === 'object'
+                  ? (tree.totals as Record<string, unknown>)
+                  : null
+              }
+              errorMessage={
+                typeof tree.totals?.pipeline_detail === 'string' &&
+                String(tree.status).toUpperCase() === 'FAILED'
+                  ? tree.totals.pipeline_detail
+                  : null
+              }
+              density="workshop"
+            />
+          </div>
         </div>
       ) : null}
       {showBreakerBanner ? (
@@ -1072,8 +1339,9 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => void handleReprocess()}
-            disabled={reprocessing || reauditing}
+            onClick={() => void handleReprocess(false)}
+            disabled={reprocessing || reauditing || cancelling}
+            title="Continua do checkpoint se existir"
           >
             {reprocessing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1082,6 +1350,40 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             )}
             Reprocessar PDF
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-amber-500/40 text-amber-800 hover:bg-amber-50"
+            onClick={() => void handleReprocess(true)}
+            disabled={reprocessing || reauditing || cancelling}
+            title="Apaga progresso e recomeça da página 1"
+          >
+            {reprocessing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+            Recomeçar do zero
+          </Button>
+          {isPipelineBusy ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-red-500/40 text-red-700 hover:bg-red-50"
+              onClick={() => void handleCancel()}
+              disabled={cancelling || reauditing}
+              title="Para a leitura agora (pode Retomar depois)"
+            >
+              {cancelling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+              {cancelling ? 'Interrompendo…' : 'Interromper'}
+            </Button>
+          ) : null}
           {onBack && (
             <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-1.5">
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -1231,10 +1533,17 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
                 className={cn(
                   'inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium',
                   viewerMode === 'xray' ? 'bg-[#0066FF] text-white' : 'text-muted-foreground',
+                  !firstBillableModule && 'cursor-not-allowed opacity-40',
                 )}
-                onClick={() => setViewerMode('xray')}
-                disabled={!selectedModule}
-                title={selectedModule ? 'Raio-X 3D do módulo' : 'Selecione um módulo na árvore'}
+                onClick={openXrayViewer}
+                disabled={!firstBillableModule}
+                title={
+                  selectedModule
+                    ? `Raio-X 3D · ${selectedModule.name}`
+                    : firstBillableModule
+                      ? `Raio-X 3D · abre ${firstBillableModule.name}`
+                      : 'Nenhum módulo disponível'
+                }
               >
                 <Box className="h-3.5 w-3.5" />
                 Raio-X
@@ -1305,14 +1614,24 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
             </div>
           </div>
 
-          {viewerMode === 'xray' && selectedModule ? (
-            <ModuleXrayScene
-              className="relative z-[1] min-h-0 flex-1"
-              pieces={xrayPieces}
-              moduleWidthMm={Number(selectedModule.dimensions?.width_mm) || 800}
-              moduleHeightMm={Number(selectedModule.dimensions?.height_mm) || 720}
-              moduleDepthMm={Number(selectedModule.dimensions?.depth_mm) || 500}
-            />
+          {viewerMode === 'xray' ? (
+            selectedModule && atomic_pieces.length > 0 ? (
+              <RaioX3D
+                className="relative z-[1] min-h-0 flex-1"
+                atomic_pieces={atomic_pieces}
+                selectedPieceId={
+                  selection?.kind === 'material' ? selection.material.id : null
+                }
+              />
+            ) : (
+              <div className="relative z-[1] flex min-h-0 flex-1 items-center justify-center bg-[#0f1419] p-6 text-center">
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  {selectedModule
+                    ? 'Sem peças para montar o Raio-X neste módulo.'
+                    : 'Selecione um módulo na árvore (ou clique de novo em Raio-X).'}
+                </p>
+              </div>
+            )
           ) : null}
           <div
             ref={mainViewerRef}
@@ -1389,6 +1708,14 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
         {/* Direita: árvore — página sticky no topo da coluna */}
         <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card lg:min-h-0">
           <div className="shrink-0 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+            {batchScopeBanner ? (
+              <div
+                className="mb-2 rounded-lg border border-[#0066FF]/25 bg-[#0066FF]/5 px-2.5 py-1.5 text-[11px] text-[#0a3d8f] sm:text-xs"
+                role="status"
+              >
+                Exibindo cotação referente às páginas {batchScopeBanner} (lote selecionado)
+              </div>
+            ) : null}
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[#2a1812]">Materiais do orçamento</h3>
@@ -1398,7 +1725,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
               </div>
               {coverage && (
                 <div className="hidden shrink-0 sm:block">
-                  <CoverageSummary coverage={coverage} auditorNotes={auditorNotes} />
+                  <CoverageSummary
+                    coverage={coverage}
+                    auditorNotes={auditorNotes}
+                    coverageScope={coverageScope}
+                  />
                 </div>
               )}
             </div>
@@ -1441,7 +1772,11 @@ export function AuditWorkspace({ analysisId, companyId, onBack }: AuditWorkspace
 
             {coverage && (
               <div className="mt-2 sm:hidden">
-                <CoverageSummary coverage={coverage} auditorNotes={auditorNotes} />
+                <CoverageSummary
+                  coverage={coverage}
+                  auditorNotes={auditorNotes}
+                  coverageScope={coverageScope}
+                />
               </div>
             )}
             {outOfScopeModules.length > 0 && (
