@@ -1,0 +1,122 @@
+{
+  "planId": "23574204",
+  "environment": "cozinha",
+  "url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/23574204/view/environment/cozinha",
+  "capturedAt": "2026-10-15T18:20:00.000Z",
+  "scope": "construction_geometry_only_no_pricing",
+  "sources": [
+    {
+      "kind": "system_preferences",
+      "path": "src/lib/orcamentos-ia/system-preferences.ts",
+      "confidence": "SEEN"
+    },
+    {
+      "kind": "hellomob_atomic",
+      "path": "docs/evidence/hellomob-22168837-atomic-pieces.json",
+      "confidence": "SEEN"
+    },
+    {
+      "kind": "cortecloud_caixaria",
+      "path": "docs/evidence/cortecloud-caixaria-report.md",
+      "confidence": "SEEN"
+    },
+    {
+      "kind": "referencia_mdf",
+      "path": "docs/referencia-caixaria-mdf.md",
+      "confidence": "SEEN"
+    },
+    {
+      "kind": "hellomob_ui",
+      "url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/23574204/view/environment/cozinha",
+      "confidence": "SEEN_OR_INFERRED"
+    }
+  ],
+  "coordinate_system": {
+    "note": "SEEN — eixo do Raio-X client",
+    "X": "largura (esquerda → direita)",
+    "Y": "altura (chão → teto)",
+    "Z": "profundidade (frente → fundo)",
+    "origin": "canto inferior esquerdo frontal do módulo",
+    "units": "metros no mesh; mm nas regras"
+  },
+  "back_panel": {
+    "thickness_mm": 6,
+    "material": "MDF Branco TX / Multimarcas",
+    "type": "grooved",
+    "rebate_depth_mm": 10,
+    "inset_from_rear_mm": 10,
+    "edge_banding": "none",
+    "confidence": "SEEN",
+    "notes": "Fundo 6 mm senta no rebaixo traseiro de 10 mm (shelf_recess / groove). Z_center ≈ D − rebate_depth_mm + thickness/2."
+  },
+  "box": {
+    "thickness_mm": 15,
+    "material": "MDF Branco TX",
+    "base_assembly": "under_sides",
+    "top_assembly": "over_sides",
+    "confidence": "SEEN"
+  },
+  "fronts": {
+    "thickness_mm": 18,
+    "gap_mm": 2,
+    "confidence": "SEEN"
+  },
+  "shelves": {
+    "recess_mm": 10,
+    "distribution": "uniform_in_clear_height",
+    "clear_height_formula": "H - base_th - tampo_th - plinth_h - n*shelf_th",
+    "confidence": "SEEN"
+  },
+  "dividers": {
+    "distribution": "uniform_in_clear_width",
+    "clear_width_formula": "W - 2*lateral_th - n*divider_th",
+    "confidence": "INFERRED"
+  },
+  "drawers": {
+    "construction": "kit_fabril_5_pecas",
+    "front_gap_mm": 2,
+    "stack": "bottom_up_by_front_height",
+    "parts": ["gaveta_lateral", "gaveta_contrafundo", "gaveta_fundo", "frente"],
+    "confidence": "SEEN"
+  },
+  "stretchers": {
+    "front_base_y": "plinth_h + th/2",
+    "front_top_y": "H - th/2",
+    "z_front": "th/2",
+    "confidence": "INFERRED"
+  },
+  "plinth": {
+    "aliases": ["sóculo", "soculo", "rodapé", "saia"],
+    "typical_height_mm": 100,
+    "y_center": "height_mm/2",
+    "z": "front_face",
+    "confidence": "INFERRED"
+  },
+  "multi_back_panels": {
+    "rule": "one_fundo_per_bay_or_column",
+    "grouping": ["column_index", "gapTag"],
+    "forbid_identical_centers": true,
+    "confidence": "INFERRED"
+  },
+  "open_typologies": {
+    "match_name_regex": ["\\bmesa\\b", "escrivaninha", "bancada\\s*aberta"],
+    "allowed_roles": ["tampo", "sarrafo", "travessa", "outro", "frente"],
+    "forbidden_roles": ["fundo", "base", "prateleira", "divisoria"],
+    "notes": "Mesa/estrutura vazada: só tampo + pés; sem base/fundo fantasma.",
+    "confidence": "INFERRED"
+  },
+  "hierarchy": {
+    "levels": ["Module", "Subset", "AtomicPiece"],
+    "subsets": ["caixa", "gavetas", "portas", "prateleiras", "soculo"],
+    "local_offset": ["X", "Y", "Z"],
+    "confidence": "SEEN"
+  },
+  "caixaria_minima_coluna": [
+    "Lateral esquerda 15 Branco TX",
+    "Lateral direita 15 Branco TX",
+    "Base 15 Branco TX",
+    "Fundo 6 Branco TX (caixa fechada)",
+    "Prateleiras/divisórias se desenhadas",
+    "Frente/porta em frentes_portas (cor do projeto)"
+  ]
+}

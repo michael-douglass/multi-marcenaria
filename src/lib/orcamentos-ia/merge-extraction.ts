@@ -1413,6 +1413,12 @@ const OUT_OF_SCOPE_HINTS = [
   'alvenaria',
   'gesso',
   'drywall',
+  // Vidraçaria / serralheria / equipamentos (não entram no BOM MDF)
+  'vidracaria',
+  'vidraçaria',
+  'blindex',
+  'serralheria',
+  'maca',
 ]
 
 /** Decoração solta só-espelho/LED (sem tipologia de caixa). */

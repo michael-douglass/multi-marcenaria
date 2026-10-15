@@ -135,6 +135,32 @@ function isBusyStatus(status: QuoteAnalysisStatus): boolean {
   return !isTerminal(status)
 }
 
+/** Confirma no banco se o pipeline realmente terminou (evita toast falso). */
+async function confirmDbTerminal(
+  analysisId: string,
+): Promise<{
+  terminal: boolean
+  status: QuoteAnalysisStatus | null
+  totals: Record<string, unknown> | null
+}> {
+  const { data } = await supabase
+    .from('quote_analyses')
+    .select('status, totals')
+    .eq('id', analysisId)
+    .maybeSingle()
+  const status =
+    data?.status && isQuoteAnalysisStatus(data.status) ? data.status : null
+  const totals =
+    data?.totals && typeof data.totals === 'object'
+      ? (data.totals as Record<string, unknown>)
+      : null
+  return {
+    terminal: status === 'COMPLETED' || status === 'NEEDS_REVIEW',
+    status,
+    totals,
+  }
+}
+
 function stallTimestampMs(row: {
   updated_at?: string | null
   totals?: Record<string, unknown> | null
@@ -731,23 +757,55 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               })
               return
             }
-            updateJobByAnalysis(analysis.id, {
-              status: 'COMPLETED',
-              runnerActive: false,
-              needsResume: false,
-              pipelineStage: 'completed',
-              pipelineDetail: result.materialsSaved
-                ? `Pronto — ${result.materialsSaved} insumos salvos.`
-                : 'Análise concluída.',
-            })
-            toast.success('Orçamento IA concluído', {
-              description: fileName,
-              duration: 12000,
-              action: {
-                label: 'Abrir',
-                onClick: () => openAnalysis(analysis.id),
-              },
-            })
+            const live = await confirmDbTerminal(analysis.id)
+            if (live.terminal) {
+              updateJobByAnalysis(analysis.id, {
+                status: live.status!,
+                runnerActive: false,
+                needsResume: false,
+                pipelineStage:
+                  typeof live.totals?.pipeline_stage === 'string'
+                    ? live.totals.pipeline_stage
+                    : 'completed',
+                pipelineDetail:
+                  typeof live.totals?.pipeline_detail === 'string'
+                    ? live.totals.pipeline_detail
+                    : result.materialsSaved
+                      ? `Pronto — ${result.materialsSaved} insumos salvos.`
+                      : 'Análise concluída.',
+              })
+              toast.success(
+                live.status === 'NEEDS_REVIEW'
+                  ? 'Orçamento IA precisa de revisão'
+                  : 'Orçamento IA concluído',
+                {
+                  description: fileName,
+                  duration: 12000,
+                  action: {
+                    label: 'Abrir',
+                    onClick: () => openAnalysis(analysis.id),
+                  },
+                },
+              )
+            } else {
+              updateJobByAnalysis(analysis.id, {
+                status: live.status ?? 'PROCESSING',
+                runnerActive: false,
+                needsResume: true,
+                pipelineStage:
+                  typeof live.totals?.pipeline_stage === 'string'
+                    ? live.totals.pipeline_stage
+                    : 'pricing_pending',
+                pipelineDetail:
+                  'Quase pronto — ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+                totalsSnapshot: live.totals,
+              })
+              toast.message('Precificação quase pronta', {
+                description:
+                  'O aviso “concluído” foi adiado: ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+                duration: 10000,
+              })
+            }
           } catch (err) {
             runnersRef.current.delete(analysis.id)
             const message = err instanceof Error ? err.message : 'Erro no pipeline'
@@ -910,20 +968,50 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
               })
               return
             }
-            updateJobByAnalysis(analysis.id, {
-              status: 'COMPLETED',
-              runnerActive: false,
-              needsResume: false,
-              pipelineStage: 'completed',
-              pipelineDetail: result.materialsSaved
-                ? `Pronto — ${result.materialsSaved} insumos salvos.`
-                : 'Análise concluída.',
-            })
-            toast.success('Lote concluído', {
-              description: fileName,
-              duration: 12000,
-              action: { label: 'Abrir', onClick: () => openAnalysis(analysis.id) },
-            })
+            const live = await confirmDbTerminal(analysis.id)
+            if (live.terminal) {
+              updateJobByAnalysis(analysis.id, {
+                status: live.status!,
+                runnerActive: false,
+                needsResume: false,
+                pipelineStage:
+                  typeof live.totals?.pipeline_stage === 'string'
+                    ? live.totals.pipeline_stage
+                    : 'completed',
+                pipelineDetail:
+                  typeof live.totals?.pipeline_detail === 'string'
+                    ? live.totals.pipeline_detail
+                    : result.materialsSaved
+                      ? `Pronto — ${result.materialsSaved} insumos salvos.`
+                      : 'Análise concluída.',
+              })
+              toast.success(
+                live.status === 'NEEDS_REVIEW' ? 'Lote precisa de revisão' : 'Lote concluído',
+                {
+                  description: fileName,
+                  duration: 12000,
+                  action: { label: 'Abrir', onClick: () => openAnalysis(analysis.id) },
+                },
+              )
+            } else {
+              updateJobByAnalysis(analysis.id, {
+                status: live.status ?? 'PROCESSING',
+                runnerActive: false,
+                needsResume: true,
+                pipelineStage:
+                  typeof live.totals?.pipeline_stage === 'string'
+                    ? live.totals.pipeline_stage
+                    : 'pricing_pending',
+                pipelineDetail:
+                  'Quase pronto — a nuvem ainda mexeu no status. Clique em Retomar para só precificar.',
+                totalsSnapshot: live.totals,
+              })
+              toast.message('Precificação quase pronta', {
+                description:
+                  'O aviso “concluído” foi adiado: ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+                duration: 10000,
+              })
+            }
           } catch (err) {
             runnersRef.current.delete(analysis.id)
             const message = err instanceof Error ? err.message : 'Erro no pipeline'
@@ -1097,22 +1185,54 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           }
           return false
         }
+        const live = await confirmDbTerminal(analysisId)
+        if (live.terminal) {
+          updateJobByAnalysis(analysisId, {
+            status: live.status!,
+            runnerActive: false,
+            needsResume: false,
+            pipelineStage:
+              typeof live.totals?.pipeline_stage === 'string'
+                ? live.totals.pipeline_stage
+                : 'completed',
+            pipelineDetail:
+              typeof live.totals?.pipeline_detail === 'string'
+                ? live.totals.pipeline_detail
+                : result.materialsSaved
+                  ? `Pronto — ${result.materialsSaved} insumos salvos.`
+                  : 'Análise concluída.',
+          })
+          toast.success(
+            live.status === 'NEEDS_REVIEW'
+              ? 'Orçamento IA precisa de revisão'
+              : 'Orçamento IA concluído',
+            {
+              action: {
+                label: 'Abrir',
+                onClick: () => openAnalysis(analysisId),
+              },
+            },
+          )
+          return true
+        }
         updateJobByAnalysis(analysisId, {
-          status: 'COMPLETED',
+          status: live.status ?? 'PROCESSING',
           runnerActive: false,
-          needsResume: false,
-          pipelineStage: 'completed',
-          pipelineDetail: result.materialsSaved
-            ? `Pronto — ${result.materialsSaved} insumos salvos.`
-            : 'Análise concluída.',
+          needsResume: true,
+          pipelineStage:
+            typeof live.totals?.pipeline_stage === 'string'
+              ? live.totals.pipeline_stage
+              : 'pricing_pending',
+          pipelineDetail:
+            'Quase pronto — ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+          totalsSnapshot: live.totals,
         })
-        toast.success('Orçamento IA concluído', {
-          action: {
-            label: 'Abrir',
-            onClick: () => openAnalysis(analysisId),
-          },
+        toast.message('Precificação quase pronta', {
+          description:
+            'O aviso “concluído” foi adiado: ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+          duration: 10000,
         })
-        return true
+        return false
       } catch (err) {
         runnersRef.current.delete(analysisId)
         const message = err instanceof Error ? err.message : 'Erro ao retomar'
@@ -1229,22 +1349,54 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
           else toast.error(result.error || 'Falha ao recomeçar.')
           return false
         }
+        const live = await confirmDbTerminal(analysisId)
+        if (live.terminal) {
+          updateJobByAnalysis(analysisId, {
+            status: live.status!,
+            runnerActive: false,
+            needsResume: false,
+            pipelineStage:
+              typeof live.totals?.pipeline_stage === 'string'
+                ? live.totals.pipeline_stage
+                : 'completed',
+            pipelineDetail:
+              typeof live.totals?.pipeline_detail === 'string'
+                ? live.totals.pipeline_detail
+                : result.materialsSaved
+                  ? `Pronto — ${result.materialsSaved} insumos salvos.`
+                  : 'Análise concluída.',
+          })
+          toast.success(
+            live.status === 'NEEDS_REVIEW'
+              ? 'Orçamento IA precisa de revisão'
+              : 'Orçamento IA concluído (do zero)',
+            {
+              action: {
+                label: 'Abrir',
+                onClick: () => openAnalysis(analysisId),
+              },
+            },
+          )
+          return true
+        }
         updateJobByAnalysis(analysisId, {
-          status: 'COMPLETED',
+          status: live.status ?? 'PROCESSING',
           runnerActive: false,
-          needsResume: false,
-          pipelineStage: 'completed',
-          pipelineDetail: result.materialsSaved
-            ? `Pronto — ${result.materialsSaved} insumos salvos.`
-            : 'Análise concluída.',
+          needsResume: true,
+          pipelineStage:
+            typeof live.totals?.pipeline_stage === 'string'
+              ? live.totals.pipeline_stage
+              : 'pricing_pending',
+          pipelineDetail:
+            'Quase pronto — ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+          totalsSnapshot: live.totals,
         })
-        toast.success('Orçamento IA concluído (do zero)', {
-          action: {
-            label: 'Abrir',
-            onClick: () => openAnalysis(analysisId),
-          },
+        toast.message('Precificação quase pronta', {
+          description:
+            'O aviso “concluído” foi adiado: ainda há trabalho pendente. Use Retomar se não avançar sozinho.',
+          duration: 10000,
         })
-        return true
+        return false
       } catch (err) {
         runnersRef.current.delete(analysisId)
         const message = err instanceof Error ? err.message : 'Erro ao recomeçar'

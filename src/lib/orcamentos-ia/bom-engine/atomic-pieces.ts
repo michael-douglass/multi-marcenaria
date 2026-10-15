@@ -93,10 +93,11 @@ function inferSheetRole(
   if (/branco|white|tx\b/i.test(materialName) && !/amendoeira|lino|bege|mint|blush|azul|imbuia|areia|jatob/i.test(materialName)) {
     return 'box_white'
   }
+  // Neste ponto role !== 'fundo' (já retornou acima).
   if (/amendoeira|lino|bege|mint|blush|azul|imbuia|areia|papiro|lord|noronha|caiap|astral|chess|bold/i.test(materialName)) {
-    return role === 'fundo' ? 'back_white' : 'front_color'
+    return 'front_color'
   }
-  return role === 'fundo' ? 'back_white' : 'box_white'
+  return 'box_white'
 }
 
 function moduleDims(mod: QuoteModuleRow): {
@@ -394,6 +395,7 @@ export function buildAtomicPieces(input: BuildAtomicPiecesInput): BuildAtomicPie
     moduleDepthMm: dims.depth_mm,
     boxThicknessMm: boxT,
     selectedPieceId: input.selectedPieceId,
+    moduleName: input.module.name,
   })
 
   const atomic_pieces: AtomicPiece[] = meshes.map((mesh) => {
@@ -410,6 +412,26 @@ export function buildAtomicPieces(input: BuildAtomicPiecesInput): BuildAtomicPie
   return { atomic_pieces, source, explode }
 }
 
+/** Opacidade estrutural (vidro MDF Branco TX) — Épico 3 HelloMob. */
+export const XRAY_BOX_OPACITY = 0.6
+/** Opacidade frentes decorativas (Amendoeira/Noite/Lino…). */
+export const XRAY_FRONT_OPACITY = 0.85
+
+function frontDecorativeColor(name: string): string {
+  if (/amendoeira/.test(name)) return '#c4a06a'
+  if (/lino/.test(name)) return '#d4c4a8'
+  if (/noite|noir|preto|black|lord|matt|grafite|chumbo/.test(name)) return '#3a3f47'
+  if (/bege|papiro/.test(name)) return '#e6d5b8'
+  if (/mint/.test(name)) return '#a8c9b8'
+  if (/blush/.test(name)) return '#d4a5a5'
+  if (/azul|astral/.test(name)) return '#5b7cfa'
+  if (/imbuia|caiap/.test(name)) return '#8b5a3c'
+  if (/areia|noronha/.test(name)) return '#cbb89a'
+  if (/jatob/.test(name)) return '#a67c52'
+  if (/branco|white/.test(name)) return '#f5f7fa'
+  return '#c4a574'
+}
+
 /** Hex aproximado da paleta (client-side, sem API). */
 export function colorForAtomicPiece(piece: AtomicPiece): {
   color: string
@@ -420,27 +442,19 @@ export function colorForAtomicPiece(piece: AtomicPiece): {
   }
 
   const name = piece.material_name.toLowerCase()
+  const isFront =
+    piece.sheet_role === 'front_color' ||
+    piece.role === 'frente' ||
+    piece.role === 'porta'
+
+  if (isFront) {
+    return { color: frontDecorativeColor(name), opacity: XRAY_FRONT_OPACITY }
+  }
 
   if (piece.sheet_role === 'back_white' || piece.role === 'fundo') {
-    return { color: '#f2f4f7', opacity: 0.55 }
+    return { color: '#f2f4f7', opacity: XRAY_BOX_OPACITY }
   }
 
-  if (piece.sheet_role === 'box_white') {
-    return { color: '#e8ecef', opacity: 0.7 }
-  }
-
-  // Frentes / painéis decorativos — paleta alinhada a project-sheet-palette
-  if (/amendoeira/.test(name)) return { color: '#c4a06a', opacity: 0.85 }
-  if (/lino/.test(name)) return { color: '#d4c4a8', opacity: 0.85 }
-  if (/bege|papiro/.test(name)) return { color: '#e6d5b8', opacity: 0.85 }
-  if (/mint/.test(name)) return { color: '#a8c9b8', opacity: 0.85 }
-  if (/blush/.test(name)) return { color: '#d4a5a5', opacity: 0.85 }
-  if (/azul|astral/.test(name)) return { color: '#5b7cfa', opacity: 0.85 }
-  if (/imbuia|caiap/.test(name)) return { color: '#8b5a3c', opacity: 0.85 }
-  if (/areia|noronha/.test(name)) return { color: '#cbb89a', opacity: 0.85 }
-  if (/lord|matt|grafite|chumbo|preto|black/.test(name)) return { color: '#4a4f57', opacity: 0.85 }
-  if (/jatob/.test(name)) return { color: '#a67c52', opacity: 0.85 }
-  if (/branco|white/.test(name)) return { color: '#f5f7fa', opacity: 0.8 }
-
-  return { color: '#c4a574', opacity: 0.82 }
+  // Caixaria estrutural translúcida (laterais, base, prateleira, divisória…)
+  return { color: '#e8ecef', opacity: XRAY_BOX_OPACITY }
 }

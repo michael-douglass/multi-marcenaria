@@ -931,6 +931,68 @@ export function AuditWorkspace({
     return tree?.environments?.[0]?.modules?.[0] ?? null
   }, [tree])
 
+  /** Lista ordenada de módulos navegáveis no Raio-X (ambientes → módulos). */
+  const xrayModules = useMemo(() => {
+    const list: { module: QuoteModuleRow; envName: string }[] = []
+    for (const env of tree?.environments ?? []) {
+      for (const mod of env.modules) {
+        if (!mod.out_of_scope) list.push({ module: mod, envName: env.name })
+      }
+    }
+    if (list.length === 0) {
+      for (const env of tree?.environments ?? []) {
+        for (const mod of env.modules) {
+          list.push({ module: mod, envName: env.name })
+        }
+      }
+    }
+    return list
+  }, [tree])
+
+  const xrayModuleIndex = useMemo(() => {
+    if (!selectedModule) return -1
+    return xrayModules.findIndex((entry) => entry.module.id === selectedModule.id)
+  }, [xrayModules, selectedModule])
+
+  const xrayEnvironmentName = useMemo(() => {
+    if (xrayModuleIndex >= 0) return xrayModules[xrayModuleIndex]?.envName
+    if (!selectedModule || !tree) return undefined
+    return tree.environments.find((e) => e.modules.some((m) => m.id === selectedModule.id))?.name
+  }, [xrayModuleIndex, xrayModules, selectedModule, tree])
+
+  const xraySourceLabel = useMemo(() => {
+    const source = xrayAtomic?.source
+    if (source === 'cutting_list') return 'Lista de corte'
+    if (source === 'extraction') return 'Extração do PDF'
+    if (source === 'explode') return 'Desmonte estimado'
+    return undefined
+  }, [xrayAtomic?.source])
+
+  /** Seleciona módulo e permanece no Raio-X (sem voltar ao PDF). */
+  const selectModuleForXray = useCallback(
+    (mod: QuoteModuleRow) => {
+      setSelection({ kind: 'module', module: mod })
+      const envId = tree?.environments.find((e) => e.modules.some((m) => m.id === mod.id))?.id
+      if (envId) setExpandedEnvs((prev) => new Set(prev).add(envId))
+      setExpandedMods((prev) => new Set(prev).add(mod.id))
+      broadcast({ type: 'select', selectionId: mod.id })
+      setViewerMode('xray')
+    },
+    [tree, broadcast],
+  )
+
+  const goXrayPrev = useCallback(() => {
+    if (xrayModuleIndex <= 0) return
+    const prev = xrayModules[xrayModuleIndex - 1]
+    if (prev) selectModuleForXray(prev.module)
+  }, [xrayModuleIndex, xrayModules, selectModuleForXray])
+
+  const goXrayNext = useCallback(() => {
+    if (xrayModuleIndex < 0 || xrayModuleIndex >= xrayModules.length - 1) return
+    const next = xrayModules[xrayModuleIndex + 1]
+    if (next) selectModuleForXray(next.module)
+  }, [xrayModuleIndex, xrayModules, selectModuleForXray])
+
   const openXrayViewer = () => {
     const mod = selectedModule ?? firstBillableModule
     if (!mod) {
@@ -939,14 +1001,7 @@ export function AuditWorkspace({
     }
     // Seleciona o módulo sem chamar focusSelectionOnViewer (que forçava PDF e
     // anulava o clique em Raio-X).
-    if (!selectedModule || selectedModule.id !== mod.id) {
-      setSelection({ kind: 'module', module: mod })
-      const envId = tree?.environments.find((e) => e.modules.some((m) => m.id === mod.id))?.id
-      if (envId) setExpandedEnvs((prev) => new Set(prev).add(envId))
-      setExpandedMods((prev) => new Set(prev).add(mod.id))
-      broadcast({ type: 'select', selectionId: mod.id })
-    }
-    setViewerMode('xray')
+    selectModuleForXray(mod)
   }
 
   const onSelectMaterial = (material: QuoteMaterialRow, module: QuoteModuleRow) => {
@@ -1496,9 +1551,13 @@ export function AuditWorkspace({
       <div
         className={cn(
           'grid min-h-0 flex-1 gap-2 sm:gap-3',
-          'grid-rows-[minmax(220px,40dvh)_minmax(0,1fr)]',
+          viewerMode === 'xray'
+            ? 'grid-rows-[minmax(320px,52dvh)_minmax(0,1fr)]'
+            : 'grid-rows-[minmax(220px,40dvh)_minmax(0,1fr)]',
           'lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)_minmax(180px,26%)]',
-          'xl:grid-cols-[minmax(300px,1.2fr)_minmax(0,1fr)_minmax(260px,0.72fr)] xl:grid-rows-none',
+          viewerMode === 'xray'
+            ? 'xl:grid-cols-[minmax(420px,1.55fr)_minmax(0,0.95fr)_minmax(220px,0.58fr)] xl:grid-rows-none'
+            : 'xl:grid-cols-[minmax(300px,1.2fr)_minmax(0,1fr)_minmax(260px,0.72fr)] xl:grid-rows-none',
         )}
       >
         {/* Esquerda: PDF / Raio-X — sempre visível */}
@@ -1507,13 +1566,17 @@ export function AuditWorkspace({
             'relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#0066FF]/20 bg-card shadow-[0_0_0_1px_rgba(0,102,255,0.06)]',
             'max-lg:sticky max-lg:top-0 max-lg:z-20',
             'lg:row-span-1 xl:row-auto',
+            viewerMode === 'xray' && 'min-h-[min(70dvh,720px)]',
           )}
         >
           <ThoughtShaderCanvas
-            className="pointer-events-none absolute inset-0 z-0 opacity-[0.55]"
+            className={cn(
+              'pointer-events-none absolute inset-0 z-0',
+              viewerMode === 'xray' ? 'opacity-0' : 'opacity-[0.55]',
+            )}
             progress={pageNumber / Math.max(pageCount || pageImages.length || 1, 1)}
             intensity={selectionLabel ? 0.55 : 0.28}
-            active
+            active={viewerMode !== 'xray'}
           />
           <div className="relative z-[1] flex flex-wrap items-center gap-2 border-b border-[#0066FF]/15 bg-white/80 px-3 py-2 backdrop-blur-md">
             <div className="flex rounded-md border border-border p-0.5">
@@ -1553,8 +1616,16 @@ export function AuditWorkspace({
               type="button"
               size="icon"
               variant="ghost"
-              disabled={pageNumber <= 1 || viewerMode !== 'pdf'}
+              disabled={
+                viewerMode === 'xray'
+                  ? xrayModuleIndex <= 0
+                  : pageNumber <= 1
+              }
               onClick={() => {
+                if (viewerMode === 'xray') {
+                  goXrayPrev()
+                  return
+                }
                 const p = Math.max(1, pageNumber - 1)
                 setPageNumber(p)
                 setPan({ x: 0, y: 0 })
@@ -1562,18 +1633,31 @@ export function AuditWorkspace({
                 else setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
+              title={viewerMode === 'xray' ? 'Módulo anterior' : 'Página anterior'}
             >
               <Minus className="h-4 w-4" />
             </Button>
             <span className="min-w-[5rem] text-center text-xs tabular-nums">
-              {pageNumber} / {pageCount || pageImages.length || '—'}
+              {viewerMode === 'xray'
+                ? xrayModuleIndex >= 0
+                  ? `${xrayModuleIndex + 1} / ${xrayModules.length}`
+                  : `— / ${xrayModules.length || '—'}`
+                : `${pageNumber} / ${pageCount || pageImages.length || '—'}`}
             </span>
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              disabled={pageNumber >= (pageCount || pageImages.length)}
+              disabled={
+                viewerMode === 'xray'
+                  ? xrayModuleIndex < 0 || xrayModuleIndex >= xrayModules.length - 1
+                  : pageNumber >= (pageCount || pageImages.length)
+              }
               onClick={() => {
+                if (viewerMode === 'xray') {
+                  goXrayNext()
+                  return
+                }
                 const max = pageCount || pageImages.length
                 const p = Math.min(max, pageNumber + 1)
                 setPageNumber(p)
@@ -1582,6 +1666,7 @@ export function AuditWorkspace({
                 else setPreferPageImage(false)
                 broadcast({ type: 'page', page: p })
               }}
+              title={viewerMode === 'xray' ? 'Próximo módulo' : 'Próxima página'}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -1622,14 +1707,55 @@ export function AuditWorkspace({
                 selectedPieceId={
                   selection?.kind === 'material' ? selection.material.id : null
                 }
+                moduleName={selectedModule.name}
+                environmentName={xrayEnvironmentName}
+                dimensionsMm={
+                  selectedModule.dimensions
+                    ? {
+                        width_mm: Number(selectedModule.dimensions.width_mm) || null,
+                        height_mm: Number(selectedModule.dimensions.height_mm) || null,
+                        depth_mm: Number(selectedModule.dimensions.depth_mm) || null,
+                      }
+                    : null
+                }
+                moduleIndex={Math.max(0, xrayModuleIndex)}
+                moduleCount={Math.max(xrayModules.length, 1)}
+                sourceLabel={xraySourceLabel}
+                onPrevModule={goXrayPrev}
+                onNextModule={goXrayNext}
               />
             ) : (
-              <div className="relative z-[1] flex min-h-0 flex-1 items-center justify-center bg-[#0f1419] p-6 text-center">
+              <div className="relative z-[1] flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-[#0f1419] p-6 text-center">
                 <p className="max-w-xs text-xs text-muted-foreground">
                   {selectedModule
                     ? 'Sem peças para montar o Raio-X neste módulo.'
                     : 'Selecione um módulo na árvore (ou clique de novo em Raio-X).'}
                 </p>
+                {xrayModules.length > 1 && xrayModuleIndex >= 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={xrayModuleIndex <= 0}
+                      onClick={goXrayPrev}
+                    >
+                      Anterior
+                    </Button>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      {xrayModuleIndex + 1} / {xrayModules.length}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={xrayModuleIndex >= xrayModules.length - 1}
+                      onClick={goXrayNext}
+                    >
+                      Próximo
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           ) : null}

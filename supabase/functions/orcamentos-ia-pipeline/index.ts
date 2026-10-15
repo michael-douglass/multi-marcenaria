@@ -2026,6 +2026,45 @@ Deno.serve(async (req) => {
           async_chain_status: 'cancelled',
         })
       }
+      // Tick atrasado (waitUntil paralelo): a cadeia já fechou OU o client já precifica.
+      // Sem este corte, um extract antigo sobrescreve ready_for_pricing e a UI
+      // “conclui” / volta a ler páginas em loop.
+      const stageNow =
+        typeof totals.pipeline_stage === 'string' ? totals.pipeline_stage : ''
+      const clientMovedOn =
+        totals.async_chain_status === 'ready_for_pricing' ||
+        stageNow === 'pricing_pending' ||
+        stageNow === 'fetching_prices' ||
+        stageNow === 'persisting' ||
+        stageNow === 'completed' ||
+        stageNow === 'needs_review'
+      if (clientMovedOn) {
+        const { data: liveRow } = await admin
+          .from('quote_analyses')
+          .select('status')
+          .eq('id', body.analysisId)
+          .maybeSingle()
+        const st = typeof liveRow?.status === 'string' ? liveRow.status : ''
+        if (
+          totals.async_chain_status === 'ready_for_pricing' ||
+          st === 'COMPLETED' ||
+          st === 'NEEDS_REVIEW' ||
+          st === 'FETCHING_MARKET_PRICES' ||
+          stageNow === 'fetching_prices' ||
+          stageNow === 'persisting' ||
+          stageNow === 'completed'
+        ) {
+          return jsonResponse({
+            ok: true,
+            phase: 'chain_tick',
+            skipped: true,
+            reason: 'client_or_ready',
+            async_chain_status: totals.async_chain_status,
+            pipeline_stage: stageNow,
+            status: st,
+          })
+        }
+      }
       const ragFromTotals =
         typeof totals.rag_memories_prompt === 'string' ? totals.rag_memories_prompt.trim() : ''
       const ragEffective = ragBlock || (ragFromTotals ? `\n\n${ragFromTotals}` : '')

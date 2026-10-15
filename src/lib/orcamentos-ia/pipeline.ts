@@ -1137,6 +1137,18 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
         parsed = quoteExtractionSchema.safeParse(sanitized)
       }
     }
+    // Última rede de segurança: módulo in-scope sem materiais (ex.: vidraçaria
+    // que o preprocess forçou de volta) → marca fora de escopo em vez de derrubar o job.
+    if (!parsed.success) {
+      const onlyEmptyMaterials = parsed.error.issues.every((i) =>
+        /Módulo sem materiais/i.test(i.message),
+      )
+      if (onlyEmptyMaterials) {
+        sanitized = markEmptyModulesOutOfScope(sanitized)
+        sanitized = coerceModuleTypologies(sanitized)
+        parsed = quoteExtractionSchema.safeParse(sanitized)
+      }
+    }
     if (!parsed.success) {
       const detail = parsed.error.issues
         .slice(0, 3)
@@ -1462,6 +1474,38 @@ async function nodeInvokeAgents(state: PipelineStateType): Promise<Partial<Pipel
   })
 
   return { extraction: tree }
+}
+
+/**
+ * Módulos sem nenhum material (caixaria/frente/ferragem/fita) que ainda estão
+ * in-scope — típico de vidraçaria/equipamento — passam a out_of_scope para o Zod.
+ */
+function markEmptyModulesOutOfScope(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+  const root = raw as Record<string, unknown>
+  const environments = (Array.isArray(root.environments) ? root.environments : [])
+    .map((env) => {
+      if (!env || typeof env !== 'object') return null
+      const e = env as Record<string, unknown>
+      const modules = (Array.isArray(e.modules) ? e.modules : [])
+        .map((mod) => {
+          if (!mod || typeof mod !== 'object') return null
+          const m = { ...(mod as Record<string, unknown>) }
+          if (m.out_of_scope === true) return m
+          const total =
+            (Array.isArray(m.caixaria) ? m.caixaria.length : 0) +
+            (Array.isArray(m.frentes_portas) ? m.frentes_portas.length : 0) +
+            (Array.isArray(m.ferragens) ? m.ferragens.length : 0) +
+            (Array.isArray(m.fitas_borda_m) ? m.fitas_borda_m.length : 0)
+          if (total === 0) m.out_of_scope = true
+          return m
+        })
+        .filter(Boolean)
+      if (!modules.length) return null
+      return { ...e, modules }
+    })
+    .filter(Boolean)
+  return { ...root, environments }
 }
 
 /** Corrige quantidades zeradas; marca fora de escopo (pedra/decoração). Dimensões → schema. */

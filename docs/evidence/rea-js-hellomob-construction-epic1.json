@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-10-15T18:20:00.000Z",
+  "epic": 1,
+  "tool": "REA analyze_javascript_application",
+  "input_path": "src/lib/orcamentos-ia",
+  "format": "directory",
+  "integrity_policy": "record-and-continue",
+  "detail": "summary",
+  "evidence_id": "ev_29fee0e7434ae764c8579e3b85d1eb1c3ae7fc630b4222b94d93e54f7b9c8447",
+  "parent_evidence_id": "ev_a4a263365cc4e8dbf15cf2e3464a27b5cfbd7bbb1d0b8ad795ec6f9d58e56ee2",
+  "statistics": {
+    "relevant_files": 45,
+    "parsed_javascript_files": 45,
+    "parse_failures": 0,
+    "findings": 710,
+    "visited_ast_nodes": 69461
+  },
+  "artifacts": {
+    "rules_json": "docs/evidence/hellomob-construction-rules.json",
+    "rules_ts": "src/lib/orcamentos-ia/bom-engine/hellomob-construction-rules.ts",
+    "rules_json_exists": true
+  },
+  "hellomob_ui": {
+    "url": "https://marceneiro.cortecloud.com.br/#/hellomobweb/23574204/view/environment/cozinha",
+    "note": "Cursor browser sem WebGL 3D HelloMob; regras consolidadas via System Preferences + evidências 22168837/23574204"
+  },
+  "verdict": "OK — hellomob-construction-rules.json presente; 0 parse failures REA"
+}

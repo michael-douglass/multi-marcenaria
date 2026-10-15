@@ -245,9 +245,16 @@ export const moduleExtractionSchema = z
       if (typologyNorm) m.typology = typologyNorm
       else if (m.typology != null && m.typology !== '') m.typology = 'outro'
 
-      // Marcenaria tipada nunca fica out_of_scope (trava anti-descarte Flaviane / Cortecloud)
+      // Marcenaria tipada nunca fica out_of_scope (trava anti-descarte Flaviane / Cortecloud).
+      // Exceção: divisória/fechamento de vidro-alumínio (vidraçaria) — não é BOM de MDF.
       const typology = typeof m.typology === 'string' ? m.typology : ''
       const nameKey = typeof m.name === 'string' ? m.name.toLowerCase() : ''
+      const descKey = typeof m.description === 'string' ? m.description.toLowerCase() : ''
+      const blob = `${nameKey} ${descKey}`
+      const isGlassMetalPartition =
+        /(vidra[cç]aria|blindex|serralheria)/i.test(blob) ||
+        (/(vidro|alumin[ií]o|canelado)/i.test(blob) &&
+          !/(mdf|mdp|madeir|ripad|chapa)/i.test(blob))
       const isMarcenariaTypology = [
         'balcao',
         'aereo',
@@ -261,8 +268,16 @@ export const moduleExtractionSchema = z
         /ilha|balc[aã]o|bancada|arm[aá]rio|a[eé]reo|torre|cristaleira|gaveteiro|roupeiro|nicho|painel|mesa|prateleira|guarda.?roupa|cabeceira|escrivaninha|divis[oó]ria/i.test(
           nameKey,
         )
-      if (m.out_of_scope === true && (isMarcenariaTypology || isMarcenariaName)) {
+      if (
+        m.out_of_scope === true &&
+        (isMarcenariaTypology || isMarcenariaName) &&
+        !isGlassMetalPartition
+      ) {
         m.out_of_scope = false
+      }
+      // Vidraçaria / alumínio: mantém fora do BOM mesmo se a IA esqueceu out_of_scope
+      if (isGlassMetalPartition) {
+        m.out_of_scope = true
       }
       // Fora de escopo (pedra/decoração): mantém medidas só se todas forem válidas
       if (m.out_of_scope === true) {

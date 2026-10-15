@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-10-15T18:25:00.000Z",
+  "epic": 4,
+  "tool": "REA analyze_javascript_application",
+  "input_path": "src/lib/orcamentos-ia/bom-engine",
+  "format": "directory",
+  "integrity_policy": "record-and-continue",
+  "detail": "summary",
+  "evidence_id": "ev_b4ff93efe998f8e2f1e5f1d1ea9953d47a0be00b7d6662c52d4af8b13814d9a6",
+  "parent_evidence_id": "ev_0700022789645d571ea8e8194f3047195d05e4b458dec0e39d9b4fe39d768628",
+  "statistics": {
+    "relevant_files": 12,
+    "parsed_javascript_files": 12,
+    "parse_failures": 0,
+    "findings": 206,
+    "visited_ast_nodes": 11288
+  },
+  "smoke": {
+    "command": "node scripts/test-orcamentos-ia-xray-geometry.mjs",
+    "exit_code": 0,
+    "a57f1f9f_collision": "PASS",
+    "mesa_no_ghost_back": "PASS"
+  },
+  "browser_cursor": {
+    "url": "http://localhost:3000/orcamentos-ia?audit=a57f1f9f-cdc0-4bc1-b971-cec63bafbda7",
+    "cristaleira": "PASS",
+    "bancada_lavabo": "PASS",
+    "mesa_de_jantar": "PASS_no_base_no_fundo"
+  },
+  "validation_md": "docs/evidence/raiox-a57f1f9f-validation.md",
+  "verdict": "OK — pipeline geometria + render Raio-X; 0 parse failures REA bom-engine"
+}
