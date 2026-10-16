@@ -1,0 +1,26 @@
+{
+  "compared_at": "2026-10-16T19:21:50.320Z",
+  "target_a": "F:\\Movelaria-Garbo\\Movelaria\\docs\\evidence\\resultado_cortecloud_23496206.json",
+  "target_b": "F:\\Movelaria-Garbo\\Movelaria\\docs\\evidence\\nosso_resultado_det_clinica_8f507c97.json",
+  "cortecloud": {
+    "plan_id": 23496206,
+    "modules": 139,
+    "sheets_skus": 9,
+    "sheets_total": 41
+  },
+  "nosso": {
+    "analysis_id": "8f507c97-dd86-44ad-858b-090ad4ce8ef2",
+    "modules_in_scope": 45,
+    "commercial_sheet_skus": 14,
+    "corredica": 19,
+    "sheets_total": 80,
+    "phantom_envs": []
+  },
+  "gates": {
+    "e3_skus_ge_5": true,
+    "e4_corredica_gt_0": true,
+    "e5_modules_ge_70": false,
+    "e6_no_phantom_bedroom": true
+  },
+  "note": "Pós fromScratch LLM (Edge async 44 págs, 16/10/2026). E3/E4/E6 OK; E5 ainda 45<70 (págs. 37–42 com JSON inválido/skip parcial)."
+}

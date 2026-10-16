@@ -72,17 +72,28 @@ export const HARDWARE_ALIAS_RULES: HardwareAliasRule[] = [
     category: 'ferragem',
     patterns: [/dobradic/, /hinge/, /dobradica.*reta/, /dobradica.*35/],
   },
-  {
-    key: 'corredica_oculta_45',
-    canonicalName: 'CORREDIÇA OCULTA 45',
-    category: 'ferragem',
-    patterns: [/corredic.*ocult/, /corredic.*45/, /hidden.*slide/, /slide.*soft/, /corredic.*amortec/],
-  },
+  // Teles ANTES da oculta genérica (ordem importa)
   {
     key: 'corredica_teles_25',
     canonicalName: 'CORREDIÇA TELES 25',
     category: 'ferragem',
-    patterns: [/corredic.*teles/, /corredic.*25/, /telescop/],
+    patterns: [/corredic.*teles/, /corredic.*25/, /telescop/, /corredic.*light/],
+  },
+  {
+    key: 'corredica_oculta_45',
+    canonicalName: 'CORREDIÇA OCULTA 45',
+    category: 'ferragem',
+    patterns: [
+      /corredic.*ocult/,
+      /corredic.*45/,
+      /hidden.*slide/,
+      /slide.*soft/,
+      /corredic.*amortec/,
+      /corredic.*soft/,
+      /fecho\s*toque/,
+      // genérico "corrediça" (sem teles — já filtrado acima) → oculta (default fábrica)
+      /\bcorredic/,
+    ],
   },
   {
     key: 'cabideiro_oval',

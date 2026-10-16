@@ -225,7 +225,7 @@ export function ResumoPontoBancoDialog({
                   tone="neg"
                 />
                 <MiniCard
-                  label="Faltas abatidas"
+                  label="Faltas no caixa"
                   value={
                     saldo.faltas_banco_minutos > 0
                       ? `−${formatMinutosSaldo(saldo.faltas_banco_minutos)}`
@@ -254,7 +254,7 @@ export function ResumoPontoBancoDialog({
                 />
               </div>
               <p className="text-[0.7rem] leading-relaxed text-[#6b5244]">
-                Saldo = excedentes − atrasos − faltas abatidas − horas já transformadas em
+                Saldo = excedentes − atrasos − faltas injustificadas − horas já transformadas em
                 pagamento. Um “dia” = {formatMinutosSaldo(saldo.minutos_jornada_ref)} da jornada.
                 {saldo.valor_fixo_mensal > 0
                   ? ` Fixo mensal: ${formatMoney(saldo.valor_fixo_mensal)}.`

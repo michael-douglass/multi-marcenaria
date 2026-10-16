@@ -6,7 +6,14 @@ import {
   formatMinutosSaldo,
 } from '@/lib/funcionario-ponto'
 import { formatarCnpj } from '@/lib/rep/rep-validation'
+import {
+  faltaDebitaCaixa,
+  faltaTemJustificativa,
+  OBS_FALTA_AUTOMATICA,
+} from '@/lib/ponto-falta-status'
 import type { PontoFaltaDetalhe, PontoResumoBatida, PontoResumoFuncionarioPeriodo } from '@/types'
+
+export { faltaDebitaCaixa, faltaTemJustificativa, OBS_FALTA_AUTOMATICA } from '@/lib/ponto-falta-status'
 
 const NOME_EMPRESA = 'GARBO MOVELARIA'
 
@@ -24,15 +31,16 @@ export interface ResumoPontoDiaBatidas {
   saldo_minutos: number
 }
 
-/** Horas positivas (HE) vs negativas (atrasos + faltas abatidas + HE pagas) no período. */
+/** Horas positivas (HE) vs negativas (atrasos + faltas injustificadas + HE pagas) no período. */
 export interface ResumoPontoBalanco {
   horas_positivas_minutos: number
+  /** Atrasos de entrada (minutos). */
   horas_negativas_minutos: number
-  /** Minutos de faltas abatidas no banco de horas. */
+  /** Minutos de faltas injustificadas debitadas no caixa. */
   faltas_banco_minutos: number
   /** Minutos de HE já convertidos em pagamento. */
   he_pagas_minutos: number
-  /** positivas − atrasos − faltas abatidas − HE pagas (pode ser negativo). */
+  /** positivas − atrasos − faltas injustificadas − HE pagas (pode ser negativo). */
   saldo_minutos: number
   status: 'positivo' | 'negativo' | 'zerado'
 }
@@ -232,10 +240,11 @@ export function resolverFaltasDetalhe(
     }
     return [...byData.values()].sort((a, b) => a.data.localeCompare(b.data))
   }
+  // Sem detalhe da API: trata como injustificada (debita o caixa)
   return (row.faltas_datas ?? []).map((data) => ({
     data,
-    observacao: null,
-    abater_banco_horas: false,
+    observacao: OBS_FALTA_AUTOMATICA,
+    abater_banco_horas: true,
     minutos_abatidos: null,
     atestados_count: 0,
   }))
@@ -251,14 +260,15 @@ function buildFaltas(faltas: PontoFaltaDetalhe[]): string {
       const motivo = f.observacao?.trim()
         ? escapeHtml(f.observacao.trim())
         : 'Sem justificativa'
-      const abate =
-        f.abater_banco_horas
-          ? ` · abatida no banco${
-              f.minutos_abatidos != null && f.minutos_abatidos > 0
-                ? ` (−${escapeHtml(formatMinutosSaldo(f.minutos_abatidos))})`
-                : ''
-            }`
-          : ''
+      const abate = faltaDebitaCaixa(f)
+        ? ` · débito no caixa${
+            f.minutos_abatidos != null && f.minutos_abatidos > 0
+              ? ` (−${escapeHtml(formatMinutosSaldo(f.minutos_abatidos))})`
+              : ''
+          }`
+        : faltaTemJustificativa(f.observacao)
+          ? ' · justificada (sem débito)'
+          : ' · sem justificativa'
       const atestados =
         f.atestados_count && f.atestados_count > 0
           ? ` · ${f.atestados_count} atestado${f.atestados_count === 1 ? '' : 's'}`
@@ -618,7 +628,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
         <strong class="neg">${negativasTxt}</strong>
       </div>
       <div>
-        <span>Faltas abatidas (banco)</span>
+        <span>Faltas no caixa</span>
         <strong class="neg">${faltasBancoTxt}</strong>
       </div>
       <div>
@@ -644,7 +654,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     <footer class="doc-footer">
       <p>Documento gerado em ${escapeHtml(geradoEm)} · Garbo Movelaria</p>
       <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
-      <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas − HE convertidas em pagamento.</p>
+      <p>Saldo = horas positivas (HE) − atrasos − faltas injustificadas − HE convertidas em pagamento.</p>
     </footer>
   </section>
   ${atestadosHtml}

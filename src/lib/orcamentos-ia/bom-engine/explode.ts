@@ -28,12 +28,35 @@ import {
 } from '@/lib/orcamentos-ia/bom-engine/hardware'
 import { boardBomLines, totalBoardAreaM2 } from '@/lib/orcamentos-ia/bom-engine/sheets'
 import { buildIndustrialLabels } from '@/lib/orcamentos-ia/bom-engine/labels'
+import { countModuleDrawers } from '@/lib/orcamentos-ia/drawer-slides'
 import type { SystemPreferences } from '@/lib/orcamentos-ia/system-preferences'
+
+export interface ExplodeSheetLabels {
+  box_white?: string
+  back_white?: string
+  front_color?: string
+}
+
+/** Peça da extração IA — usada para linhas de chapa multi-SKU (não colapsar em Branco). */
+export interface ExtractionBoardPiece {
+  width_mm: number
+  height_mm: number
+  thickness_mm: number
+  quantity: number
+  material_name: string
+}
 
 export interface ExplodeOptions {
   prefs?: Partial<SystemPreferences> | null
   unitCostPerM2?: number
   moduleQty?: number
+  /** Labels por papel (paleta do projeto). */
+  sheetLabels?: ExplodeSheetLabels
+  /**
+   * Quando a IA já listou caixaria/frentes com material_name,
+   * as linhas `board` do BOM vêm daqui (multi-SKU) em vez do desmonte geométrico mono-cor.
+   */
+  extractionBoardPieces?: ExtractionBoardPiece[]
 }
 
 export interface ExplodeResultWithLabels extends ExplodeResult {
@@ -170,8 +193,22 @@ export function explodeModule(spec: ModuleSpec, options: ExplodeOptions = {}): E
   const materialName =
     working.material_name ?? `MDF Branco TX ${prefs.box_thickness_mm}mm`
   const unitCost = options.unitCostPerM2 ?? 45
+  pieces = assignSheetMaterialsToPieces(pieces, options.sheetLabels, materialName)
+
+  const extractionBoard = boardBomFromExtractionPieces(
+    options.extractionBoardPieces,
+    materialName,
+    unitCost,
+  )
+  if (extractionBoard?.length) {
+    const skus = new Set(extractionBoard.map((l) => l.item_description)).size
+    thought.push(
+      `Chapas do BOM: ${extractionBoard.length} linha(s) / ${skus} SKU(s) a partir da extração (paleta multi-cor).`,
+    )
+  }
+
   const bom: BomLine[] = [
-    ...boardBomLines(pieces, materialName, unitCost),
+    ...(extractionBoard ?? boardBomLines(pieces, materialName, unitCost)),
     ...edgebandBomLines(pieces, undefined, prefs.edgeband_policy),
   ]
 
@@ -243,6 +280,123 @@ function scaleBomCosts(bom: BomLine[]): BomLine[] {
   }))
 }
 
+const WHITE_SHEET_RE = /branco|tx|white|eucatex|multimarcas/i
+
+function assignSheetMaterialsToPieces(
+  pieces: CutPiece[],
+  labels: ExplodeSheetLabels | undefined,
+  defaultMaterial: string,
+): CutPiece[] {
+  const box = labels?.box_white?.trim() || defaultMaterial
+  const back = labels?.back_white?.trim() || 'MDF Branco Multimarcas 6mm'
+  const front = labels?.front_color?.trim() || box
+  return pieces.map((p) => {
+    let material_name = box
+    if (p.role === 'fundo' || p.role === 'gaveta_fundo' || p.thickness_mm <= 8) {
+      material_name = back
+    } else if (p.role === 'frente' || p.role === 'porta') {
+      material_name = front
+    }
+    return { ...p, material_name }
+  })
+}
+
+function boardBomFromExtractionPieces(
+  extractionPieces: ExtractionBoardPiece[] | undefined,
+  defaultMaterial: string,
+  unitCost: number,
+): BomLine[] | null {
+  if (!extractionPieces?.length) return null
+  const asCut: CutPiece[] = extractionPieces
+    .filter((p) => Number(p.width_mm) > 0 && Number(p.height_mm) > 0)
+    .map((p, i) => ({
+      id: `ext-board-${i}`,
+      role: 'outro' as const,
+      name: 'extraction',
+      width_mm: Number(p.width_mm) || 0,
+      height_mm: Number(p.height_mm) || 0,
+      thickness_mm: Number(p.thickness_mm) || 15,
+      quantity: Math.max(1, Number(p.quantity) || 1),
+      edge_lengths_mm: {},
+      material_name: String(p.material_name || '').trim() || defaultMaterial,
+    }))
+  if (!asCut.length) return null
+  const lines = boardBomLines(asCut, defaultMaterial, unitCost)
+  return lines.length ? lines : null
+}
+
+function pickNonWhiteMaterial(
+  rows: Array<{ material_name?: string | null } | undefined> | undefined,
+): string | undefined {
+  for (const row of rows || []) {
+    const m = String(row?.material_name || '').trim()
+    if (m && !WHITE_SHEET_RE.test(m)) return m
+  }
+  return undefined
+}
+
+function collectExtractionBoardPieces(mod: {
+  caixaria?: Array<{
+    width_mm?: number | null
+    height_mm?: number | null
+    thickness_mm?: number | null
+    quantity?: number | null
+    material_name?: string | null
+  }>
+  frentes_portas?: Array<{
+    width_mm?: number | null
+    height_mm?: number | null
+    thickness_mm?: number | null
+    quantity?: number | null
+    material_name?: string | null
+  }>
+}): ExtractionBoardPiece[] {
+  const out: ExtractionBoardPiece[] = []
+  for (const p of mod.caixaria || []) {
+    const material_name = String(p.material_name || '').trim()
+    if (!material_name) continue
+    out.push({
+      width_mm: Number(p.width_mm) || 0,
+      height_mm: Number(p.height_mm) || 0,
+      thickness_mm: Number(p.thickness_mm) || 15,
+      quantity: Math.max(1, Number(p.quantity) || 1),
+      material_name,
+    })
+  }
+  for (const f of mod.frentes_portas || []) {
+    const material_name = String(f.material_name || '').trim()
+    if (!material_name) continue
+    out.push({
+      width_mm: Number(f.width_mm) || 0,
+      height_mm: Number(f.height_mm) || 0,
+      thickness_mm: Number(f.thickness_mm) || 15,
+      quantity: Math.max(1, Number(f.quantity) || 1),
+      material_name,
+    })
+  }
+  return out
+}
+
+function sheetLabelsFromPalette(
+  palette: Array<{ label: string; role: string; thickness_mm?: number }> | undefined,
+  frontMaterial?: string,
+): ExplodeSheetLabels {
+  const box =
+    palette?.find((p) => p.role === 'box_white')?.label ||
+    palette?.find((p) => p.thickness_mm === 15 && WHITE_SHEET_RE.test(p.label))?.label
+  const back =
+    palette?.find((p) => p.role === 'back_white')?.label ||
+    palette?.find((p) => p.thickness_mm === 6 && WHITE_SHEET_RE.test(p.label))?.label
+  const front =
+    frontMaterial ||
+    palette?.find((p) => p.role === 'front_color')?.label
+  return {
+    box_white: box,
+    back_white: back,
+    front_color: front,
+  }
+}
+
 const TYPOLOGIES = new Set<ModuleTypology>([
   'balcao',
   'aereo',
@@ -266,8 +420,22 @@ export function explodeFromExtractionModule(
     name: string
     typology?: string | null
     dimensions?: { width_mm?: number | null; height_mm?: number | null; depth_mm?: number | null }
-    caixaria?: Array<{ function?: string | null }>
-    frentes_portas?: Array<{ kind?: string | null }>
+    caixaria?: Array<{
+      function?: string | null
+      width_mm?: number | null
+      height_mm?: number | null
+      thickness_mm?: number | null
+      quantity?: number | null
+      material_name?: string | null
+    }>
+    frentes_portas?: Array<{
+      kind?: string | null
+      width_mm?: number | null
+      height_mm?: number | null
+      thickness_mm?: number | null
+      quantity?: number | null
+      material_name?: string | null
+    }>
     door_count?: number | null
     drawer_count?: number | null
     shelf_count?: number | null
@@ -279,13 +447,13 @@ export function explodeFromExtractionModule(
     door_overhang_mm?: number | null
     sliding_envelope?: boolean | null
     room_tag?: string
+    material_name?: string | null
   },
   prefs?: Partial<SystemPreferences> | null,
+  palette?: Array<{ label: string; role: string; thickness_mm?: number }> | null,
 ): ExplodeResultWithLabels {
   const name = mod.name || 'Módulo'
   const typology = asTypology(mod.typology, name)
-  const drawersFromFrentes =
-    mod.frentes_portas?.filter((f) => f.kind === 'frente_gaveta').length ?? 0
   const doorsFromFrentes =
     mod.frentes_portas?.filter(
       (f) =>
@@ -297,10 +465,14 @@ export function explodeFromExtractionModule(
   const shelvesFromCaixaria =
     mod.caixaria?.filter((c) => c.function === 'prateleira').length ?? 0
 
-  const drawers =
-    mod.drawer_count ??
-    (drawersFromFrentes ||
-      (typology === 'balcao' || typology === 'gaveteiro' ? 3 : 0))
+  // E4: conta gavetas por frentes/nome/tipologia — nunca zerar se há sinal de gaveta
+  const drawers = countModuleDrawers({
+    name,
+    typology,
+    drawer_count: mod.drawer_count,
+    frentes_portas: mod.frentes_portas,
+    caixaria: mod.caixaria,
+  })
   const doors =
     mod.door_count ??
     (doorsFromFrentes ||
@@ -309,6 +481,16 @@ export function explodeFromExtractionModule(
   const sliding =
     mod.sliding_doors ??
     (typology === 'armario_correr' ? (2 as const) : undefined)
+
+  const frontMaterial =
+    pickNonWhiteMaterial(mod.frentes_portas) ||
+    pickNonWhiteMaterial(mod.caixaria) ||
+    (mod.material_name && !WHITE_SHEET_RE.test(mod.material_name)
+      ? mod.material_name
+      : undefined)
+
+  const sheetLabels = sheetLabelsFromPalette(palette ?? undefined, frontMaterial)
+  const extractionBoardPieces = collectExtractionBoardPieces(mod)
 
   return explodeModule(
     {
@@ -328,8 +510,9 @@ export function explodeFromExtractionModule(
       door_overhang_mm: mod.door_overhang_mm ?? undefined,
       sliding_envelope: mod.sliding_envelope ?? undefined,
       room_tag: mod.room_tag,
+      material_name: sheetLabels.box_white || mod.material_name || undefined,
     },
-    { prefs },
+    { prefs, sheetLabels, extractionBoardPieces },
   )
 }
 

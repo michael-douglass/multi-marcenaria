@@ -1,49 +1,80 @@
-/** Smoke: colunas HelloMob não colapsam na chave de merge. */
-function normalizeExtractionKey(value) {
-  return value
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+/**
+ * Smoke E5 — tipologias HelloMob não colapsam na chave de merge.
+ * Uso: node scripts/smoke-hellomob-merge-keys.mjs
+ */
+import { fileURLToPath } from 'node:url'
+import { createServer } from 'vite'
+import { dirname, join } from 'node:path'
 
-function dimsTokenFromName(raw) {
-  const m = String(raw || '')
-    .replace(/,/g, '.')
-    .match(
-      /(\d+(?:\.\d+)?)\s*(?:mm)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:mm)?(?:\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:mm)?)?/i,
-    )
-  if (!m) return null
-  const a = Math.round(Number(m[1]))
-  const b = Math.round(Number(m[2]))
-  if (!(a > 0 && b > 0)) return null
-  const c = m[3] != null ? Math.round(Number(m[3])) : null
-  return c != null && c > 0 ? `${a}x${b}x${c}` : `${a}x${b}`
-}
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = join(__dirname, '..')
+let failed = 0
 
-function canonicalModuleName(name) {
-  let raw = String(name || '').trim()
-  raw = raw.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ')
-  const dash = raw.indexOf(' - ')
-  if (dash > 0) raw = raw.slice(0, dash)
-  const dims = dimsTokenFromName(raw)
-  const key = normalizeExtractionKey(raw)
-  if (/\b1\s*coluna\b/.test(key) || /armario\s+com\s+1\s+coluna/.test(key)) {
-    return dims ? `Armário 1 coluna ${dims}` : 'Armário 1 coluna'
+function ok(cond, msg) {
+  if (cond) console.log('OK', msg)
+  else {
+    console.error('FAIL', msg)
+    failed++
   }
-  if (/\bbalcao\b/.test(key) && dims) return `Balcão ${dims}`
-  return 'other'
 }
+
+const vite = await createServer({
+  configFile: false,
+  resolve: { alias: { '@': join(root, 'src') } },
+  optimizeDeps: { noDiscovery: true, include: [] },
+  server: { middlewareMode: true, hmr: false },
+  appType: 'custom',
+  logLevel: 'error',
+})
+
+const { canonicalModuleName, moduleFamilyKey } = await vite.ssrLoadModule(
+  '/src/lib/orcamentos-ia/merge-extraction.ts',
+)
 
 const a = 'Armário com 1 coluna 860 mm x 750 mm x 600 mm'
 const b = 'Armário com 1 coluna 900 mm x 1180 mm x 600 mm'
-const ka = normalizeExtractionKey(canonicalModuleName(a))
-const kb = normalizeExtractionKey(canonicalModuleName(b))
-console.log({ a: canonicalModuleName(a), b: canonicalModuleName(b), ka, kb, distinct: ka !== kb })
-if (ka === kb) {
-  console.error('FAIL: colunas colapsaram')
+ok(canonicalModuleName(a) !== canonicalModuleName(b), 'colunas distintas')
+ok(moduleFamilyKey(a) !== moduleFamilyKey(b), 'family keys distintas')
+
+ok(
+  canonicalModuleName('Lateral de tamponamento 560x2400x18') ===
+    'Lateral de tamponamento 560x2400x18' ||
+    /Lateral de tamponamento/.test(canonicalModuleName('Lateral de tamponamento 560x2400x18')),
+  'preserva Lateral de tamponamento',
+)
+ok(
+  /Rodapé/.test(canonicalModuleName('Estrutura rodape avulsa 2000x100x15')),
+  `Rodapé canônico (got ${canonicalModuleName('Estrutura rodape avulsa 2000x100x15')})`,
+)
+ok(
+  /Vista horizontal/.test(canonicalModuleName('Vista horizontal 800x100')),
+  'Vista horizontal',
+)
+ok(
+  /Balcão gavetas/.test(canonicalModuleName('Balcão gavetas iguais 800x720x560')),
+  `Balcão gavetas (got ${canonicalModuleName('Balcão gavetas iguais 800x720x560')})`,
+)
+ok(
+  canonicalModuleName('Balcão gavetas iguais') === 'Balcão gavetas',
+  'Balcão gavetas sem dims não vira Bancada',
+)
+ok(
+  canonicalModuleName('Painel avulso') === 'Painel avulso',
+  'Painel avulso (não Painel TV genérico obrigatório)',
+)
+
+const latA = moduleFamilyKey('Lateral de tamponamento', {
+  dimensions: { width_mm: 560, height_mm: 2400, depth_mm: 18 },
+})
+const latB = moduleFamilyKey('Lateral de tamponamento', {
+  dimensions: { width_mm: 400, height_mm: 2100, depth_mm: 18 },
+})
+ok(latA !== latB, `laterais com dims distintas não colapsam (${latA} vs ${latB})`)
+
+await vite.close()
+
+if (failed) {
+  console.error(`FAILED ${failed}`)
   process.exit(1)
 }
-console.log('OK')
+console.log('OK hellomob merge keys E5')

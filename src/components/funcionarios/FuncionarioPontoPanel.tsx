@@ -409,25 +409,40 @@ export function FuncionarioPontoPanel({
 
   if (loading) return <LoadingState message="Carregando ponto…" />
 
+  const obsFaltaAutomatica = 'Falta detectada automaticamente.'
+  const ocObsTrim = ocObs.trim()
+  const ocTemJustificativa =
+    ocObsTrim.length >= 3 && ocObsTrim !== obsFaltaAutomatica
+  /** Com justificativa real o servidor zera o débito; sem ela, debita por padrão. */
+  const ocDebitaCaixa = ocTipo === 'falta' && !ocTemJustificativa && ocAbaterBanco
+
   const handleOcorrencia = async () => {
-    if (ocTipo === 'falta' && ocObs.trim().length < 3) {
+    // Nova falta exige motivo (≥3). Em edição, campo vazio = mantém injustificada com débito.
+    if (ocTipo === 'falta' && !ocTemJustificativa && !ocEditandoId) {
       showToast('Informe o motivo da falta (mínimo 3 caracteres).', 'error')
       return
     }
     setSaving(true)
     try {
+      const abater =
+        ocTipo === 'falta' ? (ocTemJustificativa ? false : ocAbaterBanco) : false
       await addOcorrencia(ocData, ocTipo, {
-        observacao: ocObs.trim() || null,
-        abaterBancoHoras: ocTipo === 'falta' ? ocAbaterBanco : false,
+        observacao:
+          ocTipo === 'falta' && !ocTemJustificativa
+            ? ocObsTrim || obsFaltaAutomatica
+            : ocObs.trim() || null,
+        abaterBancoHoras: abater,
       })
       setOcObs('')
-      setOcAbaterBanco(false)
+      setOcAbaterBanco(true)
       setOcEditandoId(null)
       showToast(
         ocTipo === 'falta'
-          ? ocAbaterBanco
-            ? 'Falta justificada e abatida no banco de horas.'
-            : 'Falta justificada com sucesso.'
+          ? ocTemJustificativa
+            ? 'Falta justificada — débito removido do caixa.'
+            : abater
+              ? 'Falta injustificada com débito no caixa.'
+              : 'Falta registrada sem débito no caixa.'
           : 'Ocorrência registrada.',
       )
     } catch (e) {
@@ -447,13 +462,16 @@ export function FuncionarioPontoPanel({
     setOcEditandoId(o.id)
     setOcData(o.data)
     setOcTipo(o.tipo)
-    setOcObs(o.observacao?.trim() || '')
-    setOcAbaterBanco(Boolean(o.abater_banco_horas))
-    showToast('Preencha o motivo e salve para justificar esta falta.')
+    const obs = o.observacao?.trim() || ''
+    setOcObs(obs === obsFaltaAutomatica ? '' : obs)
+    // Sem justificativa → débito ligado; com justificativa → desligado
+    const justificada = obs.length >= 3 && obs !== obsFaltaAutomatica
+    setOcAbaterBanco(justificada ? false : Boolean(o.abater_banco_horas ?? true))
+    showToast('Preencha o motivo e salve — a justificativa tira o débito do caixa.')
   }
 
   const minutosAbaterPreview =
-    ocTipo === 'falta' && ocAbaterBanco ? minutosJornadaNoDia(jornada, ocData) : 0
+    ocDebitaCaixa ? minutosJornadaNoDia(jornada, ocData) : 0
 
   const handleRegistroManual = async () => {
     if (tiposDisponiveisManual.length === 0) {
@@ -782,7 +800,8 @@ export function FuncionarioPontoPanel({
                     onChange={e => {
                       const next = e.target.value as typeof ocTipo
                       setOcTipo(next)
-                      if (next !== 'falta') setOcAbaterBanco(false)
+                      // Falta injustificada debita por padrão; folga/abono não
+                      setOcAbaterBanco(next === 'falta')
                     }}
                     disabled={Boolean(ocEditandoId)}
                   >
@@ -795,12 +814,32 @@ export function FuncionarioPontoPanel({
                   <input
                     className="glass-input"
                     value={ocObs}
-                    onChange={e => setOcObs(e.target.value)}
-                    placeholder={ocTipo === 'falta' ? 'Obrigatório (ex.: atestado médico)' : 'Opcional'}
+                    onChange={e => {
+                      const next = e.target.value
+                      setOcObs(next)
+                      if (ocTipo === 'falta') {
+                        const t = next.trim()
+                        const justificada = t.length >= 3 && t !== obsFaltaAutomatica
+                        setOcAbaterBanco(!justificada)
+                      }
+                    }}
+                    placeholder={
+                      ocTipo === 'falta'
+                        ? 'Ex.: atestado, feriado, consulta… (tira o débito do caixa)'
+                        : 'Opcional'
+                    }
                   />
                 </Field>
               </div>
-              {ocTipo === 'falta' && (
+              {ocTipo === 'falta' && ocTemJustificativa && (
+                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                  Com este motivo a falta fica justificada — o débito sai do caixa
+                  {minutosJornadaNoDia(jornada, ocData) > 0
+                    ? ` (libera cerca de ${formatMinutosSaldo(minutosJornadaNoDia(jornada, ocData))}).`
+                    : '.'}
+                </p>
+              )}
+              {ocTipo === 'falta' && !ocTemJustificativa && (
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[rgba(242,216,146,0.25)] bg-[rgba(26,16,12,0.35)] px-3 py-3 text-sm text-[#edd9c4]">
                   <input
                     type="checkbox"
@@ -809,13 +848,13 @@ export function FuncionarioPontoPanel({
                     onChange={e => setOcAbaterBanco(e.target.checked)}
                   />
                   <span>
-                    <span className="font-semibold text-[#f2d892]">Abater falta no banco de horas</span>
+                    <span className="font-semibold text-[#f2d892]">Debitar no caixa (falta injustificada)</span>
                     <span className="mt-0.5 block text-xs text-[#b8957f]">
-                      Desconta a jornada do dia das horas extras do período
+                      Sem justificativa, a jornada do dia entra como hora negativa no saldo
                       {minutosAbaterPreview > 0
                         ? ` (cerca de ${formatMinutosSaldo(minutosAbaterPreview)}).`
                         : '.'}
-                      {' '}Se as horas extras não cobrirem o dia, o saldo fica negativo.
+                      {' '}Escreva um motivo acima para tirar esse débito.
                     </span>
                   </span>
                 </label>
@@ -832,7 +871,7 @@ export function FuncionarioPontoPanel({
                     onClick={() => {
                       setOcEditandoId(null)
                       setOcObs('')
-                      setOcAbaterBanco(false)
+                      setOcAbaterBanco(true)
                       setOcTipo('folga')
                       setOcData(pontoDataLocal())
                     }}
@@ -861,11 +900,16 @@ export function FuncionarioPontoPanel({
                       </span>
                     )}
                     {o.tipo === 'falta' && o.abater_banco_horas && (
-                      <span className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-emerald-300">
-                        Abatida no banco
+                      <span className="rounded-md border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-rose-300">
+                        Débito no caixa
                         {o.minutos_abatidos != null && o.minutos_abatidos > 0
                           ? ` (−${formatMinutosSaldo(o.minutos_abatidos)})`
                           : ''}
+                      </span>
+                    )}
+                    {o.tipo === 'falta' && !o.abater_banco_horas && (
+                      <span className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wider text-emerald-300">
+                        Justificada (sem débito)
                       </span>
                     )}
                   </div>

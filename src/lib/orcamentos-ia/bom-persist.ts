@@ -143,8 +143,22 @@ export function explodeModuleForPersist(
     name: string
     typology?: string | null
     dimensions?: { width_mm?: number | null; height_mm?: number | null; depth_mm?: number | null }
-    caixaria?: Array<{ function?: string | null }>
-    frentes_portas?: Array<{ kind?: string | null }>
+    caixaria?: Array<{
+      function?: string | null
+      width_mm?: number | null
+      height_mm?: number | null
+      thickness_mm?: number | null
+      quantity?: number | null
+      material_name?: string | null
+    }>
+    frentes_portas?: Array<{
+      kind?: string | null
+      width_mm?: number | null
+      height_mm?: number | null
+      thickness_mm?: number | null
+      quantity?: number | null
+      material_name?: string | null
+    }>
     door_count?: number | null
     drawer_count?: number | null
     shelf_count?: number | null
@@ -156,9 +170,11 @@ export function explodeModuleForPersist(
     door_overhang_mm?: number | null
     sliding_envelope?: boolean | null
     room_tag?: string | null
+    material_name?: string | null
   },
   prefs: Partial<SystemPreferences> | null,
   roomTag?: string,
+  palette?: Array<{ label: string; role: string; thickness_mm?: number }> | null,
 ): ExplodeResult {
   // Sempre propaga tipologias/campos v11 (não re-inferir só pelo nome)
   return explodeFromExtractionModule(
@@ -167,5 +183,6 @@ export function explodeModuleForPersist(
       room_tag: mod.room_tag ?? roomTag ?? undefined,
     },
     prefs,
+    palette,
   )
 }

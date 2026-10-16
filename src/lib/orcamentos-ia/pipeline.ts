@@ -93,6 +93,7 @@ import {
   getSystemPreferences,
 } from '@/lib/orcamentos-ia/system-preferences'
 import {
+  bomLineToQuoteMaterial,
   clearBomItemsForProject,
   explodeModuleForPersist,
   insertBomItems,
@@ -1693,13 +1694,23 @@ async function nodeResolvePricesAndPersist(
             })
             .filter((n): n is number => n != null),
         )
-  const extractionForPersist = filterExtractionToSelectedPages(
+  const extractionFiltered = filterExtractionToSelectedPages(
     state.extraction,
     persistPageNumbers,
   ) as QuoteExtraction
+  // Reaplica paleta multi-SKU antes de gravar (impede colapso Branco no bom_items).
+  const {
+    extraction: extractionForPersist,
+    projectSheetPalette: persistSheetPalette,
+    consolidatedBom: persistConsolidatedBom,
+  } = consolidateExtractionForPricing(extractionFiltered)
   if (!extractionForPersist?.environments?.length) {
     throw new Error('Nenhum módulo do lote restante após filtro de páginas — abortando persistência.')
   }
+  console.info(
+    `[pipeline] paleta persistência: ${persistSheetPalette.length} SKU(s); ` +
+      `chapas consolidadas: ${persistConsolidatedBom.sheets.length} linha(s).`,
+  )
 
   for (const [envIndex, env] of extractionForPersist.environments.entries()) {
     const { data: envRow, error: envError } = await supabase
@@ -2019,6 +2030,46 @@ async function nodeResolvePricesAndPersist(
         }
       }
 
+      // v11: desmonte determinístico → bom_items + CoT (antes do insert de materiais)
+      const exploded = explodeModuleForPersist(
+        mod,
+        systemPrefs,
+        env.name,
+        persistSheetPalette,
+      )
+      const bomCheck = validateBomLines(exploded.bom)
+      if (!bomCheck.ok) {
+        throw new Error(
+          `BOM inválido no módulo “${mod.name}”: ${bomCheck.issues.slice(0, 3).join(' | ')}`,
+        )
+      }
+
+      // E4: se o desmonte gerou corrediças e a lista ainda não tem, espelha ANTES do insert.
+      const hasSlideInMats = materialRows.some((r) =>
+        /corredic|telescop/i.test(String(r.raw_name || '')),
+      )
+      if (!hasSlideInMats) {
+        for (const line of exploded.bom) {
+          if (line.item_category !== 'hardware') continue
+          if (!/corredic|telescop|slide/i.test(line.item_description)) continue
+          if (!(line.quantity > 0)) continue
+          const row = bomLineToQuoteMaterial(modRow.id, line)
+          const ferrPrice = price(String(row.raw_name), 'ferragem')
+          if (ferrPrice.usingMarketPrice) marketFlags += 1
+          materialRows.push({
+            ...row,
+            system_material_id: ferrPrice.inventoryItemId,
+            using_market_price: ferrPrice.usingMarketPrice,
+            market_price_confirmed: false,
+            unit_price: ferrPrice.unitPrice,
+            notes: priceNotes(
+              ferrPrice,
+              `E4 desmonte: ${line.quantity} par(es) de corrediças`,
+            ),
+          })
+        }
+      }
+
       // Gate: materiais marcenaria devem ter preço > 0
       const unpriced = materialRows.filter(
         (r) =>
@@ -2044,14 +2095,6 @@ async function nodeResolvePricesAndPersist(
         )
       }
 
-      // v11: desmonte determinístico → bom_items + CoT de engenharia
-      const exploded = explodeModuleForPersist(mod, systemPrefs, env.name)
-      const bomCheck = validateBomLines(exploded.bom)
-      if (!bomCheck.ok) {
-        throw new Error(
-          `BOM inválido no módulo “${mod.name}”: ${bomCheck.issues.slice(0, 3).join(' | ')}`,
-        )
-      }
       const bomInsert = await insertBomItems(state.analysisId, modRow.id, exploded.bom)
       if (bomInsert.error) throw new Error(bomInsert.error)
       bomItemsSaved += bomInsert.count
@@ -2215,6 +2258,12 @@ async function nodeResolvePricesAndPersist(
     last_extraction: extractionForPersist,
     duplicate_view_flags: duplicateFlags,
     circuit_breaker: breaker,
+    consolidated_bom: persistConsolidatedBom,
+    project_sheet_palette: persistSheetPalette.map((s) => ({
+      label: s.label,
+      thickness_mm: s.thickness_mm,
+      role: s.role,
+    })),
     ...financialTotals,
   }
 

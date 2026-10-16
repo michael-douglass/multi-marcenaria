@@ -314,6 +314,10 @@ export async function fetchOcorrencias(funcionarioId: string): Promise<PontoOcor
 
 export interface SalvarOcorrenciaOpts {
   observacao?: string | null
+  /**
+   * Falta injustificada: true debita a jornada no caixa.
+   * Com justificativa real o servidor zera o débito independentemente deste flag.
+   */
   abaterBancoHoras?: boolean
 }
 
@@ -480,8 +484,8 @@ function resolverFaltasDetalheLocal(
   }
   return (row.faltas_datas ?? []).map(data => ({
     data,
-    observacao: null,
-    abater_banco_horas: false,
+    observacao: 'Falta detectada automaticamente.',
+    abater_banco_horas: true,
     minutos_abatidos: null,
     atestados_count: 0,
   }))

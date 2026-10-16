@@ -7,6 +7,10 @@
 import { z } from 'zod'
 import { isCuttingListNote } from '@/lib/orcamentos-ia/pricing'
 import {
+  countModuleDrawers,
+  sumCorredicaPairs,
+} from '@/lib/orcamentos-ia/drawer-slides'
+import {
   type CoverageReport,
   type DuplicateViewFlag,
   normalizeExtractionKey,
@@ -35,6 +39,8 @@ export interface BillableMaterialRow {
   notes?: string | null
   material_name?: string | null
   function?: string | null
+  exact_quantity?: number | null
+  full_units_quantity?: number | null
 }
 
 export interface CircuitBreakerPricingTotals {
@@ -174,6 +180,70 @@ function countBillableModulesInExtraction(extraction: unknown): number {
   return n
 }
 
+/** Conta módulos com gaveta vs pares de corrediça (extração + materiais persistidos). */
+export function findDrawerSlideGaps(
+  extraction: unknown,
+  materials: BillableMaterialRow[],
+): { drawerModules: number; drawerCount: number; corredicaPairs: number } {
+  let drawerModules = 0
+  let drawerCount = 0
+  const ferragens: Array<{ raw_name?: string; exact_quantity?: number }> = []
+
+  if (extraction && typeof extraction === 'object') {
+    const root = extraction as { environments?: unknown[] }
+    for (const env of root.environments || []) {
+      if (!env || typeof env !== 'object') continue
+      const modules = Array.isArray((env as { modules?: unknown }).modules)
+        ? ((env as { modules: unknown[] }).modules)
+        : []
+      for (const mod of modules) {
+        if (!mod || typeof mod !== 'object') continue
+        const m = mod as {
+          out_of_scope?: boolean
+          name?: string
+          typology?: string
+          drawer_count?: number
+          frentes_portas?: unknown[]
+          caixaria?: unknown[]
+          ferragens?: Array<{ raw_name?: string; exact_quantity?: number }>
+        }
+        if (m.out_of_scope) continue
+        const n = countModuleDrawers({
+          name: m.name,
+          typology: m.typology,
+          drawer_count: m.drawer_count,
+          frentes_portas: m.frentes_portas as never,
+          caixaria: m.caixaria as never,
+        })
+        if (n > 0) {
+          drawerModules += 1
+          drawerCount += n
+        }
+        for (const f of m.ferragens || []) ferragens.push(f)
+      }
+    }
+  }
+
+  let corredicaPairs = sumCorredicaPairs(ferragens)
+  if (corredicaPairs <= 0 && materials?.length) {
+    let matPairs = 0
+    for (const m of materials) {
+      const raw = String(m.raw_name || '')
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .toLowerCase()
+      if (!/corredic|telescop/.test(raw)) continue
+      matPairs +=
+        Number(m.exact_quantity) ||
+        Number(m.full_units_quantity) ||
+        1
+    }
+    corredicaPairs = matPairs
+  }
+
+  return { drawerModules, drawerCount, corredicaPairs }
+}
+
 const DEFAULT_BOX_MATERIAL = 'MDF Branco TX'
 
 /**
@@ -287,6 +357,14 @@ export function evaluateCircuitBreaker(
       .join(', ')
     blockers.push(
       `Cobertura incompleta: ${missing} módulo(s) do inventário faltando (${sample}).`,
+    )
+  }
+
+  // E6: gavetas no BOM sem corrediças → NEEDS_REVIEW
+  const drawerSlideGap = findDrawerSlideGaps(input.extraction, input.materials)
+  if (drawerSlideGap.drawerModules > 0 && drawerSlideGap.corredicaPairs <= 0) {
+    blockers.push(
+      `Gavetas sem corrediças: ${drawerSlideGap.drawerModules} módulo(s) com gaveta e 0 corrediças (E4/E6).`,
     )
   }
 

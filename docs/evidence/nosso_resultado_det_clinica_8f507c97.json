@@ -1,0 +1,1232 @@
+{
+  "source": "corte-claude-e7-offline",
+  "analysis_id": "8f507c97-dd86-44ad-858b-090ad4ce8ef2",
+  "exported_at": "2026-10-16T19:21:48.639Z",
+  "status": "COMPLETED",
+  "note": "Pós E3–E6 aplicados em last_extraction (rebalance + consolidate + drawer slides). Modularização E5 completa exige --from-scratch / UI.",
+  "modules_in_scope": 45,
+  "modules_out_of_scope": 1,
+  "in_scope": [
+    {
+      "env": "Recepção",
+      "name": "Painel em MDF",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 50,
+        "width_mm": 2400,
+        "height_mm": 2700
+      },
+      "drawers": 0,
+      "materials": 11
+    },
+    {
+      "env": "Recepção",
+      "name": "Balcão Recepção",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 600,
+        "width_mm": 2400,
+        "height_mm": 900
+      },
+      "drawers": 0,
+      "materials": 10
+    },
+    {
+      "env": "Recepção",
+      "name": "Armário Aéreo Recepção",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 350,
+        "width_mm": 2400,
+        "height_mm": 700
+      },
+      "drawers": 0,
+      "materials": 12
+    },
+    {
+      "env": "Recepção",
+      "name": "Balcão em MDF com LED",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 600,
+        "width_mm": 1800,
+        "height_mm": 1050
+      },
+      "drawers": 0,
+      "materials": 11
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel Recepção",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 18,
+        "width_mm": 1800,
+        "height_mm": 2700
+      },
+      "drawers": 0,
+      "materials": 16
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel MDF Recepção esquerdo",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 100,
+        "width_mm": 2000,
+        "height_mm": 2800
+      },
+      "drawers": 0,
+      "materials": 15
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel MDF Recepção direito",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 100,
+        "width_mm": 2400,
+        "height_mm": 2800
+      },
+      "drawers": 0,
+      "materials": 16
+    },
+    {
+      "env": "Recepção",
+      "name": "Gaveteiro com rodízio",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 3,
+      "materials": 6
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel Lateral",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 18,
+        "width_mm": 1200,
+        "height_mm": 2700
+      },
+      "drawers": 0,
+      "materials": 6
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel ripado em MDF",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 80,
+        "width_mm": 3000,
+        "height_mm": 2700
+      },
+      "drawers": 0,
+      "materials": 10
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel nichos",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 150,
+        "width_mm": 4200,
+        "height_mm": 1300
+      },
+      "drawers": 0,
+      "materials": 12
+    },
+    {
+      "env": "Recepção",
+      "name": "Balcão de recepção em L",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 600,
+        "width_mm": 1700,
+        "height_mm": 800
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Recepção",
+      "name": "Gaveteiro recepção 4 gavetas",
+      "typology": "gaveteiro",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 400,
+        "width_mm": 600,
+        "height_mm": 800
+      },
+      "drawers": 8,
+      "materials": 25
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel ripado Recepção",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 100,
+        "width_mm": 3650,
+        "height_mm": 2000
+      },
+      "drawers": 0,
+      "materials": 11
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel divisória 1",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 18,
+        "width_mm": 850,
+        "height_mm": 2200
+      },
+      "drawers": 0,
+      "materials": 7
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel divisória 2",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 18,
+        "width_mm": 1400,
+        "height_mm": 2200
+      },
+      "drawers": 0,
+      "materials": 7
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel superior liso",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 50,
+        "width_mm": 3600,
+        "height_mm": 600
+      },
+      "drawers": 0,
+      "materials": 9
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel ripado vertical",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 80,
+        "width_mm": 3600,
+        "height_mm": 2400
+      },
+      "drawers": 0,
+      "materials": 10
+    },
+    {
+      "env": "Recepção",
+      "name": "Divisória ripada Salerno",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 80,
+        "width_mm": 3000,
+        "height_mm": 2900
+      },
+      "drawers": 0,
+      "materials": 9
+    },
+    {
+      "env": "Recepção",
+      "name": "Armário aéreo",
+      "typology": "aereo",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 350,
+        "width_mm": 1380,
+        "height_mm": 450
+      },
+      "drawers": 0,
+      "materials": 12
+    },
+    {
+      "env": "Recepção",
+      "name": "Armário aéreo com nicho",
+      "typology": "aereo",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 350,
+        "width_mm": 900,
+        "height_mm": 700
+      },
+      "drawers": 0,
+      "materials": 11
+    },
+    {
+      "env": "Recepção",
+      "name": "Balcão inferior 1,50×0,75",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 600,
+        "width_mm": 1500,
+        "height_mm": 750
+      },
+      "drawers": 4,
+      "materials": 24
+    },
+    {
+      "env": "Recepção",
+      "name": "Painel MDF",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 100,
+        "width_mm": 3200,
+        "height_mm": 2600
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Recepção",
+      "name": "Bancada",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Painel em MDF",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Armário suspenso",
+      "typology": "aereo",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Armário inferior",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 5
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Mesa orgânica",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 850,
+        "width_mm": 1700,
+        "height_mm": 750
+      },
+      "drawers": 0,
+      "materials": 12
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Painel com espelho",
+      "typology": "painel",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 50,
+        "width_mm": 3300,
+        "height_mm": 2800
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Cozinha",
+      "name": "Armário inferior",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 580,
+        "width_mm": 1380,
+        "height_mm": 700
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Cozinha",
+      "name": "Balcão inferior pia/cooktop",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 550,
+        "width_mm": 1600,
+        "height_mm": 850
+      },
+      "drawers": 4,
+      "materials": 16
+    },
+    {
+      "env": "Cozinha",
+      "name": "Armários",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 5
+    },
+    {
+      "env": "Cozinha",
+      "name": "Prateleira",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Cozinha",
+      "name": "Bancada lateral em L",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 600,
+        "width_mm": 1200,
+        "height_mm": 900
+      },
+      "drawers": 0,
+      "materials": 7
+    },
+    {
+      "env": "Sala Esterilização",
+      "name": "Armário aéreo",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 5
+    },
+    {
+      "env": "Sala Esterilização",
+      "name": "Armários",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 5
+    },
+    {
+      "env": "Sala Esterilização",
+      "name": "Prateleira aérea",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Sala Esterilização",
+      "name": "Armário aéreo 1,50×0,85",
+      "typology": "aereo",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 350,
+        "width_mm": 1500,
+        "height_mm": 850
+      },
+      "drawers": 0,
+      "materials": 15
+    },
+    {
+      "env": "Sala Esterilização",
+      "name": "Tampo bancada granito/pedra",
+      "typology": "outro",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 30,
+        "width_mm": 1500,
+        "height_mm": 600
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Base em MDF",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 0
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Armário com rodízio",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 5
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Painel em MDF",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 4
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Mesa em MDF",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 560,
+        "width_mm": 800,
+        "height_mm": 720
+      },
+      "drawers": 0,
+      "materials": 14
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Base Inferior",
+      "typology": "balcao",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 500,
+        "width_mm": 3200,
+        "height_mm": 750
+      },
+      "drawers": 0,
+      "materials": 17
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Mesa",
+      "typology": "outro",
+      "out_of_scope": false,
+      "dims": {
+        "depth_mm": 800,
+        "width_mm": 1200,
+        "height_mm": 750
+      },
+      "drawers": 0,
+      "materials": 4
+    }
+  ],
+  "phantom_envs_remaining": [],
+  "materials_count": 488,
+  "bom_items_count": 187,
+  "sheets_priced_ui": {
+    "Outro 18mm": 12,
+    "Branco 15mm": 21,
+    "Branco 6mm": 26,
+    "Branco 18mm": 5,
+    "Freijo 18mm": 4,
+    "Fontana 18mm": 2,
+    "Itapua 18mm": 2,
+    "Lana 18mm": 1,
+    "Salerno 18mm": 3,
+    "Salerno 15mm": 1,
+    "Areia 18mm": 3,
+    "total": 80
+  },
+  "sheets_by_color_mm": {
+    "Outro 18mm": 12,
+    "Branco 15mm": 21,
+    "Branco 6mm": 26,
+    "Branco 18mm": 5,
+    "Freijo 18mm": 4,
+    "Fontana 18mm": 2,
+    "Itapua 18mm": 2,
+    "Lana 18mm": 1,
+    "Salerno 18mm": 3,
+    "Salerno 15mm": 1,
+    "Areia 18mm": 3
+  },
+  "hardware_aggregated": {
+    "Articulador uno Tavares Forte": 2,
+    "Bucha e parafuso 8×60 mm": 16,
+    "Bucha S8": 24,
+    "Cantoneira de fixação parede 50 mm": 8,
+    "Cantoneira fixação parede": 8,
+    "Cavilha": 76,
+    "Cavilha 6 mm": 40,
+    "Cavilha 6mm": 12,
+    "Cavilha 8 mm": 272,
+    "Cavilha 8mm": 324,
+    "CORREDIÇA OCULTA 45": 15,
+    "CORREDIÇA TELES 25": 4,
+    "DOBRADIÇA RETA": 71,
+    "Espelho ovalado bisotado 0,70×1,65 m": 1,
+    "FITA LED": 16,
+    "Flange / cantoneira para fixação pé metálico": 4,
+    "Mão francesa metálica": 18,
+    "Minifix": 292,
+    "Minifix 15 mm": 48,
+    "Minifix 15mm": 96,
+    "Minifix completo": 16,
+    "Minifix fêmea": 8,
+    "Minifix macho": 8,
+    "Parafuso 4x30 mm": 340,
+    "Parafuso 4x40 mm": 24,
+    "Parafuso cabeça chata 4×30": 16,
+    "Parafuso cabeça chata 4x40 mm": 180,
+    "Parafuso fixação painel": 40,
+    "Parafuso para fixação": 20,
+    "Parafuso para fixação pé metálico": 8,
+    "Parafuso para madeira": 16,
+    "Parafuso para ripado": 240,
+    "Parafuso sextavado 6x80 mm": 12,
+    "Pé de mesa metálico arredondado Ø 200 mm altura 650 mm prata fosco": 1,
+    "Pé de mesa metálico regulável": 4,
+    "Puxador": 5,
+    "PUXADOR ALÇA": 18,
+    "Puxador Branco": 8,
+    "Puxador metálico": 1,
+    "RM-331 PERFIL DE LED EMB": 3,
+    "Suporte de fixação parede": 12,
+    "Suporte de parede": 4,
+    "Suporte metálico prateado para fixação parede": 4,
+    "Suporte prateleira regulável": 4
+  },
+  "hardware_totals": {
+    "dobradica": 0,
+    "corredica": 19,
+    "puxador": 32
+  },
+  "drawer_modules": 4,
+  "corredica_pairs_extraction": 19,
+  "corredica_pairs_explode": 0,
+  "commercial_sheet_skus": 14,
+  "project_sheet_palette": [
+    {
+      "label": "MDF Branco Multimarcas 6mm",
+      "thickness_mm": 6,
+      "role": "back_white"
+    },
+    {
+      "label": "MDF Branco Eucatex 15mm",
+      "thickness_mm": 15,
+      "role": "box_white"
+    },
+    {
+      "label": "MDF Bege Papiro",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Branco Eucatex 15mm",
+      "thickness_mm": 18,
+      "role": "box_white"
+    },
+    {
+      "label": "MDF Bege",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Branco TX",
+      "thickness_mm": 18,
+      "role": "box_white"
+    },
+    {
+      "label": "MDF Louro Freijó",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Madeirado",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Fontana Linha Magma Guararapes",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Madeira Natural",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Itapuã Duratex",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Lana Duratex",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Branco TX",
+      "thickness_mm": 15,
+      "role": "box_white"
+    },
+    {
+      "label": "MDF Freijó",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Salerno",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Salerno",
+      "thickness_mm": 15,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Branco",
+      "thickness_mm": 18,
+      "role": "box_white"
+    },
+    {
+      "label": "MDF cor do projeto",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Madeira Clara",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Salerno - Guararapes",
+      "thickness_mm": 18,
+      "role": "front_color"
+    },
+    {
+      "label": "MDF Areia Guararapes",
+      "thickness_mm": 18,
+      "role": "front_color"
+    }
+  ],
+  "consolidated_bom": {
+    "sheets": [
+      {
+        "label": "MDF Bege Papiro",
+        "thickness_mm": 18,
+        "area_m2": 6.48,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Branco Eucatex 15mm",
+        "thickness_mm": 15,
+        "area_m2": 86.723,
+        "sheets": 20
+      },
+      {
+        "label": "MDF Branco Multimarcas 6mm",
+        "thickness_mm": 6,
+        "area_m2": 111.431,
+        "sheets": 26
+      },
+      {
+        "label": "MDF Branco Eucatex 15mm",
+        "thickness_mm": 18,
+        "area_m2": 3.44,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Bege",
+        "thickness_mm": 18,
+        "area_m2": 1.236,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Branco TX",
+        "thickness_mm": 18,
+        "area_m2": 12.998,
+        "sheets": 3
+      },
+      {
+        "label": "MDF Louro Freijó",
+        "thickness_mm": 18,
+        "area_m2": 7.92,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Madeirado",
+        "thickness_mm": 18,
+        "area_m2": 4.86,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Fontana Linha Magma Guararapes",
+        "thickness_mm": 18,
+        "area_m2": 4.9,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Madeira Natural",
+        "thickness_mm": 18,
+        "area_m2": 10.5,
+        "sheets": 3
+      },
+      {
+        "label": "MDF Itapuã Duratex",
+        "thickness_mm": 18,
+        "area_m2": 6.625,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Lana Duratex",
+        "thickness_mm": 18,
+        "area_m2": 2.258,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Branco TX",
+        "thickness_mm": 15,
+        "area_m2": 1.226,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Freijó",
+        "thickness_mm": 18,
+        "area_m2": 8.16,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Salerno",
+        "thickness_mm": 18,
+        "area_m2": 6.96,
+        "sheets": 2
+      },
+      {
+        "label": "MDF Salerno",
+        "thickness_mm": 15,
+        "area_m2": 1.372,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Branco",
+        "thickness_mm": 18,
+        "area_m2": 1.87,
+        "sheets": 1
+      },
+      {
+        "label": "MDF cor do projeto",
+        "thickness_mm": 18,
+        "area_m2": 2.169,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Madeira Clara",
+        "thickness_mm": 18,
+        "area_m2": 12.798,
+        "sheets": 3
+      },
+      {
+        "label": "MDF Salerno - Guararapes",
+        "thickness_mm": 18,
+        "area_m2": 1.853,
+        "sheets": 1
+      },
+      {
+        "label": "MDF Areia Guararapes",
+        "thickness_mm": 18,
+        "area_m2": 9.993,
+        "sheets": 3
+      }
+    ],
+    "hardware": [
+      {
+        "key": "articulador_uno",
+        "canonicalName": "Articulador uno Tavares Forte",
+        "category": "ferragem",
+        "quantity": 2
+      },
+      {
+        "key": "bucha e parafuso 8×60 mm",
+        "canonicalName": "Bucha e parafuso 8×60 mm",
+        "category": "ferragem",
+        "quantity": 16
+      },
+      {
+        "key": "bucha s8",
+        "canonicalName": "Bucha S8",
+        "category": "ferragem",
+        "quantity": 24
+      },
+      {
+        "key": "cantoneira de fixacao parede 50 mm",
+        "canonicalName": "Cantoneira de fixação parede 50 mm",
+        "category": "ferragem",
+        "quantity": 8
+      },
+      {
+        "key": "cantoneira fixacao parede",
+        "canonicalName": "Cantoneira fixação parede",
+        "category": "ferragem",
+        "quantity": 8
+      },
+      {
+        "key": "cavilha",
+        "canonicalName": "Cavilha",
+        "category": "ferragem",
+        "quantity": 76
+      },
+      {
+        "key": "cavilha 6 mm",
+        "canonicalName": "Cavilha 6 mm",
+        "category": "ferragem",
+        "quantity": 40
+      },
+      {
+        "key": "cavilha 6mm",
+        "canonicalName": "Cavilha 6mm",
+        "category": "ferragem",
+        "quantity": 12
+      },
+      {
+        "key": "cavilha 8 mm",
+        "canonicalName": "Cavilha 8 mm",
+        "category": "ferragem",
+        "quantity": 272
+      },
+      {
+        "key": "cavilha 8mm",
+        "canonicalName": "Cavilha 8mm",
+        "category": "ferragem",
+        "quantity": 324
+      },
+      {
+        "key": "corredica_oculta_45",
+        "canonicalName": "CORREDIÇA OCULTA 45",
+        "category": "ferragem",
+        "quantity": 15
+      },
+      {
+        "key": "corredica_teles_25",
+        "canonicalName": "CORREDIÇA TELES 25",
+        "category": "ferragem",
+        "quantity": 4
+      },
+      {
+        "key": "dobradica_reta",
+        "canonicalName": "DOBRADIÇA RETA",
+        "category": "ferragem",
+        "quantity": 71
+      },
+      {
+        "key": "espelho ovalado bisotado 0,70×1,65 m",
+        "canonicalName": "Espelho ovalado bisotado 0,70×1,65 m",
+        "category": "ferragem",
+        "quantity": 1
+      },
+      {
+        "key": "fita_led",
+        "canonicalName": "FITA LED",
+        "category": "consumivel",
+        "quantity": 16
+      },
+      {
+        "key": "flange / cantoneira para fixacao pe metalico",
+        "canonicalName": "Flange / cantoneira para fixação pé metálico",
+        "category": "ferragem",
+        "quantity": 4
+      },
+      {
+        "key": "mao francesa metalica",
+        "canonicalName": "Mão francesa metálica",
+        "category": "ferragem",
+        "quantity": 18
+      },
+      {
+        "key": "minifix",
+        "canonicalName": "Minifix",
+        "category": "ferragem",
+        "quantity": 292
+      },
+      {
+        "key": "minifix 15 mm",
+        "canonicalName": "Minifix 15 mm",
+        "category": "ferragem",
+        "quantity": 48
+      },
+      {
+        "key": "minifix 15mm",
+        "canonicalName": "Minifix 15mm",
+        "category": "ferragem",
+        "quantity": 96
+      },
+      {
+        "key": "minifix completo",
+        "canonicalName": "Minifix completo",
+        "category": "ferragem",
+        "quantity": 16
+      },
+      {
+        "key": "minifix femea",
+        "canonicalName": "Minifix fêmea",
+        "category": "ferragem",
+        "quantity": 8
+      },
+      {
+        "key": "minifix macho",
+        "canonicalName": "Minifix macho",
+        "category": "ferragem",
+        "quantity": 8
+      },
+      {
+        "key": "parafuso 4x30 mm",
+        "canonicalName": "Parafuso 4x30 mm",
+        "category": "ferragem",
+        "quantity": 340
+      },
+      {
+        "key": "parafuso 4x40 mm",
+        "canonicalName": "Parafuso 4x40 mm",
+        "category": "ferragem",
+        "quantity": 24
+      },
+      {
+        "key": "parafuso cabeca chata 4×30",
+        "canonicalName": "Parafuso cabeça chata 4×30",
+        "category": "ferragem",
+        "quantity": 16
+      },
+      {
+        "key": "parafuso cabeca chata 4x40 mm",
+        "canonicalName": "Parafuso cabeça chata 4x40 mm",
+        "category": "ferragem",
+        "quantity": 180
+      },
+      {
+        "key": "parafuso fixacao painel",
+        "canonicalName": "Parafuso fixação painel",
+        "category": "ferragem",
+        "quantity": 40
+      },
+      {
+        "key": "parafuso para fixacao",
+        "canonicalName": "Parafuso para fixação",
+        "category": "ferragem",
+        "quantity": 20
+      },
+      {
+        "key": "parafuso para fixacao pe metalico",
+        "canonicalName": "Parafuso para fixação pé metálico",
+        "category": "ferragem",
+        "quantity": 8
+      },
+      {
+        "key": "parafuso para madeira",
+        "canonicalName": "Parafuso para madeira",
+        "category": "ferragem",
+        "quantity": 16
+      },
+      {
+        "key": "parafuso para ripado",
+        "canonicalName": "Parafuso para ripado",
+        "category": "ferragem",
+        "quantity": 240
+      },
+      {
+        "key": "parafuso sextavado 6x80 mm",
+        "canonicalName": "Parafuso sextavado 6x80 mm",
+        "category": "ferragem",
+        "quantity": 12
+      },
+      {
+        "key": "pe de mesa metalico arredondado ø 200 mm altura 650 mm prata fosco",
+        "canonicalName": "Pé de mesa metálico arredondado Ø 200 mm altura 650 mm prata fosco",
+        "category": "ferragem",
+        "quantity": 1
+      },
+      {
+        "key": "pe de mesa metalico regulavel",
+        "canonicalName": "Pé de mesa metálico regulável",
+        "category": "ferragem",
+        "quantity": 4
+      },
+      {
+        "key": "puxador",
+        "canonicalName": "Puxador",
+        "category": "puxador",
+        "quantity": 5
+      },
+      {
+        "key": "puxador_alca",
+        "canonicalName": "PUXADOR ALÇA",
+        "category": "puxador",
+        "quantity": 18
+      },
+      {
+        "key": "puxador branco",
+        "canonicalName": "Puxador Branco",
+        "category": "puxador",
+        "quantity": 8
+      },
+      {
+        "key": "puxador metalico",
+        "canonicalName": "Puxador metálico",
+        "category": "puxador",
+        "quantity": 1
+      },
+      {
+        "key": "perfil_led_rm331",
+        "canonicalName": "RM-331 PERFIL DE LED EMB",
+        "category": "ferragem",
+        "quantity": 3
+      },
+      {
+        "key": "suporte de fixacao parede",
+        "canonicalName": "Suporte de fixação parede",
+        "category": "ferragem",
+        "quantity": 12
+      },
+      {
+        "key": "suporte de parede",
+        "canonicalName": "Suporte de parede",
+        "category": "ferragem",
+        "quantity": 4
+      },
+      {
+        "key": "suporte metalico prateado para fixacao parede",
+        "canonicalName": "Suporte metálico prateado para fixação parede",
+        "category": "ferragem",
+        "quantity": 4
+      },
+      {
+        "key": "suporte prateleira regulavel",
+        "canonicalName": "Suporte prateleira regulável",
+        "category": "ferragem",
+        "quantity": 4
+      }
+    ],
+    "notes": [
+      "BOM consolidado deterministicamente (paleta do projeto + De-Para de ferragens).",
+      "Chapas agregadas: 80 un. em 21 SKU(s).",
+      "Ferragens canônicas: 44 linha(s).",
+      "Corrediças: 19 par(es) em 2 linha(s) (1 par por gaveta)."
+    ]
+  },
+  "bom_board_samples": [
+    {
+      "d": "MDF Bege Papiro",
+      "q": 2
+    },
+    {
+      "d": "MDF Branco Eucatex 15mm",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco Multimarcas 6mm",
+      "q": 2
+    },
+    {
+      "d": "MDF Branco Eucatex 15mm",
+      "q": 2
+    },
+    {
+      "d": "MDF Branco Multimarcas 6mm",
+      "q": 1
+    },
+    {
+      "d": "MDF Bege",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco Eucatex 15mm",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco Multimarcas 6mm",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco TX",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco Eucatex 15mm",
+      "q": 1
+    },
+    {
+      "d": "MDF Louro Freijó",
+      "q": 1
+    },
+    {
+      "d": "MDF Branco Multimarcas 6mm",
+      "q": 1
+    }
+  ],
+  "materials_cost": 42907.785299999996,
+  "sale_price": 78014.16,
+  "batch_label": "1-44",
+  "e7_gates": {
+    "e3_skus_ge_5": true,
+    "e4_corredica_gt_0": true,
+    "e5_modules_ge_70": false,
+    "e6_no_phantom_bedroom": true
+  }
+}

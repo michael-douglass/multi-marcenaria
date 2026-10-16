@@ -436,7 +436,7 @@ function buildPaginaResumo(
           <strong class="neg">${negativasTxt}</strong>
         </div>
         <div>
-          <span>Faltas abatidas (banco)</span>
+          <span>Faltas no caixa</span>
           <strong class="neg">${faltasBancoTxt}</strong>
         </div>
         <div>
@@ -471,7 +471,7 @@ function buildPaginaResumo(
       <footer class="doc-footer">
         <p>Documento gerado em ${escapeHtml(geradoEmLabel())} · Garbo Movelaria</p>
         <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
-        <p>Saldo = horas positivas (HE) − atrasos − faltas abatidas no banco de horas.</p>
+        <p>Saldo = horas positivas (HE) − atrasos − faltas injustificadas no caixa.</p>
       </footer>
     </section>`
 }
@@ -869,7 +869,7 @@ async function renderJpgPages(
       '#9f1239',
     ],
     [
-      'Faltas abatidas (banco)',
+      'Faltas no caixa',
       balanco.faltas_banco_minutos > 0 ? `−${formatMinutosSaldo(balanco.faltas_banco_minutos)}` : '0min',
       '#9f1239',
     ],

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Clock, FilePlus2, Loader2, Paperclip, Scale, Undo2, Upload } from 'lucide-react'
+import {
+  CalendarOff,
+  Clock,
+  FilePlus2,
+  Loader2,
+  Paperclip,
+  Scale,
+  Undo2,
+  Upload,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -10,6 +19,11 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { AnexoLightbox, AnexoThumb } from '@/components/contas-pagar/AnexoLightbox'
+import {
+  OBS_FALTA_AUTOMATICA,
+  faltaDebitaCaixa,
+  faltaTemJustificativa,
+} from '@/lib/ponto-falta-status'
 import {
   calcularBalancoResumoPonto,
   resolverFaltasDetalhe,
@@ -47,6 +61,14 @@ interface AtestadoView extends PontoAtestado {
   previewUrls: string[]
 }
 
+type SavingAction =
+  | 'desconsiderar'
+  | 'justificar'
+  | 'folga'
+  | 'abono'
+  | 'debitar'
+  | null
+
 function formatDataLonga(iso: string): string {
   if (!iso) return '—'
   return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -67,7 +89,7 @@ export function ResumoPontoFaltaDialog({
 }: ResumoPontoFaltaDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [motivo, setMotivo] = useState('')
-  const [saving, setSaving] = useState<'desconsiderar' | 'abater' | 'reverter' | 'justificar' | null>(null)
+  const [saving, setSaving] = useState<SavingAction>(null)
   const [minutosDia, setMinutosDia] = useState(0)
   const [loadingJornada, setLoadingJornada] = useState(false)
   const [atestados, setAtestados] = useState<AtestadoView[]>([])
@@ -79,12 +101,19 @@ export function ResumoPontoFaltaDialog({
   const faltaDetalhe: PontoFaltaDetalhe | undefined = resolverFaltasDetalhe(row).find(
     (f) => f.data === data,
   )
-  const jaAbatida = Boolean(faltaDetalhe?.abater_banco_horas)
-  const minutosAbater =
-    jaAbatida && faltaDetalhe?.minutos_abatidos != null && faltaDetalhe.minutos_abatidos > 0
+  const debitaCaixa = faltaDetalhe ? faltaDebitaCaixa(faltaDetalhe) : true
+  const minutosDebito =
+    debitaCaixa && faltaDetalhe?.minutos_abatidos != null && faltaDetalhe.minutos_abatidos > 0
       ? faltaDetalhe.minutos_abatidos
       : minutosDia
-  const saldoDepois = balanco.saldo_minutos - (jaAbatida ? 0 : minutosAbater)
+  /** Ao justificar: devolve os minutos debitados ao saldo. */
+  const saldoDepoisJustificar = debitaCaixa
+    ? balanco.saldo_minutos + minutosDebito
+    : balanco.saldo_minutos
+  /** Ao voltar a debitar: tira a carga do dia do saldo. */
+  const saldoDepoisDebitar = !debitaCaixa
+    ? balanco.saldo_minutos - minutosDia
+    : balanco.saldo_minutos
 
   async function carregarAtestados() {
     setLoadingAtestados(true)
@@ -107,7 +136,8 @@ export function ResumoPontoFaltaDialog({
 
   useEffect(() => {
     if (!open) return
-    setMotivo(faltaDetalhe?.observacao?.trim() || '')
+    const obs = faltaDetalhe?.observacao?.trim() || ''
+    setMotivo(obs === OBS_FALTA_AUTOMATICA ? '' : obs)
     setSaving(null)
     setLightbox(null)
     let ativo = true
@@ -170,7 +200,7 @@ export function ResumoPontoFaltaDialog({
 
   async function handleSalvarJustificativa() {
     if (!canEdit || saving) return
-    if (motivo.trim().length < 3) {
+    if (!faltaTemJustificativa(motivo) || motivo.trim().length < 3) {
       showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
       return
     }
@@ -178,18 +208,56 @@ export function ResumoPontoFaltaDialog({
     try {
       await salvarOcorrencia(row.funcionario_id, data, 'falta', {
         observacao: motivo.trim(),
-        abaterBancoHoras: jaAbatida,
+        abaterBancoHoras: false,
       })
       showToast(
-        atestados.length > 0
-          ? 'Justificativa salva com atestado(s) anexado(s).'
-          : 'Justificativa salva.',
+        debitaCaixa && minutosDebito > 0
+          ? `Justificativa salva. Débito de ${formatMinutosSaldo(minutosDebito)} removido do caixa.`
+          : atestados.length > 0
+            ? 'Justificativa salva com atestado(s) anexado(s).'
+            : 'Justificativa salva. Sem débito no caixa.',
         'success',
       )
       onOpenChange(false)
       onSuccess()
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Não foi possível salvar a justificativa.', 'error')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function handleMarcarTipo(tipo: 'folga' | 'abono') {
+    if (!canEdit || saving) return
+    const obs =
+      motivo.trim().length >= 3
+        ? motivo.trim()
+        : tipo === 'folga'
+          ? 'Folga'
+          : 'Feriado / abono'
+    setSaving(tipo)
+    try {
+      await salvarOcorrencia(row.funcionario_id, data, tipo, {
+        observacao: obs,
+        abaterBancoHoras: false,
+      })
+      showToast(
+        tipo === 'folga'
+          ? 'Dia marcado como folga. Falta e débito removidos.'
+          : 'Dia marcado como abono/feriado. Falta e débito removidos.',
+        'success',
+      )
+      onOpenChange(false)
+      onSuccess()
+    } catch (e) {
+      showToast(
+        e instanceof Error
+          ? e.message
+          : tipo === 'folga'
+            ? 'Não foi possível marcar como folga.'
+            : 'Não foi possível marcar como abono.',
+        'error',
+      )
     } finally {
       setSaving(null)
     }
@@ -222,56 +290,23 @@ export function ResumoPontoFaltaDialog({
     }
   }
 
-  async function handleAbater() {
-    if (!canEdit || saving || jaAbatida) return
-    if (motivo.trim().length < 3) {
-      showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
-      return
-    }
-    setSaving('abater')
+  async function handleVoltarDebitar() {
+    if (!canEdit || saving || debitaCaixa) return
+    setSaving('debitar')
     try {
       await salvarOcorrencia(row.funcionario_id, data, 'falta', {
-        observacao: motivo.trim(),
+        observacao: OBS_FALTA_AUTOMATICA,
         abaterBancoHoras: true,
       })
       showToast(
-        minutosAbater > 0
-          ? `Falta abatida no banco (−${formatMinutosSaldo(minutosAbater)}).`
-          : 'Falta justificada e abatida no banco de horas.',
+        minutosDia > 0
+          ? `Débito reativado no caixa (−${formatMinutosSaldo(minutosDia)}).`
+          : 'Débito reativado no caixa. A falta volta como injustificada.',
       )
       onOpenChange(false)
       onSuccess()
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Não foi possível abater a falta.', 'error')
-    } finally {
-      setSaving(null)
-    }
-  }
-
-  async function handleReverterAbatimento() {
-    if (!canEdit || saving || !jaAbatida) return
-    if (motivo.trim().length < 3) {
-      showToast('Informe o motivo (mínimo 3 caracteres).', 'error')
-      return
-    }
-    setSaving('reverter')
-    try {
-      await salvarOcorrencia(row.funcionario_id, data, 'falta', {
-        observacao: motivo.trim(),
-        abaterBancoHoras: false,
-      })
-      showToast(
-        minutosAbater > 0
-          ? `Abatimento revertido (+${formatMinutosSaldo(minutosAbater)} de volta ao banco).`
-          : 'Abatimento revertido. A falta permanece registrada.',
-      )
-      onOpenChange(false)
-      onSuccess()
-    } catch (e) {
-      showToast(
-        e instanceof Error ? e.message : 'Não foi possível reverter o abatimento.',
-        'error',
-      )
+      showToast(e instanceof Error ? e.message : 'Não foi possível reativar o débito.', 'error')
     } finally {
       setSaving(null)
     }
@@ -299,18 +334,20 @@ export function ResumoPontoFaltaDialog({
         <div className="max-h-[min(70vh,560px)] space-y-4 overflow-y-auto px-5 py-4">
           {!canEdit && (
             <p className="rounded-lg border border-[#92400e]/25 bg-[#fff7ed] px-3 py-2 text-sm text-[#92400e]">
-              Só administrador ou financeiro pode desconsiderar ou abater. Você pode ver o detalhe,
-              mas não alterar.
+              Só administrador ou financeiro pode justificar ou desconsiderar. Você pode ver o
+              detalhe, mas não alterar.
             </p>
           )}
 
-          {jaAbatida && (
+          {debitaCaixa ? (
+            <p className="rounded-lg border border-[#9f1239]/25 bg-[#fff1f2] px-3 py-2 text-sm text-[#9f1239]">
+              Esta falta está debitando o caixa
+              {minutosDebito > 0 ? ` (−${formatMinutosSaldo(minutosDebito)})` : ''}. Justifique ou
+              marque folga/abono para tirar esse negativo.
+            </p>
+          ) : (
             <p className="rounded-lg border border-[#146c38]/25 bg-[#edf8f1] px-3 py-2 text-sm text-[#146c38]">
-              Esta falta já está abatida no banco
-              {faltaDetalhe?.minutos_abatidos
-                ? ` (−${formatMinutosSaldo(faltaDetalhe.minutos_abatidos)})`
-                : ''}
-              .
+              Falta justificada — sem débito no caixa.
             </p>
           )}
 
@@ -330,25 +367,25 @@ export function ResumoPontoFaltaDialog({
               <p className="mt-1 font-display text-sm tabular-nums text-[#9f1239]">
                 {loadingJornada
                   ? '…'
-                  : minutosAbater > 0
-                    ? `−${formatMinutosSaldo(minutosAbater)}`
+                  : minutosDebito > 0 || minutosDia > 0
+                    ? `−${formatMinutosSaldo(debitaCaixa ? minutosDebito : minutosDia)}`
                     : '0min'}
               </p>
             </div>
           </div>
 
-          {!jaAbatida && minutosAbater > 0 && (
+          {debitaCaixa && minutosDebito > 0 && (
             <p className="text-center text-xs text-[#6b5244]">
-              Se abater: saldo fica{' '}
+              Se justificar: saldo fica{' '}
               <span
                 className={
                   'font-semibold tabular-nums ' +
-                  (saldoDepois >= 0 ? 'text-[#146c38]' : 'text-[#9f1239]')
+                  (saldoDepoisJustificar >= 0 ? 'text-[#146c38]' : 'text-[#9f1239]')
                 }
               >
-                {formatMinutosComSinal(saldoDepois)}
+                {formatMinutosComSinal(saldoDepoisJustificar)}
               </span>
-              {saldoDepois < 0 ? ' (fica negativo se as horas extras não cobrirem o dia).' : '.'}
+              .
             </p>
           )}
 
@@ -357,7 +394,7 @@ export function ResumoPontoFaltaDialog({
               htmlFor="resumo-ponto-falta-motivo"
               className="text-[0.65rem] font-semibold uppercase tracking-widest text-[#6b5244]"
             >
-              Motivo
+              Motivo / justificativa
             </label>
             <textarea
               id="resumo-ponto-falta-motivo"
@@ -365,7 +402,7 @@ export function ResumoPontoFaltaDialog({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               disabled={!canEdit || saving != null}
-              placeholder="Ex.: atestado médico, consulta, ajuste de RH…"
+              placeholder="Ex.: atestado médico, feriado, folga, consulta, ajuste de RH…"
               className={
                 'mt-1.5 w-full resize-none rounded-xl border border-[rgba(26,16,12,0.16)] ' +
                 'bg-white px-3 py-2.5 text-sm text-[#1a100c] placeholder:text-[#9a8170] ' +
@@ -373,7 +410,9 @@ export function ResumoPontoFaltaDialog({
                 'disabled:cursor-not-allowed disabled:opacity-60'
               }
             />
-            <p className="mt-1 text-[0.7rem] text-[#9a8170]">Mínimo 3 caracteres (registro oficial).</p>
+            <p className="mt-1 text-[0.7rem] text-[#9a8170]">
+              Mínimo 3 caracteres. Qualquer texto válido tira o débito do caixa.
+            </p>
           </div>
 
           <div className="rounded-xl border border-[rgba(26,16,12,0.12)] bg-white p-3">
@@ -430,11 +469,7 @@ export function ResumoPontoFaltaDialog({
                     nome={a.nome_arquivo}
                     kind={a.kind}
                     onOpenFullscreen={() => setLightbox(a)}
-                    onDelete={
-                      canEdit
-                        ? () => void handleDeleteAtestado(a)
-                        : undefined
-                    }
+                    onDelete={canEdit ? () => void handleDeleteAtestado(a) : undefined}
                   />
                 ))}
               </div>
@@ -448,22 +483,71 @@ export function ResumoPontoFaltaDialog({
             disabled={!canEdit || saving != null}
             onClick={() => void handleSalvarJustificativa()}
             className={
-              'h-auto w-full justify-start gap-3 rounded-xl border border-[rgba(26,16,12,0.16)] ' +
-              'bg-white px-4 py-3 text-left text-[#1a100c] hover:bg-[#fffaf4] disabled:opacity-60'
+              'h-auto w-full justify-start gap-3 rounded-xl border border-[#146c38]/35 ' +
+              'bg-[#edf8f1] px-4 py-3 text-left text-[#146c38] hover:bg-[#dff3e8] disabled:opacity-60'
             }
           >
             {saving === 'justificar' ? (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
             ) : (
-              <FilePlus2 className="h-4 w-4 shrink-0 text-[#6b3f12]" aria-hidden />
+              <FilePlus2 className="h-4 w-4 shrink-0" aria-hidden />
             )}
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">Salvar justificativa</span>
               <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
-                Grava o motivo e mantém a falta (com os atestados já anexados).
+                Grava o motivo, mantém a falta na lista e remove o débito do caixa
+                {debitaCaixa && minutosDebito > 0
+                  ? ` (+${formatMinutosSaldo(minutosDebito)} de volta).`
+                  : '.'}
               </span>
             </span>
           </Button>
+
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              disabled={!canEdit || saving != null}
+              onClick={() => void handleMarcarTipo('folga')}
+              className={
+                'h-auto w-full justify-start gap-3 rounded-xl border border-[rgba(26,16,12,0.16)] ' +
+                'bg-white px-4 py-3 text-left text-[#1a100c] hover:bg-[#fffaf4] disabled:opacity-60'
+              }
+            >
+              {saving === 'folga' ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <CalendarOff className="h-4 w-4 shrink-0 text-[#6b3f12]" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Marcar como folga</span>
+                <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
+                  Some da lista de faltas e zera o débito.
+                </span>
+              </span>
+            </Button>
+
+            <Button
+              type="button"
+              disabled={!canEdit || saving != null}
+              onClick={() => void handleMarcarTipo('abono')}
+              className={
+                'h-auto w-full justify-start gap-3 rounded-xl border border-[rgba(26,16,12,0.16)] ' +
+                'bg-white px-4 py-3 text-left text-[#1a100c] hover:bg-[#fffaf4] disabled:opacity-60'
+              }
+            >
+              {saving === 'abono' ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <CalendarOff className="h-4 w-4 shrink-0 text-[#6b3f12]" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Abono / feriado</span>
+                <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
+                  Some da lista de faltas e zera o débito.
+                </span>
+              </span>
+            </Button>
+          </div>
 
           <Button
             type="button"
@@ -489,49 +573,29 @@ export function ResumoPontoFaltaDialog({
             </span>
           </Button>
 
-          {jaAbatida ? (
+          {!debitaCaixa && (
             <Button
               type="button"
               disabled={!canEdit || saving != null}
-              onClick={() => void handleReverterAbatimento()}
+              onClick={() => void handleVoltarDebitar()}
               className={
                 'h-auto w-full justify-start gap-3 rounded-xl border border-[#92400e]/35 ' +
                 'bg-[#fff7ed] px-4 py-3 text-left text-[#92400e] hover:bg-[#ffedd5] ' +
                 'disabled:opacity-60'
               }
             >
-              {saving === 'reverter' ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-              ) : (
-                <Undo2 className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">Reverter abatimento</span>
-                <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
-                  Devolve as horas ao banco. A falta continua listada (só tira o desconto).
-                </span>
-              </span>
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              disabled={!canEdit || saving != null}
-              onClick={() => void handleAbater()}
-              className={
-                'h-auto w-full justify-start gap-3 rounded-xl border border-[#146c38]/35 ' +
-                'bg-[#edf8f1] px-4 py-3 text-left text-[#146c38] hover:bg-[#dff3e8] ' +
-                'disabled:opacity-60'
-              }
-            >
-              {saving === 'abater' ? (
+              {saving === 'debitar' ? (
                 <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
               ) : (
                 <Scale className="h-4 w-4 shrink-0" aria-hidden />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">Abater em horas</span>
+                <span className="block text-sm font-semibold">Voltar a debitar no caixa</span>
                 <span className="mt-0.5 block text-[0.7rem] font-normal leading-snug text-[#6b5244]">
-                  Mantém a falta e desconta a carga do dia do saldo positivo.
+                  Remove a justificativa e debita a carga do dia de novo
+                  {minutosDia > 0
+                    ? ` (saldo ficaria ${formatMinutosComSinal(saldoDepoisDebitar)}).`
+                    : '.'}
                 </span>
               </span>
             </Button>
@@ -557,9 +621,7 @@ export function ResumoPontoFaltaDialog({
           description={lightbox ? `Referente ao dia ${formatDataLonga(lightbox.data)}` : null}
           onClose={() => setLightbox(null)}
           onDelete={
-            lightbox && canEdit
-              ? () => void handleDeleteAtestado(lightbox)
-              : undefined
+            lightbox && canEdit ? () => void handleDeleteAtestado(lightbox) : undefined
           }
         />
       </DialogContent>

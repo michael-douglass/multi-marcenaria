@@ -27,10 +27,18 @@ export function normalizeRebalanceKey(value: string): string {
 
 const BEDROOM_ENV_RE = /quarto|suite|dormitorio|closet|suite/
 const SOCIAL_ENV_RE = /gourmet|cozinha|lavabo|lavanderia|jantar|area\s*gourmet|espaco\s*gourmet/
-/** Tipologias de quarto — NUNCA forçar Cozinha/Gourmet. */
+/** Clínica / consultório — NÃO criar Quarto Suíte fantasma. */
+const CLINIC_ENV_RE =
+  /recep|clinica|consultor|esteriliz|odont|dentist|medico|sala\s*(renata|luiz)|divisoria|atendimento/
+/** Sinais FORTES de dormitório (não use painel/nicho/gaveteiro — comuns em clínica). */
+const BEDROOM_STRONG_RE =
+  /guarda.?roupa|roupeiro|cabeceira|criado.?mudo|mesa\s*de\s*cabeceira|\bcloset\b/
+/** Tipologias de quarto — NUNCA forçar Cozinha/Gourmet (só se projeto for dormitório). */
 const BEDROOM_PROTECTED_RE =
-  /mesa\s*de\s*cabeceira|criado.?mudo|\bcriado\b|cabeceira|painel\s*tv|painel\s*ripad|painel\s*liso|painel\s*avulso|^painel$|guarda.?roupa|roupeiro|aparador|divisoria|divisória|nicho|vista\s*vertical|gaveteiro/
+  /mesa\s*de\s*cabeceira|criado.?mudo|\bcriado\b|cabeceira|guarda.?roupa|roupeiro|aparador/
 const BEDROOM_ONLY_REMOVE_RE = /guarda.?roupa|roupeiro|cabeceira|criado.?mudo/
+/** Ambientes fantasma em clínica. */
+const PHANTOM_BEDROOM_ENV_RE = /quarto\s*suite|^quarto$|banheiros?|dormitorio/
 
 function moduleDims(mod: AnyRec): { h: number; d: number; w: number } {
   const dims =
@@ -87,12 +95,46 @@ function findBedroomEnvName(
   return null
 }
 
+function projectLooksClinic(
+  environments: AnyRec[],
+  inventory?: InventoryEnvLite[] | null,
+): boolean {
+  for (const inv of inventory || []) {
+    if (CLINIC_ENV_RE.test(normalizeRebalanceKey(inv.environment || ''))) return true
+  }
+  for (const env of environments) {
+    const n = typeof env.name === 'string' ? env.name : ''
+    if (CLINIC_ENV_RE.test(normalizeRebalanceKey(n))) return true
+  }
+  return false
+}
+
 function projectLooksBedroom(environments: AnyRec[], inventory?: InventoryEnvLite[] | null): boolean {
+  // Clínica com Recepção/Salas NÃO é dormitório só porque tem painel/gaveteiro/nicho
+  // nem porque o inventário antigo ainda lista "Quarto Suíte" fantasma.
+  if (projectLooksClinic(environments, inventory)) {
+    for (const inv of inventory || []) {
+      const k = normalizeRebalanceKey(inv.environment || '')
+      if (PHANTOM_BEDROOM_ENV_RE.test(k)) continue
+      if (BEDROOM_ENV_RE.test(k)) return true
+    }
+    for (const env of environments) {
+      const envKey = normalizeRebalanceKey(typeof env.name === 'string' ? env.name : '')
+      if (PHANTOM_BEDROOM_ENV_RE.test(envKey)) continue
+      for (const mod of asArray(env.modules)) {
+        const blob = `${mod.name || ''} ${mod.description || ''}`
+        if (BEDROOM_STRONG_RE.test(normalizeRebalanceKey(blob))) return true
+      }
+    }
+    return false
+  }
   if (findBedroomEnvName(environments, inventory)) return true
   for (const env of environments) {
     for (const mod of asArray(env.modules)) {
       const name = typeof mod.name === 'string' ? mod.name : ''
-      if (isBedroomProtectedModule(name, String(mod.description || ''))) return true
+      if (BEDROOM_STRONG_RE.test(normalizeRebalanceKey(`${name} ${mod.description || ''}`))) {
+        return true
+      }
     }
   }
   return false
@@ -130,6 +172,7 @@ export function rebalanceEnvironments(
   }
 
   const envsIn = asArray(root.environments)
+  const isClinic = projectLooksClinic(envsIn, inventory)
   const isBedroomProject = projectLooksBedroom(envsIn, inventory)
   const bedroomAnchor = findBedroomEnvName(envsIn, inventory) || 'Quarto Suíte'
 
@@ -137,11 +180,23 @@ export function rebalanceEnvironments(
     /gourmet/.test(normalizeRebalanceKey(typeof e.name === 'string' ? e.name : '')),
   )
   const defaultSocial = hasGourmetLabel ? 'Espaço Gourmet' : 'Cozinha'
+  const clinicFallback =
+    envsIn.find((e) => {
+      const n = typeof e.name === 'string' ? e.name : ''
+      return (
+        CLINIC_ENV_RE.test(normalizeRebalanceKey(n)) &&
+        !PHANTOM_BEDROOM_ENV_RE.test(normalizeRebalanceKey(n))
+      )
+    })?.name || 'Recepção'
 
   for (const env of envsIn) {
     const envName = typeof env.name === 'string' ? env.name : 'Ambiente'
     const envKey = normalizeRebalanceKey(envName)
-    const envIsBedroom = isBedroomEnvironment(envName)
+    // Quarto/Banheiro inventados em clínica não contam como dormitório
+    let envIsBedroom = isBedroomEnvironment(envName) && isBedroomProject
+    if (isClinic && !isBedroomProject && PHANTOM_BEDROOM_ENV_RE.test(envKey)) {
+      envIsBedroom = false
+    }
 
     for (const mod of asArray(env.modules)) {
       let modName = typeof mod.name === 'string' ? mod.name : 'Modulo'
@@ -216,7 +271,31 @@ export function rebalanceEnvironments(
         target = bedroomAnchor
       }
 
+      // Clínica: não estacionar em Quarto Suíte / Banheiros fantasma
+      if (
+        isClinic &&
+        !isBedroomProject &&
+        PHANTOM_BEDROOM_ENV_RE.test(normalizeRebalanceKey(target))
+      ) {
+        notes.push(
+          `Movido "${modName}" de "${target}" → "${clinicFallback}" (ambiente fantasma em clínica).`,
+        )
+        target = clinicFallback
+      }
+
       put(target, { ...mod, name: modName })
+    }
+  }
+
+  // Remove buckets fantasma vazios / órfãos em clínica
+  if (isClinic && !isBedroomProject) {
+    for (const [key, bucket] of [...buckets.entries()]) {
+      if (!PHANTOM_BEDROOM_ENV_RE.test(key)) continue
+      notes.push(`Removido ambiente fantasma "${bucket.name}" (projeto clínico).`)
+      for (const mod of bucket.modules) {
+        put(String(clinicFallback), mod)
+      }
+      buckets.delete(key)
     }
   }
 

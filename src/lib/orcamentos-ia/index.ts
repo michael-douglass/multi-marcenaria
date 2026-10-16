@@ -150,6 +150,7 @@ export {
   buildProjectSheetPaletteFromExtraction,
   parseProjectSheetPalette,
   resolvePaletteForPricing,
+  countDistinctCommercialSheetSkus,
 } from '@/lib/orcamentos-ia/project-sheet-palette'
 export {
   mapHardwareAlias,
@@ -157,6 +158,14 @@ export {
   HARDWARE_ALIAS_RULES,
 } from '@/lib/orcamentos-ia/hardware-alias'
 export type { HardwareCanonicalKey, MappedHardware } from '@/lib/orcamentos-ia/hardware-alias'
+export {
+  countModuleDrawers,
+  ensureDrawerSlidesInExtraction,
+  ensureDrawerSlidesInModule,
+  moduleHasDrawerSlide,
+  sumCorredicaPairs,
+  drawerSlideCanonicalName,
+} from '@/lib/orcamentos-ia/drawer-slides'
 export {
   quoteExtractionSchema,
   atomicPieceSchema,

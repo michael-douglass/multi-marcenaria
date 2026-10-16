@@ -8,6 +8,7 @@
  */
 import type { QuoteExtraction } from '@/lib/orcamentos-ia/schemas'
 import { mapHardwareAlias } from '@/lib/orcamentos-ia/hardware-alias'
+import { ensureDrawerSlidesInExtraction } from '@/lib/orcamentos-ia/drawer-slides'
 import { pieceAreaM2, sheetsForModuleArea } from '@/lib/orcamentos-ia/module-sheet-pricing'
 import {
   DEFAULT_BOX_BACK_PALETTE,
@@ -58,8 +59,9 @@ function normalizeMat(s: string): string {
 }
 
 const BOX_FN_RE = /^(lateral|base|prateleira|divisoria|sarrafo)$/
+/** Frentes / tamponamentos coloridos — inclui paleta DET_CLÍNICA (#23496206). */
 const FRONT_COLOR_RE =
-  /amendoeira|lino|jatob|imbuia|areia|freij|noite|duna|blush|mint|azul|bege|lord|papiro|cidreira|hanover|reflecta/i
+  /amendoeira|lino|jatob|imbuia|areia|freij|noite|duna|blush|mint|azul|bege|lord|papiro|cidreira|hanover|reflecta|salerno|fontana|carvalho|itapu|cinza\s*fossil|fossil|\blana\b|magma|madeirado|madeira\s*clara/i
 
 function boxWhiteSku(palette: ProjectSheetSku[]): ProjectSheetSku {
   return (
@@ -102,8 +104,12 @@ function normalizePieceMaterial(
 
   // Caixa interna (function) → Branco TX 15
   if (BOX_FN_RE.test(fn)) {
+    // Exceção: peça já colorida (tamponamento Salerno/Fontana/…) — NÃO colapsar
+    if (FRONT_COLOR_RE.test(mat) || FRONT_COLOR_RE.test(nameHint)) {
+      return { material_name: mat, thickness_mm: piece.thickness_mm }
+    }
     // Exceção: ripas/sarrafos coloridos na caixaria (painel ripado)
-    if (FRONT_COLOR_RE.test(nameHint) && /ripad|brise|sarrafo|outro/i.test(nameHint)) {
+    if (/ripad|brise|sarrafo|outro/i.test(nameHint) && FRONT_COLOR_RE.test(nameHint)) {
       return { material_name: mat, thickness_mm: piece.thickness_mm }
     }
     const sku = boxWhiteSku(palette)
@@ -255,10 +261,22 @@ export function consolidateExtractionForPricing(
   projectSheetPalette: ProjectSheetSku[]
 } {
   const pal = resolvePaletteForPricing(extraction, palette)
-  const next = applySheetPaletteToExtraction(extraction, pal)
+  // E4: gavetas sem corrediça → injeta 1 par/unidade antes do De-Para de nomes
+  const withSlides = ensureDrawerSlidesInExtraction(extraction)
+  const next = applySheetPaletteToExtraction(withSlides, pal)
+  const consolidatedBom = consolidateProjectBom(next, pal)
+  const slideLines = consolidatedBom.hardware.filter((h) =>
+    /corredic/i.test(h.canonicalName) || h.key.startsWith('corredica'),
+  )
+  if (slideLines.length) {
+    const qty = slideLines.reduce((s, h) => s + h.quantity, 0)
+    consolidatedBom.notes.push(
+      `Corrediças: ${qty} par(es) em ${slideLines.length} linha(s) (1 par por gaveta).`,
+    )
+  }
   return {
     extraction: next,
-    consolidatedBom: consolidateProjectBom(next, pal),
+    consolidatedBom,
     projectSheetPalette: pal,
   }
 }

@@ -15,18 +15,31 @@ export function totalBoardAreaM2(pieces: CutPiece[]): number {
   return pieces.reduce((sum, p) => sum + pieceAreaM2(p), 0)
 }
 
+/**
+ * Agrega chapas por SKU (`piece.material_name`), sem colapsar tudo num único Branco.
+ * Peças sem material caem no `defaultMaterialName`.
+ */
 export function boardBomLines(
   pieces: CutPiece[],
-  materialName: string,
+  defaultMaterialName: string,
   unitCostPerM2: number,
   lossPct = DEFAULT_SHEET_LOSS_PCT,
 ): BomLine[] {
-  const area = Math.round(totalBoardAreaM2(pieces) * 1000) / 1000
-  if (area <= 0) return []
-  const sheets = sheetsFromAreaM2(area, lossPct, STANDARD_SHEET_AREA_M2)
+  const groups = new Map<string, CutPiece[]>()
+  for (const p of pieces) {
+    const key = String(p.material_name || '').trim() || defaultMaterialName
+    const list = groups.get(key) ?? []
+    list.push(p)
+    groups.set(key, list)
+  }
+
   const sheetCost = Math.round(unitCostPerM2 * STANDARD_SHEET_AREA_M2 * 100) / 100
-  return [
-    {
+  const lines: BomLine[] = []
+  for (const [materialName, group] of groups) {
+    const area = Math.round(totalBoardAreaM2(group) * 1000) / 1000
+    if (area <= 0) continue
+    const sheets = sheetsFromAreaM2(area, lossPct, STANDARD_SHEET_AREA_M2)
+    lines.push({
       item_category: 'board',
       item_description: materialName,
       quantity: sheets,
@@ -38,8 +51,9 @@ export function boardBomLines(
         sheet_area_m2: STANDARD_SHEET_AREA_M2,
         loss_pct: lossPct,
       },
-    },
-  ]
+    })
+  }
+  return lines
 }
 
 export { sheetsFromAreaM2, STANDARD_SHEET_AREA_M2, DEFAULT_SHEET_LOSS_PCT }

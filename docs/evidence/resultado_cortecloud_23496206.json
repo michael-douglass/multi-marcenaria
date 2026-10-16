@@ -1,0 +1,866 @@
+{
+  "plan_id": 23496206,
+  "url": "https://marceneiro.cortecloud.com.br/#/plans/23496206/editmodules",
+  "source": "HAR playwright + browser Cursor (quantidades; preços ignorados)",
+  "extracted_at": "2026-10-16T17:10:10.766Z",
+  "client": "Renata Almeida / DET_CLÍNICA",
+  "hellomob": true,
+  "parts_rows": 524,
+  "pieces_quantity_sum": 668,
+  "sheets_total": 41,
+  "sheets_area_m2_total": 186.11,
+  "sheets": [
+    {
+      "id": 6874,
+      "kind": "MDF",
+      "color": "BRANCO",
+      "finishing": "TEXTURIZADO",
+      "brand": "EUCATEX ®",
+      "thickness_mm": 15,
+      "consumption": 12,
+      "area_m2": 56.76,
+      "pieces": 333,
+      "label": "MDF BRANCO 15 mm TEXTURIZADO EUCATEX ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 188060,
+      "kind": "MDF",
+      "color": "SALERNO",
+      "finishing": "SYNCRO",
+      "brand": "GUARARAPES ®",
+      "thickness_mm": 15,
+      "consumption": 7,
+      "area_m2": 33,
+      "pieces": 84,
+      "label": "MDF SALERNO 15 mm SYNCRO GUARARAPES ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 96542,
+      "kind": "MDF",
+      "color": "CARVALHO LIR",
+      "finishing": null,
+      "brand": "DURATEX ®",
+      "thickness_mm": 15,
+      "consumption": 5,
+      "area_m2": 23.78,
+      "pieces": 63,
+      "label": "MDF CARVALHO LIR 15 mm DURATEX ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 127948,
+      "kind": "MDF",
+      "color": "ITAPUA",
+      "finishing": null,
+      "brand": "DURATEX ®",
+      "thickness_mm": 15,
+      "consumption": 4,
+      "area_m2": 17,
+      "pieces": 40,
+      "label": "MDF ITAPUA 15 mm DURATEX ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 127772,
+      "kind": "MDF",
+      "color": "CINZA FOSSIL",
+      "finishing": null,
+      "brand": "DURATEX ®",
+      "thickness_mm": 15,
+      "consumption": 4,
+      "area_m2": 15.37,
+      "pieces": 79,
+      "label": "MDF CINZA FOSSIL 15 mm DURATEX ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 4700,
+      "kind": "MDF",
+      "color": "BRANCO",
+      "finishing": "TEXTURIZADO",
+      "brand": "MULTIMARCAS",
+      "thickness_mm": 6,
+      "consumption": 3,
+      "area_m2": 14.07,
+      "pieces": 41,
+      "label": "MDF BRANCO 6 mm TEXTURIZADO MULTIMARCAS BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 8527,
+      "kind": "MDF",
+      "color": "AREIA",
+      "finishing": "MATT",
+      "brand": "GUARARAPES ®",
+      "thickness_mm": 15,
+      "consumption": 3,
+      "area_m2": 13.55,
+      "pieces": 17,
+      "label": "MDF AREIA 15 mm MATT GUARARAPES ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 40297,
+      "kind": "MDF",
+      "color": "FONTANA",
+      "finishing": "MAGMA",
+      "brand": "GUARARAPES ®",
+      "thickness_mm": 15,
+      "consumption": 2,
+      "area_m2": 9.6,
+      "pieces": 7,
+      "label": "MDF FONTANA 15 mm MAGMA GUARARAPES ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    },
+    {
+      "id": 137882,
+      "kind": "MDF",
+      "color": "LANA",
+      "finishing": "CONCEITO",
+      "brand": "DURATEX ®",
+      "thickness_mm": 15,
+      "consumption": 1,
+      "area_m2": 2.98,
+      "pieces": 4,
+      "label": "MDF LANA 15 mm CONCEITO DURATEX ® BR",
+      "note": "consumption = ceil(area_m2 / sheet_m2) a partir das peças; bate com m² da UI Chapas"
+    }
+  ],
+  "edges": [
+    {
+      "id": 6688,
+      "color": "ITAPUA",
+      "brand": "REHAU ®",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": "ESSENCIAL WOOD",
+      "label": "FITA 22mm ITAPUA REHAU ®"
+    },
+    {
+      "id": 10278,
+      "color": "BRANCO",
+      "brand": "MULTIMARCAS",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": "TEXTURIZADO",
+      "label": "FITA 22mm BRANCO MULTIMARCAS"
+    },
+    {
+      "id": 66350,
+      "color": "AREIA",
+      "brand": "REHAU ®",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": "MATT",
+      "label": "FITA 22mm AREIA REHAU ®"
+    },
+    {
+      "id": 72928,
+      "color": "SALERNO",
+      "brand": "REHAU ®",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": "SYNCRO",
+      "label": "FITA 22mm SALERNO REHAU ®"
+    },
+    {
+      "id": 48605,
+      "color": "CARVALHO LIR",
+      "brand": "REHAU ®",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": null,
+      "label": "FITA 22mm CARVALHO LIR REHAU ®"
+    },
+    {
+      "id": 45391,
+      "color": "CINZA FOSSIL",
+      "brand": "REHAU ®",
+      "width": 22,
+      "thickness": 0.4,
+      "finishing": null,
+      "label": "FITA 22mm CINZA FOSSIL REHAU ®"
+    }
+  ],
+  "clients": [
+    {
+      "id": 100091607,
+      "name": "Renata Almeida",
+      "furniture": "Balcao recepçao"
+    },
+    {
+      "id": 100091608,
+      "name": "Renata Almeida",
+      "furniture": "Painel recepçao"
+    },
+    {
+      "id": 100091609,
+      "name": "Renata Almeida",
+      "furniture": "Sala Renata"
+    },
+    {
+      "id": 100091610,
+      "name": "Renata Almeida",
+      "furniture": "Divisoria"
+    },
+    {
+      "id": 100091611,
+      "name": "Renata Almeida",
+      "furniture": "Cozinha"
+    },
+    {
+      "id": 100091612,
+      "name": "Renata Almeida",
+      "furniture": "Esterilizaçao"
+    },
+    {
+      "id": 100091613,
+      "name": "Renata Almeida",
+      "furniture": "Sala Luiz Fernando"
+    }
+  ],
+  "modules": [
+    {
+      "env": "Balcao recepçao",
+      "name": "Balcão gavetas iguais",
+      "instances": 1,
+      "parts": 12,
+      "qty": 30,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Travessa dianteira": 1,
+        "Travessa traseira": 1,
+        "Lateral tamponamento esquerda": 1,
+        "Lateral direita gaveta": 4,
+        "Lateral esquerda gaveta": 4,
+        "Contra frente gaveta": 4,
+        "Contra fundo gaveta": 4,
+        "Fundo gaveta": 4,
+        "Frente gaveta": 4
+      }
+    },
+    {
+      "env": "Balcao recepçao",
+      "name": "Lateral de tamponamento",
+      "instances": 6,
+      "parts": 18,
+      "qty": 18,
+      "functions": {
+        "Lateral": 6,
+        "Sarrafo frontal": 2,
+        "Sarrafo posterior": 2,
+        "Sarrafo topo": 2,
+        "Sarrafo topo 2": 2,
+        "Lateral engrosso": 4
+      }
+    },
+    {
+      "env": "Balcao recepçao",
+      "name": "Painel avulso",
+      "instances": 2,
+      "parts": 2,
+      "qty": 2,
+      "functions": {
+        "Painel": 2
+      }
+    },
+    {
+      "env": "Balcao recepçao",
+      "name": "Tampo para tamponamento",
+      "instances": 2,
+      "parts": 7,
+      "qty": 7,
+      "functions": {
+        "Tampo": 2,
+        "Sarrafo frontal": 1,
+        "Sarrafo posterior": 1,
+        "Sarrafo topo": 1,
+        "Sarrafo topo 2": 1,
+        "Tampo engrosso": 1
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Balcão 1 porta",
+      "instances": 1,
+      "parts": 5,
+      "qty": 5,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta direita": 1
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Balcão 2 colunas sendo 1 variável",
+      "instances": 1,
+      "parts": 13,
+      "qty": 13,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Tampo": 1,
+        "Fundo": 1,
+        "Divisória estrutural": 1,
+        "Prateleira estrutural": 1,
+        "Lateral tamponamento direita": 1,
+        "Lateral tamponamento esquerda": 1,
+        "Tamponamento inferior": 1,
+        "Porta basculante": 1,
+        "Porta direita": 1,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Balcão 2 portas",
+      "instances": 1,
+      "parts": 6,
+      "qty": 6,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta direita": 1,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Balcão gavetas iguais",
+      "instances": 1,
+      "parts": 11,
+      "qty": 27,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Lateral direita gaveta": 4,
+        "Lateral esquerda gaveta": 4,
+        "Contra frente gaveta": 4,
+        "Contra fundo gaveta": 4,
+        "Fundo gaveta": 4,
+        "Frente gaveta": 4
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Lateral de tamponamento",
+      "instances": 2,
+      "parts": 6,
+      "qty": 6,
+      "functions": {
+        "Lateral": 2,
+        "Sarrafo frontal": 2,
+        "Sarrafo posterior": 2
+      }
+    },
+    {
+      "env": "Cozinha",
+      "name": "Tampo para tamponamento",
+      "instances": 1,
+      "parts": 2,
+      "qty": 2,
+      "functions": {
+        "Tampo": 1,
+        "Tampo engrosso": 1
+      }
+    },
+    {
+      "env": "Divisoria",
+      "name": "Lateral de tamponamento",
+      "instances": 19,
+      "parts": 38,
+      "qty": 38,
+      "functions": {
+        "Lateral": 19,
+        "Lateral engrosso": 19
+      }
+    },
+    {
+      "env": "Divisoria",
+      "name": "Tampo para tamponamento",
+      "instances": 4,
+      "parts": 8,
+      "qty": 8,
+      "functions": {
+        "Tampo": 4,
+        "Tampo engrosso": 4
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Aéreo 2 portas",
+      "instances": 2,
+      "parts": 16,
+      "qty": 16,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Tampo": 2,
+        "Fundo": 2,
+        "Prateleira conjunto prateleiras": 2,
+        "Porta direita": 2,
+        "Porta esquerda": 2
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Balcão 1 porta",
+      "instances": 1,
+      "parts": 5,
+      "qty": 5,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Balcão 2 portas",
+      "instances": 2,
+      "parts": 12,
+      "qty": 12,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Prateleira conjunto prateleiras": 2,
+        "Porta direita": 2,
+        "Porta esquerda": 2
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Balcão gavetas iguais",
+      "instances": 1,
+      "parts": 9,
+      "qty": 27,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Lateral direita gaveta": 4,
+        "Lateral esquerda gaveta": 4,
+        "Contra frente gaveta": 4,
+        "Contra fundo gaveta": 4,
+        "Fundo gaveta": 4,
+        "Frente gaveta": 4
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Lateral de tamponamento",
+      "instances": 4,
+      "parts": 10,
+      "qty": 10,
+      "functions": {
+        "Lateral": 4,
+        "Lateral engrosso": 2,
+        "Sarrafo frontal": 2,
+        "Sarrafo posterior": 2
+      }
+    },
+    {
+      "env": "Esterilizaçao",
+      "name": "Tampo para tamponamento",
+      "instances": 2,
+      "parts": 4,
+      "qty": 4,
+      "functions": {
+        "Tampo": 2,
+        "Tampo engrosso": 2
+      }
+    },
+    {
+      "env": "Painel recepçao",
+      "name": "Painel avulso",
+      "instances": 15,
+      "parts": 15,
+      "qty": 15,
+      "functions": {
+        "Painel": 15
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Aéreo 3 portas",
+      "instances": 1,
+      "parts": 11,
+      "qty": 13,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Tampo": 1,
+        "Fundo": 1,
+        "Divisória": 1,
+        "Prateleira conjunto prateleiras": 4,
+        "Porta direita": 2,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Balcão 1 porta",
+      "instances": 1,
+      "parts": 11,
+      "qty": 11,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Travessa dianteira": 1,
+        "Travessa traseira": 1,
+        "Fundo": 1,
+        "Lateral tamponamento direita": 1,
+        "Lateral tamponamento esquerda": 1,
+        "Tamponamento superior": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Balcão 2 portas",
+      "instances": 3,
+      "parts": 27,
+      "qty": 27,
+      "functions": {
+        "Lateral direita": 3,
+        "Lateral esquerda": 3,
+        "Base": 3,
+        "Travessa dianteira": 3,
+        "Travessa traseira": 3,
+        "Fundo": 3,
+        "Prateleira conjunto prateleiras": 3,
+        "Porta direita": 3,
+        "Porta esquerda": 3
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Balcão 3 portas",
+      "instances": 1,
+      "parts": 12,
+      "qty": 12,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Travessa dianteira": 1,
+        "Travessa traseira": 1,
+        "Fundo": 1,
+        "Divisória": 1,
+        "Prateleira conjunto prateleiras": 2,
+        "Porta direita": 2,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Balcão gavetas iguais",
+      "instances": 2,
+      "parts": 26,
+      "qty": 54,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Lateral direita gaveta": 7,
+        "Lateral esquerda gaveta": 7,
+        "Contra frente gaveta": 7,
+        "Contra fundo gaveta": 7,
+        "Fundo gaveta": 7,
+        "Frente gaveta": 7,
+        "Travessa dianteira": 1,
+        "Travessa traseira": 1,
+        "Fundo": 1,
+        "Lateral tamponamento direita": 1,
+        "Lateral tamponamento esquerda": 1,
+        "Tamponamento superior": 1
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Balcão para forno embutido",
+      "instances": 3,
+      "parts": 22,
+      "qty": 22,
+      "functions": {
+        "Lateral direita": 3,
+        "Lateral esquerda": 3,
+        "Base": 3,
+        "Tampo": 3,
+        "Fundo": 3,
+        "Mascara forno": 3,
+        "Prateleira apoio 1": 2,
+        "Prateleira apoio 2": 2
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Estrutura rodape avulsa",
+      "instances": 4,
+      "parts": 16,
+      "qty": 28,
+      "functions": {
+        "Rodapé": 8,
+        "Travessa rodapé": 12,
+        "Reforço rodapé": 8
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Lateral de tamponamento",
+      "instances": 10,
+      "parts": 36,
+      "qty": 36,
+      "functions": {
+        "Lateral": 10,
+        "Lateral engrosso": 2,
+        "Sarrafo frontal": 6,
+        "Sarrafo posterior": 6,
+        "Sarrafo topo": 6,
+        "Sarrafo topo 2": 6
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Nicho com prateleiras",
+      "instances": 2,
+      "parts": 12,
+      "qty": 14,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Tampo": 2,
+        "Fundo reforçado": 2,
+        "Prateleira conjunto prateleiras": 4
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Painel avulso",
+      "instances": 6,
+      "parts": 6,
+      "qty": 10,
+      "functions": {
+        "Painel": 10
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Tampo para tamponamento",
+      "instances": 4,
+      "parts": 14,
+      "qty": 14,
+      "functions": {
+        "Tampo": 4,
+        "Tampo engrosso": 2,
+        "Sarrafo frontal": 2,
+        "Sarrafo posterior": 2,
+        "Sarrafo topo": 2,
+        "Sarrafo topo 2": 2
+      }
+    },
+    {
+      "env": "Sala Luiz Fernando",
+      "name": "Vista horizontal",
+      "instances": 2,
+      "parts": 2,
+      "qty": 2,
+      "functions": {
+        "Vista": 2
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Aéreo 1 porta",
+      "instances": 1,
+      "parts": 7,
+      "qty": 7,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Tampo": 1,
+        "Fundo": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta esquerda": 1
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Aéreo 2 portas",
+      "instances": 2,
+      "parts": 16,
+      "qty": 16,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Tampo": 2,
+        "Fundo": 2,
+        "Prateleira conjunto prateleiras": 2,
+        "Porta direita": 2,
+        "Porta esquerda": 2
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Balcão 1 porta",
+      "instances": 1,
+      "parts": 5,
+      "qty": 5,
+      "functions": {
+        "Lateral direita": 1,
+        "Lateral esquerda": 1,
+        "Base": 1,
+        "Prateleira conjunto prateleiras": 1,
+        "Porta direita": 1
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Balcão 2 portas",
+      "instances": 4,
+      "parts": 30,
+      "qty": 30,
+      "functions": {
+        "Lateral direita": 4,
+        "Lateral esquerda": 4,
+        "Base": 4,
+        "Travessa dianteira": 2,
+        "Travessa traseira": 2,
+        "Fundo": 2,
+        "Prateleira conjunto prateleiras": 4,
+        "Porta direita": 4,
+        "Porta esquerda": 4
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Balcão gavetas iguais",
+      "instances": 2,
+      "parts": 29,
+      "qty": 63,
+      "functions": {
+        "Lateral direita": 2,
+        "Lateral esquerda": 2,
+        "Base": 2,
+        "Travessa dianteira": 2,
+        "Travessa traseira": 2,
+        "Fundo": 2,
+        "Lateral direita gaveta": 8,
+        "Lateral esquerda gaveta": 8,
+        "Contra frente gaveta": 8,
+        "Contra fundo gaveta": 8,
+        "Fundo gaveta": 8,
+        "Frente gaveta": 8,
+        "Lateral tamponamento direita": 1,
+        "Lateral tamponamento esquerda": 1,
+        "Tamponamento superior": 1
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Estrutura rodape avulsa",
+      "instances": 3,
+      "parts": 12,
+      "qty": 20,
+      "functions": {
+        "Rodapé": 6,
+        "Travessa rodapé": 8,
+        "Reforço rodapé": 6
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Lateral de tamponamento",
+      "instances": 6,
+      "parts": 13,
+      "qty": 13,
+      "functions": {
+        "Lateral": 6,
+        "Sarrafo frontal": 4,
+        "Sarrafo posterior": 3
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Painel avulso",
+      "instances": 7,
+      "parts": 7,
+      "qty": 9,
+      "functions": {
+        "Painel": 9
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Tampo para tamponamento",
+      "instances": 5,
+      "parts": 10,
+      "qty": 10,
+      "functions": {
+        "Tampo": 5,
+        "Tampo engrosso": 3,
+        "Sarrafo frontal": 1,
+        "Sarrafo posterior": 1
+      }
+    },
+    {
+      "env": "Sala Renata",
+      "name": "Vista horizontal",
+      "instances": 1,
+      "parts": 1,
+      "qty": 1,
+      "functions": {
+        "Vista": 1
+      }
+    }
+  ],
+  "module_instances_total": 139,
+  "module_type_totals": {
+    "Balcão gavetas iguais": 7,
+    "Lateral de tamponamento": 47,
+    "Painel avulso": 30,
+    "Tampo para tamponamento": 18,
+    "Balcão 1 porta": 4,
+    "Balcão 2 colunas sendo 1 variável": 1,
+    "Balcão 2 portas": 10,
+    "Aéreo 2 portas": 4,
+    "Aéreo 3 portas": 1,
+    "Balcão 3 portas": 1,
+    "Balcão para forno embutido": 3,
+    "Estrutura rodape avulsa": 7,
+    "Nicho com prateleiras": 2,
+    "Vista horizontal": 3,
+    "Aéreo 1 porta": 1
+  },
+  "ambients_piece_qty": {
+    "Balcao recepçao": 57,
+    "Painel recepçao": 15,
+    "Sala Renata": 174,
+    "Divisoria": 46,
+    "Cozinha": 59,
+    "Esterilizaçao": 74,
+    "Sala Luiz Fernando": 243
+  },
+  "capture_note": "Chapas: consumo em unidades = ceil(m² peças / área chapa). m² confere com UI Chapas. Módulos = instâncias HelloMob (module_uuid) por furniture/ambiente."
+}

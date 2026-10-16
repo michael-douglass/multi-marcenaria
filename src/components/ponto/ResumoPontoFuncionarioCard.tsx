@@ -15,6 +15,8 @@ import {
   imprimirResumoPontoPdf,
   montarDiasResumoPonto,
   calcularBalancoResumoPonto,
+  faltaDebitaCaixa,
+  faltaTemJustificativa,
   resolverFaltasDetalhe,
 } from '@/lib/resumo-ponto-pdf'
 import type { PontoResumoFuncionarioPeriodo } from '@/types'
@@ -392,7 +394,7 @@ export function ResumoPontoFuncionarioCard({
               </div>
               <div className="rounded-lg border border-[#9f1239]/25 bg-[#fff1f2] px-2 py-2 text-center">
                 <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-[#9f1239]/80">
-                  Faltas abatidas
+                  Faltas no caixa
                 </p>
                 <p className="mt-1 font-display text-sm tabular-nums text-[#9f1239]">
                   {balanco.faltas_banco_minutos > 0
@@ -431,8 +433,9 @@ export function ResumoPontoFuncionarioCard({
             </div>
             <p className="mt-2 text-[0.65rem] leading-relaxed text-[#6b5244]">
               No dia: verde = excedente · vermelho = atraso. No período: Saldo = HE − atrasos −
-              faltas abatidas − HE pagas. Clique numa linha do dia para lançar ou ajustar batida
-              oficial · numa falta para desconsiderar, abater ou reverter.
+              faltas injustificadas − HE pagas. Clique numa linha do dia para lançar ou ajustar
+              batida oficial · numa falta para justificar (tira o débito), marcar folga/abono ou
+              desconsiderar.
             </p>
             {onBancoClick && (
               <button
@@ -472,7 +475,7 @@ export function ResumoPontoFuncionarioCard({
                         type="button"
                         onClick={(e) => abrirFalta(e, f.data)}
                         className={FALTA_ITEM_CLASS}
-                        title="Clique para desconsiderar ou abater esta falta"
+                        title="Clique para justificar, marcar folga/abono ou desconsiderar"
                       >
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                           <span className="font-semibold tabular-nums">{formatDataCurta(f.data)}</span>
@@ -482,17 +485,27 @@ export function ResumoPontoFuncionarioCard({
                               {f.atestados_count} atestado{f.atestados_count === 1 ? '' : 's'}
                             </span>
                           )}
-                          {f.abater_banco_horas && (
+                          {faltaDebitaCaixa(f) ? (
                             <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
-                              Abatida no banco
+                              Débito no caixa
                               {f.minutos_abatidos != null && f.minutos_abatidos > 0
                                 ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
                                 : ''}
                             </span>
+                          ) : faltaTemJustificativa(f.observacao) ? (
+                            <span className="rounded border border-[#146c38]/30 bg-[#edf8f1] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-[#146c38]">
+                              Justificada (sem débito)
+                            </span>
+                          ) : (
+                            <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              Sem justificativa
+                            </span>
                           )}
                         </div>
                         <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
-                          {f.observacao?.trim() || 'Sem justificativa'}
+                          {faltaTemJustificativa(f.observacao)
+                            ? f.observacao!.trim()
+                            : 'Sem justificativa — debita o caixa'}
                         </p>
                       </button>
                     ) : (
@@ -505,17 +518,27 @@ export function ResumoPontoFuncionarioCard({
                               {f.atestados_count} atestado{f.atestados_count === 1 ? '' : 's'}
                             </span>
                           )}
-                          {f.abater_banco_horas && (
+                          {faltaDebitaCaixa(f) ? (
                             <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
-                              Abatida no banco
+                              Débito no caixa
                               {f.minutos_abatidos != null && f.minutos_abatidos > 0
                                 ? ` (−${formatMinutosSaldo(f.minutos_abatidos)})`
                                 : ''}
                             </span>
+                          ) : faltaTemJustificativa(f.observacao) ? (
+                            <span className="rounded border border-[#146c38]/30 bg-[#edf8f1] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-[#146c38]">
+                              Justificada (sem débito)
+                            </span>
+                          ) : (
+                            <span className="rounded border border-[#9f1239]/25 bg-white/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+                              Sem justificativa
+                            </span>
                           )}
                         </div>
                         <p className="mt-1 text-[0.8rem] leading-snug text-[#7f1d1d]/90">
-                          {f.observacao?.trim() || 'Sem justificativa'}
+                          {faltaTemJustificativa(f.observacao)
+                            ? f.observacao!.trim()
+                            : 'Sem justificativa — debita o caixa'}
                         </p>
                       </div>
                     )}

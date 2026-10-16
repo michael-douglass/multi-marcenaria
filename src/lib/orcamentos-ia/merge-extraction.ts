@@ -88,30 +88,43 @@ export function canonicalModuleName(name: string): string {
   const dims = dimsTokenFromName(raw)
   let key = normalizeExtractionKey(raw)
 
-  // ── HelloMob / Quarto atômico (NÃO colapsar colunas) ──
+  // ── HelloMob atômico (NÃO colapsar tipologias fabril DET_CLÍNICA / Quarto) ──
   if (/\b1\s*coluna\b/.test(key) || /armario\s+com\s+1\s+coluna/.test(key)) {
     return dims ? `Armário 1 coluna ${dims}` : 'Armário 1 coluna'
   }
   if (/porta\s+avulsa/.test(key)) {
     return dims ? `Porta avulsa ${dims}` : 'Porta avulsa'
   }
+  if (/vista\s+horizontal/.test(key)) {
+    return dims ? `Vista horizontal ${dims}` : 'Vista horizontal'
+  }
   if (/vista\s+vertical/.test(key)) {
     return dims ? `Vista vertical ${dims}` : 'Vista vertical'
   }
-  if (/lateral\s+(de\s+)?tamponamento|tamponamento\s+lateral/.test(key)) {
+  if (/lateral\s+(de\s+)?tamponamento|tamponamento\s+lateral|^lateral\s+de\s+tamponamento/.test(key)) {
     return dims ? `Lateral de tamponamento ${dims}` : 'Lateral de tamponamento'
   }
   if (/tampo\s+(para\s+)?tamponamento|tamponamento\s+tampo/.test(key)) {
     return dims ? `Tampo para tamponamento ${dims}` : 'Tampo para tamponamento'
   }
-  if (/\bnicho\b/.test(key) && dims) return `Nicho ${dims}`
+  if (/estrutura\s+rodape|rodape\s+avuls|\brodape\b/.test(key)) {
+    return dims ? `Rodapé ${dims}` : 'Rodapé'
+  }
+  if (/balcao\s+gavetas|balcao_gavetas|gavetas\s+iguais/.test(key)) {
+    return dims ? `Balcão gavetas ${dims}` : 'Balcão gavetas'
+  }
+  if (/balcao\s+(para\s+)?forno|forno\s+embutido/.test(key)) {
+    return dims ? `Balcão forno ${dims}` : 'Balcão forno'
+  }
+  if (/nicho\s+(com\s+)?prateleiras|\bnicho\b/.test(key) && dims) return `Nicho ${dims}`
   if (/gaveteiro/.test(key) && dims) return `Gaveteiro ${dims}`
+  if (/\baereo\b/.test(key) && dims) return `Aéreo ${dims}`
   if (/\bbalcao\b/.test(key) && dims) return `Balcão ${dims}`
   if (/\b(painel\s+ripad|brise|ripado)\b/.test(key)) {
     return dims ? `Painel ripado ${dims}` : 'Painel ripado'
   }
   if (/\bpainel\b/.test(key) && /\b(tv|liso|avulso)\b/.test(key)) {
-    return dims ? `Painel avulso ${dims}` : 'Painel TV'
+    return dims ? `Painel avulso ${dims}` : 'Painel avulso'
   }
 
   key = key
@@ -123,8 +136,19 @@ export function canonicalModuleName(name: string): string {
   key = tokens.join(' ').trim()
 
   if (/\b(painel\s+ripad|brise|ripado)\b/.test(key)) return 'Painel ripado'
-  if (/\bpainel\b/.test(key) && /\b(tv|liso|avulso)\b/.test(key)) return 'Painel TV'
-  if (/^painel$/.test(key)) return 'Painel TV'
+  if (/\bpainel\b/.test(key) && /\b(tv|liso|avulso)\b/.test(key)) return 'Painel avulso'
+  if (/^painel$/.test(key)) return 'Painel avulso'
+  if (/estrutura\s+rodape|rodape\s+avuls|\brodape\b/.test(key)) return 'Rodapé'
+  if (/vista\s+horizontal/.test(key)) return 'Vista horizontal'
+  if (/vista\s+vertical/.test(key)) return 'Vista vertical'
+  if (/lateral\s+(de\s+)?tamponamento|tamponamento\s+lateral/.test(key)) {
+    return 'Lateral de tamponamento'
+  }
+  if (/tampo\s+(para\s+)?tamponamento|tamponamento\s+tampo/.test(key)) {
+    return 'Tampo para tamponamento'
+  }
+  if (/balcao\s+gavetas|balcao_gavetas|gavetas\s+iguais/.test(key)) return 'Balcão gavetas'
+  if (/balcao\s+(para\s+)?forno|forno\s+embutido/.test(key)) return 'Balcão forno'
   // Aceita "mesa de jantar", "mesa belize", "mesa organica" (tokens no meio)
   if (
     /\bmesa\b/.test(key) &&
@@ -138,9 +162,14 @@ export function canonicalModuleName(name: string): string {
   if (/cristaleira|adega/.test(key)) return 'Cristaleira'
   if (/lavabo/.test(key) && /bancada|balcao/.test(key)) return 'Bancada Lavabo'
   if (/^ilha\b|\bilha\b/.test(key)) return 'Ilha'
-  if (/bancada|balcao\s*inferior|balcao\s*parede/.test(key)) return 'Bancada'
+  // Bancada genérica — NÃO engolir "Balcão gavetas" (já tratado acima)
+  if (/bancada|balcao\s*inferior|balcao\s*parede/.test(key) && !/gavet/.test(key)) {
+    return 'Bancada'
+  }
   if (/gaveteiro/.test(key)) return 'Gaveteiro'
   if (/aereo|aereos/.test(key)) return 'Aéreo'
+  if (/\bbalcao\b/.test(key) && /gavet/.test(key)) return 'Balcão gavetas'
+  if (/\bbalcao\b/.test(key)) return 'Balcão'
   // Guarda-roupas monolítico sem cotas → Armário (auditor deve splitar)
   if (/guarda\s*roupas?|roupeiro/.test(key)) return 'Armário'
   if (/armario/.test(key)) return 'Armário'
@@ -161,7 +190,9 @@ export function moduleFamilyKey(name: string, mod?: Record<string, unknown> | nu
   const dims = dimsTokenFromMod(mod) || dimsTokenFromName(name)
   if (
     dims &&
-    /(armario|balcao|bancada|nicho|gaveteiro|porta|painel|vista|lateral|tampo)/.test(key)
+    /(armario|balcao|bancada|nicho|gaveteiro|porta|painel|vista|lateral|tampo|rodape|forno)/.test(
+      key,
+    )
   ) {
     return normalizeExtractionKey(`${canon} ${dims}`)
   }

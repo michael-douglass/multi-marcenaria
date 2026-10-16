@@ -53,7 +53,7 @@ Exija desmonte completo quando o desenho mostrar:
 - Divisórias colmeia / prateleiras colmeia / adega em grade → várias peças function=divisoria ou prateleira (quantity = células/colunas×fileiras visíveis), thickness 15 ou 18 conforme desenho.
 - Frentes internas, tampas de vão, mascaras de forno, afastadores, tamponamentos laterais → peças próprias (function=outro/tampo/sarrafo).
 - Tampos de sobrepor em 18 mm (cor do projeto) quando houver tampo sobre a caixa.
-- Cada gaveta: kit (laterais + contra frente/fundo + fundo + frente) + corrediças por unidade — NÃO omita caixas de gaveta.
+- Cada gaveta: kit (laterais + contra frente/fundo + fundo + frente) + corrediças por unidade (1 par/gaveta; kind=frente_gaveta) — NÃO omita caixas nem corrediças. PROIBIDO ferragens=0 em gaveteiro/balcão com gavetas.
 - Cristaleira: laterais/base/fundo Branco TX + prateleiras + portas Reflecta/vidro em frentes_portas + gaveta adega se houver.
 
 ═══ GABARITO FABRIL DE REFERÊNCIA (Cortecloud #23574204 / Espaço Gourmet Eliton) ═══
@@ -111,21 +111,22 @@ width_mm ↔ eixo C; height_mm ↔ eixo L da peça.
 - Lavabo ≠ Cozinha ≠ Espaço Gourmet. Não misture tudo num único ambiente.
 - Quarto / Quarto Suíte / Closet: Painel TV, Mesa de cabeceira, Cabeceira, Guarda-roupa, Aparador PERMANECEM no Quarto — PROIBIDO jogar para Cozinha.
 
-═══ PROJETOS MODULARES / HELLOMOB (paridade Cortecloud Quarto — VENCE "módulo físico único") ═══
-Quando o PDF/inventário for dormitório modular (guarda-roupa em colunas, balcões, painéis avulsos):
-TRAVE ABSOLUTA: PROIBIDO módulo único "Guarda Roupas" / "Roupeiro" / "Armário" que agregue parede inteira
-(>1200 mm de frente útil sem column_widths_mm explícitas). Fatia OBRIGATÓRIA em módulos atômicos:
-1) "Armário 1 coluna {L}×{A}×{P}" — um módulo por vão (ex.: 860×750×600, 900×1180×600, 1500×750×600).
-2) "Balcão {L}×{A}×{P}" — balcões inferiores por vão (typology=balcao).
-3) "Porta avulsa {L}×{A}" — portas que o desenho lista soltas (não embutir no armário).
-4) "Vista vertical {L}×{A}" — colunas abertas/ripadas laterais.
-5) "Lateral de tamponamento …" / "Tampo para tamponamento …" — peças de fechamento.
-6) "Nicho {L}×{A}×{P}" e "Gaveteiro horizontal …" — módulos próprios.
-7) Painel avulso/TV liso ≠ Painel ripado — dois módulos; ripas 18 mm individuais + apoio.
-8) Mesa de cabeceira / criado-mudo: typology=gaveteiro; H≤700 mm, D≤500 mm, W≤900 mm — NUNCA caixa de 2,50×2,80 m.
-9) Cabeceira: typology=painel; profundidade típica ≤150 mm — NÃO inventar laterais de balcão 390×2800.
-Caixaria mínima por coluna/caixa: 2 laterais + base (+ tampo/travessa) + fundo 6 mm se fechada +
-prateleiras/divisórias desenhadas; portas em frentes_portas (cor do projeto, NÃO Branco TX).
+═══ PROJETOS MODULARES / HELLOMOB (paridade Cortecloud — VENCE "módulo físico único") ═══
+Quando o PDF for dormitório OU clínica/comercial modular (tamponamentos, rodapés, painéis, balcões):
+TRAVE ABSOLUTA: PROIBIDO módulo único "Armário"/"Bancada"/"Painel" que agregue parede inteira
+sem cotas. Fatia OBRIGATÓRIA em módulos atômicos (nome COM L×A×P quando o desenho mostrar):
+1) "Armário 1 coluna {L}×{A}×{P}" — um módulo por vão.
+2) "Balcão {L}×{A}×{P}" / "Balcão gavetas {L}×{A}×{P}" / "Balcão forno …" — typology=balcao|gaveteiro.
+3) "Porta avulsa {L}×{A}" — portas soltas.
+4) "Vista vertical {L}×{A}" / "Vista horizontal {L}×{A}".
+5) "Lateral de tamponamento {L}×{A}×{P}" / "Tampo para tamponamento {L}×{A}" — NÃO fundir no balcão.
+6) "Rodapé {L}×{A}×{P}" / "Estrutura rodapé avulsa …" — módulo próprio (typology=outro).
+7) "Nicho {L}×{A}×{P}" e "Gaveteiro {L}×{A}×{P}" — módulos próprios + corrediças.
+8) "Painel avulso {L}×{A}" ≠ "Painel ripado" — dois módulos.
+9) Clínica/consultório: NÃO inventar ambiente "Quarto Suíte"/"Banheiros" se a capa for Recepção/Salas/Cozinha/Esterilização.
+10) Mesa de cabeceira (só quarto real): typology=gaveteiro; H≤700 — NÃO caixa gigante.
+Caixaria mínima por caixa: 2 laterais + base (+ tampo) + fundo 6 mm se fechada +
+prateleiras/divisórias; portas/gavetas em frentes_portas (cor do projeto, NÃO Branco TX).
 
 ═══ WORKFLOW POR TIPOLOGIA ═══
 TYPOLOGY — só estes 8 valores (string EXATA, minúsculas):
@@ -181,18 +182,20 @@ Para cada móvel em MDF, decomponha o BOM fabril completo:
 - Frentes/portas/gavetas na COR indicada no projeto (não na caixa interna)
 Caixa interna = MDF Branco TX; frentes/tampos = cor da prancha.
 
-═══ PALETA DE CORES — RECONHECER E ALOCAR (ex.: Flaviane/Anamá / Cortecloud #23125828) ═══
-Quando a prancha indicar estas cores, use-as em material_name das frentes/tampos/peças coloridas:
-Bege Papiro | Lord Matt | Mint Essencial | Blush Essencial | Azul Astral | Imbuia Caiapó | Areia Noronha | Branco TX / Branco Eucatex / Branco Multimarcas
+═══ PALETA DE CORES — RECONHECER E ALOCAR ═══
+Quando a prancha/legenda indicar cores, use-as em material_name das frentes/tampos/tamponamentos:
+Flaviane: Bege Papiro | Lord Matt | Mint Essencial | Blush Essencial | Azul Astral | Imbuia Caiapó | Areia Noronha
+DET_CLÍNICA / Guararapes-Duratex: Salerno | Fontana Magma | Carvalho LIR | Itapuã | Cinza Fossil | Lana | Areia | Branco 15 | Branco 6
+Caixa interna = Branco TX/Eucatex; frentes/painéis/tamponamentos = COR da prancha (nunca “cor do projeto” genérico).
 NÃO colapse tudo em Branco TX nas frentes.
 PROIBIDO usar "Jatobá" / "Jatoba Brasileiro" como cor genérica quando a legenda mostra outra cor.
 Fundos 6 mm: Branco TX/Multimarcas na caixa; fundo colorido só se o desenho exigir.
 
 ═══ LOTE 1 / LEGENDA — project_sheet_palette[] ═══
-Nas primeiras páginas (capa, legenda, lista de materiais), preencha project_sheet_palette com cada SKU visto:
+Nas primeiras páginas (capa, legenda, lista de materiais), preencha project_sheet_palette com CADA SKU visto (todas as cores + mm):
 { label, thickness_mm (6|15|18), role: "box_white"|"back_white"|"front_color" }
-Ex.: Branco Eucatex 15 → box_white; Branco Multimarcas 6 → back_white; Imbuia Caiapó 15 → front_color.
-Se não houver legenda nesta página, deixe project_sheet_palette = [] (não invente Jatobá).
+Ex.: Branco Eucatex 15 → box_white; Branco Multimarcas 6 → back_white; Salerno 15 / Fontana Magma 15 → front_color.
+PROIBIDO omitir cores da legenda. Se não houver legenda nesta página, deixe project_sheet_palette = [] (não invente Jatobá).
 
 Responda só no JSON schema.`
 

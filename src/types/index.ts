@@ -1102,9 +1102,9 @@ export interface PontoOcorrencia {
   tipo: PontoOcorrenciaTipo
   observacao?: string | null
   automatica: boolean
-  /** Se true, desconta a carga do dia no saldo HE − atrasos do período. */
+  /** Se true, falta injustificada: desconta a carga do dia no saldo (caixa). */
   abater_banco_horas?: boolean
-  /** Minutos da jornada gravados no abatimento (só quando abater_banco_horas). */
+  /** Minutos da jornada debitados no caixa (só quando abater_banco_horas). */
   minutos_abatidos?: number | null
   registrado_por?: string | null
   criado_em?: string

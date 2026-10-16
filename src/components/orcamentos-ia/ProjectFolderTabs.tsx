@@ -129,34 +129,54 @@ function ConsolidatedSummary({ project }: { project: QuoteProjectRow }) {
       </div>
 
       {sheetLines.length > 0 || hardwareLines.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {sheetLines.length > 0 ? (
             <div className="rounded-lg border border-border/60 px-3 py-2">
-              <p className="mb-1.5 text-xs font-semibold text-foreground">Chapas (BOM)</p>
-              <ul className="max-h-36 space-y-1 overflow-y-auto text-xs text-muted-foreground">
-                {sheetLines.slice(0, 12).map((s, i) => (
-                  <li key={`${s.label || 'chapa'}-${i}`} className="flex justify-between gap-2">
-                    <span className="truncate">
-                      {s.label || 'Chapa'}
-                      {s.thickness_mm ? ` ${s.thickness_mm}mm` : ''}
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {Number(s.sheets) || 0} un.
-                      {typeof s.area_m2 === 'number' ? ` · ${s.area_m2} m²` : ''}
-                    </span>
-                  </li>
-                ))}
-                {sheetLines.length > 12 ? (
-                  <li className="text-[10px]">+{sheetLines.length - 12} SKU(s)…</li>
-                ) : null}
-              </ul>
+              <p className="mb-1.5 text-xs font-semibold text-foreground">
+                Chapas — SKU × qtd ({sheetLines.length} SKU{sheetLines.length === 1 ? '' : 's'})
+              </p>
+              <div className="max-h-48 overflow-auto">
+                <table className="w-full text-left text-xs text-muted-foreground">
+                  <thead className="sticky top-0 bg-white/95 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="py-1 pr-2 font-medium">SKU</th>
+                      <th className="py-1 px-1 font-medium tabular-nums">mm</th>
+                      <th className="py-1 px-1 font-medium tabular-nums">un.</th>
+                      <th className="py-1 pl-1 font-medium tabular-nums">m²</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...sheetLines]
+                      .sort((a, b) => (Number(b.sheets) || 0) - (Number(a.sheets) || 0))
+                      .map((s, i) => (
+                        <tr
+                          key={`${s.label || 'chapa'}-${s.thickness_mm || 0}-${i}`}
+                          className="border-t border-border/40"
+                        >
+                          <td className="max-w-[10rem] truncate py-1 pr-2 text-foreground">
+                            {s.label || 'Chapa'}
+                          </td>
+                          <td className="py-1 px-1 tabular-nums">
+                            {s.thickness_mm != null ? s.thickness_mm : '—'}
+                          </td>
+                          <td className="py-1 px-1 tabular-nums font-medium text-foreground">
+                            {Number(s.sheets) || 0}
+                          </td>
+                          <td className="py-1 pl-1 tabular-nums">
+                            {typeof s.area_m2 === 'number' ? s.area_m2.toFixed(2) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : null}
           {hardwareLines.length > 0 ? (
             <div className="rounded-lg border border-border/60 px-3 py-2">
               <p className="mb-1.5 text-xs font-semibold text-foreground">Ferragens (BOM)</p>
-              <ul className="max-h-36 space-y-1 overflow-y-auto text-xs text-muted-foreground">
-                {hardwareLines.slice(0, 12).map((h, i) => (
+              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                {hardwareLines.map((h, i) => (
                   <li
                     key={`${h.canonicalName || 'ferragem'}-${i}`}
                     className="flex justify-between gap-2"
@@ -165,9 +185,6 @@ function ConsolidatedSummary({ project }: { project: QuoteProjectRow }) {
                     <span className="shrink-0 tabular-nums">{Number(h.quantity) || 0} un.</span>
                   </li>
                 ))}
-                {hardwareLines.length > 12 ? (
-                  <li className="text-[10px]">+{hardwareLines.length - 12} linha(s)…</li>
-                ) : null}
               </ul>
             </div>
           ) : null}

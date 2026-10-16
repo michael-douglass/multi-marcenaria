@@ -37,6 +37,8 @@ export interface CutPiece {
   height_mm: number
   thickness_mm: number
   quantity: number
+  /** SKU comercial da chapa (multi-cor). Se omitido, o explode usa o default do módulo. */
+  material_name?: string
   /** true = peça engrossada (duas chapas coladas) → fita larga */
   doubled?: boolean
   /** Topos a bordear: F=frente, T=traseira, E=esquerda, D=direita (comprimento em mm) */

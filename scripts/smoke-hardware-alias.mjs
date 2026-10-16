@@ -45,6 +45,16 @@ const RULES = [
     patterns: [/dobradic/, /hinge/],
   },
   {
+    key: 'corredica_teles_25',
+    canonicalName: 'CORREDIÇA TELES 25',
+    patterns: [/corredic.*teles/, /corredic.*25/, /telescop/, /corredic.*light/],
+  },
+  {
+    key: 'corredica_oculta_45',
+    canonicalName: 'CORREDIÇA OCULTA 45',
+    patterns: [/corredic.*ocult/, /corredic.*45/, /corredic.*soft/, /\bcorredic/],
+  },
+  {
     key: 'articulador_uno',
     canonicalName: 'Articulador uno Tavares Forte',
     patterns: [/articulador.*uno/, /uno tavares/, /articulador/, /pistao/],
@@ -77,6 +87,9 @@ const cases = [
   ['Dobradiça Soft-Close 35mm', 'dobradica_soft_close'],
   ['dobradiça amortecida', 'dobradica_soft_close'],
   ['Dobradiça reta 35', 'dobradica_reta'],
+  ['Corrediça telescópica 450mm', 'corredica_teles_25'],
+  ['corrediça', 'corredica_oculta_45'],
+  ['CORREDIÇA OCULTA 45', 'corredica_oculta_45'],
   ['Articulador Uno Tavares', 'articulador_uno'],
   ['pistão a gás', 'articulador_uno'],
   ['Perfil LED RM-331', 'perfil_led_rm331'],

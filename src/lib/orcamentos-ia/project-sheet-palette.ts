@@ -93,8 +93,12 @@ export const DEFAULT_BOX_BACK_PALETTE: ProjectSheetSku[] = [
   FLAVIANE_REFERENCE_PALETTE[1],
 ]
 
+/** Flaviane + DET_CLÍNICA (Cortecloud #23496206) + madeiras comuns. */
 const COLOR_TOKEN_RE =
-  /bege\s*papiro|papiro|lord\s*matt|\blord\b|mint\s*essencial|\bmint\b|blush\s*essencial|\bblush\b|azul\s*astral|\bazul\b|imbuia\s*caiap|\bimbuia\b|areia\s*noronha|\bareia\b|amendoeira|\blino\b|freij|noite|duna|hanover|reflecta|jatob/i
+  /bege\s*papiro|papiro|lord\s*matt|\blord\b|mint\s*essencial|\bmint\b|blush\s*essencial|\bblush\b|azul\s*astral|\bazul\b|imbuia\s*caiap|\bimbuia\b|areia\s*noronha|\bareia\b|amendoeira|\blino\b|freij|noite|duna|hanover|reflecta|jatob|salerno|fontana|carvalho|itapu|cinza\s*fossil|fossil|\blana\b|magma|madeirado|madeira\s*clara/i
+
+const WHITE_SHEET_RE = /branco|tx|white|eucatex|multimarcas/i
+const SHEET_MATERIAL_RE = /mdf|mdp|chapa|compensado|osb|madeir/i
 
 function normalizeLabel(s: string): string {
   return String(s || '')
@@ -164,7 +168,7 @@ export function buildProjectSheetPaletteFromExtraction(
         const th = Number(p.thickness_mm) || 15
         const thickness_mm = (th <= 8 ? 6 : th <= 16 ? 15 : 18) as 6 | 15 | 18
 
-        if (/branco|tx|white|eucatex|multimarcas/i.test(mat)) {
+        if (WHITE_SHEET_RE.test(mat)) {
           add({
             label: mat,
             thickness_mm,
@@ -173,8 +177,12 @@ export function buildProjectSheetPaletteFromExtraction(
           continue
         }
 
-        if (COLOR_TOKEN_RE.test(mat) || COLOR_TOKEN_RE.test(p.name || '')) {
-          // Preferir label canônico Flaviane quando o token bater
+        // Qualquer chapa não-branca vira front_color (Salerno/Fontana/… inclusos).
+        if (
+          COLOR_TOKEN_RE.test(mat) ||
+          COLOR_TOKEN_RE.test(p.name || '') ||
+          SHEET_MATERIAL_RE.test(mat)
+        ) {
           const ref = FLAVIANE_REFERENCE_PALETTE.find(
             (f) =>
               f.role === 'front_color' &&
@@ -207,8 +215,42 @@ export function resolvePaletteForPricing(
     if (filtered.length) return ensureBoxBack(filtered)
   }
   const built = buildProjectSheetPaletteFromExtraction(extraction)
-  if (built.some((s) => s.role === 'front_color')) return ensureBoxBack(built)
+  // Nunca cair no default só-branco se a extração/legenda já trouxe cores.
+  if (built.some((s) => s.role === 'front_color') || built.length > 2) {
+    return ensureBoxBack(built)
+  }
   return ensureBoxBack(DEFAULT_BOX_BACK_PALETTE)
+}
+
+/**
+ * Conta SKUs comerciais distintos (cor + mm), agrupando variações de Branco.
+ * Gate E3: ≥ 5 no BOM do DET_CLÍNICA.
+ */
+export function countDistinctCommercialSheetSkus(
+  sheets: Array<{ label: string; thickness_mm: number; sheets?: number }>,
+): number {
+  const keys = new Set<string>()
+  for (const s of sheets) {
+    if ((Number(s.sheets) || 0) <= 0 && s.sheets !== undefined) continue
+    const label = normalizeLabel(s.label)
+    const th = Number(s.thickness_mm) || 15
+    let color = 'outro'
+    if (WHITE_SHEET_RE.test(label)) color = 'branco'
+    else if (/salerno/.test(label)) color = 'salerno'
+    else if (/fontana|magma/.test(label)) color = 'fontana'
+    else if (/carvalho/.test(label) && /lir/.test(label)) color = 'carvalho_lir'
+    else if (/carvalho/.test(label)) color = 'carvalho'
+    else if (/itapu/.test(label)) color = 'itapua'
+    else if (/fossil|cinza\s*fossil/.test(label)) color = 'cinza_fossil'
+    else if (/\blana\b/.test(label)) color = 'lana'
+    else if (/areia/.test(label)) color = 'areia'
+    else if (/freij/.test(label)) color = 'freijo'
+    else if (/imbuia/.test(label)) color = 'imbuia'
+    else if (/noite/.test(label)) color = 'noite'
+    else if (COLOR_TOKEN_RE.test(label)) color = label.slice(0, 24)
+    keys.add(`${color}|${th}`)
+  }
+  return keys.size
 }
 
 function ensureBoxBack(palette: ProjectSheetSku[]): ProjectSheetSku[] {
