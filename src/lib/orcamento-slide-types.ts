@@ -268,8 +268,12 @@ export interface OrcamentoDadosMeta {
   link_publico_oculto?: boolean;
   /** Quando true, o slide de Análise de IA não aparece neste orçamento. */
   ocultar_analise_ia?: boolean;
-  /** Origem do orçamento (ex.: formulário público do lead). */
+  /** Origem do orçamento (ex.: formulário público do lead, orcamentos_ia). */
   origem?: string;
+  /** Pasta quote_projects de origem (quando origem = orcamentos_ia). */
+  orcamentos_ia_project_id?: string;
+  /** Lote quote_analyses de origem (quando origem = orcamentos_ia). */
+  orcamentos_ia_analysis_id?: string;
   /** Campos de contrato preenchidos pelo cliente no formulário público. */
   campos_contrato_preenchidos?: Record<string, string>;
 }

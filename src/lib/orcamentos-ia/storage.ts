@@ -825,6 +825,90 @@ export async function updateQuoteProjectTotals(
   return {}
 }
 
+/**
+ * Liga a pasta a um lead (1 lead = 1 pasta por empresa).
+ * Se o lead já tiver outra pasta, limpa o vínculo antigo quando `replaceExisting`.
+ */
+export async function linkQuoteProjectToLead(params: {
+  projectId: string
+  companyId: string
+  leadId: number
+  replaceExisting?: boolean
+}): Promise<{
+  data: QuoteProjectRow | null
+  previousProjectId: string | null
+  error?: string
+}> {
+  const leadId = Number(params.leadId)
+  if (!params.projectId || !params.companyId || !Number.isFinite(leadId)) {
+    return { data: null, previousProjectId: null, error: 'Dados inválidos para alinhar o lead.' }
+  }
+
+  const existing = await findQuoteProjectByLeadId(params.companyId, leadId)
+  if (existing.error) {
+    return { data: null, previousProjectId: null, error: existing.error }
+  }
+  const previous = existing.data
+  if (previous && previous.id === params.projectId) {
+    return { data: previous, previousProjectId: null }
+  }
+  if (previous && !params.replaceExisting) {
+    return {
+      data: null,
+      previousProjectId: previous.id,
+      error: `LEAD_ALREADY_LINKED:${previous.id}:${previous.name}`,
+    }
+  }
+
+  if (previous && params.replaceExisting) {
+    const { error: clearErr } = await supabase
+      .from('quote_projects')
+      .update({ lead_id: null, updated_at: new Date().toISOString() })
+      .eq('id', previous.id)
+      .eq('company_id', params.companyId)
+    if (clearErr) {
+      return { data: null, previousProjectId: previous.id, error: clearErr.message }
+    }
+  }
+
+  // Se esta pasta já apontava para outro lead, o unique só cobre o lead alvo.
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .update({ lead_id: leadId, updated_at: new Date().toISOString() })
+    .eq('id', params.projectId)
+    .eq('company_id', params.companyId)
+    .select(QUOTE_PROJECT_SELECT)
+    .maybeSingle()
+
+  if (error) {
+    return {
+      data: null,
+      previousProjectId: previous?.id ?? null,
+      error: error.message,
+    }
+  }
+  return {
+    data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null,
+    previousProjectId: previous && previous.id !== params.projectId ? previous.id : null,
+  }
+}
+
+/** Remove o lead_id da pasta (cotação permanece; some do card do lead). */
+export async function unlinkQuoteProjectLead(params: {
+  projectId: string
+  companyId: string
+}): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .update({ lead_id: null, updated_at: new Date().toISOString() })
+    .eq('id', params.projectId)
+    .eq('company_id', params.companyId)
+    .select(QUOTE_PROJECT_SELECT)
+    .maybeSingle()
+  if (error) return { data: null, error: error.message }
+  return { data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null }
+}
+
 export interface UploadQuotePdfParams {
   companyId: string
   analysisId: string

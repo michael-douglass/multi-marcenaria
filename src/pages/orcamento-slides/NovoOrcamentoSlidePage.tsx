@@ -69,6 +69,10 @@ import {
   precificacaoTemValor,
 } from '@/lib/orcamento-slide-lead-sync';
 import {
+  clearOrcamentoSlidesIaPriceSeed,
+  readOrcamentoSlidesIaPriceSeed,
+} from '@/lib/orcamentos-ia/quote-presentation-to-slides';
+import {
   isLeadMidiaPdf,
   isOrcamentoProjetoPdfFile,
   pdfPageImagesToFiles,
@@ -308,6 +312,7 @@ export default function NovoOrcamentoSlidePage() {
   const leadIdFromQuery = leadIdParam ? parseInt(leadIdParam, 10) : null;
   const rascunhoParamId = searchParams.get('rascunho');
   const iniciarLimpo = searchParams.get('novo') === '1';
+  const fromIa = searchParams.get('fromIa') === '1';
   const isEditMode = /\/editar\/?$/.test(location.pathname);
   const editOrcamentoId = isEditMode ? routeId : null;
 
@@ -387,6 +392,7 @@ export default function NovoOrcamentoSlidePage() {
   // Depois de salvo/editado, o card do cliente NÃO sobrescreve a precificação.
   useEffect(() => {
     if (!formHydrated || leadValorOrcamento <= 0) return;
+    if (iaSeedAppliedRef.current || fromIa) return;
     if (isEditMode && orcamentoExistente?.dados?.precificacao) {
       if (precificacaoTemValor(orcamentoExistente.dados.precificacao)) return;
     }
@@ -407,7 +413,25 @@ export default function NovoOrcamentoSlidePage() {
     formasPagamento,
     isEditMode,
     orcamentoExistente?.dados?.precificacao,
+    fromIa,
   ]);
+
+  // Seed da lista de preços Orçamentos IA (sessionStorage).
+  useEffect(() => {
+    if (!formHydrated || iaSeedAppliedRef.current) return;
+    const seed = readOrcamentoSlidesIaPriceSeed();
+    if (!seed) return;
+    if (leadIdFromQuery != null && seed.leadId !== leadIdFromQuery) return;
+    iaSeedAppliedRef.current = true;
+    setPrecificacao(seed.precificacao);
+    if (seed.clienteNome?.trim()) {
+      setClienteNome((atual) => atual || seed.clienteNome!.trim());
+    }
+    setIaOrigemMeta(seed.meta);
+    setEtapa(4);
+    clearOrcamentoSlidesIaPriceSeed();
+    toast.success('Lista de preços da IA aplicada na Precificação.');
+  }, [formHydrated, leadIdFromQuery]);
 
   useEffect(() => {
     if (formHydrated || isLoadingRestauracao) return;
@@ -449,6 +473,13 @@ export default function NovoOrcamentoSlidePage() {
       setGarantiaMeses(d.garantia_meses ?? '24');
       setTextosBlocos(d.textos_blocos ?? {});
       setOcultarAnaliseIa(!!d._meta?.ocultar_analise_ia);
+      if (d._meta?.origem === 'orcamentos_ia') {
+        setIaOrigemMeta({
+          origem: d._meta.origem,
+          orcamentos_ia_project_id: d._meta.orcamentos_ia_project_id,
+          orcamentos_ia_analysis_id: d._meta.orcamentos_ia_analysis_id,
+        });
+      }
       setLinkPublicoOculto(!!d._meta?.link_publico_oculto);
     }
     setEtapa(etapaRestaurada);
@@ -487,6 +518,12 @@ export default function NovoOrcamentoSlidePage() {
   const [textosBlocos, setTextosBlocos] = useState<Record<string, string>>({});
   const [ocultarAnaliseIa, setOcultarAnaliseIa] = useState(false);
   const [linkPublicoOculto, setLinkPublicoOculto] = useState(false);
+  const [iaOrigemMeta, setIaOrigemMeta] = useState<{
+    origem?: string;
+    orcamentos_ia_project_id?: string;
+    orcamentos_ia_analysis_id?: string;
+  } | null>(null);
+  const iaSeedAppliedRef = useRef(false);
   const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -534,6 +571,13 @@ export default function NovoOrcamentoSlidePage() {
     return embedMetaDados(base, etapa, {
       ...(linkPublicoOculto ? { link_publico_oculto: true } : {}),
       ...(ocultarAnaliseIa ? { ocultar_analise_ia: true } : {}),
+      ...(iaOrigemMeta?.origem ? { origem: iaOrigemMeta.origem } : {}),
+      ...(iaOrigemMeta?.orcamentos_ia_project_id
+        ? { orcamentos_ia_project_id: iaOrigemMeta.orcamentos_ia_project_id }
+        : {}),
+      ...(iaOrigemMeta?.orcamentos_ia_analysis_id
+        ? { orcamentos_ia_analysis_id: iaOrigemMeta.orcamentos_ia_analysis_id }
+        : {}),
     });
   }, [
     respostas,
@@ -547,6 +591,7 @@ export default function NovoOrcamentoSlidePage() {
     perguntas,
     linkPublicoOculto,
     ocultarAnaliseIa,
+    iaOrigemMeta,
   ]);
 
   const orcamentoAnalisePreview = useMemo((): OrcamentoSlide => {
@@ -1340,6 +1385,7 @@ export default function NovoOrcamentoSlidePage() {
                 valorOrcamentoLead={leadValorOrcamento}
                 formasPagamento={formasPagamento}
                 markupsDisponiveis={markupsDisponiveis}
+                origemOrcamentosIa={iaOrigemMeta?.origem === 'orcamentos_ia'}
                 onChange={(v) => {
                   setPrecificacao(v);
                   marcarAlteracao();

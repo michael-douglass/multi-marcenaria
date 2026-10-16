@@ -8,10 +8,12 @@ import { jsPDF } from 'jspdf'
 import {
   buildQuotePresentationBodyHtml,
   QUOTE_PRESENTATION_CSS,
+  type QuotePresentationBodyMode,
 } from '@/lib/orcamentos-ia/quote-presentation-print'
 import type { QuotePresentationLayout } from '@/lib/orcamentos-ia/quote-presentation'
 
 export type QuotePresentationExportFormat = 'pdf' | 'jpg'
+export type { QuotePresentationBodyMode }
 
 const A4_W_MM = 210
 const A4_H_MM = 297
@@ -31,10 +33,15 @@ function safeFileBase(title: string): string {
   return raw || 'proposta'
 }
 
-function fileNameFor(layout: QuotePresentationLayout, ext: 'pdf' | 'jpg'): string {
+function fileNameFor(
+  layout: QuotePresentationLayout,
+  ext: 'pdf' | 'jpg',
+  mode: QuotePresentationBodyMode = 'full',
+): string {
   const d = new Date()
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
-  return `proposta-${safeFileBase(layout.projectTitle)}-${stamp}.${ext}`
+  const prefix = mode === 'priceList' ? 'lista-precos' : 'proposta'
+  return `${prefix}-${safeFileBase(layout.projectTitle)}-${stamp}.${ext}`
 }
 
 function triggerDownload(blob: Blob, fileName: string): void {
@@ -112,7 +119,10 @@ async function embedAllImages(root: HTMLElement): Promise<void> {
   await waitForImages(root)
 }
 
-function buildCaptureHtml(layout: QuotePresentationLayout): string {
+function buildCaptureHtml(
+  layout: QuotePresentationLayout,
+  mode: QuotePresentationBodyMode = 'full',
+): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -132,12 +142,15 @@ function buildCaptureHtml(layout: QuotePresentationLayout): string {
   </style>
 </head>
 <body>
-  ${buildQuotePresentationBodyHtml(layout)}
+  ${buildQuotePresentationBodyHtml(layout, mode)}
 </body>
 </html>`
 }
 
-async function renderSheetCanvas(layout: QuotePresentationLayout): Promise<HTMLCanvasElement> {
+async function renderSheetCanvas(
+  layout: QuotePresentationLayout,
+  mode: QuotePresentationBodyMode = 'full',
+): Promise<HTMLCanvasElement> {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.style.cssText = [
@@ -160,7 +173,7 @@ async function renderSheetCanvas(layout: QuotePresentationLayout): Promise<HTMLC
   }
 
   doc.open()
-  doc.write(buildCaptureHtml(layout))
+  doc.write(buildCaptureHtml(layout, mode))
   doc.close()
 
   await new Promise((r) => setTimeout(r, 160))
@@ -248,15 +261,16 @@ async function downloadAsPdf(canvas: HTMLCanvasElement, fileName: string): Promi
   triggerDownload(blob, fileName)
 }
 
-/** Gera e baixa automaticamente a proposta em PDF ou JPG. */
+/** Gera e baixa automaticamente a proposta (completa ou só lista de preços). */
 export async function downloadQuotePresentationExport(
   layout: QuotePresentationLayout,
   format: QuotePresentationExportFormat,
+  mode: QuotePresentationBodyMode = 'full',
 ): Promise<void> {
-  const canvas = await renderSheetCanvas(layout)
+  const canvas = await renderSheetCanvas(layout, mode)
   if (format === 'jpg') {
-    await downloadAsJpg(canvas, fileNameFor(layout, 'jpg'))
+    await downloadAsJpg(canvas, fileNameFor(layout, 'jpg', mode))
     return
   }
-  await downloadAsPdf(canvas, fileNameFor(layout, 'pdf'))
+  await downloadAsPdf(canvas, fileNameFor(layout, 'pdf', mode))
 }

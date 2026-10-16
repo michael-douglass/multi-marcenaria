@@ -19,8 +19,19 @@ export {
   createQuoteProject,
   findQuoteProjectByLeadId,
   ensureQuoteProjectForLead,
+  linkQuoteProjectToLead,
+  unlinkQuoteProjectLead,
   listQuoteAnalysesForProject,
 } from '@/lib/orcamentos-ia/storage'
+export {
+  quotePresentationToSlidesPrecificacao,
+  buildOrcamentoSlidesIaPriceSeed,
+  writeOrcamentoSlidesIaPriceSeed,
+  readOrcamentoSlidesIaPriceSeed,
+  clearOrcamentoSlidesIaPriceSeed,
+  ORCAMENTO_SLIDES_IA_PRICE_SEED_KEY,
+} from '@/lib/orcamentos-ia/quote-presentation-to-slides'
+export type { OrcamentoSlidesIaPriceSeed } from '@/lib/orcamentos-ia/quote-presentation-to-slides'
 export {
   prepareLeadQuoteHandoff,
   prepareLeadAttachmentsAsFiles,
@@ -63,6 +74,7 @@ export {
   buildQuotePresentationBodyHtml,
   QUOTE_PRESENTATION_CSS,
 } from '@/lib/orcamentos-ia/quote-presentation-print'
+export type { QuotePresentationBodyMode } from '@/lib/orcamentos-ia/quote-presentation-print'
 export type {
   ModulePricingOverride,
   PricingModality,

@@ -88,6 +88,8 @@ interface Props {
   formasPagamento?: OrcamentoFormaPagamento[];
   /** Markups do lead disponíveis para importar na composição. */
   markupsDisponiveis?: MarkupOrcamentoOpcaoSeed[];
+  /** Quando true, destaca a lista vinda do Orçamentos IA. */
+  origemOrcamentosIa?: boolean;
 }
 
 interface FormaPagamentoCardProps {
@@ -397,6 +399,7 @@ export function PrecificacaoForm({
   valorOrcamentoLead = 0,
   formasPagamento = [],
   markupsDisponiveis = [],
+  origemOrcamentosIa = false,
 }: Props) {
   const selecoes = useMemo(
     () => resolverFormasPagamentoSelecoes(value, formasPagamento),
@@ -922,11 +925,20 @@ export function PrecificacaoForm({
               <Layers className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <Label htmlFor="fracionar-precos" className="text-sm font-semibold cursor-pointer">
-                Fracionar preços
-              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="fracionar-precos" className="text-sm font-semibold cursor-pointer">
+                  Fracionar preços
+                </Label>
+                {origemOrcamentosIa ? (
+                  <Badge className="h-5 bg-[#0066FF]/15 px-1.5 text-[10px] font-semibold text-[#0066FF] hover:bg-[#0066FF]/15">
+                    Lista Orçamentos IA
+                  </Badge>
+                ) : null}
+              </div>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Exibe blocos no slide com valores por ambiente ou serviço. Você pode ter vários cards.
+                {origemOrcamentosIa
+                  ? 'Valores vindos da cotação IA (por ambiente/móvel). Ajuste antes de finalizar.'
+                  : 'Exibe blocos no slide com valores por ambiente ou serviço. Você pode ter vários cards.'}
               </p>
             </div>
           </div>

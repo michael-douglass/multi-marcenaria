@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { QuotePresentationModal } from '@/components/orcamentos-ia/QuotePresentationModal'
 import type { QuoteAnalysisDetail } from '@/lib/orcamentos-ia/quote-tree'
 import type { PricingParams } from '@/lib/orcamentos-ia/pricing'
+import type { QuoteProjectRow } from '@/lib/orcamentos-ia/storage'
 
 interface QuotePresentationExportButtonProps {
   tree: QuoteAnalysisDetail
@@ -16,6 +17,9 @@ interface QuotePresentationExportButtonProps {
     cnpj?: string | null
     razaoSocial?: string | null
   }
+  project?: QuoteProjectRow | null
+  companyId?: string
+  onProjectChange?: (project: QuoteProjectRow) => void
   disabled?: boolean
 }
 
@@ -25,6 +29,9 @@ export function QuotePresentationExportButton({
   onPricingParamsChange,
   pageImages,
   branding,
+  project = null,
+  companyId,
+  onProjectChange,
   disabled,
 }: QuotePresentationExportButtonProps) {
   const [open, setOpen] = useState(false)
@@ -53,6 +60,9 @@ export function QuotePresentationExportButton({
           onPricingParamsChange={onPricingParamsChange}
           pageImages={pageImages}
           branding={branding}
+          project={project}
+          companyId={companyId}
+          onProjectChange={onProjectChange}
         />
       )}
     </>

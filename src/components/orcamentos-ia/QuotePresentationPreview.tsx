@@ -26,6 +26,8 @@ interface QuotePresentationPreviewProps {
   pageImages?: QuotePageImage[]
   /** Quando true, nomes/preços/fotos são editáveis na própria prévia. */
   editable?: boolean
+  /** Completa (fotos) ou só lista de preços. */
+  viewMode?: 'full' | 'priceList'
   className?: string
 }
 
@@ -52,11 +54,12 @@ export function QuotePresentationPreview({
   onChange,
   pageImages = [],
   editable = false,
+  viewMode = 'full',
   className,
 }: QuotePresentationPreviewProps) {
   const [pickerFor, setPickerFor] = useState<ImageTarget | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const canEdit = Boolean(editable && onChange)
+  const canEdit = Boolean(editable && onChange) && viewMode === 'full'
 
   const patch = (next: QuotePresentationLayout) => onChange?.(next)
 
@@ -135,6 +138,108 @@ export function QuotePresentationPreview({
   const legalBits = [branding.razaoSocial, branding.cnpj ? `CNPJ ${branding.cnpj}` : null]
     .filter(Boolean)
     .join(' · ')
+
+  if (viewMode === 'priceList') {
+    return (
+      <div
+        className={cn(
+          'max-h-[72vh] overflow-y-auto rounded-xl border border-slate-200/80 bg-[#f4f1ec] p-2 sm:p-3',
+          className,
+        )}
+        style={{ fontFamily: 'Raleway, sans-serif' }}
+      >
+        <p className="mb-2 px-1 text-[11px] text-slate-600">
+          Prévia da lista de preços (sem fotos). Use Exportar → lista de preços para baixar.
+        </p>
+        <article
+          className="mx-auto max-w-[794px] overflow-hidden rounded-lg bg-white shadow-sm"
+          style={{ color: T.ink }}
+        >
+          <header
+            className="border-b-[3px] px-6 py-5 sm:px-8"
+            style={{
+              borderColor: T.accent,
+              background:
+                'linear-gradient(135deg, rgba(0,102,255,0.09) 0%, transparent 42%), linear-gradient(180deg, #f8fafc 0%, #fff 70%)',
+            }}
+          >
+            <div className="mb-3 flex items-center gap-3">
+              {branding.logoUrl ? (
+                <img
+                  src={branding.logoUrl}
+                  alt=""
+                  className="max-h-12 max-w-[120px] object-contain"
+                />
+              ) : null}
+              <div>
+                <div className="text-base font-bold">{branding.companyName}</div>
+                {legalBits ? (
+                  <div className="text-xs" style={{ color: T.muted }}>
+                    {legalBits}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{ color: T.accent }}
+            >
+              Lista de preços · Corte Claude
+            </p>
+            <h1 className="mt-1 text-xl font-bold">{layout.projectTitle}</h1>
+            <p className="mt-1 text-xs" style={{ color: T.muted }}>
+              Gerado em {layout.generatedAtLabel}
+            </p>
+            <div
+              className="mt-3 inline-block rounded-[10px] px-3 py-2"
+              style={{
+                border: '1px solid rgba(0,102,255,0.4)',
+                background:
+                  'linear-gradient(135deg, rgba(0,102,255,0.1), rgba(0,102,255,0.03))',
+              }}
+            >
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: T.muted }}>
+                Total da proposta
+              </div>
+              <div className="text-2xl font-bold tabular-nums" style={{ color: T.accent }}>
+                {formatBRL(pricing.salePrice)}
+              </div>
+            </div>
+          </header>
+          {layout.environments.map((env) => {
+            const mods = env.modules.filter((m) => !m.outOfScope)
+            if (!mods.length) return null
+            return (
+              <section key={env.id} className="border-t border-slate-100 px-6 py-4 sm:px-8">
+                <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-[#0066FF]/25 pb-1.5">
+                  <h2 className="text-sm font-bold">{env.name}</h2>
+                  <span className="text-sm font-bold tabular-nums" style={{ color: T.accent }}>
+                    {formatBRL(env.salePrice)}
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {mods.map((mod) => (
+                    <li
+                      key={mod.id}
+                      className="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 truncate">{mod.name}</span>
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        {formatBRL(mod.salePrice)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+          <footer className="border-t border-slate-100 px-6 py-3 text-center text-xs font-bold tracking-wide">
+            Garbo orçamentos
+          </footer>
+        </article>
+      </div>
+    )
+  }
 
   return (
     <div

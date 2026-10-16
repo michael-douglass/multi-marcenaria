@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ExternalLink,
   FolderOpen,
   Loader2,
+  Presentation,
   RefreshCw,
   Sparkles,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -17,7 +19,12 @@ import { canAccessCrmPath } from '@/lib/crm-identity'
 import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCanvas'
 import { AiThoughtConsole } from '@/components/orcamentos-ia/AiThoughtConsole'
 import { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'
-import { formatBRL } from '@/lib/orcamentos-ia/pricing'
+import {
+  buildShoppingList,
+  DEFAULT_PRICING_PARAMS,
+  formatBRL,
+  type ShoppingListItem,
+} from '@/lib/orcamentos-ia/pricing'
 import {
   buildQuoteProjectPagePath,
   createOrcamentosIaSignedUrl,
@@ -28,6 +35,18 @@ import {
   type QuoteAnalysisStatus,
   type QuoteProjectRow,
 } from '@/lib/orcamentos-ia/storage'
+import {
+  loadQuoteAnalysisTree,
+  getSignedQuotePageUrls,
+  type QuoteAnalysisDetail,
+} from '@/lib/orcamentos-ia/quote-tree'
+import { buildQuotePresentationLayout } from '@/lib/orcamentos-ia/quote-presentation'
+import { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
+import {
+  buildOrcamentoSlidesIaPriceSeed,
+  writeOrcamentoSlidesIaPriceSeed,
+} from '@/lib/orcamentos-ia/quote-presentation-to-slides'
+import { withOrcamentoReturnTo, buildLeadCardReturnTo } from '@/lib/orcamento-slide-navigation'
 
 const T = CORTE_CLAUDE_TOKENS
 
@@ -106,15 +125,20 @@ export function LeadOrcamentosIaSection({
   const { empresa } = useEmpresa()
   const { crmProfile, userProfile } = useApp()
   const bg = useOrcamentosIaBackground()
+  const navigate = useNavigate()
+  const location = useLocation()
   const companyId = empresa?.id ?? ''
   const canOpen = canAccessCrmPath('/orcamentos-ia', crmProfile, userProfile)
 
   const [loading, setLoading] = useState(false)
+  const [creatingSlides, setCreatingSlides] = useState(false)
   const [project, setProject] = useState<QuoteProjectRow | null>(null)
   const [analyses, setAnalyses] = useState<QuoteAnalysisRow[]>([])
   const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reducedMotion, setReducedMotion] = useState(false)
+  const [resultTree, setResultTree] = useState<QuoteAnalysisDetail | null>(null)
+  const [resultLoading, setResultLoading] = useState(false)
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -312,12 +336,57 @@ export function LeadOrcamentosIaSection({
       ? 'Pasta pronta — envie PDF/foto em Anexos'
       : 'Ainda sem cotação IA'
 
+  const isFinished =
+    displayStatus === 'COMPLETED' || displayStatus === 'NEEDS_REVIEW'
   const showLiveConsole =
-    Boolean(liveJob) ||
-    (latest != null &&
-      (isProcessingStatus(latest.status) ||
-        latest.status === 'FAILED' ||
-        latest.status === 'NEEDS_REVIEW'))
+    !isFinished &&
+    (Boolean(liveJob) ||
+      (latest != null &&
+        (isProcessingStatus(latest.status) || latest.status === 'FAILED')))
+
+  const resultAnalysisId = isFinished ? latest?.id ?? null : null
+
+  useEffect(() => {
+    if (!resultAnalysisId) {
+      setResultTree(null)
+      setResultLoading(false)
+      return
+    }
+    let cancelled = false
+    setResultLoading(true)
+    void loadQuoteAnalysisTree(resultAnalysisId)
+      .then((res) => {
+        if (cancelled) return
+        setResultTree(res.data)
+      })
+      .finally(() => {
+        if (!cancelled) setResultLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [resultAnalysisId, refreshToken])
+
+  const shoppingList = useMemo(() => {
+    if (!resultTree) return [] as ShoppingListItem[]
+    return buildShoppingList(resultTree).slice(0, 40)
+  }, [resultTree])
+
+  const shoppingTotal = useMemo(
+    () => shoppingList.reduce((s, i) => s + (Number(i.lineTotal) || 0), 0),
+    [shoppingList],
+  )
+
+  const previewEnvs = useMemo(() => {
+    if (!resultTree) return []
+    return resultTree.environments
+      .map((env) => ({
+        id: env.id,
+        name: env.name,
+        modules: env.modules.filter((m) => !m.out_of_scope),
+      }))
+      .filter((e) => e.modules.length > 0)
+  }, [resultTree])
 
   const pageProgress = derivePageProgress(displayTotals)
   const modulesFound = deriveModulesFound(displayTotals)
@@ -326,6 +395,63 @@ export function LeadOrcamentosIaSection({
     : pageProgress
       ? Math.min(0.95, Math.max(0.15, pageProgress.current / pageProgress.total))
       : 0.45
+
+  const canCreatePresentation =
+    Boolean(latest) &&
+    (latest?.status === 'COMPLETED' || latest?.status === 'NEEDS_REVIEW') &&
+    salePrice != null
+
+  const handleCreatePresentation = async () => {
+    if (!latest || !companyId) return
+    setCreatingSlides(true)
+    try {
+      const treeRes = await loadQuoteAnalysisTree(latest.id)
+      if (!treeRes.data) throw new Error(treeRes.error || 'Não foi possível carregar a cotação.')
+      const pageUrls = await getSignedQuotePageUrls(companyId, latest.id, 48, {
+        projectId: project?.id ?? treeRes.data.project_id ?? null,
+      })
+      const pricingRaw =
+        latest.pricing_params && typeof latest.pricing_params === 'object'
+          ? latest.pricing_params
+          : {}
+      const migrated = migrateLegacyPricingParams({
+        ...DEFAULT_PRICING_PARAMS,
+        ...(pricingRaw as object),
+        modality: latest.pricing_modality || DEFAULT_PRICING_PARAMS.modality,
+      })
+      const layout = buildQuotePresentationLayout({
+        tree: treeRes.data,
+        pricingParams: migrated.params,
+        pageImages: pageUrls.pages ?? [],
+        branding: {
+          companyName: empresa?.nome || 'Garbo Movelaria',
+          logoUrl: empresa?.logo_url,
+          cnpj: empresa?.cnpj,
+          razaoSocial: empresa?.razao_social,
+        },
+      })
+      const seed = buildOrcamentoSlidesIaPriceSeed({
+        layout,
+        leadId,
+        projectId: project?.id ?? null,
+        analysisId: latest.id,
+        clienteNome: leadName,
+      })
+      writeOrcamentoSlidesIaPriceSeed(seed)
+      const returnTo = buildLeadCardReturnTo(location.pathname, location.search, leadId)
+      navigate(
+        withOrcamentoReturnTo(
+          `/orcamento-slides/novo?leadId=${leadId}&fromIa=1`,
+          returnTo,
+        ),
+      )
+      toast.success('Abrindo apresentação com a lista de preços da IA…')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao montar a apresentação.')
+    } finally {
+      setCreatingSlides(false)
+    }
+  }
 
   if (!canOpen) return null
 
@@ -475,15 +601,12 @@ export function LeadOrcamentosIaSection({
                 {error ? (
                   <p className="mt-2 text-[11px] text-destructive">{error}</p>
                 ) : null}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
                 {liveJob?.needsResume || liveJob?.status === 'FAILED' ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="gap-1.5 border-amber-500/40 text-amber-900"
+                    className="mt-3 gap-1.5 border-amber-500/40 text-amber-900"
                     onClick={() =>
                       void bg.resumeQuoteAnalysis(liveJob.analysisId, liveJob.companyId)
                     }
@@ -492,37 +615,17 @@ export function LeadOrcamentosIaSection({
                     Retomar
                   </Button>
                 ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  className="gap-1.5 bg-[#0066FF] hover:bg-[#0052cc]"
-                  asChild
-                >
-                  <Link to={hubHref}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    {displayStatus === 'COMPLETED' || displayStatus === 'NEEDS_REVIEW'
-                      ? 'Abrir conferência'
-                      : 'Abrir Orçamentos com IA'}
-                  </Link>
-                </Button>
-                {project ? (
-                  <Button type="button" size="sm" variant="outline" className="gap-1.5" asChild>
-                    <Link to={`/orcamentos-ia?project=${encodeURIComponent(project.id)}`}>
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      Ver pasta
-                    </Link>
-                  </Button>
-                ) : null}
               </div>
             </div>
           </div>
         )}
 
-        {showLiveConsole && project ? (
+        {/* Em andamento: passos da IA. Concluído: lista de materiais + prévia. */}
+        {project && (showLiveConsole || isFinished) ? (
           <div className="overflow-hidden rounded-xl border border-[#0066FF]/25 bg-white/90">
             <div className="border-b border-slate-200/80 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0066FF]">
-                Passos da precificação
+                {isFinished ? 'Resultado da cotação' : 'Passos da precificação'}
               </p>
               <p className="truncate text-[11px] text-slate-500">
                 {liveJob?.fileName ||
@@ -533,29 +636,172 @@ export function LeadOrcamentosIaSection({
                   'Lote'}
               </p>
             </div>
-            <AiThoughtConsole
-              status={displayStatus}
-              pipelineStage={displayStage}
-              pipelineDetail={displayDetail}
-              thoughtLog={liveJob?.thoughtLog}
-              analysisId={liveJob?.analysisId || latest?.id}
-              companyId={liveJob?.companyId || companyId}
-              projectId={project.id}
-              pagesProcessed={
-                liveJob?.pagesProcessed ??
-                (typeof displayTotals?.pages_processed === 'number'
-                  ? displayTotals.pages_processed
-                  : null)
-              }
-              totals={displayTotals}
-              errorMessage={
-                liveJob?.runnerActive ||
-                (liveJob != null && isProcessingStatus(liveJob.status))
-                  ? null
-                  : liveJob?.errorMessage || latest?.error_message || null
-              }
-              density="workshop"
-            />
+
+            {showLiveConsole ? (
+              <AiThoughtConsole
+                status={displayStatus}
+                pipelineStage={displayStage}
+                pipelineDetail={displayDetail}
+                thoughtLog={liveJob?.thoughtLog}
+                analysisId={liveJob?.analysisId || latest?.id}
+                companyId={liveJob?.companyId || companyId}
+                projectId={project.id}
+                pagesProcessed={
+                  liveJob?.pagesProcessed ??
+                  (typeof displayTotals?.pages_processed === 'number'
+                    ? displayTotals.pages_processed
+                    : null)
+                }
+                totals={displayTotals}
+                errorMessage={
+                  liveJob?.runnerActive ||
+                  (liveJob != null && isProcessingStatus(liveJob.status))
+                    ? null
+                    : liveJob?.errorMessage || latest?.error_message || null
+                }
+                density="workshop"
+              />
+            ) : (
+              <div className="grid gap-0 lg:grid-cols-2">
+                <div className="border-b border-slate-200/80 p-3 lg:border-b-0 lg:border-r">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-[#0f1419]">Lista de materiais</p>
+                    {shoppingTotal > 0 ? (
+                      <span className="text-[11px] font-semibold tabular-nums text-[#0066FF]">
+                        {formatBRL(shoppingTotal)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {resultLoading ? (
+                    <div className="flex items-center gap-2 py-6 text-xs text-slate-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Carregando materiais…
+                    </div>
+                  ) : shoppingList.length === 0 ? (
+                    <p className="py-4 text-xs text-slate-500">
+                      Nenhum material consolidado ainda. Abra a conferência para revisar.
+                    </p>
+                  ) : (
+                    <ul className="max-h-[min(48vh,420px)] space-y-1.5 overflow-y-auto pr-1">
+                      {shoppingList.map((item) => (
+                        <li
+                          key={item.key}
+                          className="flex items-start justify-between gap-2 rounded-md border border-slate-100 bg-[#fafaf8] px-2 py-1.5 text-[11px]"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-[#0f1419]">
+                              {item.name}
+                            </span>
+                            <span className="text-slate-500">
+                              {item.purchaseQuantity} {item.purchaseUnit}
+                              {item.notes ? ` · ${item.notes.slice(0, 48)}` : ''}
+                            </span>
+                          </span>
+                          <span className="shrink-0 tabular-nums font-semibold text-[#2a1812]">
+                            {formatBRL(item.lineTotal)}
+                          </span>
+                        </li>
+                      ))}
+                      {shoppingList.length >= 40 ? (
+                        <li className="px-1 py-1 text-[10px] text-slate-500">
+                          Mostrando os 40 primeiros — veja o restante na conferência.
+                        </li>
+                      ) : null}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="p-3">
+                  <p className="mb-2 text-xs font-semibold text-[#0f1419]">
+                    Prévia de como ficou
+                  </p>
+                  {resultLoading ? (
+                    <div className="flex items-center gap-2 py-6 text-xs text-slate-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Montando prévia…
+                    </div>
+                  ) : previewEnvs.length === 0 ? (
+                    <p className="py-4 text-xs text-slate-500">
+                      Ambientes e móveis aparecem aqui após a gravação do lote.
+                    </p>
+                  ) : (
+                    <ul className="max-h-[min(48vh,420px)] space-y-2 overflow-y-auto pr-1">
+                      {previewEnvs.map((env) => (
+                        <li
+                          key={env.id}
+                          className="rounded-lg border border-[#0066FF]/15 bg-[#f4f8ff]/60 px-2.5 py-2"
+                        >
+                          <p className="text-xs font-semibold text-[#0f1419]">{env.name}</p>
+                          <p className="mt-0.5 text-[11px] text-slate-600">
+                            {env.modules.length} móvel(is)
+                            {env.modules.length
+                              ? ` — ${env.modules
+                                  .slice(0, 4)
+                                  .map((m) => m.name)
+                                  .join(', ')}${env.modules.length > 4 ? '…' : ''}`
+                              : ''}
+                          </p>
+                        </li>
+                      ))}
+                      {salePrice != null ? (
+                        <li className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/[0.06] px-2.5 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[#0066FF]">
+                            Total da proposta
+                          </p>
+                          <p className="text-lg font-bold tabular-nums text-[#0f1419]">
+                            {formatBRL(salePrice)}
+                          </p>
+                          {materials != null ? (
+                            <p className="text-[11px] text-slate-600">
+                              Materiais {formatBRL(materials)}
+                            </p>
+                          ) : null}
+                        </li>
+                      ) : null}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {project ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5 bg-[#0066FF] hover:bg-[#0052cc]"
+              asChild
+            >
+              <Link to={hubHref}>
+                <ExternalLink className="h-3.5 w-3.5" />
+                {isFinished ? 'Abrir conferência' : 'Abrir Orçamentos com IA'}
+              </Link>
+            </Button>
+            {canCreatePresentation ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-[#0066FF]/35 text-[#0066FF]"
+                disabled={creatingSlides}
+                onClick={() => void handleCreatePresentation()}
+              >
+                {creatingSlides ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Presentation className="h-3.5 w-3.5" />
+                )}
+                Criar apresentação com preços
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="outline" className="gap-1.5" asChild>
+              <Link to={`/orcamentos-ia?project=${encodeURIComponent(project.id)}`}>
+                <FolderOpen className="h-3.5 w-3.5" />
+                Ver pasta
+              </Link>
+            </Button>
           </div>
         ) : null}
 

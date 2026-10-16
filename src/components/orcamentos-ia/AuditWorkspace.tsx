@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Link2,
   Loader2,
   Minus,
   Plus,
@@ -22,6 +23,7 @@ import {
   FileText,
   Square,
   Tags,
+  Unlink,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -102,6 +104,7 @@ import {
   ProjectFolderTabs,
   type FolderViewMode,
 } from '@/components/orcamentos-ia/ProjectFolderTabs'
+import { LinkQuoteProjectToLeadDialog } from '@/components/orcamentos-ia/LinkQuoteProjectToLeadDialog'
 import { formatPageRanges } from '@/lib/orcamentos-ia/page-ranges'
 import { pageNumbersFromTotals } from '@/lib/orcamentos-ia/pdf-processor'
 import type { CoverageReport } from '@/lib/orcamentos-ia/merge-extraction'
@@ -252,6 +255,7 @@ export function AuditWorkspace({
   const [bomLines, setBomLines] = useState<BomLine[]>([])
   const [engineeringCot, setEngineeringCot] = useState('')
   const [pageThumbUrl, setPageThumbUrl] = useState<string | null>(null)
+  const [linkLeadOpen, setLinkLeadOpen] = useState(false)
   /** true = tela grande mostra a PNG da página (miniatura ampliada); false = PDF. */
   const [preferPageImage, setPreferPageImage] = useState(false)
   /** Páginas JPEG já convertidas (clique no móvel → página certa sem depender do PDF). */
@@ -1316,6 +1320,29 @@ export function AuditWorkspace({
             <Brain className="h-3.5 w-3.5" />
             Memórias do Max
           </Button>
+          {folderProject ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-[#0066FF]/35 text-[#0066FF] hover:bg-[#0066FF]/8"
+              onClick={() => setLinkLeadOpen(true)}
+              title={
+                folderProject.lead_id
+                  ? `Lead #${folderProject.lead_id} alinhado — clique para gerenciar`
+                  : 'Alinhar esta pasta a um lead do CRM'
+              }
+            >
+              {folderProject.lead_id ? (
+                <Unlink className="h-3.5 w-3.5" />
+              ) : (
+                <Link2 className="h-3.5 w-3.5" />
+              )}
+              {folderProject.lead_id
+                ? `Lead #${folderProject.lead_id}`
+                : 'Alinhar ao lead'}
+            </Button>
+          ) : null}
           {tree && (
             <QuotePresentationExportButton
               tree={tree}
@@ -1328,6 +1355,9 @@ export function AuditWorkspace({
                 cnpj: empresa?.cnpj,
                 razaoSocial: empresa?.razao_social,
               }}
+              project={folderProject}
+              companyId={companyId}
+              onProjectChange={setFolderProject}
               disabled={loading}
             />
           )}
@@ -2200,6 +2230,16 @@ export function AuditWorkspace({
           tree={tree}
           value={pricingParams}
           onChange={setPricingParams}
+        />
+      ) : null}
+
+      {folderProject ? (
+        <LinkQuoteProjectToLeadDialog
+          open={linkLeadOpen}
+          onOpenChange={setLinkLeadOpen}
+          project={folderProject}
+          companyId={companyId}
+          onLinked={setFolderProject}
         />
       ) : null}
 

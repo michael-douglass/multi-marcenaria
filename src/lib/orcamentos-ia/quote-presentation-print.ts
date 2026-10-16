@@ -390,6 +390,48 @@ export const QUOTE_PRESENTATION_CSS = `
     text-align: center;
   }
 
+  .qp-cover--compact { padding-bottom: 5mm; }
+  .qp-pl-env { padding: 4mm 9mm 2mm; }
+  .qp-pl-env-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 2mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 1px solid rgba(0, 102, 255, 0.25);
+  }
+  .qp-pl-env-head h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    color: ${T.ink};
+  }
+  .qp-pl-env-head span {
+    font-size: 11pt;
+    font-weight: 700;
+    color: ${T.accent};
+    white-space: nowrap;
+  }
+  .qp-pl-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 3mm;
+  }
+  .qp-pl-table td {
+    padding: 2.2mm 0;
+    border-bottom: 1px solid rgba(15, 20, 25, 0.06);
+    vertical-align: top;
+  }
+  .qp-pl-name { font-size: 10pt; color: ${T.ink}; padding-right: 8px; }
+  .qp-pl-price {
+    font-size: 10pt;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+    color: ${T.ink};
+    width: 28%;
+  }
+
   @media print {
     html, body { background: #fff; }
     .qp-sheet { width: 100%; }
@@ -436,8 +478,76 @@ function moduleChipsHtml(mod: {
   return `<div class="qp-mod-chips">${chips.map((c) => `<span class="qp-chip">${esc(c)}</span>`).join('')}</div>`
 }
 
+export type QuotePresentationBodyMode = 'full' | 'priceList'
+
+/** Lista compacta: ambiente → móveis → preços (sem fotos). */
+function buildPriceListBodyHtml(layout: QuotePresentationLayout): string {
+  const { branding, pricing } = layout
+  const logo = branding.logoUrl
+    ? `<img class="qp-logo" src="${esc(branding.logoUrl)}" alt="" />`
+    : ''
+  const legalBits = [branding.razaoSocial, branding.cnpj ? `CNPJ ${branding.cnpj}` : null]
+    .filter(Boolean)
+    .join(' · ')
+
+  const envBlocks = layout.environments
+    .map((env) => {
+      const rows = env.modules
+        .filter((m) => !m.outOfScope)
+        .map(
+          (mod) => `
+        <tr>
+          <td class="qp-pl-name">${esc(mod.name)}</td>
+          <td class="qp-pl-price">${esc(formatBRL(mod.salePrice))}</td>
+        </tr>`,
+        )
+        .join('')
+      if (!rows) return ''
+      return `
+      <section class="qp-pl-env">
+        <header class="qp-pl-env-head">
+          <h2>${esc(env.name)}</h2>
+          <span>${esc(formatBRL(env.salePrice))}</span>
+        </header>
+        <table class="qp-pl-table">
+          <tbody>${rows}</tbody>
+        </table>
+      </section>`
+    })
+    .join('')
+
+  return `
+  <article class="qp-sheet qp-sheet--price-list">
+    <header class="qp-cover qp-cover--compact">
+      <div class="qp-brand-row">
+        ${logo}
+        <div>
+          <div class="qp-brand-name">${esc(branding.companyName)}</div>
+          ${legalBits ? `<div class="qp-brand-meta">${esc(legalBits)}</div>` : ''}
+        </div>
+      </div>
+      <p class="qp-eyebrow">Lista de preços · Corte Claude</p>
+      <h1 class="qp-title">${esc(layout.projectTitle)}</h1>
+      <p class="qp-date">Gerado em ${esc(layout.generatedAtLabel)}</p>
+      <div class="qp-totals">
+        <div class="qp-total-block sale">
+          <div class="qp-total-label">Total da proposta</div>
+          <div class="qp-total-value">${esc(formatBRL(pricing.salePrice))}</div>
+        </div>
+      </div>
+    </header>
+    ${envBlocks || '<section class="qp-pl-env"><p class="qp-env-sub">Nenhum móvel cotado.</p></section>'}
+    <footer class="qp-footer">Garbo orçamentos</footer>
+  </article>`
+}
+
 /** Corpo HTML do documento (preview e print). */
-export function buildQuotePresentationBodyHtml(layout: QuotePresentationLayout): string {
+export function buildQuotePresentationBodyHtml(
+  layout: QuotePresentationLayout,
+  mode: QuotePresentationBodyMode = 'full',
+): string {
+  if (mode === 'priceList') return buildPriceListBodyHtml(layout)
+
   const { branding, pricing } = layout
   const logo = branding.logoUrl
     ? `<img class="qp-logo" src="${esc(branding.logoUrl)}" alt="" />`
@@ -525,8 +635,14 @@ export function buildQuotePresentationBodyHtml(layout: QuotePresentationLayout):
   </article>`
 }
 
-export function buildQuotePresentationHtml(layout: QuotePresentationLayout): string {
-  const title = `Proposta — ${layout.projectTitle}`
+export function buildQuotePresentationHtml(
+  layout: QuotePresentationLayout,
+  mode: QuotePresentationBodyMode = 'full',
+): string {
+  const title =
+    mode === 'priceList'
+      ? `Lista de preços — ${layout.projectTitle}`
+      : `Proposta — ${layout.projectTitle}`
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -538,7 +654,7 @@ export function buildQuotePresentationHtml(layout: QuotePresentationLayout): str
   <style>${QUOTE_PRESENTATION_CSS}</style>
 </head>
 <body>
-  ${buildQuotePresentationBodyHtml(layout)}
+  ${buildQuotePresentationBodyHtml(layout, mode)}
   <script>
     function waitForImages() {
       var imgs = Array.prototype.slice.call(document.images);
@@ -571,8 +687,11 @@ export function buildQuotePresentationHtml(layout: QuotePresentationLayout): str
  * 2) se bloqueado, Blob URL na mesma navegação;
  * 3) se ainda falhar, iframe oculto + print.
  */
-export function openQuotePresentationPrint(layout: QuotePresentationLayout): void {
-  const html = buildQuotePresentationHtml(layout)
+export function openQuotePresentationPrint(
+  layout: QuotePresentationLayout,
+  mode: QuotePresentationBodyMode = 'full',
+): void {
+  const html = buildQuotePresentationHtml(layout, mode)
 
   const janela = window.open('', '_blank', 'width=920,height=720')
   if (janela) {
