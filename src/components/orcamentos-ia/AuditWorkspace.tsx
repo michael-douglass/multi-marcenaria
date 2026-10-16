@@ -2171,6 +2171,11 @@ export function AuditWorkspace({
             'xl:col-span-1',
           )}
           blocks={cockpitBlocks}
+          meta={{
+            analysisId,
+            batchLabel: batchScopeBanner,
+            status: tree?.status ?? null,
+          }}
           onOpenPromptStudio={() => setPromptStudioOpen(true)}
         />
       </div>

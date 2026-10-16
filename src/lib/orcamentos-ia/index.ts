@@ -115,6 +115,14 @@ export {
   applyEdgebandPolicy,
 } from '@/lib/orcamentos-ia/bom-engine'
 export { buildObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
+export {
+  formatCockpitExportMarkdown,
+  hasCockpitExportContent,
+  cockpitExportFileBase,
+  downloadCockpitMarkdown,
+  downloadCockpitPdf,
+} from '@/lib/orcamentos-ia/cockpit-export'
+export type { CockpitExportMeta } from '@/lib/orcamentos-ia/cockpit-export'
 export { migrateLegacyPricingParams } from '@/lib/orcamentos-ia/migrate-modality'
 export { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'
 export {

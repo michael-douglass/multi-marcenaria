@@ -1,26 +1,54 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  ClipboardCopy,
+  Download,
+  FileDown,
+  FileText,
+  Loader2,
+  Sparkles,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { copyText } from '@/lib/qr/copy-text'
+import { showToast } from '@/lib/toast'
 import { PriceAuditorPanel } from '@/components/orcamentos-ia/PriceAuditorPanel'
 import { ResponseInspectorPanel } from '@/components/orcamentos-ia/ResponseInspectorPanel'
 import type { ObservabilityBlocks } from '@/lib/orcamentos-ia/observability'
+import {
+  cockpitExportFileBase,
+  downloadCockpitMarkdown,
+  downloadCockpitPdf,
+  formatCockpitExportMarkdown,
+  hasCockpitExportContent,
+  type CockpitExportMeta,
+} from '@/lib/orcamentos-ia/cockpit-export'
 
 type CockpitTab = 'cot' | 'auditor' | 'inspector'
 
 interface AuditCockpitProps {
   blocks: ObservabilityBlocks | null
+  meta?: CockpitExportMeta | null
   onOpenPromptStudio?: () => void
   className?: string
 }
 
 export function AuditCockpit({
   blocks,
+  meta,
   onOpenPromptStudio,
   className,
 }: AuditCockpitProps) {
   const [open, setOpen] = useState(true)
   const [tab, setTab] = useState<CockpitTab>('auditor')
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const tabs = useMemo(
     () =>
@@ -32,6 +60,46 @@ export function AuditCockpit({
     [],
   )
 
+  const canExport = hasCockpitExportContent(blocks)
+
+  const buildMarkdown = (): string | null => {
+    if (!blocks || !hasCockpitExportContent(blocks)) {
+      showToast('Nada para exportar no cockpit.', 'error')
+      return null
+    }
+    return formatCockpitExportMarkdown(blocks, {
+      ...meta,
+      generatedAt: meta?.generatedAt || new Date().toISOString(),
+    })
+  }
+
+  const handleCopy = async () => {
+    const markdown = buildMarkdown()
+    if (!markdown) return
+    await copyText(markdown, 'Conteúdo do cockpit copiado.', { compact: false })
+  }
+
+  const handleDownloadMd = () => {
+    const markdown = buildMarkdown()
+    if (!markdown) return
+    downloadCockpitMarkdown(markdown, `${cockpitExportFileBase(meta)}.md`)
+    showToast('Markdown do cockpit baixado.')
+  }
+
+  const handleDownloadPdf = async () => {
+    const markdown = buildMarkdown()
+    if (!markdown) return
+    setExportingPdf(true)
+    try {
+      await downloadCockpitPdf(markdown, `${cockpitExportFileBase(meta)}.pdf`)
+      showToast('PDF do cockpit baixado.')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao gerar PDF do cockpit.', 'error')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <aside
       className={cn(
@@ -42,18 +110,53 @@ export function AuditCockpit({
       <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
         <button
           type="button"
-          className="flex flex-1 items-center gap-2 text-left text-xs font-semibold text-[#0f1419]"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-semibold text-[#0f1419]"
           onClick={() => setOpen((v) => !v)}
         >
-          Cockpit Corte Claude
-          {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          <span className="truncate">Cockpit Corte Claude</span>
+          {open ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+              disabled={!canExport || exportingPdf}
+            >
+              {exportingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0066FF]" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-[#0066FF]" />
+              )}
+              Exportar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem disabled={!canExport || exportingPdf} onClick={() => void handleCopy()}>
+              <ClipboardCopy className="mr-2 h-3.5 w-3.5" />
+              Copiar texto
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canExport || exportingPdf} onClick={handleDownloadMd}>
+              <FileText className="mr-2 h-3.5 w-3.5" />
+              Baixar Markdown (.md)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canExport || exportingPdf}
+              onClick={() => void handleDownloadPdf()}
+            >
+              <FileDown className="mr-2 h-3.5 w-3.5" />
+              Baixar PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {onOpenPromptStudio && (
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-7 gap-1 px-2 text-[11px]"
+            className="h-7 shrink-0 gap-1 px-2 text-[11px]"
             onClick={onOpenPromptStudio}
           >
             <Sparkles className="h-3.5 w-3.5 text-[#0066FF]" />
