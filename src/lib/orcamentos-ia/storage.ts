@@ -476,7 +476,7 @@ export async function downloadOrcamentosIaObject(
 }
 
 const QUOTE_PROJECT_SELECT =
-  'id, company_id, name, source_pdf_name, source_fingerprint, pdf_url, budgeted_pages, page_count, totals, created_by, created_at, updated_at'
+  'id, company_id, name, source_pdf_name, source_fingerprint, pdf_url, budgeted_pages, page_count, totals, lead_id, created_by, created_at, updated_at'
 
 export interface QuoteProjectRow {
   id: string
@@ -490,6 +490,8 @@ export interface QuoteProjectRow {
   budgeted_pages: number[]
   page_count: number | null
   totals: Record<string, unknown> | null
+  /** Lead CRM vinculado (1 pasta por lead). Null = pasta só do hub. */
+  lead_id: number | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -503,6 +505,13 @@ function normalizeBudgetedPages(raw: unknown): number[] {
 }
 
 function asQuoteProjectRow(row: Record<string, unknown>): QuoteProjectRow {
+  const leadRaw = row.lead_id
+  const leadId =
+    typeof leadRaw === 'number' && Number.isFinite(leadRaw)
+      ? leadRaw
+      : typeof leadRaw === 'string' && /^\d+$/.test(leadRaw)
+        ? Number(leadRaw)
+        : null
   return {
     id: String(row.id),
     company_id: String(row.company_id),
@@ -517,6 +526,7 @@ function asQuoteProjectRow(row: Record<string, unknown>): QuoteProjectRow {
       row.totals && typeof row.totals === 'object'
         ? (row.totals as Record<string, unknown>)
         : null,
+    lead_id: leadId,
     created_by: typeof row.created_by === 'string' ? row.created_by : null,
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || ''),
@@ -529,28 +539,86 @@ export interface CreateQuoteProjectParams {
   sourcePdfName?: string | null
   sourceFingerprint?: string | null
   createdBy?: string | null
+  /** Vincula a pasta a um lead CRM (1 pasta por lead). */
+  leadId?: number | null
 }
 
 /** Cria a pasta de precificação (agrupa lotes de páginas). */
 export async function createQuoteProject(
   params: CreateQuoteProjectParams,
 ): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  const insert: Record<string, unknown> = {
+    company_id: params.companyId,
+    name: params.name.slice(0, 200),
+    source_pdf_name: params.sourcePdfName ?? null,
+    source_fingerprint: params.sourceFingerprint ?? null,
+    created_by: params.createdBy ?? null,
+    totals: {},
+    budgeted_pages: [],
+  }
+  if (params.leadId != null && Number.isFinite(params.leadId)) {
+    insert.lead_id = params.leadId
+  }
   const { data, error } = await supabase
     .from('quote_projects')
-    .insert({
-      company_id: params.companyId,
-      name: params.name.slice(0, 200),
-      source_pdf_name: params.sourcePdfName ?? null,
-      source_fingerprint: params.sourceFingerprint ?? null,
-      created_by: params.createdBy ?? null,
-      totals: {},
-      budgeted_pages: [],
-    })
+    .insert(insert)
     .select(QUOTE_PROJECT_SELECT)
     .single()
 
   if (error) return { data: null, error: error.message }
   return { data: asQuoteProjectRow(data as Record<string, unknown>) }
+}
+
+/** Pasta de precificação já ligada a este lead (no máximo uma por empresa). */
+export async function findQuoteProjectByLeadId(
+  companyId: string,
+  leadId: number,
+): Promise<{ data: QuoteProjectRow | null; error?: string }> {
+  if (!companyId || !Number.isFinite(leadId)) return { data: null }
+  const { data, error } = await supabase
+    .from('quote_projects')
+    .select(QUOTE_PROJECT_SELECT)
+    .eq('company_id', companyId)
+    .eq('lead_id', leadId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data ? asQuoteProjectRow(data as Record<string, unknown>) : null }
+}
+
+/**
+ * Garante pasta do lead: reutiliza se existir, senão cria.
+ * Nome padrão: "Lead {nome}".
+ */
+export async function ensureQuoteProjectForLead(params: {
+  companyId: string
+  leadId: number
+  leadName?: string | null
+  createdBy?: string | null
+  sourcePdfName?: string | null
+}): Promise<{ data: QuoteProjectRow | null; created: boolean; error?: string }> {
+  const existing = await findQuoteProjectByLeadId(params.companyId, params.leadId)
+  if (existing.error) return { data: null, created: false, error: existing.error }
+  if (existing.data) return { data: existing.data, created: false }
+
+  const label = (params.leadName || '').trim() || `Lead #${params.leadId}`
+  const folderName = `Lead ${label}`.slice(0, 120)
+  const created = await createQuoteProject({
+    companyId: params.companyId,
+    name: folderName,
+    sourcePdfName: params.sourcePdfName ?? null,
+    createdBy: params.createdBy ?? null,
+    leadId: params.leadId,
+  })
+  if (created.error || !created.data) {
+    // Corrida: outro request criou a pasta — tenta ler de novo
+    const again = await findQuoteProjectByLeadId(params.companyId, params.leadId)
+    if (again.data) return { data: again.data, created: false }
+    return { data: null, created: false, error: created.error || 'Não foi possível criar a pasta.' }
+  }
+  return { data: created.data, created: true }
 }
 
 export async function getQuoteProject(

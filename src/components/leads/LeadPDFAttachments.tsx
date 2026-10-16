@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, FolderInput, Pencil, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Trash2, FileText, Upload, Loader2, Maximize2, X, Download, Image, Video, Play, CheckSquare, ChevronLeft, ChevronRight, FolderOpen, FolderPlus, FolderInput, Pencil, Minus, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import {
   useLeadPDFs,
   getLeadAttachmentViewKind,
@@ -37,8 +37,13 @@ import {
   type PendingLeadPDF,
 } from '@/hooks/useLeadPDFs';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { canAccessCrmPath } from '@/lib/crm-identity';
+import { useOrcamentosIaBackground } from '@/contexts/OrcamentosIaBackgroundContext';
+import { isLeadAttachmentQuoteable } from '@/lib/orcamentos-ia/lead-bridge'
+import { LeadOrcamentosIaPagePickerDialog } from '@/components/leads/LeadOrcamentosIaPagePickerDialog'
 import type { PdfPageImage } from '@/lib/pdf-render';
 import {
   getCachedPdfPages,
@@ -831,6 +836,8 @@ interface LeadPDFAttachmentsProps {
   prestadorPerm?: LeadPrestadorPermissao | null;
   /** Evita fechar o modal do lead ao abrir o seletor de arquivos do sistema */
   onFilePickerActiveChange?: (active: boolean) => void;
+  /** Após disparar cotação no Orçamentos com IA (pasta + lote). */
+  onOrcamentosIaStarted?: (info: { analysisId: string; projectId: string }) => void;
 }
 
 export interface LeadPDFAttachmentsHandle {
@@ -840,10 +847,24 @@ export interface LeadPDFAttachmentsHandle {
 }
 
 export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAttachmentsProps>(
-  function LeadPDFAttachments({ leadId, leadName, readOnly = false, prestadorPerm = null, onFilePickerActiveChange }, ref) {
-  const { userRole, userRoles, isSuperAdmin: isSuperAdminAuth } = useAuth();
+  function LeadPDFAttachments({
+    leadId,
+    leadName,
+    readOnly = false,
+    prestadorPerm = null,
+    onFilePickerActiveChange,
+    onOrcamentosIaStarted,
+  }, ref) {
+  const { userRole, userRoles, isSuperAdmin: isSuperAdminAuth, user } = useAuth();
+  const { crmProfile, userProfile } = useApp();
   const { empresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
   const { hasPermission } = usePermissions();
+  const orcamentosIaBg = useOrcamentosIaBackground();
+  const canSendToOrcamentosIa =
+    !readOnly &&
+    typeof leadId === 'number' &&
+    Boolean(empresa?.id) &&
+    canAccessCrmPath('/orcamentos-ia', crmProfile, userProfile);
   const {
     pdfs,
     pendingPdfs,
@@ -893,6 +914,12 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [sendingToIa, setSendingToIa] = useState(false);
+  const [sendingAttachmentIds, setSendingAttachmentIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  /** Anexos escolhidos → abre grade de páginas (não inicia cotação direto). */
+  const [quotePickerItems, setQuotePickerItems] = useState<LeadPDF[] | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(() => new Set());
@@ -1193,6 +1220,80 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
     userRole,
     userRoles,
   });
+
+  const requestQuoteWithAttachments = useCallback((items: LeadPDF[]) => {
+    const quoteable = items.filter(isLeadAttachmentQuoteable);
+    if (!quoteable.length) {
+      toast.error('Selecione PDF ou imagem. Vídeos não entram no Orçamentos com IA.');
+      return;
+    }
+    if (typeof leadId !== 'number' || !empresa?.id) {
+      toast.error('Salve o lead antes de cotar com IA.');
+      return;
+    }
+    setQuotePickerItems(quoteable);
+  }, [leadId, empresa?.id]);
+
+  const startQuoteWithSelectedPages = useCallback(
+    async (input: {
+      project: { id: string; name: string };
+      files: File[];
+      pageNumbers: number[];
+      projectCreated: boolean;
+    }) => {
+      if (!empresa?.id || typeof leadId !== 'number') {
+        throw new Error('Empresa ou lead não identificados.');
+      }
+      if (!input.pageNumbers.length) {
+        throw new Error('Escolha ao menos uma página.');
+      }
+      const items = quotePickerItems ?? [];
+      setSendingToIa(true);
+      setSendingAttachmentIds(new Set(items.map((i) => i.id)));
+      try {
+        const analysisId = await orcamentosIaBg.startQuoteAnalysis({
+          companyId: empresa.id,
+          userId: user?.id ?? null,
+          mode: 'max',
+          files: input.files,
+          pageNumbers: input.pageNumbers,
+          existingProjectId: input.project.id,
+          projectName: input.project.name,
+          leadId,
+        });
+        if (!analysisId) {
+          throw new Error('Não foi possível iniciar a cotação com IA.');
+        }
+        toast.success(
+          input.projectCreated
+            ? 'Pasta criada e cotação iniciada.'
+            : 'Cotação iniciada na pasta deste lead.',
+          {
+            description: `Páginas ${input.pageNumbers.join(', ')}. Acompanhe pelo ícone azul.`,
+            action: {
+              label: 'Acompanhar',
+              onClick: () => orcamentosIaBg.requestExpand(analysisId),
+            },
+          },
+        );
+        exitSelectionMode();
+        setQuotePickerItems(null);
+        onOrcamentosIaStarted?.({ analysisId, projectId: input.project.id });
+      } finally {
+        setSendingToIa(false);
+        setSendingAttachmentIds(new Set());
+      }
+    },
+    [
+      empresa?.id,
+      leadId,
+      quotePickerItems,
+      orcamentosIaBg,
+      user?.id,
+      exitSelectionMode,
+      onOrcamentosIaStarted,
+    ],
+  );
 
   const canUseSelectionMode =
     (viewingRoot && canUploadPdf && folders.length >= 1) ||
@@ -1694,6 +1795,33 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                 Exportar em PDF
               </Button>
             )}
+            {canSendToOrcamentosIa && (
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5 bg-[#0066FF] text-white hover:bg-[#0052cc]"
+                disabled={
+                  sendingToIa ||
+                  isBulkDeleting ||
+                  isMoving ||
+                  selectableImages.filter(
+                    (pdf) => selectedImageIds.has(pdf.id) && isLeadAttachmentQuoteable(pdf),
+                  ).length < 1
+                }
+                onClick={() =>
+                  requestQuoteWithAttachments(
+                    selectableImages.filter((pdf) => selectedImageIds.has(pdf.id)),
+                  )
+                }
+              >
+                {sendingToIa ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Cotar com IA
+              </Button>
+            )}
             {canDeletePdf && (
               <Button
                 type="button"
@@ -2050,6 +2178,11 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
                 </div>
               )}
+              {sendingToIa && sendingAttachmentIds.has(pdf.id) && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#0066FF]" />
+                </div>
+              )}
               <AttachmentThumbnail
                 cacheKey={pdfCacheKeyForMedia(pdf.id)}
                 fileUrl={pdf.file_url}
@@ -2117,6 +2250,26 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   <FolderInput className="h-3.5 w-3.5" />
                 </Button>
               )}
+              {canSendToOrcamentosIa &&
+                !isSelectionMode &&
+                isLeadAttachmentQuoteable(pdf) && (
+                <Button
+                  type="button"
+                  size="icon"
+                  className={cn(
+                    'absolute h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10 bg-[#0066FF] text-white hover:bg-[#0052cc]',
+                    isMovable ? 'top-1.5 left-10' : 'top-1.5 left-1.5',
+                  )}
+                  title="Cotar com Orçamentos IA"
+                  disabled={sendingToIa}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    requestQuoteWithAttachments([pdf]);
+                  }}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {canUploadPdf && !isSelectionMode && viewKind === 'image' && typeof leadId === 'number' && (
                 <Button
                   type="button"
@@ -2124,7 +2277,13 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
                   size="icon"
                   className={cn(
                     'absolute h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10',
-                    isMovable ? 'top-1.5 left-10' : 'top-1.5 left-1.5',
+                    canSendToOrcamentosIa && isLeadAttachmentQuoteable(pdf)
+                      ? isMovable
+                        ? 'top-1.5 left-[4.75rem]'
+                        : 'top-1.5 left-10'
+                      : isMovable
+                        ? 'top-1.5 left-10'
+                        : 'top-1.5 left-1.5',
                   )}
                   title="Editar na lousa"
                   onClick={(e) => {
@@ -2279,6 +2438,27 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
         defaultFolderId={viewingUnfiled ? null : currentFolderId}
         onConfirm={(folderId) => void handleMoveConfirm(folderId)}
       />
+
+      {typeof leadId === 'number' && empresa?.id && quotePickerItems ? (
+        <LeadOrcamentosIaPagePickerDialog
+          open={!!quotePickerItems}
+          onOpenChange={(open) => {
+            if (!open && !sendingToIa) setQuotePickerItems(null);
+          }}
+          companyId={empresa.id}
+          leadId={leadId}
+          leadName={leadName}
+          userId={user?.id ?? null}
+          attachments={quotePickerItems.map((p) => ({
+            id: p.id,
+            file_url: p.file_url,
+            file_name: p.file_name,
+            mime_type: p.mime_type,
+            tipo: p.tipo,
+          }))}
+          onConfirm={startQuoteWithSelectedPages}
+        />
+      ) : null}
 
       <AlertDialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>
         <AlertDialogContent>

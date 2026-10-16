@@ -46,6 +46,7 @@ import { WhatsAppHistoryCard } from './WhatsAppHistoryCard';
 import { ScheduleMeetingDialog } from './ScheduleMeetingDialog';
 import { LeadCustomFieldsSection } from './LeadCustomFieldsSection';
 import { LeadPDFAttachments, type LeadPDFAttachmentsHandle } from './LeadPDFAttachments';
+import { LeadOrcamentosIaSection } from './LeadOrcamentosIaSection';
 import { LeadContratosSection } from './LeadContratosSection';
 import { LeadOrcamentoSlidesSection } from './LeadOrcamentoSlidesSection';
 import { MarkupLeadSection } from '@/components/markup/MarkupLeadSection';
@@ -290,6 +291,7 @@ export function LeadModal({
   const [selectedWebhookId, setSelectedWebhookId] = useState<string>('');
   const [isNegativado, setIsNegativado] = useState(false);
   const pdfAttachmentsRef = useRef<LeadPDFAttachmentsHandle>(null);
+  const [orcamentosIaRefreshToken, setOrcamentosIaRefreshToken] = useState(0);
   const [filePickerActive, setFilePickerActive] = useState(false);
   const syncComissaoLiberacao = useSyncPontuaGarboLiberacaoAposVenda();
   const { data: pontuaGarboSale } = useLeadPontuaGarboSaleInfo(leadId ?? undefined);
@@ -2381,6 +2383,15 @@ export function LeadModal({
             </div>
           )}
 
+          {leadId && !contextoProjeto && (
+            <div id="lead-sec-orcamentos-ia" data-lead-section="orcamentos-ia">
+              <LeadOrcamentosIaSection
+                leadId={leadId}
+                leadName={formData.name}
+                refreshToken={orcamentosIaRefreshToken}
+              />
+            </div>
+          )}
 
           {/* Anexar PDFs */}
           <div id="lead-sec-fotos" data-lead-section="fotos">
@@ -2389,6 +2400,9 @@ export function LeadModal({
               leadId={leadId}
               leadName={formData.name}
               onFilePickerActiveChange={setFilePickerActive}
+              onOrcamentosIaStarted={() =>
+                setOrcamentosIaRefreshToken((n) => n + 1)
+              }
             />
           </div>
 

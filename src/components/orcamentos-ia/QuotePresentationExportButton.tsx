@@ -8,6 +8,7 @@ import type { PricingParams } from '@/lib/orcamentos-ia/pricing'
 interface QuotePresentationExportButtonProps {
   tree: QuoteAnalysisDetail
   pricingParams: PricingParams
+  onPricingParamsChange?: (next: PricingParams) => void
   pageImages: Array<{ index: number; path: string; url: string }>
   branding: {
     companyName: string
@@ -21,6 +22,7 @@ interface QuotePresentationExportButtonProps {
 export function QuotePresentationExportButton({
   tree,
   pricingParams,
+  onPricingParamsChange,
   pageImages,
   branding,
   disabled,
@@ -48,6 +50,7 @@ export function QuotePresentationExportButton({
           onClose={() => setOpen(false)}
           tree={tree}
           pricingParams={pricingParams}
+          onPricingParamsChange={onPricingParamsChange}
           pageImages={pageImages}
           branding={branding}
         />

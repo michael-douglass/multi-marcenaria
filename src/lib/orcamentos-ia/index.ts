@@ -16,7 +16,17 @@ export {
   cancelOrcamentosIaAnalysis,
   isQuoteAnalysisCancelled,
   isReadyForClientPricing,
+  createQuoteProject,
+  findQuoteProjectByLeadId,
+  ensureQuoteProjectForLead,
+  listQuoteAnalysesForProject,
 } from '@/lib/orcamentos-ia/storage'
+export {
+  prepareLeadQuoteHandoff,
+  prepareLeadAttachmentsAsFiles,
+  ensureLeadQuoteFolder,
+  isLeadAttachmentQuoteable,
+} from '@/lib/orcamentos-ia/lead-bridge'
 
 export { resolveMaterialPrice, barsOf3mFromMeters, endCapsForHandleBars, repriceZeroMaterials, CONTINGENCY_PRICE_WARNING, CONTINGENCY_PRICES } from '@/lib/orcamentos-ia/pricing'
 export {
@@ -53,7 +63,19 @@ export {
   buildQuotePresentationBodyHtml,
   QUOTE_PRESENTATION_CSS,
 } from '@/lib/orcamentos-ia/quote-presentation-print'
-export type { PricingModality, PricingParams, PricingResult, ShoppingListItem } from '@/lib/orcamentos-ia/pricing'
+export type {
+  ModulePricingOverride,
+  PricingModality,
+  PricingParams,
+  PricingResult,
+  ShoppingListItem,
+} from '@/lib/orcamentos-ia/pricing'
+export {
+  calculateModuleSalePrice,
+  countActiveModuleOverrides,
+  paramsForModule,
+  setModulePricingOverride,
+} from '@/lib/orcamentos-ia/pricing'
 export {
   DEFAULT_SYSTEM_PREFERENCES,
   DEFAULT_COMPANY_STANDARDS,

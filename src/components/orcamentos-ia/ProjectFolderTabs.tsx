@@ -1,4 +1,5 @@
-import { FolderKanban, History, Layers } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp, FolderKanban, History, Layers } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { formatBRL } from '@/lib/orcamentos-ia/pricing'
 import type { QuoteAnalysisRow, QuoteProjectRow } from '@/lib/orcamentos-ia/storage'
 import { QUOTE_STATUS_LABEL, type QuoteAnalysisStatus } from '@/lib/orcamentos-ia/storage'
+
+const FOLDER_PANEL_EXPANDED_KEY = 'orcamentos-ia:folder-panel-expanded'
 
 export type FolderViewMode = 'consolidated' | 'history'
 
@@ -201,6 +204,12 @@ function ConsolidatedSummary({ project }: { project: QuoteProjectRow }) {
   )
 }
 
+function compactSale(project: QuoteProjectRow): number | null {
+  const totals = project.totals && typeof project.totals === 'object' ? project.totals : {}
+  const sale = typeof totals.sale_price === 'number' ? totals.sale_price : null
+  return sale != null && sale > 0 ? sale : null
+}
+
 export function ProjectFolderTabs({
   project,
   batches,
@@ -210,82 +219,154 @@ export function ProjectFolderTabs({
   onSelectBatch,
   className,
 }: ProjectFolderTabsProps) {
+  // Começa minimizado para não cobrir PDF/materiais; lembrar escolha na sessão.
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      return sessionStorage.getItem(FOLDER_PANEL_EXPANDED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(FOLDER_PANEL_EXPANDED_KEY, expanded ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [expanded])
+
+  const sale = compactSale(project)
+  const activeBatch = batches.find((b) => b.id === activeAnalysisId)
+
   return (
     <Tabs
       value={viewMode}
       onValueChange={(v) => onViewModeChange(v === 'history' ? 'history' : 'consolidated')}
       className={cn('shrink-0', className)}
     >
-      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-slate-100/90 p-1">
-        <TabsTrigger
-          value="consolidated"
-          className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#0066FF]"
+      <div className="flex flex-wrap items-stretch gap-2">
+        <TabsList className="grid h-auto min-w-0 flex-1 grid-cols-2 gap-1 bg-slate-100/90 p-1">
+          <TabsTrigger
+            value="consolidated"
+            className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#0066FF]"
+            onClick={() => {
+              if (!expanded) setExpanded(true)
+            }}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span className="truncate">Orçamento consolidado do projeto</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#0066FF]"
+            onClick={() => {
+              if (!expanded) setExpanded(true)
+            }}
+          >
+            <History className="h-3.5 w-3.5" />
+            <span className="truncate">Histórico por lote de páginas</span>
+          </TabsTrigger>
+        </TabsList>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-auto shrink-0 gap-1.5 border-[#0066FF]/30 px-3 py-2 text-[#0066FF] hover:bg-[#0066FF]/5"
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Minimizar painel da pasta' : 'Expandir painel da pasta'}
+          onClick={() => setExpanded((v) => !v)}
         >
-          <Layers className="h-3.5 w-3.5" />
-          <span className="truncate">Orçamento consolidado do projeto</span>
-        </TabsTrigger>
-        <TabsTrigger
-          value="history"
-          className="gap-1.5 data-[state=active]:bg-white data-[state=active]:text-[#0066FF]"
-        >
-          <History className="h-3.5 w-3.5" />
-          <span className="truncate">Histórico por lote de páginas</span>
-        </TabsTrigger>
-      </TabsList>
+          {expanded ? (
+            <>
+              <ChevronUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Minimizar</span>
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-4 w-4" />
+              <span className="hidden sm:inline">Expandir</span>
+            </>
+          )}
+        </Button>
+      </div>
 
-      <TabsContent value="consolidated" className="mt-2 focus-visible:outline-none">
-        <ConsolidatedSummary project={project} />
-      </TabsContent>
-
-      <TabsContent value="history" className="mt-2 focus-visible:outline-none">
-        <div className="rounded-xl border border-border/70 bg-white/80 p-2 sm:p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <FolderKanban className="h-3.5 w-3.5 text-[#0066FF]" />
-            Escolha um lote para inspecionar o que saiu naquele intervalo de páginas.
-          </div>
-          <ul className="flex max-h-40 flex-col gap-1.5 overflow-y-auto sm:max-h-48">
-            {batches.map((row) => {
-              const active = row.id === activeAnalysisId
-              const status = row.status as QuoteAnalysisStatus
-              return (
-                <li key={row.id}>
-                  <Button
-                    type="button"
-                    variant={active ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn(
-                      'h-auto w-full justify-between gap-2 px-3 py-2 text-left',
-                      active && 'bg-[#0066FF] hover:bg-[#0052cc]',
-                    )}
-                    onClick={() => onSelectBatch(row.id)}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold">{batchLabel(row)}</span>
-                      <span
-                        className={cn(
-                          'block truncate text-[10px]',
-                          active ? 'text-white/80' : 'text-muted-foreground',
-                        )}
-                      >
-                        {QUOTE_STATUS_LABEL[status] ?? status}
-                      </span>
-                    </span>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'shrink-0 text-[10px]',
-                        active && 'bg-white/20 text-white',
-                      )}
-                    >
-                      {row.mode === 'max' ? 'Max' : 'Pro'}
-                    </Badge>
-                  </Button>
-                </li>
-              )
-            })}
-          </ul>
+      {!expanded ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#0066FF]/15 bg-white/70 px-3 py-2 text-xs text-muted-foreground">
+          <span className="min-w-0 truncate">
+            {viewMode === 'consolidated'
+              ? `${project.name} · painel minimizado`
+              : activeBatch
+                ? `${batchLabel(activeBatch)} · ${QUOTE_STATUS_LABEL[activeBatch.status as QuoteAnalysisStatus] ?? activeBatch.status}`
+                : 'Histórico · painel minimizado'}
+          </span>
+          {sale != null ? (
+            <span className="shrink-0 font-semibold tabular-nums text-[#0066FF]">
+              {formatBRL(sale)}
+            </span>
+          ) : null}
         </div>
-      </TabsContent>
+      ) : null}
+
+      {expanded ? (
+        <>
+          <TabsContent value="consolidated" className="mt-2 focus-visible:outline-none">
+            <ConsolidatedSummary project={project} />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-2 focus-visible:outline-none">
+            <div className="rounded-xl border border-border/70 bg-white/80 p-2 sm:p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <FolderKanban className="h-3.5 w-3.5 text-[#0066FF]" />
+                Escolha um lote para inspecionar o que saiu naquele intervalo de páginas.
+              </div>
+              <ul className="flex max-h-40 flex-col gap-1.5 overflow-y-auto sm:max-h-48">
+                {batches.map((row) => {
+                  const active = row.id === activeAnalysisId
+                  const status = row.status as QuoteAnalysisStatus
+                  return (
+                    <li key={row.id}>
+                      <Button
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        className={cn(
+                          'h-auto w-full justify-between gap-2 px-3 py-2 text-left',
+                          active && 'bg-[#0066FF] hover:bg-[#0052cc]',
+                        )}
+                        onClick={() => onSelectBatch(row.id)}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-semibold">
+                            {batchLabel(row)}
+                          </span>
+                          <span
+                            className={cn(
+                              'block truncate text-[10px]',
+                              active ? 'text-white/80' : 'text-muted-foreground',
+                            )}
+                          >
+                            {QUOTE_STATUS_LABEL[status] ?? status}
+                          </span>
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            'shrink-0 text-[10px]',
+                            active && 'bg-white/20 text-white',
+                          )}
+                        >
+                          {row.mode === 'max' ? 'Max' : 'Pro'}
+                        </Badge>
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </TabsContent>
+        </>
+      ) : null}
     </Tabs>
   )
 }

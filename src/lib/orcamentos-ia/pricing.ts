@@ -728,6 +728,14 @@ export const STANDARD_SHEET_AREA_M2 = STANDARD_SHEET_WIDTH_M * STANDARD_SHEET_HE
 
 export const DEFAULT_SHEET_LOSS_PCT = 15
 
+/** Ajuste local de margem ou multiplicador em um móvel específico. */
+export interface ModulePricingOverride {
+  /** Margem % local (quando modality === mpc_margin) */
+  mpcPercent?: number
+  /** Fator ×N local (quando modality === material_multiplier) */
+  materialMultiplier?: number
+}
+
 export interface PricingParams {
   modality: PricingModality
   /** Modalidade 1: % total (impostos + comissões + cartão + lucro), ex.: 45 */
@@ -743,6 +751,11 @@ export interface PricingParams {
   totalAreaSqm?: number
   /** Taxa de perda de chapa (%), padrão 15 */
   sheetLossPct?: number
+  /**
+   * Ajustes locais por id do móvel.
+   * Se o móvel tiver override, usa a % ou o ×N dele; senão, usa o global.
+   */
+  moduleOverrides?: Record<string, ModulePricingOverride>
 }
 
 export const DEFAULT_PRICING_PARAMS: PricingParams = {
@@ -750,6 +763,86 @@ export const DEFAULT_PRICING_PARAMS: PricingParams = {
   mpcPercent: 45,
   materialMultiplier: 2.5,
   sheetLossPct: DEFAULT_SHEET_LOSS_PCT,
+  moduleOverrides: {},
+}
+
+/** Parâmetros efetivos de um móvel (global + override local). */
+export function paramsForModule(
+  params: PricingParams,
+  moduleId: string,
+): PricingParams {
+  const o = params.moduleOverrides?.[moduleId]
+  if (!o) return params
+  return {
+    ...params,
+    mpcPercent:
+      typeof o.mpcPercent === 'number' && Number.isFinite(o.mpcPercent)
+        ? o.mpcPercent
+        : params.mpcPercent,
+    materialMultiplier:
+      typeof o.materialMultiplier === 'number' && Number.isFinite(o.materialMultiplier)
+        ? o.materialMultiplier
+        : params.materialMultiplier,
+  }
+}
+
+/** Quantos móveis têm ajuste local ativo na modalidade atual. */
+export function countActiveModuleOverrides(params: PricingParams): number {
+  const map = params.moduleOverrides
+  if (!map) return 0
+  const modality = normalizePricingModality(params.modality)
+  let n = 0
+  for (const o of Object.values(map)) {
+    if (!o) continue
+    if (modality === 'mpc_margin' && typeof o.mpcPercent === 'number') n += 1
+    else if (
+      modality === 'material_multiplier' &&
+      typeof o.materialMultiplier === 'number'
+    ) {
+      n += 1
+    }
+  }
+  return n
+}
+
+/** Grava ou limpa o override local de um móvel. */
+export function setModulePricingOverride(
+  params: PricingParams,
+  moduleId: string,
+  patch: ModulePricingOverride | null,
+): PricingParams {
+  const prev = { ...(params.moduleOverrides ?? {}) }
+  if (patch == null) {
+    delete prev[moduleId]
+    return { ...params, moduleOverrides: prev }
+  }
+  const next: ModulePricingOverride = { ...(prev[moduleId] ?? {}) }
+  if ('mpcPercent' in patch) {
+    if (typeof patch.mpcPercent === 'number' && Number.isFinite(patch.mpcPercent)) {
+      next.mpcPercent = patch.mpcPercent
+    } else {
+      delete next.mpcPercent
+    }
+  }
+  if ('materialMultiplier' in patch) {
+    if (
+      typeof patch.materialMultiplier === 'number' &&
+      Number.isFinite(patch.materialMultiplier)
+    ) {
+      next.materialMultiplier = patch.materialMultiplier
+    } else {
+      delete next.materialMultiplier
+    }
+  }
+  if (
+    typeof next.mpcPercent !== 'number' &&
+    typeof next.materialMultiplier !== 'number'
+  ) {
+    delete prev[moduleId]
+  } else {
+    prev[moduleId] = next
+  }
+  return { ...params, moduleOverrides: prev }
 }
 
 export interface PricingResult {
@@ -895,14 +988,49 @@ export function calculateSalePrice(
   }
 }
 
+/**
+ * Preço de venda de um móvel (custo local × fórmula global ou override).
+ */
+export function calculateModuleSalePrice(
+  mod: Pick<QuoteModuleRow, 'id' | 'out_of_scope' | 'materials'>,
+  params: PricingParams = DEFAULT_PRICING_PARAMS,
+): number {
+  if (mod.out_of_scope) return 0
+  const cost = moduleMaterialsCost(mod, params.sheetLossPct)
+  const local = paramsForModule(params, mod.id)
+  return calculateSalePrice(cost, local, 0).salePrice
+}
+
+/**
+ * Precificação do orçamento — soma móvel a móvel
+ * (cada um com a % / ×N global ou o ajuste local).
+ */
 export function calculateQuotePricing(
   tree: QuoteAnalysisDetail,
   params: PricingParams = DEFAULT_PRICING_PARAMS,
 ): PricingResult {
-  const materials = flattenMaterials(tree)
-  const cost = sumMaterialsCost(materials, params.sheetLossPct)
+  const sheetLoss = params.sheetLossPct ?? DEFAULT_SHEET_LOSS_PCT
   const area = estimateTotalAreaSqm(tree, params.totalAreaSqm)
-  return calculateSalePrice(cost, params, area)
+  const hasOverrides = countActiveModuleOverrides(params) > 0
+
+  let cost = 0
+  let sale = 0
+  for (const env of tree.environments) {
+    for (const mod of env.modules) {
+      if (mod.out_of_scope) continue
+      cost += moduleMaterialsCost(mod, sheetLoss)
+      sale += calculateModuleSalePrice(mod, params)
+    }
+  }
+  const base = calculateSalePrice(cost, params, area)
+  return {
+    ...base,
+    materialsCost: roundMoney(cost),
+    salePrice: roundMoney(sale),
+    formulaLabel: hasOverrides
+      ? `${base.formulaLabel} · com ajustes locais`
+      : base.formulaLabel,
+  }
 }
 
 /** Custo de materiais de um móvel (0 se fora de escopo). */

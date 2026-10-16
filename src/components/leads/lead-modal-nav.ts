@@ -98,6 +98,13 @@ export const LEAD_DETAILS_NAV: LeadNavJumpItem[] = [
     keywords: ['custo', 'calculadora', 'preco', 'preço', 'iris'],
   },
   {
+    id: 'orcamentos-ia',
+    label: 'Orçamento IA',
+    hint: 'Cotação fabril Corte Claude',
+    tab: 'detalhes',
+    keywords: ['ia', 'corte', 'claude', 'bom', 'fabril', 'cotacao', 'cotação'],
+  },
+  {
     id: 'fotos',
     label: 'Fotos e anexos',
     hint: 'Pastas, PDFs e imagens',

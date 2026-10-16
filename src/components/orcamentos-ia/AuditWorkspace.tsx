@@ -54,6 +54,10 @@ import { PromptStudioModal } from '@/components/orcamentos-ia/PromptStudioModal'
 import { RaioX3D } from '@/components/orcamentos-ia/RaioX3D'
 import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCanvas'
 import { QuotePresentationExportButton } from '@/components/orcamentos-ia/QuotePresentationExportButton'
+import {
+  PricingAdjustmentsButton,
+  PricingAdjustmentsDialog,
+} from '@/components/orcamentos-ia/PricingAdjustmentsDialog'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { listBomItemsForProject } from '@/lib/orcamentos-ia/bom-persist'
 import {
@@ -236,6 +240,7 @@ export function AuditWorkspace({
   const [editingMaterial, setEditingMaterial] = useState<QuoteMaterialRow | null>(null)
   const [editDraft, setEditDraft] = useState({ exact: '', full: '', price: '' })
   const [pricingParams, setPricingParams] = useState<PricingParams>(DEFAULT_PRICING_PARAMS)
+  const [pricingAdjustOpen, setPricingAdjustOpen] = useState(false)
   const [showShoppingList, setShowShoppingList] = useState(false)
   const [reprocessing, setReprocessing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -638,31 +643,11 @@ export function AuditWorkspace({
     focusSelectionOnViewer({ page, bbox, pageImagePath: path })
   }, [selection, pageNumber, focusSelectionOnViewer])
 
+  // Preço ao vivo: materiais ÷ (1 − margem%) / ×N — acompanha o input da barra.
+  // Não congelar em totals.sale_price do pipeline (senão mudar a % não atualiza a UI).
   const pricing = useMemo(() => {
     if (!tree) return null
-    const live = calculateQuotePricing(tree, pricingParams)
-    const totals =
-      tree.totals && typeof tree.totals === 'object'
-        ? (tree.totals as Record<string, unknown>)
-        : {}
-    const persistedSale = Number(totals.sale_price)
-    const persistedCost = Number(totals.materials_cost ?? totals.cost_price)
-    // Preferir valores gravados pelo pipeline (circuit breaker v12) quando existem
-    if (persistedSale > 0 && persistedCost >= 0) {
-      return {
-        ...live,
-        materialsCost: persistedCost,
-        salePrice: persistedSale,
-        formulaLabel:
-          typeof totals.pricing_formula === 'string'
-            ? totals.pricing_formula
-            : live.formulaLabel,
-        modality: (typeof totals.pricing_modality === 'string'
-          ? totals.pricing_modality
-          : live.modality) as PricingModality,
-      }
-    }
-    return live
+    return calculateQuotePricing(tree, pricingParams)
   }, [tree, pricingParams])
 
   const circuitBreaker = useMemo(() => {
@@ -1141,7 +1126,7 @@ export function AuditWorkspace({
   const showFolderTabs = Boolean(folderProject && folderBatches.length >= 1)
 
   return (
-    <div className="flex h-[calc(100dvh-6.5rem)] min-h-[520px] max-h-[calc(100dvh-5.75rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 sm:gap-3 sm:p-3 md:p-4">
+    <div className="flex min-h-[calc(100dvh-6.5rem)] flex-col gap-2 rounded-2xl bg-[#f7f4ef] p-2 pb-10 sm:gap-3 sm:p-3 sm:pb-12 md:p-4">
       {showFolderTabs && folderProject ? (
         <ProjectFolderTabs
           project={folderProject}
@@ -1156,8 +1141,8 @@ export function AuditWorkspace({
         />
       ) : null}
       {showFolderTabs && folderViewMode === 'consolidated' ? (
-        <p className="shrink-0 text-xs text-muted-foreground">
-          Visão consolidada acima. Para editar chapas/ferragens de um intervalo, abra a aba
+        <p className="shrink-0 text-[11px] text-muted-foreground">
+          Use Minimizar no painel acima se quiser mais espaço. Para editar um intervalo, abra
           Histórico e escolha o lote.
         </p>
       ) : null}
@@ -1303,6 +1288,10 @@ export function AuditWorkspace({
               />
             </label>
           )}
+          <PricingAdjustmentsButton
+            params={pricingParams}
+            onClick={() => setPricingAdjustOpen(true)}
+          />
           {pricing && (
             <div
               className="hidden rounded-lg border border-[#8d5e22]/25 bg-[#fffcf8] px-3 py-1 text-right sm:block"
@@ -1331,6 +1320,7 @@ export function AuditWorkspace({
             <QuotePresentationExportButton
               tree={tree}
               pricingParams={pricingParams}
+              onPricingParamsChange={setPricingParams}
               pageImages={pageImages}
               branding={{
                 companyName: empresa?.nome || 'Garbo Movelaria',
@@ -1550,14 +1540,15 @@ export function AuditWorkspace({
       */}
       <div
         className={cn(
-          'grid min-h-0 flex-1 gap-2 sm:gap-3',
+          // Altura mínima generosa + página scrollável (não trava em 100vh).
+          'grid min-h-[min(78dvh,860px)] gap-2 sm:gap-3',
           viewerMode === 'xray'
-            ? 'grid-rows-[minmax(320px,52dvh)_minmax(0,1fr)]'
-            : 'grid-rows-[minmax(220px,40dvh)_minmax(0,1fr)]',
-          'lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)_minmax(180px,26%)]',
+            ? 'grid-rows-[minmax(320px,52dvh)_minmax(280px,1fr)]'
+            : 'grid-rows-[minmax(240px,42dvh)_minmax(280px,1fr)]',
+          'lg:grid-cols-2 lg:grid-rows-[minmax(420px,1fr)_minmax(220px,auto)]',
           viewerMode === 'xray'
-            ? 'xl:grid-cols-[minmax(420px,1.55fr)_minmax(0,0.95fr)_minmax(220px,0.58fr)] xl:grid-rows-none'
-            : 'xl:grid-cols-[minmax(300px,1.2fr)_minmax(0,1fr)_minmax(260px,0.72fr)] xl:grid-rows-none',
+            ? 'xl:grid-cols-[minmax(420px,1.55fr)_minmax(0,0.95fr)_minmax(220px,0.58fr)] xl:grid-rows-[minmax(560px,72dvh)]'
+            : 'xl:grid-cols-[minmax(300px,1.2fr)_minmax(0,1fr)_minmax(260px,0.72fr)] xl:grid-rows-[minmax(560px,72dvh)]',
         )}
       >
         {/* Esquerda: PDF / Raio-X — sempre visível */}
@@ -2201,6 +2192,16 @@ export function AuditWorkspace({
           </div>
         </div>
       )}
+
+      {tree ? (
+        <PricingAdjustmentsDialog
+          open={pricingAdjustOpen}
+          onOpenChange={setPricingAdjustOpen}
+          tree={tree}
+          value={pricingParams}
+          onChange={setPricingParams}
+        />
+      ) : null}
 
       <ExplainCorrectionModal
         open={explainOpen}

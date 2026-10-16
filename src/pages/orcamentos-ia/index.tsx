@@ -61,6 +61,7 @@ import {
   failOrphanPendingAnalysesWithoutPdf,
   getQuoteProject,
   listQuoteAnalyses,
+  listQuoteAnalysesForProject,
   listQuoteProjects,
   QUOTE_STATUS_LABEL,
   isReadyForClientPricing,
@@ -141,6 +142,36 @@ export default function OrcamentosIaPage() {
     const fromUrl = searchParams.get('audit')
     if (fromUrl) setActiveAnalysisId(fromUrl)
   }, [searchParams])
+
+  /** Deep-link ?project= — foca pasta (abre último lote se houver, senão lista). */
+  useEffect(() => {
+    const projectId = searchParams.get('project')
+    if (!projectId || searchParams.get('audit')) return
+    if (!companyId) return
+    let cancelled = false
+    void (async () => {
+      const { data } = await listQuoteAnalysesForProject(projectId)
+      if (cancelled) return
+      const sorted = [...(data ?? [])].sort(
+        (a, b) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+      )
+      const latest = sorted[0]
+      if (latest?.id) {
+        setActiveAnalysisId(latest.id)
+        const next = new URLSearchParams(searchParams)
+        next.set('audit', latest.id)
+        next.delete('project')
+        setSearchParams(next, { replace: true })
+      } else {
+        setContinueProjectId(projectId)
+        setPagePickerOpen(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, companyId, setSearchParams])
 
   useEffect(() => {
     if (!activeAnalysisId) void refreshList()
@@ -504,7 +535,7 @@ export default function OrcamentosIaPage() {
     return (
       <div
         className={cn(
-          'flex min-h-0 w-full flex-1 flex-col bg-[#f7f4ef]',
+          'flex w-full flex-1 flex-col overflow-x-hidden overflow-y-visible bg-[#f7f4ef]',
           isPopout ? 'min-h-screen p-2 sm:p-3' : 'px-2 py-2 sm:px-3 sm:py-2.5 md:px-4',
         )}
       >

@@ -245,11 +245,6 @@ export function QuotePresentationPreview({
             >
               {formatBRL(pricing.salePrice)}
             </div>
-            {canEdit && (
-              <p className="mt-1 text-[10px]" style={{ color: T.muted }}>
-                {pricing.formulaLabel}
-              </p>
-            )}
           </div>
         </header>
 

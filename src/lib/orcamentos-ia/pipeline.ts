@@ -2789,8 +2789,9 @@ export async function reprocessOrcamentosIaPipeline(params: {
           oldEnvs.map((e) => e.id),
         )
     }
+    // Coluna no DB chama-se project_id, mas o FK é quote_analyses.id (migration v11).
     try {
-      await supabase.from('bom_items').delete().eq('analysis_id', params.analysisId)
+      await clearBomItemsForProject(params.analysisId)
     } catch {
       /* tabela pode não existir em ambientes antigos */
     }

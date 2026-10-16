@@ -87,6 +87,8 @@ export interface StartOrcamentosIaAnalysisInput {
   existingProjectId?: string
   /** Nome da pasta ao criar (novo orçamento). */
   projectName?: string
+  /** Vincula pasta nova a um lead CRM (ignorado se existingProjectId). */
+  leadId?: number | null
 }
 
 export interface StartOrcamentosIaFromProjectInput {
@@ -584,6 +586,7 @@ export function OrcamentosIaBackgroundProvider({ children }: { children: ReactNo
             name: folderName,
             sourcePdfName: primary.name,
             createdBy: userId,
+            leadId: input.leadId ?? null,
           })
           if (projectError || !project) {
             throw new Error(projectError || 'Não foi possível criar a pasta do projeto.')

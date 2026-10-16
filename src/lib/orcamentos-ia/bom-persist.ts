@@ -16,12 +16,13 @@ export const bomItemRowSchema = z.object({
 })
 
 export function bomLinesToRows(
-  projectId: string,
+  analysisId: string,
   moduleId: string,
   bom: BomLine[],
 ): Array<Record<string, unknown>> {
   return bom.map((line) => ({
-    project_id: projectId,
+    // FK → quote_analyses.id (coluna historicamente nomeada project_id)
+    project_id: analysisId,
     module_id: moduleId,
     item_category: line.item_category,
     item_description: line.item_description.slice(0, 255),
@@ -43,22 +44,27 @@ export function validateBomLines(bom: BomLine[]): { ok: boolean; issues: string[
   return { ok: issues.length === 0, issues }
 }
 
-export async function clearBomItemsForProject(projectId: string): Promise<void> {
-  await supabase.from('bom_items').delete().eq('project_id', projectId)
+/**
+ * Limpa BOM da análise.
+ * Nota: a coluna no Postgres chama-se `project_id`, mas o FK aponta para
+ * `quote_analyses.id` (nome herdado da migration v11 — não é quote_projects).
+ */
+export async function clearBomItemsForProject(analysisId: string): Promise<void> {
+  await supabase.from('bom_items').delete().eq('project_id', analysisId)
 }
 
 export async function insertBomItems(
-  projectId: string,
+  analysisId: string,
   moduleId: string,
   bom: BomLine[],
 ): Promise<{ error: string | null; count: number }> {
-  const rows = bomLinesToRows(projectId, moduleId, bom)
+  const rows = bomLinesToRows(analysisId, moduleId, bom)
   if (!rows.length) return { error: null, count: 0 }
   const { error } = await supabase.from('bom_items').insert(rows)
   return { error: error?.message ?? null, count: rows.length }
 }
 
-export async function listBomItemsForProject(projectId: string): Promise<{
+export async function listBomItemsForProject(analysisId: string): Promise<{
   data: BomLine[]
   byModule: Map<string, BomLine[]>
   error: string | null
@@ -66,7 +72,7 @@ export async function listBomItemsForProject(projectId: string): Promise<{
   const { data, error } = await supabase
     .from('bom_items')
     .select('module_id, item_category, item_description, quantity, unit_of_measure, unit_cost, metadata')
-    .eq('project_id', projectId)
+    .eq('project_id', analysisId)
 
   if (error) return { data: [], byModule: new Map(), error: error.message }
 

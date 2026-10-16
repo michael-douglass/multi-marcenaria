@@ -1,5 +1,6 @@
 import {
   allocateSalePrice,
+  calculateModuleSalePrice,
   calculateQuotePricing,
   environmentMaterialsCost,
   formatBRL,
@@ -156,11 +157,10 @@ function summarizeModuleDetails(mod: QuoteModuleRow): {
 function buildModuleBlock(
   mod: QuoteModuleRow,
   pageImages: QuotePageImage[],
-  totalSale: number,
-  totalCost: number,
-  sheetLossPct: number,
+  pricingParams: PricingParams,
 ): QuotePresentationModuleBlock {
-  const cost = moduleMaterialsCost(mod, sheetLossPct)
+  const sheetLoss = pricingParams.sheetLossPct ?? DEFAULT_PRICING_PARAMS.sheetLossPct ?? 15
+  const cost = moduleMaterialsCost(mod, sheetLoss)
   const details = summarizeModuleDetails(mod)
   return {
     id: mod.id,
@@ -169,7 +169,7 @@ function buildModuleBlock(
     dimensionsLabel: formatModuleDimensions(mod.dimensions),
     detailLines: details.detailLines,
     materialsCost: cost,
-    salePrice: mod.out_of_scope ? 0 : allocateSalePrice(totalSale, cost, totalCost),
+    salePrice: calculateModuleSalePrice(mod, pricingParams),
     imageUrl: resolveModuleImageUrl(mod, pageImages),
     pageNumber: mod.page_number,
     outOfScope: mod.out_of_scope,
@@ -206,22 +206,19 @@ export function buildQuotePresentationLayout(input: {
     const oos = env.modules.filter((m) => m.out_of_scope)
 
     for (const mod of oos) {
-      outOfScopeModules.push(
-        buildModuleBlock(mod, pageImages, pricing.salePrice, pricing.materialsCost, sheetLoss),
-      )
+      outOfScopeModules.push(buildModuleBlock(mod, pageImages, params))
     }
 
     if (!scoped.length) continue
 
-    const modules = scoped.map((mod) =>
-      buildModuleBlock(mod, pageImages, pricing.salePrice, pricing.materialsCost, sheetLoss),
-    )
+    const modules = scoped.map((mod) => buildModuleBlock(mod, pageImages, params))
     const envCost = environmentMaterialsCost({ modules: scoped }, sheetLoss)
+    const envSale = round2(modules.reduce((a, m) => a + m.salePrice, 0))
     environments.push({
       id: env.id,
       name: env.name,
       materialsCost: envCost,
-      salePrice: allocateSalePrice(pricing.salePrice, envCost, pricing.materialsCost),
+      salePrice: envSale,
       imageUrl: pickEnvironmentImage(modules),
       modules,
     })

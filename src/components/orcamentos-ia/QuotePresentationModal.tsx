@@ -12,6 +12,10 @@ import {
 import { OrcamentosIaShaderBackdrop } from '@/components/orcamentos-ia/OrcamentosIaShaderBackdrop'
 import { QuotePresentationPreview } from '@/components/orcamentos-ia/QuotePresentationPreview'
 import {
+  PricingAdjustmentsButton,
+  PricingAdjustmentsDialog,
+} from '@/components/orcamentos-ia/PricingAdjustmentsDialog'
+import {
   buildQuotePresentationLayout,
   clonePresentationLayout,
   type QuotePresentationLayout,
@@ -30,6 +34,7 @@ interface QuotePresentationModalProps {
   onClose: () => void
   tree: QuoteAnalysisDetail
   pricingParams: PricingParams
+  onPricingParamsChange?: (next: PricingParams) => void
   pageImages: Array<{ index: number; path: string; url: string }>
   branding: {
     companyName: string
@@ -44,18 +49,32 @@ export function QuotePresentationModal({
   onClose,
   tree,
   pricingParams,
+  onPricingParamsChange,
   pageImages,
   branding,
 }: QuotePresentationModalProps) {
+  const [localPricing, setLocalPricing] = useState<PricingParams>(pricingParams)
+  const [pricingAdjustOpen, setPricingAdjustOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setLocalPricing(pricingParams)
+  }, [open, pricingParams])
+
+  const applyPricing = (next: PricingParams) => {
+    setLocalPricing(next)
+    onPricingParamsChange?.(next)
+  }
+
   const baseLayout = useMemo(
     () =>
       buildQuotePresentationLayout({
         tree,
-        pricingParams,
+        pricingParams: localPricing,
         pageImages,
         branding,
       }),
-    [tree, pricingParams, pageImages, branding],
+    [tree, localPricing, pageImages, branding],
   )
 
   const [draft, setDraft] = useState<QuotePresentationLayout>(() =>
@@ -123,6 +142,10 @@ export function QuotePresentationModal({
       closeOnBackdrop={false}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
+          <PricingAdjustmentsButton
+            params={localPricing}
+            onClick={() => setPricingAdjustOpen(true)}
+          />
           <Button
             type="button"
             size="sm"
@@ -199,6 +222,15 @@ export function QuotePresentationModal({
           />
         </div>
       </div>
+
+      <PricingAdjustmentsDialog
+        open={pricingAdjustOpen}
+        onOpenChange={setPricingAdjustOpen}
+        tree={tree}
+        value={localPricing}
+        onChange={applyPricing}
+        nested
+      />
     </Modal>
   )
 }
