@@ -104,110 +104,108 @@ export function groupContasPagarPorMes(contas: ContaPagar[]): MesGrupo[] {
 }
 
 const PDF_CSS = `
-  @page { size: A4 landscape; margin: 9mm 8mm; }
+  @page { size: A4 landscape; margin: 5mm 5mm; }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
     color: #1a100c;
-    background: #f7f2ea;
+    background: #fff;
     font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    font-size: 8.5pt;
-    line-height: 1.3;
+    font-size: 7pt;
+    line-height: 1.2;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .sheet { max-width: 280mm; margin: 0 auto; }
+  .sheet { width: 100%; max-width: 287mm; margin: 0 auto; }
   .doc-head {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    gap: 12px;
-    padding-bottom: 8px;
-    margin-bottom: 10px;
-    border-bottom: 2.5px solid #3d2b1f;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 4px;
+    margin-bottom: 5px;
+    border-bottom: 1.5px solid #3d2b1f;
+  }
+  .doc-brand-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
   }
   .doc-brand {
-    margin: 0 0 3px;
-    font-size: 7pt;
-    letter-spacing: 0.18em;
+    margin: 0;
+    font-size: 6pt;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #8a6a45;
   }
   .doc-title {
     margin: 0;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 20pt;
-    font-style: italic;
+    font-size: 12pt;
+    font-weight: 700;
     color: #1a100c;
   }
-  .doc-sub {
-    margin: 3px 0 0;
-    font-size: 8pt;
-    color: #4a3428;
-  }
-  .doc-meta {
-    text-align: right;
-    font-size: 7.5pt;
-    color: #5c4a38;
-  }
-  .doc-meta strong { color: #1a100c; }
   .period-chip {
     display: inline-block;
-    margin-top: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
+    padding: 1px 7px;
+    border-radius: 3px;
     background: #f3ebe1;
     border: 1px solid #d8c8b4;
-    font-size: 8pt;
+    font-size: 6.5pt;
     font-weight: 700;
     color: #6b3f12;
   }
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 10px;
+  .doc-meta {
+    text-align: right;
+    font-size: 6.5pt;
+    color: #5c4a38;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+  .doc-meta strong { color: #1a100c; }
+  .kpi-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 5px;
   }
   .kpi {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
     border: 1px solid #d8c8b4;
-    border-radius: 6px;
-    padding: 7px 9px;
+    border-radius: 3px;
+    padding: 3px 6px;
     background: #fffaf4;
   }
-  .kpi.late { border-color: rgba(159,18,57,0.35); }
-  .kpi.ok { border-color: rgba(20,108,56,0.28); }
+  .kpi.late { border-color: rgba(159,18,57,0.35); background: #fff5f6; }
+  .kpi.ok { border-color: rgba(20,108,56,0.28); background: #f3faf5; }
   .kpi.gold { border-color: rgba(107,63,18,0.3); }
   .kpi-label {
-    display: block;
-    font-size: 7pt;
+    font-size: 5.5pt;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #4a3428;
   }
   .kpi-value {
-    display: block;
-    margin-top: 3px;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 13pt;
+    font-variant-numeric: tabular-nums;
+    font-size: 8pt;
     font-weight: 700;
+    white-space: nowrap;
   }
   .kpi.late .kpi-value { color: #9f1239; }
   .kpi.ok .kpi-value { color: #146c38; }
   .kpi.gold .kpi-value { color: #6b3f12; }
-  .kpi-hint {
-    display: block;
-    margin-top: 2px;
-    font-size: 7pt;
-    color: #6b5244;
-  }
   .mes-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     border: 1px solid #d8c8b4;
-    border-radius: 6px;
+    border-radius: 3px;
     overflow: hidden;
     background: #fffcf8;
   }
@@ -215,118 +213,141 @@ const PDF_CSS = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: linear-gradient(90deg, #f3ebe1 0%, #fffaf4 100%);
+    gap: 8px;
+    padding: 3px 7px;
+    background: #f3ebe1;
     border-bottom: 1px solid #e5d6c4;
-    border-left: 4px solid #6b3f12;
+    border-left: 3px solid #6b3f12;
+    break-after: avoid;
+    page-break-after: avoid;
   }
   .mes-head h2 {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 12pt;
+    font-size: 8pt;
+    font-weight: 700;
     text-transform: capitalize;
     color: #1a100c;
   }
   .mes-head .mes-meta {
-    font-size: 7.5pt;
-    color: #6b5244;
+    font-size: 6.5pt;
+    color: #4a3428;
     text-align: right;
+    font-variant-numeric: tabular-nums;
   }
   .mes-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    margin-left: 8px;
-    border-radius: 999px;
+    display: inline-block;
+    min-width: 16px;
+    padding: 0 4px;
+    margin-left: 5px;
+    border-radius: 3px;
     background: rgba(107,63,18,0.12);
     color: #6b3f12;
-    font-size: 8pt;
+    font-size: 6.5pt;
     font-weight: 700;
+    text-align: center;
   }
   table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
   }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
   th, td {
-    padding: 5px 7px;
+    padding: 2px 4px;
     border-bottom: 1px solid #ebe0d4;
-    vertical-align: top;
+    vertical-align: middle;
+    overflow: hidden;
   }
   th {
-    font-size: 6.5pt;
-    letter-spacing: 0.08em;
+    font-size: 5.5pt;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #6b5244;
     background: #faf6f0;
     text-align: left;
-  }
-  td { font-size: 8pt; }
-  tr.late td { background: rgba(159, 18, 57, 0.04); }
-  .dia-cell {
-    width: 42px;
-    text-align: center;
-  }
-  .dia-badge {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 34px;
-    padding: 3px 4px;
-    border-radius: 6px;
-    background: #1a100c;
-    color: #fffaf4;
-    line-height: 1.1;
-  }
-  .dia-badge .num {
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 12pt;
     font-weight: 700;
   }
-  .dia-badge .dow {
-    font-size: 5.5pt;
-    letter-spacing: 0.06em;
+  td { font-size: 7pt; }
+  col.c-dia { width: 7%; }
+  col.c-forn { width: 28%; }
+  col.c-pag { width: 11%; }
+  col.c-parc { width: 5%; }
+  col.c-val { width: 9%; }
+  col.c-pago { width: 9%; }
+  col.c-rest { width: 9%; }
+  col.c-datas { width: 13%; }
+  col.c-st { width: 9%; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  tr.late td { background: rgba(159, 18, 57, 0.05); }
+  tr:nth-child(even):not(.late) td { background: #faf7f2; }
+  .dia-cell { text-align: center; }
+  .dia-num {
+    display: inline-block;
+    min-width: 1.4em;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-size: 8pt;
+    color: #1a100c;
+  }
+  .dia-num.late { color: #9f1239; }
+  .dia-dow {
+    display: block;
+    font-size: 5pt;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.75;
+    color: #6b5244;
+    line-height: 1;
   }
-  .dia-badge.late {
-    background: #9f1239;
+  .fornecedor {
+    font-weight: 600;
+    color: #1a100c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .fornecedor { font-weight: 600; color: #1a100c; }
   .obs {
-    margin-top: 2px;
-    font-size: 7pt;
+    margin-top: 0;
+    font-size: 5.5pt;
     font-weight: 400;
     color: #6b5244;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .right { text-align: right; font-variant-numeric: tabular-nums; }
+  .forma {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 6.5pt;
+  }
+  .parc { text-align: center; font-variant-numeric: tabular-nums; }
+  .right { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .valor { font-weight: 700; color: #6b3f12; }
   .pago { font-weight: 700; color: #146c38; }
   .restante { font-weight: 700; color: #1a100c; }
   .datas {
     font-variant-numeric: tabular-nums;
+    font-size: 6.5pt;
+    line-height: 1.15;
   }
-  .datas .venc { font-weight: 700; }
+  .datas .venc { font-weight: 700; white-space: nowrap; }
   .datas .venc.late { color: #9f1239; }
   .datas .pag {
     display: block;
-    margin-top: 2px;
-    font-size: 7pt;
+    font-size: 5.5pt;
     color: #146c38;
+    white-space: nowrap;
   }
-  .muted { color: #6b5244; }
   .status {
     display: inline-block;
-    padding: 1px 7px;
-    border-radius: 999px;
-    font-size: 6.5pt;
+    padding: 0 4px;
+    border-radius: 2px;
+    font-size: 5.5pt;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
+    white-space: nowrap;
   }
   .st-ok { background: #dcfce7; color: #146c38; }
   .st-late { background: #ffe4e6; color: #9f1239; }
@@ -334,25 +355,29 @@ const PDF_CSS = `
   .st-pend { background: #fef3c7; color: #92400e; }
   .mes-foot td {
     font-weight: 700;
-    background: #f3ebe1;
+    background: #efe4d6;
     border-bottom: none;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    font-size: 6.5pt;
   }
   .empty {
-    padding: 16px;
+    padding: 10px;
     text-align: center;
     color: #6b5244;
   }
   .doc-foot {
-    margin-top: 8px;
-    padding-top: 6px;
+    margin-top: 4px;
+    padding-top: 3px;
     border-top: 1px solid #d8c8b4;
-    font-size: 7pt;
+    font-size: 5.5pt;
     color: #7a6754;
     text-align: center;
   }
   @media print {
     body { background: #fff; }
-    .mes-block, tr { break-inside: avoid; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
   }
 `
 
@@ -389,28 +414,27 @@ function buildMesBlockHtml(
       : ''
     const obs = c.observacao?.trim() ?? ''
 
+    const obsLine = [desc, obs].filter(Boolean).join(' · ')
+
     return `
       <tr class="${isLate ? 'late' : ''}">
         <td class="dia-cell">
-          <span class="dia-badge ${isLate ? 'late' : ''}">
-            <span class="num">${escapeHtml(diaLabel(c.data_vencimento))}</span>
-            <span class="dow">${escapeHtml(weekdayShort(c.data_vencimento))}</span>
-          </span>
+          <span class="dia-num ${isLate ? 'late' : ''}">${escapeHtml(diaLabel(c.data_vencimento))}</span>
+          <span class="dia-dow">${escapeHtml(weekdayShort(c.data_vencimento))}</span>
         </td>
         <td>
-          <div class="fornecedor">${escapeHtml(nome)}</div>
-          ${desc ? `<div class="obs">${escapeHtml(desc)}</div>` : ''}
-          ${obs ? `<div class="obs">${escapeHtml(obs)}</div>` : ''}
+          <div class="fornecedor" title="${escapeHtml(nome)}">${escapeHtml(nome)}</div>
+          ${obsLine ? `<div class="obs" title="${escapeHtml(obsLine)}">${escapeHtml(obsLine)}</div>` : ''}
         </td>
-        <td>${escapeHtml(forma)}</td>
-        <td>${c.numero_parcela}/${c.total_parcelas}</td>
+        <td class="forma" title="${escapeHtml(forma)}">${escapeHtml(forma)}</td>
+        <td class="parc">${c.numero_parcela}/${c.total_parcelas}</td>
         <td class="right valor">${escapeHtml(fmtCur(c.valor_parcela))}</td>
         <td class="right pago">${escapeHtml(fmtCur(pago))}</td>
         <td class="right restante">${escapeHtml(fmtCur(restante))}</td>
         <td class="datas">
           <span class="venc ${isLate ? 'late' : ''}">${escapeHtml(fmtDate(c.data_vencimento))}</span>
           ${status === 'pago' && dataPag
-            ? `<span class="pag">Pago em ${escapeHtml(fmtDate(dataPag))}</span>`
+            ? `<span class="pag">Pg ${escapeHtml(fmtDate(dataPag))}</span>`
             : ''}
         </td>
         <td>
@@ -431,27 +455,39 @@ function buildMesBlockHtml(
         </h2>
         <div class="mes-meta">
           Valor ${escapeHtml(fmtCur(totValor))}
+          · Pago ${escapeHtml(fmtCur(totPago))}
           · Restante ${escapeHtml(fmtCur(totRest))}
         </div>
       </header>
       <table>
+        <colgroup>
+          <col class="c-dia" />
+          <col class="c-forn" />
+          <col class="c-pag" />
+          <col class="c-parc" />
+          <col class="c-val" />
+          <col class="c-pago" />
+          <col class="c-rest" />
+          <col class="c-datas" />
+          <col class="c-st" />
+        </colgroup>
         <thead>
           <tr>
             <th>Dia</th>
-            <th>Fornecedor</th>
-            <th>Pagamento</th>
-            <th>Parcela</th>
+            <th>Fornecedor / descrição</th>
+            <th>Forma</th>
+            <th class="parc">Parc.</th>
             <th class="right">Valor</th>
             <th class="right">Pago</th>
             <th class="right">Restante</th>
-            <th>Datas</th>
+            <th>Venc. / Pag.</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
         <tfoot>
           <tr class="mes-foot">
-            <td colspan="4">Subtotal do mês</td>
+            <td colspan="4">Subtotal do mês · ${grupo.contas.length} conta(s)</td>
             <td class="right valor">${escapeHtml(fmtCur(totValor))}</td>
             <td class="right pago">${escapeHtml(fmtCur(totPago))}</td>
             <td class="right restante">${escapeHtml(fmtCur(totRest))}</td>
@@ -481,11 +517,10 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
   )
 
   const kpiHtml = input.kpis.length
-    ? `<div class="kpi-grid">${input.kpis.map(k => `
-        <div class="kpi ${k.tone}">
+    ? `<div class="kpi-strip">${input.kpis.map(k => `
+        <div class="kpi ${k.tone}" title="${escapeHtml(k.hint)}">
           <span class="kpi-label">${escapeHtml(k.label)}</span>
           <span class="kpi-value">${escapeHtml(fmtCur(k.value))}</span>
-          <span class="kpi-hint">${escapeHtml(k.hint)}</span>
         </div>
       `).join('')}</div>`
     : ''
@@ -509,16 +544,14 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
 <body>
   <div class="sheet">
     <header class="doc-head">
-      <div>
+      <div class="doc-brand-line">
         <p class="doc-brand">${escapeHtml(empresa)}</p>
         <h1 class="doc-title">Contas a pagar</h1>
-        <p class="doc-sub">Lista agrupada por mês · datas de vencimento e pagamento em destaque</p>
-        <span class="period-chip">Período: ${escapeHtml(periodLabel)}</span>
+        <span class="period-chip">${escapeHtml(periodLabel)}</span>
       </div>
       <div class="doc-meta">
         ${filtrosExtras ? `<div>${escapeHtml(filtrosExtras)}</div>` : ''}
-        <div>${input.contas.length} conta(s) · ${grupos.length} mês(es)</div>
-        <div>Total ${escapeHtml(fmtCur(totalGeral))} · Restante ${escapeHtml(fmtCur(restanteGeral))}</div>
+        <div><strong>${input.contas.length}</strong> conta(s) · ${grupos.length} mês(es) · Total <strong>${escapeHtml(fmtCur(totalGeral))}</strong> · Restante <strong>${escapeHtml(fmtCur(restanteGeral))}</strong></div>
         <div>Gerado em ${escapeHtml(geradoEm)}</div>
       </div>
     </header>
@@ -527,7 +560,7 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
     ${body}
 
     <footer class="doc-foot">
-      Exportação de Contas a Pagar · mesma lista filtrada da tela · gerado em ${escapeHtml(fmtDate(todayISO()))}.
+      Contas a Pagar · lista filtrada da tela · ${escapeHtml(fmtDate(todayISO()))}
     </footer>
   </div>
   <script>
@@ -552,7 +585,7 @@ export function buildContasPagarListaPdfFileName(periodFilter: PeriodFilter): st
   return `contas-pagar-${slug || 'lista'}-${datePart}.pdf`
 }
 
-/** Abre impressão/salvar PDF da lista filtrada (A4 paisagem, por mês). */
+/** Abre impressão/salvar PDF da lista filtrada (A4 paisagem compacto, por mês). */
 export function imprimirContasPagarListaPdf(input: ContasPagarListaPdfExportInput): void {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {

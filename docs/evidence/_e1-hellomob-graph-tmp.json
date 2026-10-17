@@ -1,0 +1,155 @@
+{
+  "instances": 139,
+  "pieces": 668,
+  "parts_rows": 524,
+  "byType": {
+    "Lateral de tamponamento": 47,
+    "Painel avulso": 30,
+    "Tampo para tamponamento": 18,
+    "Balcão gavetas iguais": 7,
+    "Balcão 2 portas": 10,
+    "Estrutura rodape avulsa": 7,
+    "Vista horizontal": 3,
+    "Aéreo 2 portas": 4,
+    "Aéreo 1 porta": 1,
+    "Balcão 1 porta": 4,
+    "Balcão 2 colunas sendo 1 variável": 1,
+    "Nicho com prateleiras": 2,
+    "Balcão 3 portas": 1,
+    "Aéreo 3 portas": 1,
+    "Balcão para forno embutido": 3
+  },
+  "byEnv": {
+    "Balcao recepçao": 11,
+    "Painel recepçao": 15,
+    "Sala Renata": 32,
+    "Divisoria": 23,
+    "Cozinha": 7,
+    "Esterilizaçao": 12,
+    "Sala Luiz Fernando": 39
+  },
+  "funcs": {
+    "Lateral": 47,
+    "Sarrafo frontal": 20,
+    "Sarrafo posterior": 19,
+    "Sarrafo topo": 11,
+    "Sarrafo topo 2": 11,
+    "Painel": 36,
+    "Tampo": 30,
+    "Lateral engrosso": 27,
+    "Tampo engrosso": 13,
+    "Lateral direita": 34,
+    "Lateral esquerda": 34,
+    "Base": 34,
+    "Travessa dianteira": 11,
+    "Travessa traseira": 11,
+    "Lateral tamponamento esquerda": 5,
+    "Lateral direita gaveta": 27,
+    "Lateral esquerda gaveta": 27,
+    "Contra frente gaveta": 27,
+    "Contra fundo gaveta": 27,
+    "Fundo gaveta": 27,
+    "Frente gaveta": 27,
+    "Fundo": 20,
+    "Prateleira conjunto prateleiras": 29,
+    "Porta direita": 21,
+    "Porta esquerda": 20,
+    "Rodapé": 14,
+    "Travessa rodapé": 20,
+    "Reforço rodapé": 14,
+    "Vista": 3,
+    "Lateral tamponamento direita": 4,
+    "Tamponamento superior": 3,
+    "Divisória estrutural": 1,
+    "Prateleira estrutural": 1,
+    "Tamponamento inferior": 1,
+    "Porta basculante": 1,
+    "Fundo reforçado": 2,
+    "Divisória": 2,
+    "Mascara forno": 3,
+    "Prateleira apoio 1": 2,
+    "Prateleira apoio 2": 2
+  },
+  "edges": [
+    {
+      "id": 6688,
+      "color": "ITAPUA",
+      "width": 22,
+      "brand": "REHAU ®"
+    },
+    {
+      "id": 10278,
+      "color": "BRANCO",
+      "width": 22,
+      "brand": "MULTIMARCAS"
+    },
+    {
+      "id": 66350,
+      "color": "AREIA",
+      "width": 22,
+      "brand": "REHAU ®"
+    },
+    {
+      "id": 72928,
+      "color": "SALERNO",
+      "width": 22,
+      "brand": "REHAU ®"
+    },
+    {
+      "id": 48605,
+      "color": "CARVALHO LIR",
+      "width": 22,
+      "brand": "REHAU ®"
+    },
+    {
+      "id": 45391,
+      "color": "CINZA FOSSIL",
+      "width": 22,
+      "brand": "REHAU ®"
+    }
+  ],
+  "sample_gavetas": {
+    "uuid": "8ad8122f-8c47-402f-9ccf-17bd795b66cc",
+    "name": "Balcão gavetas iguais",
+    "env": "Balcao recepçao",
+    "functions": {
+      "Lateral direita": 1,
+      "Lateral esquerda": 1,
+      "Base": 1,
+      "Travessa dianteira": 1,
+      "Travessa traseira": 1,
+      "Lateral tamponamento esquerda": 1,
+      "Lateral direita gaveta": 4,
+      "Lateral esquerda gaveta": 4,
+      "Contra frente gaveta": 4,
+      "Contra fundo gaveta": 4,
+      "Fundo gaveta": 4,
+      "Frente gaveta": 4
+    },
+    "boards": {
+      "BRANCO 15mm": 21,
+      "ITAPUA 15mm": 5,
+      "BRANCO 6mm": 4
+    },
+    "qty": 30,
+    "parts": 12
+  },
+  "sample_lateral": {
+    "uuid": "67cbaf65-6f58-48ec-95d8-a6f823966434",
+    "name": "Lateral de tamponamento",
+    "env": "Balcao recepçao",
+    "functions": {
+      "Lateral": 1,
+      "Sarrafo frontal": 1,
+      "Sarrafo posterior": 1,
+      "Sarrafo topo": 1,
+      "Sarrafo topo 2": 1
+    },
+    "boards": {
+      "ITAPUA 15mm": 5
+    },
+    "qty": 5,
+    "parts": 5
+  },
+  "hellomob_project": "https://s3.amazonaws.com/full.project.hellomob.com.br/23496206.json.zip"
+}
