@@ -1,6 +1,6 @@
 /**
- * Exporta a lista filtrada de Contas a Pagar em PDF A4.
- * Agrupa por mês e destaca as datas (vencimento e pagamento).
+ * Exporta Contas a Pagar em PDF A4 retrato — uma coluna, tipografia legível.
+ * Agrupa por mês; o que não cabe na folha segue na próxima.
  */
 import { formatPeriodFilterLabel } from '@/lib/contas-pagar-export'
 import { getDataReferenciaPagamento, getValorPagoConta } from '@/lib/contas-pagar-valores'
@@ -60,10 +60,13 @@ function ymFromIso(iso: string | null | undefined): string {
   return iso.slice(0, 7)
 }
 
-function diaLabel(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = iso.slice(8, 10)
-  return d || '—'
+function weekdayShort(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
+    .format(d)
+    .replace('.', '')
 }
 
 function nomeConta(
@@ -104,291 +107,301 @@ export function groupContasPagarPorMes(contas: ContaPagar[]): MesGrupo[] {
 }
 
 const PDF_CSS = `
-  @page { size: A4 landscape; margin: 5mm 5mm; }
+  :root {
+    --ink: #1a100c;
+    --ink-soft: #4a3428;
+    --muted: #6b5244;
+    --gold: #6b3f12;
+    --gold-soft: #8a6a45;
+    --paper: #fffaf4;
+    --paper-deep: #f3ebe1;
+    --line: #d8c8b4;
+    --ok: #146c38;
+    --late: #9f1239;
+  }
+  @page { size: A4 portrait; margin: 8mm 9mm; }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
-    color: #1a100c;
-    background: #fff;
-    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    font-size: 7pt;
-    line-height: 1.2;
+    color: var(--ink);
+    background: var(--paper);
+    font-family: "Source Sans 3", "Segoe UI", "Helvetica Neue", sans-serif;
+    font-size: 10pt;
+    line-height: 1.35;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .sheet { width: 100%; max-width: 287mm; margin: 0 auto; }
+  .sheet { width: 100%; max-width: 192mm; margin: 0 auto; }
   .doc-head {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 4px;
-    margin-bottom: 5px;
-    border-bottom: 1.5px solid #3d2b1f;
-  }
-  .doc-brand-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 6px 10px;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid var(--ink);
   }
   .doc-brand {
     margin: 0;
-    font-size: 6pt;
-    letter-spacing: 0.14em;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: #8a6a45;
+    color: var(--gold-soft);
+  }
+  .doc-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
   }
   .doc-title {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 12pt;
+    font-family: Fraunces, Georgia, "Times New Roman", serif;
+    font-size: 22pt;
     font-weight: 700;
-    color: #1a100c;
+    font-style: italic;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.1;
   }
   .period-chip {
     display: inline-block;
-    padding: 1px 7px;
-    border-radius: 3px;
-    background: #f3ebe1;
-    border: 1px solid #d8c8b4;
-    font-size: 6.5pt;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    font-size: 9pt;
     font-weight: 700;
-    color: #6b3f12;
+    color: var(--gold);
   }
   .doc-meta {
-    text-align: right;
-    font-size: 6.5pt;
-    color: #5c4a38;
-    line-height: 1.25;
-    white-space: nowrap;
+    font-size: 9pt;
+    color: var(--ink-soft);
+    line-height: 1.4;
   }
-  .doc-meta strong { color: #1a100c; }
+  .doc-meta strong { color: var(--ink); }
   .kpi-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 5px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(52mm, 1fr));
+    gap: 6px;
+    margin-bottom: 12px;
   }
   .kpi {
-    flex: 1 1 0;
-    min-width: 0;
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 6px;
-    border: 1px solid #d8c8b4;
-    border-radius: 3px;
-    padding: 3px 6px;
-    background: #fffaf4;
+    flex-direction: column;
+    gap: 2px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 7px 10px;
+    background: #fff;
   }
-  .kpi.late { border-color: rgba(159,18,57,0.35); background: #fff5f6; }
-  .kpi.ok { border-color: rgba(20,108,56,0.28); background: #f3faf5; }
-  .kpi.gold { border-color: rgba(107,63,18,0.3); }
+  .kpi.late { border-color: rgba(159,18,57,0.4); background: #fff8f9; }
+  .kpi.ok { border-color: rgba(20,108,56,0.35); background: #f4faf6; }
+  .kpi.gold { border-color: rgba(107,63,18,0.35); }
   .kpi-label {
-    font-size: 5.5pt;
+    font-size: 7.5pt;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #4a3428;
+    color: var(--ink-soft);
   }
   .kpi-value {
-    font-variant-numeric: tabular-nums;
-    font-size: 8pt;
+    font-family: Fraunces, Georgia, "Times New Roman", serif;
+    font-size: 13pt;
     font-weight: 700;
-    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
   }
-  .kpi.late .kpi-value { color: #9f1239; }
-  .kpi.ok .kpi-value { color: #146c38; }
-  .kpi.gold .kpi-value { color: #6b3f12; }
-  .mes-block {
-    margin-bottom: 5px;
-    border: 1px solid #d8c8b4;
-    border-radius: 3px;
-    overflow: hidden;
-    background: #fffcf8;
-  }
+  .kpi.late .kpi-value { color: var(--late); }
+  .kpi.ok .kpi-value { color: var(--ok); }
+  .kpi.gold .kpi-value { color: var(--gold); }
+  .mes-block { margin-bottom: 14px; }
   .mes-head {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 7px;
-    background: #f3ebe1;
-    border-bottom: 1px solid #e5d6c4;
-    border-left: 3px solid #6b3f12;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 2px;
+    margin-bottom: 2px;
+    border-bottom: 1.5px solid var(--gold);
     break-after: avoid;
     page-break-after: avoid;
   }
   .mes-head h2 {
     margin: 0;
-    font-size: 8pt;
+    font-family: Fraunces, Georgia, "Times New Roman", serif;
+    font-size: 13pt;
     font-weight: 700;
     text-transform: capitalize;
-    color: #1a100c;
-  }
-  .mes-head .mes-meta {
-    font-size: 6.5pt;
-    color: #4a3428;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
+    color: var(--ink);
   }
   .mes-count {
     display: inline-block;
-    min-width: 16px;
-    padding: 0 4px;
-    margin-left: 5px;
+    margin-left: 6px;
+    padding: 1px 7px;
     border-radius: 3px;
     background: rgba(107,63,18,0.12);
-    color: #6b3f12;
-    font-size: 6.5pt;
-    font-weight: 700;
-    text-align: center;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
-  thead { display: table-header-group; }
-  tfoot { display: table-footer-group; }
-  th, td {
-    padding: 2px 4px;
-    border-bottom: 1px solid #ebe0d4;
-    vertical-align: middle;
-    overflow: hidden;
-  }
-  th {
-    font-size: 5.5pt;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #6b5244;
-    background: #faf6f0;
-    text-align: left;
+    color: var(--gold);
+    font-family: "Source Sans 3", sans-serif;
+    font-size: 9pt;
     font-weight: 700;
   }
-  td { font-size: 7pt; }
-  col.c-dia { width: 7%; }
-  col.c-forn { width: 28%; }
-  col.c-pag { width: 11%; }
-  col.c-parc { width: 5%; }
-  col.c-val { width: 9%; }
-  col.c-pago { width: 9%; }
-  col.c-rest { width: 9%; }
-  col.c-datas { width: 13%; }
-  col.c-st { width: 9%; }
-  tr { break-inside: avoid; page-break-inside: avoid; }
-  tr.late td { background: rgba(159, 18, 57, 0.05); }
-  tr:nth-child(even):not(.late) td { background: #faf7f2; }
-  .dia-cell { text-align: center; }
-  .dia-num {
-    display: inline-block;
-    min-width: 1.4em;
-    font-weight: 800;
+  .mes-meta {
+    font-size: 9pt;
+    color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
-    font-size: 8pt;
-    color: #1a100c;
+    text-align: right;
   }
-  .dia-num.late { color: #9f1239; }
-  .dia-dow {
+  .list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+  }
+  .entry {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    padding: 9px 2px;
+    border-bottom: 1px solid var(--line);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .entry:nth-child(even) { background: rgba(243, 235, 225, 0.45); }
+  .entry.late { background: rgba(159, 18, 57, 0.06); }
+  .entry-main { min-width: 0; }
+  .cliente {
+    margin: 0;
+    font-size: 11pt;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .meta {
+    margin: 3px 0 0;
+    font-size: 9.5pt;
+    color: var(--ink-soft);
+    line-height: 1.35;
+  }
+  .meta .sep { color: var(--line); margin: 0 0.35em; }
+  .meta .venc-late { color: var(--late); font-weight: 700; }
+  .detail {
+    margin: 2px 0 0;
+    font-size: 9pt;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+  .entry-side {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .valor {
     display: block;
-    font-size: 5pt;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #6b5244;
-    line-height: 1;
-  }
-  .fornecedor {
-    font-weight: 600;
-    color: #1a100c;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .obs {
-    margin-top: 0;
-    font-size: 5.5pt;
-    font-weight: 400;
-    color: #6b5244;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .forma {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 6.5pt;
-  }
-  .parc { text-align: center; font-variant-numeric: tabular-nums; }
-  .right { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .valor { font-weight: 700; color: #6b3f12; }
-  .pago { font-weight: 700; color: #146c38; }
-  .restante { font-weight: 700; color: #1a100c; }
-  .datas {
+    font-family: Fraunces, Georgia, "Times New Roman", serif;
+    font-size: 12.5pt;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    font-size: 6.5pt;
+    color: var(--gold);
     line-height: 1.15;
   }
-  .datas .venc { font-weight: 700; white-space: nowrap; }
-  .datas .venc.late { color: #9f1239; }
-  .datas .pag {
+  .valores-sec {
     display: block;
-    font-size: 5.5pt;
-    color: #146c38;
-    white-space: nowrap;
+    margin-top: 3px;
+    font-size: 8.5pt;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
   }
+  .valores-sec .pago { color: var(--ok); font-weight: 700; }
+  .valores-sec .rest { color: var(--ink); font-weight: 700; }
   .status {
     display: inline-block;
-    padding: 0 4px;
-    border-radius: 2px;
-    font-size: 5.5pt;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 8pt;
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    white-space: nowrap;
   }
-  .st-ok { background: #dcfce7; color: #146c38; }
-  .st-late { background: #ffe4e6; color: #9f1239; }
+  .st-ok { background: #dcfce7; color: var(--ok); }
+  .st-late { background: #ffe4e6; color: var(--late); }
   .st-partial { background: #dbeafe; color: #1d4ed8; }
   .st-pend { background: #fef3c7; color: #92400e; }
-  .mes-foot td {
+  .recv {
+    display: block;
+    margin-top: 3px;
+    font-size: 8.5pt;
+    color: var(--ok);
+  }
+  .mes-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 2px;
+    border-top: 1.5px solid var(--ink);
+    font-size: 9.5pt;
     font-weight: 700;
-    background: #efe4d6;
-    border-bottom: none;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    font-size: 6.5pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .mes-foot .totais {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .mes-foot .pago { color: var(--ok); }
+  .mes-foot .rest { color: var(--ink); }
+  .list-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: 4px;
+    padding: 10px 2px 8px;
+    border-top: 2px solid var(--ink);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .list-foot .label {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .list-foot .total {
+    font-family: Fraunces, Georgia, "Times New Roman", serif;
+    font-size: 14pt;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold);
+    text-align: right;
+  }
+  .list-foot .total-sec {
+    display: block;
+    margin-top: 2px;
+    font-family: "Source Sans 3", sans-serif;
+    font-size: 9pt;
+    color: var(--ink-soft);
   }
   .empty {
-    padding: 10px;
+    padding: 20px 8px;
     text-align: center;
-    color: #6b5244;
+    font-size: 10pt;
+    color: var(--muted);
   }
   .doc-foot {
-    margin-top: 4px;
-    padding-top: 3px;
-    border-top: 1px solid #d8c8b4;
-    font-size: 5.5pt;
-    color: #7a6754;
+    margin-top: 10px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+    font-size: 8pt;
+    color: var(--muted);
     text-align: center;
   }
   @media print {
     body { background: #fff; }
-    tr { break-inside: avoid; page-break-inside: avoid; }
-    thead { display: table-header-group; }
+    .entry, .mes-foot, .list-foot { break-inside: avoid; page-break-inside: avoid; }
   }
 `
-
-function weekdayShort(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return ''
-  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
-    .format(d)
-    .replace('.', '')
-}
 
 function buildMesBlockHtml(
   grupo: MesGrupo,
@@ -398,7 +411,7 @@ function buildMesBlockHtml(
   let totPago = 0
   let totRest = 0
 
-  const rows = grupo.contas.map(c => {
+  const entries = grupo.contas.map(c => {
     const status = input.getStatus(c.data_vencimento, c.status)
     const pago = getValorPagoConta(c)
     const restante = Math.max(0, c.valor_parcela - pago)
@@ -413,36 +426,38 @@ function buildMesBlockHtml(
       ? c.descricao.trim()
       : ''
     const obs = c.observacao?.trim() ?? ''
-
     const obsLine = [desc, obs].filter(Boolean).join(' · ')
+    const dow = weekdayShort(c.data_vencimento)
 
     return `
-      <tr class="${isLate ? 'late' : ''}">
-        <td class="dia-cell">
-          <span class="dia-num ${isLate ? 'late' : ''}">${escapeHtml(diaLabel(c.data_vencimento))}</span>
-          <span class="dia-dow">${escapeHtml(weekdayShort(c.data_vencimento))}</span>
-        </td>
-        <td>
-          <div class="fornecedor" title="${escapeHtml(nome)}">${escapeHtml(nome)}</div>
-          ${obsLine ? `<div class="obs" title="${escapeHtml(obsLine)}">${escapeHtml(obsLine)}</div>` : ''}
-        </td>
-        <td class="forma" title="${escapeHtml(forma)}">${escapeHtml(forma)}</td>
-        <td class="parc">${c.numero_parcela}/${c.total_parcelas}</td>
-        <td class="right valor">${escapeHtml(fmtCur(c.valor_parcela))}</td>
-        <td class="right pago">${escapeHtml(fmtCur(pago))}</td>
-        <td class="right restante">${escapeHtml(fmtCur(restante))}</td>
-        <td class="datas">
-          <span class="venc ${isLate ? 'late' : ''}">${escapeHtml(fmtDate(c.data_vencimento))}</span>
-          ${status === 'pago' && dataPag
-            ? `<span class="pag">Pg ${escapeHtml(fmtDate(dataPag))}</span>`
-            : ''}
-        </td>
-        <td>
+      <article class="entry ${isLate ? 'late' : ''}">
+        <div class="entry-main">
+          <p class="cliente">${escapeHtml(nome)}</p>
+          <p class="meta">
+            Parcela ${c.numero_parcela}/${c.total_parcelas}
+            <span class="sep">·</span>
+            ${dow ? `${escapeHtml(dow)} · ` : ''}
+            Venc.
+            <span class="${isLate ? 'venc-late' : ''}">${escapeHtml(fmtDate(c.data_vencimento))}</span>
+            <span class="sep">·</span>
+            ${escapeHtml(forma)}
+          </p>
+          ${obsLine ? `<p class="detail">${escapeHtml(obsLine)}</p>` : ''}
+        </div>
+        <div class="entry-side">
+          <span class="valor">${escapeHtml(fmtCur(c.valor_parcela))}</span>
+          <span class="valores-sec">
+            <span class="pago">Pago ${escapeHtml(fmtCur(pago))}</span>
+            · <span class="rest">Rest. ${escapeHtml(fmtCur(restante))}</span>
+          </span>
           <span class="status ${statusClass(status)}">
             ${escapeHtml(STATUS_LABEL[status] ?? status)}
           </span>
-        </td>
-      </tr>
+          ${status === 'pago' && dataPag
+            ? `<span class="recv">em ${escapeHtml(fmtDate(dataPag))}</span>`
+            : ''}
+        </div>
+      </article>
     `
   }).join('')
 
@@ -455,46 +470,20 @@ function buildMesBlockHtml(
         </h2>
         <div class="mes-meta">
           Valor ${escapeHtml(fmtCur(totValor))}
-          · Pago ${escapeHtml(fmtCur(totPago))}
           · Restante ${escapeHtml(fmtCur(totRest))}
         </div>
       </header>
-      <table>
-        <colgroup>
-          <col class="c-dia" />
-          <col class="c-forn" />
-          <col class="c-pag" />
-          <col class="c-parc" />
-          <col class="c-val" />
-          <col class="c-pago" />
-          <col class="c-rest" />
-          <col class="c-datas" />
-          <col class="c-st" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Dia</th>
-            <th>Fornecedor / descrição</th>
-            <th>Forma</th>
-            <th class="parc">Parc.</th>
-            <th class="right">Valor</th>
-            <th class="right">Pago</th>
-            <th class="right">Restante</th>
-            <th>Venc. / Pag.</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr class="mes-foot">
-            <td colspan="4">Subtotal do mês · ${grupo.contas.length} conta(s)</td>
-            <td class="right valor">${escapeHtml(fmtCur(totValor))}</td>
-            <td class="right pago">${escapeHtml(fmtCur(totPago))}</td>
-            <td class="right restante">${escapeHtml(fmtCur(totRest))}</td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
-      </table>
+      <div class="list">
+        ${entries}
+        <div class="mes-foot">
+          <span>Subtotal do mês</span>
+          <span class="totais">
+            ${escapeHtml(fmtCur(totValor))}
+            · <span class="pago">Pago ${escapeHtml(fmtCur(totPago))}</span>
+            · <span class="rest">Rest. ${escapeHtml(fmtCur(totRest))}</span>
+          </span>
+        </div>
+      </div>
     </section>
   `
 }
@@ -530,8 +519,17 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
     input.busca?.trim() ? `Busca: “${input.busca.trim()}”` : null,
   ].filter(Boolean).join(' · ')
 
+  const pagoGeral = input.contas.reduce((acc, c) => acc + getValorPagoConta(c), 0)
+
   const body = grupos.length > 0
-    ? grupos.map(g => buildMesBlockHtml(g, input)).join('')
+    ? `${grupos.map(g => buildMesBlockHtml(g, input)).join('')}
+      <footer class="list-foot">
+        <span class="label">Total geral · ${input.contas.length} conta(s) · ${grupos.length} mês(es)</span>
+        <span class="total">
+          ${escapeHtml(fmtCur(totalGeral))}
+          <span class="total-sec">Pago ${escapeHtml(fmtCur(pagoGeral))} · Restante ${escapeHtml(fmtCur(restanteGeral))}</span>
+        </span>
+      </footer>`
     : '<p class="empty">Nenhuma conta para este filtro.</p>'
 
   return `<!DOCTYPE html>
@@ -539,20 +537,22 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
 <head>
   <meta charset="utf-8" />
   <title>Contas a Pagar — ${escapeHtml(periodLabel)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>${PDF_CSS}</style>
 </head>
 <body>
   <div class="sheet">
     <header class="doc-head">
-      <div class="doc-brand-line">
-        <p class="doc-brand">${escapeHtml(empresa)}</p>
+      <p class="doc-brand">${escapeHtml(empresa)}</p>
+      <div class="doc-title-row">
         <h1 class="doc-title">Contas a pagar</h1>
         <span class="period-chip">${escapeHtml(periodLabel)}</span>
       </div>
       <div class="doc-meta">
         ${filtrosExtras ? `<div>${escapeHtml(filtrosExtras)}</div>` : ''}
-        <div><strong>${input.contas.length}</strong> conta(s) · ${grupos.length} mês(es) · Total <strong>${escapeHtml(fmtCur(totalGeral))}</strong> · Restante <strong>${escapeHtml(fmtCur(restanteGeral))}</strong></div>
-        <div>Gerado em ${escapeHtml(geradoEm)}</div>
+        <div><strong>${input.contas.length}</strong> conta(s) · Total <strong>${escapeHtml(fmtCur(totalGeral))}</strong> · Restante <strong>${escapeHtml(fmtCur(restanteGeral))}</strong> · Gerado em ${escapeHtml(geradoEm)}</div>
       </div>
     </header>
 
@@ -560,13 +560,24 @@ function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
     ${body}
 
     <footer class="doc-foot">
-      Contas a Pagar · lista filtrada da tela · ${escapeHtml(fmtDate(todayISO()))}
+      Contas a Pagar · lista filtrada da tela · A4 retrato · ${escapeHtml(periodLabel)} · ${escapeHtml(fmtDate(todayISO()))}
     </footer>
   </div>
   <script>
     window.onload = function () {
-      window.focus();
-      window.print();
+      var done = false;
+      var go = function () {
+        if (done) return;
+        done = true;
+        window.focus();
+        window.print();
+      };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(go).catch(go);
+        setTimeout(go, 900);
+      } else {
+        setTimeout(go, 350);
+      }
     };
   </script>
 </body>
@@ -585,7 +596,7 @@ export function buildContasPagarListaPdfFileName(periodFilter: PeriodFilter): st
   return `contas-pagar-${slug || 'lista'}-${datePart}.pdf`
 }
 
-/** Abre impressão/salvar PDF da lista filtrada (A4 paisagem compacto, por mês). */
+/** Abre impressão/salvar PDF da lista filtrada (A4 retrato, uma coluna, por mês). */
 export function imprimirContasPagarListaPdf(input: ContasPagarListaPdfExportInput): void {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {

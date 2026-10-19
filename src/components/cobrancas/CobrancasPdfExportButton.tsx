@@ -42,7 +42,7 @@ export function CobrancasPdfExportButton({
       title={
         semDados
           ? 'Aguarde os dados carregarem'
-          : 'Exportar lista filtrada em PDF (A4)'
+          : 'Exportar lista filtrada em PDF (A4 retrato, uma coluna)'
       }
     >
       {exporting

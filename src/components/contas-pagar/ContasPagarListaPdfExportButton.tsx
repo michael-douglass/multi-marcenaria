@@ -11,7 +11,7 @@ interface ContasPagarListaPdfExportButtonProps {
   className?: string
 }
 
-/** Botão da página Contas a Pagar — exporta a lista filtrada em PDF (por mês e data). */
+/** Botão da página Contas a Pagar — PDF A4 retrato, uma coluna, agrupado por mês. */
 export function ContasPagarListaPdfExportButton({
   input,
   disabled = false,
@@ -42,7 +42,7 @@ export function ContasPagarListaPdfExportButton({
       title={
         semDados
           ? 'Aguarde os dados carregarem'
-          : 'Exportar lista filtrada em PDF (por mês e data)'
+          : 'Exportar lista filtrada em PDF (A4 retrato, uma coluna)'
       }
     >
       {exporting
