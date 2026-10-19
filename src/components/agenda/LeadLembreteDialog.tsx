@@ -35,6 +35,7 @@ import {
   CheckCircle2,
   Maximize2,
   Minimize2,
+  Calculator,
 } from 'lucide-react';
 import { DateInput } from '@/components/ui/DateInput';
 import { getCurrentHora24h } from '@/lib/horarios-24h';
@@ -48,6 +49,15 @@ import { LeadLembreteTitularesPicker } from '@/components/agenda/LeadLembreteTit
 import { AgendaItemAnexosField } from '@/components/agenda/AgendaItemAnexosField';
 import { useAgendaItemAnexosDraft } from '@/hooks/useAgendaItemAnexosDraft';
 import { AgendaColorPicker } from '@/components/agenda/AgendaColorPicker';
+import { KanbanProjetoSignal } from '@/components/kanban/KanbanProjetoSignal';
+import { MarkupCardPreview } from '@/components/markup/MarkupCardPreview';
+import { useProjetoPorLead, useProjetoStages } from '@/hooks/useLeadProjetos';
+import { resolveMarkupTable } from '@/lib/markup-tables';
+import type { MarkupLeadResumo } from '@/lib/markup-types';
+import {
+  projetoSignalTone,
+  shouldPulseFeitoAwaitingOrcamento,
+} from '@/lib/projetos-atelie';
 import { cn } from '@/lib/utils';
 import { floatingNestedOverlayClass } from '@/lib/overlay-z-index';
 
@@ -136,6 +146,42 @@ export function LeadLembreteDialog({
     },
     enabled: open && !!leadId && queriesReady,
   });
+
+  // Mesmo sinal do pipeline: projeto do ateliê (feito / em desenho / fila)
+  const { projeto } = useProjetoPorLead(open ? leadId : null);
+  const { data: projetoStages = [] } = useProjetoStages();
+  const projetoTone = useMemo(
+    () => projetoSignalTone(projeto, projetoStages),
+    [projeto, projetoStages],
+  );
+  const devePulsarProjetoFeito =
+    projetoTone === 'done' && shouldPulseFeitoAwaitingOrcamento(leadData?.status);
+
+  // Markup mais recente do lead (só o resumo, sem abrir a calculadora)
+  const markupTable = resolveMarkupTable(schemaEmpresa, 'orcamentos');
+  const { data: markupResumo } = useQuery({
+    queryKey: ['lead-lembrete-markup', schemaEmpresa ?? 'master', leadId],
+    queryFn: async (): Promise<MarkupLeadResumo | null> => {
+      const { data, error } = await db
+        .from(markupTable as 'markup_orcamentos')
+        .select('id, lead_id, titulo, preco_final, atualizado_em')
+        .eq('lead_id', leadId)
+        .order('atualizado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data?.lead_id) return null;
+      return {
+        lead_id: data.lead_id as number,
+        orcamento_id: data.id as string,
+        preco_final: Number(data.preco_final ?? 0),
+        titulo: (data.titulo as string) ?? 'Markup',
+        atualizado_em: (data.atualizado_em as string) ?? '',
+      };
+    },
+    enabled: open && !!leadId && queriesReady,
+  });
+  const temMarkup = Boolean(markupResumo && markupResumo.preco_final > 0);
 
   useEffect(() => {
     if (!open) {
@@ -336,6 +382,29 @@ export function LeadLembreteDialog({
                 Abrir
               </span>
             </div>
+
+            {/* Status do projeto (ateliê) + markup — iguais ao card do pipeline */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {projetoTone ? (
+                  <KanbanProjetoSignal tone={projetoTone} pulse={devePulsarProjetoFeito} />
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    Sem projeto no ateliê
+                  </span>
+                )}
+                {!temMarkup && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Calculator className="h-3 w-3" />
+                    Sem markup
+                  </span>
+                )}
+              </div>
+              {temMarkup && markupResumo && (
+                <MarkupCardPreview resumo={markupResumo} compact readOnly />
+              )}
+            </div>
+
             {leadData.observacoes && (
               <div className="pt-2 border-t border-border">
                 <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground mb-1">
