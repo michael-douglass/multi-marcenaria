@@ -32,6 +32,8 @@ import {
   CheckSquare,
   CalendarRange,
   CheckCircle2,
+  Trash2,
+  UserRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -54,7 +56,11 @@ import {
   partitionTimedUntimedEvents,
   type TimedClusterLayout,
 } from '@/lib/calendar-event-layout';
-import type { AgendaEvent, BulkRescheduleOptions } from '@/hooks/useAgendaGeral';
+import type {
+  AgendaEvent,
+  BulkDeleteScope,
+  BulkRescheduleOptions,
+} from '@/hooks/useAgendaGeral';
 import { floatingAgendaZoomToScale } from '@/lib/floating-agenda-zoom-preferences';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -62,6 +68,8 @@ import { getDateTimeFromGridDrop } from '@/lib/agenda-calendar-drag';
 import { useAgendaTimedEventDrag } from '@/hooks/useAgendaTimedEventDrag';
 import { AgendaEventHoverPreview } from '@/components/agenda/AgendaEventHoverPreview';
 import { AgendaBulkMoveDialog } from '@/components/agenda/AgendaBulkMoveDialog';
+import { AgendaBulkDeleteDialog } from '@/components/agenda/AgendaBulkDeleteDialog';
+import { AgendaBulkTitularDialog } from '@/components/agenda/AgendaBulkTitularDialog';
 import { AgendaHourClusterBox } from '@/components/agenda/AgendaHourClusterBox';
 import { getAgendaEventChipStyle } from '@/lib/agenda-event-colors';
 import { isAgendaEventPostponable } from '@/lib/agenda-postpone';
@@ -108,6 +116,19 @@ interface FullCalendarProps {
   ) => Promise<unknown> | unknown;
   /** Concluir várias tarefas selecionadas. */
   onBulkComplete?: (events: AgendaEvent[]) => Promise<unknown> | unknown;
+  /** Excluir várias tarefas (só o dia ou permanente). */
+  onBulkDelete?: (
+    events: AgendaEvent[],
+    scope: BulkDeleteScope,
+  ) => Promise<unknown> | unknown;
+  /** Transferir titularidade das tarefas selecionadas. */
+  onBulkChangeTitular?: (
+    events: AgendaEvent[],
+    titularId: string,
+    titularNome: string,
+  ) => Promise<unknown> | unknown;
+  /** Mostra o botão de mudar titular (quem pode atribuir a outros). */
+  canBulkChangeTitular?: boolean;
   isRescheduling?: boolean;
   /** Ao selecionar um resultado da busca, o calendário navega para este dia. */
   focusDate?: Date | null;
@@ -370,6 +391,9 @@ export function FullCalendar({
   onEventDrop,
   onBulkReschedule,
   onBulkComplete,
+  onBulkDelete,
+  onBulkChangeTitular,
+  canBulkChangeTitular = false,
   isRescheduling = false,
   focusDate,
   onFocusDateApplied,
@@ -387,6 +411,8 @@ export function FullCalendar({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkTitularOpen, setBulkTitularOpen] = useState(false);
   /** Chave do horário aberto no popup central (ISO do início do cluster). */
   const [expandedClusterKey, setExpandedClusterKey] = useState<string | null>(null);
 
@@ -398,7 +424,8 @@ export function FullCalendar({
     onFocusDateApplied?.();
   }, [focusDate, onSelectDate, onFocusDateApplied]);
 
-  const canSelectBulk = !!onBulkReschedule || !!onBulkComplete;
+  const canSelectBulk =
+    !!onBulkReschedule || !!onBulkComplete || !!onBulkDelete || !!onBulkChangeTitular;
   const canDrag = !!onEventDrop && !isRescheduling && !selectionMode;
   const gridRefsMap = useRef(new Map<string, HTMLDivElement>());
   const hourHeightsByDayRef = useRef(new Map<string, number[]>());
@@ -582,6 +609,22 @@ export function FullCalendar({
   const handleBulkCompleteClick = async () => {
     if (!onBulkComplete || selectedEvents.length === 0) return;
     await onBulkComplete(selectedEvents);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleBulkDeleteConfirm = async (scope: BulkDeleteScope) => {
+    if (!onBulkDelete || selectedEvents.length === 0) return;
+    await onBulkDelete(selectedEvents, scope);
+    setBulkDeleteOpen(false);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleBulkTitularConfirm = async (titularId: string, titularNome: string) => {
+    if (!onBulkChangeTitular || selectedEvents.length === 0) return;
+    await onBulkChangeTitular(selectedEvents, titularId, titularNome);
+    setBulkTitularOpen(false);
     setSelectedIds(new Set());
     setSelectionMode(false);
   };
@@ -1589,7 +1632,11 @@ export function FullCalendar({
                 size="sm"
                 onClick={toggleSelectionMode}
                 className="h-8 w-full shrink-0 px-2 text-[11px] gap-1.5 font-semibold border border-primary/30"
-                title={selectionMode ? 'Sair da seleção' : 'Selecionar várias tarefas para mover'}
+                title={
+                  selectionMode
+                    ? 'Sair da seleção'
+                    : 'Selecionar várias tarefas para mover, concluir, excluir ou mudar titular'
+                }
               >
                 <CheckSquare className="h-3.5 w-3.5" />
                 {selectionMode ? 'Sair da seleção' : 'Selecionar várias tarefas'}
@@ -1699,6 +1746,32 @@ export function FullCalendar({
               Mover {selectedIds.size > 0 ? selectedIds.size : ''}
             </Button>
           )}
+          {onBulkDelete && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className={cn('gap-1', compact ? 'h-6 px-1.5 text-[9px]' : 'h-8 text-xs')}
+              disabled={selectedIds.size === 0 || isRescheduling}
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className={cn(compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5')} />
+              Excluir {selectedIds.size > 0 ? selectedIds.size : ''}
+            </Button>
+          )}
+          {onBulkChangeTitular && canBulkChangeTitular && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn('gap-1', compact ? 'h-6 px-1.5 text-[9px]' : 'h-8 text-xs')}
+              disabled={selectedIds.size === 0 || isRescheduling}
+              onClick={() => setBulkTitularOpen(true)}
+            >
+              <UserRound className={cn(compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5')} />
+              Titular {selectedIds.size > 0 ? selectedIds.size : ''}
+            </Button>
+          )}
           <span
             className={cn(
               'text-muted-foreground ml-auto',
@@ -1744,7 +1817,7 @@ export function FullCalendar({
         ))}
       </div>
 
-      {canSelectBulk && (
+      {canSelectBulk && onBulkReschedule && (
         <AgendaBulkMoveDialog
           open={bulkMoveOpen}
           onOpenChange={setBulkMoveOpen}
@@ -1753,6 +1826,28 @@ export function FullCalendar({
           isSubmitting={isRescheduling}
           floatingLayer={floatingLayer}
           onConfirm={handleBulkConfirm}
+        />
+      )}
+
+      {onBulkDelete && (
+        <AgendaBulkDeleteDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          events={selectedEvents}
+          isSubmitting={isRescheduling}
+          floatingLayer={floatingLayer}
+          onConfirm={handleBulkDeleteConfirm}
+        />
+      )}
+
+      {onBulkChangeTitular && canBulkChangeTitular && (
+        <AgendaBulkTitularDialog
+          open={bulkTitularOpen}
+          onOpenChange={setBulkTitularOpen}
+          events={selectedEvents}
+          isSubmitting={isRescheduling}
+          floatingLayer={floatingLayer}
+          onConfirm={handleBulkTitularConfirm}
         />
       )}
     </div>

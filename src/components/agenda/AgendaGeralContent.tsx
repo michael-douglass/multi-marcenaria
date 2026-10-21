@@ -97,6 +97,9 @@ export function AgendaGeralContent({
             onEventDrop={agenda.handleEventDrop}
             onBulkReschedule={agenda.handleBulkReschedule}
             onBulkComplete={agenda.handleBulkComplete}
+            onBulkDelete={agenda.handleBulkDelete}
+            onBulkChangeTitular={agenda.handleBulkChangeTitular}
+            canBulkChangeTitular={agenda.canBulkChangeTitular}
             isRescheduling={agenda.isRescheduling}
             focusDate={agenda.calendarFocusDate}
             onFocusDateApplied={() => agenda.setCalendarFocusDate(null)}

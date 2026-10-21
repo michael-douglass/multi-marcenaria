@@ -17,7 +17,7 @@ import { useMarketingTasks, type MarketingTask } from '@/hooks/useMarketingTasks
 import { useMarketingContentCards } from '@/hooks/useMarketingConteudo';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewAllTitularRecords } from '@/lib/titular-access';
+import { canAssignTitularToOthers, canViewAllTitularRecords } from '@/lib/titular-access';
 import { supabase } from '@/integrations/supabase/client';
 import { matchesAgendaGeralSearch } from '@/lib/agenda-geral-search';
 import { userIsTitularDaReuniao } from '@/lib/agenda-reuniao-titulares';
@@ -46,6 +46,27 @@ export interface BulkRescheduleResult {
   moved: number;
   skipped: number;
   failed: number;
+}
+
+/** Escopo da exclusão em lote: só a ocorrência do dia ou o registro/série inteira. */
+export type BulkDeleteScope = 'day' | 'permanent';
+
+export interface BulkMutationResult {
+  ok: number;
+  skipped: number;
+  failed: number;
+}
+
+/** Tarefa pessoal recorrente (série) — precisa escolher só o dia vs permanente. */
+export function isRecurringPessoalEvent(event: AgendaEvent): boolean {
+  if (event.type !== 'pessoal') return false;
+  const pessoal = event.originalData as PessoalAgendaEventData;
+  return pessoal.tipo_agendamento !== 'unica';
+}
+
+/** Tipos que aceitam troca de titularidade em lote. */
+export function eventSupportsBulkTitularChange(event: AgendaEvent): boolean {
+  return event.type === 'pessoal' || event.type === 'lembrete' || event.type === 'tarefa';
 }
 
 export interface AgendaEvent {
@@ -226,9 +247,10 @@ export interface UseAgendaGeralOptions {
 
 export function useAgendaGeral(options?: UseAgendaGeralOptions) {
   const forceOwnTitular = options?.forceOwnTitular === true;
-  const { user, userRole, isSuperAdmin } = useAuth();
+  const { user, userRole, isSuperAdmin, userRoles } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = canViewAllTitularRecords(userRole, isSuperAdmin);
+  const canBulkChangeTitular = canAssignTitularToOthers(userRole, isSuperAdmin, userRoles);
 
   const { reunioes, config, updateReuniao, deleteReuniao, loading: loadingAgenda } = useAgenda();
   const {
@@ -685,32 +707,223 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
     return { completed, skipped, failed };
   };
 
+  /** Persiste exclusão de um evento (com escopo para recorrente pessoal). */
+  const persistEventDelete = async (event: AgendaEvent, scope: BulkDeleteScope) => {
+    if (event.type === 'tarefa') {
+      const reuniao = event.originalData as AgendaReuniao;
+      await deleteReuniao.mutateAsync(reuniao.id);
+      return;
+    }
+    if (event.type === 'lembrete') {
+      const lembrete = event.originalData as LeadLembrete;
+      await deleteLembrete.mutateAsync(lembrete.id);
+      return;
+    }
+    if (event.type === 'conteudo') {
+      const task = event.originalData as MarketingTask;
+      await deleteTask(task.id);
+      return;
+    }
+    if (event.type === 'pessoal') {
+      const pessoal = event.originalData as PessoalAgendaEventData;
+      const isRecurring = pessoal.tipo_agendamento !== 'unica';
+      if (isRecurring && scope === 'day') {
+        await excluirOcorrencia.mutateAsync({
+          tarefa: pessoal,
+          dataOcorrencia: format(pessoal.dataOcorrencia, 'yyyy-MM-dd'),
+        });
+        return;
+      }
+      await deleteTarefa.mutateAsync(pessoal.id);
+    }
+  };
+
   /** Exclui o item direto da prévia em hover (sem abrir o modal). */
   const handleDeleteEvent = async (event: AgendaEvent) => {
     try {
-      if (event.type === 'tarefa') {
-        const reuniao = event.originalData as AgendaReuniao;
-        await deleteReuniao.mutateAsync(reuniao.id);
-      } else if (event.type === 'lembrete') {
-        const lembrete = event.originalData as LeadLembrete;
-        await deleteLembrete.mutateAsync(lembrete.id);
-      } else if (event.type === 'conteudo') {
-        const task = event.originalData as MarketingTask;
-        await deleteTask(task.id);
-      } else if (event.type === 'pessoal') {
-        const pessoal = event.originalData as PessoalAgendaEventData;
-        if (pessoal.tipo_agendamento === 'unica') {
-          await deleteTarefa.mutateAsync(pessoal.id);
-        } else {
-          await excluirOcorrencia.mutateAsync({
-            tarefa: pessoal,
-            dataOcorrencia: format(pessoal.dataOcorrencia, 'yyyy-MM-dd'),
-          });
-        }
-      }
+      // Hover: recorrente pessoal = só o dia; demais = apaga o registro.
+      const scope: BulkDeleteScope =
+        event.type === 'pessoal' && isRecurringPessoalEvent(event) ? 'day' : 'permanent';
+      await persistEventDelete(event, scope);
     } catch {
       toast.error('Não foi possível excluir a tarefa');
     }
+  };
+
+  const handleBulkDelete = async (
+    events: AgendaEvent[],
+    scope: BulkDeleteScope,
+  ): Promise<BulkMutationResult> => {
+    setIsRescheduling(true);
+    let ok = 0;
+    let skipped = 0;
+    let failed = 0;
+    const deletedPessoalIds = new Set<string>();
+
+    try {
+      for (const event of events) {
+        if (event.type === 'pessoal' && scope === 'permanent') {
+          const pessoal = event.originalData as PessoalAgendaEventData;
+          if (deletedPessoalIds.has(pessoal.id)) {
+            skipped += 1;
+            continue;
+          }
+          deletedPessoalIds.add(pessoal.id);
+        }
+        try {
+          await persistEventDelete(event, scope);
+          ok += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const parts: string[] = [];
+      if (ok > 0) {
+        parts.push(
+          scope === 'day'
+            ? `${ok} ${ok === 1 ? 'ocorrência excluída' : 'ocorrências excluídas'} deste dia`
+            : `${ok} ${ok === 1 ? 'tarefa excluída' : 'tarefas excluídas'}`,
+        );
+      }
+      if (skipped > 0) {
+        parts.push(`${skipped} ${skipped === 1 ? 'ignorada' : 'ignoradas'}`);
+      }
+      if (failed > 0) {
+        parts.push(`${failed} ${failed === 1 ? 'falhou' : 'falharam'}`);
+      }
+
+      if (ok > 0 && failed === 0) {
+        toast.success(parts.join(' · '));
+      } else if (ok > 0) {
+        toast.warning(parts.join(' · '));
+      } else if (failed > 0) {
+        toast.error(parts.join(' · ') || 'Não foi possível excluir as tarefas');
+      } else {
+        toast.message(parts.join(' · ') || 'Nenhuma tarefa para excluir');
+      }
+    } finally {
+      setIsRescheduling(false);
+    }
+
+    return { ok, skipped, failed };
+  };
+
+  const persistEventTitularChange = async (
+    event: AgendaEvent,
+    titularId: string,
+    titularNome: string,
+  ): Promise<'ok' | 'skipped'> => {
+    if (!eventSupportsBulkTitularChange(event)) return 'skipped';
+
+    if (event.type === 'pessoal') {
+      const pessoal = event.originalData as PessoalAgendaEventData;
+      if (pessoal.titular_id === titularId) return 'skipped';
+      await updateTarefa.mutateAsync({
+        id: pessoal.id,
+        titular_id: titularId,
+        titular_nome: titularNome || null,
+      });
+      return 'ok';
+    }
+
+    if (event.type === 'lembrete') {
+      const lembrete = event.originalData as LeadLembrete;
+      const currentIds = lembrete.titular_ids?.length
+        ? lembrete.titular_ids
+        : lembrete.titular_id
+          ? [lembrete.titular_id]
+          : [];
+      if (currentIds.length === 1 && currentIds[0] === titularId) return 'skipped';
+      await updateLembrete.mutateAsync({
+        id: lembrete.id,
+        titular_ids: [titularId],
+      });
+      return 'ok';
+    }
+
+    if (event.type === 'tarefa') {
+      const reuniao = event.originalData as AgendaReuniao;
+      const currentIds = reuniao.titular_ids ?? [];
+      if (currentIds.length === 1 && currentIds[0] === titularId) return 'skipped';
+      await updateReuniao.mutateAsync({
+        id: reuniao.id,
+        titular_ids: [titularId],
+      });
+      return 'ok';
+    }
+
+    return 'skipped';
+  };
+
+  const handleBulkChangeTitular = async (
+    events: AgendaEvent[],
+    titularId: string,
+    titularNome: string,
+  ): Promise<BulkMutationResult> => {
+    if (!canBulkChangeTitular) {
+      toast.error('Você não tem permissão para mudar a titularidade');
+      return { ok: 0, skipped: events.length, failed: 0 };
+    }
+    if (!titularId) {
+      toast.error('Selecione um titular');
+      return { ok: 0, skipped: 0, failed: 0 };
+    }
+
+    setIsRescheduling(true);
+    let ok = 0;
+    let skipped = 0;
+    let failed = 0;
+    const updatedPessoalIds = new Set<string>();
+
+    try {
+      for (const event of events) {
+        if (event.type === 'pessoal') {
+          const pessoal = event.originalData as PessoalAgendaEventData;
+          if (updatedPessoalIds.has(pessoal.id)) {
+            skipped += 1;
+            continue;
+          }
+          updatedPessoalIds.add(pessoal.id);
+        }
+        try {
+          const result = await persistEventTitularChange(event, titularId, titularNome);
+          if (result === 'ok') ok += 1;
+          else skipped += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const parts: string[] = [];
+      if (ok > 0) {
+        parts.push(
+          `${ok} ${ok === 1 ? 'tarefa transferida' : 'tarefas transferidas'} para ${titularNome || 'o titular'}`,
+        );
+      }
+      if (skipped > 0) {
+        parts.push(
+          `${skipped} ${skipped === 1 ? 'ignorada' : 'ignoradas'} (já do titular ou sem suporte)`,
+        );
+      }
+      if (failed > 0) {
+        parts.push(`${failed} ${failed === 1 ? 'falhou' : 'falharam'}`);
+      }
+
+      if (ok > 0 && failed === 0) {
+        toast.success(parts.join(' · '));
+      } else if (ok > 0) {
+        toast.warning(parts.join(' · '));
+      } else if (failed > 0) {
+        toast.error(parts.join(' · ') || 'Não foi possível mudar a titularidade');
+      } else {
+        toast.message(parts.join(' · ') || 'Nenhuma tarefa para transferir');
+      }
+    } finally {
+      setIsRescheduling(false);
+    }
+
+    return { ok, skipped, failed };
   };
 
   const handleSearchResultSelect = (event: AgendaEvent) => {
@@ -770,6 +983,9 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
     handleConfirmRecurringMove,
     handleBulkReschedule,
     handleBulkComplete,
+    handleBulkDelete,
+    handleBulkChangeTitular,
+    canBulkChangeTitular,
     handleEditEvent,
     handleCompleteEvent,
     handleDeleteEvent,

@@ -2,11 +2,15 @@
 
 **Produto:** CRM Selletos (Multi-empresas)  
 **Módulo:** Lousa do Lead (anotação sobre fotos de projeto)  
-**Versão:** 1.0 (documentação do estado atual + guia para reimplantação)  
-**Data:** 03/08/2026  
+**Versão:** 1.1 (PRD + ponteiro para guia técnico atualizado)  
+**Data:** 03/08/2026 · atualizado 20/10/2026  
 **Status:** Sistema em produção — PRD retrospectivo para recriar em outro sistema  
 **Onde vive:** dentro do modal do Lead (aba/seção Lousa) · portal do Prestador (só leitura)  
 **Config admin:** Pipeline → Configurações → aba Lousa  
+
+> **Guia técnico atualizado (recomentado para recriar em outro sistema):**  
+> [`docs/lousa-lead-guia-recriacao.md`](docs/lousa-lead-guia-recriacao.md)  
+> Inclui quadro branco, notas da foto, mapa de pastas e fluxos do código atual.
 
 > **Atenção:** neste CRM existem **duas** telas chamadas de “lousa”. Este PRD cobre a **Lousa do Lead** (anotar fotos de marcenaria/projeto). No final há um apêndice sobre a **Lousa de Marketing** (planejamento visual com React Flow), que é outro produto.
 
