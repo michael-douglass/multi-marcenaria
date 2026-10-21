@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AgendaTitularCombobox } from '@/components/agenda/AgendaTitularCombobox';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTitularesAgenda } from '@/hooks/useTitularesAgenda';
 import {
   eventSupportsBulkTitularChange,
@@ -35,14 +34,14 @@ export function AgendaBulkTitularDialog({
   floatingLayer,
   onConfirm,
 }: AgendaBulkTitularDialogProps) {
-  const { user } = useAuth();
   const { titulares } = useTitularesAgenda();
-  const [titularId, setTitularId] = useState(user?.id ?? '');
+  /** Começa vazio para forçar escolha explícita do novo titular (evita transferir “para mim” sem querer). */
+  const [titularId, setTitularId] = useState('');
 
   useEffect(() => {
     if (!open) return;
-    setTitularId(user?.id ?? '');
-  }, [open, user?.id]);
+    setTitularId('');
+  }, [open]);
 
   const summary = useMemo(() => {
     let eligible = 0;

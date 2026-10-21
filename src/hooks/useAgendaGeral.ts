@@ -835,9 +835,10 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
           ? [lembrete.titular_id]
           : [];
       if (currentIds.length === 1 && currentIds[0] === titularId) return 'skipped';
+      // updateLembrete espera { id, updates } — sem o envelope, o update ia vazio e “passava” sem mudar o titular.
       await updateLembrete.mutateAsync({
         id: lembrete.id,
-        titular_ids: [titularId],
+        updates: { titular_ids: [titularId] },
       });
       return 'ok';
     }
@@ -890,7 +891,8 @@ export function useAgendaGeral(options?: UseAgendaGeralOptions) {
           const result = await persistEventTitularChange(event, titularId, titularNome);
           if (result === 'ok') ok += 1;
           else skipped += 1;
-        } catch {
+        } catch (error) {
+          console.error('Erro ao transferir titularidade em lote:', event.id, error);
           failed += 1;
         }
       }
