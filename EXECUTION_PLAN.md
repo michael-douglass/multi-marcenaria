@@ -68,7 +68,7 @@ flowchart LR
 - [x] Regra: ferragens/acessórios **sempre por unidade**; puxador perfil em barras de 3 m + tampinhas
 - [x] Upload aciona pipeline: `PENDING` → `PROCESSING` / etapas → `COMPLETED` | `FAILED`
 - [x] Deploy da Edge Function no Supabase (`orcamentos-ia-pipeline`)
-- [ ] Secret `OPENAI_API_KEY` configurada no projeto Supabase (Dashboard → Edge Functions → Secrets)
+- [ ] Chaves OpenAI/Anthropic do Orçamentos IA em **Configurações IA** (`/configuracoes-ia`) — não usar mais secrets `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` nas Edge Functions para este módulo
 
 **Arquivos principais:**
 - [`src/lib/orcamentos-ia/pipeline.ts`](src/lib/orcamentos-ia/pipeline.ts)

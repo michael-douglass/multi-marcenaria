@@ -378,15 +378,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const openAiKey =
-      ((configRow as { openai_api_key?: string }).openai_api_key?.trim() || '') ||
-      Deno.env.get('OPENAI_API_KEY') ||
-      '';
+    const openAiKey = (configRow as { openai_api_key?: string }).openai_api_key?.trim() || '';
     if (!openAiKey) {
       return jsonResponse(
         {
           error:
-            'Chave da OpenAI não configurada. Defina em Pipeline → Configurações → Configuração IA.',
+            'Chave da OpenAI do Lead não configurada. Defina em Configurações IA.',
         },
         500,
       );

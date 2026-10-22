@@ -11,6 +11,10 @@ import {
   resolveOrcamentosModels,
   type LlmJsonResult,
 } from '../_shared/llm-json.ts'
+import {
+  loadOrcamentosIaSecrets,
+  ORCAMENTOS_IA_KEY_MISSING,
+} from '../_shared/orcamentos-ia-secrets.ts'
 import { rebalanceEnvironments as rebalanceEnvironmentsShared } from '../_shared/rebalance-environments.ts'
 
 const BATCH_SIZE = 8
@@ -1548,14 +1552,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim() || null
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim() || null
-    if (!openAiKey) {
-      return jsonResponse(
-        { ok: false, error: 'OPENAI_API_KEY não configurada na Edge Function.' },
-        500,
-      )
-    }
 
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     let isServiceRole = false
@@ -1592,6 +1588,15 @@ Deno.serve(async (req) => {
 
     if (!body?.analysisId || !body?.companyId) {
       return jsonResponse({ ok: false, error: 'analysisId e companyId são obrigatórios.' }, 400)
+    }
+
+    const adminForSecrets = createClient(supabaseUrl, serviceKey)
+    const { openAiKey, anthropicKey } = await loadOrcamentosIaSecrets(
+      adminForSecrets,
+      body.companyId,
+    )
+    if (!openAiKey) {
+      return jsonResponse({ ok: false, error: ORCAMENTOS_IA_KEY_MISSING }, 500)
     }
     if (!isAsyncPhase && !body?.pagePaths?.length) {
       return jsonResponse({ ok: false, error: 'analysisId, companyId e pagePaths são obrigatórios.' }, 400)

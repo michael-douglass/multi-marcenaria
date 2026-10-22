@@ -252,7 +252,10 @@ export function ContratoIAAssistPanel({
         const content = [result.reply, ...extras].filter(Boolean).join('\n\n');
         setTurns((prev) => [...prev, { id: newId(), role: 'assistant', content }]);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Falha ao falar com a IA';
+        const raw = err instanceof Error ? err.message : 'Falha ao falar com a IA';
+        const msg = /chave|não configurada|configurações ia/i.test(raw)
+          ? `${raw.replace(/\.\s*$/, '')}. Abra Configurações IA e cole a chave de Contratos.`
+          : raw;
         setTurns((prev) => [
           ...prev,
           {

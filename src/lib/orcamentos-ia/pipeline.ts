@@ -116,7 +116,7 @@ import {
  * - Orquestração: LangGraph no cliente (status + páginas + persistência).
  * - Visão/extração/auditoria: Edge Function `orcamentos-ia-pipeline`
  *   (modo max = Claude Opus estrito na Edge, sem fallback gpt-4o;
- *   modo pro = OpenAI gpt-4o / o3-mini; chaves só no servidor).
+ *   modo pro = OpenAI gpt-4o / o3-mini; chaves em Configurações IA / Edge).
  * - Preços: `createPriceResolver` (alias → inventory → market → contingência; nunca R$ 0).
  */
 

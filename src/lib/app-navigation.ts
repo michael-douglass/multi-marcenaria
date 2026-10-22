@@ -40,6 +40,7 @@ import {
   Ruler,
   FolderOpen,
   BrainCircuit,
+  KeyRound,
 } from 'lucide-react'
 import type { CrmProfile, CrmRole } from '@/lib/crm-identity'
 import {
@@ -467,6 +468,26 @@ const COMERCIAL_CHILDREN: NavChildItem[] = [
       'gpt',
       'inteligencia artificial',
       'levantamento',
+    ],
+  },
+  {
+    id: 'configuracoesIa',
+    title: 'Configurações IA',
+    url: '/configuracoes-ia',
+    icon: KeyRound,
+    radialColor: 'rgba(0,102,255,0.72)',
+    roles: ['Administrador'],
+    crmRoles: ['admin'],
+    crmAdminOnly: true,
+    hideIfMarketingOnly: true,
+    searchAliases: [
+      'api key',
+      'chave api',
+      'openai',
+      'anthropic',
+      'claude',
+      'configuracoes ia',
+      'config ia',
     ],
   },
   {
@@ -910,6 +931,7 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
   if (pathname.startsWith('/contratos')) return 'contratosCrm'
   if (pathname.startsWith('/orcamento-slides')) return 'orcamentoSlides'
   if (pathname.startsWith('/orcamentos-ia')) return 'orcamentosIa'
+  if (pathname.startsWith('/configuracoes-ia')) return 'configuracoesIa'
   if (pathname.startsWith('/markup')) return 'markupCrm'
   if (pathname.startsWith('/marketing-conteudo')) return 'marketingConteudo'
   if (pathname.startsWith('/controle-eventos') || pathname.startsWith('/eventos-crm')) return 'controleEventos'
@@ -954,6 +976,7 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
     '/markup': 'markupCrm',
     '/orcamento-slides': 'orcamentoSlides',
     '/orcamentos-ia': 'orcamentosIa',
+    '/configuracoes-ia': 'configuracoesIa',
     '/marketing-conteudo': 'marketingConteudo',
     '/biblioteca-crm': 'bibliotecaCrm',
     '/admin/marca': 'marcaCrm',

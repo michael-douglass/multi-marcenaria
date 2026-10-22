@@ -301,8 +301,11 @@ export function canAccessCrmPath(
     if (movelaria?.perfil === 'montador_admin') return true
   }
 
-  // Orçamentos IA: admin da fábrica Movelaria também acessa (sem depender só do CRM).
-  if (pathname.startsWith('/orcamentos-ia') && movelaria?.perfil === 'administrador') {
+  // Orçamentos IA / Configurações IA: admin da fábrica Movelaria também acessa.
+  if (
+    (pathname.startsWith('/orcamentos-ia') || pathname.startsWith('/configuracoes-ia')) &&
+    movelaria?.perfil === 'administrador'
+  ) {
     return true
   }
 
@@ -330,6 +333,9 @@ export function canAccessCrmPath(
   if (pathname.startsWith('/orcamento-slides')) return vendedor && !marketingOnly
   if (pathname.startsWith('/orcamentos-ia')) {
     return (admin || vendedor || projetista) && !marketingOnly
+  }
+  if (pathname.startsWith('/configuracoes-ia')) {
+    return admin || movelaria?.perfil === 'administrador'
   }
   if (pathname.startsWith('/marketing-conteudo')) return marketing
   if (pathname.startsWith('/biblioteca-crm')) return marketing

@@ -1198,9 +1198,9 @@ export default function MarkupConfigPage() {
                   )}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  A chave é a mesma do Pipeline. Configure em{' '}
-                  <Link to="/pipeline/configuracoes" className="text-primary underline">
-                    Pipeline → Configurações → IA do Lead
+                  A chave é a do Lead (análise/render). Configure em{' '}
+                  <Link to="/configuracoes-ia" className="text-primary underline">
+                    Configurações IA
                   </Link>
                   .
                 </p>

@@ -219,7 +219,7 @@ function ambienteBlockedMessage(params: {
   canGo: boolean;
 }): string | null {
   if (params.configOff) {
-    return 'A renderização com ambiente está desligada. Ative em Pipeline → Configurações → IA e confira a chave da API.';
+    return 'A renderização com ambiente está desligada. Ative em Pipeline → Configurações → IA e confira a chave em Configurações IA.';
   }
   if (params.kind === 'render' && params.busy) {
     return 'Já existe uma renderização em andamento. Espere ela terminar.';

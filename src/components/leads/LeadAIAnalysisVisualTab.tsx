@@ -427,7 +427,7 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
       }
       if (!aiConfig.apiKeyConfigured) {
         toast.error('Chave da API não configurada', {
-          description: 'Configure em Pipeline → Configurações → Configuração IA',
+          description: 'Configure em Configurações IA',
         });
         return false;
       }
@@ -637,8 +637,8 @@ export function LeadAIAnalysisVisualTab({ leadId, leadName, leadOrigin }: LeadAI
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <p>
-            A chave da API OpenAI ainda não foi configurada. O administrador deve cadastrá-la em{' '}
-            <strong>Pipeline → Configurações → Configuração IA</strong>.
+            A chave da API OpenAI do Lead ainda não foi configurada. O administrador deve cadastrá-la em{' '}
+            <strong>Configurações IA</strong>.
           </p>
         </div>
       )}

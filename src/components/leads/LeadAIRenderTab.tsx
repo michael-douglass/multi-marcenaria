@@ -854,7 +854,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       return;
     }
     if (!aiConfig.apiKeyConfigured) {
-      toast.error('Chave da API não configurada');
+      toast.error('Chave da API não configurada', {
+        description: 'Configure em Configurações IA',
+      });
       return;
     }
     setRenderOptionsOpen(true);
@@ -876,7 +878,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       return;
     }
     if (!aiConfig.apiKeyConfigured) {
-      toast.error('Chave da API não configurada');
+      toast.error('Chave da API não configurada', {
+        description: 'Configure em Configurações IA',
+      });
       return;
     }
 
@@ -1213,7 +1217,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         throw new Error('Renderização com ambiente desativada nas configurações');
       }
       if (!aiConfig.apiKeyConfigured) {
-        throw new Error('Chave da API não configurada');
+        throw new Error('Chave da API não configurada. Defina em Configurações IA.');
       }
       return invokeAnalyzeLeadAmbiente({
         leadId,
@@ -1251,7 +1255,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         return;
       }
       if (!aiConfig.apiKeyConfigured) {
-        toast.error('Chave da API não configurada');
+        toast.error('Chave da API não configurada', {
+          description: 'Configure em Configurações IA',
+        });
         return;
       }
       await startBackgroundAmbienteRender({
@@ -1312,7 +1318,7 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <p>
-            Configure a chave OpenAI em <strong>Pipeline → Configurações → IA</strong>.
+            Configure a chave OpenAI do Lead em <strong>Configurações IA</strong>.
           </p>
         </div>
       )}

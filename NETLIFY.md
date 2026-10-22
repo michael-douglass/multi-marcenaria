@@ -73,3 +73,14 @@ pnpm migrate
 ```
 
 (usa `DATABASE_URL` do `.env` local)
+
+## 8. Chaves de IA (Orçamentos / Lead / Contratos)
+
+As chaves **não** ficam na Netlify. Cadastre em **Configurações IA** (`/configuracoes-ia`) no app.
+
+No Supabase do projeto Movelaria, **remova** (se ainda existirem) os secrets de Edge Function:
+
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+
+Caminho: Supabase Dashboard → Project Settings → Edge Functions → Secrets (ou Edge Functions → Secrets). Sem isso, funções antigas poderiam usar um “plano B” fora da tela de configurações.

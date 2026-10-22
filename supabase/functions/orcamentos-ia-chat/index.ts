@@ -1,5 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import {
+  loadOrcamentosIaSecrets,
+  ORCAMENTOS_IA_ANY_KEY_MISSING,
+} from '../_shared/orcamentos-ia-secrets.ts'
 
 const CHAT_MODEL_OPENAI = 'gpt-4o-mini'
 const CHAT_MODEL_CLAUDE = 'claude-opus-5-5'
@@ -23,14 +27,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim()
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim()
-    if (!openAiKey && !anthropicKey) {
-      return jsonResponse(
-        { ok: false, error: 'Nenhuma chave de IA configurada (OPENAI_API_KEY / ANTHROPIC_API_KEY).' },
-        500,
-      )
-    }
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -58,6 +54,10 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey)
+    const { openAiKey, anthropicKey } = await loadOrcamentosIaSecrets(admin, companyId)
+    if (!openAiKey && !anthropicKey) {
+      return jsonResponse({ ok: false, error: ORCAMENTOS_IA_ANY_KEY_MISSING }, 500)
+    }
 
     const { data: analysis, error: analysisError } = await admin
       .from('quote_analyses')

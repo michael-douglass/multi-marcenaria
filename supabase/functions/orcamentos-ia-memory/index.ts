@@ -1,5 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import {
+  loadOrcamentosIaSecrets,
+  ORCAMENTOS_IA_KEY_MISSING,
+} from '../_shared/orcamentos-ia-secrets.ts'
 
 const DEFAULT_MODEL = 'text-embedding-3-small'
 const EMBEDDING_DIM = 1536
@@ -46,10 +50,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const openAiKey = Deno.env.get('OPENAI_API_KEY')?.trim()
-    if (!openAiKey) {
-      return jsonResponse({ ok: false, error: 'OPENAI_API_KEY não configurada.' }, 500)
-    }
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -75,6 +75,10 @@ Deno.serve(async (req) => {
 
     const model = body.embeddingModel?.trim() || DEFAULT_MODEL
     const admin = createClient(supabaseUrl, serviceKey)
+    const { openAiKey } = await loadOrcamentosIaSecrets(admin, companyId)
+    if (!openAiKey) {
+      return jsonResponse({ ok: false, error: ORCAMENTOS_IA_KEY_MISSING }, 500)
+    }
 
     if (body.action === 'save') {
       const instruction = body.userInstruction?.trim()

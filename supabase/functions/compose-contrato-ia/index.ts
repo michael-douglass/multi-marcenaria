@@ -440,7 +440,7 @@ Deno.serve(async (req) => {
 
     const { data: configRow, error: configError } = await db
       .from(configTable)
-      .select('ativo, openai_api_key, model')
+      .select('ativo, contrato_openai_api_key, model')
       .limit(1)
       .maybeSingle();
 
@@ -450,15 +450,14 @@ Deno.serve(async (req) => {
     }
 
     const openAiKey =
-      ((configRow as { openai_api_key?: string } | null)?.openai_api_key?.trim() || '') ||
-      Deno.env.get('OPENAI_API_KEY') ||
-      '';
+      ((configRow as { contrato_openai_api_key?: string } | null)?.contrato_openai_api_key?.trim() ||
+        '');
 
     if (!openAiKey) {
       return jsonResponse(
         {
           error:
-            'Chave da OpenAI não configurada. Defina em Pipeline → Configurações → IA.',
+            'Chave da OpenAI de Contratos não configurada. Defina em Configurações IA.',
         },
         400,
       );

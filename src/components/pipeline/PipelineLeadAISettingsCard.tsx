@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Sparkles, Loader2, KeyRound, Eye, EyeOff, ImageIcon, MessageCircle, Database, Sofa } from 'lucide-react';
+import { Sparkles, Loader2, ImageIcon, MessageCircle, Database, Sofa } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import {
   PIPELINE_LEAD_AI_MODELS,
@@ -53,8 +54,6 @@ export function PipelineLeadAISettingsCard() {
   const [irisSkyKnowledgeMaxPages, setIrisSkyKnowledgeMaxPages] = useState(
     config.irisSkyKnowledgeMaxPages,
   );
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     setModel(config.model);
@@ -137,10 +136,7 @@ export function PipelineLeadAISettingsCard() {
         irisSkyAutoIndexAtivo: false,
         irisSkyKnowledgeMaxItems,
         irisSkyKnowledgeMaxPages,
-        apiKey: apiKey.trim() || undefined,
       });
-      setApiKey('');
-      setShowApiKey(false);
     } catch {
       // Toast de erro já é exibido pelo hook.
     }
@@ -154,8 +150,12 @@ export function PipelineLeadAISettingsCard() {
           Configuração de IA — Card do Lead
         </CardTitle>
         <CardDescription>
-          Define a chave da OpenAI, o modelo e o prompt usados na aba &quot;Análise IA&quot; de cada
-          lead. Somente administradores podem alterar.
+          Define o modelo e os prompts usados na aba &quot;Análise IA&quot; de cada lead. A chave da
+          OpenAI fica em{' '}
+          <Link to="/configuracoes-ia" className="font-medium text-primary underline-offset-4 hover:underline">
+            Configurações IA
+          </Link>
+          . Somente administradores podem alterar.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -188,45 +188,24 @@ export function PipelineLeadAISettingsCard() {
               <Switch id="lead-ai-ativo" checked={ativo} onCheckedChange={setAtivo} />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="lead-ai-api-key" className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4" />
-                Chave API OpenAI
-              </Label>
-              <div className="relative">
-                <Input
-                  id="lead-ai-api-key"
-                  type={showApiKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={
-                    config.apiKeyConfigured
-                      ? 'Chave já configurada — digite uma nova para substituir'
-                      : 'sk-...'
-                  }
-                  className="pr-10 font-mono text-sm"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowApiKey((v) => !v)}
-                  aria-label={showApiKey ? 'Ocultar chave' : 'Mostrar chave'}
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
+            <div className="rounded-lg border border-border/80 bg-muted/30 px-4 py-3 text-sm">
+              <p className="font-medium">Chave da OpenAI</p>
+              <p className="mt-1 text-muted-foreground">
                 {config.apiKeyConfigured ? (
                   <span className="text-emerald-600 dark:text-emerald-400">
-                    Chave salva no servidor. Deixe em branco para manter a atual.
+                    Chave do Lead configurada.
                   </span>
                 ) : (
-                  'Obtenha sua chave em platform.openai.com → API keys. Ela fica armazenada de forma segura e não aparece para vendedores.'
-                )}
+                  'Nenhuma chave do Lead salva — análise e render ficam bloqueados.'
+                )}{' '}
+                Gerencie em{' '}
+                <Link
+                  to="/configuracoes-ia"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Configurações IA
+                </Link>
+                .
               </p>
             </div>
 

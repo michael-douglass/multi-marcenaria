@@ -47,6 +47,7 @@ export interface PipelineLeadAIConfig {
   irisSkyKnowledgeMaxItems: number;
   irisSkyKnowledgeMaxPages: number;
   apiKeyConfigured: boolean;
+  contratoApiKeyConfigured: boolean;
   atualizadoEm: string | null;
 }
 
@@ -79,10 +80,12 @@ interface DBPipelineLeadAIConfigPublic {
   ativo: boolean;
   atualizado_em: string | null;
   api_key_configured?: boolean;
+  contrato_api_key_configured?: boolean;
 }
 
 interface DBPipelineLeadAIConfigAdmin extends DBPipelineLeadAIConfigPublic {
   openai_api_key?: string | null;
+  contrato_openai_api_key?: string | null;
 }
 
 function adaptConfig(
@@ -92,6 +95,10 @@ function adaptConfig(
     'api_key_configured' in row && row.api_key_configured != null
       ? Boolean(row.api_key_configured)
       : Boolean(row.openai_api_key?.trim());
+  const contratoApiKeyConfigured =
+    'contrato_api_key_configured' in row && row.contrato_api_key_configured != null
+      ? Boolean(row.contrato_api_key_configured)
+      : Boolean(row.contrato_openai_api_key?.trim());
 
   return {
     id: row.id,
@@ -145,6 +152,7 @@ function adaptConfig(
       Number(row.iris_sky_knowledge_max_pages ?? PIPELINE_LEAD_AI_DEFAULTS.irisSkyKnowledgeMaxPages),
     ),
     apiKeyConfigured,
+    contratoApiKeyConfigured,
     atualizadoEm: row.atualizado_em,
   };
 }
@@ -161,15 +169,15 @@ const BASE_SELECT =
   'id, singleton_key, model, system_prompt, briefing_prompt, ativo, atualizado_em';
 
 const ADMIN_SELECT =
-  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${RENDER_AMBIENTE_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, openai_api_key`;
+  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${RENDER_AMBIENTE_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, openai_api_key, contrato_openai_api_key`;
 const ADMIN_SELECT_NO_AMBIENTE =
-  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, openai_api_key`;
+  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, openai_api_key, contrato_openai_api_key`;
 const ADMIN_SELECT_LEGACY =
   `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ativo, atualizado_em, openai_api_key`;
 const PUBLIC_SELECT =
-  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${RENDER_AMBIENTE_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, api_key_configured`;
+  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${RENDER_AMBIENTE_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, api_key_configured, contrato_api_key_configured`;
 const PUBLIC_SELECT_NO_AMBIENTE =
-  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, api_key_configured`;
+  `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ${IRIS_SKY_FIELDS}, ativo, atualizado_em, api_key_configured, contrato_api_key_configured`;
 const PUBLIC_SELECT_LEGACY =
   `id, singleton_key, model, system_prompt, briefing_prompt, ${RENDER_FIELDS}, ativo, atualizado_em, api_key_configured`;
 
@@ -182,8 +190,20 @@ async function loadPipelineLeadAIConfig(
     client.from(table).select(selectFields).eq('singleton_key', 'default').maybeSingle();
 
   const variants = admin
-    ? [ADMIN_SELECT, ADMIN_SELECT_NO_AMBIENTE, ADMIN_SELECT_LEGACY, `${BASE_SELECT}, openai_api_key`]
-    : [PUBLIC_SELECT, PUBLIC_SELECT_NO_AMBIENTE, PUBLIC_SELECT_LEGACY, `${BASE_SELECT}, api_key_configured`];
+    ? [
+        ADMIN_SELECT,
+        ADMIN_SELECT_NO_AMBIENTE,
+        ADMIN_SELECT_LEGACY,
+        `${BASE_SELECT}, openai_api_key, contrato_openai_api_key`,
+        `${BASE_SELECT}, openai_api_key`,
+      ]
+    : [
+        PUBLIC_SELECT,
+        PUBLIC_SELECT_NO_AMBIENTE,
+        PUBLIC_SELECT_LEGACY,
+        `${BASE_SELECT}, api_key_configured, contrato_api_key_configured`,
+        `${BASE_SELECT}, api_key_configured`,
+      ];
 
   let lastError: { code?: string; message?: string; status?: number } | null = null;
 
@@ -231,6 +251,7 @@ const fallbackConfig = (): PipelineLeadAIConfig => ({
   irisSkyKnowledgeMaxItems: PIPELINE_LEAD_AI_DEFAULTS.irisSkyKnowledgeMaxItems,
   irisSkyKnowledgeMaxPages: PIPELINE_LEAD_AI_DEFAULTS.irisSkyKnowledgeMaxPages,
   apiKeyConfigured: false,
+  contratoApiKeyConfigured: false,
   atualizadoEm: null,
 });
 
@@ -282,7 +303,6 @@ export function usePipelineLeadAIConfig(options: UsePipelineLeadAIConfigOptions 
       irisSkyAutoIndexAtivo: boolean;
       irisSkyKnowledgeMaxItems: number;
       irisSkyKnowledgeMaxPages: number;
-      apiKey?: string;
     }) => {
       const prompt = updates.systemPrompt.trim();
       if (!prompt) throw new Error('O prompt não pode estar vazio');
@@ -340,10 +360,6 @@ export function usePipelineLeadAIConfig(options: UsePipelineLeadAIConfigOptions 
       const matchCount = Math.min(20, Math.max(4, updates.irisSkyMatchCount));
       const knowledgeMaxItems = clampIrisSkyKnowledgeMaxItems(updates.irisSkyKnowledgeMaxItems);
       const knowledgeMaxPages = clampIrisSkyKnowledgeMaxPages(updates.irisSkyKnowledgeMaxPages);
-      const apiKeyTrimmed = updates.apiKey?.trim() ?? '';
-      if (apiKeyTrimmed && !apiKeyTrimmed.startsWith('sk-')) {
-        throw new Error('A chave da OpenAI deve começar com sk-');
-      }
 
       const row: Record<string, unknown> = {
         singleton_key: 'default',
@@ -374,68 +390,9 @@ export function usePipelineLeadAIConfig(options: UsePipelineLeadAIConfigOptions 
         atualizado_em: new Date().toISOString(),
       };
 
-      if (apiKeyTrimmed) {
-        row.openai_api_key = apiKeyTrimmed;
-      }
+      await persistPipelineLeadAiRow(client, adminTable, config?.id, row);
 
-      const persistRow = async (payload: Record<string, unknown>) => {
-        if (config?.id && config.id !== 'default') {
-          const { error: updateError } = await client
-            .from(adminTable)
-            .update(payload)
-            .eq('id', config.id);
-          if (updateError) throw updateError;
-          return;
-        }
-
-        const { error: upsertError } = await client
-          .from(adminTable)
-          .upsert(payload, { onConflict: 'singleton_key' });
-        if (upsertError) throw upsertError;
-      };
-
-      try {
-        await persistRow(row);
-      } catch (persistError) {
-        if (!isPostgrestColumnError(persistError as { message?: string })) {
-          throw persistError;
-        }
-        const {
-          render_ambiente_ativo: _a,
-          render_ambiente_analysis_prompt: _b,
-          render_ambiente_prompt: _c,
-          ...legacyRow
-        } = row;
-        await persistRow(legacyRow);
-      }
-
-      let { data, error: readError } = await client
-        .from(adminTable)
-        .select(ADMIN_SELECT)
-        .eq('singleton_key', 'default')
-        .maybeSingle();
-
-      if (readError && isPostgrestColumnError(readError)) {
-        ({ data, error: readError } = await client
-          .from(adminTable)
-          .select(ADMIN_SELECT_NO_AMBIENTE)
-          .eq('singleton_key', 'default')
-          .maybeSingle());
-      }
-
-      if (readError && isPostgrestColumnError(readError)) {
-        ({ data, error: readError } = await client
-          .from(adminTable)
-          .select(ADMIN_SELECT_LEGACY)
-          .eq('singleton_key', 'default')
-          .maybeSingle());
-      }
-
-      if (readError) throw readError;
-      if (!data) {
-        throw new Error('Configuração salva, mas não foi possível recarregar. Atualize a página.');
-      }
-      return adaptConfig(data as DBPipelineLeadAIConfigAdmin);
+      return reloadPipelineLeadAiConfig(client, adminTable);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-lead-ai-config', schemaEmpresa ?? 'master'] });
@@ -448,12 +405,185 @@ export function usePipelineLeadAIConfig(options: UsePipelineLeadAIConfigOptions 
     },
   });
 
+  const saveLeadApiKey = useMutation({
+    mutationFn: async (apiKey: string) => {
+      const trimmed = apiKey.trim();
+      if (!trimmed) throw new Error('Informe a chave da OpenAI');
+      if (!trimmed.startsWith('sk-')) {
+        throw new Error('A chave da OpenAI deve começar com sk-');
+      }
+      const needsSeed = !config?.id || config.id === 'default';
+      await persistPipelineLeadAiRow(client, adminTable, config?.id, {
+        singleton_key: 'default',
+        ...(needsSeed
+          ? {
+              model: PIPELINE_LEAD_AI_DEFAULTS.model,
+              system_prompt: PIPELINE_LEAD_AI_DEFAULTS.systemPrompt,
+              briefing_prompt: PIPELINE_LEAD_AI_DEFAULTS.briefingPrompt,
+              ativo: PIPELINE_LEAD_AI_DEFAULTS.ativo,
+            }
+          : {}),
+        openai_api_key: trimmed,
+        atualizado_em: new Date().toISOString(),
+      });
+      return reloadPipelineLeadAiConfig(client, adminTable);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipeline-lead-ai-config', schemaEmpresa ?? 'master'] });
+      toast.success('Chave do Lead salva');
+    },
+    onError: (err: Error) => {
+      toast.error('Não foi possível salvar a chave do Lead', { description: err.message });
+    },
+  });
+
+  const clearLeadApiKey = useMutation({
+    mutationFn: async () => {
+      await persistPipelineLeadAiRow(client, adminTable, config?.id, {
+        singleton_key: 'default',
+        openai_api_key: null,
+        atualizado_em: new Date().toISOString(),
+      });
+      return reloadPipelineLeadAiConfig(client, adminTable);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipeline-lead-ai-config', schemaEmpresa ?? 'master'] });
+      toast.success('Chave do Lead removida');
+    },
+    onError: (err: Error) => {
+      toast.error('Não foi possível remover a chave do Lead', { description: err.message });
+    },
+  });
+
+  const saveContratoApiKey = useMutation({
+    mutationFn: async (apiKey: string) => {
+      const trimmed = apiKey.trim();
+      if (!trimmed) throw new Error('Informe a chave da OpenAI');
+      if (!trimmed.startsWith('sk-')) {
+        throw new Error('A chave da OpenAI deve começar com sk-');
+      }
+      const needsSeed = !config?.id || config.id === 'default';
+      await persistPipelineLeadAiRow(client, adminTable, config?.id, {
+        singleton_key: 'default',
+        ...(needsSeed
+          ? {
+              model: PIPELINE_LEAD_AI_DEFAULTS.model,
+              system_prompt: PIPELINE_LEAD_AI_DEFAULTS.systemPrompt,
+              briefing_prompt: PIPELINE_LEAD_AI_DEFAULTS.briefingPrompt,
+              ativo: PIPELINE_LEAD_AI_DEFAULTS.ativo,
+            }
+          : {}),
+        contrato_openai_api_key: trimmed,
+        atualizado_em: new Date().toISOString(),
+      });
+      return reloadPipelineLeadAiConfig(client, adminTable);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipeline-lead-ai-config', schemaEmpresa ?? 'master'] });
+      toast.success('Chave de Contratos salva');
+    },
+    onError: (err: Error) => {
+      toast.error('Não foi possível salvar a chave de Contratos', { description: err.message });
+    },
+  });
+
+  const clearContratoApiKey = useMutation({
+    mutationFn: async () => {
+      await persistPipelineLeadAiRow(client, adminTable, config?.id, {
+        singleton_key: 'default',
+        contrato_openai_api_key: null,
+        atualizado_em: new Date().toISOString(),
+      });
+      return reloadPipelineLeadAiConfig(client, adminTable);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipeline-lead-ai-config', schemaEmpresa ?? 'master'] });
+      toast.success('Chave de Contratos removida');
+    },
+    onError: (err: Error) => {
+      toast.error('Não foi possível remover a chave de Contratos', { description: err.message });
+    },
+  });
+
   return {
     config: config ?? fallbackConfig(),
     isLoading,
     error,
     refetch,
     saveConfig,
+    saveLeadApiKey,
+    clearLeadApiKey,
+    saveContratoApiKey,
+    clearContratoApiKey,
   };
+}
+
+async function persistPipelineLeadAiRow(
+  client: ReturnType<typeof useEmpresaSupabase>,
+  adminTable: string,
+  configId: string | undefined,
+  row: Record<string, unknown>,
+) {
+  const persistRow = async (payload: Record<string, unknown>) => {
+    if (configId && configId !== 'default') {
+      const { error: updateError } = await client.from(adminTable).update(payload).eq('id', configId);
+      if (updateError) throw updateError;
+      return;
+    }
+
+    const { error: upsertError } = await client
+      .from(adminTable)
+      .upsert(payload, { onConflict: 'singleton_key' });
+    if (upsertError) throw upsertError;
+  };
+
+  try {
+    await persistRow(row);
+  } catch (persistError) {
+    if (!isPostgrestColumnError(persistError as { message?: string })) {
+      throw persistError;
+    }
+    const {
+      render_ambiente_ativo: _a,
+      render_ambiente_analysis_prompt: _b,
+      render_ambiente_prompt: _c,
+      contrato_openai_api_key: _d,
+      ...legacyRow
+    } = row;
+    await persistRow(legacyRow);
+  }
+}
+
+async function reloadPipelineLeadAiConfig(
+  client: ReturnType<typeof useEmpresaSupabase>,
+  adminTable: string,
+) {
+  let { data, error: readError } = await client
+    .from(adminTable)
+    .select(ADMIN_SELECT)
+    .eq('singleton_key', 'default')
+    .maybeSingle();
+
+  if (readError && isPostgrestColumnError(readError)) {
+    ({ data, error: readError } = await client
+      .from(adminTable)
+      .select(ADMIN_SELECT_NO_AMBIENTE)
+      .eq('singleton_key', 'default')
+      .maybeSingle());
+  }
+
+  if (readError && isPostgrestColumnError(readError)) {
+    ({ data, error: readError } = await client
+      .from(adminTable)
+      .select(ADMIN_SELECT_LEGACY)
+      .eq('singleton_key', 'default')
+      .maybeSingle());
+  }
+
+  if (readError) throw readError;
+  if (!data) {
+    throw new Error('Configuração salva, mas não foi possível recarregar. Atualize a página.');
+  }
+  return adaptConfig(data as DBPipelineLeadAIConfigAdmin);
 }
 
