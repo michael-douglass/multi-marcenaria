@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { z } from 'https://esm.sh/zod@3.23.8';
 import { corsHeaders } from '../_shared/cors.ts';
 import { sugerirCamposPorExtenso } from '../_shared/valor-monetario-extenso.ts';
@@ -394,7 +395,7 @@ Deno.serve(async (req) => {
     }
 
     // Mesmo padrão de compose-markup-ia: valida o JWT do usuário com service role.
-    const authClient = createClient(supabaseUrl, serviceKey);
+    const authClient = serviceClient(await empresaDoChamador(req));
     const {
       data: { user },
       error: userError,
@@ -434,7 +435,7 @@ Deno.serve(async (req) => {
       forcarEdicaoDocumento,
     } = parsed.data;
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = serviceClient(await empresaDoChamador(req));
     const db = resolveDb(admin, empresaSchema);
     const configTable = configTableName(empresaSchema);
 

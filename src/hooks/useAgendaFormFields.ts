@@ -4,7 +4,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { DEFAULT_AGENDA_FORM_FIELDS, buildDefaultFormFields } from '@/lib/agenda-form-defaults';
 import { slugifyFieldKey } from '@/lib/agenda-form-field-utils';
-import { getAgendaPublicClient, type AgendaPublicScope } from '@/lib/agenda-public-scope';
+import type { AgendaPublicScope } from '@/lib/agenda-public-scope';
 import { toast } from 'sonner';
 
 // ============================================
@@ -246,8 +246,8 @@ export function useAgendaFormFieldsPublic(configId?: string, scope?: AgendaPubli
     queryFn: async () => {
       if (!configId || !scope) return [];
 
-      const client = getAgendaPublicClient(scope);
-      const allFields = await fetchOrSeedFormFields(client, scope.formFieldsTable, configId);
+      // Campos vêm da RPC agenda_publica_dados (o anon não lê/semeia a tabela direto).
+      const allFields = ((scope.dados?.form_fields ?? []) as unknown as FormField[]);
       const visibleFields = allFields.filter((field) => field.visible);
 
       if (visibleFields.length > 0) {

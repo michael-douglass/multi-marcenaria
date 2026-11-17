@@ -2,8 +2,8 @@
  * Página pública de apresentação do orçamento — sem autenticação.
  * URL: /orcamento/:schema/:id
  *
- * O "schema" vem da empresa (ex.: "emp_garbo"). O cliente recebe este link
- * e pode visualizar a apresentação sem precisar de conta no CRM.
+ * O ":schema" da URL é mantido só por compatibilidade com links antigos; os dados vêm da RPC
+ * `orcamento_publico_obter`, que resolve a empresa pelo próprio orçamento.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -68,113 +68,43 @@ function useOrcamentoPublico(schema: string | undefined, id: string | undefined)
 
     async function load() {
       try {
-        const db = makeClient(schema!);
-
-        // 1. Orçamento
-        const { data: orc, error: orcErr } = await db
-          .from('orcamento_slides')
-          .select('*')
-          .eq('id', id!)
-          .maybeSingle();
-
-        if (orcErr || !orc) {
+        // Uma RPC devolve tudo, já filtrado pela empresa do orçamento (isolamento multi-empresa).
+        // Ela retorna null se o orçamento não existir, o link estiver oculto ou a empresa bloqueada.
+        const db = makeClient('public');
+        const { data: res, error } = await db.rpc('orcamento_publico_obter', { p_id: id! });
+        if (cancelled) return;
+        if (error || !res) {
           setNotFound(true);
           return;
         }
-
-        if (!isLinkPublicoAtivo(orc as OrcamentoSlide)) {
+        const r = res as {
+          orcamento: OrcamentoSlide;
+          template: OrcamentoSlideTemplate | null;
+          blocos: OrcamentoSlideBloco[];
+          midias: OrcamentoSlideMidia[];
+          perguntas: OrcamentoPergunta[];
+          catalogo: OrcamentoCatalogoItem[];
+          formas_pagamento: OrcamentoFormaPagamento[];
+          valor_orcamento_lead: number | string | null;
+        };
+        if (!isLinkPublicoAtivo(r.orcamento)) {
           setNotFound(true);
           return;
         }
-
-        // 2. Template ativo
-        const { data: tpls } = await db
-          .from('orcamento_slide_templates')
-          .select('*')
-          .eq('ativo', true)
-          .order('criado_em', { ascending: true })
-          .limit(1);
-
-        const template = (tpls?.[0] ?? null) as OrcamentoSlideTemplate | null;
-
-        // 3. Blocos do template
-        let blocos: OrcamentoSlideBloco[] = [];
-        if (template?.id) {
-          const { data: bls } = await db
-            .from('orcamento_slide_blocos')
-            .select('*')
-            .eq('template_id', template.id)
-            .order('ordem', { ascending: true });
-          blocos = (bls ?? []) as OrcamentoSlideBloco[];
-        }
-
-        // 4. Mídias do orçamento
-        const { data: mds } = await db
-          .from('orcamento_slide_midias')
-          .select('*')
-          .eq('orcamento_id', id!)
-          .order('ordem', { ascending: true });
-
-        const midiasOrc = (mds ?? []) as OrcamentoSlideMidia[];
-
-        const { data: perguntasRaw } = await db
-          .from('orcamento_slide_perguntas')
-          .select('*')
-          .eq('ativo', true)
-          .order('ordem', { ascending: true });
-
-        const perguntaIds = (perguntasRaw ?? []).map((p) => p.id);
-        let opcoesRaw: { pergunta_id: string }[] = [];
-        if (perguntaIds.length > 0) {
-          const { data: opcoes } = await db
-            .from('orcamento_slide_pergunta_opcoes')
-            .select('*')
-            .in('pergunta_id', perguntaIds)
-            .order('ordem', { ascending: true });
-          opcoesRaw = opcoes ?? [];
-        }
-
-        const perguntas = (perguntasRaw ?? []).map((p) => ({
-          ...p,
-          opcoes: opcoesRaw.filter((o) => o.pergunta_id === p.id),
-        })) as OrcamentoPergunta[];
-
-        const { data: catalogoRaw } = await db
-          .from('orcamento_slide_catalogo')
-          .select('*')
-          .eq('ativo', true)
-          .in('categoria', ['ferragem', 'mdf'])
-          .order('ordem', { ascending: true });
-
-        let valorOrcamentoLead = 0;
-        const leadId = (orc as OrcamentoSlide).lead_id;
-        if (leadId) {
-          const { data: leadRow } = await db
-            .from('leads')
-            .select('valor_orcamento')
-            .eq('id', leadId)
-            .maybeSingle();
-          valorOrcamentoLead = Number(leadRow?.valor_orcamento ?? 0);
-        }
-
-        const { data: formasRaw } = await db
-          .from('orcamento_slide_formas_pagamento')
-          .select('*')
-          .eq('ativo', true)
-          .order('ordem', { ascending: true });
-
-        const catalogoItens = (catalogoRaw ?? []) as OrcamentoCatalogoItem[];
+        const blocos = r.blocos ?? [];
+        const midiasOrc = r.midias ?? [];
+        const catalogoItens = r.catalogo ?? [];
         setData({
-          orcamento: orc as OrcamentoSlide,
-          template,
+          orcamento: r.orcamento,
+          template: r.template,
           blocos,
           midias: resolverMidiasApresentacao(midiasOrc, blocos),
           midiasOrcamento: midiasOrc,
-          perguntas,
+          perguntas: r.perguntas ?? [],
           catalogoFerragens: catalogoItens.filter((c) => c.categoria === 'ferragem'),
           catalogoItens,
-          valorOrcamentoLead,
-          formasPagamento: (formasRaw ?? []) as OrcamentoFormaPagamento[],
+          valorOrcamentoLead: Number(r.valor_orcamento_lead ?? 0),
+          formasPagamento: r.formas_pagamento ?? [],
         });
       } catch {
         if (!atualizacaoSilenciosa) setNotFound(true);
@@ -189,50 +119,12 @@ function useOrcamentoPublico(schema: string | undefined, id: string | undefined)
     };
   }, [schema, id, reloadTick]);
 
+  // Atualização periódica: com o isolamento por empresa, o anon não recebe eventos realtime do CRM.
   useEffect(() => {
-    if (!schema || !id) return;
-    const db = makeClient(schema);
-    const channel = db
-      .channel(`orcamento-publico-${schema}-${id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema,
-          table: 'orcamento_slides',
-          filter: `id=eq.${id}`,
-        },
-        () => reload(),
-      )
-      .subscribe();
-
-    return () => {
-      void db.removeChannel(channel);
-    };
-  }, [schema, id, reload]);
-
-  useEffect(() => {
-    const templateId = data?.template?.id;
-    if (!schema || !templateId) return;
-    const db = makeClient(schema);
-    const channel = db
-      .channel(`orcamento-publico-blocos-${schema}-${templateId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema,
-          table: 'orcamento_slide_blocos',
-          filter: `template_id=eq.${templateId}`,
-        },
-        () => reload(),
-      )
-      .subscribe();
-
-    return () => {
-      void db.removeChannel(channel);
-    };
-  }, [schema, data?.template?.id, reload]);
+    if (!id) return;
+    const t = window.setInterval(reload, 30_000);
+    return () => window.clearInterval(t);
+  }, [id, reload]);
 
   return { data, isLoading, notFound };
 }

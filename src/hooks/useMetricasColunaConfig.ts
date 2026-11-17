@@ -84,7 +84,7 @@ export function useMetricasColunaConfig(cardKey: MetricaColunaCardKey = METRICA_
 
       const { error } = await db.from(configTable).upsert(
         { card_key: cardKey, status_coluna },
-        { onConflict: 'card_key' },
+        { onConflict: 'empresa_id,card_key' },
       );
       if (error) throw error;
     },

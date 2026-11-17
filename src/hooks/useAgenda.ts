@@ -4,7 +4,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
-import { resolveAgendaPublicScope, fetchPublicAgendaConfig, getAgendaPublicClient } from '@/lib/agenda-public-scope';
+import { resolveAgendaPublicScope, fetchPublicAgendaConfig } from '@/lib/agenda-public-scope';
 import { createAgendaPublicBooking } from '@/lib/agenda-public-api';
 import { invokeOptionalEdgeFunction } from '@/lib/invoke-optional-edge-function';
 import { toast } from 'sonner';
@@ -487,46 +487,11 @@ export function useAgendaPublic(agendaSlug: string, empresaSlug?: string) {
     enabled: !!scope,
   });
 
-  const { data: reunioes = [], isLoading: loadingReunioes } = useQuery({
-    queryKey: ['agenda-reunioes-public', scope?.schema ?? null],
-    queryFn: async () => {
-      if (!scope) return [];
-      const client = getAgendaPublicClient(scope);
-      const now = new Date().toISOString();
-      const { data, error } = await client
-        .from(scope.reunioesTable)
-        .select('data_hora_inicio, data_hora_fim, status')
-        .gte('data_hora_inicio', now)
-        .in('status', ['pendente', 'confirmado']);
-
-      if (error) {
-        console.error('Erro ao buscar reuniões públicas:', error);
-        return [];
-      }
-      return data;
-    },
-    enabled: !!scope,
-  });
-
-  const { data: bloqueios = [], isLoading: loadingBloqueios } = useQuery({
-    queryKey: ['agenda-bloqueios-public', scope?.schema ?? null],
-    queryFn: async () => {
-      if (!scope) return [];
-      const client = getAgendaPublicClient(scope);
-      const now = new Date().toISOString();
-      const { data, error } = await client
-        .from(scope.bloqueiosTable)
-        .select('data_inicio, data_fim, recorrente, tipo_recorrencia')
-        .gte('data_fim', now);
-
-      if (error) {
-        console.error('Erro ao buscar bloqueios públicos:', error);
-        return [];
-      }
-      return data;
-    },
-    enabled: !!scope,
-  });
+  // Horários ocupados e bloqueios vêm da RPC agenda_publica_dados (já filtrados pela empresa).
+  const reunioes = scope?.dados?.reunioes ?? [];
+  const bloqueios = scope?.dados?.bloqueios ?? [];
+  const loadingReunioes = false;
+  const loadingBloqueios = false;
 
   const createAgendamento = useMutation({
     mutationFn: async (dados: {
@@ -558,7 +523,7 @@ export function useAgendaPublic(agendaSlug: string, empresaSlug?: string) {
       return { id: result.reuniao_id, lead_id: result.lead_id };
     },
     onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ['agenda-reunioes-public'] });
+      queryClient.invalidateQueries({ queryKey: ['agenda-public-scope'] });
       queryClient.invalidateQueries({ queryKey: ['agenda-reunioes'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       toast.success('🎉 Ebaaaa, uma reunião foi marcada!', {

@@ -4,7 +4,7 @@ export const GARBO_APRESENTACAO_PUBLIC_PATH = '/apresentacao/garbo';
 
 /** Cadastro de prestador vinculado ao Pontua Garbo (empresa Garbo). */
 export const GARBO_APRESENTACAO_EMPRESA_ID = '2c196e67-dd26-4e1c-839d-4d234f3a3dfd';
-export const GARBO_APRESENTACAO_SCHEMA = 'emp_garbo';
+export const GARBO_APRESENTACAO_SCHEMA = 'crm';
 
 export const GARBO_APRESENTACAO_CTA_URL =
   `/cadastro/prestador?e=${GARBO_APRESENTACAO_EMPRESA_ID}&s=${GARBO_APRESENTACAO_SCHEMA}`;

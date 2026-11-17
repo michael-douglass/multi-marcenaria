@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { corsHeaders } from "../_shared/cors.ts";
-import { dbFromSchema, MASTER_TABLES, resolveEmpresaDb } from "../_shared/empresa-tables.ts";
+import { CRM_SCHEMA, dbFromSchema, MASTER_TABLES, resolveEmpresaDb } from "../_shared/empresa-tables.ts";
+import { isUuid, serviceClient } from "../_shared/tenant.ts";
 import { ensurePontuaGarboPartnerLead } from "../_shared/pontua-garbo-lead.ts";
 
 const ALLOWED_ROLES = new Set(["vendedor", "marketing", "nenhum"]);
@@ -13,19 +13,26 @@ serve(async (req) => {
   }
 
   try {
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
-
-    const { nome, email, telefone, senha, tipo_usuario, role, empresaId, schemaNome, titulo } =
+    const { nome, email, telefone, senha, tipo_usuario, role, empresaId, titulo } =
       await req.json();
+
+    // Multi-empresa: o link traz o UUID da empresa (?e=). Ela precisa existir e estar ativa.
+    if (!isUuid(empresaId)) throw new Error("Contexto de empresa ausente. Use o link fornecido pelo administrador.");
+    const admin = serviceClient(empresaId);
+    const { data: empresa } = await admin
+      .from(MASTER_TABLES.empresas)
+      .select("id, ativo, status")
+      .eq("id", empresaId)
+      .maybeSingle();
+    if (!empresa || !empresa.ativo || empresa.status !== "ativa") {
+      throw new Error("Link de cadastro inválido ou empresa indisponível.");
+    }
+    const schemaNome = CRM_SCHEMA;
 
     // ── Validações básicas ───────────────────────────────────────────────────
     if (!nome?.trim()) throw new Error("Nome é obrigatório.");
     if (!email?.trim()) throw new Error("Email é obrigatório.");
     if (!senha || senha.length < 6) throw new Error("Senha deve ter no mínimo 6 caracteres.");
-    if (!empresaId || !schemaNome) throw new Error("Contexto de empresa ausente. Use o link fornecido pelo administrador.");
     if (!ALLOWED_TIPOS.has(tipo_usuario)) throw new Error("Tipo de usuário inválido.");
     if (!ALLOWED_ROLES.has(role)) throw new Error("Papel inválido.");
 
@@ -75,7 +82,7 @@ serve(async (req) => {
     // ── Vincula à empresa ────────────────────────────────────────────────────
     const { error: linkErr } = await admin.from(MASTER_TABLES.usuario_empresa).upsert(
       { user_id: userId, empresa_id: empresaId },
-      { onConflict: "user_id,empresa_id" },
+      { onConflict: "user_id" },
     );
     if (linkErr) throw linkErr;
 

@@ -77,3 +77,17 @@ verificação manual ponta a ponta na aplicação real.
 ## Path alias
 
 `@/` mapeia para `src/` (`vite.config.ts`). Usar para todo import interno a `src/`.
+
+## Multi-empresa (plataforma SaaS)
+
+Desde 2026-11 o sistema atende várias marcenarias isoladas por `empresa_id` + RLS, com o schema `crm`
+compartilhado (antigo `emp_garbo`), usuário master e Painel/Financeiro Master. Arquitetura, decisões e
+scripts: `docs/multi-empresa/DESIGN.md`, `docs/multi-empresa/PROGRESSO.md` e
+`docs/decisions/0003-multi-tenant-por-empresa-id.md`.
+
+- Banco: `app_empresa_atual()`, trigger `aaa_tenant_fill`, policy RESTRICTIVE `tenant_isolamento`,
+  role `app_tenant_definer`, tabelas `plataforma_*`, RPCs `master_*`.
+- Front: `src/hooks/useEmpresaAtiva.ts`, `src/contexts/EmpresaContext.tsx`, `src/hooks/useMaster.ts`,
+  `src/pages/master/*`, `src/components/master/*`.
+- Edge Functions: `supabase/functions/_shared/tenant.ts`.
+- Scripts: `scripts/multi-empresa/*` (gerador de migration, testes de isolamento, deploy).

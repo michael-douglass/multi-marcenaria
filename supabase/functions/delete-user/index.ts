@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { assertCallerIsEmpresaAdmin, assertUsuarioDaEmpresa, empresaAlvo, requireCallerTenant } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { dbFromSchema, MASTER_TABLES, resolveEmpresaDb } from '../_shared/empresa-tables.ts';
 
@@ -123,15 +124,20 @@ Deno.serve(async (req) => {
       return respond({ ok: false, error: 'Não é possível excluir seu próprio usuário' });
     }
 
-    const allowed = await callerCanDeleteUser(admin, caller.id, schemaNome ?? null);
-    if (!allowed) {
-      return respond({
-        ok: false,
-        error: 'Acesso negado: apenas administradores podem excluir usuários',
-      });
+    // Multi-empresa: admin só exclui usuários da própria empresa; o master, de qualquer uma.
+    let empresaUuid: string;
+    try {
+      const tenant = await requireCallerTenant(req);
+      empresaUuid = empresaAlvo(tenant, empresaId);
+      await assertCallerIsEmpresaAdmin(admin, tenant);
+      await assertUsuarioDaEmpresa(admin, tenant, userId, empresaUuid);
+    } catch (e) {
+      return respond({ ok: false, error: e instanceof Error ? e.message : 'Acesso negado' });
     }
+    void schemaNome;
+    void callerCanDeleteUser;
 
-    const target = resolveEmpresaDb(schemaNome ?? null);
+    const target = resolveEmpresaDb('crm');
     const db = dbFromSchema(admin, target.schema);
 
     console.log('Excluindo usuário:', { userId, schemaNome: target.schema, empresaId });

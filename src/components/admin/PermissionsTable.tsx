@@ -79,7 +79,7 @@ export function PermissionsTable({ role }: PermissionsTableProps) {
         .from('CRM-multi-empresas>user_permissions<')
         .upsert(
           { role, resource, action, allowed },
-          { onConflict: 'role,resource,action' }
+          { onConflict: 'empresa_id,role,resource,action' }
         );
 
       if (error) throw error;

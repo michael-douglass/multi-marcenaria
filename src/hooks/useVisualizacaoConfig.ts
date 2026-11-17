@@ -81,7 +81,7 @@ export function useVisualizacaoConfig() {
             paineis_visiveis: payload,
             atualizado_em: new Date().toISOString(),
           },
-          { onConflict: 'chave' },
+          { onConflict: 'empresa_id,chave' },
         )
 
       if (err) throw err

@@ -140,7 +140,7 @@ export interface Pedido {
   movelaria_pedidos_anexos?: PedidoAnexo[]
 }
 
-/** Linha de material vinda de emp_garbo.markup_orcamentos.modulos.materiais.linhas */
+/** Linha de material vinda de crm.markup_orcamentos.modulos.materiais.linhas */
 export interface MarkupLinhaProduto {
   produto_id?: string | null
   descricao: string
@@ -304,7 +304,7 @@ export interface Cliente {
 
 export type ClienteInput = Omit<Cliente, 'id' | 'criado_em' | 'atualizado_em'>
 
-// ── Lead Ganho (emp_garbo CRM) ───────────────────────────────
+// ── Lead Ganho (crm CRM) ───────────────────────────────
 export interface LeadGanho {
   id: string
   nome: string
@@ -611,7 +611,7 @@ export interface ObraMontadorExecucao {
   finalizado_em?: string | null
 }
 
-/** Totais de custo do markup (emp_garbo.markup_orcamentos.modulos.totais). */
+/** Totais de custo do markup (crm.markup_orcamentos.modulos.totais). */
 export interface MarkupOrcamentoCustos {
   lead_id: string
   custo_materiais: number
@@ -620,7 +620,7 @@ export interface MarkupOrcamentoCustos {
   preco_final: number
 }
 
-/** Mídia anexada ao lead no CRM (emp_garbo.marketing_medias). */
+/** Mídia anexada ao lead no CRM (crm.marketing_medias). */
 export type LeadMidiaTipo = 'imagem' | 'pdf' | 'video' | 'audio'
 
 export interface LeadMidia {

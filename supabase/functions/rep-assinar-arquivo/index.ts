@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,10 +83,7 @@ Deno.serve(async (req) => {
 
   try {
     const { storagePath, fileName, hashSha256 } = (await req.json()) as SignPayload
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
+    const supabase = serviceClient(await empresaDoChamador(req))
 
     const { data: fileData, error: dlErr } = await supabase.storage
       .from('movelaria-funcionario-documentos')

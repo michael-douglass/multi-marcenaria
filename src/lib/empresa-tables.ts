@@ -1,9 +1,15 @@
-/** Schemas expostos na API REST do Supabase (Dashboard → API → Exposed schemas). */
-export const API_EXPOSED_SCHEMAS = new Set(['public', 'graphql_public', 'emp_garbo']);
+/**
+ * Schema compartilhado do CRM. Todas as empresas usam o mesmo schema; o isolamento é por
+ * `empresa_id` + RLS (ver docs/multi-empresa/DESIGN.md). Par: supabase/functions/_shared/empresa-tables.ts
+ */
+export const CRM_SCHEMA = 'crm';
 
-/** Schema de empresa isolado (emp_slug) — tratado como exposto quando provisionado no Supabase. */
+/** Schemas expostos na API REST do Supabase (Dashboard → API → Exposed schemas). */
+export const API_EXPOSED_SCHEMAS = new Set(['public', 'graphql_public', CRM_SCHEMA]);
+
+/** Schema do CRM (`crm`; `emp_*` legado ainda é reconhecido). */
 export function isEmpresaSchema(schema: string | null | undefined): boolean {
-  return !!schema && /^emp_[a-z0-9_]+$/.test(schema);
+  return !!schema && /^(crm|emp_[a-z0-9_]+)$/.test(schema);
 }
 
 export function isSchemaApiExposed(schema: string | null | undefined): schema is string {

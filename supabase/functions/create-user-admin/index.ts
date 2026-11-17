@@ -2,11 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
+  CRM_SCHEMA,
   dbFromSchema,
   MASTER_TABLES,
   resolveEmpresaDb,
-  resolveEmpresaId,
 } from "../_shared/empresa-tables.ts";
+import {
+  assertCallerIsEmpresaAdmin,
+  assertUsuarioDaEmpresa,
+  empresaAlvo,
+  requireCallerTenant,
+  serviceClient,
+} from "../_shared/tenant.ts";
 import { ensurePontuaGarboPartnerLead } from "../_shared/pontua-garbo-lead.ts";
 
 function errorMessage(error: unknown): string {
@@ -131,7 +138,7 @@ async function linkUsuarioEmpresa(
     .from(MASTER_TABLES.usuario_empresa)
     .upsert(
       { user_id: userId, empresa_id: empresaId },
-      { onConflict: "user_id,empresa_id" },
+      { onConflict: "user_id" },
     );
 
   if (error) throw error;
@@ -143,23 +150,20 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
-
-    const { nome, email, telefone, role, roles, empresaId, schemaNome, tipo_usuario, titulo, comissao_ativa, leadId } =
+    // Multi-empresa: só admin da empresa (ou o master) cria usuários, e sempre na empresa de quem chama
+    // (o master pode indicar outra empresa por UUID). schemaNome do body é ignorado: o CRM é o schema crm.
+    const tenant = await requireCallerTenant(req);
+    const { nome, email, telefone, role, roles, empresaId, tipo_usuario, titulo, comissao_ativa, leadId } =
       await req.json();
-
-    if (!empresaId || !schemaNome) {
-      throw new Error(
-        "empresaId e schemaNome são obrigatórios. Selecione a empresa antes de cadastrar o usuário.",
-      );
-    }
-
+    const empresaUuid = empresaAlvo(tenant, empresaId);
+    const supabaseClient = serviceClient(empresaUuid);
+    await assertCallerIsEmpresaAdmin(supabaseClient, tenant);
+    const schemaNome = CRM_SCHEMA;
     const target = resolveEmpresaDb(schemaNome);
-    // Frontend legado pode enviar schema_nome (ex.: emp_garbo) no lugar do UUID.
-    const empresaUuid = await resolveEmpresaId(supabaseClient, empresaId, schemaNome);
+
+    if (!email || !nome) {
+      throw new Error("Nome e e-mail são obrigatórios.");
+    }
 
     console.log("Processing user request:", {
       nome,
@@ -168,7 +172,6 @@ serve(async (req) => {
       roles,
       tipo_usuario,
       empresaId: empresaUuid,
-      schemaNome,
     });
 
     const { data: existingUserData, error: listUsersError } =
@@ -188,6 +191,7 @@ serve(async (req) => {
     let message: string;
 
     if (existingUser) {
+      await assertUsuarioDaEmpresa(supabaseClient, tenant, existingUser.id, empresaUuid);
       const { error: updateAuthError } = await supabaseClient.auth.admin.updateUserById(
         existingUser.id,
         {

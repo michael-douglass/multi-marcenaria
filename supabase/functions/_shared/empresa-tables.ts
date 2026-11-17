@@ -11,7 +11,13 @@ export const MASTER_TABLES = {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Aceita UUID ou schema (ex.: emp_garbo) e devolve o id real da empresa. */
+/** Schema compartilhado do CRM (par de src/lib/empresa-tables.ts). */
+export const CRM_SCHEMA = 'crm';
+
+/**
+ * Devolve o UUID da empresa. Desde o multi-empresa todas usam o schema `crm`, então o schema NÃO
+ * identifica mais a empresa: é preciso o UUID (ou o slug).
+ */
 export async function resolveEmpresaId(
   client: SupabaseClient,
   empresaId: string,
@@ -20,22 +26,20 @@ export async function resolveEmpresaId(
   const raw = String(empresaId || '').trim();
   if (UUID_RE.test(raw)) return raw;
 
-  const schema = String(schemaNome || raw || '').trim();
-  if (!schema) {
-    throw new Error('empresaId inválido: informe o UUID da empresa ou o schema_nome.');
+  void schemaNome;
+  if (!raw) {
+    throw new Error('empresaId inválido: informe o UUID ou o slug da empresa.');
   }
 
   const { data, error } = await client
     .from(MASTER_TABLES.empresas)
     .select('id')
-    .eq('schema_nome', schema)
+    .eq('slug', raw)
     .maybeSingle();
 
   if (error) throw error;
   if (!data?.id) {
-    throw new Error(
-      `Empresa não encontrada para schema "${schema}". Cadastre a casa antes de vincular usuários.`,
-    );
+    throw new Error(`Empresa não encontrada para "${raw}". Informe o UUID ou o slug da empresa.`);
   }
 
   return data.id as string;

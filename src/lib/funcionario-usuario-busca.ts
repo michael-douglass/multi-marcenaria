@@ -44,7 +44,7 @@ export function normalizeUsuarioBusca(text: string): string {
     .trim()
 }
 
-/** Tem ficha no CRM (emp_garbo), mesmo sem tipo definido. */
+/** Tem ficha no CRM (crm), mesmo sem tipo definido. */
 export function temAcessoCrm(u: UsuarioAdmin): boolean {
   return Boolean(u.crm_tipo_usuario || u.crm_status_convite || u.crm_roles.length > 0)
 }

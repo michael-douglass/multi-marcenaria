@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { useAuth } from '../hooks/useAuth'
+import { useEmpresaAtiva, type EmpresaAtiva } from '../hooks/useEmpresaAtiva'
 import type { CrmProfile } from '../lib/crm-identity'
 import type { UserRole, UserProfile } from '../types'
 
@@ -16,12 +17,20 @@ interface AppContextType {
   profileError: string | null
   signOut: () => Promise<void>
   retryProfile: () => void
+  /** Marcenaria em que o usuário está trabalhando (multi-empresa). */
+  empresa: EmpresaAtiva | null
+  /** Usuário master da plataforma (acessa todas as empresas). */
+  isMaster: boolean
+  empresaLoading: boolean
+  trocarEmpresa: (empresaId: string) => Promise<void>
+  recarregarEmpresa: () => void
 }
 
 const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const auth = useAuth()
+  const emp = useEmpresaAtiva(auth.session?.user?.id)
   return (
     <AppContext.Provider
       value={{
@@ -36,6 +45,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         profileError: auth.profileError,
         signOut: auth.signOut,
         retryProfile: auth.retryProfile,
+        empresa: emp.empresa,
+        isMaster: emp.isMaster,
+        empresaLoading: emp.empresaLoading,
+        trocarEmpresa: emp.trocarEmpresa,
+        recarregarEmpresa: emp.recarregarEmpresa,
       }}
     >
       {children}

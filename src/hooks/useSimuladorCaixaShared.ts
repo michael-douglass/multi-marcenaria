@@ -137,7 +137,7 @@ export function useSimuladorCaixaShared(ano: number) {
               atualizado_por: userProfile?.id ?? null,
               atualizado_em: normalized.salvoEm,
             },
-            { onConflict: 'ano' },
+            { onConflict: 'empresa_id,ano' },
           )
           .select('ano, meses, previsao_recebimento, previsao_despesas, ajustes, atualizado_em')
           .single()

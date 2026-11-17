@@ -533,7 +533,7 @@ async function persistPipelineLeadAiRow(
 
     const { error: upsertError } = await client
       .from(adminTable)
-      .upsert(payload, { onConflict: 'singleton_key' });
+      .upsert(payload, { onConflict: 'empresa_id,singleton_key' });
     if (upsertError) throw upsertError;
   };
 

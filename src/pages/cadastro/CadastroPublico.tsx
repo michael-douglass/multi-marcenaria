@@ -89,7 +89,8 @@ export default function CadastroPublico() {
 
   const empresaId = searchParams.get('e') ?? '';
   const schemaNome = searchParams.get('s') ?? '';
-  const hasEmpresaContext = !!empresaId && !!schemaNome;
+  // Multi-empresa: o UUID da empresa (?e=) basta; o schema é sempre o compartilhado `crm`.
+  const hasEmpresaContext = !!empresaId;
 
   const config = TIPOS[tipo as CadastroTipo] ?? TIPOS.prestador;
 

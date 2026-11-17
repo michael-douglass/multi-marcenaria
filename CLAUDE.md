@@ -2,60 +2,106 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project
+## O que é
 
-GARBO Movelaria — a Vite + React + TypeScript SPA for a furniture company: financial management, construction/installation ("obras") tracking, timekeeping ("ponto"), plus an embedded CRM module ("Selletos") for leads/pipeline/contracts/marketing. Backend is Supabase (Postgres + Auth + Edge Functions).
+**GARBO Movelaria** — sistema interno de uma marcenaria. SPA Vite + React 18 + TypeScript com backend Supabase (Postgres, Auth, Storage, Edge Functions em Deno), publicada na Netlify como PWA. A UI, os comentários e os docs são em pt-BR.
 
-## Commands
+O `README.md` e os arquivos versionados no git (`.claude/`, `.claude-plugin/`, `.mcp.json`) são do *Claude Code Starter Pack* copiado para a raiz — **não descrevem o app**. O código do app (`src/`, `supabase/`, `scripts/`, `docs/`) ainda está fora do git. A documentação real fica em `docs/` — comece por `docs/product.md`, `docs/tech.md`, `docs/structure.md` e `docs/glossary.md`.
+
+## Comandos
 
 ```bash
-pnpm dev              # vite dev server on :3000 (strictPort)
-pnpm build            # tsc && vite build
-pnpm preview          # serve the production build on :3000
-pnpm migrate          # node --env-file=.env scripts/migrate.mjs — applies pending SQL in supabase/migrations/
+pnpm install
+pnpm dev        # Vite em http://localhost:3000 (strictPort — falha se a porta estiver ocupada)
+pnpm build      # tsc && vite build — único guardrail automático de correção
+pnpm preview    # serve o build na porta 3000
+pnpm migrate    # aplica supabase/migrations/*.sql pendentes (usa DATABASE_URL do .env local)
 ```
 
-- Package manager is pnpm (`packageManager: pnpm@10.32.0`). Node >= 20.
-- There is no lint script and no automated test runner (no Jest/Vitest/Playwright config wired to package.json) — `scripts/test-*.mjs` are ad-hoc manual scripts (e.g. `node scripts/test-caixa-restante.mjs`), not a suite run in CI. Treat `pnpm build` (which runs `tsc`) as the main correctness check.
-- `scripts/apply-*.mjs` are one-off scripts that applied specific numbered migrations historically; new schema changes should go through `supabase/migrations/*.sql` + `pnpm migrate` instead of new apply-*.mjs scripts.
-- Deploying: Netlify builds with `pnpm build` / publishes `dist` (see `netlify.toml`). Netlify does **not** run DB migrations — run `pnpm migrate` locally against `DATABASE_URL`. See `NETLIFY.md` for env vars and Supabase auth URL configuration.
+- Gerenciador: **pnpm 10** (fixado em `packageManager`), Node ≥ 20.
+- **Não existe script de lint nem test runner.** `pnpm build` (typecheck) é o teto da verificação automática; o resto é verificação manual na aplicação.
+- Os `scripts/test-*.mjs` e `scripts/smoke-*.mjs` são verificações ad-hoc, rodadas uma a uma. Os que só usam Node rodam com `node scripts/<arquivo>.mjs`; os que importam `.ts` de `src/` pedem `pnpm exec tsx scripts/<arquivo>.mjs` (o cabeçalho de cada arquivo diz o uso). `tsx` não está no `package.json`.
+- Scripts que tocam o banco usam `node --env-file=.env scripts/<arquivo>.mjs`.
+- ESLint e Prettier não estão instalados no projeto, mas o hook `.claude/hooks/post-edit-format.sh` chama `pnpm eslint --fix` após cada edição de JS/TS — um "eslint falhou" vindo do hook é ausência da ferramenta, não erro no código.
 
-## Environment
+## Arquitetura
 
-Required in `.env` (see `.env.example`):
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_PROJECT_ID` alternative) — used by the frontend (`src/lib/supabase.ts`), must also be set in Netlify.
-- `DATABASE_URL` — used only by `pnpm migrate` and local scripts, never exposed to the frontend/Netlify.
-- `SUPABASE_SERVICE_ROLE_KEY` — used only by local/admin scripts, never in frontend code or Netlify env.
+### Dois apps fundidos numa casca só
 
-## Architecture
+O código é a fusão de dois produtos que compartilham login e roteamento, mas têm estado, permissões e convenções de nome **independentes**. Antes de reaproveitar um nome, confirme em qual lado você está:
 
-### Two apps sharing one shell
+| | Núcleo "Movelaria" (financeiro, obras, ponto) | CRM "Selletos" (leads, pipeline, contratos, markup, orçamentos) |
+|---|---|---|
+| Contextos | `src/context/` (singular) | `src/contexts/` (plural) |
+| `useApp()` | `@/context/AppContext` (sessão, papéis, perfil) | `@/contexts/AppContext` (UI do CRM — é outro hook) |
+| Papéis | `UserRole` — gate `canAccessSection` em `src/lib/role-access.ts` | `CrmRole` — gate `canAccessCrmPath` em `src/lib/crm-identity.ts` |
+| Carregamento | páginas eager | páginas `lazy()` (o bundle já passa de 5 MB) |
+| Providers | `AppProvider` em `main.tsx`; `ObrasProvider`, `OptionalFinanceDataProvider` | `CrmSelletosProviders` (pilha Empresa → Auth → … ) |
 
-The codebase is the merge of two originally-separate apps, and this shows up as **parallel, similarly-named modules** — always check which one you're in before reusing a name:
+Um mesmo usuário pode ter papéis nos dois lados.
 
-- **Core "Movelaria" app** — financial/obras/ponto features. Context lives in `src/context/` (singular): `AppContext.tsx`, `CaixaContext.tsx`, `FinanceDataContext.tsx`, `ObrasContext.tsx`. Roles are `UserRole` (`Administrador`, `Financeiro`, `Marceneiro`, `MontadorAdmin`, `AdministradorObras`, `Montador`, `Visualizador`), defined in `src/types` and gated via `src/lib/role-access.ts` (`canAccessSection`, `getAllowedSections`).
-- **CRM "Selletos" module** — leads/pipeline/contracts/markup/marketing/eventos. Context lives in `src/contexts/` (plural): `AppContext.tsx` (a *different* `useApp()`, CRM UI state only — comment in file: "Não confundir com `@/context/AppContext` da fábrica"), `AuthContext.tsx`, `EmpresaContext.tsx`. Roles are `CrmRole` (`admin`, `vendedor`, `marketing`, `projetista`, `projetista_admin`, `nenhum`), defined in `src/lib/crm-identity.ts` and gated via `canAccessCrmPath`.
+### Roteamento (`src/App.tsx`)
 
-Both role systems are independent and a user can hold roles in either/both (`src/App.tsx` composes both: `roles` from core auth and `crmProfile` from CRM auth, e.g. `isCrmAdmin(crmProfile) || roles.includes('Administrador')`). When adding an access-controlled feature, identify first whether it belongs to the core app or the CRM module — that decides which role type and gate function applies.
+- Rotas públicas (sem sessão) ficam direto em `App()`: `/orcamento/:schema/:id`, `/agendar/:slug`, `/cadastro/:tipo` etc.
+- Todo o resto cai em `AppRoutes` → gate de identidade (`evaluateIdentityGate`: horário de acesso, portal de prestador) → `AuthenticatedRoutes`.
+- O acesso é decidido **inline, por rota**, sem wrapper genérico: `canAccessSection(roles, …)` / helpers de `obra-permissions` no núcleo, `crmPage(path, element)` no CRM. Rota nova do CRM precisa entrar em `CRM_APP_PATHS` (`crm-identity.ts`) e ser `lazy()`.
+- `RoleRedirect` reforça o gate a cada navegação e guarda a última rota para o PWA retomar (`/?src=pwa`).
 
-### Routing and access gating (`src/App.tsx`)
+### Dados e multi-tenant
 
-All authenticated routing funnels through `AuthenticatedRoutes()`. Route access is decided inline per-route via the two gate helpers above (`canAccessSection`/`canAccessFuncionarioPasta` for core, `crmPage(path, element)`/`canAccessCrmPath` for CRM), rather than a generic route-guard wrapper — follow the existing per-route pattern when adding a route. `readOnly` mode applies when a user's *only* role is `Marceneiro` (view-only across finance screens via `guardReadOnly`).
+- Cliente Supabase único em `src/lib/supabase.ts` — importe sempre de `@/lib/supabase` (`src/integrations/supabase/client.ts` só reexporta). Ele tem timeouts por tipo de chamada: REST 20s, storage 120s, **edge functions 180s**.
+- **Multi-empresa (SaaS de marcenarias)** — isolamento por `empresa_id` + RLS, não por schema. Detalhes em `docs/multi-empresa/DESIGN.md` (§1.1) e ADR `docs/decisions/0003-multi-tenant-por-empresa-id.md`.
+  - O CRM vive no schema compartilhado **`crm`** (o antigo `emp_garbo`); o núcleo em `public.movelaria_*`. Toda tabela de dados tem `empresa_id` (Corte Claude: `company_id`), trigger `aaa_tenant_fill` e policy RESTRICTIVE `tenant_isolamento` (`empresa_id = app_empresa_atual()`). **Não envie `empresa_id` do front**: o trigger preenche.
+  - `public.app_empresa_atual()` decide a empresa: usuário → `usuario_empresa` (só se a empresa estiver `ativa`); master → `plataforma_master_contexto`; sistema (cron/service role/funções públicas) → GUC `app.empresa_ctx`.
+  - Funções `SECURITY DEFINER` comuns pertencem ao role `app_tenant_definer` (sem BYPASSRLS) e já ficam isoladas. Função nova que precisa do `postgres` (toca `auth.*`/`storage`/DDL) precisa filtrar a empresa à mão.
+  - Unicidades "de negócio" e `onConflict` incluem `empresa_id` (ex.: `onConflict: 'empresa_id,chave'`).
+  - Ainda resolva tabelas do CRM com `useEmpresaSupabase` / `useEmpresaTable` / `src/lib/empresa-tables.ts` (`CRM_SCHEMA = 'crm'`). As tabelas `CRM-multi-empresas>X<`/`crm_multiempresas_*` são legado (só `empresas`, `usuario_empresa` e `super_admins` são da plataforma).
+  - Empresa ativa no front: `useApp()` do núcleo expõe `empresa`, `isMaster` e `trocarEmpresa` (`src/hooks/useEmpresaAtiva.ts`); o `EmpresaContext` do CRM lê dali. O cache persistido é descartado ao trocar de empresa/sair.
+  - Usuário master (`super_admins`): Painel Master em `/master`, `/master/empresas/:id`, `/master/financeiro` (RPCs `master_*`, tabelas `plataforma_*`). Empresa com mensalidade vencida além da tolerância é bloqueada pelo job `plataforma_cobrancas_diario`.
+  - Testes: `node --env-file=.env scripts/multi-empresa/test-isolamento.mjs` (API real, cria e apaga 2 empresas) e `scripts/multi-empresa/test-plataforma.sql` (via `q.mjs --write -f`, sempre rollback).
+- Estado de servidor do CRM via TanStack Query com persistência em `localStorage`; só as query keys listadas em `main.tsx` (`shouldDehydrateQuery`) são persistidas.
+- Service worker desligado em dev e **não intercepta `supabase.co`** (quebra o login no celular) — não adicione runtime caching para o Supabase.
 
-Public (unauthenticated) routes are declared directly in `App()`, outside `AuthenticatedRoutes` — e.g. `/orcamento/:schema/:id`, `/agendar/:slug`, `/cadastro/:tipo`. These are customer-facing pages (public quote viewing, public booking, public registration) and must not assume a Supabase session.
+### Migrations
 
-Most CRM pages are `lazy()`-loaded; core app pages are eagerly imported. Keep new CRM-module pages lazy to avoid bloating the main bundle (see the Workbox comment in `vite.config.ts` about the CRM bundle already exceeding 5MB).
+- Arquivos numerados em `supabase/migrations/`, aplicados em ordem do prefixo numérico por `scripts/migrate.mjs` (tabela de controle `movelaria_schema_migrations`), cada um em transação.
+- **Nunca edite uma migration já aplicada** — crie um arquivo novo com o próximo número.
+- O script ordena pelo número do prefixo: migration nova usa **timestamp de 14 dígitos** maior que o último (hoje `20261117170200_…`); um prefixo de 3 dígitos rodaria antes de todas as datadas.
+- A Netlify não roda migrations; `pnpm migrate` é manual, da máquina local.
 
-### Supabase integration
+### Edge Functions (`supabase/functions/`)
 
-- `src/lib/supabase.ts` is the actual client (custom storage adapter, timeouts tuned per-operation: REST 20s, storage 120s, edge functions 180s for AI/render calls). `src/integrations/supabase/client.ts` just re-exports it — always import from `@/lib/supabase` for anything new; the `integrations` path exists only for CRM code parity.
-- `supabase/migrations/*.sql` — numbered (`NNN_description.sql`) or timestamped (`YYYYMMDDHHMMSS_description.sql`) migrations, applied in filename-sort order by `scripts/migrate.mjs`, tracked in a `movelaria_schema_migrations` table it creates itself. Write new migrations as new files here; don't edit past ones.
-- `supabase/functions/*` — Deno edge functions (WhatsApp integration, lead AI analysis/render, contract/markup composition, marketing copy generation, user admin actions like create/delete/reset-password). `supabase/functions/_shared` holds code shared across functions.
+- Deno não importa de `src/`. Lógica compartilhada existe em **pares duplicados** `src/lib/X.ts` ↔ `supabase/functions/_shared/X.ts` (`markup-motor-calculo`, `markup-match`, `markup-cortecloud`, `markup-ia-*`, `empresa-tables`…). Não há sync automático: ao mudar um lado, mude o outro.
+- **Multi-empresa:** use `_shared/tenant.ts`. `serviceClient(await empresaDoChamador(req))` cria o cliente service role com o header `x-empresa-id` (o PostgREST, via `app_pre_request`, vira o contexto da empresa e os inserts recebem `empresa_id`). Service role ignora RLS nas leituras: filtre por `empresa_id`. Funções de usuário usam `requireCallerTenant` + `assertCallerIsEmpresaAdmin` + `assertUsuarioDaEmpresa`.
+- Chaves de IA (OpenAI/Anthropic) **não** são secrets de Edge Function nem variáveis da Netlify: são cadastradas no app em `/configuracoes-ia` e lidas do banco pelas funções.
 
-### Path alias
+### Orçamento com IA — dois pipelines distintos
 
-`@/` maps to `src/` (configured in `vite.config.ts`). Use it for all intra-`src` imports.
+1. **Markup "Compor com IA"** — `supabase/functions/compose-markup-ia/index.ts` orquestra as fases (Fidelidade → Projetista → Inventariante → Auditores → Precificação); UI em `src/components/markup/`; resultado vira orçamento em `src/lib/markup-compose.ts`. Mapa completo em `docs/structure.md`; decisões em `docs/decisions/` e `specs/orcamento-com-ia/REQUIREMENTS.md`.
+2. **Orçamentos IA / "Corte Claude"** (rota `/orcamentos-ia`) — `src/lib/orcamentos-ia/` (orquestração LangGraph em `pipeline.ts`, desmonte determinístico em `bom-engine/`), componentes em `src/components/orcamentos-ia/`, visão/extração na edge function `orcamentos-ia-pipeline`. Fonte da verdade: `docs/prd_v11_sistema_orcamento_corte_claude.md` + acertos em `docs/prd_v12_1_corte_claude_acertos_consolidados.md`; plano em `EXECUTION_PLAN.md`.
 
-### Repo hygiene note
+Regras do módulo Corte Claude (de `.cursorrules`; o arquivo `.cursorrule` no singular é a versão v8 antiga, ignore):
 
-The repo root accumulates one-off artifacts from past work: stray top-level files like `App.js`, `Button.tsx`, `deploy-*.json`, `deploy-*.ts`, `screenshot-*.png`, `test_*.png`, numbered scratch files (`0`), and `.md` planning docs under `docs/`. These are not part of the build (`src/App.tsx` is the real entry, not root `App.js`). Don't assume a root-level same-named file is live code — check `src/` first.
+- **Proibido** precificar móvel por m² de fachada. Venda só por BOM com margem MPC % ou multiplicador ×N. m² existe apenas para consumo de chapa (área da peça ÷ 5,0875 + 15% de perda).
+- Ferragens, conectores e parafusos são calculados **por unidade individual**, nunca por pacote/caixa.
+- Preferências construtivas em `system_preferences`; BOM em `bom_items`.
+- Fallback de preço: `inventory_items` → `market_reference_prices` com confirmação do usuário na UI (`using_market_price`).
+- Correções feitas na auditoria com justificativa são vetorizadas (embeddings) e salvas em `ai_memories`.
+- `company_id` aponta para a empresa do CRM já existente — não criar tabela `companies`.
+- PDF renderizado a 200 DPI com overlay SVG de bounding boxes; accent `#0066FF`; tokens em `ui-tokens.ts`.
+- UI só com Tailwind (sem CSS modules), ícones só `lucide-react`, reaproveitar primitivos de `src/components/ui` (shadcn/Radix).
+
+## Armadilhas
+
+- **A raiz tem lixo de trabalhos antigos** (`App.js`, `Button.tsx`, `deploy-*.json/ts`, `tmp-*`, `.md` de planejamento, `meu-primeiro-projeto/`). Nada disso roda — o entrypoint é `src/main.tsx` → `src/App.tsx`.
+- `NETLIFY.md` cita a porta 3001; a porta real é **3000**. Há também um `vercel.json`, mas o deploy é Netlify (`netlify.toml`).
+- Imports internos usam o alias `@/` → `src/`.
+- `.env` existe só para uso local (`VITE_SUPABASE_*` para o front; `DATABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` apenas para scripts — nunca no front nem na Netlify). `settings.json` nega leitura/edição de `.env*`; use `.env.example` como referência dos nomes.
+
+## Convenções
+
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`); **branches:** `feat/<desc>`, `fix/<desc>`, `chore/<desc>`.
+- Decisões arquiteturais viram ADR em `docs/decisions/NNNN-titulo.md` (formato no README da pasta); ADR aceito não é editado, é substituído por outro.
+- Não usar `any` em TypeScript sem comentário justificando.
+- Não fazer `git push --force` em `main`.
+- Revisão: skill `code-review-b2`. Auditoria de segurança: skill `security-check`.

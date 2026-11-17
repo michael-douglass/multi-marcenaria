@@ -1,4 +1,19 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { isUuid, serviceClient } from '../_shared/tenant.ts';
+
+/** Empresa dona do webhook (crm.webhooks_api, com fallback para as tabelas legadas). */
+async function empresaDoWebhook(webhookId: string | null | undefined): Promise<string | null> {
+  if (!isUuid(webhookId)) return null;
+  const svc = serviceClient();
+  for (const q of [
+    svc.schema('crm').from('webhooks_api'),
+    svc.from('CRM-multi-empresas>webhooks_api<'),
+    svc.from('CRM-Selletos>webhooks_api<'),
+  ]) {
+    const { data } = await q.select('empresa_id').eq('id', webhookId).maybeSingle();
+    if (data?.empresa_id) return data.empresa_id as string;
+  }
+  return null;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,16 +36,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     // Obter webhook_id da query string (opcional)
     const url = new URL(req.url);
     const webhookIdFromQuery = url.searchParams.get('webhook_id');
 
     const payload: WebhookPayload = await req.json();
+
+    // Multi-empresa: a empresa vem da configuração do webhook (webhook_id). Sem ela, recusa.
+    const webhookIdResolvido = payload.webhook_id ?? webhookIdFromQuery;
+    const empresaId = await empresaDoWebhook(webhookIdResolvido);
+    if (!empresaId) {
+      return new Response(JSON.stringify({ success: false, error: 'webhook_id inválido ou ausente' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+    const supabase = serviceClient(empresaId);
     
     console.log('📥 Webhook recebido:', JSON.stringify(payload, null, 2));
 
@@ -56,6 +77,7 @@ Deno.serve(async (req) => {
     let { data: contato, error: contatoError } = await supabase
       .from('crm_selletos_chat_contatos')
       .select('*')
+      .eq('empresa_id', empresaId)
       .eq('telefone', telefoneNormalizado)
       .single();
 
@@ -67,6 +89,7 @@ Deno.serve(async (req) => {
       const { data: lead } = await supabase
         .from('CRM-Selletos>leads<')
         .select('id, nome')
+        .eq('empresa_id', empresaId)
         .or(`telefone.eq.${telefone},telefone.eq.${telefoneNormalizado},telefone.ilike.%${telefoneNormalizado}%`)
         .limit(1)
         .single();

@@ -1,0 +1,38 @@
+-- M08 (unicidades) — chaves de negócio do CRM passam a ser por empresa.
+-- agenda_config.slug continua GLOBAL (identifica a página pública /agendar/:slug).
+alter table "crm"."chat_contatos" drop constraint "chat_contatos_telefone_key";
+alter table "crm"."chat_contatos" add constraint "chat_contatos_telefone_key" unique (empresa_id, telefone);
+alter table "crm"."evento_catalogo_itens" drop constraint "evento_catalogo_nome_key";
+alter table "crm"."evento_catalogo_itens" add constraint "evento_catalogo_nome_key" unique (empresa_id, nome_normalizado);
+alter table "crm"."kanban_pages" drop constraint "kanban_pages_slug_key";
+alter table "crm"."kanban_pages" add constraint "kanban_pages_slug_key" unique (empresa_id, slug);
+alter table "crm"."lead_origins" drop constraint "lead_origins_nome_key";
+alter table "crm"."lead_origins" add constraint "lead_origins_nome_key" unique (empresa_id, nome);
+alter table "crm"."lead_whiteboard_text_config" drop constraint "lead_whiteboard_text_config_singleton_key_key";
+alter table "crm"."lead_whiteboard_text_config" add constraint "lead_whiteboard_text_config_singleton_key_key" unique (empresa_id, singleton_key);
+alter table "crm"."marketing_ai_agents" drop constraint "marketing_ai_agents_slug_key";
+alter table "crm"."marketing_ai_agents" add constraint "marketing_ai_agents_slug_key" unique (empresa_id, slug);
+drop index "crm"."idx_markup_cat_slug_sub";
+CREATE UNIQUE INDEX idx_markup_cat_slug_sub ON crm.markup_categorias USING btree (empresa_id, slug, COALESCE(subcategoria, ''::text));
+drop index "crm"."markup_regras_construtivas_tipo_movel_key";
+CREATE UNIQUE INDEX markup_regras_construtivas_tipo_movel_key ON crm.markup_regras_construtivas USING btree (empresa_id, tipo_movel) WHERE ativo;
+alter table "crm"."mkt_gastos_config" drop constraint "mkt_gastos_config_chave_key";
+alter table "crm"."mkt_gastos_config" add constraint "mkt_gastos_config_chave_key" unique (empresa_id, chave);
+alter table "crm"."negativacao_numeros" drop constraint "negativacao_numeros_numeroTelefone_key";
+alter table "crm"."negativacao_numeros" add constraint "negativacao_numeros_numeroTelefone_key" unique (empresa_id, "numeroTelefone");
+alter table "crm"."pipeline_custom_stages" drop constraint "pipeline_custom_stages_nome_key";
+alter table "crm"."pipeline_custom_stages" add constraint "pipeline_custom_stages_nome_key" unique (empresa_id, nome);
+alter table "crm"."pipeline_daily_metrics" drop constraint "pipeline_daily_metrics_data_referencia_key";
+alter table "crm"."pipeline_daily_metrics" add constraint "pipeline_daily_metrics_data_referencia_key" unique (empresa_id, data_referencia);
+alter table "crm"."pipeline_lead_ai_config" drop constraint "pipeline_lead_ai_config_singleton_key_key";
+alter table "crm"."pipeline_lead_ai_config" add constraint "pipeline_lead_ai_config_singleton_key_key" unique (empresa_id, singleton_key);
+alter table "crm"."pipeline_metricas_coluna_config" drop constraint "pipeline_metricas_coluna_config_card_key_key";
+alter table "crm"."pipeline_metricas_coluna_config" add constraint "pipeline_metricas_coluna_config_card_key_key" unique (empresa_id, card_key);
+alter table "crm"."pipeline_novo_lead_tarefa_config" drop constraint "pipeline_novo_lead_tarefa_config_singleton_key_key";
+alter table "crm"."pipeline_novo_lead_tarefa_config" add constraint "pipeline_novo_lead_tarefa_config_singleton_key_key" unique (empresa_id, singleton_key);
+alter table "crm"."prestador_titulos" drop constraint "prestador_titulos_nome_key";
+alter table "crm"."prestador_titulos" add constraint "prestador_titulos_nome_key" unique (empresa_id, nome);
+alter table "crm"."tabela_origem_config" drop constraint "tabela_origem_config_nome_tabela_key";
+alter table "crm"."tabela_origem_config" add constraint "tabela_origem_config_nome_tabela_key" unique (empresa_id, nome_tabela);
+alter table "crm"."user_permissions" drop constraint "user_permissions_role_resource_action_key";
+alter table "crm"."user_permissions" add constraint "user_permissions_role_resource_action_key" unique (empresa_id, role, resource, action);

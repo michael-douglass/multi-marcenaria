@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
 
     console.log('✅ [AUTH] User authenticated:', userId, '(via JWT decode)');
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = serviceClient(await empresaDoChamador(req));
 
     // Verificar permissão (server-side validation)
     const { data: hasPermissionData, error: permError } = await supabase

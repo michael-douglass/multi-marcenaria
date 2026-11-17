@@ -227,7 +227,7 @@ export function useEventoBoard(eventoId: string | undefined) {
           telefone_fornecedor: input.telefone_fornecedor?.trim() || null,
           atualizado_em: new Date().toISOString(),
         },
-        { onConflict: 'nome_normalizado' },
+        { onConflict: 'empresa_id,nome_normalizado' },
       )
       .select('id')
       .single()

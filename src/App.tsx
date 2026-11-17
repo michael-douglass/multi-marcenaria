@@ -86,6 +86,9 @@ const ApresentacaoEmpresaPage = lazy(() => import('@/pages/marketing/Apresentaca
 const PontuaGarboApresentacaoPage = lazy(() => import('@/pages/marketing/PontuaGarboApresentacaoPage'))
 const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPublicaPage'))
 const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
+const MasterDashboard = lazy(() => import('@/pages/master/MasterDashboard'))
+const MasterEmpresaDetalhe = lazy(() => import('@/pages/master/MasterEmpresaDetalhe'))
+const MasterFinanceiro = lazy(() => import('@/pages/master/MasterFinanceiro'))
 const CadastroDeAlunos = lazy(() => import('@/pages/CadastroDeAlunos'))
 const ProjetosHubPage = lazy(() => import('@/pages/projetos/ProjetosHub'))
 const ControleEventosPage = lazy(() => import('@/pages/ControleEventos'))
@@ -180,7 +183,7 @@ function HomeRedirect() {
 }
 
 function RoleRedirect() {
-  const { roles, userProfile, crmProfile } = useApp()
+  const { roles, userProfile, crmProfile, isMaster } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
   const restoredRef = useRef(false)
@@ -204,6 +207,10 @@ function RoleRedirect() {
 
   useEffect(() => {
     const path = location.pathname
+    if (path === '/master' || path.startsWith('/master/')) {
+      if (!isMaster) navigate(defaultPath, { replace: true })
+      return
+    }
     if (isCrmAppPath(path)) {
       if (!canAccessCrmPath(path, crmProfile, userProfile)) {
         navigate(defaultPath, { replace: true })
@@ -226,13 +233,13 @@ function RoleRedirect() {
     if (!canAccessSection(roles, section)) {
       navigate(defaultPath, { replace: true })
     }
-  }, [roles, crmProfile, userProfile, location.pathname, navigate, defaultPath])
+  }, [roles, crmProfile, userProfile, location.pathname, navigate, defaultPath, isMaster])
 
   return null
 }
 
 function AuthenticatedRoutes() {
-  const { roles, userProfile, crmProfile } = useApp()
+  const { roles, userProfile, crmProfile, isMaster } = useApp()
   const location = useLocation()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
   const finance = useFinanceDataOptional()
@@ -537,6 +544,10 @@ function AuthenticatedRoutes() {
           <Route path="/admin/empresas" element={<Navigate to="/admin/marca" replace />} />
           <Route path="/admin/webhooks" element={crmPage('/admin/marca', <WebhooksConfig />)} />
           <Route path="/admin" element={crmPage('/admin/marca', <AdminUsuarios />)} />
+          {/* Painel Master (plataforma multi-empresa) — só o usuário master. */}
+          <Route path="/master" element={isMaster ? <CrmLazy><MasterDashboard /></CrmLazy> : <Navigate to="/" replace />} />
+          <Route path="/master/empresas/:id" element={isMaster ? <CrmLazy><MasterEmpresaDetalhe /></CrmLazy> : <Navigate to="/" replace />} />
+          <Route path="/master/financeiro" element={isMaster ? <CrmLazy><MasterFinanceiro /></CrmLazy> : <Navigate to="/" replace />} />
           <Route path="/controle-gastos" element={crmPage('/controle-gastos', <ControleGastosSelletos />)} />
           <Route path="/controle-eventos/:eventoId" element={crmPage('/controle-eventos', <ControleEventoBoardPage />)} />
           <Route path="/controle-eventos" element={crmPage('/controle-eventos', <ControleEventosPage />)} />
@@ -564,6 +575,46 @@ function AuthenticatedApp() {
   )
 }
 
+/** Tela para usuário sem empresa ou com a empresa bloqueada/inativa (multi-empresa). */
+function EmpresaIndisponivel({
+  empresaNome,
+  status,
+  onSair,
+}: {
+  empresaNome: string | null
+  status: 'ativa' | 'bloqueada' | 'inativa' | null
+  onSair: () => Promise<void>
+}) {
+  const titulo = !empresaNome
+    ? 'Usuário sem empresa vinculada'
+    : status === 'bloqueada'
+      ? 'Acesso suspenso'
+      : 'Empresa inativa'
+  const texto = !empresaNome
+    ? 'Seu usuário ainda não está vinculado a nenhuma marcenaria. Fale com o administrador da sua empresa.'
+    : status === 'bloqueada'
+      ? `O acesso de ${empresaNome} está temporariamente suspenso por pendência na mensalidade do sistema. Regularize o pagamento para liberar o acesso.`
+      : `${empresaNome} está inativa no sistema. Fale com o suporte da plataforma.`
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#2a1812] px-6 text-center font-raleway text-[#f2d892]">
+      <div className="max-w-md">
+        <p className="mb-1 text-lg font-semibold">{titulo}</p>
+        <p className="text-sm opacity-70">{texto}</p>
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <AppRefreshButton variant="toolbar" showLabel />
+          <button
+            type="button"
+            onClick={() => void onSair()}
+            className="text-xs underline opacity-60 hover:opacity-100"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AppRoutes() {
   const {
     authLoading,
@@ -574,6 +625,9 @@ function AppRoutes() {
     crmProfile,
     signOut,
     retryProfile,
+    empresa,
+    isMaster,
+    empresaLoading,
   } = useApp()
 
   if (authLoading) {
@@ -584,8 +638,13 @@ function AppRoutes() {
     return <Login />
   }
 
-  if (profileLoading && !userProfile && !crmProfile) {
+  if ((profileLoading && !userProfile && !crmProfile) || empresaLoading) {
     return <BootLoading message="Carregando perfil..." />
+  }
+
+  // Multi-empresa: usuário sem empresa ou com a empresa bloqueada/inativa não entra (o master sempre entra).
+  if (!isMaster && (!empresa || empresa.status !== 'ativa')) {
+    return <EmpresaIndisponivel empresaNome={empresa?.nome ?? null} status={empresa?.status ?? null} onSair={signOut} />
   }
 
   const gate = evaluateIdentityGate(userProfile, crmProfile)

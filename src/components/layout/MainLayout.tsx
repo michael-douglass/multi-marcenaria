@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
+import { MasterEmpresaBar } from '@/components/master/MasterEmpresaBar'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
 import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
@@ -148,6 +149,7 @@ export function MainLayout() {
       <SidebarInset className="relative h-svh max-h-svh min-h-0 overflow-hidden bg-transparent">
         {!hideFabsOnPonto ? <AppPaperAura /> : null}
         <NavigationHeader onOpenAgenda={openAgendaSafely} />
+        <MasterEmpresaBar />
         <div className={cn(
           'paper-workspace relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain',
           boardOnPage

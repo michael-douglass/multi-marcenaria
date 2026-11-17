@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { assertCallerIsEmpresaAdmin, assertUsuarioDaEmpresa, requireCallerTenant } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { dbFromSchema, MASTER_TABLES, resolveEmpresaDb } from '../_shared/empresa-tables.ts';
 
@@ -163,12 +164,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: passwordError }, 400);
     }
 
-    const allowed = await callerCanResetPassword(admin, caller.id, schemaNome ?? null);
-    if (!allowed) {
-      return jsonResponse({
-        error: 'Apenas administradores podem redefinir senhas',
-      }, 403);
+    // Multi-empresa: admin só redefine senha de usuários da própria empresa; o master, de qualquer uma.
+    try {
+      const tenant = await requireCallerTenant(req);
+      await assertCallerIsEmpresaAdmin(admin, tenant);
+      await assertUsuarioDaEmpresa(admin, tenant, userId, tenant.empresaId);
+    } catch (e) {
+      return jsonResponse({ error: e instanceof Error ? e.message : 'Acesso negado' }, 403);
     }
+    void schemaNome;
+    void callerCanResetPassword;
 
     let targetUser: { user?: { id: string } } | null = null;
     try {

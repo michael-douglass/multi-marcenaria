@@ -208,7 +208,7 @@ export function useCrmLeadIa(leadId: number | null) {
     const { data, error } = await supabase.functions.invoke('analyze-lead-photos', {
       body: {
         leadId,
-        empresaSchema: 'emp_garbo',
+        empresaSchema: 'crm',
         leadName,
         leadOrigin,
         itens: [],

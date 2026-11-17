@@ -2,13 +2,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { isSchemaApiExposed } from '@/lib/empresa-tables';
 import type { AgendaConfig, BloqueioRecorrente } from '@/hooks/useAgenda';
 
-const MASTER_TABLES = {
-  configTable: 'CRM-multi-empresas>agenda_config<',
-  reunioesTable: 'CRM-multi-empresas>agenda_reunioes<',
-  bloqueiosTable: 'CRM-multi-empresas>agenda_bloqueios<',
-  formFieldsTable: 'CRM-multi-empresas>agenda_form_fields<',
-} as const;
-
 const EMPRESA_TABLES = {
   configTable: 'agenda_config',
   reunioesTable: 'agenda_reunioes',
@@ -26,6 +19,8 @@ export interface AgendaPublicScope {
   reunioesTable: string;
   bloqueiosTable: string;
   formFieldsTable: string;
+  /** Preenchido por resolveAgendaPublicScope (RPC agenda_publica_dados). */
+  dados?: AgendaPublicDados;
 }
 
 export function getAgendaPublicClient(scope: AgendaPublicScope) {
@@ -35,97 +30,47 @@ export function getAgendaPublicClient(scope: AgendaPublicScope) {
   return supabase;
 }
 
+/** Dados devolvidos pela RPC `agenda_publica_dados` (já filtrados pela empresa dona do slug). */
+export interface AgendaPublicDados {
+  config: Record<string, unknown>;
+  empresa: { slug: string | null; nome: string | null; logo_url: string | null };
+  form_fields: Record<string, unknown>[];
+  reunioes: { data_hora_inicio: string; data_hora_fim: string; status: string }[];
+  bloqueios: { data_inicio: string; data_fim: string; recorrente: boolean | null; tipo_recorrencia: string | null }[];
+}
+
+/**
+ * Resolve a agenda pública pelo slug (global) via RPC. Com o isolamento multi-empresa o anon não lê
+ * as tabelas do CRM direto; a RPC devolve config, empresa, campos e horários ocupados de uma vez.
+ */
 export async function resolveAgendaPublicScope(
   agendaSlug: string,
   empresaSlug?: string,
 ): Promise<AgendaPublicScope | null> {
-  if (empresaSlug) {
-    const { data: empresa } = await supabase
-      .from('CRM-multi-empresas>empresas<')
-      .select('schema_nome, slug, nome, logo_url')
-      .eq('slug', empresaSlug)
-      .eq('ativo', true)
-      .maybeSingle();
-
-    if (!empresa?.schema_nome) return null;
-
-    return {
-      schema: empresa.schema_nome,
-      agendaSlug,
-      empresaSlug: empresa.slug,
-      empresaNome: empresa.nome ?? null,
-      empresaLogoUrl: empresa.logo_url ?? null,
-      ...EMPRESA_TABLES,
-    };
-  }
-
-  const { data: masterConfig } = await supabase
-    .from(MASTER_TABLES.configTable)
-    .select('id')
-    .eq('slug', agendaSlug)
-    .eq('ativo', true)
-    .maybeSingle();
-
-  if (masterConfig) {
-    return {
-      schema: null,
-      agendaSlug,
-      empresaSlug: null,
-      empresaNome: null,
-      empresaLogoUrl: null,
-      ...MASTER_TABLES,
-    };
-  }
-
-  const { data: empresas } = await supabase
-    .from('CRM-multi-empresas>empresas<')
-    .select('schema_nome, slug, nome, logo_url')
-    .eq('ativo', true);
-
-  for (const empresa of empresas ?? []) {
-    if (!isSchemaApiExposed(empresa.schema_nome)) continue;
-
-    const client = supabase.schema(empresa.schema_nome) as typeof supabase;
-    const { data } = await client
-      .from(EMPRESA_TABLES.configTable)
-      .select('id')
-      .eq('slug', agendaSlug)
-      .eq('ativo', true)
-      .maybeSingle();
-
-    if (data) {
-      return {
-        schema: empresa.schema_nome,
-        agendaSlug,
-        empresaSlug: empresa.slug,
-        empresaNome: empresa.nome ?? null,
-        empresaLogoUrl: empresa.logo_url ?? null,
-        ...EMPRESA_TABLES,
-      };
-    }
-  }
-
-  return null;
+  const { data, error } = await supabase.rpc('agenda_publica_dados' as never, {
+    p_agenda_slug: agendaSlug,
+    p_empresa_slug: empresaSlug ?? null,
+  } as never);
+  if (error || !data) return null;
+  const dados = data as unknown as AgendaPublicDados;
+  return {
+    schema: 'crm',
+    agendaSlug,
+    empresaSlug: dados.empresa?.slug ?? null,
+    empresaNome: dados.empresa?.nome ?? null,
+    empresaLogoUrl: dados.empresa?.logo_url ?? null,
+    ...EMPRESA_TABLES,
+    dados,
+  };
 }
 
 export async function fetchPublicAgendaConfig(scope: AgendaPublicScope): Promise<AgendaConfig | null> {
-  const client = getAgendaPublicClient(scope);
-  const { data, error } = await client
-    .from(scope.configTable)
-    .select('*')
-    .eq('slug', scope.agendaSlug)
-    .eq('ativo', true)
-    .maybeSingle();
-
-  if (error || !data) {
-    console.error('Erro ao buscar config pública:', error);
-    return null;
-  }
-
+  const data = scope.dados?.config;
+  if (!data) return null;
   return {
     ...data,
     bloqueios_recorrentes: Array.isArray(data.bloqueios_recorrentes)
       ? (data.bloqueios_recorrentes as unknown as BloqueioRecorrente[])
       : [],
-  } as AgendaConfig;
+  } as unknown as AgendaConfig;
 }

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getCallerTenant } from '../_shared/tenant.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
@@ -35,14 +36,10 @@ serve(async (req) => {
       throw new Error('Usuário não autenticado');
     }
 
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from(TABLE_ROLES)
-      .select('role')
-      .eq('user_id', authUser.id)
-      .maybeSingle();
-
-    if (roleError || roleData?.role !== 'admin') {
-      throw new Error('Apenas administradores podem corrigir acesso');
+    // Ferramenta de reparo do legado (tabelas CRM-Selletos, sem empresa): só o usuário master.
+    const tenant = await getCallerTenant(req);
+    if (!tenant?.isMaster) {
+      throw new Error('Apenas o usuário master pode corrigir acesso');
     }
 
     let body: { email?: string; userId?: string };

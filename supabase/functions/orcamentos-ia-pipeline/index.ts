@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   ENGINEERING_MODULAR_AUDITOR,
@@ -1590,7 +1591,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: 'analysisId e companyId são obrigatórios.' }, 400)
     }
 
-    const adminForSecrets = createClient(supabaseUrl, serviceKey)
+    const adminForSecrets = serviceClient(await empresaDoChamador(req))
     const { openAiKey, anthropicKey } = await loadOrcamentosIaSecrets(
       adminForSecrets,
       body.companyId,
@@ -1617,7 +1618,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: 'Cadeia async requer secret ou service_role.' }, 401)
     }
 
-    const admin = createClient(supabaseUrl, serviceKey)
+    const admin = serviceClient(await empresaDoChamador(req))
     const mode = body.mode === 'pro' ? 'pro' : 'max'
     let extractionModelKey =
       typeof body.extraction_model === 'string' ? body.extraction_model.trim() : ''

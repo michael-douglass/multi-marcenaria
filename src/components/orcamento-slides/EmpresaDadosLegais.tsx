@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
-import { useEmpresa, GARBO_CNPJ, GARBO_RAZAO_SOCIAL } from '@/contexts/EmpresaContext';
+import { useEmpresaOptional } from '@/contexts/EmpresaContext';
 
 interface EmpresaDadosLegaisProps {
   color?: string;
@@ -22,9 +22,12 @@ export function EmpresaDadosLegais({
   variant = 'stacked',
   align = 'left',
 }: EmpresaDadosLegaisProps) {
-  const { empresa } = useEmpresa();
-  const razao = empresa?.razao_social?.trim() || GARBO_RAZAO_SOCIAL;
-  const cnpj = empresa?.cnpj?.trim() || GARBO_CNPJ;
+  // Multi-empresa: dados legais da empresa ativa (sem fallback fixo). Fora do provider (página
+  // pública) ou sem dados cadastrados, não renderiza nada.
+  const empresa = useEmpresaOptional()?.empresa ?? null;
+  const razao = empresa?.razao_social?.trim() || '';
+  const cnpj = empresa?.cnpj?.trim() || '';
+  if (!razao && !cnpj) return null;
   const textAlign = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
   if (variant === 'inline') {

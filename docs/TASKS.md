@@ -1,5 +1,7 @@
 # TASKS — Migração do schema da Movelaria para o novo banco Supabase
 
+> **Nota:** T11 (primeiro admin e configs), T13 e T14 continuam em `docs/multi-empresa/TASKS.md` (M01, M29, M30, M31).
+
 Plano completo: `C:\Users\PC\.claude\plans\ultrathink-estou-a-continuar-parallel-beacon.md`
 
 - Banco antigo (somente leitura): `zzqgtclvuetemzhqzhbq`

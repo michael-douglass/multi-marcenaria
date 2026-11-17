@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,10 +66,7 @@ Deno.serve(async (req) => {
 
   try {
     const payload = (await req.json()) as ComprovantePayload
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
+    const supabase = serviceClient(await empresaDoChamador(req))
 
     const dt = new Date(payload.marcacao.registrado_em)
     const lines = [

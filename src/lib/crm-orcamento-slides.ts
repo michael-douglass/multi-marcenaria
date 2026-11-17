@@ -22,7 +22,7 @@ export interface CrmSlidesBoot {
   leads: CrmSlideLeadOption[]
 }
 
-const SCHEMA_PUBLICO = 'emp_garbo'
+const SCHEMA_PUBLICO = 'crm'
 
 function asNumber(value: unknown, fallback = 0): number {
   const n = Number(value)

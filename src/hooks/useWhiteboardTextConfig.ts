@@ -109,7 +109,7 @@ export function useWhiteboardTextConfig() {
 
       const { data, error: upsertError } = await client
         .from(table)
-        .upsert(row, { onConflict: 'singleton_key' })
+        .upsert(row, { onConflict: 'empresa_id,singleton_key' })
         .select('*')
         .single();
       if (upsertError) throw upsertError;

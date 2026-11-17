@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { z } from 'https://esm.sh/zod@3.23.8';
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -407,10 +408,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Método não permitido' }, 405);
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = serviceClient(await empresaDoChamador(req));
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {

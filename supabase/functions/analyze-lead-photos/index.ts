@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { indexLeadKnowledge } from '../_shared/lead-knowledge.ts';
 import { parseIrisSkyConfigRow } from '../_shared/iris-sky-prompts.ts';
@@ -310,10 +311,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
+    const supabase = serviceClient(await empresaDoChamador(req));
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {

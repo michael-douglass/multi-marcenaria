@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
+import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   loadOrcamentosIaSecrets,
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     if (!companyId) return jsonResponse({ ok: false, error: 'companyId obrigatório.' }, 400)
 
     const model = body.embeddingModel?.trim() || DEFAULT_MODEL
-    const admin = createClient(supabaseUrl, serviceKey)
+    const admin = serviceClient(await empresaDoChamador(req))
     const { openAiKey } = await loadOrcamentosIaSecrets(admin, companyId)
     if (!openAiKey) {
       return jsonResponse({ ok: false, error: ORCAMENTOS_IA_KEY_MISSING }, 500)
