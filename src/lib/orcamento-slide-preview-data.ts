@@ -41,7 +41,7 @@ export const PREVIEW_ORCAMENTO: OrcamentoSlide = {
 };
 
 const BASE =
-  'https://zzqgtclvuetemzhqzhbq.supabase.co/storage/v1/object/public/orcamento-slides/midias/c55cd256-377e-4180-be71-5e34bf49ae33';
+  `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/orcamento-slides/midias/c55cd256-377e-4180-be71-5e34bf49ae33`;
 
 export const PREVIEW_MIDIAS: OrcamentoSlideMidia[] = [
   {

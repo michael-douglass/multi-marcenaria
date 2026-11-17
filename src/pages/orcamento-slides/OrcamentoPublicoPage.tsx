@@ -25,9 +25,10 @@ import type {
   OrcamentoPergunta,
   OrcamentoCatalogoItem,
 } from '@/lib/orcamento-slide-types';
-const SUPABASE_URL = 'https://zzqgtclvuetemzhqzhbq.supabase.co';
+// Projeto Supabase vem do ambiente (mesmas variáveis de src/lib/supabase.ts).
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6cWd0Y2x2dWV0ZW16aHF6aGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4NDQxNjAsImV4cCI6MjA2MDQyMDE2MH0.3DizjUqKh1-pXhEK0dc-SC04NI4Aksch2FhU9vR8-Pk';
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 function makeClient(schema: string) {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

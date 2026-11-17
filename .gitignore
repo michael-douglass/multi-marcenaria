@@ -25,3 +25,12 @@ docs/evidence/captura_cortecloud-micro.har
 docs/evidence/_cortecloud-har-extract.json
 *.har
 !.github/**/*.har
+
+# Segredos locais — nunca versionar
+.env
+.env.*
+!.env.example
+
+# Artefatos temporários do baseline (dump bruto do banco de origem)
+supabase/baseline/.work/
+supabase/.temp/

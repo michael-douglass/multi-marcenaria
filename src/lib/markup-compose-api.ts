@@ -3,8 +3,9 @@ import type { MarkupIAVerificacaoCategoriaResultado } from '@/lib/markup-ia-veri
 import type { MarkupComposeIAResult, MarkupIAProjetistaResult } from '@/lib/markup-types';
 import { supabase } from '@/integrations/supabase/client';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://zzqgtclvuetemzhqzhbq.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 export interface ComposeMarkupIAInput {
   leadId: number;

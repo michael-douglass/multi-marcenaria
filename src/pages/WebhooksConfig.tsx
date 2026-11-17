@@ -23,7 +23,7 @@ const TIPOS_WEBHOOK_DEFAULT = [
   { value: 'geral', label: 'Geral' },
 ];
 const REGIOES = Object.keys(REGIAO_TABELA_MAP);
-const SUPABASE_URL = 'https://zzqgtclvuetemzhqzhbq.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 export default function WebhooksConfig() {
   const {
     webhooks,

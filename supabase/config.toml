@@ -1,2 +1,111 @@
 # Necessário para publicar Edge Functions no projeto GARBO.
-project_id = "zzqgtclvuetemzhqzhbq"
+project_id = "vejugdspjfgfajdpfiht"
+
+# verify_jwt de cada função, igual ao projeto de origem (levantado em 2026-11-17).
+[functions.adicionar-numero-negativado]
+verify_jwt = false
+
+[functions.agenda-disparar-conclusao]
+verify_jwt = false
+
+[functions.agenda-disparar-confirmacao]
+verify_jwt = false
+
+[functions.agenda-disparar-relatorio]
+verify_jwt = false
+
+[functions.agenda-disparar-webhook]
+verify_jwt = false
+
+[functions.agenda-public-booking]
+verify_jwt = false
+
+[functions.agenda-public-upload]
+verify_jwt = false
+
+[functions.analyze-lead-photos]
+verify_jwt = true
+
+[functions.cadastro-alunos]
+verify_jwt = false
+
+[functions.chat-iris-sky]
+verify_jwt = true
+
+[functions.compose-contrato-ia]
+verify_jwt = true
+
+[functions.compose-markup-ia]
+verify_jwt = true
+
+[functions.create-user-admin]
+verify_jwt = true
+
+[functions.crm-selletos-receber-webhook]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.edit-lead-render]
+verify_jwt = false
+
+[functions.fix-user-access]
+verify_jwt = false
+
+[functions.gerar-marketing-copy]
+verify_jwt = true
+
+[functions.get-lead-origin-table]
+verify_jwt = false
+
+[functions.get-lead-whatsapp-history]
+verify_jwt = false
+
+[functions.index-lead-knowledge]
+verify_jwt = true
+
+[functions.listar-numeros-negativados]
+verify_jwt = true
+
+[functions.migrate-leads-regiao]
+verify_jwt = false
+
+[functions.orcamentos-ia-chat]
+verify_jwt = true
+
+[functions.orcamentos-ia-memory]
+verify_jwt = true
+
+[functions.orcamentos-ia-pipeline]
+verify_jwt = true
+
+[functions.receber-whatsapp]
+verify_jwt = false
+
+[functions.register-public]
+verify_jwt = true
+
+[functions.remover-numero-negativado]
+verify_jwt = true
+
+[functions.render-lead-ambiente]
+verify_jwt = false
+
+[functions.render-lead-project]
+verify_jwt = true
+
+[functions.rep-assinar-arquivo]
+verify_jwt = true
+
+[functions.rep-gerar-comprovante]
+verify_jwt = true
+
+[functions.reset-user-password]
+verify_jwt = true
+
+[functions.salvar-marketing-ai-secrets]
+verify_jwt = true
+
+[functions.send-whatsapp-message]
+verify_jwt = false
