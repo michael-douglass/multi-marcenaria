@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState } from 'react';
 import { Award, Loader2, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,6 +50,7 @@ export function ArquitetosPontuaGarboMural({
   onSelecionar,
   embedded = false,
 }: ArquitetosPontuaGarboMuralProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const [contatoId, setContatoId] = useState<string | null>(null);
   const arquitetoContato = arquitetos.find((item) => item.id === contatoId) ?? null;
 
@@ -65,7 +67,7 @@ export function ArquitetosPontuaGarboMural({
           'overflow-hidden rounded-2xl border border-[rgba(26,16,12,0.12)] bg-[#fffaf4] p-5 shadow-[0_12px_32px_rgba(42,24,18,0.06)] sm:p-7',
       )}
       aria-labelledby={embedded ? undefined : 'mural-arquitetos-titulo'}
-      aria-label={embedded ? 'Arquitetos reconhecidos no Pontua Garbo' : undefined}
+      aria-label={embedded ? `Arquitetos reconhecidos no ${nomePrograma}` : undefined}
     >
       <style>{muralCss}</style>
 
@@ -74,7 +76,7 @@ export function ArquitetosPontuaGarboMural({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
-              Programa Pontua Garbo
+              Programa {nomePrograma}
             </p>
             <h2
               id="mural-arquitetos-titulo"
@@ -83,7 +85,7 @@ export function ArquitetosPontuaGarboMural({
               Arquitetos reconhecidos
             </h2>
             <p className="mt-2 max-w-xl text-sm text-[#4a3428]">
-              Todo profissional cadastrado no Pontua Garbo aparece aqui, com nome e título.
+              Todo profissional cadastrado no {nomePrograma} aparece aqui, com nome e título.
               Clique no cartão para ver nome completo e telefone.
             </p>
           </div>
@@ -114,7 +116,7 @@ export function ArquitetosPontuaGarboMural({
         ) : arquitetos.length === 0 ? (
           <p className={`text-sm ${finTextTertiary}`}>
             {totalCadastrados === 0
-              ? 'Nenhum arquiteto cadastrado no Pontua Garbo ainda.'
+              ? `Nenhum arquiteto cadastrado no ${nomePrograma} ainda.`
               : 'Nenhum arquiteto encontrado com esse nome.'}
           </p>
         ) : (

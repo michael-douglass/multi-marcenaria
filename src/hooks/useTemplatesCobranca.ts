@@ -20,7 +20,7 @@ Para pagar via PIX, copie o código abaixo:
 {{pix_copia_cola}}
 
 Qualquer dúvida, estamos à disposição!
-*GARBO Movelaria* 🪵`,
+*{{nome_empresa}}* 🪵`,
 }
 
 export function useTemplatesCobranca() {

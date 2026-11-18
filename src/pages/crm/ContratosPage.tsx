@@ -21,6 +21,8 @@ import {
 } from '@/lib/crm-contratos'
 import { fmtDate } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
+import { valoresVariaveisEmpresa } from '@/lib/contratos-print'
 
 export function ContratosPage() {
   const navigate = useNavigate()
@@ -148,6 +150,7 @@ export function ContratoEditorPage() {
   const navigate = useNavigate()
   const creating = id === 'novo' || !id
   const { data, loading, error, salvar, criar } = useCrmContratos()
+  const identidadeEmpresa = useEmpresaIdentidade()
   const contrato = creating ? null : data.contratos.find(c => c.id === id) ?? null
   const [modeloId, setModeloId] = useState('')
   const [cliente, setCliente] = useState('')
@@ -185,7 +188,13 @@ export function ContratoEditorPage() {
 
   const regenerar = () => {
     if (!modelo) return
-    setConteudo(buildConteudoContrato(modelo.conteudo, { ...campos, nome: cliente, cliente_nome: cliente }))
+    setConteudo(
+      buildConteudoContrato(
+        modelo.conteudo,
+        { ...campos, nome: cliente, cliente_nome: cliente },
+        valoresVariaveisEmpresa(identidadeEmpresa),
+      ),
+    )
   }
 
   const imprimir = () => {

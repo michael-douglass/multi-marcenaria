@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { nomeEmpresaDocumento } from '@/lib/empresa-identidade'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Settings, Trash2, FileText } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Field, FieldRow } from '@/components/ui/Field'
@@ -30,6 +31,7 @@ const VARIAVEIS: { label: string; chave: string }[] = [
   { label: 'Forma pagamento',    chave: 'forma_pagamento' },
   { label: 'Chave PIX',          chave: 'chave_pix' },
   { label: 'CNPJ',               chave: 'cnpj' },
+  { label: 'Nome da empresa',    chave: 'nome_empresa' },
   { label: 'Nome Empresa',       chave: 'nome_empresa' },
 ]
 
@@ -478,7 +480,7 @@ function TemplatesConfigModal({ open, onClose, templatesHook, pixHook }: ModalPr
                   className="glass-input"
                   value={pixNome}
                   onChange={e => setPixNome(e.target.value)}
-                  placeholder="Ex: GARBO MOVELARIA"
+                  placeholder={`Ex: ${nomeEmpresaDocumento()}`}
                   maxLength={25}
                 />
               </Field>

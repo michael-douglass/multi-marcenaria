@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -189,7 +190,7 @@ export function useMeusSaquePedidos(prestadorId: string | null | undefined) {
       qc.invalidateQueries({ queryKey: ['meus-saque-pedidos', schemaEmpresa, prestadorId] });
       qc.invalidateQueries({ queryKey: ['saque-pedidos-admin', schemaEmpresa] });
       qc.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
-      toast.success('Saque solicitado no Pontua Garbo', {
+      toast.success(`Saque solicitado no ${empresaDocumento().nomePrograma}`, {
         description: `Valor solicitado: ${BRL(variables.valor)}. Aguarde a aprovação do administrador.`,
         duration: 6000,
       });

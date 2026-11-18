@@ -101,6 +101,25 @@ if (isAuthRateLimited()) {
 
 let authRefreshBlocked = isAuthRateLimited()
 
+/**
+ * Inspeção do master em modo somente leitura (multi-empresa): o banco recusa gravações com 401/403.
+ * Quando isso acontece, avisamos a UI uma vez por alguns segundos (evento `master:somente-leitura`).
+ */
+let inspecaoSomenteLeitura = false
+let ultimoAvisoLeitura = 0
+export function definirInspecaoSomenteLeitura(ativo: boolean) {
+  inspecaoSomenteLeitura = ativo
+}
+function avisarSomenteLeitura(method: string | undefined, status: number) {
+  if (!inspecaoSomenteLeitura) return
+  if (!method || method.toUpperCase() === 'GET' || method.toUpperCase() === 'HEAD') return
+  if (status !== 401 && status !== 403) return
+  const agora = Date.now()
+  if (agora - ultimoAvisoLeitura < 4000) return
+  ultimoAvisoLeitura = agora
+  window.dispatchEvent(new CustomEvent('master:somente-leitura'))
+}
+
 const supabaseFetch: typeof fetch = async (input, init) => {
   const url = requestUrl(input)
 
@@ -139,6 +158,7 @@ const supabaseFetch: typeof fetch = async (input, init) => {
         removeSupabaseAuthStorage(supabaseUrl)
         window.dispatchEvent(new CustomEvent('supabase:auth-rate-limited'))
       }
+      avisarSomenteLeitura(init?.method ?? (input instanceof Request ? input.method : undefined), response.status)
 
       return response
     } catch (err) {

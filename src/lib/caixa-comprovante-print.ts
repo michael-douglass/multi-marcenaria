@@ -1,4 +1,4 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import type { ReciboConfig } from '@/hooks/useReciboConfig'
 import { fmtCur, fmtDate } from '@/lib/utils'
 
@@ -7,7 +7,6 @@ const MESES_PT = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 
 export interface CaixaComprovanteInput {
   destinatarioNome: string
@@ -40,7 +39,8 @@ export function buildCaixaComprovanteTexto(
   input: CaixaComprovanteInput,
   config: ReciboConfig | null,
 ): string {
-  const cnpj = config?.cnpj?.trim() ?? '—'
+  // Prioridade: config própria do recibo → cadastro da empresa.
+  const cnpj = config?.cnpj?.trim() || empresaDocumento().cnpjFormatado || '—'
   const vars: Record<string, string> = {
     nome_destinatario: input.destinatarioNome,
     valor_pagamento: fmtCur(input.valor),
@@ -49,7 +49,7 @@ export function buildCaixaComprovanteTexto(
     ano_referencia: String(input.anoReferencia),
     data_pagamento: fmtDate(input.dataPagamento),
     cnpj,
-    nome_empresa: NOME_EMPRESA,
+    nome_empresa: nomeEmpresaDocumento(),
   }
 
   let texto = DEFAULT_TEMPLATE
@@ -64,10 +64,10 @@ export function imprimirCaixaComprovante(
   corpo: string,
   config: ReciboConfig | null,
 ): void {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
+  const logoUrl = logoDocumentoUrl()
   const destinatario = escapeHtml(input.destinatarioNome)
   const corpoHtml = escapeHtml(corpo).replace(/\n/g, '<br>')
-  const cnpj = escapeHtml(config?.cnpj?.trim() || '—')
+  const cnpj = escapeHtml(config?.cnpj?.trim() || empresaDocumento().cnpjFormatado || '—')
   const valorFmt = escapeHtml(fmtCur(input.valor))
 
   const printWindow = window.open('', '_blank')
@@ -207,9 +207,9 @@ export function imprimirCaixaComprovante(
         <div class="doc-page">
           <p class="doc-titulo">Comprovante de pagamento</p>
           <header class="doc-header">
-            <img src="${logoUrl}" alt="GARBO Movelaria" />
+            <img src="${logoUrl}" alt="${escapeHtml(empresaDocumento().nomeFantasia)}" />
             <div class="doc-header-meta">
-              <strong>${escapeHtml(NOME_EMPRESA)}</strong>
+              <strong>${escapeHtml(nomeEmpresaDocumento())}</strong>
               Móveis Planejados de Alta Qualidade<br />
               CNPJ: ${cnpj}
             </div>
@@ -234,7 +234,7 @@ export function imprimirCaixaComprovante(
             <div class="doc-assinatura">
               <img src="${logoUrl}" alt="" aria-hidden="true" />
               <div class="doc-assinatura-linha"></div>
-              <p class="doc-assinatura-nome">${escapeHtml(NOME_EMPRESA)}</p>
+              <p class="doc-assinatura-nome">${escapeHtml(nomeEmpresaDocumento())}</p>
               <p class="doc-assinatura-cnpj">CNPJ: ${cnpj}</p>
             </div>
           </footer>

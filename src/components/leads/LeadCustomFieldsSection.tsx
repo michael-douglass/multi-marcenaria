@@ -1,3 +1,5 @@
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Pencil, Trash2, Check, X, Trophy, Eye, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -102,6 +104,7 @@ function PontuaGarboLeadPanel({
   userName,
   isEditable,
 }: PontuaGarboLeadPanelProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const percentual = parsePontuaPercentualInput(percentualInput);
   const comissao = (budgetValue * percentual) / 100;
 
@@ -109,7 +112,7 @@ function PontuaGarboLeadPanel({
     <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 space-y-2">
       <div className="flex items-center gap-1.5 text-amber-700">
         <Trophy className="h-3.5 w-3.5 shrink-0" />
-        <span className="text-xs font-semibold">Programa Pontua Garbo</span>
+        <span className="text-xs font-semibold">Programa {nomePrograma}</span>
       </div>
       <div className="text-xs text-amber-800 space-y-1.5 pl-5">
         <p>
@@ -467,6 +470,7 @@ interface FieldFormProps {
 }
 
 function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
       <Input
@@ -504,7 +508,7 @@ function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProp
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trophy className="h-3.5 w-3.5 text-amber-600" />
-              <span className="text-xs font-medium text-amber-800">Pontua Garbo</span>
+              <span className="text-xs font-medium text-amber-800">{nomePrograma}</span>
               <span className="text-[10px] text-amber-600">— sistema de comissionamento</span>
             </div>
             <Switch
@@ -560,6 +564,7 @@ export function LeadCustomFieldsSection({
   leadStatus = null,
   onPontuaGarboSaleInfoChange,
 }: LeadCustomFieldsSectionProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { fields, isLoading: isLoadingFields, createField, updateField, deleteField } = useLeadCustomFieldDefs();
   const { values, upsertValue, savePontuaGarboPercentual } = useLeadCustomFieldValues(leadId);
   const { users: systemUsers = [] } = useUsers();
@@ -974,13 +979,13 @@ export function LeadCustomFieldsSection({
           <div key={field.id} className="space-y-1 w-full overflow-hidden" data-lead-search-field={`custom:${field.id}`}>
             <div className="flex items-center justify-between">
               <Label className="text-sm">
-                {field.nome}
+                {rotuloPontua(field.nome, nomePrograma)}
                 <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
                   ({TIPO_LABELS[field.tipo]})
                 </span>
                 {isPontuaGarboFieldActive(field) && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-amber-600 font-normal">
-                    <Trophy className="h-2.5 w-2.5" /> Pontua Garbo
+                    <Trophy className="h-2.5 w-2.5" /> {nomePrograma}
                   </span>
                 )}
                 {isCampoDefinitivo && (
@@ -1110,7 +1115,7 @@ export function LeadCustomFieldsSection({
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  O campo <strong className="text-foreground">"{fieldToDelete?.nome}"</strong> será desativado
+                  O campo <strong className="text-foreground">"{rotuloPontua(fieldToDelete?.nome, nomePrograma)}"</strong> será desativado
                   para <strong className="text-foreground">todos os leads</strong> da empresa — não apenas este card.
                 </p>
                 <p>

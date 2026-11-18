@@ -1,4 +1,4 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import { gerarPixPayload } from '@/lib/pixBrcode'
 import type { ReciboConfig } from '@/hooks/useReciboConfig'
@@ -37,10 +37,9 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** Logo da empresa ativa (multi-empresa), com a logo padrão como fallback. */
 export function resolveReciboLogoUrl(): string {
-  if (typeof window === 'undefined') return garboBrandLogo
-  if (garboBrandLogo.startsWith('http') || garboBrandLogo.startsWith('data:')) return garboBrandLogo
-  return new URL(garboBrandLogo, window.location.origin).href
+  return logoDocumentoUrl()
 }
 
 /** Tira o cabeçalho/rodapé antigo do texto, agora desenhados no layout. */
@@ -73,7 +72,7 @@ export function buildReciboTexto(
     ? gerarPixPayload({
         chave: chavePix,
         valor: conta.valor_parcela,
-        nomeBeneficiario: overrides.nomeBeneficiario?.trim() || 'GARBO MOVELARIA',
+        nomeBeneficiario: overrides.nomeBeneficiario?.trim() || nomeEmpresaDocumento(),
       })
     : '(PIX não informado)'
 
@@ -94,8 +93,9 @@ export function buildReciboTexto(
     forma_pagamento: pmLabel[overrides.formaPagamento] ?? overrides.formaPagamento,
     chave_pix: chavePix,
     pix_copia_cola: pixPayload,
-    cnpj: config.cnpj,
-    nome_empresa: 'GARBO MOVELARIA',
+    // Prioridade: config própria do recibo → cadastro da empresa.
+    cnpj: config.cnpj?.trim() || empresaDocumento().cnpjFormatado,
+    nome_empresa: nomeEmpresaDocumento(),
   }
 
   let texto = config.template_texto
@@ -131,7 +131,7 @@ export function buildReciboPrintLayout(
     parcelaLabel: parcelaReciboLabel(conta),
     dataPagamentoLabel: fmtDate(extras.dataPagamento),
     formaPagamentoLabel: extras.formaPagamentoLabel,
-    cnpj: extras.cnpj?.trim() ?? '',
+    cnpj: extras.cnpj?.trim() || empresaDocumento().cnpjFormatado,
     texto: normalizeReciboCorpo(texto),
     logoUrl: resolveReciboLogoUrl(),
     foilDataUrl: extras.foilDataUrl ?? null,
@@ -317,7 +317,7 @@ export function buildReciboSheetInnerHtml(layout: ReciboPrintLayout, foilMode: '
         <header class="recibo-masthead">
           <div class="recibo-foil-strip">${foil}</div>
           <div class="recibo-masthead-inner">
-            <img class="recibo-logo" src="${escapeHtml(layout.logoUrl)}" alt="GARBO Movelaria" />
+            <img class="recibo-logo" src="${escapeHtml(layout.logoUrl)}" alt="${escapeHtml(empresaDocumento().nomeFantasia)}" />
             <p class="recibo-eyebrow">Comprovante de recebimento</p>
             <h1 class="recibo-title">Recibo</h1>
             <p class="recibo-tag">Móveis planejados de alta qualidade</p>
@@ -344,7 +344,7 @@ export function buildReciboSheetInnerHtml(layout: ReciboPrintLayout, foilMode: '
         <div class="recibo-body">${escapeHtml(layout.texto)}</div>
         <footer class="recibo-sign">
           <div class="recibo-sign-line"></div>
-          <p class="recibo-sign-name">Garbo Movelaria</p>
+          <p class="recibo-sign-name">${escapeHtml(empresaDocumento().nomeFantasia)}</p>
           ${cnpj}
         </footer>
         <div class="recibo-foot-edge" aria-hidden="true"></div>

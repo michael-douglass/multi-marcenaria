@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FileDown, ImagePlus, ListPlus, Plus, Printer, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -133,7 +134,7 @@ export function MarkupOrcamentoSimplesDialog({
 
   const branding = useMemo(
     () => ({
-      empresaNome: empresa?.nome?.trim() || 'Garbo Movelaria',
+      empresaNome: empresa?.nome?.trim() || empresaDocumento().nomeFantasia,
       empresaRazaoSocial: empresa?.razao_social?.trim() || null,
       empresaCnpj: empresa?.cnpj?.trim() || null,
       logoUrl: logoEmbutida || config?.timbrado_url || empresa?.logo_url || null,

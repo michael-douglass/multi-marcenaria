@@ -22,7 +22,8 @@ interface AppContextType {
   /** Usuário master da plataforma (acessa todas as empresas). */
   isMaster: boolean
   empresaLoading: boolean
-  trocarEmpresa: (empresaId: string) => Promise<void>
+  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean) => Promise<void>
+  sairInspecao: () => Promise<void>
   recarregarEmpresa: () => void
 }
 
@@ -49,12 +50,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isMaster: emp.isMaster,
         empresaLoading: emp.empresaLoading,
         trocarEmpresa: emp.trocarEmpresa,
+        sairInspecao: emp.sairInspecao,
         recarregarEmpresa: emp.recarregarEmpresa,
       }}
     >
       {children}
     </AppContext.Provider>
   )
+}
+
+/** Igual a `useApp`, mas devolve null fora do provider (ex.: testes e telas isoladas). */
+export function useAppOptional() {
+  return useContext(AppContext)
 }
 
 export function useApp() {

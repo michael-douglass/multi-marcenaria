@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   ENGINEERING_MODULAR_AUDITOR,
@@ -1545,6 +1545,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const recusa = await motivoRecusa(req, 'orcamentosIa')
+  if (recusa) return jsonResponse({ ok: false, error: recusa }, 403)
 
   try {
     const authHeader = req.headers.get('Authorization')

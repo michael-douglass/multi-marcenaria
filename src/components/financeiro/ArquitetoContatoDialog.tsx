@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { Copy, Phone } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export function ArquitetoContatoDialog({
   open,
   onOpenChange,
 }: ArquitetoContatoDialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const telefoneFormatado = formatTelefonePrestador(arquiteto?.telefone);
   const telefoneHref = telefonePrestadorHref(arquiteto?.telefone);
   const telefoneDigits = telefonePrestadorDigits(arquiteto?.telefone);
@@ -57,7 +59,7 @@ export function ArquitetoContatoDialog({
             Dados do prestador
           </DialogTitle>
           <DialogDescription className="text-[#4a3428]">
-            Nome completo e telefone cadastrados no Pontua Garbo.
+            Nome completo e telefone cadastrados no {nomePrograma}.
           </DialogDescription>
         </DialogHeader>
 

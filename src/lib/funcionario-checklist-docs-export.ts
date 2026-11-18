@@ -1,8 +1,12 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import {
+  empresaDocumento,
+  logoDocumentoUrl,
+  logoPadraoDocumentoUrl,
+  nomeEmpresaDocumento,
+} from '@/lib/empresa-identidade'
 import { ADMISSAO_DOC_TIPOS, WHATSAPP_ADMISSAO } from '@/lib/funcionario-constants'
 import { formatarCnpj } from '@/lib/rep/rep-validation'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 const CIDADE_PADRAO = 'Contagem/MG'
 
 /** A4 em ~150 dpi — bom equilíbrio entre nitidez e peso do JPG. */
@@ -26,7 +30,8 @@ function escapeHtml(value: string): string {
 }
 
 function cnpjLabel(cnpj?: string | null): string {
-  const raw = cnpj?.trim() || ''
+  // Prioridade: CNPJ informado (config do REP/RH) → cadastro da empresa.
+  const raw = cnpj?.trim() || empresaDocumento().cnpjDigitos
   return raw ? formatarCnpj(raw) : '—'
 }
 
@@ -50,6 +55,8 @@ function downloadBlob(blob: Blob, filename: string): void {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    // Logo da empresa vem do Storage (outra origem): sem CORS o canvas fica "sujo" e não exporta.
+    if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error('Não foi possível carregar a logo da empresa.'))
     img.src = src
@@ -79,7 +86,7 @@ function wrapText(
 
 /** HTML do papel timbrado com a lista de documentos para carteira. */
 export function buildChecklistDocumentosHtml(options: ChecklistDocsExportOptions = {}): string {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
+  const logoUrl = logoDocumentoUrl()
   const cnpj = escapeHtml(cnpjLabel(options.cnpj))
   const cidade = escapeHtml(options.cidadeUf?.trim() || CIDADE_PADRAO)
   const colaborador = escapeHtml(options.colaboradorNome?.trim() || '')
@@ -98,7 +105,7 @@ export function buildChecklistDocumentosHtml(options: ChecklistDocsExportOptions
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Documentos para assinatura de carteira — ${escapeHtml(NOME_EMPRESA)}</title>
+  <title>Documentos para assinatura de carteira — ${escapeHtml(nomeEmpresaDocumento())}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
     * { box-sizing: border-box; }
@@ -309,9 +316,9 @@ export function buildChecklistDocumentosHtml(options: ChecklistDocsExportOptions
 <body>
   <article class="folha">
     <header class="timbre">
-      <img src="${logoUrl}" alt="${escapeHtml(NOME_EMPRESA)}" />
+      <img src="${logoUrl}" alt="${escapeHtml(nomeEmpresaDocumento())}" />
       <div class="timbre-meta">
-        <strong>${escapeHtml(NOME_EMPRESA)}</strong>
+        <strong>${escapeHtml(nomeEmpresaDocumento())}</strong>
         <span>Móveis planejados de alta qualidade</span>
         <span>CNPJ ${cnpj}</span>
         <span class="selo">RH · Admissão</span>
@@ -354,12 +361,12 @@ export function buildChecklistDocumentosHtml(options: ChecklistDocsExportOptions
       </div>
       <div class="assin">
         <div class="linha" aria-hidden="true"></div>
-        <p>Recebido pelo RH — ${escapeHtml(NOME_EMPRESA)}</p>
+        <p>Recebido pelo RH — ${escapeHtml(nomeEmpresaDocumento())}</p>
       </div>
     </div>
 
     <footer class="rodape">
-      <span>Emitido pelo sistema financeiro · ${escapeHtml(NOME_EMPRESA)}</span>
+      <span>Emitido pelo sistema financeiro · ${escapeHtml(nomeEmpresaDocumento())}</span>
       <span>Checklist de admissão</span>
     </footer>
   </article>
@@ -388,8 +395,8 @@ export function imprimirChecklistDocumentosPdf(options: ChecklistDocsExportOptio
 export async function baixarChecklistDocumentosJpg(
   options: ChecklistDocsExportOptions = {},
 ): Promise<void> {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const logo = await loadImage(logoUrl)
+  const logoUrl = logoDocumentoUrl()
+  const logo = await loadImage(logoUrl).catch(() => loadImage(logoPadraoDocumentoUrl()))
   const cnpj = cnpjLabel(options.cnpj)
   const cidade = options.cidadeUf?.trim() || CIDADE_PADRAO
   const colaborador = options.colaboradorNome?.trim() || ''
@@ -431,7 +438,7 @@ export async function baixarChecklistDocumentosJpg(
   ctx.textAlign = 'right'
   ctx.fillStyle = '#1a1208'
   ctx.font = '700 22px Georgia, "Times New Roman", serif'
-  ctx.fillText(NOME_EMPRESA, right, y + 22)
+  ctx.fillText(nomeEmpresaDocumento(), right, y + 22)
   ctx.font = '15px Georgia, "Times New Roman", serif'
   ctx.fillStyle = '#5a4636'
   ctx.fillText('Móveis planejados de alta qualidade', right, y + 46)
@@ -555,7 +562,7 @@ export async function baixarChecklistDocumentosJpg(
   ctx.fillStyle = '#3d2c20'
   ctx.font = '15px Georgia, "Times New Roman", serif'
   ctx.fillText('Assinatura do colaborador', a1 + half / 2, y + 24)
-  ctx.fillText(`Recebido pelo RH — ${NOME_EMPRESA}`, a2 + half / 2, y + 24)
+  ctx.fillText(`Recebido pelo RH — ${nomeEmpresaDocumento()}`, a2 + half / 2, y + 24)
 
   // Rodapé
   y = JPG_H - 70
@@ -567,7 +574,7 @@ export async function baixarChecklistDocumentosJpg(
   ctx.textAlign = 'left'
   ctx.fillStyle = '#6b5544'
   ctx.font = '13px Georgia, "Times New Roman", serif'
-  ctx.fillText(`Emitido pelo sistema financeiro · ${NOME_EMPRESA}`, left, y + 28)
+  ctx.fillText(`Emitido pelo sistema financeiro · ${nomeEmpresaDocumento()}`, left, y + 28)
   ctx.textAlign = 'right'
   ctx.fillText('Checklist de admissão', right, y + 28)
 

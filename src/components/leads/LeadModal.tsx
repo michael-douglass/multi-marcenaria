@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useState, useMemo, useRef, useCallback, useSyncExternalStore, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -208,6 +209,7 @@ export function LeadModal({
   contextoProjeto = false,
   modoProjeto = false,
 }: LeadModalProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const isMobile = useIsMobile();
   const { user: authUser, userRole: authUserRole, hasRole, isSuperAdmin: isSuperAdminAuth } = useAuth();
   const { size: leadCardSize, mode: leadWindowMode, isResizing: isLeadCardResizing, isDragging: isLeadCardDragging, beginResize: beginLeadCardResize, beginDrag: beginLeadCardDrag, maximize: maximizeLeadCard, toggleMaximize: toggleLeadCardMaximize } =
@@ -2197,7 +2199,7 @@ export function LeadModal({
               >
                 {showPontuaGarboSection ? (
                   <LeadModalSection
-                    title="Pontua Garbo"
+                    title={`${nomePrograma}`}
                     icon={Sparkles}
                     sectionId="pontua-garbo"
                     description="Cadastro ou união deste lead ao programa de parceiros."

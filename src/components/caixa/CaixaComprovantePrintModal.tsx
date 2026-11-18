@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 import { useCallback, useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
@@ -24,6 +25,7 @@ export function CaixaComprovantePrintModal({
   reciboConfig,
   onClose,
 }: CaixaComprovantePrintModalProps) {
+  const { nomeFantasia } = useEmpresaIdentidade()
   const [valor, setValor] = useState('')
   const [dataPagamento, setDataPagamento] = useState(todayISO())
   const [descricao, setDescricao] = useState('')
@@ -76,7 +78,7 @@ export function CaixaComprovantePrintModal({
   return (
     <Modal open={open} onClose={onClose} title="Comprovante de pagamento" wide>
       <p className="mb-4 text-[0.78rem] leading-relaxed text-[#d4bc9f]">
-        Documento que comprova que a <span className="text-cream">GARBO Movelaria</span> pagou
+        Documento que comprova que a <span className="text-cream">{nomeFantasia}</span> pagou
         o destinatário abaixo. Não é recibo de cobrança de cliente.
       </p>
 

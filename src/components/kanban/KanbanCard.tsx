@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState, useEffect, useMemo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -109,6 +110,7 @@ export function KanbanCard({
   columnIndex = 0,
   stageTitle,
 }: KanbanCardProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { hasPermission } = usePermissions();
   const { userRole, isSuperAdmin } = useAuth();
   /** Vendedor vê o valor no card; só gestão abre a calculadora. */
@@ -495,7 +497,7 @@ export function KanbanCard({
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <p>Parceiro Pontua Garbo</p>
+                  <p>Parceiro {nomePrograma}</p>
                 </TooltipContent>
               </Tooltip>
             )}

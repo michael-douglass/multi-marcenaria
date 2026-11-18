@@ -1,4 +1,6 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { useEffect, useState } from 'react'
+import { useAppOptional } from '@/context/AppContext'
+import { DEFAULT_BRAND_LOGO_URL, resolveBrandLogo, resolveBrandName } from '@/lib/app-branding'
 
 interface LogoProps {
   full?: boolean
@@ -8,7 +10,26 @@ interface LogoProps {
   height?: number
 }
 
+/**
+ * Logo da empresa ativa (multi-empresa), com a logo GARBO como padrão. Enquanto a empresa carrega
+ * a imagem fica invisível (mantendo o espaço) para não piscar a marca de outra empresa.
+ */
 export function Logo({ full = true, halo = true, height = 44 }: LogoProps) {
+  const app = useAppOptional()
+  const carregando = app?.empresaLoading === true && !!app?.session
+  const logoEmpresa = app?.empresa?.logoUrl ?? null
+  const alt = resolveBrandName(app?.empresa?.nome)
+  const [falhou, setFalhou] = useState(false)
+
+  // Logo nova (upload/troca de empresa): tenta de novo antes de cair no padrão.
+  useEffect(() => setFalhou(false), [logoEmpresa])
+
+  const src = falhou ? DEFAULT_BRAND_LOGO_URL : resolveBrandLogo(logoEmpresa)
+  const onError = () => {
+    if (!falhou && src !== DEFAULT_BRAND_LOGO_URL) setFalhou(true)
+  }
+  const visibilidade = carregando ? ('hidden' as const) : undefined
+
   if (full) {
     return (
       <div
@@ -23,12 +44,16 @@ export function Logo({ full = true, halo = true, height = 44 }: LogoProps) {
         }}
       >
         <img
-          src={garboBrandLogo}
-          alt="GARBO Movelaria"
+          src={src}
+          alt={alt}
+          onError={onError}
           style={{
             height,
             width: 'auto',
+            maxWidth: '100%',
+            objectFit: 'contain',
             display: 'block',
+            visibility: visibilidade,
             filter: halo ? undefined : 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
           }}
           draggable={false}
@@ -54,13 +79,15 @@ export function Logo({ full = true, halo = true, height = 44 }: LogoProps) {
       }}
     >
       <img
-        src={garboBrandLogo}
-        alt="GARBO"
+        src={src}
+        alt={alt}
+        onError={onError}
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'contain',
           display: 'block',
+          visibility: visibilidade,
         }}
         draggable={false}
       />

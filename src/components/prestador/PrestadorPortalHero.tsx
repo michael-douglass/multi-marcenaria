@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { ChevronDown, Sparkles } from 'lucide-react';
 import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme';
 
@@ -9,6 +10,7 @@ interface PrestadorPortalHeroProps {
 
 /** Bloco de identidade do arquiteto — editorial, sobre o banner e o 3D. */
 export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPortalHeroProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   return (
     <div
       className="relative z-10 px-8 pb-10 md:px-14 md:pb-12"
@@ -23,7 +25,7 @@ export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPorta
         }}
       >
         <Sparkles className="h-3.5 w-3.5" aria-hidden />
-        Pontua Garbo
+        {nomePrograma}
       </p>
 
       <div

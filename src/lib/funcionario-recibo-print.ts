@@ -1,3 +1,4 @@
+import { nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { FuncionarioRecibo } from '@/types'
 
@@ -46,7 +47,7 @@ export function buildReciboPrestadorHtml(recibo: FuncionarioRecibo, assinaturaDa
 </head>
 <body>
   <div class="header">
-    <h1>GARBO MOVELARIA</h1>
+    <h1>${escapeHtml(nomeEmpresaDocumento())}</h1>
     <p>Recibo de Pagamento — Prestador de Serviços</p>
   </div>
   <div class="meta">
@@ -111,7 +112,7 @@ export async function renderReciboAssinadoBlob(
   ctx.fillStyle = '#1a1208'
   ctx.font = 'bold 22px Georgia'
   ctx.textAlign = 'center'
-  ctx.fillText('GARBO MOVELARIA', 397, 48)
+  ctx.fillText(nomeEmpresaDocumento(), 397, 48)
   ctx.font = '14px Georgia'
   ctx.fillStyle = '#666'
   ctx.fillText('Recibo de Pagamento', 397, 72)

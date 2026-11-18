@@ -1,3 +1,4 @@
+import { nomeEmpresaDocumento } from './empresa-identidade'
 function tlv(id: string, value: string): string {
   return `${id}${String(value.length).padStart(2, '0')}${value}`
 }
@@ -13,14 +14,19 @@ function crc16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, '0')
 }
 
-function normalizarNome(nome: string): string {
+function limparNome(nome: string): string {
   return nome
     .toUpperCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^A-Z0-9 ]/g, '')
     .slice(0, 25)
-    .trim() || 'GARBO MOVELARIA'
+    .trim()
+}
+
+/** Nome do recebedor no BR Code (até 25 caracteres ASCII); cai no nome da empresa ativa. */
+function normalizarNome(nome: string): string {
+  return limparNome(nome) || limparNome(nomeEmpresaDocumento()) || 'RECEBEDOR'
 }
 
 export interface PixPayloadParams {
@@ -33,7 +39,7 @@ export interface PixPayloadParams {
 export function gerarPixPayload({
   chave,
   valor,
-  nomeBeneficiario = 'GARBO MOVELARIA',
+  nomeBeneficiario = nomeEmpresaDocumento(),
   cidade = 'Brasil',
 }: PixPayloadParams): string {
   const merchantInfo =

@@ -1,3 +1,5 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -96,6 +98,7 @@ export function LeadLembreteDialog({
   floatingLayer,
   nested,
 }: Props) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { user } = useAuth();
   const { schemaEmpresa, queriesReady } = useEmpresa();
   const db = useEmpresaSupabase();
@@ -346,7 +349,7 @@ export function LeadLembreteDialog({
                   )}
                   {leadData.origem && (
                     <Badge variant="outline" className="text-[10px]">
-                      {leadData.origem}
+                      {rotuloPontua(leadData.origem, nomePrograma)}
                     </Badge>
                   )}
                 </div>

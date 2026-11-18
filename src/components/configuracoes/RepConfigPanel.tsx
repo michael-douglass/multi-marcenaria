@@ -6,9 +6,10 @@ import { formatarCnpj } from '@/lib/rep/rep-validation'
 import { showToast } from '@/lib/toast'
 import { useRepConfig } from '@/hooks/useRepConfig'
 import type { RepConfigInput } from '@/types'
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 
 const DEFAULT_FORM: RepConfigInput = {
-  razao_social: 'GARBO MOVELARIA',
+  razao_social: '',
   cnpj: '',
   inpi_registro: '',
   versao_software: '1.0.0',
@@ -18,15 +19,26 @@ const DEFAULT_FORM: RepConfigInput = {
 
 export function RepConfigPanel() {
   const { config, loading, saving, salvar } = useRepConfig()
-  const [form, setForm] = useState<RepConfigInput>(DEFAULT_FORM)
+  // Padrão vem do cadastro da empresa (Perfil → Dados da empresa); a config do REP prevalece.
+  const identidade = useEmpresaIdentidade()
+  const padraoRazao = identidade.razaoSocial.toLocaleUpperCase('pt-BR')
+  const padraoCnpj = identidade.cnpjDigitos
+  const [form, setForm] = useState<RepConfigInput>(() => ({
+    ...DEFAULT_FORM,
+    razao_social: padraoRazao,
+    cnpj: padraoCnpj,
+  }))
   const [certificadoArquivo, setCertificadoArquivo] = useState<File | null>(null)
   const [atualizarSenha, setAtualizarSenha] = useState(false)
 
   useEffect(() => {
-    if (!config) return
+    if (!config) {
+      setForm((f) => ({ ...f, razao_social: f.razao_social || padraoRazao, cnpj: f.cnpj || padraoCnpj }))
+      return
+    }
     setForm({
-      razao_social: config.razao_social ?? DEFAULT_FORM.razao_social,
-      cnpj: config.cnpj ?? '',
+      razao_social: config.razao_social?.trim() || padraoRazao,
+      cnpj: config.cnpj?.trim() || padraoCnpj,
       inpi_registro: config.inpi_registro ?? '',
       versao_software: config.versao_software ?? '1.0.0',
       certificado_valido_ate: config.certificado_valido_ate?.slice(0, 10) ?? '',
@@ -35,7 +47,7 @@ export function RepConfigPanel() {
     })
     setAtualizarSenha(false)
     setCertificadoArquivo(null)
-  }, [config])
+  }, [config, padraoRazao, padraoCnpj])
 
   if (loading) return <LoadingState message="Carregando configuração do ponto eletrônico…" />
 

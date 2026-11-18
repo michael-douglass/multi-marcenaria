@@ -1,10 +1,11 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 
 interface PortalBrandProps {
   onGoHome: () => void
 }
 
 export function PortalBrand({ onGoHome }: PortalBrandProps) {
+  const { logoUrl, nomeFantasia } = useEmpresaIdentidade()
   return (
     <button
       type="button"
@@ -19,13 +20,13 @@ export function PortalBrand({ onGoHome }: PortalBrandProps) {
           borderColor: 'rgba(196, 165, 116, 0.35)',
         }}
       >
-        <img src={garboBrandLogo} alt="" className="h-11 w-11 object-contain sm:h-[52px] sm:w-[52px]" draggable={false} />
+        <img src={logoUrl} alt="" className="h-11 w-11 object-contain sm:h-[52px] sm:w-[52px]" draggable={false} />
       </span>
       <span
         className="font-display text-[0.68rem] uppercase leading-tight"
         style={{ letterSpacing: '0.2em', color: 'rgba(196, 165, 116, 0.95)' }}
       >
-        Garbo movelaria
+        {nomeFantasia}
       </span>
     </button>
   )

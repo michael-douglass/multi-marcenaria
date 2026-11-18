@@ -1,3 +1,5 @@
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 import { useState, useEffect } from 'react'
 import { Modal } from '../ui/Modal'
 import { ModalFormFooter } from '../ui/ModalFormFooter'
@@ -74,6 +76,7 @@ function defaultForm(): EntradaForm {
 
 export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoadHistorico, onRemoverLead, isAdmin, readOnly }: Props) {
   const [selected, setSelected] = useState<LeadGanho | null>(null)
+  const { nomeFantasia, nomePrograma } = useEmpresaIdentidade()
   const [form, setForm] = useState<EntradaForm>(defaultForm)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -384,7 +387,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 className="section-label"
                 style={{ marginBottom: '.5rem', fontSize: '.68rem', opacity: 0.65 }}
               >
-                via {lead.origem}
+                via {rotuloPontua(lead.origem, nomePrograma)}
               </div>
             )}
             {lead.observacoes && (
@@ -667,7 +670,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
               }}>
                 <div>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f2d892', fontFamily: 'Raleway, sans-serif', letterSpacing: '.06em' }}>
-                    GARBO Movelaria
+                    {nomeFantasia}
                   </div>
                   <div className="section-label" style={{ fontSize: '.67rem' }}>
                     Marcenaria Planejada de Alta Qualidade
@@ -722,7 +725,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                   {previewMerged.origem && (
                     <>
                       <span className="section-label">Origem</span>
-                      <span style={{ color: '#fffaf4' }}>{previewMerged.origem}</span>
+                      <span style={{ color: '#fffaf4' }}>{rotuloPontua(previewMerged.origem, nomePrograma)}</span>
                     </>
                   )}
                 </div>
@@ -783,7 +786,7 @@ export function OrcamentosFechados({ leads, loading, error, onDarEntrada, onLoad
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ borderBottom: '1px dashed rgba(240,210,140,0.3)', marginBottom: '.35rem', paddingBottom: '1.5rem' }} />
-                  <div className="section-label" style={{ fontSize: '.67rem' }}>GARBO Movelaria</div>
+                  <div className="section-label" style={{ fontSize: '.67rem' }}>{nomeFantasia}</div>
                 </div>
               </div>
             </div>

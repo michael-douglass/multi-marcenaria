@@ -1,65 +1,73 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Building2, Crown, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Eye, Loader2, LogOut, PencilLine } from 'lucide-react'
 import { toast } from 'sonner'
 import { useApp } from '@/context/AppContext'
-import { useMasterEmpresas } from '@/hooks/useMaster'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 /**
- * Faixa visível só para o usuário master: mostra em qual marcenaria ele está trabalhando,
- * permite trocar de empresa e leva ao Painel Master.
+ * Faixa de inspeção: aparece só quando o master está dentro de uma marcenaria.
+ * Âmbar = somente leitura (o banco recusa alterações); tijolo = acesso total. "Sair" volta ao console.
  */
 export function MasterEmpresaBar() {
-  const { isMaster, empresa, trocarEmpresa } = useApp()
-  const { data: empresas = [], isLoading } = useMasterEmpresas(isMaster)
-  const [trocando, setTrocando] = useState(false)
+  const { isMaster, empresa, sairInspecao } = useApp()
+  const [saindo, setSaindo] = useState(false)
 
-  if (!isMaster) return null
+  // O cliente Supabase avisa quando o banco recusa uma gravação durante a inspeção somente leitura.
+  useEffect(() => {
+    const aviso = () =>
+      toast.warning('Modo somente leitura: a alteração não foi salva. Saia e entre com acesso total para alterar.')
+    window.addEventListener('master:somente-leitura', aviso)
+    return () => window.removeEventListener('master:somente-leitura', aviso)
+  }, [])
 
-  const onTrocar = async (id: string) => {
-    if (id === empresa?.id) return
-    setTrocando(true)
+  if (!isMaster || !empresa) return null
+  const leitura = empresa.somenteLeitura
+  const bloqueadas = empresa.paginasBloqueadas.length
+
+  const sair = async () => {
+    setSaindo(true)
     try {
-      await trocarEmpresa(id)
+      await sairInspecao()
     } catch (err) {
-      setTrocando(false)
-      toast.error(err instanceof Error ? err.message : 'Não foi possível trocar de empresa')
+      setSaindo(false)
+      toast.error(err instanceof Error ? err.message : 'Não foi possível sair da marcenaria')
     }
   }
 
   return (
-    <div className="relative z-[2] flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-500/30 bg-amber-950/70 px-3 py-2 text-xs text-amber-100 sm:px-5">
-      <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.14em] text-amber-300">
-        <Crown className="h-3.5 w-3.5" aria-hidden />
-        Master
+    <div
+      role="status"
+      className={
+        leitura
+          ? 'relative z-[2] flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#e0a54a] bg-[#fff1d6] px-3 py-2 text-[13px] text-[#4a2c00] sm:px-5'
+          : 'relative z-[2] flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#7a2318] bg-[#9b2f22] px-3 py-2 text-[13px] text-white sm:px-5'
+      }
+    >
+      <span className="inline-flex items-center gap-2 font-semibold">
+        {leitura ? <Eye className="h-4 w-4" aria-hidden /> : <PencilLine className="h-4 w-4" aria-hidden />}
+        {leitura ? 'Somente leitura' : 'Acesso total'}
       </span>
-      <span className="inline-flex items-center gap-1.5 text-amber-100/80">
-        <Building2 className="h-3.5 w-3.5" aria-hidden />
-        Você está vendo:
+      <span>
+        Você está dentro de <strong>{empresa.nome}</strong>
+        {leitura ? ', sem poder alterar nada.' : ' e suas alterações valem de verdade.'}
       </span>
-      <div className="min-w-[12rem] max-w-[18rem] flex-1 sm:flex-none">
-        <Select value={empresa?.id} onValueChange={(v) => void onTrocar(v)} disabled={trocando || isLoading}>
-          <SelectTrigger className="h-8 border-amber-500/40 bg-black/30 text-xs text-amber-50">
-            <SelectValue placeholder={empresa?.nome ?? 'Selecione a empresa'} />
-          </SelectTrigger>
-          <SelectContent>
-            {empresas.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.nome}
-                {e.status !== 'ativa' ? ` (${e.status})` : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {trocando ? <Loader2 className="h-4 w-4 animate-spin text-amber-300" aria-label="Trocando de empresa" /> : null}
-      <Link
-        to="/master"
-        className="ml-auto inline-flex min-h-8 items-center rounded-md border border-amber-500/40 px-3 font-semibold text-amber-200 transition-colors hover:bg-amber-500/15"
+      {bloqueadas > 0 ? (
+        <span className="opacity-80">
+          {bloqueadas} {bloqueadas === 1 ? 'página bloqueada' : 'páginas bloqueadas'} para esta marcenaria.
+        </span>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => void sair()}
+        disabled={saindo}
+        className={
+          leitura
+            ? 'ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[#b9852f] px-3 font-semibold hover:bg-[#ffe6b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a5200]'
+            : 'ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-md border border-white/50 px-3 font-semibold hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white'
+        }
       >
-        Painel Master
-      </Link>
+        {saindo ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LogOut className="h-4 w-4" aria-hidden />}
+        Sair da marcenaria
+      </button>
     </div>
   )
 }

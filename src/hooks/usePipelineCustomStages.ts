@@ -3,18 +3,16 @@ import { toast } from 'sonner';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { LEGACY_VENDA_PERDIDA_NAO_MATRICULADO } from '@/lib/crm-portal';
+import { PIPELINE_ETAPAS_PADRAO } from '@/lib/kanbans-padrao';
 
 const MASTER_TABLE = 'CRM-multi-empresas>pipeline_custom_stages<';
 const EMPRESA_TABLE = 'pipeline_custom_stages';
 
-export const DEFAULT_PIPELINE_STAGES = [
-  { nome: 'Novo Lead', is_default: true },
-  { nome: 'Aula Experimental Marcada', is_default: true },
-  { nome: 'Não Entraram para Aula Experimental', is_default: true },
-  { nome: 'Aula Realizada', is_default: true },
-  { nome: 'Venda Realizada (Matriculado)', is_default: true },
-  { nome: 'Clientes Já Cadastrados', is_default: true },
-];
+/** Etapas padrão (as mesmas que o banco cria em toda empresa: `crm_seed_pipeline_padrao`). */
+export const DEFAULT_PIPELINE_STAGES = PIPELINE_ETAPAS_PADRAO.map((nome, index) => ({
+  nome,
+  is_default: index === 0,
+}));
 
 export interface PipelineCustomStage {
   id: string;

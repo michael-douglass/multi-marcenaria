@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
@@ -243,7 +244,7 @@ function buildNegociadorPdfHtml(
     <div class="brand">
       ${logoSrc ? `<img class="logo" src="${esc(logoSrc)}" alt="Logo" />` : ''}
       <div class="empresa-legal">
-        <div class="nome">${esc(branding.empresaNome || 'Garbo Movelaria')}</div>
+        <div class="nome">${esc(branding.empresaNome || empresaDocumento().nomeFantasia)}</div>
         <span class="lbl">Razão Social</span>
         <div class="val">${esc(razaoSocial)}</div>
         ${

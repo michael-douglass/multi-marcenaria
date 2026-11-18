@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 import type { TipoChavePix } from '@/hooks/usePrestadorPerfil';
 
 const TIPO_PIX_LABELS: Record<TipoChavePix, string> = {
@@ -311,7 +312,7 @@ export function abrirReciboSaque(opts: ReciboSaqueOpts): void {
       <p class="mensagem-principal">
         Parab&eacute;ns, <strong>${esc(prestadorNome)}</strong>! Voc&ecirc; sacou
         <span class="valor-destaque">${esc(valorFormatado)}</span>
-        no programa Pontua Garbo.
+        no programa ${esc(empresaDocumento().nomePrograma)}.
       </p>
     </div>
 

@@ -15,6 +15,7 @@ import {
   type OrcamentoSlideExportCacheInput,
 } from '@/lib/orcamento-slide-export-cache';
 import type { OrcamentoExportProgress } from '@/lib/orcamento-slide-print';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 
 type PresentationProps = Omit<
   OrcamentoSlideApresentacaoProps,
@@ -81,6 +82,7 @@ export function useOrcamentoSlideExport({
   onPdfReady = null,
 }: UseOrcamentoSlideExportOptions) {
   const offscreenRef = useRef<HTMLDivElement>(null);
+  const identidade = useEmpresaIdentidade();
   const [exportViewport, setExportViewport] = useState<OrcamentoExportViewport | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -128,6 +130,11 @@ export function useOrcamentoSlideExport({
             midias,
             viewport,
             format: 'pdf',
+            empresa: {
+              cnpj: identidade.cnpjDigitos,
+              razaoSocial: identidade.razaoSocial,
+              logoUrl: identidade.logoUrlEmpresa,
+            },
           });
           const cacheInput: OrcamentoSlideExportCacheInput = {
             empresaSchema: cacheContext.empresaSchema,
@@ -178,6 +185,7 @@ export function useOrcamentoSlideExport({
       onPdfReady,
       presentationProps.orcamento,
       presentationProps.midiasOrcamento,
+      identidade,
     ],
   );
 

@@ -17,6 +17,15 @@ export interface Empresa {
   banner_slides_mobile: string[] | null
   cnpj?: string | null
   razao_social?: string | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  uf?: string | null
+  telefone?: string | null
+  email?: string | null
 }
 
 /**
@@ -62,6 +71,15 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
           banner_slides_mobile: null,
           cnpj: ativa.cnpj,
           razao_social: ativa.razaoSocial,
+          cep: ativa.cep,
+          logradouro: ativa.logradouro,
+          numero: ativa.numero,
+          complemento: ativa.complemento,
+          bairro: ativa.bairro,
+          cidade: ativa.cidade,
+          uf: ativa.uf,
+          telefone: ativa.telefone,
+          email: ativa.email,
         }
       : null
     return {

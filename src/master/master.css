@@ -1,0 +1,74 @@
+/*
+ * Console Master — ambiente próprio, fora do app da marcenaria.
+ * A classe `.master-shell` vai no <html> enquanto o console está montado (MasterApp), então vale também
+ * para os portais do Radix (dialogs, selects). Redefine as variáveis do shadcn: os primitivos de
+ * src/components/ui herdam a paleta do console sem nenhuma mudança neles.
+ *
+ * Paleta "chapa e máquina": gesso frio de fundo, superfícies brancas, tinta grafite e um verde de
+ * maquinário de oficina como única cor de ação. Âmbar e tijolo ficam reservados para os modos de inspeção.
+ */
+html.master-shell {
+  --m-bg: #eceff2;
+  --m-surface: #ffffff;
+  --m-ink: #1c232c;
+  --m-ink-2: #56616d;
+  --m-line: #d4dae1;
+  --m-accent: #1e6b58;
+  --m-accent-soft: #e3f0ec;
+  --m-leitura: #8a5200;
+  --m-leitura-bg: #fff1d6;
+  --m-total: #9b2f22;
+  --m-total-bg: #fbe4e0;
+
+  --background: 210 17% 94%;
+  --foreground: 214 22% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 214 22% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 214 22% 14%;
+  --primary: 165 56% 27%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 214 22% 14%;
+  --accent: 162 29% 92%;
+  --accent-foreground: 214 22% 14%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 211 12% 38%;
+  --destructive: 7 64% 37%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 212 17% 86%;
+  --input: 212 17% 86%;
+  --ring: 165 56% 27%;
+  --radius: 0.375rem;
+  color-scheme: light;
+}
+
+html.master-shell body {
+  background: var(--m-bg);
+  background-image: none;
+  color: var(--m-ink);
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  font-feature-settings: 'tnum' 1;
+}
+
+html.master-shell .m-titulo {
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  font-stretch: 82%;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.05;
+}
+
+html.master-shell .m-num {
+  font-variant-numeric: tabular-nums;
+  font-stretch: 88%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.master-shell *,
+  html.master-shell *::before,
+  html.master-shell *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

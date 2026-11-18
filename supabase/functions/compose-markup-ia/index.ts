@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   applyMarkupIAPromptPlaceholders,
@@ -1617,6 +1617,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const recusa = await motivoRecusa(req, 'markupCrm');
+  if (recusa) return jsonResponse({ error: recusa }, 403);
 
   try {
     const supabase = serviceClient(await empresaDoChamador(req));

@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -311,7 +312,7 @@ export function useCadastrarLeadComoPontuaGarbo() {
   return useMutation({
     mutationFn: async (input: CadastrarLeadPontuaGarboInput) => {
       if (!canManagePontuaGarboFinanceiro(userRole, isSuperAdmin)) {
-        throw new Error('Apenas administradores podem cadastrar no Pontua Garbo.');
+        throw new Error(`Apenas administradores podem cadastrar no ${empresaDocumento().nomePrograma}.`);
       }
       if (!empresa?.id || !schemaEmpresa) {
         throw new Error('Selecione a empresa antes de cadastrar o usuário.');
@@ -443,7 +444,7 @@ export function useCadastrarLeadComoPontuaGarbo() {
         queryClient.invalidateQueries({ queryKey: ['lead-origins'] }),
       ]);
       toast.success(
-        _data.unidoExistente ? 'Card unido ao Pontua Garbo' : 'Lead cadastrado no Pontua Garbo',
+        _data.unidoExistente ? `Card unido ao ${empresaDocumento().nomePrograma}` : `Lead cadastrado no ${empresaDocumento().nomePrograma}`,
         {
           description: _data.unidoExistente
             ? 'Este lead já era um arquiteto cadastrado. O card agora mostra os orçamentos abertos.'
@@ -454,7 +455,7 @@ export function useCadastrarLeadComoPontuaGarbo() {
       );
     },
     onError: (error: Error) => {
-      toast.error('Não foi possível cadastrar no Pontua Garbo', {
+      toast.error(`Não foi possível cadastrar no ${empresaDocumento().nomePrograma}`, {
         description: error.message,
       });
     },
@@ -494,7 +495,7 @@ export function useEnsurePontuaGarboPartnerLead() {
             timeZone: 'America/Sao_Paulo',
           }),
           pontua_garbo_usuario_id: input.usuarioId,
-          observacoes: 'Cadastro automático pelo programa Pontua Garbo.',
+          observacoes: `Cadastro automático pelo programa ${empresaDocumento().nomePrograma}.`,
         })
         .select('id')
         .single();

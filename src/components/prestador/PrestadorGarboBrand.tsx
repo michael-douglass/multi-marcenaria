@@ -1,5 +1,6 @@
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 
+/** @deprecated o rótulo agora é o nome fantasia da empresa (useEmpresaIdentidade). */
 export const GARBO_MOVELARIA_LABEL = 'Garbo movelaria';
 
 const brandCss = `
@@ -33,6 +34,7 @@ export function PrestadorGarboBrand({
   animate = true,
   onGoHome,
 }: PrestadorGarboBrandProps) {
+  const { logoUrl, nomeFantasia } = useEmpresaIdentidade();
   return (
     <>
       <style>{brandCss}</style>
@@ -70,7 +72,7 @@ export function PrestadorGarboBrand({
               }}
             >
               <img
-                src={GARBO_LOGO_SRC}
+                src={logoUrl}
                 alt=""
                 width={44}
                 height={44}
@@ -82,7 +84,7 @@ export function PrestadorGarboBrand({
                 }}
               />
               <img
-                src={GARBO_LOGO_SRC}
+                src={logoUrl}
                 alt=""
                 width={52}
                 height={52}
@@ -105,8 +107,8 @@ export function PrestadorGarboBrand({
               }}
             >
               <img
-                src={GARBO_LOGO_SRC}
-                alt={GARBO_MOVELARIA_LABEL}
+                src={logoUrl}
+                alt={nomeFantasia}
                 width={44}
                 height={44}
                 className="object-contain block sm:hidden"
@@ -117,8 +119,8 @@ export function PrestadorGarboBrand({
                 }}
               />
               <img
-                src={GARBO_LOGO_SRC}
-                alt={GARBO_MOVELARIA_LABEL}
+                src={logoUrl}
+                alt={nomeFantasia}
                 width={52}
                 height={52}
                 className="object-contain hidden sm:block"
@@ -140,7 +142,7 @@ export function PrestadorGarboBrand({
               textShadow: '0 1px 8px rgba(0,0,0,0.65)',
             }}
           >
-            {GARBO_MOVELARIA_LABEL}
+            {nomeFantasia}
           </span>
         </div>
       </div>

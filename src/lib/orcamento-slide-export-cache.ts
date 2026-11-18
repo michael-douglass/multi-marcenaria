@@ -47,6 +47,8 @@ export async function buildExportFingerprint(opts: {
   midias: Array<Pick<OrcamentoSlideMidia, 'id' | 'ordem' | 'file_url' | 'tipo'>>;
   viewport: OrcamentoExportViewport;
   format: OrcamentoExportFormat;
+  /** Identidade da empresa nos slides: mudar CNPJ, razão social ou logo refaz o PDF. */
+  empresa?: { cnpj?: string | null; razaoSocial?: string | null; logoUrl?: string | null } | null;
 }): Promise<string> {
   const midiaSig = [...opts.midias]
     .map((m) => `${m.id}:${m.ordem}:${m.tipo}:${m.file_url}`)

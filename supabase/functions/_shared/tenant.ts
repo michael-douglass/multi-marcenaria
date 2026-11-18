@@ -37,7 +37,17 @@ export interface CallerTenant {
   empresaId: string | null;
   empresaStatus: 'ativa' | 'bloqueada' | 'inativa' | null;
   isMaster: boolean;
+  /** Páginas bloqueadas pela plataforma para a empresa (ids de src/lib/paginas-catalogo.ts). */
+  paginasBloqueadas: string[];
+  /** Master inspecionando a empresa em modo somente leitura. */
+  somenteLeitura: boolean;
 }
+
+/** Páginas que nunca são bloqueadas (espelho de src/lib/paginas-bloqueio.ts). */
+const PAGINAS_NAO_BLOQUEAVEIS = new Set(['meuPerfil', 'configuracoes', 'adminUsuarios']);
+
+export const MSG_SOMENTE_LEITURA =
+  'Modo somente leitura: alterações estão bloqueadas durante a inspeção do master';
 
 export function isUuid(v: unknown): v is string {
   return typeof v === 'string' && UUID_RE.test(v);
@@ -70,7 +80,30 @@ export async function getCallerTenant(req: Request): Promise<CallerTenant | null
     empresaId: (row?.id as string | undefined) ?? null,
     empresaStatus: (row?.status as CallerTenant['empresaStatus']) ?? null,
     isMaster: row?.is_master === true,
+    paginasBloqueadas: Array.isArray(row?.paginas_bloqueadas) ? (row?.paginas_bloqueadas as string[]) : [],
+    somenteLeitura: row?.inspecao_somente_leitura === true,
   };
+}
+
+/**
+ * Motivo para recusar a chamada (ou `null` se pode seguir): página bloqueada para a empresa ou master
+ * em inspeção somente leitura. Uso no início do handler:
+ *   const recusa = await motivoRecusa(req, 'orcamentosIa'); if (recusa) return jsonResponse({ error: recusa }, 403);
+ */
+export async function motivoRecusa(req: Request, paginaId: string): Promise<string | null> {
+  let t: CallerTenant | null = null;
+  try {
+    t = await getCallerTenant(req);
+  } catch (e) {
+    console.warn('motivoRecusa:', e);
+    return null; // a própria função trata a falta de usuário/empresa
+  }
+  if (!t) return null;
+  if (t.somenteLeitura) return MSG_SOMENTE_LEITURA;
+  if (!PAGINAS_NAO_BLOQUEAVEIS.has(paginaId) && t.paginasBloqueadas.includes(paginaId)) {
+    return 'Este recurso não está liberado no plano da sua empresa.';
+  }
+  return null;
 }
 
 /** Exige usuário autenticado com empresa ativa (o master sempre passa). */
@@ -79,6 +112,7 @@ export async function requireCallerTenant(req: Request): Promise<CallerTenant & 
   if (!t) throw new Error('Usuário não autenticado');
   if (!t.empresaId) throw new Error('Usuário sem empresa vinculada');
   if (!t.isMaster && t.empresaStatus !== 'ativa') throw new Error('Acesso da empresa suspenso');
+  if (t.somenteLeitura) throw new Error(MSG_SOMENTE_LEITURA);
   return t as CallerTenant & { empresaId: string };
 }
 
@@ -143,11 +177,14 @@ export async function assertUsuarioDaEmpresa(
  * Uso típico: `const supabase = serviceClient(await empresaDoChamador(req))`.
  */
 export async function empresaDoChamador(req: Request): Promise<string | null> {
+  let t: CallerTenant | null = null;
   try {
-    const t = await getCallerTenant(req);
-    return t?.empresaId ?? null;
+    t = await getCallerTenant(req);
   } catch (e) {
     console.warn('empresaDoChamador:', e);
     return null;
   }
+  // Service role ignora a RLS: a inspeção somente leitura do master é aplicada aqui.
+  if (t?.somenteLeitura) throw new Error(MSG_SOMENTE_LEITURA);
+  return t?.empresaId ?? null;
 }

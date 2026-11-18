@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState } from 'react';
 import { Loader2, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ export function LeadPontuaGarboContactPanel({
   telefone,
   className,
 }: LeadPontuaGarboContactPanelProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { userRole, isSuperAdmin } = useAuth();
   const canRegister = canManagePontuaGarboFinanceiro(userRole, isSuperAdmin);
   const badge = usePontuaGarboPartnerBadge(leadId);
@@ -103,7 +105,7 @@ export function LeadPontuaGarboContactPanel({
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm tracking-wide text-gold">
-                Cadastrar ou unir no Pontua Garbo
+                Cadastrar ou unir no {nomePrograma}
               </p>
               <p className="text-xs text-cream-muted leading-relaxed">
                 Se já for arquiteto do programa, une este card ao cadastro. Senão, cria o acesso e marca com a estrelinha.
@@ -127,7 +129,7 @@ export function LeadPontuaGarboContactPanel({
           <div>
             <p className="font-display text-sm text-gold">Confirmar cadastro</p>
             <p className="mt-1 text-xs text-cream-muted leading-relaxed">
-              {nome.trim() || 'Este lead'} entra no Pontua Garbo. Se ele já tiver cadastro, só unimos o card.
+              {nome.trim() || 'Este lead'} entra no {nomePrograma}. Se ele já tiver cadastro, só unimos o card.
               {phoneDigits
                 ? ` Se for cadastro novo, a senha inicial é o telefone (${phoneDigits}).`
                 : ' Se for cadastro novo, informe o e-mail e depois defina a senha em Admin.'}

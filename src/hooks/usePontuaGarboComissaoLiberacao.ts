@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -176,7 +177,7 @@ export async function ensurePontuaGarboLiberacaoAposPontuacao(
   if (userErr) throw userErr;
   if (!prestador?.id) throw new Error('Parceiro não encontrado.');
   if (prestador.tipo_usuario === 'prestador_servico' && prestador.comissao_ativa === false) {
-    throw new Error('Este parceiro está com comissão Pontua Garbo desativada.');
+    throw new Error(`Este parceiro está com comissão ${empresaDocumento().nomePrograma} desativada.`);
   }
 
   const valorBase = resolveValorBaseComissaoGarbo(

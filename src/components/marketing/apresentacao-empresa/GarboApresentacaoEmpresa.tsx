@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { cn } from '@/lib/utils';
 import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
 import {
@@ -38,7 +39,15 @@ export function GarboApresentacaoEmpresa({
   const [introDone, setIntroDone] = useState(false);
   const [parceriaOpen, setParceriaOpen] = useState(false);
 
-  const navItems = includePontua ? GARBO_APRESENTACAO_NAV_COM_PONTUA : GARBO_APRESENTACAO_NAV;
+  const { nomePrograma, nomeFantasia } = useEmpresaIdentidade();
+  // Rótulo do capítulo do programa: "Pontua {nome fantasia}" (o id da seção não muda).
+  const navItems = useMemo(
+    () =>
+      (includePontua ? GARBO_APRESENTACAO_NAV_COM_PONTUA : GARBO_APRESENTACAO_NAV).map((it) =>
+        it.id === 'pontua-garbo' ? { ...it, label: nomePrograma } : it,
+      ),
+    [includePontua, nomePrograma],
+  );
 
   useGarboApresentacaoReveal(containerRef, !introDone);
 
@@ -58,7 +67,7 @@ export function GarboApresentacaoEmpresa({
     return (
       <GarboBrandLoader
         variant="fullscreen"
-        message={includePontua ? 'Pontua Garbo' : 'Garbo Movelaria'}
+        message={includePontua ? nomePrograma : nomeFantasia}
       />
     );
   }

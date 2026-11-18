@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 /** Admin altera valores; vendedor só consulta a página Financeiro · Pontua Garbo. */
 
 export function canManagePontuaGarboFinanceiro(
@@ -22,6 +23,6 @@ export function assertCanManagePontuaGarboFinanceiro(
   isSuperAdmin?: boolean,
 ): void {
   if (!canManagePontuaGarboFinanceiro(userRole, isSuperAdmin)) {
-    throw new Error('Apenas administradores podem alterar o Pontua Garbo.');
+    throw new Error(`Apenas administradores podem alterar o ${empresaDocumento().nomePrograma}.`);
   }
 }

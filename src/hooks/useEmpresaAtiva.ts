@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
+import { definirInspecaoSomenteLeitura, supabase } from '../lib/supabase'
+import { definirEmpresaDocumento } from '../lib/empresa-identidade'
 
 /** Empresa (marcenaria) em que o usuário está trabalhando — RPC `app_minha_empresa`. */
 export interface EmpresaAtiva {
@@ -13,14 +14,32 @@ export interface EmpresaAtiva {
   corPrimaria: string | null
   cnpj: string | null
   razaoSocial: string | null
+  /** Endereço e contato (dados cadastrais; CNPJ guardado só com dígitos). */
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  uf: string | null
+  telefone: string | null
+  email: string | null
+  /** Páginas bloqueadas pela plataforma (ids de `src/lib/paginas-catalogo.ts`). */
+  paginasBloqueadas: string[]
+  /** O master está dentro desta empresa (inspeção). */
+  emInspecao: boolean
+  /** Inspeção do master em modo somente leitura (o banco recusa gravações). */
+  somenteLeitura: boolean
 }
 
 export interface EmpresaAtivaState {
   empresa: EmpresaAtiva | null
   isMaster: boolean
   empresaLoading: boolean
-  /** Só para o master: troca a empresa ativa e recarrega o app (zera caches e estado). */
-  trocarEmpresa: (empresaId: string) => Promise<void>
+  /** Só para o master: entra na empresa (inspeção) e recarrega o app (zera caches e estado). */
+  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean) => Promise<void>
+  /** Só para o master: sai da inspeção e volta ao console `/master`. */
+  sairInspecao: () => Promise<void>
   recarregarEmpresa: () => void
 }
 
@@ -48,6 +67,18 @@ function mapEmpresa(row: Record<string, unknown>): EmpresaAtiva {
     corPrimaria: (row.cor_primaria as string | null) ?? null,
     cnpj: (row.cnpj as string | null) ?? null,
     razaoSocial: (row.razao_social as string | null) ?? null,
+    cep: (row.cep as string | null) ?? null,
+    logradouro: (row.logradouro as string | null) ?? null,
+    numero: (row.numero as string | null) ?? null,
+    complemento: (row.complemento as string | null) ?? null,
+    bairro: (row.bairro as string | null) ?? null,
+    cidade: (row.cidade as string | null) ?? null,
+    uf: (row.uf as string | null) ?? null,
+    telefone: (row.telefone as string | null) ?? null,
+    email: (row.email as string | null) ?? null,
+    paginasBloqueadas: Array.isArray(row.paginas_bloqueadas) ? (row.paginas_bloqueadas as string[]) : [],
+    emInspecao: row.em_inspecao === true,
+    somenteLeitura: row.inspecao_somente_leitura === true,
   }
 }
 
@@ -67,6 +98,7 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
         queryClient.clear()
         ultimoUserId.current = null
       }
+      definirEmpresaDocumento(null)
       setEmpresa(null)
       setIsMaster(false)
       setEmpresaLoading(false)
@@ -76,7 +108,11 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
     let active = true
     setEmpresaLoading(true)
     void (async () => {
-      const { data, error } = await supabase.rpc('app_minha_empresa' as never)
+      // O master fora de inspeção não tem empresa: `app_is_master` vem separado.
+      const [{ data, error }, masterRes] = await Promise.all([
+        supabase.rpc('app_minha_empresa' as never),
+        supabase.rpc('app_is_master' as never),
+      ])
       if (!active) return
       if (error) {
         console.error('[useEmpresaAtiva] Erro ao carregar empresa:', error)
@@ -99,8 +135,10 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
       } catch {
         /* storage indisponível */
       }
+      definirInspecaoSomenteLeitura(next?.somenteLeitura === true)
+      definirEmpresaDocumento(next)
       setEmpresa(next)
-      setIsMaster(row?.is_master === true)
+      setIsMaster(row?.is_master === true || masterRes.data === true)
       setEmpresaLoading(false)
     })()
     return () => {
@@ -109,8 +147,11 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
   }, [userId, reloadKey, queryClient])
 
   const trocarEmpresa = useCallback(
-    async (empresaId: string) => {
-      const { error } = await supabase.rpc('master_definir_empresa_ativa' as never, { p_empresa_id: empresaId } as never)
+    async (empresaId: string, somenteLeitura = true) => {
+      const { error } = await supabase.rpc(
+        'master_definir_empresa_ativa' as never,
+        { p_empresa_id: empresaId, p_somente_leitura: somenteLeitura } as never,
+      )
       if (error) throw new Error(error.message)
       limparCacheLocal()
       queryClient.clear()
@@ -125,7 +166,20 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
     [queryClient],
   )
 
+  const sairInspecao = useCallback(async () => {
+    const { error } = await supabase.rpc('master_sair_empresa' as never)
+    if (error) throw new Error(error.message)
+    limparCacheLocal()
+    queryClient.clear()
+    try {
+      window.localStorage.removeItem(EMPRESA_LOCAL_KEY)
+    } catch {
+      /* storage indisponível */
+    }
+    window.location.assign('/master')
+  }, [queryClient])
+
   const recarregarEmpresa = useCallback(() => setReloadKey((k) => k + 1), [])
 
-  return { empresa, isMaster, empresaLoading, trocarEmpresa, recarregarEmpresa }
+  return { empresa, isMaster, empresaLoading, trocarEmpresa, sairInspecao, recarregarEmpresa }
 }

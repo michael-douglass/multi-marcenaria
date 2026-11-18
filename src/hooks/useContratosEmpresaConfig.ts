@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { atualizarDadosEmpresa } from '@/hooks/useEmpresaBranding';
+import { formatCnpj } from '@/lib/empresa-identidade';
 
 const EMPRESAS_TABLE = 'CRM-multi-empresas>empresas<' as const;
 
@@ -50,14 +52,11 @@ export function useContratosEmpresaConfig() {
   const salvar = useMutation({
     mutationFn: async (input: { razaoSocial: string; cnpj: string }) => {
       if (!empresa?.id) throw new Error('Nenhuma empresa selecionada');
-      const { error } = await supabase
-        .from(EMPRESAS_TABLE as never)
-        .update({
-          razao_social: input.razaoSocial.trim() || null,
-          cnpj: input.cnpj.trim() || null,
-        } as never)
-        .eq('id', empresa.id);
-      if (error) throw error;
+      // RPC (só admin): o UPDATE direto na tabela falha por recursão de policy.
+      await atualizarDadosEmpresa({
+        razao_social: input.razaoSocial.trim() || null,
+        cnpj: input.cnpj.trim() || null,
+      });
     },
     onSuccess: async () => {
       if (user?.id) await recarregarEmpresa(user.id);
@@ -86,6 +85,6 @@ export function getContratosEmpresaFromContext(
   return {
     nomeFantasia: empresa.nome ?? '',
     razaoSocial: empresa.razao_social ?? '',
-    cnpj: empresa.cnpj ?? '',
+    cnpj: formatCnpj(empresa.cnpj),
   };
 }

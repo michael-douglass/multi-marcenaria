@@ -125,6 +125,8 @@ export function buildConteudoContrato(
   modeloConteudo: string,
   valores: Record<string, string>,
   variaveis: ContratoVariavel[],
+  /** Valores de `{{empresa_*}}` (ver `valoresVariaveisEmpresa`). */
+  valoresEmpresa?: Record<string, string>,
 ): string {
   const limpos = stripMetaCamposValores(valores);
   const extras = Object.fromEntries(
@@ -147,7 +149,7 @@ export function buildConteudoContrato(
         }
       }),
   );
-  return substituirVariaveis(modeloConteudo, { ...limpos, ...extras });
+  return substituirVariaveis(modeloConteudo, { ...limpos, ...extras }, valoresEmpresa);
 }
 
 export function snapshotContratoForm(

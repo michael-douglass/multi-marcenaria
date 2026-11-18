@@ -223,3 +223,72 @@ ProForço):
 | `empresa_id` nos inserts das edge functions | Header `x-empresa-id` + `app_pre_request` (só service role) + trigger | Uma linha por função em vez de mexer em cada insert |
 | Página pública do orçamento e agenda pública lendo tabelas como anon | RPCs `orcamento_publico_obter` e `agenda_publica_dados` | anon não tem empresa; a RPC resolve pela própria entidade |
 | Views SECURITY DEFINER | Mantidas (mascaram chaves), mas com filtro `= app_empresa_atual()` | Advisors de segurança; preserva o comportamento |
+
+## 10. Fase I: Console Master isolado e páginas por marcenaria
+
+Requisitos em `REQUIREMENTS.md` §6. ADR: [`0004`](../decisions/0004-console-master-e-paginas-por-empresa.md).
+
+### 10.1 Catálogo de páginas (`src/lib/paginas-catalogo.ts`)
+- É derivado de `NAV_MAIN_ITEMS` (`src/lib/app-navigation.ts`). Cada folha do menu vira
+  `{ id, titulo, url, grupo, bloqueavel }`, com os ids que o menu já usa (`leads`, `pipeline`,
+  `contratosCrm`, `orcamentosIa`, `caixa`, `agendaObras`…). Página nova no menu entra no catálogo sozinha.
+- `paginaIdFromPath(pathname)` liga as sub-rotas ao id da página-mãe (`/contratos/:id` → `contratosCrm`).
+- `paginaLiberada(pathOrId, bloqueadas)` é o único teste usado no menu, na busca, no `RoleRedirect`,
+  no `crmPage`, na tela inicial e nos atalhos flutuantes.
+- Não bloqueáveis: Meu Perfil, `/profile` e Configurações. Assim nenhuma empresa fica sem tela inicial.
+
+### 10.2 Dados
+- **Lista do que fica bloqueado:** página nova nasce liberada.
+  - `plataforma_planos.paginas_bloqueadas text[]`;
+  - `plataforma_empresa_paginas (empresa_id, pagina_id, habilitada)` guarda os ajustes da empresa
+    nos dois sentidos.
+- `app_paginas_bloqueadas(empresa)` = (plano ∪ ajustes `false`) − ajustes `true`.
+- `app_minha_empresa()` passa a devolver `paginas_bloqueadas`, `em_inspecao` e `inspecao_somente_leitura`.
+
+### 10.3 Inspeção
+- `plataforma_master_contexto.somente_leitura` é gravado por
+  `master_definir_empresa_ativa(empresa, somente_leitura)`. `master_sair_empresa()` limpa o contexto.
+- Policy RESTRICTIVE `tenant_master_leitura` em insert/update/delete de toda tabela de tenant:
+  `not app_master_somente_leitura()`.
+  - Funções `app_tenant_definer` ficam cobertas pela RLS.
+  - Funções do `postgres` que gravam ganham guarda explícita.
+  - O Storage ganha a mesma condição.
+- `plataforma_master_acessos (empresa_id, modo, inicio, fim)` registra cada entrada.
+
+### 10.4 Console (`src/master/`)
+- `AppRoutes` renderiza `<MasterApp/>` (lazy) **antes** do `AuthenticatedApp` quando o master está
+  em `/master*`. O master sem inspeção ativa é mandado para `/master`.
+- `MasterLayout` tem menu próprio: Visão geral, Empresas, Financeiro, Planos e páginas, Acessos.
+- Rotas: `/master`, `/master/empresas`, `/master/empresas/:id` (abas Visão geral, Páginas, Usuários,
+  Cobranças, Acessos), `/master/financeiro`, `/master/planos`.
+- `PaginasEditor` é usado no plano e na empresa: árvore por grupo, switches, busca e contador.
+  Na empresa, mostra a origem de cada página (do plano ou ajuste).
+- **Faixa de inspeção** (substitui o seletor da `MasterEmpresaBar`): âmbar em leitura, vermelho em
+  acesso total. Em modo leitura, um erro de RLS vira toast "Modo somente leitura".
+
+### 10.5 Visual
+- O console é **outro ambiente**: base grafite fria com um acento latão, números tabulares/mono e
+  tabelas densas. Status por texto e forma, não só por cor.
+- Tokens isolados em `src/master/master-tokens.ts`. Só Tailwind, `lucide-react` e `src/components/ui`.
+
+## 11. Fase J: CRM pré-configurado
+
+### 11.1 Seed do CRM
+- `public.crm_seed_pipeline_padrao(p_empresa)` (migration `20261118110000_crm_pipeline_padrao.sql`),
+  idempotente: etapas em `crm.pipeline_custom_stages` só se a empresa não tiver nenhuma; cada kanban
+  em `crm.kanban_pages` com `on conflict (empresa_id, slug) do nothing`, e colunas/fontes só quando a
+  página acabou de ser criada. Slugs estáveis: `orcamentos`, `prospeccao`, `manutencao`.
+- Chamada por `plataforma_seed_empresa` (empresa nova) e por um backfill na própria migration.
+- Os nomes das etapas são exatos: o front (`PIPELINE_STATUS_ENVIOU_ORCAMENTO`) e a migration 203
+  dependem do texto.
+
+### 11.2 Kanbans no catálogo
+- `src/lib/kanbans-padrao.ts` é o par da migration (mesmos slugs e nomes).
+- `paginas-catalogo.ts` inclui `pipelineKanban:<slug>` (url `/pipeline/<slug>`, subgrupo Pipeline).
+  Kanban criado pelo admin continua sendo parte da página `pipeline`.
+- `attachPipelineKanbanPages` filtra cada kanban pelo próprio id; bloquear `pipeline` esconde só o
+  Kanban principal (e os kanbans do admin, que não têm id próprio).
+
+### 11.3 Console
+- `Planos` mostra quantas marcenarias usam cada plano e avisa quando nenhuma usa.
+- Aba Páginas da empresa avisa quando ela não tem plano.

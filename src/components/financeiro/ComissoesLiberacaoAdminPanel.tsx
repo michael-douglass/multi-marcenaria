@@ -1,3 +1,5 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
 import { Check, Loader2, Sparkles } from 'lucide-react';
 import {
   useComissoesAguardandoLiberacao,
@@ -21,6 +23,7 @@ const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean }) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { aguardando, isLoading } = useComissoesAguardandoLiberacao();
   const liberar = useLiberarComissaoPontuaGarbo();
 
@@ -69,7 +72,7 @@ export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean 
                 Arquiteto:{' '}
                 <span className="font-medium text-[#1a100c]">{item.prestadorNome}</span>
                 {' · '}
-                {item.fieldNome} · {item.leadStatus}
+                {rotuloPontua(item.fieldNome, nomePrograma)} · {item.leadStatus}
               </p>
               <p className={finTextTertiary}>
                 Base {BRL(item.valorBase)} × {item.percentual}%

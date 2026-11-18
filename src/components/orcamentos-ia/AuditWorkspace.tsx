@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import {
   useCallback,
   useEffect,
@@ -1350,7 +1351,7 @@ export function AuditWorkspace({
               onPricingParamsChange={setPricingParams}
               pageImages={pageImages}
               branding={{
-                companyName: empresa?.nome || 'Garbo Movelaria',
+                companyName: empresa?.nome || empresaDocumento().nomeFantasia,
                 logoUrl: empresa?.logo_url,
                 cnpj: empresa?.cnpj,
                 razaoSocial: empresa?.razao_social,

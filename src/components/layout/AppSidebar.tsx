@@ -1,9 +1,11 @@
-﻿import { Fragment, useEffect, useMemo, useState } from 'react'
+import { nomePrograma } from '@/lib/empresa-identidade'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronRight, Landmark, User } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { SidebarAmberRibbon } from '@/components/layout/SidebarAmberRibbon'
 import { SidebarSearchEmpty, SidebarSearchField } from '@/components/layout/SidebarSearchField'
+import { paginaLiberada } from '@/lib/paginas-catalogo'
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +33,7 @@ import {
   isObrasNavItemActive,
   isObrasSection,
   navVisibilityFromProfiles,
+  aplicarNomePrograma,
   sectionFromPath,
   type NavChildItem,
   type NavItemId,
@@ -205,21 +208,26 @@ function SectorPlaque({
 export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { roles, userProfile, crmProfile } = useApp()
+  const { roles, userProfile, crmProfile, empresa } = useApp()
+  const bloqueadas = empresa?.paginasBloqueadas
   const { open, setOpen, isMobile, setOpenMobile } = useSidebar()
   const activeSection = sectionFromPath(location.pathname, location.search)
   const skipWebGL = isPontoLightPath(location.pathname)
   const { pages } = useKanbanConfig()
   const { count: manutencaoCount } = useManutencaoAttentionCount()
-  const canSearchLeads = canAccessCrmPath('/leads', crmProfile, userProfile)
-  const canSearchObras = canAccessSection(roles, 'agendaObras')
-  const canSearchCobrancas = canAccessSection(roles, 'cobranças')
-  const canSearchClientes = canAccessSection(roles, 'clientes')
+  const canSearchLeads = canAccessCrmPath('/leads', crmProfile, userProfile) && paginaLiberada('leads', bloqueadas)
+  const canSearchObras = canAccessSection(roles, 'agendaObras') && paginaLiberada('agendaObras', bloqueadas)
+  const canSearchCobrancas = canAccessSection(roles, 'cobranças') && paginaLiberada('cobranças', bloqueadas)
+  const canSearchClientes = canAccessSection(roles, 'clientes') && paginaLiberada('clientes', bloqueadas)
 
-  const items = attachPipelineKanbanPages(
-    getVisibleNavMainItems(navVisibilityFromProfiles(roles, crmProfile, userProfile)),
-    pages,
-    manutencaoCount,
+  const items = aplicarNomePrograma(
+    attachPipelineKanbanPages(
+      getVisibleNavMainItems({ ...navVisibilityFromProfiles(roles, crmProfile, userProfile), paginasBloqueadas: bloqueadas }),
+      pages,
+      manutencaoCount,
+      bloqueadas,
+    ),
+    nomePrograma(empresa?.nome),
   )
   const comercialItems = items.filter(item => item.sector === 'comercial')
   const casaItems = items.filter(item => item.sector === 'casa')

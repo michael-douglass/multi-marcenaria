@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useEmpresa, type Empresa } from '@/contexts/EmpresaContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { useApp } from '@/context/AppContext';
+import type { Empresa } from '@/contexts/EmpresaContext';
 import { toast } from 'sonner';
 
 export interface EmpresaBrandingInput {
@@ -10,7 +10,27 @@ export interface EmpresaBrandingInput {
   logo_url?: string | null;
 }
 
-async function uploadLogo(empresaId: string, file: File): Promise<string> {
+/** Dados cadastrais gravados pela RPC `empresa_atualizar_dados` (whitelist do banco). */
+export interface EmpresaDadosInput {
+  nome?: string;
+  razao_social?: string | null;
+  /** Com ou sem máscara: o banco guarda só os 14 dígitos. */
+  cnpj?: string | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  logo_url?: string | null;
+  cor_primaria?: string | null;
+}
+
+/** Envia a logo para o bucket público `empresa-branding` (pasta da empresa) e devolve a URL. */
+export async function uploadLogo(empresaId: string, file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
   const filePath = `${empresaId}/logo.${ext}`;
 
@@ -24,49 +44,47 @@ async function uploadLogo(empresaId: string, file: File): Promise<string> {
   return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+/**
+ * Grava dados da empresa ATIVA pela RPC (só admin da empresa ou master com acesso total).
+ * O UPDATE direto na tabela falha por recursão de policy — ver docs/identidade-empresa/DESIGN.md §2.1.
+ */
+export async function atualizarDadosEmpresa(dados: EmpresaDadosInput): Promise<void> {
+  const { error } = await supabase.rpc('empresa_atualizar_dados' as never, { p_dados: dados } as never);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Logo, nome, cor e dados cadastrais da empresa ativa.
+ * `empresaAlvo` existe por compatibilidade com telas antigas; a RPC só grava a empresa ativa.
+ */
 export function useEmpresaBranding(empresaAlvo?: Empresa | null) {
-  const { user } = useAuth();
-  const { empresa: empresaAtiva, trocarEmpresa, recarregarEmpresa } = useEmpresa();
+  const { empresa: ativa, recarregarEmpresa } = useApp();
   const queryClient = useQueryClient();
-  const empresa = empresaAlvo ?? empresaAtiva;
+  const empresaId = empresaAlvo?.id ?? ativa?.id ?? null;
+
+  const garantirEmpresaAtiva = () => {
+    if (!empresaId) throw new Error('Nenhuma empresa selecionada');
+    if (!ativa || ativa.id !== empresaId) {
+      throw new Error('Só é possível alterar a empresa em que você está trabalhando.');
+    }
+    return empresaId;
+  };
+
+  const aposSalvar = () => {
+    recarregarEmpresa();
+    queryClient.invalidateQueries({ queryKey: ['empresas-lista'] });
+    queryClient.invalidateQueries({ queryKey: ['contratos-empresa-config'] });
+  };
 
   const salvarBranding = useMutation({
-    mutationFn: async ({
-      dados,
-      logoFile,
-    }: {
-      dados: EmpresaBrandingInput;
-      logoFile?: File | null;
-    }) => {
-      if (!empresa?.id) throw new Error('Nenhuma empresa selecionada');
-
-      let logo_url = dados.logo_url ?? empresa.logo_url;
-
-      if (logoFile) {
-        logo_url = await uploadLogo(empresa.id, logoFile);
-      }
-
-      const { data, error } = await supabase
-        .from('CRM-multi-empresas>empresas<')
-        .update({
-          nome: dados.nome.trim(),
-          cor_primaria: dados.cor_primaria,
-          logo_url,
-          atualizado_em: new Date().toISOString(),
-        })
-        .eq('id', empresa.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data as Empresa;
+    mutationFn: async ({ dados, logoFile }: { dados: EmpresaBrandingInput; logoFile?: File | null }) => {
+      const id = garantirEmpresaAtiva();
+      let logo_url = dados.logo_url ?? empresaAlvo?.logo_url ?? ativa?.logoUrl ?? null;
+      if (logoFile) logo_url = await uploadLogo(id, logoFile);
+      await atualizarDadosEmpresa({ nome: dados.nome.trim(), cor_primaria: dados.cor_primaria, logo_url });
     },
-    onSuccess: async (empresaAtualizada) => {
-      if (empresaAtiva?.id === empresaAtualizada.id) {
-        trocarEmpresa(empresaAtualizada);
-      }
-      if (user?.id) await recarregarEmpresa(user.id);
-      queryClient.invalidateQueries({ queryKey: ['empresas-lista'] });
+    onSuccess: () => {
+      aposSalvar();
       toast.success('Identidade visual atualizada!');
     },
     onError: (error: Error) => {
@@ -76,23 +94,11 @@ export function useEmpresaBranding(empresaAlvo?: Empresa | null) {
 
   const removerLogo = useMutation({
     mutationFn: async () => {
-      if (!empresa?.id) throw new Error('Nenhuma empresa selecionada');
-
-      const { data, error } = await supabase
-        .from('CRM-multi-empresas>empresas<')
-        .update({ logo_url: null, atualizado_em: new Date().toISOString() })
-        .eq('id', empresa.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data as Empresa;
+      garantirEmpresaAtiva();
+      await atualizarDadosEmpresa({ logo_url: null });
     },
-    onSuccess: (empresaAtualizada) => {
-      if (empresaAtiva?.id === empresaAtualizada.id) {
-        trocarEmpresa(empresaAtualizada);
-      }
-      queryClient.invalidateQueries({ queryKey: ['empresas-lista'] });
+    onSuccess: () => {
+      aposSalvar();
       toast.success('Logo removida');
     },
     onError: (error: Error) => {
@@ -100,9 +106,27 @@ export function useEmpresaBranding(empresaAlvo?: Empresa | null) {
     },
   });
 
+  const salvarDadosEmpresa = useMutation({
+    mutationFn: async ({ dados, logoFile }: { dados: EmpresaDadosInput; logoFile?: File | null }) => {
+      const id = garantirEmpresaAtiva();
+      const payload: EmpresaDadosInput = { ...dados };
+      if (logoFile) payload.logo_url = await uploadLogo(id, logoFile);
+      await atualizarDadosEmpresa(payload);
+    },
+    onSuccess: () => {
+      aposSalvar();
+      toast.success('Dados da empresa salvos!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao salvar dados da empresa', { description: error.message });
+    },
+  });
+
   return {
-    empresa,
+    empresa: empresaAlvo ?? null,
+    empresaAtiva: ativa,
     salvarBranding,
     removerLogo,
+    salvarDadosEmpresa,
   };
 }

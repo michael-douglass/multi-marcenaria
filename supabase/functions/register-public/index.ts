@@ -93,6 +93,7 @@ serve(async (req) => {
           nome: nome.trim(),
           email: email.trim().toLowerCase(),
           telefone: telefone?.replace(/\D/g, "") || null,
+          empresaId,
         });
       } catch (leadErr) {
         console.error("register-public: falha ao criar lead Pontua Garbo", leadErr);

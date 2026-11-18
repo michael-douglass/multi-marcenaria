@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -36,6 +37,7 @@ interface GarboParceriaFormOverlayProps {
 }
 
 export function GarboParceriaFormOverlay({ open, onClose }: GarboParceriaFormOverlayProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const titleId = useId();
   const [showSenha, setShowSenha] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -170,7 +172,7 @@ export function GarboParceriaFormOverlay({ open, onClose }: GarboParceriaFormOve
               className="mb-3 text-[10px] font-semibold uppercase tracking-[0.35em]"
               style={{ color: GARBO_APRESENTACAO_THEME.gold, fontFamily: GARBO_APRESENTACAO_THEME.fontBody }}
             >
-              Pontua Garbo · Parceria
+              {nomePrograma} · Parceria
             </p>
 
             <h2
@@ -350,7 +352,7 @@ export function GarboParceriaFormOverlay({ open, onClose }: GarboParceriaFormOve
                     </>
                   ) : (
                     <>
-                      Conectar ao Pontua Garbo
+                      Conectar ao {nomePrograma}
                       <ArrowRight className="h-4 w-4" aria-hidden />
                     </>
                   )}

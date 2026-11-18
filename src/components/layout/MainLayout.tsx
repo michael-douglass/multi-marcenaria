@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NavigationHeader } from '@/components/layout/NavigationHeader'
 import { MasterEmpresaBar } from '@/components/master/MasterEmpresaBar'
+import { paginaLiberada } from '@/lib/paginas-catalogo'
 import { AgendaPopup } from '@/components/layout/AgendaPopup'
 import { MetricasObrasPopup } from '@/components/layout/MetricasObrasPopup'
 import { FloatingAgendaGeralShell } from '@/components/layout/FloatingAgendaGeralShell'
@@ -101,13 +102,16 @@ export function MainLayout() {
   const [isAgendaOpen, setIsAgendaOpen] = useState(false)
   const [isMetricasOpen, setIsMetricasOpen] = useState(false)
   const [isAgendaGeralOpen, setIsAgendaGeralOpen] = useState(false)
-  const { roles, userProfile, crmProfile } = useApp()
+  const { roles, userProfile, crmProfile, empresa } = useApp()
+  const bloqueadas = empresa?.paginasBloqueadas
   const { preferences, updatePreferences } = useUiPreferences()
   const { isCollapsed: areFloatingIconsCollapsed, toggleCollapsed: toggleFloatingIcons } =
     useFloatingIconsCollapsed()
   const location = useLocation()
   const navigate = useNavigate()
-  const showAgendaGeral = canUseAgendaGeral(userProfile, crmProfile, location.pathname)
+  // Atalhos flutuantes somem quando a página correspondente está bloqueada para a empresa.
+  const showAgendaGeral = canUseAgendaGeral(userProfile, crmProfile, location.pathname) && paginaLiberada('agendaComercial', bloqueadas)
+  const showProjetoChat = paginaLiberada('projetos', bloqueadas)
 
   useEffect(() => {
     if (preferences.hideFloatingPopups) setIsAgendaGeralOpen(false)
@@ -123,9 +127,9 @@ export function MainLayout() {
     }
     setIsAgendaOpen(p => !p)
   }
-  const hideAgenda = isVisualizadorOnly(roles)
-  const showMetricasFab = hasObrasAdminSectionsAccess(roles)
-  const showSaldoMesInsight = isAdministrador(roles)
+  const hideAgenda = isVisualizadorOnly(roles) || !paginaLiberada('agendaObras', bloqueadas)
+  const showMetricasFab = hasObrasAdminSectionsAccess(roles) && paginaLiberada('metricasObras', bloqueadas)
+  const showSaldoMesInsight = isAdministrador(roles) && paginaLiberada('dashboard', bloqueadas)
   // No fluxo de ponto o botão flutuante cobre “Tirar selfie / Salvar” no celular.
   const hideFabsOnPonto = isPontoLightPath(location.pathname)
   const isCrmArea = isCrmAppPath(location.pathname)
@@ -202,7 +206,7 @@ export function MainLayout() {
         />
       ) : null}
 
-      {showAgendaGeral && showTopFloatingIcons ? (
+      {showAgendaGeral && showProjetoChat && showTopFloatingIcons ? (
         <AppErrorBoundary>
           <FloatingProjetoChatShell />
         </AppErrorBoundary>

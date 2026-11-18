@@ -122,6 +122,25 @@ scripts: `docs/multi-empresa/DESIGN.md`, `docs/multi-empresa/PROGRESSO.md` e
 - Banco: `app_empresa_atual()`, trigger `aaa_tenant_fill`, policy RESTRICTIVE `tenant_isolamento`,
   role `app_tenant_definer`, tabelas `plataforma_*`, RPCs `master_*`.
 - Front: `src/hooks/useEmpresaAtiva.ts`, `src/contexts/EmpresaContext.tsx`, `src/hooks/useMaster.ts`,
-  `src/pages/master/*`, `src/components/master/*`.
+  `src/master/*` (console isolado: `MasterApp`, `MasterLayout`, `pages/`, `components/PaginasEditor`),
+  `src/components/master/*` (faixa de inspeção, nova empresa), `src/lib/paginas-catalogo.ts`,
+  `src/lib/kanbans-padrao.ts` (Pipeline/kanbans padrão; par SQL `crm_seed_pipeline_padrao`).
 - Edge Functions: `supabase/functions/_shared/tenant.ts`.
 - Scripts: `scripts/multi-empresa/*` (gerador de migration, testes de isolamento, deploy).
+
+## Identidade da marcenaria (logo, CNPJ, nome fantasia, "Pontua {nome}")
+
+Cada empresa cadastra a própria identidade no **/profile → "Dados da empresa"** (só admin; o mesmo formulário aparece em `/admin/marca`). Requisitos, desenho e tarefas: `docs/identidade-empresa/`.
+
+- Banco: colunas de endereço e contato em `"CRM-multi-empresas>empresas<"`; CNPJ guardado só com dígitos (trigger `empresas_cnpj_normaliza`). `app_minha_empresa()` e `orcamento_publico_obter()` (chave `empresa`) devolvem esses dados. A escrita é feita **só** pela RPC `empresa_atualizar_dados(jsonb)` (admin da empresa ou master com acesso total), porque o UPDATE direto na tabela falha por recursão de policy (ver TS01). Migrations `20261118120000` e `20261118120100`.
+- Helpers puros: `src/lib/empresa-identidade.ts`. Contém `formatCnpj`, `cnpjValido`, `formatEnderecoEmpresa`, `nomePrograma`, `rotuloPontua` e `montarEmpresaIdentidade`, além do valor guardado em módulo para os PDFs (`definirEmpresaDocumento` grava; `empresaDocumento`, `nomeEmpresaDocumento` e `logoDocumentoUrl` leem).
+- Hook: `src/hooks/useEmpresaIdentidade.ts`, fonte única para as telas. Lê `useApp().empresa` do núcleo.
+- Consulta à Receita: `src/lib/cnpj-receita.ts` (BrasilAPI, com `publica.cnpj.ws` de reserva). Teste: `npx tsx --tsconfig tsconfig.app.json scripts/test-cnpj-receita.mjs`.
+- Tela: `src/components/admin/EmpresaDadosForm.tsx`; gravação em `src/hooks/useEmpresaBranding.ts` (`atualizarDadosEmpresa`, `salvarDadosEmpresa`).
+- Consumo:
+  - `src/components/Logo.tsx` (menu);
+  - `EmpresaDadosLegais` + `EmpresaPublicaProvider` (slides e página pública);
+  - variáveis `{{empresa_*}}` de contrato (`VARIAVEIS_EMPRESA` em `src/lib/contratos-print.ts`);
+  - PDFs e recibos via `empresaDocumento()`;
+  - "Pontua {nome}" via `nomePrograma` / `aplicarNomePrograma` (menu).
+- Os valores gravados `'Pontua Garbo'` (`PONTUA_GARBO_CAMPO_NOME`, `PONTUA_GARBO_LEAD_ORIGEM`) **não mudam**: só a exibição passa por `rotuloPontua`.

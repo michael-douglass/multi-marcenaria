@@ -1,4 +1,4 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import {
   enrichMarcacoesUrls,
   formatAtrasoMinutos,
@@ -9,7 +9,6 @@ import {
 } from '@/lib/funcionario-ponto'
 import type { PontoMarcacao } from '@/types'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 
 export interface PontoComprovanteInput {
   funcionarioNome: string
@@ -43,7 +42,8 @@ function buildPaginaComprovante(input: PontoComprovanteInput, logoUrl: string): 
   const { marcacao: m, funcionarioNome, fotoUrl, assinaturaUrl, repCnpj } = input
   const nome = escapeHtml(funcionarioNome)
   const tipo = escapeHtml(labelPontoTipo(m.tipo))
-  const cnpj = escapeHtml(repCnpj?.trim() || '—')
+  // Prioridade: CNPJ do REP → cadastro da empresa.
+  const cnpj = escapeHtml(repCnpj?.trim() || empresaDocumento().cnpjFormatado || '—')
   const status =
     m.status === 'atraso' && m.atraso_minutos > 0
       ? `Atraso de ${formatAtrasoMinutos(m.atraso_minutos)}`
@@ -74,9 +74,9 @@ function buildPaginaComprovante(input: PontoComprovanteInput, logoUrl: string): 
       <div class="doc-timbre">
         <div class="doc-timbre__faixa"></div>
         <div class="doc-header">
-          <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+          <img src="${logoUrl}" alt="${nomeEmpresaDocumento()}" />
           <div class="doc-empresa">
-            <h1>${NOME_EMPRESA}</h1>
+            <h1>${nomeEmpresaDocumento()}</h1>
             <p>CNPJ ${cnpj}</p>
             <p class="doc-sub">Comprovante de Registro de Ponto — REP-P</p>
           </div>
@@ -124,7 +124,7 @@ function buildPaginaComprovante(input: PontoComprovanteInput, logoUrl: string): 
 }
 
 export function buildPontoComprovanteHtml(inputs: PontoComprovanteInput[]): string {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
+  const logoUrl = logoDocumentoUrl()
   const pages = inputs.map(i => buildPaginaComprovante(i, logoUrl)).join('')
 
   return `<!DOCTYPE html>

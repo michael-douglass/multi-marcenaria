@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { ReciboFoilBand, type ReciboFoilBandHandle } from '@/components/cobrancas/ReciboFoilBand'
 import {
@@ -18,6 +19,7 @@ interface ReciboPrintPreviewProps {
 export const ReciboPrintPreview = forwardRef<ReciboPrintPreviewHandle, ReciboPrintPreviewProps>(
   function ReciboPrintPreview({ layout }, ref) {
     const foilRef = useRef<ReciboFoilBandHandle>(null)
+    const { nomeFantasia } = useEmpresaIdentidade()
     const stageRef = useRef<HTMLDivElement>(null)
     const sheetRef = useRef<HTMLDivElement>(null)
     const [scale, setScale] = useState(0.52)
@@ -71,7 +73,7 @@ export const ReciboPrintPreview = forwardRef<ReciboPrintPreviewHandle, ReciboPri
                   </div>
                 </div>
                 <div className="recibo-masthead-inner">
-                  <img className="recibo-logo" src={layout.logoUrl} alt="GARBO Movelaria" />
+                  <img className="recibo-logo" src={layout.logoUrl} alt={nomeFantasia} />
                   <p className="recibo-eyebrow">Comprovante de recebimento</p>
                   <h1 className="recibo-title">Recibo</h1>
                   <p className="recibo-tag">Móveis planejados de alta qualidade</p>
@@ -100,7 +102,7 @@ export const ReciboPrintPreview = forwardRef<ReciboPrintPreviewHandle, ReciboPri
               <div className="recibo-body">{layout.texto}</div>
               <footer className="recibo-sign">
                 <div className="recibo-sign-line" />
-                <p className="recibo-sign-name">Garbo Movelaria</p>
+                <p className="recibo-sign-name">{nomeFantasia}</p>
                 {layout.cnpj ? <p className="recibo-sign-meta">CNPJ {layout.cnpj}</p> : null}
               </footer>
               <div className="recibo-foot-edge" aria-hidden />

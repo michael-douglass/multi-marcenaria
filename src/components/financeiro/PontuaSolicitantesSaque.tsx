@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { ArrowDownToLine, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -157,6 +158,7 @@ export function PontuaSolicitantesSaqueDialog({
   onOpenChange,
   solicitantes,
 }: DialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const pendentes = solicitantes.filter((s) => s.temPendente);
   const historico = solicitantes.filter((s) => !s.temPendente);
 
@@ -169,7 +171,7 @@ export function PontuaSolicitantesSaqueDialog({
           </DialogTitle>
           <DialogDescription className="text-[#4a3428]">
             {solicitantes.length} arquiteto{solicitantes.length === 1 ? '' : 's'} já pediram
-            retirada no Pontua Garbo.
+            retirada no {nomePrograma}.
           </DialogDescription>
         </DialogHeader>
 

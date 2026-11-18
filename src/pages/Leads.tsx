@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState, useMemo, useEffect, useCallback, useRef, type CSSProperties } from 'react';
 import { useLeadsPageFilters } from '@/hooks/useLeadsPageFilters';
 import { usePipelineCustomStages } from '@/hooks/usePipelineCustomStages';
@@ -34,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CadastroTabContent } from '@/components/cadastro/CadastroTabContent';
 
 export default function Leads() {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { leads: dbLeads, isLoading: leadsLoading } = useLeads();
   const { users: dbUsers, isLoading: usersLoading } = useUsers();
   const { data: pontuaGarboPartnerMap } = usePontuaGarboPartnerMap();
@@ -388,7 +390,7 @@ export default function Leads() {
                           {pontuaGarboPartnerMap?.get(lead.id) && (
                             <Star
                               className="h-3.5 w-3.5 shrink-0 fill-[#8d5e22] text-[#8d5e22]"
-                              aria-label="Parceiro Pontua Garbo"
+                              aria-label={`Parceiro ${nomePrograma}`}
                             />
                           )}
                           {hasPermission('lead_name', 'view') ? lead.name : '•••••'}

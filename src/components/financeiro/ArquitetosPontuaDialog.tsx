@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { Loader2, Search, Users } from 'lucide-react';
 import {
   Dialog,
@@ -44,6 +45,7 @@ export function ArquitetosPontuaDialog({
   onSelecionar,
   readOnly,
 }: ArquitetosPontuaDialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] max-w-6xl flex-col gap-0 border-[rgba(26,16,12,0.14)] bg-[#fffaf4] p-0">
@@ -124,7 +126,7 @@ export function ArquitetosPontuaDialog({
               ) : arquitetos.length === 0 ? (
                 <p className={`py-10 text-center text-sm ${finTextTertiary}`}>
                   {totalCadastrados === 0
-                    ? 'Nenhum arquiteto cadastrado no Pontua Garbo ainda.'
+                    ? `Nenhum arquiteto cadastrado no ${nomePrograma} ainda.`
                     : 'Nenhum arquiteto corresponde à busca.'}
                 </p>
               ) : (

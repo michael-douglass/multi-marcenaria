@@ -1,3 +1,5 @@
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -45,6 +47,7 @@ interface Props {
 }
 
 export function LeadQuickPeekDialog({ open, onOpenChange, lead }: Props) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const navigate = useNavigate();
   const { data: messages = [], isLoading: loadingChat, isError: chatError } = useLeadCrmChatPreview(
     lead?.telefone ?? null,
@@ -88,7 +91,7 @@ export function LeadQuickPeekDialog({ open, onOpenChange, lead }: Props) {
                 )}
                 {lead.origem && (
                   <Badge variant="outline" className="text-[10px]">
-                    {lead.origem}
+                    {rotuloPontua(lead.origem, nomePrograma)}
                   </Badge>
                 )}
               </div>

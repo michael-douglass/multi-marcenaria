@@ -1,4 +1,9 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import {
+  empresaDocumento,
+  logoDocumentoUrl,
+  logoPadraoDocumentoUrl,
+  nomeEmpresaDocumento,
+} from '@/lib/empresa-identidade'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import {
   enrichMarcacoesUrls,
@@ -24,7 +29,6 @@ import {
 import { formatarCnpj } from '@/lib/rep/rep-validation'
 import type { FuncionarioJornada, PontoMarcacao, PontoMarcacaoComUrls } from '@/types'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 const JPG_W = 1240
 const JPG_H = 1754
 const JPG_QUALITY = 0.88
@@ -352,9 +356,9 @@ function buildTimbre(logoUrl: string, cnpj: string, sub: string): string {
     <div class="doc-timbre">
       <div class="doc-timbre__faixa"></div>
       <div class="doc-header">
-        <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+        <img src="${logoUrl}" alt="${nomeEmpresaDocumento()}" />
         <div class="doc-empresa">
-          <h1>${NOME_EMPRESA}</h1>
+          <h1>${nomeEmpresaDocumento()}</h1>
           <p>CNPJ ${cnpj}</p>
           <p class="doc-sub">${escapeHtml(sub)}</p>
         </div>
@@ -469,7 +473,7 @@ function buildPaginaResumo(
         ${buildOcorrenciaLista(espelho.abonos, 'Nenhum abono no período.', 'abonos')}
       </section>
       <footer class="doc-footer">
-        <p>Documento gerado em ${escapeHtml(geradoEmLabel())} · Garbo Movelaria</p>
+        <p>Documento gerado em ${escapeHtml(geradoEmLabel())} · ${escapeHtml(empresaDocumento().nomeFantasia)}</p>
         <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
         <p>Saldo = horas positivas (HE) − atrasos − faltas injustificadas no caixa.</p>
       </footer>
@@ -569,8 +573,9 @@ export function buildEspelhoPontoHtml(
   options: PontoRegistrosExportOptions,
   marcacoesEnriquecidas: PontoMarcacaoComUrls[],
 ): string {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const cnpjRaw = options.repCnpj?.trim() || ''
+  const logoUrl = logoDocumentoUrl()
+  // Prioridade: CNPJ do REP → cadastro da empresa.
+  const cnpjRaw = options.repCnpj?.trim() || empresaDocumento().cnpjDigitos
   const cnpj = escapeHtml(cnpjRaw ? formatarCnpj(cnpjRaw) : '—')
   const nome = escapeHtml(espelho.row.nome)
   const incluirMidia = options.incluirFoto || options.incluirAssinatura
@@ -617,6 +622,8 @@ function downloadBlob(blob: Blob, filename: string): void {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    // Logo da empresa vem do Storage (outra origem): sem CORS o canvas fica "sujo" e não exporta.
+    if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error('Não foi possível carregar a imagem.'))
     img.src = src
@@ -696,7 +703,7 @@ function drawHeader(
   ctx.textAlign = 'left'
   ctx.fillStyle = '#8b6914'
   ctx.font = '700 22px Georgia, "Times New Roman", serif'
-  ctx.fillText(NOME_EMPRESA, left + logoW + 18, y + 24)
+  ctx.fillText(nomeEmpresaDocumento(), left + logoW + 18, y + 24)
   ctx.font = '14px Georgia, "Times New Roman", serif'
   ctx.fillStyle = '#5a4636'
   ctx.fillText(`CNPJ ${cnpj}`, left + logoW + 18, y + 46)
@@ -793,9 +800,10 @@ async function renderJpgPages(
   options: PontoRegistrosExportOptions,
   marcacoesEnriquecidas: PontoMarcacaoComUrls[],
 ): Promise<HTMLCanvasElement[]> {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const logo = await loadImage(logoUrl)
-  const cnpjRaw = options.repCnpj?.trim() || ''
+  const logoUrl = logoDocumentoUrl()
+  const logo = await loadImage(logoUrl).catch(() => loadImage(logoPadraoDocumentoUrl()))
+  // Prioridade: CNPJ do REP → cadastro da empresa.
+  const cnpjRaw = options.repCnpj?.trim() || empresaDocumento().cnpjDigitos
   const cnpj = cnpjRaw ? formatarCnpj(cnpjRaw) : '—'
   const sink: JpgPageSink = { pages: [] }
   const left = 72
@@ -1018,7 +1026,7 @@ async function renderJpgPages(
   current.ctx.textAlign = 'center'
   current.ctx.fillStyle = '#666'
   current.ctx.font = '12px Georgia, "Times New Roman", serif'
-  current.ctx.fillText(`Gerado em ${geradoEmLabel()} · Garbo Movelaria`, JPG_W / 2, JPG_H - 48)
+  current.ctx.fillText(`Gerado em ${geradoEmLabel()} · ${empresaDocumento().nomeFantasia}`, JPG_W / 2, JPG_H - 48)
   current.ctx.fillText('Conforme Portaria MTP nº 671/2021 (REP-P).', JPG_W / 2, JPG_H - 32)
   pushPage(sink, current.canvas)
 

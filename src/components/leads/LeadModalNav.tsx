@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronDown, FileText, IdCard, Sparkles } from 'lucide-react';
@@ -68,6 +69,7 @@ export function LeadModalNav({
   hideWhatsapp,
   hidePontuaGarbo,
 }: LeadModalNavProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const [openMenu, setOpenMenu] = useState<LeadNavMenu | null>(null);
   const [compact, setCompact] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(COMPACT_NAV_MQ).matches : false,
@@ -203,7 +205,7 @@ export function LeadModalNav({
               label={compact ? MENU_SHORT_LABEL[menu] : MENU_FULL_LABEL[menu]}
               srLabel={
                 menu === 'info'
-                  ? 'Informações do lead — Contato, Negócio, Equipe e Pontua Garbo'
+                  ? `Informações do lead — Contato, Negócio, Equipe e ${nomePrograma}`
                   : menu === 'ia'
                     ? 'Análise IA'
                     : 'Detalhes'
@@ -274,7 +276,7 @@ export function LeadModalNav({
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-semibold leading-tight tracking-wide">
-                        {item.label}
+                        {item.id === 'pontua-garbo' ? nomePrograma : item.label}
                       </span>
                       {item.hint && (
                         <span className="mt-0.5 block text-[11px] leading-snug opacity-75">

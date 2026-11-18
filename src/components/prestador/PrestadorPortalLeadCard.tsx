@@ -1,4 +1,6 @@
-﻿import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
 import type { PrestadorLeadEtiqueta } from '@/lib/prestador-lead-etiquetas';
 import { PrestadorLeadEtiquetas } from '@/components/prestador/PrestadorLeadEtiquetas';
 import { Eye, Lock } from 'lucide-react';
@@ -28,6 +30,7 @@ export function PrestadorPortalLeadCard({
   onOpenDetalhes,
   onSemPermissao,
 }: PrestadorPortalLeadCardProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const handleClick = () => {
     if (podeAbrir) onOpenDetalhes(lead);
     else onSemPermissao();
@@ -81,7 +84,7 @@ export function PrestadorPortalLeadCard({
       </div>
       <p className="text-white font-medium text-sm leading-tight">{lead.leadNome}</p>
       <PrestadorLeadEtiquetas etiquetas={etiquetas} />
-      <p className="text-white/30 text-xs">{lead.fieldNome}</p>
+      <p className="text-white/30 text-xs">{rotuloPontua(lead.fieldNome, nomePrograma)}</p>
       <div className="mt-auto pt-2 border-t border-white/5 flex items-center justify-between">
         <span className="text-white/30 text-xs">
           {BRL(lead.valorOrcamento)} × {lead.percentual}%

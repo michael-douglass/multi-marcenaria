@@ -5,19 +5,22 @@ import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile'
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase'
 import { MASTER_TABLES } from '@/lib/empresa-tables'
 import { adaptUserForAvatar } from '@/lib/adapters'
-import { Mail, Shield, LogOut, Camera, Loader2, Phone, UserCircle } from 'lucide-react'
+import { Mail, Shield, LogOut, Camera, Loader2, Phone, UserCircle, Building2 } from 'lucide-react'
+import { EmpresaDadosForm } from '@/components/admin/EmpresaDadosForm'
 import { toast } from 'sonner'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { ProfileAura } from '@/components/profile/ProfileAura'
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { formatRolesLabel, roleLabel } from '@/lib/app-roles'
 import type { AppUserRole } from '@/lib/resolve-auth-role'
 import { cn } from '@/lib/utils'
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { user, userRole, userRoles, signOut } = useAuth()
+  const { user, userRole, userRoles, signOut, hasRole } = useAuth()
+  const podeEditarEmpresa = hasRole('admin')
+  const location = useLocation()
   const db = useEmpresaSupabase()
   const table = useTableName()
   const { data: currentUserData, isLoading: isLoadingProfile, refetch } = useCurrentUserProfile()
@@ -97,6 +100,12 @@ export default function Profile() {
         return 'bg-[rgba(40,24,16,0.6)] text-[#c4a88a] border-[rgba(240,210,140,0.2)]'
     }
   }
+
+  // Link "Editar em Perfil" (contratos) aponta para /profile#dados-empresa.
+  useEffect(() => {
+    if (location.hash !== '#dados-empresa' || isLoadingProfile || !podeEditarEmpresa) return
+    document.getElementById('dados-empresa')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location.hash, isLoadingProfile, podeEditarEmpresa])
 
   const displayRoles = (userRoles.length ? userRoles : userRole ? [userRole] : []) as AppUserRole[]
 
@@ -339,6 +348,26 @@ export default function Profile() {
             </div>
           </div>
         </section>
+
+        {podeEditarEmpresa && (
+          <section
+            id="dados-empresa"
+            className="overflow-hidden rounded-2xl border border-[rgba(240,210,140,0.22)] bg-[rgba(14,8,4,0.78)] shadow-[0_1px_0_rgba(255,248,235,0.06)_inset,0_18px_48px_rgba(0,0,0,0.32)]"
+          >
+            <div className="border-b border-[rgba(240,210,140,0.14)] px-5 py-4 sm:px-6">
+              <h2 className="font-display flex items-center gap-2 text-lg tracking-widest text-[#f2d892]">
+                <Building2 className="h-5 w-5 opacity-90" aria-hidden />
+                Dados da empresa
+              </h2>
+              <p className="mt-1 text-xs text-[#c4a88a]">
+                Logo, CNPJ e dados cadastrais usados no menu, nos slides, contratos e PDFs. Só administradores veem esta seção.
+              </p>
+            </div>
+            <div className="px-5 py-5 sm:px-6">
+              <EmpresaDadosForm tom="perfil" />
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

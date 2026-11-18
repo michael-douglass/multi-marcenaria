@@ -5,7 +5,8 @@ import { PwaManager } from '@/pwa'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useApp } from '@/context/AppContext'
 import { OptionalFinanceDataProvider, useFinanceDataOptional } from '@/context/FinanceDataContext'
-import { sectionFromPath } from '@/lib/app-navigation'
+import { navVisibilityFromProfiles, sectionFromPath } from '@/lib/app-navigation'
+import { homeLiberada, paginaLiberada } from '@/lib/paginas-catalogo'
 import { canAccessSection, canAccessFuncionarioPasta } from '@/lib/role-access'
 import {
   canAccessCrmPath,
@@ -86,9 +87,8 @@ const ApresentacaoEmpresaPage = lazy(() => import('@/pages/marketing/Apresentaca
 const PontuaGarboApresentacaoPage = lazy(() => import('@/pages/marketing/PontuaGarboApresentacaoPage'))
 const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPublicaPage'))
 const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
-const MasterDashboard = lazy(() => import('@/pages/master/MasterDashboard'))
-const MasterEmpresaDetalhe = lazy(() => import('@/pages/master/MasterEmpresaDetalhe'))
-const MasterFinanceiro = lazy(() => import('@/pages/master/MasterFinanceiro'))
+/** Console master (ambiente isolado, chunk próprio). */
+const MasterApp = lazy(() => import('@/master/MasterApp'))
 const CadastroDeAlunos = lazy(() => import('@/pages/CadastroDeAlunos'))
 const ProjetosHubPage = lazy(() => import('@/pages/projetos/ProjetosHub'))
 const ControleEventosPage = lazy(() => import('@/pages/ControleEventos'))
@@ -153,10 +153,20 @@ function Restricted({ message }: { message: string }) {
   )
 }
 
+/** Tela inicial do usuário, respeitando as páginas bloqueadas pela plataforma para a empresa. */
+function useHomePath(): string {
+  const { roles, userProfile, crmProfile, empresa } = useApp()
+  return homeLiberada(
+    defaultPathForIdentity(roles, userProfile, crmProfile),
+    empresa?.paginasBloqueadas,
+    navVisibilityFromProfiles(roles, crmProfile, userProfile),
+  )
+}
+
 function HomeRedirect() {
-  const { roles, userProfile, crmProfile } = useApp()
+  const { roles, userProfile, crmProfile, empresa } = useApp()
   const location = useLocation()
-  const defaultPath = defaultPathForIdentity(roles, userProfile, crmProfile)
+  const defaultPath = useHomePath()
   const fromPwa = new URLSearchParams(location.search).get('src') === 'pwa'
   const last = readLastRoute()
   const resumePonto = peekPontoResumeFlag()
@@ -165,7 +175,7 @@ function HomeRedirect() {
     return <Navigate to="/bater-ponto" replace />
   }
 
-  if (fromPwa && last) {
+  if (fromPwa && last && paginaLiberada(last.split('?')[0] || '/', empresa?.paginasBloqueadas, last.includes('?') ? `?${last.split('?')[1]}` : '')) {
     const lastPath = last.split('?')[0] || '/'
     if (isCrmAppPath(lastPath)) {
       if (canAccessCrmPath(lastPath, crmProfile, userProfile)) {
@@ -183,12 +193,13 @@ function HomeRedirect() {
 }
 
 function RoleRedirect() {
-  const { roles, userProfile, crmProfile, isMaster } = useApp()
+  const { roles, userProfile, crmProfile, empresa } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
   const restoredRef = useRef(false)
+  const bloqueadas = empresa?.paginasBloqueadas
 
-  const defaultPath = defaultPathForIdentity(roles, userProfile, crmProfile)
+  const defaultPath = useHomePath()
 
   // Guarda a página atual para retomar se o PWA reabrir na home.
   useEffect(() => {
@@ -207,8 +218,9 @@ function RoleRedirect() {
 
   useEffect(() => {
     const path = location.pathname
-    if (path === '/master' || path.startsWith('/master/')) {
-      if (!isMaster) navigate(defaultPath, { replace: true })
+    // Página bloqueada pela plataforma para a empresa (vale antes do gate de papel).
+    if (!paginaLiberada(path, bloqueadas, location.search)) {
+      if (path !== defaultPath.split('?')[0]) navigate(defaultPath, { replace: true })
       return
     }
     if (isCrmAppPath(path)) {
@@ -233,17 +245,23 @@ function RoleRedirect() {
     if (!canAccessSection(roles, section)) {
       navigate(defaultPath, { replace: true })
     }
-  }, [roles, crmProfile, userProfile, location.pathname, navigate, defaultPath, isMaster])
+  }, [roles, crmProfile, userProfile, location.pathname, location.search, navigate, defaultPath, bloqueadas])
 
   return null
 }
 
 function AuthenticatedRoutes() {
-  const { roles, userProfile, crmProfile, isMaster } = useApp()
+  const { roles, userProfile, crmProfile, empresa } = useApp()
   const location = useLocation()
   const readOnly = roles.length > 0 && roles.every(r => r === 'Marceneiro')
   const finance = useFinanceDataOptional()
-  const homePath = defaultPathForIdentity(roles, userProfile, crmProfile)
+  const homePath = useHomePath()
+  const bloqueadas = empresa?.paginasBloqueadas
+
+  // Telas cheias fora do MainLayout também respeitam as páginas bloqueadas.
+  if (!paginaLiberada(location.pathname, bloqueadas, location.search) && location.pathname !== homePath.split('?')[0]) {
+    return <Navigate to={homePath} replace />
+  }
 
   const apresentarMatch = location.pathname.match(/^\/orcamento-slides\/([^/]+)\/apresentar\/?$/)
   if (apresentarMatch) {
@@ -280,7 +298,7 @@ function AuthenticatedRoutes() {
   }
 
   const crmPage = (path: string, page: ReactNode) =>
-    canAccessCrmPath(path, crmProfile, userProfile)
+    canAccessCrmPath(path, crmProfile, userProfile) && paginaLiberada(location.pathname, bloqueadas, location.search)
       ? <CrmLazy>{page}</CrmLazy>
       : <Navigate to={homePath} replace />
 
@@ -544,10 +562,6 @@ function AuthenticatedRoutes() {
           <Route path="/admin/empresas" element={<Navigate to="/admin/marca" replace />} />
           <Route path="/admin/webhooks" element={crmPage('/admin/marca', <WebhooksConfig />)} />
           <Route path="/admin" element={crmPage('/admin/marca', <AdminUsuarios />)} />
-          {/* Painel Master (plataforma multi-empresa) — só o usuário master. */}
-          <Route path="/master" element={isMaster ? <CrmLazy><MasterDashboard /></CrmLazy> : <Navigate to="/" replace />} />
-          <Route path="/master/empresas/:id" element={isMaster ? <CrmLazy><MasterEmpresaDetalhe /></CrmLazy> : <Navigate to="/" replace />} />
-          <Route path="/master/financeiro" element={isMaster ? <CrmLazy><MasterFinanceiro /></CrmLazy> : <Navigate to="/" replace />} />
           <Route path="/controle-gastos" element={crmPage('/controle-gastos', <ControleGastosSelletos />)} />
           <Route path="/controle-eventos/:eventoId" element={crmPage('/controle-eventos', <ControleEventoBoardPage />)} />
           <Route path="/controle-eventos" element={crmPage('/controle-eventos', <ControleEventosPage />)} />
@@ -629,6 +643,7 @@ function AppRoutes() {
     isMaster,
     empresaLoading,
   } = useApp()
+  const location = useLocation()
 
   if (authLoading) {
     return <BootLoading message="Carregando..." />
@@ -638,7 +653,24 @@ function AppRoutes() {
     return <Login />
   }
 
-  if ((profileLoading && !userProfile && !crmProfile) || empresaLoading) {
+  if (empresaLoading) {
+    return <BootLoading message="Carregando perfil..." />
+  }
+
+  // Console master: ambiente isolado, fora do app da marcenaria (sem providers, layout nem popups).
+  if (isMaster && (location.pathname === '/master' || location.pathname.startsWith('/master/'))) {
+    return (
+      <Suspense fallback={<BootLoading message="Abrindo o console master..." />}>
+        <MasterApp />
+      </Suspense>
+    )
+  }
+  // Master fora de inspeção não tem empresa: o lugar dele é o console.
+  if (isMaster && !empresa) {
+    return <Navigate to="/master" replace />
+  }
+
+  if (profileLoading && !userProfile && !crmProfile) {
     return <BootLoading message="Carregando perfil..." />
   }
 

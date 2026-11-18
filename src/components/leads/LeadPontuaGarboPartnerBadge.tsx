@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -154,6 +155,7 @@ export function LeadPontuaGarboPartnerBadge({
   variant = 'card',
   className,
 }: LeadPontuaGarboPartnerBadgeProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { mes, setMes, minMes, maxMes } = useMesDoBadge(badge.primeiroMes);
   const isTodos = mes === MES_TODOS;
   const totaisMes = isTodos
@@ -170,7 +172,7 @@ export function LeadPontuaGarboPartnerBadge({
           'inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/15 px-1.5 py-0.5',
           className,
         )}
-        title={`Pontua Garbo · ${totaisMes.aberto} orçamento(s) aberto(s) conosco · ${totaisMes.fechado} fechado(s)`}
+        title={`${nomePrograma} · ${totaisMes.aberto} orçamento(s) aberto(s) conosco · ${totaisMes.fechado} fechado(s)`}
       >
         <Star className="h-3 w-3 fill-gold text-gold" aria-hidden />
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gold">
@@ -201,7 +203,7 @@ export function LeadPontuaGarboPartnerBadge({
             </span>
             <div className="min-w-0 flex-1 overflow-hidden">
               <p className="truncate text-[9px] font-semibold uppercase tracking-wider text-gold">
-                Pontua Garbo
+                {nomePrograma}
               </p>
               <p className="truncate text-[10px] leading-tight text-cream-muted">
                 {badge.aberto === 0
@@ -248,7 +250,7 @@ export function LeadPontuaGarboPartnerBadge({
         </span>
         <div className="min-w-0 flex-1 space-y-2">
           <div>
-            <p className="font-display text-sm tracking-wide text-gold">Parceiro Pontua Garbo</p>
+            <p className="font-display text-sm tracking-wide text-gold">Parceiro {nomePrograma}</p>
             <p className="text-xs text-cream-muted leading-relaxed">
               {badge.aberto === 0
                 ? 'Nenhum orçamento aberto conosco neste momento.'

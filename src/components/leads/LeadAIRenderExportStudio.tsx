@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { useState, type ReactNode } from 'react';
 import {
   Dialog,
@@ -53,7 +54,7 @@ export function LeadAIRenderExportStudio({
     sketchLabel,
     outputUrl,
     logoUrl: empresa?.logo_url || GARBO_LOGO_SRC,
-    nomeEmpresa: empresa?.nome || 'Garbo Movelaria',
+    nomeEmpresa: empresa?.nome || empresaDocumento().nomeFantasia,
     cnpj: empresa?.cnpj,
     leadName,
     leadId,

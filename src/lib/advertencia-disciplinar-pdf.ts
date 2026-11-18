@@ -1,7 +1,6 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { formatarCnpj, somenteDigitos } from '@/lib/rep/rep-validation'
 
-const NOME_EMPRESA_PADRAO = 'GARBO MOVELARIA'
 const CIDADE_PADRAO = 'Contagem/MG'
 
 export interface AdvertenciaDisciplinarInput {
@@ -77,9 +76,10 @@ export function montarMotivoFaltas(datasIso: string[]): string {
 }
 
 export function buildAdvertenciaDisciplinarHtml(input: AdvertenciaDisciplinarInput): string {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const empresa = escapeHtml((input.empresaNome?.trim() || NOME_EMPRESA_PADRAO).toUpperCase())
-  const cnpjRaw = input.empresaCnpj?.trim() || ''
+  const logoUrl = logoDocumentoUrl()
+  const empresa = escapeHtml((input.empresaNome?.trim() || nomeEmpresaDocumento()).toUpperCase())
+  // Prioridade: CNPJ informado (config do RH) → cadastro da empresa.
+  const cnpjRaw = input.empresaCnpj?.trim() || empresaDocumento().cnpjDigitos
   const cnpj = escapeHtml(cnpjRaw ? formatarCnpj(cnpjRaw) : '—')
   const cidade = escapeHtml(input.cidadeUf?.trim() || CIDADE_PADRAO)
   const nome = escapeHtml(input.funcionarioNome.trim().toUpperCase())

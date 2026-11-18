@@ -32,6 +32,7 @@ import {
   buildAssinaturasCompletas,
   gerarIdentificador,
   imprimirContrato,
+  valoresVariaveisEmpresa,
   VARIAVEL_CPF_FIXO,
 } from '@/lib/contratos-print';
 import { ContratoDocumento } from '@/components/contratos/ContratoDocumento';
@@ -43,6 +44,7 @@ import { LeadOrcamentoSlidesSection } from '@/components/leads/LeadOrcamentoSlid
 import { OrcamentoLeadCardDock } from '@/components/orcamento-slides/OrcamentoLeadCardDock';
 import { useContratoAnexos } from '@/hooks/useContratoAnexos';
 import { getContratosEmpresaFromContext } from '@/hooks/useContratosEmpresaConfig';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import {
   buildConteudoContrato,
   chaveVariavelNomeCliente,
@@ -228,6 +230,8 @@ export default function NovoContratoPage() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const empresaContrato = getContratosEmpresaFromContext(empresa);
+  const identidadeEmpresa = useEmpresaIdentidade();
+  const valoresEmpresa = useMemo(() => valoresVariaveisEmpresa(identidadeEmpresa), [identidadeEmpresa]);
 
   const aplicarCamposOrcamento = useCallback((campos: Record<string, string>) => {
     setValores((prev) => ({ ...prev, ...campos }));
@@ -255,6 +259,7 @@ export default function NovoContratoPage() {
     modelo?.conteudo ?? '',
     valores,
     variaveis,
+    valoresEmpresa,
   );
 
   const getFormSnapshot = useCallback(
@@ -378,7 +383,7 @@ export default function NovoContratoPage() {
       const modeloConteudo =
         (modelos.find((m) => m.id === modeloRestaurado) ?? modeloAtivo)?.conteudo ?? '';
       const conteudoGerado = modeloConteudo
-        ? buildConteudoContrato(modeloConteudo, valoresRestaurados, variaveis)
+        ? buildConteudoContrato(modeloConteudo, valoresRestaurados, variaveis, valoresEmpresa)
         : '';
       const conteudoSalvo = contratoParaRestaurar.conteudo_final ?? '';
 
@@ -482,7 +487,7 @@ export default function NovoContratoPage() {
         });
         const conteudo = textoDetachadoModelo
           ? conteudoEditavel
-          : buildConteudoContrato(modelo.conteudo, valores, variaveis);
+          : buildConteudoContrato(modelo.conteudo, valores, variaveis, valoresEmpresa);
         const payload = {
           identificador: identificadorRascunho(nome),
           cliente_nome: nome,
@@ -526,6 +531,7 @@ export default function NovoContratoPage() {
     leadIdVinculado,
     getFormSnapshot,
     salvarRascunhoContrato,
+    valoresEmpresa,
   ]);
 
   const handleConfirmar = async () => {

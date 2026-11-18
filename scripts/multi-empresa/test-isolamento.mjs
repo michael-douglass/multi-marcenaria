@@ -65,6 +65,7 @@ const pg = await connectNovo()
 async function limpar() {
   await pg.query(`delete from auth.users where email in ($1, $2)`, [EMP.a.email, EMP.b.email])
   await pg.query(`delete from public."CRM-multi-empresas>empresas<" where slug in ($1, $2)`, [EMP.a.slug, EMP.b.slug])
+  await pg.query(`delete from public.plataforma_planos where nome = 'iso_teste_plano'`)
   // Storage não permite apagar por SQL: usa a API com service role.
   const svc = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (svc) {
@@ -154,7 +155,48 @@ try {
   })
   check('A baixa o próprio arquivo', dlA.status === 200, `status ${dlA.status}`)
 
-  console.log('\n5. Bloqueio por inadimplência')
+  console.log('\n5. Páginas bloqueadas (Fase I)')
+  await pg.query('begin')
+  await pg.query(
+    `select set_config('request.jwt.claims', json_build_object('sub',(select id from auth.users where email='selvomichael@gmail.com'),'role','authenticated')::text, true)`,
+  )
+  await pg.query('set local role authenticated')
+  await pg.query(`select public.master_salvar_paginas_empresa($1, '{"orcamentosIa": false, "leads": false}'::jsonb)`, [EMP.b.id])
+  await pg.query('commit')
+  const pgB = await rest(tB, 'rpc/app_minha_empresa', { method: 'POST', body: {} })
+  const blq = pgB.json?.[0]?.paginas_bloqueadas ?? []
+  check('B recebe as páginas bloqueadas', blq.includes('orcamentosIa') && blq.includes('leads'), JSON.stringify(blq))
+  const pgA = await rest(tA, 'rpc/app_minha_empresa', { method: 'POST', body: {} })
+  check('A não é afetada', (pgA.json?.[0]?.paginas_bloqueadas ?? []).length === 0)
+  const chamarIa = (token) =>
+    fetch(`${URL_}/functions/v1/orcamentos-ia-pipeline`, {
+      method: 'POST',
+      headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+  const fnB = await chamarIa(tB)
+  const fnTxt = await fnB.text()
+  check('Orçamentos IA recusa B (página bloqueada)', fnB.status === 403 && fnTxt.includes('não está liberado'), `status ${fnB.status} ${fnTxt.slice(0, 120)}`)
+  const fnA = await chamarIa(tA)
+  check('Orçamentos IA não recusa A por página', fnA.status !== 403, `status ${fnA.status}`)
+
+  console.log('\n5b. CRM pré-configurado e bloqueio pelo plano (Fase J)')
+  const kb = await rest(tB, 'kanban_pages?select=slug&order=ordem', { profile: 'crm' })
+  check('B nasce com os 3 kanbans padrão', (kb.json ?? []).map((r) => r.slug).join(',') === 'orcamentos,prospeccao,manutencao', JSON.stringify(kb.json).slice(0, 160))
+  const et = await rest(tB, 'pipeline_custom_stages?select=nome&order=ordem', { profile: 'crm' })
+  check('B nasce com as 6 etapas do Pipeline', (et.json ?? []).length === 6 && et.json[0].nome === 'Novo Lead', JSON.stringify(et.json).slice(0, 160))
+  const plano = await pg.query(
+    `insert into public.plataforma_planos (nome, valor_mensal, paginas_bloqueadas) values ('iso_teste_plano', 1, array['controleGastos','pipelineKanban:prospeccao']) returning id`,
+  )
+  await pg.query(`insert into public.plataforma_assinaturas (empresa_id, plano_id, valor, dia_vencimento) values ($1, $2, 1, 5)`, [EMP.b.id, plano.rows[0].id])
+  const blqPlano = (await rest(tB, 'rpc/app_minha_empresa', { method: 'POST', body: {} })).json?.[0]?.paginas_bloqueadas ?? []
+  check('Plano ligado a B bloqueia (página e kanban)', blqPlano.includes('controleGastos') && blqPlano.includes('pipelineKanban:prospeccao'), JSON.stringify(blqPlano))
+  const blqA = (await rest(tA, 'rpc/app_minha_empresa', { method: 'POST', body: {} })).json?.[0]?.paginas_bloqueadas ?? []
+  check('A continua sem bloqueio', blqA.length === 0, JSON.stringify(blqA))
+  await pg.query('delete from public.plataforma_assinaturas where empresa_id = $1', [EMP.b.id])
+  await pg.query('delete from public.plataforma_planos where id = $1', [plano.rows[0].id])
+
+  console.log('\n6. Bloqueio por inadimplência')
   await pg.query(
     `insert into public.plataforma_assinaturas (empresa_id, valor, dia_vencimento, dias_tolerancia) values ($1, 100, 5, 3)`,
     [EMP.b.id],

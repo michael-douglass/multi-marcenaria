@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 /**
  * Exporta o painel Financeiro · Pontua Garbo em PDF A4.
  * Replica métricas, série mensal, solicitantes e lista de arquitetos.
@@ -318,7 +319,7 @@ function buildDocumentHtml(input: FinanceiroPontuaPdfExportInput): string {
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Financeiro Pontua Garbo — ${input.meses} meses</title>
+  <title>Financeiro ${escapeHtml(empresaDocumento().nomePrograma)} — ${input.meses} meses</title>
   <style>${PDF_CSS}</style>
 </head>
 <body>
@@ -343,7 +344,7 @@ function buildDocumentHtml(input: FinanceiroPontuaPdfExportInput): string {
     ${buildArquitetos(input.arquitetos)}
 
     <footer class="doc-foot">
-      Exportação Financeiro · Pontua Garbo · números iguais aos cards e gráficos da tela.
+      Exportação Financeiro · ${escapeHtml(empresaDocumento().nomePrograma)} · números iguais aos cards e gráficos da tela.
     </footer>
   </div>
   <script>

@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useMemo, useState } from 'react';
 import { usePontuaGarboFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
 import { useSaquePedidosAdmin } from '@/hooks/useSaquePedidos';
@@ -36,6 +37,7 @@ const PERIODOS = [
 ] as const;
 
 export default function Financeiro() {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { empresa } = useEmpresa();
   const { userRole, userRoles, isSuperAdmin } = useAuth();
   const { prestadores, isLoading } = usePontuaGarboFinanceiro();
@@ -105,7 +107,7 @@ export default function Financeiro() {
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b3f12]">
                 <Trophy className="h-3.5 w-3.5" aria-hidden />
-                Financeiro · Pontua Garbo
+                Financeiro · {nomePrograma}
                 {!canManage && (
                   <Badge
                     variant="outline"

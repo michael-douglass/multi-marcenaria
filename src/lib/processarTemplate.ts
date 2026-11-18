@@ -1,3 +1,4 @@
+import { empresaDocumento, nomeEmpresaDocumento } from './empresa-identidade'
 import { fmtCur, fmtDate } from './utils'
 import { gerarPixPayload } from './pixBrcode'
 import type { ContaReceber } from '../types'
@@ -31,7 +32,7 @@ export function processarTemplate(
     ? gerarPixPayload({
         chave: pixConfig.chave_pix,
         valor: conta.valor_parcela,
-        nomeBeneficiario: pixConfig.nome_beneficiario ?? 'GARBO MOVELARIA',
+        nomeBeneficiario: pixConfig.nome_beneficiario?.trim() || nomeEmpresaDocumento(),
       })
     : '(PIX não configurado — configure em Cobranças > ⚙️)'
 
@@ -49,6 +50,7 @@ export function processarTemplate(
         ? `Parcela ${conta.numero_parcela}/${conta.total_parcelas}`
         : '',
     pix_copia_cola: pixPayload,
+    nome_empresa: empresaDocumento().nomeFantasia,
   }
 
   let msg = template.conteudo

@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
@@ -250,7 +251,7 @@ function paintPrintBoard(
   ctx.fillStyle = INK;
   ctx.font = `600 ${Math.round(width * 0.018)}px "Palatino Linotype", Palatino, Georgia, serif`;
   ctx.textBaseline = 'top';
-  ctx.fillText(input.nomeEmpresa || 'Garbo Movelaria', margin + width * 0.2, margin + 4);
+  ctx.fillText(input.nomeEmpresa || empresaDocumento().nomeFantasia, margin + width * 0.2, margin + 4);
 
   ctx.fillStyle = GOLD;
   ctx.font = `500 ${Math.round(width * 0.011)}px "Palatino Linotype", Palatino, Georgia, serif`;
@@ -334,7 +335,7 @@ function paintPrintBoard(
   ctx.textBaseline = 'middle';
   const cnpj = input.cnpj?.trim() ? `CNPJ ${input.cnpj.trim()}` : '';
   ctx.fillText(
-    [input.nomeEmpresa || 'Garbo Movelaria', cnpj, 'Documento para apresentação ao cliente']
+    [input.nomeEmpresa || empresaDocumento().nomeFantasia, cnpj, 'Documento para apresentação ao cliente']
       .filter(Boolean)
       .join('  ·  '),
     margin,
@@ -375,7 +376,7 @@ export async function exportLeadAIRenderComparisonPng(opts: LeadAIRenderExportOp
   paintPrintBoard(ctx, width, height, {
     ...assets,
     ...decoded,
-    nomeEmpresa: opts.nomeEmpresa?.trim() || 'Garbo Movelaria',
+    nomeEmpresa: opts.nomeEmpresa?.trim() || empresaDocumento().nomeFantasia,
     cnpj: opts.cnpj,
     leadName: opts.leadName,
     sketchLabel: opts.sketchLabel || 'Composição de ambiente',
@@ -406,7 +407,7 @@ export async function exportLeadAIRenderPdf(opts: LeadAIRenderExportOpts): Promi
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 11;
-  const nomeDisplay = opts.nomeEmpresa?.trim() || 'Garbo Movelaria';
+  const nomeDisplay = opts.nomeEmpresa?.trim() || empresaDocumento().nomeFantasia;
   const dataGeracao = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   const sketchLabel = opts.sketchLabel || 'Composição de ambiente';
 
@@ -530,7 +531,7 @@ export async function openLeadAIRenderPrintPage(opts: LeadAIRenderExportOpts): P
     throw new Error('Nenhuma imagem disponível para imprimir.');
   }
 
-  const nomeDisplay = opts.nomeEmpresa?.trim() || 'Garbo Movelaria';
+  const nomeDisplay = opts.nomeEmpresa?.trim() || empresaDocumento().nomeFantasia;
   const dataGeracao = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   const sketchLabel = opts.sketchLabel || 'Composição de ambiente';
   const twoCols = Boolean(assets.sketch && assets.output);

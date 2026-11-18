@@ -1,3 +1,5 @@
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useRef } from 'react'
 import { Calendar, Calculator, DollarSign, GripVertical } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -38,6 +40,7 @@ export function PipelineLeadCard({
   onDragEnd,
 }: PipelineLeadCardProps) {
   const origem = lead.origem || 'Outros'
+  const { nomePrograma } = useEmpresaIdentidade()
   const valor = Number(lead.valorOrcamento || lead.valorNegocio)
   const draggedRef = useRef(false)
   const temPreco = Boolean(markupResumo && markupResumo.preco_final > 0)
@@ -102,7 +105,7 @@ export function PipelineLeadCard({
                 originColors[origem] ?? originColors.Outros,
               )}
             >
-              {origem}
+              {rotuloPontua(origem, nomePrograma)}
             </span>
             <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
               <Calendar className="h-3 w-3" />

@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -142,6 +143,7 @@ function getRoleBadges(user: DatabaseUser): Array<{ label: string; className: st
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Admin() {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { user: authUser, userRole } = useAuth();
   const { empresa, isSuperAdmin, schemaEmpresa } = useEmpresa();
   const { data: profileUser } = useCurrentUserProfile();
@@ -812,7 +814,7 @@ export default function Admin() {
                                 ))}
                                 {user.tipo_usuario === 'prestador_servico' && user.comissao_ativa && (
                                   <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] gap-0.5 px-1.5 py-0.5">
-                                    <Trophy className="h-2.5 w-2.5" /> Pontua Garbo
+                                    <Trophy className="h-2.5 w-2.5" /> {nomePrograma}
                                   </Badge>
                                 )}
                               </div>
@@ -1356,7 +1358,7 @@ export default function Admin() {
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-600 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-amber-800">Comissão — Programa Pontua Garbo</p>
+                      <p className="text-sm font-medium text-amber-800">Comissão — Programa {nomePrograma}</p>
                       <p className="text-xs text-amber-600">Permite receber comissão sobre orçamentos de leads</p>
                     </div>
                   </div>
@@ -1483,7 +1485,7 @@ export default function Admin() {
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-600 shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-amber-800">Comissão — Programa Pontua Garbo</p>
+                      <p className="text-sm font-medium text-amber-800">Comissão — Programa {nomePrograma}</p>
                       <p className="text-xs text-amber-600">Permite receber comissão sobre orçamentos de leads</p>
                     </div>
                   </div>

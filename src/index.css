@@ -8802,3 +8802,12 @@ button.caixa-pill:hover {
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.55);
   }
 }
+
+/*
+ * Select/Popover/Dropdown aberto de dentro do <Modal> (.modal-overlay, z-300).
+ * O Radix põe a lista num wrapper no body com o z do conteúdo (z-100) — ficava
+ * atrás do modal e só aparecia a opção já escolhida (ex.: plano em Mensalidades).
+ */
+body:has(.modal-overlay) [data-radix-popper-content-wrapper] {
+  z-index: 310 !important;
+}

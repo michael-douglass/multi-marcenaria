@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -45,8 +46,9 @@ export interface LeadCustomFieldValue {
   atualizado_em: string;
 }
 
-const ERRO_CAMPO_PONTUA_GARBO_SISTEMA =
-  'O campo Pontua Garbo é do sistema e não pode ser excluído dos cards.';
+/** Mensagem calculada na hora do erro (o nome do programa depende da empresa ativa). */
+const erroCampoPontuaSistema = () =>
+  `O campo ${empresaDocumento().nomePrograma} é do sistema e não pode ser excluído dos cards.`;
 
 type EmpresaDb = ReturnType<typeof useEmpresaSupabase>;
 
@@ -201,7 +203,7 @@ export function useLeadCustomFieldDefs() {
     mutationFn: async (id: string) => {
       const current = await fetchFieldDefinition(db, defsTable, id);
       if (current && isPontuaGarboCampoDefinitivo(current)) {
-        throw new Error(ERRO_CAMPO_PONTUA_GARBO_SISTEMA);
+        throw new Error(erroCampoPontuaSistema());
       }
       const { error } = await db.from(defsTable).update({ ativo: false }).eq('id', id);
       if (error) throw error;

@@ -1,3 +1,4 @@
+import { nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { useEffect, useMemo, useState } from 'react'
 import { FileWarning, FileDown, Loader2 } from 'lucide-react'
 import { DateInput } from '@/components/ui/DateInput'
@@ -275,7 +276,7 @@ export function AdvertenciaDisciplinarPanel({
         <div>
           <dt className="text-[0.6rem] uppercase tracking-wider text-[#b8957f]">Empresa</dt>
           <dd className="mt-0.5 text-[#edd9c4]">
-            {empresaNome?.trim() || 'GARBO MOVELARIA'}
+            {empresaNome?.trim() || nomeEmpresaDocumento()}
           </dd>
         </div>
       </dl>

@@ -1,4 +1,4 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { FUNCIONARIO_TIPO_LABEL } from '@/lib/funcionario-constants'
 import {
   formatMinutosComSinal,
@@ -15,7 +15,6 @@ import type { PontoFaltaDetalhe, PontoResumoBatida, PontoResumoFuncionarioPeriod
 
 export { faltaDebitaCaixa, faltaTemJustificativa, OBS_FALTA_AUTOMATICA } from '@/lib/ponto-falta-status'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 
 export interface ResumoPontoDiaBatidas {
   data: string
@@ -322,8 +321,9 @@ function buildAtestadosAnexo(atestados: ResumoPontoAtestadoPdf[]): string {
 
 export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
   const { row, periodoLabel, intervaloLabel, repCnpj, atestados = [] } = input
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const cnpjRaw = repCnpj?.trim() || ''
+  const logoUrl = logoDocumentoUrl()
+  // Prioridade: CNPJ do REP → cadastro da empresa.
+  const cnpjRaw = repCnpj?.trim() || empresaDocumento().cnpjDigitos
   const cnpj = escapeHtml(cnpjRaw ? formatarCnpj(cnpjRaw) : '—')
   const nome = escapeHtml(row.nome)
   const tipo = escapeHtml(FUNCIONARIO_TIPO_LABEL[row.tipo] ?? row.tipo)
@@ -579,9 +579,9 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     <div class="doc-timbre">
       <div class="doc-timbre__faixa"></div>
       <div class="doc-header">
-        <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+        <img src="${logoUrl}" alt="${nomeEmpresaDocumento()}" />
         <div class="doc-empresa">
-          <h1>${NOME_EMPRESA}</h1>
+          <h1>${nomeEmpresaDocumento()}</h1>
           <p>CNPJ ${cnpj}</p>
           <p class="doc-sub">Resumo de Registro de Ponto — REP-P</p>
         </div>
@@ -652,7 +652,7 @@ export function buildResumoPontoHtml(input: ResumoPontoPdfInput): string {
     </section>
 
     <footer class="doc-footer">
-      <p>Documento gerado em ${escapeHtml(geradoEm)} · Garbo Movelaria</p>
+      <p>Documento gerado em ${escapeHtml(geradoEm)} · ${escapeHtml(empresaDocumento().nomeFantasia)}</p>
       <p>Conforme Portaria MTP nº 671/2021 (REP-P).</p>
       <p>Saldo = horas positivas (HE) − atrasos − faltas injustificadas − HE convertidas em pagamento.</p>
     </footer>

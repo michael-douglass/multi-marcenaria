@@ -1,4 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
+import { useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Phone, Mail, MapPin, Calendar, FileText, PenLine, Files, Presentation } from 'lucide-react';
@@ -39,6 +41,7 @@ export function PrestadorLeadDetailDialog({
   podeVerObservacoes = false,
   prestadorPerm = null,
 }: PrestadorLeadDetailDialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { schemaEmpresa } = useEmpresa();
   const db = useEmpresaSupabase();
   const table = useTableName();
@@ -194,7 +197,7 @@ export function PrestadorLeadDetailDialog({
                           Percentual
                         </p>
                         <p className="text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {lead.percentual}% · {lead.fieldNome}
+                          {lead.percentual}% · {rotuloPontua(lead.fieldNome, nomePrograma)}
                         </p>
                       </div>
                     </div>

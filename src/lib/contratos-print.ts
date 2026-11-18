@@ -1,6 +1,37 @@
 import { CONTRATO_DOCUMENT_CSS } from '@/lib/contrato-document-styles';
 import type { ContratoAnexo } from '@/hooks/useContratoAnexos';
 import { isImageAttachment } from '@/lib/attachment-files';
+import { formatCnpj } from '@/lib/empresa-identidade';
+import type { EmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+
+/**
+ * Variáveis automáticas da empresa — preenchidas com o cadastro da empresa (Perfil → Dados da
+ * empresa) e nunca pedidas ao usuário. Nomes reservados: não podem virar variável manual.
+ */
+export const VARIAVEIS_EMPRESA: ReadonlyArray<{ nome: string; label: string }> = [
+  { nome: 'empresa_nome', label: 'Nome fantasia da empresa' },
+  { nome: 'empresa_razao_social', label: 'Razão social da empresa' },
+  { nome: 'empresa_cnpj', label: 'CNPJ da empresa' },
+  { nome: 'empresa_endereco', label: 'Endereço da empresa' },
+  { nome: 'empresa_telefone', label: 'Telefone da empresa' },
+  { nome: 'empresa_email', label: 'E-mail da empresa' },
+];
+
+export const NOMES_VARIAVEIS_EMPRESA = new Set(VARIAVEIS_EMPRESA.map((v) => v.nome));
+
+/** Valores das variáveis `{{empresa_*}}` a partir da identidade da empresa. */
+export function valoresVariaveisEmpresa(
+  e: Pick<EmpresaIdentidade, 'nomeFantasia' | 'razaoSocial' | 'cnpjFormatado' | 'endereco' | 'telefone' | 'email'>,
+): Record<string, string> {
+  return {
+    empresa_nome: e.nomeFantasia,
+    empresa_razao_social: e.razaoSocial,
+    empresa_cnpj: e.cnpjFormatado,
+    empresa_endereco: e.endereco,
+    empresa_telefone: e.telefone,
+    empresa_email: e.email,
+  };
+}
 
 /** Nome técnico da variável fixa de CPF do contratante (sempre na assinatura). */
 export const VARIAVEL_CPF_FIXO = 'cpf';
@@ -49,7 +80,7 @@ function buildAssinaturasHTML(a: Assinaturas): string {
       <div class="assinante">
         <div class="linha-sign"></div>
         ${nomeContratada ? `<p class="sign-nome">${escapeHtml(nomeContratada)}</p>` : ''}
-        <p class="sign-doc">CNPJ: ${escapeHtml(a.cnpjEmpresa || '_____________________')}</p>
+        <p class="sign-doc">CNPJ: ${escapeHtml(formatCnpj(a.cnpjEmpresa) || '_____________________')}</p>
         <p class="sign-papel">Contratada</p>
       </div>
     </div>
@@ -102,7 +133,7 @@ export function imprimirContrato(opts: PrintContratoOptions) {
       ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
       <div class="empresa-info">
         ${nomeEmpresa ? `<h2 class="empresa-nome">${escapeHtml(nomeEmpresa)}</h2>` : ''}
-        ${cnpj ? `<p class="empresa-cnpj">CNPJ: ${escapeHtml(cnpj)}</p>` : ''}
+        ${cnpj ? `<p class="empresa-cnpj">CNPJ: ${escapeHtml(formatCnpj(cnpj))}</p>` : ''}
       </div>
     </div>
     ${nomeEmpresa || cnpj ? '<hr class="divisor" />' : ''}
@@ -145,8 +176,11 @@ export function imprimirContrato(opts: PrintContratoOptions) {
 export function substituirVariaveis(
   template: string,
   valores: Record<string, string>,
+  /** Valores automáticos (`{{empresa_*}}`); os valores do usuário têm prioridade. */
+  valoresEmpresa?: Record<string, string>,
 ): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, nome) => valores[nome] ?? `{{${nome}}}`);
+  const todos = valoresEmpresa ? { ...valoresEmpresa, ...valores } : valores;
+  return template.replace(/\{\{(\w+)\}\}/g, (_, nome) => todos[nome] ?? `{{${nome}}}`);
 }
 
 export function extrairVariaveis(template: string): string[] {

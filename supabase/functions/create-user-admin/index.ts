@@ -254,6 +254,7 @@ serve(async (req) => {
           email,
           telefone,
           existingLeadId,
+          empresaId: empresaUuid,
         });
         pontuaGarboLeadId = ensured.leadId;
       } catch (leadErr) {

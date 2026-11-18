@@ -12,6 +12,10 @@ import { FileX } from 'lucide-react';
 import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
 import { Button } from '@/components/ui/button';
 import { OrcamentoSlideApresentacao } from '@/components/orcamento-slides/OrcamentoSlideApresentacao';
+import {
+  EmpresaPublicaProvider,
+  type EmpresaDadosLegaisFonte,
+} from '@/components/orcamento-slides/EmpresaDadosLegais';
 import { OrcamentoSlideExportMenu } from '@/components/orcamento-slides/OrcamentoSlideExportMenu';
 import { useOrcamentoSlideExport } from '@/hooks/useOrcamentoSlideExport';
 import { resolverMidiasApresentacao } from '@/lib/orcamento-slide-bloco-imagens';
@@ -48,6 +52,8 @@ interface PageData {
   catalogoItens: OrcamentoCatalogoItem[];
   valorOrcamentoLead: number;
   formasPagamento: OrcamentoFormaPagamento[];
+  /** Empresa dona do orçamento (razão social, CNPJ…), do RPC público. */
+  empresa: EmpresaDadosLegaisFonte | null;
 }
 
 function useOrcamentoPublico(schema: string | undefined, id: string | undefined) {
@@ -86,6 +92,7 @@ function useOrcamentoPublico(schema: string | undefined, id: string | undefined)
           catalogo: OrcamentoCatalogoItem[];
           formas_pagamento: OrcamentoFormaPagamento[];
           valor_orcamento_lead: number | string | null;
+          empresa?: EmpresaDadosLegaisFonte | null;
         };
         if (!isLinkPublicoAtivo(r.orcamento)) {
           setNotFound(true);
@@ -105,6 +112,7 @@ function useOrcamentoPublico(schema: string | undefined, id: string | undefined)
           catalogoItens,
           valorOrcamentoLead: Number(r.valor_orcamento_lead ?? 0),
           formasPagamento: r.formas_pagamento ?? [],
+          empresa: r.empresa ?? null,
         });
       } catch {
         if (!atualizacaoSilenciosa) setNotFound(true);
@@ -153,6 +161,7 @@ function OrcamentoPublicoConteudo({ data }: { data: PageData }) {
   });
 
   return (
+    <EmpresaPublicaProvider empresa={data.empresa}>
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0a0706]">
       <div
         className="z-20 flex shrink-0 items-center justify-between gap-3 px-4 py-2.5"
@@ -193,6 +202,7 @@ function OrcamentoPublicoConteudo({ data }: { data: PageData }) {
 
       {exportPortal}
     </div>
+    </EmpresaPublicaProvider>
   );
 }
 

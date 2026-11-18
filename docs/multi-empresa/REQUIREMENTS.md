@@ -115,3 +115,68 @@ O banco novo (`vejugdspjfgfajdpfiht`) ainda **não tem dados**, só a linha da e
 5. `get_advisors` (security) sem novas tabelas sem RLS e sem policies `true` em tabela de tenant.
 6. `grep -r "emp_garbo"` em `src/`, `supabase/functions/` e nas funções do banco (`pg_proc.prosrc`)
    sem resultado, exceto em migrations antigas.
+
+---
+
+## 6. Fase I: Console Master isolado e páginas por marcenaria (2026-11-17)
+
+Pedido do usuário depois da entrega da plataforma: o master precisa de um sistema **só dele, em
+ambiente isolado**, de onde controla todas as operações. A partir dali ele pode **entrar numa
+marcenaria para verificar** e decide **quais páginas cada marcenaria pode acessar**, sobre o
+catálogo completo de páginas do sistema.
+
+### 6.1 Decisões do usuário
+- **Inspeção:** ao entrar numa marcenaria, o master escolhe na hora entre **somente leitura** e
+  **acesso total**. No modo leitura, quem recusa as gravações é o banco, não só a tela.
+- **Páginas:** cada **plano** traz um pacote de páginas, e cada **empresa** pode ter ajustes
+  próprios (liberar ou bloquear páginas além do plano).
+- **Empresa nova:** nasce com **todas as páginas liberadas**.
+
+### 6.2 Requisitos
+1. O console master (`/master*`) roda fora do app da marcenaria, com layout, menu e providers
+   próprios. Não carrega sidebar, popups, CRM nem obras.
+2. O master logado vai para o console. Só vê as telas de uma marcenaria depois de "Entrar".
+3. Dentro da marcenaria, uma faixa fixa mostra a empresa e o modo (leitura ou total), com
+   "Sair da inspeção".
+4. Toda entrada fica registrada (empresa, modo, início, fim) e aparece no console.
+5. O catálogo de páginas cobre **todas** as páginas do menu: CRM, Marketing, Movelaria (Dashboard,
+   Financeiro, Funcionários, Obras, Ponto), Pessoal e Administração.
+6. Uma página bloqueada some do menu e da busca. A URL direta redireciona e os atalhos flutuantes
+   ligados a ela também somem.
+7. O acesso final é a interseção de **página liberada pela plataforma** com **papel do usuário na
+   empresa**.
+8. As funções de IA (orçamentos IA, compor markup, compor contrato) recusam a chamada quando a
+   página correspondente está bloqueada.
+
+### 6.3 Critérios de sucesso
+- Master em modo leitura recebe erro do banco em insert/update/delete. Em acesso total, grava.
+- Bloquear "Contratos" para uma empresa faz o item sumir para o admin dela, e a URL direta redireciona.
+- O console master não carrega os chunks do CRM.
+
+## 7. Fase J: CRM pré-configurado e conferência das páginas bloqueadas (2026-11-18)
+
+Pedido: toda marcenaria já nasce com o Pipeline e os kanbans iguais aos da Garbo
+(`garbomoveisplanejados`), e cada kanban pode ser escondido. Conferir que página bloqueada não aparece.
+
+### 7.1 Decisões do usuário
+- **Esconder kanban:** master **e** admin. O master bloqueia cada kanban (Kanban principal,
+  Orçamentos internos, Prospecção, Manutenção) por plano/empresa no editor de páginas; o admin da
+  marcenaria liga/desliga os kanbans extras na configuração do Pipeline.
+
+### 7.2 Requisitos
+- **RJ1:** empresa nova recebe as etapas do Kanban principal (Novo Lead, Visita em obra agendada,
+  Visita em obra Feita, Orçamentos feitos, Precificação Feita, Enviou orçamento) e os kanbans
+  Orçamentos internos, Prospecção e Manutenção, com as colunas e regras da Garbo.
+- **RJ2:** empresas já existentes recebem o mesmo pacote, sem mexer no que já tiverem configurado.
+- **RJ3:** cada kanban padrão é uma página própria no catálogo (`pipelineKanban:<slug>`), bloqueável.
+- **RJ4:** o console avisa quando um plano não tem marcenarias (o bloqueio dele não vale para ninguém)
+  e quando a empresa não tem plano.
+
+### 7.3 Critérios de sucesso
+- Garbo e empresa nova com 6 etapas, 3 kanbans e 15 colunas; rodar o seed de novo não duplica.
+- Página bloqueada (por plano ligado à empresa ou ajuste) some do menu, da busca e da URL direta —
+  conferido por script determinístico (`check-paginas-visiveis.mjs`), pela API e no navegador.
+
+### 7.4 Diagnóstico de 2026-11-18
+"Orçamentos IA" riscado no plano "Marcenaria platina" continuava visível porque **nenhuma empresa
+estava ligada ao plano** (`plataforma_assinaturas` vazia). O bloqueio funcionava; faltava a assinatura.

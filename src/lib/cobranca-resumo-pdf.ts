@@ -1,8 +1,7 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { fmtCur, fmtDate, isOverdue } from '@/lib/utils'
 import type { FormaPagamento, TipoRecebimento } from '@/types'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 
 const TIPO_LABEL: Record<TipoRecebimento, string> = {
   a_vista: 'À Vista',
@@ -112,7 +111,7 @@ export function imprimirResumoCobrancaPdf(input: CobrancaResumoPdfInput): void {
 }
 
 export function buildResumoCobrancaHtml(input: CobrancaResumoPdfInput): string {
-  const logo = garboBrandLogo
+  const logo = logoDocumentoUrl()
   const geradoEm = new Date().toLocaleString('pt-BR')
   const tipo =
     input.tipoRecebimento && input.tipoRecebimento in TIPO_LABEL
@@ -317,10 +316,10 @@ export function buildResumoCobrancaHtml(input: CobrancaResumoPdfInput): string {
 </head>
 <body>
   <div class="header">
-    <img src="${logo}" alt="${NOME_EMPRESA}" />
+    <img src="${logo}" alt="${nomeEmpresaDocumento()}" />
     <div>
       <h1>RESUMO DA COBRANÇA</h1>
-      <p>${NOME_EMPRESA}${input.subtitulo ? ` · ${escapeHtml(input.subtitulo)}` : ''}</p>
+      <p>${nomeEmpresaDocumento()}${input.subtitulo ? ` · ${escapeHtml(input.subtitulo)}` : ''}</p>
       <p>Gerado em ${escapeHtml(geradoEm)}</p>
     </div>
   </div>
@@ -398,7 +397,7 @@ export function buildResumoCobrancaHtml(input: CobrancaResumoPdfInput): string {
   ${anexosList}
   ${anexosImagens ? `<div style="margin-top:12px">${anexosImagens}</div>` : ''}
 
-  <div class="footer">${NOME_EMPRESA} — Resumo de cobrança para arquivo / impressão (Salvar como PDF)</div>
+  <div class="footer">${nomeEmpresaDocumento()} — Resumo de cobrança para arquivo / impressão (Salvar como PDF)</div>
 </body>
 </html>`
 }

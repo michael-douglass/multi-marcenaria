@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Trophy, Wallet, TrendingUp, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,7 @@ function MetricCard({
  */
 export function GarboApresentacaoPontuaGarbo({ scrollerRef }: GarboApresentacaoPontuaGarboProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const { nomePrograma } = useEmpresaIdentidade();
   const [sceneActive, setSceneActive] = useState(false);
 
   useGarboPontuaScroll({ scrollerRef, rootRef, enabled: true });
@@ -88,7 +90,7 @@ export function GarboApresentacaoPontuaGarbo({ scrollerRef }: GarboApresentacaoP
   const maxBar = Math.max(...ganhosPorMes.map((m) => m.valor), 1);
 
   return (
-    <section ref={rootRef} className="relative w-full" aria-label="Programa de Pontuação Garbo">
+    <section ref={rootRef} className="relative w-full" aria-label={nomePrograma}>
       {/* ── Intro + Three.js ── */}
       <div
         id="pontua-garbo"
@@ -130,7 +132,7 @@ export function GarboApresentacaoPontuaGarbo({ scrollerRef }: GarboApresentacaoP
                 textShadow: GARBO_APRESENTACAO_THEME.textShadowTitle,
               }}
             >
-              {GARBO_PONTUA_DEMO.title}
+              {`${nomePrograma} para Parceiros`}
             </h2>
             <p
               data-pontua-reveal

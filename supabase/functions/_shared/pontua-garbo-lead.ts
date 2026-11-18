@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import type { EmpresaDbTarget } from "./empresa-tables.ts";
-import { dbFromSchema } from "./empresa-tables.ts";
+import { dbFromSchema, MASTER_TABLES } from "./empresa-tables.ts";
 
 export const PONTUA_GARBO_LEAD_ORIGEM = "Pontua Garbo";
 /** Coluna inicial no kanban Propspecção para cadastros do programa. */
@@ -163,6 +163,18 @@ async function linkLeadToUsuario(
  * Garante um card de lead para o parceiro Pontua Garbo.
  * Reusa o card da pessoa (pelo nome), não um cliente que só compartilhou o telefone.
  */
+/** "Pontua {nome fantasia}" para textos visíveis (service role: filtra pelo id da empresa). */
+async function nomeProgramaDaEmpresa(admin: SupabaseClient, empresaId?: string | null): Promise<string> {
+  if (!empresaId) return "Pontua";
+  try {
+    const { data } = await admin.from(MASTER_TABLES.empresas).select("nome").eq("id", empresaId).maybeSingle();
+    const nome = (data as { nome?: string | null } | null)?.nome?.trim();
+    return nome ? `Pontua ${nome}` : "Pontua";
+  } catch {
+    return "Pontua";
+  }
+}
+
 export async function ensurePontuaGarboPartnerLead(
   admin: SupabaseClient,
   target: EmpresaDbTarget,
@@ -172,6 +184,8 @@ export async function ensurePontuaGarboPartnerLead(
     email?: string | null;
     telefone?: string | null;
     existingLeadId?: number | null;
+    /** Empresa do cadastro: usada só no texto da nota ("Pontua {nome fantasia}"). */
+    empresaId?: string | null;
   },
 ): Promise<{ leadId: number | null; created: boolean }> {
   const db = dbFromSchema(admin, target.schema);
@@ -260,7 +274,7 @@ export async function ensurePontuaGarboPartnerLead(
       valor_orcamento: 0,
       data_chegada: todaySaoPaulo(),
       pontua_garbo_usuario_id: input.usuarioId,
-      observacoes: "Cadastro automático pelo programa Pontua Garbo.",
+      observacoes: `Cadastro automático pelo programa ${await nomeProgramaDaEmpresa(admin, input.empresaId)}.`,
     })
     .select("id")
     .single();

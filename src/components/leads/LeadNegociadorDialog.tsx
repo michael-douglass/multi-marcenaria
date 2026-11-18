@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -439,7 +440,7 @@ export function LeadNegociadorDialog({
           markupsTitulos: orcamentosSelecionados.map((o) => o.titulo || 'Markup'),
         },
         {
-          empresaNome: empresa?.nome || 'Garbo Movelaria',
+          empresaNome: empresa?.nome || empresaDocumento().nomeFantasia,
           empresaRazaoSocial: empresa?.razao_social ?? null,
           empresaCnpj: empresa?.cnpj ?? null,
           logoUrl: logo,

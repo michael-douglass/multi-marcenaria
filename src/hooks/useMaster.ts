@@ -73,6 +73,27 @@ export interface Plano {
   valor_mensal: number
   descricao: string | null
   ativo: boolean
+  /** Páginas que o plano NÃO inclui (ids de `src/lib/paginas-catalogo.ts`). */
+  paginas_bloqueadas: string[]
+}
+
+export interface PaginasEmpresa {
+  plano_id: string | null
+  plano_nome: string | null
+  plano_bloqueadas: string[]
+  /** Ajustes da empresa sobre o plano: true = liberada, false = bloqueada. */
+  ajustes: Record<string, boolean>
+  bloqueadas: string[]
+}
+
+export interface AcessoMaster {
+  id: string
+  empresa_id: string
+  empresa_nome: string
+  usuario_email: string | null
+  somente_leitura: boolean
+  inicio: string
+  fim: string | null
 }
 
 export interface FormaPagamentoPlataforma {
@@ -250,7 +271,11 @@ export function usePlanos() {
     queryFn: async () => {
       const { data, error } = await tabela('plataforma_planos').select('*').order('valor_mensal')
       if (error) throw new Error(error.message)
-      return ((data ?? []) as unknown as Plano[]).map((p) => ({ ...p, valor_mensal: num(p.valor_mensal) }))
+      return ((data ?? []) as unknown as Plano[]).map((p) => ({
+        ...p,
+        valor_mensal: num(p.valor_mensal),
+        paginas_bloqueadas: Array.isArray(p.paginas_bloqueadas) ? p.paginas_bloqueadas : [],
+      }))
     },
   })
 }
@@ -385,5 +410,49 @@ export function useProcessarCobrancas() {
       return { geradas, ...r }
     },
     onSuccess: invalidar,
+  })
+}
+
+// ── páginas por plano/empresa e acessos (Fase I) ─────────────────────────────────────────────────
+export function usePaginasEmpresa(empresaId: string | undefined) {
+  return useQuery({
+    queryKey: ['master', 'paginas-empresa', empresaId],
+    enabled: !!empresaId,
+    queryFn: async (): Promise<PaginasEmpresa> => {
+      const rows = await rpc<PaginasEmpresa[]>('master_paginas_empresa', { p_empresa: empresaId })
+      const r = rows?.[0]
+      return {
+        plano_id: r?.plano_id ?? null,
+        plano_nome: r?.plano_nome ?? null,
+        plano_bloqueadas: r?.plano_bloqueadas ?? [],
+        ajustes: (r?.ajustes as Record<string, boolean> | undefined) ?? {},
+        bloqueadas: r?.bloqueadas ?? [],
+      }
+    },
+  })
+}
+
+export function useSalvarPaginasEmpresa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { empresaId: string; ajustes: Record<string, boolean> }) =>
+      rpc<void>('master_salvar_paginas_empresa', { p_empresa: i.empresaId, p_ajustes: i.ajustes }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useSalvarPaginasPlano() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { planoId: string; bloqueadas: string[] }) =>
+      rpc<void>('master_salvar_paginas_plano', { p_plano: i.planoId, p_bloqueadas: i.bloqueadas }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useAcessosMaster(empresaId?: string) {
+  return useQuery({
+    queryKey: ['master', 'acessos', empresaId ?? 'todas'],
+    queryFn: () => rpc<AcessoMaster[]>('master_listar_acessos', { p_empresa: empresaId ?? null, p_limite: 300 }),
   })
 }

@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useRef, useState } from 'react';
 import { ImageDown, Loader2, X } from 'lucide-react';
 import {
@@ -30,6 +31,7 @@ export function SaldoReceberArteDialog({
   onOpenChange,
   opts,
 }: SaldoReceberArteDialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const arteRef = useRef<HTMLDivElement>(null);
   const [baixando, setBaixando] = useState(false);
 
@@ -145,7 +147,7 @@ export function SaldoReceberArteDialog({
               >
                 Olá, você tem a seguinte quantia a retirar no{' '}
                 <strong className="font-semibold" style={{ color: '#6b5210' }}>
-                  Pontua Garbo
+                  {nomePrograma}
                 </strong>
                 :
               </p>
@@ -184,7 +186,7 @@ export function SaldoReceberArteDialog({
               <p className="text-[13px] font-medium" style={{ color: '#3f372c' }}>
                 Retire seu saldo no programa{' '}
                 <strong className="font-semibold" style={{ color: '#6b5210' }}>
-                  Pontua Garbo
+                  {nomePrograma}
                 </strong>
               </p>
 

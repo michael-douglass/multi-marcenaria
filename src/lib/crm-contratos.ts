@@ -84,8 +84,13 @@ export function stripMetaCampos(campos: Record<string, string>): Record<string, 
   return out
 }
 
-export function buildConteudoContrato(modelo: string, valores: Record<string, string>): string {
-  return substituirVariaveis(modelo, stripMetaCampos(valores))
+export function buildConteudoContrato(
+  modelo: string,
+  valores: Record<string, string>,
+  /** Valores de `{{empresa_*}}` (ver `valoresVariaveisEmpresa`); os do usuário têm prioridade. */
+  valoresEmpresa?: Record<string, string>,
+): string {
+  return substituirVariaveis(modelo, { ...(valoresEmpresa ?? {}), ...stripMetaCampos(valores) })
 }
 
 export function parseContrato(raw: unknown): CrmContrato {

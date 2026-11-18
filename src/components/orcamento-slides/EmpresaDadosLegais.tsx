@@ -1,6 +1,35 @@
-import type { CSSProperties } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { useEmpresaOptional } from '@/contexts/EmpresaContext';
+import { useAppOptional } from '@/context/AppContext';
+import { formatCnpj } from '@/lib/empresa-identidade';
+
+/** Dados legais da empresa dona do orçamento (vêm do RPC público `orcamento_publico_obter`). */
+export interface EmpresaDadosLegaisFonte {
+  nome?: string | null;
+  razao_social?: string | null;
+  cnpj?: string | null;
+  logo_url?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+}
+
+const EmpresaPublicaContext = createContext<EmpresaDadosLegaisFonte | null>(null);
+
+/**
+ * Página pública (sem sessão): fornece a empresa do orçamento para todos os slides, inclusive o
+ * render offscreen da exportação. Tem prioridade sobre a empresa da sessão.
+ */
+export function EmpresaPublicaProvider({
+  empresa,
+  children,
+}: {
+  empresa: EmpresaDadosLegaisFonte | null | undefined;
+  children: ReactNode;
+}) {
+  return <EmpresaPublicaContext.Provider value={empresa ?? null}>{children}</EmpresaPublicaContext.Provider>;
+}
 
 interface EmpresaDadosLegaisProps {
   color?: string;
@@ -9,6 +38,8 @@ interface EmpresaDadosLegaisProps {
   /** compact = uma linha; stacked = rótulos empilhados (capa / PDF). */
   variant?: 'stacked' | 'inline';
   align?: 'left' | 'center' | 'right';
+  /** Empresa explícita (prioridade sobre o provider público e sobre a empresa da sessão). */
+  empresa?: EmpresaDadosLegaisFonte | null;
 }
 
 /**
@@ -21,12 +52,16 @@ export function EmpresaDadosLegais({
   style,
   variant = 'stacked',
   align = 'left',
+  empresa: empresaProp,
 }: EmpresaDadosLegaisProps) {
-  // Multi-empresa: dados legais da empresa ativa (sem fallback fixo). Fora do provider (página
-  // pública) ou sem dados cadastrados, não renderiza nada.
-  const empresa = useEmpresaOptional()?.empresa ?? null;
-  const razao = empresa?.razao_social?.trim() || '';
-  const cnpj = empresa?.cnpj?.trim() || '';
+  // Multi-empresa: prop → empresa do orçamento público → empresa da sessão (sem fallback fixo).
+  // Sem dados cadastrados, não renderiza nada.
+  const publica = useContext(EmpresaPublicaContext);
+  const sessao = useAppOptional()?.empresa ?? null;
+  const fonte: EmpresaDadosLegaisFonte | null =
+    empresaProp ?? publica ?? (sessao ? { razao_social: sessao.razaoSocial, cnpj: sessao.cnpj } : null);
+  const razao = fonte?.razao_social?.trim() || '';
+  const cnpj = formatCnpj(fonte?.cnpj);
   if (!razao && !cnpj) return null;
   const textAlign = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 

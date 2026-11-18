@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 import { Presentation } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { GarboPontuaPointsScene } from '@/components/crm/GarboPontuaPointsScene'
@@ -35,11 +36,12 @@ export function ApresentacaoArquitetosPage() {
 }
 
 export function PontuaGarboPage() {
+  const { nomePrograma } = useEmpresaIdentidade()
   const pontua = APRESENTACAO_SECTIONS.find(s => s.id === 'pontua')
   return (
     <CrmPageFrame padded>
       <CrmPageHeader
-        title="Pontua Garbo"
+        title={nomePrograma}
         subtitle="Programa de pontuação e comissão dos arquitetos."
         icon={(
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/15">
@@ -52,7 +54,7 @@ export function PontuaGarboPage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#140c08] to-transparent p-5">
           {pontua && (
             <>
-              <h2 className="font-display text-2xl tracking-wide text-[#f2d892]">{pontua.titulo}</h2>
+              <h2 className="font-display text-2xl tracking-wide text-[#f2d892]">{nomePrograma}</h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#edd9c4]">{pontua.texto}</p>
             </>
           )}

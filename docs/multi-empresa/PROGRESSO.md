@@ -130,7 +130,17 @@ cascade (`…170100`). Advisors: `…170200` (views definer filtradas, RLS em 2 
 ## M32 — Documentação ✅
 CLAUDE.md, docs/structure.md, docs/tech.md, DESIGN §1.1 e §9.
 
+## Fase I — Console master isolado e páginas por marcenaria ✅ (M40–M50)
+- M41: `src/lib/paginas-catalogo.ts` (45 páginas, derivadas do menu) + `paginas-bloqueio.ts`; `check-catalogo.mjs`: toda rota autenticada cai numa página.
+- M42/M43: migrations `20261118100000` (páginas), `…100100` (inspeção, 1275 policies `tenant_master_leitura_*`, guarda em 8 funções do postgres, master sem inspeção = sem empresa), `…100200` (`master_definir_admin_empresa` entra em modo escrita sem registrar acesso), `…100300` (cobranças sem anon — achado dos advisors).
+- M44: menu, busca, `RoleRedirect`, `crmPage`, telas cheias, tela inicial (`homeLiberada`) e atalhos flutuantes respeitam as páginas.
+- M45: `motivoRecusa` em `orcamentos-ia-pipeline`, `compose-markup-ia`, `compose-contrato-ia` (publicadas). `empresaDoChamador`/`requireCallerTenant` recusam inspeção somente leitura — **só valem nas funções republicadas** (as outras 33 ainda têm o `_shared/tenant.ts` anterior).
+- M46–M49: console em `src/master/` (Visão geral, Marcenarias, detalhe com abas, Mensalidades, Planos e páginas, Entradas), `PaginasEditor`, `EntrarEmpresaDialog`, faixa de inspeção âmbar/tijolo, aviso de somente leitura via `supabase.ts`.
+- M50: `test-plataforma.sql` 30 casos (T18–T30 novos) e `test-isolamento.mjs` 23/23 (seção 5 nova); `pnpm build` ok.
+
 ## Pendências (propostas)
+- Republicar as demais edge functions para a recusa de inspeção somente leitura valer nelas.
+- Teste manual do console no navegador (login do master).
 - Edge functions sem ajuste por não serem usadas pelo front: `agenda-public-booking`, `agenda-public-upload`,
   `receber-whatsapp`, `migrate-leads-regiao`; ProForço: `cadastro-alunos`. Insert sem empresa falha (não vaza).
 - Funções de admissão pública (`movelaria_admissao_publica_*`) e página `AgendamentoPublicoGarbo` não são usadas;

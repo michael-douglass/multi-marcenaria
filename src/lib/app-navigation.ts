@@ -52,6 +52,8 @@ import {
   isVendedorRestrictedCrm,
 } from '@/lib/crm-identity'
 import { isManutencaoKanbanPage } from '@/lib/manutencao-attention'
+import { isKanbanPadrao, kanbanPaginaId } from '@/lib/kanbans-padrao'
+import { paginaIdBloqueada } from '@/lib/paginas-bloqueio'
 import { PROJETOS_ABA_PARAM, PROJETOS_PRODUCAO_URL } from '@/lib/projetos-hub'
 import type { ActiveSection, UserProfile, UserRole } from '@/types'
 
@@ -137,6 +139,8 @@ export interface NavVisibilityContext {
   vendedorRestricted?: boolean
   crmAdmin?: boolean
   showParceiros?: boolean
+  /** Páginas bloqueadas pela plataforma para a empresa (multi-empresa). */
+  paginasBloqueadas?: readonly string[]
 }
 
 function isNavEntryVisible(
@@ -186,6 +190,7 @@ export function navVisibilityFromProfiles(
 
 function filterNavChildren(items: NavChildItem[], ctx: NavVisibilityContext): NavChildItem[] {
   return items
+    .filter(c => c.children?.length || !paginaIdBloqueada(c.id, ctx.paginasBloqueadas))
     .filter(c => {
       if (!c.roles && !c.crmRoles && !c.crmAdminOnly && !c.hideIfMarketingOnly && !c.hideIfProjetistaOnly && !c.hideIfVendedorRestricted) return true
       return isNavEntryVisible({
@@ -584,7 +589,8 @@ const MARKETING_CRM_CHILDREN: NavChildItem[] = [
   },
   {
     id: 'pontuaGarbo',
-    title: 'Pontua Garbo',
+    // Rótulo genérico: o AppSidebar troca por "Pontua {nome fantasia}" (aplicarNomePrograma).
+    title: 'Pontua',
     url: '/marketing/pontua-garbo',
     icon: Trophy,
     radialColor: 'rgba(251,191,36,0.92)',
@@ -773,13 +779,34 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
   },
 ]
 
+/** Ids do menu que mostram o nome do programa de pontos da empresa. */
+const NAV_IDS_PROGRAMA = new Set(['pontuaGarbo'])
+
+/** Troca o rótulo do item do programa de pontos por "Pontua {nome fantasia}" (só exibição). */
+export function aplicarNomePrograma<T extends { id: string; title: string; children?: NavChildItem[] }>(
+  items: T[],
+  nomePrograma: string,
+): T[] {
+  const troca = <U extends { id: string; title: string; children?: NavChildItem[] }>(it: U): U => {
+    const children = it.children?.map(troca)
+    if (NAV_IDS_PROGRAMA.has(it.id)) return { ...it, title: nomePrograma, ...(children ? { children } : {}) }
+    return children ? { ...it, children } : it
+  }
+  return items.map(troca)
+}
+
 export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[] {
   if (!ctx.roles.length && !(ctx.crmRoles?.length) && !ctx.showParceiros) return []
   return NAV_MAIN_ITEMS
     .filter(item => isNavEntryVisible(item, ctx))
+    .filter(item => item.children?.length || !paginaIdBloqueada(item.id, ctx.paginasBloqueadas))
     .map(item => {
       if (!item.children) return item
       const children = filterNavChildren(item.children, ctx)
+      // Grupo cuja página de entrada foi bloqueada pela plataforma abre o primeiro filho liberado.
+      if (ctx.paginasBloqueadas?.length && children.length > 0 && urlBloqueadaNoGrupo(item, ctx.paginasBloqueadas)) {
+        return { ...item, url: primeiraUrl(children) ?? item.url, children }
+      }
       if (item.id === 'comercial' && ctx.projetistaOnly) {
         return { ...item, url: '/projetos', children }
       }
@@ -791,16 +818,42 @@ export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[]
     .filter(item => !item.children || item.children.length > 0)
 }
 
+/** A URL de entrada do grupo aponta para uma página bloqueada? */
+function urlBloqueadaNoGrupo(item: NavMainItem, bloqueadas: readonly string[]): boolean {
+  let bloqueada = false
+  walkNavChildren(item.children ?? [], c => {
+    if (!c.children?.length && c.url === item.url && paginaIdBloqueada(c.id, bloqueadas)) bloqueada = true
+  })
+  return bloqueada
+}
+
+function primeiraUrl(items: NavChildItem[]): string | undefined {
+  for (const c of items) {
+    if (c.children?.length) {
+      const u = primeiraUrl(c.children)
+      if (u) return u
+    } else if (c.url) return c.url
+  }
+  return undefined
+}
+
 export function attachPipelineKanbanPages(
   items: NavMainItem[],
   pages: Array<{ slug: string; nome: string; ativo: boolean; ordem: number }>,
   manutencaoCount = 0,
+  paginasBloqueadas?: readonly string[],
 ): NavMainItem[] {
+  // Kanbans padrão têm página própria no catálogo (`pipelineKanban:<slug>`); os criados pelo
+  // admin fazem parte da página "pipeline".
+  const bloqueado = (slug: string) =>
+    isKanbanPadrao(slug)
+      ? paginaIdBloqueada(kanbanPaginaId(slug), paginasBloqueadas)
+      : paginaIdBloqueada('pipeline', paginasBloqueadas)
   const extras: NavChildItem[] = pages
-    .filter(page => page.ativo && page.slug && page.slug !== 'pipeline')
+    .filter(page => page.ativo && page.slug && page.slug !== 'pipeline' && !bloqueado(page.slug))
     .sort((a, b) => a.ordem - b.ordem)
     .map(page => ({
-      id: `pipelineKanban:${page.slug}`,
+      id: kanbanPaginaId(page.slug),
       title: page.nome,
       url: `/pipeline/${page.slug}`,
       icon: Kanban,
@@ -813,9 +866,11 @@ export function attachPipelineKanbanPages(
 
   if (extras.length === 0) return items
 
+  let injetado = false
   const inject = (children: NavChildItem[]): NavChildItem[] =>
     children.map(child => {
       if (child.id === 'pipelineGrupo' && child.children?.length) {
+        injetado = true
         const config = child.children.filter(entry => entry.id === 'pipelineConfig')
         const rest = child.children.filter(entry => entry.id !== 'pipelineConfig')
         return { ...child, children: [...rest, ...extras, ...config] }
@@ -824,7 +879,18 @@ export function attachPipelineKanbanPages(
       return child
     })
 
-  return items.map(item => (item.children ? { ...item, children: inject(item.children) } : item))
+  const result = items.map(item => (item.children ? { ...item, children: inject(item.children) } : item))
+  if (injetado) return result
+
+  // O grupo "Pipeline" sumiu (ex.: Kanban principal bloqueado e sem acesso às configurações):
+  // recria o grupo só com os kanbans liberados, no topo do Comercial.
+  const grupo = COMERCIAL_CHILDREN.find(child => child.id === 'pipelineGrupo')
+  if (!grupo) return result
+  return result.map(item =>
+    item.id === 'comercial' && item.children
+      ? { ...item, children: [{ ...grupo, children: extras }, ...item.children] }
+      : item,
+  )
 }
 
 export function getNavBadge(_item: NavMainItem, _ctx: NavVisibilityContext): number | undefined {

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, RefreshCw, Wallet } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
-import { DashboardCardShell, DashboardKpiCard } from '@/components/dashboard/DashboardCardShell'
+import { MasterPage, Numeros } from '@/master/components/MasterUi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,7 +43,7 @@ import { cn } from '@/lib/utils'
 const toNum = (s: string) => Number(String(s).replace(',', '.'))
 
 /** Financeiro Master: mensalidades do sistema cobradas de cada marcenaria. */
-export default function MasterFinanceiro() {
+export default function Financeiro() {
   const { data: empresas = [] } = useMasterEmpresas()
   const nomeEmpresa = useMemo(() => new Map(empresas.map((e) => [e.id, e.nome])), [empresas])
   const processar = useProcessarCobrancas()
@@ -61,28 +60,19 @@ export default function MasterFinanceiro() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 pb-10">
-      <Link to="/master" className="inline-flex items-center gap-1 text-xs font-semibold text-[#6b5244] hover:text-[#2a1812]">
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Painel Master
-      </Link>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700">
-            <Wallet className="h-3.5 w-3.5" aria-hidden /> Financeiro Master
-          </p>
-          <h1 className="font-display text-3xl tracking-[0.02em] text-[#2a1812]">Mensalidades do sistema</h1>
-          <p className="text-xs text-[#8a7060]">
-            As cobranças do mês são geradas e os atrasos conferidos todo dia às 06:15 (horário de Brasília).
-          </p>
-        </div>
+    <MasterPage
+      titulo="Mensalidades"
+      resumo="O que cada marcenaria paga pelo sistema. As cobranças do mês são geradas e os atrasos conferidos todo dia às 06:15 (horário de Brasília)."
+      acoes={
         <Button variant="outline" onClick={() => void rodarProcessamento()} disabled={processar.isPending}>
           <RefreshCw className={cn('mr-2 h-4 w-4', processar.isPending && 'animate-spin')} aria-hidden />
-          Gerar / atualizar agora
+          Gerar e conferir agora
         </Button>
-      </header>
+      }
+    >
 
       <Tabs defaultValue="cobrancas">
-        <TabsList>
+        <TabsList className="mb-2">
           <TabsTrigger value="cobrancas">Cobranças</TabsTrigger>
           <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>
           <TabsTrigger value="planos">Planos</TabsTrigger>
@@ -101,7 +91,7 @@ export default function MasterFinanceiro() {
           <AbaFormas />
         </TabsContent>
       </Tabs>
-    </div>
+    </MasterPage>
   )
 }
 
@@ -143,12 +133,14 @@ function AbaCobrancas({
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores de mensalidades">
-        <DashboardKpiCard title="A receber no mês" subtitle="cobranças pendentes" value={brl(kpi.aReceber)} icon={Clock} accent="sky" />
-        <DashboardKpiCard title="Recebido no mês" subtitle="cobranças pagas" value={brl(kpi.recebido)} icon={CheckCircle2} accent="emerald" />
-        <DashboardKpiCard title="Vencido" subtitle="total em atraso" value={brl(kpi.vencido)} icon={AlertTriangle} accent="rose" />
-        <DashboardKpiCard title="MRR" subtitle="assinaturas ativas" value={brl(kpi.mrr)} icon={Wallet} accent="gold" />
-      </section>
+      <Numeros
+        itens={[
+          { rotulo: 'A receber no mês', valor: brl(kpi.aReceber), nota: 'cobranças pendentes' },
+          { rotulo: 'Recebido no mês', valor: brl(kpi.recebido) },
+          { rotulo: 'Vencido', valor: brl(kpi.vencido), nota: 'total em atraso', tom: kpi.vencido ? 'alerta' : undefined },
+          { rotulo: 'Mensalidades por mês', valor: brl(kpi.mrr), nota: 'assinaturas ativas' },
+        ]}
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -184,7 +176,7 @@ function AbaCobrancas({
         </div>
       </div>
 
-      <DashboardCardShell className="p-0">
+      <section className="overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-surface)]">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -202,7 +194,7 @@ function AbaCobrancas({
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm">Carregando…</TableCell></TableRow>
               ) : cobrancas.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-[#8a7060]">Nenhuma cobrança no filtro.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-[var(--m-ink-2)]">Nenhuma cobrança no filtro.</TableCell></TableRow>
               ) : (
                 cobrancas.map((c) => (
                   <TableRow key={c.id}>
@@ -232,7 +224,7 @@ function AbaCobrancas({
             </TableBody>
           </Table>
         </div>
-      </DashboardCardShell>
+      </section>
 
       <BaixaModal cobranca={baixa} nomeEmpresa={baixa ? nomeEmpresa.get(baixa.empresa_id) ?? '' : ''} onClose={() => setBaixa(null)} />
     </div>
@@ -275,7 +267,7 @@ function BaixaModal({ cobranca, nomeEmpresa, onClose }: { cobranca: Cobranca | n
     <Modal open={!!cobranca} onClose={onClose} title={`Dar baixa — ${nomeEmpresa}`}>
       {cobranca ? (
         <div className="space-y-4">
-          <p className="text-sm text-[#6b5244]">
+          <p className="text-sm text-[var(--m-ink-2)]">
             Competência {competenciaBR(cobranca.competencia)} · vencimento {dataBR(cobranca.vencimento)} · {brl(cobranca.valor)}
           </p>
           <div className="space-y-1.5">
@@ -320,7 +312,7 @@ function AbaAssinaturas({ empresas }: { empresas: { id: string; nome: string }[]
   const nomePlano = useMemo(() => new Map(planos.map((p) => [p.id, p.nome])), [planos])
 
   return (
-    <DashboardCardShell className="p-0">
+    <section className="overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-surface)]">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -360,7 +352,7 @@ function AbaAssinaturas({ empresas }: { empresas: { id: string; nome: string }[]
         </Table>
       </div>
       <AssinaturaModal alvo={editando} planos={planos} onClose={() => setEditando(null)} />
-    </DashboardCardShell>
+    </section>
   )
 }
 
@@ -462,7 +454,7 @@ function AssinaturaModal({
             </SelectContent>
           </Select>
         </div>
-        <p className="text-[11px] text-[#8a7060]">
+        <p className="text-[11px] text-[var(--m-ink-2)]">
           Depois de vencida, a empresa é bloqueada automaticamente quando o atraso passa da tolerância.
         </p>
         <div className="flex justify-end gap-2">
@@ -505,7 +497,7 @@ function AbaPlanos() {
 
   return (
     <div className="space-y-4">
-      <DashboardCardShell className="p-5">
+      <section className="rounded-md border border-[var(--m-line)] bg-[var(--m-surface)] p-5">
         <form onSubmit={criar} className="grid gap-3 sm:grid-cols-4 sm:items-end">
           <div className="space-y-1.5">
             <Label htmlFor="pl-nome">Nome do plano</Label>
@@ -521,8 +513,8 @@ function AbaPlanos() {
           </div>
           <Button type="submit" disabled={salvar.isPending}>Adicionar plano</Button>
         </form>
-      </DashboardCardShell>
-      <DashboardCardShell className="p-0">
+      </section>
+      <section className="overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-surface)]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -534,7 +526,7 @@ function AbaPlanos() {
           </TableHeader>
           <TableBody>
             {planos.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-[#8a7060]">Nenhum plano cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-[var(--m-ink-2)]">Nenhum plano cadastrado.</TableCell></TableRow>
             ) : (
               planos.map((p) => (
                 <TableRow key={p.id}>
@@ -549,7 +541,7 @@ function AbaPlanos() {
             )}
           </TableBody>
         </Table>
-      </DashboardCardShell>
+      </section>
     </div>
   )
 }
@@ -582,7 +574,7 @@ function AbaFormas() {
 
   return (
     <div className="space-y-4">
-      <DashboardCardShell className="p-5">
+      <section className="rounded-md border border-[var(--m-line)] bg-[var(--m-surface)] p-5">
         <form onSubmit={criar} className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="fp-nome">Nova forma de pagamento</Label>
@@ -590,8 +582,8 @@ function AbaFormas() {
           </div>
           <Button type="submit" disabled={salvar.isPending}>Adicionar</Button>
         </form>
-      </DashboardCardShell>
-      <DashboardCardShell className="p-0">
+      </section>
+      <section className="overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-surface)]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -610,7 +602,7 @@ function AbaFormas() {
             ))}
           </TableBody>
         </Table>
-      </DashboardCardShell>
+      </section>
     </div>
   )
 }

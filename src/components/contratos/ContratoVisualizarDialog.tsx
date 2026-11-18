@@ -22,7 +22,8 @@ import type { ContratoVariavel } from '@/hooks/useContratosVariaveis';
 import { useContratosModelos } from '@/hooks/useContratosModelo';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { getContratosEmpresaFromContext } from '@/hooks/useContratosEmpresaConfig';
-import { buildAssinaturasCompletas, imprimirContrato } from '@/lib/contratos-print';
+import { buildAssinaturasCompletas, imprimirContrato, valoresVariaveisEmpresa } from '@/lib/contratos-print';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { ContratoAnexosSection } from '@/components/contratos/ContratoAnexosSection';
 import { useContratoAnexos } from '@/hooks/useContratoAnexos';
 import {
@@ -112,6 +113,8 @@ export function ContratoVisualizarDialog({
   const { modelos } = useContratosModelos();
   const { atualizarContrato } = useContratos();
   const empresaContrato = getContratosEmpresaFromContext(empresa);
+  const identidadeEmpresa = useEmpresaIdentidade();
+  const valoresEmpresa = valoresVariaveisEmpresa(identidadeEmpresa);
   const queryClient = useQueryClient();
 
   const [editando, setEditando] = useState(false);
@@ -139,7 +142,7 @@ export function ContratoVisualizarDialog({
     const modelo =
       modelos.find((m) => m.id === modeloId) ?? modelos.find((m) => m.ativo);
     return modelo
-      ? buildConteudoContrato(modelo.conteudo, valoresEdicao, variaveis)
+      ? buildConteudoContrato(modelo.conteudo, valoresEdicao, variaveis, valoresEmpresa)
       : contratoAtivo.conteudo_final;
   })();
 
@@ -157,7 +160,7 @@ export function ContratoVisualizarDialog({
     const modelo =
       modelos.find((m) => m.id === modeloId) ?? modelos.find((m) => m.ativo);
     const conteudoFinal = modelo
-      ? buildConteudoContrato(modelo.conteudo, valoresEdicao, variaveis)
+      ? buildConteudoContrato(modelo.conteudo, valoresEdicao, variaveis, valoresEmpresa)
       : contratoAtivo.conteudo_final;
 
     const novoNome = resolverClienteNome(valoresEdicao, variaveis);

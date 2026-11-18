@@ -1,3 +1,5 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
 import { useEffect, useState } from 'react';
 import { usePontuaGarboFinanceiro, type PrestadorFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -169,6 +171,7 @@ function LeadComissaoRow({
   isRevertendo: boolean;
   readOnly?: boolean;
 }) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const aguardando = lead.comissaoAguardandoLiberacao;
   return (
     <div
@@ -195,7 +198,7 @@ function LeadComissaoRow({
           )}
         </div>
         <p className={`${finTextSecondary} truncate`}>
-          {lead.fieldNome} · {lead.leadStatus}
+          {rotuloPontua(lead.fieldNome, nomePrograma)} · {lead.leadStatus}
           {lead.vendaGanha && !aguardando && !lead.comissaoLiberada && (
             <span className={`font-medium ${finValueOk}`}> · Venda ganha</span>
           )}

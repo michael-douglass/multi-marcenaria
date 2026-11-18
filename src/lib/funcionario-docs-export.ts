@@ -1,4 +1,4 @@
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { empresaDocumento, logoDocumentoUrl, nomeEmpresaDocumento } from '@/lib/empresa-identidade'
 import { ADMISSAO_DOC_TIPOS } from '@/lib/funcionario-constants'
 import { getFuncionarioDocSignedUrl } from '@/lib/funcionario-documentos'
 import {
@@ -9,7 +9,6 @@ import { resolveStoredPreviewPaths } from '@/lib/pdf-preview-storage'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { FuncionarioAdmissaoDados, FuncionarioDocumento } from '@/types'
 
-const NOME_EMPRESA = 'GARBO MOVELARIA'
 
 export interface DocExportPage {
   docId: string
@@ -325,9 +324,9 @@ function buildPaginaTimbrada(
       <div class="doc-timbre doc-timbre--compacto">
         <div class="doc-timbre__faixa"></div>
         <div class="doc-header doc-header--compacto">
-          <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+          <img src="${logoUrl}" alt="${nomeEmpresaDocumento()}" />
           <div class="doc-empresa">
-            <h1>${NOME_EMPRESA}</h1>
+            <h1>${nomeEmpresaDocumento()}</h1>
             <p>${titulo}</p>
           </div>
         </div>
@@ -337,7 +336,7 @@ function buildPaginaTimbrada(
         <img src="${escapeHtml(page.imageUrl)}" alt="${titulo}" />
       </div>
       <footer class="doc-footer">
-        Documento exportado pelo sistema financeiro GARBO Movelaria.
+        Documento exportado pelo sistema financeiro ${escapeHtml(empresaDocumento().nomeFantasia)}.
       </footer>
     </section>
   `
@@ -351,9 +350,9 @@ function buildPaginaTimbrada(
       <div class="doc-timbre">
         <div class="doc-timbre__faixa"></div>
         <div class="doc-header">
-          <img src="${logoUrl}" alt="${NOME_EMPRESA}" />
+          <img src="${logoUrl}" alt="${nomeEmpresaDocumento()}" />
           <div class="doc-empresa">
-            <h1>${NOME_EMPRESA}</h1>
+            <h1>${nomeEmpresaDocumento()}</h1>
             <p>CNPJ ${cnpjSafe}</p>
             <p class="doc-sub">Documentos do colaborador</p>
           </div>
@@ -369,7 +368,7 @@ function buildPaginaTimbrada(
       </div>
 
       <footer class="doc-footer">
-        Documento exportado pelo sistema financeiro GARBO Movelaria.
+        Documento exportado pelo sistema financeiro ${escapeHtml(empresaDocumento().nomeFantasia)}.
       </footer>
     </section>
   `
@@ -380,8 +379,9 @@ export function buildDocsTimbradoHtml(
   meta: DocExportAdmissaoMeta,
   cnpj?: string | null,
 ): string {
-  const logoUrl = new URL(garboBrandLogo, window.location.origin).href
-  const cnpjSafe = cnpj?.trim() || '—'
+  const logoUrl = logoDocumentoUrl()
+  // Prioridade: CNPJ informado (config do RH/REP) → cadastro da empresa.
+  const cnpjSafe = cnpj?.trim() || empresaDocumento().cnpjFormatado || '—'
   const body = pages
     .map(p => buildPaginaTimbrada(p, logoUrl, meta, cnpjSafe))
     .join('')

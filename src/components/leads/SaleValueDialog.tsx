@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -60,6 +61,7 @@ export function SaleValueDialog({
   budgetValue = 0,
   pontuaGarbo = null,
 }: SaleValueDialogProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const [showPontuaConfirm, setShowPontuaConfirm] = useState(false);
@@ -170,7 +172,7 @@ export function SaleValueDialog({
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold text-amber-800">
                   <Trophy className="h-3.5 w-3.5" />
-                  Pontua Garbo — {pontuaGarbo.prestadorNome}
+                  {nomePrograma} — {pontuaGarbo.prestadorNome}
                 </div>
                 <p>
                   Comissão ({pontuaGarbo.percentual}% sobre o valor da venda):{' '}
@@ -202,7 +204,7 @@ export function SaleValueDialog({
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-muted-foreground pt-1">
                 <p>
-                  O valor da venda é diferente do orçamento. A comissão do Programa Pontua Garbo será
+                  O valor da venda é diferente do orçamento. A comissão do Programa {nomePrograma} será
                   recalculada sobre o <strong className="text-foreground">valor da venda</strong>.
                 </p>
                 {pontuaGarboAtivo && pontuaGarbo && (

@@ -50,3 +50,7 @@ calibrar o motor de cálculo, já pesquisada em `docs/referencia-caixaria-mdf.md
 | **Obra** | Projeto de marcenaria já vendido, em produção/instalação — acompanhado no núcleo Movelaria (`ObrasContext`). |
 | **Ponto** | Controle de jornada de trabalho dos funcionários (núcleo Movelaria). |
 | **Schema-per-empresa** | Modelo multi-tenant do banco: cada empresa cliente tem seu próprio schema Postgres (ex. `emp_garbo`), não uma tabela `public` compartilhada com coluna de tenant. |
+| **Nome fantasia** | Nome comercial da marcenaria exibido no sistema (menu, PDFs, "Pontua {nome}"). É a coluna `empresas.nome`; quando a Receita não tem nome fantasia, usa-se a razão social. |
+| **Razão social / CNPJ da empresa** | Dados legais da marcenaria cadastrados em Perfil → Dados da empresa (preenchidos pela consulta à Receita). O CNPJ é gravado só com 14 dígitos e mascarado na exibição (`formatCnpj`). |
+| **Pontua {nome}** | Nome visível do programa de pontos/comissão dos arquitetos parceiros ("Pontua" + nome fantasia, `nomePrograma`). Internamente (ids, rotas, arquivos, valores gravados `'Pontua Garbo'`) continua `pontua-garbo`/`pontuaGarbo`. |
+| **Variáveis `{{empresa_*}}`** | Variáveis automáticas dos modelos de contrato (`empresa_nome`, `empresa_razao_social`, `empresa_cnpj`, `empresa_endereco`, `empresa_telefone`, `empresa_email`), preenchidas com o cadastro da empresa e nunca pedidas ao usuário. |

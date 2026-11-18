@@ -1,3 +1,4 @@
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -424,7 +425,7 @@ export function LeadOrcamentosIaSection({
         pricingParams: migrated.params,
         pageImages: pageUrls.pages ?? [],
         branding: {
-          companyName: empresa?.nome || 'Garbo Movelaria',
+          companyName: empresa?.nome || empresaDocumento().nomeFantasia,
           logoUrl: empresa?.logo_url,
           cnpj: empresa?.cnpj,
           razaoSocial: empresa?.razao_social,

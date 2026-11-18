@@ -1,3 +1,4 @@
+import { empresaDocumento, logoDocumentoUrl } from '@/lib/empresa-identidade'
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import { format, startOfMonth, endOfMonth, subDays, eachDayOfInterval } from 'da
 import { ptBR } from 'date-fns/locale';
 import { cn, toSaoPauloTime } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
 import { useMarketingGastos, MktConfigColuna } from '@/hooks/useMarketingGastos';
 import { useSystemDataFetcher } from '@/hooks/useSystemDataFetcher';
 import { useFormulaEngine } from '@/hooks/useFormulaEngine';
@@ -529,7 +529,7 @@ export function ExportReportDialog({
       <h1>Relatório do Pipeline</h1>
       <div class="date">Gerado em ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</div>
     </div>
-    <img src="${GARBO_LOGO_SRC}" alt="Garbo Movelaria" />
+    <img src="${logoDocumentoUrl()}" alt="${empresaDocumento().nomeFantasia.replace(/"/g, '&quot;')}" />
   </div>
 `;
 

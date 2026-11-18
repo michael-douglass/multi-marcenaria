@@ -348,6 +348,97 @@
 
 ---
 
+## Fase I — Console Master isolado e páginas por marcenaria
+
+> Requisitos: `REQUIREMENTS.md` §6 · Design: `DESIGN.md` §10 · ADR 0004.
+
+### M40 — Especificação da Fase I
+- [x] **Status**
+- **Objetivo:** atualizar REQUIREMENTS/DESIGN/TASKS e criar o ADR 0004.
+- **Validação:** releitura.
+
+### M41 — Catálogo de páginas
+- [x] **Status**
+- **Objetivo:** criar `src/lib/paginas-catalogo.ts` (catálogo derivado do menu, `paginaIdFromPath`, `paginaLiberada`).
+- **Critérios de aceite:** toda rota autenticada de `App.tsx` cai num id do catálogo ou é não-bloqueável.
+- **Validação:** `pnpm build`; script ad-hoc que lista rota → id.
+
+### M42 — Migration de páginas
+- [x] **Status**
+- **Objetivo:** `plataforma_planos.paginas_bloqueadas`, `plataforma_empresa_paginas`, `app_paginas_bloqueadas`,
+  `master_salvar_paginas_empresa`/`_plano`, `app_minha_empresa` com os campos novos.
+- **Validação:** `pnpm migrate`; `test-plataforma.sql` estendido.
+
+### M43 — Migration de inspeção (somente leitura no banco)
+- [x] **Status**
+- **Objetivo:** modo no contexto, `master_sair_empresa`, `plataforma_master_acessos`, `app_master_somente_leitura`,
+  policies `tenant_master_leitura` (geradas), guarda nas funções `postgres` que gravam e no storage.
+- **Validação:** testes SQL: leitura bloqueia gravação no núcleo, no `crm` e em função definer; acesso total grava.
+
+### M44 — Front da empresa respeita as páginas
+- [x] **Status**
+- **Objetivo:** `useEmpresaAtiva`/`useApp` com `paginasBloqueadas`, `emInspecao`, `somenteLeitura`; filtro no menu,
+  na busca, no `RoleRedirect`, no `crmPage`, na tela inicial e nos atalhos flutuantes.
+- **Validação:** `pnpm build`; roteiro manual.
+
+### M45 — Edge functions de IA checam a página
+- [x] **Status**
+- **Objetivo:** `assertPaginaLiberada` em `_shared/tenant.ts`, aplicado em `orcamentos-ia-pipeline`,
+  `compose-markup-ia` e `compose-contrato-ia`; deploy dessas três com confirmação.
+
+### M46 — Console isolado
+- [x] **Status**
+- **Objetivo:** `src/master/MasterApp.tsx` + `MasterLayout` + separação em `AppRoutes`; mover as três páginas
+  master; master sem inspeção vai para `/master`.
+- **Validação:** `pnpm build`; chunks do CRM não carregam no console.
+
+### M47 — Lista e detalhe de empresas
+- [x] **Status**
+- **Objetivo:** `MasterEmpresas` (busca, filtros, nova empresa) e detalhe com abas.
+
+### M48 — Editor de páginas
+- [x] **Status**
+- **Objetivo:** `PaginasEditor`, aba Páginas da empresa e `MasterPlanos`.
+
+### M49 — Inspeção no front
+- [x] **Status**
+- **Objetivo:** modal "Entrar na empresa" (leitura/total), faixa de inspeção, "Sair da inspeção",
+  toast de somente leitura e aba Acessos.
+
+### M50 — Testes e documentação
+- [x] **Status**
+- **Objetivo:** testes SQL/API estendidos, roteiro manual, `CLAUDE.md`/`docs/structure.md`; commit quando pedido.
+
+---
+
+## Fase J — CRM pré-configurado e conferência das páginas bloqueadas (2026-11-18)
+
+### M51 — Documentação
+- [x] **Status**
+- **Objetivo:** REQUIREMENTS §7, DESIGN §11, esta fase.
+
+### M52 — Seed do Pipeline e dos kanbans
+- [x] **Status**
+- **Objetivo:** migration `crm_pipeline_padrao` (função de seed, `plataforma_seed_empresa` recriada, backfill) e casos no `test-plataforma.sql`.
+
+### M53 — Kanbans como páginas
+- [x] **Status**
+- **Objetivo:** `kanbans-padrao.ts`, catálogo, `attachPipelineKanbanPages` por kanban, `DEFAULT_PIPELINE_STAGES`, liga/desliga do admin.
+
+### M54 — Teste de páginas visíveis
+- [x] **Status**
+- **Objetivo:** `check-paginas-visiveis.mjs` e caso de plano + kanban no `test-isolamento.mjs`.
+
+### M55 — Avisos no console
+- [x] **Status**
+- **Objetivo:** marcenarias por plano; avisos de plano sem marcenarias e empresa sem plano.
+
+### M56 — Verificação final
+- [ ] **Status**
+- **Objetivo:** navegador, `CLAUDE.md`/`docs/structure.md`, relatório; commit quando pedido.
+
+---
+
 ## Tarefas propostas durante a execução
 
 _(vazio)_

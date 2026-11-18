@@ -1,3 +1,5 @@
+import { PIPELINE_ETAPAS_PADRAO } from '@/lib/kanbans-padrao';
+
 export type KanbanSourceType = 'status' | 'column';
 export type KanbanOverrideAction = 'include' | 'exclude';
 
@@ -56,13 +58,7 @@ export interface KanbanPageComplete extends KanbanPage {
   columns: KanbanColumnWithRules[];
 }
 
-export const DEFAULT_PIPELINE_STAGES = [
-  'Novo Lead',
-  'Aula Experimental Marcada',
-  'Não Entraram para Aula Experimental',
-  'Aula Realizada',
-  'Venda Realizada (Matriculado)',
-  'Clientes Já Cadastrados',
-] as const;
+/** Etapas padrão do Pipeline (mesma lista de `src/lib/kanbans-padrao.ts`). */
+export const DEFAULT_PIPELINE_STAGES = PIPELINE_ETAPAS_PADRAO;
 
 export const KANBAN_FILTERABLE_STAGE_OPTIONS: string[] = [...DEFAULT_PIPELINE_STAGES];

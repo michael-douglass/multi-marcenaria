@@ -29,8 +29,9 @@ import {
 } from '@/components/ui/tooltip';
 import { useContratosModelos } from '@/hooks/useContratosModelo';
 import { useContratosVariaveis, type ContratoVariavel } from '@/hooks/useContratosVariaveis';
-import { useContratosEmpresaConfig } from '@/hooks/useContratosEmpresaConfig';
-import { extrairVariaveis, VARIAVEL_CPF_FIXO } from '@/lib/contratos-print';
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { extrairVariaveis, NOMES_VARIAVEIS_EMPRESA, VARIAVEIS_EMPRESA, VARIAVEL_CPF_FIXO } from '@/lib/contratos-print';
+import { toast } from 'sonner';
 
 const TIPO_LABELS: Record<ContratoVariavel['tipo'], string> = {
   texto: 'Texto',
@@ -62,17 +63,8 @@ export default function ContratosConfigPage() {
     variaveis, isLoading: loadingVar,
     criarVariavel, atualizarVariavel, excluirVariavel,
   } = useContratosVariaveis();
-  const { config: empresaConfig, isLoading: loadingEmpresa, salvar: salvarEmpresa, formatCNPJ } =
-    useContratosEmpresaConfig();
-  const [razaoSocial, setRazaoSocial] = useState('');
-  const [cnpjContratada, setCnpjContratada] = useState('');
-
-  useEffect(() => {
-    if (empresaConfig) {
-      setRazaoSocial(empresaConfig.razaoSocial);
-      setCnpjContratada(formatCNPJ(empresaConfig.cnpj));
-    }
-  }, [empresaConfig]);
+  // Dados da contratada: somente leitura (edição única em /profile → "Dados da empresa").
+  const identidade = useEmpresaIdentidade();
 
   // ── Estado editor de modelo ───────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -106,7 +98,9 @@ export default function ContratosConfigPage() {
   // ── Helpers ───────────────────────────────────────────────
   const varUsadas = extrairVariaveis(conteudoAtual);
   const nomesCadastrados = variaveis.map((v) => v.nome);
-  const varNaoCadastradas = varUsadas.filter((v) => !nomesCadastrados.includes(v));
+  const varNaoCadastradas = varUsadas.filter(
+    (v) => !nomesCadastrados.includes(v) && !NOMES_VARIAVEIS_EMPRESA.has(v),
+  );
 
   const inserirVariavel = (nome: string) => {
     const el = textareaRef.current;
@@ -161,6 +155,10 @@ export default function ContratosConfigPage() {
   };
   const handleSalvarVar = async () => {
     if (!formVar.label.trim() || !formVar.nome.trim()) return;
+    if (NOMES_VARIAVEIS_EMPRESA.has(formVar.nome.trim())) {
+      toast.error('Esse nome é reservado para os dados automáticos da empresa. Use outro rótulo.');
+      return;
+    }
     if (editandoVarId) await atualizarVariavel.mutateAsync({ id: editandoVarId, updates: formVar });
     else await criarVariavel.mutateAsync(formVar);
     setVarDialog(false);
@@ -355,6 +353,22 @@ export default function ContratosConfigPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="flex flex-wrap gap-2">
+                        <p className="w-full text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Da empresa (automáticas)
+                        </p>
+                        {VARIAVEIS_EMPRESA.map((v) => (
+                          <button
+                            key={v.nome}
+                            onClick={() => inserirVariavel(v.nome)}
+                            className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-xs font-mono text-sky-300 hover:bg-sky-500/20 transition-colors"
+                            title={`${v.label} — preenchida com o cadastro da empresa`}
+                          >
+                            {`{{${v.nome}}}`}
+                          </button>
+                        ))}
+                        <p className="mt-2 w-full text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Do contrato
+                        </p>
                         {variaveis.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             Nenhuma variável cadastrada.
@@ -470,65 +484,32 @@ export default function ContratosConfigPage() {
               </CardTitle>
               <CardDescription>
                 Razão social e CNPJ exibidos no rodapé do contrato, ao lado da assinatura da empresa.
-                O logo e o nome fantasia no topo vêm da identidade visual (Logo e Nome).
+                Logo, nome fantasia e CNPJ são editados em Perfil → Dados da empresa.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 max-w-lg">
-              {loadingEmpresa ? (
-                <Skeleton className="h-24 w-full" />
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="razao-social">Razão social</Label>
-                    <Input
-                      id="razao-social"
-                      value={razaoSocial}
-                      onChange={(e) => setRazaoSocial(e.target.value)}
-                      placeholder="Ex: Garbo Móveis e Decorações Ltda"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cnpj-contratada">CNPJ</Label>
-                    <Input
-                      id="cnpj-contratada"
-                      value={cnpjContratada}
-                      onChange={(e) => setCnpjContratada(formatCNPJ(e.target.value))}
-                      placeholder="00.000.000/0000-00"
-                      maxLength={18}
-                    />
-                  </div>
-                  <div className="rounded-lg border border-dashed border-amber-500/30 bg-muted/30 p-4 text-sm space-y-2">
-                    <p className="font-medium text-foreground">Prévia da assinatura — Contratada</p>
-                    <div className="text-center pt-2 border-t border-border/60 max-w-xs mx-auto">
-                      <div className="border-b border-gray-600 w-full mb-2" />
-                      <p className="font-semibold text-xs">
-                        {razaoSocial.trim() || empresaConfig?.nomeFantasia || 'Razão social'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        CNPJ: {cnpjContratada.trim() || '00.000.000/0000-00'}
-                      </p>
-                      <p className="text-xs italic text-muted-foreground mt-1">Contratada</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={() =>
-                        salvarEmpresa.mutate({
-                          razaoSocial,
-                          cnpj: cnpjContratada,
-                        })
-                      }
-                      disabled={salvarEmpresa.isPending}
-                      className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-                    >
-                      {salvarEmpresa.isPending && (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      )}
-                      Salvar dados da contratada
-                    </Button>
-                  </div>
-                </>
-              )}
+              <div className="rounded-lg border border-dashed border-amber-500/30 bg-muted/30 p-4 text-sm space-y-2">
+                <p className="font-medium text-foreground">Prévia da assinatura — Contratada</p>
+                <div className="text-center pt-2 border-t border-border/60 max-w-xs mx-auto">
+                  <div className="border-b border-gray-600 w-full mb-2" />
+                  <p className="font-semibold text-xs">{identidade.razaoSocial}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    CNPJ: {identidade.cnpjFormatado || 'não cadastrado'}
+                  </p>
+                  <p className="text-xs italic text-muted-foreground mt-1">Contratada</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Estes dados vêm do cadastro da empresa.
+                </p>
+                <Button asChild variant="outline" className="h-11 gap-2">
+                  <Link to="/profile#dados-empresa">
+                    <Pencil className="h-4 w-4" />
+                    Editar em Perfil
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

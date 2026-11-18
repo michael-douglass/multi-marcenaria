@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { z } from 'https://esm.sh/zod@3.23.8';
 import { corsHeaders } from '../_shared/cors.ts';
 import { sugerirCamposPorExtenso } from '../_shared/valor-monetario-extenso.ts';
@@ -26,7 +26,7 @@ const RequestSchema = z.object({
   forcarEdicaoDocumento: z.boolean().optional().default(false),
 });
 
-const SYSTEM_PROMPT = `Você é o EDITOR de contratos da GARBO Movelaria (não o auditor).
+const SYSTEM_PROMPT = `Você é o EDITOR de contratos da {{EMPRESA}} (não o auditor).
 
 MISSÃO: LER o contrato atual (conteudoContrato) e propor SOMENTE adaptações pedidas. Nunca reescreva o documento do zero. Preserve cláusulas, numeração e formatação que não precisam mudar.
 
@@ -54,7 +54,7 @@ REGRAS:
   "skipped": []
 }`;
 
-const AUDITOR_PROMPT = `Você é o AUDITOR de coesão de contratos da GARBO Movelaria.
+const AUDITOR_PROMPT = `Você é o AUDITOR de coesão de contratos da {{EMPRESA}}.
 
 Recebe: pedido do usuário, contrato ORIGINAL e as trocas propostas pelo editor (documentReplacements).
 
@@ -82,7 +82,7 @@ Regras do auditor:
 - Prefira poucas trocas grandes e corretas (ex.: substituir o bloco inteiro de pagamento) a várias trocas soltas.
 - Se nenhuma troca for segura, devolva documentReplacements: [] e explique em warnings.`;
 
-const VERIFICADOR_PROMPT = `Você é o VERIFICADOR / AUTOCORREÇÃO de contratos da GARBO Movelaria.
+const VERIFICADOR_PROMPT = `Você é o VERIFICADOR / AUTOCORREÇÃO de contratos da {{EMPRESA}}.
 
 Fluxo obrigatório:
 1) LEIA o contrato original.
@@ -371,6 +371,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Método não permitido' }, 405);
   }
 
+  const recusa = await motivoRecusa(req, 'contratosCrm');
+  if (recusa) return jsonResponse({ error: recusa }, 403);
+
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -435,8 +438,22 @@ Deno.serve(async (req) => {
       forcarEdicaoDocumento,
     } = parsed.data;
 
-    const admin = serviceClient(await empresaDoChamador(req));
+    const empresaId = await empresaDoChamador(req);
+    const admin = serviceClient(empresaId);
     const db = resolveDb(admin, empresaSchema);
+
+    // Nome da marcenaria nos prompts (multi-empresa). Service role ignora RLS: filtra pelo id.
+    let nomeEmpresa = 'marcenaria';
+    if (empresaId) {
+      const { data: empRow } = await admin
+        .from('CRM-multi-empresas>empresas<')
+        .select('nome')
+        .eq('id', empresaId)
+        .maybeSingle();
+      const nome = (empRow as { nome?: string | null } | null)?.nome?.trim();
+      if (nome) nomeEmpresa = nome;
+    }
+    const comEmpresa = (prompt: string) => prompt.replaceAll('{{EMPRESA}}', nomeEmpresa);
     const configTable = configTableName(empresaSchema);
 
     const { data: configRow, error: configError } = await db
@@ -529,7 +546,7 @@ Deno.serve(async (req) => {
         openAiKey,
         model,
         [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: comEmpresa(SYSTEM_PROMPT) },
           {
             role: 'user',
             content: `Contexto do contrato (JSON):\n${JSON.stringify(userPayload, null, 2)}`,
@@ -623,7 +640,7 @@ Deno.serve(async (req) => {
           openAiKey,
           model,
           [
-            { role: 'system', content: AUDITOR_PROMPT },
+            { role: 'system', content: comEmpresa(AUDITOR_PROMPT) },
             {
               role: 'user',
               content: JSON.stringify({
@@ -699,7 +716,7 @@ Deno.serve(async (req) => {
           openAiKey,
           model,
           [
-            { role: 'system', content: VERIFICADOR_PROMPT },
+            { role: 'system', content: comEmpresa(VERIFICADOR_PROMPT) },
             {
               role: 'user',
               content: JSON.stringify({
@@ -761,7 +778,7 @@ Deno.serve(async (req) => {
           openAiKey,
           model,
           [
-            { role: 'system', content: VERIFICADOR_PROMPT },
+            { role: 'system', content: comEmpresa(VERIFICADOR_PROMPT) },
             {
               role: 'user',
               content: JSON.stringify({

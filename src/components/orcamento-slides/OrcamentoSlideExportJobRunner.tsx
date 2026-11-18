@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { OrcamentoExportViewport } from '@/components/orcamento-slides/OrcamentoSlideExportMenu';
@@ -119,6 +120,7 @@ function OrcamentoSlideExportCacheGate({
   onPdfReady: ((pdf: OrcamentoPdfPronto) => void) | null;
 }) {
   const { schemaEmpresa } = useEmpresa();
+  const identidade = useEmpresaIdentidade();
   const [cacheState, setCacheState] = useState<'checking' | 'miss' | 'hit'>('checking');
   const triedRef = useRef(false);
   const verifyToastRef = useRef<string | number | null>(null);
@@ -181,6 +183,11 @@ function OrcamentoSlideExportCacheGate({
           midias,
           viewport,
           format: 'pdf',
+          empresa: {
+            cnpj: identidade.cnpjDigitos,
+            razaoSocial: identidade.razaoSocial,
+            logoUrl: identidade.logoUrlEmpresa,
+          },
         });
         const tituloArquivo = titulo || orcamento.cliente_nome || orcamento.identificador;
         const cached = await tryFetchCachedPdfExport({
@@ -233,6 +240,7 @@ function OrcamentoSlideExportCacheGate({
     titulo,
     onSettled,
     onPdfReady,
+    identidade,
   ]);
 
   if (cacheState === 'hit' || cacheState === 'checking') {

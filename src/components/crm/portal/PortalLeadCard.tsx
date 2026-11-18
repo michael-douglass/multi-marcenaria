@@ -1,3 +1,5 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import { rotuloPontua } from '@/lib/empresa-identidade';
 import { Eye, Lock } from 'lucide-react'
 import type { PortalComissaoLead, PortalLeadEtiqueta } from '@/lib/crm-portal'
 import { fmtCur } from '@/lib/utils'
@@ -19,6 +21,7 @@ interface PortalLeadCardProps {
 }
 
 export function PortalLeadCard({ lead, etiquetas = [], podeAbrir, onOpen, onSemPermissao }: PortalLeadCardProps) {
+  const { nomePrograma } = useEmpresaIdentidade();
   return (
     <button
       type="button"
@@ -40,7 +43,7 @@ export function PortalLeadCard({ lead, etiquetas = [], podeAbrir, onOpen, onSemP
       </div>
       <p className="text-sm font-medium leading-tight text-white">{lead.leadNome}</p>
       <PortalLeadEtiquetas etiquetas={etiquetas} />
-      <p className="text-xs text-white/30">{lead.fieldNome}</p>
+      <p className="text-xs text-white/30">{rotuloPontua(lead.fieldNome, nomePrograma)}</p>
       <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-2">
         <span className="text-xs text-white/30">{fmtCur(lead.valorOrcamento)} × {lead.percentual}%</span>
         <span className="text-sm font-semibold" style={{ color: '#f2d892' }}>{fmtCur(lead.comissao)}</span>

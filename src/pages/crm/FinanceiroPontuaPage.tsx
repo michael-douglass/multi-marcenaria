@@ -1,3 +1,4 @@
+import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { Trophy } from 'lucide-react'
 import { CrmPageFrame, CrmPageHeader } from '@/components/crm/CrmPageFrame'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { fmtCur, fmtDate } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
 
 export function FinanceiroPontuaPage() {
+  const { nomePrograma } = useEmpresaIdentidade();
   const { crmProfile } = useApp()
   const admin = isCrmAdmin(crmProfile)
   const { prestadores, saques, liberacoes, loading, error, aprovarSaque, rejeitarSaque, liberarComissao } = useCrmPontuaAdmin()
@@ -20,7 +22,7 @@ export function FinanceiroPontuaPage() {
   return (
     <CrmPageFrame padded>
       <CrmPageHeader
-        title="Financeiro · Pontua Garbo"
+        title={`Financeiro · ${nomePrograma}`}
         subtitle="Arquitetos cadastrados. Não mistura com o Caixa da fábrica."
         icon={(
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/15">
