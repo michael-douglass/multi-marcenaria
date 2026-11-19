@@ -2,7 +2,7 @@ import { empresaDocumento } from '@/lib/empresa-identidade'
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
+import { MARCA_PADRAO_LOGO } from '@/lib/marca-padrao';
 
 export interface LoadedPrintImage {
   dataUrl: string;
@@ -102,8 +102,8 @@ export function slugifyLeadExportName(leadName?: string | null): string {
 export function buildLeadAIRenderExportBaseName(opts: Pick<LeadAIRenderExportOpts, 'leadName' | 'leadId'>): string {
   const datePart = format(new Date(), 'yyyy-MM-dd');
   const slug = slugifyLeadExportName(opts.leadName);
-  if (opts.leadId) return `garbo-${slug}-${opts.leadId}-${datePart}`;
-  return `garbo-${slug}-${datePart}`;
+  if (opts.leadId) return `prancha-${slug}-${opts.leadId}-${datePart}`;
+  return `prancha-${slug}-${datePart}`;
 }
 
 export async function fetchImageForPrint(url: string): Promise<LoadedPrintImage> {
@@ -171,7 +171,7 @@ export async function loadLeadAIRenderExportAssets(opts: LeadAIRenderExportOpts)
   output: LoadedPrintImage | null;
   logo: LoadedPrintImage | null;
 }> {
-  const logoSrc = opts.logoUrl?.trim() || GARBO_LOGO_SRC;
+  const logoSrc = opts.logoUrl?.trim() || MARCA_PADRAO_LOGO;
   const [sketch, output, logo] = await Promise.all([
     opts.sketchUrl ? fetchImageForPrint(opts.sketchUrl).catch(() => null) : Promise.resolve(null),
     opts.outputUrl && opts.outputUrl !== opts.sketchUrl
@@ -536,8 +536,8 @@ export async function openLeadAIRenderPrintPage(opts: LeadAIRenderExportOpts): P
   const sketchLabel = opts.sketchLabel || 'Composição de ambiente';
   const twoCols = Boolean(assets.sketch && assets.output);
   const titulo = opts.leadName?.trim()
-    ? `Prancha Garbo — ${opts.leadName.trim()}`
-    : 'Prancha Garbo — Antes e depois';
+    ? `Prancha — ${opts.leadName.trim()}`
+    : 'Prancha — Antes e depois';
 
   const col = (badge: string, label: string, src: string) => `
     <article class="col">

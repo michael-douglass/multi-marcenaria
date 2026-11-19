@@ -1,4 +1,4 @@
-const BOOT_BURST_KEY = 'garbo-boot-burst'
+const BOOT_BURST_KEY = 'app-boot-burst'
 const BOOT_WINDOW_MS = 12_000
 const BOOT_BURST_LIMIT = 3
 

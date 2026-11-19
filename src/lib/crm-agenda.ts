@@ -102,7 +102,7 @@ export function filtrarReunioes(lista: CrmReuniao[], busca: string): CrmReuniao[
 
 export function linkPublicoAgenda(slug: string, origin = typeof window === 'undefined' ? '' : window.location.origin): string {
   if (!slug) return ''
-  return `${origin}/agendar/garbo/${slug}`
+  return `${origin}/agendar/${slug}`
 }
 
 export function toDatetimeLocal(iso: string): string {

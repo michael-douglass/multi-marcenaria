@@ -71,8 +71,8 @@ export interface Lead {
   tabelaOrigem?: string; // DEPRECATED - usar regiao
   tabelaOrigemInfo?: TabelaOrigemInfo; // DEPRECATED - usar regiao/regiaoTabela
   needsAttention?: boolean; // Flag para priorizar lead no topo da coluna
-  /** Se preenchido, este card é de um parceiro Pontua Garbo. */
-  pontuaGarboUsuarioId?: string | null;
+  /** Se preenchido, este card é de um parceiro Pontua. */
+  pontuaUsuarioId?: string | null;
 }
 
 export type PeriodFilter = 'today' | 'week' | 'month' | 'all';

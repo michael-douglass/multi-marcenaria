@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -45,6 +46,14 @@ import { OrcamentoLeadCardDock } from '@/components/orcamento-slides/OrcamentoLe
 import { useContratoAnexos } from '@/hooks/useContratoAnexos';
 import { getContratosEmpresaFromContext } from '@/hooks/useContratosEmpresaConfig';
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
+import {
+  nomeReservadoContrato,
+  nomesUsadosNoModelo,
+  resolverValoresPadrao,
+  valoresCalculados,
+  variaveisEmpresaFaltando,
+  VARIAVEIS_CALCULADAS,
+} from '@/lib/contrato-variaveis';
 import {
   buildConteudoContrato,
   chaveVariavelNomeCliente,
@@ -96,6 +105,25 @@ function CampoInput({
   }
   if (variavel.tipo === 'data') {
     return <DataBrInput value={valor} onChange={onChange} />;
+  }
+  if (variavel.tipo === 'sim_nao') {
+    const ligado = valor.trim().toLowerCase() !== 'nao';
+    return (
+      <div className="flex h-10 items-center gap-3">
+        <Switch checked={ligado} onCheckedChange={(v) => onChange(v ? 'sim' : 'nao')} aria-label={variavel.label} />
+        <span className="text-sm text-muted-foreground">{ligado ? 'Sim — o trecho entra no contrato' : 'Não — o trecho fica de fora'}</span>
+      </div>
+    );
+  }
+  if (variavel.tipo === 'numero') {
+    return (
+      <Input
+        value={valor}
+        inputMode="decimal"
+        onChange={(e) => onChange(e.target.value.replace(/[^\d,.]/g, ''))}
+        placeholder="0"
+      />
+    );
   }
   if (variavel.tipo === 'valor') {
     return (
@@ -232,6 +260,8 @@ export default function NovoContratoPage() {
   const empresaContrato = getContratosEmpresaFromContext(empresa);
   const identidadeEmpresa = useEmpresaIdentidade();
   const valoresEmpresa = useMemo(() => valoresVariaveisEmpresa(identidadeEmpresa), [identidadeEmpresa]);
+  /** Valor padrão de cada campo (Configurações → Campos), com `{{empresa_*}}` resolvido. */
+  const valoresPadrao = useMemo(() => resolverValoresPadrao(variaveis, valoresEmpresa), [variaveis, valoresEmpresa]);
 
   const aplicarCamposOrcamento = useCallback((campos: Record<string, string>) => {
     setValores((prev) => ({ ...prev, ...campos }));
@@ -250,7 +280,33 @@ export default function NovoContratoPage() {
 
   const isLoading = loadingModelo || loadingVar || isLoadingRascunho;
 
-  const camposObrigatorios = variaveis.filter((v) => v.obrigatorio);
+  const usadosNoModelo = useMemo(() => nomesUsadosNoModelo(modelo?.conteudo ?? ''), [modelo?.conteudo]);
+  /** Modelo sem nenhum {{campo}} (texto livre antigo): mostra todos, como antes. */
+  const camposVisiveis = useMemo(
+    () =>
+      usadosNoModelo.size === 0
+        ? variaveis
+        : variaveis.filter((v) => v.nome === VARIAVEL_CPF_FIXO || usadosNoModelo.has(v.nome)),
+    [variaveis, usadosNoModelo],
+  );
+  const calculadasDoModelo = useMemo(() => {
+    const calc = valoresCalculados(variaveis, valores);
+    const rotulos = new Map(VARIAVEIS_CALCULADAS.map((c) => [c.nome, c.label]));
+    return Object.entries(calc)
+      .filter(([nome]) => usadosNoModelo.has(nome) && nomeReservadoContrato(nome))
+      .map(([nome, valor]) => ({
+        nome,
+        valor,
+        label:
+          rotulos.get(nome) ??
+          `${variaveis.find((v) => `${v.nome}_extenso` === nome)?.label ?? nome} (por extenso)`,
+      }));
+  }, [variaveis, valores, usadosNoModelo]);
+  const empresaFaltando = useMemo(
+    () => variaveisEmpresaFaltando(modelo?.conteudo ?? '', valoresEmpresa),
+    [modelo?.conteudo, valoresEmpresa],
+  );
+  const camposObrigatorios = camposVisiveis.filter((v) => v.obrigatorio);
   const todosPreenchidos = camposObrigatorios.every((v) => !!valores[v.nome]?.trim());
 
   const clienteNome = resolverClienteNome(valores, variaveis);
@@ -402,8 +458,11 @@ export default function NovoContratoPage() {
       }
     }
 
+    const comPadrao = { ...valoresPadrao, ...valoresRestaurados };
+    setValores(comPadrao);
+
     lastSnapshotRef.current = snapshotContratoForm(
-      valoresRestaurados,
+      comPadrao,
       modeloRestaurado,
       etapaRestaurada,
       {
@@ -420,12 +479,13 @@ export default function NovoContratoPage() {
     modelos,
     variaveis,
     isModoEdicao,
+    valoresPadrao,
   ]);
 
   // Pré-preenche com dados do orçamento do lead (quando não há rascunho com valores)
   useEffect(() => {
     if (!formHydrated || orcamentoPrefillAplicado || !camposDoOrcamento || isModoEdicao) return;
-    const temValor = Object.values(valores).some((v) => !!v?.trim());
+    const temValor = Object.entries(valores).some(([k, v]) => !!v?.trim() && v !== valoresPadrao[k]);
     if (temValor) {
       setOrcamentoPrefillAplicado(true);
       return;
@@ -433,7 +493,7 @@ export default function NovoContratoPage() {
     setValores((prev) => ({ ...prev, ...camposDoOrcamento }));
     setFormDirty(true);
     setOrcamentoPrefillAplicado(true);
-  }, [formHydrated, orcamentoPrefillAplicado, camposDoOrcamento, valores, isModoEdicao]);
+  }, [formHydrated, orcamentoPrefillAplicado, camposDoOrcamento, valores, isModoEdicao, valoresPadrao]);
 
   // Se veio do card do lead e o nome do cliente ainda está vazio, usa o nome do lead
   useEffect(() => {
@@ -773,8 +833,8 @@ export default function NovoContratoPage() {
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2">
-              {variaveis.map((v) => (
-                <div key={v.id} className="space-y-2">
+              {camposVisiveis.map((v) => (
+                <div key={v.id} className={v.tipo === 'texto' && /ambiente|descri|observa/i.test(v.nome) ? 'space-y-2 sm:col-span-2' : 'space-y-2'}>
                   <Label>
                     {v.label}
                     {v.nome === VARIAVEL_CPF_FIXO && (
@@ -793,6 +853,36 @@ export default function NovoContratoPage() {
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {modelo?.conteudo && empresaFaltando.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">Faltam dados da empresa usados no contrato.</p>
+                <p className="text-xs">
+                  {empresaFaltando.map((n) => n.replace('empresa_', '').replace(/_/g, ' ')).join(', ')} — esses trechos
+                  aparecem como {'{{…}}'} na prévia.{' '}
+                  <Link to="/profile#dados-empresa" className="underline underline-offset-2">
+                    Preencher em Perfil
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {calculadasDoModelo.length > 0 && (
+            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-4">
+              <p className="text-sm font-semibold">Calculado automaticamente</p>
+              <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+                {calculadasDoModelo.map((c) => (
+                  <div key={c.nome} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{c.label}</dt>
+                    <dd className="truncate" title={c.valor}>{c.nome.endsWith('_extenso') ? c.valor : c.valor.includes(',') && !c.nome.startsWith('percentual') ? `R$ ${c.valor}` : `${c.valor}%`}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           )}
 
@@ -879,7 +969,7 @@ export default function NovoContratoPage() {
                 </div>
                 <ScrollArea className="flex-1">
                   <div className="px-4 py-4 space-y-4">
-                    {variaveis.map((v) => (
+                    {camposVisiveis.map((v) => (
                       <div key={v.id} className="space-y-1.5">
                         <Label className="text-xs font-medium">
                           {v.label}
@@ -1068,7 +1158,8 @@ export default function NovoContratoPage() {
           variaveis={variaveis.map((v) => ({
             nome: v.nome,
             label: v.label,
-            tipo: v.tipo,
+            // A edge function só conhece texto/data/valor/cpf: número e Sim/Não vão como texto.
+            tipo: v.tipo === 'numero' || v.tipo === 'sim_nao' ? 'texto' : v.tipo,
             obrigatorio: v.obrigatorio,
           }))}
           valores={valores}

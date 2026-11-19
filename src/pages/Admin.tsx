@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useUsers, DatabaseUser, TipoUsuario } from '@/hooks/useUsers';
-import { useEnsurePontuaGarboPartnerLead } from '@/hooks/usePontuaGarboPartnerLeads';
+import { useEnsurePontuaPartnerLead } from '@/hooks/usePontuaPartnerLeads';
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULES_HINT, validateCrmPassword } from '@/lib/password-rules';
 import { buildAcessoUsuarioTexto } from '@/lib/acesso-usuario-texto';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
@@ -158,7 +158,7 @@ export default function Admin() {
     empresaAtiva,
     hasEmpresaSelecionada,
   } = useUsers();
-  const ensurePontuaGarboLead = useEnsurePontuaGarboPartnerLead();
+  const ensurePontuaLead = useEnsurePontuaPartnerLead();
   const { origins, createOrigin, deleteOrigin } = useLeadOrigins();
   const { titulos: prestadorTitulos, deleteTitulo } = usePrestadorTitulos();
   const navigate = useNavigate();
@@ -340,7 +340,7 @@ export default function Admin() {
         editFormData.tipo_usuario === 'prestador_servico' &&
         editFormData.comissao_ativa
       ) {
-        void ensurePontuaGarboLead.mutateAsync({
+        void ensurePontuaLead.mutateAsync({
           usuarioId: editUserId,
           nome: editFormData.nome,
           email: editFormData.email,
@@ -682,7 +682,7 @@ export default function Admin() {
           {isSuperAdmin && !hasEmpresaSelecionada && (
             <Alert>
               <AlertDescription>
-                Para cadastrar usuários, a casa já está definida (Garbo). Use a aba{' '}
+                Para cadastrar usuários, a empresa já está definida. Use a aba{' '}
                 <button
                   type="button"
                   className="text-primary underline font-medium"
@@ -1121,7 +1121,7 @@ export default function Admin() {
               <EmpresaBrandingForm empresa={empresa} />
               {isSuperAdmin && !empresa && (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Como super administrador, configure a marca desta casa abaixo. A Garbo não usa seletor de empresas.
+                  Como super administrador, configure a marca desta casa abaixo. Cada empresa tem a própria marca.
                 </p>
               )}
             </CardContent>
@@ -1353,7 +1353,7 @@ export default function Admin() {
                   }}
                 />
 
-                {/* Toggle Pontua Garbo */}
+                {/* Toggle Pontua */}
                 <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-600 shrink-0" />
@@ -1480,7 +1480,7 @@ export default function Admin() {
                   onChange={(titulo) => setEditFormData({ ...editFormData, titulo })}
                 />
 
-                {/* Toggle Pontua Garbo */}
+                {/* Toggle Pontua */}
                 <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-600 shrink-0" />

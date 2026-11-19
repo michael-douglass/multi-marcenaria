@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 import { OrcamentoPublicoSlides } from '@/components/orcamento-publico/OrcamentoPublicoSlides'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
 import { fetchOrcamentoPublico, isValidOrcamentoSchema } from '@/lib/orcamento-publico-api'
@@ -44,7 +45,7 @@ export function OrcamentoPublico() {
     if (!payload) return
     document.title = `Orçamento — ${payload.slide.cliente_nome}`
     return () => {
-      document.title = 'GARBO Movelaria — Sistema Financeiro'
+      document.title = APP_SYSTEM_NAME
     }
   }, [payload])
 

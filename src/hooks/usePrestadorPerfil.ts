@@ -6,7 +6,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { MASTER_TABLES } from '@/lib/empresa-tables';
 import { toast } from 'sonner';
 
-const PUBLIC_LANC  = 'CRM-multi-empresas>pontua_garbo_lancamentos<' as const;
+const PUBLIC_LANC  = 'CRM-multi-empresas>pontua_lancamentos<' as const;
 const PUBLIC_SAQUES = 'CRM-multi-empresas>prestador_saque_pedidos<' as const;
 
 export interface SaquePedido {
@@ -126,7 +126,7 @@ export function useSaquePedidos(prestadorId: string | null | undefined) {
   const table = useTableName();
   const qc = useQueryClient();
   const saquesTable = table('prestador_saque_pedidos', PUBLIC_SAQUES);
-  const lancTable    = table('pontua_garbo_lancamentos', PUBLIC_LANC);
+  const lancTable    = table('pontua_lancamentos', PUBLIC_LANC);
   const queryKey = ['prestador-saque-pedidos', schemaEmpresa, prestadorId] as const;
 
   const { data: pedidos = [] } = useMutation({
@@ -148,7 +148,7 @@ export function useSaquePedidos(prestadorId: string | null | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['prestador-saque-pedidos', schemaEmpresa, prestadorId] });
-      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa, prestadorId] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa, prestadorId] });
       toast.success('Solicitação de retirada enviada ao administrador!');
     },
     onError: (e: Error) => toast.error('Erro ao solicitar retirada', { description: e.message }),
@@ -182,8 +182,8 @@ export function useSaquePedidos(prestadorId: string | null | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['prestador-saque-pedidos'] });
-      qc.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
-      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
+      qc.invalidateQueries({ queryKey: ['pontua-financeiro'] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua'] });
       toast.success('Retirada aprovada e lançada!');
     },
     onError: (e: Error) => toast.error('Erro ao aprovar retirada', { description: e.message }),

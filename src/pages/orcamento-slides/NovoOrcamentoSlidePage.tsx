@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import {
   ArrowLeft,
   ChevronRight,
@@ -1027,7 +1027,7 @@ export default function NovoOrcamentoSlidePage() {
   const midiasProjeto = midias.filter((m) => m.tipo === 'projeto');
 
   if ((!formHydrated && isLoadingRestauracao) || (isEditMode && loadingOrcamento)) {
-    return <GarboBrandLoader variant="fullscreen" message="Carregando orçamento…" />;
+    return <BrandLoader variant="fullscreen" message="Carregando orçamento…" />;
   }
 
   if (isEditMode && !orcamentoExistente) {

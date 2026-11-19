@@ -1,16 +1,17 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEmpresaPortal } from '@/hooks/useEmpresaPortal';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
-import { useMinhaPontuaGarbo, type ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import { useMinhaPontua, type ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import { LogOut, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { defaultPathForIdentity, isPortalOnly } from '@/lib/crm-identity';
 import { PrestadorRadialMenu, type PrestadorSection } from '@/components/prestador/PrestadorRadialMenu';
-import { PrestadorGarboBrand } from '@/components/prestador/PrestadorGarboBrand';
+import { PrestadorBrand } from '@/components/prestador/PrestadorBrand';
 import { PrestadorPerfil } from '@/components/prestador/PrestadorPerfil';
 import { PrestadorSaldo } from '@/components/prestador/PrestadorSaldo';
 import { PrestadorClientes } from '@/components/prestador/PrestadorClientes';
@@ -21,7 +22,7 @@ import { PrestadorBannerSlideshow } from '@/components/prestador/PrestadorBanner
 import { PrestadorPortalAtmosphere } from '@/components/prestador/PrestadorPortalAtmosphere';
 import { PrestadorPortalHero } from '@/components/prestador/PrestadorPortalHero';
 import { resolvePrestadorBannerSlides } from '@/lib/empresa-banner-slides';
-import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme';
+import { APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/apresentacao-theme';
 import { useMinhasPermissoes, normalizePermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { podeVerAlgumAnexo } from '@/lib/prestador-visibilidade';
 import { toast } from 'sonner';
@@ -67,7 +68,7 @@ const css = `
   .anim-scroll  { animation: prestador-scroll-hint 2s ease-in-out infinite; animation-delay: 2s; }
 `;
 
-type GarboPortalData = {
+type PortalData = {
   leads: ComissaoLead[];
   totalAGanar: number;
   totalComissaoCarteira?: number;
@@ -82,22 +83,22 @@ type GarboPortalData = {
 };
 
 function PortalLeadsAndResumo({
-  garbo,
+  pontuaPortal,
   podeAbrirLead,
   onOpenDetalhes,
   onSemPermissao,
 }: {
-  garbo: GarboPortalData;
+  pontuaPortal: PortalData;
   podeAbrirLead: (leadId: number) => boolean;
   onOpenDetalhes: (lead: ComissaoLead) => void;
   onSemPermissao: () => void;
 }) {
-  const hasLeads = garbo.leads.length > 0;
+  const hasLeads = pontuaPortal.leads.length > 0;
   const hasResumo =
-    (garbo.totalAGanar ?? 0) > 0 ||
-    garbo.saldoParaSacar > 0 ||
-    garbo.totalComissaoGanha > 0 ||
-    garbo.totalRetirado > 0;
+    (pontuaPortal.totalAGanar ?? 0) > 0 ||
+    pontuaPortal.saldoParaSacar > 0 ||
+    pontuaPortal.totalComissaoGanha > 0 ||
+    pontuaPortal.totalRetirado > 0;
 
   if (!hasLeads && !hasResumo) return null;
 
@@ -111,18 +112,18 @@ function PortalLeadsAndResumo({
         {hasResumo && (
           <div className="order-1 lg:order-2 w-full lg:w-[min(380px,38%)] lg:sticky lg:top-8">
             <PrestadorPortalResumo
-              totalAGanar={garbo.totalAGanar ?? garbo.totalComissao ?? 0}
+              totalAGanar={pontuaPortal.totalAGanar ?? pontuaPortal.totalComissao ?? 0}
               totalComissaoCarteira={
-                garbo.totalComissaoCarteira ??
-                (garbo.totalAGanar ?? 0) + (garbo.totalComissaoGanha ?? 0)
+                pontuaPortal.totalComissaoCarteira ??
+                (pontuaPortal.totalAGanar ?? 0) + (pontuaPortal.totalComissaoGanha ?? 0)
               }
-              totalComissaoGanha={garbo.totalComissaoGanha}
-              ganhoMesAtual={garbo.ganhoMesAtual}
-              mediaMensalGanhos={garbo.mediaMensalGanhos}
-              ganhosPorMes={garbo.ganhosPorMes}
-              saldoParaSacar={garbo.saldoParaSacar}
-              totalRetirado={garbo.totalRetirado}
-              totalAjustes={garbo.totalAjustes}
+              totalComissaoGanha={pontuaPortal.totalComissaoGanha}
+              ganhoMesAtual={pontuaPortal.ganhoMesAtual}
+              mediaMensalGanhos={pontuaPortal.mediaMensalGanhos}
+              ganhosPorMes={pontuaPortal.ganhosPorMes}
+              saldoParaSacar={pontuaPortal.saldoParaSacar}
+              totalRetirado={pontuaPortal.totalRetirado}
+              totalAjustes={pontuaPortal.totalAjustes}
             />
           </div>
         )}
@@ -130,8 +131,8 @@ function PortalLeadsAndResumo({
         {hasLeads && (
           <div className="order-2 lg:order-1 flex-1 min-w-0">
             <PrestadorPortalLeadsPanel
-              leads={garbo.leads}
-              totalRetirado={garbo.totalRetirado}
+              leads={pontuaPortal.leads}
+              totalRetirado={pontuaPortal.totalRetirado}
               podeAbrirLead={podeAbrirLead}
               onOpenDetalhes={onOpenDetalhes}
               onSemPermissao={onSemPermissao}
@@ -147,7 +148,7 @@ function PortalSection({
   nome,
   titulo,
   hasContent,
-  garbo,
+  pontuaPortal,
   podeAbrirLead,
   onOpenDetalhes,
   onSemPermissao,
@@ -155,7 +156,7 @@ function PortalSection({
   nome: string;
   titulo: string;
   hasContent: boolean;
-  garbo: GarboPortalData | null | undefined;
+  pontuaPortal: PortalData | null | undefined;
   podeAbrirLead: (leadId: number) => boolean;
   onOpenDetalhes: (lead: ComissaoLead) => void;
   onSemPermissao: () => void;
@@ -164,9 +165,9 @@ function PortalSection({
     <>
       <PrestadorPortalHero nome={nome} titulo={titulo} hasContent={hasContent} />
 
-      {garbo && (
+      {pontuaPortal && (
         <PortalLeadsAndResumo
-          garbo={garbo}
+          pontuaPortal={pontuaPortal}
           podeAbrirLead={podeAbrirLead}
           onOpenDetalhes={onOpenDetalhes}
           onSemPermissao={onSemPermissao}
@@ -192,9 +193,10 @@ export default function Prestador() {
   const showBackToCrm = !isPortalOnly(userProfile, crmProfile);
   const backPath = defaultPathForIdentity(roles, userProfile, crmProfile);
   const { empresa, schemaEmpresa, queriesReady, recarregarEmpresa } = useEmpresa();
+  const portalEmpresa = useEmpresaPortal();
   const queryClient = useQueryClient();
   const { data: profile } = useCurrentUserProfile();
-  const { data: garbo } = useMinhaPontuaGarbo(profile?.id);
+  const { data: pontuaPortal } = useMinhaPontua(profile?.id);
   const [isMobile, setIsMobile] = useState(false);
   const [section, setSection] = useState<PrestadorSection>('portal');
   const [sectionVisible, setSectionVisible] = useState(true);
@@ -260,7 +262,11 @@ export default function Prestador() {
   }, []);
 
   /** Atualiza banners/slides salvos pelo admin (evita cache antigo no localStorage) */
+  const empresaAtualizada = useRef(false);
   useEffect(() => {
+    // Uma vez por montagem: sem o guard, qualquer mudança de identidade da função repetia o refresh.
+    if (empresaAtualizada.current) return;
+    empresaAtualizada.current = true;
     void supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) void recarregarEmpresa(session.user.id);
     });
@@ -270,7 +276,7 @@ export default function Prestador() {
   useEffect(() => {
     if (!queriesReady || !profile?.id || !schemaEmpresa) return;
     void queryClient.invalidateQueries({
-      queryKey: ['minha-pontua-garbo', schemaEmpresa, profile.id],
+      queryKey: ['minha-pontua', schemaEmpresa, profile.id],
     });
   }, [queriesReady, profile?.id, schemaEmpresa, queryClient]);
 
@@ -283,14 +289,17 @@ export default function Prestador() {
     }, 150);
   };
 
-  const bannerSlides = resolvePrestadorBannerSlides(empresa, isMobile);
+  const bannerSlides = resolvePrestadorBannerSlides(
+    { banner_slides_desktop: portalEmpresa.data?.banner_slides_desktop, banner_slides_mobile: portalEmpresa.data?.banner_slides_mobile },
+    isMobile,
+  );
 
   const nome       = profile?.nome ?? '';
   const titulo     = profile?.titulo || 'Prestador de Serviço';
   const hasContent =
-    (garbo?.totalAGanar ?? garbo?.totalComissao ?? 0) > 0 ||
-    (garbo?.saldoParaSacar ?? 0) > 0 ||
-    (garbo?.leads?.length ?? 0) > 0;
+    (pontuaPortal?.totalAGanar ?? pontuaPortal?.totalComissao ?? 0) > 0 ||
+    (pontuaPortal?.saldoParaSacar ?? 0) > 0 ||
+    (pontuaPortal?.leads?.length ?? 0) > 0;
   const isPortal   = section === 'portal';
 
   return (
@@ -299,7 +308,7 @@ export default function Prestador() {
 
       <div
         className="relative w-full overflow-x-hidden flex flex-col"
-        style={{ backgroundColor: GARBO_APRESENTACAO_THEME.bgBase, minHeight: '100dvh' }}
+        style={{ backgroundColor: APRESENTACAO_THEME.bgBase, minHeight: '100dvh' }}
       >
         {isPortal && (
           <div
@@ -327,7 +336,7 @@ export default function Prestador() {
         {/* ── Header — always visible ── */}
         <header className="relative z-20 flex items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-8 md:px-12 md:pt-10 shrink-0 pointer-events-none">
           <div className="anim-down pointer-events-auto" style={{ animationDelay: '200ms' }}>
-            <PrestadorGarboBrand
+            <PrestadorBrand
               overBanner={isPortal}
               animate={false}
               onGoHome={() => handleSectionChange('portal')}
@@ -374,7 +383,7 @@ export default function Prestador() {
               nome={nome}
               titulo={titulo}
               hasContent={hasContent}
-              garbo={garbo}
+              pontuaPortal={pontuaPortal}
               podeAbrirLead={podeAbrirLead}
               onOpenDetalhes={handleOpenLeadDetalhes}
               onSemPermissao={handleSemPermissaoDetalhes}

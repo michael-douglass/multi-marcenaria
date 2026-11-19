@@ -275,8 +275,8 @@ export function somaLancamentos(lista: MktLancamento[]): number {
 }
 
 export const APRESENTACAO_SECTIONS = [
-  { id: 'origem', titulo: 'A origem', texto: 'A Garbo nasceu da marcenaria fina: cada projeto é desenhado com o cliente e com o arquiteto, do primeiro traço até a instalação.' },
+  { id: 'origem', titulo: 'A origem', texto: 'Nascemos da marcenaria fina: cada projeto é desenhado com o cliente e com o arquiteto, do primeiro traço até a instalação.' },
   { id: 'proposta', titulo: 'A proposta', texto: 'Parceiros indicam clientes. A fábrica cuida de orçamento, produção e montagem. O arquiteto acompanha o que foi liberado no portal.' },
-  { id: 'pontua', titulo: 'Pontua Garbo', texto: 'Cada venda fechada gera pontos e comissão. O saldo aparece no portal do parceiro. O saque é pedido em PIX e o admin confirma.' },
+  { id: 'pontua', titulo: 'Pontua', texto: 'Cada venda fechada gera pontos e comissão. O saldo aparece no portal do parceiro. O saque é pedido em PIX e o admin confirma.' },
   { id: 'prova', titulo: 'Prova social', texto: 'Obras entregues, lousa do projeto e orçamentos em slides são o material que o time usa para apresentar a casa.' },
 ] as const

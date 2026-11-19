@@ -7,7 +7,7 @@ interface CacheEntry<T> {
 }
 
 const memory = new Map<string, CacheEntry<unknown>>()
-const STORAGE_PREFIX = 'garbo-data-cache:'
+const STORAGE_PREFIX = 'app-data-cache:'
 const MAX_PERSIST_BYTES = 1_500_000
 
 export const OBRAS_CACHE_KEY = 'movelaria-obras'

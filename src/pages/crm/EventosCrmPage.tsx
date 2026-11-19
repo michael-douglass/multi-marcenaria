@@ -13,7 +13,7 @@ export function EventosCrmPage() {
     <CrmPageFrame padded>
       <CrmPageHeader
         title="Eventos"
-        subtitle="Encontros da Garbo com arquitetos e equipe — separado da Agenda de Obras."
+        subtitle="Encontros da empresa com arquitetos e equipe — separado da Agenda de Obras."
         icon={(
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-400/15">
             <CalendarDays className="h-4 w-4 text-violet-300" />

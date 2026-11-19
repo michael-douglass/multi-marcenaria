@@ -111,6 +111,23 @@ function inteiroPorExtenso(n: number): string {
   return `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}`;
 }
 
+/**
+ * Número (não monetário) por extenso: "2" → "dois", "60" → "sessenta", "12,5" → "doze vírgula cinco".
+ * Aceita número ou texto no formato BR. Devolve null se não for um número ≥ 0.
+ */
+export function numeroPorExtenso(raw: string | number): string | null {
+  const n = typeof raw === 'number' ? raw : parseValorMonetarioBr(raw);
+  if (n == null || !Number.isFinite(n) || n < 0) return null;
+  const inteiro = Math.floor(n);
+  const decimais = Math.round((n - inteiro) * 100);
+  const base = inteiroPorExtenso(inteiro);
+  if (!decimais) return base;
+  // "12,5" → cinco (não "cinquenta"); "12,05" → zero cinco
+  const casas = String(decimais).padStart(2, '0').replace(/0$/, '');
+  const fracao = casas.startsWith('0') ? `zero ${inteiroPorExtenso(Number(casas))}` : inteiroPorExtenso(Number(casas));
+  return `${base} vírgula ${fracao}`;
+}
+
 /** Interpreta strings como "1.500,00", "1500", "R$ 1.500,50". */
 export function parseValorMonetarioBr(raw: string): number | null {
   const s = raw.trim().replace(/R\$\s*/gi, '').replace(/\s/g, '');

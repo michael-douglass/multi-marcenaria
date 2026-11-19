@@ -1,5 +1,15 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import {
+  autorizarIaCardLead,
+  checarCota,
+  chatVisao,
+  ehRecusa,
+  mensagemSegura,
+  registrarUso,
+  respostaRecusa,
+  type OpenAiUsage,
+} from '../_shared/ia-card-lead.ts';
+import { modeloImagemPermitido, modeloVisaoPermitido } from '../_shared/ia-card-lead-modelos.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   DEFAULT_RENDER_ANALYSIS_PROMPT,
@@ -8,10 +18,6 @@ import {
 } from '../_shared/render-prompts.ts';
 import { callOpenAIImageEdit } from '../_shared/openai-image-edit.ts';
 
-const ALLOWED_VISION_MODELS = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1']);
-const DEFAULT_VISION_MODEL = 'gpt-4o';
-const ALLOWED_IMAGE_MODELS = new Set(['gpt-image-1.5', 'gpt-image-1', 'dall-e-2']);
-const DEFAULT_IMAGE_MODEL = 'gpt-image-1.5';
 const RENDER_BUCKET = 'lead-ai-renders';
 
 interface RenderItem {
@@ -24,7 +30,6 @@ interface RenderItem {
 
 interface RenderRequest {
   leadId: number;
-  empresaSchema?: string | null;
   leadName?: string;
   leadOrigin?: string;
   item: RenderItem;
@@ -38,40 +43,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function isEmpresaSchema(schema: string | null | undefined): boolean {
-  return !!schema && /^emp_[a-z0-9_]+$/.test(schema);
-}
-
-function resolveDb(client: SupabaseClient, empresaSchema?: string | null) {
-  if (isEmpresaSchema(empresaSchema)) {
-    return client.schema(empresaSchema!);
-  }
-  return client;
-}
-
-function configTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'pipeline_lead_ai_config'
-    : 'CRM-multi-empresas>pipeline_lead_ai_config<';
-}
-
-function rendersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'lead_ai_renders'
-    : 'CRM-multi-empresas>lead_ai_renders<';
-}
-
-function mediasTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_medias'
-    : 'crm_multiempresas_marketing_medias';
-}
-
-function foldersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_media_folders'
-    : 'crm_multiempresas_marketing_media_folders';
-}
+type CrmDb = ReturnType<SupabaseClient['schema']>;
 
 const MARKETING_BUCKET = 'marketing-medias';
 const ORCAMENTOS_FOLDER_NAME = 'orçamentos';
@@ -85,14 +57,12 @@ function aiRenderAttachmentTitle(label: string): string {
   return `Render IA — ${trimmed}`;
 }
 
-async function getOrCreateOrcamentosFolder(
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema?: string | null,
-): Promise<string | null> {
-  const foldersTable = foldersTableName(empresaSchema);
+async function getOrCreateOrcamentosFolder(db: CrmDb, empresaId: string): Promise<string | null> {
+  const foldersTable = 'marketing_media_folders';
   const { data: existing } = await db
     .from(foldersTable)
     .select('id')
+    .eq('empresa_id', empresaId)
     .eq('nome', ORCAMENTOS_FOLDER_NAME)
     .maybeSingle();
 
@@ -114,14 +84,14 @@ async function getOrCreateOrcamentosFolder(
 /** Salva a renderização como anexo do lead (marketing_medias) para aparecer nos anexos e nos slides. */
 async function saveRenderAsLeadAttachment(
   supabase: SupabaseClient,
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema: string | null | undefined,
+  db: CrmDb,
+  empresaId: string,
   leadId: number,
   renderId: string,
   outputBytes: Uint8Array,
   label: string,
 ): Promise<void> {
-  const prefix = storagePrefix(empresaSchema);
+  const prefix = empresaId;
   const fileName = aiRenderAttachmentFileName(renderId);
   const storagePath = `${prefix}/${fileName}`;
 
@@ -138,10 +108,10 @@ async function saveRenderAsLeadAttachment(
   }
 
   const { data: publicUrlData } = supabase.storage.from(MARKETING_BUCKET).getPublicUrl(storagePath);
-  const folderId = await getOrCreateOrcamentosFolder(db, empresaSchema);
+  const folderId = await getOrCreateOrcamentosFolder(db, empresaId);
   if (!folderId) return;
 
-  const { error: insertError } = await db.from(mediasTableName(empresaSchema)).insert({
+  const { error: insertError } = await db.from('marketing_medias').insert({
     titulo: aiRenderAttachmentTitle(label),
     tipo: 'imagem',
     file_url: publicUrlData.publicUrl,
@@ -156,10 +126,6 @@ async function saveRenderAsLeadAttachment(
     console.error('Erro ao registrar render como anexo:', insertError);
     await supabase.storage.from(MARKETING_BUCKET).remove([storagePath]);
   }
-}
-
-function storagePrefix(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema) ? empresaSchema! : 'master';
 }
 
 function applyPromptPlaceholders(
@@ -265,40 +231,6 @@ async function resolveSketchBytes(item: RenderItem): Promise<{ bytes: Uint8Array
   return null;
 }
 
-async function callOpenAIChat(
-  apiKey: string,
-  model: string,
-  messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>,
-  maxTokens = 2048,
-): Promise<string> {
-  const openAiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
-  });
-
-  if (!openAiRes.ok) {
-    const errText = await openAiRes.text();
-    console.error('OpenAI chat error:', openAiRes.status, errText);
-    let message = 'Erro ao chamar a API da OpenAI';
-    try {
-      const parsed = JSON.parse(errText);
-      message = parsed?.error?.message || message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
-  }
-
-  const openAiData = await openAiRes.json();
-  const content = openAiData?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error('A IA não retornou análise do esboço');
-  return content;
-}
-
 const DEFAULT_ANALYSIS_PROMPT = DEFAULT_RENDER_ANALYSIS_PROMPT;
 const DEFAULT_RENDER_PROMPT = DEFAULT_RENDER_IMAGE_PROMPT;
 
@@ -308,18 +240,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = serviceClient(await empresaDoChamador(req));
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return jsonResponse({ error: 'Não autorizado' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return jsonResponse({ error: 'Usuário não autenticado' }, 401);
-    }
+    const ctx = await autorizarIaCardLead(req, 'render');
+    if (ehRecusa(ctx)) return respostaRecusa(ctx);
+    const supabase = ctx.svc;
+    const empresaId = ctx.empresaId;
+    const db = supabase.schema('crm');
 
     let body: RenderRequest;
     try {
@@ -328,7 +253,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Corpo da requisição inválido (JSON)' }, 400);
     }
 
-    const { leadId, empresaSchema, leadName, leadOrigin, item, caracteristicasExtras } = body;
+    const { leadId, leadName, leadOrigin, item, caracteristicasExtras } = body;
 
     if (!leadId || typeof leadId !== 'number') {
       return jsonResponse({ error: 'leadId é obrigatório' }, 400);
@@ -338,49 +263,31 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Selecione uma imagem para renderizar' }, 400);
     }
 
-    const db = resolveDb(supabase, empresaSchema);
-
-    const { data: configRow, error: configError } = await db
-      .from(configTableName(empresaSchema))
-      .select(
-        'render_ativo, render_vision_model, render_image_model, render_analysis_prompt, render_prompt, ativo, openai_api_key',
-      )
-      .eq('singleton_key', 'default')
+    // O lead precisa ser da empresa de quem chama (service role ignora a RLS).
+    const { data: leadRow } = await db
+      .from('leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('empresa_id', empresaId)
       .maybeSingle();
+    if (!leadRow) return jsonResponse({ error: 'Lead não encontrado' }, 404);
 
-    if (configError) {
-      console.error('Erro ao carregar config IA:', configError);
-      return jsonResponse({ error: 'Erro ao carregar configuração de IA' }, 500);
-    }
+    const cota = await checarCota(ctx);
+    if (cota) return respostaRecusa(cota);
 
-    if (!configRow?.render_ativo) {
-      return jsonResponse({ error: 'Renderização de projetos desativada nas configurações' }, 403);
-    }
-
-    const openAiKey = configRow.openai_api_key?.trim() || '';
-    if (!openAiKey) {
-      return jsonResponse(
-        { error: 'Chave da OpenAI do Lead não configurada. Defina em Configurações IA.' },
-        500,
-      );
-    }
+    const openAiKey = ctx.apiKey;
+    const motor = ctx.motor;
 
     const sketch = await resolveSketchBytes(item);
     if (!sketch) {
       return jsonResponse({ error: 'Não foi possível carregar a imagem selecionada' }, 400);
     }
 
-    const visionModel = ALLOWED_VISION_MODELS.has(configRow.render_vision_model)
-      ? configRow.render_vision_model
-      : DEFAULT_VISION_MODEL;
-    const imageModel = ALLOWED_IMAGE_MODELS.has(configRow.render_image_model)
-      ? configRow.render_image_model
-      : DEFAULT_IMAGE_MODEL;
+    const visionModel = modeloVisaoPermitido(motor.vision_model);
+    const imageModel = modeloImagemPermitido(motor.image_model);
 
-    const analysisPromptRaw =
-      (configRow.render_analysis_prompt as string | null)?.trim() || DEFAULT_ANALYSIS_PROMPT;
-    const renderPromptRaw =
-      (configRow.render_prompt as string | null)?.trim() || DEFAULT_RENDER_PROMPT;
+    const analysisPromptRaw = motor.render_analysis_prompt?.trim() || DEFAULT_ANALYSIS_PROMPT;
+    const renderPromptRaw = motor.render_prompt?.trim() || DEFAULT_RENDER_PROMPT;
 
     const analysisPromptSnapshot = applyPromptPlaceholders(analysisPromptRaw, {
       nomeLead: leadName,
@@ -391,7 +298,7 @@ Deno.serve(async (req) => {
 
     let analiseTexto: string;
     try {
-      analiseTexto = await callOpenAIChat(openAiKey, visionModel, [
+      const visao = await chatVisao(openAiKey, visionModel, [
         { role: 'system', content: analysisPromptSnapshot },
         {
           role: 'user',
@@ -401,8 +308,10 @@ Deno.serve(async (req) => {
           ],
         },
       ], 3072);
+      analiseTexto = visao.content;
+      await registrarUso(ctx, { funcao: 'render_projeto', etapa: 'visao', modelo: visionModel, leadId, usage: visao.usage });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro na análise do esboço';
+      const message = mensagemSegura(err instanceof Error ? err.message : 'Erro na análise do esboço');
       console.error('render-lead-project vision error:', message);
       return jsonResponse({ error: message, step: 'vision' }, 502);
     }
@@ -417,6 +326,7 @@ Deno.serve(async (req) => {
     );
 
     let outputBytes: Uint8Array;
+    let imagemUsage: OpenAiUsage = null;
     try {
       outputBytes = await callOpenAIImageEdit(
         openAiKey,
@@ -424,15 +334,21 @@ Deno.serve(async (req) => {
         sketch.bytes,
         sketch.mime,
         renderPromptSnapshot,
+        undefined,
+        {
+          onUsage: (u) => {
+            imagemUsage = u as OpenAiUsage;
+          },
+        },
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao gerar renderização';
+      const message = mensagemSegura(err instanceof Error ? err.message : 'Erro ao gerar renderização');
       console.error('render-lead-project image error:', message, { imageModel });
       return jsonResponse({ error: message, step: 'render', imageModel }, 502);
     }
 
     const renderId = crypto.randomUUID();
-    const storagePath = `${storagePrefix(empresaSchema)}/${leadId}/${renderId}.png`;
+    const storagePath = `${empresaId}/${leadId}/${renderId}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from(RENDER_BUCKET)
@@ -459,8 +375,17 @@ Deno.serve(async (req) => {
         : {}),
     };
 
+    await registrarUso(ctx, {
+      funcao: 'render_projeto',
+      etapa: 'imagem',
+      modelo: imageModel,
+      leadId,
+      refId: renderId,
+      usage: imagemUsage,
+    });
+
     const { data: inserted, error: insertError } = await db
-      .from(rendersTableName(empresaSchema))
+      .from('lead_ai_renders')
       .insert({
         id: renderId,
         lead_id: leadId,
@@ -472,7 +397,7 @@ Deno.serve(async (req) => {
         image_model: imageModel,
         analysis_prompt_snapshot: analysisPromptSnapshot,
         render_prompt_snapshot: renderPromptSnapshot,
-        criado_por: user.id,
+        criado_por: ctx.userId,
       })
       .select('id, criado_em')
       .single();
@@ -486,7 +411,7 @@ Deno.serve(async (req) => {
     await saveRenderAsLeadAttachment(
       supabase,
       db,
-      empresaSchema,
+      empresaId,
       leadId,
       renderId,
       outputBytes,

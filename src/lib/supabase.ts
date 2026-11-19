@@ -52,7 +52,7 @@ function createMemoryStorage(): Storage {
 /** Safari privado / PWA às vezes bloqueia localStorage e o login parece “Failed to fetch”. */
 function getAuthStorage(): Storage {
   try {
-    const probe = '__garbo_auth_probe'
+    const probe = '__auth_probe'
     window.localStorage.setItem(probe, '1')
     window.localStorage.removeItem(probe)
     return window.localStorage

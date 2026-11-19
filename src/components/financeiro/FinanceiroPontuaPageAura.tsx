@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
-const WOOD_SRC = '/imagens/apresentacao-garbo/projetos/cubo-painel-madeira.png'
+const WOOD_SRC = '/imagens/apresentacao/projetos/cubo-painel-madeira.png'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -138,7 +138,7 @@ export function FinanceiroPontuaPageAura({ className }: { className?: string }) 
     const loader = new THREE.TextureLoader(manager)
 
     loader.load(
-      GARBO_LOGO_SRC,
+      empresaDocumento().logoUrl,
       (texture) => {
         configureMap(texture)
         material.uniforms.uBrand.value = texture

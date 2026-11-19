@@ -49,7 +49,7 @@ export interface ResolvedMaterialPrice {
 
 /** Tabela de contingência — NUNCA devolver R$ 0 quando não houver match. */
 export const CONTINGENCY_PRICES = {
-  /** Preços alinhados ao catálogo Markup Garbo (06/10/2026). */
+  /** Preços alinhados ao catálogo do Markup (06/10/2026). */
   chapa_mdf_6mm: { unitPrice: 230, unit: 'chapa', label: 'Chapa MDF 6mm (Fundos)' },
   chapa_mdf_15mm_branco: { unitPrice: 280, unit: 'chapa', label: 'Chapa MDF 15mm Branco/Unicolor' },
   chapa_mdf_15mm_amadeirado: {

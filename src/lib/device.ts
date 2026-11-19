@@ -13,9 +13,9 @@ export function isMobileUi(): boolean {
   return window.matchMedia('(max-width: 768px)').matches || isIosDevice()
 }
 
-export function isGarboSafeMode(): boolean {
+export function isSafeMode(): boolean {
   return typeof document !== 'undefined'
-    && document.documentElement.dataset.garboSafeMode === '1'
+    && document.documentElement.dataset.appSafeMode === '1'
 }
 
 /**
@@ -25,6 +25,6 @@ export function isGarboSafeMode(): boolean {
  */
 export function canUseRealtime(): boolean {
   if (typeof window === 'undefined') return false
-  if (isGarboSafeMode()) return false
+  if (isSafeMode()) return false
   return !isMobileUi()
 }

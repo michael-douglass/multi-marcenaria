@@ -70,6 +70,7 @@ import {
 } from '@/lib/visualizacao-range'
 import { fmtCur, fmtDate, isOverdue } from '@/lib/utils'
 import type { ContaReceber, StatusKanbanObra } from '@/types'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 
 const DIAS_ATIVOS = [1, 2, 3, 4, 5]
 
@@ -277,7 +278,7 @@ function VisualizacaoContent() {
   const pdfExportInput = useMemo((): VisualizacaoPdfExportInput | null => {
     if (!contentReady) return null
     return {
-      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      empresaNome: empresa?.nome ?? APP_SYSTEM_NAME,
       rangeLabel,
       dataLabel,
       horaLabel,

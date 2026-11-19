@@ -1,6 +1,6 @@
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { ChevronDown, Sparkles } from 'lucide-react';
-import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme';
+import { APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/apresentacao-theme';
 
 interface PrestadorPortalHeroProps {
   nome: string;
@@ -20,8 +20,8 @@ export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPorta
         className="anim-fade mb-4 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
         style={{
           animationDelay: '400ms',
-          color: GARBO_APRESENTACAO_THEME.gold,
-          fontFamily: GARBO_APRESENTACAO_THEME.fontBody,
+          color: APRESENTACAO_THEME.gold,
+          fontFamily: APRESENTACAO_THEME.fontBody,
         }}
       >
         <Sparkles className="h-3.5 w-3.5" aria-hidden />
@@ -36,12 +36,12 @@ export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPorta
       <h1
         className="anim-up leading-none"
         style={{
-          fontFamily: GARBO_APRESENTACAO_THEME.fontDisplay,
+          fontFamily: APRESENTACAO_THEME.fontDisplay,
           fontSize: 'clamp(2.75rem, 8vw, 6.5rem)',
           fontWeight: 300,
           letterSpacing: '-0.02em',
-          color: GARBO_APRESENTACAO_THEME.textPrimary,
-          textShadow: GARBO_APRESENTACAO_THEME.textShadowTitle,
+          color: APRESENTACAO_THEME.textPrimary,
+          textShadow: APRESENTACAO_THEME.textShadowTitle,
           animationDelay: '600ms',
         }}
       >
@@ -54,10 +54,10 @@ export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPorta
           style={{
             border: '1px solid rgba(242,216,146,0.4)',
             background: 'rgba(242,216,146,0.08)',
-            color: GARBO_APRESENTACAO_THEME.gold,
+            color: APRESENTACAO_THEME.gold,
             letterSpacing: '0.18em',
             backdropFilter: 'blur(8px)',
-            fontFamily: GARBO_APRESENTACAO_THEME.fontBody,
+            fontFamily: APRESENTACAO_THEME.fontBody,
           }}
         >
           {titulo}
@@ -69,7 +69,7 @@ export function PrestadorPortalHero({ nome, titulo, hasContent }: PrestadorPorta
         style={{
           animationDelay: '1100ms',
           letterSpacing: '0.08em',
-          fontFamily: GARBO_APRESENTACAO_THEME.fontBody,
+          fontFamily: APRESENTACAO_THEME.fontBody,
         }}
       >
         Bem-vindo ao seu portal

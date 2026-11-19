@@ -89,8 +89,15 @@ export async function getCallerTenant(req: Request): Promise<CallerTenant | null
  * Motivo para recusar a chamada (ou `null` se pode seguir): página bloqueada para a empresa ou master
  * em inspeção somente leitura. Uso no início do handler:
  *   const recusa = await motivoRecusa(req, 'orcamentosIa'); if (recusa) return jsonResponse({ error: recusa }, 403);
+ *
+ * `soPagina: true` ignora o modo somente leitura (use em funções de leitura/consulta, para o master
+ * continuar vendo dados em inspeção); só recusa se a página/função estiver bloqueada.
  */
-export async function motivoRecusa(req: Request, paginaId: string): Promise<string | null> {
+export async function motivoRecusa(
+  req: Request,
+  paginaId: string,
+  opcoes: { soPagina?: boolean } = {},
+): Promise<string | null> {
   let t: CallerTenant | null = null;
   try {
     t = await getCallerTenant(req);
@@ -99,7 +106,7 @@ export async function motivoRecusa(req: Request, paginaId: string): Promise<stri
     return null; // a própria função trata a falta de usuário/empresa
   }
   if (!t) return null;
-  if (t.somenteLeitura) return MSG_SOMENTE_LEITURA;
+  if (t.somenteLeitura && !opcoes.soPagina) return MSG_SOMENTE_LEITURA;
   if (!PAGINAS_NAO_BLOQUEAVEIS.has(paginaId) && t.paginasBloqueadas.includes(paginaId)) {
     return 'Este recurso não está liberado no plano da sua empresa.';
   }

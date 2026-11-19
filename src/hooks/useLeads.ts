@@ -47,8 +47,8 @@ export interface DatabaseLead {
   dar_atencao?: boolean | null;
   /** Token do formulário público para o cliente iniciar orçamento. */
   token_form_orcamento?: string | null;
-  /** Usuário Pontua Garbo vinculado a este card (o lead É o parceiro). */
-  pontua_garbo_usuario_id?: string | null;
+  /** Usuário Pontua vinculado a este card (o lead É o parceiro). */
+  pontua_usuario_id?: string | null;
 }
 
 export interface LeadWithVendor extends DatabaseLead {

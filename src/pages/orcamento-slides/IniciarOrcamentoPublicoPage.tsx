@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Loader2 } from 'lucide-react';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -142,7 +142,7 @@ export default function IniciarOrcamentoPublicoPage() {
   };
 
   if (isLoading) {
-    return <GarboBrandLoader variant="fullscreen" message="Carregando formulário…" />;
+    return <BrandLoader variant="fullscreen" message="Carregando formulário…" />;
   }
 
   if (error && !payload) {

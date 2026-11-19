@@ -1,5 +1,5 @@
 import type { ContratoVariavel } from '@/hooks/useContratosVariaveis';
-import { substituirVariaveis } from '@/lib/contratos-print';
+import { montarTextoContrato } from '@/lib/contrato-variaveis';
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseBRToYMD } from '@/lib/utils';
@@ -149,7 +149,7 @@ export function buildConteudoContrato(
         }
       }),
   );
-  return substituirVariaveis(modeloConteudo, { ...limpos, ...extras }, valoresEmpresa);
+  return montarTextoContrato(modeloConteudo, variaveis, { ...limpos, ...extras }, valoresEmpresa);
 }
 
 export function snapshotContratoForm(

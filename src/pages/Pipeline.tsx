@@ -30,7 +30,7 @@ import { Lead, LeadStatus, LeadSortBy } from '@/types/selletos';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn, toSaoPauloTime } from '@/lib/utils';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,7 +41,7 @@ import { KanbanPageZoomControls } from '@/components/kanban/KanbanPageZoomContro
 import { KanbanCard } from '@/components/kanban/KanbanCard';
 import { LeadModal } from '@/components/leads/LeadModal';
 import { SaleValueDialog } from '@/components/leads/SaleValueDialog';
-import { useLeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
+import { useLeadPontuaSaleInfo } from '@/hooks/useLeadPontuaSaleInfo';
 import { LeadsListView } from '@/components/leads/LeadsListView';
 import { PipelineMetrics } from '@/components/pipeline/PipelineMetrics';
 
@@ -63,7 +63,7 @@ import { leadMatchesSearchQuery } from '@/lib/lead-search';
 import { PipelineLeadSearch } from '@/components/pipeline/PipelineLeadSearch';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { buildMarkAsWonUpdates } from '@/lib/vendas-ganhos';
-import { useSyncPontuaGarboLiberacaoAposVenda } from '@/hooks/usePontuaGarboComissaoLiberacao';
+import { useSyncPontuaLiberacaoAposVenda } from '@/hooks/usePontuaComissaoLiberacao';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
 import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
 import { collectFeitoPulseLeadIds } from '@/lib/projetos-atelie';
@@ -90,7 +90,7 @@ export default function Pipeline() {
   const { config: vendasGanhosConfig, isLoading: isLoadingVendasGanhosConfig } = useVendasGanhosConfig();
   const { data: leadProjetos = [] } = useLeadProjetos({ realtime: true });
   const { data: projetoStages = [] } = useProjetoStages();
-  const liberacaoAposVenda = useSyncPontuaGarboLiberacaoAposVenda();
+  const liberacaoAposVenda = useSyncPontuaLiberacaoAposVenda();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [selectedVendor, setSelectedVendor] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -142,7 +142,7 @@ export default function Pipeline() {
   }, [syncLeadIdInUrl]);
   const [showSaleValueDialog, setShowSaleValueDialog] = useState(false);
   const [pendingSaleLeadId, setPendingSaleLeadId] = useState<number | null>(null);
-  const { data: pontuaGarboSale } = useLeadPontuaGarboSaleInfo(pendingSaleLeadId);
+  const { data: pontuaSale } = useLeadPontuaSaleInfo(pendingSaleLeadId);
   const [sortBy, setSortBy] = useState<LeadSortBy>('ultima_interacao');
   const [selectedOrigins, setSelectedOrigins] = useState<string[]>([]);
   const [selectedRegioes, setSelectedRegioes] = useState<string[]>([]);
@@ -786,9 +786,9 @@ export default function Pipeline() {
         updates: buildMarkAsWonUpdates(value, statusDestino, user?.id!),
       });
       await liberacaoAposVenda.mutateAsync(pendingSaleLeadId);
-      void queryClient.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-comissao-liberacao'] });
+      void queryClient.invalidateQueries({ queryKey: ['minha-pontua'] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-financeiro'] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-comissao-liberacao'] });
       toast.success('Venda registrada com sucesso!', {
         description: `Valor: R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       });
@@ -803,7 +803,7 @@ export default function Pipeline() {
 
   // Verificar permissão para acessar a página
   if (isPermissionsLoading) {
-    return <GarboBrandLoader variant="inline" size="md" message="Carregando…" />;
+    return <BrandLoader variant="inline" size="md" message="Carregando…" />;
   }
 
   if (!hasPermission('pipeline', 'view')) {
@@ -833,7 +833,7 @@ export default function Pipeline() {
       )}
     >
       {isInitialLeadsLoad ? (
-        <GarboBrandLoader variant="inline" size="md" message="Carregando leads…" />
+        <BrandLoader variant="inline" size="md" message="Carregando leads…" />
       ) : (
       <>
       <div className="flex shrink-0 items-center justify-between">
@@ -1390,7 +1390,7 @@ export default function Pipeline() {
             ? filteredLeads.find((l) => l.id === pendingSaleLeadId)?.budgetValue ?? 0
             : 0
         }
-        pontuaGarbo={pontuaGarboSale ?? null}
+        pontuaDados={pontuaSale ?? null}
       />
 
       {/* Modal de Exportar Relatório - só renderiza quando aberto para evitar queries desnecessárias */}

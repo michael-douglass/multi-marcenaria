@@ -14,12 +14,15 @@ import { useUsers } from '@/hooks/useUsers';
 import { useWebhooks } from '@/hooks/useWebhooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada';
+import { FUNCAO_IA_CARD_LEAD, FUNCAO_WHATSAPP, PAGINA_ORCAMENTOS_IA } from '@/lib/paginas-catalogo';
 import { useLeadOrigins } from '@/hooks/useLeadOrigins';
 import { DEFAULT_PIPELINE_STAGES, usePipelineCustomStages } from '@/hooks/usePipelineCustomStages';
 import { getPipelineInboxStageName, resolveLeadStatusDisplay, type LeadModalStatusOption } from '@/lib/pipeline-status-options';
 import { LeadStatusColumnDisplay } from './LeadStatusColumnDisplay';
 import { LeadStatusColumnCombobox } from './LeadStatusColumnCombobox';
 import { useRegioes } from '@/hooks/useRegioes';
+import { OpcaoNovaInline, OPCAO_NOVA } from './OpcaoNovaInline';
 import { adaptLeadFromDatabase, adaptUserFromDatabase } from '@/lib/adapters';
 import { setLeadDetailCache } from '@/lib/leads-cache';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -40,9 +43,9 @@ import { LeadFormResponseSection } from '@/components/leads/LeadFormResponseSect
 import { useLeadLembretesCountMap } from '@/hooks/useLeadLembretes';
 import { toast } from 'sonner';
 import { SaleValueDialog } from './SaleValueDialog';
-import { useLeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
-import { useSyncPontuaGarboLiberacaoAposVenda } from '@/hooks/usePontuaGarboComissaoLiberacao';
-import type { LeadPontuaGarboSaleInfo } from '@/lib/pontua-garbo';
+import { useLeadPontuaSaleInfo } from '@/hooks/useLeadPontuaSaleInfo';
+import { useSyncPontuaLiberacaoAposVenda } from '@/hooks/usePontuaComissaoLiberacao';
+import type { LeadPontuaSaleInfo } from '@/lib/pontua';
 import { WhatsAppHistoryCard } from './WhatsAppHistoryCard';
 import { ScheduleMeetingDialog } from './ScheduleMeetingDialog';
 import { LeadCustomFieldsSection } from './LeadCustomFieldsSection';
@@ -87,12 +90,12 @@ import type { LeadIaSubtab, LeadModalTabId, LeadNavJumpItem } from './lead-modal
 import { leadNavMenuToTab } from './lead-modal-nav';
 import type { LeadSearchHit } from '@/lib/lead-modal-search';
 import { waitAndScrollLeadModalToSection, waitAndScrollLeadModalToSelector } from '@/lib/lead-modal-scroll';
-import { LeadPontuaGarboContactPanel } from './LeadPontuaGarboContactPanel';
+import { LeadPontuaContactPanel } from './LeadPontuaContactPanel';
 import { LeadNegociadorContactPanel } from './LeadNegociadorContactPanel';
 import { LeadNegociadorHeaderConfig } from './LeadNegociadorHeaderConfig';
-import { LeadPontuaGarboPartnerBadge } from './LeadPontuaGarboPartnerBadge';
-import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
-import { canManagePontuaGarboFinanceiro } from '@/lib/pontua-garbo-access';
+import { LeadPontuaPartnerBadge } from './LeadPontuaPartnerBadge';
+import { usePontuaPartnerBadge } from '@/hooks/usePontuaPartnerLeads';
+import { canManagePontuaFinanceiro } from '@/lib/pontua-access';
 import { LeadEditableField } from './LeadEditableField';
 import {
   LeadNameAutocomplete,
@@ -252,16 +255,22 @@ export function LeadModal({
   const table = useTableName();
   const isMasterUser = isSuperAdminAuth || isSuperAdminEmpresa || authUserRole === 'admin';
   const { hasPermission } = usePermissions();
+  // Páginas/funções liberadas no plano da empresa (master em /master/planos).
+  const orcamentosIaLiberado = usePaginaLiberada(PAGINA_ORCAMENTOS_IA);
+  const whatsappLiberado = usePaginaLiberada(FUNCAO_WHATSAPP);
+  const iaLiberada = usePaginaLiberada(FUNCAO_IA_CARD_LEAD);
   const { config: vendasGanhosConfig, isLoading: isLoadingVendasGanhosConfig } = useVendasGanhosConfig();
   // Só mutations + cache: não disparar fetch da lista inteira ao abrir o card.
   const { leads: dbLeads, createLead, updateLead: updateLeadMutation, deleteLead: deleteLeadMutation } = useLeads({
     fetchLeads: false,
   });
   const { users: dbUsers, isLoading: isLoadingUsers } = useUsers();
-  const { webhooks, isLoading: isLoadingWebhooks } = useWebhooks();
-  const { origins, isLoading: isLoadingOrigins } = useLeadOrigins();
+  const { webhooks, isLoading: isLoadingWebhooks, createWebhook } = useWebhooks();
+  const { origins, isLoading: isLoadingOrigins, createOrigin } = useLeadOrigins();
   const { activeStages: pipelineStages, isLoading: isLoadingPipelineStages } = usePipelineCustomStages();
-  const { regiaoToTabelaMap, regioesDisponiveis, isLoading: isLoadingRegioes } = useRegioes();
+  const { regiaoToTabelaMap, regioesDisponiveis, isLoading: isLoadingRegioes, addRegiao } = useRegioes();
+  /** Qual Select está com o formulário "+ Nova…" aberto. */
+  const [opcaoNovaAberta, setOpcaoNovaAberta] = useState<'origem' | 'regiao' | 'fonte' | null>(null);
   const queryClient = useQueryClient();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showDuplicateAlert, setShowDuplicateAlert] = useState(false);
@@ -295,15 +304,15 @@ export function LeadModal({
   const pdfAttachmentsRef = useRef<LeadPDFAttachmentsHandle>(null);
   const [orcamentosIaRefreshToken, setOrcamentosIaRefreshToken] = useState(0);
   const [filePickerActive, setFilePickerActive] = useState(false);
-  const syncComissaoLiberacao = useSyncPontuaGarboLiberacaoAposVenda();
-  const { data: pontuaGarboSale } = useLeadPontuaGarboSaleInfo(leadId ?? undefined);
-  const pontuaGarboPartnerBadge = usePontuaGarboPartnerBadge(leadId ?? undefined);
-  const canRegisterPontuaGarbo = canManagePontuaGarboFinanceiro(authUserRole, isSuperAdminAuth);
-  const showPontuaGarboSection = Boolean(leadId && (pontuaGarboPartnerBadge || canRegisterPontuaGarbo));
-  const [pontuaGarboLive, setPontuaGarboLive] = useState<LeadPontuaGarboSaleInfo | null>(null);
+  const syncComissaoLiberacao = useSyncPontuaLiberacaoAposVenda();
+  const { data: pontuaSale } = useLeadPontuaSaleInfo(leadId ?? undefined);
+  const pontuaPartnerBadge = usePontuaPartnerBadge(leadId ?? undefined);
+  const canRegisterPontua = canManagePontuaFinanceiro(authUserRole, isSuperAdminAuth);
+  const showPontuaSection = Boolean(leadId && (pontuaPartnerBadge || canRegisterPontua));
+  const [pontuaLive, setPontuaLive] = useState<LeadPontuaSaleInfo | null>(null);
 
   useEffect(() => {
-    setPontuaGarboLive(null);
+    setPontuaLive(null);
   }, [leadId]);
 
   // Buscar reunião vinculada ao lead
@@ -610,33 +619,42 @@ export function LeadModal({
   useEffect(() => {
     if (!isOpen || !leadId) return;
     if (initialTab === 'analise-ia') {
-      setLeadModalTab('analise-ia');
+      setLeadModalTab(iaLiberada ? 'analise-ia' : 'info');
     } else if (initialTab === 'detalhes' || initialTab === 'info') {
       setLeadModalTab(initialTab);
     }
     setIaSubtab(initialIaSubtab);
-  }, [isOpen, leadId, initialTab, initialIaSubtab]);
+  }, [isOpen, leadId, initialTab, initialIaSubtab, iaLiberada]);
+
+  // Função "IA no card lead" desligada (ou desligada durante o uso): sai da aba IA.
+  useEffect(() => {
+    if (!iaLiberada && leadModalTab === 'analise-ia') setLeadModalTab('info');
+  }, [iaLiberada, leadModalTab]);
 
   const handleLeadNavJump = useCallback((item: LeadNavJumpItem) => {
+    if (item.tab === 'analise-ia' && !iaLiberada) return;
     setLeadModalTab(item.tab);
     if (item.iaSubtab) setIaSubtab(item.iaSubtab);
     // Ao trocar de página no mobile, reabre o cabeçalho para a nova tela não “sumir”.
     headerPinnedCollapsedRef.current = false;
     setHeaderCollapsed(false);
     waitAndScrollLeadModalToSection(item.id);
-  }, []);
+  }, [iaLiberada]);
 
   const handleLeadNavOpenMenu = useCallback((menu: Parameters<typeof leadNavMenuToTab>[0]) => {
-    setLeadModalTab(leadNavMenuToTab(menu));
+    const tab = leadNavMenuToTab(menu);
+    if (tab === 'analise-ia' && !iaLiberada) return;
+    setLeadModalTab(tab);
     headerPinnedCollapsedRef.current = false;
     setHeaderCollapsed(false);
-  }, []);
+  }, [iaLiberada]);
 
   const handleLeadNavMenuOpenChange = useCallback((open: boolean) => {
     navMenuOpenRef.current = open;
   }, []);
 
   const handleLeadSearchJump = useCallback((hit: LeadSearchHit) => {
+    if (hit.tab === 'analise-ia' && !iaLiberada) return;
     setLeadModalTab(hit.tab);
     if (hit.iaSubtab) setIaSubtab(hit.iaSubtab);
     if (hit.fieldId) {
@@ -644,7 +662,7 @@ export function LeadModal({
       return;
     }
     if (hit.sectionId) waitAndScrollLeadModalToSection(hit.sectionId);
-  }, []);
+  }, [iaLiberada]);
 
   const markFormDirty = () => {
     formDirtyRef.current = true;
@@ -701,6 +719,10 @@ export function LeadModal({
     if (!isEditingPhone) return draftPhone || savedPhone;
     return savedPhone || draftPhone;
   }, [isNewLead, isEditingPhone, draftPhone, savedPhone]);
+
+  /** Seção/índice/busca do WhatsApp: permissão do perfil + função liberada no plano da empresa. */
+  const mostrarWhatsapp =
+    whatsappLiberado && hasPermission('lead_whatsapp_history', 'view') && Boolean(whatsappTelefone);
 
   const showSaveButton = isNewLead;
 
@@ -927,7 +949,7 @@ export function LeadModal({
 
   // Histórico WhatsApp: só atualiza quando o número exibido no card muda (não a cada tecla no input).
   useEffect(() => {
-    if (!isOpen || !leadId || !whatsappTelefone) return;
+    if (!isOpen || !leadId || !whatsappTelefone || !whatsappLiberado) return;
     const t = window.setTimeout(() => {
       queryClient.invalidateQueries({
         queryKey: ['lead-whatsapp-history', whatsappTelefone],
@@ -938,7 +960,7 @@ export function LeadModal({
       });
     }, 450);
     return () => clearTimeout(t);
-  }, [isOpen, leadId, whatsappTelefone, queryClient]);
+  }, [isOpen, leadId, whatsappTelefone, whatsappLiberado, queryClient]);
 
   // Verificar se o número está negativado
   useEffect(() => {
@@ -1216,14 +1238,14 @@ export function LeadModal({
         throw new Error('Lead duplicado sem ID retornado');
       }
 
-      // Copia campos personalizados (ex.: Pontua Garbo) para o novo card.
+      // Copia campos personalizados (ex.: Pontua) para o novo card.
       const valsTable = table(
         'lead_custom_field_values',
         'CRM-multi-empresas>lead_custom_field_values<',
       );
       const { data: customValues, error: customReadError } = await empresaDb
         .from(valsTable)
-        .select('field_id, valor, pontua_garbo_percentual')
+        .select('field_id, valor, pontua_percentual')
         .eq('lead_id', leadId);
 
       if (customReadError) {
@@ -1233,7 +1255,7 @@ export function LeadModal({
           lead_id: newLead.id,
           field_id: row.field_id,
           valor: row.valor,
-          pontua_garbo_percentual: row.pontua_garbo_percentual,
+          pontua_percentual: row.pontua_percentual,
         }));
         const { error: customWriteError } = await empresaDb.from(valsTable).insert(rows);
         if (customWriteError) {
@@ -1316,9 +1338,9 @@ export function LeadModal({
           updates: buildMarkAsWonUpdates(value, statusDestino, vendorId ?? authUser?.id ?? ''),
         });
         await syncComissaoLiberacao.mutateAsync(leadId);
-        void queryClient.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
-        void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
-        void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-comissao-liberacao'] });
+        void queryClient.invalidateQueries({ queryKey: ['minha-pontua'] });
+        void queryClient.invalidateQueries({ queryKey: ['pontua-financeiro'] });
+        void queryClient.invalidateQueries({ queryKey: ['pontua-comissao-liberacao'] });
         setShowSaleValueDialog(false);
         onClose();
       } finally {
@@ -1578,7 +1600,7 @@ export function LeadModal({
                   )}
                 >
                   <span className="inline-flex max-w-full items-center gap-1.5">
-                    {pontuaGarboPartnerBadge && (
+                    {pontuaPartnerBadge && (
                       <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 fill-gold text-gold" aria-hidden />
                     )}
                     <span className="min-w-0 truncate">
@@ -1622,12 +1644,13 @@ export function LeadModal({
                 {leadId && leadWindowMode !== 'minimized' && (
                   <LeadModalSearch
                     onJump={handleLeadSearchJump}
-                    showIa
+                    showIa={iaLiberada}
                     hideContratos={modoProjeto}
                     hideOrcamentos={contextoProjeto}
                     hideMarkup={contextoProjeto}
-                    hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
-                    hidePontuaGarbo={!showPontuaGarboSection}
+                    hideOrcamentosIa={contextoProjeto || !orcamentosIaLiberado}
+                    hideWhatsapp={!mostrarWhatsapp}
+                    hidePontua={!showPontuaSection}
                   />
                 )}
                 {!headerCollapsed && leadId && leadWindowMode !== 'minimized' && (
@@ -1704,12 +1727,13 @@ export function LeadModal({
             onJump={handleLeadNavJump}
             onOpenMenu={handleLeadNavOpenMenu}
             onMenuOpenChange={handleLeadNavMenuOpenChange}
-            showIa
+            showIa={iaLiberada}
             hideContratos={modoProjeto}
             hideOrcamentos={contextoProjeto}
             hideMarkup={contextoProjeto}
-            hideWhatsapp={!hasPermission('lead_whatsapp_history', 'view') || !whatsappTelefone}
-            hidePontuaGarbo={!showPontuaGarboSection}
+            hideOrcamentosIa={contextoProjeto || !orcamentosIaLiberado}
+            hideWhatsapp={!mostrarWhatsapp}
+            hidePontua={!showPontuaSection}
           />
         ) : null}
 
@@ -1935,6 +1959,10 @@ export function LeadModal({
                 <Select
                   value={formData.origin}
                   onValueChange={(v) => {
+                    if (v === OPCAO_NOVA) {
+                      setOpcaoNovaAberta('origem');
+                      return;
+                    }
                     markFormDirty();
                     setFormData((prev) => ({ ...prev, origin: v as LeadOrigin }));
                   }}
@@ -1948,9 +1976,22 @@ export function LeadModal({
                         {origin.nome}
                       </SelectItem>
                     ))}
+                    <SelectItem value={OPCAO_NOVA}>+ Nova origem…</SelectItem>
                   </SelectContent>
                 </Select>
               )}
+              {opcaoNovaAberta === 'origem' ? (
+                <OpcaoNovaInline
+                  campos={[{ id: 'nome', placeholder: 'Nome da origem' }]}
+                  onCancelar={() => setOpcaoNovaAberta(null)}
+                  onSalvar={async ({ nome }) => {
+                    await createOrigin(nome);
+                    markFormDirty();
+                    setFormData((prev) => ({ ...prev, origin: nome as LeadOrigin }));
+                    setOpcaoNovaAberta(null);
+                  }}
+                />
+              ) : null}
             </LeadEditableField>
 
             <LeadEditableField
@@ -1971,6 +2012,10 @@ export function LeadModal({
                 <Select
                   value={formData.regiao || 'NONE'}
                   onValueChange={(v) => {
+                    if (v === OPCAO_NOVA) {
+                      setOpcaoNovaAberta('regiao');
+                      return;
+                    }
                     markFormDirty();
                     setFormData((prev) => ({ ...prev, regiao: v === 'NONE' ? undefined : v }));
                   }}
@@ -1985,9 +2030,22 @@ export function LeadModal({
                         {regiao}
                       </SelectItem>
                     ))}
+                    <SelectItem value={OPCAO_NOVA}>+ Nova região…</SelectItem>
                   </SelectContent>
                 </Select>
               )}
+              {opcaoNovaAberta === 'regiao' ? (
+                <OpcaoNovaInline
+                  campos={[{ id: 'nome', placeholder: 'Nome da região' }]}
+                  onCancelar={() => setOpcaoNovaAberta(null)}
+                  onSalvar={async ({ nome }) => {
+                    await addRegiao.mutateAsync({ nomeAmigavel: nome, nomeTabela: '' });
+                    markFormDirty();
+                    setFormData((prev) => ({ ...prev, regiao: nome }));
+                    setOpcaoNovaAberta(null);
+                  }}
+                />
+              ) : null}
             </LeadEditableField>
 
             <LeadEditableField
@@ -2052,7 +2110,13 @@ export function LeadModal({
                 ) : (
                   <Select
                     value={selectedWebhookId || "NONE"}
-                    onValueChange={(v) => setSelectedWebhookId(v === "NONE" ? "" : v)}
+                    onValueChange={(v) => {
+                      if (v === OPCAO_NOVA) {
+                        setOpcaoNovaAberta('fonte');
+                        return;
+                      }
+                      setSelectedWebhookId(v === "NONE" ? "" : v);
+                    }}
                   >
                     <SelectTrigger className="w-full min-w-0 max-w-full">
                       <SelectValue placeholder="Selecione a fonte de mensagem">
@@ -2068,9 +2132,35 @@ export function LeadModal({
                           {webhook.nome}
                         </SelectItem>
                       ))}
+                      {isMasterUser ? <SelectItem value={OPCAO_NOVA}>+ Nova fonte de mensagem…</SelectItem> : null}
                     </SelectContent>
                   </Select>
                 )}
+                {opcaoNovaAberta === 'fonte' ? (
+                  <OpcaoNovaInline
+                    campos={[
+                      { id: 'nome', placeholder: 'Nome da fonte (ex.: WhatsApp comercial)' },
+                      { id: 'url', placeholder: 'URL do webhook (https://…)', tipo: 'url' },
+                    ]}
+                    validar={({ nome, url }) => {
+                      if (webhooks.some((w) => w.nome.toLowerCase() === nome.toLowerCase())) return 'Já existe uma fonte com este nome';
+                      try {
+                        const u = new URL(url);
+                        return u.protocol === 'https:' || u.protocol === 'http:' ? null : 'A URL deve começar com https://';
+                      } catch {
+                        return 'URL inválida';
+                      }
+                    }}
+                    onCancelar={() => setOpcaoNovaAberta(null)}
+                    onSalvar={async ({ nome, url }) => {
+                      const criado = await createWebhook.mutateAsync({
+                        nome, url, tipo: 'whatsapp', tabela_origem: null, descricao: null, ativo: true,
+                      });
+                      if (criado?.id) setSelectedWebhookId(String(criado.id));
+                      setOpcaoNovaAberta(null);
+                    }}
+                  />
+                ) : null}
               </div>
             )}
 
@@ -2190,22 +2280,22 @@ export function LeadModal({
                 </div>
             </LeadModalSection>
 
-            {(showPontuaGarboSection || leadId) ? (
+            {(showPontuaSection || leadId) ? (
               <div
                 className={cn(
                   'grid grid-cols-1 gap-3',
-                  showPontuaGarboSection && leadId ? 'lg:grid-cols-2' : null,
+                  showPontuaSection && leadId ? 'lg:grid-cols-2' : null,
                 )}
               >
-                {showPontuaGarboSection ? (
+                {showPontuaSection ? (
                   <LeadModalSection
                     title={`${nomePrograma}`}
                     icon={Sparkles}
-                    sectionId="pontua-garbo"
+                    sectionId="pontua"
                     description="Cadastro ou união deste lead ao programa de parceiros."
                     variant="accent"
                   >
-                    <LeadPontuaGarboContactPanel
+                    <LeadPontuaContactPanel
                       leadId={leadId}
                       nome={formData.name ?? ''}
                       email={formData.email ?? ''}
@@ -2385,7 +2475,7 @@ export function LeadModal({
             </div>
           )}
 
-          {leadId && !contextoProjeto && (
+          {leadId && !contextoProjeto && orcamentosIaLiberado && (
             <div id="lead-sec-orcamentos-ia" data-lead-section="orcamentos-ia">
               <LeadOrcamentosIaSection
                 leadId={leadId}
@@ -2417,11 +2507,11 @@ export function LeadModal({
             budgetValue={formData.budgetValue || Number(dbLead?.valor_orcamento ?? 0)}
             dealValue={formData.dealValue || Number(dbLead?.valor_negocio ?? 0)}
             leadStatus={formData.status || dbLead?.status}
-            onPontuaGarboSaleInfoChange={setPontuaGarboLive}
+            onPontuaSaleInfoChange={setPontuaLive}
           />
 
           {/* Histórico de Conversas WhatsApp com Input integrado */}
-          {hasPermission('lead_whatsapp_history', 'view') && leadId && whatsappTelefone && (
+          {mostrarWhatsapp && leadId && (
             <div id="lead-sec-whatsapp" data-lead-section="whatsapp" className="w-full min-w-0 max-w-full">
               <WhatsAppHistoryCard
                 telefone={whatsappTelefone}
@@ -2448,7 +2538,7 @@ export function LeadModal({
             </LeadModalScrollBody>
           )}
 
-          {leadId && leadModalTab === 'analise-ia' && (
+          {leadId && iaLiberada && leadModalTab === 'analise-ia' && (
             <LeadModalScrollBody className="pb-4" onScrollTop={handleLeadBodyScroll}>
               <LeadAIAnalysisTab
                 leadId={leadId}
@@ -2498,7 +2588,7 @@ export function LeadModal({
         onConfirm={handleConfirmSale}
         leadName={formData.name || ''}
         budgetValue={formData.budgetValue || Number(dbLead?.valor_orcamento ?? 0)}
-        pontuaGarbo={pontuaGarboLive ?? pontuaGarboSale ?? null}
+        pontuaDados={pontuaLive ?? pontuaSale ?? null}
       />
 
       <AlertDialog

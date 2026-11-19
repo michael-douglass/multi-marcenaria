@@ -7,7 +7,7 @@ import {
 import { isAuthRateLimited } from '@/lib/supabase-auth-storage'
 import { isNetworkFailure, NETWORK_FAILURE_USER_MESSAGE } from '@/lib/network-error'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
-import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+import { LoadingBrand } from '@/components/ui/LoadingBrand'
 import { Input } from '@/components/ui/input'
 import { LoginAtmosphereFoil } from '@/components/login/LoginAtmosphereFoil'
 import { LoginLogoMark } from '@/components/login/LoginLogoMark'
@@ -78,7 +78,7 @@ export function Login() {
 
   return (
     <div className="login-atelier">
-      {loading ? <GarboLoadingBrand variant="overlay" message="Entrando..." /> : null}
+      {loading ? <LoadingBrand variant="overlay" message="Entrando..." /> : null}
       <LoginAtmosphereFoil />
       <div className="login-atelier__grain" aria-hidden />
       <AppRefreshButton variant="floating" />

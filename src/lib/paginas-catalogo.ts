@@ -29,12 +29,48 @@ export interface PaginaCatalogo {
   subgrupo?: string
   /** Páginas que nunca podem ser bloqueadas (a empresa precisa de uma tela inicial e de perfil). */
   bloqueavel: boolean
+  /** `funcao` = recurso sem rota própria (ex.: WhatsApp no lead); padrão `pagina`. */
+  tipo?: 'pagina' | 'funcao'
+  /** Texto de apoio no editor do master (no lugar da URL). */
+  descricao?: string
+}
+
+/** Id da função "WhatsApp" do CRM (histórico/envio no lead, notificações). */
+export const FUNCAO_WHATSAPP = 'whatsappCrm'
+/** Id da função "IA no card lead" (aba IA do lead: Renderização de projetos). */
+export const FUNCAO_IA_CARD_LEAD = 'iaCardLead'
+/** Id da página Orçamentos IA — também controla a seção/botões dentro do modal de lead. */
+export const PAGINA_ORCAMENTOS_IA = 'orcamentosIa'
+
+/**
+ * Funções sem rota/menu que o master pode habilitar/desabilitar. A URL é fictícia e reservada
+ * (`/funcao/*` nunca vira rota): só existe para `paginaIdFromPath` resolver de volta ao id.
+ */
+const FUNCOES_CATALOGO: Array<{ id: string; titulo: string; url: string; descricao: string }> = [
+  {
+    id: FUNCAO_WHATSAPP,
+    titulo: 'WhatsApp',
+    url: '/funcao/whatsapp',
+    descricao: 'Histórico e envio de WhatsApp no lead, notificações e contador de não lidas',
+  },
+  {
+    id: FUNCAO_IA_CARD_LEAD,
+    titulo: 'IA no card lead',
+    url: '/funcao/ia-card-lead',
+    descricao: 'Aba IA do lead com Renderização de projetos (motor e consumo de tokens controlados pela plataforma)',
+  },
+]
+
+/** Descrições do catálogo do master para páginas cujo efeito vai além da rota. */
+const DESCRICAO_NO_CATALOGO: Record<string, string> = {
+  [PAGINA_ORCAMENTOS_IA]: 'Página /orcamentos-ia e a seção/botões "Cotar com IA" dentro do lead',
 }
 
 /** Seção de cada item principal do menu. Itens fora deste mapa (ex.: portal de parceiros) não entram. */
 const SECAO_POR_ITEM: Partial<Record<string, PaginaSecao>> = {
   comercial: 'CRM',
   marketingCrm: 'Marketing',
+  adminCrmGrupo: 'Geral',
   dashboard: 'Movelaria',
   financeiro: 'Movelaria',
   funcionariosGrupo: 'Movelaria',
@@ -52,7 +88,7 @@ const NAO_BLOQUEAVEIS = PAGINAS_NAO_BLOQUEAVEIS
 
 /** Subgrupos do menu que, no catálogo, vão para "Geral › Administração". */
 const SUBGRUPOS_ADMIN = new Set(['adminCrmGrupo'])
-const ITENS_ADMIN = new Set(['configuracoes'])
+const ITENS_ADMIN = new Set(['configuracoes', 'adminCrmGrupo'])
 
 /** Rotas que não aparecem no menu → página-mãe. */
 const ROTAS_EXTRAS: Array<{ prefixo: string; id: string }> = [
@@ -67,7 +103,7 @@ const ROTAS_EXTRAS: Array<{ prefixo: string; id: string }> = [
 
 /** Títulos próprios do catálogo do master (o menu mostra um rótulo dinâmico por empresa). */
 const TITULO_NO_CATALOGO: Record<string, string> = {
-  pontuaGarbo: 'Pontua (programa de pontos)',
+  pontua: 'Pontua (programa de pontos)',
 }
 
 export const SECOES_PAGINAS: PaginaSecao[] = ['CRM', 'Marketing', 'Movelaria', 'Geral']
@@ -86,7 +122,16 @@ function montarCatalogo(): PaginaCatalogo[] {
     if (!url || vistos.has(id)) return
     vistos.add(id)
     titulo = TITULO_NO_CATALOGO[id] ?? titulo
-    lista.push({ id, titulo, url, secao, grupo, subgrupo, bloqueavel: !NAO_BLOQUEAVEIS.has(id) })
+    lista.push({
+      id,
+      titulo,
+      url,
+      secao,
+      grupo,
+      subgrupo,
+      bloqueavel: !NAO_BLOQUEAVEIS.has(id),
+      descricao: DESCRICAO_NO_CATALOGO[id],
+    })
   }
 
   const walk = (items: NavChildItem[], secao: PaginaSecao, grupo: string, subgrupo?: string) => {
@@ -109,8 +154,18 @@ function montarCatalogo(): PaginaCatalogo[] {
     const secao = SECAO_POR_ITEM[item.id]
     if (!secao) continue
     const grupo = grupoDoItem(item)
-    if (item.children?.length) walk(item.children, secao, grupo)
+    // Administração CRM: menu próprio, mas no catálogo segue em Geral › Administração › Administração CRM.
+    if (item.children?.length) walk(item.children, secao, grupo, SUBGRUPOS_ADMIN.has(item.id) ? item.title : undefined)
     else add(item.id, item.title, item.url, secao, grupo)
+  }
+  // Funções (sem rota): grupo próprio no editor do master.
+  for (const f of FUNCOES_CATALOGO) {
+    add(f.id, f.titulo, f.url, 'CRM', 'Funções do CRM')
+    const item = lista.find(p => p.id === f.id)
+    if (item) {
+      item.tipo = 'funcao'
+      item.descricao = f.descricao
+    }
   }
   return lista
 }

@@ -441,4 +441,16 @@
 
 ## Tarefas propostas durante a execução
 
-_(vazio)_
+### M57 — Funções por plano: Orçamentos IA e WhatsApp no lead
+- [x] **Status** (código; falta deploy das edge functions e teste manual no navegador)
+- **Objetivo:** `orcamentosIa` e a nova função `whatsappCrm` controlam seção, índice/busca e botões do modal de lead.
+- **Feito:** catálogo (`FUNCOES_CATALOGO`, `tipo`, `descricao`), `PaginasEditor`/`Planos`, hook `usePaginaLiberada`,
+  `LeadModal`/`lead-modal-nav`/`LeadModalNav`/`LeadModalSearch`/`LeadOrcamentosIaSection`/`LeadPDFAttachments`,
+  dock (`CrmSelletosDock`), `KanbanCard`, `ExportReportDialog`; `motivoRecusa(..., { soPagina })` e recusa em
+  `orcamentos-ia-chat`, `orcamentos-ia-memory`, `get-lead-whatsapp-history`, `send-whatsapp-message`;
+  `check-catalogo.mjs`/`check-paginas-visiveis.mjs` com os novos casos.
+- **Pendente:** deploy das 4 edge functions (e das demais que importam `_shared/tenant.ts`, se quiser o novo parâmetro).
+
+### M58 — IA no card lead: função por plano, motor global do master e cota de tokens
+- [ ] **Status** (em execução; tarefas T01–T29 em `docs/ia-lead/TASKS.md`)
+- **Objetivo:** `iaCardLead` liga/desliga a aba IA do lead; chave/modelos/prompts da Renderização só no master (`/master/modelos`); tokens medidos por empresa com limite mensal; fim da Análise visual. ADR 0007.

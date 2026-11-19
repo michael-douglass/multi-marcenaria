@@ -5,6 +5,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import { isSchemaApiExposed, MASTER_TABLES } from '@/lib/empresa-tables';
 import type { DatabaseUser } from '@/hooks/useUsers';
+import { useAppOptional } from '@/context/AppContext';
 
 /** Carrega apenas o usuário logado (não depende da lista completa de usuários). */
 export function useCurrentUserProfile() {
@@ -12,9 +13,10 @@ export function useCurrentUserProfile() {
   const db = useEmpresaSupabase();
   const table = useTableName();
   const { schemaEmpresa } = useEmpresa();
+  const isMaster = useAppOptional()?.isMaster ?? false;
 
   return useQuery({
-    queryKey: ['current-user-profile', user?.id, schemaEmpresa],
+    queryKey: ['current-user-profile', user?.id, schemaEmpresa, isMaster],
     enabled: !!user?.id,
     queryFn: async (): Promise<DatabaseUser | null> => {
       if (!user?.id) return null;
@@ -47,6 +49,22 @@ export function useCurrentUserProfile() {
           roleDb = supabase;
           resolvedRolesTable = MASTER_TABLES.user_roles;
         }
+      }
+
+      // Master inspecionando outra empresa: o cadastro dele fica na empresa de origem e o isolamento
+      // por empresa o esconde aqui. O perfil é montado da conta logada (papel admin na inspeção).
+      if (!resolvedUsuario && isMaster) {
+        const meta = (user.user_metadata ?? {}) as { nome?: string; full_name?: string; name?: string };
+        return {
+          id: user.id,
+          nome: meta.nome || meta.full_name || meta.name || user.email || 'Master',
+          email: user.email ?? null,
+          telefone: null,
+          avatar_url: null,
+          criado_em: user.created_at ?? new Date().toISOString(),
+          role: 'admin',
+          roles: ['admin'],
+        } as DatabaseUser;
       }
 
       if (!resolvedUsuario) return null;

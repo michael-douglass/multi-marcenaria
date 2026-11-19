@@ -57,7 +57,7 @@ export function formatGeolocationError(error: unknown): string {
   switch (code) {
     case 1:
       return peloAppNaTelaInicial
-        ? 'O celular bloqueou a localização deste aplicativo. No iPhone: Ajustes → GARBO → Localização → Ao Usar. No Android: toque no cadeado ao lado do endereço → Permissões → Localização → Permitir. Depois volte e toque de novo em Permitir localização.'
+        ? 'O celular bloqueou a localização deste aplicativo. No iPhone: Ajustes → (nome do app) → Localização → Ao Usar. No Android: toque no cadeado ao lado do endereço → Permissões → Localização → Permitir. Depois volte e toque de novo em Permitir localização.'
         : 'O celular bloqueou a localização deste site. No iPhone: Ajustes → Safari → Localização → Permitir (e Confirme que Serviços de Localização estão ligados). No Android: toque no cadeado ao lado do endereço → Permissões → Localização → Permitir. Depois volte e toque de novo em Permitir localização.';
     case 2:
       return 'Não encontramos sua posição agora. Ligue o GPS, espere alguns segundos e toque de novo em Permitir localização.';

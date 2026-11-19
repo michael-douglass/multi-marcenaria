@@ -15,7 +15,7 @@ interface ContasPagarPanelStatusFilterProps {
   onToggle: (key: string) => void
 }
 
-/** Chips de status no painel Exportar / Ocultar — tema claro do papel Garbo. */
+/** Chips de status no painel Exportar / Ocultar — tema claro do papel. */
 export function ContasPagarPanelStatusFilter({ activeKeys, onToggle }: ContasPagarPanelStatusFilterProps) {
   return (
     <div className="cobrancas-action-panel__section cobrancas-action-panel__section--filters">

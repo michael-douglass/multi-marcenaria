@@ -8,7 +8,7 @@ import { useApp } from '@/context/AppContext';
 import { useEmpresaBranding, type EmpresaDadosInput } from '@/hooks/useEmpresaBranding';
 import { resolveBrandLogo } from '@/lib/app-branding';
 import { CnpjReceitaIndisponivel, consultarCnpjReceita } from '@/lib/cnpj-receita';
-import { cnpjValido, formatCep, formatCnpj, formatTelefone, somenteDigitos } from '@/lib/empresa-identidade';
+import { cnpjValido, cpfValido, formatCep, formatCnpj, formatCpf, formatTelefone, somenteDigitos } from '@/lib/empresa-identidade';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,10 +30,13 @@ type Campos = {
   telefone: string;
   email: string;
   cor_primaria: string;
+  representante_nome: string;
+  representante_cpf: string;
+  representante_qualificacao: string;
 };
 
 interface EmpresaDadosFormProps {
-  /** `perfil`: tons dourados sobre fundo escuro do /profile. `padrao`: tema do app. */
+  /** `perfil`: cartões creme / tinta escura do /profile claro. `padrao`: tema do app. */
   tom?: 'padrao' | 'perfil';
   className?: string;
 }
@@ -142,6 +145,8 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
     if (!campos.nome.trim()) return void toast.error('Informe o nome fantasia.');
     if (cnpjDigitos && !cnpjOk) return void toast.error('CNPJ inválido. Confira os 14 números.');
     if (campos.uf.trim() && !/^[a-zA-Z]{2}$/.test(campos.uf.trim())) return void toast.error('UF deve ter 2 letras.');
+    const repCpf = somenteDigitos(campos.representante_cpf);
+    if (repCpf && !cpfValido(repCpf)) return void toast.error('CPF do representante inválido.');
     const dados: EmpresaDadosInput = {
       nome: campos.nome.trim(),
       razao_social: campos.razao_social.trim() || null,
@@ -156,6 +161,9 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
       telefone: campos.telefone.trim() || null,
       email: campos.email.trim() || null,
       cor_primaria: campos.cor_primaria || null,
+      representante_nome: campos.representante_nome.trim() || null,
+      representante_cpf: repCpf || null,
+      representante_qualificacao: campos.representante_qualificacao.trim() || null,
     };
     await salvarDadosEmpresa.mutateAsync({ dados, logoFile });
     setLogoFile(null);
@@ -168,20 +176,22 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
   const perfil = tom === 'perfil';
   const cls = {
     bloco: perfil
-      ? 'rounded-xl border border-[rgba(240,210,140,0.12)] bg-[rgba(255,248,235,0.03)] p-4'
+      ? 'rounded-xl border border-[rgba(90,60,40,0.1)] bg-white/75 p-4'
       : 'rounded-lg border bg-card p-4',
     titulo: perfil
-      ? 'text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#c4a88a]'
+      ? 'text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#6b5244]'
       : 'text-sm font-semibold text-foreground',
-    label: perfil ? 'text-xs text-[#edd9c4]' : 'text-xs',
+    label: perfil ? 'text-xs text-[#5c4638]' : 'text-xs',
     input: perfil
-      ? 'h-11 border-[rgba(240,210,140,0.22)] bg-[rgba(18,10,6,0.6)] text-[#f5ebe0] placeholder:text-[#c4a88a]/50 focus-visible:ring-[#f2d892]/40'
+      ? 'h-11 border-[rgba(90,60,40,0.16)] bg-white text-[#2a1810] placeholder:text-[#6b5244]/55 focus-visible:ring-[#8a5a1e]/35'
       : 'h-11',
-    ajuda: perfil ? 'text-xs text-[#c4a88a]' : 'text-xs text-muted-foreground',
+    ajuda: perfil ? 'text-xs text-[#6b5244]' : 'text-xs text-muted-foreground',
     botaoSec: perfil
-      ? 'h-11 gap-2 border-[rgba(240,210,140,0.35)] bg-transparent text-[#f2d892] hover:bg-[#f2d892]/10 hover:text-[#f2d892]'
+      ? 'h-11 gap-2 border-[rgba(90,60,40,0.2)] bg-white text-[#8a5a1e] hover:bg-[rgba(138,90,30,0.08)] hover:text-[#6b3f12]'
       : 'h-11 gap-2',
-    botaoPri: perfil ? 'h-11 bg-[#f2d892] font-semibold text-[#1a0f0a] hover:bg-[#f2d892]/90' : 'h-11',
+    botaoPri: perfil
+      ? 'h-11 bg-[#8a5a1e] font-semibold text-white hover:bg-[#6b3f12]'
+      : 'h-11',
   };
 
   const campo = (k: keyof Campos, label: string, props: React.ComponentProps<typeof Input> = {}, span = '') => (
@@ -194,6 +204,8 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
   );
 
   const salvando = salvarDadosEmpresa.isPending;
+  const repCpfDigitos = somenteDigitos(campos.representante_cpf);
+  const repCpfInvalido = repCpfDigitos.length === 11 && !cpfValido(repCpfDigitos);
   const situacaoAlerta = situacao && situacao !== 'ATIVA';
 
   return (
@@ -205,7 +217,7 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
           <div
             className={cn(
               'flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border p-2',
-              perfil ? 'border-[rgba(240,210,140,0.22)] bg-[rgba(255,248,235,0.06)]' : 'bg-muted/40',
+              perfil ? 'border-[rgba(90,60,40,0.14)] bg-[#fffaf4]' : 'bg-muted/40',
             )}
           >
             <img
@@ -320,6 +332,35 @@ export function EmpresaDadosForm({ tom = 'padrao', className }: EmpresaDadosForm
         </div>
       </div>
 
+      {/* 4. Representante legal */}
+      <div className={cls.bloco}>
+        <p className={cls.titulo}>Representante legal</p>
+        <p className={cn('mt-1', cls.ajuda)}>Quem assina os contratos em nome da empresa.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-6">
+          {campo('representante_nome', 'Nome completo', { placeholder: 'Nome do representante' }, 'sm:col-span-4')}
+          {campo(
+            'representante_cpf',
+            'CPF',
+            {
+              inputMode: 'numeric',
+              placeholder: '000.000.000-00',
+              maxLength: 14,
+              'aria-invalid': repCpfInvalido,
+              className: cn(cls.input, repCpfInvalido && 'border-destructive'),
+              onChange: (e) => setCampos((c) => ({ ...c, representante_cpf: formatCpf(e.target.value) })),
+            },
+            'sm:col-span-2',
+          )}
+          {campo(
+            'representante_qualificacao',
+            'Qualificação (nacionalidade, estado civil, profissão)',
+            { placeholder: 'brasileiro, casado, marceneiro' },
+            'sm:col-span-6',
+          )}
+        </div>
+        {repCpfInvalido && <p className="mt-2 text-xs text-destructive">CPF inválido.</p>}
+      </div>
+
       <div className="flex justify-end">
         <Button type="button" className={cls.botaoPri} onClick={() => void handleSalvar()} disabled={salvando || !campos.nome.trim()}>
           {salvando ? (
@@ -351,5 +392,8 @@ function camposDe(e: ReturnType<typeof useApp>['empresa']): Campos {
     telefone: formatTelefone(e?.telefone),
     email: e?.email ?? '',
     cor_primaria: e?.corPrimaria || COR_PADRAO,
+    representante_nome: e?.representanteNome ?? '',
+    representante_cpf: formatCpf(e?.representanteCpf),
+    representante_qualificacao: e?.representanteQualificacao ?? '',
   };
 }

@@ -13,12 +13,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { Download, Search, Plus, Pencil, X, MapPin, Star } from 'lucide-react';
 import { LeadModal } from '@/components/leads/LeadModal';
 import { useLeads } from '@/hooks/useLeads';
 import { useUsers } from '@/hooks/useUsers';
-import { usePontuaGarboPartnerMap } from '@/hooks/usePontuaGarboPartnerLeads';
+import { usePontuaPartnerMap } from '@/hooks/usePontuaPartnerLeads';
 import { usePermissions } from '@/hooks/usePermissions';
 import { adaptLeadFromDatabase, adaptUserFromDatabase } from '@/lib/adapters';
 import { toast } from 'sonner';
@@ -38,7 +38,7 @@ export default function Leads() {
   const { nomePrograma } = useEmpresaIdentidade();
   const { leads: dbLeads, isLoading: leadsLoading } = useLeads();
   const { users: dbUsers, isLoading: usersLoading } = useUsers();
-  const { data: pontuaGarboPartnerMap } = usePontuaGarboPartnerMap();
+  const { data: pontuaPartnerMap } = usePontuaPartnerMap();
   const { hasPermission } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeStages: pipelineStages } = usePipelineCustomStages();
@@ -279,7 +279,7 @@ export default function Leads() {
     <div className="leads-page-shell relative -mx-2 -mt-2 min-h-[calc(100svh-4.25rem)] sm:-mx-3 sm:-mt-3">
       <div className="relative z-[1] space-y-5 p-4 sm:p-6 md:p-8">
       {isInitialLeadsLoad ? (
-        <GarboBrandLoader variant="inline" size="md" message="Carregando leads…" />
+        <BrandLoader variant="inline" size="md" message="Carregando leads…" />
       ) : (
       <Tabs defaultValue="leads" className="w-full">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -387,7 +387,7 @@ export default function Leads() {
                     >
                       <TableCell className="py-3 font-medium text-[#2a1812]">
                         <span className="inline-flex items-center gap-1.5">
-                          {pontuaGarboPartnerMap?.get(lead.id) && (
+                          {pontuaPartnerMap?.get(lead.id) && (
                             <Star
                               className="h-3.5 w-3.5 shrink-0 fill-[#8d5e22] text-[#8d5e22]"
                               aria-label={`Parceiro ${nomePrograma}`}

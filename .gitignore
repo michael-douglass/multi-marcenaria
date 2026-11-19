@@ -34,3 +34,6 @@ docs/evidence/_cortecloud-har-extract.json
 # Artefatos temporários do baseline (dump bruto do banco de origem)
 supabase/baseline/.work/
 supabase/.temp/
+
+# Testes de navegador da Lousa (sessão de login e capturas) — nunca versionar
+scripts/lousa-lead/out/

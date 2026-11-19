@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
-import { GARBO_WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
+import { WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 
 interface WhiteboardWoodFoilProps {
@@ -98,7 +98,7 @@ export function WhiteboardWoodFoil({ className }: WhiteboardWoodFoilProps) {
     const manager = new THREE.LoadingManager();
     const loader = new THREE.TextureLoader(manager);
     loader.load(
-      GARBO_WOOD_TEXTURE_URL,
+      WOOD_TEXTURE_URL,
       (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.wrapS = THREE.RepeatWrapping;

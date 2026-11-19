@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 
 interface ChatMessage {
@@ -27,6 +27,15 @@ function isSystemMessage(content: string): boolean {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Função "WhatsApp" desabilitada no plano → sem histórico (leitura: não recusa por somente leitura).
+  const recusa = await motivoRecusa(req, 'whatsappCrm', { soPagina: true })
+  if (recusa) {
+    return new Response(JSON.stringify({ error: recusa }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 403,
+    })
   }
 
   try {

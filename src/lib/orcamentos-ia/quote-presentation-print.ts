@@ -1,4 +1,5 @@
 import { CORTE_CLAUDE_TOKENS } from '@/lib/orcamentos-ia/ui-tokens'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import {
   formatBRL,
   type QuotePresentationLayout,
@@ -537,7 +538,7 @@ function buildPriceListBodyHtml(layout: QuotePresentationLayout): string {
       </div>
     </header>
     ${envBlocks || '<section class="qp-pl-env"><p class="qp-env-sub">Nenhum móvel cotado.</p></section>'}
-    <footer class="qp-footer">Garbo orçamentos</footer>
+    <footer class="qp-footer">${esc(empresaDocumento().nomeFantasia)} · orçamento</footer>
   </article>`
 }
 
@@ -631,7 +632,7 @@ export function buildQuotePresentationBodyHtml(
     </header>
     ${envHtml || '<section class="qp-env"><p class="qp-env-sub">Nenhum ambiente cotado nesta análise.</p></section>'}
     ${oosHtml}
-    <footer class="qp-footer">Garbo orçamentos</footer>
+    <footer class="qp-footer">${esc(empresaDocumento().nomeFantasia)} · orçamento</footer>
   </article>`
 }
 

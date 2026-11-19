@@ -1,5 +1,5 @@
 /**
- * Normaliza e valida e-mail de lead para auto-save e cadastro no Pontua Garbo.
+ * Normaliza e valida e-mail de lead para auto-save e cadastro no Pontua.
  * Cobre erros comuns de digitação no Brasil (vírgula no domínio, hotmail/gmail).
  */
 

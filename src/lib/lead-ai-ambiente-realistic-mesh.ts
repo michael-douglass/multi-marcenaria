@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { getFurnitureModuleMeta, type FurnitureModuleMeta } from '@/lib/furniture-modules';
 import {
-  GARBO_WOOD_TEXTURE_URL,
+  WOOD_TEXTURE_URL,
   clampOrbitPitch,
   quantizeOrbitDeg,
   wrapOrbitYaw,
@@ -1053,7 +1053,7 @@ function getSharedStudio(): SharedStudio | null {
     };
     const loader = new THREE.TextureLoader();
     loader.load(
-      GARBO_WOOD_TEXTURE_URL,
+      WOOD_TEXTURE_URL,
       (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.wrapS = THREE.RepeatWrapping;

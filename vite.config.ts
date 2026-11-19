@@ -9,15 +9,16 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'garbo-logo.png',
+        'favicon.png',
+        'imagens/marca-padrao.svg',
         'apple-touch-icon.png',
         'pwa-192x192.png',
         'pwa-512x512.png',
       ],
       manifest: {
-        name: 'GARBO Movelaria — Sistema Financeiro',
-        short_name: 'GARBO',
-        description: 'Gestão financeira, obras e operação — GARBO Movelaria',
+        name: 'Gestão — Sistema da empresa',
+        short_name: 'Gestão',
+        description: 'Gestão financeira, comercial, obras e operação da empresa',
         theme_color: '#f2d892',
         background_color: '#2a1812',
         display: 'standalone',
@@ -61,7 +62,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'garbo-google-fonts-stylesheets',
+              cacheName: 'app-google-fonts-stylesheets',
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
@@ -73,7 +74,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'garbo-google-fonts-webfonts',
+              cacheName: 'app-google-fonts-webfonts',
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds: 60 * 60 * 24 * 365,

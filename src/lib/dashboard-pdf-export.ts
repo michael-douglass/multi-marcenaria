@@ -4,6 +4,7 @@
  */
 import { fmtCur } from '@/lib/utils'
 import type { DadoGraficoMensal, FinanceiroStats } from '@/types'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 export interface DashboardPdfMesComparativo {
   mes: string
@@ -405,7 +406,7 @@ const PDF_CSS = `
 
 function buildDocumentHtml(input: DashboardPdfExportInput): string {
   const s = input.stats
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',

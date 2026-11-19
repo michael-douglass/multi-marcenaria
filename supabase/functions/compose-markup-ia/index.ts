@@ -336,11 +336,13 @@ function servicoTemplatesTable(empresaSchema?: string | null): string {
 
 async function loadServicoTemplates(
   db: ReturnType<typeof resolveDb>,
+  empresaId: string,
   empresaSchema?: string | null,
 ): Promise<MarkupCatalogServico[]> {
   const { data, error } = await db
     .from(servicoTemplatesTable(empresaSchema))
     .select('id, nome, valor_hora_padrao, unidade_cobranca, ordem')
+    .eq('empresa_id', empresaId)
     .eq('ativo', true)
     .order('ordem', { ascending: true });
 
@@ -363,11 +365,13 @@ async function loadServicoTemplates(
 
 async function loadDespesaTemplates(
   db: ReturnType<typeof resolveDb>,
+  empresaId: string,
   empresaSchema?: string | null,
 ): Promise<MarkupCatalogDespesa[]> {
   const { data, error } = await db
     .from(despesaTemplatesTable(empresaSchema))
     .select('id, nome, valor_padrao, ordem')
+    .eq('empresa_id', empresaId)
     .eq('ativo', true)
     .order('ordem', { ascending: true });
 
@@ -388,11 +392,13 @@ async function loadDespesaTemplates(
 
 async function loadMarkupParametros(
   db: ReturnType<typeof resolveDb>,
+  empresaId: string,
   empresaSchema?: string | null,
 ): Promise<MarkupCatalogParametros> {
   const { data, error } = await db
     .from(markupConfigTable(empresaSchema))
     .select('valor_hora_marcenaria, valor_dia_marcenaria, fator_sobras, margem_lucro, percentual_imposto, taxas_financeiras')
+    .eq('empresa_id', empresaId)
     .limit(1)
     .maybeSingle();
 
@@ -410,6 +416,7 @@ async function loadMarkupParametros(
 
 async function loadCatalog(
   db: ReturnType<typeof resolveDb>,
+  empresaId: string,
   empresaSchema?: string | null,
 ): Promise<MarkupCatalogProduct[]> {
   const produtosTable = isEmpresaSchema(empresaSchema)
@@ -422,13 +429,15 @@ async function loadCatalog(
   const { data: produtos, error: prodError } = await db
     .from(produtosTable)
     .select('id, nome, variacao, unidade, preco_unitario, categoria_id, ativo')
+    .eq('empresa_id', empresaId)
     .eq('ativo', true);
 
   if (prodError) throw prodError;
 
   const { data: categorias, error: catError } = await db
     .from(categoriasTable)
-    .select('id, nome, subcategoria');
+    .select('id, nome, subcategoria')
+    .eq('empresa_id', empresaId);
 
   if (catError) throw catError;
 
@@ -1622,7 +1631,11 @@ Deno.serve(async (req) => {
   if (recusa) return jsonResponse({ error: recusa }, 403);
 
   try {
-    const supabase = serviceClient(await empresaDoChamador(req));
+    const empresaId = await empresaDoChamador(req);
+    if (!empresaId) {
+      return jsonResponse({ error: 'Usuário sem empresa ativa' }, 403);
+    }
+    const supabase = serviceClient(empresaId);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -1654,9 +1667,21 @@ Deno.serve(async (req) => {
 
     const db = resolveDb(supabase, empresaSchema);
 
+    // Service role ignora RLS: o lead (e com ele análises e conhecimento) precisa ser da empresa de quem chama.
+    const { data: leadDaEmpresa, error: leadError } = await db
+      .from(isEmpresaSchema(empresaSchema) ? 'leads' : 'CRM-multi-empresas>leads<')
+      .select('id')
+      .eq('id', leadId)
+      .eq('empresa_id', empresaId)
+      .maybeSingle();
+    if (leadError || !leadDaEmpresa) {
+      return jsonResponse({ error: 'Lead não encontrado nesta empresa' }, 404);
+    }
+
     const { data: pipelineConfig, error: pipelineError } = await db
       .from(pipelineConfigTable(empresaSchema))
       .select('ativo, openai_api_key')
+      .eq('empresa_id', empresaId)
       .eq('singleton_key', 'default')
       .maybeSingle();
 
@@ -1683,6 +1708,7 @@ Deno.serve(async (req) => {
     const { data: markupConfig, error: markupConfigError } = await db
       .from(markupConfigTable(empresaSchema))
       .select('markup_ia_prompt, markup_ia_model, markup_ia_ativo, markup_ia_verificacao, markup_ia_agent_prompts, markup_ia_auditor_model')
+      .eq('empresa_id', empresaId)
       .limit(1)
       .maybeSingle();
 
@@ -1695,7 +1721,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Composição com IA desativada nas configurações de markup' }, 403);
     }
 
-    const catalog = await loadCatalog(db, empresaSchema);
+    const catalog = await loadCatalog(db, empresaId, empresaSchema);
     if (catalog.length === 0) {
       return jsonResponse(
         { error: 'Catálogo de produtos vazio. Cadastre materiais em Markup → Configurações.' },
@@ -1703,9 +1729,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const despesaTemplates = await loadDespesaTemplates(db, empresaSchema);
-    const servicoTemplates = await loadServicoTemplates(db, empresaSchema);
-    const parametros = await loadMarkupParametros(db, empresaSchema);
+    const despesaTemplates = await loadDespesaTemplates(db, empresaId, empresaSchema);
+    const servicoTemplates = await loadServicoTemplates(db, empresaId, empresaSchema);
+    const parametros = await loadMarkupParametros(db, empresaId, empresaSchema);
 
     const analise = await loadLatestAnalise(db, leadId, empresaSchema);
     const knowledgeHits = await searchLeadKnowledge(

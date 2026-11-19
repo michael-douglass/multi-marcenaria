@@ -353,7 +353,7 @@ async function loadLeadProjetosBoard(
   if (leadIds.length > 0) {
     const { data: leads, error: leadsError } = await db
       .from('leads')
-      .select('id, nome, empresa, status, pontua_garbo_usuario_id')
+      .select('id, nome, empresa, status, pontua_usuario_id')
       .in('id', leadIds)
     if (leadsError) throw leadsError
     for (const lead of leads ?? []) {
@@ -361,7 +361,7 @@ async function loadLeadProjetosBoard(
         nome: String(lead.nome ?? 'Lead'),
         empresa: lead.empresa ? String(lead.empresa) : null,
         status: lead.status != null && String(lead.status).trim() ? String(lead.status) : null,
-        parceiroId: lead.pontua_garbo_usuario_id ? String(lead.pontua_garbo_usuario_id) : null,
+        parceiroId: lead.pontua_usuario_id ? String(lead.pontua_usuario_id) : null,
       })
     }
   }

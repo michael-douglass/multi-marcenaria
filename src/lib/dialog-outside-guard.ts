@@ -301,7 +301,7 @@ export function shouldPreventDialogOutsideClose(
   if (target?.closest('[data-floating-agenda-panel]')) return true;
   if (target?.closest('[data-whiteboard-project-picker]')) return true;
   if (target?.closest('[data-ambiente-photo-studio]')) return true;
-  if (target?.closest('[data-pontua-garbo-dialog]')) return true;
+  if (target?.closest('[data-pontua-dialog]')) return true;
   if (target?.closest('[data-whiteboard-viewport]')) return true;
   if (target?.closest('[data-whiteboard-fullscreen]')) return true;
   if (target?.closest('[data-furniture-catalog]')) return true;

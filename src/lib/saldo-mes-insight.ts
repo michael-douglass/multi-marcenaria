@@ -70,8 +70,8 @@ export function resolveSaldoMesForecastTone(saldo: number): SaldoMesInsightTone 
   return resolveSaldoMesInsightTone(saldo)
 }
 
-const STORAGE_KEY = 'garbo.saldo-mes-insight.config'
-const LOCK_STORAGE_KEY = 'garbo.saldo-mes-insight.locked'
+const STORAGE_KEY = 'app.saldo-mes-insight.config'
+const LOCK_STORAGE_KEY = 'app.saldo-mes-insight.locked'
 
 function roundMoney(n: number): number {
   if (!Number.isFinite(n)) return 0

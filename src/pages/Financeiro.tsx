@@ -1,14 +1,14 @@
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { useMemo, useState } from 'react';
-import { usePontuaGarboFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
+import { usePontuaFinanceiro } from '@/hooks/usePontuaFinanceiro';
 import { useSaquePedidosAdmin } from '@/hooks/useSaquePedidos';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  canManagePontuaGarboFinanceiro,
-  canViewPontuaGarboFinanceiro,
-} from '@/lib/pontua-garbo-access';
+  canManagePontuaFinanceiro,
+  canViewPontuaFinanceiro,
+} from '@/lib/pontua-access';
 import { Trophy, Users } from 'lucide-react';
 import { SaquePedidosAdminPanel } from '@/components/financeiro/SaquePedidosAdminPanel';
 import { ComissoesLiberacaoAdminPanel } from '@/components/financeiro/ComissoesLiberacaoAdminPanel';
@@ -26,10 +26,11 @@ import {
   PontuaSolicitantesSaqueCard,
   PontuaSolicitantesSaqueDialog,
 } from '@/components/financeiro/PontuaSolicitantesSaque';
-import { calcularPontuaMetricas } from '@/lib/pontua-garbo-metricas';
+import { calcularPontuaMetricas } from '@/lib/pontua-metricas';
 import { FinanceiroPontuaPdfExportButton } from '@/components/financeiro/FinanceiroPontuaPdfExportButton';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import type { FinanceiroPontuaPdfExportInput } from '@/lib/financeiro-pontua-pdf-export';
+import { APP_SYSTEM_NAME } from '@/lib/app-branding';
 
 const PERIODOS = [
   { meses: 6, label: '6 meses' },
@@ -40,7 +41,7 @@ export default function Financeiro() {
   const { nomePrograma } = useEmpresaIdentidade();
   const { empresa } = useEmpresa();
   const { userRole, userRoles, isSuperAdmin } = useAuth();
-  const { prestadores, isLoading } = usePontuaGarboFinanceiro();
+  const { prestadores, isLoading } = usePontuaFinanceiro();
   const { pedidos, isLoading: saquesLoading } = useSaquePedidosAdmin();
   const [busca, setBusca] = useState('');
   const [destaqueId, setDestaqueId] = useState<string | null>(null);
@@ -48,8 +49,8 @@ export default function Financeiro() {
   const [solicitantesAberto, setSolicitantesAberto] = useState(false);
   const [meses, setMeses] = useState<number>(12);
 
-  const canManage = canManagePontuaGarboFinanceiro(userRole, isSuperAdmin);
-  const canView = canViewPontuaGarboFinanceiro(userRole, isSuperAdmin, userRoles);
+  const canManage = canManagePontuaFinanceiro(userRole, isSuperAdmin);
+  const canView = canViewPontuaFinanceiro(userRole, isSuperAdmin, userRoles);
 
   const metricas = useMemo(
     () => calcularPontuaMetricas(prestadores, pedidos, { meses }),
@@ -82,7 +83,7 @@ export default function Financeiro() {
       metricas,
       meses,
       arquitetos: arquitetosFiltrados,
-      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      empresaNome: empresa?.nome ?? APP_SYSTEM_NAME,
       busca,
     };
   }, [isLoading, saquesLoading, metricas, meses, arquitetosFiltrados, empresa?.nome, busca]);

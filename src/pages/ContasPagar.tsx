@@ -65,6 +65,7 @@ import {
 import type { ContaPagar, Fornecedor, PendingContaPagarAnexo } from '../types'
 import { CaixaPopup } from '@/components/layout/CaixaPopup'
 import { useFloatingTopOffset } from '@/hooks/useFloatingTopOffset'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 
 // ── Componente de seleção de fornecedor com busca ─────────────
 const normForn = (s: string) => s.toLowerCase().replace(/[\s.]/g, '')
@@ -844,7 +845,7 @@ export function ContasPagar({ fornecedores, getSaldoFornecedor, debitarSaldo, es
     getStatus,
     periodFilter,
     kpis: kpiCards.map(({ label, hint, value, tone }) => ({ label, hint, value, tone })),
-    empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+    empresaNome: empresa?.nome ?? APP_SYSTEM_NAME,
     filtrosStatusLabel,
     busca: search,
   }

@@ -19,6 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMarketingGastos, MktConfigColuna } from '@/hooks/useMarketingGastos';
 import { useSystemDataFetcher } from '@/hooks/useSystemDataFetcher';
 import { useFormulaEngine } from '@/hooks/useFormulaEngine';
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada';
+import { FUNCAO_WHATSAPP } from '@/lib/paginas-catalogo';
 
 interface ExportReportDialogProps {
   open: boolean;
@@ -131,6 +133,8 @@ export function ExportReportDialog({
   const { fontes, subFontes, colunas, lancamentos, fetchColunas, fetchLancamentos } = useMarketingGastos();
   const { fetchSystemDataBatch, getSystemDataValue, fetchAllMonthlyTotals, getMonthlyTotalValue } = useSystemDataFetcher();
   const { calculateColumnValue, formatValue } = useFormulaEngine();
+  // Função "WhatsApp" desabilitada no plano → o relatório não inclui conversas.
+  const whatsappLiberado = usePaginaLiberada(FUNCAO_WHATSAPP);
 
   const [selectedSections, setSelectedSections] = useState<string[]>(
     REPORT_SECTIONS.filter(s => s.category !== 'conversas').map(s => s.id)
@@ -715,7 +719,7 @@ export function ExportReportDialog({
       }
 
       // Seção de Conversas
-      if (selectedSections.includes('exportar_conversas')) {
+      if (whatsappLiberado && selectedSections.includes('exportar_conversas')) {
         const conversasLimit = conversasQuantidade === 'todas' ? filteredLeads.length : (parseInt(conversasQuantidade) || 10);
         const leadsParaConversa = filteredLeads.filter(l => l.phone).slice(0, conversasLimit);
 
@@ -1206,11 +1210,13 @@ export function ExportReportDialog({
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="exportar_conversas"
-                    checked={selectedSections.includes('exportar_conversas')}
+                    checked={whatsappLiberado && selectedSections.includes('exportar_conversas')}
+                    disabled={!whatsappLiberado}
                     onCheckedChange={() => toggleSection('exportar_conversas')}
                   />
                   <label htmlFor="exportar_conversas" className="text-sm cursor-pointer">
                     Incluir histórico de conversas no relatório
+                    {!whatsappLiberado ? ' (WhatsApp desabilitado no plano)' : ''}
                   </label>
                 </div>
                 

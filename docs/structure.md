@@ -125,8 +125,23 @@ scripts: `docs/multi-empresa/DESIGN.md`, `docs/multi-empresa/PROGRESSO.md` e
   `src/master/*` (console isolado: `MasterApp`, `MasterLayout`, `pages/`, `components/PaginasEditor`),
   `src/components/master/*` (faixa de inspeção, nova empresa), `src/lib/paginas-catalogo.ts`,
   `src/lib/kanbans-padrao.ts` (Pipeline/kanbans padrão; par SQL `crm_seed_pipeline_padrao`).
+  `src/lib/contrato-padrao.ts` (modelo de contrato padrão + 17 campos; par SQL `crm_seed_contrato_padrao`) e
+  `src/lib/contrato-variaveis.ts` (motor: padrões, calculadas, `{{#se}}`; usado por `buildConteudoContrato`).
 - Edge Functions: `supabase/functions/_shared/tenant.ts`.
 - Scripts: `scripts/multi-empresa/*` (gerador de migration, testes de isolamento, deploy).
+
+## Modelos padrão do master (markup, slides, contratos, apresentação, Pontua)
+
+O master monta modelos em **empresas-modelo** (`empresas.e_modelo`, com `segmento`) editando nas telas normais (inspeção em acesso total), publica em `/master/modelos`, liga a planos em `/master/planos` e envia; cada empresa recebe uma **cópia** que só acrescenta. Docs: `docs/modelos-padrao/`, ADR `0005`.
+
+- Banco: `plataforma_modelos` / `plataforma_plano_modelos` / `plataforma_modelo_entregas`; cópias `plataforma_copiar_{markup,slides,contrato,apresentacao,pontua}` (postgres, `empresa_id` explícito, chaves naturais); `plataforma_aplicar_modelo`; RPCs `master_criar_empresa_modelo`, `master_listar_modelos`, `master_publicar_modelo`, `master_salvar_modelos_plano`, `master_enviar_modelo`, `master_listar_entregas`. `master_criar_empresa` aplica os modelos publicados do plano antes do seed. Migrations `20261118140000`–`20261118140600`. **Tabela nova num módulo copiável exige atualizar a função de cópia.**
+- Apresentação/Pontua: `crm.apresentacao_conteudo` (jsonb por empresa) + `apresentacao_publica(slug)`; front em `src/components/marketing/apresentacao-empresa/apresentacao-conteudo.ts` (padrão neutro com `{empresa}`, mescla), `ApresentacaoConteudoContext.tsx`, `src/hooks/useApresentacaoConteudo.ts`. Editores: `ApresentacaoEditorPage.tsx` (`/marketing/apresentacao-interna/editar`, grava `conteudo`) e `PontuaEditorPage.tsx` (`/marketing/pontua/editar`, grava `pontua`), campos em `editor-campos.tsx`. Página Pontua `/marketing/pontua` (`PontuaPage.tsx`, modo `somentePontua` de `ApresentacaoEmpresa`). Links públicos `/apresentacao/:slug` e `/apresentacao/:slug/pontua`.
+- Console: `src/master/pages/Modelos.tsx`, `src/master/components/modelos/*`.
+- Testes: blocos T42–T57 de `scripts/multi-empresa/test-plataforma.sql`; `node --env-file=.env scripts/modelos-padrao/test-modelos-api.mjs` (API real, cria e apaga). Importação única do banco antigo: `scripts/modelos-padrao/importar-empresa-antiga.mjs`.
+
+## Marca neutra (sem nome de empresa cliente)
+
+O sistema não tem marca fixa (ADR `0006`, docs `docs/marca-neutra/`): depois do login mostra nome e logo da empresa; antes do login e no PWA usa "Gestão" e o monograma `public/imagens/marca-padrao.{svg,png}` (`src/lib/marca-padrao.ts`, gerado por `scripts/marca-neutra/gerar-icones.mjs`). Pontua no banco: tabelas `crm.pontua_lancamentos` / `crm.pontua_comissao_liberacoes`, colunas `config_pontua`, `pontua_percentual`, `leads.pontua_usuario_id`; valor gravado do campo/origem = `'Pontua'`. Lógica em `src/lib/pontua*.ts`, `src/hooks/usePontua*.ts`, edge `_shared/pontua-lead.ts`. Migrations `20261119100000`–`20261119100300`. Código novo não cita empresa cliente; fotos padrão em `public/imagens/apresentacao/`.
 
 ## Identidade da marcenaria (logo, CNPJ, nome fantasia, "Pontua {nome}")
 
@@ -142,5 +157,5 @@ Cada empresa cadastra a própria identidade no **/profile → "Dados da empresa"
   - `EmpresaDadosLegais` + `EmpresaPublicaProvider` (slides e página pública);
   - variáveis `{{empresa_*}}` de contrato (`VARIAVEIS_EMPRESA` em `src/lib/contratos-print.ts`);
   - PDFs e recibos via `empresaDocumento()`;
-  - "Pontua {nome}" via `nomePrograma` / `aplicarNomePrograma` (menu).
-- Os valores gravados `'Pontua Garbo'` (`PONTUA_GARBO_CAMPO_NOME`, `PONTUA_GARBO_LEAD_ORIGEM`) **não mudam**: só a exibição passa por `rotuloPontua`.
+  - "Pontua {nome}" via `nomePrograma` (cartões, financeiro, portal). A página `/marketing/pontua` se chama só "Pontua" no menu.
+- O valor gravado do campo/origem é `'Pontua'` (`PONTUA_CAMPO_NOME`, `PONTUA_LEAD_ORIGEM`); a exibição passa por `rotuloPontua`.

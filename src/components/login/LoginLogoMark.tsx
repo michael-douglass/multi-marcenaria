@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
-import { GARBO_WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
+import { WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 
-const LOGO_SRC = '/garbo-logo.png';
+const LOGO_SRC = '/imagens/marca-padrao.png';
 
 interface LoginLogoMarkProps {
   onActivate?: () => void;
@@ -54,7 +54,7 @@ export function LoginLogoMark({ onActivate }: LoginLogoMarkProps) {
     });
 
     const loader = new THREE.TextureLoader();
-    const woodTex = loader.load(GARBO_WOOD_TEXTURE_URL, (tex) => {
+    const woodTex = loader.load(WOOD_TEXTURE_URL, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
@@ -138,7 +138,7 @@ export function LoginLogoMark({ onActivate }: LoginLogoMarkProps) {
       ref={plateRef}
       type="button"
       className={cn('login-logo-mark', pressed && 'login-logo-mark--pressed')}
-      aria-label="Marca GARBO Movelaria — clicar foca o e-mail"
+      aria-label="Marca da plataforma — clicar foca o e-mail"
       onPointerMove={onPointerMove}
       onPointerLeave={() => {
         resetTilt();
@@ -151,7 +151,7 @@ export function LoginLogoMark({ onActivate }: LoginLogoMarkProps) {
       <span ref={hostRef} className="login-logo-mark__wood" aria-hidden />
       <span className="login-logo-mark__frame" aria-hidden />
       <span className="login-logo-mark__sheen" aria-hidden />
-      <img src={LOGO_SRC} alt="GARBO Movelaria" className="login-logo-mark__img" draggable={false} />
+      <img src={LOGO_SRC} alt="Marca da plataforma" className="login-logo-mark__img" draggable={false} />
     </button>
   );
 }

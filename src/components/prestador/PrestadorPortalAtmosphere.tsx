@@ -1,4 +1,4 @@
-import { GarboPontuaPointsScene } from '@/components/marketing/apresentacao-empresa/GarboPontuaPointsScene';
+import { PontuaPointsScene } from '@/components/marketing/apresentacao-empresa/PontuaPointsScene';
 
 interface PrestadorPortalAtmosphereProps {
   /** Pausa o loop 3D quando a seção do portal não está visível. */
@@ -27,7 +27,7 @@ export function PrestadorPortalAtmosphere({ active = true }: PrestadorPortalAtmo
           maskImage: 'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.95) 100%)',
         }}
       />
-      <GarboPontuaPointsScene
+      <PontuaPointsScene
         active={active}
         showCenterLogo={false}
         className="absolute inset-y-0 right-0 h-full w-full opacity-50 sm:w-[58%] sm:opacity-80"

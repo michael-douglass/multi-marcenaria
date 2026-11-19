@@ -1,4 +1,4 @@
-# GARBO Movelaria — deploy na Netlify (Vite + React SPA)
+# Deploy na Netlify (Vite + React SPA)
 # https://docs.netlify.com/configure-builds/file-based-configuration/
 
 [build]

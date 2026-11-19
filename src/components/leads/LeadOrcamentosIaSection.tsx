@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useEmpresa } from '@/contexts/EmpresaContext'
 import { useApp } from '@/context/AppContext'
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada'
+import { PAGINA_ORCAMENTOS_IA } from '@/lib/paginas-catalogo'
 import { useOrcamentosIaBackground } from '@/contexts/OrcamentosIaBackgroundContext'
 import { canAccessCrmPath } from '@/lib/crm-identity'
 import { ThoughtShaderCanvas } from '@/components/orcamentos-ia/ThoughtShaderCanvas'
@@ -129,7 +131,8 @@ export function LeadOrcamentosIaSection({
   const navigate = useNavigate()
   const location = useLocation()
   const companyId = empresa?.id ?? ''
-  const canOpen = canAccessCrmPath('/orcamentos-ia', crmProfile, userProfile)
+  const orcamentosIaLiberado = usePaginaLiberada(PAGINA_ORCAMENTOS_IA)
+  const canOpen = orcamentosIaLiberado && canAccessCrmPath('/orcamentos-ia', crmProfile, userProfile)
 
   const [loading, setLoading] = useState(false)
   const [creatingSlides, setCreatingSlides] = useState(false)

@@ -11,7 +11,7 @@ interface LogoProps {
 }
 
 /**
- * Logo da empresa ativa (multi-empresa), com a logo GARBO como padrão. Enquanto a empresa carrega
+ * Logo da empresa ativa (multi-empresa), com a marca padrão da plataforma. Enquanto a empresa carrega
  * a imagem fica invisível (mantendo o espaço) para não piscar a marca de outra empresa.
  */
 export function Logo({ full = true, halo = true, height = 44 }: LogoProps) {

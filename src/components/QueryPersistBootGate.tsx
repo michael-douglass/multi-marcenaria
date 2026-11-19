@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 /**
  * Enquanto o cache local do React Query restaura, mantém a árvore montada
@@ -37,7 +37,7 @@ export function QueryPersistBootGate({ children }: { children: ReactNode }) {
           aria-busy="true"
           aria-live="polite"
         >
-          <GarboBrandLoader variant="inline" size="md" message="Atualizando dados…" />
+          <BrandLoader variant="inline" size="md" message="Atualizando dados…" />
         </div>
       ) : null}
     </>

@@ -15,7 +15,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GARBO_WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
+import { WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AmbienteSceneDockProps {
@@ -59,7 +59,7 @@ function useWoodStrip(): string | null {
     THREE.Cache.enabled = true;
     const loader = new THREE.TextureLoader();
     loader.load(
-      GARBO_WOOD_TEXTURE_URL,
+      WOOD_TEXTURE_URL,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         const image = texture.image as HTMLImageElement | undefined;
@@ -69,7 +69,7 @@ function useWoodStrip(): string | null {
         canvas.height = 420;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          setSrc(GARBO_WOOD_TEXTURE_URL);
+          setSrc(WOOD_TEXTURE_URL);
           return;
         }
         ctx.fillStyle = '#1a100c';
@@ -87,7 +87,7 @@ function useWoodStrip(): string | null {
       },
       undefined,
       () => {
-        if (!cancelled) setSrc(GARBO_WOOD_TEXTURE_URL);
+        if (!cancelled) setSrc(WOOD_TEXTURE_URL);
       },
     );
     return () => {

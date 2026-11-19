@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
 
-const WOOD_GRAIN_URL = '/imagens/apresentacao-garbo/projetos/cubo-painel-madeira.png';
+const WOOD_GRAIN_URL = '/imagens/apresentacao/projetos/cubo-painel-madeira.png';
 
 interface CapaAtmosphereFoilProps {
   className?: string;
@@ -13,7 +13,7 @@ interface CapaAtmosphereFoilProps {
 }
 
 /**
- * Véu de madeira e ouro na capa da proposta — carrega a textura real da Garbo
+ * Véu de madeira e ouro na capa da proposta — carrega a textura real de madeira
  * e mistura com um brilho dourado lento (como folha metálica no papel).
  */
 export function CapaAtmosphereFoil({

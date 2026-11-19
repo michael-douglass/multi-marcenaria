@@ -1,5 +1,14 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import {
+  autorizarIaCardLead,
+  checarCota,
+  ehRecusa,
+  mensagemSegura,
+  registrarUso,
+  respostaRecusa,
+  type OpenAiUsage,
+} from '../_shared/ia-card-lead.ts';
+import { modeloImagemPermitido } from '../_shared/ia-card-lead-modelos.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { buildSurgicalEditPrompt, type EditPonto } from '../_shared/render-prompts.ts';
 import { callOpenAIImageEdit } from '../_shared/openai-image-edit.ts';
@@ -9,8 +18,6 @@ import {
   readImageDimensions,
 } from '../_shared/edit-mask.ts';
 
-const ALLOWED_IMAGE_MODELS = new Set(['gpt-image-1.5', 'gpt-image-1', 'dall-e-2']);
-const DEFAULT_IMAGE_MODEL = 'gpt-image-1.5';
 const RENDER_BUCKET = 'lead-ai-renders';
 const MARKETING_BUCKET = 'marketing-medias';
 const ORCAMENTOS_FOLDER_NAME = 'orçamentos';
@@ -18,7 +25,6 @@ const MAX_PONTOS = 8;
 
 interface EditRenderRequest {
   leadId: number;
-  empresaSchema?: string | null;
   parentRenderId?: string;
   editNotas: string;
   editPontos: EditPonto[];
@@ -42,44 +48,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function isEmpresaSchema(schema: string | null | undefined): boolean {
-  return !!schema && /^emp_[a-z0-9_]+$/.test(schema);
-}
-
-function resolveDb(client: SupabaseClient, empresaSchema?: string | null) {
-  if (isEmpresaSchema(empresaSchema)) {
-    return client.schema(empresaSchema!);
-  }
-  return client;
-}
-
-function configTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'pipeline_lead_ai_config'
-    : 'CRM-multi-empresas>pipeline_lead_ai_config<';
-}
-
-function rendersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'lead_ai_renders'
-    : 'CRM-multi-empresas>lead_ai_renders<';
-}
-
-function mediasTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_medias'
-    : 'crm_multiempresas_marketing_medias';
-}
-
-function foldersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_media_folders'
-    : 'crm_multiempresas_marketing_media_folders';
-}
-
-function storagePrefix(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema) ? empresaSchema! : 'master';
-}
+type CrmDb = ReturnType<SupabaseClient['schema']>;
 
 function aiRenderAttachmentFileName(renderId: string): string {
   return `render-ia-${renderId}.png`;
@@ -195,14 +164,12 @@ function validatePontos(pontos: unknown): EditPonto[] | null {
   return valid;
 }
 
-async function getOrCreateOrcamentosFolder(
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema?: string | null,
-): Promise<string | null> {
-  const foldersTable = foldersTableName(empresaSchema);
+async function getOrCreateOrcamentosFolder(db: CrmDb, empresaId: string): Promise<string | null> {
+  const foldersTable = 'marketing_media_folders';
   const { data: existing } = await db
     .from(foldersTable)
     .select('id')
+    .eq('empresa_id', empresaId)
     .eq('nome', ORCAMENTOS_FOLDER_NAME)
     .maybeSingle();
 
@@ -223,14 +190,14 @@ async function getOrCreateOrcamentosFolder(
 
 async function saveRenderAsLeadAttachment(
   supabase: SupabaseClient,
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema: string | null | undefined,
+  db: CrmDb,
+  empresaId: string,
   leadId: number,
   renderId: string,
   outputBytes: Uint8Array,
   label: string,
 ): Promise<void> {
-  const prefix = storagePrefix(empresaSchema);
+  const prefix = empresaId;
   const fileName = aiRenderAttachmentFileName(renderId);
   const storagePath = `${prefix}/${fileName}`;
 
@@ -247,10 +214,10 @@ async function saveRenderAsLeadAttachment(
   }
 
   const { data: publicUrlData } = supabase.storage.from(MARKETING_BUCKET).getPublicUrl(storagePath);
-  const folderId = await getOrCreateOrcamentosFolder(db, empresaSchema);
+  const folderId = await getOrCreateOrcamentosFolder(db, empresaId);
   if (!folderId) return;
 
-  const { error: insertError } = await db.from(mediasTableName(empresaSchema)).insert({
+  const { error: insertError } = await db.from('marketing_medias').insert({
     titulo: aiRenderAttachmentTitle(label),
     tipo: 'imagem',
     file_url: publicUrlData.publicUrl,
@@ -273,18 +240,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = serviceClient(await empresaDoChamador(req));
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return jsonResponse({ error: 'Não autorizado' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return jsonResponse({ error: 'Usuário não autenticado' }, 401);
-    }
+    // A edição por IA conta como escrita (gera arquivos, linhas e custo).
+    const ctx = await autorizarIaCardLead(req, 'render');
+    if (ehRecusa(ctx)) return respostaRecusa(ctx);
+    const supabase = ctx.svc;
+    const empresaId = ctx.empresaId;
 
     let body: EditRenderRequest;
     try {
@@ -295,7 +255,6 @@ Deno.serve(async (req) => {
 
     const {
       leadId,
-      empresaSchema,
       parentRenderId,
       editNotas,
       editPontos,
@@ -332,38 +291,30 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: `Informe entre 1 e ${MAX_PONTOS} pontos válidos na imagem` }, 400);
     }
 
-    const db = resolveDb(supabase, empresaSchema);
+    const db = supabase.schema('crm');
 
-    const { data: configRow, error: configError } = await db
-      .from(configTableName(empresaSchema))
-      .select('render_ativo, render_image_model, openai_api_key')
-      .eq('singleton_key', 'default')
+    // O lead precisa ser da empresa de quem chama (service role ignora a RLS).
+    const { data: leadRow } = await db
+      .from('leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('empresa_id', empresaId)
       .maybeSingle();
+    if (!leadRow) return jsonResponse({ error: 'Lead não encontrado' }, 404);
 
-    if (configError) {
-      console.error('Erro ao carregar config IA:', configError);
-      return jsonResponse({ error: 'Erro ao carregar configuração de IA' }, 500);
-    }
+    const cota = await checarCota(ctx);
+    if (cota) return respostaRecusa(cota);
 
-    if (!configRow?.render_ativo) {
-      return jsonResponse({ error: 'Renderização de projetos desativada nas configurações' }, 403);
-    }
-
-    const openAiKey = configRow.openai_api_key?.trim() || '';
-    if (!openAiKey) {
-      return jsonResponse(
-        { error: 'Chave da OpenAI do Lead não configurada. Defina em Configurações IA.' },
-        500,
-      );
-    }
+    const openAiKey = ctx.apiKey;
 
     const { data: parentRender, error: parentError } = hasParentRender
       ? await db
-          .from(rendersTableName(empresaSchema))
+          .from('lead_ai_renders')
           .select(
             'id, lead_id, analise_texto, render_prompt_snapshot, analysis_prompt_snapshot, vision_model, image_model, input_snapshot, output_public_url, output_storage_path',
           )
           .eq('id', parentRenderId!)
+          .eq('empresa_id', empresaId)
           .maybeSingle()
       : { data: null, error: null };
 
@@ -406,15 +357,15 @@ Deno.serve(async (req) => {
 
     const inputImageBytes = await resolveEditInputImageBytes(sourceImage.bytes, markedImageBase64);
 
-    const imageModel = parentRender && ALLOWED_IMAGE_MODELS.has(parentRender.image_model)
-      ? parentRender.image_model
-      : ALLOWED_IMAGE_MODELS.has(configRow.render_image_model)
-        ? configRow.render_image_model
-        : DEFAULT_IMAGE_MODEL;
+    // O modelo do render-pai só vale se ainda for permitido; senão usa o do motor global.
+    const imageModel = modeloImagemPermitido(
+      parentRender && parentRender.image_model ? parentRender.image_model : ctx.motor.image_model,
+    );
 
     const editPrompt = buildSurgicalEditPrompt({ notas, pontos });
 
     let outputBytes: Uint8Array;
+    let imagemUsage: OpenAiUsage = null;
     try {
       outputBytes = await callOpenAIImageEdit(
         openAiKey,
@@ -423,15 +374,20 @@ Deno.serve(async (req) => {
         sourceImage.mime,
         editPrompt,
         maskBytes,
-        { requireMask: true },
+        {
+          requireMask: true,
+          onUsage: (u) => {
+            imagemUsage = u as OpenAiUsage;
+          },
+        },
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao aplicar edição';
+      const message = mensagemSegura(err instanceof Error ? err.message : 'Erro ao aplicar edição');
       return jsonResponse({ error: message }, 502);
     }
 
     const renderId = crypto.randomUUID();
-    const outputStoragePath = `${storagePrefix(empresaSchema)}/${leadId}/${renderId}.png`;
+    const outputStoragePath = `${empresaId}/${leadId}/${renderId}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from(RENDER_BUCKET)
@@ -471,8 +427,17 @@ Deno.serve(async (req) => {
       ? (parentRender.analise_texto as string)
       : `Edição pontual aplicada em: ${photoLabel}`;
 
+    await registrarUso(ctx, {
+      funcao: 'render_edicao',
+      etapa: 'imagem',
+      modelo: imageModel,
+      leadId,
+      refId: renderId,
+      usage: imagemUsage,
+    });
+
     const { data: inserted, error: insertError } = await db
-      .from(rendersTableName(empresaSchema))
+      .from('lead_ai_renders')
       .insert({
         id: renderId,
         lead_id: leadId,
@@ -489,7 +454,7 @@ Deno.serve(async (req) => {
         parent_render_id: parentRender ? parentRenderId! : null,
         edit_notas: notas,
         edit_pontos: pontos,
-        criado_por: user.id,
+        criado_por: ctx.userId,
       })
       .select('id, criado_em')
       .single();
@@ -503,7 +468,7 @@ Deno.serve(async (req) => {
     await saveRenderAsLeadAttachment(
       supabase,
       db,
-      empresaSchema,
+      empresaId,
       leadId,
       renderId,
       outputBytes,

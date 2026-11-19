@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   loadOrcamentosIaSecrets,
@@ -20,6 +20,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Parte do módulo Orçamentos IA: recusa se a página estiver bloqueada no plano da empresa.
+  const recusa = await motivoRecusa(req, 'orcamentosIa', { soPagina: true })
+  if (recusa) return jsonResponse({ ok: false, error: recusa }, 403)
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -148,7 +152,7 @@ Deno.serve(async (req) => {
       .map((m, i) => `${i + 1}. [${m.category}] ${m.user_instruction}`)
       .join('\n')
 
-    const system = `Você é o Max, assistente técnico de orçamento de marcenaria (Planilha 4.0 / GARBO).
+    const system = `Você é o Max, assistente técnico de orçamento de marcenaria (Planilha 4.0).
 Responda em português, de forma clara e objetiva (como para um profissional de marcenaria).
 Use o contexto do orçamento e das memórias da oficina. Se algo não estiver no contexto, diga que não sabe.
 Não invente preços fora do que aparece no contexto.

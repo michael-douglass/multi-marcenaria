@@ -13,7 +13,9 @@ export interface ContratoVariavel {
   id: string;
   nome: string;
   label: string;
-  tipo: 'texto' | 'data' | 'valor' | 'cpf';
+  tipo: 'texto' | 'data' | 'valor' | 'cpf' | 'numero' | 'sim_nao';
+  /** Valor pré-preenchido em cada contrato novo; pode citar `{{empresa_*}}` (ex.: `{{empresa_cnpj}}`). */
+  valor_padrao?: string | null;
   obrigatorio: boolean;
   ordem: number;
   /** Quando true, o campo aparece no formulário público de início de orçamento do lead. */
@@ -126,6 +128,29 @@ export function useContratosVariaveis() {
     onError: (e: Error) => toast.error('Erro ao remover campo', { description: e.message }),
   });
 
+  /** Cria, de uma vez, os campos que ainda não existem (ex.: os do modelo padrão). */
+  const garantirCampos = useMutation({
+    mutationFn: async (campos: ReadonlyArray<Omit<ContratoVariavel, 'id'>>) => {
+      const existentes = new Set(variaveis.map((v) => v.nome));
+      const faltando = campos
+        .filter((c) => !existentes.has(c.nome))
+        .map((c) => {
+          const row: Record<string, unknown> = { ...c };
+          if (!isSchemaApiExposed(schemaEmpresa)) row.schema_nome = schemaEmpresa;
+          return row;
+        });
+      if (faltando.length === 0) return 0;
+      const { error } = await db.from(table as 'contratos_variaveis').insert(faltando as never);
+      if (error) throw error;
+      return faltando.length;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey });
+      if (n) toast.success(`${n} campo${n > 1 ? 's' : ''} do modelo padrão adicionado${n > 1 ? 's' : ''}`);
+    },
+    onError: (e: Error) => toast.error('Erro ao criar os campos do modelo padrão', { description: e.message }),
+  });
+
   const reordenarVariaveis = useMutation({
     mutationFn: async (ids: string[]) => {
       const updates = ids.map((id, index) => ({ id, ordem: index }));
@@ -148,5 +173,6 @@ export function useContratosVariaveis() {
     atualizarVariavel,
     excluirVariavel,
     reordenarVariaveis,
+    garantirCampos,
   };
 }

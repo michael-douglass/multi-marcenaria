@@ -46,7 +46,7 @@ import {
   type LeadAIRender,
 } from '@/hooks/useLeadAIRenders';
 import { useLeadAIRenderBackground } from '@/contexts/LeadAIRenderBackgroundContext';
-import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
+import { mensagemIaIndisponivel, useIaCardLeadStatus } from '@/hooks/useIaCardLeadStatus';
 import {
   resolveAnalysisMediaFromSnapshot,
   resolveItemForRenderAPI,
@@ -637,7 +637,10 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   const { items, isLoading: mediaLoading } = useLeadAIMediaItems(leadId);
   const { deletePDF } = useLeadPDFs(leadId);
   const { deleteImage, images: whiteboardImages, drawings: whiteboardDrawings } = useLeadWhiteboard(leadId);
-  const { config: aiConfig, isLoading: configLoading } = usePipelineLeadAIConfig();
+  // Motor, chave e modelos são da plataforma (master); aqui só o estado liberado/cota.
+  const { status: iaStatus, isLoading: configLoading } = useIaCardLeadStatus();
+  const renderOk = iaStatus.liberada && iaStatus.motorPronto && iaStatus.renderAtivo && !iaStatus.cotaEstourada;
+  const ambienteOk = iaStatus.liberada && iaStatus.motorPronto && iaStatus.renderAmbienteAtivo && !iaStatus.cotaEstourada;
   const { data: historico = [], isLoading: historicoLoading } = useLeadAIRenders(leadId);
   const deleteMutation = useDeleteLeadAIRender(leadId);
   const { startBackgroundRender, startBackgroundAmbienteRender, getRenderJobForLead, getEditJobForLead, getAmbienteJobForLead } = useLeadAIRenderBackground();
@@ -847,20 +850,14 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       setPdfPickerItem(selectedItem);
       return;
     }
-    if (!aiConfig.renderAtivo) {
-      toast.error('Renderização desativada', {
-        description: 'Ative em Pipeline → Configurações → IA',
-      });
-      return;
-    }
-    if (!aiConfig.apiKeyConfigured) {
-      toast.error('Chave da API não configurada', {
-        description: 'Configure em Configurações IA',
+    if (!renderOk) {
+      toast.error('Renderização indisponível', {
+        description: mensagemIaIndisponivel(iaStatus, 'render') ?? undefined,
       });
       return;
     }
     setRenderOptionsOpen(true);
-  }, [aiConfig.apiKeyConfigured, aiConfig.renderAtivo, selectedItem, selectedPdfPage]);
+  }, [iaStatus, renderOk, selectedItem, selectedPdfPage]);
 
   const handleOpenPointEdit = useCallback(async () => {
     if (!selectedItem) {
@@ -871,15 +868,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       setPdfPickerItem(selectedItem);
       return;
     }
-    if (!aiConfig.renderAtivo) {
-      toast.error('Edição por pontos desativada', {
-        description: 'Ative a renderização em Pipeline → Configurações → IA',
-      });
-      return;
-    }
-    if (!aiConfig.apiKeyConfigured) {
-      toast.error('Chave da API não configurada', {
-        description: 'Configure em Configurações IA',
+    if (!renderOk) {
+      toast.error('Edição por pontos indisponível', {
+        description: mensagemIaIndisponivel(iaStatus, 'render') ?? undefined,
       });
       return;
     }
@@ -924,8 +915,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       setIsPreparingPhotoEdit(false);
     }
   }, [
-    aiConfig.apiKeyConfigured,
-    aiConfig.renderAtivo,
+    iaStatus,
+    renderOk,
     buildRenderOptions,
     historico,
     selectedItem,
@@ -1136,15 +1127,14 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
   const loading = mediaLoading;
   const pdfNeedsPage = selectedItem?.kind === 'pdf' && selectedPdfPage == null;
   const renderDisabled =
-    isBusy || !selectedKey || pdfNeedsPage || !aiConfig.renderAtivo || !aiConfig.apiKeyConfigured;
+    isBusy || !selectedKey || pdfNeedsPage || !renderOk;
   const photoEditDisabled =
     isBusy ||
     isPreparingPhotoEdit ||
     !selectedKey ||
     pdfNeedsPage ||
-    !aiConfig.renderAtivo ||
-    !aiConfig.apiKeyConfigured;
-  const ambienteConfigDisabled = !aiConfig.renderAmbienteAtivo || !aiConfig.apiKeyConfigured;
+    !renderOk;
+  const ambienteConfigDisabled = !ambienteOk;
   const ambienteDisabled = ambienteConfigDisabled;
 
   const scrollToAmbienteComposer = useCallback(() => {
@@ -1213,11 +1203,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
 
   const handleAnalyzeAmbiente = useCallback(
     async (input: { descricao: string; imageDataUrl?: string; cenaInventario?: string }) => {
-      if (!aiConfig.renderAmbienteAtivo) {
-        throw new Error('Renderização com ambiente desativada nas configurações');
-      }
-      if (!aiConfig.apiKeyConfigured) {
-        throw new Error('Chave da API não configurada. Defina em Configurações IA.');
+      if (!ambienteOk) {
+        throw new Error(mensagemIaIndisponivel(iaStatus, 'ambiente') ?? 'Renderização com ambiente indisponível');
       }
       return invokeAnalyzeLeadAmbiente({
         leadId,
@@ -1230,8 +1217,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       });
     },
     [
-      aiConfig.apiKeyConfigured,
-      aiConfig.renderAmbienteAtivo,
+      iaStatus,
+      ambienteOk,
       leadId,
       leadName,
       leadOrigin,
@@ -1248,15 +1235,9 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       sourceImageDataUrl?: string;
       furnitureReferences?: Array<{ label: string; dataUrl: string }>;
     }) => {
-      if (!aiConfig.renderAmbienteAtivo) {
-        toast.error('Renderização com ambiente desativada', {
-          description: 'Ative em Pipeline → Configurações → IA',
-        });
-        return;
-      }
-      if (!aiConfig.apiKeyConfigured) {
-        toast.error('Chave da API não configurada', {
-          description: 'Configure em Configurações IA',
+      if (!ambienteOk) {
+        toast.error('Renderização com ambiente indisponível', {
+          description: mensagemIaIndisponivel(iaStatus, 'ambiente') ?? undefined,
         });
         return;
       }
@@ -1273,8 +1254,8 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
       });
     },
     [
-      aiConfig.apiKeyConfigured,
-      aiConfig.renderAmbienteAtivo,
+      iaStatus,
+      ambienteOk,
       leadId,
       leadName,
       leadOrigin,
@@ -1294,34 +1275,21 @@ export function LeadAIRenderTab({ leadId, leadName, leadOrigin }: LeadAIRenderTa
         </div>
       )}
 
-      {!aiConfig.renderAtivo && !configLoading && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>
-            A renderização de projetos está desativada. Ative em{' '}
-            <strong>Pipeline → Configurações → IA → Renderização de projetos</strong>.
-          </p>
-        </div>
-      )}
-
-      {!aiConfig.renderAmbienteAtivo && !configLoading && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>
-            A renderização com ambiente está desativada. Ative em{' '}
-            <strong>Pipeline → Configurações → IA → Renderização com ambiente</strong>.
-          </p>
-        </div>
-      )}
-
-      {(aiConfig.renderAtivo || aiConfig.renderAmbienteAtivo) && !aiConfig.apiKeyConfigured && !configLoading && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>
-            Configure a chave OpenAI do Lead em <strong>Configurações IA</strong>.
-          </p>
-        </div>
-      )}
+      {!configLoading && (() => {
+        const aviso = mensagemIaIndisponivel(iaStatus, 'render');
+        // Só um dos dois recursos desligado: a mensagem de recurso aparece na hora de usar.
+        const geral = !iaStatus.liberada || iaStatus.cotaEstourada || !iaStatus.motorPronto;
+        if (!aviso || !geral) return null;
+        return (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-100"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <p>{aviso}</p>
+          </div>
+        );
+      })()}
 
       {/* Em telas largas: esboço + ambiente lado a lado para ver os dois cards sem rolar tanto */}
       <div className="grid gap-4 xl:grid-cols-2 xl:items-start xl:gap-5">

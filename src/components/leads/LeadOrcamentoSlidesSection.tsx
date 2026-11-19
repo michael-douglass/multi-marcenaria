@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { OrcamentoSlideExportByIdButton } from '@/components/orcamento-slides/OrcamentoSlideExportByIdButton';
 import { useOrcamentosPorLead, useOrcamentoSlides } from '@/hooks/useOrcamentoSlides';
 import type { OrcamentoSlideStatus } from '@/lib/orcamento-slide-types';
@@ -416,7 +416,7 @@ export function LeadOrcamentoSlidesSection({
               data-scroll-lock-ignore=""
               className="fixed inset-0 z-[240] flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-visible overscroll-y-contain pointer-events-auto bg-[#0a0706]"
             >
-              <Suspense fallback={<GarboBrandLoader variant="fullscreen" message="Preparando apresentação…" />}>
+              <Suspense fallback={<BrandLoader variant="fullscreen" message="Preparando apresentação…" />}>
                 <ApresentarOrcamentoSlidePage
                   orcamentoId={visualizarId}
                   onVoltar={fecharVisualizacao}

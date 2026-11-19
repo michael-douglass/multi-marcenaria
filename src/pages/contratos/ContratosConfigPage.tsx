@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Settings, Tag, Plus, Pencil, Trash2, AlertTriangle,
-  Save, Loader2, ArrowLeft, Star, StarOff, FileText, Building2, Link2,
+  Save, Loader2, ArrowLeft, Star, StarOff, FileText, Building2, Link2, RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,9 @@ import {
 import { useContratosModelos } from '@/hooks/useContratosModelo';
 import { useContratosVariaveis, type ContratoVariavel } from '@/hooks/useContratosVariaveis';
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
-import { extrairVariaveis, NOMES_VARIAVEIS_EMPRESA, VARIAVEIS_EMPRESA, VARIAVEL_CPF_FIXO } from '@/lib/contratos-print';
+import { VARIAVEIS_EMPRESA, VARIAVEL_CPF_FIXO } from '@/lib/contratos-print';
+import { nomeReservadoContrato, nomesUsadosNoModelo, VARIAVEIS_CALCULADAS } from '@/lib/contrato-variaveis';
+import { CONTRATO_PADRAO_CAMPOS, CONTRATO_PADRAO_NOME, CONTRATO_PADRAO_TEXTO } from '@/lib/contrato-padrao';
 import { toast } from 'sonner';
 
 const TIPO_LABELS: Record<ContratoVariavel['tipo'], string> = {
@@ -38,6 +40,8 @@ const TIPO_LABELS: Record<ContratoVariavel['tipo'], string> = {
   data: 'Data',
   valor: 'Valor monetário',
   cpf: 'CPF',
+  numero: 'Número',
+  sim_nao: 'Sim/Não',
 };
 
 function gerarNomeTecnico(label: string): string {
@@ -51,7 +55,7 @@ function gerarNomeTecnico(label: string): string {
 }
 
 const VAZIO_VAR: Omit<ContratoVariavel, 'id'> = {
-  nome: '', label: '', tipo: 'texto', obrigatorio: true, ordem: 0, mostrar_no_link_publico: false,
+  nome: '', label: '', tipo: 'texto', obrigatorio: true, ordem: 0, mostrar_no_link_publico: false, valor_padrao: null,
 };
 
 export default function ContratosConfigPage() {
@@ -61,7 +65,7 @@ export default function ContratosConfigPage() {
   } = useContratosModelos();
   const {
     variaveis, isLoading: loadingVar,
-    criarVariavel, atualizarVariavel, excluirVariavel,
+    criarVariavel, atualizarVariavel, excluirVariavel, garantirCampos,
   } = useContratosVariaveis();
   // Dados da contratada: somente leitura (edição única em /profile → "Dados da empresa").
   const identidade = useEmpresaIdentidade();
@@ -96,11 +100,23 @@ export default function ContratosConfigPage() {
   const [deleteVarId, setDeleteVarId] = useState<string | null>(null);
 
   // ── Helpers ───────────────────────────────────────────────
-  const varUsadas = extrairVariaveis(conteudoAtual);
+  const varUsadas = [...nomesUsadosNoModelo(conteudoAtual)];
   const nomesCadastrados = variaveis.map((v) => v.nome);
   const varNaoCadastradas = varUsadas.filter(
-    (v) => !nomesCadastrados.includes(v) && !NOMES_VARIAVEIS_EMPRESA.has(v),
+    (v) => !nomesCadastrados.includes(v) && !nomeReservadoContrato(v),
   );
+
+  // ── Modelo padrão (o mesmo que o banco cria em toda empresa nova) ─────────
+  const restaurandoPadrao = criarModelo.isPending || garantirCampos.isPending;
+  const handleRestaurarPadrao = async () => {
+    const existe = modelos.some((m) => m.nome === CONTRATO_PADRAO_NOME);
+    await garantirCampos.mutateAsync(CONTRATO_PADRAO_CAMPOS);
+    const novo = await criarModelo.mutateAsync({
+      nome: existe ? `${CONTRATO_PADRAO_NOME} (cópia)` : CONTRATO_PADRAO_NOME,
+      conteudo: CONTRATO_PADRAO_TEXTO,
+    });
+    setModeloSelecionadoId(novo.id);
+  };
 
   const inserirVariavel = (nome: string) => {
     const el = textareaRef.current;
@@ -150,17 +166,21 @@ export default function ContratosConfigPage() {
   };
   const abrirEditarVar = (v: ContratoVariavel) => {
     setEditandoVarId(v.id);
-    setFormVar({ nome: v.nome, label: v.label, tipo: v.tipo, obrigatorio: v.obrigatorio, ordem: v.ordem });
+    setFormVar({
+      nome: v.nome, label: v.label, tipo: v.tipo, obrigatorio: v.obrigatorio, ordem: v.ordem,
+      valor_padrao: v.valor_padrao ?? null,
+    });
     setVarDialog(true);
   };
   const handleSalvarVar = async () => {
     if (!formVar.label.trim() || !formVar.nome.trim()) return;
-    if (NOMES_VARIAVEIS_EMPRESA.has(formVar.nome.trim())) {
-      toast.error('Esse nome é reservado para os dados automáticos da empresa. Use outro rótulo.');
+    if (nomeReservadoContrato(formVar.nome.trim())) {
+      toast.error('Esse nome é preenchido automaticamente (dados da empresa ou cálculo). Use outro rótulo.');
       return;
     }
-    if (editandoVarId) await atualizarVariavel.mutateAsync({ id: editandoVarId, updates: formVar });
-    else await criarVariavel.mutateAsync(formVar);
+    const dados = { ...formVar, nome: formVar.nome.trim(), valor_padrao: formVar.valor_padrao?.trim() || null };
+    if (editandoVarId) await atualizarVariavel.mutateAsync({ id: editandoVarId, updates: dados });
+    else await criarVariavel.mutateAsync(dados);
     setVarDialog(false);
   };
 
@@ -259,10 +279,28 @@ export default function ContratosConfigPage() {
                   </Button>
                 )}
 
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-2 ml-auto"
+                      onClick={() => void handleRestaurarPadrao()}
+                      disabled={restaurandoPadrao}
+                    >
+                      {restaurandoPadrao ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                      Modelo padrão
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Cria uma cópia do contrato padrão (com os dados da empresa e os campos que faltarem)
+                  </TooltipContent>
+                </Tooltip>
+
                 <Button
                   size="sm"
                   variant="outline"
-                  className="gap-2 ml-auto"
+                  className="gap-2"
                   onClick={() => setNovoModeloDialog(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -274,9 +312,20 @@ export default function ContratosConfigPage() {
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 gap-3 text-muted-foreground">
                   <FileText className="h-10 w-10 opacity-30" />
                   <p className="text-sm">Nenhum modelo criado ainda.</p>
-                  <Button variant="outline" size="sm" onClick={() => setNovoModeloDialog(true)}>
-                    Criar primeiro modelo
-                  </Button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                      onClick={() => void handleRestaurarPadrao()}
+                      disabled={restaurandoPadrao}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Usar o modelo padrão
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setNovoModeloDialog(true)}>
+                      Criar em branco
+                    </Button>
+                  </div>
                 </div>
               ) : modeloSelecionado && (
                 <div className="flex gap-4 flex-col lg:flex-row">
@@ -367,6 +416,27 @@ export default function ContratosConfigPage() {
                           </button>
                         ))}
                         <p className="mt-2 w-full text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Calculadas (automáticas)
+                        </p>
+                        {VARIAVEIS_CALCULADAS.map((v) => (
+                          <button
+                            key={v.nome}
+                            onClick={() => inserirVariavel(v.nome)}
+                            className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-mono text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                            title={`${v.label} — precisa dos campos valor_total e percentual_entrada`}
+                          >
+                            {`{{${v.nome}}}`}
+                          </button>
+                        ))}
+                        <p className="w-full text-xs text-muted-foreground">
+                          Todo campo de valor ou número também tem a versão por extenso:{' '}
+                          <code className="text-[11px]">{'{{campo_extenso}}'}</code>.
+                        </p>
+                        <p className="w-full text-xs text-muted-foreground">
+                          Trecho opcional (campo Sim/Não):{' '}
+                          <code className="text-[11px]">{'{{#se campo}} … {{/se}}'}</code>
+                        </p>
+                        <p className="mt-2 w-full text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
                           Do contrato
                         </p>
                         {variaveis.length === 0 ? (
@@ -451,6 +521,11 @@ export default function ContratosConfigPage() {
                       >
                         {v.obrigatorio ? 'Obrigatório' : 'Opcional'}
                       </Badge>
+                      {v.valor_padrao && (
+                        <Badge variant="outline" className="text-xs h-5 border-emerald-500/30 text-emerald-400">
+                          Padrão: {v.tipo === 'sim_nao' ? (v.valor_padrao === 'nao' ? 'Não' : 'Sim') : v.valor_padrao}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -675,8 +750,35 @@ export default function ContratosConfigPage() {
                   <SelectItem value="data">Data</SelectItem>
                   <SelectItem value="valor">Valor monetário</SelectItem>
                   <SelectItem value="cpf">CPF</SelectItem>
+                  <SelectItem value="numero">Número</SelectItem>
+                  <SelectItem value="sim_nao">Sim/Não</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor padrão (opcional)</Label>
+              {formVar.tipo === 'sim_nao' ? (
+                <Select
+                  value={formVar.valor_padrao === 'nao' ? 'nao' : 'sim'}
+                  onValueChange={(v) => setFormVar((p) => ({ ...p, valor_padrao: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={formVar.valor_padrao ?? ''}
+                  onChange={(e) => setFormVar((p) => ({ ...p, valor_padrao: e.target.value }))}
+                  placeholder={formVar.tipo === 'numero' ? 'Ex: 60' : 'Ex: {{empresa_cnpj}}'}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                Já vem preenchido em cada contrato novo e pode ser alterado nele. Aceita dados da empresa, como{' '}
+                <code className="text-[11px]">{'{{empresa_cidade_uf}}'}</code>.
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>

@@ -1,11 +1,11 @@
 import { empresaDocumento } from '@/lib/empresa-identidade';
 /**
- * Exporta o painel Financeiro · Pontua Garbo em PDF A4.
+ * Exporta o painel Financeiro · Pontua em PDF A4.
  * Replica métricas, série mensal, solicitantes e lista de arquitetos.
  */
-import { formatBRLPontua, tituloReconhecidoPontuaGarbo } from '@/lib/pontua-garbo-arquiteto'
-import type { PontuaMetricas, SaqueSolicitante } from '@/lib/pontua-garbo-metricas'
-import type { PrestadorFinanceiro } from '@/hooks/usePontuaGarboFinanceiro'
+import { formatBRLPontua, tituloReconhecidoPontua } from '@/lib/pontua-arquiteto'
+import type { PontuaMetricas, SaqueSolicitante } from '@/lib/pontua-metricas'
+import type { PrestadorFinanceiro } from '@/hooks/usePontuaFinanceiro'
 import { fmtDate } from '@/lib/utils'
 
 export interface FinanceiroPontuaPdfExportInput {
@@ -210,7 +210,7 @@ function buildSolicitantes(list: SaqueSolicitante[], totalPendente: number): str
       <tr>
         <td>
           <div class="name">${escapeHtml(s.nome)}</div>
-          <div class="meta">${escapeHtml(tituloReconhecidoPontuaGarbo(s.titulo))} · pediu em ${escapeHtml(quando)}</div>
+          <div class="meta">${escapeHtml(tituloReconhecidoPontua(s.titulo))} · pediu em ${escapeHtml(quando)}</div>
         </td>
         <td class="right">${pendentes}</td>
         <td class="right gold">${escapeHtml(money(s.totalPendente))}</td>
@@ -263,7 +263,7 @@ function buildArquitetos(list: PrestadorFinanceiro[]): string {
     <tr>
       <td>
         <div class="name">${escapeHtml(p.nome)}</div>
-        <div class="meta">${escapeHtml(tituloReconhecidoPontuaGarbo(p.titulo))}${p.email ? ` · ${escapeHtml(p.email)}` : ''}</div>
+        <div class="meta">${escapeHtml(tituloReconhecidoPontua(p.titulo))}${p.email ? ` · ${escapeHtml(p.email)}` : ''}</div>
       </td>
       <td class="right">${p.leads.length}</td>
       <td class="right">${escapeHtml(money(p.totalComissao))}</td>
@@ -306,7 +306,7 @@ function buildArquitetos(list: PrestadorFinanceiro[]): string {
 }
 
 function buildDocumentHtml(input: FinanceiroPontuaPdfExportInput): string {
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',

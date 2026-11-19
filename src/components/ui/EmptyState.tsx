@@ -1,4 +1,4 @@
-﻿import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+﻿import { LoadingBrand } from '@/components/ui/LoadingBrand'
 
 interface EmptyStateProps {
   message: string
@@ -20,7 +20,7 @@ interface LoadingStateProps {
 }
 
 export function LoadingState({ message = 'Carregando...', variant = 'inline' }: LoadingStateProps) {
-  return <GarboLoadingBrand variant={variant} message={message} />
+  return <LoadingBrand variant={variant} message={message} />
 }
 
 export function ErrorState({ message }: { message: string }) {

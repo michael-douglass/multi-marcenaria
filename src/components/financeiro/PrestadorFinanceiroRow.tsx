@@ -1,7 +1,7 @@
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { rotuloPontua } from '@/lib/empresa-identidade';
 import { useEffect, useState } from 'react';
-import { usePontuaGarboFinanceiro, type PrestadorFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
+import { usePontuaFinanceiro, type PrestadorFinanceiro } from '@/hooks/usePontuaFinanceiro';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,21 +32,21 @@ import {
   ImageDown,
 } from 'lucide-react';
 import { PrestadorLancamentosList } from '@/components/financeiro/PrestadorLancamentosList';
-import { COMISSAO_LIBERACAO_LABEL_AGUARDANDO } from '@/lib/pontua-garbo-comissao-liberacao';
+import { COMISSAO_LIBERACAO_LABEL_AGUARDANDO } from '@/lib/pontua-comissao-liberacao';
 import {
-  useLiberarComissaoPontuaGarbo,
+  useLiberarComissaoPontua,
   useReverterComissaoLiberacao,
   type LiberarComissaoInput,
-} from '@/hooks/usePontuaGarboComissaoLiberacao';
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
-import { validarValorSaquePontuaGarbo } from '@/lib/pontua-garbo-saque';
+} from '@/hooks/usePontuaComissaoLiberacao';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
+import { validarValorSaquePontua } from '@/lib/pontua-saque';
 import type { SaldoReceberArteOpts } from '@/lib/saldo-receber-arte-print';
 import { SaldoReceberArteDialog } from '@/components/financeiro/SaldoReceberArteDialog';
 import {
   formatBRLPontua,
   iniciaisNomeArquiteto,
-  tituloReconhecidoPontuaGarbo,
-} from '@/lib/pontua-garbo-arquiteto';
+  tituloReconhecidoPontua,
+} from '@/lib/pontua-arquiteto';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -106,7 +106,7 @@ function LancamentoDialog({
         <div className="space-y-4 pt-2">
           <div className="rounded-lg border border-amber-800/40 bg-background/50 px-4 py-3">
             <p className="text-sm font-medium text-foreground">{mode.prestador.nome}</p>
-            <p className={finTextTertiary}>{tituloReconhecidoPontuaGarbo(mode.prestador.titulo)}</p>
+            <p className={finTextTertiary}>{tituloReconhecidoPontua(mode.prestador.titulo)}</p>
           </div>
 
           <div className="space-y-1.5">
@@ -263,15 +263,15 @@ interface PrestadorFinanceiroRowProps {
 
 export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: PrestadorFinanceiroRowProps) {
   const [open, setOpen] = useState(false);
-  const { createLancamento, deleteLancamento } = usePontuaGarboFinanceiro();
-  const liberar = useLiberarComissaoPontuaGarbo();
+  const { createLancamento, deleteLancamento } = usePontuaFinanceiro();
+  const liberar = useLiberarComissaoPontua();
   const reverterLiberacao = useReverterComissaoLiberacao();
   const { empresa } = useEmpresa();
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [arteOpts, setArteOpts] = useState<SaldoReceberArteOpts | null>(null);
 
   const temSaldoAReceber = prestador.saldoParaSacar > 0;
-  const titulo = tituloReconhecidoPontuaGarbo(prestador.titulo);
+  const titulo = tituloReconhecidoPontua(prestador.titulo);
 
   useEffect(() => {
     if (highlighted) setOpen(true);
@@ -280,7 +280,7 @@ export function PrestadorFinanceiroRow({ prestador, highlighted, readOnly }: Pre
   const handleConfirm = (valor: number, descricao: string) => {
     if (!dialogMode) return;
     if (dialogMode.type === 'saque') {
-      const check = validarValorSaquePontuaGarbo(prestador.saldoParaSacar, valor);
+      const check = validarValorSaquePontua(prestador.saldoParaSacar, valor);
       if (!check.ok) {
         toast.error(check.message);
         return;

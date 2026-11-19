@@ -66,8 +66,9 @@ export function LeadModalNav({
   hideContratos,
   hideOrcamentos,
   hideMarkup,
+  hideOrcamentosIa,
   hideWhatsapp,
-  hidePontuaGarbo,
+  hidePontua,
 }: LeadModalNavProps) {
   const { nomePrograma } = useEmpresaIdentidade();
   const [openMenu, setOpenMenu] = useState<LeadNavMenu | null>(null);
@@ -83,11 +84,12 @@ export function LeadModalNav({
   onJumpRef.current = onJump;
   onMenuOpenChangeRef.current = onMenuOpenChange;
   const panelId = useId();
-  const infoItems = filterLeadInfoNav({ hidePontuaGarbo });
+  const infoItems = filterLeadInfoNav({ hidePontua });
   const detailsItems = filterLeadDetailsNav({
     hideContratos,
     hideOrcamentos,
     hideMarkup,
+    hideOrcamentosIa,
     hideWhatsapp,
   });
   const iaItems = showIa ? LEAD_IA_NAV : [];
@@ -276,7 +278,7 @@ export function LeadModalNav({
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-semibold leading-tight tracking-wide">
-                        {item.id === 'pontua-garbo' ? nomePrograma : item.label}
+                        {item.id === 'pontua' ? nomePrograma : item.label}
                       </span>
                       {item.hint && (
                         <span className="mt-0.5 block text-[11px] leading-snug opacity-75">

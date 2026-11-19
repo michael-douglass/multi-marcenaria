@@ -13,9 +13,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   formatBRLPontua,
   iniciaisNomeArquiteto,
-  tituloReconhecidoPontuaGarbo,
-} from '@/lib/pontua-garbo-arquiteto';
-import type { SaqueSolicitante } from '@/lib/pontua-garbo-metricas';
+  tituloReconhecidoPontua,
+} from '@/lib/pontua-arquiteto';
+import type { SaqueSolicitante } from '@/lib/pontua-metricas';
 import {
   finCard,
   finCardMuted,
@@ -52,7 +52,7 @@ function SolicitanteRow({ solicitante }: { solicitante: SaqueSolicitante }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-[#1a100c]">{solicitante.nome}</p>
         <p className={`${finTextTertiary} truncate`}>
-          {tituloReconhecidoPontuaGarbo(solicitante.titulo)}
+          {tituloReconhecidoPontua(solicitante.titulo)}
           {quando && ` · pediu em ${quando}`}
         </p>
       </div>

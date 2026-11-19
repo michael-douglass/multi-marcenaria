@@ -223,6 +223,7 @@ ProForço):
 | `empresa_id` nos inserts das edge functions | Header `x-empresa-id` + `app_pre_request` (só service role) + trigger | Uma linha por função em vez de mexer em cada insert |
 | Página pública do orçamento e agenda pública lendo tabelas como anon | RPCs `orcamento_publico_obter` e `agenda_publica_dados` | anon não tem empresa; a RPC resolve pela própria entidade |
 | Views SECURITY DEFINER | Mantidas (mascaram chaves), mas com filtro `= app_empresa_atual()` | Advisors de segurança; preserva o comportamento |
+| ADR 0004: catálogo derivado só do menu, "sem segunda lista" | Lista curta `FUNCOES_CATALOGO` no mesmo arquivo (`tipo: 'funcao'`, URL fictícia `/funcao/*`), hoje só `whatsappCrm` | WhatsApp no lead não é página de menu, mas precisa ser habilitável por plano; sem migration nem tela nova (§10.1) |
 
 ## 10. Fase I: Console Master isolado e páginas por marcenaria
 
@@ -236,6 +237,17 @@ Requisitos em `REQUIREMENTS.md` §6. ADR: [`0004`](../decisions/0004-console-mas
 - `paginaLiberada(pathOrId, bloqueadas)` é o único teste usado no menu, na busca, no `RoleRedirect`,
   no `crmPage`, na tela inicial e nos atalhos flutuantes.
 - Não bloqueáveis: Meu Perfil, `/profile` e Configurações. Assim nenhuma empresa fica sem tela inicial.
+- **Funções (sem rota):** `FUNCOES_CATALOGO` acrescenta itens `tipo: 'funcao'` ao fim do catálogo (grupo
+  "Funções do CRM"), com URL fictícia reservada `/funcao/*` (só para `paginaIdFromPath` resolver o id; nunca
+  vira rota nem item de menu — `check-catalogo.mjs` falha se `App.tsx` usar esse prefixo). Hoje:
+  `whatsappCrm` ("Histórico WhatsApp" no lead, ícone/popup de notificações no dock, contador de não lidas
+  no Kanban, exportação de conversas; edge functions `send-whatsapp-message` e `get-lead-whatsapp-history`).
+  `receber-whatsapp` (webhook sem JWT) não é bloqueado: segue gravando mensagens.
+- **`orcamentosIa` também vale dentro do lead:** seção "Orçamento com IA", item no "Ir para…"/busca e botões
+  "Cotar com IA"; edge functions `orcamentos-ia-pipeline|chat|memory`.
+- No front, use `usePaginaLiberada(id)` (`src/hooks/usePaginaLiberada.ts`, baseado em `useApp()` do núcleo —
+  o `useEmpresa()` do CRM não expõe o bloqueio). O valor só muda após recarregar a página.
+- No servidor, `motivoRecusa(req, id, { soPagina: true })` não recusa por somente leitura (use em leitura/consulta).
 
 ### 10.2 Dados
 - **Lista do que fica bloqueado:** página nova nasce liberada.

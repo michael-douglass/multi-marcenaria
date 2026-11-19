@@ -93,12 +93,12 @@ export default function ConfiguracoesIaPage() {
       </AiApiKeyCard>
 
       <AiApiKeyCard
-        title="Lead — análise visual e render"
-        description="Usada nas abas Análise visual e Renderização de projetos do card do lead (e funções ligadas, como Íris)."
+        title="Lead — orçamento com IA (Markup)"
+        description="Usada pelo Compor com IA do Markup. A renderização de projetos do card do lead usa o motor da plataforma, configurado pelo master."
         footerHint={
           <span className="inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            Prompts e modelos continuam em Pipeline → Configurações → IA
+            Liga/desliga em Pipeline → Configurações → IA
           </span>
         }
       >

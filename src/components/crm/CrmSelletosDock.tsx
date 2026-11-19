@@ -10,6 +10,8 @@ import { OrcamentosIaBackgroundPopup } from '@/components/layout/OrcamentosIaBac
 import { FloatingLeadAIBackgroundIcon } from '@/components/layout/FloatingLeadAIBackgroundIcon'
 import { useMessageNotifications } from '@/hooks/useMessageNotifications'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada'
+import { FUNCAO_IA_CARD_LEAD, FUNCAO_WHATSAPP } from '@/lib/paginas-catalogo'
 import { isMarketingOnly } from '@/lib/app-roles'
 import { usePresenceTracking } from '@/hooks/usePresenceTracking'
 import { useUiPreferences } from '@/hooks/useUiPreferences'
@@ -25,6 +27,10 @@ export function CrmSelletosDock() {
   const { preferences } = useUiPreferences()
   const navigate = useNavigate()
   const { isSuperAdmin, userRoles } = useAuth()
+  // Função "WhatsApp" desabilitada no plano → sem ícone/popup de notificações de mensagens.
+  const whatsappLiberado = usePaginaLiberada(FUNCAO_WHATSAPP)
+  // Função "IA no card lead" desabilitada → sem popup/ícone de jobs de IA em segundo plano.
+  const iaCardLeadLiberada = usePaginaLiberada(FUNCAO_IA_CARD_LEAD)
 
   const isMarketingUser = isMarketingOnly(userRoles, isSuperAdmin)
 
@@ -86,13 +92,14 @@ export function CrmSelletosDock() {
                     onClick={saqueAlert.openPopup}
                   />
                 )}
-              {!isFloatingPopupsHidden && !isMarketingUser && !messageNotifications.isOpen && (
+              {whatsappLiberado && !isFloatingPopupsHidden && !isMarketingUser && !messageNotifications.isOpen && (
                 <WhatsAppNotificationIcon
                   count={messageNotifications.notifications.length}
                   onClick={openPopup}
                 />
               )}
               {!isMarketingUser &&
+                iaCardLeadLiberada &&
                 aiBackgroundMinimized.minimized &&
                 aiBackgroundMinimized.count > 0 && (
                   <FloatingLeadAIBackgroundIcon
@@ -117,26 +124,28 @@ export function CrmSelletosDock() {
 
       {!isMarketingUser && (
         <>
-          <LeadAIAnalysisBackgroundPopup
-            onOpenLeadAnalysis={(leadId) => navigate(`/pipeline?id=${leadId}&tab=analise-ia`)}
-            onOpenLeadRender={(leadId) =>
-              navigate(`/pipeline?id=${leadId}&tab=analise-ia&iaSubtab=render`)
-            }
-            isIconSlotTaken={showIconsBar}
-            expandRequest={aiBackgroundExpandRequest}
-            onMinimizedChange={(minimized, meta) => {
-              setAiBackgroundMinimized({
-                minimized,
-                count: meta.count,
-                activeCount: meta.activeCount,
-              })
-            }}
-          />
+          {iaCardLeadLiberada && (
+            <LeadAIAnalysisBackgroundPopup
+              onOpenLeadAnalysis={(leadId) => navigate(`/pipeline?id=${leadId}&tab=analise-ia`)}
+              onOpenLeadRender={(leadId) =>
+                navigate(`/pipeline?id=${leadId}&tab=analise-ia&iaSubtab=render`)
+              }
+              isIconSlotTaken={showIconsBar}
+              expandRequest={aiBackgroundExpandRequest}
+              onMinimizedChange={(minimized, meta) => {
+                setAiBackgroundMinimized({
+                  minimized,
+                  count: meta.count,
+                  activeCount: meta.activeCount,
+                })
+              }}
+            />
+          )}
           <OrcamentosIaBackgroundPopup />
         </>
       )}
 
-      {!isMarketingUser && !isMessagePopupDisabled && !isFloatingPopupsHidden && (
+      {whatsappLiberado && !isMarketingUser && !isMessagePopupDisabled && !isFloatingPopupsHidden && (
         <MessageNotificationsPopup
           notifications={messageNotifications.notifications}
           isOpen={messageNotifications.isOpen}

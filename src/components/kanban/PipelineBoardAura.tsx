@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { cn } from '@/lib/utils'
 import { isTouchOrCompactViewport } from '@/lib/viewport-ui'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 const VERTEX = `
 varying vec2 vUv;
@@ -93,7 +94,7 @@ export function PipelineBoardAura({ className }: { className?: string }) {
     const manager = new THREE.LoadingManager()
     const loader = new THREE.TextureLoader(manager)
     loader.load(
-      '/imagens/identidade-visual-garbo.png',
+      empresaDocumento().logoUrl,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace
         texture.wrapS = THREE.RepeatWrapping

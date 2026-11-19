@@ -1,9 +1,9 @@
 ﻿import { useMemo, useState } from 'react';
 import { Wallet, TrendingUp, Trophy } from 'lucide-react';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
-import { useMinhaPontuaGarbo } from '@/hooks/usePontuaGarboFinanceiro';
+import { useMinhaPontua } from '@/hooks/usePontuaFinanceiro';
 import { useMeusSaquePedidos } from '@/hooks/useSaquePedidos';
-import { calcSaldoExibidoPrestador } from '@/lib/pontua-garbo-saque';
+import { calcSaldoExibidoPrestador } from '@/lib/pontua-saque';
 import { TIPO_PIX_LABELS, type TipoChavePix } from '@/hooks/usePrestadorPerfil';
 import { PrestadorGanhosChart } from '@/components/prestador/PrestadorGanhosChart';
 import { PrestadorSolicitarSaqueDialog } from '@/components/prestador/PrestadorSolicitarSaqueDialog';
@@ -63,28 +63,28 @@ function statusBadge(status: string) {
 
 export function PrestadorSaldo() {
   const { data: profile } = useCurrentUserProfile();
-  const { data: garbo } = useMinhaPontuaGarbo(profile?.id);
+  const { data: pontuaPortal } = useMinhaPontua(profile?.id);
   const { pedidos, solicitar } = useMeusSaquePedidos(profile?.id);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const carteiraBruta =
-    garbo?.totalComissaoCarteira ?? (garbo?.totalAGanar ?? 0) + (garbo?.totalComissaoGanha ?? 0);
+    pontuaPortal?.totalComissaoCarteira ?? (pontuaPortal?.totalAGanar ?? 0) + (pontuaPortal?.totalComissaoGanha ?? 0);
 
   const exibido = useMemo(
     () =>
       calcSaldoExibidoPrestador(
-        garbo?.saldoParaSacar ?? 0,
+        pontuaPortal?.saldoParaSacar ?? 0,
         carteiraBruta,
-        garbo?.totalAGanar ?? garbo?.totalComissao ?? 0,
-        garbo?.totalRetirado ?? 0,
-        garbo?.totalComissaoGanha ?? 0,
-        garbo?.totalAjustes ?? 0,
+        pontuaPortal?.totalAGanar ?? pontuaPortal?.totalComissao ?? 0,
+        pontuaPortal?.totalRetirado ?? 0,
+        pontuaPortal?.totalComissaoGanha ?? 0,
+        pontuaPortal?.totalAjustes ?? 0,
         pedidos,
       ),
-    [garbo, carteiraBruta, pedidos],
+    [pontuaPortal, carteiraBruta, pedidos],
   );
 
-  const retirado = garbo?.totalRetirado ?? 0;
+  const retirado = pontuaPortal?.totalRetirado ?? 0;
   const profilePix = profile as { chave_pix?: string | null; tipo_chave_pix?: string | null } | undefined;
 
   return (
@@ -112,9 +112,9 @@ export function PrestadorSaldo() {
         <MetricTile icon={Trophy} label="Retirado" value={retirado} color="rgba(255,255,255,0.35)" />
       </div>
 
-      {(garbo?.totalAguardandoLiberacao ?? 0) > 0 && (
+      {(pontuaPortal?.totalAguardandoLiberacao ?? 0) > 0 && (
         <p className="text-xs -mt-4" style={{ color: 'rgba(240,210,140,0.85)', fontFamily: 'Raleway, sans-serif' }}>
-          {BRL(garbo?.totalAguardandoLiberacao ?? 0)} de vendas concluídas aguardam o administrador liberar a comissão
+          {BRL(pontuaPortal?.totalAguardandoLiberacao ?? 0)} de vendas concluídas aguardam o administrador liberar a comissão
           antes de entrar em &quot;Para sacar&quot;.
         </p>
       )}
@@ -140,10 +140,10 @@ export function PrestadorSaldo() {
       </Button>
 
       <PrestadorGanhosChart
-        totalComissaoGanha={garbo?.totalComissaoGanha ?? 0}
-        ganhoMesAtual={garbo?.ganhoMesAtual ?? 0}
-        mediaMensalGanhos={garbo?.mediaMensalGanhos ?? 0}
-        ganhosPorMes={garbo?.ganhosPorMes ?? []}
+        totalComissaoGanha={pontuaPortal?.totalComissaoGanha ?? 0}
+        ganhoMesAtual={pontuaPortal?.ganhoMesAtual ?? 0}
+        mediaMensalGanhos={pontuaPortal?.mediaMensalGanhos ?? 0}
+        ganhosPorMes={pontuaPortal?.ganhosPorMes ?? []}
       />
 
       {pedidos.length > 0 && (

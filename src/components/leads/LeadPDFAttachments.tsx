@@ -38,6 +38,8 @@ import {
 } from '@/hooks/useLeadPDFs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/context/AppContext';
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada';
+import { PAGINA_ORCAMENTOS_IA } from '@/lib/paginas-catalogo';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { canAccessCrmPath } from '@/lib/crm-identity';
@@ -860,8 +862,10 @@ export const LeadPDFAttachments = forwardRef<LeadPDFAttachmentsHandle, LeadPDFAt
   const { empresa, isSuperAdmin: isSuperAdminEmpresa } = useEmpresa();
   const { hasPermission } = usePermissions();
   const orcamentosIaBg = useOrcamentosIaBackground();
+  const orcamentosIaLiberado = usePaginaLiberada(PAGINA_ORCAMENTOS_IA);
   const canSendToOrcamentosIa =
     !readOnly &&
+    orcamentosIaLiberado &&
     typeof leadId === 'number' &&
     Boolean(empresa?.id) &&
     canAccessCrmPath('/orcamentos-ia', crmProfile, userProfile);

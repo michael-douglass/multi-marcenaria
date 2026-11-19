@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check, Loader2, Undo2, X, Wallet, Receipt } from 'lucide-react';
 import { useSaquePedidosAdmin } from '@/hooks/useSaquePedidos';
-import { usePontuaGarboFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
+import { usePontuaFinanceiro } from '@/hooks/usePontuaFinanceiro';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { abrirReciboSaque } from '@/lib/recibo-saque-print';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,7 +42,7 @@ const BRL = (v: number) =>
 export function SaquePedidosAdminPanel({ readOnly }: { readOnly?: boolean }) {
   const { pedidos, pendentes, isLoading, aprovar, rejeitar, reverterAprovacao } =
     useSaquePedidosAdmin();
-  const { prestadores } = usePontuaGarboFinanceiro();
+  const { prestadores } = usePontuaFinanceiro();
   const { empresa } = useEmpresa();
   const [rejeitarId, setRejeitarId] = useState<string | null>(null);
   const [obsRejeitar, setObsRejeitar] = useState('');

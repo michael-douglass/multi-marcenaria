@@ -75,6 +75,8 @@ export interface Plano {
   ativo: boolean
   /** Páginas que o plano NÃO inclui (ids de `src/lib/paginas-catalogo.ts`). */
   paginas_bloqueadas: string[]
+  /** Limite mensal de tokens de IA (null = sem limite). */
+  ia_tokens_limite_mensal: number | null
 }
 
 export interface PaginasEmpresa {
@@ -275,6 +277,7 @@ export function usePlanos() {
         ...p,
         valor_mensal: num(p.valor_mensal),
         paginas_bloqueadas: Array.isArray(p.paginas_bloqueadas) ? p.paginas_bloqueadas : [],
+        ia_tokens_limite_mensal: p.ia_tokens_limite_mensal == null ? null : num(p.ia_tokens_limite_mensal),
       }))
     },
   })
@@ -454,5 +457,319 @@ export function useAcessosMaster(empresaId?: string) {
   return useQuery({
     queryKey: ['master', 'acessos', empresaId ?? 'todas'],
     queryFn: () => rpc<AcessoMaster[]>('master_listar_acessos', { p_empresa: empresaId ?? null, p_limite: 300 }),
+  })
+}
+
+// ── modelos padrão (docs/modelos-padrao) ─────────────────────────────────────────────────────────
+export type TipoModelo = 'markup' | 'slides' | 'contrato' | 'apresentacao' | 'pontua'
+
+export interface EmpresaModelo {
+  id: string
+  nome: string
+  slug: string
+  segmento: string | null
+  status: StatusEmpresa
+  criado_em: string
+}
+
+export interface ModeloCatalogo {
+  id: string
+  tipo: TipoModelo
+  empresa_modelo_id: string
+  empresa_modelo_nome: string
+  segmento: string | null
+  ref_id: string | null
+  nome: string
+  descricao: string | null
+  publicado: boolean
+  versao: number
+  atualizado_em: string
+  contagem: Record<string, number | boolean | string | null>
+  entregas: number
+  planos: string[]
+}
+
+export interface EntregaModelo {
+  id: string
+  modelo_id: string
+  modelo_nome: string
+  tipo: TipoModelo
+  empresa_id: string
+  empresa_nome: string
+  versao: number
+  entregue_em: string
+  resumo: Record<string, unknown>
+}
+
+export interface ResultadoEnvio {
+  empresa_id: string
+  empresa: string | null
+  ok: boolean
+  resumo?: Record<string, unknown>
+  erro?: string
+}
+
+export function useEmpresasModelo() {
+  return useQuery({
+    queryKey: ['master', 'modelos', 'empresas'],
+    queryFn: () => rpc<EmpresaModelo[]>('master_listar_empresas_modelo'),
+  })
+}
+
+/** Catálogo (a RPC sincroniza com o que as empresas-modelo têm antes de listar). */
+export function useModelosCatalogo() {
+  return useQuery({
+    queryKey: ['master', 'modelos', 'catalogo'],
+    queryFn: async () => {
+      const rows = await rpc<ModeloCatalogo[]>('master_listar_modelos', { p_empresa_modelo: null })
+      return (rows ?? []).map((r) => ({ ...r, contagem: r.contagem ?? {}, planos: r.planos ?? [] }))
+    },
+  })
+}
+
+export function useEntregasModelos(modeloId?: string) {
+  return useQuery({
+    queryKey: ['master', 'modelos', 'entregas', modeloId ?? 'todas'],
+    queryFn: () => rpc<EntregaModelo[]>('master_listar_entregas', { p_modelo: modeloId ?? null, p_limite: 200 }),
+  })
+}
+
+export function useCriarEmpresaModelo() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { nome: string; slug: string; segmento?: string | null; importarDe?: string | null }) =>
+      rpc<string>('master_criar_empresa_modelo', {
+        p_nome: i.nome,
+        p_slug: i.slug,
+        p_segmento: i.segmento ?? null,
+        p_importar_de: i.importarDe ?? null,
+      }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useAtualizarEmpresaModelo() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { empresaId: string; nome: string; segmento: string | null }) =>
+      rpc<void>('master_atualizar_empresa_modelo', { p_empresa: i.empresaId, p_nome: i.nome, p_segmento: i.segmento }),
+    onSuccess: invalidar,
+  })
+}
+
+export function usePublicarModelo() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { modeloId: string; publicado: boolean; descricao?: string | null }) =>
+      rpc<void>('master_publicar_modelo', { p_modelo: i.modeloId, p_publicado: i.publicado, p_descricao: i.descricao ?? null }),
+    onSuccess: invalidar,
+  })
+}
+
+/** Interface da página Pontua do pacote de uma empresa-modelo (sem_marca | classica). */
+export function useDefinirPontuaInterface() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { empresaModeloId: string; interface: string }) =>
+      rpc<{ interface: string }>('master_definir_pontua_interface', {
+        p_empresa_modelo: i.empresaModeloId,
+        p_interface: i.interface,
+      }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useSalvarModelosPlano() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { planoId: string; modelos: string[] }) =>
+      rpc<void>('master_salvar_modelos_plano', { p_plano: i.planoId, p_modelos: i.modelos }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useEnviarModelo() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { modeloId: string; empresas: string[] }) =>
+      rpc<ResultadoEnvio[]>('master_enviar_modelo', { p_modelo: i.modeloId, p_empresas: i.empresas }),
+    onSuccess: invalidar,
+  })
+}
+
+// ── motor de IA do card do lead (docs/ia-lead, ADR 0007) ─────────────────────────────────────────
+export interface MotorIa {
+  ativo: boolean
+  render_ativo: boolean
+  render_ambiente_ativo: boolean
+  vision_model: string
+  image_model: string
+  render_analysis_prompt: string | null
+  render_prompt: string | null
+  render_ambiente_analysis_prompt: string | null
+  render_ambiente_prompt: string | null
+  tokens_por_imagem_fixa: number
+  /** A chave nunca chega ao navegador: só se existe e o final dela. */
+  chave_configurada: boolean
+  chave_final4: string | null
+  chave_atualizada_em: string | null
+}
+
+export type MotorIaEdicao = Omit<MotorIa, 'chave_configurada' | 'chave_final4' | 'chave_atualizada_em'>
+
+export interface ConsumoIaEmpresa {
+  empresa_id: string
+  nome: string
+  plano_nome: string | null
+  funcao_liberada: boolean
+  modo: 'plano' | 'personalizado' | 'sem_limite'
+  limite: number | null
+  usado: number
+  custo_usd: number
+  usos: number
+}
+
+export interface ConsumoIaDetalhe {
+  meses: Array<{ mes: string; tokens: number; custo_usd: number }>
+  por_funcao: Array<{ funcao: string; tokens: number; custo_usd: number }>
+  por_modelo: Array<{ modelo: string; tokens: number; custo_usd: number }>
+}
+
+export interface UsoIa {
+  id: number
+  funcao: string
+  etapa: 'visao' | 'imagem'
+  modelo: string
+  lead_id: number | null
+  tokens_total: number
+  estimado: boolean
+  custo_usd: number
+  criado_em: string
+}
+
+export interface PrecoIa {
+  modelo: string
+  usd_por_milhao_entrada: number
+  usd_por_milhao_saida: number
+  usd_por_imagem: number
+}
+
+export function useMotorIa() {
+  return useQuery({
+    queryKey: ['master', 'ia', 'motor'],
+    queryFn: () => rpc<MotorIa>('master_ia_motor_obter'),
+  })
+}
+
+export function useSalvarMotorIa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (m: MotorIaEdicao) => rpc<void>('master_ia_motor_salvar', { p: m as unknown as Record<string, unknown> }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useSalvarChaveMotorIa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (chave: string) => rpc<void>('master_ia_motor_salvar_chave', { p_chave: chave }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useLimparChaveMotorIa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: () => rpc<void>('master_ia_motor_limpar_chave'),
+    onSuccess: invalidar,
+  })
+}
+
+/** `mes` = qualquer dia do mês (YYYY-MM-DD); omitido = mês atual. */
+export function useConsumoIaEmpresas(mes?: string) {
+  return useQuery({
+    queryKey: ['master', 'ia', 'consumo', mes ?? 'atual'],
+    queryFn: async () => {
+      const rows = await rpc<ConsumoIaEmpresa[]>('master_ia_consumo_empresas', { p_mes: mes ?? null })
+      return (rows ?? []).map((r) => ({
+        ...r,
+        limite: r.limite == null ? null : num(r.limite),
+        usado: num(r.usado),
+        custo_usd: num(r.custo_usd),
+        usos: num(r.usos),
+      }))
+    },
+  })
+}
+
+export function useConsumoIaEmpresa(empresaId: string | undefined, meses = 6) {
+  return useQuery({
+    queryKey: ['master', 'ia', 'consumo-empresa', empresaId, meses],
+    queryFn: () => rpc<ConsumoIaDetalhe>('master_ia_consumo_empresa', { p_empresa: empresaId, p_meses: meses }),
+    enabled: !!empresaId,
+  })
+}
+
+export function useUsoIaRecente(empresaId: string | undefined) {
+  return useQuery({
+    queryKey: ['master', 'ia', 'uso-recente', empresaId],
+    queryFn: () => rpc<UsoIa[]>('master_ia_uso_recente', { p_empresa: empresaId, p_limite: 50 }),
+    enabled: !!empresaId,
+  })
+}
+
+export function usePrecosIa() {
+  return useQuery({
+    queryKey: ['master', 'ia', 'precos'],
+    queryFn: async () => {
+      const { data, error } = await tabela('plataforma_ia_precos').select('*').order('modelo')
+      if (error) throw new Error(error.message)
+      return ((data ?? []) as unknown as PrecoIa[]).map((p) => ({
+        modelo: p.modelo,
+        usd_por_milhao_entrada: num(p.usd_por_milhao_entrada),
+        usd_por_milhao_saida: num(p.usd_por_milhao_saida),
+        usd_por_imagem: num(p.usd_por_imagem),
+      }))
+    },
+  })
+}
+
+export function useSalvarPrecosIa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (p: PrecoIa[]) => rpc<void>('master_ia_precos_salvar', { p: p as unknown as Record<string, unknown> }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useSalvarLimiteIaPlano() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { planoId: string; limite: number | null }) =>
+      rpc<void>('master_ia_salvar_limite_plano', { p_plano: i.planoId, p_limite: i.limite ?? 0 }),
+    onSuccess: invalidar,
+  })
+}
+
+export function useSalvarLimiteIaEmpresa() {
+  const invalidar = useInvalidarMaster()
+  return useMutation({
+    mutationFn: (i: { empresaId: string; modo: 'plano' | 'personalizado' | 'sem_limite'; limite?: number | null }) =>
+      rpc<void>('master_ia_salvar_limite_empresa', { p_empresa: i.empresaId, p_modo: i.modo, p_limite: i.limite ?? null }),
+    onSuccess: invalidar,
+  })
+}
+
+/** Limite e modo da empresa (para o seletor na aba "IA e tokens"). */
+export function useLimiteIaEmpresa(empresaId: string | undefined) {
+  return useQuery({
+    queryKey: ['master', 'ia', 'limite-empresa', empresaId],
+    queryFn: async () => {
+      const { data, error } = await tabela('plataforma_empresa_ia').select('*').eq('empresa_id', empresaId as string).maybeSingle()
+      if (error) throw new Error(error.message)
+      const r = data as unknown as { modo: 'plano' | 'personalizado' | 'sem_limite'; tokens_limite_mensal: number | null } | null
+      return { modo: r?.modo ?? 'plano', limite: r?.tokens_limite_mensal == null ? null : num(r.tokens_limite_mensal) }
+    },
+    enabled: !!empresaId,
   })
 }

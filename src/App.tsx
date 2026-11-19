@@ -48,7 +48,7 @@ import { Login } from '@/pages/Login'
 import { Visualizacao } from '@/pages/Visualizacao'
 import { ObrasProvider } from '@/hooks/useObras'
 import { AppRefreshButton } from '@/components/ui/AppRefreshButton'
-import { GarboLoadingBrand } from '@/components/ui/GarboLoadingBrand'
+import { LoadingBrand } from '@/components/ui/LoadingBrand'
 import { CrmSelletosProviders } from '@/components/crm/CrmSelletosProviders'
 import { RouteLoadingFallback } from '@/components/RouteLoadingFallback'
 import { OAuthErrorRedirect } from '@/components/OAuthErrorRedirect'
@@ -84,8 +84,10 @@ const CrmBiblioteca = lazy(() => import('@/pages/CrmBiblioteca'))
 const PrestadorSelletos = lazy(() => import('@/pages/Prestador'))
 const ProfilePage = lazy(() => import('@/pages/Profile'))
 const ApresentacaoEmpresaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPage'))
-const PontuaGarboApresentacaoPage = lazy(() => import('@/pages/marketing/PontuaGarboApresentacaoPage'))
+const PontuaPage = lazy(() => import('@/pages/marketing/PontuaPage'))
+const PontuaEditorPage = lazy(() => import('@/pages/marketing/PontuaEditorPage'))
 const ApresentacaoEmpresaPublicaPage = lazy(() => import('@/pages/marketing/ApresentacaoEmpresaPublicaPage'))
+const ApresentacaoEditorPage = lazy(() => import('@/pages/marketing/ApresentacaoEditorPage'))
 const AgendamentoPublico = lazy(() => import('@/pages/AgendamentoPublico'))
 /** Console master (ambiente isolado, chunk próprio). */
 const MasterApp = lazy(() => import('@/master/MasterApp'))
@@ -122,7 +124,7 @@ function BootLoading({ message }: { message: string }) {
 
   return (
     <div className="relative min-h-screen">
-      <GarboLoadingBrand variant="fullscreen" message={message} />
+      <LoadingBrand variant="fullscreen" message={message} />
       {stuck ? (
         <div className="fixed inset-x-0 bottom-8 z-[80] flex flex-col items-center gap-3 px-6">
           <p className="text-center text-xs text-[#edd9c4]">
@@ -271,6 +273,13 @@ function AuthenticatedRoutes() {
       </CrmLazy>
     )
   }
+  if (location.pathname.startsWith('/marketing/apresentacao-interna/editar')) {
+    return (
+      <CrmLazy>
+        <ApresentacaoEditorPage />
+      </CrmLazy>
+    )
+  }
   if (location.pathname.startsWith('/marketing/apresentacao-interna')) {
     return (
       <CrmLazy>
@@ -278,10 +287,17 @@ function AuthenticatedRoutes() {
       </CrmLazy>
     )
   }
-  if (location.pathname.startsWith('/marketing/pontua-garbo')) {
+  if (location.pathname.startsWith('/marketing/pontua/editar')) {
     return (
       <CrmLazy>
-        <PontuaGarboApresentacaoPage />
+        <PontuaEditorPage />
+      </CrmLazy>
+    )
+  }
+  if (location.pathname === '/marketing/pontua' || location.pathname === '/marketing/pontua/') {
+    return (
+      <CrmLazy>
+        <PontuaPage />
       </CrmLazy>
     )
   }
@@ -752,8 +768,9 @@ export default function App() {
           <Route path="/agendar/:slug" element={<CrmLazy><AgendamentoPublico /></CrmLazy>} />
           <Route path="/cadastro-de-alunos" element={<CrmLazy><CadastroDeAlunos /></CrmLazy>} />
           <Route path="/cadastro/:tipo" element={<CadastroPublico />} />
-          <Route path="/apresentacao/garbo" element={<CrmLazy><ApresentacaoEmpresaPublicaPage /></CrmLazy>} />
-          <Route path="/marketing/apresentacao-empresa" element={<Navigate to="/apresentacao/garbo" replace />} />
+          <Route path="/apresentacao/:slug" element={<CrmLazy><ApresentacaoEmpresaPublicaPage /></CrmLazy>} />
+          <Route path="/apresentacao/:slug/pontua" element={<CrmLazy><ApresentacaoEmpresaPublicaPage somentePontua /></CrmLazy>} />
+          <Route path="/marketing/apresentacao-empresa" element={<Navigate to="/marketing/apresentacao-interna" replace />} />
           <Route path="*" element={<AppRoutes />} />
         </Routes>
       </OAuthErrorRedirect>

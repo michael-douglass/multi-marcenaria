@@ -67,7 +67,7 @@ export function adaptLeadFromDatabase(dbLead: LeadWithVendor): Lead {
     } : dbLead.tabela_origem_info || undefined,
     // Flag para priorizar lead no topo da coluna
     needsAttention: Boolean(dbLead.dar_atencao),
-    pontuaGarboUsuarioId: dbLead.pontua_garbo_usuario_id ?? null,
+    pontuaUsuarioId: dbLead.pontua_usuario_id ?? null,
   };
 }
 

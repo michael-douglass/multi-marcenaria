@@ -36,6 +36,7 @@ import {
   Cell,
   Legend,
 } from 'recharts'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 
 const CHART_TOOLTIP_STYLE = {
   backgroundColor: '#fffcf8',
@@ -104,7 +105,7 @@ export function Dashboard() {
     if (!stats) return null
     return {
       stats,
-      empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+      empresaNome: empresa?.nome ?? APP_SYSTEM_NAME,
       anoReceitas,
       receitasMensais: receitasMensais ?? [],
       anoDespesas,
@@ -231,7 +232,7 @@ export function Dashboard() {
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#8a7060]">
-              {empresa?.nome?.trim() || 'Movelaria Garbo'}
+              {empresa?.nome?.trim() || APP_SYSTEM_NAME}
             </p>
             <DashboardPdfExportButton input={pdfExportInput} />
           </div>
@@ -426,7 +427,7 @@ export function Dashboard() {
           previsaoDespesasOriginal={
             previsaoProximoNoSimulador?.despesas ?? stats?.despesasProximoMes ?? 0
           }
-          empresaNome={empresa?.nome ?? 'Movelaria Garbo'}
+          empresaNome={empresa?.nome ?? APP_SYSTEM_NAME}
         />
       </DashboardSection>
     </div>

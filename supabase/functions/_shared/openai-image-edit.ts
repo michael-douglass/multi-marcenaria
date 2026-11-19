@@ -5,6 +5,8 @@ export interface OpenAIImageEditOptions {
   extraImages?: Array<{ bytes: Uint8Array; mime: string; filename?: string }>;
   /** Tamanho da saída. Se omitido, escolhe o mais próximo da foto de entrada. */
   size?: '1024x1024' | '1536x1024' | '1024x1536';
+  /** Recebe o campo `usage` da resposta (gpt-image-*); `null` quando o modelo não informa (dall-e-2). */
+  onUsage?: (usage: unknown) => void;
 }
 
 export function pickGptImageEditSize(
@@ -136,6 +138,7 @@ export async function callOpenAIImageEdit(
     }
 
     const openAiData = await openAiRes.json();
+    options?.onUsage?.(openAiData?.usage ?? null);
     const b64 = openAiData?.data?.[0]?.b64_json as string | undefined;
     if (b64) {
       const binary = atob(b64);
@@ -210,6 +213,7 @@ export async function callOpenAIImageGenerate(
   apiKey: string,
   model: string,
   prompt: string,
+  options?: { onUsage?: (usage: unknown) => void },
 ): Promise<Uint8Array> {
   const isGptImage = model === 'gpt-image-1' || model === 'gpt-image-1.5';
   const body: Record<string, unknown> = {
@@ -248,5 +252,6 @@ export async function callOpenAIImageGenerate(
   }
 
   const openAiData = await openAiRes.json();
+  options?.onUsage?.(openAiData?.usage ?? null);
   return decodeImagePayload(openAiData);
 }

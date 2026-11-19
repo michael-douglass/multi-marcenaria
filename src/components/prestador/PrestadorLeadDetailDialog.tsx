@@ -9,7 +9,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { LeadWhiteboard } from '@/components/leads/LeadWhiteboard';
 import { LeadPDFAttachments } from '@/components/leads/LeadPDFAttachments';
 import { LeadOrcamentoSlidesSection } from '@/components/leads/LeadOrcamentoSlidesSection';
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import type { LeadPrestadorPermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { podeVerAlgumAnexo } from '@/lib/prestador-visibilidade';
 

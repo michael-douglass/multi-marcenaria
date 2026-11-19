@@ -26,6 +26,12 @@ for (const r of rotas) {
   console.log(`  ${r.padEnd(42)} ${id ?? '—'}`)
   if (!id && !ESPERADAS_SEM_PAGINA.some(re => re.test(r))) sem.push(r)
 }
+// `/funcao/*` é reservado às funções do catálogo (URL fictícia): nenhuma rota real pode usá-lo.
+const colide = rotas.filter(r => r === '/funcao' || r.startsWith('/funcao/'))
+if (colide.length) {
+  console.log(`\nROTA RESERVADA (/funcao/*) usada em App.tsx: ${colide.join(', ')}`)
+  process.exitCode = 1
+}
 if (sem.length) {
   console.log(`\nSEM PÁGINA (inesperado): ${sem.join(', ')}`)
   process.exitCode = 1

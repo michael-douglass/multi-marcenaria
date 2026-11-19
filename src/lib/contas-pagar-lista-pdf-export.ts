@@ -8,6 +8,7 @@ import { monthLabel } from '@/components/ui/PeriodFilterBar'
 import type { PeriodFilter } from '@/components/ui/PeriodFilterBar'
 import { fmtCur, fmtDate, todayISO } from '@/lib/utils'
 import type { ContaPagar } from '@/types'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 const STATUS_LABEL: Record<string, string> = {
   pago: 'Pago',
@@ -489,7 +490,7 @@ function buildMesBlockHtml(
 }
 
 function buildDocumentHtml(input: ContasPagarListaPdfExportInput): string {
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const periodLabel = formatPeriodFilterLabel(input.periodFilter)
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',

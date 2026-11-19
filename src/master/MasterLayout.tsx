@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Building2, History, LayoutList, LogOut, Receipt, SlidersHorizontal } from 'lucide-react'
+import { Building2, Copy, History, LayoutList, LogOut, Receipt, SlidersHorizontal } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { cn } from '@/lib/utils'
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/master/empresas', label: 'Marcenarias', icon: Building2, end: false },
   { to: '/master/financeiro', label: 'Mensalidades', icon: Receipt, end: false },
   { to: '/master/planos', label: 'Planos e páginas', icon: SlidersHorizontal, end: false },
+  { to: '/master/modelos', label: 'Modelos padrão', icon: Copy, end: false },
   { to: '/master/acessos', label: 'Entradas nas empresas', icon: History, end: false },
 ] as const
 

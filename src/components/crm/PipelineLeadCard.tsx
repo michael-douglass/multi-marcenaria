@@ -14,7 +14,7 @@ const originColors: Record<string, string> = {
   WhatsApp: 'bg-success text-success-foreground',
   'Redes Sociais': 'bg-warning text-warning-foreground',
   Indicação: 'bg-accent text-accent-foreground',
-  'Pontua Garbo': 'bg-gold/20 text-gold border border-gold/35',
+  'Pontua': 'bg-gold/20 text-gold border border-gold/35',
   Outros: 'bg-muted text-muted-foreground',
 }
 

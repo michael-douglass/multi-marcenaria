@@ -1,4 +1,3 @@
-import { nomePrograma } from '@/lib/empresa-identidade'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronRight, Landmark, User } from 'lucide-react'
@@ -30,10 +29,10 @@ import {
   isFuncionariosSection,
   isLeafPathActive,
   isMarketingCrmSection,
+  isAdminCrmSection,
   isObrasNavItemActive,
   isObrasSection,
   navVisibilityFromProfiles,
-  aplicarNomePrograma,
   sectionFromPath,
   type NavChildItem,
   type NavItemId,
@@ -220,14 +219,11 @@ export function AppSidebar() {
   const canSearchCobrancas = canAccessSection(roles, 'cobranças') && paginaLiberada('cobranças', bloqueadas)
   const canSearchClientes = canAccessSection(roles, 'clientes') && paginaLiberada('clientes', bloqueadas)
 
-  const items = aplicarNomePrograma(
-    attachPipelineKanbanPages(
-      getVisibleNavMainItems({ ...navVisibilityFromProfiles(roles, crmProfile, userProfile), paginasBloqueadas: bloqueadas }),
-      pages,
-      manutencaoCount,
-      bloqueadas,
-    ),
-    nomePrograma(empresa?.nome),
+  const items = attachPipelineKanbanPages(
+    getVisibleNavMainItems({ ...navVisibilityFromProfiles(roles, crmProfile, userProfile), paginasBloqueadas: bloqueadas }),
+    pages,
+    manutencaoCount,
+    bloqueadas,
   )
   const comercialItems = items.filter(item => item.sector === 'comercial')
   const casaItems = items.filter(item => item.sector === 'casa')
@@ -277,6 +273,7 @@ export function AppSidebar() {
   const obrasAbertoPorRota = isObrasSection(activeSection)
   const comercialAbertoPorRota = isComercialSection(activeSection)
   const marketingAbertoPorRota = isMarketingCrmSection(activeSection)
+  const adminCrmAbertoPorRota = isAdminCrmSection(activeSection)
   const pontoAbertoPorRota =
     activeSection === 'baterPonto'
     || activeSection === 'historicoPonto'
@@ -288,8 +285,9 @@ export function AppSidebar() {
   const [pontoOpen, setPontoOpen] = useState(pontoAbertoPorRota)
   const [comercialOpen, setComercialOpen] = useState(comercialAbertoPorRota)
   const [marketingOpen, setMarketingOpen] = useState(marketingAbertoPorRota)
+  const [adminCrmOpen, setAdminCrmOpen] = useState(adminCrmAbertoPorRota)
   const routeSector: 'crm' | 'movelaria' =
-    comercialAbertoPorRota || marketingAbertoPorRota || activeSection === 'portalParceiro'
+    comercialAbertoPorRota || marketingAbertoPorRota || adminCrmAbertoPorRota || activeSection === 'portalParceiro'
       ? 'crm'
       : 'movelaria'
   const [sectorOverride, setSectorOverride] = useState<'crm' | 'movelaria' | 'none' | null>(null)
@@ -325,6 +323,13 @@ export function AppSidebar() {
   }, [marketingAbertoPorRota])
 
   useEffect(() => {
+    if (adminCrmAbertoPorRota) {
+      setAdminCrmOpen(true)
+      setFinanceiroOpen(false)
+    }
+  }, [adminCrmAbertoPorRota])
+
+  useEffect(() => {
     if (financeiroAbertoPorRota) {
       setFinanceiroOpen(true)
       setComercialOpen(false)
@@ -351,6 +356,7 @@ export function AppSidebar() {
     pontoGrupo: pontoOpen,
     comercial: comercialOpen,
     marketingCrm: marketingOpen,
+    adminCrmGrupo: adminCrmOpen,
   }
 
   const setGrupoOpenById = (id: NavItemId, next: boolean) => {
@@ -360,6 +366,7 @@ export function AppSidebar() {
     else if (id === 'pontoGrupo') setPontoOpen(next)
     else if (id === 'comercial') setComercialOpen(next)
     else if (id === 'marketingCrm') setMarketingOpen(next)
+    else if (id === 'adminCrmGrupo') setAdminCrmOpen(next)
   }
 
   const handleNavClick = (url: string) => {
@@ -721,7 +728,7 @@ export function AppSidebar() {
               {userProfile?.nome || crmProfile?.nome || userProfile?.email || crmProfile?.email || 'Perfil'}
             </p>
             <p className="text-[0.65rem] uppercase tracking-wider text-[#edd9c4]">
-              Abrir perfil · GARBO
+              Abrir perfil
             </p>
           </div>
         </button>

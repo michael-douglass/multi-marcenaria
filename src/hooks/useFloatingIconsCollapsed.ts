@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-const STORAGE_KEY = 'garbo:floating-icons-collapsed'
+const STORAGE_KEY = 'app:floating-icons-collapsed'
 
 function readCollapsed(): boolean {
   try {

@@ -3,10 +3,11 @@ import { Palette } from 'lucide-react'
 import { CrmPageFrame, CrmPageHeader } from '@/components/crm/CrmPageFrame'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/Field'
-import { garboBrandLogo } from '@/lib/garbo-brand'
+import { MARCA_PADRAO_LOGO } from '@/lib/marca-padrao'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 import { showToast } from '@/lib/toast'
 
-const STORAGE_KEY = 'garbo-crm-marca-preview'
+const STORAGE_KEY = 'app-crm-marca-preview'
 
 interface MarcaPreview {
   nomeMenu: string
@@ -16,14 +17,14 @@ interface MarcaPreview {
 function lerPreview(): MarcaPreview {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { nomeMenu: 'Garbo movelaria', cor: '#c4a574' }
+    if (!raw) return { nomeMenu: APP_SYSTEM_NAME, cor: '#c4a574' }
     const parsed = JSON.parse(raw) as MarcaPreview
     return {
-      nomeMenu: parsed.nomeMenu || 'Garbo movelaria',
+      nomeMenu: parsed.nomeMenu || APP_SYSTEM_NAME,
       cor: parsed.cor || '#c4a574',
     }
   } catch {
-    return { nomeMenu: 'Garbo movelaria', cor: '#c4a574' }
+    return { nomeMenu: APP_SYSTEM_NAME, cor: '#c4a574' }
   }
 }
 
@@ -60,14 +61,14 @@ export function ConfiguracaoMarcaPage() {
               </Button>
             </div>
             <div className="flex flex-col items-start gap-2 rounded-lg border p-3" style={{ borderColor: form.cor }}>
-              <img src={garboBrandLogo} alt="" className="h-14 w-14 object-contain" width={56} height={56} />
+              <img src={MARCA_PADRAO_LOGO} alt="" className="h-14 w-14 object-contain" width={56} height={56} />
               <p className="font-display text-xs uppercase tracking-[0.2em]" style={{ color: form.cor }}>{form.nomeMenu}</p>
             </div>
           </div>
         </article>
         <article className="rounded-xl border border-border/80 bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">Página do prestador</h2>
-          <p className="text-sm text-muted-foreground">Os banners do portal usam a marca Garbo já no código. Upload de banner novo precisa de pasta no Storage — não inventamos tabela.</p>
+          <p className="text-sm text-muted-foreground">Os banners do portal usam fotos padrão do sistema. Upload de banner novo precisa de pasta no Storage — não inventamos tabela.</p>
         </article>
         <article className="rounded-xl border border-border/80 bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold">Timbrado de contratos</h2>

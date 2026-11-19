@@ -12,7 +12,7 @@ import { markBootAndDetectLoop } from './lib/boot-guard'
 import { QueryPersistBootGate } from './components/QueryPersistBootGate'
 
 if (markBootAndDetectLoop()) {
-  document.documentElement.dataset.garboSafeMode = '1'
+  document.documentElement.dataset.appSafeMode = '1'
 }
 
 const queryClient = new QueryClient({
@@ -29,7 +29,7 @@ const queryClient = new QueryClient({
 
 const persister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-  key: 'garbo-crm-rq-cache-v1',
+  key: 'app-crm-rq-cache-v1',
   throttleTime: 1000,
   deserialize: (cached) => {
     try {
@@ -47,7 +47,7 @@ createRoot(document.getElementById('root')!).render(
       client={queryClient}
       persistOptions={{
         persister,
-        buster: 'garbo-empresa-queries-ready-v1',
+        buster: 'app-empresa-queries-ready-v1',
         maxAge: 1000 * 60 * 60 * 12,
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {

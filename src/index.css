@@ -7476,8 +7476,8 @@ body {
   }
 }
 
-/* ── GARBO loading brand ───────────────────────────────────── */
-@keyframes garbo-brand-spin {
+/* ── loading brand ───────────────────────────────────── */
+@keyframes app-brand-spin {
   from {
     transform: rotate(0deg);
   }
@@ -7486,7 +7486,7 @@ body {
   }
 }
 
-@keyframes garbo-brand-glow {
+@keyframes app-brand-glow {
   0%,
   100% {
     opacity: 0.42;
@@ -7498,7 +7498,7 @@ body {
   }
 }
 
-.garbo-loading-brand {
+.app-loading-brand {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -7508,26 +7508,26 @@ body {
   text-align: center;
 }
 
-.garbo-loading-brand--inline {
+.app-loading-brand--inline {
   padding: 3.5rem 1rem;
 }
 
-.garbo-loading-brand--page {
+.app-loading-brand--page {
   flex: 1;
   min-height: 0;
   width: 100%;
   padding: 1rem;
 }
 
-.garbo-loading-brand--page .garbo-loading-brand__logo {
+.app-loading-brand--page .app-loading-brand__logo {
   animation-duration: 5s;
 }
 
-.garbo-loading-brand--page .garbo-loading-brand__halo {
+.app-loading-brand--page .app-loading-brand__halo {
   animation-duration: 4.4s;
 }
 
-.garbo-loading-brand--fullscreen {
+.app-loading-brand--fullscreen {
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
@@ -7538,7 +7538,7 @@ body {
     radial-gradient(ellipse 40% 35% at 8% 78%, rgba(36, 16, 8, 0.75) 0%, transparent 70%);
 }
 
-.garbo-loading-brand--overlay {
+.app-loading-brand--overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -7549,22 +7549,22 @@ body {
     radial-gradient(ellipse 70% 45% at 50% 38%, rgba(212, 168, 83, 0.1) 0%, transparent 68%);
 }
 
-.garbo-loading-brand__stage {
+.app-loading-brand__stage {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.garbo-loading-brand__halo {
+.app-loading-brand__halo {
   position: absolute;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(212, 168, 83, 0.28) 0%, rgba(212, 168, 83, 0.06) 48%, transparent 72%);
-  animation: garbo-brand-glow 2.6s ease-in-out infinite;
+  animation: app-brand-glow 2.6s ease-in-out infinite;
   pointer-events: none;
 }
 
-.garbo-loading-brand__logo {
+.app-loading-brand__logo {
   position: relative;
   z-index: 1;
   display: block;
@@ -7572,11 +7572,11 @@ body {
   filter:
     drop-shadow(0 14px 36px rgba(0, 0, 0, 0.55))
     drop-shadow(0 0 28px rgba(212, 168, 83, 0.28));
-  animation: garbo-brand-spin 2.8s linear infinite;
+  animation: app-brand-spin 2.8s linear infinite;
   transform-origin: center center;
 }
 
-.garbo-loading-brand__message {
+.app-loading-brand__message {
   margin: 0;
   font-family: Raleway, sans-serif;
   font-size: 0.72rem;
@@ -7586,14 +7586,14 @@ body {
   color: #4a3428;
 }
 
-.garbo-loading-brand--fullscreen .garbo-loading-brand__message,
-.garbo-loading-brand--overlay .garbo-loading-brand__message {
+.app-loading-brand--fullscreen .app-loading-brand__message,
+.app-loading-brand--overlay .app-loading-brand__message {
   color: #f2d892;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .garbo-loading-brand__logo,
-  .garbo-loading-brand__halo {
+  .app-loading-brand__logo,
+  .app-loading-brand__halo {
     animation: none;
   }
 }

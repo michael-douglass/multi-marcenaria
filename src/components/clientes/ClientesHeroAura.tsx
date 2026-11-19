@@ -11,7 +11,7 @@ void main() {
 }
 `
 
-/** Folha de ouro + veios de madeira — atmosfera de ateliê Garbo. */
+/** Folha de ouro + veios de madeira — atmosfera de ateliê. */
 const FRAGMENT = `
 uniform float uTime;
 varying vec2 vUv;

@@ -79,7 +79,7 @@ export function ExportarDocumentosChecklistButton({ className }: Props) {
                 <p className="font-medium text-[#f2d892]">Papel timbrado — assinatura de carteira</p>
                 <p className="mt-1 text-sm leading-relaxed text-[#b8957f]">
                   Gera a lista oficial de documentos que o colaborador precisa entregar
-                  para o registro em carteira, com logo e dados da GARBO.
+                  para o registro em carteira, com logo e dados da empresa.
                 </p>
               </div>
             </div>

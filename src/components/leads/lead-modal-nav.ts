@@ -12,13 +12,13 @@ export interface LeadNavJumpItem {
   keywords?: string[];
 }
 
-const INFO_SECTION_IDS = new Set(['contato', 'negocio', 'equipe', 'pontua-garbo', 'negociador']);
+const INFO_SECTION_IDS = new Set(['contato', 'negocio', 'equipe', 'pontua', 'negociador']);
 
 export function leadTabForSection(sectionId: string): LeadModalTabId {
   return INFO_SECTION_IDS.has(sectionId) ? 'info' : 'detalhes';
 }
 
-/** Ficha principal: quem é, o negócio, a equipe, Pontua Garbo e Negociador. */
+/** Ficha principal: quem é, o negócio, a equipe, Pontua e Negociador. */
 export const LEAD_INFO_NAV: LeadNavJumpItem[] = [
   {
     id: 'contato',
@@ -42,11 +42,11 @@ export const LEAD_INFO_NAV: LeadNavJumpItem[] = [
     keywords: ['vendedor', 'status', 'coluna', 'funil', 'equipe', 'informacoes', 'informações'],
   },
   {
-    id: 'pontua-garbo',
-    label: 'Pontua Garbo',
+    id: 'pontua',
+    label: 'Pontua',
     hint: 'Cadastrar ou unir parceiro',
     tab: 'info',
-    keywords: ['pontua', 'garbo', 'arquiteto', 'parceiro', 'estrelinha', 'comissao', 'comissão'],
+    keywords: ['pontua', 'arquiteto', 'parceiro', 'estrelinha', 'comissao', 'comissão'],
   },
   {
     id: 'negociador',
@@ -151,13 +151,15 @@ export interface LeadNavVisibility {
   hideContratos?: boolean;
   hideOrcamentos?: boolean;
   hideMarkup?: boolean;
+  /** Orçamento IA (Corte Claude): modo projeto ou página `orcamentosIa` bloqueada no plano. */
+  hideOrcamentosIa?: boolean;
   hideWhatsapp?: boolean;
-  hidePontuaGarbo?: boolean;
+  hidePontua?: boolean;
 }
 
 export function filterLeadInfoNav(visibility: LeadNavVisibility = {}): LeadNavJumpItem[] {
   return LEAD_INFO_NAV.filter((item) => {
-    if (item.id === 'pontua-garbo' && visibility.hidePontuaGarbo) return false;
+    if (item.id === 'pontua' && visibility.hidePontua) return false;
     return true;
   });
 }
@@ -167,6 +169,7 @@ export function filterLeadDetailsNav(visibility: LeadNavVisibility): LeadNavJump
     if (item.id === 'contratos' && visibility.hideContratos) return false;
     if (item.id === 'orcamentos' && visibility.hideOrcamentos) return false;
     if (item.id === 'markup' && visibility.hideMarkup) return false;
+    if (item.id === 'orcamentos-ia' && visibility.hideOrcamentosIa) return false;
     if (item.id === 'whatsapp' && visibility.hideWhatsapp) return false;
     return true;
   });

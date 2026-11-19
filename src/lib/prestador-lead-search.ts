@@ -1,4 +1,4 @@
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import { normalizePhoneDigits, normalizeSearchText } from '@/lib/lead-search';
 
 function getPrestadorLeadSearchableValues(lead: ComissaoLead): string[] {

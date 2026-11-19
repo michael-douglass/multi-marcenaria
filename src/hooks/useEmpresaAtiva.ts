@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { definirInspecaoSomenteLeitura, supabase } from '../lib/supabase'
 import { definirEmpresaDocumento } from '../lib/empresa-identidade'
+import { APP_SYSTEM_NAME } from '../lib/app-branding'
 
 /** Empresa (marcenaria) em que o usuário está trabalhando — RPC `app_minha_empresa`. */
 export interface EmpresaAtiva {
@@ -24,6 +25,10 @@ export interface EmpresaAtiva {
   uf: string | null
   telefone: string | null
   email: string | null
+  /** Representante legal (aparece nos contratos); CPF só com dígitos. */
+  representanteNome: string | null
+  representanteCpf: string | null
+  representanteQualificacao: string | null
   /** Páginas bloqueadas pela plataforma (ids de `src/lib/paginas-catalogo.ts`). */
   paginasBloqueadas: string[]
   /** O master está dentro desta empresa (inspeção). */
@@ -37,16 +42,16 @@ export interface EmpresaAtivaState {
   isMaster: boolean
   empresaLoading: boolean
   /** Só para o master: entra na empresa (inspeção) e recarrega o app (zera caches e estado). */
-  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean) => Promise<void>
+  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean, destino?: string) => Promise<void>
   /** Só para o master: sai da inspeção e volta ao console `/master`. */
   sairInspecao: () => Promise<void>
   recarregarEmpresa: () => void
 }
 
 /** Chave do cache persistido do TanStack Query (ver main.tsx). */
-const RQ_CACHE_KEY = 'garbo-crm-rq-cache-v1'
+const RQ_CACHE_KEY = 'app-crm-rq-cache-v1'
 /** Última empresa carregada neste navegador — se mudar, o cache local é descartado. */
-const EMPRESA_LOCAL_KEY = 'garbo-empresa-ativa-id'
+const EMPRESA_LOCAL_KEY = 'app-empresa-ativa-id'
 
 function limparCacheLocal() {
   try {
@@ -76,6 +81,9 @@ function mapEmpresa(row: Record<string, unknown>): EmpresaAtiva {
     uf: (row.uf as string | null) ?? null,
     telefone: (row.telefone as string | null) ?? null,
     email: (row.email as string | null) ?? null,
+    representanteNome: (row.representante_nome as string | null) ?? null,
+    representanteCpf: (row.representante_cpf as string | null) ?? null,
+    representanteQualificacao: (row.representante_qualificacao as string | null) ?? null,
     paginasBloqueadas: Array.isArray(row.paginas_bloqueadas) ? (row.paginas_bloqueadas as string[]) : [],
     emInspecao: row.em_inspecao === true,
     somenteLeitura: row.inspecao_somente_leitura === true,
@@ -89,9 +97,12 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
   const [empresaLoading, setEmpresaLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const ultimoUserId = useRef<string | null>(null)
+  /** Usuário para o qual a empresa já foi carregada ao menos uma vez. */
+  const carregadoPara = useRef<string | null>(null)
 
   useEffect(() => {
     if (!userId) {
+      carregadoPara.current = null
       // Logout (havia usuário e agora não há): descarta o cache local da empresa.
       if (ultimoUserId.current) {
         limparCacheLocal()
@@ -99,6 +110,7 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
         ultimoUserId.current = null
       }
       definirEmpresaDocumento(null)
+      if (typeof document !== 'undefined') document.title = APP_SYSTEM_NAME
       setEmpresa(null)
       setIsMaster(false)
       setEmpresaLoading(false)
@@ -106,7 +118,10 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
     }
     ultimoUserId.current = userId
     let active = true
-    setEmpresaLoading(true)
+    // `empresaLoading` (que no App troca a árvore inteira pelo loader) só liga na 1ª carga ou na
+    // troca de usuário. `recarregarEmpresa` (reloadKey) é refresh silencioso: desmontar a árvore a
+    // cada refresh fazia telas que o chamam no mount (ex.: portal do prestador) entrarem em loop.
+    if (carregadoPara.current !== userId) setEmpresaLoading(true)
     void (async () => {
       // O master fora de inspeção não tem empresa: `app_is_master` vem separado.
       const [{ data, error }, masterRes] = await Promise.all([
@@ -116,6 +131,7 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
       if (!active) return
       if (error) {
         console.error('[useEmpresaAtiva] Erro ao carregar empresa:', error)
+        carregadoPara.current = userId
         setEmpresa(null)
         setIsMaster(false)
         setEmpresaLoading(false)
@@ -137,7 +153,11 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
       }
       definirInspecaoSomenteLeitura(next?.somenteLeitura === true)
       definirEmpresaDocumento(next)
-      setEmpresa(next)
+      // Aba do navegador com o nome da empresa (sem marca fixa — ADR 0006).
+      if (typeof document !== 'undefined') document.title = next?.nome?.trim() || APP_SYSTEM_NAME
+      carregadoPara.current = userId
+      // Mantém a identidade do objeto quando nada mudou (evita re-render em cascata no refresh).
+      setEmpresa((atual) => (atual && next && JSON.stringify(atual) === JSON.stringify(next) ? atual : next))
       setIsMaster(row?.is_master === true || masterRes.data === true)
       setEmpresaLoading(false)
     })()
@@ -147,7 +167,7 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
   }, [userId, reloadKey, queryClient])
 
   const trocarEmpresa = useCallback(
-    async (empresaId: string, somenteLeitura = true) => {
+    async (empresaId: string, somenteLeitura = true, destino?: string) => {
       const { error } = await supabase.rpc(
         'master_definir_empresa_ativa' as never,
         { p_empresa_id: empresaId, p_somente_leitura: somenteLeitura } as never,
@@ -161,7 +181,8 @@ export function useEmpresaAtiva(userId: string | null | undefined): EmpresaAtiva
         /* storage indisponível */
       }
       // Recarrega a aplicação inteira: garante que nenhum estado da empresa anterior sobreviva.
-      window.location.assign('/')
+      // `destino` (rota interna) leva direto a uma tela, ex.: editar o markup da empresa-modelo.
+      window.location.assign(destino && destino.startsWith('/') && !destino.startsWith('//') ? destino : '/')
     },
     [queryClient],
   )

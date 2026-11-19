@@ -140,7 +140,7 @@ export function useOrcamentosFechados() {
           nome: input.lead.nome,
           telefone: input.lead.telefone ?? null,
           email: input.lead.email ?? null,
-          origem: input.lead.origem ?? 'Lead Garbo',
+          origem: input.lead.origem ?? 'Lead',
           data_cadastro: todayISO(),
         })
         .select('id')

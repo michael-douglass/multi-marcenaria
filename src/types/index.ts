@@ -52,7 +52,7 @@ export type ActiveSection =
   | 'adminUsuarios'
   | 'adminWebhooks'
   | 'marketingApresentacao'
-  | 'pontuaGarbo'
+  | 'pontua'
   | 'controleGastos'
   | 'controleEventos'
   | 'financeiroPontua'

@@ -1,8 +1,8 @@
 import { ArrowDownToLine, Award, Sparkles, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatBRLPontua } from '@/lib/pontua-garbo-arquiteto';
-import type { PontuaMetricas } from '@/lib/pontua-garbo-metricas';
+import { formatBRLPontua } from '@/lib/pontua-arquiteto';
+import type { PontuaMetricas } from '@/lib/pontua-metricas';
 import {
   finCard,
   finCardMuted,

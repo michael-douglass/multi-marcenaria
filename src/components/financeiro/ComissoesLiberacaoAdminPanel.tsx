@@ -3,9 +3,9 @@ import { rotuloPontua } from '@/lib/empresa-identidade';
 import { Check, Loader2, Sparkles } from 'lucide-react';
 import {
   useComissoesAguardandoLiberacao,
-  useLiberarComissaoPontuaGarbo,
-} from '@/hooks/usePontuaGarboComissaoLiberacao';
-import { COMISSAO_LIBERACAO_LABEL_AGUARDANDO } from '@/lib/pontua-garbo-comissao-liberacao';
+  useLiberarComissaoPontua,
+} from '@/hooks/usePontuaComissaoLiberacao';
+import { COMISSAO_LIBERACAO_LABEL_AGUARDANDO } from '@/lib/pontua-comissao-liberacao';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,7 @@ const BRL = (v: number) =>
 export function ComissoesLiberacaoAdminPanel({ readOnly }: { readOnly?: boolean }) {
   const { nomePrograma } = useEmpresaIdentidade();
   const { aguardando, isLoading } = useComissoesAguardandoLiberacao();
-  const liberar = useLiberarComissaoPontuaGarbo();
+  const liberar = useLiberarComissaoPontua();
 
   if (isLoading) {
     return (

@@ -15,6 +15,7 @@ import { useEmpresa } from '@/contexts/EmpresaContext'
 import { labelEventoDataExtenso, labelEventoTipo, totaisDoEvento } from '@/lib/evento-helpers'
 import type { EventoItem, EventoParticipante } from '@/lib/evento-types'
 import { LoadingState } from '@/components/ui/EmptyState'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 
 export default function ControleEventoBoard() {
   const { eventoId } = useParams()
@@ -41,7 +42,7 @@ export default function ControleEventoBoard() {
   >(null)
 
   const branding = {
-    nome: empresa?.nome || 'Garbo Movelaria',
+    nome: empresa?.nome || APP_SYSTEM_NAME,
     cnpj: empresa?.cnpj || null,
     logoUrl: empresa?.logo_url ?? null,
   }

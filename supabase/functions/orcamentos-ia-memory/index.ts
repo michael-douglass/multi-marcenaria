@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0'
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 import { corsHeaders } from '../_shared/cors.ts'
 import {
   loadOrcamentosIaSecrets,
@@ -43,6 +43,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Parte do módulo Orçamentos IA: recusa se a página estiver bloqueada no plano da empresa.
+  const recusa = await motivoRecusa(req, 'orcamentosIa', { soPagina: true })
+  if (recusa) return jsonResponse({ ok: false, error: recusa }, 403)
 
   try {
     const authHeader = req.headers.get('Authorization')

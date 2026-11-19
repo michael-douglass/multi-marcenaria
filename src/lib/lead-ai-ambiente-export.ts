@@ -1,6 +1,6 @@
 import { snapshotRealisticFurniture } from '@/lib/lead-ai-ambiente-realistic-mesh';
 import { furnitureFrame, getFurnitureModuleMeta } from '@/lib/furniture-modules';
-import { GARBO_WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
+import { WOOD_TEXTURE_URL, furnitureViewIsFlat } from '@/lib/furniture-catalog-banks';
 import { paintGeoShape } from '@/lib/lead-ai-ambiente-draw';
 import { containRotatedPlane } from '@/lib/lead-image-studio';
 import { loadImageForRender } from '@/lib/render-image-normalize';
@@ -437,7 +437,7 @@ export async function exportAmbienteCompositionToJpeg(
   let woodImg: HTMLImageElement | null = null;
   if (liveScene.objects.some((item) => item.viewMode === 'realista')) {
     try {
-      woodImg = await loadImageForRender(GARBO_WOOD_TEXTURE_URL);
+      woodImg = await loadImageForRender(WOOD_TEXTURE_URL);
     } catch {
       woodImg = null;
     }

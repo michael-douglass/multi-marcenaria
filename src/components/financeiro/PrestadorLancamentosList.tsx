@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
-import type { Lancamento } from '@/hooks/usePontuaGarboFinanceiro';
+import type { Lancamento } from '@/hooks/usePontuaFinanceiro';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {

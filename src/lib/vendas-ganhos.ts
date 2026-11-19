@@ -1,5 +1,5 @@
 import type { Lead } from '@/types/selletos';
-import { VENDA_GANHA_STATUS } from '@/lib/pontua-garbo';
+import { VENDA_GANHA_STATUS } from '@/lib/pontua';
 import { decodeKanbanFiltroLista } from '@/lib/kanban-filter-encoding';
 
 export type VendasGanhosFonteTipo = 'status';

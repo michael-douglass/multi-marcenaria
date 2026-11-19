@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useEmpresa, type Empresa } from '@/contexts/EmpresaContext';
+import { useEmpresa } from '@/contexts/EmpresaContext';
+import { empresaPortalQueryKey, useEmpresaPortal } from '@/hooks/useEmpresaPortal';
 import {
   mapBannerUploadError,
   prepareBannerFileForUpload,
   validateEmpresaBannerFile,
 } from '@/lib/empresa-branding-upload';
-import { normalizeBannerSlides } from '@/lib/empresa-banner-slides';
 import { toast } from 'sonner';
 
 export const MAX_SLIDES = 8;
@@ -30,17 +30,24 @@ async function uploadSlide(
   return `${data.publicUrl}?t=${ts}`;
 }
 
+/** Banners do portal do parceiro (só empresa-modelo; grava pela RPC `empresa_atualizar_banners`). */
 export function usePrestadorBannerSlides() {
-  const { empresa, trocarEmpresa } = useEmpresa();
+  const { empresa } = useEmpresa();
+  const portal = useEmpresaPortal();
   const queryClient = useQueryClient();
 
-  const colFor = (slot: 'desktop' | 'mobile') =>
-    slot === 'desktop' ? 'banner_slides_desktop' : 'banner_slides_mobile';
-
   const slidesFor = (slot: 'desktop' | 'mobile'): string[] =>
-    normalizeBannerSlides(
-      slot === 'desktop' ? empresa?.banner_slides_desktop : empresa?.banner_slides_mobile,
-    );
+    (slot === 'desktop' ? portal.data?.banner_slides_desktop : portal.data?.banner_slides_mobile) ?? [];
+
+  const gravar = async (slot: 'desktop' | 'mobile', lista: string[]) => {
+    const desktop = slot === 'desktop' ? lista : slidesFor('desktop');
+    const mobile = slot === 'mobile' ? lista : slidesFor('mobile');
+    const call = supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+    const { error } = await call.call(supabase, 'empresa_atualizar_banners', { p_desktop: desktop, p_mobile: mobile });
+    if (error) throw new Error(error.message);
+  };
+
+  const atualizar = () => queryClient.invalidateQueries({ queryKey: empresaPortalQueryKey(empresa?.id) });
 
   const adicionarSlide = useMutation({
     mutationFn: async ({ slot, file }: { slot: 'desktop' | 'mobile'; file: File }) => {
@@ -50,24 +57,12 @@ export function usePrestadorBannerSlides() {
       const current = slidesFor(slot);
       if (current.length >= MAX_SLIDES)
         throw new Error(`Máximo de ${MAX_SLIDES} imagens por dispositivo`);
-
       const prepared = await prepareBannerFileForUpload(file, slot);
       const url = await uploadSlide(empresa.id, slot, prepared);
-      const updated = [...current, url];
-
-      const { data, error } = await supabase
-        .from('CRM-multi-empresas>empresas<')
-        .update({ [colFor(slot)]: updated, atualizado_em: new Date().toISOString() })
-        .eq('id', empresa.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data;
+      await gravar(slot, [...current, url]);
     },
-    onSuccess: async (updated) => {
-      await trocarEmpresa(updated as Empresa);
-      queryClient.invalidateQueries({ queryKey: ['empresas-lista'] });
+    onSuccess: async () => {
+      await atualizar();
       toast.success('Slide adicionado!');
     },
     onError: (e: Error) =>
@@ -79,20 +74,10 @@ export function usePrestadorBannerSlides() {
       if (!empresa?.id) throw new Error('Nenhuma empresa selecionada');
       const current = [...slidesFor(slot)];
       current.splice(index, 1);
-
-      const { data, error } = await supabase
-        .from('CRM-multi-empresas>empresas<')
-        .update({ [colFor(slot)]: current, atualizado_em: new Date().toISOString() })
-        .eq('id', empresa.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data;
+      await gravar(slot, current);
     },
-    onSuccess: async (updated) => {
-      await trocarEmpresa(updated as Empresa);
-      queryClient.invalidateQueries({ queryKey: ['empresas-lista'] });
+    onSuccess: async () => {
+      await atualizar();
       toast.success('Slide removido');
     },
     onError: (e: Error) => toast.error('Erro ao remover slide', { description: e.message }),

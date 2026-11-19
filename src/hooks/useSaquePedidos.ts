@@ -6,10 +6,10 @@ import { useEmpresa } from '@/contexts/EmpresaContext';
 import { toast } from 'sonner';
 import type { SaquePedido, TipoChavePix } from '@/hooks/usePrestadorPerfil';
 import { TIPO_PIX_LABELS } from '@/hooks/usePrestadorPerfil';
-import { assertCanManagePontuaGarboFinanceiro } from '@/lib/pontua-garbo-access';
+import { assertCanManagePontuaFinanceiro } from '@/lib/pontua-access';
 
 const PUBLIC_SAQUES = 'CRM-multi-empresas>prestador_saque_pedidos<' as const;
-const PUBLIC_LANC   = 'CRM-multi-empresas>pontua_garbo_lancamentos<' as const;
+const PUBLIC_LANC   = 'CRM-multi-empresas>pontua_lancamentos<' as const;
 const PUBLIC_USERS  = 'CRM-multi-empresas>usuarios<' as const;
 
 const BRL = (v: number) =>
@@ -24,7 +24,7 @@ export function useSaquePedidosAdmin(enabled = true) {
   const qc = useQueryClient();
 
   const saquesTable = table('prestador_saque_pedidos', PUBLIC_SAQUES);
-  const lancTable   = table('pontua_garbo_lancamentos', PUBLIC_LANC);
+  const lancTable   = table('pontua_lancamentos', PUBLIC_LANC);
 
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['saque-pedidos-admin', schemaEmpresa],
@@ -44,7 +44,7 @@ export function useSaquePedidosAdmin(enabled = true) {
 
   const aprovar = useMutation({
     mutationFn: async (pedido: SaquePedido) => {
-      assertCanManagePontuaGarboFinanceiro(userRole, isSuperAdmin);
+      assertCanManagePontuaFinanceiro(userRole, isSuperAdmin);
       const { error: lancErr } = await db.from(lancTable).insert({
         prestador_id: pedido.prestador_id,
         tipo: 'saque',
@@ -62,8 +62,8 @@ export function useSaquePedidosAdmin(enabled = true) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['saque-pedidos-admin', schemaEmpresa] });
-      qc.invalidateQueries({ queryKey: ['pontua-garbo-financeiro', schemaEmpresa] });
-      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
+      qc.invalidateQueries({ queryKey: ['pontua-financeiro', schemaEmpresa] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa] });
       toast.success('Retirada aprovada!');
     },
     onError: (e: Error) => toast.error('Erro ao aprovar', { description: e.message }),
@@ -71,7 +71,7 @@ export function useSaquePedidosAdmin(enabled = true) {
 
   const rejeitar = useMutation({
     mutationFn: async ({ id, obs }: { id: string; obs?: string }) => {
-      assertCanManagePontuaGarboFinanceiro(userRole, isSuperAdmin);
+      assertCanManagePontuaFinanceiro(userRole, isSuperAdmin);
       const { error } = await db
         .from(saquesTable)
         .update({ status: 'rejeitado', obs_admin: obs ?? null, processado_em: new Date().toISOString(), processado_por: user?.id })
@@ -87,7 +87,7 @@ export function useSaquePedidosAdmin(enabled = true) {
 
   const reverterAprovacao = useMutation({
     mutationFn: async (pedido: SaquePedido) => {
-      assertCanManagePontuaGarboFinanceiro(userRole, isSuperAdmin);
+      assertCanManagePontuaFinanceiro(userRole, isSuperAdmin);
       if (pedido.status !== 'aprovado') {
         throw new Error('Só é possível desfazer pedidos que foram marcados como pagos.');
       }
@@ -136,8 +136,8 @@ export function useSaquePedidosAdmin(enabled = true) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['saque-pedidos-admin', schemaEmpresa] });
-      qc.invalidateQueries({ queryKey: ['pontua-garbo-financeiro', schemaEmpresa] });
-      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
+      qc.invalidateQueries({ queryKey: ['pontua-financeiro', schemaEmpresa] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa] });
       toast.success(
         'Pagamento desfeito. O pedido voltou para aguardar aprovação e o saldo do prestador foi recalculado.',
       );
@@ -157,7 +157,7 @@ export function useMeusSaquePedidos(prestadorId: string | null | undefined) {
   const table = useTableName();
   const qc = useQueryClient();
   const saquesTable = table('prestador_saque_pedidos', PUBLIC_SAQUES);
-  const lancTable   = table('pontua_garbo_lancamentos', PUBLIC_LANC);
+  const lancTable   = table('pontua_lancamentos', PUBLIC_LANC);
 
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['meus-saque-pedidos', schemaEmpresa, prestadorId],
@@ -189,7 +189,7 @@ export function useMeusSaquePedidos(prestadorId: string | null | undefined) {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['meus-saque-pedidos', schemaEmpresa, prestadorId] });
       qc.invalidateQueries({ queryKey: ['saque-pedidos-admin', schemaEmpresa] });
-      qc.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
+      qc.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa] });
       toast.success(`Saque solicitado no ${empresaDocumento().nomePrograma}`, {
         description: `Valor solicitado: ${BRL(variables.valor)}. Aguarde a aprovação do administrador.`,
         duration: 6000,

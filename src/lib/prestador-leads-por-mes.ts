@@ -1,5 +1,5 @@
 import { formatInTimeZone } from 'date-fns-tz';
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 
 const TIMEZONE = 'America/Sao_Paulo';
 

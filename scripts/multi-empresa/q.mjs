@@ -15,6 +15,8 @@ if (!sql) {
 }
 
 const c = await connectNovo()
+// RAISE NOTICE dos testes (ex.: "ok T42 ...") aparece na saída.
+c.on('notice', (n) => console.log(`NOTICE: ${n.message}`))
 try {
   if (!write) await c.query('set session characteristics as transaction read only')
   const res = await c.query(sql)

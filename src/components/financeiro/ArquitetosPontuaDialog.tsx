@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArquitetosPontuaGarboMural } from '@/components/financeiro/ArquitetosPontuaGarboMural';
+import { ArquitetosPontuaMural } from '@/components/financeiro/ArquitetosPontuaMural';
 import { PrestadorFinanceiroRow } from '@/components/financeiro/PrestadorFinanceiroRow';
-import type { PrestadorFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
+import type { PrestadorFinanceiro } from '@/hooks/usePontuaFinanceiro';
 import { finTextTertiary } from '@/components/financeiro/financeiro-styles';
 
 interface ArquitetosPontuaDialogProps {
@@ -103,7 +103,7 @@ export function ArquitetosPontuaDialog({
 
           <TabsContent value="mural" className="mt-0 min-h-0 flex-1">
             <ScrollArea className="h-full px-5 py-4 sm:px-7">
-              <ArquitetosPontuaGarboMural
+              <ArquitetosPontuaMural
                 embedded
                 arquitetos={arquitetos}
                 totalCadastrados={totalCadastrados}

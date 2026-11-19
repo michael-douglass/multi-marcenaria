@@ -16,6 +16,18 @@ import { formatRolesLabel, roleLabel } from '@/lib/app-roles'
 import type { AppUserRole } from '@/lib/resolve-auth-role'
 import { cn } from '@/lib/utils'
 
+/** Paleta clara do perfil (papel / ateliê) — legível sobre o fundo do paper-workspace. */
+const ink = {
+  title: 'text-[#2a1810]',
+  body: 'text-[#3d2a1f]',
+  muted: 'text-[#6b5244]',
+  gold: 'text-[#8a5a1e]',
+  card: 'border-[rgba(90,60,40,0.12)] bg-[#fffcf8]/95 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_12px_32px_rgba(42,24,18,0.06)]',
+  cardLine: 'border-[rgba(90,60,40,0.1)]',
+  row: 'border-[rgba(90,60,40,0.1)] bg-white/70',
+  icon: 'bg-[rgba(138,90,30,0.1)] text-[#8a5a1e]',
+}
+
 export default function Profile() {
   const navigate = useNavigate()
   const { user, userRole, userRoles, signOut, hasRole } = useAuth()
@@ -85,19 +97,19 @@ export default function Profile() {
   const getRoleBadgeColor = (role?: string) => {
     switch (role?.toLowerCase()) {
       case 'admin':
-        return 'bg-[#f2d892] text-[#1a0f0a] border-transparent'
+        return 'bg-[#f2d892] text-[#2a1810] border-transparent'
       case 'projetista_admin':
-        return 'bg-violet-600/90 text-white border-transparent'
+        return 'bg-violet-100 text-violet-800 border-violet-200'
       case 'vendedor':
-        return 'bg-emerald-700/80 text-[#f5ebe0] border-transparent'
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200'
       case 'projetista':
-        return 'bg-violet-500/25 text-[#d8b4fe] border-[rgba(216,180,254,0.35)]'
+        return 'bg-violet-50 text-violet-700 border-violet-200'
       case 'marketing':
-        return 'bg-emerald-500/20 text-[#6ee7b7] border-[rgba(110,231,183,0.35)]'
+        return 'bg-teal-50 text-teal-800 border-teal-200'
       case 'nenhum':
-        return 'bg-[rgba(40,24,16,0.6)] text-[#c4a88a] border-[rgba(240,210,140,0.2)]'
+        return 'bg-[#f3ebe3] text-[#6b5244] border-[rgba(90,60,40,0.14)]'
       default:
-        return 'bg-[rgba(40,24,16,0.6)] text-[#c4a88a] border-[rgba(240,210,140,0.2)]'
+        return 'bg-[#f3ebe3] text-[#6b5244] border-[rgba(90,60,40,0.14)]'
     }
   }
 
@@ -111,11 +123,11 @@ export default function Profile() {
 
   if (isLoadingProfile) {
     return (
-      <div className="relative flex min-h-[60vh] items-center justify-center overflow-hidden">
-        <ProfileAura className="opacity-70" />
+      <div className="profile-page relative flex min-h-[60vh] items-center justify-center overflow-hidden">
+        <ProfileAura className="opacity-50" />
         <div className="relative z-[1] text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#f2d892]" />
-          <p className="mt-4 text-sm tracking-wide text-[#edd9c4]">Carregando perfil…</p>
+          <Loader2 className={cn('mx-auto h-8 w-8 animate-spin', ink.gold)} />
+          <p className={cn('mt-4 text-sm tracking-wide', ink.muted)}>Carregando perfil…</p>
         </div>
       </div>
     )
@@ -123,24 +135,29 @@ export default function Profile() {
 
   if (!currentUserData) {
     return (
-      <div className="relative flex min-h-[60vh] items-center justify-center overflow-hidden p-6">
-        <ProfileAura className="opacity-60" />
-        <div className="relative z-[1] w-full max-w-md space-y-4 rounded-2xl border border-[rgba(240,210,140,0.22)] bg-[rgba(18,10,6,0.82)] p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
-          <p className="text-sm leading-relaxed text-[#edd9c4]">
+      <div className="profile-page relative flex min-h-[60vh] items-center justify-center overflow-hidden p-6">
+        <ProfileAura className="opacity-40" />
+        <div
+          className={cn(
+            'relative z-[1] w-full max-w-md space-y-4 rounded-2xl border p-6 text-center',
+            ink.card,
+          )}
+        >
+          <p className={cn('text-sm leading-relaxed', ink.body)}>
             Não foi possível carregar seus dados. Verifique se sua conta está ativa na empresa correta.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Button
               variant="outline"
               onClick={() => refetch()}
-              className="border-[rgba(240,210,140,0.35)] text-[#f2d892] hover:bg-[#f2d892]/10"
+              className="border-[rgba(90,60,40,0.2)] text-[#8a5a1e] hover:bg-[rgba(138,90,30,0.08)]"
             >
               Tentar novamente
             </Button>
             <Button
               onClick={() => void handleLogout()}
               disabled={isLoggingOut}
-              className="bg-[#f2d892] font-semibold text-[#1a0f0a] hover:bg-[#f2d892]/90"
+              className="bg-[#8a5a1e] font-semibold text-white hover:bg-[#6b3f12]"
             >
               {isLoggingOut ? (
                 <>
@@ -161,20 +178,27 @@ export default function Profile() {
   }
 
   return (
-    <div className="profile-page relative isolate min-h-[70vh] overflow-hidden px-4 py-6 sm:px-6 sm:py-8">
-      <ProfileAura className="opacity-90" />
+    // h-full + overflow-y-auto: no desktop o layout trava a altura (md:flex-1);
+    // sem isso, o conteúdo de "Dados da empresa" ficava cortado.
+    <div className="profile-page relative isolate h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-6 pb-12 sm:px-6 sm:py-8 sm:pb-14">
+      <ProfileAura className="opacity-55" />
 
       <div className="relative z-[1] mx-auto flex w-full max-w-2xl flex-col gap-5">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[#c4a88a]">
+            <p className={cn('text-[0.62rem] font-semibold uppercase tracking-[0.18em]', ink.muted)}>
               Conta
             </p>
-            <h1 className="font-display mt-1 flex items-center gap-2 text-2xl tracking-wide text-[#f2d892] sm:text-[1.75rem]">
-              <UserCircle className="h-7 w-7 shrink-0 opacity-90" aria-hidden />
+            <h1
+              className={cn(
+                'font-display mt-1 flex items-center gap-2 text-2xl tracking-wide sm:text-[1.75rem]',
+                ink.title,
+              )}
+            >
+              <UserCircle className={cn('h-7 w-7 shrink-0 opacity-90', ink.gold)} aria-hidden />
               Meu perfil
             </h1>
-            <p className="mt-1 text-sm text-[#edd9c4]/85">
+            <p className={cn('mt-1 text-sm', ink.muted)}>
               Foto, dados de acesso e permissões nesta empresa.
             </p>
           </div>
@@ -184,11 +208,11 @@ export default function Profile() {
             onClick={() => void handleLogout()}
             disabled={isLoggingOut}
             className={cn(
-              'shrink-0 gap-2 border border-[rgba(239,68,68,0.35)] bg-[rgba(127,29,29,0.45)]',
-              'font-semibold text-[#fecaca] shadow-[0_8px_24px_rgba(0,0,0,0.28)]',
+              'shrink-0 gap-2 border border-red-200 bg-red-50',
+              'font-semibold text-red-700 shadow-sm',
               'transition-[transform,background-color,box-shadow] duration-200',
-              'hover:bg-[rgba(153,27,27,0.65)] hover:text-white hover:shadow-[0_10px_28px_rgba(127,29,29,0.35)]',
-              'active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-400/40',
+              'hover:bg-red-100 hover:text-red-800',
+              'active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-300/50',
             )}
           >
             {isLoggingOut ? (
@@ -205,9 +229,9 @@ export default function Profile() {
           </Button>
         </header>
 
-        <section className="overflow-hidden rounded-2xl border border-[rgba(240,210,140,0.22)] bg-[rgba(14,8,4,0.78)] shadow-[0_1px_0_rgba(255,248,235,0.06)_inset,0_18px_48px_rgba(0,0,0,0.32)]">
-          <div className="border-b border-[rgba(240,210,140,0.14)] px-5 py-4 sm:px-6">
-            <h2 className="font-display text-lg tracking-widest text-[#f2d892]">
+        <section className={cn('overflow-hidden rounded-2xl border', ink.card)}>
+          <div className={cn('border-b px-5 py-4 sm:px-6', ink.cardLine)}>
+            <h2 className={cn('font-display text-lg tracking-widest', ink.gold)}>
               Informações pessoais
             </h2>
           </div>
@@ -218,7 +242,7 @@ export default function Profile() {
                 <UserAvatar
                   user={adaptUserForAvatar(currentUserData)}
                   size="lg"
-                  className="h-16 w-16 ring-2 ring-[#f2d892]/35 ring-offset-2 ring-offset-[#120a06]"
+                  className="h-16 w-16 ring-2 ring-[#8a5a1e]/25 ring-offset-2 ring-offset-[#fffcf8]"
                 />
                 <input
                   ref={fileInputRef}
@@ -231,7 +255,7 @@ export default function Profile() {
                   size="icon"
                   type="button"
                   variant="outline"
-                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full border-[rgba(240,210,140,0.4)] bg-[rgba(26,15,10,0.92)] text-[#f2d892] hover:bg-[#f2d892]/15"
+                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full border-[rgba(90,60,40,0.18)] bg-white text-[#8a5a1e] shadow-sm hover:bg-[rgba(138,90,30,0.08)]"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingAvatar}
                   aria-label="Alterar foto"
@@ -244,15 +268,18 @@ export default function Profile() {
                 </Button>
               </div>
               <div className="min-w-0">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#c4a88a]">
+                <p className={cn('text-[0.65rem] font-semibold uppercase tracking-[0.12em]', ink.muted)}>
                   Nome
                 </p>
-                <p className="truncate text-lg font-semibold text-[#f5ebe0]">
+                <p className={cn('truncate text-lg font-semibold', ink.title)}>
                   {currentUserData.nome}
                 </p>
                 <button
                   type="button"
-                  className="mt-0.5 text-xs font-medium text-[#f2d892] underline-offset-2 transition-colors hover:underline disabled:opacity-50"
+                  className={cn(
+                    'mt-0.5 text-xs font-medium underline-offset-2 transition-colors hover:underline disabled:opacity-50',
+                    ink.gold,
+                  )}
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingAvatar}
                 >
@@ -262,40 +289,40 @@ export default function Profile() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-1">
-              <div className="flex items-center gap-3 rounded-xl border border-[rgba(240,210,140,0.12)] bg-[rgba(255,248,235,0.03)] px-3 py-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(242,216,146,0.12)] text-[#f2d892]">
+              <div className={cn('flex items-center gap-3 rounded-xl border px-3 py-3', ink.row)}>
+                <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', ink.icon)}>
                   <Mail className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#c4a88a]">
+                  <p className={cn('text-[0.65rem] font-semibold uppercase tracking-[0.12em]', ink.muted)}>
                     E-mail
                   </p>
-                  <p className="truncate font-medium text-[#f5ebe0]">
+                  <p className={cn('truncate font-medium', ink.body)}>
                     {currentUserData.email || 'Não informado'}
                   </p>
                 </div>
               </div>
 
               {currentUserData.telefone && (
-                <div className="flex items-center gap-3 rounded-xl border border-[rgba(240,210,140,0.12)] bg-[rgba(255,248,235,0.03)] px-3 py-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(242,216,146,0.12)] text-[#f2d892]">
+                <div className={cn('flex items-center gap-3 rounded-xl border px-3 py-3', ink.row)}>
+                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', ink.icon)}>
                     <Phone className="h-5 w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#c4a88a]">
+                    <p className={cn('text-[0.65rem] font-semibold uppercase tracking-[0.12em]', ink.muted)}>
                       Telefone
                     </p>
-                    <p className="font-medium text-[#f5ebe0]">{currentUserData.telefone}</p>
+                    <p className={cn('font-medium', ink.body)}>{currentUserData.telefone}</p>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-start gap-3 rounded-xl border border-[rgba(240,210,140,0.12)] bg-[rgba(255,248,235,0.03)] px-3 py-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(242,216,146,0.12)] text-[#f2d892]">
+              <div className={cn('flex items-start gap-3 rounded-xl border px-3 py-3', ink.row)}>
+                <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', ink.icon)}>
                   <Shield className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#c4a88a]">
+                  <p className={cn('text-[0.65rem] font-semibold uppercase tracking-[0.12em]', ink.muted)}>
                     Papel no sistema
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -310,24 +337,24 @@ export default function Profile() {
                     )}
                   </div>
                   {displayRoles.length > 1 && (
-                    <p className="mt-1.5 text-xs text-[#c4a88a]">{formatRolesLabel(displayRoles)}</p>
+                    <p className={cn('mt-1.5 text-xs', ink.muted)}>{formatRolesLabel(displayRoles)}</p>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-[rgba(240,210,140,0.14)] pt-4">
+            <div className={cn('border-t pt-4', ink.cardLine)}>
               <Button
                 type="button"
                 onClick={() => void handleLogout()}
                 disabled={isLoggingOut}
                 className={cn(
-                  'h-11 w-full gap-2 border border-[rgba(239,68,68,0.4)]',
-                  'bg-gradient-to-r from-[rgba(127,29,29,0.75)] to-[rgba(69,10,10,0.85)]',
-                  'font-semibold tracking-wide text-[#fecaca]',
+                  'h-11 w-full gap-2 border border-red-200',
+                  'bg-gradient-to-r from-red-50 to-red-100/80',
+                  'font-semibold tracking-wide text-red-700',
                   'transition-[transform,filter] duration-200',
-                  'hover:brightness-110 hover:text-white active:scale-[0.99]',
-                  'focus-visible:ring-2 focus-visible:ring-red-400/40',
+                  'hover:from-red-100 hover:to-red-100 hover:text-red-800 active:scale-[0.99]',
+                  'focus-visible:ring-2 focus-visible:ring-red-300/50',
                 )}
               >
                 {isLoggingOut ? (
@@ -342,7 +369,7 @@ export default function Profile() {
                   </>
                 )}
               </Button>
-              <p className="mt-2 text-center text-[0.65rem] text-[#c4a88a]/80">
+              <p className={cn('mt-2 text-center text-[0.65rem]', ink.muted)}>
                 Você será desconectado deste aparelho e voltará à tela de entrada.
               </p>
             </div>
@@ -352,14 +379,14 @@ export default function Profile() {
         {podeEditarEmpresa && (
           <section
             id="dados-empresa"
-            className="overflow-hidden rounded-2xl border border-[rgba(240,210,140,0.22)] bg-[rgba(14,8,4,0.78)] shadow-[0_1px_0_rgba(255,248,235,0.06)_inset,0_18px_48px_rgba(0,0,0,0.32)]"
+            className={cn('overflow-hidden rounded-2xl border', ink.card)}
           >
-            <div className="border-b border-[rgba(240,210,140,0.14)] px-5 py-4 sm:px-6">
-              <h2 className="font-display flex items-center gap-2 text-lg tracking-widest text-[#f2d892]">
+            <div className={cn('border-b px-5 py-4 sm:px-6', ink.cardLine)}>
+              <h2 className={cn('font-display flex items-center gap-2 text-lg tracking-widest', ink.gold)}>
                 <Building2 className="h-5 w-5 opacity-90" aria-hidden />
                 Dados da empresa
               </h2>
-              <p className="mt-1 text-xs text-[#c4a88a]">
+              <p className={cn('mt-1 text-xs', ink.muted)}>
                 Logo, CNPJ e dados cadastrais usados no menu, nos slides, contratos e PDFs. Só administradores veem esta seção.
               </p>
             </div>

@@ -588,10 +588,10 @@ const MARKETING_CRM_CHILDREN: NavChildItem[] = [
     crmRoles: CRM_MKT_VISIVEL_ROLES,
   },
   {
-    id: 'pontuaGarbo',
-    // Rótulo genérico: o AppSidebar troca por "Pontua {nome fantasia}" (aplicarNomePrograma).
+    id: 'pontua',
+    // Página do programa: sempre "Pontua" (o nome "Pontua {empresa}" fica nas demais telas).
     title: 'Pontua',
-    url: '/marketing/pontua-garbo',
+    url: '/marketing/pontua',
     icon: Trophy,
     radialColor: 'rgba(251,191,36,0.92)',
     crmRoles: CRM_MKT_VISIVEL_ROLES,
@@ -613,13 +613,9 @@ const MARKETING_CRM_CHILDREN: NavChildItem[] = [
     radialColor: 'rgba(74,222,128,0.92)',
     crmAdminOnly: true,
   },
-  {
-    id: 'adminCrmGrupo',
-    title: 'Administração CRM',
-    icon: Shield,
-    radialColor: 'rgba(212,184,150,0.92)',
-    crmAdminOnly: true,
-    children: [
+]
+
+const ADMIN_CRM_CHILDREN: NavChildItem[] = [
       {
         id: 'marcaCrm',
         title: 'Marca',
@@ -644,9 +640,7 @@ const MARKETING_CRM_CHILDREN: NavChildItem[] = [
         radialColor: 'rgba(125,211,252,0.92)',
         crmAdminOnly: true,
       },
-    ],
-  },
-]
+    ]
 
 export const NAV_MAIN_ITEMS: NavMainItem[] = [
   {
@@ -671,6 +665,18 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     roles: [],
     crmRoles: CRM_MKT_VISIVEL_ROLES,
     children: MARKETING_CRM_CHILDREN,
+  },
+  {
+    // Menu próprio (antes ficava dentro de Marketing).
+    id: 'adminCrmGrupo',
+    title: 'Administração CRM',
+    url: '/admin',
+    icon: Shield,
+    radialColor: 'rgba(212,184,150,0.92)',
+    sector: 'comercial',
+    roles: [],
+    crmAdminOnly: true,
+    children: ADMIN_CRM_CHILDREN,
   },
   {
     id: 'parceiros',
@@ -778,22 +784,6 @@ export const NAV_MAIN_ITEMS: NavMainItem[] = [
     roles: ['Administrador'],
   },
 ]
-
-/** Ids do menu que mostram o nome do programa de pontos da empresa. */
-const NAV_IDS_PROGRAMA = new Set(['pontuaGarbo'])
-
-/** Troca o rótulo do item do programa de pontos por "Pontua {nome fantasia}" (só exibição). */
-export function aplicarNomePrograma<T extends { id: string; title: string; children?: NavChildItem[] }>(
-  items: T[],
-  nomePrograma: string,
-): T[] {
-  const troca = <U extends { id: string; title: string; children?: NavChildItem[] }>(it: U): U => {
-    const children = it.children?.map(troca)
-    if (NAV_IDS_PROGRAMA.has(it.id)) return { ...it, title: nomePrograma, ...(children ? { children } : {}) }
-    return children ? { ...it, children } : it
-  }
-  return items.map(troca)
-}
 
 export function getVisibleNavMainItems(ctx: NavVisibilityContext): NavMainItem[] {
   if (!ctx.roles.length && !(ctx.crmRoles?.length) && !ctx.showParceiros) return []
@@ -937,8 +927,16 @@ export function isMarketingCrmSection(section: ActiveSection): boolean {
   return found
 }
 
+export function isAdminCrmSection(section: ActiveSection): boolean {
+  let found = false
+  walkNavChildren(ADMIN_CRM_CHILDREN, item => {
+    if (!item.children?.length && item.id === section) found = true
+  })
+  return found
+}
+
 export function isCrmSection(section: ActiveSection): boolean {
-  return isComercialSection(section) || isMarketingCrmSection(section)
+  return isComercialSection(section) || isMarketingCrmSection(section) || isAdminCrmSection(section)
 }
 
 export function isCasaSection(section: ActiveSection): boolean {
@@ -984,7 +982,7 @@ export function sectionFromPath(pathname: string, search = ''): ActiveSection {
   if (pathname.startsWith('/automacoes/marketing')) return 'automacoesMarketing'
   if (pathname.startsWith('/automacoes')) return 'automacoes'
   if (pathname.startsWith('/marketing/apresentacao-interna')) return 'marketingApresentacao'
-  if (pathname.startsWith('/marketing/pontua-garbo')) return 'pontuaGarbo'
+  if (pathname.startsWith('/marketing/pontua')) return 'pontua'
   if (pathname.startsWith('/biblioteca-crm')) return 'bibliotecaCrm'
   if (pathname.startsWith('/admin/webhooks')) return 'adminWebhooks'
   if (pathname.startsWith('/admin/marca')) return 'marcaCrm'

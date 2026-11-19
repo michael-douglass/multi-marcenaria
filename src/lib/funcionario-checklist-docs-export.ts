@@ -586,5 +586,5 @@ export async function baixarChecklistDocumentosJpg(
     )
   })
 
-  downloadBlob(blob, `garbo-documentos-carteira-${data.replace(/\//g, '-')}.jpg`)
+  downloadBlob(blob, `documentos-carteira-${data.replace(/\//g, '-')}.jpg`)
 }

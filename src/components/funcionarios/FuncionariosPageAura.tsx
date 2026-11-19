@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand'
-import { GARBO_WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks'
+import { empresaDocumento } from '@/lib/empresa-identidade'
+import { WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 const VERTEX = `
@@ -169,7 +169,7 @@ export function FuncionariosPageAura({ className }: { className?: string }) {
     const loader = new THREE.TextureLoader(manager)
 
     loader.load(
-      GARBO_LOGO_SRC,
+      empresaDocumento().logoUrl,
       (texture) => {
         configureMap(texture)
         uniforms.uBrand.value = texture
@@ -182,7 +182,7 @@ export function FuncionariosPageAura({ className }: { className?: string }) {
     )
 
     loader.load(
-      GARBO_WOOD_TEXTURE_URL,
+      WOOD_TEXTURE_URL,
       (texture) => {
         configureMap(texture)
         uniforms.uWood.value = texture

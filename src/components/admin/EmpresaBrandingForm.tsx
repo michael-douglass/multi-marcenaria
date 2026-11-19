@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useEmpresaBranding, type EmpresaBrandingInput } from '@/hooks/useEmpresaBranding';
 import type { Empresa } from '@/contexts/EmpresaContext';
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
+import { MARCA_PADRAO_LOGO } from '@/lib/marca-padrao';
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -72,7 +72,7 @@ export function EmpresaBrandingForm({ empresa, onSalvo }: EmpresaBrandingFormPro
     );
   }
 
-  const logoSrc = logoPreview || GARBO_LOGO_SRC;
+  const logoSrc = logoPreview || MARCA_PADRAO_LOGO;
 
   return (
     <div className="space-y-6">

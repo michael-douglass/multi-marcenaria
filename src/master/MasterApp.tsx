@@ -14,6 +14,7 @@ const EmpresaDetalhe = lazy(() => import('@/master/pages/EmpresaDetalhe'))
 const Financeiro = lazy(() => import('@/master/pages/Financeiro'))
 const Planos = lazy(() => import('@/master/pages/Planos'))
 const Acessos = lazy(() => import('@/master/pages/Acessos'))
+const Modelos = lazy(() => import('@/master/pages/Modelos'))
 
 const FONTE_ID = 'master-fonte-instrument-sans'
 const FONTE_URL =
@@ -53,6 +54,7 @@ export default function MasterApp() {
         <Route path="/master/empresas/:id" element={<Suspense fallback={<Carregando />}><EmpresaDetalhe /></Suspense>} />
         <Route path="/master/financeiro" element={<Suspense fallback={<Carregando />}><Financeiro /></Suspense>} />
         <Route path="/master/planos" element={<Suspense fallback={<Carregando />}><Planos /></Suspense>} />
+        <Route path="/master/modelos" element={<Suspense fallback={<Carregando />}><Modelos /></Suspense>} />
         <Route path="/master/acessos" element={<Suspense fallback={<Carregando />}><Acessos /></Suspense>} />
         <Route path="*" element={<Navigate to="/master" replace />} />
       </Route>

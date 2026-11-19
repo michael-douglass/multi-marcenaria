@@ -138,6 +138,10 @@ CLAUDE.md, docs/structure.md, docs/tech.md, DESIGN §1.1 e §9.
 - M46–M49: console em `src/master/` (Visão geral, Marcenarias, detalhe com abas, Mensalidades, Planos e páginas, Entradas), `PaginasEditor`, `EntrarEmpresaDialog`, faixa de inspeção âmbar/tijolo, aviso de somente leitura via `supabase.ts`.
 - M50: `test-plataforma.sql` 30 casos (T18–T30 novos) e `test-isolamento.mjs` 23/23 (seção 5 nova); `pnpm build` ok.
 
+- M57: funções por plano — `orcamentosIa` e `whatsappCrm` (novo, grupo "Funções do CRM") escondem seção/índice/busca/botões no lead; recusa nas edge functions `orcamentos-ia-chat|memory` e `send-whatsapp-message|get-lead-whatsapp-history` (**falta deploy**).
+
+- M58: IA no card lead (função `iaCardLead`, motor global, cota de tokens, fim da Análise visual) — em execução, ver `docs/ia-lead/TASKS.md`.
+
 ## Pendências (propostas)
 - Republicar as demais edge functions para a recusa de inspeção somente leitura valer nelas.
 - Teste manual do console no navegador (login do master).

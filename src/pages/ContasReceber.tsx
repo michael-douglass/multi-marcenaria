@@ -80,6 +80,7 @@ import {
   type ParcelaInput,
   type ContaReceberExclusaoScope,
 } from '../hooks/useContasReceber'
+import { APP_SYSTEM_NAME } from '@/lib/app-branding'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 
@@ -1113,7 +1114,7 @@ export function ContasReceber({ clientes, onCreateCliente, readOnly }: Props) {
     inicioEntregaPorConta,
     periodFilter,
     kpis: kpiTiles.map(({ label, hint, value, tone }) => ({ label, hint, value, tone })),
-    empresaNome: empresa?.nome ?? 'Movelaria Garbo',
+    empresaNome: empresa?.nome ?? APP_SYSTEM_NAME,
     filtrosStatusLabel,
     busca: search,
   }

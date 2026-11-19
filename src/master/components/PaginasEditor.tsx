@@ -182,9 +182,14 @@ export function PaginasEditor(props: Props) {
                             <label htmlFor={idSwitch} className={cn('min-w-0 flex-1 cursor-pointer', !on && 'text-[var(--m-ink-2)]')}>
                               <span className={cn('block text-[0.92rem]', on ? 'text-[var(--m-ink)]' : 'line-through decoration-[var(--m-line)]')}>
                                 {p.titulo}
+                                {p.tipo === 'funcao' ? (
+                                  <span className="ml-2 rounded border border-[var(--m-line)] px-1.5 py-0.5 align-middle text-[0.68rem] font-medium text-[var(--m-ink-2)] no-underline">
+                                    Função
+                                  </span>
+                                ) : null}
                               </span>
                               <span className="block truncate text-[0.75rem] text-[var(--m-ink-2)]">
-                                {p.bloqueavel ? p.url.split('?')[0] : 'Sempre liberada'}
+                                {p.bloqueavel ? (p.descricao ?? p.url.split('?')[0]) : 'Sempre liberada'}
                               </span>
                             </label>
                             {ajuste ? (

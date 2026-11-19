@@ -5,6 +5,7 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { fmtCur } from '@/lib/utils'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 export interface SimuladorCaixaExportHistoricoItem {
   titulo: string
@@ -94,7 +95,7 @@ function acaoLabel(acao: SimuladorCaixaExportHistoricoItem['acao']): string {
 }
 
 function buildDocumentHtml(input: SimuladorCaixaExportInput): string {
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',

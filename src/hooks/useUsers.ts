@@ -30,7 +30,7 @@ export interface DatabaseUser {
   tipo_usuario?: TipoUsuario;
   /** Título personalizado para prestadores de serviço */
   titulo?: string | null;
-  /** Se true, o prestador participa do Programa Pontua Garbo */
+  /** Se true, o prestador participa do Programa Pontua */
   comissao_ativa?: boolean;
   /** Chave PIX do prestador para recebimentos */
   chave_pix?: string | null;

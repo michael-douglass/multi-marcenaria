@@ -1,7 +1,7 @@
 ﻿import { useMemo } from 'react';
 import { Users, Lock, AlertTriangle } from 'lucide-react';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
-import { useMinhaPontuaGarbo, type ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import { useMinhaPontua, type ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import { useMeusSaquePedidos } from '@/hooks/useSaquePedidos';
 import { useMinhasPermissoes, normalizePermissao } from '@/hooks/useLeadPrestadorPermissoes';
 import { podeVerAlgumAnexo } from '@/lib/prestador-visibilidade';
@@ -11,7 +11,7 @@ import {
   getPrestadorLeadEtiquetas,
   type PrestadorLeadEtiqueta,
 } from '@/lib/prestador-lead-etiquetas';
-import { sumSaquesPendentes } from '@/lib/pontua-garbo-saque';
+import { sumSaquesPendentes } from '@/lib/pontua-saque';
 
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -162,21 +162,21 @@ export function PrestadorClientes({
   onSemPermissao,
 }: PrestadorClientesProps) {
   const { data: profile, isLoading: profileLoading } = useCurrentUserProfile();
-  const { data: garbo, isLoading: garboLoading, isError: garboError } = useMinhaPontuaGarbo(profile?.id);
+  const { data: pontuaPortal, isLoading: appLoading, isError: appError } = useMinhaPontua(profile?.id);
   const { pedidos } = useMeusSaquePedidos(profile?.id);
   const { data: permissoes = [] } = useMinhasPermissoes(profile?.id);
 
-  const activeLeads  = garbo?.leads ?? [];
-  const churnedLeads = garbo?.churnedLeads ?? [];
+  const activeLeads  = pontuaPortal?.leads ?? [];
+  const churnedLeads = pontuaPortal?.churnedLeads ?? [];
 
   const etiquetasMap = useMemo(
     () =>
       buildPrestadorLeadEtiquetasMap(
         activeLeads,
         sumSaquesPendentes(pedidos),
-        garbo?.totalRetirado ?? 0,
+        pontuaPortal?.totalRetirado ?? 0,
       ),
-    [activeLeads, pedidos, garbo?.totalRetirado],
+    [activeLeads, pedidos, pontuaPortal?.totalRetirado],
   );
 
   const getPerm = (leadId: number) => {
@@ -216,7 +216,7 @@ export function PrestadorClientes({
         </p>
       </div>
 
-      {(profileLoading || garboLoading) && (
+      {(profileLoading || appLoading) && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
           <div
             className="h-8 w-8 rounded-full border-2 border-amber-400/40 border-t-amber-400 animate-spin"
@@ -228,7 +228,7 @@ export function PrestadorClientes({
         </div>
       )}
 
-      {garboError && !garboLoading && (
+      {appError && !appLoading && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3 px-4">
           <p style={{ color: 'rgba(239,68,68,0.8)', fontSize: 13, fontFamily: 'Raleway, sans-serif' }}>
             Não foi possível carregar seus clientes. Atualize a página ou tente novamente em instantes.
@@ -237,7 +237,7 @@ export function PrestadorClientes({
       )}
 
       {/* Empty state */}
-      {!profileLoading && !garboLoading && !garboError && totalLeads === 0 && (
+      {!profileLoading && !appLoading && !appError && totalLeads === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
           <Users size={32} style={{ color: 'rgba(255,255,255,0.08)' }} />
           <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13, fontFamily: 'Raleway, sans-serif' }}>

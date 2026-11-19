@@ -15,13 +15,29 @@ export const VARIAVEIS_EMPRESA: ReadonlyArray<{ nome: string; label: string }> =
   { nome: 'empresa_endereco', label: 'Endereço da empresa' },
   { nome: 'empresa_telefone', label: 'Telefone da empresa' },
   { nome: 'empresa_email', label: 'E-mail da empresa' },
+  { nome: 'empresa_cidade_uf', label: 'Cidade/UF da empresa' },
+  { nome: 'empresa_representante_nome', label: 'Representante legal (nome)' },
+  { nome: 'empresa_representante_cpf', label: 'Representante legal (CPF)' },
+  { nome: 'empresa_representante_qualificacao', label: 'Representante legal (qualificação)' },
 ];
 
 export const NOMES_VARIAVEIS_EMPRESA = new Set(VARIAVEIS_EMPRESA.map((v) => v.nome));
 
 /** Valores das variáveis `{{empresa_*}}` a partir da identidade da empresa. */
 export function valoresVariaveisEmpresa(
-  e: Pick<EmpresaIdentidade, 'nomeFantasia' | 'razaoSocial' | 'cnpjFormatado' | 'endereco' | 'telefone' | 'email'>,
+  e: Pick<
+    EmpresaIdentidade,
+    | 'nomeFantasia'
+    | 'razaoSocial'
+    | 'cnpjFormatado'
+    | 'endereco'
+    | 'telefone'
+    | 'email'
+    | 'cidadeUf'
+    | 'representanteNome'
+    | 'representanteCpfFormatado'
+    | 'representanteQualificacao'
+  >,
 ): Record<string, string> {
   return {
     empresa_nome: e.nomeFantasia,
@@ -30,6 +46,10 @@ export function valoresVariaveisEmpresa(
     empresa_endereco: e.endereco,
     empresa_telefone: e.telefone,
     empresa_email: e.email,
+    empresa_cidade_uf: e.cidadeUf,
+    empresa_representante_nome: e.representanteNome,
+    empresa_representante_cpf: e.representanteCpfFormatado,
+    empresa_representante_qualificacao: e.representanteQualificacao,
   };
 }
 

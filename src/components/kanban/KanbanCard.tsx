@@ -36,8 +36,8 @@ import type { MarkupLeadResumo } from '@/lib/markup-types';
 import { MarkupCardPreview } from '@/components/markup/MarkupCardPreview';
 import { LeadVendorBanner } from '@/components/leads/LeadVendorBanner';
 import { toast } from 'sonner';
-import { LeadPontuaGarboPartnerBadge } from '@/components/leads/LeadPontuaGarboPartnerBadge';
-import { usePontuaGarboPartnerBadge } from '@/hooks/usePontuaGarboPartnerLeads';
+import { LeadPontuaPartnerBadge } from '@/components/leads/LeadPontuaPartnerBadge';
+import { usePontuaPartnerBadge } from '@/hooks/usePontuaPartnerLeads';
 import { KanbanProjetoSignal } from '@/components/kanban/KanbanProjetoSignal';
 import { LeadProjetoCardActions } from '@/components/projetos/LeadProjetoCardActions';
 import { useLeadProjetos, useProjetoStages } from '@/hooks/useLeadProjetos';
@@ -49,6 +49,8 @@ import {
 } from '@/lib/projetos-atelie';
 import { kanbanStageSkin, kanbanStageTintHex } from '@/lib/kanban-stage-skin';
 import { KanbanLeadCardFoil } from '@/components/kanban/KanbanLeadCardFoil';
+import { usePaginaLiberada } from '@/hooks/usePaginaLiberada';
+import { FUNCAO_WHATSAPP } from '@/lib/paginas-catalogo';
 import '@/components/projetos/projeto-claimed.css';
 
 interface KanbanCardProps {
@@ -87,7 +89,7 @@ const originColors: Record<string, string> = {
   'WhatsApp': 'bg-success text-success-foreground',
   'Redes Sociais': 'bg-warning text-warning-foreground',
   'Indicação': 'bg-accent text-accent-foreground',
-  'Pontua Garbo': 'bg-gold/20 text-gold border border-gold/35',
+  'Pontua': 'bg-gold/20 text-gold border border-gold/35',
   'Outros': 'bg-muted text-muted-foreground',
 };
 
@@ -113,6 +115,8 @@ export function KanbanCard({
   const { nomePrograma } = useEmpresaIdentidade();
   const { hasPermission } = usePermissions();
   const { userRole, isSuperAdmin } = useAuth();
+  // Função "WhatsApp" desabilitada no plano → sem contador de mensagens não lidas.
+  const whatsappLiberado = usePaginaLiberada(FUNCAO_WHATSAPP);
   /** Vendedor vê o valor no card; só gestão abre a calculadora. */
   const podeAbrirMarkup = userRole !== 'vendedor';
   const isAdmin = isSuperAdmin || userRole === 'admin';
@@ -126,7 +130,7 @@ export function KanbanCard({
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [isSavingVendor, setIsSavingVendor] = useState(false);
   const [foilActive, setFoilActive] = useState(false);
-  const pontuaGarboBadge = usePontuaGarboPartnerBadge(lead.id);
+  const pontuaBadge = usePontuaPartnerBadge(lead.id);
   const { data: leadProjetos = [] } = useLeadProjetos();
   const { data: projetoStages = [] } = useProjetoStages();
   const projetoTone = projetoSignalTone(
@@ -388,7 +392,7 @@ export function KanbanCard({
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-start justify-between gap-2">
                 <h4 className="kanban-lead-name inline-flex max-w-full items-start gap-1 text-[15px] font-bold leading-snug tracking-tight">
-                  {pontuaGarboBadge && (
+                  {pontuaBadge && (
                     <Star
                       className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-gold text-gold drop-shadow-[0_0_5px_rgba(242,216,146,0.7)]"
                       aria-hidden
@@ -451,7 +455,7 @@ export function KanbanCard({
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {unreadCount && unreadCount > 0 && lastMessageData?.isFromLead && (
+                {whatsappLiberado && unreadCount && unreadCount > 0 && lastMessageData?.isFromLead && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-green-500 text-white animate-pulse">
@@ -485,7 +489,7 @@ export function KanbanCard({
                 <span className="truncate">Dar atenção</span>
               </Badge>
             )}
-            {pontuaGarboBadge && (
+            {pontuaBadge && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge
@@ -573,9 +577,9 @@ export function KanbanCard({
             </div>
           )}
 
-          {pontuaGarboBadge && (
+          {pontuaBadge && (
             <div className="w-full min-w-0 max-w-full overflow-hidden">
-              <LeadPontuaGarboPartnerBadge badge={pontuaGarboBadge} variant="card" />
+              <LeadPontuaPartnerBadge badge={pontuaBadge} variant="card" />
             </div>
           )}
 

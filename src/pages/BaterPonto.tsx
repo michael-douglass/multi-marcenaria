@@ -141,7 +141,7 @@ export function BaterPonto({ embedded }: { embedded?: boolean } = {}) {
                         <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-xs text-red-100/90">
                           <li>
                             iPhone: Ajustes → Privacidade e Segurança → Serviços de Localização
-                            (ligue) → Safari ou GARBO → Ao Usar o App.
+                            (ligue) → Safari ou o app → Ao Usar o App.
                           </li>
                           <li>
                             Android: toque no cadeado ao lado do endereço do site → Permissões

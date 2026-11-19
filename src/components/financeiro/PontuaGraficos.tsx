@@ -10,8 +10,8 @@ import {
   YAxis,
 } from 'recharts';
 import { BarChart3, Coins } from 'lucide-react';
-import { formatBRLPontua } from '@/lib/pontua-garbo-arquiteto';
-import type { PontuaMesBucket } from '@/lib/pontua-garbo-metricas';
+import { formatBRLPontua } from '@/lib/pontua-arquiteto';
+import type { PontuaMesBucket } from '@/lib/pontua-metricas';
 import {
   finCard,
   finCardMuted,

@@ -12,8 +12,8 @@ void main() {
 `
 
 /**
- * Aura do perfil: medalhão / placa de identificação do ateliê —
- * anel dourado, linho e luz âmbar. Opacidade baixa para o texto continuar nítido.
+ * Aura do perfil (paleta clara): medalhão suave sobre papel —
+ * anel âmbar, linho e luz quente. Opacidade baixa para o texto continuar nítido.
  */
 const FRAGMENT = `
 uniform float uTime;
@@ -30,10 +30,11 @@ void main() {
   float t = uTime * 0.02;
   float aspect = max(uResolution.x / max(uResolution.y, 1.0), 1.0);
 
-  vec3 ink = vec3(0.05, 0.025, 0.012);
-  vec3 oak = vec3(0.68, 0.48, 0.26);
-  vec3 gold = vec3(0.94, 0.78, 0.42);
-  vec3 amber = vec3(0.82, 0.46, 0.16);
+  // Base clara (papel) em vez de tinta preta
+  vec3 paper = vec3(0.99, 0.97, 0.93);
+  vec3 oak = vec3(0.78, 0.62, 0.42);
+  vec3 gold = vec3(0.72, 0.52, 0.24);
+  vec3 amber = vec3(0.86, 0.62, 0.32);
 
   vec2 center = vec2(0.82, 0.22);
   vec2 d = (uv - center) * vec2(aspect, 1.0);
@@ -45,16 +46,16 @@ void main() {
   vec2 lampDelta = (uv - uPointer) * vec2(aspect, 1.0);
   float lamp = smoothstep(0.55, 0.0, length(lampDelta));
   float wash = exp(-length((uv - vec2(0.18, 0.08)) * vec2(1.2, 1.6)) * 1.35);
-  float grain = hash(uv * 150.0 + t) * 0.04;
-  float rule = smoothstep(0.97, 1.0, abs(sin(uv.y * 22.0 * 3.14159))) * 0.1;
+  float grain = hash(uv * 150.0 + t) * 0.03;
+  float rule = smoothstep(0.97, 1.0, abs(sin(uv.y * 22.0 * 3.14159))) * 0.08;
 
-  vec3 color = mix(ink, oak, wash * 0.4 + ring * 0.25);
-  color = mix(color, gold, wash * 0.08 + ring * 0.55 * tick + rule * 0.4);
-  color = mix(color, amber, lamp * 0.16);
-  color += grain * gold * 0.3;
+  vec3 color = mix(paper, oak, wash * 0.22 + ring * 0.18);
+  color = mix(color, gold, wash * 0.06 + ring * 0.4 * tick + rule * 0.28);
+  color = mix(color, amber, lamp * 0.1);
+  color += grain * gold * 0.2;
 
-  float alpha = 0.05 + wash * 0.06 + lamp * 0.05 + ring * 0.08;
-  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.15));
+  float alpha = 0.03 + wash * 0.05 + lamp * 0.04 + ring * 0.06;
+  gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.12));
 }
 `
 

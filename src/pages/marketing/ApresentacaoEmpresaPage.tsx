@@ -1,6 +1,6 @@
-import { GarboApresentacaoEmpresa } from '@/components/marketing/apresentacao-empresa/GarboApresentacaoEmpresa';
+import { ApresentacaoEmpresa } from '@/components/marketing/apresentacao-empresa/ApresentacaoEmpresa';
 
 /** Apresentação para arquitetos (interna) — fullscreen, equipe logada no CRM. */
 export default function ApresentacaoEmpresaPage() {
-  return <GarboApresentacaoEmpresa showToolbar />;
+  return <ApresentacaoEmpresa showToolbar />;
 }

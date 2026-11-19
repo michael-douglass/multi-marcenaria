@@ -31,6 +31,7 @@ import {
 } from '@/components/master/master-utils'
 import { EntrarEmpresaDialog } from '@/master/components/EntrarEmpresaDialog'
 import { PaginasEditor } from '@/master/components/PaginasEditor'
+import { IaEmpresaPainel } from '@/master/components/ia/IaEmpresaPainel'
 import { AcessosTabela } from '@/master/components/AcessosTabela'
 import { MasterPage, Painel, SituacaoTag, StatusEmpresaTag, Vazio } from '@/master/components/MasterUi'
 import { cn } from '@/lib/utils'
@@ -68,6 +69,7 @@ export default function EmpresaDetalhe() {
   const redefinirSenha = useRedefinirSenhaUsuario()
   const salvarPaginas = useSalvarPaginasEmpresa()
 
+  const [aba, setAba] = useState('geral')
   const [dados, setDados] = useState({ nome: '', cnpj: '', razaoSocial: '' })
   const [admin, setAdmin] = useState({ nome: '', email: '', senha: '' })
   const [liberarAte, setLiberarAte] = useState('')
@@ -165,11 +167,12 @@ export default function EmpresaDetalhe() {
         </>
       }
     >
-      <Tabs defaultValue="geral">
+      <Tabs value={aba} onValueChange={setAba}>
         <TabsList className="mb-6 h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
           {[
             ['geral', 'Dados e acesso'],
             ['paginas', `Páginas${bloqueadas ? ` (${bloqueadas} bloqueadas)` : ''}`],
+            ['ia', 'IA e tokens'],
             ['usuarios', `Usuários (${usuarios.length})`],
             ['mensalidades', 'Mensalidades'],
             ['acessos', 'Entradas do master'],
@@ -274,6 +277,10 @@ export default function EmpresaDetalhe() {
           ) : (
             <Vazio>Carregando páginas…</Vazio>
           )}
+        </TabsContent>
+
+        <TabsContent value="ia">
+          <IaEmpresaPainel empresaId={id} onAbrirPaginas={() => setAba('paginas')} />
         </TabsContent>
 
         <TabsContent value="usuarios">

@@ -3,14 +3,17 @@ import { EmpresaDadosForm } from '@/components/admin/EmpresaDadosForm';
 import { PrestadorBannerForm } from '@/components/admin/PrestadorBannerForm';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmpresaPortal } from '@/hooks/useEmpresaPortal';
 import { Palette, Image, Building2 } from 'lucide-react';
 
 /**
- * /admin/marca — identidade da empresa (mesmo formulário do /profile) + banner do prestador.
+ * /admin/marca — identidade da empresa (mesmo formulário do /profile). O banner do portal do parceiro
+ * só aparece na empresa-modelo: é definido nos modelos padrão e chega às empresas pelo pacote Pontua.
  */
 export default function ConfiguracaoMarca() {
   const { hasRole } = useAuth();
   const { empresa } = useEmpresa();
+  const portal = useEmpresaPortal();
 
   if (!hasRole('admin')) {
     return (
@@ -53,20 +56,22 @@ export default function ConfiguracaoMarca() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Image className="h-4 w-4 text-primary" />
-            Página do Prestador de Serviço
-          </CardTitle>
-          <CardDescription>
-            Banner exibido na página exclusiva dos prestadores ao fazerem login. Use imagens de alta qualidade.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PrestadorBannerForm />
-        </CardContent>
-      </Card>
+      {portal.data?.e_modelo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Image className="h-4 w-4 text-primary" />
+              Banner do portal do parceiro (modelo)
+            </CardTitle>
+            <CardDescription>
+              Banner exibido aos prestadores no portal. Faz parte do modelo Pontua: as empresas recebem estas imagens quando o modelo é enviado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PrestadorBannerForm />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

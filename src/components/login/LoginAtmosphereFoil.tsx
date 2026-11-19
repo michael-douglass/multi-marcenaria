@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
-import { GARBO_WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
+import { MARCA_PADRAO_LOGO } from '@/lib/marca-padrao';
+import { WOOD_TEXTURE_URL } from '@/lib/furniture-catalog-banks';
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support';
 
 /**
@@ -114,12 +114,12 @@ export function LoginAtmosphereFoil({ className }: { className?: string }) {
       tex.needsUpdate = true;
     };
 
-    loader.load(GARBO_WOOD_TEXTURE_URL, (tex) => {
+    loader.load(WOOD_TEXTURE_URL, (tex) => {
       setupTex(tex, 1.6, 1.6);
       uniforms.uWood.value = tex;
       uniforms.uHasWood.value = 1;
     });
-    loader.load(GARBO_LOGO_SRC, (tex) => {
+    loader.load(MARCA_PADRAO_LOGO, (tex) => {
       setupTex(tex, 1, 1);
       uniforms.uBrand.value = tex;
       uniforms.uHasBrand.value = 1;

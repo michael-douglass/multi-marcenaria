@@ -22,7 +22,7 @@ import { PrestadorBannerSlideshow } from '@/components/prestador/PrestadorBanner
 import { PrestadorPortalAtmosphere } from '@/components/prestador/PrestadorPortalAtmosphere'
 import { PrestadorPortalHero } from '@/components/prestador/PrestadorPortalHero'
 import { resolvePrestadorBannerSlides } from '@/lib/empresa-banner-slides'
-import { GARBO_APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/garbo-apresentacao-theme'
+import { APRESENTACAO_THEME } from '@/components/marketing/apresentacao-empresa/apresentacao-theme'
 
 const css = `
   @keyframes prestador-banner {
@@ -144,7 +144,7 @@ export function PortalParceiro({ embedded = false }: PortalParceiroProps) {
       <style>{css}</style>
       <div
         className="relative flex w-full flex-col overflow-x-hidden"
-        style={{ backgroundColor: GARBO_APRESENTACAO_THEME.bgBase, minHeight: embedded ? '100%' : '100dvh' }}
+        style={{ backgroundColor: APRESENTACAO_THEME.bgBase, minHeight: embedded ? '100%' : '100dvh' }}
       >
         {isPortal && (
           <div

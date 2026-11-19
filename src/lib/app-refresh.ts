@@ -1,9 +1,9 @@
 import { isMobileUi } from './device'
 
 export const APP_REFRESH_RETURN_KEY = 'movelaria-refresh-return'
-export const SOFT_REFRESH_EVENT = 'garbo:soft-refresh'
+export const SOFT_REFRESH_EVENT = 'app:soft-refresh'
 
-const HARD_RELOAD_GUARD_KEY = 'garbo-hard-reload-at'
+const HARD_RELOAD_GUARD_KEY = 'app-hard-reload-at'
 /** No computador, evita dois reloads seguidos (Safari interpreta como crash). */
 const HARD_RELOAD_MIN_MS = 12_000
 

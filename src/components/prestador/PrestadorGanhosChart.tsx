@@ -7,7 +7,7 @@
   XAxis,
   YAxis,
 } from 'recharts';
-import type { PontuaGarboGanhoMensal } from '@/lib/pontua-garbo';
+import type { PontuaGanhoMensal } from '@/lib/pontua';
 
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -16,7 +16,7 @@ interface PrestadorGanhosChartProps {
   totalComissaoGanha: number;
   ganhoMesAtual: number;
   mediaMensalGanhos: number;
-  ganhosPorMes: PontuaGarboGanhoMensal[];
+  ganhosPorMes: PontuaGanhoMensal[];
   /** Coluna lateral do portal: métricas empilhadas e gráfico compacto */
   variant?: 'default' | 'sidebar';
 }
@@ -154,12 +154,12 @@ export function PrestadorGanhosChart({
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(240,210,140,0.08)' }} />
                 <Bar
                   dataKey="valor"
-                  fill="url(#garboBarGrad)"
+                  fill="url(#appBarGrad)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={48}
                 />
                 <defs>
-                  <linearGradient id="garboBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="appBarGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="rgba(240,210,140,0.95)" />
                     <stop offset="100%" stopColor="rgba(240,210,140,0.35)" />
                   </linearGradient>

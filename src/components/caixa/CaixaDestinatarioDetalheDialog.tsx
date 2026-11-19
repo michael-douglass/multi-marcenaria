@@ -14,7 +14,7 @@ import {
   formatTelefonePrestador,
   telefonePrestadorDigits,
   telefonePrestadorHref,
-} from '@/lib/pontua-garbo-arquiteto'
+} from '@/lib/pontua-arquiteto'
 import { LoadingState } from '@/components/ui/EmptyState'
 import type { TipoDestinatarioCaixa } from '@/types'
 

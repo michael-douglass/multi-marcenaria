@@ -16,6 +16,7 @@ import type {
   PontoControleFuncionarioRow,
   StatusKanbanObra,
 } from '@/types'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 const STATUS_LABEL: Record<StatusKanbanObra, string> = {
   datas_em_aberto: 'Em aberto',
@@ -403,7 +404,7 @@ const PDF_CSS = `
 `
 
 function buildDocumentHtml(input: VisualizacaoPdfExportInput): string {
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',

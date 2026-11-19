@@ -1,9 +1,9 @@
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 
 /** Fallback enquanto uma rota lazy carrega. */
 export function RouteLoadingFallback() {
   return (
-    <GarboBrandLoader
+    <BrandLoader
       variant="inline"
       size="md"
       message="Carregando página…"

@@ -34,7 +34,7 @@ import { useVendasGanhosMetricas } from '@/hooks/useVendasGanhosMetricas';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useKanbanConfig } from '@/hooks/useKanbanConfig';
 import { useLeads } from '@/hooks/useLeads';
-import { useLeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
+import { useLeadPontuaSaleInfo } from '@/hooks/useLeadPontuaSaleInfo';
 import {
   filterNegociosGanhos,
   getReferenciaVendaDate,
@@ -87,7 +87,7 @@ export function SalesStatsCard({
   const [showFormulas, setShowFormulas] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingSaleLeadId, setEditingSaleLeadId] = useState<number | null>(null);
-  const { data: pontuaGarboSale } = useLeadPontuaGarboSaleInfo(editingSaleLeadId);
+  const { data: pontuaSale } = useLeadPontuaSaleInfo(editingSaleLeadId);
 
   const stats = useMemo(() => {
     const now = toSaoPauloTime(new Date());
@@ -261,9 +261,9 @@ export function SalesStatsCard({
         id: editingSaleLeadId,
         updates: { valor_negocio: value },
       });
-      void queryClient.invalidateQueries({ queryKey: ['minha-pontua-garbo'] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-financeiro'] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-comissao-liberacao'] });
+      void queryClient.invalidateQueries({ queryKey: ['minha-pontua'] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-financeiro'] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-comissao-liberacao'] });
       toast.success('Valor da venda atualizado com sucesso!');
       setEditingSaleLeadId(null);
     } catch {
@@ -645,7 +645,7 @@ export function SalesStatsCard({
         onConfirm={handleConfirmEditedSale}
         leadName={leadEmEdicao?.name ?? ''}
         budgetValue={leadEmEdicao?.budgetValue ?? 0}
-        pontuaGarbo={pontuaGarboSale ?? null}
+        pontuaDados={pontuaSale ?? null}
       />
     </Collapsible>
   );

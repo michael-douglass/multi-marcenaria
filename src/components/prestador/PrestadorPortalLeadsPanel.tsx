@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react';
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useMeusSaquePedidos } from '@/hooks/useSaquePedidos';
 import { PrestadorPortalLeadCard } from '@/components/prestador/PrestadorPortalLeadCard';
@@ -9,7 +9,7 @@ import {
   leadClienteJaPagou,
   type PrestadorLeadEtiqueta,
 } from '@/lib/prestador-lead-etiquetas';
-import { sumSaquesPendentes } from '@/lib/pontua-garbo-saque';
+import { sumSaquesPendentes } from '@/lib/pontua-saque';
 import { splitLeadsByCurrentMonth } from '@/lib/prestador-leads-por-mes';
 import {
   prestadorLeadMatchesSearch,

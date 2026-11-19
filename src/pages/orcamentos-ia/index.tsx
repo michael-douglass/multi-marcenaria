@@ -573,14 +573,14 @@ export default function OrcamentosIaPage() {
               className="text-5xl leading-[0.9] tracking-[0.02em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-6xl md:text-7xl"
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
             >
-              Garbo precificação
+              Precificação
             </p>
             <p
               className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-[#0066FF]"
               style={{ fontFamily: 'Raleway, sans-serif' }}
             >
               <BrainCircuit className="h-4 w-4" />
-              GARBO · BOM fabril
+              BOM fabril
             </p>
             <h1
               className="max-w-2xl text-2xl leading-snug text-[var(--cc-ink)] sm:text-3xl"

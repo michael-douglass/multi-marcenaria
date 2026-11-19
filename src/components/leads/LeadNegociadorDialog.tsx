@@ -422,7 +422,7 @@ export function LeadNegociadorDialog({
       const logo =
         markupConfig.timbrado_url?.trim() ||
         empresa?.logo_url?.trim() ||
-        '/garbo-logo.png';
+        '/imagens/marca-padrao.png';
       await exportarNegociadorPdf(
         {
           valorNegociado,

@@ -1,12 +1,12 @@
 import type { AgendaEvent } from '@/hooks/useAgendaGeral';
 
-/** Paleta curada da agenda (tom madeireira / ouro Garbo + contraste útil). */
+/** Paleta curada da agenda (tom madeira / ouro + contraste útil). */
 export const AGENDA_COLOR_PRESETS = [
   '#3b82f6', // reunião (azul)
   '#f59e0b', // lead (âmbar)
   '#10b981', // pessoal (esmeralda)
   '#a855f7', // marketing (roxo)
-  '#f2d892', // ouro Garbo
+  '#f2d892', // ouro
   '#2a1812', // mogno
   '#fb923c', // laranja
   '#f472b6', // rosa

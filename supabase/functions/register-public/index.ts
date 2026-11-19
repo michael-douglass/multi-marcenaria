@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { CRM_SCHEMA, dbFromSchema, MASTER_TABLES, resolveEmpresaDb } from "../_shared/empresa-tables.ts";
 import { isUuid, serviceClient } from "../_shared/tenant.ts";
-import { ensurePontuaGarboPartnerLead } from "../_shared/pontua-garbo-lead.ts";
+import { ensurePontuaPartnerLead } from "../_shared/pontua-lead.ts";
 
 const ALLOWED_ROLES = new Set(["vendedor", "marketing", "nenhum"]);
 const ALLOWED_TIPOS = new Set(["prestador_servico", "lead", "colaborador"]);
@@ -66,7 +66,7 @@ serve(async (req) => {
       telefone: telefone?.replace(/\D/g, "") || null,
       status_convite: "ATIVO",
       tipo_usuario,
-      // Prestadores pelo link público entram no Pontua Garbo (página Financeiro)
+      // Prestadores pelo link público entram no Pontua (página Financeiro)
       comissao_ativa: tipo_usuario === "prestador_servico",
       titulo:
         tipo_usuario === "prestador_servico"
@@ -88,7 +88,7 @@ serve(async (req) => {
 
     if (tipo_usuario === "prestador_servico") {
       try {
-        await ensurePontuaGarboPartnerLead(admin, target, {
+        await ensurePontuaPartnerLead(admin, target, {
           usuarioId: userId,
           nome: nome.trim(),
           email: email.trim().toLowerCase(),
@@ -96,7 +96,7 @@ serve(async (req) => {
           empresaId,
         });
       } catch (leadErr) {
-        console.error("register-public: falha ao criar lead Pontua Garbo", leadErr);
+        console.error("register-public: falha ao criar lead Pontua", leadErr);
       }
     }
 

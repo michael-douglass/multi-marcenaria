@@ -1,7 +1,7 @@
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade'
 import { Presentation } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { GarboPontuaPointsScene } from '@/components/crm/GarboPontuaPointsScene'
+import { PontuaPointsScene } from '@/components/crm/PontuaPointsScene'
 import { CrmPageFrame, CrmPageHeader } from '@/components/crm/CrmPageFrame'
 import { Button } from '@/components/ui/button'
 import { APRESENTACAO_SECTIONS } from '@/lib/crm-marketing'
@@ -11,14 +11,14 @@ export function ApresentacaoArquitetosPage() {
     <CrmPageFrame padded>
       <CrmPageHeader
         title="Apresentação para arquitetos"
-        subtitle="Material institucional da Garbo para conversar com parceiros."
+        subtitle="Material institucional da empresa para conversar com parceiros."
         icon={(
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-400/15">
             <Presentation className="h-4 w-4 text-violet-300" />
           </div>
         )}
         actions={(
-          <Link to="/marketing/pontua-garbo">
+          <Link to="/marketing/pontua">
             <Button variant="outline" size="sm">Ver Pontua</Button>
           </Link>
         )}
@@ -35,7 +35,7 @@ export function ApresentacaoArquitetosPage() {
   )
 }
 
-export function PontuaGarboPage() {
+export function PontuaResumoPage() {
   const { nomePrograma } = useEmpresaIdentidade()
   const pontua = APRESENTACAO_SECTIONS.find(s => s.id === 'pontua')
   return (
@@ -50,7 +50,7 @@ export function PontuaGarboPage() {
         )}
       />
       <div className="relative overflow-hidden rounded-2xl border border-amber-400/25 bg-[#140c08]">
-        <GarboPontuaPointsScene className="h-64 w-full sm:h-80" />
+        <PontuaPointsScene className="h-64 w-full sm:h-80" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#140c08] to-transparent p-5">
           {pontua && (
             <>

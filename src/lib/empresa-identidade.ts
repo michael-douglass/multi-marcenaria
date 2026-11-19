@@ -38,6 +38,28 @@ export function cnpjValido(valor?: string | null): boolean {
   return d.endsWith(`${dv1}${dv2}`)
 }
 
+/** Máscara `000.000.000-00` (aceita entrada parcial). */
+export function formatCpf(valor?: string | null): string {
+  const d = somenteDigitos(valor).slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
+
+/** Valida o CPF pelos dígitos verificadores (mesma regra de `app_cpf_valido` no banco). */
+export function cpfValido(valor?: string | null): boolean {
+  const d = somenteDigitos(valor)
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
+  const dv = (n: number) => {
+    let s = 0
+    for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i)
+    const r = (s * 10) % 11
+    return r === 10 ? 0 : r
+  }
+  return dv(9) === Number(d[9]) && dv(10) === Number(d[10])
+}
+
 /** Máscara `00000-000` para CEP. */
 export function formatCep(valor?: string | null): string {
   const d = somenteDigitos(valor).slice(0, 8)
@@ -85,9 +107,9 @@ export function nomePrograma(nome?: string | null): string {
  * Valor gravado no banco para o programa (campo personalizado / origem do lead).
  * NÃO mudar: é usado para buscar e deduplicar registros. Só a exibição é trocada.
  */
-export const PONTUA_VALOR_GRAVADO = 'Pontua Garbo'
+export const PONTUA_VALOR_GRAVADO = 'Pontua'
 
-/** Troca o valor gravado `'Pontua Garbo'` pelo nome do programa da empresa (só exibição). */
+/** Troca o valor gravado `'Pontua'` pelo nome do programa da empresa (só exibição). */
 export function rotuloPontua(valor: string | null | undefined, programa: string): string {
   if (valor == null) return ''
   return valor.trim().toLowerCase() === PONTUA_VALOR_GRAVADO.toLowerCase() ? programa : valor
@@ -113,6 +135,12 @@ export interface EmpresaIdentidade {
   email: string
   cidade: string
   uf: string
+  /** "Cidade/UF" (vazio se nenhum dos dois). */
+  cidadeUf: string
+  /** Representante legal (contratos). */
+  representanteNome: string
+  representanteCpfFormatado: string
+  representanteQualificacao: string
   /** "Pontua {nome fantasia}". */
   nomePrograma: string
 }
@@ -131,6 +159,9 @@ export interface EmpresaIdentidadeFonte {
   uf?: string | null
   telefone?: string | null
   email?: string | null
+  representanteNome?: string | null
+  representanteCpf?: string | null
+  representanteQualificacao?: string | null
 }
 
 /** Monta a identidade (pura) — usada pelo hook, pelos PDFs e por páginas públicas. */
@@ -149,6 +180,10 @@ export function montarEmpresaIdentidade(fonte?: EmpresaIdentidadeFonte | null): 
     email: fonte?.email?.trim() ?? '',
     cidade: fonte?.cidade?.trim() ?? '',
     uf: (fonte?.uf ?? '').trim().toUpperCase(),
+    cidadeUf: [fonte?.cidade?.trim() ?? '', (fonte?.uf ?? '').trim().toUpperCase()].filter(Boolean).join('/'),
+    representanteNome: fonte?.representanteNome?.trim() ?? '',
+    representanteCpfFormatado: formatCpf(fonte?.representanteCpf),
+    representanteQualificacao: fonte?.representanteQualificacao?.trim() ?? '',
     nomePrograma: nomePrograma(fonte?.nome),
   }
 }
@@ -168,7 +203,7 @@ export function empresaDocumento(): EmpresaIdentidade {
   return empresaDocumentoAtual ?? montarEmpresaIdentidade(null)
 }
 
-/** Nome da empresa em caixa alta, como nos cabeçalhos dos documentos ("GARBO MOVELARIA"). */
+/** Nome da empresa em caixa alta, como nos cabeçalhos dos documentos (ex.: "MARCENARIA EXEMPLO"). */
 export function nomeEmpresaDocumento(): string {
   return empresaDocumento().nomeFantasia.toLocaleUpperCase('pt-BR')
 }

@@ -27,6 +27,10 @@ export interface EmpresaDadosInput {
   email?: string | null;
   logo_url?: string | null;
   cor_primaria?: string | null;
+  representante_nome?: string | null;
+  /** Com ou sem máscara: o banco guarda só os 11 dígitos e valida. */
+  representante_cpf?: string | null;
+  representante_qualificacao?: string | null;
 }
 
 /** Envia a logo para o bucket público `empresa-branding` (pasta da empresa) e devolve a URL. */

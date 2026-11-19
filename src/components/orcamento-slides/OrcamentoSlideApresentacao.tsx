@@ -1672,7 +1672,7 @@ function BlocoPrecificacao({
     >
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
         <img
-          src="/imagens/apresentacao-garbo/fechamento-painel-logo.jpg"
+          src="/imagens/apresentacao/projetos/painel-madeira-continuidade.png"
           alt=""
           className={cn(
             'absolute inset-0 h-full w-full object-cover',
@@ -1680,7 +1680,7 @@ function BlocoPrecificacao({
           )}
         />
         <img
-          src="/imagens/apresentacao-garbo/projetos/painel-madeira-continuidade.png"
+          src="/imagens/apresentacao/projetos/painel-madeira-continuidade.png"
           alt=""
           className="absolute inset-y-0 right-0 hidden h-full w-[46%] object-cover opacity-[0.22] md:block"
         />
@@ -1696,7 +1696,7 @@ function BlocoPrecificacao({
       <CapaAtmosphereFoil
         enabled={!previewMode}
         intensity={0.42}
-        textureUrl="/imagens/apresentacao-garbo/fechamento-painel-logo.jpg"
+        textureUrl="/imagens/apresentacao/projetos/painel-madeira-continuidade.png"
         className="z-[1]"
       />
 

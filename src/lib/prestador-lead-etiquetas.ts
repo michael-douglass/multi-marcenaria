@@ -1,5 +1,5 @@
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
-import { arredondarBrl } from '@/lib/pontua-garbo-saque';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
+import { arredondarBrl } from '@/lib/pontua-saque';
 
 export type PrestadorLeadEtiqueta = 'cliente_pagou' | 'voce_ja_sacou';
 

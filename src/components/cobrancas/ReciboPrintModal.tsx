@@ -113,7 +113,7 @@ export function ReciboPrintModal({
     >
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[#edd9c4]">
         À esquerda você ajusta o texto. À direita aparece o recibo como vai sair no papel:
-        com a logo da Garbo, a faixa dourada e os dados da cobrança.
+        com a logo da empresa, a faixa dourada e os dados da cobrança.
       </p>
 
       <div className="mb-4 rounded-lg border border-[rgba(240,210,140,0.15)] bg-black/20 px-3 py-2 text-sm">

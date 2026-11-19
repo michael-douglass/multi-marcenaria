@@ -440,7 +440,7 @@ export function assemblePortalResumo(
       leadStatus: status,
       valorOrcamento: base,
       fieldId: asText(row.field_id),
-      fieldNome: asText(row.field_nome) || 'Pontua Garbo',
+      fieldNome: asText(row.field_nome) || 'Pontua',
       percentual,
       comissao: (base * percentual) / 100,
       vendaGanha,

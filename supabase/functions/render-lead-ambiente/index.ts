@@ -1,5 +1,15 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import {
+  autorizarIaCardLead,
+  checarCota,
+  chatVisao,
+  ehRecusa,
+  mensagemSegura,
+  registrarUso,
+  respostaRecusa,
+  type OpenAiUsage,
+} from '../_shared/ia-card-lead.ts';
+import { modeloImagemPermitido, modeloVisaoPermitido } from '../_shared/ia-card-lead-modelos.ts';
 import { corsHeaders } from './_shared/cors.ts';
 import {
   DEFAULT_AMBIENTE_ANALYSIS_PROMPT,
@@ -10,10 +20,6 @@ import {
 } from '../_shared/render-prompts.ts';
 import { callOpenAIImageEdit, callOpenAIImageGenerate } from '../_shared/openai-image-edit.ts';
 
-const ALLOWED_VISION_MODELS = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1']);
-const DEFAULT_VISION_MODEL = 'gpt-4o';
-const ALLOWED_IMAGE_MODELS = new Set(['gpt-image-1.5', 'gpt-image-1', 'dall-e-2']);
-const DEFAULT_IMAGE_MODEL = 'gpt-image-1.5';
 const RENDER_BUCKET = 'lead-ai-renders';
 const MARKETING_BUCKET = 'marketing-medias';
 const ORCAMENTOS_FOLDER_NAME = 'orçamentos';
@@ -26,7 +32,6 @@ interface FurnitureReference {
 interface AmbienteRequest {
   action?: 'analyze' | 'render';
   leadId: number;
-  empresaSchema?: string | null;
   leadName?: string;
   leadOrigin?: string;
   descricao?: string;
@@ -44,44 +49,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function isEmpresaSchema(schema: string | null | undefined): boolean {
-  return !!schema && /^emp_[a-z0-9_]+$/.test(schema);
-}
-
-function resolveDb(client: SupabaseClient, empresaSchema?: string | null) {
-  if (isEmpresaSchema(empresaSchema)) {
-    return client.schema(empresaSchema!);
-  }
-  return client;
-}
-
-function configTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'pipeline_lead_ai_config'
-    : 'CRM-multi-empresas>pipeline_lead_ai_config<';
-}
-
-function rendersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'lead_ai_renders'
-    : 'CRM-multi-empresas>lead_ai_renders<';
-}
-
-function mediasTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_medias'
-    : 'crm_multiempresas_marketing_medias';
-}
-
-function foldersTableName(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema)
-    ? 'marketing_media_folders'
-    : 'crm_multiempresas_marketing_media_folders';
-}
-
-function storagePrefix(empresaSchema?: string | null): string {
-  return isEmpresaSchema(empresaSchema) ? empresaSchema! : 'master';
-}
+type CrmDb = ReturnType<SupabaseClient['schema']>;
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -134,48 +102,12 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function callOpenAIChat(
-  apiKey: string,
-  model: string,
-  messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>,
-  maxTokens = 2048,
-): Promise<string> {
-  const openAiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
-  });
-
-  if (!openAiRes.ok) {
-    const errText = await openAiRes.text();
-    console.error('OpenAI chat error:', openAiRes.status, errText);
-    let message = 'Erro ao chamar a API da OpenAI';
-    try {
-      const parsed = JSON.parse(errText);
-      message = parsed?.error?.message || message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
-  }
-
-  const openAiData = await openAiRes.json();
-  const content = openAiData?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error('A IA não retornou a análise do ambiente');
-  return content;
-}
-
-async function getOrCreateOrcamentosFolder(
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema?: string | null,
-): Promise<string | null> {
-  const foldersTable = foldersTableName(empresaSchema);
+async function getOrCreateOrcamentosFolder(db: CrmDb, empresaId: string): Promise<string | null> {
+  const foldersTable = 'marketing_media_folders';
   const { data: existing } = await db
     .from(foldersTable)
     .select('id')
+    .eq('empresa_id', empresaId)
     .eq('nome', ORCAMENTOS_FOLDER_NAME)
     .maybeSingle();
 
@@ -196,13 +128,13 @@ async function getOrCreateOrcamentosFolder(
 
 async function saveRenderAsLeadAttachment(
   supabase: SupabaseClient,
-  db: ReturnType<typeof resolveDb>,
-  empresaSchema: string | null | undefined,
+  db: CrmDb,
+  empresaId: string,
   leadId: number,
   renderId: string,
   outputBytes: Uint8Array,
 ): Promise<void> {
-  const prefix = storagePrefix(empresaSchema);
+  const prefix = empresaId;
   const fileName = `render-ia-${renderId}.png`;
   const storagePath = `${prefix}/${fileName}`;
 
@@ -219,10 +151,10 @@ async function saveRenderAsLeadAttachment(
   }
 
   const { data: publicUrlData } = supabase.storage.from(MARKETING_BUCKET).getPublicUrl(storagePath);
-  const folderId = await getOrCreateOrcamentosFolder(db, empresaSchema);
+  const folderId = await getOrCreateOrcamentosFolder(db, empresaId);
   if (!folderId) return;
 
-  const { error: insertError } = await db.from(mediasTableName(empresaSchema)).insert({
+  const { error: insertError } = await db.from('marketing_medias').insert({
     titulo: 'Render IA — Ambiente',
     tipo: 'imagem',
     file_url: publicUrlData.publicUrl,
@@ -245,18 +177,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = serviceClient(await empresaDoChamador(req));
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return jsonResponse({ error: 'Não autorizado' }, 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return jsonResponse({ error: 'Usuário não autenticado' }, 401);
-    }
+    // O render por IA conta como escrita (gera arquivos, linhas e custo), inclusive a análise.
+    const ctx = await autorizarIaCardLead(req, 'ambiente');
+    if (ehRecusa(ctx)) return respostaRecusa(ctx);
+    const supabase = ctx.svc;
+    const empresaId = ctx.empresaId;
 
     let body: AmbienteRequest;
     try {
@@ -266,7 +191,7 @@ Deno.serve(async (req) => {
     }
 
     const action = body.action === 'render' ? 'render' : 'analyze';
-    const { leadId, empresaSchema, leadName, leadOrigin } = body;
+    const { leadId, leadName, leadOrigin } = body;
     const descricao = typeof body.descricao === 'string' ? body.descricao.trim() : '';
     const cenaInventario = typeof body.cenaInventario === 'string' ? body.cenaInventario.trim() : '';
 
@@ -291,45 +216,28 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Descreva o ambiente, desenhe na lousa ou envie uma foto' }, 400);
     }
 
-    const db = resolveDb(supabase, empresaSchema);
+    const db = supabase.schema('crm');
 
-    const { data: configRow, error: configError } = await db
-      .from(configTableName(empresaSchema))
-      .select(
-        'render_ambiente_ativo, render_vision_model, render_image_model, render_ambiente_analysis_prompt, render_ambiente_prompt, openai_api_key',
-      )
-      .eq('singleton_key', 'default')
+    // O lead precisa ser da empresa de quem chama (service role ignora a RLS).
+    const { data: leadRow } = await db
+      .from('leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('empresa_id', empresaId)
       .maybeSingle();
+    if (!leadRow) return jsonResponse({ error: 'Lead não encontrado' }, 404);
 
-    if (configError) {
-      console.error('Erro ao carregar config IA:', configError);
-      return jsonResponse({ error: 'Erro ao carregar configuração de IA' }, 500);
-    }
+    const cota = await checarCota(ctx);
+    if (cota) return respostaRecusa(cota);
 
-    if (configRow && configRow.render_ambiente_ativo === false) {
-      return jsonResponse({ error: 'Renderização com ambiente desativada nas configurações' }, 403);
-    }
-
-    const openAiKey = configRow?.openai_api_key?.trim() || '';
-    if (!openAiKey) {
-      return jsonResponse(
-        { error: 'Chave da OpenAI do Lead não configurada. Defina em Configurações IA.' },
-        500,
-      );
-    }
-
-    const visionModel = ALLOWED_VISION_MODELS.has(configRow?.render_vision_model)
-      ? configRow.render_vision_model
-      : DEFAULT_VISION_MODEL;
-    const imageModel = ALLOWED_IMAGE_MODELS.has(configRow?.render_image_model)
-      ? configRow.render_image_model
-      : DEFAULT_IMAGE_MODEL;
+    const openAiKey = ctx.apiKey;
+    const motor = ctx.motor;
+    const visionModel = modeloVisaoPermitido(motor.vision_model);
+    const imageModel = modeloImagemPermitido(motor.image_model);
 
     const analysisPromptRaw =
-      (configRow?.render_ambiente_analysis_prompt as string | null)?.trim() ||
-      DEFAULT_AMBIENTE_ANALYSIS_PROMPT;
-    const renderPromptRaw =
-      (configRow?.render_ambiente_prompt as string | null)?.trim() || DEFAULT_AMBIENTE_IMAGE_PROMPT;
+      motor.render_ambiente_analysis_prompt?.trim() || DEFAULT_AMBIENTE_ANALYSIS_PROMPT;
+    const renderPromptRaw = motor.render_ambiente_prompt?.trim() || DEFAULT_AMBIENTE_IMAGE_PROMPT;
 
     const analysisPromptSnapshot = applyAmbientePromptPlaceholders(analysisPromptRaw, {
       nomeLead: leadName,
@@ -412,7 +320,7 @@ Deno.serve(async (req) => {
           });
         });
 
-        const visao = await callOpenAIChat(
+        const visaoRes = await chatVisao(
           openAiKey,
           visionModel,
           [
@@ -421,6 +329,14 @@ Deno.serve(async (req) => {
           ],
           4096,
         );
+        const visao = visaoRes.content;
+        await registrarUso(ctx, {
+          funcao: 'render_ambiente_analise',
+          etapa: 'visao',
+          modelo: visionModel,
+          leadId,
+          usage: visaoRes.usage,
+        });
 
         if (action === 'render' && sugestoesAnteriores) {
           analiseTexto = `${visao}\n\n---\nSugestões anteriores (desmembrar):\n${sugestoesAnteriores}`;
@@ -428,7 +344,7 @@ Deno.serve(async (req) => {
           analiseTexto = visao;
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro na análise do ambiente';
+        const message = mensagemSegura(err instanceof Error ? err.message : 'Erro na análise do ambiente');
         console.error('render-lead-ambiente vision error:', message);
         if (action === 'analyze') {
           return jsonResponse({ error: message, step: 'vision' }, 502);
@@ -461,6 +377,10 @@ Deno.serve(async (req) => {
 
     const editSource = composition ?? sourceImage;
     let outputBytes: Uint8Array;
+    let imagemUsage: OpenAiUsage = null;
+    const onUsage = (u: unknown) => {
+      imagemUsage = u as OpenAiUsage;
+    };
     try {
       if (editSource) {
         outputBytes = await callOpenAIImageEdit(
@@ -476,19 +396,20 @@ Deno.serve(async (req) => {
               mime: ref.mime,
               filename: `furniture-${index + 1}.${ref.mime.includes('png') ? 'png' : 'jpg'}`,
             })),
+            onUsage,
           },
         );
       } else {
-        outputBytes = await callOpenAIImageGenerate(openAiKey, imageModel, renderPromptSnapshot);
+        outputBytes = await callOpenAIImageGenerate(openAiKey, imageModel, renderPromptSnapshot, { onUsage });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao gerar renderização do ambiente';
+      const message = mensagemSegura(err instanceof Error ? err.message : 'Erro ao gerar renderização do ambiente');
       console.error('render-lead-ambiente image error:', message, { imageModel });
       return jsonResponse({ error: message, step: 'render', imageModel }, 502);
     }
 
     const renderId = crypto.randomUUID();
-    const storagePath = `${storagePrefix(empresaSchema)}/${leadId}/${renderId}.png`;
+    const storagePath = `${empresaId}/${leadId}/${renderId}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from(RENDER_BUCKET)
@@ -509,7 +430,7 @@ Deno.serve(async (req) => {
     if (editSource) {
       const antesExt = editSource.mime.includes('png') ? 'png' : 'jpg';
       const antesMime = editSource.mime.includes('png') ? 'image/png' : 'image/jpeg';
-      compositionPath = `${storagePrefix(empresaSchema)}/${leadId}/${renderId}-antes.${antesExt}`;
+      compositionPath = `${empresaId}/${leadId}/${renderId}-antes.${antesExt}`;
       const { error: antesError } = await supabase.storage
         .from(RENDER_BUCKET)
         .upload(compositionPath, editSource.bytes, {
@@ -535,8 +456,17 @@ Deno.serve(async (req) => {
       furnitureRefCount: furnitureRefs.length,
     };
 
+    await registrarUso(ctx, {
+      funcao: 'render_ambiente',
+      etapa: 'imagem',
+      modelo: imageModel,
+      leadId,
+      refId: renderId,
+      usage: imagemUsage,
+    });
+
     const { data: inserted, error: insertError } = await db
-      .from(rendersTableName(empresaSchema))
+      .from('lead_ai_renders')
       .insert({
         id: renderId,
         lead_id: leadId,
@@ -548,7 +478,7 @@ Deno.serve(async (req) => {
         image_model: imageModel,
         analysis_prompt_snapshot: analysisPromptUsed,
         render_prompt_snapshot: renderPromptSnapshot,
-        criado_por: user.id,
+        criado_por: ctx.userId,
       })
       .select('id, criado_em')
       .single();
@@ -560,7 +490,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Render gerada mas não foi possível salvar no histórico' }, 500);
     }
 
-    await saveRenderAsLeadAttachment(supabase, db, empresaSchema, leadId, renderId, outputBytes);
+    await saveRenderAsLeadAttachment(supabase, db, empresaId, leadId, renderId, outputBytes);
 
     return jsonResponse({
       renderId: inserted.id,

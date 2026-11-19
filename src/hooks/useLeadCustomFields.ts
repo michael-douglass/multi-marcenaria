@@ -4,17 +4,17 @@ import { toast } from 'sonner';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import { useEmpresaSupabase, useTableName } from '@/hooks/useEmpresaSupabase';
 import {
-  isPontuaGarboCampoDefinitivo,
-  PONTUA_GARBO_CAMPO_NOME,
-  PONTUA_GARBO_PERCENTUAL_PADRAO,
-} from '@/lib/pontua-garbo';
+  isPontuaCampoDefinitivo,
+  PONTUA_CAMPO_NOME,
+  PONTUA_PERCENTUAL_PADRAO,
+} from '@/lib/pontua';
 
 const PUBLIC_DEFS_TABLE = 'CRM-multi-empresas>lead_custom_field_definitions<' as const;
 const PUBLIC_VALS_TABLE = 'CRM-multi-empresas>lead_custom_field_values<' as const;
 
 export type CustomFieldType = 'texto' | 'numero' | 'data' | 'select' | 'usuario_sistema';
 
-export interface PontuaGarboConfig {
+export interface PontuaConfig {
   ativo: boolean;
   /** Padrão ao vincular prestador em lead sem % salvo (não é comissão global). */
   percentual_padrao?: number;
@@ -29,8 +29,8 @@ export interface LeadCustomFieldDefinition {
   opcoes: string[] | null;
   ordem: number;
   ativo: boolean;
-  /** Configuração do Programa Pontua Garbo (só para tipo usuario_sistema) */
-  config_pontua_garbo: PontuaGarboConfig | null;
+  /** Configuração do Programa Pontua (só para tipo usuario_sistema) */
+  config_pontua: PontuaConfig | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -40,8 +40,8 @@ export interface LeadCustomFieldValue {
   lead_id: number;
   field_id: string;
   valor: string | null;
-  /** Percentual de comissão Pontua Garbo deste lead (0–100) */
-  pontua_garbo_percentual: number | null;
+  /** Percentual de comissão Pontua deste lead (0–100) */
+  pontua_percentual: number | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -62,26 +62,26 @@ async function fetchFieldDefinition(
   return (data as LeadCustomFieldDefinition | null) ?? null;
 }
 
-/** Garante que o campo Pontua Garbo exista e esteja ativo em todos os cards. */
-async function ensurePontuaGarboCampoDefinitivo(db: EmpresaDb, defsTable: string) {
+/** Garante que o campo Pontua exista e esteja ativo em todos os cards. */
+async function ensurePontuaCampoDefinitivo(db: EmpresaDb, defsTable: string) {
   const { data, error: loadErr } = await db.from(defsTable).select('*');
   if (loadErr) throw loadErr;
   const defs = (data ?? []) as LeadCustomFieldDefinition[];
-  const existing = defs.find((field) => isPontuaGarboCampoDefinitivo(field));
+  const existing = defs.find((field) => isPontuaCampoDefinitivo(field));
 
   if (existing) {
     if (existing.ativo && existing.tipo === 'usuario_sistema') return;
     const percentualPadrao =
-      existing.config_pontua_garbo?.percentual_padrao
-      ?? existing.config_pontua_garbo?.percentual
-      ?? PONTUA_GARBO_PERCENTUAL_PADRAO;
+      existing.config_pontua?.percentual_padrao
+      ?? existing.config_pontua?.percentual
+      ?? PONTUA_PERCENTUAL_PADRAO;
     const { error } = await db
       .from(defsTable)
       .update({
         ativo: true,
         tipo: 'usuario_sistema',
-        nome: existing.nome?.trim() || PONTUA_GARBO_CAMPO_NOME,
-        config_pontua_garbo: { ativo: true, percentual_padrao: percentualPadrao },
+        nome: existing.nome?.trim() || PONTUA_CAMPO_NOME,
+        config_pontua: { ativo: true, percentual_padrao: percentualPadrao },
       })
       .eq('id', existing.id);
     if (error) throw error;
@@ -90,14 +90,14 @@ async function ensurePontuaGarboCampoDefinitivo(db: EmpresaDb, defsTable: string
 
   const maxOrdem = defs.reduce((acc, field) => Math.max(acc, field.ordem), -1);
   const { error } = await db.from(defsTable).insert({
-    nome: PONTUA_GARBO_CAMPO_NOME,
+    nome: PONTUA_CAMPO_NOME,
     tipo: 'usuario_sistema',
     opcoes: null,
     ordem: Math.max(0, maxOrdem + 1),
     ativo: true,
-    config_pontua_garbo: {
+    config_pontua: {
       ativo: true,
-      percentual_padrao: PONTUA_GARBO_PERCENTUAL_PADRAO,
+      percentual_padrao: PONTUA_PERCENTUAL_PADRAO,
     },
   });
   if (error) throw error;
@@ -126,12 +126,12 @@ export function useLeadCustomFieldDefs() {
       };
 
       const active = await loadActive();
-      if (active.some((field) => isPontuaGarboCampoDefinitivo(field))) {
+      if (active.some((field) => isPontuaCampoDefinitivo(field))) {
         return active;
       }
 
       try {
-        await ensurePontuaGarboCampoDefinitivo(db, defsTable);
+        await ensurePontuaCampoDefinitivo(db, defsTable);
         return await loadActive();
       } catch {
         return active;
@@ -146,7 +146,7 @@ export function useLeadCustomFieldDefs() {
       nome: string;
       tipo: CustomFieldType;
       opcoes?: string[];
-      config_pontua_garbo?: PontuaGarboConfig | null;
+      config_pontua?: PontuaConfig | null;
     }) => {
       const maxOrdem = fields.reduce((acc, f) => Math.max(acc, f.ordem), -1);
       const { error } = await db.from(defsTable).insert({
@@ -155,7 +155,7 @@ export function useLeadCustomFieldDefs() {
         opcoes: input.opcoes?.length ? input.opcoes : null,
         ordem: maxOrdem + 1,
         ativo: true,
-        config_pontua_garbo: input.config_pontua_garbo ?? null,
+        config_pontua: input.config_pontua ?? null,
       });
       if (error) throw error;
     },
@@ -169,19 +169,19 @@ export function useLeadCustomFieldDefs() {
       nome: string;
       tipo: CustomFieldType;
       opcoes?: string[] | null;
-      config_pontua_garbo?: PontuaGarboConfig | null;
+      config_pontua?: PontuaConfig | null;
     }) => {
       const current = await fetchFieldDefinition(db, defsTable, input.id);
-      if (current && isPontuaGarboCampoDefinitivo(current)) {
+      if (current && isPontuaCampoDefinitivo(current)) {
         const percentualPadrao =
-          input.config_pontua_garbo?.percentual_padrao
-          ?? current.config_pontua_garbo?.percentual_padrao
-          ?? current.config_pontua_garbo?.percentual
-          ?? PONTUA_GARBO_PERCENTUAL_PADRAO;
+          input.config_pontua?.percentual_padrao
+          ?? current.config_pontua?.percentual_padrao
+          ?? current.config_pontua?.percentual
+          ?? PONTUA_PERCENTUAL_PADRAO;
         const { error } = await db.from(defsTable).update({
-          nome: current.nome?.trim() || PONTUA_GARBO_CAMPO_NOME,
+          nome: current.nome?.trim() || PONTUA_CAMPO_NOME,
           tipo: 'usuario_sistema',
-          config_pontua_garbo: { ativo: true, percentual_padrao: percentualPadrao },
+          config_pontua: { ativo: true, percentual_padrao: percentualPadrao },
         }).eq('id', input.id);
         if (error) throw error;
         return;
@@ -191,7 +191,7 @@ export function useLeadCustomFieldDefs() {
         nome: input.nome.trim(),
         tipo: input.tipo,
         opcoes: input.opcoes?.length ? input.opcoes : null,
-        config_pontua_garbo: input.config_pontua_garbo ?? null,
+        config_pontua: input.config_pontua ?? null,
       }).eq('id', input.id);
       if (error) throw error;
     },
@@ -202,7 +202,7 @@ export function useLeadCustomFieldDefs() {
   const deleteField = useMutation({
     mutationFn: async (id: string) => {
       const current = await fetchFieldDefinition(db, defsTable, id);
-      if (current && isPontuaGarboCampoDefinitivo(current)) {
+      if (current && isPontuaCampoDefinitivo(current)) {
         throw new Error(erroCampoPontuaSistema());
       }
       const { error } = await db.from(defsTable).update({ ativo: false }).eq('id', id);
@@ -241,12 +241,12 @@ export function useLeadCustomFieldValues(leadId: number | null | undefined) {
     mutationFn: async (input: {
       field_id: string;
       valor: string | null;
-      pontua_garbo_percentual?: number | null;
+      pontua_percentual?: number | null;
     }) => {
       const lid = leadId!;
       const patch: Record<string, unknown> = { valor: input.valor };
-      if (input.pontua_garbo_percentual !== undefined) {
-        patch.pontua_garbo_percentual = input.pontua_garbo_percentual;
+      if (input.pontua_percentual !== undefined) {
+        patch.pontua_percentual = input.pontua_percentual;
       }
 
       const { data: existing, error: findErr } = await db
@@ -269,23 +269,23 @@ export function useLeadCustomFieldValues(leadId: number | null | undefined) {
           lead_id: lid,
           field_id: input.field_id,
           valor: input.valor,
-          pontua_garbo_percentual:
-            input.pontua_garbo_percentual !== undefined ? input.pontua_garbo_percentual : null,
+          pontua_percentual:
+            input.pontua_percentual !== undefined ? input.pontua_percentual : null,
         });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: valuesKey });
-      void queryClient.invalidateQueries({ queryKey: ['lead-pontua-garbo-sale', schemaEmpresa, leadId] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-financeiro', schemaEmpresa] });
-      void queryClient.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
+      void queryClient.invalidateQueries({ queryKey: ['lead-pontua-sale', schemaEmpresa, leadId] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-financeiro', schemaEmpresa] });
+      void queryClient.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa] });
     },
     onError: (e: Error) => toast.error(e.message || 'Erro ao salvar valor'),
   });
 
   /** Atualiza só a comissão % deste lead (nunca altera outros leads nem o template do campo). */
-  const savePontuaGarboPercentual = useMutation({
+  const savePontuaPercentual = useMutation({
     mutationFn: async (input: {
       field_id: string;
       valor: string;
@@ -303,7 +303,7 @@ export function useLeadCustomFieldValues(leadId: number | null | undefined) {
       if (existing) {
         const { error } = await db
           .from(valsTable)
-          .update({ pontua_garbo_percentual: input.percentual })
+          .update({ pontua_percentual: input.percentual })
           .eq('lead_id', lid)
           .eq('field_id', input.field_id);
         if (error) throw error;
@@ -312,16 +312,16 @@ export function useLeadCustomFieldValues(leadId: number | null | undefined) {
           lead_id: lid,
           field_id: input.field_id,
           valor: input.valor,
-          pontua_garbo_percentual: input.percentual,
+          pontua_percentual: input.percentual,
         });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: valuesKey });
-      void queryClient.invalidateQueries({ queryKey: ['lead-pontua-garbo-sale', schemaEmpresa, leadId] });
-      void queryClient.invalidateQueries({ queryKey: ['pontua-garbo-financeiro', schemaEmpresa] });
-      void queryClient.invalidateQueries({ queryKey: ['minha-pontua-garbo', schemaEmpresa] });
+      void queryClient.invalidateQueries({ queryKey: ['lead-pontua-sale', schemaEmpresa, leadId] });
+      void queryClient.invalidateQueries({ queryKey: ['pontua-financeiro', schemaEmpresa] });
+      void queryClient.invalidateQueries({ queryKey: ['minha-pontua', schemaEmpresa] });
       toast.success('Comissão deste lead salva');
     },
     onError: (e: Error) => toast.error(e.message || 'Erro ao salvar comissão do lead'),
@@ -333,5 +333,5 @@ export function useLeadCustomFieldValues(leadId: number | null | undefined) {
     return map;
   };
 
-  return { values, isLoading, upsertValue, savePontuaGarboPercentual, getValueMap };
+  return { values, isLoading, upsertValue, savePontuaPercentual, getValueMap };
 }

@@ -14,7 +14,7 @@ import {
   requireCallerTenant,
   serviceClient,
 } from "../_shared/tenant.ts";
-import { ensurePontuaGarboPartnerLead } from "../_shared/pontua-garbo-lead.ts";
+import { ensurePontuaPartnerLead } from "../_shared/pontua-lead.ts";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -242,13 +242,13 @@ serve(async (req) => {
     await syncRoles(supabaseClient, target, userId, roles ?? role ?? "nenhum");
     await linkUsuarioEmpresa(supabaseClient, userId, empresaUuid);
 
-    const entraPontuaGarbo = (comissao_ativa ?? false) === true;
-    let pontuaGarboLeadId: number | null = null;
-    if (entraPontuaGarbo) {
+    const entraPontua = (comissao_ativa ?? false) === true;
+    let pontuaLeadId: number | null = null;
+    if (entraPontua) {
       try {
         const existingLeadId =
           typeof leadId === "number" && Number.isFinite(leadId) ? leadId : null;
-        const ensured = await ensurePontuaGarboPartnerLead(supabaseClient, target, {
+        const ensured = await ensurePontuaPartnerLead(supabaseClient, target, {
           usuarioId: userId,
           nome,
           email,
@@ -256,9 +256,9 @@ serve(async (req) => {
           existingLeadId,
           empresaId: empresaUuid,
         });
-        pontuaGarboLeadId = ensured.leadId;
+        pontuaLeadId = ensured.leadId;
       } catch (leadErr) {
-        console.error("create-user-admin: falha ao criar lead Pontua Garbo", leadErr);
+        console.error("create-user-admin: falha ao criar lead Pontua", leadErr);
       }
     }
 
@@ -274,7 +274,7 @@ serve(async (req) => {
         success: true,
         userId,
         message,
-        leadId: pontuaGarboLeadId,
+        leadId: pontuaLeadId,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

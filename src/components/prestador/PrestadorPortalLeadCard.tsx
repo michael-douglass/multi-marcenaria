@@ -1,6 +1,6 @@
 import { useEmpresaIdentidade } from '@/hooks/useEmpresaIdentidade';
 import { rotuloPontua } from '@/lib/empresa-identidade';
-import type { ComissaoLead } from '@/hooks/usePontuaGarboFinanceiro';
+import type { ComissaoLead } from '@/hooks/usePontuaFinanceiro';
 import type { PrestadorLeadEtiqueta } from '@/lib/prestador-lead-etiquetas';
 import { PrestadorLeadEtiquetas } from '@/components/prestador/PrestadorLeadEtiquetas';
 import { Eye, Lock } from 'lucide-react';

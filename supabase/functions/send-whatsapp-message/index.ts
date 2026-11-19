@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
-import { empresaDoChamador, serviceClient } from '../_shared/tenant.ts';
+import { empresaDoChamador, motivoRecusa, serviceClient } from '../_shared/tenant.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +16,15 @@ interface SendMessageRequest {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Função "WhatsApp" desabilitada no plano (ou master em inspeção somente leitura) → não envia.
+  const recusa = await motivoRecusa(req, 'whatsappCrm');
+  if (recusa) {
+    return new Response(JSON.stringify({ error: recusa }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 403,
+    });
   }
 
   try {

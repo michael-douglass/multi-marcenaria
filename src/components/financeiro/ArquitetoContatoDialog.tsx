@@ -10,14 +10,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import type { PrestadorFinanceiro } from '@/hooks/usePontuaGarboFinanceiro';
+import type { PrestadorFinanceiro } from '@/hooks/usePontuaFinanceiro';
 import {
   formatTelefonePrestador,
   iniciaisNomeArquiteto,
   telefonePrestadorDigits,
   telefonePrestadorHref,
-  tituloReconhecidoPontuaGarbo,
-} from '@/lib/pontua-garbo-arquiteto';
+  tituloReconhecidoPontua,
+} from '@/lib/pontua-arquiteto';
 import { finArquitetoSeal } from '@/components/financeiro/financeiro-styles';
 
 interface ArquitetoContatoDialogProps {
@@ -35,7 +35,7 @@ export function ArquitetoContatoDialog({
   const telefoneFormatado = formatTelefonePrestador(arquiteto?.telefone);
   const telefoneHref = telefonePrestadorHref(arquiteto?.telefone);
   const telefoneDigits = telefonePrestadorDigits(arquiteto?.telefone);
-  const titulo = tituloReconhecidoPontuaGarbo(arquiteto?.titulo);
+  const titulo = tituloReconhecidoPontua(arquiteto?.titulo);
 
   const handleCopiarTelefone = async () => {
     if (!telefoneDigits) return;

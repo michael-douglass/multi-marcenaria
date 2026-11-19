@@ -141,7 +141,7 @@ export function Clientes({ readOnly }: Props) {
               Clientes
             </h1>
             <p className="max-w-md text-sm leading-relaxed text-[#fff6ea]/88 drop-shadow-[0_1px_10px_rgba(0,0,0,0.55)] sm:text-[0.95rem]">
-              Quem já escolheu a Garbo. Busque, edite e mantenha o contato — o ateliê
+              Quem já escolheu a empresa. Busque, edite e mantenha o contato — o ateliê
               começa pelo nome certo.
             </p>
           </div>

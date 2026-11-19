@@ -2,7 +2,7 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { useOrcamentoPorId, useOrcamentoSlides } from '@/hooks/useOrcamentoSlides';
 import { useOrcamentoSlideTemplate } from '@/hooks/useOrcamentoSlideTemplate';
@@ -344,7 +344,7 @@ export default function ApresentarOrcamentoSlidePage({
     loadingOrc || loadingTpl || loadingBlocos || loadingMidias || loadingPerguntas || loadingCatalogoFerragens || loadingCatalogoMdf;
 
   if (isLoading) {
-    return <GarboBrandLoader variant="fullscreen" message="Preparando apresentação…" />;
+    return <BrandLoader variant="fullscreen" message="Preparando apresentação…" />;
   }
 
   if (isError) {

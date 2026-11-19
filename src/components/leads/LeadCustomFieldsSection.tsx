@@ -23,23 +23,23 @@ import {
   useLeadCustomFieldValues,
   type CustomFieldType,
   type LeadCustomFieldDefinition,
-  type PontuaGarboConfig,
+  type PontuaConfig,
 } from '@/hooks/useLeadCustomFields';
 import { useUsers } from '@/hooks/useUsers';
 import {
-  buildLeadPontuaGarboSaleInfo,
-  formatComissaoPontuaGarbo,
+  buildLeadPontuaSaleInfo,
+  formatComissaoPontua,
   getPontuaPercentualPadraoFromField,
   isLeadVendaGanha,
-  isPontuaGarboCampoDefinitivo,
-  isPontuaGarboComissaoAtivaNoLead,
-  isPontuaGarboFieldActive,
+  isPontuaCampoDefinitivo,
+  isPontuaComissaoAtivaNoLead,
+  isPontuaFieldActive,
   parsePontuaPercentualInput,
-  PONTUA_GARBO_PERCENTUAL_PADRAO,
+  PONTUA_PERCENTUAL_PADRAO,
   resolvePontuaPercentual,
-  resolveValorBaseComissaoGarbo,
-  type LeadPontuaGarboSaleInfo,
-} from '@/lib/pontua-garbo';
+  resolveValorBaseComissaoPontua,
+  type LeadPontuaSaleInfo,
+} from '@/lib/pontua';
 import { getStatusesContamComoGanho } from '@/lib/vendas-ganhos';
 import { useVendasGanhosConfig } from '@/hooks/useVendasGanhosConfig';
 import { useLeadPrestadorPermissoes } from '@/hooks/useLeadPrestadorPermissoes';
@@ -49,8 +49,8 @@ import { anexoTipo, syncPodeVerAnexos, anexoEstaMarcado, orcamentoEstaMarcado, a
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileText, Image, Presentation, Loader2 } from 'lucide-react';
 import { LeadUsuarioSistemaCombobox } from '@/components/leads/LeadUsuarioSistemaCombobox';
-import { PontuaGarboAposGanhoDialog } from '@/components/leads/PontuaGarboAposGanhoDialog';
-import { useEnsurePontuaGarboLiberacaoAposPontuacao } from '@/hooks/usePontuaGarboComissaoLiberacao';
+import { PontuaAposGanhoDialog } from '@/components/leads/PontuaAposGanhoDialog';
+import { useEnsurePontuaLiberacaoAposPontuacao } from '@/hooks/usePontuaComissaoLiberacao';
 import { toast } from 'sonner';
 
 interface LeadCustomFieldsSectionProps {
@@ -60,14 +60,14 @@ interface LeadCustomFieldsSectionProps {
   isAdmin: boolean;
   /** Admin, master e vendedor: controlam o que o prestador vê neste lead */
   canManagePrestadorVisibilidade?: boolean;
-  /** Valor do orçamento do lead — usado para calcular comissão Pontua Garbo */
+  /** Valor do orçamento do lead — usado para calcular comissão Pontua */
   budgetValue?: number;
   /** Valor fechado da venda (valor_negocio), quando o lead já foi ganho */
   dealValue?: number;
   /** Status atual do lead — para detectar orçamento já ganho */
   leadStatus?: string | null;
   /** Atualiza o modal de venda com o estado atual do card (antes de salvar no banco). */
-  onPontuaGarboSaleInfoChange?: (info: LeadPontuaGarboSaleInfo | null) => void;
+  onPontuaSaleInfoChange?: (info: LeadPontuaSaleInfo | null) => void;
 }
 
 const TIPO_LABELS: Record<CustomFieldType, string> = {
@@ -83,8 +83,8 @@ function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// ── Comissão Pontua Garbo no card do lead (percentual por lead) ────────────────
-interface PontuaGarboLeadPanelProps {
+// ── Comissão Pontua no card do lead (percentual por lead) ────────────────
+interface PontuaLeadPanelProps {
   percentualInput: string;
   onPercentualChange: (raw: string) => void;
   onPercentualCommit: () => void;
@@ -95,7 +95,7 @@ interface PontuaGarboLeadPanelProps {
   isEditable: boolean;
 }
 
-function PontuaGarboLeadPanel({
+function PontuaLeadPanel({
   percentualInput,
   onPercentualChange,
   onPercentualCommit,
@@ -103,7 +103,7 @@ function PontuaGarboLeadPanel({
   vendaGanha = false,
   userName,
   isEditable,
-}: PontuaGarboLeadPanelProps) {
+}: PontuaLeadPanelProps) {
   const { nomePrograma } = useEmpresaIdentidade();
   const percentual = parsePontuaPercentualInput(percentualInput);
   const comissao = (budgetValue * percentual) / 100;
@@ -433,16 +433,16 @@ interface FieldFormState {
   nome: string;
   tipo: CustomFieldType;
   opcoes: string;
-  pontuaGarboAtivo: boolean;
-  pontuaGarboPercentual: string;
+  pontuaAtivo: boolean;
+  pontuaPercentual: string;
 }
 
 const DEFAULT_FORM: FieldFormState = {
   nome: '',
   tipo: 'texto',
   opcoes: '',
-  pontuaGarboAtivo: false,
-  pontuaGarboPercentual: '10',
+  pontuaAtivo: false,
+  pontuaPercentual: '10',
 };
 
 function fieldFormFromDef(def: LeadCustomFieldDefinition): FieldFormState {
@@ -450,14 +450,14 @@ function fieldFormFromDef(def: LeadCustomFieldDefinition): FieldFormState {
     nome: def.nome,
     tipo: def.tipo,
     opcoes: def.opcoes?.join(', ') ?? '',
-    pontuaGarboAtivo: def.config_pontua_garbo?.ativo ?? false,
-    pontuaGarboPercentual: String(getPontuaPercentualPadraoFromField(def)),
+    pontuaAtivo: def.config_pontua?.ativo ?? false,
+    pontuaPercentual: String(getPontuaPercentualPadraoFromField(def)),
   };
 }
 
-function buildPontuaGarboConfig(form: FieldFormState): PontuaGarboConfig | null {
-  if (form.tipo !== 'usuario_sistema' || !form.pontuaGarboAtivo) return null;
-  const percentual_padrao = parsePontuaPercentualInput(form.pontuaGarboPercentual);
+function buildPontuaConfig(form: FieldFormState): PontuaConfig | null {
+  if (form.tipo !== 'usuario_sistema' || !form.pontuaAtivo) return null;
+  const percentual_padrao = parsePontuaPercentualInput(form.pontuaPercentual);
   return { ativo: true, percentual_padrao };
 }
 
@@ -483,7 +483,7 @@ function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProp
 
       <Select
         value={form.tipo}
-        onValueChange={(v) => onChange({ ...form, tipo: v as CustomFieldType, pontuaGarboAtivo: false })}
+        onValueChange={(v) => onChange({ ...form, tipo: v as CustomFieldType, pontuaAtivo: false })}
       >
         <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
         <SelectContent>
@@ -502,7 +502,7 @@ function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProp
         />
       )}
 
-      {/* Configuração Pontua Garbo — só para usuario_sistema */}
+      {/* Configuração Pontua — só para usuario_sistema */}
       {form.tipo === 'usuario_sistema' && (
         <div className="rounded-md border border-amber-200 bg-amber-50/60 p-2.5 space-y-2">
           <div className="flex items-center justify-between">
@@ -512,18 +512,18 @@ function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProp
               <span className="text-[10px] text-amber-600">— sistema de comissionamento</span>
             </div>
             <Switch
-              checked={form.pontuaGarboAtivo}
-              onCheckedChange={(v) => onChange({ ...form, pontuaGarboAtivo: v })}
+              checked={form.pontuaAtivo}
+              onCheckedChange={(v) => onChange({ ...form, pontuaAtivo: v })}
             />
           </div>
 
-          {form.pontuaGarboAtivo && (
+          {form.pontuaAtivo && (
             <p className="text-[11px] text-amber-700 leading-snug">
               O % abaixo é só sugestão para leads novos. A comissão de cada lead é definida no card amarelo
               daquele lead — alterar aqui não muda leads já cadastrados.
             </p>
           )}
-          {form.pontuaGarboAtivo && (
+          {form.pontuaAtivo && (
             <div className="flex items-center gap-2">
               <Label className="text-xs text-amber-800 shrink-0">% sugerido (novos leads):</Label>
               <Input
@@ -531,8 +531,8 @@ function FieldForm({ form, onChange, onSave, onCancel, isSaving }: FieldFormProp
                 min={0}
                 max={100}
                 step={0.5}
-                value={form.pontuaGarboPercentual}
-                onChange={(e) => onChange({ ...form, pontuaGarboPercentual: e.target.value })}
+                value={form.pontuaPercentual}
+                onChange={(e) => onChange({ ...form, pontuaPercentual: e.target.value })}
                 className="h-7 w-24 text-sm"
               />
               <span className="text-xs text-amber-700">%</span>
@@ -562,22 +562,22 @@ export function LeadCustomFieldsSection({
   budgetValue = 0,
   dealValue = 0,
   leadStatus = null,
-  onPontuaGarboSaleInfoChange,
+  onPontuaSaleInfoChange,
 }: LeadCustomFieldsSectionProps) {
   const { nomePrograma } = useEmpresaIdentidade();
   const { fields, isLoading: isLoadingFields, createField, updateField, deleteField } = useLeadCustomFieldDefs();
-  const { values, upsertValue, savePontuaGarboPercentual } = useLeadCustomFieldValues(leadId);
+  const { values, upsertValue, savePontuaPercentual } = useLeadCustomFieldValues(leadId);
   const { users: systemUsers = [] } = useUsers();
   const { config: vendasGanhosConfig } = useVendasGanhosConfig();
   const ganhoStatuses = getStatusesContamComoGanho(vendasGanhosConfig);
   const vendaGanha = isLeadVendaGanha(leadStatus, ganhoStatuses);
-  const baseComissaoValue = resolveValorBaseComissaoGarbo(
+  const baseComissaoValue = resolveValorBaseComissaoPontua(
     leadStatus,
     budgetValue,
     dealValue,
     ganhoStatuses,
   );
-  const ensureLiberacaoAposPontuacao = useEnsurePontuaGarboLiberacaoAposPontuacao();
+  const ensureLiberacaoAposPontuacao = useEnsurePontuaLiberacaoAposPontuacao();
 
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
   const [localPercentuais, setLocalPercentuais] = useState<Record<string, string>>({});
@@ -605,7 +605,7 @@ export function LeadCustomFieldsSection({
   const valuesFingerprint = useMemo(
     () =>
       values
-        .map((v) => `${v.field_id}:${v.valor ?? ''}:${v.pontua_garbo_percentual ?? ''}`)
+        .map((v) => `${v.field_id}:${v.valor ?? ''}:${v.pontua_percentual ?? ''}`)
         .join('|'),
     [values],
   );
@@ -635,11 +635,11 @@ export function LeadCustomFieldsSection({
     if (Object.keys(localValues).length === 0) return;
 
     const targets = fields.filter((field) => {
-      if (!isPontuaGarboFieldActive(field)) return false;
+      if (!isPontuaFieldActive(field)) return false;
       const userId = (localValues[field.id] ?? '').trim();
       if (!userId) return false;
       const pct = parsePontuaPercentualInput(
-        localPercentuais[field.id] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO),
+        localPercentuais[field.id] ?? String(PONTUA_PERCENTUAL_PADRAO),
       );
       return pct > 0;
     });
@@ -655,7 +655,7 @@ export function LeadCustomFieldsSection({
       for (const field of targets) {
         const userId = localValues[field.id];
         const pct = parsePontuaPercentualInput(
-          localPercentuais[field.id] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO),
+          localPercentuais[field.id] ?? String(PONTUA_PERCENTUAL_PADRAO),
         );
         try {
           await ensureLiberacaoMutateRef.current({
@@ -678,11 +678,11 @@ export function LeadCustomFieldsSection({
   );
 
   useEffect(() => {
-    if (!onPontuaGarboSaleInfoChange) return;
+    if (!onPontuaSaleInfoChange) return;
 
-    let saleInfo: LeadPontuaGarboSaleInfo | null = null;
+    let saleInfo: LeadPontuaSaleInfo | null = null;
     for (const field of fields) {
-      if (!isPontuaGarboFieldActive(field)) continue;
+      if (!isPontuaFieldActive(field)) continue;
       const prestadorId = (localValues[field.id] ?? '').trim();
       if (!prestadorId) continue;
       const prestador = findUser(prestadorId);
@@ -691,22 +691,22 @@ export function LeadCustomFieldsSection({
       const pctFromLocal = localPercentuais[field.id];
       const valueRow =
         pctFromLocal !== undefined
-          ? { pontua_garbo_percentual: parsePontuaPercentualInput(pctFromLocal) }
+          ? { pontua_percentual: parsePontuaPercentualInput(pctFromLocal) }
           : stored;
-      const info = buildLeadPontuaGarboSaleInfo(field, prestadorId, prestador, valueRow);
+      const info = buildLeadPontuaSaleInfo(field, prestadorId, prestador, valueRow);
       if (info) {
         saleInfo = info;
         break;
       }
     }
-    onPontuaGarboSaleInfoChange(saleInfo);
+    onPontuaSaleInfoChange(saleInfo);
   }, [
     fields,
     localValues,
     localPercentuais,
     values,
     findUser,
-    onPontuaGarboSaleInfoChange,
+    onPontuaSaleInfoChange,
   ]);
 
   // ── Add field state ──────────────────────────────────────────────────────────
@@ -731,13 +731,13 @@ export function LeadCustomFieldsSection({
       nome: addForm.nome,
       tipo: addForm.tipo,
       opcoes,
-      config_pontua_garbo: buildPontuaGarboConfig(addForm),
+      config_pontua: buildPontuaConfig(addForm),
     });
     resetAdd();
   };
 
   const startEdit = (field: LeadCustomFieldDefinition) => {
-    if (isPontuaGarboCampoDefinitivo(field)) return;
+    if (isPontuaCampoDefinitivo(field)) return;
     setEditingField(field);
     setEditForm(fieldFormFromDef(field));
   };
@@ -754,7 +754,7 @@ export function LeadCustomFieldsSection({
       nome: editForm.nome,
       tipo: editForm.tipo,
       opcoes,
-      config_pontua_garbo: buildPontuaGarboConfig(editForm),
+      config_pontua: buildPontuaConfig(editForm),
     });
     cancelEdit();
   };
@@ -769,19 +769,19 @@ export function LeadCustomFieldsSection({
     const payload: {
       field_id: string;
       valor: string | null;
-      pontua_garbo_percentual?: number | null;
+      pontua_percentual?: number | null;
     } = { field_id: fieldId, valor: valor || null };
 
-    if (isPontuaGarboFieldActive(field) && valor) {
+    if (isPontuaFieldActive(field) && valor) {
       const prestador = findUser(valor);
       if (prestador?.tipo_usuario === 'prestador_servico' && prestador.comissao_ativa) {
         const pct =
           pontuaPct !== undefined
             ? pontuaPct
-            : parsePontuaPercentualInput(localPercentuais[fieldId] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO));
-        payload.pontua_garbo_percentual = pct;
+            : parsePontuaPercentualInput(localPercentuais[fieldId] ?? String(PONTUA_PERCENTUAL_PADRAO));
+        payload.pontua_percentual = pct;
       } else {
-        payload.pontua_garbo_percentual = null;
+        payload.pontua_percentual = null;
       }
     }
 
@@ -792,12 +792,12 @@ export function LeadCustomFieldsSection({
     const field = fields.find((f) => f.id === fieldId);
     const previousValue = localValues[fieldId] ?? '';
 
-    // Orçamento já ganho + novo parceiro Pontua Garbo → perguntar quanto pontuar
+    // Orçamento já ganho + novo parceiro Pontua → perguntar quanto pontuar
     if (
       valor &&
       valor !== previousValue &&
       vendaGanha &&
-      isPontuaGarboFieldActive(field)
+      isPontuaFieldActive(field)
     ) {
       const prestador = findUser(valor);
       if (prestador?.tipo_usuario === 'prestador_servico' && prestador.comissao_ativa) {
@@ -813,11 +813,11 @@ export function LeadCustomFieldsSection({
     }
 
     setLocalValues((prev) => ({ ...prev, [fieldId]: valor }));
-    if (valor && isPontuaGarboFieldActive(field)) {
+    if (valor && isPontuaFieldActive(field)) {
       const prestador = findUser(valor);
       if (prestador?.tipo_usuario === 'prestador_servico' && prestador.comissao_ativa) {
         const existing = values.find((v) => v.field_id === fieldId);
-        if (existing?.pontua_garbo_percentual == null) {
+        if (existing?.pontua_percentual == null) {
           const suggested = String(getPontuaPercentualPadraoFromField(field));
           setLocalPercentuais((prev) => ({
             ...prev,
@@ -834,7 +834,7 @@ export function LeadCustomFieldsSection({
   const handlePontuaAposGanhoConfirm = async (percentual: number) => {
     if (!pontuaAposGanho || !leadId) return;
     const { fieldId, userId, partnerName } = pontuaAposGanho;
-    const comissaoPreview = formatComissaoPontuaGarbo(baseComissaoValue, percentual);
+    const comissaoPreview = formatComissaoPontua(baseComissaoValue, percentual);
 
     setLocalPercentuais((prev) => ({ ...prev, [fieldId]: String(percentual) }));
     setPontuaAposGanho(null);
@@ -851,7 +851,7 @@ export function LeadCustomFieldsSection({
 
       if (result.criouOuAtualizou) {
         toast.success('Pontuação confirmada · aguardando liberação', {
-          description: `Custo de ${comissaoPreview} em Contas a Pagar (${partnerName} — Pontua Garbo). Libere no Financeiro quando quiser.`,
+          description: `Custo de ${comissaoPreview} em Contas a Pagar (${partnerName} — Pontua). Libere no Financeiro quando quiser.`,
         });
       } else {
         toast.success('Pontuação salva', {
@@ -877,10 +877,10 @@ export function LeadCustomFieldsSection({
     const valor = localValues[fieldId] ?? '';
     if (!valor) return;
     const pct = parsePontuaPercentualInput(
-      localPercentuais[fieldId] ?? String(PONTUA_GARBO_PERCENTUAL_PADRAO),
+      localPercentuais[fieldId] ?? String(PONTUA_PERCENTUAL_PADRAO),
     );
     setLocalPercentuais((prev) => ({ ...prev, [fieldId]: String(pct) }));
-    await savePontuaGarboPercentual.mutateAsync({
+    await savePontuaPercentual.mutateAsync({
       field_id: fieldId,
       valor,
       percentual: pct,
@@ -960,20 +960,20 @@ export function LeadCustomFieldsSection({
 
         const selectedUser = field.tipo === 'usuario_sistema' && value ? findUser(value) : null;
         const valueRowForPontua = {
-          pontua_garbo_percentual:
+          pontua_percentual:
             localPercentuais[field.id] !== undefined
               ? parsePontuaPercentualInput(localPercentuais[field.id])
-              : values.find((v) => v.field_id === field.id)?.pontua_garbo_percentual ?? null,
+              : values.find((v) => v.field_id === field.id)?.pontua_percentual ?? null,
         };
-        const showPontuaGarbo =
-          isPontuaGarboFieldActive(field) &&
-          isPontuaGarboComissaoAtivaNoLead(field, value, selectedUser ?? undefined, valueRowForPontua);
-        const isCampoDefinitivo = isPontuaGarboCampoDefinitivo(field);
+        const showPontua =
+          isPontuaFieldActive(field) &&
+          isPontuaComissaoAtivaNoLead(field, value, selectedUser ?? undefined, valueRowForPontua);
+        const isCampoDefinitivo = isPontuaCampoDefinitivo(field);
         const showPrestadorVisibilidade =
           Boolean(leadId) &&
           Boolean(selectedUser) &&
           canManagePrestadorVisibilidade &&
-          (showPontuaGarbo || selectedUser?.tipo_usuario === 'prestador_servico');
+          (showPontua || selectedUser?.tipo_usuario === 'prestador_servico');
 
         return (
           <div key={field.id} className="space-y-1 w-full overflow-hidden" data-lead-search-field={`custom:${field.id}`}>
@@ -983,7 +983,7 @@ export function LeadCustomFieldsSection({
                 <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
                   ({TIPO_LABELS[field.tipo]})
                 </span>
-                {isPontuaGarboFieldActive(field) && (
+                {isPontuaFieldActive(field) && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-amber-600 font-normal">
                     <Trophy className="h-2.5 w-2.5" /> {nomePrograma}
                   </span>
@@ -1067,9 +1067,9 @@ export function LeadCustomFieldsSection({
                   placeholder="Selecionar usuário..."
                 />
 
-                {/* Painel Pontua Garbo */}
-                {showPontuaGarbo && selectedUser && (
-                  <PontuaGarboLeadPanel
+                {/* Painel Pontua */}
+                {showPontua && selectedUser && (
+                  <PontuaLeadPanel
                     percentualInput={
                       localPercentuais[field.id] ??
                       String(resolvePontuaPercentual(
@@ -1131,7 +1131,7 @@ export function LeadCustomFieldsSection({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (!fieldToDelete) return;
-                if (isPontuaGarboCampoDefinitivo(fieldToDelete)) {
+                if (isPontuaCampoDefinitivo(fieldToDelete)) {
                   setFieldToDelete(null);
                   return;
                 }
@@ -1145,7 +1145,7 @@ export function LeadCustomFieldsSection({
         </AlertDialogContent>
       </AlertDialog>
 
-      <PontuaGarboAposGanhoDialog
+      <PontuaAposGanhoDialog
         open={!!pontuaAposGanho}
         partnerName={pontuaAposGanho?.partnerName ?? ''}
         baseValue={baseComissaoValue}

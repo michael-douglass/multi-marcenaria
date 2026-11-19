@@ -1,7 +1,7 @@
 ﻿import { useMemo, useState } from 'react';
 import { TrendingUp, Wallet, Trophy, Sparkles, Clock } from 'lucide-react';
-import type { PontuaGarboResumoFinanceiro } from '@/lib/pontua-garbo';
-import { calcSaldoExibidoPrestador } from '@/lib/pontua-garbo-saque';
+import type { PontuaResumoFinanceiro } from '@/lib/pontua';
+import { calcSaldoExibidoPrestador } from '@/lib/pontua-saque';
 import { PrestadorGanhosChart } from '@/components/prestador/PrestadorGanhosChart';
 import { PrestadorSolicitarSaqueDialog } from '@/components/prestador/PrestadorSolicitarSaqueDialog';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-export interface PrestadorPortalResumoProps extends PontuaGarboResumoFinanceiro {
+export interface PrestadorPortalResumoProps extends PontuaResumoFinanceiro {
   saldoParaSacar: number;
   totalRetirado: number;
   totalAjustes?: number;

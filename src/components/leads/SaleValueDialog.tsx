@@ -16,10 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DollarSign, Trophy } from 'lucide-react';
 import {
-  calcComissaoPontuaGarbo,
-  formatComissaoPontuaGarbo,
-} from '@/lib/pontua-garbo';
-import type { LeadPontuaGarboSaleInfo } from '@/hooks/useLeadPontuaGarboSaleInfo';
+  calcComissaoPontua,
+  formatComissaoPontua,
+} from '@/lib/pontua';
+import type { LeadPontuaSaleInfo } from '@/hooks/useLeadPontuaSaleInfo';
 
 interface SaleValueDialogProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ interface SaleValueDialogProps {
   leadName: string;
   /** Valor do orçamento — pré-carregado no campo */
   budgetValue?: number;
-  pontuaGarbo?: LeadPontuaGarboSaleInfo | null;
+  pontuaDados?: LeadPontuaSaleInfo | null;
 }
 
 function formatCurrencyInput(val: string) {
@@ -59,7 +59,7 @@ export function SaleValueDialog({
   onConfirm,
   leadName,
   budgetValue = 0,
-  pontuaGarbo = null,
+  pontuaDados = null,
 }: SaleValueDialogProps) {
   const { nomePrograma } = useEmpresaIdentidade();
   const [value, setValue] = useState('');
@@ -87,7 +87,7 @@ export function SaleValueDialog({
     budgetValue > 0 && Math.abs(saleValue - budgetValue) >= 0.01;
 
   const tryConfirm = (numValue: number) => {
-    if (pontuaGarboAtivo && valoresDiferem(numValue)) {
+    if (pontuaAtivo && valoresDiferem(numValue)) {
       setPendingValue(numValue);
       setShowPontuaConfirm(true);
       return;
@@ -114,11 +114,11 @@ export function SaleValueDialog({
   };
 
   const previewSale = parseCurrencyInput(value);
-  const pontuaGarboAtivo = Boolean(pontuaGarbo && pontuaGarbo.percentual > 0);
+  const pontuaAtivo = Boolean(pontuaDados && pontuaDados.percentual > 0);
 
   const previewComissao =
-    pontuaGarboAtivo && previewSale > 0 && !Number.isNaN(previewSale)
-      ? calcComissaoPontuaGarbo(previewSale, pontuaGarbo!.percentual)
+    pontuaAtivo && previewSale > 0 && !Number.isNaN(previewSale)
+      ? calcComissaoPontua(previewSale, pontuaDados!.percentual)
       : null;
 
   return (
@@ -168,15 +168,15 @@ export function SaleValueDialog({
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
 
-            {pontuaGarboAtivo && previewComissao != null && previewSale > 0 && !Number.isNaN(previewSale) && (
+            {pontuaAtivo && previewComissao != null && previewSale > 0 && !Number.isNaN(previewSale) && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold text-amber-800">
                   <Trophy className="h-3.5 w-3.5" />
-                  {nomePrograma} — {pontuaGarbo.prestadorNome}
+                  {nomePrograma} — {pontuaDados.prestadorNome}
                 </div>
                 <p>
-                  Comissão ({pontuaGarbo.percentual}% sobre o valor da venda):{' '}
-                  <strong>{formatComissaoPontuaGarbo(previewSale, pontuaGarbo.percentual)}</strong>
+                  Comissão ({pontuaDados.percentual}% sobre o valor da venda):{' '}
+                  <strong>{formatComissaoPontua(previewSale, pontuaDados.percentual)}</strong>
                 </p>
               </div>
             )}
@@ -207,19 +207,19 @@ export function SaleValueDialog({
                   O valor da venda é diferente do orçamento. A comissão do Programa {nomePrograma} será
                   recalculada sobre o <strong className="text-foreground">valor da venda</strong>.
                 </p>
-                {pontuaGarboAtivo && pontuaGarbo && (
+                {pontuaAtivo && pontuaDados && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 space-y-2">
                     <p>
-                      O prestador <strong>{pontuaGarbo.prestadorNome}</strong> iria receber{' '}
-                      <strong>{formatComissaoPontuaGarbo(budgetValue, pontuaGarbo.percentual)}</strong>{' '}
-                      ({pontuaGarbo.percentual}% sobre o orçamento).
+                      O prestador <strong>{pontuaDados.prestadorNome}</strong> iria receber{' '}
+                      <strong>{formatComissaoPontua(budgetValue, pontuaDados.percentual)}</strong>{' '}
+                      ({pontuaDados.percentual}% sobre o orçamento).
                     </p>
                     <p>
                       Devido à alteração, o prestador irá receber{' '}
                       <strong className="text-amber-900">
-                        {formatComissaoPontuaGarbo(pendingValue ?? 0, pontuaGarbo.percentual)}
+                        {formatComissaoPontua(pendingValue ?? 0, pontuaDados.percentual)}
                       </strong>{' '}
-                      ({pontuaGarbo.percentual}% sobre{' '}
+                      ({pontuaDados.percentual}% sobre{' '}
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                         pendingValue ?? 0,
                       )}

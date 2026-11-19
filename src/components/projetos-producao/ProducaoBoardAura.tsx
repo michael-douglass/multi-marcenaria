@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import { tryCreateWebGLRenderer } from '@/lib/webgl-support'
 
 const VERTEX = `
@@ -131,7 +131,7 @@ export function ProducaoBoardAura({ className }: { className?: string }) {
 
     const manager = new THREE.LoadingManager()
     const loader = new THREE.TextureLoader(manager)
-    loader.load(GARBO_LOGO_SRC, (texture) => {
+    loader.load(empresaDocumento().logoUrl, (texture) => {
       texture.colorSpace = THREE.SRGBColorSpace
       texture.wrapS = THREE.RepeatWrapping
       texture.wrapT = THREE.RepeatWrapping

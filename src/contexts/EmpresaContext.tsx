@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
 import { useApp as useAppCore } from '@/context/AppContext'
 import { CRM_SCHEMA } from '@/lib/empresa-tables'
 
@@ -54,6 +54,21 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const core = useAppCore()
   const { empresa: ativa, isMaster, empresaLoading, trocarEmpresa, recarregarEmpresa } = core
 
+  // Identidade estável: telas usam essas funções como dependência de efeito (ex.: Prestador).
+  // Se fossem recriadas a cada mudança do memo, o efeito rodaria de novo a cada setState de empresa.
+  const trocarEmpresaCtx = useCallback(
+    async (e: Empresa | null) => {
+      if (e?.id) await trocarEmpresa(e.id)
+    },
+    [trocarEmpresa],
+  )
+  const limparEmpresaAtiva = useCallback(() => {
+    /* a empresa ativa vem do banco; o master troca pelo seletor */
+  }, [])
+  const recarregarEmpresaCtx = useCallback(async () => {
+    recarregarEmpresa()
+  }, [recarregarEmpresa])
+
   const value = useMemo<EmpresaContextType>(() => {
     const empresa: Empresa | null = ativa
       ? {
@@ -90,17 +105,11 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
       isModoGlobal: false,
       loading: empresaLoading,
       queriesReady: !empresaLoading && !!empresa,
-      trocarEmpresa: async (e) => {
-        if (e?.id) await trocarEmpresa(e.id)
-      },
-      limparEmpresaAtiva: () => {
-        /* a empresa ativa vem do banco; o master troca pelo seletor */
-      },
-      recarregarEmpresa: async () => {
-        recarregarEmpresa()
-      },
+      trocarEmpresa: trocarEmpresaCtx,
+      limparEmpresaAtiva,
+      recarregarEmpresa: recarregarEmpresaCtx,
     }
-  }, [ativa, isMaster, empresaLoading, trocarEmpresa, recarregarEmpresa])
+  }, [ativa, isMaster, empresaLoading, trocarEmpresaCtx, limparEmpresaAtiva, recarregarEmpresaCtx])
 
   return <EmpresaContext.Provider value={value}>{children}</EmpresaContext.Provider>
 }

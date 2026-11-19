@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { Loader2, User, Mail, Phone, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { zodFormResolver } from '@/lib/zod-form-resolver';
 
-const carboLogo = '/logo-carbo.jpeg';
+const marcaLogo = '/imagens/marca-padrao.png';
 
 // ─── Paleta Carbo ────────────────────────────────────────────────────────────
 // Chocolate escuro:  #2C1403
@@ -379,8 +379,8 @@ function PageShell({ children, config }: { children: React.ReactNode; config: Ti
             }} />
 
             <img
-              src={carboLogo}
-              alt="Carbo"
+              src={marcaLogo}
+              alt=""
               style={{
                 width: 88,
                 height: 88,
@@ -406,7 +406,7 @@ function PageShell({ children, config }: { children: React.ReactNode; config: Ti
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}>
-                Garbo
+                Cadastro
               </p>
               <p style={{
                 margin: '0.25rem 0 0',
@@ -489,7 +489,7 @@ function PageShell({ children, config }: { children: React.ReactNode; config: Ti
             color: '#B08055',
             letterSpacing: '0.05em',
           }}>
-            © 2026 Garbo · Todos os direitos reservados
+            © 2026 · Todos os direitos reservados
           </p>
         </div>
       </div>

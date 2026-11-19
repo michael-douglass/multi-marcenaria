@@ -74,6 +74,8 @@ function detectRegionByDDD(phone: string): 'minas-gerais' | 'sao-paulo' {
   return dddsSaoPaulo.includes(ddd) ? 'sao-paulo' : 'minas-gerais';
 }
 
+// Webhook de entrada (sem JWT de usuário): NÃO é bloqueado pela função "whatsappCrm" do plano — as
+// mensagens continuam sendo gravadas, para o histórico estar completo se a função for reabilitada.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

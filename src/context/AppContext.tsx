@@ -22,7 +22,7 @@ interface AppContextType {
   /** Usuário master da plataforma (acessa todas as empresas). */
   isMaster: boolean
   empresaLoading: boolean
-  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean) => Promise<void>
+  trocarEmpresa: (empresaId: string, somenteLeitura?: boolean, destino?: string) => Promise<void>
   sairInspecao: () => Promise<void>
   recarregarEmpresa: () => void
 }

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { FileX } from 'lucide-react';
-import { GarboBrandLoader } from '@/components/ui/garbo-brand-loader';
+import { BrandLoader } from '@/components/ui/brand-loader';
 import { Button } from '@/components/ui/button';
 import { OrcamentoSlideApresentacao } from '@/components/orcamento-slides/OrcamentoSlideApresentacao';
 import {
@@ -211,7 +211,7 @@ export default function OrcamentoPublicoPage() {
   const { data, isLoading, notFound } = useOrcamentoPublico(schema, id);
 
   if (isLoading) {
-    return <GarboBrandLoader variant="fullscreen" message="Carregando orçamento…" />;
+    return <BrandLoader variant="fullscreen" message="Carregando orçamento…" />;
   }
 
   if (notFound || !data) {

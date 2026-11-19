@@ -44,10 +44,12 @@ export function resolveReciboLogoUrl(): string {
 
 /** Tira o cabeçalho/rodapé antigo do texto, agora desenhados no layout. */
 export function normalizeReciboCorpo(texto: string): string {
+  // O texto gravado traz o nome da empresa em caixa alta no topo e na assinatura.
+  const nome = nomeEmpresaDocumento().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return texto
-    .replace(/^GARBO MOVELARIA\s*\n(?:Móveis Planejados de Alta Qualidade\s*\n)?/i, '')
+    .replace(new RegExp(`^${nome}\\s*\\n(?:Móveis Planejados de Alta Qualidade\\s*\\n)?`, 'i'), '')
     .replace(/^\s*RECIBO(?: DE PAGAMENTO)?\s*\n+/i, '')
-    .replace(/\n_{8,}\s*\nGARBO MOVELARIA\s*$/i, '')
+    .replace(new RegExp(`\\n_{8,}\\s*\\n${nome}\\s*$`, 'i'), '')
     .trim()
 }
 

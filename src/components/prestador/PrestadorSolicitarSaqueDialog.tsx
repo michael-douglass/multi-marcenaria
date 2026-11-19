@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { TIPO_PIX_LABELS, useSalvarChavePixPrestador, type TipoChavePix } from '@/hooks/usePrestadorPerfil';
 import { chavePixIgualPerfil } from '@/lib/prestador-pix-perfil';
-import { parseValorMonetarioBr, validarValorSaquePontuaGarbo } from '@/lib/pontua-garbo-saque';
+import { parseValorMonetarioBr, validarValorSaquePontua } from '@/lib/pontua-saque';
 import { toast } from 'sonner';
 
 const BRL = (v: number) =>
@@ -146,7 +146,7 @@ export function PrestadorSolicitarSaqueDialog({
       toast.error('Informe a chave PIX');
       return;
     }
-    const check = validarValorSaquePontuaGarbo(saldoDisponivel, v);
+    const check = validarValorSaquePontua(saldoDisponivel, v);
     if (!check.ok) {
       toast.error(check.message);
       return;

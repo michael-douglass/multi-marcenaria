@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 import {
   formatBRL,
   recomputePresentationTotals,
@@ -234,7 +235,7 @@ export function QuotePresentationPreview({
             )
           })}
           <footer className="border-t border-slate-100 px-6 py-3 text-center text-xs font-bold tracking-wide">
-            Garbo orçamentos
+            {empresaDocumento().nomeFantasia} · orçamento
           </footer>
         </article>
       </div>
@@ -602,7 +603,7 @@ export function QuotePresentationPreview({
         )}
 
         <footer className="border-t border-slate-100 px-5 py-4 text-center text-sm font-bold tracking-wide sm:px-8">
-          Garbo orçamentos
+          {empresaDocumento().nomeFantasia} · orçamento
         </footer>
       </article>
     </div>

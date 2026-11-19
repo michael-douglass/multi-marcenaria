@@ -30,6 +30,10 @@ const PERFIS = {
 
 const CENARIOS = {
   'Orçamentos IA': ['orcamentosIa'],
+  'WhatsApp (função)': ['whatsappCrm'],
+  'IA no card lead (função)': ['iaCardLead'],
+  'Orçamentos IA + WhatsApp': ['orcamentosIa', 'whatsappCrm'],
+  'WhatsApp + IA no card lead': ['whatsappCrm', 'iaCardLead'],
   'kanban Prospecção': ['pipelineKanban:prospeccao'],
   'Kanban principal (kanbans padrão continuam)': ['pipeline'],
   'Orçamentos IA + Contratos + Manutenção': ['orcamentosIa', 'contratosCrm', 'pipelineKanban:manutencao'],
@@ -62,6 +66,8 @@ for (const [nomePerfil, perfil] of Object.entries(PERFIS)) {
   const base = menu(perfil, [])
   const baseIds = new Set(base.map(h => h.id))
   for (const k of KANBANS) ok(baseIds.has(`pipelineKanban:${k.slug}`), `[${nomePerfil}] sem bloqueio, kanban ${k.nome} deveria aparecer`)
+  // Funções (sem rota) nunca viram item de menu/busca, nem com tudo liberado.
+  for (const f of catalogo.filter(p => p.tipo === 'funcao')) ok(!baseIds.has(f.id), `[${nomePerfil}] função ${f.id} não deveria aparecer no menu`)
 
   for (const [nomeCenario, bloqueadas] of Object.entries(CENARIOS)) {
     console.log(`• ${nomePerfil} — ${nomeCenario} (${bloqueadas.length} bloqueada(s))`)

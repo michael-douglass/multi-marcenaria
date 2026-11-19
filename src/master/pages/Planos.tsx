@@ -6,6 +6,8 @@ import { erroMsg, brl } from '@/components/master/master-utils'
 import { useAssinaturas, usePlanos, useSalvarPaginasPlano } from '@/hooks/useMaster'
 import { listarPaginas } from '@/lib/paginas-catalogo'
 import { PaginasEditor } from '@/master/components/PaginasEditor'
+import { ModelosDoPlano } from '@/master/components/modelos/ModelosDoPlano'
+import { LimiteIaPlano } from '@/master/components/ia/LimiteIaPlano'
 import { MasterPage, Vazio } from '@/master/components/MasterUi'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +33,7 @@ export default function Planos() {
   return (
     <MasterPage
       titulo="Planos e páginas"
-      resumo="Escolha quais páginas cada plano inclui. Marcenarias nesse plano recebem o pacote; ajustes individuais ficam na página da marcenaria."
+      resumo="Escolha quais modelos e quais páginas cada plano inclui. Marcenarias nesse plano recebem o pacote; ajustes individuais ficam na página da marcenaria."
     >
       {isLoading ? (
         <Vazio>Carregando…</Vazio>
@@ -60,7 +62,7 @@ export default function Planos() {
                     >
                       <span className="block font-semibold text-[var(--m-ink)]">{p.nome}{!p.ativo ? ' (inativo)' : ''}</span>
                       <span className="m-num block text-[0.82rem] text-[var(--m-ink-2)]">
-                        {brl(p.valor_mensal)}/mês, {total - p.paginas_bloqueadas.length} de {total} páginas
+                        {brl(p.valor_mensal)}/mês, {total - p.paginas_bloqueadas.length} de {total} itens
                       </span>
                       <span className="m-num block text-[0.82rem] text-[var(--m-ink-2)]">
                         {plural(usoPorPlano.get(p.id) ?? 0)}
@@ -88,6 +90,8 @@ export default function Planos() {
                 Vale para {plural(usoDoPlano)}. Ajustes feitos na página de cada marcenaria têm prioridade.
               </p>
             )}
+            <ModelosDoPlano key={`modelos-${plano.id}`} plano={plano} />
+            <LimiteIaPlano key={`limite-ia-${plano.id}`} plano={plano} />
             <PaginasEditor
               key={plano.id}
               modo="plano"

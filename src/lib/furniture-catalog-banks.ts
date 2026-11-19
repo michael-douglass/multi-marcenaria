@@ -110,4 +110,4 @@ export function ambienteFurnitureDefaultSize(
   return { width, height };
 }
 
-export const GARBO_WOOD_TEXTURE_URL = '/imagens/apresentacao-garbo/projetos/cubo-painel-madeira.png';
+export const WOOD_TEXTURE_URL = '/imagens/apresentacao/projetos/cubo-painel-madeira.png';

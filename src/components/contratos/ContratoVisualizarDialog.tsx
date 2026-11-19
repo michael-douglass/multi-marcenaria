@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ContratoDocumento } from '@/components/contratos/ContratoDocumento';
 import { ContratoDocumentoPreviewViewport } from '@/components/contratos/ContratoDocumentoPreviewViewport';
@@ -72,6 +73,15 @@ function CampoInput({
   }
   if (variavel.tipo === 'data') {
     return <DataBrInput value={valor} onChange={onChange} />;
+  }
+  if (variavel.tipo === 'sim_nao') {
+    const ligado = valor.trim().toLowerCase() !== 'nao';
+    return (
+      <div className="flex h-10 items-center gap-3">
+        <Switch checked={ligado} onCheckedChange={(v) => onChange(v ? 'sim' : 'nao')} aria-label={variavel.label} />
+        <span className="text-sm text-muted-foreground">{ligado ? 'Sim' : 'Não'}</span>
+      </div>
+    );
   }
   if (variavel.tipo === 'valor') {
     return (

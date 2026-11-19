@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Eye, Loader2, PencilLine } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,16 +27,26 @@ const MODOS: { id: Modo; titulo: string; texto: string; icon: typeof Eye; cor: s
 ]
 
 /** Escolha do modo antes de entrar numa marcenaria. A entrada fica registrada. */
-export function EntrarEmpresaDialog({ empresa, onClose }: { empresa: { id: string; nome: string } | null; onClose: () => void }) {
+export function EntrarEmpresaDialog({ empresa, onClose, modoInicial = 'leitura', destino }: {
+  empresa: { id: string; nome: string } | null
+  /** Rota interna para abrir ao entrar (padrão: tela inicial). */
+  destino?: string
+  onClose: () => void
+  /** Empresa-modelo abre sugerindo acesso total (é para editar os modelos). */
+  modoInicial?: Modo
+}) {
   const { trocarEmpresa } = useApp()
-  const [modo, setModo] = useState<Modo>('leitura')
+  const [modo, setModo] = useState<Modo>(modoInicial)
+  useEffect(() => {
+    if (empresa) setModo(modoInicial)
+  }, [empresa, modoInicial])
   const [entrando, setEntrando] = useState(false)
 
   const entrar = async () => {
     if (!empresa) return
     setEntrando(true)
     try {
-      await trocarEmpresa(empresa.id, modo === 'leitura')
+      await trocarEmpresa(empresa.id, modo === 'leitura', destino)
     } catch (err) {
       setEntrando(false)
       toast.error(erroMsg(err, 'Não foi possível entrar na marcenaria'))

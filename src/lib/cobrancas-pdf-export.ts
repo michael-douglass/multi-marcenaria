@@ -7,6 +7,7 @@ import { formatPeriodFilterLabel } from '@/lib/contas-pagar-export'
 import { fmtCur, fmtDate } from '@/lib/utils'
 import type { PeriodFilter } from '@/components/ui/PeriodFilterBar'
 import type { ContaReceber, FormaPagamento } from '@/types'
+import { empresaDocumento } from '@/lib/empresa-identidade'
 
 const PM_LABEL: Record<FormaPagamento, string> = {
   pix: 'Pix',
@@ -286,7 +287,7 @@ const PDF_CSS = `
 `
 
 function buildDocumentHtml(input: CobrancasPdfExportInput): string {
-  const empresa = input.empresaNome?.trim() || 'Movelaria Garbo'
+  const empresa = input.empresaNome?.trim() || empresaDocumento().nomeFantasia
   const periodLabel = formatPeriodFilterLabel(input.periodFilter)
   const geradoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',

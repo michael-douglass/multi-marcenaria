@@ -18,7 +18,7 @@ import {
   exportLeadAIRenderPdf,
   openLeadAIRenderPrintPage,
 } from '@/lib/lead-ai-render-export';
-import { GARBO_LOGO_SRC } from '@/lib/garbo-brand';
+import { MARCA_PADRAO_LOGO } from '@/lib/marca-padrao';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,7 +53,7 @@ export function LeadAIRenderExportStudio({
     sketchUrl,
     sketchLabel,
     outputUrl,
-    logoUrl: empresa?.logo_url || GARBO_LOGO_SRC,
+    logoUrl: empresa?.logo_url || MARCA_PADRAO_LOGO,
     nomeEmpresa: empresa?.nome || empresaDocumento().nomeFantasia,
     cnpj: empresa?.cnpj,
     leadName,

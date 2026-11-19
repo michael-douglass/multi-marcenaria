@@ -266,7 +266,7 @@ export const CRM_APP_PATHS = [
   '/marketing-conteudo',
   '/biblioteca-crm',
   '/marketing/apresentacao-interna',
-  '/marketing/pontua-garbo',
+  '/marketing/pontua',
   '/controle-gastos',
   '/controle-eventos',
   '/financeiro-pontua',
@@ -340,7 +340,7 @@ export function canAccessCrmPath(
   if (pathname.startsWith('/marketing-conteudo')) return marketing
   if (pathname.startsWith('/biblioteca-crm')) return marketing
   if (pathname.startsWith('/marketing/apresentacao-interna')) return admin || vendedor || marketing
-  if (pathname.startsWith('/marketing/pontua-garbo')) return admin || vendedor || marketing
+  if (pathname.startsWith('/marketing/pontua')) return admin || vendedor || marketing
   if (pathname.startsWith('/controle-gastos')) return admin
   if (pathname.startsWith('/controle-eventos') || pathname.startsWith('/eventos-crm')) {
     return canAccessControleEventos(crm)

@@ -66,11 +66,17 @@ Deno.serve(async (req) => {
 
   try {
     const payload = (await req.json()) as ComprovantePayload
-    const supabase = serviceClient(await empresaDoChamador(req))
+    const empresaId = await empresaDoChamador(req)
+    const supabase = serviceClient(empresaId)
+    // Cabeçalho com o nome da empresa do chamador (sem marca fixa).
+    const { data: emp } = empresaId
+      ? await supabase.from('CRM-multi-empresas>empresas<').select('nome').eq('id', empresaId).maybeSingle()
+      : { data: null }
+    const nomeEmpresa = String((emp as { nome?: string } | null)?.nome ?? '').trim().toUpperCase()
 
     const dt = new Date(payload.marcacao.registrado_em)
     const lines = [
-      'GARBO MOVELARIA - COMPROVANTE DE REGISTRO DE PONTO',
+      `${nomeEmpresa ? `${nomeEmpresa} - ` : ''}COMPROVANTE DE REGISTRO DE PONTO`,
       `Funcionario: ${payload.funcionarioNome}`,
       `NSR: ${payload.marcacao.nsr}`,
       `Tipo: ${payload.marcacao.tipo}`,

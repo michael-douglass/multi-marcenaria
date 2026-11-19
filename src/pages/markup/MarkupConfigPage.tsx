@@ -31,7 +31,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -70,24 +69,10 @@ import {
   type NegociadorSplitCampo,
   validarSplits,
 } from '@/lib/negociador-calculo';
-import type { MarkupDespesaTemplate, MarkupServicoTemplate, MarkupIAAgentPrompts, MarkupServicoUnidade } from '@/lib/markup-types';
+import type { MarkupDespesaTemplate, MarkupServicoTemplate, MarkupServicoUnidade } from '@/lib/markup-types';
 import { toast } from 'sonner';
-import { MARKUP_IA_DEFAULT_PROMPT } from '@/lib/markup-types';
-import {
-  MARKUP_IA_AGENT_PROMPTS_DEFAULT,
-  MARKUP_IA_DEFAULT_AUDITOR_MODEL,
-  resolverPromptsAgentes,
-} from '@/lib/markup-ia-prompts';
-import { MARKUP_IA_VERIFICACAO_PADRAO } from '@/lib/markup-ia-verificacao';
-import type { MarkupIAVerificacaoCategoria } from '@/lib/markup-ia-verificacao';
-import { buildMarkupIAPromptPreview } from '@/lib/markup-ia-prompt-preview';
-import { MarkupIAFluxoVerificacao } from '@/components/markup/MarkupIAFluxoVerificacao';
-import { MarkupIAAgentesPanel } from '@/components/markup/MarkupIAAgentesPanel';
-import { MarkupIAVerificacaoChecklist } from '@/components/markup/MarkupIAVerificacaoChecklist';
-import { MarkupRegrasConstrutivasEditor } from '@/components/markup/MarkupRegrasConstrutivasEditor';
+import { APP_SYSTEM_NAME } from '@/lib/app-branding';
 import { MarkupCatalogoExportButton } from '@/components/markup/MarkupCatalogoExportButton';
-import { PIPELINE_LEAD_AI_MODELS } from '@/lib/pipeline-lead-ai-config';
-import { usePipelineLeadAIConfig } from '@/hooks/usePipelineLeadAIConfig';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmpresa } from '@/contexts/EmpresaContext';
@@ -436,7 +421,6 @@ export default function MarkupConfigPage() {
   const { userRole } = useAuth();
   const { empresa } = useEmpresa();
   const { config, salvarConfig, uploadTimbrado, isLoading: loadingConfig } = useMarkupConfig();
-  const { config: pipelineAiConfig } = usePipelineLeadAIConfig();
   const { data: categorias = [] } = useMarkupCategorias();
   const {
     data: produtos = [],
@@ -500,12 +484,6 @@ export default function MarkupConfigPage() {
     taxas_financeiras: '0',
     custo_frete_padrao: '0',
     rodape_observacoes_padrao: '',
-    markup_ia_prompt: MARKUP_IA_DEFAULT_PROMPT,
-    markup_ia_model: 'gpt-4o',
-    markup_ia_auditor_model: MARKUP_IA_DEFAULT_AUDITOR_MODEL,
-    markup_ia_ativo: true,
-    markup_ia_verificacao: MARKUP_IA_VERIFICACAO_PADRAO as MarkupIAVerificacaoCategoria[],
-    markup_ia_agent_prompts: { ...MARKUP_IA_AGENT_PROMPTS_DEFAULT } as MarkupIAAgentPrompts,
     negociador_margem_minima_percent: '100',
     negociador_pct_material: '33.34',
     negociador_pct_mao_obra: '33.33',
@@ -523,12 +501,6 @@ export default function MarkupConfigPage() {
         taxas_financeiras: String(config.taxas_financeiras),
         custo_frete_padrao: String(config.custo_frete_padrao),
         rodape_observacoes_padrao: config.rodape_observacoes_padrao,
-        markup_ia_prompt: config.markup_ia_prompt || MARKUP_IA_DEFAULT_PROMPT,
-        markup_ia_model: config.markup_ia_model || 'gpt-4o',
-        markup_ia_auditor_model: config.markup_ia_auditor_model || MARKUP_IA_DEFAULT_AUDITOR_MODEL,
-        markup_ia_ativo: config.markup_ia_ativo,
-        markup_ia_verificacao: config.markup_ia_verificacao ?? MARKUP_IA_VERIFICACAO_PADRAO,
-        markup_ia_agent_prompts: resolverPromptsAgentes(config.markup_ia_agent_prompts),
         negociador_margem_minima_percent: String(config.negociador_margem_minima_percent ?? 100),
         negociador_pct_material: String(config.negociador_pct_material ?? 33.34),
         negociador_pct_mao_obra: String(config.negociador_pct_mao_obra ?? 33.33),
@@ -551,15 +523,6 @@ export default function MarkupConfigPage() {
 
   const buscaAtiva = busca.trim().length > 0;
   const dragProdutosDesabilitado = buscaAtiva || reordenarProdutos.isPending;
-
-  const promptPreview = useMemo(
-    () =>
-      buildMarkupIAPromptPreview(
-        configLocal.markup_ia_prompt || MARKUP_IA_DEFAULT_PROMPT,
-        configLocal.markup_ia_verificacao,
-      ),
-    [configLocal.markup_ia_prompt, configLocal.markup_ia_verificacao],
-  );
 
   if (userRole !== 'admin' && userRole !== 'vendedor') {
     return (
@@ -678,17 +641,6 @@ export default function MarkupConfigPage() {
     parseFloat(configLocal.negociador_margem_minima_percent) || 0,
   );
 
-  const salvarConfigIA = async () => {
-    await salvarConfig.mutateAsync({
-      markup_ia_prompt: configLocal.markup_ia_prompt,
-      markup_ia_model: configLocal.markup_ia_model,
-      markup_ia_auditor_model: configLocal.markup_ia_auditor_model,
-      markup_ia_ativo: configLocal.markup_ia_ativo,
-      markup_ia_verificacao: configLocal.markup_ia_verificacao,
-      markup_ia_agent_prompts: configLocal.markup_ia_agent_prompts,
-    });
-  };
-
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -715,7 +667,6 @@ export default function MarkupConfigPage() {
           <TabsTrigger value="parametros">Parâmetros</TabsTrigger>
           <TabsTrigger value="negociador">Negociador</TabsTrigger>
           <TabsTrigger value="despesas">Despesas padrão</TabsTrigger>
-          <TabsTrigger value="ia">IA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="produtos" className="space-y-4 mt-4">
@@ -732,7 +683,7 @@ export default function MarkupConfigPage() {
             <div className="flex flex-wrap gap-2 shrink-0">
               <MarkupCatalogoExportButton
                 produtos={produtos}
-                empresaNome={empresa?.nome ?? 'Garbo Movelaria'}
+                empresaNome={empresa?.nome ?? APP_SYSTEM_NAME}
                 disabled={loadingProdutos}
               />
               <Button
@@ -1175,172 +1126,6 @@ export default function MarkupConfigPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="ia" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Configuração IA — Compor com IA
-              </CardTitle>
-              <CardDescription>
-                Instrua a Íris a ler anexos do lead e montar o orçamento completo (materiais,
-                mão de obra e despesas) com os catálogos do sistema.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
-                <p>
-                  <span className="font-medium">Chave OpenAI:</span>{' '}
-                  {pipelineAiConfig?.apiKeyConfigured ? (
-                    <span className="text-emerald-600 dark:text-emerald-400">Configurada</span>
-                  ) : (
-                    <span className="text-destructive">Não configurada</span>
-                  )}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  A chave é a do Lead (análise/render). Configure em{' '}
-                  <Link to="/configuracoes-ia" className="text-primary underline">
-                    Configurações IA
-                  </Link>
-                  .
-                </p>
-              </div>
-
-              <MarkupIAFluxoVerificacao />
-              <p className="text-xs text-muted-foreground -mt-2">
-                O fluxo acima espelha o que acontece ao clicar em &quot;Compor com IA&quot; no
-                Pipeline. Os agentes abaixo executam cada etapa.
-              </p>
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <Label>Composição com IA ativa</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Desative para ocultar o botão na calculadora de markup.
-                  </p>
-                </div>
-                <Switch
-                  checked={configLocal.markup_ia_ativo}
-                  onCheckedChange={(checked) =>
-                    setConfigLocal((prev) => ({ ...prev, markup_ia_ativo: checked }))
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Modelo principal (Inventariante + Precificador)</Label>
-                <select
-                  className="w-full h-10 rounded-md border bg-background px-3 text-base mt-1 md:text-sm"
-                  value={configLocal.markup_ia_model}
-                  onChange={(e) =>
-                    setConfigLocal((prev) => ({ ...prev, markup_ia_model: e.target.value }))
-                  }
-                >
-                  {PIPELINE_LEAD_AI_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <MarkupRegrasConstrutivasEditor className="rounded-lg border p-3" />
-              <p className="text-xs text-muted-foreground -mt-2">
-                Estas regras ensinam a <strong>conta</strong> (quantas dobradiças, chapas, fita).
-                O editor abaixo ensina o <strong>texto</strong> que a IA lê — os dois trabalham
-                juntos, não são a mesma coisa.
-              </p>
-
-              <MarkupIAAgentesPanel
-                prompts={configLocal.markup_ia_agent_prompts}
-                onChange={(markup_ia_agent_prompts) =>
-                  setConfigLocal((prev) => ({ ...prev, markup_ia_agent_prompts }))
-                }
-                modeloPrincipal={configLocal.markup_ia_model}
-                modeloAuditor={configLocal.markup_ia_auditor_model}
-                onModeloAuditorChange={(markup_ia_auditor_model) =>
-                  setConfigLocal((prev) => ({ ...prev, markup_ia_auditor_model }))
-                }
-                checklist={configLocal.markup_ia_verificacao}
-              />
-
-              <MarkupIAVerificacaoChecklist
-                value={configLocal.markup_ia_verificacao}
-                onChange={(markup_ia_verificacao) =>
-                  setConfigLocal((prev) => ({ ...prev, markup_ia_verificacao }))
-                }
-              />
-              <p className="text-xs text-muted-foreground -mt-4">
-                Itens com <strong>prioridade alta</strong> são obrigatórios no gate de retry
-                automático (dobradiças, corrediças, fitas).
-              </p>
-
-              <Accordion type="single" collapsible className="rounded-xl border">
-                <AccordionItem value="legado" className="border-0 px-4">
-                  <AccordionTrigger className="text-sm hover:no-underline">
-                    Prompt legado — modo fotos (sem planilha Cortecloud)
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-3 pb-4">
-                    <p className="text-xs text-muted-foreground">
-                      Usado apenas quando não há inventário Cortecloud (composição em uma única
-                      chamada). O fluxo multi-agente acima é o padrão para planilhas.
-                    </p>
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setConfigLocal((prev) => ({
-                            ...prev,
-                            markup_ia_prompt: MARKUP_IA_DEFAULT_PROMPT,
-                          }))
-                        }
-                      >
-                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                        Restaurar padrão
-                      </Button>
-                    </div>
-                    <Tabs defaultValue="editar" className="w-full">
-                      <TabsList className="grid w-full max-w-md grid-cols-2">
-                        <TabsTrigger value="editar">Editar</TabsTrigger>
-                        <TabsTrigger value="preview">Pré-visualizar</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="editar" className="space-y-2 mt-3">
-                        <p className="text-xs text-muted-foreground">
-                          Placeholders: {'{{nome_lead}}'}, {'{{catalogo}}'}, {'{{catalogo_lookup}}'},{' '}
-                          {'{{checklist_verificacao}}'}, {'{{servicos_catalogo}}'}, {'{{despesas_catalogo}}'},{' '}
-                          {'{{parametros}}'}, {'{{analise}}'}, {'{{conhecimento}}'}
-                        </p>
-                        <Textarea
-                          value={configLocal.markup_ia_prompt}
-                          onChange={(e) =>
-                            setConfigLocal((prev) => ({ ...prev, markup_ia_prompt: e.target.value }))
-                          }
-                          rows={10}
-                          className="font-mono text-xs"
-                        />
-                      </TabsContent>
-                      <TabsContent value="preview" className="space-y-2 mt-3">
-                        <Textarea
-                          readOnly
-                          value={promptPreview}
-                          rows={10}
-                          className="font-mono text-xs bg-muted/40"
-                        />
-                      </TabsContent>
-                    </Tabs>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-
-              <Button onClick={salvarConfigIA} disabled={salvarConfig.isPending}>
-                {salvarConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Salvar configuração IA
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -4,7 +4,7 @@ import {
   groupLeadMidiasByLead,
   mapLeadMidiaRows,
 } from '@/lib/obra-lead-midias'
-import { isGarboSafeMode } from '@/lib/device'
+import { isSafeMode } from '@/lib/device'
 import { supabase } from '@/lib/supabase'
 import type { LeadMidia, ObraFull } from '@/types'
 
@@ -23,7 +23,7 @@ export function useLeadMidiasPorObras(
   const [error, setError] = useState<string | null>(null)
 
   const leadIdsKey = useMemo(() => {
-    if (!enabled || isGarboSafeMode()) return ''
+    if (!enabled || isSafeMode()) return ''
     return collectObraLeadIds(obras).sort().join(',')
   }, [obras, enabled])
 
