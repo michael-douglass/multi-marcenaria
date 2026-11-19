@@ -11,7 +11,6 @@ import {
   prewarmPdfThumbnail,
 } from '@/lib/pdf-image-cache';
 import { toast } from 'sonner';
-import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex';
 import { normalizeFolderName } from '@/lib/lead-media-folders';
 
 export type LeadAttachmentTipo = 'pdf' | 'imagem' | 'video';
@@ -208,7 +207,6 @@ export function useLeadPDFs(leadId: number | null | undefined) {
     queryClient.invalidateQueries({ queryKey: ['biblioteca-medias'] });
     queryClient.invalidateQueries({ queryKey: ['lead-media-folders'] });
     queryClient.invalidateQueries({ queryKey: ['lead-midias-para-orcamento', schemaEmpresa, targetLeadId] });
-    bumpLeadKnowledgeReindex(queryClient, schemaEmpresa, targetLeadId);
   };
 
   const uploadPDFToLead = async (

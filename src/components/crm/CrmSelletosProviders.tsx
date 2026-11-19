@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { EmpresaProvider } from '@/contexts/EmpresaContext'
 import { PageZoomProvider } from '@/contexts/PageZoomContext'
-import { LeadAIAnalysisBackgroundProvider } from '@/contexts/LeadAIAnalysisBackgroundContext'
 import { LeadAIRenderBackgroundProvider } from '@/contexts/LeadAIRenderBackgroundContext'
 import { OrcamentoSlideExportBackgroundProvider } from '@/contexts/OrcamentoSlideExportBackgroundContext'
 import { OrcamentosIaBackgroundProvider } from '@/contexts/OrcamentosIaBackgroundContext'
@@ -18,7 +17,6 @@ export function CrmSelletosProviders({ children }: { children: ReactNode }) {
       <EmpresaProvider>
         <AuthProvider>
           <PageZoomProvider>
-            <LeadAIAnalysisBackgroundProvider>
               <LeadAIRenderBackgroundProvider>
                 <OrcamentoSlideExportBackgroundProvider>
                   <OrcamentosIaBackgroundProvider>
@@ -30,7 +28,6 @@ export function CrmSelletosProviders({ children }: { children: ReactNode }) {
                   </OrcamentosIaBackgroundProvider>
                 </OrcamentoSlideExportBackgroundProvider>
               </LeadAIRenderBackgroundProvider>
-            </LeadAIAnalysisBackgroundProvider>
           </PageZoomProvider>
         </AuthProvider>
       </EmpresaProvider>

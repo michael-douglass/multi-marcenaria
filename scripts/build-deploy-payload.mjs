@@ -11,24 +11,6 @@ const configs = {
     '_shared/cors.ts',
     '_shared/empresa-tables.ts',
   ],
-  'analyze-lead-photos': [
-    'analyze-lead-photos/index.ts',
-    '_shared/cors.ts',
-    '_shared/lead-knowledge.ts',
-    '_shared/iris-sky-prompts.ts',
-  ],
-  'chat-iris-sky': [
-    'chat-iris-sky/index.ts',
-    '_shared/cors.ts',
-    '_shared/lead-knowledge.ts',
-    '_shared/iris-sky-prompts.ts',
-  ],
-  'index-lead-knowledge': [
-    'index-lead-knowledge/index.ts',
-    '_shared/cors.ts',
-    '_shared/lead-knowledge.ts',
-    '_shared/iris-sky-prompts.ts',
-  ],
   'orcamentos-ia-pipeline': [
     'orcamentos-ia-pipeline/index.ts',
     '_shared/cors.ts',

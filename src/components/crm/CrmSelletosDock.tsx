@@ -126,7 +126,6 @@ export function CrmSelletosDock() {
         <>
           {iaCardLeadLiberada && (
             <LeadAIAnalysisBackgroundPopup
-              onOpenLeadAnalysis={(leadId) => navigate(`/pipeline?id=${leadId}&tab=analise-ia`)}
               onOpenLeadRender={(leadId) =>
                 navigate(`/pipeline?id=${leadId}&tab=analise-ia&iaSubtab=render`)
               }

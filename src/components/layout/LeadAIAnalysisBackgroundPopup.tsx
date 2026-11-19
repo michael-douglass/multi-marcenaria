@@ -27,10 +27,6 @@ import {
   FLOATING_UI_ROOT_ATTR,
 } from '@/lib/overlay-z-index';
 import {
-  useLeadAIAnalysisBackground,
-  type LeadAIAnalysisBackgroundJob,
-} from '@/contexts/LeadAIAnalysisBackgroundContext';
-import {
   useLeadAIRenderBackground,
   type LeadAIRenderBackgroundJob,
   type LeadAIEditBackgroundJob,
@@ -39,7 +35,6 @@ import {
 import { FloatingLeadAIBackgroundIcon } from './FloatingLeadAIBackgroundIcon';
 
 interface LeadAIAnalysisBackgroundPopupProps {
-  onOpenLeadAnalysis: (leadId: number) => void;
   onOpenLeadRender: (leadId: number) => void;
   /** Quando true, o ícone minimizado entra na barra de ícones flutuantes do layout. */
   isIconSlotTaken?: boolean;
@@ -49,7 +44,6 @@ interface LeadAIAnalysisBackgroundPopupProps {
 }
 
 type UnifiedJob =
-  | { kind: 'analysis'; job: LeadAIAnalysisBackgroundJob }
   | { kind: 'render'; job: LeadAIRenderBackgroundJob }
   | { kind: 'edit'; job: LeadAIEditBackgroundJob }
   | { kind: 'ambiente'; job: LeadAIAmbienteBackgroundJob };
@@ -86,7 +80,7 @@ function jobTypeLabel(kind: UnifiedJob['kind']): string {
     case 'ambiente':
       return 'Ambiente';
     default:
-      return 'Análise visual';
+      return 'Renderização';
   }
 }
 
@@ -98,20 +92,17 @@ function JobIcon({ kind, className }: { kind: UnifiedJob['kind']; className?: st
 }
 
 export function LeadAIAnalysisBackgroundPopup({
-  onOpenLeadAnalysis,
   onOpenLeadRender,
   isIconSlotTaken = false,
   expandRequest = 0,
   onMinimizedChange,
 }: LeadAIAnalysisBackgroundPopupProps) {
-  const analysisCtx = useLeadAIAnalysisBackground();
   const renderCtx = useLeadAIRenderBackground();
   const [isMinimized, setIsMinimized] = useState(false);
   const knownJobKeysRef = useRef<Set<string>>(new Set());
   const lastExpandRequestRef = useRef(expandRequest);
 
   const visibleJobs: UnifiedJob[] = [
-    ...analysisCtx.jobs.map((job) => ({ kind: 'analysis' as const, job })),
     ...renderCtx.jobs.map((job) => ({ kind: 'render' as const, job })),
     ...renderCtx.editJobs.map((job) => ({ kind: 'edit' as const, job })),
     ...renderCtx.ambienteJobs.map((job) => ({ kind: 'ambiente' as const, job })),
@@ -160,24 +151,17 @@ export function LeadAIAnalysisBackgroundPopup({
   if (typeof document === 'undefined') return null;
 
   const handleDismiss = (entry: UnifiedJob) => {
-    if (entry.kind === 'analysis') analysisCtx.dismissJob(entry.job.id);
-    else if (entry.kind === 'edit') renderCtx.dismissEditJob(entry.job.id);
+    if (entry.kind === 'edit') renderCtx.dismissEditJob(entry.job.id);
     else if (entry.kind === 'ambiente') renderCtx.dismissAmbienteJob(entry.job.id);
     else renderCtx.dismissJob(entry.job.id);
   };
 
   const handleViewResult = (entry: UnifiedJob) => {
-    const { job, kind } = entry;
-    if (kind === 'analysis') {
-      onOpenLeadAnalysis(job.leadId);
-    } else {
-      onOpenLeadRender(job.leadId);
-    }
+    onOpenLeadRender(entry.job.leadId);
     handleDismiss(entry);
   };
 
   const handleClearFinished = () => {
-    analysisCtx.dismissCompletedJobs();
     renderCtx.dismissCompletedJobs();
     renderCtx.dismissCompletedEditJobs();
     renderCtx.dismissCompletedAmbienteJobs();
@@ -303,9 +287,7 @@ export function LeadAIAnalysisBackgroundPopup({
               ? `${(job as LeadAIEditBackgroundJob).pontoCount} ponto(s)`
               : kind === 'render'
                 ? '1 esboço'
-                : kind === 'ambiente'
-                  ? 'composição'
-                  : `${(job as LeadAIAnalysisBackgroundJob).itemCount} arquivo(s)`;
+                : 'composição';
 
           const editJob = kind === 'edit' ? (job as LeadAIEditBackgroundJob) : null;
           const subtitle =
@@ -409,7 +391,7 @@ export function LeadAIAnalysisBackgroundPopup({
                       }}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
-                      {kind === 'analysis' ? 'Ver análise' : 'Ver resultado'}
+                      Ver resultado
                     </Button>
                   )}
                 </div>

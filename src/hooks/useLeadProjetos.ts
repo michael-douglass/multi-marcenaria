@@ -9,7 +9,6 @@ import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase'
 import { useBuscaLeads, type LeadBuscaItem } from '@/hooks/useBuscaLeads'
 import { getPipelineInboxStageName } from '@/lib/pipeline-status-options'
 import { getTodaySaoPaulo } from '@/lib/utils'
-import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex'
 import {
   getFeitoProjetoStageId,
   isProjetoStageNomeFixo,
@@ -647,7 +646,6 @@ export function useLeadProjetoMutations() {
     void queryClient.invalidateQueries({ queryKey: ['lead-projeto-notas'] })
     void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-board'] })
     void queryClient.invalidateQueries({ queryKey: ['lead-projeto-chat-unread'] })
-    if (leadId) bumpLeadKnowledgeReindex(queryClient, schemaEmpresa, leadId)
   }
 
   const waitingId = () => {
@@ -1178,7 +1176,6 @@ export function useCriarLeadProjeto() {
     onSuccess: (leadId) => {
       void queryClient.invalidateQueries({ queryKey: ['leads'] })
       void queryClient.invalidateQueries({ queryKey: ['lead-projetos'] })
-      bumpLeadKnowledgeReindex(queryClient, schemaEmpresa, leadId)
       toast.success('Lead criado e colocado na fila')
     },
     onError: (error: Error) => toast.error(error.message || 'Não foi possível criar o lead'),

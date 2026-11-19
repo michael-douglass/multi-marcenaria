@@ -1,5 +1,6 @@
 export type LeadModalTabId = 'info' | 'detalhes' | 'analise-ia';
-export type LeadIaSubtab = 'visual' | 'render';
+/** Só existe a renderização de projetos (a Análise visual foi removida — docs/ia-lead). */
+export type LeadIaSubtab = 'render';
 export type LeadNavMenu = 'info' | 'detalhes' | 'ia';
 
 export interface LeadNavJumpItem {
@@ -129,20 +130,12 @@ export const LEAD_DETAILS_NAV: LeadNavJumpItem[] = [
 
 export const LEAD_IA_NAV: LeadNavJumpItem[] = [
   {
-    id: 'ia-visual',
-    label: 'Análise visual',
-    hint: 'Leitura das fotos do ambiente',
-    tab: 'analise-ia',
-    iaSubtab: 'visual',
-    keywords: ['ia', 'ai', 'iris', 'analise', 'análise', 'visual', 'inteligencia', 'inteligência'],
-  },
-  {
     id: 'ia-render',
     label: 'Renderizar projetos',
     hint: 'Imagens do móvel no ambiente',
     tab: 'analise-ia',
     iaSubtab: 'render',
-    keywords: ['ia', 'ai', 'iris', 'render', 'renderizar', 'projeto'],
+    keywords: ['ia', 'ai', 'inteligencia', 'inteligência', 'render', 'renderizar', 'projeto'],
   },
 ];
 

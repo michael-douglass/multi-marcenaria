@@ -452,5 +452,5 @@
 - **Pendente:** deploy das 4 edge functions (e das demais que importam `_shared/tenant.ts`, se quiser o novo parâmetro).
 
 ### M58 — IA no card lead: função por plano, motor global do master e cota de tokens
-- [ ] **Status** (em execução; tarefas T01–T29 em `docs/ia-lead/TASKS.md`)
+- [x] **Status** (código; falta `pnpm migrate`, deploy das edges, T22–T24 e o `/reparo-visual` — ver `docs/ia-lead/TASKS.md`)
 - **Objetivo:** `iaCardLead` liga/desliga a aba IA do lead; chave/modelos/prompts da Renderização só no master (`/master/modelos`); tokens medidos por empresa com limite mensal; fim da Análise visual. ADR 0007.

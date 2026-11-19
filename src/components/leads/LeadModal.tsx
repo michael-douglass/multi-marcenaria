@@ -167,7 +167,7 @@ interface LeadModalProps {
   /** Aba inicial ao abrir o card (ex.: vinda de notificação de análise IA) */
   initialTab?: LeadModalTabId;
   /** Subaba dentro de Análise IA (visual ou renderização) */
-  initialIaSubtab?: 'visual' | 'render';
+  initialIaSubtab?: 'render';
   /** Após duplicar, o pai abre o card do novo lead (mesmo modal). */
   onLeadDuplicated?: (newLeadId: number) => void;
   /**
@@ -206,7 +206,7 @@ export function LeadModal({
   allStatusValues,
   newLeadDefaultStatus,
   initialTab = 'info',
-  initialIaSubtab = 'visual',
+  initialIaSubtab = 'render',
   onLeadDuplicated,
   onLeadCreated,
   contextoProjeto = false,
@@ -2540,14 +2540,7 @@ export function LeadModal({
 
           {leadId && iaLiberada && leadModalTab === 'analise-ia' && (
             <LeadModalScrollBody className="pb-4" onScrollTop={handleLeadBodyScroll}>
-              <LeadAIAnalysisTab
-                leadId={leadId}
-                leadName={formData.name}
-                leadOrigin={formData.origin}
-                defaultSubtab={initialIaSubtab}
-                subtab={iaSubtab}
-                onSubtabChange={setIaSubtab}
-              />
+              <LeadAIAnalysisTab leadId={leadId} leadName={formData.name} leadOrigin={formData.origin} />
             </LeadModalScrollBody>
           )}
 

@@ -4,7 +4,6 @@ import {
   isSchemaApiExposed,
   resolveMarketingMediasConfig,
 } from '@/lib/empresa-tables';
-import { bumpLeadKnowledgeReindex } from '@/lib/lead-knowledge-reindex';
 import {
   isAutorDoAtelie,
   isProjetistaAdminRole,
@@ -223,7 +222,6 @@ export async function uploadLeadProjetoChatImage(input: {
   if (insertError) throw insertError;
 
   if (input.queryClient) {
-    bumpLeadKnowledgeReindex(input.queryClient, input.schemaEmpresa, input.leadId);
     input.queryClient.invalidateQueries({ queryKey: ['marketing-medias'] });
     input.queryClient.invalidateQueries({ queryKey: ['biblioteca-medias'] });
   }

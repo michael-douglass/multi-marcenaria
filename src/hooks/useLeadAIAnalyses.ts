@@ -3,14 +3,8 @@ import { useEmpresaSupabase } from '@/hooks/useEmpresaSupabase';
 import { useEmpresaTable } from '@/hooks/useEmpresaTable';
 import { useEmpresa } from '@/contexts/EmpresaContext';
 import type { LeadAIAnalysisItemPayload } from '@/lib/lead-ai-media-sources';
-import {
-  invokeAnalyzeLeadPhotos,
-  type AnalyzeLeadPhotosInput,
-} from '@/lib/analyze-lead-photos-api';
 import { isMissingDbRelationError } from '@/lib/supabase-missing-relation';
 import { toast } from 'sonner';
-
-export type { AnalyzeLeadPhotosInput, AnalyzeLeadPhotosResult } from '@/lib/analyze-lead-photos-api';
 
 export interface LeadAIAnalise {
   id: string;
@@ -77,31 +71,6 @@ export function useLeadAIAnalyses(leadId: number | null | undefined) {
       return (data as DBLeadAIAnalise[]).map(adaptAnalise);
     },
     retry: (failureCount, err) => !isMissingDbRelationError(err) && failureCount < 2,
-  });
-}
-
-export function useAnalyzeLeadPhotos(leadId: number | null | undefined) {
-  const queryClient = useQueryClient();
-  const { schemaEmpresa } = useEmpresa();
-
-  return useMutation({
-    mutationFn: async (input: AnalyzeLeadPhotosInput) =>
-      invokeAnalyzeLeadPhotos({ ...input, empresaSchema: schemaEmpresa }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({
-        queryKey: leadAIAnalysesQueryKey(schemaEmpresa, leadId),
-      });
-      toast.success(
-        result.perguntasBriefing
-          ? 'Análise e perguntas de briefing concluídas'
-          : 'Análise concluída',
-      );
-    },
-    onError: (err: Error) => {
-      toast.error('Não foi possível analisar as imagens', {
-        description: err.message,
-      });
-    },
   });
 }
 

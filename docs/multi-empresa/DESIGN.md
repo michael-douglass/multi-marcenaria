@@ -304,3 +304,13 @@ Requisitos em `REQUIREMENTS.md` §6. ADR: [`0004`](../decisions/0004-console-mas
 ### 11.3 Console
 - `Planos` mostra quantas marcenarias usam cada plano e avisa quando nenhuma usa.
 - Aba Páginas da empresa avisa quando ela não tem plano.
+
+## 12. IA no card lead (ADR 0007, `docs/ia-lead/`)
+
+- **Função `iaCardLead`** ("IA no card lead", grupo "Funções do CRM", URL fictícia `/funcao/ia-card-lead`): liga/desliga a aba IA do lead por plano e por empresa. Nasce **desligada** nos planos existentes e em plano novo (default da coluna `paginas_bloqueadas`).
+- **Motor global** em `plataforma_ia_motor` (modelos, prompts, flags) e chave em `plataforma_ia_segredos` (RLS sem policy, sem grant: só service role lê). O master grava por RPC `master_ia_motor_*` e só vê o final da chave. Tela: `/master/modelos` → "Motor de IA do card lead".
+- **Tokens:** `plataforma_ia_uso` (por empresa/função/modelo/lead), preços em `plataforma_ia_precos` (só estimam custo), limite em `plataforma_planos.ia_tokens_limite_mensal` com sobreposição em `plataforma_empresa_ia`. `plataforma_ia_cota` decide: `funcao_bloqueada` → `sem_plano` (sem assinatura e sem liberação explícita) → `cota_estourada` (bloqueio duro; mês em America/Sao_Paulo). Checa antes, registra depois (estouro marginal por concorrência é aceito).
+- **Front da empresa** só vê `app_ia_card_lead_status()` (liberada, motor pronto, recursos ligados, cota estourada): sem modelo, prompt, chave nem números.
+- **Edges** `render-lead-project`, `render-lead-ambiente`, `edit-lead-render`: `_shared/ia-card-lead.ts`; `empresa_id` só do JWT (nunca do body), schema `crm` fixo, lead validado na empresa; o render conta como escrita (recusa em somente leitura).
+- **Desvio da ADR 0004:** mais uma função na mesma lista de bloqueio, com cota própria.
+- **Removido:** subaba "Análise visual", Íris Sky/Memória, edges `analyze-lead-photos`, `chat-iris-sky`, `index-lead-knowledge`. Tabelas e colunas ficam (slides, Markup IA e a config do pipeline dependem delas); DROP só com confirmação.

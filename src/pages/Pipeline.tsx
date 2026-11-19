@@ -103,7 +103,7 @@ export default function Pipeline() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [leadModalInitialTab, setLeadModalInitialTab] = useState<'info' | 'detalhes' | 'analise-ia'>('info');
-  const [leadModalIaSubtab, setLeadModalIaSubtab] = useState<'visual' | 'render'>('visual');
+  const [leadModalIaSubtab, setLeadModalIaSubtab] = useState<'render'>('render');
   const [isEditMode, setIsEditMode] = useState(true);
 
   /** Mantém ?id= enquanto o card está aberto — sobrevive a remount/atualização. */
@@ -138,7 +138,7 @@ export default function Pipeline() {
     setSelectedLeadId(null);
     setIsEditMode(true);
     setLeadModalInitialTab('info');
-    setLeadModalIaSubtab('visual');
+    setLeadModalIaSubtab('render');
   }, [syncLeadIdInUrl]);
   const [showSaleValueDialog, setShowSaleValueDialog] = useState(false);
   const [pendingSaleLeadId, setPendingSaleLeadId] = useState<number | null>(null);
@@ -233,8 +233,9 @@ export default function Pipeline() {
     if (tabFromUrl === 'analise-ia' || tabFromUrl === 'detalhes' || tabFromUrl === 'info') {
       setLeadModalInitialTab(tabFromUrl);
     }
+    // "visual" (Análise visual) foi removida: links antigos caem na renderização.
     if (iaSubtabFromUrl === 'render' || iaSubtabFromUrl === 'visual') {
-      setLeadModalIaSubtab(iaSubtabFromUrl);
+      setLeadModalIaSubtab('render');
     }
   }, [leadIdFromUrl, tabFromUrl, iaSubtabFromUrl]);
 

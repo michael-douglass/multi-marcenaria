@@ -140,7 +140,7 @@ CLAUDE.md, docs/structure.md, docs/tech.md, DESIGN §1.1 e §9.
 
 - M57: funções por plano — `orcamentosIa` e `whatsappCrm` (novo, grupo "Funções do CRM") escondem seção/índice/busca/botões no lead; recusa nas edge functions `orcamentos-ia-chat|memory` e `send-whatsapp-message|get-lead-whatsapp-history` (**falta deploy**).
 
-- M58: IA no card lead (função `iaCardLead`, motor global, cota de tokens, fim da Análise visual) — em execução, ver `docs/ia-lead/TASKS.md`.
+- M58: IA no card lead (função `iaCardLead`, motor global, cota de tokens, fim da Análise visual) — código pronto; **falta `pnpm migrate` (3 migrations 20261120…) e deploy das edges**; T22–T24 e `/reparo-visual` pendentes. Ver `docs/ia-lead/TASKS.md`.
 
 ## Pendências (propostas)
 - Republicar as demais edge functions para a recusa de inspeção somente leitura valer nelas.

@@ -203,22 +203,9 @@ export function useCrmLeadIa(leadId: number | null) {
 
   useEffect(() => { void load() }, [load])
 
-  const pedirAnalise = async (leadName: string, leadOrigin: string) => {
-    if (leadId == null) throw new Error('Informe o lead')
-    const { data, error } = await supabase.functions.invoke('analyze-lead-photos', {
-      body: {
-        leadId,
-        empresaSchema: 'crm',
-        leadName,
-        leadOrigin,
-        itens: [],
-      },
-    })
-    if (error) throw new Error(error.message)
-    if (data && typeof data === 'object' && 'error' in data && data.error) {
-      throw new Error(String(data.error))
-    }
-    await load()
+  // A Análise visual foi removida (docs/ia-lead): este painel legado não dispara mais análises.
+  const pedirAnalise = async (_leadName: string, _leadOrigin: string) => {
+    throw new Error('A análise visual por IA foi descontinuada')
   }
 
   return { analises, renders, chat, loading, pedirAnalise, reload: load }

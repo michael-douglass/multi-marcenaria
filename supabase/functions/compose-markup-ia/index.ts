@@ -1748,7 +1748,7 @@ Deno.serve(async (req) => {
       return jsonResponse(
         {
           error:
-            'Nenhum material encontrado. Anexe imagens/PDFs ao lead ou execute a análise visual da Íris.',
+            'Nenhum material encontrado. Anexe imagens ou PDFs ao lead.',
         },
         400,
       );
